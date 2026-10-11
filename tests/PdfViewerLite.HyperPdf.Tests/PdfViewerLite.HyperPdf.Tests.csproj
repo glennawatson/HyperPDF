@@ -15,6 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="../reference-pdfs/ATTRIBUTION.md" Link="reference-pdfs-attribution.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../reference-pdfs/manifest.json" Link="reference-pdfs-manifest.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Builds the PDFs with known shapes that the render parity tests compare. -->
     <Compile Include="..\HyperPdfLibrary.Tests\Rendering\RenderTestPdf.cs" Link="RenderTestPdf.cs" />
     <!-- Encrypted and structured fixtures for the page editing parity tests. -->

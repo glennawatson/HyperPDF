@@ -29,6 +29,10 @@ internal static class ReferencePdfComparisonArtifacts
         var root = Environment.GetEnvironmentVariable("PDFVIEWERLITE_COMPARISON_OUTPUT") ?? Path.Combine(Path.GetTempPath(), "pdfviewer-rendering-comparison");
         var directory = Path.Combine(root, $"reference-pdf-{Path.GetFileNameWithoutExtension(artifact.PdfFile)}-{artifact.PageIndex}-{Guid.NewGuid():N}");
         _ = Directory.CreateDirectory(directory);
+        var attribution = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "reference-pdfs-attribution.md"), cancellationToken);
+        await File.WriteAllBytesAsync(Path.Combine(directory, "ATTRIBUTION.md"), attribution, cancellationToken);
+        var manifest = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "reference-pdfs-manifest.json"), cancellationToken);
+        await File.WriteAllBytesAsync(Path.Combine(directory, "manifest.json"), manifest, cancellationToken);
         await File.WriteAllBytesAsync(Path.Combine(directory, "source.pdf"), pdf, cancellationToken);
         await File.WriteAllBytesAsync(
             Path.Combine(directory, "comparison.json"),
