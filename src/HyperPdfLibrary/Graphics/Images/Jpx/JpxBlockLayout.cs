@@ -41,11 +41,12 @@ internal static class JpxBlockLayout
     /// <summary>Returns a rented array.</summary>
     /// <typeparam name="T">The element type.</typeparam>
     /// <param name="array">The array, emptied.</param>
-    internal static void Return<T>(ref T[] array)
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal static void Return<T>(ref T[] array, ScratchPools scratchPools)
     {
         if (array.Length > 0)
         {
-            ScratchPool<T>.Shared.Return(array);
+            scratchPools.Get<T>().Return(array);
         }
 
         array = [];
@@ -55,15 +56,16 @@ internal static class JpxBlockLayout
     /// <typeparam name="T">The element type.</typeparam>
     /// <param name="array">The array, replaced when too small.</param>
     /// <param name="length">The elements needed.</param>
-    internal static void Ensure<T>(ref T[] array, int length)
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal static void Ensure<T>(ref T[] array, int length, ScratchPools scratchPools)
     {
         if (array.Length >= length)
         {
             return;
         }
 
-        Return(ref array);
-        array = ScratchPool<T>.Shared.Rent(Math.Max(length, MinimumState));
+        Return(ref array, scratchPools);
+        array = scratchPools.Get<T>().Rent(Math.Max(length, MinimumState));
     }
 
     /// <summary>Reads the four bytes of a stripe column.</summary>

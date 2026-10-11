@@ -80,7 +80,16 @@ internal static class FontDataPrefetcher
     /// <param name="font">The font dictionary.</param>
     /// <param name="cancellationToken">Cancels source I/O.</param>
     /// <returns>A task completing when the needed assets are cached.</returns>
-    internal static async ValueTask PrepareFontAsync(PdfDictionary font, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ValueTask PrepareFontAsync(PdfDictionary font, CancellationToken cancellationToken) =>
+        PrepareFontAsync(font, PdfFontResources.For(font), cancellationToken);
+
+    /// <summary>Prepares a font using resources selected by the caller.</summary>
+    /// <param name="font">The font dictionary.</param>
+    /// <param name="resources">The selected font resources.</param>
+    /// <param name="cancellationToken">Cancels source I/O.</param>
+    /// <returns>A task completing when the needed assets are cached.</returns>
+    internal static async ValueTask PrepareFontAsync(PdfDictionary font, PdfFontResources resources, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var composite = font.GetName(KnownName.Subtype).Is(KnownName.Type0);
@@ -92,11 +101,11 @@ internal static class FontDataPrefetcher
             return;
         }
 
-        var collection = composite ? await PrepareEncodingAsync(font, source, cancellationToken).ConfigureAwait(false) : CjkScript.None;
+        var collection = composite ? await PrepareEncodingAsync(resources, font, source, cancellationToken).ConfigureAwait(false) : CjkScript.None;
         var descriptor = FontDescriptor.Read(source.GetDictionary(KnownName.FontDescriptor));
         if (NeedsUnicode(font, collection, descriptor))
         {
-            await CidToUnicodeTable.EnsureAsync(collection, cancellationToken).ConfigureAwait(false);
+            await CidToUnicodeTable.EnsureAsync(resources, collection, cancellationToken).ConfigureAwait(false);
         }
 
         if (descriptor.IsEmbedded || font.GetName(KnownName.Subtype).Is(KnownName.Type3))
@@ -106,7 +115,7 @@ internal static class FontDataPrefetcher
 
         var baseFont = PdfNames.BaseFontOf(source);
         var standard = StandardFonts.Find(Encoding.UTF8.GetBytes(baseFont));
-        await SystemFontMatcher.For(font).EnsureAsync(new(baseFont, standard, descriptor.Flags, descriptor.Weight, collection), cancellationToken).ConfigureAwait(false);
+        await SystemFontMatcher.For(font, resources).EnsureAsync(new(baseFont, standard, descriptor.Flags, descriptor.Weight, collection), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Checks whether a font needs the collection's Unicode fallback.</summary>
@@ -136,25 +145,26 @@ internal static class FontDataPrefetcher
     }
 
     /// <summary>Prepares a composite font's encoding and its base CMaps.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="font">The Type 0 dictionary.</param>
     /// <param name="source">The descendant font.</param>
     /// <param name="cancellationToken">Cancels source I/O.</param>
     /// <returns>The character collection.</returns>
-    private static async ValueTask<CjkScript> PrepareEncodingAsync(PdfDictionary font, PdfDictionary source, CancellationToken cancellationToken)
+    private static async ValueTask<CjkScript> PrepareEncodingAsync(PdfFontResources resources, PdfDictionary font, PdfDictionary source, CancellationToken cancellationToken)
     {
         var collection = CjkScript.None;
         if (font.Get(KnownName.Encoding).TryGetName(out var name))
         {
             var spelling = PdfNames.Spell(font, name).ToArray();
-            await PredefinedCMaps.EnsureAsync(Encoding.ASCII.GetString(spelling), cancellationToken).ConfigureAwait(false);
-            collection = PredefinedCMaps.Find(spelling)?.Collection ?? CjkScript.None;
+            await PredefinedCMaps.EnsureAsync(resources, Encoding.ASCII.GetString(spelling), cancellationToken).ConfigureAwait(false);
+            collection = PredefinedCMaps.Find(resources, spelling)?.Collection ?? CjkScript.None;
         }
         else if (font.GetStream(KnownName.Encoding) is { } embedded)
         {
             var parsed = ReadEmbedded(embedded, cancellationToken);
             if (parsed is { HasUseCMap: true })
             {
-                await PredefinedCMaps.EnsureAsync(Encoding.ASCII.GetString(parsed.UseCMap.Span), cancellationToken).ConfigureAwait(false);
+                await PredefinedCMaps.EnsureAsync(resources, Encoding.ASCII.GetString(parsed.UseCMap.Span), cancellationToken).ConfigureAwait(false);
             }
         }
 

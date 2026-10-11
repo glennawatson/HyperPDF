@@ -24,6 +24,9 @@ internal sealed class Jbig2SymbolStore : IDisposable
     /// <summary>The factor a full buffer grows by.</summary>
     private const int GrowthFactor = 2;
 
+    /// <summary>The cache this store returns its arrays to.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The rows of every symbol.</summary>
     private byte[]? _data;
 
@@ -35,13 +38,24 @@ internal sealed class Jbig2SymbolStore : IDisposable
 
     /// <summary>Initializes a new instance of the <see cref="Jbig2SymbolStore"/> class.</summary>
     internal Jbig2SymbolStore()
+        : this(new ScratchPools())
     {
-        _data = ScratchPool<byte>.Shared.Rent(InitialBytes);
-        _symbols = ScratchPool<Jbig2Symbol>.Shared.Rent(InitialSymbols);
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="Jbig2SymbolStore"/> class with an explicit cache.</summary>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal Jbig2SymbolStore(ScratchPools scratchPools)
+    {
+        _scratchPools = scratchPools;
+        _data = scratchPools.Bytes.Rent(InitialBytes);
+        _symbols = scratchPools.Get<Jbig2Symbol>().Rent(InitialSymbols);
     }
 
     /// <summary>Gets the number of symbols.</summary>
     internal int Count { get; private set; }
+
+    /// <summary>Gets the scratch cache that owns this store's arrays.</summary>
+    internal ScratchPools ScratchPools => _scratchPools;
 
     /// <summary>Gets the rows buffer, which must not be used after disposal.</summary>
     private byte[] Data => _data ?? throw new ObjectDisposedException(nameof(Jbig2SymbolStore));
@@ -55,7 +69,7 @@ internal sealed class Jbig2SymbolStore : IDisposable
         // A store belongs to one decode on one thread, so plain field access is enough.
         if (_data is not null)
         {
-            ScratchPool<byte>.Shared.Return(_data);
+            _scratchPools.Bytes.Return(_data);
             _data = null;
         }
 
@@ -64,7 +78,7 @@ internal sealed class Jbig2SymbolStore : IDisposable
             return;
         }
 
-        ScratchPool<Jbig2Symbol>.Shared.Return(_symbols);
+        _scratchPools.Get<Jbig2Symbol>().Return(_symbols);
         _symbols = null;
     }
 
@@ -200,9 +214,9 @@ internal sealed class Jbig2SymbolStore : IDisposable
             return true;
         }
 
-        var grown = ScratchPool<byte>.Shared.Rent((int)Math.Min(Math.Max(needed, (long)data.Length * GrowthFactor), Jbig2Limits.MaxStoreBytes));
+        var grown = _scratchPools.Bytes.Rent((int)Math.Min(Math.Max(needed, (long)data.Length * GrowthFactor), Jbig2Limits.MaxStoreBytes));
         data.AsSpan(0, _used).CopyTo(grown);
-        ScratchPool<byte>.Shared.Return(data);
+        _scratchPools.Bytes.Return(data);
         _data = grown;
         return true;
     }
@@ -214,9 +228,9 @@ internal sealed class Jbig2SymbolStore : IDisposable
         var symbols = Symbols;
         if (Count == symbols.Length)
         {
-            var grown = ScratchPool<Jbig2Symbol>.Shared.Rent(symbols.Length * GrowthFactor);
+            var grown = _scratchPools.Get<Jbig2Symbol>().Rent(symbols.Length * GrowthFactor);
             symbols.AsSpan(0, Count).CopyTo(grown);
-            ScratchPool<Jbig2Symbol>.Shared.Return(symbols);
+            _scratchPools.Get<Jbig2Symbol>().Return(symbols);
             _symbols = grown;
             symbols = grown;
         }

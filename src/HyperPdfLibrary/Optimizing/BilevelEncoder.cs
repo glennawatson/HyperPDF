@@ -83,7 +83,7 @@ internal static class BilevelEncoder
         {
             // The more common bit value is coded as white, as fax codes favour long white runs.
             var blackIs1 = CountOnes(rows) << 1 < (long)rows.Length * ByteBits;
-            CcittG4Encoder.Encode(rows, width, height, blackIs1, ref fax);
+            CcittG4Encoder.Encode(rows, width, height, blackIs1, ref fax, dictionary.Owner?.ScratchPools ?? new ScratchPools());
             StreamRecompressor.Deflate(rows, ref flate);
             var useFax = fax.Length <= flate.Length;
             var best = useFax ? fax.WrittenSpan : flate.WrittenSpan;

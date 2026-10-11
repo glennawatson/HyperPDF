@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Rendering;
 
@@ -84,7 +83,7 @@ public static class PdfDocumentRendering
     /// <param name="document">The document.</param>
     internal static void RefreshFontData(PdfDocument document)
     {
-        var generation = FontDataResources.Generation;
+        var generation = document.DrawingServices.FontResourceGeneration;
         if (Volatile.Read(ref document.State.FontDataGeneration) == generation)
         {
             return;

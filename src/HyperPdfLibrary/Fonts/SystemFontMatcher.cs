@@ -16,7 +16,8 @@ namespace HyperPdfLibrary.Fonts;
 /// Faces are cached for the drawing service instance by family, weight and slant.
 /// </summary>
 /// <param name="provider">The provider of system faces, or null for bundled faces only.</param>
-internal sealed class SystemFontMatcher(IPdfFontProvider? provider)
+/// <param name="resources">The selected cached font resources.</param>
+internal sealed class SystemFontMatcher(IPdfFontProvider? provider, PdfFontResources resources)
 {
     /// <summary>The weight from which a face counts as bold.</summary>
     private const int BoldThreshold = 600;
@@ -57,10 +58,12 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider)
     /// <summary>The face used when nothing else matches.</summary>
     private SubstituteFace? _fallback;
 
-    /// <summary>Gets the matcher owned by a font's document, or one without a provider for a detached font.</summary>
+    /// <summary>Gets the selected matcher, sharing the supplied resources for detached dictionaries.</summary>
     /// <param name="dictionary">The font dictionary.</param>
-    /// <returns>The matcher for that document.</returns>
-    internal static SystemFontMatcher For(PdfDictionary dictionary) => dictionary.Owner?.Context?.DrawingServices.FontMatcher ?? new(null);
+    /// <param name="resources">The selected font resources.</param>
+    /// <returns>The matcher for that document or direct font load.</returns>
+    internal static SystemFontMatcher For(PdfDictionary dictionary, PdfFontResources resources) =>
+        dictionary.Owner?.Context?.DrawingServices.FontMatcher ?? new(null, resources);
 
     /// <summary>Loads the open font program a cold request will use.</summary>
     /// <param name="request">The font request.</param>
@@ -85,7 +88,7 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider)
             _ when IsSerif(resolved) => BundledFamily.Serif,
             _ => BundledFamily.Sans,
         };
-        return BundledFaces.EnsureAsync(family, weight >= BoldThreshold, italic, cancellationToken);
+        return BundledFaces.EnsureAsync(resources, family, weight >= BoldThreshold, italic, cancellationToken);
     }
 
     /// <summary>Finds a system font for a request.</summary>
@@ -101,7 +104,7 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider)
         var italic = parsed.Italic || (resolved.Flags & FontFlags.Italic) != 0 || IsStandardItalic(resolved.Standard);
 
         // Standard fonts use the same open font pack on every platform.
-        return resolved.Standard != StandardFont.None && BundledFor(resolved, weight, italic) is { } bundled
+        return resolved.Standard != StandardFont.None && BundledFor(resources, resolved, weight, italic) is { } bundled
             ? bundled
             : MatchByName(resolved, parsed, weight, italic);
     }
@@ -145,11 +148,12 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider)
             : request;
 
     /// <summary>Gets the bundled face for a request: the family the standard font or the flags name, in the weight and slant.</summary>
+    /// <param name="resources">The selected cached font resources.</param>
     /// <param name="request">The request.</param>
     /// <param name="weight">The chosen weight.</param>
     /// <param name="italic">Whether the face slants.</param>
     /// <returns>The face, or <see langword="null"/> when the bundled resource is missing.</returns>
-    private static SubstituteFace? BundledFor(in SubstituteRequest request, int weight, bool italic)
+    private static SubstituteFace? BundledFor(PdfFontResources resources, in SubstituteRequest request, int weight, bool italic)
     {
         var family = request.Standard switch
         {
@@ -159,7 +163,7 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider)
             _ when IsSerif(request) => BundledFamily.Serif,
             _ => BundledFamily.Sans,
         };
-        return BundledFaces.Get(family, weight >= BoldThreshold, italic);
+        return BundledFaces.Get(resources, family, weight >= BoldThreshold, italic);
     }
 
     /// <summary>Determines whether a request means a fixed-pitch face: a Courier standard font, or the flag on another font.</summary>
@@ -356,7 +360,7 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider)
     {
         // A font the system lacks falls back to the bundled generic face; the system generic list only covers a missing resource.
         return FindFirst(NamedCandidates(request, parsed), weight, italic)
-            ?? BundledFor(request, weight, italic)
+            ?? BundledFor(resources, request, weight, italic)
             ?? FindFirst(GenericCandidates(request), weight, italic)
             ?? Volatile.Read(ref _fallback)
             ?? CreateFallback();
@@ -437,7 +441,7 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider)
 
             var font = provider?.DefaultFace;
             var face = font is null
-                ? BundledFaces.Get(BundledFamily.Sans, false, false)
+                ? BundledFaces.Get(resources, BundledFamily.Sans, false, false)
                     ?? throw new InvalidOperationException("No bundled default font or selected font provider is available.")
                 : new SubstituteFace(font, false);
             Volatile.Write(ref _fallback, face);

@@ -2,12 +2,14 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
+using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Filters;
 
 /// <summary>Checks the bounded pool that keeps large decoder buffers for reuse.</summary>
-[NotInParallel]
 public sealed class ScratchPoolTests
 {
     /// <summary>A length that uses the bounded pool: 1 MiB of bytes.</summary>
@@ -27,13 +29,14 @@ public sealed class ScratchPoolTests
     [Test]
     public async Task ReusesALargeBuffer()
     {
-        ScratchPools.Trim();
-        var first = ScratchPool<Marker>.Shared.Rent(Large);
-        ScratchPool<Marker>.Shared.Return(first);
+        var owner = new ScratchPools();
+        var pool = owner.Get<Marker>();
+        var first = pool.Rent(Large);
+        pool.Return(first);
 
-        var second = ScratchPool<Marker>.Shared.Rent(Large);
-        ScratchPool<Marker>.Shared.Return(second);
-        ScratchPools.Trim();
+        var second = pool.Rent(Large);
+        pool.Return(second);
+        owner.Trim();
 
         await Assert.That(second).IsSameReferenceAs(first);
         await Assert.That(second.Length).IsGreaterThanOrEqualTo(Large);
@@ -44,35 +47,25 @@ public sealed class ScratchPoolTests
     [Test]
     public async Task KeepsBuffersWithinTheBudgetAndTrimReleasesThem()
     {
-        var before = ScratchPools.Budget;
-        try
+        var owner = new ScratchPools { Budget = Budget };
+        var pool = owner.Get<byte>();
+        var buffers = new List<byte[]>();
+        for (var i = 0; i < Budget / Large * Overfill; i++)
         {
-            ScratchPools.Trim();
-            ScratchPools.Budget = Budget;
-            var buffers = new List<byte[]>();
-            for (var i = 0; i < Budget / Large * Overfill; i++)
-            {
-                buffers.Add(ScratchPool<byte>.Shared.Rent(Large + (i * Small)));
-            }
-
-            foreach (var buffer in buffers)
-            {
-                ScratchPool<byte>.Shared.Return(buffer);
-            }
-
-            var kept = ScratchPools.RetainedBytes;
-            ScratchPools.Trim();
-
-            await Assert.That(kept).IsGreaterThan(0);
-            await Assert.That(kept).IsLessThanOrEqualTo(Budget);
-
-            // Decoders in other tests may keep buffers at the same moment, but never more than the budget.
-            await Assert.That(ScratchPools.RetainedBytes).IsLessThanOrEqualTo(Budget);
+            buffers.Add(pool.Rent(Large + (i * Small)));
         }
-        finally
+
+        foreach (var buffer in buffers)
         {
-            ScratchPools.Budget = before;
+            pool.Return(buffer);
         }
+
+        var kept = owner.RetainedBytes;
+        owner.Trim();
+
+        await Assert.That(kept).IsGreaterThan(0);
+        await Assert.That(kept).IsLessThanOrEqualTo(Budget);
+        await Assert.That(owner.RetainedBytes).IsEqualTo(0);
     }
 
     /// <summary>With no budget nothing is kept, and lowering the budget trims at once.</summary>
@@ -80,27 +73,19 @@ public sealed class ScratchPoolTests
     [Test]
     public async Task ALowBudgetKeepsNothing()
     {
-        var before = ScratchPools.Budget;
-        try
-        {
-            ScratchPools.Trim();
-            var buffer = ScratchPool<byte>.Shared.Rent(Large);
-            ScratchPool<byte>.Shared.Return(buffer);
-            var kept = ScratchPools.RetainedBytes;
+        var owner = new ScratchPools();
+        var pool = owner.Get<byte>();
+        var buffer = pool.Rent(Large);
+        pool.Return(buffer);
+        var kept = owner.RetainedBytes;
 
-            ScratchPools.Budget = 0;
-            var afterLowering = ScratchPools.RetainedBytes;
-            ScratchPool<byte>.Shared.Return(ScratchPool<byte>.Shared.Rent(Large));
+        owner.Budget = 0;
+        var afterLowering = owner.RetainedBytes;
+        pool.Return(pool.Rent(Large));
 
-            await Assert.That(kept).IsGreaterThan(0);
-            await Assert.That(afterLowering).IsEqualTo(0);
-            await Assert.That(ScratchPools.RetainedBytes).IsEqualTo(0);
-        }
-        finally
-        {
-            ScratchPools.Budget = before;
-            ScratchPools.Trim();
-        }
+        await Assert.That(kept).IsGreaterThan(0);
+        await Assert.That(afterLowering).IsEqualTo(0);
+        await Assert.That(owner.RetainedBytes).IsEqualTo(0);
     }
 
     /// <summary>Small requests come from the shared array pool and are never kept by the bounded pool.</summary>
@@ -108,12 +93,78 @@ public sealed class ScratchPoolTests
     [Test]
     public async Task SmallBuffersUseTheSharedPool()
     {
-        var buffer = ScratchPool<byte>.Shared.Rent(Small + 1);
-        ScratchPool<byte>.Shared.Return(buffer);
+        var pool = new ScratchPools().Get<byte>();
+        var buffer = pool.Rent(Small + 1);
+        pool.Return(buffer);
 
         // The shared pool hands out power of two sizes; the bounded pool rounds to eighth steps instead.
         await Assert.That(System.Numerics.BitOperations.IsPow2(buffer.Length)).IsTrue();
         await Assert.That(buffer.Length).IsGreaterThan(Small);
+    }
+
+    /// <summary>Closing one document releases its own large arrays without trimming another document's cache.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DocumentCloseOnlyReleasesItsOwnBuffers()
+    {
+        var bytes = TestPdf.Create(1);
+        ScratchPools firstOwner;
+        ScratchPools secondOwner;
+        using (var second = PdfDocumentReader.Open(bytes, null))
+        {
+            secondOwner = second.Objects.ScratchPools;
+            var secondPool = secondOwner.Get<byte>();
+            secondPool.Return(secondPool.Rent(Large));
+            using (var first = PdfDocumentReader.Open(bytes, null))
+            {
+                firstOwner = first.Objects.ScratchPools;
+                var firstPool = firstOwner.Get<byte>();
+                firstPool.Return(firstPool.Rent(Large));
+            }
+
+            await Assert.That(ReferenceEquals(firstOwner, secondOwner)).IsFalse();
+            await Assert.That(firstOwner.RetainedBytes).IsEqualTo(0);
+            await Assert.That(secondOwner.RetainedBytes).IsGreaterThan(0);
+        }
+
+        await Assert.That(secondOwner.RetainedBytes).IsEqualTo(0);
+    }
+
+    /// <summary>Documents given one viewer cache leave its retained arrays for that cache's owner.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SharedServiceCacheSurvivesDocumentClose()
+    {
+        var owner = new ScratchPools();
+        var services = new PdfDrawingServices(new()) { SharedScratchPools = owner };
+        var options = new PdfOpenOptions { DrawingServices = services };
+        var bytes = TestPdf.Create(1);
+        var pool = owner.Get<byte>();
+        pool.Return(pool.Rent(Large));
+        using (var first = PdfDocumentReader.OpenWith(bytes, options))
+        using (var second = PdfDocumentReader.OpenWith(bytes, options))
+        {
+            await Assert.That(ReferenceEquals(first.Objects.ScratchPools, second.Objects.ScratchPools)).IsTrue();
+        }
+
+        await Assert.That(owner.RetainedBytes).IsGreaterThan(0);
+        owner.Trim();
+        await Assert.That(owner.RetainedBytes).IsEqualTo(0);
+    }
+
+    /// <summary>A buffer still in use when its owner closes is dropped when returned.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ClosedOwnerDoesNotRetainLateReturns()
+    {
+        var owner = new ScratchPools();
+        var pool = owner.Get<byte>();
+        var buffer = pool.Rent(Large);
+
+        owner.Close();
+        pool.Return(buffer);
+
+        await Assert.That(owner.RetainedBytes).IsEqualTo(0);
     }
 
     /// <summary>A type used only by these tests, so no other test shares its pool slots.</summary>

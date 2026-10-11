@@ -204,6 +204,25 @@ public sealed class IccProfileTests
         await Assert.That(ReferenceEquals(first, isolated)).IsFalse();
     }
 
+    /// <summary>A detached stream keeps its parsed transform without a process cache.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DetachedStreamKeepsItsTransform()
+    {
+        var curve = GammaCurve(LinearGamma);
+        var data = Rgb(curve, curve, curve);
+        var firstStream = new PdfStream(new(null), data);
+        var secondStream = new PdfStream(new(null), data);
+
+        var first = IccProfile.Get(firstStream, RgbComponents);
+        var repeated = IccProfile.Get(firstStream, RgbComponents);
+        var separate = IccProfile.Get(secondStream, RgbComponents);
+
+        await Assert.That(first).IsNotNull();
+        await Assert.That(ReferenceEquals(first, repeated)).IsTrue();
+        await Assert.That(ReferenceEquals(first, separate)).IsFalse();
+    }
+
     /// <summary>Creates an ICCBased colour space from profile bytes.</summary>
     /// <param name="profile">The profile.</param>
     /// <param name="components">The /N value.</param>

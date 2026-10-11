@@ -245,6 +245,12 @@ public sealed class PdfObjectStore : IDisposable
     private ScratchPools CreateScratchPools()
     {
         var created = new ScratchPools();
-        return Interlocked.CompareExchange(ref _scratchPools, created, null) ?? created;
+        var result = Interlocked.CompareExchange(ref _scratchPools, created, null) ?? created;
+        if (IsDisposed)
+        {
+            result.Close();
+        }
+
+        return result;
     }
 }

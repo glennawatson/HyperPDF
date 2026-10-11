@@ -33,6 +33,9 @@ internal sealed class JpxTileWork
     /// <summary>The image geometry.</summary>
     private readonly JpxGeometry _geometry;
 
+    /// <summary>The cache used by tile component and wavelet buffers.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The tile-component buffers of the current tile.</summary>
     private readonly int[][] _buffers;
 
@@ -60,8 +63,17 @@ internal sealed class JpxTileWork
     /// <summary>Initializes a new instance of the <see cref="JpxTileWork"/> class.</summary>
     /// <param name="geometry">The image geometry.</param>
     internal JpxTileWork(JpxGeometry geometry)
+        : this(geometry, new ScratchPools())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpxTileWork"/> class with an explicit cache.</summary>
+    /// <param name="geometry">The image geometry.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal JpxTileWork(JpxGeometry geometry, ScratchPools scratchPools)
     {
         _geometry = geometry;
+        _scratchPools = scratchPools;
         var components = geometry.Components.Length;
         _buffers = new int[components][];
         _rented = new bool[components];
@@ -126,26 +138,26 @@ internal sealed class JpxTileWork
         }
     }
 
-    /// <summary>Returns a rented array.</summary>
-    /// <param name="array">The array, emptied.</param>
-    private static void ReturnArray(ref int[] array)
-    {
-        if (array.Length > 0)
-        {
-            ScratchPool<int>.Shared.Return(array);
-        }
-
-        array = [];
-    }
-
     /// <summary>Disposes a worker's block decoder.</summary>
     /// <param name="decoder">The decoder.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ReleaseDecoder(JpxBlockState decoder) => decoder.Dispose();
 
+    /// <summary>Returns a rented array.</summary>
+    /// <param name="array">The array, emptied.</param>
+    private void ReturnArray(ref int[] array)
+    {
+        if (array.Length > 0)
+        {
+            _scratchPools.Get<int>().Return(array);
+        }
+
+        array = [];
+    }
+
     /// <summary>Creates a worker's block decoder.</summary>
     /// <returns>The decoder.</returns>
-    private static JpxBlockState CreateDecoder() => new();
+    private JpxBlockState CreateDecoder() => new(_scratchPools);
 
     /// <summary>Gets a zeroed coefficient buffer and wavelet scratch for each tile-component; the buffer is the output plane itself when the tile covers it.</summary>
     private void PrepareBuffers()
@@ -155,7 +167,7 @@ internal sealed class JpxTileWork
             var area = _tile.Components[c].Area.Reduce(_reductionLevels);
             var length = area.Width * area.Height;
             _rented[c] = area != _image.Areas[c];
-            _buffers[c] = _rented[c] ? ScratchPool<int>.Shared.Rent(Math.Max(length, 1)) : _image.Planes[c];
+            _buffers[c] = _rented[c] ? _scratchPools.Get<int>().Rent(Math.Max(length, 1)) : _image.Planes[c];
             _buffers[c].AsSpan(0, length).Clear();
             var scratch = JpxWavelet.ScratchLength(area.Width, area.Height);
             if (_scratches[c].Length >= scratch)
@@ -164,7 +176,7 @@ internal sealed class JpxTileWork
             }
 
             ReturnArray(ref _scratches[c]);
-            _scratches[c] = ScratchPool<int>.Shared.Rent(scratch);
+            _scratches[c] = _scratchPools.Get<int>().Rent(scratch);
         }
     }
 
@@ -175,7 +187,7 @@ internal sealed class JpxTileWork
         {
             if (_rented[c])
             {
-                ScratchPool<int>.Shared.Return(_buffers[c]);
+                _scratchPools.Get<int>().Return(_buffers[c]);
             }
 
             _rented[c] = false;

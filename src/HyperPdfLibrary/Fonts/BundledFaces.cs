@@ -11,7 +11,7 @@ namespace HyperPdfLibrary.Fonts;
 /// <summary>
 /// The substitute faces loaded on demand from an open font pack, so text in a font the PDF does not embed looks the same on every
 /// operating system and on systems with few fonts. Each face is a TrueType font cached on
-/// first use and shared by every document afterwards.
+/// first use by documents that select the same drawing services.
 /// </summary>
 internal static class BundledFaces
 {
@@ -30,9 +30,6 @@ internal static class BundledFaces
     /// <summary>The slot of the ZapfDingbats face.</summary>
     private const int DingbatsSlot = 13;
 
-    /// <summary>The number of bundled faces.</summary>
-    private const int FaceCount = 14;
-
     /// <summary>The resource names, family by family in regular, bold, italic, bold italic order, then Symbol and Dingbats.</summary>
     private static readonly string[] Names =
     [
@@ -42,30 +39,30 @@ internal static class BundledFaces
         "NotoSansMath-Regular", "NotoSansSymbols2-Regular",
     ];
 
-    /// <summary>The faces read so far.</summary>
-    private static readonly SubstituteFace?[] Faces = new SubstituteFace?[FaceCount];
-
     /// <summary>Generates the requested face before its first use.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="family">The family.</param>
     /// <param name="bold">Whether the face is bold.</param>
     /// <param name="italic">Whether the face slants.</param>
     /// <param name="cancellationToken">Cancels source I/O.</param>
     /// <returns>A task completing when the face is cached.</returns>
-    internal static ValueTask EnsureAsync(BundledFamily family, bool bold, bool italic, CancellationToken cancellationToken)
+    internal static ValueTask EnsureAsync(PdfFontResources resources, BundledFamily family, bool bold, bool italic, CancellationToken cancellationToken)
     {
         var name = Names[SlotOf(family, bold, italic)];
-        return FontDataResources.EnsureAsync("Faces", $"{name}.ttf", token => FontDataGeneration.FaceAsync(name, token), cancellationToken);
+        return FontDataResources.EnsureAsync(resources.Data, "Faces", $"{name}.ttf", token => FontDataGeneration.FaceAsync(resources, name, token), cancellationToken);
     }
 
     /// <summary>Gets a bundled face.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="family">The family.</param>
     /// <param name="bold">Whether the face is bold; ignored for the symbol families.</param>
     /// <param name="italic">Whether the face slants; ignored for the symbol families.</param>
     /// <returns>The face, or <see langword="null"/> when the resource is missing or damaged.</returns>
-    internal static SubstituteFace? Get(BundledFamily family, bool bold, bool italic)
+    internal static SubstituteFace? Get(PdfFontResources resources, BundledFamily family, bool bold, bool italic)
     {
         var slot = SlotOf(family, bold, italic);
-        return Volatile.Read(ref Faces[slot]) ?? Load(slot);
+        var faces = resources.Faces.Faces;
+        return Volatile.Read(ref faces[slot]) ?? Load(faces, slot);
     }
 
     /// <summary>Reads a face from its resource without caching it, as the first use of a face does.</summary>
@@ -89,10 +86,11 @@ internal static class BundledFaces
     };
 
     /// <summary>Reads a face from its resource and publishes it.</summary>
+    /// <param name="faces">The selected service's face slots.</param>
     /// <param name="slot">The slot.</param>
     /// <returns>The face, or <see langword="null"/>.</returns>
-    private static SubstituteFace? Load(int slot) =>
-        Read(slot) is { } face ? Interlocked.CompareExchange(ref Faces[slot], face, null) ?? face : null;
+    private static SubstituteFace? Load(SubstituteFace?[] faces, int slot) =>
+        Read(slot) is { } face ? Interlocked.CompareExchange(ref faces[slot], face, null) ?? face : null;
 
     /// <summary>Reads and parses a face from its resource.</summary>
     /// <param name="slot">The slot.</param>

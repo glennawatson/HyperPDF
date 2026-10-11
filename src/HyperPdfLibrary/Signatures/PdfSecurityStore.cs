@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Security.Cryptography;
 
@@ -26,7 +27,11 @@ public sealed record PdfSecurityStore(
     private const int Sha1Length = 20;
 
     /// <summary>Gets an empty store, for files without one.</summary>
-    public static PdfSecurityStore Empty { get; } = new([], [], [], new Dictionary<string, PdfValidationRelatedInfo>(StringComparer.Ordinal));
+    public static PdfSecurityStore Empty { get; } = new(
+        [],
+        [],
+        [],
+        new ReadOnlyDictionary<string, PdfValidationRelatedInfo>(new Dictionary<string, PdfValidationRelatedInfo>(StringComparer.Ordinal)));
 
     /// <summary>Gets a value indicating whether the store holds revocation data.</summary>
     public bool HasRevocationData => OcspResponses.Length + Crls.Length > 0;

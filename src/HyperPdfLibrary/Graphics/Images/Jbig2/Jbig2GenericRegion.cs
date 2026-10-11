@@ -53,7 +53,7 @@ internal static partial class Jbig2GenericRegion
     /// <returns>The bits read.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static long DecodeMmr(ReadOnlySpan<byte> data, Jbig2Bitmap target) =>
-        CcittFaxDecoder.DecodeMmr(data, target.Width, target.Height, target.Data);
+        CcittFaxDecoder.DecodeMmr(data, target.Width, target.Height, target.Data, target.ScratchPools);
 
     /// <summary>Decodes a region with one template.</summary>
     /// <typeparam name="TTemplate">The template.</typeparam>

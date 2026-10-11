@@ -12,16 +12,13 @@ namespace HyperPdfLibrary.Fonts;
 /// <summary>
 /// The Unicode value of each CID of an Adobe character collection, built from compact binary CMap resources on demand.
 /// A flat UTF-16 array stores BMP characters and indices into a supplementary scalar side table.
-/// Each collection is read from disk once, on first use.
+/// Each selected service reads a collection from disk once, on first use.
 /// </summary>
 [DebuggerDisplay("CidToUnicodeTable: {_values.Length} CIDs")]
 internal sealed class CidToUnicodeTable
 {
     /// <summary>The format version of the packed resource.</summary>
     private const byte Version = 2;
-
-    /// <summary>The number of collections, including <see cref="CjkScript.None"/>.</summary>
-    private const int CollectionCount = (int)CjkScript.Korean + 1;
 
     /// <summary>The largest CID a table can hold.</summary>
     private const int MaxCids = ushort.MaxValue + 1;
@@ -31,12 +28,6 @@ internal sealed class CidToUnicodeTable
 
     /// <summary>The number of supplementary indices representable in the flat array.</summary>
     private const int SupplementaryCapacity = 0x800;
-
-    /// <summary>The tables read so far, by collection.</summary>
-    private static readonly CidToUnicodeTable?[] Tables = new CidToUnicodeTable?[CollectionCount];
-
-    /// <summary>Guards reading the tables.</summary>
-    private static readonly Lock Gate = new();
 
     /// <summary>The empty table used when optional mappings are absent.</summary>
     private static readonly CidToUnicodeTable Empty = new([], []);
@@ -57,10 +48,11 @@ internal sealed class CidToUnicodeTable
     }
 
     /// <summary>Generates only the requested collection's Unicode table.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="collection">The collection.</param>
     /// <param name="cancellationToken">Cancels source I/O.</param>
     /// <returns>A task completing when the table is available.</returns>
-    internal static async ValueTask EnsureAsync(CjkScript collection, CancellationToken cancellationToken)
+    internal static async ValueTask EnsureAsync(PdfFontResources resources, CjkScript collection, CancellationToken cancellationToken)
     {
         if (collection == CjkScript.None)
         {
@@ -69,39 +61,43 @@ internal sealed class CidToUnicodeTable
 
         var source = Generation.Collections.All[(int)collection - 1];
         await FontDataResources.EnsureAsync(
+            resources.Data,
             "CMaps",
             $"{source.UnicodeTable}-v2.bin",
-            token => FontDataGeneration.UnicodeAsync(source, token),
+            token => FontDataGeneration.UnicodeAsync(resources, source, token),
             cancellationToken).ConfigureAwait(false);
-        lock (Gate)
+        var cache = resources.Unicode;
+        lock (cache.Gate)
         {
-            if (Tables[(int)collection] == Empty)
+            if (cache.Tables[(int)collection] == Empty)
             {
-                Volatile.Write(ref Tables[(int)collection], Read(collection));
+                Volatile.Write(ref cache.Tables[(int)collection], Read(collection));
             }
         }
     }
 
     /// <summary>Gets the table of a collection.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="collection">The collection.</param>
     /// <returns>The table, or <see langword="null"/> for <see cref="CjkScript.None"/>.</returns>
-    internal static CidToUnicodeTable? Get(CjkScript collection)
+    internal static CidToUnicodeTable? Get(PdfFontResources resources, CjkScript collection)
     {
         var index = (int)collection;
-        if (collection == CjkScript.None || (uint)index >= CollectionCount)
+        if (collection == CjkScript.None || (uint)index >= CidUnicodeState.CollectionCount)
         {
             return null;
         }
 
-        if (Volatile.Read(ref Tables[index]) is { } table)
+        var cache = resources.Unicode;
+        if (Volatile.Read(ref cache.Tables[index]) is { } table)
         {
             return table;
         }
 
-        lock (Gate)
+        lock (cache.Gate)
         {
-            table = Tables[index] ?? Read(collection);
-            Volatile.Write(ref Tables[index], table);
+            table = cache.Tables[index] ?? Read(collection);
+            Volatile.Write(ref cache.Tables[index], table);
             return table;
         }
     }

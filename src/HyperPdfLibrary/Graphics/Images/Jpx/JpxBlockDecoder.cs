@@ -72,9 +72,9 @@ internal static class JpxBlockDecoder
         state.Stripes = (height + JpxBlockLayout.LastRow) / JpxBlockLayout.StripeRows;
         state.StripeStride = (width + JpxBlockLayout.Border) * JpxBlockLayout.StripeRows;
         state.Length = (state.Stripes + JpxBlockLayout.Border) * state.StripeStride;
-        JpxBlockLayout.Ensure(ref state.Values, state.Length);
-        JpxBlockLayout.Ensure(ref state.Flags, state.Length);
-        JpxBlockLayout.Ensure(ref state.Neighbours, state.Length);
+        JpxBlockLayout.Ensure(ref state.Values, state.Length, state.ScratchPools);
+        JpxBlockLayout.Ensure(ref state.Flags, state.Length, state.ScratchPools);
+        JpxBlockLayout.Ensure(ref state.Neighbours, state.Length, state.ScratchPools);
         state.Values.AsSpan(0, state.Length).Clear();
         state.Flags.AsSpan(0, state.Length).Clear();
         state.Neighbours.AsSpan(0, state.Length).Clear();
@@ -109,7 +109,7 @@ internal static class JpxBlockDecoder
             return data;
         }
 
-        JpxBlockLayout.Ensure(ref state.Joined, block.DataLength);
+        JpxBlockLayout.Ensure(ref state.Joined, block.DataLength, state.ScratchPools);
         var written = 0;
         for (var chunk = block.FirstChunk; chunk >= 0; chunk = tile.Chunks[chunk].Next)
         {

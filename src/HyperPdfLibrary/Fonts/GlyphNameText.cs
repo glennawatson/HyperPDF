@@ -13,29 +13,12 @@ internal static class GlyphNameText
     /// <summary>The longest text one glyph name maps to.</summary>
     private const int MaxText = 8;
 
-    /// <summary>The end of the Latin block whose single characters are cached: Basic Latin to Spacing Modifier Letters.</summary>
-    private const int LatinEnd = 0x0300;
-
-    /// <summary>The start of the General Punctuation to Letterlike Symbols block whose single characters are cached.</summary>
-    private const int PunctuationStart = 0x2000;
-
-    /// <summary>The end of the General Punctuation to Letterlike Symbols block whose single characters are cached.</summary>
-    private const int PunctuationEnd = 0x2130;
-
-    /// <summary>
-    /// The one-character texts of the Latin block, filled on first use. Simple fonts map nearly every code to one of
-    /// these, so each font load shares them instead of making a string per code.
-    /// </summary>
-    private static readonly string?[] LatinTexts = new string?[LatinEnd];
-
-    /// <summary>The one-character texts of the punctuation block (dashes, quotes, bullets, the euro and trademark signs), filled on first use.</summary>
-    private static readonly string?[] PunctuationTexts = new string?[PunctuationEnd - PunctuationStart];
-
     /// <summary>Gets the text a glyph name stands for.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The glyph name.</param>
     /// <param name="dingbats">Whether to try the Zapf Dingbats names first.</param>
     /// <returns>The text, or <see langword="null"/> when the name means nothing.</returns>
-    internal static string? TextOf(ReadOnlySpan<byte> name, bool dingbats)
+    internal static string? TextOf(PdfFontResources resources, ReadOnlySpan<byte> name, bool dingbats)
     {
         if (name.IsEmpty)
         {
@@ -53,7 +36,7 @@ internal static class GlyphNameText
             return null;
         }
 
-        return written == 1 ? SingleCharacter(text[0]) : new string(text[..written]);
+        return written == 1 ? SingleCharacter(resources.GlyphNames, text[0]) : new string(text[..written]);
     }
 
     /// <summary>Gets the first code point of a glyph name's text, as PDFium's single-character lookups use it.</summary>
@@ -63,16 +46,19 @@ internal static class GlyphNameText
         text is { Length: > 0 } && Rune.DecodeFromUtf16(text, out var rune, out _) == System.Buffers.OperationStatus.Done ? rune.Value : 0;
 
     /// <summary>Gets a one-character string, shared for the cached blocks.</summary>
+    /// <param name="state">The selected glyph-name cache.</param>
     /// <param name="value">The character.</param>
     /// <returns>The string.</returns>
-    private static string SingleCharacter(char value)
+    private static string SingleCharacter(GlyphNameTextState state, char value)
     {
-        if (value < LatinEnd)
+        if (value < GlyphNameTextState.LatinEnd)
         {
-            return Shared(LatinTexts, value, value);
+            return Shared(state.LatinTexts, value, value);
         }
 
-        return value is >= (char)PunctuationStart and < (char)PunctuationEnd ? Shared(PunctuationTexts, value - PunctuationStart, value) : value.ToString();
+        return value is >= (char)GlyphNameTextState.PunctuationStart and < (char)GlyphNameTextState.PunctuationEnd
+            ? Shared(state.PunctuationTexts, value - GlyphNameTextState.PunctuationStart, value)
+            : value.ToString();
     }
 
     /// <summary>Gets a cached one-character string, creating and publishing it on first use.</summary>

@@ -55,6 +55,9 @@ public sealed class CMapTableDataTests
         new(CjkScript.Korean, "UniKS-UCS2-H"),
     ];
 
+    /// <summary>The resources owned by this test.</summary>
+    private readonly PdfFontResources _resources = new();
+
     /// <summary>Every collection's CID-to-Unicode table loads and gives a character to most of the first fifteen thousand CIDs.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -62,7 +65,7 @@ public sealed class CMapTableDataTests
     {
         foreach (var collection in Collections)
         {
-            await CidToUnicodeTable.EnsureAsync(collection.Script, CancellationToken.None);
+            await CidToUnicodeTable.EnsureAsync(_resources, collection.Script, CancellationToken.None);
             var table = CidToUnicodeTable.Read(collection.Script);
             var withText = 0;
             for (var cid = 1; cid < CheckedCids; cid++)
@@ -81,13 +84,13 @@ public sealed class CMapTableDataTests
     {
         foreach (var collection in Collections)
         {
-            await PredefinedCMaps.EnsureAsync(collection.CMapName, CancellationToken.None);
-            await CidToUnicodeTable.EnsureAsync(collection.Script, CancellationToken.None);
-            var cmap = PredefinedCMaps.Get(System.Text.Encoding.ASCII.GetBytes(collection.CMapName));
-            var table = CidToUnicodeTable.Get(collection.Script)!;
+            await PredefinedCMaps.EnsureAsync(_resources, collection.CMapName, CancellationToken.None);
+            await CidToUnicodeTable.EnsureAsync(_resources, collection.Script, CancellationToken.None);
+            var cmap = PredefinedCMaps.Get(_resources, System.Text.Encoding.ASCII.GetBytes(collection.CMapName));
+            var table = CidToUnicodeTable.Get(_resources, collection.Script)!;
             var utf32Name = collection.CMapName.Replace("UCS2", "UTF32", StringComparison.Ordinal);
-            await PredefinedCMaps.EnsureAsync(utf32Name, CancellationToken.None);
-            var utf32 = PredefinedCMaps.Get(System.Text.Encoding.ASCII.GetBytes(utf32Name));
+            await PredefinedCMaps.EnsureAsync(_resources, utf32Name, CancellationToken.None);
+            var utf32 = PredefinedCMaps.Get(_resources, System.Text.Encoding.ASCII.GetBytes(utf32Name));
             var mapped = 0;
             var same = 0;
             for (var code = FirstCode; code <= LastCode; code++)
@@ -114,12 +117,12 @@ public sealed class CMapTableDataTests
     [Test]
     public async Task KnownAdobeValuesAreKept()
     {
-        await PredefinedCMaps.EnsureAsync("UniJIS-UCS2-H", CancellationToken.None);
-        await PredefinedCMaps.EnsureAsync("90ms-RKSJ-H", CancellationToken.None);
-        await CidToUnicodeTable.EnsureAsync(CjkScript.Japanese, CancellationToken.None);
-        var ucs2 = PredefinedCMaps.Get("UniJIS-UCS2-H"u8);
-        var halfWidth = PredefinedCMaps.Get("90ms-RKSJ-H"u8);
-        var japan1 = CidToUnicodeTable.Get(CjkScript.Japanese)!;
+        await PredefinedCMaps.EnsureAsync(_resources, "UniJIS-UCS2-H", CancellationToken.None);
+        await PredefinedCMaps.EnsureAsync(_resources, "90ms-RKSJ-H", CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_resources, CjkScript.Japanese, CancellationToken.None);
+        var ucs2 = PredefinedCMaps.Get(_resources, "UniJIS-UCS2-H"u8);
+        var halfWidth = PredefinedCMaps.Get(_resources, "90ms-RKSJ-H"u8);
+        var japan1 = CidToUnicodeTable.Get(_resources, CjkScript.Japanese)!;
 
         await Assert.That(ucs2.ToCid(HiraganaA)).IsEqualTo(HiraganaACid);
         await Assert.That(japan1.Lookup(HiraganaACid)).IsEqualTo(HiraganaA);
@@ -134,13 +137,13 @@ public sealed class CMapTableDataTests
     {
         const uint pairCode = 0xD83CDD00;
         const int pairCid = 8061;
-        await PredefinedCMaps.EnsureAsync("UniJIS-UTF16-H", CancellationToken.None);
-        var utf16 = PredefinedCMaps.Get("UniJIS-UTF16-H"u8);
+        await PredefinedCMaps.EnsureAsync(_resources, "UniJIS-UTF16-H", CancellationToken.None);
+        var utf16 = PredefinedCMaps.Get(_resources, "UniJIS-UTF16-H"u8);
 
         await Assert.That(utf16.ToCid(unchecked((int)pairCode))).IsEqualTo(pairCid);
-        await CidToUnicodeTable.EnsureAsync(CjkScript.Japanese, CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_resources, CjkScript.Japanese, CancellationToken.None);
         const int scalar = 0x1F100;
-        await Assert.That(CidToUnicodeTable.Get(CjkScript.Japanese)!.Lookup(pairCid)).IsEqualTo(scalar);
+        await Assert.That(CidToUnicodeTable.Get(_resources, CjkScript.Japanese)!.Lookup(pairCid)).IsEqualTo(scalar);
     }
 
     /// <summary>A collection and the name of its UCS-2 CMap.</summary>

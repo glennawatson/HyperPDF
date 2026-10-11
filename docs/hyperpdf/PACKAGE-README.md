@@ -47,7 +47,7 @@ A document can be used from many render threads at once.
 
 The engine generates predefined CJK mappings and substitute faces only when a requested page needs them. It reads compact binary CMap resources and real TrueType fonts from pinned resource packs, builds the needed engine tables, and caches only the requested assets under `HyperPdfLibrary/FontData/v3` in the user's local application data folder.
 
-Use `PdfDocumentText.GetTextPageAsync`, `PdfDocumentPages.PrefetchPageAsync`, `PdfFontLoader.LoadAsync` or the renderer's `RenderAsync` for first use. These await missing font data before the synchronous core runs. The synchronous APIs use cached resources. Later accesses reuse the parsed data in memory; later runs reuse the generated files without downloading them again. The first request for an uncached resource needs internet access. Set `HYPERPDF_FONT_DATA` before first use to choose a different cache root.
+Use `PdfDocumentText.GetTextPageAsync`, `PdfDocumentPages.PrefetchPageAsync`, `PdfFontLoader.LoadAsync` or the renderer's `RenderAsync` for first use. These await missing font data before the synchronous core runs. The synchronous APIs use cached resources. Documents using the same `PdfDrawingServices` reuse parsed font data in memory; later runs reuse the generated files without downloading them again. The first request for an uncached resource needs internet access. Set `HYPERPDF_FONT_DATA` before first use to choose a different cache root.
 
 Identity CMaps and fonts embedded in the PDF need no substitute font downloads. PDFs with complete embedded CMaps and ToUnicode mappings need no external CMap data.
 

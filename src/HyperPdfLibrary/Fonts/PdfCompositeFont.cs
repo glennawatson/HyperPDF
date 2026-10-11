@@ -26,14 +26,22 @@ internal sealed class PdfCompositeFont : PdfFont
     /// <summary>The font's loaded data.</summary>
     private readonly CompositeFontData _data;
 
+    /// <summary>The matcher used when a substitute face lacks a character.</summary>
+    private readonly SystemFontMatcher? _matcher;
+
     /// <summary>The cached outlines: by glyph id for embedded programs, by code for system fonts.</summary>
     private readonly GlyphOutlineCache _outlines = new();
 
     /// <summary>Initializes a new instance of the <see cref="PdfCompositeFont"/> class.</summary>
     /// <param name="dictionary">The /Type0 font dictionary.</param>
     /// <param name="data">The loaded data.</param>
-    internal PdfCompositeFont(PdfDictionary dictionary, CompositeFontData data)
-        : base(dictionary) => _data = data;
+    /// <param name="matcher">The substitute font matcher.</param>
+    internal PdfCompositeFont(PdfDictionary dictionary, CompositeFontData data, SystemFontMatcher? matcher)
+        : base(dictionary)
+    {
+        _data = data;
+        _matcher = matcher;
+    }
 
     /// <inheritdoc/>
     public override bool IsVertical => _data.CMap.IsVertical;
@@ -144,7 +152,7 @@ internal sealed class PdfCompositeFont : PdfFont
         }
 
         var glyph = face.GetGlyph(codePoint);
-        if (glyph == 0 && SystemFontMatcher.For(Dictionary).MatchCharacter(codePoint) is { } fallback)
+        if (glyph == 0 && _matcher?.MatchCharacter(codePoint) is { } fallback)
         {
             face = fallback;
             glyph = fallback.GetGlyph(codePoint);

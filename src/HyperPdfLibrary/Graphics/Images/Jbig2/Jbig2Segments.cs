@@ -82,7 +82,7 @@ internal static class Jbig2Segments
             return Jbig2Status.Failure;
         }
 
-        var reader = new Jbig2Reader(data, state.CancellationToken);
+        var reader = new Jbig2Reader(data, state.Workspace.ScratchPools, state.CancellationToken);
         while (reader.BytesLeft >= MinSegmentSize)
         {
             state.CancellationToken.ThrowIfCancellationRequested();

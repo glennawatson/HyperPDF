@@ -58,13 +58,16 @@ public sealed class CompositeFontTests
     /// <summary>The widths of A and B.</summary>
     private const string Widths = "/DW 900 /W [34 [500] 35 35 700]";
 
+    /// <summary>The resources owned by this test.</summary>
+    private readonly PdfFontResources _resources = new();
+
     /// <summary>An Identity font without ToUnicode extracts a supplementary scalar from its Adobe collection.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task IdentityCidFallbackExtractsSupplementaryText()
     {
         const int cid = 8061;
-        await CidToUnicodeTable.EnsureAsync(CjkScript.Japanese, CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_resources, CjkScript.Japanese, CancellationToken.None);
         using var document = new FontTestDocument(TrueTypeSpec(string.Empty) with { CidOrdering = "Japan1" });
         await Assert.That(FontProbe.Text(document.Font, cid)).IsEqualTo("\U0001F100");
         await Assert.That(document.Font.GetUnicode(cid, new char[1])).IsEqualTo(0);
@@ -157,7 +160,7 @@ public sealed class CompositeFontTests
     [Test]
     public async Task UnicodeCMapFallsBackToTheUnicodeCmap()
     {
-        await PredefinedCMaps.EnsureAsync("UniGB-UCS2-H", CancellationToken.None);
+        await PredefinedCMaps.EnsureAsync(_resources, "UniGB-UCS2-H", CancellationToken.None);
 
         using var document = new FontTestDocument(TrueTypeSpec(string.Empty) with { CidEncoding = "/UniGB-UCS2-H" });
 
@@ -170,8 +173,8 @@ public sealed class CompositeFontTests
     [Test]
     public async Task ShiftJisCMapSplitsCodes()
     {
-        await PredefinedCMaps.EnsureAsync("90ms-RKSJ-H", CancellationToken.None);
-        await CidToUnicodeTable.EnsureAsync(CjkScript.Japanese, CancellationToken.None);
+        await PredefinedCMaps.EnsureAsync(_resources, "90ms-RKSJ-H", CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_resources, CjkScript.Japanese, CancellationToken.None);
 
         using var document = new FontTestDocument(TrueTypeSpec(string.Empty) with { CidEncoding = "/90ms-RKSJ-H" });
         var font = document.Font;

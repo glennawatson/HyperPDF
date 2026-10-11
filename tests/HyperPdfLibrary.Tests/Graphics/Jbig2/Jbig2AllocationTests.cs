@@ -45,22 +45,21 @@ public sealed class Jbig2AllocationTests
     /// <returns>The bytes allocated.</returns>
     private static long Measure(Jbig2Sample sample)
     {
-        // The bounded pool retains buffers from earlier fixtures; warm this fixture from a known empty pool.
-        ScratchPools.Trim();
+        // This fixture owns its bounded cache, so earlier decodes cannot affect its retained buffers.
+        var scratchPools = new ScratchPools();
         var rows = new byte[Jbig2Decoder.GetRowBytes(sample.Width) * sample.Height];
         for (var i = 0; i < Warmup; i++)
         {
-            _ = Jbig2Decoder.TryDecode(sample.Data, sample.Globals, sample.Width, sample.Height, rows);
+            _ = Jbig2Decoder.TryDecode(sample.Data, sample.Globals, sample.Width, sample.Height, rows, scratchPools, CancellationToken.None);
         }
 
-        // Large buffers use the process-wide bounded ScratchPool. Document disposal trims it, and pool tests change
-        // its budget, so this fixture runs alone. Small buffers still use ArrayPool, whose Gen2 trimming can cause a
-        // rent miss; the smallest run distinguishes that miss from allocation repeated on every decode.
+        // Small buffers still use ArrayPool, whose Gen2 trimming can cause a rent miss; the smallest run distinguishes
+        // that miss from allocation repeated on every decode.
         var smallest = long.MaxValue;
         for (var i = 0; i < Runs && smallest >= MaxBytes; i++)
         {
             var before = GC.GetAllocatedBytesForCurrentThread();
-            _ = Jbig2Decoder.TryDecode(sample.Data, sample.Globals, sample.Width, sample.Height, rows);
+            _ = Jbig2Decoder.TryDecode(sample.Data, sample.Globals, sample.Width, sample.Height, rows, scratchPools, CancellationToken.None);
             smallest = Math.Min(smallest, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 

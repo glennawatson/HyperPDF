@@ -10,8 +10,8 @@ namespace HyperPdfLibrary.Graphics.Colors;
 /// <summary>
 /// Reads ICC profiles for ICCBased colour spaces. Profiles with an AToB0 look-up table (CMYK, Lab, N-colour and RGB or gray
 /// profiles that have one) convert through <see cref="IccLutTransform"/>; other RGB and gray profiles use their matrix and
-/// curves. Profiles that cannot be read make the colour space fall back to its /Alternate. A document's drawing services
-/// cache parsed profiles per stream and share transforms between streams containing the same bytes.
+/// curves. Profiles that cannot be read make the colour space fall back to its /Alternate. Each stream caches its parsed
+/// result, and a document's drawing services share transforms between streams containing the same bytes.
 /// </summary>
 internal static class IccProfile
 {
@@ -157,15 +157,10 @@ internal static class IccProfile
     /// <param name="stream">The ICC profile stream.</param>
     /// <param name="components">The /N value the colour space declares.</param>
     /// <returns>The transform, or <see langword="null"/> when the profile is unreadable, unsupported or has another component count.</returns>
-    internal static IccTransform? Get(PdfStream stream, int components)
-    {
-        if (stream.Dictionary.Owner?.Context?.DrawingServices is { } services)
-        {
-            return services.Profiles.Get(stream, components);
-        }
-
-        return IccProfileCache.ReadUnowned(stream, components);
-    }
+    internal static IccTransform? Get(PdfStream stream, int components) =>
+        stream.Dictionary.Owner?.Context?.DrawingServices is { } services
+            ? services.Profiles.Get(stream, components)
+            : IccProfileCache.ReadUnowned(stream, components);
 
     /// <summary>Reads a profile from bytes.</summary>
     /// <param name="profile">The profile data.</param>
@@ -304,5 +299,4 @@ internal static class IccProfile
             BinaryPrimitives.ReadInt32BigEndian(tag[(XyzOffset + (PdfColorSpace.PairSize * FixedSize))..]) / FixedScale);
         return true;
     }
-
 }

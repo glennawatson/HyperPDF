@@ -18,6 +18,9 @@ internal sealed class Jbig2Bitmap : IDisposable
     /// <summary>A byte with every pixel black.</summary>
     private const byte AllBlack = 0xFF;
 
+    /// <summary>The cache this bitmap returns its rows to.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The rows, or <see langword="null"/> after disposal.</summary>
     private byte[]? _buffer;
 
@@ -25,12 +28,14 @@ internal sealed class Jbig2Bitmap : IDisposable
     /// <param name="width">The width in pixels.</param>
     /// <param name="height">The height in pixels.</param>
     /// <param name="buffer">The cleared buffer.</param>
-    private Jbig2Bitmap(int width, int height, byte[] buffer)
+    /// <param name="scratchPools">The bounded cache.</param>
+    private Jbig2Bitmap(int width, int height, byte[] buffer, ScratchPools scratchPools)
     {
         Width = width;
         Height = height;
         Stride = Jbig2Bits.Stride(width);
         _buffer = buffer;
+        _scratchPools = scratchPools;
     }
 
     /// <summary>Gets the width in pixels.</summary>
@@ -48,6 +53,9 @@ internal sealed class Jbig2Bitmap : IDisposable
     /// <summary>Gets a read-only view of the bitmap.</summary>
     internal Jbig2BitmapView View => new(Data, Width, Height);
 
+    /// <summary>Gets the scratch cache that owns this bitmap's buffer.</summary>
+    internal ScratchPools ScratchPools => _scratchPools;
+
     /// <summary>Gets the buffer, which must not be used after disposal.</summary>
     private byte[] Buffer => _buffer ?? throw new ObjectDisposedException(nameof(Jbig2Bitmap));
 
@@ -60,7 +68,7 @@ internal sealed class Jbig2Bitmap : IDisposable
             return;
         }
 
-        ScratchPool<byte>.Shared.Return(_buffer);
+        _scratchPools.Bytes.Return(_buffer);
         _buffer = null;
     }
 
@@ -68,7 +76,15 @@ internal sealed class Jbig2Bitmap : IDisposable
     /// <param name="width">The width in pixels.</param>
     /// <param name="height">The height in pixels.</param>
     /// <returns>The bitmap, or <see langword="null"/> when a side is not positive or the area is over <see cref="Jbig2Limits.MaxRegionPixels"/>.</returns>
-    internal static Jbig2Bitmap? Create(int width, int height)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Jbig2Bitmap? Create(int width, int height) => Create(width, height, new());
+
+    /// <summary>Creates a white bitmap using a caller-owned scratch cache.</summary>
+    /// <param name="width">The width in pixels.</param>
+    /// <param name="height">The height in pixels.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <returns>The bitmap, or null when the size is invalid.</returns>
+    internal static Jbig2Bitmap? Create(int width, int height, ScratchPools scratchPools)
     {
         if (width <= 0 || height <= 0 || (long)width * height > Jbig2Limits.MaxRegionPixels)
         {
@@ -76,9 +92,9 @@ internal sealed class Jbig2Bitmap : IDisposable
         }
 
         var length = Jbig2Bits.Stride(width) * height;
-        var buffer = ScratchPool<byte>.Shared.Rent(length);
+        var buffer = scratchPools.Bytes.Rent(length);
         buffer.AsSpan(0, length).Clear();
-        return new(width, height, buffer);
+        return new(width, height, buffer, scratchPools);
     }
 
     /// <summary>Gives the bitmap a new size and clears it, keeping the buffer when it is large enough.</summary>
@@ -95,8 +111,9 @@ internal sealed class Jbig2Bitmap : IDisposable
         var length = Jbig2Bits.Stride(width) * height;
         if (Buffer.Length < length)
         {
-            ScratchPool<byte>.Shared.Return(Buffer);
-            _buffer = ScratchPool<byte>.Shared.Rent(length);
+            var pool = _scratchPools.Bytes;
+            pool.Return(Buffer);
+            _buffer = pool.Rent(length);
         }
 
         Width = width;

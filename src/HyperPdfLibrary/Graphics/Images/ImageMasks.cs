@@ -22,8 +22,9 @@ internal static class ImageMasks
     /// <param name="image">The decoded, opaque image.</param>
     /// <param name="mask">The decoded mask: coverage, or gray BGRA for a soft mask.</param>
     /// <param name="matte">The matte colour, or <see langword="null"/>.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The image with alpha; the same instance when no resize was needed.</returns>
-    internal static PdfImageData Apply(PdfImageData image, PdfImageData mask, MatteColor? matte)
+    internal static PdfImageData Apply(PdfImageData image, PdfImageData mask, MatteColor? matte, ScratchPools scratchPools)
     {
         var width = Math.Max(image.Width, mask.Width);
         var height = Math.Max(image.Height, mask.Height);
@@ -42,8 +43,9 @@ internal static class ImageMasks
         }
 
         var count = mask.Width * mask.Height;
-        var plane = ScratchPool<byte>.Shared.Rent(count);
-        var alpha = ScratchPool<byte>.Shared.Rent(width * height);
+        var pool = scratchPools.Get<byte>();
+        var plane = pool.Rent(count);
+        var alpha = pool.Rent(width * height);
         try
         {
             ExtractPlane(mask, plane.AsSpan(0, count));
@@ -58,8 +60,8 @@ internal static class ImageMasks
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(plane);
-            ScratchPool<byte>.Shared.Return(alpha);
+            pool.Return(plane);
+            pool.Return(alpha);
         }
 
         return ReferenceEquals(pixels, image.Pixels) ? image : new(width, height, pixels, false, image.Interpolate, PdfImageCodec.None) { IsPinned = pinned };

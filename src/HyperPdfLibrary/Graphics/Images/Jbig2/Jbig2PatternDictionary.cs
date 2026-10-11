@@ -93,7 +93,9 @@ internal sealed class Jbig2PatternDictionary : IDisposable
     private static Jbig2Bitmap? CreateCollective(int width, int height, int grayMax, Jbig2Workspace workspace)
     {
         var totalWidth = ((long)grayMax + 1) * width;
-        return Jbig2Limits.IsValidSize(totalWidth, height) && workspace.TryCharge(totalWidth * height) ? Jbig2Bitmap.Create((int)totalWidth, height) : null;
+        return Jbig2Limits.IsValidSize(totalWidth, height) && workspace.TryCharge(totalWidth * height)
+            ? Jbig2Bitmap.Create((int)totalWidth, height, workspace.ScratchPools)
+            : null;
     }
 
     /// <summary>Cuts the collective bitmap into patterns.</summary>
@@ -104,7 +106,7 @@ internal sealed class Jbig2PatternDictionary : IDisposable
     /// <returns>The dictionary, or <see langword="null"/> when the patterns pass the store limit.</returns>
     private static Jbig2PatternDictionary? Split(Jbig2Bitmap collective, int width, int height, int grayMax)
     {
-        var patterns = new Jbig2SymbolStore();
+        var patterns = new Jbig2SymbolStore(collective.ScratchPools);
         for (var gray = 0; gray <= grayMax; gray++)
         {
             if (patterns.TryAddColumns(collective.View, gray * width, width))

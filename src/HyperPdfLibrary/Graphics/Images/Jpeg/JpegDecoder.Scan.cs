@@ -54,7 +54,8 @@ internal ref partial struct JpegDecoder
             return false;
         }
 
-        var rows = ScratchPool<byte>.Shared.Rent(rowBytes);
+        var pool = _scratchPools.Get<byte>();
+        var rows = pool.Rent(rowBytes);
         try
         {
             for (var y = 0; y < _height; y++)
@@ -72,7 +73,7 @@ internal ref partial struct JpegDecoder
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(rows);
+            pool.Return(rows);
         }
     }
 

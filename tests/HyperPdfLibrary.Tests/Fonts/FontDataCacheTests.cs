@@ -21,6 +21,9 @@ public sealed class FontDataCacheTests
     /// <summary>The generated fixture bytes.</summary>
     private static readonly byte[] Bytes = [1];
 
+    /// <summary>The resource state owned by each test instance.</summary>
+    private readonly PdfFontResources _resources = new();
+
     /// <summary>Only the requested asset and its notice are persisted; the second request does no generation.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -36,8 +39,8 @@ public sealed class FontDataCacheTests
         }
 
         await Assert.That(Directory.Exists(cache.DirectoryPath)).IsFalse();
-        await FontDataResources.EnsureAsync(cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
-        await FontDataResources.EnsureAsync(cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
+        await FontDataResources.EnsureAsync(_resources.Data, cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
+        await FontDataResources.EnsureAsync(_resources.Data, cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
         var files = Directory.GetFiles(cache.DirectoryPath, "*", SearchOption.AllDirectories).Select(static file => Path.GetFileName(file)!).ToArray();
 
         await Assert.That(calls).IsEqualTo(1);
@@ -59,7 +62,7 @@ public sealed class FontDataCacheTests
             return [1];
         }
 
-        await FontDataResources.EnsureAsync(cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
+        await FontDataResources.EnsureAsync(_resources.Data, cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
         await Assert.That(await File.ReadAllBytesAsync(path)).IsEquivalentTo([(byte)0x02]);
         await Assert.That(Directory.GetFiles(cache.DirectoryPath, "*.tmp", SearchOption.AllDirectories)).IsEmpty();
     }
@@ -81,14 +84,14 @@ public sealed class FontDataCacheTests
             return ValueTask.FromResult(Bytes);
         }
 
-        var before = FontDataResources.Generation;
-        await FontDataResources.EnsureAsync(cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
-        var observed = FontDataResources.Generation;
-        await FontDataResources.EnsureAsync(cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
+        var before = _resources.Generation;
+        await FontDataResources.EnsureAsync(_resources.Data, cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
+        var observed = _resources.Generation;
+        await FontDataResources.EnsureAsync(_resources.Data, cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
 
         await Assert.That(calls).IsEqualTo(0);
         await Assert.That(observed).IsEqualTo(before + 1);
-        await Assert.That(FontDataResources.Generation).IsEqualTo(observed);
+        await Assert.That(_resources.Generation).IsEqualTo(observed);
     }
 
     /// <summary>Concurrent requests share one successful generation.</summary>
@@ -112,7 +115,7 @@ public sealed class FontDataCacheTests
         var tasks = new Task[Requests];
         for (var index = 0; index < tasks.Length; index++)
         {
-            tasks[index] = FontDataResources.EnsureAsync(cache.DirectoryPath, Folder, FileName, Generate, timeout.Token).AsTask();
+            tasks[index] = FontDataResources.EnsureAsync(_resources.Data, cache.DirectoryPath, Folder, FileName, Generate, timeout.Token).AsTask();
         }
 
         await entered.Task.WaitAsync(timeout.Token);
@@ -138,14 +141,14 @@ public sealed class FontDataCacheTests
             return [1];
         }
 
-        var attempt = FontDataResources.EnsureAsync(cache.DirectoryPath, Folder, FileName, Generate, cancellation.Token).AsTask();
+        var attempt = FontDataResources.EnsureAsync(_resources.Data, cache.DirectoryPath, Folder, FileName, Generate, cancellation.Token).AsTask();
         await entered.Task;
         await cancellation.CancelAsync();
         await Assert.That(async () => await attempt).Throws<OperationCanceledException>();
         await Assert.That(Directory.Exists(cache.DirectoryPath)).IsFalse();
 
         _ = release.TrySetResult();
-        await FontDataResources.EnsureAsync(cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
+        await FontDataResources.EnsureAsync(_resources.Data, cache.DirectoryPath, Folder, FileName, Generate, CancellationToken.None);
         await Assert.That(File.Exists(Path.Combine(cache.DirectoryPath, Folder, FileName))).IsTrue();
         await Assert.That(Directory.GetFiles(cache.DirectoryPath, "*.tmp", SearchOption.AllDirectories)).IsEmpty();
     }

@@ -14,6 +14,9 @@ namespace HyperPdfLibrary.Drawing;
 [DebuggerDisplay("Drawing {ConfiguredBackend}, fonts {Fonts}, images {Images}")]
 public sealed class PdfDrawingServices
 {
+    /// <summary>The font resources shared by documents using this service.</summary>
+    private PdfFontResources? _fontResources;
+
     /// <summary>Initializes a new instance of the <see cref="PdfDrawingServices"/> class.</summary>
     /// <param name="registration">The drawing backend and providers.</param>
     public PdfDrawingServices(PdfRenderBackendRegistration registration)
@@ -34,6 +37,9 @@ public sealed class PdfDrawingServices
     /// <summary>Gets the decoder for images not supported by the library.</summary>
     public Func<PdfStream, CancellationToken, IPdfRenderImage?>? UnsupportedImageDecoder { get; }
 
+    /// <summary>Gets a decoder scratch cache shared by documents using this service instance, or null for document-owned caches.</summary>
+    public ScratchPools? SharedScratchPools { get; init; }
+
     /// <summary>Gets the drawing backend.</summary>
     /// <exception cref="InvalidOperationException">No backend was supplied.</exception>
     public IPdfRenderBackend Backend => ConfiguredBackend
@@ -53,10 +59,29 @@ public sealed class PdfDrawingServices
                 return existing;
             }
 
-            var created = new SystemFontMatcher(Fonts);
+            var created = new SystemFontMatcher(Fonts, FontResources);
             return Interlocked.CompareExchange(ref field, created, null) ?? created;
         }
     }
+
+    /// <summary>Gets the font resources selected by this service.</summary>
+    internal PdfFontResources FontResources
+    {
+        get
+        {
+            var cached = Volatile.Read(ref _fontResources);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            var created = new PdfFontResources();
+            return Interlocked.CompareExchange(ref _fontResources, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets the font resource generation without making an empty cache.</summary>
+    internal int FontResourceGeneration => Volatile.Read(ref _fontResources)?.Generation ?? 0;
 
     /// <summary>Gets the ICC transforms shared by documents opened with this service instance.</summary>
     internal IccProfileCache Profiles
@@ -73,9 +98,6 @@ public sealed class PdfDrawingServices
             return Interlocked.CompareExchange(ref field, created, null) ?? created;
         }
     }
-
-    /// <summary>Gets a decoder scratch cache shared by documents using this service instance, or null for document-owned caches.</summary>
-    public ScratchPools? SharedScratchPools { get; init; }
 
     /// <summary>Gets a dictionary's document services, or empty services for a detached dictionary.</summary>
     /// <param name="dictionary">The dictionary owned by a document.</param>

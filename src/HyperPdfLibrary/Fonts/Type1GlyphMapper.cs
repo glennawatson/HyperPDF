@@ -14,23 +14,24 @@ namespace HyperPdfLibrary.Fonts;
 internal static class Type1GlyphMapper
 {
     /// <summary>Maps every code.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="program">The embedded program.</param>
     /// <param name="encoding">The font's encoding.</param>
     /// <param name="symbolic">Whether the descriptor flags say symbolic.</param>
     /// <param name="dingbats">Whether glyph names are Zapf Dingbats names.</param>
     /// <returns>The map.</returns>
-    internal static SimpleGlyphMap Map(FontProgram program, SimpleEncoding encoding, bool symbolic, bool dingbats)
+    internal static SimpleGlyphMap Map(PdfFontResources resources, FontProgram program, SimpleEncoding encoding, bool symbolic, bool dingbats)
     {
         var map = new SimpleGlyphMap();
         for (var code = 0; code < FontEncodings.CodeCount; code++)
         {
             if (symbolic)
             {
-                MapSymbolic(program, encoding, dingbats, map, code);
+                MapSymbolic(resources, program, encoding, dingbats, map, code);
             }
             else
             {
-                MapNonsymbolic(program, encoding, dingbats, map, code);
+                MapNonsymbolic(resources, program, encoding, dingbats, map, code);
             }
         }
 
@@ -46,17 +47,18 @@ internal static class Type1GlyphMapper
         : Math.Max(program.GetGlyphByName(name), 0);
 
     /// <summary>Maps a code of a symbolic font: its encoded name, else the program's built-in encoding.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="program">The program.</param>
     /// <param name="encoding">The encoding.</param>
     /// <param name="dingbats">Whether names are Zapf Dingbats names.</param>
     /// <param name="map">The map.</param>
     /// <param name="code">The code.</param>
-    private static void MapSymbolic(FontProgram program, SimpleEncoding encoding, bool dingbats, SimpleGlyphMap map, int code)
+    private static void MapSymbolic(PdfFontResources resources, FontProgram program, SimpleEncoding encoding, bool dingbats, SimpleGlyphMap map, int code)
     {
         var name = encoding.GetName(code);
         if (!name.IsEmpty)
         {
-            map.Texts[code] = GlyphNameText.TextOf(name, dingbats);
+            map.Texts[code] = GlyphNameText.TextOf(resources, name, dingbats);
             map.Glyphs[code] = NameIndex(program, name);
             return;
         }
@@ -65,17 +67,18 @@ internal static class Type1GlyphMapper
         map.Glyphs[code] = glyph;
         if (glyph != 0)
         {
-            map.Texts[code] = GlyphNameText.TextOf(program.GetGlyphName(glyph), dingbats);
+            map.Texts[code] = GlyphNameText.TextOf(resources, program.GetGlyphName(glyph), dingbats);
         }
     }
 
     /// <summary>Maps a code of a non-symbolic font: its encoded name, else the name's Unicode value.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="program">The program.</param>
     /// <param name="encoding">The encoding.</param>
     /// <param name="dingbats">Whether names are Zapf Dingbats names.</param>
     /// <param name="map">The map.</param>
     /// <param name="code">The code.</param>
-    private static void MapNonsymbolic(FontProgram program, SimpleEncoding encoding, bool dingbats, SimpleGlyphMap map, int code)
+    private static void MapNonsymbolic(PdfFontResources resources, FontProgram program, SimpleEncoding encoding, bool dingbats, SimpleGlyphMap map, int code)
     {
         var name = encoding.GetName(code);
         if (name.IsEmpty)
@@ -83,7 +86,7 @@ internal static class Type1GlyphMapper
             return;
         }
 
-        var text = GlyphNameText.TextOf(name, dingbats);
+        var text = GlyphNameText.TextOf(resources, name, dingbats);
         map.Texts[code] = text;
         var glyph = NameIndex(program, name);
         if (glyph != 0)

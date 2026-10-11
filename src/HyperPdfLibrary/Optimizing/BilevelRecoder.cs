@@ -54,7 +54,7 @@ internal static class BilevelRecoder
             if (image.Decode(ref decoded, cancellationToken) == PdfImageCodec.Ccitt)
             {
                 var target = rows.GetSpan(stride * height)[..(stride * height)];
-                CcittFaxDecoder.Decode(decoded.WrittenSpan, CcittParameters.FromDictionary(parameters), width, height, target);
+                CcittFaxDecoder.Decode(decoded.WrittenSpan, CcittParameters.FromDictionary(parameters), width, height, target, image.Dictionary.Owner?.ScratchPools ?? new ScratchPools());
                 rows.Advance(stride * height);
             }
             else if (decoded.Length >= stride * height)

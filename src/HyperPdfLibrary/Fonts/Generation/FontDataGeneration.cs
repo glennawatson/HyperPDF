@@ -41,59 +41,63 @@ internal static class FontDataGeneration
     }
 
     /// <summary>Builds one engine CMap and the base maps it needs.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The map name.</param>
     /// <param name="collection">The owning collection.</param>
     /// <param name="cancellationToken">Cancels resource I/O and generation.</param>
     /// <returns>The compressed engine table.</returns>
-    internal static async ValueTask<byte[]> CMapAsync(string name, Collection collection, CancellationToken cancellationToken)
+    internal static async ValueTask<byte[]> CMapAsync(PdfFontResources resources, string name, Collection collection, CancellationToken cancellationToken)
     {
         var maps = new Dictionary<string, BinaryCMapData>(StringComparer.Ordinal);
-        await ReadMapAsync(name, collection, maps, cancellationToken).ConfigureAwait(false);
+        await ReadMapAsync(resources, name, collection, maps, cancellationToken).ConfigureAwait(false);
         return PackCMap(maps, name, collection, cancellationToken);
     }
 
     /// <summary>Builds the requested collection's Unicode table from its binary mapping.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="collection">The collection.</param>
     /// <param name="cancellationToken">Cancels resource I/O and generation.</param>
     /// <returns>The compressed table.</returns>
-    internal static async ValueTask<byte[]> UnicodeAsync(Collection collection, CancellationToken cancellationToken)
+    internal static async ValueTask<byte[]> UnicodeAsync(PdfFontResources resources, Collection collection, CancellationToken cancellationToken)
     {
-        var data = await ReadBinaryAsync(collection.UnicodeTable, cancellationToken).ConfigureAwait(false);
+        var data = await ReadBinaryAsync(resources, collection.UnicodeTable, cancellationToken).ConfigureAwait(false);
         var values = BinaryCMapReader.Parse(data, cancellationToken).Unicode;
         var inverseName = Array.Find(collection.CMaps, static name => name.EndsWith("UTF32-H", StringComparison.Ordinal))!;
-        var inverse = await ReadBinaryAsync(inverseName, cancellationToken).ConfigureAwait(false);
+        var inverse = await ReadBinaryAsync(resources, inverseName, cancellationToken).ConfigureAwait(false);
         return PackUnicode(values, BinaryCMapReader.Parse(inverse, cancellationToken).Ranges, cancellationToken);
     }
 
     /// <summary>Reads one requested open font program from a font pack.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The trusted font filename without its extension.</param>
     /// <param name="cancellationToken">Cancels resource I/O and validation.</param>
     /// <returns>The TrueType bytes.</returns>
     /// <exception cref="InvalidDataException">The resource is not a valid font program.</exception>
-    internal static async ValueTask<byte[]> FaceAsync(string name, CancellationToken cancellationToken)
+    internal static async ValueTask<byte[]> FaceAsync(PdfFontResources resources, string name, CancellationToken cancellationToken)
     {
         var path = name.StartsWith("Arimo-", StringComparison.Ordinal)
             ? $"google/fonts/{ArimoRevision}/apache/arimo/{name}.ttf"
             : $"google/fonts/{FontRevision}/ofl/{name[..name.IndexOf('-', StringComparison.Ordinal)].ToLowerInvariant()}/{name}.ttf";
-        var data = await FontDataDownload.ReadAsync(path, cancellationToken).ConfigureAwait(false);
+        var data = await FontDataDownload.ReadAsync(resources.Data, path, cancellationToken).ConfigureAwait(false);
         return ValidateFace(data, cancellationToken);
     }
 
     /// <summary>Reads and validates the binary CMap inheritance chain.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The map name.</param>
     /// <param name="collection">The owning collection.</param>
     /// <param name="maps">The mappings read in this chain.</param>
     /// <param name="cancellationToken">Cancels resource I/O.</param>
     /// <returns>A task completing when the mappings are available.</returns>
     /// <exception cref="InvalidDataException">The resource inheritance chain is invalid.</exception>
-    private static async ValueTask ReadMapAsync(string name, Collection collection, Dictionary<string, BinaryCMapData> maps, CancellationToken cancellationToken)
+    private static async ValueTask ReadMapAsync(PdfFontResources resources, string name, Collection collection, Dictionary<string, BinaryCMapData> maps, CancellationToken cancellationToken)
     {
         if (maps.Count >= MaxParents || maps.ContainsKey(name) || name.Contains('/') || name.Contains('\\') || name.Contains('.'))
         {
             throw new InvalidDataException("The binary CMap has an invalid inheritance chain.");
         }
 
-        var data = await ReadBinaryAsync(name, cancellationToken).ConfigureAwait(false);
+        var data = await ReadBinaryAsync(resources, name, cancellationToken).ConfigureAwait(false);
         var map = BinaryCMapReader.Parse(data, cancellationToken);
         maps.Add(name, map);
         if (map.Parent.Length == 0)
@@ -101,8 +105,9 @@ internal static class FontDataGeneration
             return;
         }
 
-        await ReadMapAsync(map.Parent, collection, maps, cancellationToken).ConfigureAwait(false);
+        await ReadMapAsync(resources, map.Parent, collection, maps, cancellationToken).ConfigureAwait(false);
         await FontDataResources.EnsureAsync(
+            resources.Data,
             "CMaps",
             $"{map.Parent}.bin",
             token => ValueTask.FromResult(PackCMap(maps, map.Parent, collection, token)),
@@ -148,12 +153,13 @@ internal static class FontDataGeneration
     }
 
     /// <summary>Reads a compact binary mapping from the resource pack.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The mapping name.</param>
     /// <param name="cancellationToken">Cancels resource I/O.</param>
     /// <returns>The binary mapping.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ValueTask<byte[]> ReadBinaryAsync(string name, CancellationToken cancellationToken) =>
-        FontDataDownload.ReadAsync($"mozilla/pdf.js/{ResourceRevision}/external/bcmaps/{name}.bcmap", cancellationToken);
+    private static ValueTask<byte[]> ReadBinaryAsync(PdfFontResources resources, string name, CancellationToken cancellationToken) =>
+        FontDataDownload.ReadAsync(resources.Data, $"mozilla/pdf.js/{ResourceRevision}/external/bcmaps/{name}.bcmap", cancellationToken);
 
     /// <summary>Compresses a generated table through the engine's codec.</summary>
     /// <param name="data">The table bytes.</param>

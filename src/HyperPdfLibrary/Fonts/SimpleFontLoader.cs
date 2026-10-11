@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdfLibrary.Fonts.CMaps;
 using HyperPdfLibrary.Fonts.Data;
@@ -36,10 +37,21 @@ internal static class SimpleFontLoader
     /// <param name="trueType">Whether the /Subtype is /TrueType.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The font.</returns>
-    internal static PdfSimpleFont Load(PdfDictionary font, bool trueType, CancellationToken cancellationToken = default)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfSimpleFont Load(PdfDictionary font, bool trueType, CancellationToken cancellationToken = default) =>
+        Load(font, trueType, PdfFontResources.For(font), cancellationToken);
+
+    /// <summary>Loads a simple font with resources selected by the caller.</summary>
+    /// <param name="font">The font dictionary.</param>
+    /// <param name="trueType">Whether the /Subtype is /TrueType.</param>
+    /// <param name="resources">The selected resources.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    /// <returns>The font.</returns>
+    internal static PdfSimpleFont Load(PdfDictionary font, bool trueType, PdfFontResources resources, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var facts = ReadFacts(font, trueType, cancellationToken);
+        SystemFontMatcher? matcher = null;
         var encoding = SimpleEncoding.Read(font, new(InitialEncoding(facts), facts.Program is not null, facts.HasTrueTypeFace, facts.IsSymbolic, IsSymbolName(facts)));
         var toUnicode = ToUnicodeLoader.Load(font, cancellationToken);
         GlyphSource source;
@@ -48,14 +60,15 @@ internal static class SimpleFontLoader
         {
             source = new ProgramGlyphSource(program);
             map = trueType && program is TrueTypeProgram tt
-                ? TrueTypeGlyphMapper.Map(tt, encoding, facts.Flags, toUnicode, font.GetInt32(KnownName.FirstChar))
-                : Type1GlyphMapper.Map(program, encoding, facts.IsSymbolic, encoding.Base == FontEncoding.ZapfDingbats);
+                ? TrueTypeGlyphMapper.Map(resources, tt, encoding, facts.Flags, toUnicode, font.GetInt32(KnownName.FirstChar))
+                : Type1GlyphMapper.Map(resources, program, encoding, facts.IsSymbolic, encoding.Base == FontEncoding.ZapfDingbats);
         }
         else
         {
-            var face = SystemFontMatcher.For(font).Match(new(facts.BaseFont, facts.Standard, facts.Flags, facts.Descriptor.Weight, CjkScript.None));
+            matcher = SystemFontMatcher.For(font, resources);
+            var face = matcher.Match(new(facts.BaseFont, facts.Standard, facts.Flags, facts.Descriptor.Weight, CjkScript.None));
             source = face;
-            map = SubstituteGlyphMapper.Map(face, encoding, facts.SymbolEncoding, facts.IsSymbolic, toUnicode);
+            map = SubstituteGlyphMapper.Map(resources, face, encoding, facts.SymbolEncoding, facts.IsSymbolic, toUnicode);
         }
 
         var hasWidths = font.GetArray(KnownName.Widths) is not null;
@@ -66,7 +79,7 @@ internal static class SimpleFontLoader
             ChooseDescent(facts, source),
             IsBold(facts),
             hasWidths && source is SubstituteFace { IsRequestedFamily: false } && facts.Standard == StandardFont.None);
-        return new(font, new(source, map.Glyphs, map.Texts, widths, toUnicode, metrics, PuaSymbols.KindOf(facts.BaseFont, facts.Standard)));
+        return new(font, new(source, map.Glyphs, map.Texts, widths, toUnicode, metrics, PuaSymbols.KindOf(facts.BaseFont, facts.Standard)), resources, matcher);
     }
 
     /// <summary>Reads the dictionary, descriptor and program.</summary>

@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
@@ -23,9 +22,9 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     internal static Jbig2SymbolStore? DecodeHuffman(ref Jbig2Reader reader, Jbig2SymbolDictionarySettings settings, Jbig2SymbolSet inputs, Span<byte> refinementContexts, Jbig2Workspace workspace)
     {
         var total = inputs.Count + settings.NewCount;
-        var created = new Jbig2SymbolStore();
-        var widths = ScratchPool<int>.Shared.Rent(Math.Max(settings.NewCount, 1));
-        var flags = ScratchPool<byte>.Shared.Rent(Math.Max(total, 1));
+        var created = new Jbig2SymbolStore(workspace.ScratchPools);
+        var widths = workspace.ScratchPools.Ints.Rent(Math.Max(settings.NewCount, 1));
+        var flags = workspace.ScratchPools.Bytes.Rent(Math.Max(total, 1));
         try
         {
             var context = new HuffmanContext(settings, inputs.With(created), created, workspace, widths, Math.Max(Jbig2Bits.CeilLog2(total), 1));
@@ -35,8 +34,8 @@ internal static partial class Jbig2SymbolDictionaryDecoder
         }
         finally
         {
-            ScratchPool<int>.Shared.Return(widths);
-            ScratchPool<byte>.Shared.Return(flags);
+            workspace.ScratchPools.Ints.Return(widths);
+            workspace.ScratchPools.Bytes.Return(flags);
         }
     }
 
@@ -230,7 +229,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             return AddEmptySymbols(context, first, height);
         }
 
-        using var collective = Jbig2Limits.IsValidSize(totalWidth, height) ? Jbig2Bitmap.Create((int)totalWidth, height) : null;
+        using var collective = Jbig2Limits.IsValidSize(totalWidth, height) ? Jbig2Bitmap.Create((int)totalWidth, height, context.Workspace.ScratchPools) : null;
         if (collective is null || !context.Workspace.TryCharge(totalWidth * height) || !ReadCollectiveRows(ref reader, collective, (uint)size))
         {
             return false;

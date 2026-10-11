@@ -36,13 +36,14 @@ internal static class TrueTypeGlyphMapper
     }
 
     /// <summary>Maps every code.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="program">The embedded TrueType program.</param>
     /// <param name="encoding">The font's encoding.</param>
     /// <param name="flags">The descriptor flags.</param>
     /// <param name="toUnicode">The /ToUnicode map, or <see langword="null"/>.</param>
     /// <param name="firstChar">The /FirstChar.</param>
     /// <returns>The map.</returns>
-    internal static SimpleGlyphMap Map(TrueTypeProgram program, SimpleEncoding encoding, FontFlags flags, ToUnicodeMap? toUnicode, int firstChar)
+    internal static SimpleGlyphMap Map(PdfFontResources resources, TrueTypeProgram program, SimpleEncoding encoding, FontFlags flags, ToUnicodeMap? toUnicode, int firstChar)
     {
         var map = new SimpleGlyphMap();
         var baseEncoding = DetermineEncoding(program, encoding.Base, flags);
@@ -56,11 +57,11 @@ internal static class TrueTypeGlyphMapper
                 return map;
             }
 
-            MapNonsymbolic(program, effective, flags, toUnicode, map);
+            MapNonsymbolic(resources, program, effective, flags, toUnicode, map);
             return map;
         }
 
-        MapSymbolic(program, effective, map);
+        MapSymbolic(resources, program, effective, map);
         return map;
     }
 
@@ -148,12 +149,13 @@ internal static class TrueTypeGlyphMapper
     };
 
     /// <summary>Maps codes by glyph name through the chosen cmap.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="program">The program.</param>
     /// <param name="encoding">The encoding.</param>
     /// <param name="flags">The flags.</param>
     /// <param name="toUnicode">The /ToUnicode map, or <see langword="null"/>.</param>
     /// <param name="map">The map.</param>
-    private static void MapNonsymbolic(TrueTypeProgram program, SimpleEncoding encoding, FontFlags flags, ToUnicodeMap? toUnicode, SimpleGlyphMap map)
+    private static void MapNonsymbolic(PdfFontResources resources, TrueTypeProgram program, SimpleEncoding encoding, FontFlags flags, ToUnicodeMap? toUnicode, SimpleGlyphMap map)
     {
         var type = DetermineCharmap(program, flags);
         for (var code = 0; code < FontEncodings.CodeCount; code++)
@@ -165,7 +167,7 @@ internal static class TrueTypeGlyphMapper
                 continue;
             }
 
-            var text = GlyphNameText.TextOf(name, false);
+            var text = GlyphNameText.TextOf(resources, name, false);
             map.Texts[code] = text;
             var glyph = type == CharmapType.Symbol ? program.LookupSymbolCmap(code) : LookupByName(program, type, name, GlyphNameText.FirstCodePoint(text));
             if (glyph == 0)
@@ -244,12 +246,13 @@ internal static class TrueTypeGlyphMapper
     }
 
     /// <summary>Maps the codes of a symbolic font by code.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="program">The program.</param>
     /// <param name="encoding">The encoding.</param>
     /// <param name="map">The map.</param>
-    private static void MapSymbolic(TrueTypeProgram program, SimpleEncoding encoding, SimpleGlyphMap map)
+    private static void MapSymbolic(PdfFontResources resources, TrueTypeProgram program, SimpleEncoding encoding, SimpleGlyphMap map)
     {
-        if (program.HasSymbolCmap && MapSymbolCmap(program, encoding, map))
+        if (program.HasSymbolCmap && MapSymbolCmap(resources, program, encoding, map))
         {
             return;
         }
@@ -259,7 +262,7 @@ internal static class TrueTypeGlyphMapper
             for (var code = 0; code < FontEncodings.CodeCount; code++)
             {
                 map.Glyphs[code] = program.LookupMacCmap(code);
-                map.Texts[code] = GlyphNameText.TextOf(FontEncodings.GetGlyphName(FontEncoding.MacRoman, code), false);
+                map.Texts[code] = GlyphNameText.TextOf(resources, FontEncodings.GetGlyphName(FontEncoding.MacRoman, code), false);
             }
 
             return;
@@ -275,11 +278,12 @@ internal static class TrueTypeGlyphMapper
     }
 
     /// <summary>Maps codes through the (3,0) symbol cmap.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="program">The program.</param>
     /// <param name="encoding">The encoding.</param>
     /// <param name="map">The map.</param>
     /// <returns><see langword="true"/> when some code found a glyph.</returns>
-    private static bool MapSymbolCmap(TrueTypeProgram program, SimpleEncoding encoding, SimpleGlyphMap map)
+    private static bool MapSymbolCmap(PdfFontResources resources, TrueTypeProgram program, SimpleEncoding encoding, SimpleGlyphMap map)
     {
         for (var code = 0; code < FontEncodings.CodeCount; code++)
         {
@@ -295,7 +299,7 @@ internal static class TrueTypeGlyphMapper
         for (var code = 0; code < FontEncodings.CodeCount; code++)
         {
             var name = namesFromMac ? FontEncodings.GetGlyphName(FontEncoding.MacRoman, code) : encoding.GetName(code);
-            map.Texts[code] = GlyphNameText.TextOf(name, false);
+            map.Texts[code] = GlyphNameText.TextOf(resources, name, false);
         }
 
         return true;

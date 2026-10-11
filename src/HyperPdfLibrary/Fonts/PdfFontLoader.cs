@@ -21,8 +21,19 @@ public static class PdfFontLoader
     public static async ValueTask<PdfFont?> LoadAsync(PdfDictionary dictionary, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dictionary);
-        await FontDataPrefetcher.PrepareFontAsync(dictionary, cancellationToken).ConfigureAwait(false);
-        return LoadPrepared(dictionary, cancellationToken);
+        var resources = PdfFontResources.For(dictionary);
+        try
+        {
+            await FontDataPrefetcher.PrepareFontAsync(dictionary, resources, cancellationToken).ConfigureAwait(false);
+            return LoadPrepared(dictionary, resources, cancellationToken);
+        }
+        finally
+        {
+            if (dictionary.Owner?.Context is null)
+            {
+                resources.CloseDownloadClient();
+            }
+        }
     }
 
     /// <summary>Loads a font from its dictionary.</summary>
@@ -31,22 +42,24 @@ public static class PdfFontLoader
     /// <exception cref="ArgumentNullException"><paramref name="dictionary"/> is <see langword="null"/>.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PdfFont? Load(PdfDictionary dictionary) =>
-        LoadPrepared(dictionary, CancellationToken.None);
+        LoadPrepared(dictionary, null, CancellationToken.None);
 
-    /// <summary>Loads a font while passing the caller's token to embedded streams.</summary>
+    /// <summary>Loads a font using the selected resources.</summary>
     /// <param name="dictionary">The font dictionary.</param>
+    /// <param name="selectedResources">Resources already selected by an async prefetch, if any.</param>
     /// <param name="cancellationToken">Cancels loading.</param>
     /// <returns>The font, or null.</returns>
-    private static PdfFont? LoadPrepared(PdfDictionary dictionary, CancellationToken cancellationToken)
+    private static PdfFont? LoadPrepared(PdfDictionary dictionary, PdfFontResources? selectedResources, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dictionary);
         cancellationToken.ThrowIfCancellationRequested();
         var subtype = dictionary.GetName(KnownName.Subtype);
+        var resources = selectedResources ?? PdfFontResources.For(dictionary);
         if (subtype.Is(KnownName.Type0))
         {
-            return CompositeFontLoader.Load(dictionary, cancellationToken);
+            return CompositeFontLoader.Load(dictionary, resources, cancellationToken);
         }
 
-        return subtype.Is(KnownName.Type3) ? new Type3Font(dictionary) : SimpleFontLoader.Load(dictionary, subtype.Is(KnownName.TrueType), cancellationToken);
+        return subtype.Is(KnownName.Type3) ? new Type3Font(dictionary, resources) : SimpleFontLoader.Load(dictionary, subtype.Is(KnownName.TrueType), resources, cancellationToken);
     }
 }

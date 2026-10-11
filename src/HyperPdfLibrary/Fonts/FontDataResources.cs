@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace HyperPdfLibrary.Fonts;
@@ -10,18 +9,6 @@ namespace HyperPdfLibrary.Fonts;
 /// <summary>Generates requested assets once and persists only those assets.</summary>
 internal static class FontDataResources
 {
-    /// <summary>Serializes generation of each requested asset.</summary>
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.Ordinal);
-
-    /// <summary>Records first availability of each requested asset.</summary>
-    private static readonly ConcurrentDictionary<string, AvailabilityEntry> Availability = new(StringComparer.Ordinal);
-
-    /// <summary>The number of resources first observed available in this process.</summary>
-    private static int _generation;
-
-    /// <summary>Gets the resource generation for refreshing document caches.</summary>
-    internal static int Generation => Volatile.Read(ref _generation);
-
     /// <summary>Gets the cache folder, created only on the first requested asset.</summary>
     internal static string DirectoryPath { get; } = Path.Combine(
         Environment.GetEnvironmentVariable("HYPERPDF_FONT_DATA")
@@ -51,45 +38,54 @@ internal static class FontDataResources
     }
 
     /// <summary>Generates a missing asset; failed and cancelled attempts leave no cache entry.</summary>
+    /// <param name="state">The selected resource cache.</param>
     /// <param name="folder">The resource group.</param>
     /// <param name="name">The filename.</param>
     /// <param name="generate">Builds the asset bytes.</param>
     /// <param name="cancellationToken">Cancels generation and I/O.</param>
     /// <returns>A task completing when the asset is cached.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ValueTask EnsureAsync(string folder, string name, Func<CancellationToken, ValueTask<byte[]>> generate, CancellationToken cancellationToken) =>
-        EnsureAsync(DirectoryPath, folder, name, generate, cancellationToken);
+    internal static ValueTask EnsureAsync(FontDataResourceState state, string folder, string name, Func<CancellationToken, ValueTask<byte[]>> generate, CancellationToken cancellationToken) =>
+        EnsureAsync(state, DirectoryPath, folder, name, generate, cancellationToken);
 
     /// <summary>Generates one resource in a supplied cache.</summary>
+    /// <param name="state">The selected resource cache.</param>
     /// <param name="directory">The cache root.</param>
     /// <param name="folder">The resource group.</param>
     /// <param name="name">The filename.</param>
     /// <param name="generate">Builds the resource bytes.</param>
     /// <param name="cancellationToken">Cancels generation and I/O.</param>
     /// <returns>A task completing when the resource is cached.</returns>
-    internal static async ValueTask EnsureAsync(string directory, string folder, string name, Func<CancellationToken, ValueTask<byte[]>> generate, CancellationToken cancellationToken)
+    internal static async ValueTask EnsureAsync(
+        FontDataResourceState state,
+        string directory,
+        string folder,
+        string name,
+        Func<CancellationToken, ValueTask<byte[]>> generate,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
         var path = Path.Combine(directory, folder, name);
-        if (Availability.TryGetValue(path, out var known) && known.IsAvailable && File.Exists(path))
+        if (state.Availability.TryGetValue(path, out var known) && known.IsAvailable && File.Exists(path))
         {
             return;
         }
 
-        var entry = known ?? Availability.GetOrAdd(path, static _ => new AvailabilityEntry());
+        var entry = known ?? state.Availability.GetOrAdd(path, static _ => new FontDataAvailability());
         if (File.Exists(path))
         {
-            entry.ObserveAvailability();
+            entry.ObserveAvailability(state);
             return;
         }
 
-        var gate = Gates.GetOrAdd(path, static _ => new SemaphoreSlim(1, 1));
+        var gate = state.Gates.GetOrAdd(path, static _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (File.Exists(path))
             {
-                entry.ObserveAvailability();
+                entry.ObserveAvailability(state);
                 return;
             }
 
@@ -102,7 +98,7 @@ internal static class FontDataResources
                 cancellationToken.ThrowIfCancellationRequested();
                 await WriteNoticeAsync(directory, folder, cancellationToken).ConfigureAwait(false);
                 Publish(temporary, path);
-                entry.ObserveAvailability();
+                entry.ObserveAvailability(state);
             }
             finally
             {
@@ -159,39 +155,6 @@ internal static class FontDataResources
         finally
         {
             File.Delete(temporary);
-        }
-    }
-
-    /// <summary>Records whether this process has observed one requested asset.</summary>
-    private sealed class AvailabilityEntry
-    {
-        /// <summary>Guards the first version advance.</summary>
-        private readonly Lock _gate = new();
-
-        /// <summary>Whether this process has observed the asset.</summary>
-        private int _available;
-
-        /// <summary>Gets whether the asset has been observed available.</summary>
-        internal bool IsAvailable => Volatile.Read(ref _available) != 0;
-
-        /// <summary>Advances the document generation once when this asset becomes available.</summary>
-        internal void ObserveAvailability()
-        {
-            if (IsAvailable)
-            {
-                return;
-            }
-
-            lock (_gate)
-            {
-                if (_available != 0)
-                {
-                    return;
-                }
-
-                _ = Interlocked.Increment(ref _generation);
-                Volatile.Write(ref _available, 1);
-            }
         }
     }
 }

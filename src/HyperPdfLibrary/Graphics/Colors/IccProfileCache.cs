@@ -18,12 +18,6 @@ internal sealed class IccProfileCache
     /// <summary>The number of recently loaded profiles shared by content-identical streams.</summary>
     private const int RecentCapacity = 16;
 
-    /// <summary>Parsed transforms by stream.</summary>
-    private readonly ConditionalWeakTable<PdfStream, Entry> _streams = new();
-
-    /// <summary>The callback reused by the weak table without a delegate per lookup.</summary>
-    private readonly ConditionalWeakTable<PdfStream, Entry>.CreateValueCallback _loadEntry;
-
     /// <summary>Guards the recent-profile ring.</summary>
     private readonly Lock _gate = new();
 
@@ -33,46 +27,52 @@ internal sealed class IccProfileCache
     /// <summary>The next ring slot to replace.</summary>
     private int _nextRecent;
 
-    /// <summary>Initializes a new instance of the <see cref="IccProfileCache"/> class.</summary>
-    internal IccProfileCache() => _loadEntry = LoadEntry;
-
-    /// <summary>Reads an unowned profile without retaining mutable process state.</summary>
+    /// <summary>Reads a detached profile, caching its result on the stream.</summary>
     /// <param name="stream">The profile stream.</param>
     /// <param name="components">The declared component count.</param>
     /// <returns>The transform, or null when the profile is unusable.</returns>
-    internal static IccTransform? ReadUnowned(PdfStream stream, int components)
-    {
-        try
-        {
-            var data = stream.DecodeToArray();
-            var transform = data.Length > MaxProfileSize ? null : IccProfile.Create(data);
-            return transform?.Components == components ? transform : null;
-        }
-        catch (InvalidDataException)
-        {
-            return null;
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IccTransform? ReadUnowned(PdfStream stream, int components) => Get(stream, components, null);
 
     /// <summary>Gets a transform for a profile stream.</summary>
     /// <param name="stream">The profile stream.</param>
     /// <param name="components">The declared component count.</param>
     /// <returns>The transform, or null when the profile is unusable.</returns>
-    internal IccTransform? Get(PdfStream stream, int components)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal IccTransform? Get(PdfStream stream, int components) => Get(stream, components, this);
+
+    /// <summary>Gets or publishes a stream's parsed profile result.</summary>
+    /// <param name="stream">The profile stream.</param>
+    /// <param name="components">The declared component count.</param>
+    /// <param name="cache">The owning services' recent-profile cache, or null for a detached stream.</param>
+    /// <returns>The transform, or null when the profile is unusable.</returns>
+    private static IccTransform? Get(PdfStream stream, int components, IccProfileCache? cache)
     {
-        var transform = _streams.GetValue(stream, _loadEntry).Transform;
-        return transform?.Components == components ? transform : null;
+        var entry = stream.CachedIccProfile;
+        if (entry is null)
+        {
+            var loaded = LoadEntry(stream, cache);
+            entry = stream.PublishIccProfileEntry(loaded);
+        }
+
+        return entry.Transform?.Components == components ? entry.Transform : null;
     }
 
-    /// <summary>Creates a weak-table entry for a stream.</summary>
+    /// <summary>Loads a stream's profile before publishing the result on that stream.</summary>
     /// <param name="stream">The profile stream.</param>
+    /// <param name="cache">The owning services' recent-profile cache, or null for a detached stream.</param>
     /// <returns>The cached transform, including an unsupported result.</returns>
-    private Entry LoadEntry(PdfStream stream)
+    private static Entry LoadEntry(PdfStream stream, IccProfileCache? cache)
     {
         try
         {
             var data = stream.DecodeToArray();
-            return new(data.Length > MaxProfileSize ? null : Shared(data));
+            if (data.Length > MaxProfileSize)
+            {
+                return new(null);
+            }
+
+            return new(cache is null ? IccProfile.Create(data) : cache.Shared(data));
         }
         catch (InvalidDataException)
         {
@@ -116,7 +116,7 @@ internal sealed class IccProfileCache
 
     /// <summary>A cached stream result.</summary>
     /// <param name="Transform">The transform, or null.</param>
-    private sealed record Entry(IccTransform? Transform);
+    internal sealed record Entry(IccTransform? Transform);
 
     /// <summary>A recent parsed profile shared across streams.</summary>
     /// <param name="Key">The profile identity.</param>

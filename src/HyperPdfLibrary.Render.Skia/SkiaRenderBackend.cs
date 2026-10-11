@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -16,6 +17,7 @@ using SkiaSharp;
 namespace HyperPdfLibrary.Render.Skia;
 
 /// <summary>Creates Skia drawing resources behind the managed PDF drawing contracts.</summary>
+[DebuggerDisplay("Skia drawing backend")]
 public sealed class SkiaRenderBackend : IPdfRenderBackend
 {
     /// <summary>The reusable drawing session for each thread that uses this backend.</summary>

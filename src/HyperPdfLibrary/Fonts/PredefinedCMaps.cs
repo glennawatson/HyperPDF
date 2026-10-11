@@ -12,7 +12,7 @@ namespace HyperPdfLibrary.Fonts;
 /// <summary>
 /// The predefined CMaps of ISO 32000-2 Table 116: Identity-H and Identity-V, and every Adobe-GB1, CNS1, Japan1 and
 /// Korea1 CMap, H and V, including the UCS2, UTF16 and UTF32 ones. The CJK CMaps are generated from compact
-/// binary resource packs on demand; each is cached on disk, read once and shared. Names the library does not know
+/// binary resource packs on demand; each selected service caches parsed maps. Names the library does not know
 /// get PDFium's fallback: two-byte codes used as CIDs, with no text of their own.
 /// </summary>
 internal static class PredefinedCMaps
@@ -29,12 +29,6 @@ internal static class PredefinedCMaps
     /// <summary>The longest code, in bytes.</summary>
     private const int MaxCodeLength = 4;
 
-    /// <summary>The CMaps read so far, by name.</summary>
-    private static readonly Dictionary<string, CompositeCMap> Cache = [with(StringComparer.Ordinal)];
-
-    /// <summary>Guards <see cref="Cache"/>; recursion through a usecmap chain re-enters it.</summary>
-    private static readonly Lock Gate = new();
-
     /// <summary>Gets Identity-H.</summary>
     private static CompositeCMap IdentityH { get; } = new(CMap.IdentityH, CidCoding.Cid, CjkScript.None);
 
@@ -48,31 +42,35 @@ internal static class PredefinedCMaps
     private static CompositeCMap UnknownV { get; } = new(CMap.IdentityV, CidCoding.Unknown, CjkScript.None);
 
     /// <summary>Generates a supported map on its first request.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The map name.</param>
     /// <param name="cancellationToken">Cancels source I/O.</param>
     /// <returns>A task completing when the map is available.</returns>
-    internal static ValueTask EnsureAsync(string name, CancellationToken cancellationToken)
+    internal static ValueTask EnsureAsync(PdfFontResources resources, string name, CancellationToken cancellationToken)
     {
         var collection = FontDataGeneration.FindCollection(name);
 
         // The factory builds the requested map before rendering starts.
         return collection is null ? ValueTask.CompletedTask : FontDataResources.EnsureAsync(
+            resources.Data,
             "CMaps",
             $"{name}.bin",
-            token => FontDataGeneration.CMapAsync(name, collection, token),
+            token => FontDataGeneration.CMapAsync(resources, name, collection, token),
             cancellationToken);
     }
 
     /// <summary>Gets a predefined CMap by name.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The CMap name.</param>
     /// <returns>The CMap; an unknown name reads two-byte codes as CIDs, as PDFium does, vertically when it ends in V.</returns>
-    internal static CompositeCMap Get(ReadOnlySpan<byte> name) =>
-        Find(name) ?? (!name.IsEmpty && name[^1] == (byte)'V' ? UnknownV : UnknownH);
+    internal static CompositeCMap Get(PdfFontResources resources, ReadOnlySpan<byte> name) =>
+        Find(resources, name) ?? (!name.IsEmpty && name[^1] == (byte)'V' ? UnknownV : UnknownH);
 
     /// <summary>Finds a predefined CMap by name.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The CMap name.</param>
     /// <returns>The CMap, or <see langword="null"/> when the library does not hold it.</returns>
-    internal static CompositeCMap? Find(ReadOnlySpan<byte> name)
+    internal static CompositeCMap? Find(PdfFontResources resources, ReadOnlySpan<byte> name)
     {
         if (name.SequenceEqual("Identity-H"u8))
         {
@@ -84,18 +82,19 @@ internal static class PredefinedCMaps
             return IdentityV;
         }
 
-        return name.IsEmpty || !Ascii.IsValid(name) ? null : Find(Encoding.ASCII.GetString(name));
+        return name.IsEmpty || !Ascii.IsValid(name) ? null : Find(resources, Encoding.ASCII.GetString(name));
     }
 
     /// <summary>Reads a packed CMap from disk without caching it; its base CMaps come from the cache.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The CMap name.</param>
     /// <returns>The CMap, or <see langword="null"/> when the library does not hold it.</returns>
-    internal static CompositeCMap? Load(string name)
+    internal static CompositeCMap? Load(PdfFontResources resources, string name)
     {
         var data = new PooledBuffer(0);
         try
         {
-            return CMapResources.TryRead(name, ref data) ? Parse(data.WrittenSpan) : null;
+            return CMapResources.TryRead(name, ref data) ? Parse(resources, data.WrittenSpan) : null;
         }
         finally
         {
@@ -104,21 +103,23 @@ internal static class PredefinedCMaps
     }
 
     /// <summary>Finds a packed CMap by name, reading it on first use.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The CMap name.</param>
     /// <returns>The CMap, or <see langword="null"/> when the library does not hold it.</returns>
-    private static CompositeCMap? Find(string name)
+    private static CompositeCMap? Find(PdfFontResources resources, string name)
     {
-        lock (Gate)
+        var cache = resources.CMaps;
+        lock (cache.Gate)
         {
-            if (Cache.TryGetValue(name, out var cached))
+            if (cache.Cache.TryGetValue(name, out var cached))
             {
                 return cached;
             }
 
-            var map = Load(name);
+            var map = Load(resources, name);
             if (map is not null)
             {
-                Cache[name] = map;
+                cache.Cache[name] = map;
             }
 
             return map;
@@ -130,10 +131,11 @@ internal static class PredefinedCMaps
     /// CID ranges sorted by first code, each as LEB128 deltas: first code from the previous first code, length less one,
     /// and the CID as a zigzag delta from the CID the previous range would continue with.
     /// </summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="data">The decompressed resource.</param>
     /// <returns>The CMap.</returns>
     /// <exception cref="InvalidDataException">The data is damaged.</exception>
-    private static CompositeCMap Parse(ReadOnlySpan<byte> data)
+    private static CompositeCMap Parse(PdfFontResources resources, ReadOnlySpan<byte> data)
     {
         var reader = new PackedDataReader(data);
         if (reader.ReadByte() != Version)
@@ -145,7 +147,7 @@ internal static class PredefinedCMaps
         var coding = (CidCoding)reader.ReadByte();
         var collection = (CjkScript)reader.ReadByte();
         var parentName = reader.ReadBytes(reader.ReadByte());
-        var parent = parentName.IsEmpty ? null : Find(parentName) ?? throw new InvalidDataException("A packed CMap's base is missing.");
+        var parent = parentName.IsEmpty ? null : Find(resources, parentName) ?? throw new InvalidDataException("A packed CMap's base is missing.");
         var codespaces = ReadCodespaces(ref reader);
         var cids = ReadCids(ref reader);
         return new(CMap.Create(codespaces, cids, parent?.Map, vertical ? VerticalMode : 0), coding, collection);

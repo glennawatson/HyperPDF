@@ -50,7 +50,7 @@ internal static class Jbig2Regions
     /// <param name="parameters">The region parameters.</param>
     internal static void DecodeArithmeticRegion(ref Jbig2Reader reader, Jbig2Bitmap region, in Jbig2GenericParameters parameters)
     {
-        using var contexts = new Jbig2ContextBuffer(parameters.ContextCount);
+        using var contexts = new Jbig2ContextBuffer(parameters.ContextCount, reader.ScratchPools);
         var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         _ = Jbig2GenericRegion.Decode(ref decoder, contexts.Span, parameters, region, null);
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
@@ -131,7 +131,7 @@ internal static class Jbig2Regions
     /// <returns>The copy; white when the region's corner is off the page, as in PDFium.</returns>
     internal static Jbig2Bitmap? CopyPageArea(Jbig2Bitmap page, in Jbig2RegionInfo info)
     {
-        var area = Jbig2Bitmap.Create(info.Width, info.Height);
+        var area = Jbig2Bitmap.Create(info.Width, info.Height, page.ScratchPools);
         if (area is not null && info.X >= 0 && info.X < page.Width && info.Y >= 0 && info.Y < page.Height)
         {
             _ = Jbig2Composer.Compose(area, page.View, -(long)info.X, -(long)info.Y, Jbig2ComposeOperator.Replace);
@@ -207,7 +207,7 @@ internal static class Jbig2Regions
             return Jbig2Status.Failure;
         }
 
-        var region = Jbig2Bitmap.Create(info.Width, info.Height);
+        var region = Jbig2Bitmap.Create(info.Width, info.Height, state.Workspace.ScratchPools);
         if (region is null)
         {
             return Jbig2Status.Failure;
@@ -239,12 +239,12 @@ internal static class Jbig2Regions
         }
 
         using var pageArea = segment.Referred.IsEmpty ? CopyPageArea(page, info) : null;
-        if ((pageArea ?? FindReferredRegion(state, segment)) is not { } reference || Jbig2Bitmap.Create(info.Width, info.Height) is not { } region)
+        if ((pageArea ?? FindReferredRegion(state, segment)) is not { } reference || Jbig2Bitmap.Create(info.Width, info.Height, state.Workspace.ScratchPools) is not { } region)
         {
             return Jbig2Status.Failure;
         }
 
-        using var contexts = new Jbig2ContextBuffer(parameters.ContextCount);
+        using var contexts = new Jbig2ContextBuffer(parameters.ContextCount, state.Workspace.ScratchPools);
         var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         if (!Jbig2RefinementRegion.Decode(ref decoder, contexts.Span, parameters, reference.View, region))
         {
@@ -287,7 +287,7 @@ internal static class Jbig2Regions
             return Jbig2Status.Failure;
         }
 
-        var region = Jbig2Bitmap.Create(info.Width, info.Height);
+        var region = Jbig2Bitmap.Create(info.Width, info.Height, state.Workspace.ScratchPools);
         if (region is null || !DecodeHalftone(state, ref reader, settings, patterns, region))
         {
             region?.Dispose();
@@ -311,7 +311,7 @@ internal static class Jbig2Regions
             return Jbig2HalftoneRegion.DecodeMmr(ref reader, settings, patterns, region, state.Workspace);
         }
 
-        using var contexts = new Jbig2ContextBuffer(Jbig2GenericParameters.ContextCountFor(settings.Template));
+        using var contexts = new Jbig2ContextBuffer(Jbig2GenericParameters.ContextCountFor(settings.Template), state.Workspace.ScratchPools);
         var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         var decoded = Jbig2HalftoneRegion.DecodeArithmetic(ref decoder, contexts.Span, settings, patterns, region, state.Workspace);
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);

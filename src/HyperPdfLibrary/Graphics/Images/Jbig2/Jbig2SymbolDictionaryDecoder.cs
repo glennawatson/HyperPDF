@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdfLibrary.Filters;
-
 namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
 /// <summary>
@@ -30,8 +28,8 @@ internal static partial class Jbig2SymbolDictionaryDecoder
         Jbig2Workspace workspace)
     {
         var inputCount = inputs.Count;
-        var created = new Jbig2SymbolStore();
-        using var integers = new Jbig2IntegerContexts(Jbig2Bits.CeilLog2((long)inputCount + settings.NewCount));
+        var created = new Jbig2SymbolStore(workspace.ScratchPools);
+        using var integers = new Jbig2IntegerContexts(Jbig2Bits.CeilLog2((long)inputCount + settings.NewCount), workspace.ScratchPools);
         var aggregate = Jbig2TextRegionSettings.ForAggregate(false, integers.IdCodeLength, settings.RefinementTemplate, settings.RefinementAt);
         var context = new ArithmeticContext(settings, inputs.With(created), created, workspace, aggregate);
         if (!DecodeArithmeticSymbols(ref decoder, context, integers, genericContexts, refinementContexts))
@@ -40,7 +38,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             return null;
         }
 
-        var flags = ScratchPool<byte>.Shared.Rent(inputCount + settings.NewCount);
+        var flags = workspace.ScratchPools.Bytes.Rent(inputCount + settings.NewCount);
         try
         {
             var span = flags.AsSpan(0, inputCount + settings.NewCount);
@@ -50,7 +48,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(flags);
+            workspace.ScratchPools.Bytes.Return(flags);
         }
     }
 
@@ -245,7 +243,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             return created;
         }
 
-        var exported = new Jbig2SymbolStore();
+        var exported = new Jbig2SymbolStore(created.ScratchPools);
         var copied = 0;
         for (var i = 0; i < flags.Length && copied < exportCount; i++)
         {

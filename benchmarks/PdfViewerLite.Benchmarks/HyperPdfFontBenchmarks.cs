@@ -66,6 +66,9 @@ public class HyperPdfFontBenchmarks
     /// <summary>The document.</summary>
     private PdfDocument _document = null!;
 
+    /// <summary>The font resources selected by this benchmark's drawing services.</summary>
+    private PdfFontResources _fontResources = null!;
+
     /// <summary>The renderer, already holding the recorded page.</summary>
     private PdfPageRenderer _renderer = null!;
 
@@ -100,12 +103,13 @@ public class HyperPdfFontBenchmarks
         _codes = EncodeLine(Kind);
         _pdf = CreateDocument(Kind, _codes);
         _document = BenchmarkDrawing.Open(_pdf, null, _drawingServices);
+        _fontResources = _document.DrawingServices.FontResources;
         await PdfDocumentPages.PrefetchPageAsync(_document, 0, CancellationToken.None);
-        await PredefinedCMaps.EnsureAsync(ColdCMapName, CancellationToken.None);
-        await PredefinedCMaps.EnsureAsync("90ms-RKSJ-H", CancellationToken.None);
-        await CidToUnicodeTable.EnsureAsync(CjkScript.Japanese, CancellationToken.None);
-        await BundledFaces.EnsureAsync(BundledFamily.Sans, false, false, CancellationToken.None);
-        await BundledFaces.EnsureAsync(BundledFamily.Sans, true, false, CancellationToken.None);
+        await PredefinedCMaps.EnsureAsync(_fontResources, ColdCMapName, CancellationToken.None);
+        await PredefinedCMaps.EnsureAsync(_fontResources, "90ms-RKSJ-H", CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_fontResources, CjkScript.Japanese, CancellationToken.None);
+        await BundledFaces.EnsureAsync(_fontResources, BundledFamily.Sans, false, false, CancellationToken.None);
+        await BundledFaces.EnsureAsync(_fontResources, BundledFamily.Sans, true, false, CancellationToken.None);
         _renderer = new(_document);
         var fonts = PdfDocumentPages.GetPage(_document, 0).Resources?.GetDictionary(KnownName.Font) ?? throw new InvalidOperationException("No fonts.");
         _fontDictionary = fonts.Get(fonts.GetKeyAt(0)).AsDictionary() ?? throw new InvalidOperationException("No font.");
@@ -119,8 +123,8 @@ public class HyperPdfFontBenchmarks
             _shiftJis[(i * (1 + 1)) + 1] = (byte)(FirstTrailByte + (i % TrailBytes));
         }
 
-        _shiftJisMap = PredefinedCMaps.Get("90ms-RKSJ-H"u8);
-        _japan1 = CidToUnicodeTable.Get(CjkScript.Japanese) ?? throw new InvalidOperationException("No Adobe-Japan1 table.");
+        _shiftJisMap = PredefinedCMaps.Get(_fontResources, "90ms-RKSJ-H"u8);
+        _japan1 = CidToUnicodeTable.Get(_fontResources, CjkScript.Japanese) ?? throw new InvalidOperationException("No Adobe-Japan1 table.");
     }
 
     /// <summary>Releases the renderer and document.</summary>
@@ -191,7 +195,7 @@ public class HyperPdfFontBenchmarks
     /// <summary>Reads a predefined CMap from disk: decompresses and decodes UniJIS-UCS2-H, as on first use.</summary>
     /// <returns>The CMap.</returns>
     [Benchmark]
-    public object? LoadPredefinedCMap() => PredefinedCMaps.Load(ColdCMapName);
+    public object? LoadPredefinedCMap() => PredefinedCMaps.Load(_fontResources, ColdCMapName);
 
     /// <summary>Reads the Adobe-Japan1 CID-to-Unicode table from disk, as on first use.</summary>
     /// <returns>The table.</returns>

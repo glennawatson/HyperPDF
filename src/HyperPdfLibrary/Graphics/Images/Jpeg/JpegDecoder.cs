@@ -4,6 +4,7 @@
 
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpeg;
 
@@ -69,6 +70,9 @@ internal ref partial struct JpegDecoder
     /// <summary>The token for this image decode.</summary>
     private readonly CancellationToken _cancellationToken;
 
+    /// <summary>The explicit scratch cache for this image decode.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The DC Huffman tables by id.</summary>
     private readonly JpegHuffmanTable?[] _codesDc;
 
@@ -115,8 +119,18 @@ internal ref partial struct JpegDecoder
     /// <param name="data">The JPEG data.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     internal JpegDecoder(ReadOnlySpan<byte> data, CancellationToken cancellationToken = default)
+        : this(data, new ScratchPools(), cancellationToken)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpegDecoder"/> struct with an explicit cache.</summary>
+    /// <param name="data">The JPEG data.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal JpegDecoder(ReadOnlySpan<byte> data, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         _data = data;
+        _scratchPools = scratchPools;
         _cancellationToken = cancellationToken;
         _codesDc = new JpegHuffmanTable?[TableSlots];
         _codesAc = new JpegHuffmanTable?[TableSlots];
@@ -142,10 +156,21 @@ internal ref partial struct JpegDecoder
     /// <param name="output">Receives width * height * components bytes.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see langword="true"/> when at least one scan decoded and <paramref name="output"/> was filled.</returns>
-    internal static bool TryDecode(ReadOnlySpan<byte> data, bool convertColor, Span<byte> output, CancellationToken cancellationToken = default)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool TryDecode(ReadOnlySpan<byte> data, bool convertColor, Span<byte> output, CancellationToken cancellationToken = default) =>
+        TryDecode(data, convertColor, output, new(), cancellationToken);
+
+    /// <summary>Decodes JPEG samples with an explicit scratch cache.</summary>
+    /// <param name="data">The JPEG data.</param>
+    /// <param name="convertColor">Whether to convert YCbCr or YCCK.</param>
+    /// <param name="output">Receives the samples.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>Whether at least one scan decoded.</returns>
+    internal static bool TryDecode(ReadOnlySpan<byte> data, bool convertColor, Span<byte> output, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         // Not a using declaration: that would make the decoder read-only and the calls below would act on a copy.
-        var decoder = new JpegDecoder(data, cancellationToken);
+        var decoder = new JpegDecoder(data, scratchPools, cancellationToken);
         try
         {
             return decoder.Decode() && decoder.Write(output, convertColor);
@@ -387,7 +412,7 @@ internal ref partial struct JpegDecoder
                 _mcusPerColumn,
                 CeilingDivide(CeilingDivide(_width * horizontal, _maxHorizontal), JpegBlock.Side),
                 CeilingDivide(CeilingDivide(_height * vertical, _maxVertical), JpegBlock.Side));
-            components[i] = new(spec, grid);
+            components[i] = new(spec, grid, _scratchPools);
         }
 
         return true;

@@ -69,6 +69,7 @@ internal static class JpegImageDecoder
         IPdfImageCodec? imageCodec,
         CancellationToken cancellationToken)
     {
+        var scratchPools = ScratchFor(context);
         cancellationToken.ThrowIfCancellationRequested();
         ReportIfTruncated(data, context, objectNumber);
 
@@ -85,8 +86,8 @@ internal static class JpegImageDecoder
         var convert = info.UsesColorTransform(colorTransform);
         var needsRawSamples = info.Components == CmykComponents || (info.Components == RgbComponents && !convert);
         var image = needsRawSamples
-            ? DecodeManaged(header, data, info, convert, cancellationToken)
-            : DecodeProvider(header, data, info, imageCodec) ?? DecodeManaged(header, data, info, convert, cancellationToken);
+            ? DecodeManaged(header, data, info, convert, scratchPools, cancellationToken)
+            : DecodeProvider(header, data, info, imageCodec, scratchPools) ?? DecodeManaged(header, data, info, convert, scratchPools, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return image ?? Unsupported(header);
     }
@@ -110,10 +111,15 @@ internal static class JpegImageDecoder
     private static PdfImageData Unsupported(in ImageHeader header) =>
         new(header.Width, header.Height, [], header.IsStencil, header.Interpolate, PdfImageCodec.Jpeg);
 
+    /// <summary>Gets the open document's cache, or one owned by a standalone decode.</summary>
+    /// <param name="context">The open context, or null.</param>
+    /// <returns>The bounded cache.</returns>
+    private static ScratchPools ScratchFor(PdfOpenContext? context) => context?.ScratchPools ?? new();
+
     /// <summary>Gets the header an 8-bit JPEG decodes with: the JPEG's size, and a colour space that has its component count.</summary>
     /// <param name="header">The image header.</param>
     /// <param name="info">The JPEG's headers.</param>
-    /// <returns>The header for <see cref="PdfImageDecoder.DecodeSamples"/>.</returns>
+    /// <returns>The header for sample decoding.</returns>
     private static ImageHeader ForSamples(in ImageHeader header, in JpegInfo info)
     {
         var space = header.ColorSpace;
@@ -134,20 +140,24 @@ internal static class JpegImageDecoder
     /// <param name="data">The JPEG data.</param>
     /// <param name="info">The JPEG's headers.</param>
     /// <param name="convert">Whether the samples are YCbCr or YCCK and need converting.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image, or <see langword="null"/> when the JPEG cannot be decoded.</returns>
-    private static PdfImageData? DecodeManaged(in ImageHeader header, ReadOnlySpan<byte> data, in JpegInfo info, bool convert, CancellationToken cancellationToken)
+    private static PdfImageData? DecodeManaged(in ImageHeader header, ReadOnlySpan<byte> data, in JpegInfo info, bool convert, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         var length = info.Width * info.Height * info.Components;
-        var samples = ScratchPool<byte>.Shared.Rent(length);
+        var pool = scratchPools.Get<byte>();
+        var samples = pool.Rent(length);
         try
         {
             var raw = samples.AsSpan(0, length);
-            return JpegDecoder.TryDecode(data, convert, raw, cancellationToken) ? PdfImageDecoder.DecodeSamples(ForSamples(header, info), raw) : null;
+            return JpegDecoder.TryDecode(data, convert, raw, scratchPools, cancellationToken)
+                ? PdfImageDecoder.DecodeSamples(ForSamples(header, info), raw, scratchPools)
+                : null;
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(samples);
+            pool.Return(samples);
         }
     }
 
@@ -156,8 +166,9 @@ internal static class JpegImageDecoder
     /// <param name="data">The JPEG bytes.</param>
     /// <param name="info">The JPEG dimensions and component layout.</param>
     /// <param name="codec">The optional provider codec.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The decoded image, or null when the provider cannot decode it.</returns>
-    private static PdfImageData? DecodeProvider(in ImageHeader header, ReadOnlySpan<byte> data, in JpegInfo info, IPdfImageCodec? codec)
+    private static PdfImageData? DecodeProvider(in ImageHeader header, ReadOnlySpan<byte> data, in JpegInfo info, IPdfImageCodec? codec, ScratchPools scratchPools)
     {
         if (codec is null)
         {
@@ -166,7 +177,7 @@ internal static class JpegImageDecoder
 
         if (info.Components == 1)
         {
-            return DecodeGray(codec, data, ForSamples(header, info));
+            return DecodeGray(codec, data, ForSamples(header, info), scratchPools);
         }
 
         var pixels = PixelMemory.Allocate((long)info.Width * info.Height * PixelConverter.BytesPerPixel, out var pinned);
@@ -175,7 +186,7 @@ internal static class JpegImageDecoder
             return null;
         }
 
-        Recolor(header with { Width = info.Width, Height = info.Height }, pixels);
+        Recolor(header with { Width = info.Width, Height = info.Height }, pixels, scratchPools);
         return new(info.Width, info.Height, pixels, false, header.Interpolate, PdfImageCodec.None) { IsPinned = pinned };
     }
 
@@ -183,28 +194,31 @@ internal static class JpegImageDecoder
     /// <param name="codec">The configured image decoder.</param>
     /// <param name="data">The JPEG bytes.</param>
     /// <param name="header">The image header with JPEG dimensions.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The interpreted image, or null when decoding fails.</returns>
-    private static PdfImageData? DecodeGray(IPdfImageCodec codec, ReadOnlySpan<byte> data, in ImageHeader header)
+    private static PdfImageData? DecodeGray(IPdfImageCodec codec, ReadOnlySpan<byte> data, in ImageHeader header, ScratchPools scratchPools)
     {
         var length = header.Width * header.Height;
-        var gray = ScratchPool<byte>.Shared.Rent(length);
+        var pool = scratchPools.Get<byte>();
+        var gray = pool.Rent(length);
         try
         {
             var samples = gray.AsSpan(0, length);
             return codec.TryDecodeJpeg(data, new(header.Width, header.Height, PdfImagePixelFormat.Gray8), samples)
-                ? PdfImageDecoder.DecodeSamples(header, samples)
+                ? PdfImageDecoder.DecodeSamples(header, samples, scratchPools)
                 : null;
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(gray);
+            pool.Return(gray);
         }
     }
 
     /// <summary>Applies a /Decode array or a non-RGB three-component colour space to decoded RGB pixels.</summary>
     /// <param name="header">The image header.</param>
     /// <param name="pixels">The BGRA pixels, converted in place.</param>
-    private static void Recolor(in ImageHeader header, byte[] pixels)
+    /// <param name="scratchPools">The bounded cache.</param>
+    private static void Recolor(in ImageHeader header, byte[] pixels, ScratchPools scratchPools)
     {
         var space = header.ColorSpace;
         if (space is null || space.Components != RgbComponents || (header.Decode is null && space.Kind == PdfColorSpaceKind.DeviceRgb))
@@ -213,7 +227,8 @@ internal static class JpegImageDecoder
         }
 
         var unpacker = new SampleUnpacker(SampleBits, RgbComponents, header.GetDecode(), space, null);
-        var samples = ScratchPool<byte>.Shared.Rent(header.Width * RgbComponents);
+        var pool = scratchPools.Get<byte>();
+        var samples = pool.Rent(header.Width * RgbComponents);
         try
         {
             for (var y = 0; y < header.Height; y++)
@@ -233,7 +248,7 @@ internal static class JpegImageDecoder
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(samples);
+            pool.Return(samples);
         }
     }
 }

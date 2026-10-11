@@ -18,16 +18,28 @@ internal sealed class Jbig2IntegerContexts : IDisposable
     /// <summary>The number of integer decoders.</summary>
     private const int DecoderCount = 13;
 
+    /// <summary>The cache this instance returns its buffer to.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The integer contexts, followed by the symbol ID contexts.</summary>
     private byte[]? _buffer;
 
     /// <summary>Initializes a new instance of the <see cref="Jbig2IntegerContexts"/> class with cleared contexts.</summary>
     /// <param name="idCodeLength">The bits in a symbol ID, from 0 to 31.</param>
     internal Jbig2IntegerContexts(int idCodeLength)
+        : this(idCodeLength, new ScratchPools())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="Jbig2IntegerContexts"/> class with an explicit cache.</summary>
+    /// <param name="idCodeLength">The bits in a symbol ID.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal Jbig2IntegerContexts(int idCodeLength, ScratchPools scratchPools)
     {
         IdCodeLength = idCodeLength;
+        _scratchPools = scratchPools;
         var length = (DecoderCount * Jbig2IntegerDecoder.ContextCount) + (1 << idCodeLength);
-        _buffer = ScratchPool<byte>.Shared.Rent(length);
+        _buffer = scratchPools.Bytes.Rent(length);
         _buffer.AsSpan(0, length).Clear();
     }
 
@@ -49,7 +61,7 @@ internal sealed class Jbig2IntegerContexts : IDisposable
             return;
         }
 
-        ScratchPool<byte>.Shared.Return(_buffer);
+        _scratchPools.Bytes.Return(_buffer);
         _buffer = null;
     }
 

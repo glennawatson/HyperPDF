@@ -42,7 +42,19 @@ internal static class Jbig2ImageDecoder
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The decoded display image, or null when decoding fails.</returns>
     /// <exception cref="InvalidDataException">The /JBIG2Globals stream's filters fail.</exception>
-    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, PdfDictionary? parameters, int reductionLevels, CancellationToken cancellationToken = default)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, PdfDictionary? parameters, int reductionLevels, CancellationToken cancellationToken = default) =>
+        Decode(header, data, parameters, reductionLevels, new(), cancellationToken);
+
+    /// <summary>Decodes a JBIG2 page with an explicit scratch cache.</summary>
+    /// <param name="header">The image header.</param>
+    /// <param name="data">The encoded data.</param>
+    /// <param name="parameters">The codec parameters.</param>
+    /// <param name="reductionLevels">The requested display reduction.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The image, or null.</returns>
+    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, PdfDictionary? parameters, int reductionLevels, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         var bits = header with { BitsPerComponent = OneBit };
         if (bits.ColorSpace?.Components > 1)
@@ -51,13 +63,14 @@ internal static class Jbig2ImageDecoder
         }
 
         var length = bits.RowBytes * bits.Height;
-        var rows = ScratchPool<byte>.Shared.Rent(length);
+        var pool = scratchPools.Bytes;
+        var rows = pool.Rent(length);
         var globals = default(PooledBuffer);
         try
         {
             _ = parameters?.GetStream(KnownName.JBIG2Globals)?.Decode(ref globals, cancellationToken);
             var output = rows.AsSpan(0, length);
-            if (!Jbig2Decoder.TryDecode(data, globals.WrittenSpan, bits.Width, bits.Height, output, cancellationToken))
+            if (!Jbig2Decoder.TryDecode(data, globals.WrittenSpan, bits.Width, bits.Height, output, scratchPools, cancellationToken))
             {
                 return null;
             }
@@ -65,15 +78,15 @@ internal static class Jbig2ImageDecoder
             var selected = bits.ColorKey is not null ? 0 : Math.Clamp(reductionLevels, 0, MaximumReduction);
             if (selected == 0)
             {
-                return PdfImageDecoder.DecodeSamples(bits, output);
+                return PdfImageDecoder.DecodeSamples(bits, output, scratchPools);
             }
 
-            return bits.IsStencil ? DecodeReducedStencil(bits, output, selected) : DecodeReduced(bits, output, selected);
+            return bits.IsStencil ? DecodeReducedStencil(bits, output, selected) : DecodeReduced(bits, output, selected, scratchPools);
         }
         finally
         {
             globals.Dispose();
-            ScratchPool<byte>.Shared.Return(rows);
+            pool.Return(rows);
         }
     }
 
@@ -81,8 +94,9 @@ internal static class Jbig2ImageDecoder
     /// <param name="header">The one-bit source header.</param>
     /// <param name="rows">The decoded packed rows.</param>
     /// <param name="levels">The number of halvings.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The reduced gray image.</returns>
-    private static PdfImageData DecodeReduced(in ImageHeader header, ReadOnlySpan<byte> rows, int levels)
+    private static PdfImageData DecodeReduced(in ImageHeader header, ReadOnlySpan<byte> rows, int levels, ScratchPools scratchPools)
     {
         if (header.Compact && ReferenceEquals(header.ColorSpace, PdfColorSpace.DeviceGray) && TrySimpleDecode(header.Decode, out var inverted))
         {
@@ -92,15 +106,16 @@ internal static class Jbig2ImageDecoder
         var step = 1 << levels;
         var width = (header.Width + step - 1) / step;
         var height = (header.Height + step - 1) / step;
-        var samples = ScratchPool<byte>.Shared.Rent(width * height);
+        var pool = scratchPools.Bytes;
+        var samples = pool.Rent(width * height);
         try
         {
             Jbig2Downsampler.Average(rows, header.Width, header.Height, header.RowBytes, levels, samples);
-            return PdfImageDecoder.DecodeSamples(header with { Width = width, Height = height, BitsPerComponent = GrayBits }, samples.AsSpan(0, width * height));
+            return PdfImageDecoder.DecodeSamples(header with { Width = width, Height = height, BitsPerComponent = GrayBits }, samples.AsSpan(0, width * height), scratchPools);
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(samples);
+            pool.Return(samples);
         }
     }
 

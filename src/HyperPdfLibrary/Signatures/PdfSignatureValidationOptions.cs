@@ -11,8 +11,8 @@ namespace HyperPdfLibrary.Signatures;
 [DebuggerDisplay("PdfSignatureValidationOptions: network {AllowNetwork}")]
 public sealed record PdfSignatureValidationOptions
 {
-    /// <summary>Gets the default options: system trust, no network, checked at the timestamp or now.</summary>
-    public static PdfSignatureValidationOptions Default { get; } = new();
+    /// <summary>Gets independent default options: system trust, no network, checked at the timestamp or now.</summary>
+    public static PdfSignatureValidationOptions Default => new();
 
     /// <summary>Gets the roots to trust instead of the system's; when empty the system's trust store is used.</summary>
     public X509Certificate2Collection TrustedRoots { get; init; } = [];

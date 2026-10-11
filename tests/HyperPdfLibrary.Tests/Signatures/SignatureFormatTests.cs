@@ -29,6 +29,15 @@ public sealed class SignatureFormatTests
     /// <summary>The number of signatures after a document timestamp is added.</summary>
     private const int SignaturesWithTimestamp = 2;
 
+    /// <summary>Changing one default trust collection cannot change a later default validation.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DefaultTrustRootsAreIndependent()
+    {
+        _ = PdfSignatureValidationOptions.Default.TrustedRoots.Add(SignatureFixtures.Signer);
+        await Assert.That(PdfSignatureValidationOptions.Default.TrustedRoots.Count).IsEqualTo(0);
+    }
+
     /// <summary>A document timestamp is checked, and adding it is allowed even when the certification allows no changes.</summary>
     /// <returns>A task.</returns>
     [Test]

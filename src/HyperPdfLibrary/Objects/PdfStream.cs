@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.IO;
 
 namespace HyperPdfLibrary.Objects;
@@ -24,6 +25,9 @@ public sealed class PdfStream
 
     /// <summary>The offset of the encoded data.</summary>
     private readonly long _offset;
+
+    /// <summary>The parsed ICC profile for this stream, including an unsupported result.</summary>
+    private IccProfileCache.Entry? _cachedIccProfile;
 
     /// <summary>Initializes a new instance of the <see cref="PdfStream"/> class over part of a buffer.</summary>
     /// <param name="dictionary">The stream dictionary.</param>
@@ -83,6 +87,9 @@ public sealed class PdfStream
 
     /// <summary>Gets a value indicating whether the data must be decrypted before decoding.</summary>
     public bool IsEncrypted { get; }
+
+    /// <summary>Gets the parsed ICC profile result, if one has been published.</summary>
+    internal IccProfileCache.Entry? CachedIccProfile => Volatile.Read(ref _cachedIccProfile);
 
     /// <summary>
     /// Gets the encoded (and possibly encrypted) data. Dispose the lease when done; for a stream read from a file it may
@@ -147,4 +154,10 @@ public sealed class PdfStream
         segment = array is null ? default : new(array, (int)_offset, RawLength);
         return array is not null;
     }
+
+    /// <summary>Publishes a parsed ICC profile result once for this stream.</summary>
+    /// <param name="loaded">The newly loaded result.</param>
+    /// <returns>The published result.</returns>
+    internal IccProfileCache.Entry PublishIccProfileEntry(IccProfileCache.Entry loaded) =>
+        Interlocked.CompareExchange(ref _cachedIccProfile, loaded, null) ?? loaded;
 }

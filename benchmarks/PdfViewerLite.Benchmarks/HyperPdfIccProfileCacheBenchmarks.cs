@@ -13,6 +13,9 @@ namespace PdfViewerLite.Benchmarks;
 /// <summary>Measures warm ICC stream-cache lookups for a profile known to be unsupported.</summary>
 public class HyperPdfIccProfileCacheBenchmarks
 {
+    /// <summary>A deliberately short, unsupported ICC payload.</summary>
+    private static readonly byte[] UnsupportedProfileData = [0, 1, 2];
+
     /// <summary>The document that owns the stream.</summary>
     private PdfDocument _document = null!;
 
@@ -29,8 +32,8 @@ public class HyperPdfIccProfileCacheBenchmarks
         _document = PdfDocumentReader.Open(TestPdf.CreateTagged(), null);
         var dictionary = new PdfDictionary(_document.Objects);
         dictionary.Set(KnownName.N, PdfValue.FromInteger(PdfColorSpace.RgbComponents));
-        _profile = new(dictionary, [0, 1, 2]);
-        _unownedProfile = new(new(null), [0, 1, 2]);
+        _profile = new(dictionary, UnsupportedProfileData);
+        _unownedProfile = new(new(null), UnsupportedProfileData);
         _ = IccProfile.Get(_profile, PdfColorSpace.RgbComponents);
         _ = IccProfile.Get(_unownedProfile, PdfColorSpace.RgbComponents);
     }
@@ -48,4 +51,9 @@ public class HyperPdfIccProfileCacheBenchmarks
     /// <returns>True when the profile remains unsupported.</returns>
     [Benchmark]
     public bool UnownedUnsupportedProfile() => IccProfile.Get(_unownedProfile, PdfColorSpace.RgbComponents) is null;
+
+    /// <summary>Creates a stream to measure the per-stream cache slot.</summary>
+    /// <returns>The new stream.</returns>
+    [Benchmark]
+    public PdfStream NewProfileStream() => new(_profile.Dictionary, UnsupportedProfileData, 0, UnsupportedProfileData.Length, default, false);
 }

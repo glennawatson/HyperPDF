@@ -48,7 +48,7 @@ internal sealed class ScratchPool<T>
     /// <summary>The number of kept arrays.</summary>
     private int _count;
 
-    /// <summary>Initializes a pool owned by one document or an explicitly shared cache.</summary>
+    /// <summary>Initializes a new instance of the <see cref="ScratchPool{T}"/> class.</summary>
     /// <param name="owner">The budget and lifetime owner.</param>
     internal ScratchPool(ScratchPools owner) => _owner = owner;
 

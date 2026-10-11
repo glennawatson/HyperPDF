@@ -41,8 +41,8 @@ internal static class Jbig2HalftoneRegion
         Jbig2Workspace workspace)
     {
         var count = PlaneCount(patterns.Patterns.Count);
-        var planes = RentPlanes(count);
-        using var skip = settings.EnableSkip ? CreateSkip(settings, patterns) : null;
+        var planes = RentPlanes(count, workspace.ScratchPools);
+        using var skip = settings.EnableSkip ? CreateSkip(settings, patterns, workspace.ScratchPools) : null;
         try
         {
             var parameters = new Jbig2GenericParameters(settings.Template, false, Jbig2AtPixels.ForTemplate(settings.Template));
@@ -62,7 +62,7 @@ internal static class Jbig2HalftoneRegion
         }
         finally
         {
-            Release(planes, count);
+            Release(planes, count, workspace.ScratchPools);
         }
     }
 
@@ -76,7 +76,7 @@ internal static class Jbig2HalftoneRegion
     internal static bool DecodeMmr(ref Jbig2Reader reader, Jbig2HalftoneSettings settings, Jbig2PatternDictionary patterns, Jbig2Bitmap region, Jbig2Workspace workspace)
     {
         var count = PlaneCount(patterns.Patterns.Count);
-        var planes = RentPlanes(count);
+        var planes = RentPlanes(count, workspace.ScratchPools);
         try
         {
             for (var i = count - 1; i >= 0; i--)
@@ -97,7 +97,7 @@ internal static class Jbig2HalftoneRegion
         }
         finally
         {
-            Release(planes, count);
+            Release(planes, count, workspace.ScratchPools);
         }
     }
 
@@ -120,7 +120,9 @@ internal static class Jbig2HalftoneRegion
     /// <param name="workspace">The work budget and scratch bitmaps.</param>
     /// <returns>The plane, or <see langword="null"/>.</returns>
     private static Jbig2Bitmap? CreatePlane(Jbig2HalftoneSettings settings, Jbig2Workspace workspace) =>
-        workspace.TryCharge((long)settings.GridWidth * settings.GridHeight) ? Jbig2Bitmap.Create(settings.GridWidth, settings.GridHeight) : null;
+        workspace.TryCharge((long)settings.GridWidth * settings.GridHeight)
+            ? Jbig2Bitmap.Create(settings.GridWidth, settings.GridHeight, workspace.ScratchPools)
+            : null;
 
     /// <summary>Turns a decoded plane from Gray code into binary by XORing the plane above it.</summary>
     /// <param name="planes">The planes.</param>
@@ -150,10 +152,11 @@ internal static class Jbig2HalftoneRegion
     /// <summary>Builds the mask of grid cells whose pattern would fall wholly outside the region.</summary>
     /// <param name="settings">The region parameters.</param>
     /// <param name="patterns">The pattern dictionary.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The mask, or <see langword="null"/> when it cannot be made.</returns>
-    private static Jbig2Bitmap? CreateSkip(Jbig2HalftoneSettings settings, Jbig2PatternDictionary patterns)
+    private static Jbig2Bitmap? CreateSkip(Jbig2HalftoneSettings settings, Jbig2PatternDictionary patterns, ScratchPools scratchPools)
     {
-        var skip = Jbig2Bitmap.Create(settings.GridWidth, settings.GridHeight);
+        var skip = Jbig2Bitmap.Create(settings.GridWidth, settings.GridHeight, scratchPools);
         if (skip is null)
         {
             return null;
@@ -237,10 +240,11 @@ internal static class Jbig2HalftoneRegion
 
     /// <summary>Rents a cleared array for the planes.</summary>
     /// <param name="count">The number of planes.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The array.</returns>
-    private static Jbig2Bitmap?[] RentPlanes(int count)
+    private static Jbig2Bitmap?[] RentPlanes(int count, ScratchPools scratchPools)
     {
-        var planes = ScratchPool<Jbig2Bitmap?>.Shared.Rent(count);
+        var planes = scratchPools.Get<Jbig2Bitmap?>().Rent(count);
         planes.AsSpan(0, count).Clear();
         return planes;
     }
@@ -248,13 +252,14 @@ internal static class Jbig2HalftoneRegion
     /// <summary>Disposes the planes and returns their array to the pool.</summary>
     /// <param name="planes">The planes.</param>
     /// <param name="count">The number of planes.</param>
-    private static void Release(Jbig2Bitmap?[] planes, int count)
+    /// <param name="scratchPools">The bounded cache.</param>
+    private static void Release(Jbig2Bitmap?[] planes, int count, ScratchPools scratchPools)
     {
         for (var i = 0; i < count; i++)
         {
             planes[i]?.Dispose();
         }
 
-        ScratchPool<Jbig2Bitmap?>.Shared.Return(planes, true);
+        scratchPools.Get<Jbig2Bitmap?>().Return(planes, true);
     }
 }

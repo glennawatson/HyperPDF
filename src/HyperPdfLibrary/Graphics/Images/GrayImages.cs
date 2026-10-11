@@ -40,8 +40,9 @@ internal static class GrayImages
     /// <param name="space">The image's colour space.</param>
     /// <param name="unpacker">Unpacks the samples.</param>
     /// <param name="data">The samples, rows padded to whole bytes.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The gray image, or <see langword="null"/> when the colour space gives anything but opaque gray.</returns>
-    internal static PdfImageData? TryDecode(in ImageHeader header, PdfColorSpace space, SampleUnpacker unpacker, ReadOnlySpan<byte> data)
+    internal static PdfImageData? TryDecode(in ImageHeader header, PdfColorSpace space, SampleUnpacker unpacker, ReadOnlySpan<byte> data, ScratchPools scratchPools)
     {
         if (space.Components != 1 || unpacker.HasColorKey || CreateTable(space, out var identity) is not { } table)
         {
@@ -55,7 +56,7 @@ internal static class GrayImages
         }
         else
         {
-            DecodeSamples(header, unpacker, table, identity, data, pixels);
+            DecodeSamples(header, unpacker, table, identity, data, pixels, scratchPools);
         }
 
         return new(header.Width, header.Height, pixels, false, header.Interpolate, PdfImageCodec.None) { IsGray = true, IsPinned = pinned };
@@ -151,10 +152,12 @@ internal static class GrayImages
     /// <param name="identity">Whether the table maps every sample to itself.</param>
     /// <param name="data">The packed rows.</param>
     /// <param name="pixels">Receives the gray pixels.</param>
-    private static void DecodeSamples(in ImageHeader header, SampleUnpacker unpacker, byte[] table, bool identity, ReadOnlySpan<byte> data, byte[] pixels)
+    /// <param name="scratchPools">The bounded cache.</param>
+    private static void DecodeSamples(in ImageHeader header, SampleUnpacker unpacker, byte[] table, bool identity, ReadOnlySpan<byte> data, byte[] pixels, ScratchPools scratchPools)
     {
         var width = header.Width;
-        var samples = ScratchPool<byte>.Shared.Rent(width);
+        var pool = scratchPools.Get<byte>();
+        var samples = pool.Rent(width);
         try
         {
             for (var y = 0; y < header.Height; y++)
@@ -181,7 +184,7 @@ internal static class GrayImages
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(samples);
+            pool.Return(samples);
         }
     }
 }

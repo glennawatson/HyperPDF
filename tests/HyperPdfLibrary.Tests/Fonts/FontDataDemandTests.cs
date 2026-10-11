@@ -45,7 +45,13 @@ public sealed class FontDataDemandTests
         using var document = PdfDocumentReader.Open(pdf.ToBytes(), null);
         var before = PdfDocumentText.GetTextPage(document, 0);
         using var cache = new FontDataTestCache();
-        await FontDataResources.EnsureAsync(cache.DirectoryPath, CacheFolder, "refresh.bin", static _ => ValueTask.FromResult<byte[]>([1]), CancellationToken.None);
+        await FontDataResources.EnsureAsync(
+            document.DrawingServices.FontResources.Data,
+            cache.DirectoryPath,
+            CacheFolder,
+            "refresh.bin",
+            static _ => ValueTask.FromResult<byte[]>([1]),
+            CancellationToken.None);
         await PdfDocumentPages.PrefetchPageAsync(document, 0, CancellationToken.None);
         await Assert.That(PdfDocumentText.GetTextPage(document, 0)).IsNotSameReferenceAs(before);
     }
@@ -67,7 +73,13 @@ public sealed class FontDataDemandTests
         var path = Path.Combine(cache.DirectoryPath, CacheFolder, name);
         _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllBytesAsync(path, [1]);
-        await FontDataResources.EnsureAsync(cache.DirectoryPath, CacheFolder, name, static _ => throw new InvalidOperationException("The resource is already available."), CancellationToken.None);
+        await FontDataResources.EnsureAsync(
+            document.DrawingServices.FontResources.Data,
+            cache.DirectoryPath,
+            CacheFolder,
+            name,
+            static _ => throw new InvalidOperationException("The resource is already available."),
+            CancellationToken.None);
 
         await PdfDocumentPages.PrefetchPageAsync(document, 0, CancellationToken.None);
         await Assert.That(PdfDocumentText.GetTextPage(document, 0)).IsNotSameReferenceAs(before);

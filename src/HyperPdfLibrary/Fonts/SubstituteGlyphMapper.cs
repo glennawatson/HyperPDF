@@ -15,13 +15,14 @@ namespace HyperPdfLibrary.Fonts;
 internal static class SubstituteGlyphMapper
 {
     /// <summary>Maps every code.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="face">The stand-in face.</param>
     /// <param name="encoding">The font's encoding.</param>
     /// <param name="symbolEncoding">The built-in encoding of a Symbol or ZapfDingbats font, else <see cref="FontEncoding.None"/>.</param>
     /// <param name="symbolic">Whether the descriptor flags say symbolic.</param>
     /// <param name="toUnicode">The /ToUnicode map, or <see langword="null"/>.</param>
     /// <returns>The map.</returns>
-    internal static SimpleGlyphMap Map(SubstituteFace face, SimpleEncoding encoding, FontEncoding symbolEncoding, bool symbolic, ToUnicodeMap? toUnicode)
+    internal static SimpleGlyphMap Map(PdfFontResources resources, SubstituteFace face, SimpleEncoding encoding, FontEncoding symbolEncoding, bool symbolic, ToUnicodeMap? toUnicode)
     {
         var map = new SimpleGlyphMap();
         var dingbats = symbolEncoding == FontEncoding.ZapfDingbats;
@@ -35,7 +36,7 @@ internal static class SubstituteGlyphMapper
                 continue;
             }
 
-            var text = GlyphNameText.TextOf(name, dingbats);
+            var text = GlyphNameText.TextOf(resources, name, dingbats);
             map.Texts[code] = text;
             map.Glyphs[code] = MapName(face, name, text, symbolEncoding, toUnicode, code);
         }

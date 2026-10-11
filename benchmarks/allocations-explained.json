@@ -1414,7 +1414,7 @@
   {
     "type": "HyperPdfLibrary.Objects.PdfStream",
     "frame": "HyperPdfLibrary.Objects.StoreParsing.ReadStream(class HyperPdfLibrary.Objects.PdfObjectStore,class HyperPdfLibrary.Objects.PdfDictionary,int64,value class HyperPdfLibrary.Objects.PdfObjectId)",
-    "reason": "Parsing a stream object creates its PdfStream wrapper with the dictionary, source range and object identity. The object store retains the wrapper after first loading the stream; the fixture\u0027s bytes are not copied here."
+    "reason": "Parsing a stream object creates its PdfStream wrapper with the dictionary, source range, object identity and a nullable ICC result slot. The object store retains the wrapper after first loading the stream; the fixture\u0027s bytes are not copied here."
   },
   {
     "type": "System.Collections.Generic.List\u00601[HyperPdfLibrary.Drawing.PdfPathCommand]",
@@ -1649,5 +1649,6 @@
   {"type":"SkiaSharp.SKImage","frame":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget.Snapshot()","reason":"Each new tile snapshots its completed GPU surface into one retained image wrapper. Repeated presentation draws that image."},
   {"type":"System.WeakReference","frame":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget.","reason":"SkiaSharp tracks fresh canvas and image wrappers through weak native-handle bookkeeping; this is attributed only to new-target access and snapshot."},
   {"type":"System.Object[]","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.get_Current()","reason":"The first replay on a graphics thread initializes thread-local drawing-session bookkeeping. The nested array constructor is not resolved; later replay reuses the session."},
-  {"type":"HyperPdfLibrary.Rendering.SkiaDrawingSession","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.get_Current()","reason":"The first PDF replay on a graphics thread creates its reusable drawing session. Subsequent warm replay reuses that same session."}
+  {"type":"HyperPdfLibrary.Rendering.SkiaDrawingSession","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.get_Current()","reason":"The first PDF replay on a graphics thread creates its reusable drawing session. Subsequent warm replay reuses that same session."},
+  {"type":"HyperPdfLibrary.Objects.PdfStream","frame":"PdfViewerLite.Benchmarks.HyperPdfIccProfileCacheBenchmarks.NewProfileStream()","reason":"Each operation creates one 72-byte stream wrapper, including its nullable ICC profile result slot. Warm profile lookups reuse the stream and allocate nothing."}
 ]
