@@ -322,7 +322,7 @@ public sealed partial class PageCanvas : Control
     /// <param name="rect">The page rectangle.</param>
     /// <param name="visible">Whether the page is visible.</param>
     /// <param name="draw">Whether sharp tiles leave part of the page for the preview to fill.</param>
-    private static void DrawPreview(DrawingContext context, in FrameContext frame, int page, in Rect rect, bool visible, bool draw)
+    private void DrawPreview(DrawingContext context, in FrameContext frame, int page, in Rect rect, bool visible, bool draw)
     {
         var tab = frame.Tab;
         var key = TileKey.Preview(tab.Source.Id, page, tab.Rotation, tab.PageTone.Id);
@@ -330,7 +330,7 @@ public sealed partial class PageCanvas : Control
         {
             if (draw)
             {
-                context.DrawImage(((AvaloniaRenderSurface)surface).Bitmap, new(0, 0, surface.Width, surface.Height), rect);
+                TilePresentation.Draw(context, surface, rect, smooth: true);
             }
 
             return;
@@ -350,7 +350,7 @@ public sealed partial class PageCanvas : Control
     /// <param name="row">The tile row.</param>
     /// <param name="visible">Whether to draw (true) or only request (false).</param>
     /// <param name="request">Whether a missing tile is requested.</param>
-    private static void DrawTile(DrawingContext context, in FrameContext frame, in TileRange grid, int column, int row, bool visible, bool request)
+    private void DrawTile(DrawingContext context, in FrameContext frame, in TileRange grid, int column, int row, bool visible, bool request)
     {
         var tab = frame.Tab;
         var tileSize = TileGrid.TileSize;
@@ -367,14 +367,14 @@ public sealed partial class PageCanvas : Control
             return;
         }
 
-        if (!visible)
+        var scaling = frame.RenderScaling;
+        var destination = new Rect((grid.OriginX + (column * tileSize)) / scaling, (grid.OriginY + (row * tileSize)) / scaling, tileWidth / scaling, tileHeight / scaling);
+        if (!visible || !destination.Intersects(frame.Viewport))
         {
             return;
         }
 
-        var scaling = frame.RenderScaling;
-        var destination = new Rect((grid.OriginX + (column * tileSize)) / scaling, (grid.OriginY + (row * tileSize)) / scaling, tileWidth / scaling, tileHeight / scaling);
-        context.DrawImage(((AvaloniaRenderSurface)surface).Bitmap, new(0, 0, tileWidth, tileHeight), destination);
+        TilePresentation.Draw(context, surface, destination, smooth: false);
     }
 
     /// <summary>Finds the hosting scroll viewer and subscribes to it, to the tab and to input.</summary>
@@ -772,7 +772,7 @@ public sealed partial class PageCanvas : Control
                 }
 
                 var destination = new Rect(rect.X + (column * tileSize * unitX), rect.Y + (row * tileSize * unitY), surface.Width * unitX, surface.Height * unitY);
-                context.DrawImage(((AvaloniaRenderSurface)surface).Bitmap, new(0, 0, surface.Width, surface.Height), destination);
+                TilePresentation.Draw(context, surface, destination, smooth: true);
             }
         }
     }
@@ -1028,7 +1028,6 @@ public sealed partial class PageCanvas : Control
             tab.WhenChanged(static x => x.IsAutoScrolling).SubscribeSafe(OnAutoScrollChanged, OnError),
             tab.WhenChanged(static x => x.PageTool).Skip(1).SubscribeSafe(_ => OnPageToolChanged(), OnError),
         ];
-        tab.EnsureLoaded();
         var position = tab.Position;
         RebuildLayout();
         ScrollToPosition(position);

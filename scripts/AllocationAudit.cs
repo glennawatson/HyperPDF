@@ -370,6 +370,9 @@ namespace PdfViewerLite.Scripts
             /// <summary>The engine's event source.</summary>
             private const string EngineSource = "BenchmarkDotNet.EngineEventSource";
 
+            /// <summary>The shared-context GPU probe's measured replay events.</summary>
+            private const string GpuProbeSource = "PdfViewerLite.GpuProbe";
+
             /// <summary>The event starting a measured iteration.</summary>
             private const string ActualStart = "WorkloadActual/Start";
 
@@ -424,6 +427,40 @@ namespace PdfViewerLite.Scripts
                 if (data.ProviderName == EngineSource)
                 {
                     ReadEngine(data);
+                }
+                else if (data.ProviderName == GpuProbeSource)
+                {
+                    ReadGpuProbe(data);
+                }
+            }
+
+            /// <summary>Uses the GPU probe's own operation markers when no BenchmarkDotNet harness is present.</summary>
+            /// <param name="data">The probe event.</param>
+            private void ReadGpuProbe(TraceEvent data)
+            {
+                switch (data.EventName)
+                {
+                    case "Warm/Start":
+                    {
+                        Name = "PdfViewerLite.GpuProbe.WarmGpuReplay";
+                        Operations += Convert.ToInt64(data.PayloadByName("operations"), CultureInfo.InvariantCulture);
+                        _measuring = true;
+                        break;
+                    }
+
+                    case "Phase/Start":
+                    {
+                        Name = $"PdfViewerLite.GpuProbe.{data.PayloadByName("phase") as string}";
+                        Operations += Convert.ToInt64(data.PayloadByName("operations"), CultureInfo.InvariantCulture);
+                        _measuring = true;
+                        break;
+                    }
+
+                    case "Warm/Stop" or "Phase/Stop":
+                    {
+                        _measuring = false;
+                        break;
+                    }
                 }
             }
 

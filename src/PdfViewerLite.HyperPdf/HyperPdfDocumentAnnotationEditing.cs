@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary;
 using PdfViewerLite.Core.Annotations;
 using PdfViewerLite.Core.Geometry;
 using AnnotationKind = global::PdfViewerLite.Core.Annotations.AnnotationKind;
@@ -370,5 +371,72 @@ internal static class HyperPdfDocumentAnnotationEditing
             Volatile.Write(ref self.SavedVersion, version);
             return true;
         }
+    }
+
+    /// <summary>Builds a stable annotation snapshot, then writes it without holding edit locks.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="destination">The output stream.</param>
+    /// <param name="cancellationToken">Cancels building and writing.</param>
+    /// <returns>Whether the snapshot was saved.</returns>
+    internal static ValueTask<bool> SaveAsync(HyperPdfDocument self, Stream destination, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        cancellationToken.ThrowIfCancellationRequested();
+        Task write;
+        HyperPdfAnnotations state;
+        long version;
+        lock (self.EditGate)
+        {
+            using var access = HyperPdfNavigation.EnterPageWrite(self);
+            if (self.IsDisposed)
+            {
+                return ValueTask.FromResult(false);
+            }
+
+            version = Volatile.Read(ref self.EditVersion);
+            state = HyperPdfAnnotationStateAccess.GetAnnotations(self);
+            try
+            {
+                if (!HyperPdfAnnotationSaving.TryStartSaveAsync(state, destination, cancellationToken, out write))
+                {
+                    return ValueTask.FromResult(false);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or PdfException)
+            {
+                return ValueTask.FromResult(false);
+            }
+        }
+
+        return FinishSaveAsync(self, state, version, write);
+    }
+
+    /// <summary>Marks a snapshot saved only when no later edit replaced it.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="state">The annotation state captured for the write.</param>
+    /// <param name="version">The captured edit version.</param>
+    /// <param name="write">The pending output write.</param>
+    /// <returns>Whether the write completed.</returns>
+    private static async ValueTask<bool> FinishSaveAsync(HyperPdfDocument self, HyperPdfAnnotations state, long version, Task write)
+    {
+        try
+        {
+            await write.ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or PdfException or ObjectDisposedException)
+        {
+            return false;
+        }
+
+        lock (self.EditGate)
+        {
+            if (!self.IsDisposed && Volatile.Read(ref self.EditVersion) == version)
+            {
+                Volatile.Write(ref state.UnsavedChanges, 0);
+                Volatile.Write(ref self.SavedVersion, version);
+            }
+        }
+
+        return true;
     }
 }

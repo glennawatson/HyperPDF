@@ -154,6 +154,59 @@ public sealed class XbelRecentDocumentStore : IRecentDocumentStore
         Save(document);
     }
 
+    /// <inheritdoc/>
+    public void Remove(string filePath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(filePath);
+        var document = Load();
+        var root = document?.Root;
+        if (root is null)
+        {
+            return;
+        }
+
+        var uri = new Uri(Path.GetFullPath(filePath)).AbsoluteUri;
+        var bookmark = FindBookmark(root, uri);
+        if (bookmark is null || !IsPdf(bookmark))
+        {
+            return;
+        }
+
+        bookmark.Remove();
+        Save(document!);
+    }
+
+    /// <inheritdoc/>
+    public void Clear()
+    {
+        var document = Load();
+        var root = document?.Root;
+        if (root is null)
+        {
+            return;
+        }
+
+        var changed = false;
+        var bookmarks = new List<XElement>(root.Elements(BookmarkElement));
+        foreach (var bookmark in bookmarks)
+        {
+            if (!IsPdf(bookmark))
+            {
+                continue;
+            }
+
+            bookmark.Remove();
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return;
+        }
+
+        Save(document!);
+    }
+
     /// <summary>Creates a recent document entry from a bookmark when it is an existing local PDF.</summary>
     /// <param name="bookmark">The bookmark.</param>
     /// <param name="recent">The entry.</param>

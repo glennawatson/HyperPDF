@@ -25,8 +25,9 @@ public sealed class ReplyViewModelTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         var path = test.CreateDocument("review.pdf", 1);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var annotations = tab.Annotations;
         tab.SidebarMode = SidebarMode.Annotations;
         var answers = new Queue<string>(["Please check the total.", ReplyText]);
@@ -38,8 +39,9 @@ public sealed class ReplyViewModelTests
         var item = annotations.Items.Single();
         var saved = tab.Save(path);
         main.CloseTabWithoutAsking(tab);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var reopened = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => reopened.IsLoaded)).IsTrue();
         reopened.SidebarMode = SidebarMode.Annotations;
         var after = reopened.Annotations.Items.Single();
 

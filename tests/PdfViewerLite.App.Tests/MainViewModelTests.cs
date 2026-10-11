@@ -35,7 +35,8 @@ public sealed class MainViewModelTests
         var first = test.CreateDocument("first.pdf", Pages);
         var second = test.CreateDocument("second.pdf", Pages);
 
-        main.Open([first, second, first]);
+        await TestServices.OpenAndWaitAsync(main, [first, second, first]);
+        await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.IsLoaded)).IsTrue();
 
         await Assert.That(main.Tabs.Count).IsEqualTo(TwoTabs);
         await Assert.That(main.HasTabs).IsTrue();
@@ -53,8 +54,7 @@ public sealed class MainViewModelTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         var path = test.CreateDocument("uri.pdf", Pages);
-
-        main.Open([new Uri(path).AbsoluteUri]);
+        await TestServices.OpenAndWaitAsync(main, [new Uri(path).AbsoluteUri]);
 
         await Assert.That(main.SelectedTab?.FilePath).IsEqualTo(path);
     }
@@ -68,8 +68,8 @@ public sealed class MainViewModelTests
         using var main = new MainViewModel(test.Services);
         var first = test.CreateDocument(FirstName, Pages);
         var second = test.CreateDocument(SecondName, Pages);
-        main.Open([first]);
-        main.Open([second]);
+        await TestServices.OpenAndWaitAsync(main, [first]);
+        await TestServices.OpenAndWaitAsync(main, [second]);
 
         main.CloseTabWithoutAsking(main.SelectedTab);
         await Assert.That(main.Tabs.Count).IsEqualTo(1);
@@ -126,11 +126,10 @@ public sealed class MainViewModelTests
         using var test = new TestServices();
         var path = test.CreateDocument(FirstName, Pages);
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         main.SelectedTab!.ReportPosition(new(LastPage, 0), LastPage);
         main.CloseTabWithoutAsking(main.SelectedTab);
-
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         await Assert.That(main.SelectedTab!.CurrentPageIndex).IsEqualTo(LastPage);
 
         main.CloseTabWithoutAsking(main.SelectedTab);
@@ -141,7 +140,7 @@ public sealed class MainViewModelTests
         }
 
         await Assert.That(test.Services.Settings.ReopenAtLastPage).IsFalse();
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         await Assert.That(main.SelectedTab!.CurrentPageIndex).IsEqualTo(0);
     }
 
@@ -153,7 +152,7 @@ public sealed class MainViewModelTests
         using var test = new TestServices();
         var first = test.CreateDocument(FirstName, Pages);
         using var main = new MainViewModel(test.Services);
-        main.Open([first, test.CreateDocument(SecondName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [first, test.CreateDocument(SecondName, Pages)]);
         main.SelectedTab = main.Tabs[0];
         main.SelectedTab.ReportPosition(new(LastPage, 0), LastPage);
         main.SaveSession();
@@ -182,7 +181,7 @@ public sealed class MainViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(FirstName, 1), test.CreateDocument(SecondName, 1), test.CreateDocument("c.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FirstName, 1), test.CreateDocument(SecondName, 1), test.CreateDocument("c.pdf", 1)]);
         const int last = 2;
 
         main.MoveTab(0, last);
@@ -201,6 +200,7 @@ public sealed class MainViewModelTests
         await File.WriteAllTextAsync(path, "not a pdf");
 
         main.Open([path]);
+        await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.ErrorMessage is not null)).IsTrue();
 
         await Assert.That(main.SelectedTab!.ErrorMessage).IsNotNull();
         await Assert.That(main.SelectedTab.IsLoaded).IsFalse();
@@ -223,7 +223,7 @@ public sealed class MainViewModelTests
 
         main.Open(paths);
         var tab = main.Tabs[hovered];
-        tab.PreparePreview();
+        await tab.PreparePreviewAsync(CancellationToken.None);
         main.TabQuery = "doc-742";
         main.RefreshFoundTabs();
 

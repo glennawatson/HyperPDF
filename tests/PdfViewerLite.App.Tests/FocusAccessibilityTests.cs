@@ -47,7 +47,8 @@ public sealed class FocusAccessibilityTests
         var path = Path.Combine(test.Directory, "tagged.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateTagged());
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
+        await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.IsLoaded)).IsTrue();
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

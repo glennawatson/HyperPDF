@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
@@ -23,10 +24,22 @@ internal static class PageRecorder
     /// <param name = "bytes">Receives the memory the picture holds for itself: its operations, without the images it drew.</param>
     /// <param name = "images">Receives the distinct images the picture drew.</param>
     /// <returns>The picture, which the caller owns.</returns>
-    internal static IPdfRenderPicture RecordContent(PdfRenderCache cache, PdfPage page, bool printing, out long bytes, out ImageWeight[] images)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IPdfRenderPicture RecordContent(PdfRenderCache cache, PdfPage page, bool printing, out long bytes, out ImageWeight[] images) =>
+        RecordContent(cache, page, printing, float.PositiveInfinity, out bytes, out images);
+
+    /// <summary>Records page content for the upper scale of a display zoom band.</summary>
+    /// <param name="cache">The document caches.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="printing">Whether print layers are used.</param>
+    /// <param name="imageScale">The upper scale of the zoom band.</param>
+    /// <param name="bytes">Receives picture bytes.</param>
+    /// <param name="images">Receives image weights.</param>
+    /// <returns>The recorded picture.</returns>
+    internal static IPdfRenderPicture RecordContent(PdfRenderCache cache, PdfPage page, bool printing, float imageScale, out long bytes, out ImageWeight[] images)
     {
         using var device = Begin(page);
-        using var interpreter = new ContentInterpreter(cache, device, 0) { Printing = printing, };
+        using var interpreter = new ContentInterpreter(cache, device, 0, imageScale) { Printing = printing, };
         ContentExecution.RunPage(interpreter, page);
         return Finish(device, out bytes, out images);
     }
@@ -55,10 +68,22 @@ internal static class PageRecorder
     /// <param name = "bytes">Receives the memory the picture holds for itself: its operations, without the images it drew.</param>
     /// <param name = "images">Receives the distinct images the picture drew.</param>
     /// <returns>The picture, which the caller owns.</returns>
-    internal static IPdfRenderPicture RecordAnnotations(PdfRenderCache cache, PdfPage page, bool printing, out long bytes, out ImageWeight[] images)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IPdfRenderPicture RecordAnnotations(PdfRenderCache cache, PdfPage page, bool printing, out long bytes, out ImageWeight[] images) =>
+        RecordAnnotations(cache, page, printing, float.PositiveInfinity, out bytes, out images);
+
+    /// <summary>Records annotation appearances for the upper scale of a display zoom band.</summary>
+    /// <param name="cache">The document caches.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="printing">Whether print layers are used.</param>
+    /// <param name="imageScale">The upper scale of the zoom band.</param>
+    /// <param name="bytes">Receives picture bytes.</param>
+    /// <param name="images">Receives image weights.</param>
+    /// <returns>The recorded picture.</returns>
+    internal static IPdfRenderPicture RecordAnnotations(PdfRenderCache cache, PdfPage page, bool printing, float imageScale, out long bytes, out ImageWeight[] images)
     {
         using var device = Begin(page);
-        using var interpreter = new ContentInterpreter(cache, device, 0) { Printing = printing, };
+        using var interpreter = new ContentInterpreter(cache, device, 0, imageScale) { Printing = printing, };
         var annotations = page.Dictionary.GetArray(KnownName.Annots);
         DrawPass(new(cache, interpreter, page, printing), annotations, false);
         DrawPass(new(cache, interpreter, page, printing), annotations, true);

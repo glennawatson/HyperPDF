@@ -134,7 +134,15 @@ internal sealed class PdfRenderCache
     /// <returns>The image, which the caller releases; <see langword="null"/> when it cannot be decoded.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ImageEntry? AcquireImage(PdfStream stream) =>
-        Images.Acquire(stream, DeviceColors, Decode);
+        AcquireImage(stream, 0);
+
+    /// <summary>Gets a decoded image at the selected resolution.</summary>
+    /// <param name="stream">The image stream.</param>
+    /// <param name="reductionLevels">The finest levels omitted from its decode.</param>
+    /// <returns>The image, which the caller releases; null when decoding fails.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ImageEntry? AcquireImage(PdfStream stream, int reductionLevels) =>
+        Images.Acquire(new(stream, reductionLevels), DeviceColors, Decode);
 
     /// <summary>Gets a colour space from a value.</summary>
     /// <param name="value">A name or colour space array, resolved.</param>
@@ -150,13 +158,13 @@ internal sealed class PdfRenderCache
     }
 
     /// <summary>Decodes an image stream.</summary>
-    /// <param name="stream">The stream.</param>
+    /// <param name="key">The stream and decoded resolution.</param>
     /// <param name="colors">The output intent substitutes for device colour spaces, or <see langword="null"/>.</param>
     /// <returns>The entry, or null.</returns>
-    private static ImageEntry? Decode(PdfStream stream, OutputIntentColors? colors)
+    private static ImageEntry? Decode(ImageKey key, OutputIntentColors? colors)
     {
         using var scope = OutputIntentColors.Enter(colors);
-        var data = PdfImageDecoder.DecodeCompact(stream);
+        var data = PdfImageDecoder.DecodeCompact(key.Stream, key.ReductionLevels);
         if (data is null)
         {
             return null;
@@ -164,7 +172,7 @@ internal sealed class PdfRenderCache
 
         if (data.UnsupportedCodec != PdfImageCodec.None)
         {
-            var image = PdfRenderHooks.UnsupportedImageDecoder?.Invoke(stream);
+            var image = PdfRenderHooks.UnsupportedImageDecoder?.Invoke(key.Stream);
             return image is null ? null : new ImageEntry(image, false, true);
         }
 

@@ -50,7 +50,12 @@ public sealed class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            if (OperatingSystem.IsLinux())
+            if (Program.NeedsSingleInstancePreflight)
+            {
+                _lifetime.Add(Signal.Return(this, new AvaloniaScheduler(Dispatcher.UIThread, DispatcherPriority.ApplicationIdle))
+                    .SubscribeSafe(static app => _ = app.StartAfterForwardingAsync(), static error => Trace.TraceError(error.ToString())));
+            }
+            else if (OperatingSystem.IsLinux())
             {
                 // Avalonia's AT-SPI bridge waits 100 ms for the UI thread to go idle and, if it times out, finishes
                 // starting on a pool thread where it cannot read the main window, which then never reaches screen
@@ -86,6 +91,40 @@ public sealed class App : Application
 
         Start(desktop);
         _window?.Show();
+    }
+
+    /// <summary>Checks single-instance ownership without holding the UI thread, then starts or closes this window.</summary>
+    /// <returns>A task for the forwarding check.</returns>
+    private async Task StartAfterForwardingAsync()
+    {
+        bool shouldStart;
+        try
+        {
+            shouldStart = await Program.StartSingleInstanceAsync().ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            Trace.TraceError(error.ToString());
+            shouldStart = true;
+        }
+
+        if (shouldStart)
+        {
+            Dispatcher.UIThread.Post(StartAndShow);
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(ShutdownDesktop);
+        }
+    }
+
+    /// <summary>Stops a forwarded process after its request reached the running viewer.</summary>
+    private void ShutdownDesktop()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
     }
 
     /// <summary>Creates the services and the main window.</summary>

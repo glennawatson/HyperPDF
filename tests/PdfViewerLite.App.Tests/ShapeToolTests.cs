@@ -63,7 +63,7 @@ public sealed class ShapeToolTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("shapes.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("shapes.pdf", 1)]);
         var tab = main.SelectedTab!;
         var annotations = tab.Annotations;
         tab.SidebarMode = SidebarMode.Annotations;
@@ -94,7 +94,7 @@ public sealed class ShapeToolTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("stamp.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("stamp.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -153,7 +153,7 @@ public sealed class ShapeToolTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("blank-stamp.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("blank-stamp.pdf", 1)]);
         var annotations = main.SelectedTab!.Annotations;
 
         _ = await annotations.SetStampCommand.Execute(null).ToTask();
@@ -171,7 +171,7 @@ public sealed class ShapeToolTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("menus.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("menus.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -205,7 +205,7 @@ public sealed class ShapeToolTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("bar.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("bar.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

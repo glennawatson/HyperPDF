@@ -75,14 +75,19 @@ internal sealed class ContentInterpreter : IDisposable
     /// <param name = "cache">The document's caches.</param>
     /// <param name = "device">The device to draw on.</param>
     /// <param name = "depth">The nesting depth already in use, for streams run from inside others.</param>
-    internal ContentInterpreter(PdfRenderCache cache, IContentDevice device, int depth)
+    /// <param name="imageScale">The upper device scale for selecting decoded image resolution.</param>
+    internal ContentInterpreter(PdfRenderCache cache, IContentDevice device, int depth, float imageScale = float.PositiveInfinity)
     {
         _cache = cache;
         _device = device;
         _textObjects = device as ITextObjectDevice;
         _layers = PdfDocumentLayers.GetOptionalContent(cache.Document);
         _depth = depth;
+        ImageScale = imageScale;
     }
+
+    /// <summary>Gets the upper device scale for decoded images in this recording.</summary>
+    internal float ImageScale { get; }
 
     /// <summary>Gets the interpreter's Cache state.</summary>
     internal PdfRenderCache Cache => _cache;

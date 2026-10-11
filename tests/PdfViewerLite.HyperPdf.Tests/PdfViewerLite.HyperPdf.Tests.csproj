@@ -10,6 +10,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\render-corpus\corpus.json" Link="render-corpus.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Builds the PDFs with known shapes that the render parity tests compare. -->
     <Compile Include="..\HyperPdfLibrary.Tests\Rendering\RenderTestPdf.cs" Link="RenderTestPdf.cs" />
     <!-- Encrypted and structured fixtures for the page editing parity tests. -->

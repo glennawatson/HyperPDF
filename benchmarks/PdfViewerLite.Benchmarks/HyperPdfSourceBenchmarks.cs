@@ -9,6 +9,7 @@ using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Rendering;
 using PdfViewerLite.TestAssets;
 
 namespace PdfViewerLite.Benchmarks;
@@ -38,6 +39,9 @@ public class HyperPdfSourceBenchmarks
     /// <summary>The corpus file used when cached.</summary>
     private const string CorpusFile = "ia-us-reports-341.pdf";
 
+    /// <summary>The optional file path used for a local source-layout comparison.</summary>
+    private const string SourceFileVariable = "PDFVIEWERLITE_SOURCE_BENCHMARK_PDF";
+
     /// <summary>The objects before the first page: the catalog and the page tree.</summary>
     private const int FixedObjects = 2;
 
@@ -54,13 +58,26 @@ public class HyperPdfSourceBenchmarks
     private bool _generated;
 
     /// <summary>Gets or sets how the file is read.</summary>
-    [Params(PdfSourceKind.Memory, PdfSourceKind.Mapped, PdfSourceKind.Stream)]
+    [Params(PdfSourceKind.Automatic, PdfSourceKind.Memory, PdfSourceKind.Mapped, PdfSourceKind.Stream)]
     public PdfSourceKind Source { get; set; }
 
-    /// <summary>Finds the corpus book, or writes a large file.</summary>
+    /// <summary>Finds a configured file or the corpus book, or writes a large file.</summary>
+    /// <returns>The setup task.</returns>
+    /// <exception cref="FileNotFoundException">The configured source file is missing.</exception>
     [GlobalSetup]
-    public void Setup()
+    public async Task Setup()
     {
+        if (Environment.GetEnvironmentVariable(SourceFileVariable) is { Length: > 0 } selected)
+        {
+            if (!File.Exists(selected))
+            {
+                throw new FileNotFoundException("The configured source benchmark PDF does not exist.", selected);
+            }
+
+            _path = Path.GetFullPath(selected);
+            return;
+        }
+
         var corpus = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus", CorpusFile);
         if (File.Exists(corpus))
         {
@@ -70,7 +87,7 @@ public class HyperPdfSourceBenchmarks
 
         _generated = true;
         _path = Path.Combine(Path.GetTempPath(), $"hyperpdf-source-bench-{Environment.ProcessId}.pdf");
-        File.WriteAllBytes(_path, Generate());
+        await File.WriteAllBytesAsync(_path, Generate());
     }
 
     /// <summary>Deletes a generated file.</summary>
@@ -92,6 +109,15 @@ public class HyperPdfSourceBenchmarks
         return DecodePage(document, 0);
     }
 
+    /// <summary>Opens the same file with asynchronous I/O, then decodes its first page.</summary>
+    /// <returns>The decoded length.</returns>
+    [Benchmark]
+    public async ValueTask<int> OpenFirstPageAsync()
+    {
+        using var document = await PdfDocumentReader.OpenWithAsync(_path, new PdfOpenOptions { Source = Source, CacheBytes = CacheBytes }, CancellationToken.None).ConfigureAwait(false);
+        return DecodePage(document, 0);
+    }
+
     /// <summary>Opens the file and decodes the first page's content and a page 70% of the way through.</summary>
     /// <returns>The decoded length.</returns>
     [Benchmark]
@@ -99,6 +125,16 @@ public class HyperPdfSourceBenchmarks
     {
         using var document = Open();
         return DecodePage(document, 0) + DecodePage(document, document.PageCount * DeepTenths / Tenths);
+    }
+
+    /// <summary>Opens the file, decodes resources and records its first page.</summary>
+    /// <returns>Whether the page was recorded.</returns>
+    [Benchmark]
+    public bool OpenAndRecordFirstPage()
+    {
+        using var document = Open();
+        using var renderer = new PdfPageRenderer(document);
+        return renderer.Prepare(new(0, 1, 0, 0, 0, PdfRenderFlags.None), CancellationToken.None);
     }
 
     /// <summary>Decodes a page's content, whether one stream or an array of them.</summary>

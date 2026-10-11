@@ -90,7 +90,7 @@ public sealed class AnnotationEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("move.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("move.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -149,7 +149,7 @@ public sealed class AnnotationEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("buttons.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("buttons.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -182,7 +182,7 @@ public sealed class AnnotationEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("polygons.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("polygons.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -240,7 +240,7 @@ public sealed class AnnotationEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("picture.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("picture.pdf", 1)]);
         var tab = main.SelectedTab!;
         var annotations = tab.Annotations;
         tab.SidebarMode = SidebarMode.Annotations;
@@ -268,7 +268,7 @@ public sealed class AnnotationEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("filter.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("filter.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

@@ -420,7 +420,7 @@ public sealed class AnnotationEditingTests
     private static async Task<byte[]> SaveAsync(IAnnotationEditor editor)
     {
         await using var stream = new MemoryStream();
-        _ = editor.Save(stream);
+        await Assert.That(await editor.SaveAsync(stream, CancellationToken.None)).IsTrue();
         return stream.ToArray();
     }
 

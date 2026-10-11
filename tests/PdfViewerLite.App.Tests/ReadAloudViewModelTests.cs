@@ -60,7 +60,7 @@ public sealed class ReadAloudViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("read.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("read.pdf", Pages)]);
         var reader = main.SelectedTab!.ReadAloud;
 
         reader.IsOpen = true;
@@ -84,7 +84,7 @@ public sealed class ReadAloudViewModelTests
         var speech = new FakeSpeech(true, true);
         using var test = new TestServices(new Services.FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("mark.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("mark.pdf", Pages)]);
         var reader = main.SelectedTab!.ReadAloud;
 
         reader.IsOpen = true;
@@ -110,7 +110,7 @@ public sealed class ReadAloudViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("speed.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("speed.pdf", 1)]);
         var reader = main.SelectedTab!.ReadAloud;
 
         reader.SpeedIndex = FastestSpeed;
@@ -133,7 +133,7 @@ public sealed class ReadAloudViewModelTests
         var speech = new FakeSpeech(false, false);
         using var test = new TestServices(new Services.FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("voice.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("voice.pdf", 1)]);
         var reader = main.SelectedTab!.ReadAloud;
 
         reader.IsOpen = true;
@@ -160,7 +160,8 @@ public sealed class ReadAloudViewModelTests
         var speech = new FakeSpeech(true, true);
         using var test = new TestServices(new Services.FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("first.pdf", 1), test.CreateDocument("second.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("first.pdf", 1), test.CreateDocument("second.pdf", 1)]);
+        await main.Tabs[0].EnsureLoadedAsync(CancellationToken.None);
         var first = main.Tabs[0].ReadAloud;
         var second = main.Tabs[1].ReadAloud;
 
@@ -180,7 +181,7 @@ public sealed class ReadAloudViewModelTests
         var speech = new FakeSpeech(true, true);
         using var test = new TestServices(new Services.FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("resume.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("resume.pdf", Pages)]);
         var reader = main.SelectedTab!.ReadAloud;
         reader.IsOpen = true;
         await Assert.That(await UiWait.UntilAsync(() => !reader.SpokenRange.IsEmpty)).IsTrue();
@@ -205,7 +206,7 @@ public sealed class ReadAloudViewModelTests
         var speech = new FakeSpeech(true, true);
         using var test = new TestServices(new Services.FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("speed-change.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("speed-change.pdf", Pages)]);
         var reader = main.SelectedTab!.ReadAloud;
         reader.IsOpen = true;
         await Assert.That(await UiWait.UntilAsync(() => !reader.SpokenRange.IsEmpty)).IsTrue();
@@ -230,7 +231,7 @@ public sealed class ReadAloudViewModelTests
         using var test = new TestServices(new Services.FallbackPlatform(), speech);
         test.Services.Settings.ReadAloudHighlight = Core.Settings.ReadAloudHighlight.SentenceAndWord;
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("words.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("words.pdf", 1)]);
         var reader = main.SelectedTab!.ReadAloud;
 
         reader.IsOpen = true;

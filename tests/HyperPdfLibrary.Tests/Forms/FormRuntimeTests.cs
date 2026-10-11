@@ -158,6 +158,27 @@ public sealed class FormRuntimeTests
         await Assert.That(ValueOf(document, TotalIndex)).IsEqualTo("0");
     }
 
+    /// <summary>A cancelled form action leaves fields unchanged and does not collect a partial submission or order.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CancelledAsyncFormActionsLeaveTheFormUnchanged()
+    {
+        using var document = Open(string.Empty);
+        var form = PdfDocumentForms.GetForm(document);
+        _ = PdfFormEditing.SetText(form, 0, PriceIndex, "9");
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var token = cancellation.Token;
+
+        await Assert.That(await Cancelled(() => PdfFormAsync.ResetAsync(form, new([], 0), token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => PdfFormAsync.SetHiddenAsync(form, new([QtyName], true), token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => PdfFormAsync.CreateSubmissionAsync(form, new(SendAddress, [], 0), token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => PdfFormAsync.GetCalculationOrderAsync(form, token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => PdfFormAsync.GetTabSequenceAsync(form, 0, token).AsTask())).IsTrue();
+        await Assert.That(ValueOf(document, PriceIndex)).IsEqualTo("9");
+        await Assert.That(Annotation(document, QtyIndex).GetInt32(KnownName.F) & HiddenFlag).IsEqualTo(0);
+    }
+
     /// <summary>A reset with the exclude flag leaves the listed fields alone.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -299,6 +320,22 @@ public sealed class FormRuntimeTests
     /// <param name="pageEntries">The page dictionary's extra entries.</param>
     /// <returns>The document.</returns>
     private static PdfDocument Open(string pageEntries) => PdfDocumentReader.Open(FormRuntimeSamples.Create(pageEntries), null);
+
+    /// <summary>Reports whether a task stopped on cancellation.</summary>
+    /// <param name="action">The operation.</param>
+    /// <returns>Whether it was cancelled.</returns>
+    private static async Task<bool> Cancelled(Func<Task> action)
+    {
+        try
+        {
+            await action();
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            return true;
+        }
+    }
 
     /// <summary>Reads a widget annotation dictionary.</summary>
     /// <param name="document">The document.</param>

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <EventSourceSupport>true</EventSourceSupport>
+    <Description>Completed GPU tile rendering probe on the viewer graphics context.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HyperPdfLibrary\HyperPdfLibrary.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
+    <ProjectReference Include="..\..\src\PdfViewerLite.Core\PdfViewerLite.Core.csproj" />
+    <ProjectReference Include="..\..\src\PdfViewerLite.Skia\PdfViewerLite.Skia.csproj" />
+    <ProjectReference Include="..\..\tests\PdfViewerLite.TestAssets\PdfViewerLite.TestAssets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\PdfViewerLite.App\Rendering\GpuPageTone.cs" Link="GpuPageTone.cs" />
+    <Compile Include="..\PdfViewerLite.Benchmarks\RenderSamplePages.cs" Link="Fixtures\RenderSamplePages.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\IccTestProfileBuilder.cs" Link="Fixtures\IccTestProfileBuilder.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Rendering\RenderTestPdf.cs" Link="Fixtures\RenderTestPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\ConformancePdf.cs" Link="Fixtures\ConformancePdf.cs" />
+    <Compile Include="..\..\tests\PdfViewerLite.HyperPdf.Tests\RenderingComparison\StandardsRenderFixtures.cs" Link="Fixtures\StandardsRenderFixtures.cs" />
+    <Compile Include="..\..\tests\PdfViewerLite.HyperPdf.Tests\RenderingComparison\StandardsRenderFixture.cs" Link="Fixtures\StandardsRenderFixture.cs" />
+    <Compile Include="..\..\tests\PdfViewerLite.HyperPdf.Tests\RenderingComparison\StandardsRenderCase.cs" Link="Fixtures\StandardsRenderCase.cs" />
+    <Compile Include="..\..\tests\PdfViewerLite.HyperPdf.Tests\RenderingComparison\StandardsOracle.cs" Link="Fixtures\StandardsOracle.cs" />
+    <Compile Include="..\..\tests\PdfViewerLite.HyperPdf.Tests\RenderingComparison\ExpectedPixelRegion.cs" Link="Fixtures\ExpectedPixelRegion.cs" />
+    <Compile Include="..\..\tests\PdfViewerLite.HyperPdf.Tests\RenderingComparison\Bgra32Color.cs" Link="Fixtures\Bgra32Color.cs" />
+    <Compile Include="..\..\tests\PdfViewerLite.HyperPdf.Tests\RenderingComparison\ComparisonTestRasters.cs" Link="Fixtures\ComparisonTestRasters.cs" />
+    <Compile Include="..\..\tests\PdfViewerLite.HyperPdf.Tests\RenderingComparison\ComparisonRaster.cs" Link="Fixtures\ComparisonRaster.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Wayland" />
+    <PackageReference Include="Avalonia.X11" />
+  </ItemGroup>
+</Project>

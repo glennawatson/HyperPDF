@@ -115,7 +115,7 @@ public sealed class RenderingTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("measure.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("measure.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -151,7 +151,7 @@ public sealed class RenderingTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("first.pdf", Pages), test.CreateDocument("second.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("first.pdf", Pages), test.CreateDocument("second.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -222,7 +222,7 @@ public sealed class RenderingTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("schemes.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("schemes.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         var application = Application.Current!;
@@ -257,7 +257,7 @@ public sealed class RenderingTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("annotated.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("annotated.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -296,7 +296,7 @@ public sealed class RenderingTests
         using var main = new MainViewModel(test.Services);
         var path = Path.Combine(test.Directory, "form.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateForm());
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -341,7 +341,7 @@ public sealed class RenderingTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("pages.pdf", PageByPagePages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("pages.pdf", PageByPagePages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -382,7 +382,7 @@ public sealed class RenderingTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("align.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("align.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -418,7 +418,7 @@ public sealed class RenderingTests
         var speech = new FakeSpeech(true, true);
         using var test = new TestServices(new FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("read.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("read.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -462,7 +462,7 @@ public sealed class RenderingTests
         var path = Path.Combine(test.Directory, "article.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateArticle(ArticlePages));
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -512,7 +512,7 @@ public sealed class RenderingTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("present.pdf", PageByPagePages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("present.pdf", PageByPagePages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -554,7 +554,7 @@ public sealed class RenderingTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("caret.pdf", PageByPagePages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("caret.pdf", PageByPagePages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -594,7 +594,7 @@ public sealed class RenderingTests
     {
         using var test = new TestServices(new PrintingPlatform(new RecordingPrinter()));
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("preview.pdf", PageByPagePages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("preview.pdf", PageByPagePages)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var window = new PrintPreviewWindow { ViewModel = preview, Width = WindowWidth, Height = WindowHeight };
         window.Show();
@@ -624,7 +624,7 @@ public sealed class RenderingTests
         var path = Path.Combine(test.Directory, "layers.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateWithLayers());
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

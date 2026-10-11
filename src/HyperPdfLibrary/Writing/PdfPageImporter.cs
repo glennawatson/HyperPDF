@@ -189,17 +189,20 @@ public sealed class PdfPageImporter
         var prepared = new PdfArray?[pages.Length];
         for (var i = 0; i < ids.Length; i++)
         {
+            PdfCancellation.ThrowIfCancelled();
             ids[i] = _target.Reserve();
             carrier.AddPage(pages[i].Id, ids[i]);
         }
 
         for (var i = 0; i < ids.Length; i++)
         {
+            PdfCancellation.ThrowIfCancelled();
             prepared[i] = carrier.PrepareAnnotations(pages[i], PdfAnnotationFilter.All);
         }
 
         for (var i = 0; i < ids.Length; i++)
         {
+            PdfCancellation.ThrowIfCancelled();
             _ = ImportPageCore(pages[i], ids[i], prepared[i], PdfAnnotationFilter.All);
         }
 

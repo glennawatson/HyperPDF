@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/PdfViewerLite.Benchmarks/PdfViewerLite.Benchmarks.csproj" />
+    <Project Path="benchmarks/PdfViewerLite.GpuProbe/PdfViewerLite.GpuProbe.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj" />

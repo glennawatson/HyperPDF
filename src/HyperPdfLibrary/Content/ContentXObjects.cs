@@ -128,7 +128,8 @@ internal static class ContentXObjects
             return;
         }
 
-        var entry = self.Cache.AcquireImage(image);
+        var reduction = ImageReduction.Select(image.Dictionary, self.State.Ctm, self.ImageScale);
+        var entry = self.Cache.AcquireImage(image, reduction);
         if (entry is null)
         {
             return;

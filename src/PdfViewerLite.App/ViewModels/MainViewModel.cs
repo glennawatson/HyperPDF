@@ -47,6 +47,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     /// <summary>Subscriptions following the theme, open requests and applied settings.</summary>
     private readonly MultipleDisposable _subscriptions;
 
+    /// <summary>The tab whose cancellable work currently owns selection.</summary>
+    private DocumentTabViewModel? _activeTab;
+
     /// <summary>Initializes a new instance of the <see cref="MainViewModel"/> class.</summary>
     /// <param name="services">The application services.</param>
     public MainViewModel(AppServices services)
@@ -404,6 +407,14 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         }
     }
 
+    /// <summary>Removes one recent entry from the start page and menu.</summary>
+    /// <param name="recent">The document to forget.</param>
+    public void RemoveRecent(RecentDocument recent)
+    {
+        _services.RecentDocuments.Remove(recent.FilePath);
+        RefreshRecentDocuments();
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -441,6 +452,14 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         return Path.IsPathRooted(item) || !item.Contains("://", StringComparison.Ordinal) ? Path.GetFullPath(item) : null;
     }
 
+    /// <summary>Clears the recent PDF list shown by this app.</summary>
+    [ReactiveCommand]
+    private void ClearRecent()
+    {
+        _services.RecentDocuments.Clear();
+        RefreshRecentDocuments();
+    }
+
     /// <summary>Splits the view of a document in two, beside each other, or puts the second view away.</summary>
     /// <param name="tab">The document's first view, or its second view.</param>
     private void ToggleSplit(DocumentTabViewModel tab)
@@ -454,7 +473,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         // The second view shares the open document, so edits made in either view are in the one file.
         var split = new DocumentTabViewModel(tab.Source, _services) { PageTone = PageTone, OpenDocument = OpenLinked, ToggleSplitView = ToggleSplit, IsSecondaryView = true };
         split.ReportPosition(tab.Position, tab.CurrentPageIndex);
-        split.EnsureLoaded();
+        split.StartSelectedWork();
         tab.IsSplitView = true;
         split.IsSplitView = true;
         SplitTab = split;
@@ -464,12 +483,14 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     /// <param name="tab">The selected tab.</param>
     private void OnSelectedTabChanged(DocumentTabViewModel? tab)
     {
+        _activeTab?.StopSelectedWork();
         if (SplitTab is { } split && !ReferenceEquals(split.Source, tab?.Source))
         {
             CloseSplit();
         }
 
-        tab?.EnsureLoaded();
+        _activeTab = tab;
+        tab?.StartSelectedWork();
     }
 
     /// <summary>Puts the second view away.</summary>

@@ -48,6 +48,27 @@ public sealed class PageOperationTests
     /// <summary>Gets the reversed order of the structured document.</summary>
     private static int[] Reversed => [LastPage, FifthPage, FourthPage, ThirdPage, 1, 0];
 
+    /// <summary>A cancelled page operation leaves both source and destination unchanged.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CancelledAsyncPageOperationsDoNotEdit()
+    {
+        using var source = PdfDocumentReader.Open(EditingTestDocuments.CreateStructured(), null);
+        using var target = PdfDocumentReader.Open(EditingTestDocuments.CreateFlat(FlatPages), null);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var token = cancellation.Token;
+        int[] selected = [0];
+
+        await Assert.That(await Cancelled(() => PdfDocumentPageEditing.RotatePagesAsync(target, selected, QuarterTurn, token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => PdfDocumentPageEditing.DeletePagesAsync(target, selected, token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => PdfDocumentPageEditing.MovePagesAsync(target, selected, 1, token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => PdfDocumentPageEditing.InsertPagesAsync(target, 1, source, selected, token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => PdfDocumentPageEditing.ExtractPagesAsync(target, selected, token).AsTask())).IsTrue();
+        await Assert.That(target.PageCount).IsEqualTo(FlatPages);
+        await Assert.That(StoreEditing.HasEdits(target.Objects)).IsFalse();
+    }
+
     /// <summary>Reordering rewrites a flat tree, pushes inherited boxes and rotation down, and keeps labels with their pages.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -204,6 +225,22 @@ public sealed class PageOperationTests
             await Assert.That(saved.IsEncrypted).IsTrue();
             await Assert.That(EditingTestDocuments.PageTexts(saved)).IsEquivalentTo(EditingTestDocuments.Expected("3 1 2"));
             await Assert.That(PdfDocumentPages.GetPage(saved, 0).Rotation).IsEqualTo(QuarterTurn);
+        }
+    }
+
+    /// <summary>Reports whether an operation stopped on cancellation.</summary>
+    /// <param name="action">The operation.</param>
+    /// <returns>Whether it was cancelled.</returns>
+    private static async Task<bool> Cancelled(Func<Task> action)
+    {
+        try
+        {
+            await action();
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            return true;
         }
     }
 

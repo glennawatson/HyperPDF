@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using PdfViewerLite.Core.Platform;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -19,6 +20,7 @@ public sealed partial class RecentDocumentView : ReactiveUI.Avalonia.ReactiveUse
     public RecentDocumentView()
     {
         InitializeComponent();
+        RemoveButton.Click += OnRemoveClicked;
         _ = this.WhenActivated(disposables =>
         {
             // A recent document is immutable and raises no change notifications, so the view follows only which one it shows.
@@ -29,5 +31,20 @@ public sealed partial class RecentDocumentView : ReactiveUI.Avalonia.ReactiveUse
             // The tip is an attached property, which a binding expression cannot reach.
             disposables.Add(recent.SubscribeSafe(item => ToolTip.SetTip(this, item?.FilePath), static error => Trace.TraceError(error.ToString())));
         });
+    }
+
+    /// <summary>Gets the action that removes the displayed item from recent documents.</summary>
+    internal Action<RecentDocument>? RemoveRequested { get; init; }
+
+    /// <summary>Removes this row without opening its document.</summary>
+    /// <param name="sender">The button.</param>
+    /// <param name="e">The click event.</param>
+    private void OnRemoveClicked(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (ViewModel is { } recent)
+        {
+            RemoveRequested?.Invoke(recent);
+        }
     }
 }

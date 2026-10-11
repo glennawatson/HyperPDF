@@ -43,7 +43,7 @@ public sealed class ControlHelpTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("help.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("help.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -77,7 +77,7 @@ public sealed class ControlHelpTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("help-dialogs.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("help-dialogs.pdf", Pages)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         Window[] windows =
         [
@@ -129,7 +129,7 @@ public sealed class ControlHelpTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("help-peers.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("help-peers.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

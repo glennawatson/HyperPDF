@@ -9,6 +9,9 @@ namespace PdfViewerLite.Core.Tests.Platform;
 /// <summary>Tests for <see cref="XbelRecentDocumentStore"/>.</summary>
 public sealed class XbelRecentDocumentStoreTests
 {
+    /// <summary>Minimal file contents for recent-list tests.</summary>
+    private const string PdfContents = "%PDF-1.7";
+
     /// <summary>Verifies documents are recorded once, listed newest first, and other entries are preserved.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -21,8 +24,8 @@ public sealed class XbelRecentDocumentStoreTests
             var xbel = Path.Combine(directory, "recently-used.xbel");
             var first = Path.Combine(directory, "first.pdf");
             var second = Path.Combine(directory, "second.pdf");
-            await File.WriteAllTextAsync(first, "%PDF-1.7");
-            await File.WriteAllTextAsync(second, "%PDF-1.7");
+            await File.WriteAllTextAsync(first, PdfContents);
+            await File.WriteAllTextAsync(second, PdfContents);
             await File.WriteAllTextAsync(xbel, """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <xbel version="1.0" xmlns:bookmark="http://www.freedesktop.org/standards/desktop-bookmarks" xmlns:mime="http://www.freedesktop.org/standards/shared-mime-info">
@@ -49,6 +52,43 @@ public sealed class XbelRecentDocumentStoreTests
             var content = await File.ReadAllTextAsync(xbel);
             await Assert.That(content).Contains("file:///etc/hosts");
             await Assert.That(content).Contains("count=\"2\"");
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    /// <summary>Cleanup removes PDF bookmarks while preserving other file types and the PDF files.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RemovesPdfBookmarksOnly()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"xbel-{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(directory);
+        try
+        {
+            var xbel = Path.Combine(directory, "recently-used.xbel");
+            var first = Path.Combine(directory, "first.pdf");
+            var second = Path.Combine(directory, "second.pdf");
+            await File.WriteAllTextAsync(first, PdfContents);
+            await File.WriteAllTextAsync(second, PdfContents);
+            await File.WriteAllTextAsync(xbel, """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <xbel version="1.0" xmlns:bookmark="http://www.freedesktop.org/standards/desktop-bookmarks" xmlns:mime="http://www.freedesktop.org/standards/shared-mime-info">
+                  <bookmark href="file:///etc/hosts"><info><metadata owner="http://freedesktop.org"><mime:mime-type type="text/plain"/></metadata></info></bookmark>
+                </xbel>
+                """);
+            var store = new XbelRecentDocumentStore(xbel, TimeProvider.System);
+            store.Add(first);
+            store.Add(second);
+            store.Remove(first);
+            const int maxResults = 10;
+            await Assert.That(store.GetRecent(maxResults).Select(static entry => entry.FilePath)).IsEquivalentTo([second]);
+            store.Clear();
+            await Assert.That(store.GetRecent(maxResults)).IsEmpty();
+            await Assert.That(await File.ReadAllTextAsync(xbel)).Contains("file:///etc/hosts");
+            await Assert.That(File.Exists(first) && File.Exists(second)).IsTrue();
         }
         finally
         {

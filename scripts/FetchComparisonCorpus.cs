@@ -41,6 +41,15 @@ internal static class FetchComparisonCorpus
     /// <summary>The overall download timeout in minutes.</summary>
     private const int TimeoutMinutes = 10;
 
+    /// <summary>The number of attempts for a transient corpus-host failure.</summary>
+    private const int MaximumDownloadAttempts = 3;
+
+    /// <summary>The most alternate HTTPS hosts a corpus entry may name.</summary>
+    private const int MaximumMirrors = 2;
+
+    /// <summary>The base backoff in milliseconds between transient failures.</summary>
+    private const int RetryDelayMilliseconds = 500;
+
     /// <summary>The extension used for downloaded PDF documents.</summary>
     private const string DocumentExtension = ".pdf";
 
@@ -181,7 +190,43 @@ internal static class FetchComparisonCorpus
             throw new InvalidDataException($"The corpus entry {id} has an invalid byte count.");
         }
 
-        return new(id, uri, Convert.FromHexString(hashText), expectedBytes);
+        return new(id, ReadUris(document, uri), Convert.FromHexString(hashText), expectedBytes);
+    }
+
+    /// <summary>Reads the primary HTTPS source and up to two explicit mirrors.</summary>
+    /// <param name="document">The manifest row.</param>
+    /// <param name="primary">The validated primary source.</param>
+    /// <returns>The sources in attempt order.</returns>
+    /// <exception cref="InvalidDataException">The mirror list is malformed or too long.</exception>
+    private static Uri[] ReadUris(JsonElement document, Uri primary)
+    {
+        if (!document.TryGetProperty("mirrors", out var mirrors))
+        {
+            return [primary];
+        }
+
+        if (mirrors.ValueKind != JsonValueKind.Array || mirrors.GetArrayLength() > MaximumMirrors)
+        {
+            throw new InvalidDataException("A corpus entry has an invalid mirror list.");
+        }
+
+        var urls = new Uri[mirrors.GetArrayLength() + 1];
+        urls[0] = primary;
+        var index = 1;
+        foreach (var mirror in mirrors.EnumerateArray())
+        {
+            if (mirror.ValueKind != JsonValueKind.String)
+            {
+                throw new InvalidDataException("A corpus mirror must be an HTTPS URL.");
+            }
+
+            var uri = new Uri(mirror.GetString()!, UriKind.Absolute);
+            EnsureHttps(uri);
+            urls[index] = uri;
+            index++;
+        }
+
+        return urls;
     }
 
     /// <summary>Ensures every requested ID has exactly one selected manifest row.</summary>
@@ -287,7 +332,7 @@ internal static class FetchComparisonCorpus
         var temporaryPath = Path.Combine(destination, $".{entry.Id}.{Guid.NewGuid():N}.part");
         try
         {
-            await DownloadAsync(client, entry, temporaryPath, cancellationToken);
+            await DownloadWithRetryAsync(client, entry, temporaryPath, cancellationToken);
             File.Move(temporaryPath, path, overwrite: true);
             Console.WriteLine($"Downloaded and verified {entry.Id}: {path}");
         }
@@ -349,17 +394,54 @@ internal static class FetchComparisonCorpus
         }
     }
 
+    /// <summary>Retries transient network failures without accepting changed or corrupt fixture bytes.</summary>
+    /// <param name="client">The HTTP client.</param>
+    /// <param name="entry">The expected corpus entry.</param>
+    /// <param name="temporaryPath">The temporary output path.</param>
+    /// <param name="cancellationToken">Cancels the attempts and backoff.</param>
+    /// <returns>A task for a verified download.</returns>
+    private static async Task DownloadWithRetryAsync(HttpClient client, CorpusEntry entry, string temporaryPath, CancellationToken cancellationToken)
+    {
+        var attempt = 1;
+        while (true)
+        {
+            try
+            {
+                await DownloadAsync(client, entry, entry.Uris[(attempt - 1) % entry.Uris.Length], temporaryPath, cancellationToken);
+                return;
+            }
+            catch (HttpRequestException error) when (attempt < MaximumDownloadAttempts && IsTransient(error) && !cancellationToken.IsCancellationRequested)
+            {
+                DeleteTemporaryFile(temporaryPath);
+            }
+            catch (IOException) when (attempt < MaximumDownloadAttempts && !cancellationToken.IsCancellationRequested)
+            {
+                DeleteTemporaryFile(temporaryPath);
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(RetryDelayMilliseconds * attempt), cancellationToken);
+            attempt++;
+        }
+    }
+
+    /// <summary>Distinguishes connection and server failures from a permanent HTTP rejection.</summary>
+    /// <param name="error">The failed request.</param>
+    /// <returns>Whether another attempt may succeed.</returns>
+    private static bool IsTransient(HttpRequestException error) => error.StatusCode is null or HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
+        || error.StatusCode >= HttpStatusCode.InternalServerError;
+
     /// <summary>Follows bounded HTTPS redirects and streams the response into a temporary file.</summary>
     /// <param name="client">The HTTP client.</param>
     /// <param name="entry">The expected corpus entry.</param>
+    /// <param name="source">The current validated HTTPS source.</param>
     /// <param name="temporaryPath">The temporary output path.</param>
     /// <param name="cancellationToken">Cancels network and file operations.</param>
     /// <returns>A task for the completed download.</returns>
     /// <exception cref="HttpRequestException">The request fails or exceeds the redirect limit.</exception>
     /// <exception cref="InvalidDataException">The response differs from the manifest.</exception>
-    private static async Task DownloadAsync(HttpClient client, CorpusEntry entry, string temporaryPath, CancellationToken cancellationToken)
+    private static async Task DownloadAsync(HttpClient client, CorpusEntry entry, Uri source, string temporaryPath, CancellationToken cancellationToken)
     {
-        var uri = entry.Uri;
+        var uri = source;
         var redirectCount = 0;
         while (true)
         {
@@ -465,8 +547,8 @@ internal static class FetchComparisonCorpus
 
     /// <summary>A validated manifest row for one PDF fixture.</summary>
     /// <param name="Id">The safe fixture identifier.</param>
-    /// <param name="Uri">The HTTPS source URI.</param>
+    /// <param name="Uris">The HTTPS source and explicit mirrors in attempt order.</param>
     /// <param name="Sha256">The expected digest bytes.</param>
     /// <param name="ExpectedBytes">The expected file length.</param>
-    private sealed record CorpusEntry(string Id, Uri Uri, byte[] Sha256, long ExpectedBytes);
+    private sealed record CorpusEntry(string Id, Uri[] Uris, byte[] Sha256, long ExpectedBytes);
 }

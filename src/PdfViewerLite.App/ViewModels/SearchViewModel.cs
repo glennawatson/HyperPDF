@@ -153,6 +153,10 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Refresh() => StartSearch();
 
+    /// <summary>Stops page-search I/O and CPU work when its tab loses selection.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void CancelForTabSwitch() => Cancel();
+
     /// <summary>Reports a failure in the query pipeline.</summary>
     /// <param name="error">The error.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

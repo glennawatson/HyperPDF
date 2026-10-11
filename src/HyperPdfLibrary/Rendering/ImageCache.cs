@@ -29,13 +29,13 @@ internal sealed class ImageCache
     private readonly Lock _gate = new();
 
     /// <summary>The cached images by stream.</summary>
-    private readonly Dictionary<PdfStream, ImageEntry> _map = [with(ReferenceEqualityComparer.Instance)];
+    private readonly Dictionary<ImageKey, ImageEntry> _map = [];
 
     /// <summary>The streams that could not be decoded.</summary>
-    private readonly HashSet<PdfStream> _failed = [with(ReferenceEqualityComparer.Instance)];
+    private readonly HashSet<ImageKey> _failed = [];
 
     /// <summary>The decodes in progress by stream, so a second thread that needs the image waits instead of decoding it again.</summary>
-    private readonly Dictionary<PdfStream, ImageDecode> _decoding = [with(ReferenceEqualityComparer.Instance)];
+    private readonly Dictionary<ImageKey, ImageDecode> _decoding = [];
 
     /// <summary>The cached images, most recently used first.</summary>
     private readonly LinkedList<ImageEntry> _recency = [];
@@ -105,7 +105,17 @@ internal sealed class ImageCache
     /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ImageEntry? Acquire<TState>(PdfStream stream, TState state, Func<PdfStream, TState, ImageEntry?> decode) =>
-        Acquire(stream, state, decode, CancellationToken.None);
+        Acquire(new(stream, 0), (Decode: decode, State: state), static (key, value) => value.Decode(key.Stream, value.State), CancellationToken.None);
+
+    /// <summary>Gets one resolution of an image, decoding it when needed.</summary>
+    /// <typeparam name="TState">The decoder state type.</typeparam>
+    /// <param name="key">The image and selected resolution.</param>
+    /// <param name="state">The decoder state.</param>
+    /// <param name="decode">Decodes the image.</param>
+    /// <returns>The acquired image, or null when decoding fails.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ImageEntry? Acquire<TState>(ImageKey key, TState state, Func<ImageKey, TState, ImageEntry?> decode) =>
+        Acquire(key, state, decode, CancellationToken.None);
 
     /// <summary>
     /// Gets an image, decoding it when it is not cached, and marks it in use. When another thread is already decoding the
@@ -119,11 +129,22 @@ internal sealed class ImageCache
     /// <returns>The entry, which the caller must release; null when the image cannot be decoded.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled while waiting for another thread's decode.</exception>
     /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
-    internal ImageEntry? Acquire<TState>(PdfStream stream, TState state, Func<PdfStream, TState, ImageEntry?> decode, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ImageEntry? Acquire<TState>(PdfStream stream, TState state, Func<PdfStream, TState, ImageEntry?> decode, CancellationToken cancellationToken) =>
+        Acquire(new(stream, 0), (Decode: decode, State: state), static (key, value) => value.Decode(key.Stream, value.State), cancellationToken);
+
+    /// <summary>Gets one resolution of an image, waiting for an active decode if needed.</summary>
+    /// <typeparam name="TState">The decoder state type.</typeparam>
+    /// <param name="key">The image and selected resolution.</param>
+    /// <param name="state">The decoder state.</param>
+    /// <param name="decode">Decodes the image.</param>
+    /// <param name="cancellationToken">Cancels a wait for another decode.</param>
+    /// <returns>The acquired image, or null when decoding fails.</returns>
+    internal ImageEntry? Acquire<TState>(ImageKey key, TState state, Func<ImageKey, TState, ImageEntry?> decode, CancellationToken cancellationToken)
     {
         while (true)
         {
-            var pending = Begin(stream, out var entry, out var leader);
+            var pending = Begin(key, out var entry, out var leader);
             if (pending is null)
             {
                 return entry;
@@ -131,7 +152,7 @@ internal sealed class ImageCache
 
             if (leader)
             {
-                return Lead(stream, state, decode, pending);
+                return Lead(key, state, decode, pending);
             }
 
             // An image whose decode needs itself (a mask that refers back to the image) would wait on its own decode
@@ -154,11 +175,21 @@ internal sealed class ImageCache
     /// <returns>The entry, which the caller must release; null when the image cannot be decoded.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled while waiting for another thread's decode.</exception>
     /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
-    internal async ValueTask<ImageEntry?> AcquireAsync<TState>(PdfStream stream, TState state, Func<PdfStream, TState, ImageEntry?> decode, CancellationToken cancellationToken)
+    internal async ValueTask<ImageEntry?> AcquireAsync<TState>(PdfStream stream, TState state, Func<PdfStream, TState, ImageEntry?> decode, CancellationToken cancellationToken) =>
+        await AcquireAsync(new(stream, 0), (Decode: decode, State: state), static (key, value) => value.Decode(key.Stream, value.State), cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Gets one resolution of an image without holding a thread while another decode runs.</summary>
+    /// <typeparam name="TState">The decoder state type.</typeparam>
+    /// <param name="key">The image and selected resolution.</param>
+    /// <param name="state">The decoder state.</param>
+    /// <param name="decode">Decodes the image.</param>
+    /// <param name="cancellationToken">Cancels a wait for another decode.</param>
+    /// <returns>The acquired image, or null when decoding fails.</returns>
+    internal async ValueTask<ImageEntry?> AcquireAsync<TState>(ImageKey key, TState state, Func<ImageKey, TState, ImageEntry?> decode, CancellationToken cancellationToken)
     {
         while (true)
         {
-            var pending = Begin(stream, out var entry, out var leader);
+            var pending = Begin(key, out var entry, out var leader);
             if (pending is null)
             {
                 return entry;
@@ -166,7 +197,7 @@ internal sealed class ImageCache
 
             if (leader)
             {
-                return Lead(stream, state, decode, pending);
+                return Lead(key, state, decode, pending);
             }
 
             // The decode runs synchronously on its leader's thread, so a request from that thread is the decode needing itself.
@@ -202,46 +233,46 @@ internal sealed class ImageCache
     }
 
     /// <summary>Finds a cached result, or says who decodes the stream.</summary>
-    /// <param name="stream">The image stream.</param>
+    /// <param name="key">The image stream and resolution.</param>
     /// <param name="entry">Receives the result, already acquired, when the stream is cached (null for a stream that failed).</param>
     /// <param name="leader">Receives whether the caller must decode the stream and complete the returned decode.</param>
     /// <returns>Null when the stream has a cached result; otherwise the decode in progress, which the caller leads or waits for.</returns>
     /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
-    private ImageDecode? Begin(PdfStream stream, out ImageEntry? entry, out bool leader)
+    private ImageDecode? Begin(ImageKey key, out ImageEntry? entry, out bool leader)
     {
         lock (_gate)
         {
             ThrowIfClosedLocked();
             leader = false;
-            if (TryUseLocked(stream, out entry))
+            if (TryUseLocked(key, out entry))
             {
                 return null;
             }
 
-            if (_decoding.TryGetValue(stream, out var running))
+            if (_decoding.TryGetValue(key, out var running))
             {
                 return running;
             }
 
             leader = true;
             var started = new ImageDecode();
-            _decoding[stream] = started;
+            _decoding[key] = started;
             return started;
         }
     }
 
     /// <summary>Decodes a stream, caches the result and wakes the threads waiting for it.</summary>
     /// <typeparam name="TState">The type of the state given to the decoder.</typeparam>
-    /// <param name="stream">The image stream.</param>
+    /// <param name="key">The image stream and resolution.</param>
     /// <param name="state">The state given to the decoder.</param>
     /// <param name="decode">Decodes the stream; may return null.</param>
     /// <param name="pending">The decode this caller registered in <see cref="Begin"/>.</param>
     /// <returns>The entry, already acquired; null when the image cannot be decoded.</returns>
-    private ImageEntry? Lead<TState>(PdfStream stream, TState state, Func<PdfStream, TState, ImageEntry?> decode, ImageDecode pending)
+    private ImageEntry? Lead<TState>(ImageKey key, TState state, Func<ImageKey, TState, ImageEntry?> decode, ImageDecode pending)
     {
         try
         {
-            return Publish(stream, decode(stream, state));
+            return Publish(key, decode(key, state));
         }
         finally
         {
@@ -249,7 +280,7 @@ internal sealed class ImageCache
             // them decodes for itself after an exception.
             lock (_gate)
             {
-                _ = _decoding.Remove(stream);
+                _ = _decoding.Remove(key);
             }
 
             pending.Complete();
@@ -257,11 +288,11 @@ internal sealed class ImageCache
     }
 
     /// <summary>Caches a decoded image, or remembers that the stream failed.</summary>
-    /// <param name="stream">The image stream.</param>
+    /// <param name="key">The image stream and resolution.</param>
     /// <param name="created">The decoded entry, or null.</param>
     /// <returns>The entry, already acquired; null when the image cannot be decoded.</returns>
     /// <exception cref="ObjectDisposedException">The document was disposed while the image decoded.</exception>
-    private ImageEntry? Publish(PdfStream stream, ImageEntry? created)
+    private ImageEntry? Publish(ImageKey key, ImageEntry? created)
     {
         lock (_gate)
         {
@@ -274,14 +305,14 @@ internal sealed class ImageCache
 
             if (created is null)
             {
-                _ = _failed.Add(stream);
+                _ = _failed.Add(key);
                 return null;
             }
 
             created.Acquire();
-            created.Key = stream;
+            created.Key = key;
             created.Node = _recency.AddFirst(created);
-            _map[stream] = created;
+            _map[key] = created;
             _bytes += created.Bytes;
             EvictLocked(created);
             return created;
@@ -314,12 +345,12 @@ internal sealed class ImageCache
     }
 
     /// <summary>Finds a cached result and marks it used. The caller holds the lock.</summary>
-    /// <param name="stream">The image stream.</param>
+    /// <param name="key">The image stream and resolution.</param>
     /// <param name="entry">Receives the entry, already acquired, or null for a stream that failed.</param>
     /// <returns><see langword="true"/> when the stream has a cached result.</returns>
-    private bool TryUseLocked(PdfStream stream, out ImageEntry? entry)
+    private bool TryUseLocked(ImageKey key, out ImageEntry? entry)
     {
-        if (_map.TryGetValue(stream, out entry))
+        if (_map.TryGetValue(key, out entry))
         {
             if (entry.Node is { } node && node != _recency.First)
             {
@@ -332,7 +363,7 @@ internal sealed class ImageCache
         }
 
         entry = null;
-        return _failed.Contains(stream);
+        return _failed.Contains(key);
     }
 
     /// <summary>Evicts the least recently used images until the bytes fit. The caller holds the lock.</summary>

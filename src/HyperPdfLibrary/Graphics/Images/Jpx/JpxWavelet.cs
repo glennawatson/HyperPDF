@@ -48,10 +48,20 @@ internal static class JpxWavelet
     /// <param name="component">The tile-component.</param>
     /// <param name="buffer">The coefficients, sub-bands in place; replaced by the samples.</param>
     /// <param name="scratch">Scratch space of at least <see cref="ScratchLength"/> elements.</param>
-    internal static void Inverse(JpxTile tile, in JpxTileComponent component, int[] buffer, int[] scratch)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Inverse(JpxTile tile, in JpxTileComponent component, int[] buffer, int[] scratch) =>
+        Inverse(tile, component, buffer, scratch, 0);
+
+    /// <summary>Rebuilds only the wavelet levels needed for a reduced-resolution tile.</summary>
+    /// <param name="tile">The tile layout.</param>
+    /// <param name="component">The component.</param>
+    /// <param name="buffer">The coefficients and output samples.</param>
+    /// <param name="scratch">The wavelet scratch.</param>
+    /// <param name="reductionLevels">The finest levels to leave out.</param>
+    internal static void Inverse(JpxTile tile, in JpxTileComponent component, int[] buffer, int[] scratch, int reductionLevels)
     {
-        var stride = component.Area.Width;
-        for (var r = 1; r <= component.Levels; r++)
+        var stride = component.Area.Reduce(reductionLevels).Width;
+        for (var r = 1; r <= component.Levels - reductionLevels; r++)
         {
             var area = tile.Resolutions[component.FirstResolution + r].Area;
             var low = tile.Resolutions[component.FirstResolution + r - 1].Area;

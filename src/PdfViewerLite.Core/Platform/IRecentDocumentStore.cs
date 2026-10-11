@@ -15,4 +15,11 @@ public interface IRecentDocumentStore
     /// <summary>Records that a document was opened.</summary>
     /// <param name="filePath">The file path.</param>
     void Add(string filePath);
+
+    /// <summary>Removes a document from the recent list without deleting the file.</summary>
+    /// <param name="filePath">The file path.</param>
+    void Remove(string filePath);
+
+    /// <summary>Clears the PDF documents shown in the recent list without deleting files.</summary>
+    void Clear();
 }

@@ -181,4 +181,14 @@ public interface IAnnotationEditor
     /// <param name="destination">The stream to write to.</param>
     /// <returns><see langword="true"/> when saved.</returns>
     bool Save(Stream destination);
+
+    /// <summary>Saves the document to a stream with cancellable output I/O.</summary>
+    /// <param name="destination">The stream receiving the document.</param>
+    /// <param name="cancellationToken">Cancels preparation and writing.</param>
+    /// <returns>Whether the document was saved.</returns>
+    ValueTask<bool> SaveAsync(Stream destination, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(Save(destination));
+    }
 }

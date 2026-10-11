@@ -117,6 +117,7 @@ internal sealed class GlSkiaGpu : ISkiaGpu
             _graphicsContext.AbandonContext(true);
         }
 
+        SkiaGpuImageRetirement.Retire(_graphicsContext);
         _graphicsContext.Dispose();
     }
 

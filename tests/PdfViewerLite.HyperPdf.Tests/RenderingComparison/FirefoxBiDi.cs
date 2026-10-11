@@ -122,6 +122,7 @@ internal sealed class FirefoxBiDi : IAsyncDisposable
     /// <param name="cancellationToken">Cancels startup.</param>
     /// <returns>The owned browser connection.</returns>
     /// <exception cref="IOException">Firefox cannot start or initialize the protocol connection.</exception>
+    /// <exception cref="TimeoutException">Firefox did not finish its protocol startup within the bound.</exception>
     internal static async Task<FirefoxBiDi> CreateAsync(CancellationToken cancellationToken)
     {
         var executable = FirefoxBrowserDiscovery.FindExecutable();
@@ -156,7 +157,12 @@ internal sealed class FirefoxBiDi : IAsyncDisposable
             await browser.DisposeAsync();
             if (exception is OperationCanceledException)
             {
-                throw;
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                throw new TimeoutException($"Firefox did not initialize within {StartupSeconds} seconds: {diagnostics}", exception);
             }
 
             throw new IOException($"Firefox initialization failed: {diagnostics}", exception);

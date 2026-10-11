@@ -319,10 +319,11 @@ public sealed class PageToolTests
             window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
             var faster = tab.AutoScrollSpeed;
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
-            var stopped = await UiWait.UntilAsync(() => !tab.IsAutoScrolling && !canvas.IsAutoScrollRunning);
+            var stopped = await UiWait.UntilAsync(() => !tab.IsAutoScrolling && !canvas.IsAutoScrollRunning && !view.AutoScrollBar.IsVisible);
 
             _ = await tab.ToggleAutoScrollCommand.Execute().ToTask();
-            var restarted = await UiWait.UntilAsync(() => canvas.IsAutoScrollRunning);
+            var restarted = await UiWait.UntilAsync(() => canvas.IsAutoScrollRunning && view.AutoScrollBar.IsVisible);
+            window.UpdateLayout();
             window.MouseDown(Start(scroller, window), MouseButton.Left);
             window.MouseUp(Start(scroller, window), MouseButton.Left);
             var clickStopped = await UiWait.UntilAsync(() => !tab.IsAutoScrolling && !view.AutoScrollBar.IsVisible);
@@ -421,7 +422,7 @@ public sealed class PageToolTests
     /// <returns>The window.</returns>
     private static async Task<Window> OpenAsync(TestServices test, MainViewModel main, string name)
     {
-        main.Open([test.CreateDocument(name, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(name, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Cache.Count > 0 && window.GetVisualDescendants().OfType<PageCanvas>().Any(static c => c.IsFocused));

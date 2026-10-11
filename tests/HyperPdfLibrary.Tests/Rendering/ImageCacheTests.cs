@@ -23,6 +23,9 @@ public sealed class ImageCacheTests
     /// <summary>A capacity that fits two test images.</summary>
     private const long TwoImages = ImageBytes * Attempts;
 
+    /// <summary>The first reduced display resolution.</summary>
+    private const int ReducedLevel = 1;
+
     /// <summary>The cache keeps images within its byte limit, evicting the least recently used first.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -96,6 +99,35 @@ public sealed class ImageCacheTests
 
         await Assert.That(cache.Count).IsEqualTo(0);
         await Assert.That(attempts).IsEqualTo(1);
+    }
+
+    /// <summary>The same stream keeps full and reduced decoded images as separate entries.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ResolutionVariantsDoNotShareAnImageOrFailure()
+    {
+        var cache = new ImageCache();
+        var stream = Stream();
+        var reducedKey = new ImageKey(stream, ReducedLevel);
+        var fullKey = new ImageKey(stream, 0);
+        var attempts = 0;
+        _ = cache.Acquire(reducedKey, 0, (key, state) =>
+        {
+            attempts++;
+            return null;
+        });
+        var full = cache.Acquire(fullKey, 0, (key, state) =>
+        {
+            attempts++;
+            return Create();
+        });
+        var again = cache.Acquire(fullKey, 0, static (key, state) => Create());
+
+        await Assert.That(full is not null && ReferenceEquals(full, again)).IsTrue();
+        await Assert.That(attempts).IsEqualTo(Attempts);
+        await Assert.That(cache.Count).IsEqualTo(1);
+        again!.Release();
+        full!.Release();
     }
 
     /// <summary>Creates an empty stream to key the cache with.</summary>

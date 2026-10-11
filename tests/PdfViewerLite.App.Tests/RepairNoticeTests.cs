@@ -23,7 +23,7 @@ public sealed class RepairNoticeTests
         var damaged = Encoding.Latin1.GetString(TestPdf.Create(1)).Replace("startxref", "startxxxx", StringComparison.Ordinal);
         await File.WriteAllBytesAsync(path, Encoding.Latin1.GetBytes(damaged));
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
 
         await Assert.That(await UiWait.UntilAsync(() => tab.RepairNotice is not null)).IsTrue();
@@ -49,7 +49,7 @@ public sealed class RepairNoticeTests
         var path = Path.Combine(test.Directory, "clean.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.Create(1));
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
 
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();

@@ -17,14 +17,23 @@ internal sealed class JpxDecodedImage : IDisposable
     /// <summary>Initializes a new instance of the <see cref="JpxDecodedImage"/> class with every sample zero.</summary>
     /// <param name="geometry">The image geometry.</param>
     internal JpxDecodedImage(JpxGeometry geometry)
+        : this(geometry, 0)
     {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpxDecodedImage"/> class at a selected resolution level.</summary>
+    /// <param name="geometry">The codestream geometry.</param>
+    /// <param name="reductionLevels">The number of finest wavelet levels left out.</param>
+    internal JpxDecodedImage(JpxGeometry geometry, int reductionLevels)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(reductionLevels);
         Geometry = geometry;
         var count = geometry.Components.Length;
         Planes = new int[count][];
         Areas = new JpxRectangle[count];
         for (var c = 0; c < count; c++)
         {
-            var area = geometry.ToComponent(geometry.Image, c);
+            var area = geometry.ToComponent(geometry.Image, c).Reduce(reductionLevels);
             var length = area.Width * area.Height;
             Areas[c] = area;
             Planes[c] = ScratchPool<int>.Shared.Rent(length);

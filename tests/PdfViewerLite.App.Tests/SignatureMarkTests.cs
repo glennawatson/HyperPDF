@@ -124,7 +124,7 @@ public sealed class SignatureMarkTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("keyboard.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("keyboard.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -186,7 +186,7 @@ public sealed class SignatureMarkTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("escape.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("escape.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -244,8 +244,9 @@ public sealed class SignatureMarkTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("save.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("save.pdf", Pages)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var bounds = await PlaceAsync(tab, style);
         var path = Path.Combine(test.Directory, "saved.pdf");
 
@@ -275,8 +276,9 @@ public sealed class SignatureMarkTests
         var printer = new RecordingPrinter();
         using var test = new TestServices(new PrintingPlatform(printer));
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("print-sign.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("print-sign.pdf", 1)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         printer.InkArea = await PlaceAsync(tab, style);
         using var preview = tab.PrintPreviewInteraction.RegisterHandler(ConfirmWhenReadyAsync);
 
@@ -297,7 +299,7 @@ public sealed class SignatureMarkTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("reuse.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("reuse.pdf", Pages)]);
         var fill = main.SelectedTab!.FillAndSign;
         var file = test.Services.SignatureMarkStore.FilePath;
 

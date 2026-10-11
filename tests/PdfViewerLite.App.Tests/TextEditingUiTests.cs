@@ -102,7 +102,7 @@ public sealed class TextEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("type.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("type.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -149,7 +149,7 @@ public sealed class TextEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("edit.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -200,7 +200,7 @@ public sealed class TextEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("format.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("format.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -245,7 +245,7 @@ public sealed class TextEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("picked.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("picked.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -278,7 +278,7 @@ public sealed class TextEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("cancel.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("cancel.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -320,7 +320,7 @@ public sealed class TextEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("wrap.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("wrap.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -355,7 +355,7 @@ public sealed class TextEditingUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("preview.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("preview.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

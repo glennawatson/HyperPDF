@@ -107,6 +107,28 @@ public sealed class DocumentPool : IDisposable
         return document;
     }
 
+    /// <summary>Opens a source asynchronously, then applies the pool's capacity on its owning thread.</summary>
+    /// <param name="source">The source.</param>
+    /// <param name="cancellationToken">Cancels a pending open.</param>
+    /// <returns>The open document.</returns>
+    /// <exception cref="OperationCanceledException">The open was cancelled.</exception>
+    internal ValueTask<IDocument> AcquireAsync(DocumentSource source, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return source.IsOpen ? new(Acquire(source)) : AcquireColdAsync(source, cancellationToken);
+    }
+
+    /// <summary>Awaits a cold open before applying the pool capacity.</summary>
+    /// <param name="source">The source to open.</param>
+    /// <param name="cancellationToken">Cancels a pending open.</param>
+    /// <returns>The opened document.</returns>
+    private async ValueTask<IDocument> AcquireColdAsync(DocumentSource source, CancellationToken cancellationToken)
+    {
+        var document = await source.OpenIfNeededAsync(_engine, cancellationToken);
+        Trim(source);
+        return document;
+    }
+
     /// <summary>Closes documents beyond capacity, never the one just used nor one with unsaved edits.</summary>
     /// <param name="keep">The source to keep open.</param>
     private void Trim(DocumentSource keep)

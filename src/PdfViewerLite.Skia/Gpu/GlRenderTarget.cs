@@ -122,6 +122,9 @@ internal sealed class GlRenderTarget : ISkiaGpuRenderTarget
         /// <summary>Gets the sk surface.</summary>
         public SKSurface SkSurface => _surface;
 
+        /// <inheritdoc/>
+        public SKColorType ColorType => SKColorType.Rgba8888;
+
         /// <summary>Gets the scale factor.</summary>
         public double ScaleFactor => _platformSession.Scaling;
 

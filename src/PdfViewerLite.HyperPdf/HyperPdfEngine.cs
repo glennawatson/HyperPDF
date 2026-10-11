@@ -6,6 +6,7 @@ using System.Diagnostics;
 using HyperPdfLibrary;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
+using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Render.Skia;
 using PdfViewerLite.Core.Documents;
 
@@ -68,6 +69,56 @@ public sealed class HyperPdfEngine : IDocumentEngine
             throw CreateOpenException(ex, fullPath);
         }
 
+        return CreateOpened(document, fullPath);
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<IDocument> OpenAsync(string path, string? password, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        cancellationToken.ThrowIfCancellationRequested();
+        return OpenCoreAsync(Path.GetFullPath(path), password, cancellationToken);
+    }
+
+    /// <summary>Opens through an asynchronous file source without retaining the open token on the document.</summary>
+    /// <param name="fullPath">The absolute PDF path.</param>
+    /// <param name="password">The password, if needed.</param>
+    /// <param name="cancellationToken">Cancels I/O and parsing during the open.</param>
+    /// <returns>The opened document.</returns>
+    /// <exception cref="DocumentOpenException">The PDF cannot be opened.</exception>
+    /// <exception cref="OperationCanceledException">The open was cancelled.</exception>
+    private static async ValueTask<IDocument> OpenCoreAsync(string fullPath, string? password, CancellationToken cancellationToken)
+    {
+        PdfDocument document;
+        try
+        {
+            document = await PdfDocumentReader.OpenWithAsync(
+                fullPath,
+                new PdfOpenOptions { Password = password, Source = PdfSourceKind.Stream },
+                cancellationToken,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (PdfException ex)
+        {
+            throw CreateOpenException(ex, fullPath);
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            document.Dispose();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        return CreateOpened(document, fullPath);
+    }
+
+    /// <summary>Rejects a recovered PDF with no pages before giving its lifetime to the adapter.</summary>
+    /// <param name="document">The opened managed document.</param>
+    /// <param name="fullPath">The absolute PDF path.</param>
+    /// <returns>The document adapter.</returns>
+    /// <exception cref="DocumentOpenException">The PDF contains no readable pages.</exception>
+    private static HyperPdfDocument CreateOpened(PdfDocument document, string fullPath)
+    {
         if (document.PageCount == 0)
         {
             // A file rebuilt into one with no pages has nothing to show, so say so, as PDFium does.
@@ -75,7 +126,15 @@ public sealed class HyperPdfEngine : IDocumentEngine
             throw new DocumentOpenException(DocumentOpenError.Format, $"The file '{fullPath}' is not a valid PDF document.");
         }
 
-        return new HyperPdfDocument(document, fullPath);
+        try
+        {
+            return new(document, fullPath);
+        }
+        catch
+        {
+            document.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Maps a library error to the viewer's open error.</summary>

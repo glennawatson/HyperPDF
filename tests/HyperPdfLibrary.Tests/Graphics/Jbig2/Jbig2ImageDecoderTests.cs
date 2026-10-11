@@ -19,6 +19,9 @@ public sealed class Jbig2ImageDecoderTests
     /// <summary>The largest byte.</summary>
     private const byte Full = 0xFF;
 
+    /// <summary>The side of one reduced source block.</summary>
+    private const int ReductionSide = 2;
+
     /// <summary>A gray JBIG2 image is white where the page is white and black where it is black.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -39,6 +42,48 @@ public sealed class Jbig2ImageDecoderTests
         var image = DecodeImage(Image(sample, false, true));
 
         await Assert.That(image is not null && GrayMatches(image, Rows(sample), true)).IsTrue();
+    }
+
+    /// <summary>Reduced output averages the binary source while preserving an inverted /Decode array.</summary>
+    /// <param name="inverted">Whether /Decode swaps black and white.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ReducedGrayAveragesBinarySource(bool inverted)
+    {
+        var sample = Jbig2Samples.TextArith;
+        var image = DecodeImage(Image(sample, false, inverted), 1);
+
+        await Assert.That(image is not null && ReducedMatches(image, Rows(sample), sample.Width, sample.Height, inverted)).IsTrue();
+    }
+
+    /// <summary>Direct compact reduction keeps one gray byte per pixel for either simple decode direction.</summary>
+    /// <param name="inverted">Whether /Decode swaps black and white.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task CompactReductionPreservesGraySamples(bool inverted)
+    {
+        var sample = Jbig2Samples.TextArith;
+        var image = PdfImageDecoder.DecodeCompact(Image(sample, false, inverted), 1);
+
+        await Assert.That(image is { IsGray: true } && CompactMatches(image, Rows(sample), sample.Width, sample.Height, inverted)).IsTrue();
+    }
+
+    /// <summary>Reduced stencil coverage paints the averaged black or white pixels selected by /Decode.</summary>
+    /// <param name="paintOnes">Whether the inverted decode paints white source bits.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ReducedStencilAveragesCoverage(bool paintOnes)
+    {
+        var sample = Jbig2Samples.TextArith;
+        var image = DecodeImage(Image(sample, true, paintOnes), 1);
+
+        await Assert.That(image is { IsStencilMask: true } && ReducedCoverageMatches(image, Rows(sample), sample.Width, sample.Height, paintOnes)).IsTrue();
     }
 
     /// <summary>A JBIG2 image mask paints where the page is black.</summary>
@@ -112,8 +157,9 @@ public sealed class Jbig2ImageDecoderTests
 
     /// <summary>Decodes an image stream the way the image pipeline does: the byte filters, then the JBIG2 decoder.</summary>
     /// <param name="stream">The image stream.</param>
+    /// <param name="reductionLevels">The number of resolution halvings.</param>
     /// <returns>The image, or <see langword="null"/>.</returns>
-    private static PdfImageData? DecodeImage(PdfStream stream)
+    private static PdfImageData? DecodeImage(PdfStream stream, int reductionLevels = 0)
     {
         if (ImageHeader.FromXObject(stream.Dictionary) is not { } header)
         {
@@ -124,12 +170,126 @@ public sealed class Jbig2ImageDecoderTests
         try
         {
             var codec = stream.Decode(ref buffer);
-            return codec == PdfImageCodec.Jbig2 ? Jbig2ImageDecoder.Decode(header, buffer.WrittenSpan, stream.Dictionary.GetDictionary(KnownName.DecodeParms)) : null;
+            return codec == PdfImageCodec.Jbig2 ? Jbig2ImageDecoder.Decode(header, buffer.WrittenSpan, stream.Dictionary.GetDictionary(KnownName.DecodeParms), reductionLevels) : null;
         }
         finally
         {
             buffer.Dispose();
         }
+    }
+
+    /// <summary>Checks each reduced gray pixel against the average of its packed binary source block.</summary>
+    /// <param name="image">The reduced BGRA image.</param>
+    /// <param name="rows">The packed source rows.</param>
+    /// <param name="sourceWidth">The source width.</param>
+    /// <param name="sourceHeight">The source height.</param>
+    /// <param name="inverted">Whether the output is inverted.</param>
+    /// <returns>Whether every displayed pixel matches.</returns>
+    private static bool ReducedMatches(PdfImageData image, byte[] rows, int sourceWidth, int sourceHeight, bool inverted)
+    {
+        if (image.Width != (sourceWidth + 1) / ReductionSide || image.Height != (sourceHeight + 1) / ReductionSide)
+        {
+            return false;
+        }
+
+        var stride = Jbig2Decoder.GetRowBytes(sourceWidth);
+        for (var y = 0; y < image.Height; y++)
+        {
+            for (var x = 0; x < image.Width; x++)
+            {
+                if (image.Pixels[((y * image.Width) + x) * BytesPerPixel] != ExpectedGray(rows, stride, sourceWidth, sourceHeight, x, y, inverted))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Checks the reduced one-byte coverage against the source bits.</summary>
+    /// <param name="image">The coverage image.</param>
+    /// <param name="rows">The packed source rows.</param>
+    /// <param name="sourceWidth">The source width.</param>
+    /// <param name="sourceHeight">The source height.</param>
+    /// <param name="paintOnes">Whether white bits are painted.</param>
+    /// <returns>Whether every coverage sample matches.</returns>
+    private static bool ReducedCoverageMatches(PdfImageData image, byte[] rows, int sourceWidth, int sourceHeight, bool paintOnes)
+    {
+        if (image.Width != (sourceWidth + 1) / ReductionSide || image.Height != (sourceHeight + 1) / ReductionSide)
+        {
+            return false;
+        }
+
+        var stride = Jbig2Decoder.GetRowBytes(sourceWidth);
+        for (var y = 0; y < image.Height; y++)
+        {
+            for (var x = 0; x < image.Width; x++)
+            {
+                var white = ExpectedGray(rows, stride, sourceWidth, sourceHeight, x, y, false);
+                if (image.Pixels[(y * image.Width) + x] != (paintOnes ? white : (byte)(Full - white)))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Checks each direct gray byte against the packed source bits.</summary>
+    /// <param name="image">The compact gray image.</param>
+    /// <param name="rows">The packed source rows.</param>
+    /// <param name="sourceWidth">The source width.</param>
+    /// <param name="sourceHeight">The source height.</param>
+    /// <param name="inverted">Whether gray is reversed.</param>
+    /// <returns>Whether every sample matches.</returns>
+    private static bool CompactMatches(PdfImageData image, byte[] rows, int sourceWidth, int sourceHeight, bool inverted)
+    {
+        if (image.Width != (sourceWidth + 1) / ReductionSide || image.Height != (sourceHeight + 1) / ReductionSide)
+        {
+            return false;
+        }
+
+        var stride = Jbig2Decoder.GetRowBytes(sourceWidth);
+        for (var y = 0; y < image.Height; y++)
+        {
+            for (var x = 0; x < image.Width; x++)
+            {
+                if (image.Pixels[(y * image.Width) + x] != ExpectedGray(rows, stride, sourceWidth, sourceHeight, x, y, inverted))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Averages one source block independently of the image decoder.</summary>
+    /// <param name="rows">The packed source rows.</param>
+    /// <param name="stride">The packed row length.</param>
+    /// <param name="width">The source width.</param>
+    /// <param name="height">The source height.</param>
+    /// <param name="x">The reduced column.</param>
+    /// <param name="y">The reduced row.</param>
+    /// <param name="inverted">Whether the output is inverted.</param>
+    /// <returns>The expected gray sample.</returns>
+    private static byte ExpectedGray(byte[] rows, int stride, int width, int height, int x, int y, bool inverted)
+    {
+        var white = 0;
+        var count = 0;
+        for (var sourceY = y * ReductionSide; sourceY < Math.Min((y + 1) * ReductionSide, height); sourceY++)
+        {
+            for (var sourceX = x * ReductionSide; sourceX < Math.Min((x + 1) * ReductionSide, width); sourceX++)
+            {
+                white += Jbig2Bits.Get(rows.AsSpan(sourceY * stride, stride), sourceX, width);
+                count++;
+            }
+        }
+
+        var expected = (byte)((white * Full) / count);
+        return inverted ? (byte)(Full - expected) : expected;
     }
 
     /// <summary>Decodes a sample's rows directly.</summary>

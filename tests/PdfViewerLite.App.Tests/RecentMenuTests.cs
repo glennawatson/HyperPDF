@@ -2,7 +2,11 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
 using PdfViewerLite.Core.Platform;
@@ -12,6 +16,50 @@ namespace PdfViewerLite.App.Tests;
 /// <summary>Tests the Open Recent menu, which stays available while documents are open.</summary>
 public sealed class RecentMenuTests
 {
+    /// <summary>Enough results to include every document in a test.</summary>
+    private const int MaxRecent = 10;
+
+    /// <summary>The midpoint of each button dimension.</summary>
+    private const double Half = 0.5;
+
+    /// <summary>Remove and Clear controls update the visible list and its persisted store.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CleansRecentDocumentsFromStartPage()
+    {
+        var storePath = Path.Combine(Path.GetTempPath(), $"pdfviewerlite-recent-{Guid.NewGuid():N}.json");
+        var store = new JsonRecentDocumentStore(storePath, TimeProvider.System);
+        using var test = new TestServices(new PrintingPlatform(new RecordingPrinter(), store));
+        var first = test.CreateDocument("first.pdf", 1);
+        var second = test.CreateDocument("second.pdf", 1);
+        store.Add(first);
+        store.Add(second);
+        using var main = new MainViewModel(test.Services);
+        var window = new MainWindow { DataContext = main };
+        window.Show();
+        try
+        {
+            var start = window.GetVisualDescendants().OfType<StartView>().Single();
+            await Assert.That(await UiWait.UntilAsync(() => start.GetVisualDescendants().OfType<RecentDocumentView>().Count() == 2)).IsTrue();
+            var row = start.GetVisualDescendants().OfType<RecentDocumentView>().Single(view => view.ViewModel?.FilePath == first);
+            Click(window, row.FindControl<Button>("RemoveButton")!);
+
+            await Assert.That(main.RecentDocuments.Select(static entry => entry.FilePath)).IsEquivalentTo([second]);
+            await Assert.That(main.Tabs).IsEmpty();
+            await Assert.That(new JsonRecentDocumentStore(storePath, TimeProvider.System).GetRecent(MaxRecent).Select(static entry => entry.FilePath)).IsEquivalentTo([second]);
+
+            Click(window, start.FindControl<Button>("ClearRecentButton")!);
+            await Assert.That(main.RecentDocuments).IsEmpty();
+            await Assert.That(new JsonRecentDocumentStore(storePath, TimeProvider.System).GetRecent(MaxRecent)).IsEmpty();
+            await Assert.That(File.Exists(first) && File.Exists(second)).IsTrue();
+        }
+        finally
+        {
+            window.Close();
+            File.Delete(storePath);
+        }
+    }
+
     /// <summary>Verifies Open Recent lists recent documents while a document is open, and opens one at its last page.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -27,7 +75,7 @@ public sealed class RecentMenuTests
         test.Services.RecentDocuments.Add(earlier);
         Core.Settings.LastPages.Remember(test.Services.Settings.LastPages, earlier, lastPage);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("current.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("current.pdf", 1)]);
         var window = new MainWindow { DataContext = main };
         window.Show();
         try
@@ -68,5 +116,15 @@ public sealed class RecentMenuTests
         }
 
         return null;
+    }
+
+    /// <summary>Clicks a button through the headless pointer input.</summary>
+    /// <param name="window">The input root.</param>
+    /// <param name="button">The target.</param>
+    private static void Click(MainWindow window, Button button)
+    {
+        var point = button.TranslatePoint(new(button.Bounds.Width * Half, button.Bounds.Height * Half), window)!.Value;
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
     }
 }

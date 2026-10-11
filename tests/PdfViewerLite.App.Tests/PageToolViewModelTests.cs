@@ -18,7 +18,7 @@ public sealed class PageToolViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("tools.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("tools.pdf", 1)]);
         var tab = main.SelectedTab!;
         var start = tab.IsSelectTextTool;
 
@@ -41,7 +41,7 @@ public sealed class PageToolViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("speed.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("speed.pdf", 1)]);
         var tab = main.SelectedTab!;
 
         for (var i = 0; i < AutoScroller.MaxSpeed; i++)
@@ -75,7 +75,7 @@ public sealed class PageToolViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("select.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("select.pdf", 1)]);
         var tab = main.SelectedTab!;
         var requests = 0;
         using var watch = tab.SelectAllRequests.SubscribeSafe(_ => requests++, static _ => { });

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Colors;
 
@@ -32,11 +33,21 @@ internal static class JpxImageDecoder
     /// <param name="data">The JPX data: a JP2 file or a raw codestream.</param>
     /// <param name="softMaskInData">The <c>/SMaskInData</c> entry, or zero.</param>
     /// <returns>The image, <see langword="null"/> when damaged or refused, or an image marked unsupported.</returns>
-    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData) =>
+        Decode(header, data, softMaskInData, 0);
+
+    /// <summary>Decodes a JPX image at a lower native wavelet resolution when the codestream allows it.</summary>
+    /// <param name="header">The PDF image header.</param>
+    /// <param name="data">The JPX file or codestream.</param>
+    /// <param name="softMaskInData">The alpha channel marker.</param>
+    /// <param name="reductionLevels">The finest wavelet levels to omit.</param>
+    /// <returns>The decoded image, or null when damaged.</returns>
+    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels)
     {
         try
         {
-            return DecodeFile(header, data, softMaskInData);
+            return DecodeFile(header, data, softMaskInData, reductionLevels);
         }
         catch (Exception exception) when (exception is IndexOutOfRangeException or ArgumentException or OverflowException or InvalidCastException)
         {
@@ -76,8 +87,9 @@ internal static class JpxImageDecoder
     /// <param name="header">The image header.</param>
     /// <param name="data">The JPX data.</param>
     /// <param name="softMaskInData">The <c>/SMaskInData</c> entry.</param>
+    /// <param name="reductionLevels">The requested reduction.</param>
     /// <returns>The image, <see langword="null"/>, or an image marked unsupported.</returns>
-    private static PdfImageData? DecodeFile(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData)
+    private static PdfImageData? DecodeFile(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels)
     {
         if (JpxFileFormat.Read(data) is not { } file)
         {
@@ -95,7 +107,8 @@ internal static class JpxImageDecoder
             return Unsupported(header);
         }
 
-        using var image = JpxDecoder.Decode(codestream, stream);
+        var selectedReduction = SelectReduction(codestream, stream, reductionLevels);
+        using var image = JpxDecoder.Decode(codestream, stream, selectedReduction);
         var indexed = header.ColorSpace?.Kind == PdfColorSpaceKind.Indexed;
         if (JpxChannels.Build(file, codestream.Geometry, indexed) is not { Length: > 0 } channels
             || JpxOutputPlan.Create(file.ColorSpace, channels, image, header.ColorSpace) is not { } plan)
@@ -104,7 +117,7 @@ internal static class JpxImageDecoder
         }
 
         var area = image.Areas[channels[0].Component];
-        if (area.Width < header.Width || area.Height < header.Height)
+        if (area.Width < (header.Width >> selectedReduction) || area.Height < (header.Height >> selectedReduction))
         {
             // PDFium refuses a JPX image smaller than its dictionary says.
             return null;
@@ -113,6 +126,56 @@ internal static class JpxImageDecoder
         var source = new JpxSampleSource(image, channels, file.Palette, area.Width, area.Height);
         var alpha = plan.Action == JpxDecodeAction.ConvertArgbToRgb && softMaskInData == SoftMaskInData;
         return Convert(header, source, plan, alpha);
+    }
+
+    /// <summary>Uses only levels available to every component and avoids tile-specific coding overrides.</summary>
+    /// <param name="codestream">The parsed codestream.</param>
+    /// <param name="data">The codestream bytes.</param>
+    /// <param name="requested">The requested reduction.</param>
+    /// <returns>The usable number of finest levels to omit.</returns>
+    private static int SelectReduction(JpxCodestream codestream, ReadOnlySpan<byte> data, int requested)
+    {
+        if (requested <= 0 || codestream.Main.Style is not { } style)
+        {
+            return 0;
+        }
+
+        var levels = Math.Min(requested, style.Levels);
+        foreach (var component in codestream.Main.ComponentStyles)
+        {
+            if (component is { } overrideStyle)
+            {
+                levels = Math.Min(levels, overrideStyle.Levels);
+            }
+        }
+
+        return levels > 0 && !HasTileStyleOverrides(codestream, data) ? levels : 0;
+    }
+
+    /// <summary>Finds coding-style changes that prevent one resolution choice for the whole image.</summary>
+    /// <param name="codestream">The parsed codestream.</param>
+    /// <param name="data">The codestream bytes.</param>
+    /// <returns>True when tile styles differ or a header is damaged.</returns>
+    private static bool HasTileStyleOverrides(JpxCodestream codestream, ReadOnlySpan<byte> data)
+    {
+        foreach (var part in codestream.TileParts)
+        {
+            var state = new JpxHeaderState(codestream.Geometry.Components.Length);
+            if (!JpxCodestream.ReadTileHeader(data, part.Header, state) || state.Style is not null)
+            {
+                return true;
+            }
+
+            foreach (var style in state.ComponentStyles)
+            {
+                if (style is not null)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Writes the samples and runs them through the colour space, applying any soft mask in the data.</summary>

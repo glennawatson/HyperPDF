@@ -90,7 +90,7 @@ public sealed class PageThumbnail : Control
         {
             using (context.PushRenderOptions(new() { BitmapInterpolationMode = BitmapInterpolationMode.HighQuality }))
             {
-                context.DrawImage(((AvaloniaRenderSurface)surface).Bitmap, new(0, 0, surface.Width, surface.Height), rect);
+                TilePresentation.Draw(context, surface, rect, smooth: true);
             }
 
             _hasImage = true;
@@ -107,7 +107,9 @@ public sealed class PageThumbnail : Control
         var scale = TileGrid.GetPreviewScale(size, PageRotation.None);
         TileGrid.GetPagePixelSize(size, PageRotation.None, scale, out var width, out var height);
         var info = new PageRenderInfo(page, scale, PageRotation.None, 0, 0, RenderFlags.Annotations);
-        _ = tab.RenderHub.Scheduler.Request(new(key, document, info, width, height, RenderPriority.Thumbnail, tab.ThumbnailClient, tab.ThumbnailClient.Generation, tab.PageTone));
+        var client = tab.ThumbnailClient;
+        var request = new RenderRequest(key, document, info, width, height, RenderPriority.Thumbnail, client, client.Generation, tab.PageTone) { CancellationToken = tab.SelectedWorkToken };
+        _ = tab.RenderHub.Scheduler.Request(request);
     }
 
     /// <summary>Reports a failure in a subscription.</summary>

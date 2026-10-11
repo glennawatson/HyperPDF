@@ -49,7 +49,7 @@ public sealed class PrintPreviewWindowTests
     {
         using var test = new TestServices(new PrintingPlatform(new RecordingPrinter()));
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("duplex.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("duplex.pdf", 1)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var window = new PrintPreviewWindow { ViewModel = preview };
         window.Show();
@@ -83,7 +83,7 @@ public sealed class PrintPreviewWindowTests
     {
         using var test = new TestServices(new PrintingPlatform(new RecordingPrinter()));
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("scaling.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scaling.pdf", 1)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var window = new PrintPreviewWindow { ViewModel = preview };
         window.Show();
@@ -132,7 +132,7 @@ public sealed class PrintPreviewWindowTests
 
         DesktopThemeApplier.Apply(Application.Current!, theme);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("print-colour.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("print-colour.pdf", 1)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var window = new PrintPreviewWindow { ViewModel = preview };
         window.Show();
@@ -160,7 +160,7 @@ public sealed class PrintPreviewWindowTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("scroll-print.pdf", PageCount)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scroll-print.pdf", PageCount)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var window = new PrintPreviewWindow { ViewModel = preview };
         window.Show();
@@ -204,7 +204,7 @@ public sealed class PrintPreviewWindowTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("mixed-print.pdf", PageCount)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("mixed-print.pdf", PageCount)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var window = new PrintPreviewWindow { ViewModel = preview };
         window.Show();

@@ -111,6 +111,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>The open document the reading order reads from, captured on the UI thread.</summary>
     private IDocument? _readingSource;
 
+    /// <summary>The search panel, created only when first used.</summary>
+    private SearchViewModel? _search;
+
+    /// <summary>Cancels the selected tab's open, search and rendering work when another tab is selected.</summary>
+    private CancellationTokenSource? _selectedWork;
+
     /// <summary>How the tab looked before presenting.</summary>
     private PresentationState _beforePresenting;
 
@@ -189,11 +195,14 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets the render client used by sidebar thumbnails.</summary>
     public RenderClient ThumbnailClient { get; } = new();
 
+    /// <summary>Gets the token for work requested while this tab is selected.</summary>
+    public CancellationToken SelectedWorkToken => _selectedWork?.Token ?? CancellationToken.None;
+
     /// <summary>Gets the navigation history.</summary>
     public NavigationHistory History { get; } = new();
 
     /// <summary>Gets the search state, created on first use.</summary>
-    public SearchViewModel Search => field ??= new(this);
+    public SearchViewModel Search => _search ??= new(this);
 
     /// <summary>Gets the file path.</summary>
     public string FilePath => Source.FilePath;
@@ -442,37 +451,52 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial bool HasPendingReload { get; private set; }
 
-    /// <summary>Opens the document if needed and loads its structure. Safe to call repeatedly.</summary>
-    public void EnsureLoaded()
+    /// <summary>Opens the document with cancellable I/O and loads its structure on the UI thread.</summary>
+    /// <param name="cancellationToken">Cancels the open and first-page work.</param>
+    /// <returns>A task that completes inline when the document is ready.</returns>
+    public ValueTask EnsureLoadedAsync(CancellationToken cancellationToken)
     {
-        if (IsLoaded && Source.IsOpen)
+        cancellationToken.ThrowIfCancellationRequested();
+        return IsLoaded && Source.IsOpen ? ValueTask.CompletedTask : LoadAsync(cancellationToken);
+    }
+
+    /// <summary>Starts cancellable loading for the tab that has become selected.</summary>
+    public void StartSelectedWork()
+    {
+        if (_selectedWork is not null)
         {
             return;
         }
 
-        try
+        var work = CancellationTokenSource.CreateLinkedTokenSource(RenderHub.Scheduler.ShutdownToken);
+        _selectedWork = work;
+        _ = LoadSelectedAsync(work.Token);
+    }
+
+    /// <summary>Cancels loading, searching and queued rendering after this tab loses selection.</summary>
+    public void StopSelectedWork()
+    {
+        var work = _selectedWork;
+        _selectedWork = null;
+        if (work is null)
         {
-            _ = Source.Acquire();
-        }
-        catch (DocumentOpenException ex)
-        {
-            NeedsPassword = ex.Error == DocumentOpenError.Password;
-            ErrorMessage = NeedsPassword ? null : ex.Message;
             return;
         }
 
-        NeedsPassword = false;
-        ErrorMessage = null;
-        if (!IsLoaded)
-        {
-            OnFirstLoad();
-        }
+        _ = CancelAndDisposeAsync(work);
+        _search?.CancelForTabSwitch();
+        RenderHub.Scheduler.Invalidate(Source.Id);
     }
 
     /// <summary>Gets the open document, opening it if needed.</summary>
     /// <returns>The document, or <see langword="null"/> when it cannot be opened.</returns>
     public IDocument? TryGetDocument()
     {
+        if (!Source.IsOpen)
+        {
+            return null;
+        }
+
         try
         {
             return NeedsPassword || ErrorMessage is not null ? null : Source.Acquire();
@@ -613,36 +637,31 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public string GetPageDisplay(int pageIndex) =>
         pageIndex >= 0 && pageIndex < Thumbnails.Count ? Thumbnails[pageIndex].Label : (pageIndex + 1).ToString(CultureInfo.CurrentCulture);
 
-    /// <summary>Reloads the document from disk, keeping the current page.</summary>
-    [ReactiveCommand]
-    public void Reload()
+    /// <summary>Readies the hover preview, opening a cold document asynchronously and sizing it to the current page.</summary>
+    /// <param name="cancellationToken">Cancels a pending open.</param>
+    /// <returns>A task that completes when the preview is ready.</returns>
+    public async Task PreparePreviewAsync(CancellationToken cancellationToken)
     {
-        HasPendingReload = false;
-        var page = CurrentPageIndex;
-        RenderHub.Scheduler.Invalidate(Source.Id);
-        RenderHub.Cache.RemoveDocument(Source.Id);
-        Source.Reload();
-        IsLoaded = false;
-        EnsureLoaded();
-        if (!IsLoaded)
+        try
+        {
+            _ = await Source.AcquireAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException)
         {
             return;
         }
-
-        GoToPage(page);
-        Search.Refresh();
-    }
-
-    /// <summary>
-    /// Readies the hover preview: opens the document if it is not open (the pool closes the least recently used one
-    /// when full) and sizes the preview to the page the tab is on. Called when the preview is about to show.
-    /// </summary>
-    public void PreparePreview()
-    {
-        if (TryGetDocument() is null)
+        catch (DocumentOpenException ex)
         {
             PreviewHeight = 0;
-            PreviewCaption = NeedsPassword ? "Password protected" : ErrorMessage ?? "This document could not be opened";
+            PreviewCaption = ex.Error == DocumentOpenError.Password ? "Password protected" : ex.Message;
+            return;
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError(ex.ToString());
+            PreviewHeight = 0;
+            PreviewCaption = "This document could not be opened";
             return;
         }
 
@@ -664,7 +683,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public void OnLayersChanged()
     {
         RenderHub.Scheduler.Invalidate(Source.Id);
-        RenderHub.Cache.RemoveDocument(Source.Id);
+        RenderHub.RemoveDocumentTiles(Source.Id);
         _pageEdits.OnNext(-1);
     }
 
@@ -683,7 +702,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public void OnPageStructureChanged()
     {
         RenderHub.Scheduler.Invalidate(Source.Id);
-        RenderHub.Cache.RemoveDocument(Source.Id);
+        RenderHub.RemoveDocumentTiles(Source.Id);
         Source.RefreshStructure();
         _reading = null;
         _readingFor = -1;
@@ -709,43 +728,45 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <returns><see langword="true"/> when saved.</returns>
     public bool Save(string path)
     {
-        if (((TryGetDocument())?.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor) is not
-            {
-            } editor)
+        if (TryGetDocument()?.GetFeature(typeof(IAnnotationEditor)) is not IAnnotationEditor editor)
         {
             return false;
         }
 
-        var temporary = $"{path}.saving";
+        return ApplySaveOutcome(DocumentSave.Save(editor, Source, path));
+    }
+
+    /// <summary>Saves a document copy with cancellable output I/O, then replaces the destination atomically.</summary>
+    /// <param name="path">The destination file.</param>
+    /// <param name="cancellationToken">Cancels the snapshot and output write.</param>
+    /// <returns>Whether the file was saved.</returns>
+    public async Task<bool> SaveAsync(string path, CancellationToken cancellationToken)
+    {
+        if (NeedsPassword || ErrorMessage is not null)
+        {
+            return false;
+        }
+
+        IDocument document;
         try
         {
-            bool saved;
-            using (var stream = File.Create(temporary))
-            {
-                saved = editor.Save(stream);
-            }
-
-            if (!saved)
-            {
-                File.Delete(temporary);
-                return false;
-            }
-
-            _ = Interlocked.Exchange(ref _savedAt, Environment.TickCount64);
-            FileReplacement.Replace(temporary, path);
-            HasUnsavedChanges = Source.HasUnsavedChanges;
-            return true;
+            document = await Source.AcquireAsync(cancellationToken);
         }
-        catch (IOException ex)
+        catch (DocumentOpenException)
         {
-            Notice = $"Could not save: {ex.Message}";
             return false;
         }
-        catch (UnauthorizedAccessException ex)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            Notice = $"Could not save: {ex.Message}";
             return false;
         }
+
+        if (document.GetFeature(typeof(IAnnotationEditor)) is not IAnnotationEditor editor)
+        {
+            return false;
+        }
+
+        return ApplySaveOutcome(await DocumentSave.SaveAsync(editor, Source, path, cancellationToken).ConfigureAwait(true));
     }
 
     /// <summary>Turns read mode on or off, putting the sidebar away and bringing it back as it was.</summary>
@@ -804,11 +825,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
     /// <summary>Closes the native document while the tab is in the background; it reopens on demand.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Unload() => RenderHub.Cache.RemoveDocument(Source.Id);
+    public void Unload() => RenderHub.RemoveDocumentTiles(Source.Id);
 
     /// <inheritdoc/>
     public void Dispose()
     {
+        StopSelectedWork();
         _subscriptions.Dispose();
         _focusMode?.Dispose();
         _readAloud?.Dispose();
@@ -827,7 +849,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         _copyRequests.Dispose();
         _selectAllRequests.Dispose();
         RenderHub.Scheduler.Invalidate(Source.Id);
-        RenderHub.Cache.RemoveDocument(Source.Id);
+        RenderHub.RemoveDocumentTiles(Source.Id);
         _ = CanvasClient.Advance();
         _ = ThumbnailClient.Advance();
     }
@@ -857,6 +879,88 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         }
     }
 
+    /// <summary>Cancels callbacks without blocking the UI thread, then releases the token source.</summary>
+    /// <param name="work">The old selected-tab token source.</param>
+    /// <returns>A task.</returns>
+    private static async Task CancelAndDisposeAsync(CancellationTokenSource work)
+    {
+        try
+        {
+            await work.CancelAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            work.Dispose();
+        }
+    }
+
+    /// <summary>Reflects the publication result in the tab and its file watcher.</summary>
+    /// <param name="outcome">The write and replacement result.</param>
+    /// <returns>Whether the destination was saved.</returns>
+    private bool ApplySaveOutcome(DocumentSave.SaveOutcome outcome)
+    {
+        if (outcome.Saved)
+        {
+            _ = Interlocked.Exchange(ref _savedAt, Environment.TickCount64);
+        }
+
+        if (outcome.Error is { } error)
+        {
+            Notice = $"Could not save: {error}";
+        }
+
+        HasUnsavedChanges = Source.HasUnsavedChanges;
+        return outcome.Saved;
+    }
+
+    /// <summary>Opens a cold document, reporting ordinary open errors in the tab.</summary>
+    /// <param name="cancellationToken">Cancels a pending open.</param>
+    /// <returns>A task.</returns>
+    private async ValueTask LoadAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var document = await Source.AcquireAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            CompleteLoad(document);
+        }
+        catch (DocumentOpenException ex)
+        {
+            NeedsPassword = ex.Error == DocumentOpenError.Password;
+            ErrorMessage = NeedsPassword ? null : ex.Message;
+        }
+    }
+
+    /// <summary>Shows errors from selected-tab loading without leaving a fire-and-forget task unobserved.</summary>
+    /// <param name="cancellationToken">The selected tab token.</param>
+    /// <returns>A task.</returns>
+    private async Task LoadSelectedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await EnsureLoadedAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception error)
+        {
+            Trace.TraceError(error.ToString());
+        }
+    }
+
+    /// <summary>Publishes a successful open and loads its initial navigation state.</summary>
+    /// <param name="document">The ready document.</param>
+    private void CompleteLoad(IDocument document)
+    {
+        NeedsPassword = false;
+        ErrorMessage = null;
+        if (!IsLoaded)
+        {
+            OnFirstLoad(document);
+        }
+    }
+
     /// <summary>Gets layout and optional tagged structure from the captured document, from any thread.</summary>
     /// <returns>Both reading capabilities, or <see langword="null"/> when the document is closed or has no layout.</returns>
     private ReadingSources? ReadingSource()
@@ -871,9 +975,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Reads document structure after the first successful open.</summary>
-    private void OnFirstLoad()
+    /// <param name="document">The newly opened document.</param>
+    private void OnFirstLoad(IDocument document)
     {
-        var document = Source.Acquire();
         ReadPageStructure(document);
         Signatures.Refresh();
         Attachments.Refresh();
@@ -889,6 +993,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             WatchFile();
         }
 
+        IsLoaded = true;
         _documentChanges.OnNext(RxVoid.Default);
     }
 
@@ -912,7 +1017,6 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
         Thumbnails = thumbnails;
         PageCount = sizes.Length;
-        IsLoaded = true;
         PageEntry = GetPageDisplay(CurrentPageIndex);
     }
 
@@ -1042,10 +1146,11 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     private async Task SaveAsAsync()
     {
+        var cancellationToken = SelectedWorkToken;
         var path = await SaveAsInteraction.Handle(FileName).ToTask().ConfigureAwait(true);
         if (!string.IsNullOrEmpty(path))
         {
-            _ = Save(path);
+            _ = await SaveAsync(path, cancellationToken).ConfigureAwait(true);
         }
     }
 
@@ -1126,10 +1231,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     private void DismissReload() => HasPendingReload = false;
 
     /// <summary>Saves the document over its own file.</summary>
-    /// <returns><see langword="true"/> when saved.</returns>
+    /// <returns>A task that reports whether the file was saved.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool Save() => Save(FilePath);
+    private Task<bool> Save() => SaveAsync(FilePath, SelectedWorkToken);
 
     /// <summary>Turns caret navigation on or off.</summary>
     [ReactiveCommand]
@@ -1259,13 +1364,21 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Retries opening with the typed password.</summary>
+    /// <returns>A task for the open attempt.</returns>
     [ReactiveCommand]
-    private void SubmitPassword()
+    private async Task SubmitPasswordAsync()
     {
         Source.Password = PasswordEntry;
         PasswordEntry = string.Empty;
         NeedsPassword = false;
-        EnsureLoaded();
+        var token = SelectedWorkToken;
+        try
+        {
+            await EnsureLoadedAsync(token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
     }
 
     /// <summary>Sets the zoom from a percentage such as "150".</summary>

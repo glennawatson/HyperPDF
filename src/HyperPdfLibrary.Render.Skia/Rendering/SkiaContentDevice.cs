@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Drawing;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Graphics.Shadings;
@@ -73,6 +74,18 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>The smallest scale used when dividing by a matrix scale.</summary>
     private const float MinScale = 1e-6F;
 
+    /// <summary>The most converted glyph outlines retained while recording one picture.</summary>
+    private const int MaxCachedGlyphPaths = 512;
+
+    /// <summary>The most separate glyphs drawn as one filled path.</summary>
+    private const int MaxBatchedGlyphs = 4;
+
+    /// <summary>The largest page-space side of a grouped path, keeping it suitable for Skia's path atlas at common zooms.</summary>
+    private const float MaxGlyphBatchSide = 128;
+
+    /// <summary>The page-space gap required so separate anti-aliased glyph edges cannot darken each other.</summary>
+    private const float GlyphBatchGap = 0.5F;
+
     /// <summary>The colour channel table that leaves a channel unchanged.</summary>
     private static readonly byte[] IdentityTable = CreateIdentityTable();
 
@@ -81,6 +94,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
 
     /// <summary>The native builder reused only while this device records path operations.</summary>
     private readonly SKPathBuilder _pathBuilder = new();
+
+    /// <summary>Accumulates only compatible, non-overlapping solid-colour glyph paths.</summary>
+    private readonly SKPathBuilder _glyphBatchBuilder = new();
+
+    /// <summary>Repeated glyphs share one converted path during page recording.</summary>
+    private readonly Dictionary<GlyphOutlineKey, SKPath> _glyphPaths = [];
 
     /// <summary>The recording canvas.</summary>
     private readonly SKCanvas _canvas;
@@ -94,22 +113,50 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>Whether each open transparency group is a knockout group, innermost last.</summary>
     private readonly List<bool> _knockout = [];
 
+    /// <summary>Whether compatible glyphs are collected into short filled paths.</summary>
+    private readonly bool _batchGlyphs;
+
+    /// <summary>The first path held until another glyph makes a batch worthwhile.</summary>
+    private SKPath? _firstBatchedGlyph;
+
+    /// <summary>The first glyph's transform, used unchanged when a batch contains only one glyph.</summary>
+    private Matrix3x2 _firstBatchedMatrix;
+
+    /// <summary>The solid colour shared by a pending batch.</summary>
+    private ColorState _batchColor;
+
+    /// <summary>The page-space bounds of all glyphs in a pending batch.</summary>
+    private SKRect _batchBounds;
+
+    /// <summary>The number of glyphs waiting to be drawn.</summary>
+    private int _batchCount;
+
     /// <summary>Whether <see cref="Finish"/> has run.</summary>
     private bool _finished;
 
     /// <summary>Initializes a new instance of the <see cref="SkiaContentDevice"/> class.</summary>
     /// <param name="cull">The area the picture covers.</param>
     internal SkiaContentDevice(SKRect cull)
-        : this(cull, new())
+        : this(cull, new(), true)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="SkiaContentDevice"/> class.</summary>
+    /// <param name="cull">The recording bounds.</param>
+    /// <param name="batchGlyphs">Whether to group compatible glyphs.</param>
+    internal SkiaContentDevice(SKRect cull, bool batchGlyphs)
+        : this(cull, new(), batchGlyphs)
     {
     }
 
     /// <summary>Initializes a new instance of the <see cref="SkiaContentDevice"/> class.</summary>
     /// <param name="cull">The area the picture covers.</param>
     /// <param name="weight">Counts the images drawn; pictures nested in another recording share its count.</param>
-    private SkiaContentDevice(SKRect cull, PictureWeight weight)
+    /// <param name="batchGlyphs">Whether compatible glyphs are grouped.</param>
+    private SkiaContentDevice(SKRect cull, PictureWeight weight, bool batchGlyphs)
     {
         Weight = weight;
+        _batchGlyphs = batchGlyphs;
         _canvas = _recorder.BeginRecording(cull, true);
     }
 
@@ -118,15 +165,24 @@ internal sealed class SkiaContentDevice : IPictureDevice
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Save() => _canvas.Save();
+    public void Save()
+    {
+        FlushGlyphBatch();
+        _ = _canvas.Save();
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Restore() => _canvas.Restore();
+    public void Restore()
+    {
+        FlushGlyphBatch();
+        _canvas.Restore();
+    }
 
     /// <inheritdoc/>
     public void Clip(PdfPath path, bool evenOdd, Matrix3x2 ctm)
     {
+        FlushGlyphBatch();
         using var native = SkiaPathConversion.Create(_pathBuilder, path, evenOdd);
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(ctm));
         _canvas.ClipPath(native, SKClipOperation.Intersect, true);
@@ -135,6 +191,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void Fill(PdfPath path, bool evenOdd, ref GraphicsState state)
     {
+        FlushGlyphBatch();
         using var native = SkiaPathConversion.Create(_pathBuilder, path, evenOdd);
         var masked = BeginMask(ref state, native.Bounds, state.Ctm);
         FillShape(native, state.Ctm, state.Fill, state.FillAlpha, state.BlendMode);
@@ -144,6 +201,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void Stroke(PdfPath path, ref GraphicsState state)
     {
+        FlushGlyphBatch();
         using var native = SkiaPathConversion.Create(_pathBuilder, path);
         var masked = BeginMask(ref state, Inflate(native.Bounds, state.LineWidth), state.Ctm);
         StrokeShape(native, state.Ctm, ref state);
@@ -153,6 +211,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void DrawImage(IPdfRenderImage image, bool isMask, bool smooth, ref GraphicsState state)
     {
+        FlushGlyphBatch();
         Weight.Add(image);
         var native = SkiaResources.Image(image);
         var matrix = new Matrix3x2(1F / image.Width, 0, 0, -1F / image.Height, 0, 1) * state.Ctm;
@@ -177,7 +236,14 @@ internal sealed class SkiaContentDevice : IPictureDevice
         }
 
         var matrix = glyph.GlyphMatrix * state.Ctm;
-        using var path = SkiaPathConversion.Create(_pathBuilder, outline);
+        using var pathLease = GetGlyphPath(glyph.Font, glyph.Code, outline);
+        var path = pathLease.Path;
+        if (CanBatchGlyph(mode, pathLease.Owns, ref state) && QueueGlyph(path, matrix, state.Fill))
+        {
+            return;
+        }
+
+        FlushGlyphBatch();
         var masked = BeginMask(ref state, path.Bounds, matrix);
         if (IsMode(FillModes, mode) && !state.Fill.PaintsNothing)
         {
@@ -195,6 +261,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void PaintShading(PdfShading shading, ref GraphicsState state)
     {
+        FlushGlyphBatch();
         var masked = BeginMask(ref state, SKRect.Empty, state.Ctm);
         _ = _canvas.Save();
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
@@ -211,6 +278,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void BeginGroup(in GroupInfo group)
     {
+        FlushGlyphBatch();
         _layerPaint.Reset();
         _layerPaint.BlendMode = ElementBlend(group.Blend);
         _layerPaint.Color = new(byte.MaxValue, byte.MaxValue, byte.MaxValue, (byte)MathF.Round(Math.Clamp(group.Alpha, 0, 1) * AlphaMax));
@@ -233,6 +301,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void EndGroup(in GroupInfo group)
     {
+        FlushGlyphBatch();
         if (group.SoftMask is { } mask)
         {
             ApplyMask(mask, SkiaConversions.ToSkRect(group.Bounds));
@@ -259,11 +328,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPictureDevice CreatePictureDevice(PdfRect cull) => new SkiaContentDevice(SkiaConversions.ToSkRect(cull), Weight);
+    public IPictureDevice CreatePictureDevice(PdfRect cull) => new SkiaContentDevice(SkiaConversions.ToSkRect(cull), Weight, _batchGlyphs);
 
     /// <inheritdoc/>
     public IPdfRenderPicture Finish()
     {
+        FlushGlyphBatch();
         _finished = true;
         return new SkiaRenderPicture(_recorder.EndRecording());
     }
@@ -278,7 +348,13 @@ internal sealed class SkiaContentDevice : IPictureDevice
         }
 
         _paint.Dispose();
+        foreach (var path in _glyphPaths.Values)
+        {
+            path.Dispose();
+        }
+
         _pathBuilder.Dispose();
+        _glyphBatchBuilder.Dispose();
         _layerPaint.Dispose();
         _canvas.Dispose();
         _recorder.Dispose();
@@ -417,6 +493,22 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <returns>The scale.</returns>
     private static float MatrixScale(Matrix3x2 matrix) =>
         (MathF.Sqrt((matrix.M11 * matrix.M11) + (matrix.M12 * matrix.M12)) + MathF.Sqrt((matrix.M21 * matrix.M21) + (matrix.M22 * matrix.M22))) / PairLength;
+
+    /// <summary>Rejects glyph bounds that cannot fit in a modest page-space path batch.</summary>
+    /// <param name="bounds">The transformed glyph bounds.</param>
+    /// <returns>True when the bounds can be batched.</returns>
+    private static bool AreBatchBoundsUsable(SKRect bounds) =>
+        !bounds.IsEmpty && float.IsFinite(bounds.Left) && float.IsFinite(bounds.Top)
+        && float.IsFinite(bounds.Right) && float.IsFinite(bounds.Bottom)
+        && bounds.Width <= MaxGlyphBatchSide && bounds.Height <= MaxGlyphBatchSide;
+
+    /// <summary>Keeps the anti-aliased edges of separate glyphs from blending differently as one path.</summary>
+    /// <param name="first">The pending group.</param>
+    /// <param name="next">The next glyph.</param>
+    /// <returns>True when their padded bounds do not overlap.</returns>
+    private static bool AreGlyphsSeparated(SKRect first, SKRect next) =>
+        next.Left >= first.Right + GlyphBatchGap || next.Right <= first.Left - GlyphBatchGap
+        || next.Top >= first.Bottom + GlyphBatchGap || next.Bottom <= first.Top - GlyphBatchGap;
 
     /// <summary>Starts a layer, limited to a rectangle unless it is empty.</summary>
     /// <param name="bounds">The area in page space, or empty for no limit.</param>
@@ -777,5 +869,134 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _paint.Color = WhiteWithAlpha(alpha);
         _paint.BlendMode = ElementBlend(blend);
         _canvas.DrawPaint(_paint);
+    }
+
+    /// <summary>Groups a solid glyph with earlier separate glyphs of the same colour.</summary>
+    /// <param name="path">The cached glyph outline.</param>
+    /// <param name="matrix">The glyph-to-page transform.</param>
+    /// <param name="color">The fill colour.</param>
+    /// <returns>True when drawing has been deferred into the batch.</returns>
+    private bool QueueGlyph(SKPath path, Matrix3x2 matrix, in ColorState color)
+    {
+        var nativeMatrix = SkiaConversions.ToSkMatrix(matrix);
+        var bounds = nativeMatrix.MapRect(path.Bounds);
+        if (!AreBatchBoundsUsable(bounds))
+        {
+            return false;
+        }
+
+        if (_batchCount > 0 && !CanJoinGlyphBatch(bounds, color))
+        {
+            FlushGlyphBatch();
+        }
+
+        if (_batchCount == 0)
+        {
+            _firstBatchedGlyph = path;
+            _firstBatchedMatrix = matrix;
+            _batchColor = color;
+            _batchBounds = bounds;
+            _batchCount = 1;
+            return true;
+        }
+
+        if (_batchCount == 1)
+        {
+            var firstMatrix = SkiaConversions.ToSkMatrix(_firstBatchedMatrix);
+            _glyphBatchBuilder.AddPath(_firstBatchedGlyph!, in firstMatrix);
+        }
+
+        _glyphBatchBuilder.AddPath(path, in nativeMatrix);
+        _batchBounds = new(
+            MathF.Min(_batchBounds.Left, bounds.Left),
+            MathF.Min(_batchBounds.Top, bounds.Top),
+            MathF.Max(_batchBounds.Right, bounds.Right),
+            MathF.Max(_batchBounds.Bottom, bounds.Bottom));
+        _batchCount++;
+        return true;
+    }
+
+    /// <summary>Checks whether a glyph can use the same page-space path as a pending group.</summary>
+    /// <param name="bounds">The candidate bounds.</param>
+    /// <param name="color">The candidate colour.</param>
+    /// <returns>True when it can join the group.</returns>
+    private bool CanJoinGlyphBatch(SKRect bounds, in ColorState color) =>
+        _batchCount < MaxBatchedGlyphs && color == _batchColor && AreGlyphsSeparated(_batchBounds, bounds)
+        && MathF.Max(bounds.Right, _batchBounds.Right) - MathF.Min(bounds.Left, _batchBounds.Left) <= MaxGlyphBatchSide
+        && MathF.Max(bounds.Bottom, _batchBounds.Bottom) - MathF.Min(bounds.Top, _batchBounds.Top) <= MaxGlyphBatchSide;
+
+    /// <summary>Uses grouped drawing only when per-glyph transparency, effects and strokes are absent.</summary>
+    /// <param name="mode">The PDF text mode.</param>
+    /// <param name="ownsPath">Whether the path ends with this glyph's call.</param>
+    /// <param name="state">The graphics state.</param>
+    /// <returns>True when the glyph may enter a batch.</returns>
+    private bool CanBatchGlyph(int mode, bool ownsPath, ref GraphicsState state) =>
+        _batchGlyphs && mode == 0 && !ownsPath && !state.Fill.PaintsNothing && state.Fill.Pattern is null
+        && state.FillAlpha >= 1F && state.BlendMode == PdfBlendMode.Normal && state.SoftMask is null
+        && _knockout.Count == 0;
+
+    /// <summary>Records a pending glyph group before any later drawing or clip change.</summary>
+    private void FlushGlyphBatch()
+    {
+        var count = _batchCount;
+        if (count == 0)
+        {
+            return;
+        }
+
+        _batchCount = 0;
+        var first = _firstBatchedGlyph;
+        _firstBatchedGlyph = null;
+        if (count == 1)
+        {
+            FillShape(first!, _firstBatchedMatrix, _batchColor, 1, PdfBlendMode.Normal);
+            return;
+        }
+
+        using var combined = _glyphBatchBuilder.Detach();
+        FillShape(combined, Matrix3x2.Identity, _batchColor, 1, PdfBlendMode.Normal);
+    }
+
+    /// <summary>Converts a glyph once per recording when it repeats.</summary>
+    /// <param name="font">The font that owns the outline.</param>
+    /// <param name="code">The character code.</param>
+    /// <param name="outline">The managed outline.</param>
+    /// <returns>The path and its disposal ownership.</returns>
+    private GlyphPathLease GetGlyphPath(PdfFont font, int code, PdfPath outline)
+    {
+        var key = new GlyphOutlineKey(font, code);
+        if (_glyphPaths.TryGetValue(key, out var existing))
+        {
+            return new(existing, false);
+        }
+
+        var created = SkiaPathConversion.Create(_pathBuilder, outline);
+        if (_glyphPaths.Count >= MaxCachedGlyphPaths)
+        {
+            return new(created, true);
+        }
+
+        _glyphPaths.Add(key, created);
+        return new(created, false);
+    }
+
+    /// <summary>Identifies an outline in one page recording.</summary>
+    /// <param name="Font">The owning font.</param>
+    /// <param name="Code">The font's character code.</param>
+    private readonly record struct GlyphOutlineKey(PdfFont Font, int Code);
+
+    /// <summary>Releases only a path that exceeded the recording cache.</summary>
+    /// <param name="Path">The native glyph outline.</param>
+    /// <param name="Owns">Whether this draw must dispose it.</param>
+    private readonly record struct GlyphPathLease(SKPath Path, bool Owns) : IDisposable
+    {
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            if (Owns)
+            {
+                Path.Dispose();
+            }
+        }
     }
 }

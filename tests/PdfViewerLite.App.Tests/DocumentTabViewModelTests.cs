@@ -2,10 +2,13 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using PdfViewerLite.App.ViewModels;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Layout;
 using PdfViewerLite.Core.Settings;
+using PdfViewerLite.HyperPdf;
 using ReactiveUI.Primitives;
 
 namespace PdfViewerLite.App.Tests;
@@ -19,8 +22,59 @@ public sealed class DocumentTabViewModelTests
     /// <summary>The generated document name.</summary>
     private const string DocumentName = "doc.pdf";
 
+    /// <summary>The first document whose load is paused by the test engines.</summary>
+    private const string FirstDocumentName = "first.pdf";
+
     /// <summary>The number of navigation requests the test makes.</summary>
     private const int RequestCount = 3;
+
+    /// <summary>The bounded time for a cancelled test open to release its buffer.</summary>
+    private static readonly TimeSpan CancelledOpenTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>Switching tabs cancels an unfinished open and leaves its result unpublished.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SwitchingTabsCancelsPendingOpen()
+    {
+        var engine = new DelayedFirstOpenEngine();
+        using var test = new TestServices(engine);
+        using var main = new MainViewModel(test.Services);
+        main.Open([test.CreateDocument(FirstDocumentName, Pages)]);
+        var first = main.SelectedTab!;
+        var firstWork = first.SelectedWorkToken;
+        await Assert.That(first.IsLoaded).IsFalse();
+
+        main.Open([test.CreateDocument("second.pdf", Pages)]);
+        var second = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => second.IsLoaded)).IsTrue();
+        await Assert.That(await UiWait.UntilAsync(() => firstWork.IsCancellationRequested)).IsTrue();
+
+        engine.ReleaseFirst();
+        await Assert.That(await UiWait.UntilAsync(() => engine.FirstDocument?.IsDisposed == true)).IsTrue();
+        await Assert.That(first.IsLoaded).IsFalse();
+        await Assert.That(first.Source.IsOpen).IsFalse();
+    }
+
+    /// <summary>Switching tabs ends cancellable loading and returns its rented buffer without a test release signal.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SwitchingTabsStopsCancellableOpenAndReleasesBuffer()
+    {
+        var engine = new CancellableFirstOpenEngine();
+        using var test = new TestServices(engine);
+        using var main = new MainViewModel(test.Services);
+        main.Open([test.CreateDocument(FirstDocumentName, Pages)]);
+        var first = main.SelectedTab!;
+        var firstWork = first.SelectedWorkToken;
+        await engine.Started.WaitAsync(CancelledOpenTimeout);
+
+        main.Open([test.CreateDocument("second.pdf", Pages)]);
+        await engine.BufferReturned.WaitAsync(CancelledOpenTimeout);
+
+        await Assert.That(firstWork.IsCancellationRequested).IsTrue();
+        await Assert.That(first.IsLoaded).IsFalse();
+        await Assert.That(first.Source.IsOpen).IsFalse();
+    }
 
     /// <summary>Verifies document structure is loaded.</summary>
     /// <returns>A task.</returns>
@@ -29,8 +83,9 @@ public sealed class DocumentTabViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(DocumentName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(DocumentName, Pages)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
 
         await Assert.That(tab.Thumbnails.Count).IsEqualTo(Pages);
         await Assert.That(tab.Outline.Count).IsEqualTo(Pages);
@@ -46,8 +101,9 @@ public sealed class DocumentTabViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(DocumentName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(DocumentName, Pages)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var requests = new List<NavigationRequest>();
         using var navigation = tab.NavigationRequests.SubscribeSafe(requests.Add, static _ => { });
         const int fourthPage = 3;
@@ -70,8 +126,9 @@ public sealed class DocumentTabViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(DocumentName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(DocumentName, Pages)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var requests = new List<NavigationRequest>();
         using var navigation = tab.NavigationRequests.SubscribeSafe(requests.Add, static _ => { });
         var canGoBack = false;
@@ -102,7 +159,7 @@ public sealed class DocumentTabViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(DocumentName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(DocumentName, Pages)]);
         var tab = main.SelectedTab!;
 
         _ = await tab.ZoomResetCommand.Execute().ToTask();
@@ -135,7 +192,7 @@ public sealed class DocumentTabViewModelTests
         test.Services.Settings.FileChangeAction = FileChangeAction.AskToReload;
         using var main = new MainViewModel(test.Services);
         var path = test.CreateDocument(DocumentName, Pages);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
 
@@ -159,7 +216,7 @@ public sealed class DocumentTabViewModelTests
         const int rounds = 100;
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(DocumentName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(DocumentName, Pages)]);
         var tab = main.SelectedTab!;
         tab.Search.Query = "lazy dog";
         _ = await UiWait.UntilAsync(() => !tab.Search.IsSearching && tab.Search.Results.Count == Pages);
@@ -184,7 +241,7 @@ public sealed class DocumentTabViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(DocumentName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(DocumentName, Pages)]);
         var tab = main.SelectedTab!;
 
         tab.Search.Open();
@@ -212,7 +269,7 @@ public sealed class DocumentTabViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(DocumentName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(DocumentName, Pages)]);
         var tab = main.SelectedTab!;
         tab.SidebarMode = SidebarMode.Outline;
 
@@ -222,5 +279,104 @@ public sealed class DocumentTabViewModelTests
 
         await Assert.That(whileOpen).IsEqualTo(SidebarMode.Outline);
         await Assert.That(tab.SidebarMode).IsEqualTo(SidebarMode.Outline);
+    }
+
+    /// <summary>Holds the first document after the engine has opened it.</summary>
+    private sealed class DelayedFirstOpenEngine : IDocumentEngine
+    {
+        /// <summary>The real document engine.</summary>
+        private readonly HyperPdfEngine _inner = new();
+
+        /// <summary>Releases the first result to the document pool.</summary>
+        private readonly TaskCompletionSource _firstReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <inheritdoc/>
+        public string Name => _inner.Name;
+
+        /// <summary>Gets the first opened document for disposal checks.</summary>
+        internal IDocument? FirstDocument { get; private set; }
+
+        /// <inheritdoc/>
+        public bool CanOpen(string path) => _inner.CanOpen(path);
+
+        /// <inheritdoc/>
+        public IDocument Open(string path, string? password) => _inner.Open(path, password);
+
+        /// <inheritdoc/>
+        public ValueTask<IDocument> OpenAsync(string path, string? password, CancellationToken cancellationToken) =>
+            Path.GetFileName(path) == FirstDocumentName ? OpenFirstAsync(path, password) : _inner.OpenAsync(path, password, cancellationToken);
+
+        /// <summary>Lets the first open finish.</summary>
+        internal void ReleaseFirst() => _ = _firstReady.TrySetResult();
+
+        /// <summary>Returns a document after tab selection has changed.</summary>
+        /// <param name="path">The file.</param>
+        /// <param name="password">The password.</param>
+        /// <returns>The late document.</returns>
+        private async ValueTask<IDocument> OpenFirstAsync(string path, string? password)
+        {
+            FirstDocument = _inner.Open(path, password);
+            await _firstReady.Task;
+            return FirstDocument;
+        }
+    }
+
+    /// <summary>Owns a rented buffer until the selected tab's cancellation ends its first open.</summary>
+    private sealed class CancellableFirstOpenEngine : IDocumentEngine
+    {
+        /// <summary>The bytes held by the pending open.</summary>
+        private const int BufferBytes = 4 * 1024 * 1024;
+
+        /// <summary>The real document engine.</summary>
+        private readonly HyperPdfEngine _inner = new();
+
+        /// <summary>Signals that the pending open owns its buffer.</summary>
+        private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Signals that the buffer was returned.</summary>
+        private readonly TaskCompletionSource _bufferReturned = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Keeps the test open pending until its token cancels.</summary>
+        private readonly TaskCompletionSource _pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <inheritdoc/>
+        public string Name => _inner.Name;
+
+        /// <summary>Gets the task that completes when the buffer is owned.</summary>
+        internal Task Started => _started.Task;
+
+        /// <summary>Gets the task that completes after the buffer is returned.</summary>
+        internal Task BufferReturned => _bufferReturned.Task;
+
+        /// <inheritdoc/>
+        public bool CanOpen(string path) => _inner.CanOpen(path);
+
+        /// <inheritdoc/>
+        public IDocument Open(string path, string? password) => _inner.Open(path, password);
+
+        /// <inheritdoc/>
+        public ValueTask<IDocument> OpenAsync(string path, string? password, CancellationToken cancellationToken) =>
+            Path.GetFileName(path) == FirstDocumentName ? OpenFirstAsync(path, password, cancellationToken) : _inner.OpenAsync(path, password, cancellationToken);
+
+        /// <summary>Waits for cancellation while owning a reusable buffer.</summary>
+        /// <param name="path">The first file.</param>
+        /// <param name="password">Its password.</param>
+        /// <param name="cancellationToken">The selected tab's token.</param>
+        /// <returns>The opened document only if the pending test signal is released.</returns>
+        private async ValueTask<IDocument> OpenFirstAsync(string path, string? password, CancellationToken cancellationToken)
+        {
+            var buffer = ArrayPool<byte>.Shared.Rent(BufferBytes);
+            _ = _started.TrySetResult();
+            try
+            {
+                await _pending.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                return _inner.Open(path, password);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+                _ = _bufferReturned.TrySetResult();
+            }
+        }
     }
 }

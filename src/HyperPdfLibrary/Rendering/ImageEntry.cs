@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using HyperPdfLibrary.Drawing;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Rendering;
 
@@ -53,7 +52,7 @@ internal sealed class ImageEntry
     internal LinkedListNode<ImageEntry>? Node { get; set; }
 
     /// <summary>Gets or sets the stream the cache holds the entry under; only the cache touches it, under its lock.</summary>
-    internal PdfStream? Key { get; set; }
+    internal ImageKey? Key { get; set; }
 
     /// <summary>Gets a value indicating whether the backend image has been disposed.</summary>
     internal bool IsDisposed

@@ -86,7 +86,7 @@ public sealed class FrameStabilityTests
     {
         using var test = new TestServices(TestEngineChoice.Pdfium);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("scroll.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scroll.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -118,7 +118,7 @@ public sealed class FrameStabilityTests
         test.Services.Settings.Motion = MotionPreference.Reduced;
         test.Services.ApplySettings();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("zoom.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("zoom.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -150,7 +150,7 @@ public sealed class FrameStabilityTests
         test.Services.Settings.Motion = MotionPreference.Normal;
         test.Services.ApplySettings();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("ease.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("ease.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

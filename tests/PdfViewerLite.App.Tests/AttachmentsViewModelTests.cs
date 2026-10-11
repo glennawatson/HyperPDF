@@ -32,8 +32,10 @@ public sealed class AttachmentsViewModelTests
         var path = Path.Combine(test.Directory, "attached.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateWithAttachment());
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
-        var attachments = main.SelectedTab!.Attachments;
+        await TestServices.OpenAndWaitAsync(main, [path]);
+        var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
+        var attachments = tab.Attachments;
         var target = Path.Combine(test.Directory, "saved-notes.txt");
         string? suggested = null;
         using var handler = attachments.SaveInteraction.RegisterHandler(context =>
@@ -48,7 +50,7 @@ public sealed class AttachmentsViewModelTests
         await Assert.That(attachments.HasAttachments).IsTrue();
         await Assert.That(suggested).IsEqualTo(TestPdf.AttachmentName);
         await Assert.That(await File.ReadAllTextAsync(target)).IsEqualTo(TestPdf.AttachmentText);
-        await Assert.That(main.SelectedTab.Notice).IsEqualTo($"Saved {TestPdf.AttachmentName}.");
+        await Assert.That(tab.Notice).IsEqualTo($"Saved {TestPdf.AttachmentName}.");
     }
 
     /// <summary>Verifies documents without attachments keep the panel hidden.</summary>
@@ -58,7 +60,7 @@ public sealed class AttachmentsViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("plain.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("plain.pdf", 1)]);
 
         await Assert.That(main.SelectedTab!.Attachments.HasAttachments).IsFalse();
         await Assert.That(main.SelectedTab.Attachments.Items.Count).IsEqualTo(0);

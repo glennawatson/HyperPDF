@@ -65,7 +65,7 @@ public sealed class TaggedReadingEngineTests
         using var test = new TestServices(engine);
         var path = test.CreateDocument("tagged.pdf", TestPdf.CreateTagged());
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

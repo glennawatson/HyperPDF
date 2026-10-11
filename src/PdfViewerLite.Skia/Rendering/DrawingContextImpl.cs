@@ -120,6 +120,7 @@ internal sealed class DrawingContextImpl : IDrawingContextWithAcrylicLikeSupport
         _graphicsContext = createInfo.GrContext;
         _gpu = createInfo.Gpu;
         _session = createInfo.CurrentSession;
+        SurfaceColorType = createInfo.SurfaceColorType ?? SKImageInfo.PlatformColorType;
         if (_graphicsContext is not null)
         {
             Monitor.Enter(_graphicsContext);
@@ -147,6 +148,9 @@ internal sealed class DrawingContextImpl : IDrawingContextWithAcrylicLikeSupport
 
     /// <summary>Gets the GPU context if available.</summary>
     public GRContext? GrContext => _graphicsContext;
+
+    /// <summary>Gets the pixel channel order of the compositor surface.</summary>
+    public SKColorType SurfaceColorType { get; }
 
     /// <summary>Gets or sets the render options.</summary>
     public RenderOptions RenderOptions { get; set; }
@@ -1124,6 +1128,9 @@ PopClip();
         /// <summary>Gets the Skia GPU context if available.</summary>
         public GRContext? GrContext { get; init; }
 
+        /// <summary>Gets the pixel channel order of the target surface.</summary>
+        public SKColorType? SurfaceColorType { get; init; }
+
         /// <summary>Gets the Skia GPU platform provider if available.</summary>
         public ISkiaGpu? Gpu { get; init; }
 
@@ -1209,6 +1216,9 @@ PopClip();
 
             /// <summary>Gets the gr context.</summary>
             public GRContext? GrContext => _context.GrContext;
+
+            /// <summary>Gets the surface channel order.</summary>
+            public SKColorType SurfaceColorType => _context.SurfaceColorType;
 
             /// <summary>Gets the sk surface.</summary>
             public SKSurface? SkSurface => CheckLease(_context.Surface);

@@ -47,7 +47,7 @@ public sealed class AccessibilityTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("names.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("names.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -78,7 +78,7 @@ public sealed class AccessibilityTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("dialogs.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("dialogs.pdf", Pages)]);
         var preferences = new PreferencesWindow { ViewModel = new(test.Services) };
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var print = new PrintPreviewWindow { ViewModel = preview, Width = WindowWidth, Height = WindowHeight };
@@ -110,7 +110,7 @@ public sealed class AccessibilityTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("actions.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("actions.pdf", Pages)]);
         test.Services.Settings.ToolbarStyle = style;
         test.Services.ApplySettings();
         DesktopThemeApplier.Apply(Application.Current!, test.Services.CurrentTheme);
@@ -148,7 +148,7 @@ public sealed class AccessibilityTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("keys.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("keys.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -191,7 +191,7 @@ public sealed class AccessibilityTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("order.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("order.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);

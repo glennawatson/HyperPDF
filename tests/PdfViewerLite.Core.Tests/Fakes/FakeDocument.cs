@@ -13,6 +13,9 @@ internal sealed class FakeDocument : IDocument
     /// <summary>The page sizes.</summary>
     private readonly PageSize[] _sizes;
 
+    /// <summary>Completes when the first render begins.</summary>
+    private readonly TaskCompletionSource _firstRenderStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     /// <summary>The number of renders performed.</summary>
     private int _renderCount;
 
@@ -39,6 +42,9 @@ internal sealed class FakeDocument : IDocument
 
     /// <summary>Gets an event set when the first render starts.</summary>
     internal ManualResetEventSlim Started { get; } = new(false);
+
+    /// <summary>Gets a task completed when the first render begins.</summary>
+    internal Task FirstRenderStarted => _firstRenderStarted.Task;
 
     /// <summary>Gets or sets an event every render waits on before drawing.</summary>
     internal ManualResetEventSlim? Gate { get; set; }
@@ -69,6 +75,7 @@ internal sealed class FakeDocument : IDocument
     public bool Render(in PageRenderInfo info, RenderTarget target)
     {
         Started.Set();
+        _ = _firstRenderStarted.TrySetResult();
         Gate?.Wait();
         if (IsDisposed)
         {

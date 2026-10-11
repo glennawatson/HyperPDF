@@ -19,6 +19,7 @@ public static class PdfDocumentPageEditing
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
         using var scope = PdfCancellation.Enter(cancellationToken);
+        PdfCancellation.ThrowIfCancelled();
         PdfDocumentPageOperations.RotatePages(document, pages.Span, degrees);
     }
 
@@ -31,6 +32,7 @@ public static class PdfDocumentPageEditing
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
         using var scope = PdfCancellation.Enter(cancellationToken);
+        PdfCancellation.ThrowIfCancelled();
         PdfDocumentPageOperations.DeletePages(document, pages.Span);
     }
 
@@ -44,6 +46,7 @@ public static class PdfDocumentPageEditing
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
         using var scope = PdfCancellation.Enter(cancellationToken);
+        PdfCancellation.ThrowIfCancelled();
         PdfDocumentPageOperations.MovePages(document, pages.Span, destination);
     }
 
@@ -58,6 +61,7 @@ public static class PdfDocumentPageEditing
     {
         await PrefetchAsync(source, pages, cancellationToken).ConfigureAwait(false);
         using var scope = PdfCancellation.Enter(cancellationToken);
+        PdfCancellation.ThrowIfCancelled();
         PdfDocumentPageOperations.InsertPages(document, index, source, pages.Span);
     }
 
@@ -70,6 +74,7 @@ public static class PdfDocumentPageEditing
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
         using var scope = PdfCancellation.Enter(cancellationToken);
+        PdfCancellation.ThrowIfCancelled();
         return PdfDocumentPageOperations.ExtractPages(document, pages.Span);
     }
 

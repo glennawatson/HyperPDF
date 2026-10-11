@@ -25,7 +25,7 @@ public sealed class SignatureViewModelTests
         var path = Path.Combine(test.Directory, "signed.pdf");
         await File.WriteAllBytesAsync(path, TestSignedPdf.Create(Pages, certificate));
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var signatures = main.SelectedTab!.Signatures;
         var shown = 0;
         using var show = signatures.ShowInteraction.RegisterHandler(context =>

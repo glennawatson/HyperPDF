@@ -1,0 +1,5 @@
+Live viewer EventPipe summary, 2026-10-11, AMD Radeon RX 7900 XTX, Fedora 45 XWayland :0 (DRI3), .NET 11.
+The viewer used the X11 Vulkan 1.4 configuration. Tracing attached to an empty viewer window before a second process forwarded the public-domain USGS Morrison map path. The forwarded process exited successfully.
+Provider PdfViewerLite.Rendering.Tiles: GpuSnapshot=2, GpuPresented=1, SoftwarePrepared=0.
+Provider PdfViewerLite.Skia.Frames: Vulkan FrameSessionSubmitted=13, OpenGL FrameSessionSubmitted=0.
+The events cover the attached session only. They do not measure physical display scanout or exact image-upload bytes.

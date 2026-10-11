@@ -104,7 +104,7 @@ public sealed class PrintPreviewPageViewTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("sheet-size.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("sheet-size.pdf", 1)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         await Assert.That(await UiWait.UntilAsync(() => preview.IsValid && !preview.IsBuilding)).IsTrue();
         using var view = new PrintPreviewPageView { ViewModel = preview.Sheets[0] with { Size = new(ShortSide, LongSide) } };
@@ -127,7 +127,7 @@ public sealed class PrintPreviewPageViewTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("sheet-disposal.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("sheet-disposal.pdf", 1)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         await Assert.That(await UiWait.UntilAsync(() => preview.IsValid && !preview.IsBuilding)).IsTrue();
         var view = new PrintPreviewPageView { ViewModel = preview.Sheets[0] };

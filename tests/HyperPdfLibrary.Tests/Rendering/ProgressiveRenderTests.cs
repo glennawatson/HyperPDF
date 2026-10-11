@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Text;
 using HyperPdfLibrary.Rendering;
+using SkiaSharp;
 
 namespace HyperPdfLibrary.Tests.Rendering;
 
@@ -47,6 +48,34 @@ public sealed class ProgressiveRenderTests
         await Assert.That(calls).IsGreaterThan(1);
         await Assert.That(paused == PdfRenderStatus.Paused && untouched).IsTrue();
         await Assert.That(pixels.AsSpan().SequenceEqual(expected.Pixels)).IsTrue();
+    }
+
+    /// <summary>A paused owned-target render leaves its surface alone until recording finishes.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PausedOwnedTargetRenderDoesNotDrawUntilResume()
+    {
+        using var page = new RenderTestPage(CreateBusyPage());
+        var request = new PdfTileRequest(0, 1, 0, 0, 0, PdfRenderFlags.None);
+        var info = new SKImageInfo(Size, Size, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using var target = new SkiaSurfaceRenderTarget(SKSurface.Create(info), info);
+        target.Canvas.Clear(SKColors.Magenta);
+
+        var paused = page.Renderer.RenderProgressiveToTarget(request, target, static () => true, CancellationToken.None);
+        using var beforeImage = target.Snapshot();
+        using var before = SKBitmap.FromImage(beforeImage);
+        var untouched = before.GetPixel(0, 0) == SKColors.Magenta;
+        var finished = page.Renderer.RenderProgressiveToTarget(request, target, null, CancellationToken.None);
+        using var afterImage = target.Snapshot();
+        using var after = SKBitmap.FromImage(afterImage);
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(paused).IsEqualTo(PdfRenderStatus.Paused);
+            await Assert.That(untouched).IsTrue();
+            await Assert.That(finished).IsEqualTo(PdfRenderStatus.Done);
+            await Assert.That(after.GetPixel(0, 0)).IsNotEqualTo(SKColors.Magenta);
+        }
     }
 
     /// <summary>A cancelled render stops, discards its recording, and a later render still completes.</summary>

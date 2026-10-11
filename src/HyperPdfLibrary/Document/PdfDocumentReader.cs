@@ -71,7 +71,19 @@ public static class PdfDocumentReader
     /// <returns>The document.</returns>
     /// <exception cref="PdfException">The file cannot be read, is not a PDF, or the password is wrong.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public static async ValueTask<PdfDocument> OpenWithAsync(string path, PdfOpenOptions options, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ValueTask<PdfDocument> OpenWithAsync(string path, PdfOpenOptions options, CancellationToken cancellationToken) =>
+        OpenWithAsync(path, options, cancellationToken, cancellationToken.CanBeCanceled ? cancellationToken : options.CancellationToken);
+
+    /// <summary>Opens a file with a token for this open and a separate token retained by the document.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="options">The file source and recovery options.</param>
+    /// <param name="cancellationToken">Cancels I/O and CPU work during the open.</param>
+    /// <param name="documentCancellationToken">Cancels later document operations.</param>
+    /// <returns>The opened document.</returns>
+    /// <exception cref="PdfException">The file cannot be read, is not a PDF, or the password is wrong.</exception>
+    /// <exception cref="OperationCanceledException">The open was cancelled.</exception>
+    public static async ValueTask<PdfDocument> OpenWithAsync(string path, PdfOpenOptions options, CancellationToken cancellationToken, CancellationToken documentCancellationToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         ArgumentNullException.ThrowIfNull(options);
@@ -89,7 +101,7 @@ public static class PdfDocumentReader
             throw new PdfException($"The file '{path}' could not be read.", ex);
         }
 
-        return await PdfDocumentReader.OpenWithAsync(source, true, options, cancellationToken).ConfigureAwait(false);
+        return await PdfDocumentReader.OpenWithAsync(source, true, options, cancellationToken, documentCancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Opens a document read from a seekable stream with options and async I/O.</summary>
@@ -118,16 +130,31 @@ public static class PdfDocumentReader
     /// <returns>The document.</returns>
     /// <exception cref="PdfException">The file is not a PDF, or the password is wrong.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public static async ValueTask<PdfDocument> OpenWithAsync(PdfByteSource source, bool ownsSource, PdfOpenOptions options, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ValueTask<PdfDocument> OpenWithAsync(PdfByteSource source, bool ownsSource, PdfOpenOptions options, CancellationToken cancellationToken) =>
+        OpenWithAsync(source, ownsSource, options, cancellationToken, cancellationToken.CanBeCanceled ? cancellationToken : options.CancellationToken);
+
+    /// <summary>Opens a byte source while keeping open cancellation separate from later document cancellation.</summary>
+    /// <param name="source">The file.</param>
+    /// <param name="ownsSource">Whether the document disposes the source.</param>
+    /// <param name="options">The recovery and source options.</param>
+    /// <param name="cancellationToken">Cancels I/O and CPU work during the open.</param>
+    /// <param name="documentCancellationToken">Cancels later document operations.</param>
+    /// <returns>The opened document.</returns>
+    /// <exception cref="PdfException">The file is not a PDF or the password is wrong.</exception>
+    /// <exception cref="OperationCanceledException">The open was cancelled.</exception>
+    public static async ValueTask<PdfDocument> OpenWithAsync(
+        PdfByteSource source,
+        bool ownsSource,
+        PdfOpenOptions options,
+        CancellationToken cancellationToken,
+        CancellationToken documentCancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(options);
-        var bound = cancellationToken.CanBeCanceled
-            ? options with
-            {
-                CancellationToken = cancellationToken
-            }
-            : options;
+        var bound = options.CancellationToken == documentCancellationToken
+            ? options
+            : options with { CancellationToken = documentCancellationToken };
         PdfObjectStore objects;
         try
         {

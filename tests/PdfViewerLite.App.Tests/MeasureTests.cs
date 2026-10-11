@@ -33,7 +33,7 @@ public sealed class MeasureTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("distance.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("distance.pdf", 1)]);
         var measure = main.SelectedTab!.Measure;
         measure.IsOn = true;
         measure.ScaleText = "1 in = 1 in";
@@ -55,7 +55,7 @@ public sealed class MeasureTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("area.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("area.pdf", 1)]);
         var measure = main.SelectedTab!.Measure;
         measure.IsOn = true;
         measure.IsArea = true;
@@ -83,7 +83,7 @@ public sealed class MeasureTests
         var path = Path.Combine(test.Directory, "plan.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateWithViewport());
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var measure = main.SelectedTab!.Measure;
         measure.IsOn = true;
 
@@ -101,7 +101,7 @@ public sealed class MeasureTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("keep.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("keep.pdf", 1)]);
         var tab = main.SelectedTab!;
         var measure = tab.Measure;
         measure.IsOn = true;
@@ -122,7 +122,7 @@ public sealed class MeasureTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("bar.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("bar.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

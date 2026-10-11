@@ -16,4 +16,14 @@ internal sealed class NullRecentDocumentStore : IRecentDocumentStore
     public void Add(string filePath)
     {
     }
+
+    /// <inheritdoc/>
+    public void Remove(string filePath)
+    {
+    }
+
+    /// <inheritdoc/>
+    public void Clear()
+    {
+    }
 }

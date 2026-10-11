@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Rendering;
@@ -30,6 +31,12 @@ public sealed class RenderSchedulerTests
 
     /// <summary>How long to wait for asynchronous work.</summary>
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>The longest Dispose may occupy a caller while a render is still active.</summary>
+    private static readonly TimeSpan DisposeLimit = TimeSpan.FromSeconds(2);
+
+    /// <summary>How often the test checks whether its blocked render completed.</summary>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(10);
 
     /// <summary>Verifies a request is rendered and handed back once.</summary>
     /// <returns>A task.</returns>
@@ -89,6 +96,45 @@ public sealed class RenderSchedulerTests
         await Assert.That(second.Key).IsEqualTo(Key(0));
         await Assert.That(waiting.RenderCount).IsEqualTo(1);
         second.Surface.Dispose();
+    }
+
+    /// <summary>Switching away cancels in-progress page preparation before a stale tile can render.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TabCancellationStopsInProgressPreparation()
+    {
+        using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
+        using var tab = CancellationTokenSource.CreateLinkedTokenSource(scheduler.ShutdownToken);
+        using var timeout = new CancellationTokenSource(Timeout);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var document = new FakeDocument(DocumentName, FakeEngine.A4);
+        document.Preparation = async (_, token) =>
+        {
+            Signal(entered);
+
+            try
+            {
+                await release.Task.WaitAsync(token);
+            }
+            finally
+            {
+                Signal(stopped);
+            }
+        };
+        var request = Request(Key(0), document, new(), RenderPriority.Visible) with { CancellationToken = tab.Token };
+        await Assert.That(scheduler.Request(request)).IsTrue();
+        await entered.Task.WaitAsync(timeout.Token);
+
+        var started = Stopwatch.GetTimestamp();
+        await tab.CancelAsync();
+        scheduler.Invalidate(request.Key.DocumentId);
+        await stopped.Task.WaitAsync(timeout.Token);
+
+        await Assert.That(Stopwatch.GetElapsedTime(started)).IsLessThan(DisposeLimit);
+        await Assert.That(document.RenderCount).IsEqualTo(0);
+        await Assert.That(scheduler.TryTakeCompleted(out _)).IsFalse();
     }
 
     /// <summary>A synchronous preparation failure leaves the render thread available for the next page.</summary>
@@ -341,6 +387,171 @@ public sealed class RenderSchedulerTests
         tile.Surface.Dispose();
     }
 
+    /// <summary>A preparation surface records content without asking the document for CPU pixels.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task PreparationSurfaceSkipsCpuRaster()
+    {
+        using var completed = new SemaphoreSlim(0);
+        var factory = new PreparationSurfaceFactory();
+        using var scheduler = new RenderScheduler(factory);
+        using var completions = scheduler.Completed.SubscribeSafe(_ => completed.Release(), static _ => { });
+        using var document = new FakeDocument(DocumentName, FakeEngine.A4);
+        var key = Key(0);
+
+        _ = scheduler.Request(Request(key, document, new(), RenderPriority.Visible));
+        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        await Assert.That(scheduler.TryTakeCompleted(out var tile)).IsTrue();
+        await Assert.That(tile.Surface).IsTypeOf<PreparationSurface>();
+        await Assert.That(((PreparationSurface)tile.Surface).PrepareCount).IsEqualTo(1);
+        await Assert.That(document.RenderCount).IsEqualTo(0);
+        tile.Surface.Dispose();
+    }
+
+    /// <summary>A completed prepared tile is released when its client advances before collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task PreparedTileDropsAfterGenerationAdvance()
+    {
+        using var completed = new SemaphoreSlim(0);
+        var factory = new PreparationSurfaceFactory();
+        using var scheduler = new RenderScheduler(factory);
+        using var completions = scheduler.Completed.SubscribeSafe(_ => completed.Release(), static _ => { });
+        using var document = new FakeDocument(DocumentName, FakeEngine.A4);
+        var client = new RenderClient();
+        var key = Key(0);
+
+        _ = scheduler.Request(Request(key, document, client, RenderPriority.Visible));
+        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        _ = client.Advance();
+
+        await Assert.That(scheduler.TryTakeCompleted(out _)).IsFalse();
+        await Assert.That(factory.Last!.IsDisposed).IsTrue();
+        await Assert.That(scheduler.IsPending(key)).IsFalse();
+    }
+
+    /// <summary>A new generation requested during an active render replaces its stale result.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ActiveRenderIsReplacedAfterGenerationAdvance()
+    {
+        const int expectedRenders = 2;
+        using var gate = new ManualResetEventSlim(false);
+        using var completed = new SemaphoreSlim(0);
+        using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
+        using var completions = scheduler.Completed.SubscribeSafe(_ => completed.Release(), static _ => { });
+        using var document = new FakeDocument(DocumentName, FakeEngine.A4) { Gate = gate };
+        var client = new RenderClient();
+        var key = Key(0);
+
+        _ = scheduler.Request(Request(key, document, client, RenderPriority.Visible));
+        await document.FirstRenderStarted.WaitAsync(Timeout);
+        _ = client.Advance();
+        var requeued = scheduler.Request(Request(key, document, client, RenderPriority.Visible));
+        gate.Set();
+
+        var taken = 0;
+        while (scheduler.IsPending(key))
+        {
+            await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+            while (scheduler.TryTakeCompleted(out var tile))
+            {
+                taken++;
+                tile.Surface.Dispose();
+            }
+        }
+
+        await Assert.That(requeued).IsTrue();
+        await Assert.That(document.RenderCount).IsEqualTo(expectedRenders);
+        await Assert.That(taken).IsEqualTo(1);
+    }
+
+    /// <summary>Closing a viewer does not wait for an active render to release the UI thread.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DisposeReturnsWhileRenderIsActive()
+    {
+        using var gate = new ManualResetEventSlim(false);
+        var scheduler = new RenderScheduler(new FakeSurfaceFactory());
+        using var document = new FakeDocument(DocumentName, FakeEngine.A4) { Gate = gate };
+        using var timeout = new CancellationTokenSource(Timeout);
+        using var timer = new PeriodicTimer(PollInterval);
+        var key = Key(0);
+        TimeSpan elapsed;
+        try
+        {
+            _ = scheduler.Request(Request(key, document, new(), RenderPriority.Visible));
+            await document.FirstRenderStarted.WaitAsync(timeout.Token);
+        }
+        finally
+        {
+            var started = Stopwatch.GetTimestamp();
+            scheduler.Dispose();
+            elapsed = Stopwatch.GetElapsedTime(started);
+            gate.Set();
+        }
+
+        while (document.RenderCount == 0)
+        {
+            if (!await timer.WaitForNextTickAsync(timeout.Token))
+            {
+                break;
+            }
+        }
+
+        await Assert.That(elapsed).IsLessThan(DisposeLimit);
+        await Assert.That(document.RenderCount).IsEqualTo(1);
+    }
+
+    /// <summary>Disposal cancels queued page preparation before any tile surface is created.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DisposeCancelsAwaitingPreparation()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var factory = new PreparationSurfaceFactory();
+        var scheduler = new RenderScheduler(factory);
+        using var document = new FakeDocument(DocumentName, FakeEngine.A4);
+        using var timeout = new CancellationTokenSource(Timeout);
+        Task? pending = null;
+        document.Preparation = (pageIndex, token) =>
+        {
+            _ = pageIndex;
+            pending = release.Task.WaitAsync(token);
+            _ = entered.TrySetResult();
+            return new(pending);
+        };
+
+        try
+        {
+            _ = scheduler.Request(Request(Key(0), document, new(), RenderPriority.Visible));
+            await entered.Task.WaitAsync(timeout.Token);
+        }
+        finally
+        {
+            scheduler.Dispose();
+        }
+
+        var cancelled = false;
+        try
+        {
+            await pending!;
+        }
+        catch (OperationCanceledException)
+        {
+            cancelled = true;
+        }
+
+        await Assert.That(cancelled).IsTrue();
+        await Assert.That(factory.Last).IsNull();
+        await Assert.That(document.RenderCount).IsEqualTo(0);
+    }
+
+    /// <summary>Signals a test phase even when another callback has already signaled it.</summary>
+    /// <param name="source">The phase signal.</param>
+    private static void Signal(TaskCompletionSource source) => _ = source.TrySetResult();
+
     /// <summary>Creates a key for a page.</summary>
     /// <param name="page">The page.</param>
     /// <returns>The key.</returns>
@@ -354,4 +565,52 @@ public sealed class RenderSchedulerTests
     /// <returns>The request.</returns>
     private static RenderRequest Request(in TileKey key, IDocument document, RenderClient client, RenderPriority priority) =>
         new(key, document, new(key.PageIndex, 1, PageRotation.None, 0, 0, RenderFlags.None), Edge, Edge, priority, client, client.Generation, PageTone.None);
+
+    /// <summary>Creates surfaces that prepare page recordings.</summary>
+    private sealed class PreparationSurfaceFactory : IRenderSurfaceFactory
+    {
+        /// <summary>Gets the most recently created surface.</summary>
+        internal PreparationSurface? Last { get; private set; }
+
+        /// <inheritdoc/>
+        public IRenderSurface Create(int width, int height) => Last = new(width, height);
+    }
+
+    /// <summary>A test surface that fails if asked to write CPU pixels.</summary>
+    /// <param name="width">The surface width.</param>
+    /// <param name="height">The surface height.</param>
+    private sealed class PreparationSurface(int width, int height) : IRenderPreparationSurface
+    {
+        /// <summary>The bytes in one colour pixel.</summary>
+        private const int BytesPerPixel = 4;
+
+        /// <inheritdoc/>
+        public int Width { get; } = width;
+
+        /// <inheritdoc/>
+        public int Height { get; } = height;
+
+        /// <inheritdoc/>
+        public long ByteSize => (long)Width * Height * BytesPerPixel;
+
+        /// <summary>Gets how often a page was prepared.</summary>
+        internal int PrepareCount { get; private set; }
+
+        /// <summary>Gets whether the surface was disposed.</summary>
+        internal bool IsDisposed { get; private set; }
+
+        /// <inheritdoc/>
+        public bool Prepare(in RenderRequest request, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            PrepareCount++;
+            return true;
+        }
+
+        /// <inheritdoc/>
+        public bool Write<TState>(in TState state, SurfaceWriter<TState> writer) => throw new InvalidOperationException("CPU pixels were requested.");
+
+        /// <inheritdoc/>
+        public void Dispose() => IsDisposed = true;
+    }
 }

@@ -29,7 +29,7 @@ public sealed class ReadModeTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("read.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("read.pdf", Pages)]);
         var tab = main.SelectedTab!;
         tab.SidebarVisible = true;
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };

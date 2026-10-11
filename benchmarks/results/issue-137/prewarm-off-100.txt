@@ -1,0 +1,19 @@
+484.247 frame backend=1 submission_us=2531
+495.340 GpuSnapshot width=220 height=285 submission_us=
+495.357 GpuPresented width=220 height=285 submission_us=
+495.965 GpuSnapshot width=221 height=171 submission_us=
+495.979 GpuPresented width=221 height=171 submission_us=
+496.629 GpuSnapshot width=220 height=285 submission_us=
+496.643 GpuPresented width=220 height=285 submission_us=
+497.272 GpuSnapshot width=220 height=285 submission_us=
+497.285 GpuPresented width=220 height=285 submission_us=
+500.020 GpuSnapshot width=512 height=512 submission_us=
+500.040 GpuPresented width=512 height=512 submission_us=
+500.087 GpuSnapshot width=304 height=512 submission_us=
+500.097 GpuPresented width=304 height=512 submission_us=
+500.136 GpuSnapshot width=512 height=512 submission_us=
+500.147 GpuPresented width=512 height=512 submission_us=
+500.186 GpuSnapshot width=304 height=512 submission_us=
+500.195 GpuPresented width=304 height=512 submission_us=
+501.622 frame backend=1 submission_us=7589
+summary frames=2 snapshots=8 presented=8 prefetched=0 software=0

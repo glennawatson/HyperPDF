@@ -55,7 +55,7 @@ public sealed class CorpusRenderingComparisonTests
     }
 
     /// <summary>Records missing browser prerequisites explicitly and requires them in CI.</summary>
-    private static void RequireBrowser()
+    internal static void RequireBrowser()
     {
         try
         {
@@ -72,7 +72,7 @@ public sealed class CorpusRenderingComparisonTests
     /// <param name="browser">The reusable actual browser renderer.</param>
     /// <param name="cancellationToken">Cancels rendering and evidence writes.</param>
     /// <returns>The actual page count compared.</returns>
-    private static async Task<int> CompareFileAsync(string file, PdfJsBrowserSession browser, CancellationToken cancellationToken)
+    internal static async Task<int> CompareFileAsync(string file, PdfJsBrowserSession browser, CancellationToken cancellationToken)
     {
         var pdf = await File.ReadAllBytesAsync(file, cancellationToken);
         using var pair = new EnginePair(pdf);

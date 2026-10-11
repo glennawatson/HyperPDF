@@ -200,4 +200,9 @@ internal sealed class HyperPdfAnnotationEditorService : IAnnotationEditor
     public bool Save(Stream destination) => HyperPdfDocumentAnnotationEditing.Save(
             _owner,
             destination);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask<bool> SaveAsync(Stream destination, CancellationToken cancellationToken) =>
+        HyperPdfDocumentAnnotationEditing.SaveAsync(_owner, destination, cancellationToken);
 }

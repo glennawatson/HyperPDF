@@ -78,6 +78,30 @@ public sealed class JsonRecentDocumentStore : IRecentDocumentStore
         }
     }
 
+    /// <inheritdoc/>
+    public void Remove(string filePath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(filePath);
+        var full = Path.GetFullPath(filePath);
+        lock (_gate)
+        {
+            var entries = Read();
+            if (entries.RemoveAll(entry => string.Equals(entry.FilePath, full, StringComparison.Ordinal)) > 0)
+            {
+                Write(entries);
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            Write([]);
+        }
+    }
+
     /// <summary>Reads the list, empty when it is missing or unreadable.</summary>
     /// <returns>The entries, newest first.</returns>
     private List<RecentDocument> Read()

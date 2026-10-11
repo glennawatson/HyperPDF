@@ -21,7 +21,7 @@ public sealed class MainWindowReactiveLifecycleTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         var path = test.CreateDocument("session.pdf", 1);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var window = new MainWindow { ViewModel = main };
         window.Show();
         try
@@ -46,7 +46,7 @@ public sealed class MainWindowReactiveLifecycleTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("unsaved.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("unsaved.pdf", 1)]);
         var tab = main.SelectedTab!;
         var lines = new List<PageRect>();
         tab.TryGetDocument()!.GetTextBounds(0, 0, TestPdf.Sentence.Length, lines);

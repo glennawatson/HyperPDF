@@ -29,14 +29,7 @@ internal sealed class RenderSurface : IDisposable
         Bitmap = new();
         Pixmap = new();
         Canvas = new(Bitmap);
-        float[] gray =
-        [
-            LumaRed, LumaGreen, LumaBlue, 0, 0,
-            LumaRed, LumaGreen, LumaBlue, 0, 0,
-            LumaRed, LumaGreen, LumaBlue, 0, 0,
-            0, 0, 0, 1, 0,
-        ];
-        GrayPaint = new() { ColorFilter = SKColorFilter.CreateColorMatrix(gray) };
+        GrayPaint = CreateGrayPaint();
     }
 
     /// <summary>Gets the current thread's surface holder.</summary>
@@ -56,6 +49,20 @@ internal sealed class RenderSurface : IDisposable
 
     /// <summary>Gets or sets a value indicating whether the holder has been disposed.</summary>
     internal bool IsDisposed { get; set; }
+
+    /// <summary>Creates a grayscale paint without allocating caller-buffer drawing wrappers.</summary>
+    /// <returns>The owned paint.</returns>
+    internal static SKPaint CreateGrayPaint()
+    {
+        float[] gray =
+        [
+            LumaRed, LumaGreen, LumaBlue, 0, 0,
+            LumaRed, LumaGreen, LumaBlue, 0, 0,
+            LumaRed, LumaGreen, LumaBlue, 0, 0,
+            0, 0, 0, 1, 0,
+        ];
+        return new() { ColorFilter = SKColorFilter.CreateColorMatrix(gray) };
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

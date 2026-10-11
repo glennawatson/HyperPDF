@@ -695,7 +695,7 @@
     <!-- Shown when the user chose to be asked before reloading a changed file, or has unsaved edits. -->
     <Border x:Name="ReloadBar" DockPanel.Dock="Top" Classes="toolbar">
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock x:Name="ReloadText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" Text="This file changed on disk." />
+        <TextBlock x:Name="ReloadText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" Text="This PDF changed on disk. Reload it?" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
           <Button x:Name="ReloadButton" views:ControlHelp.Text="{x:Static views:Descriptions.ReloadChanged}" Content="Reload" />
           <Button x:Name="DismissReloadButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissReload}" Content="Dismiss" />

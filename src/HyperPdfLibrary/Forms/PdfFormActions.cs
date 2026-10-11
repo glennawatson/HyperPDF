@@ -78,6 +78,7 @@ public static class PdfFormActions
         var widgets = new List<PdfFormWidget>();
         for (var page = 0; PdfFormReading.HasForm(form) && page < form.Document.PageCount; page++)
         {
+            PdfCancellation.ThrowIfCancelled();
             widgets.Clear();
             PdfFormReading.GetWidgets(form, page, widgets);
             foreach (var widget in widgets)

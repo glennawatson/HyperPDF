@@ -62,11 +62,30 @@ internal sealed class PagePictures
     /// <param name="version">The optional content version.</param>
     /// <param name="usesIntent">Whether the pictures are recorded with device colours converted through the output intent.</param>
     internal PagePictures(int pageIndex, int version, bool usesIntent)
+        : this(pageIndex, version, usesIntent, int.MaxValue, float.PositiveInfinity)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PagePictures"/> class for one display zoom band.</summary>
+    /// <param name="pageIndex">The page index.</param>
+    /// <param name="version">The layer version.</param>
+    /// <param name="usesIntent">Whether output intent colours are used.</param>
+    /// <param name="scaleBand">The logarithmic zoom band.</param>
+    /// <param name="upperScale">The highest scale served by the band.</param>
+    internal PagePictures(int pageIndex, int version, bool usesIntent, int scaleBand, float upperScale)
     {
         PageIndex = pageIndex;
         Version = version;
         UsesIntent = usesIntent;
+        ScaleBand = scaleBand;
+        UpperScale = upperScale;
     }
+
+    /// <summary>Gets the zoom band this picture was recorded for.</summary>
+    internal int ScaleBand { get; }
+
+    /// <summary>Gets the upper scale of the band.</summary>
+    internal float UpperScale { get; }
 
     /// <summary>Gets a value indicating whether the pictures use the output intent conversion.</summary>
     internal bool UsesIntent { get; }
@@ -138,7 +157,7 @@ internal sealed class PagePictures
                 return (printing ? _printContent : _content)!;
             }
 
-            var recorded = PageRecorder.RecordContent(cache, page, printing, out var bytes, out var images);
+            var recorded = PageRecorder.RecordContent(cache, page, printing, UpperScale, out var bytes, out var images);
             AddHeld(bytes, images);
             if (printing)
             {
@@ -184,7 +203,7 @@ internal sealed class PagePictures
                 return existing;
             }
 
-            var recorded = PageRecorder.RecordAnnotations(cache, page, printing, out var bytes, out var images);
+            var recorded = PageRecorder.RecordAnnotations(cache, page, printing, UpperScale, out var bytes, out var images);
             AddHeld(bytes, images);
             if (printing)
             {
@@ -229,7 +248,7 @@ internal sealed class PagePictures
             _recording = null;
         }
 
-        _recording ??= new(cache, page, printing);
+        _recording ??= new(cache, page, printing, UpperScale);
         PdfRenderStatus status;
         IPdfRenderPicture? picture;
         try

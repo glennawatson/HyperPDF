@@ -1,0 +1,29 @@
+{
+  "comment": "Public-domain USGS map PDFs for GPU and CPU render comparisons. Download on demand with scripts/FetchComparisonCorpus.cs; checksums and byte counts pin the exact files. Neither the PDFs nor the local aviation charts are redistributed by this repository.",
+  "documents": [
+    {
+      "id": "usgs-morrison-1957",
+      "source": "U.S. Geological Survey Historical Topographic Map Collection",
+      "url": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Maps/HistoricalTopo/PDF/CO/24000/CO_Morrison_401624_1957_24000_geo.pdf",
+      "sha256": "36782dc5ad46e27dc3d356869c7c0d6122e4b92690ad20257e5a980d0cba2d2b",
+      "bytes": 8304276,
+      "pageCount": 1,
+      "pageSizePoints": [1586.26, 1961.82],
+      "tags": ["map", "raster", "jpeg-tiles", "geospatial", "historical"],
+      "licence": "Public domain: USGS topographic map published in 1957. USGS says all its topographic maps are public domain except three US Topo data cases from 2009 onward.",
+      "licenceEvidence": "https://www.usgs.gov/faqs/are-usgs-topographic-maps-copyrighted"
+    },
+    {
+      "id": "usgs-lost-city-2023",
+      "source": "U.S. Geological Survey US Topo",
+      "url": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Maps/USTopo/PDF/WV/WV_Lost_City_20230613_TM_geo.pdf",
+      "sha256": "d1f203786e6b39cca67d4bd194e12fc1578ca3c799b3750e549268fcaafb0435",
+      "bytes": 50016442,
+      "pageCount": 1,
+      "pageSizePoints": [1728, 2088],
+      "tags": ["map", "layered", "vector", "raster", "geospatial", "large"],
+      "licence": "Public domain: 2023 US Topo map of West Virginia/Virginia. USGS lists commercial road data only for 2010-2016 US Topo maps and commercial orthoimagery for Alaska and pre-2017 Hawaii maps; this map falls outside those cases.",
+      "licenceEvidence": "https://www.usgs.gov/faqs/are-usgs-topographic-maps-copyrighted"
+    }
+  ]
+}

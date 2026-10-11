@@ -30,7 +30,7 @@ public sealed class FormScriptViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        var tab = Open(test, main);
+        var tab = await OpenAsync(test, main);
         var forms = tab.Forms;
 
         Type(tab, PriceField, "12.5");
@@ -51,7 +51,7 @@ public sealed class FormScriptViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        var tab = Open(test, main);
+        var tab = await OpenAsync(test, main);
 
         Type(tab, QuantityField, "lots");
         var quantityNotice = tab.Notice;
@@ -70,12 +70,14 @@ public sealed class FormScriptViewModelTests
     /// <param name="test">The services.</param>
     /// <param name="main">The main view model.</param>
     /// <returns>The tab.</returns>
-    private static DocumentTabViewModel Open(TestServices test, MainViewModel main)
+    private static async Task<DocumentTabViewModel> OpenAsync(TestServices test, MainViewModel main)
     {
         var path = Path.Combine(test.Directory, "order.pdf");
-        File.WriteAllBytes(path, TestPdf.CreateCalculatedForm());
-        main.Open([path]);
-        return main.SelectedTab!;
+        await File.WriteAllBytesAsync(path, TestPdf.CreateCalculatedForm());
+        await TestServices.OpenAndWaitAsync(main, [path]);
+        var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
+        return tab;
     }
 
     /// <summary>Types a value into a field and commits it, as clicking the field and pressing Enter does.</summary>

@@ -61,7 +61,7 @@ public sealed class PageLayoutTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("dual.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("dual.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -104,7 +104,7 @@ public sealed class PageLayoutTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("spreads.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("spreads.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -144,7 +144,7 @@ public sealed class PageLayoutTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("fit.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("fit.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -176,7 +176,7 @@ public sealed class PageLayoutTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("entry.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("entry.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -215,7 +215,7 @@ public sealed class PageLayoutTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("keep.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("keep.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -253,7 +253,7 @@ public sealed class PageLayoutTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("help.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("help.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

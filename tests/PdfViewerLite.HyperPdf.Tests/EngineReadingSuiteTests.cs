@@ -63,6 +63,9 @@ public sealed class EngineReadingSuiteTests
     /// <summary>Half a layer box, to sample its middle.</summary>
     private const int HalfBox = 50;
 
+    /// <summary>The warm hit queries measured for managed allocation.</summary>
+    private const int AllocationQueries = 1024;
+
     /// <summary>The name typed into the text field.</summary>
     private const string TypedName = "Glenn Watson";
 
@@ -93,6 +96,27 @@ public sealed class EngineReadingSuiteTests
             await Assert.That(characters[i].Bounds.Left).IsEqualTo(expected[i].Bounds.Left).Within(Tolerance);
             await Assert.That(characters[i].Bounds.Top).IsEqualTo(expected[i].Bounds.Top).Within(Tolerance);
         }
+    }
+
+    /// <summary>The viewer adapter's warm hit query returns without managed allocation.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task WarmHyperPdfHitTestingDoesNotAllocate()
+    {
+        using var test = new EngineDocument(EngineDocument.HyperPdf, TestPdf.Create(PageCount));
+        var document = test.Document;
+        var point = new PagePoint(HeadingX, HeadingY);
+        var expected = document.GetCharacterIndexAt(0, point, HitTolerance);
+        var observed = -1;
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < AllocationQueries; i++)
+        {
+            observed = document.GetCharacterIndexAt(0, point, HitTolerance);
+        }
+
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        await Assert.That(observed).IsEqualTo(expected);
+        await Assert.That(allocated).IsEqualTo(0);
     }
 
     /// <summary>Search finds the same matches as PDFium, with bounds in top-left page space.</summary>

@@ -49,7 +49,7 @@ public sealed class FormKeyboardTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("form.pdf", TestPdf.CreateCombForm())]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("form.pdf", TestPdf.CreateCombForm())]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -106,7 +106,7 @@ public sealed class FormKeyboardTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("fill.pdf", TestPdf.CreateCombForm())]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("fill.pdf", TestPdf.CreateCombForm())]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

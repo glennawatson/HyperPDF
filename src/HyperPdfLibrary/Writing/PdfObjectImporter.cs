@@ -78,9 +78,11 @@ public sealed class PdfObjectImporter : IPdfCarrySink
     /// <exception cref="PdfException">The source cannot be read.</exception>
     public PdfValue Import(PdfValue value)
     {
+        PdfCancellation.ThrowIfCancelled();
         var copy = Copy(value, 0);
         while (_pending.TryDequeue(out var item))
         {
+            PdfCancellation.ThrowIfCancelled();
             var replaced = _overrides.TryGetValue(item.Old, out var replacement);
             _keepParent = replaced && replacement.KeepParent;
             var original = replaced ? PdfValue.FromDictionary(replacement.Dictionary) : StoreReading.GetObject(_source, new(item.Old, 0));

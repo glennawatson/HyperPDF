@@ -92,7 +92,7 @@ public sealed class TextEditingFlowTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("fonts.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("fonts.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -144,7 +144,7 @@ public sealed class TextEditingFlowTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("keys.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("keys.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -201,7 +201,7 @@ public sealed class TextEditingFlowTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("properties.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("properties.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -263,7 +263,7 @@ public sealed class TextEditingFlowTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("compose.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("compose.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -318,7 +318,7 @@ public sealed class TextEditingFlowTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("shortcuts.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("shortcuts.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -422,7 +422,7 @@ public sealed class TextEditingFlowTests
     private static async Task<(TextFormat Format, Core.Geometry.PageRect Bounds)> WriteAndSaveAsync(TestServices test, string path)
     {
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("round-trip.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("round-trip.pdf", 1)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

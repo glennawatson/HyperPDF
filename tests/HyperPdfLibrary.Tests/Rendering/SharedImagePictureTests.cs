@@ -31,6 +31,9 @@ public sealed class SharedImagePictureTests
     /// <summary>The number of images that stands for "more than one".</summary>
     private const int Twice = 2;
 
+    /// <summary>A second zoom band above the one-point scale.</summary>
+    private const float ZoomScale = 1.25F;
+
     /// <summary>A limit that fits two and a half images, which is more than one image and a few pictures.</summary>
     private const long RoomForTwoAndAHalf = (ImageBytes * Twice) + (ImageBytes / Twice);
 
@@ -115,6 +118,23 @@ public sealed class SharedImagePictureTests
         await Assert.That(renderer.PictureBytes).IsLessThan(ImageBytes * Twice);
     }
 
+    /// <summary>Zoom variants remain warm together until the picture byte limit evicts one.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ZoomBandsShareThePictureBudget()
+    {
+        using var document = PdfDocumentReader.Open(Build(static _ => 0), null);
+        using var roomy = new PdfPageRenderer(document);
+        Render(roomy, 0);
+        Render(roomy, 0, ZoomScale);
+        await Assert.That(roomy.PictureCount).IsEqualTo(Twice);
+
+        using var limited = new PdfPageRenderer(document, PdfRenderOptions.Default with { PictureCacheBytes = 1 });
+        Render(limited, 0);
+        Render(limited, 0, ZoomScale);
+        await Assert.That(limited.PictureCount).IsEqualTo(1);
+    }
+
     /// <summary>Renders a tile of every page.</summary>
     /// <param name="renderer">The renderer.</param>
     private static void RenderAll(PdfPageRenderer renderer)
@@ -128,10 +148,17 @@ public sealed class SharedImagePictureTests
     /// <summary>Renders one tile of a page.</summary>
     /// <param name="renderer">The renderer.</param>
     /// <param name="page">The page index.</param>
-    private static void Render(PdfPageRenderer renderer, int page)
+    private static void Render(PdfPageRenderer renderer, int page) =>
+        Render(renderer, page, 1);
+
+    /// <summary>Renders one tile at a selected zoom.</summary>
+    /// <param name="renderer">The renderer.</param>
+    /// <param name="page">The page index.</param>
+    /// <param name="scale">Device pixels per page point.</param>
+    private static void Render(PdfPageRenderer renderer, int page, float scale)
     {
         var pixels = new byte[Tile * Tile * BytesPerPixel];
-        _ = renderer.Render(new(page, 1, 0, 0, 0, PdfRenderFlags.None), new(pixels, Tile, Tile, Tile * BytesPerPixel));
+        _ = renderer.Render(new(page, scale, 0, 0, 0, PdfRenderFlags.None), new(pixels, Tile, Tile, Tile * BytesPerPixel));
     }
 
     /// <summary>Builds a document whose pages each draw one of a few gray images.</summary>

@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.Core.Platform;
 using ReactiveUI;
@@ -26,11 +27,12 @@ public sealed partial class StartView : ReactiveUI.Avalonia.ReactiveUserControl<
     public StartView()
     {
         InitializeComponent();
-        RecentList.ItemTemplate = new FuncDataTemplate<RecentDocument>(static (_, _) => new RecentDocumentView());
+        RecentList.ItemTemplate = new FuncDataTemplate<RecentDocument>((_, _) => new RecentDocumentView { RemoveRequested = recent => ViewModel?.RemoveRecent(recent) });
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(ItemAutomation.NameItems(RecentList));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.OpenCommand, static v => v.OpenButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.ClearRecentCommand, static v => v.ClearRecentButton));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments, static v => v.RecentList.ItemsSource));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments.Count, static v => v.RecentPanel.IsVisible, static count => count > 0));
             disposables.Add(Picks(RecentList).InvokeCommand(ViewModel, static vm => vm.OpenRecentCommand));
@@ -52,6 +54,33 @@ public sealed partial class StartView : ReactiveUI.Avalonia.ReactiveUserControl<
         Signal.Merge(
                 recent.Events().Tapped.Select(static args => args.Source),
                 recent.Events().KeyDown.Where(static args => args.Key == Key.Enter).Select(static args => args.Source))
+            .Where(IsDocumentPick)
             .Select(static source => (source as StyledElement)?.DataContext)
             .OfType<RecentDocument>();
+
+    /// <summary>Keeps a remove-button tap from opening its PDF.</summary>
+    /// <param name="source">The event source.</param>
+    /// <returns>True when the tap belongs to the document row.</returns>
+    private static bool IsDocumentPick(object? source)
+    {
+        if (source is not Control control)
+        {
+            return true;
+        }
+
+        if (control is Button)
+        {
+            return false;
+        }
+
+        foreach (var ancestor in control.GetVisualAncestors())
+        {
+            if (ancestor is Button)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

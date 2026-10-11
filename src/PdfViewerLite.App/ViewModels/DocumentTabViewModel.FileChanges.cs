@@ -7,6 +7,7 @@ using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Settings;
 using ReactiveUI;
 using ReactiveUI.Primitives;
+using ReactiveUI.SourceGenerators;
 
 namespace PdfViewerLite.App.ViewModels;
 
@@ -14,12 +15,48 @@ namespace PdfViewerLite.App.ViewModels;
 public sealed partial class DocumentTabViewModel
 {
     /// <summary>The file's last write time and length when it was loaded or last seen to change.</summary>
-    private (DateTime Written, long Length) _fileStamp;
+    private DocumentFileStamp _fileStamp;
+
+    /// <summary>Reloads the document from disk, keeping the current page.</summary>
+    /// <returns>A task for the selected tab's reload.</returns>
+    [ReactiveCommand]
+    public async Task ReloadAsync()
+    {
+        HasPendingReload = false;
+        var page = CurrentPageIndex;
+        var token = SelectedWorkToken;
+        RenderHub.Scheduler.Invalidate(Source.Id);
+        RenderHub.RemoveDocumentTiles(Source.Id);
+        Source.Reload();
+        IsLoaded = false;
+        _documentChanges.OnNext(RxVoid.Default);
+        if (_selectedWork is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await EnsureLoadedAsync(token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        GoToPage(page);
+        Search.Refresh();
+    }
 
     /// <summary>Reloads a changed file, or offers to, depending on the user's choice. Unsaved edits are never discarded silently.</summary>
     internal void OnFileChanged()
     {
-        var stamp = ReadFileStamp(FilePath);
+        var stamp = DocumentFileStamp.Read(FilePath);
         if (Environment.TickCount64 - Interlocked.Read(ref _savedAt) < SelfSaveWindowMilliseconds)
         {
             _fileStamp = stamp;
@@ -39,22 +76,27 @@ public sealed partial class DocumentTabViewModel
             return;
         }
 
-        Reload();
+        _ = ReloadChangedFileAsync();
     }
 
-    /// <summary>Reads what shows a file changed: its last write time and length.</summary>
-    /// <param name="path">The file.</param>
-    /// <returns>The stamp, or the default when the file is missing.</returns>
-    private static (DateTime Written, long Length) ReadFileStamp(string path)
+    /// <summary>Reloads on the UI thread while observing errors from the file watcher callback.</summary>
+    /// <returns>A task.</returns>
+    private async Task ReloadChangedFileAsync()
     {
-        var file = new FileInfo(path);
-        return file.Exists ? (file.LastWriteTimeUtc, file.Length) : default;
+        try
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+        catch (Exception error)
+        {
+            Trace.TraceError(error.ToString());
+        }
     }
 
     /// <summary>Starts watching the file for changes, from the file as it is now.</summary>
     private void WatchFile()
     {
-        _fileStamp = ReadFileStamp(FilePath);
+        _fileStamp = DocumentFileStamp.Read(FilePath);
         _fileWatch ??= FileChanges.Watch(FilePath)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SubscribeSafe(_ => OnFileChanged(), static ex => Trace.TraceError(ex.ToString()));

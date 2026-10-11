@@ -44,6 +44,7 @@
             <MenuFlyout Placement="BottomEdgeAlignedRight">
               <MenuItem x:Name="OpenMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.Open}" Header="_Open…" InputGesture="Ctrl+O" />
               <MenuItem x:Name="RecentMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.OpenRecent}" Header="Open _Recent" />
+              <MenuItem x:Name="ClearRecentMenuItem" views:ControlHelp.Text="Remove recent PDFs without deleting files. On Linux, this also clears the desktop's shared recent PDF list." Header="Clear Recent List" />
               <MenuItem x:Name="NewWindowMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.NewWindow}" Header="_New Window" InputGesture="Ctrl+N" />
               <MenuItem x:Name="ReopenMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.ReopenClosedTabs}" Header="_Reopen Closed Tabs" InputGesture="Ctrl+Shift+T" />
               <MenuItem x:Name="SearchFolderMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.SearchFolder}" Header="_Search in Folder…" InputGesture="Ctrl+Shift+F" />

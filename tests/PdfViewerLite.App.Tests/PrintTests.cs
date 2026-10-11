@@ -57,7 +57,7 @@ public sealed class PrintTests
         var printer = new RecordingPrinter();
         using var test = new TestServices(new PrintingPlatform(printer));
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("print.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("print.pdf", 1)]);
         var tab = main.SelectedTab!;
         _ = ((IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IAnnotationEditor))!).AddText(
             0,
@@ -85,7 +85,7 @@ public sealed class PrintTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("noprint.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("noprint.pdf", 1)]);
         var tab = main.SelectedTab!;
         using var handler = tab.PrintPreviewInteraction.RegisterHandler(static context =>
         {
@@ -109,7 +109,7 @@ public sealed class PrintTests
         var printer = new RecordingPrinter();
         using var test = new TestServices(new PrintingPlatform(printer));
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("range.pdf", RangePages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("range.pdf", RangePages)]);
         var tab = main.SelectedTab!;
         var sheets = 0;
         using var handler = tab.PrintPreviewInteraction.RegisterHandler(async context =>
@@ -145,7 +145,7 @@ public sealed class PrintTests
         var printer = new RecordingPrinter();
         using var test = new TestServices(new PrintingPlatform(printer));
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("booklet.pdf", RangePages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("booklet.pdf", RangePages)]);
         var tab = main.SelectedTab!;
         var posterSheets = 0;
         var bookletSheets = 0;

@@ -8,11 +8,15 @@ namespace PdfViewerLite.HyperPdf.Tests.RenderingComparison;
 [NotInParallel]
 public sealed class StandardsRenderFixtureTests
 {
+    /// <summary>The bounded time for one browser reference, including one startup retry.</summary>
+    private const int BrowserTestTimeoutMilliseconds = 180_000;
+
     /// <summary>Requires actual HyperPDF, PDFium and browser pdf.js output for each standards fixture.</summary>
     /// <param name="caseNumber">The graphics case.</param>
     /// <param name="cancellationToken">Cancels browser startup and rendering.</param>
     /// <returns>A task.</returns>
     [Test]
+    [Timeout(BrowserTestTimeoutMilliseconds)]
     [Arguments((int)StandardsRenderCase.NonzeroFill)]
     [Arguments((int)StandardsRenderCase.EvenOddFill)]
     [Arguments((int)StandardsRenderCase.Clipping)]

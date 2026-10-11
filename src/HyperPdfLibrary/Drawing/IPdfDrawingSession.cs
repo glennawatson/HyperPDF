@@ -19,6 +19,15 @@ public interface IPdfDrawingSession
     /// <returns>Whether the target was drawn.</returns>
     bool DrawPage(IPdfRenderPicture content, IPdfRenderPicture? annotations, Matrix3x2 matrix, PdfTileTarget target, bool grayscale);
 
+    /// <summary>Submits recorded page content to a caller-owned target on its graphics thread.</summary>
+    /// <param name="content">The page content.</param>
+    /// <param name="annotations">The optional annotation recording.</param>
+    /// <param name="matrix">The page transform.</param>
+    /// <param name="target">The target, retained by the caller through GPU completion and presentation.</param>
+    /// <param name="grayscale">Whether to convert to grayscale.</param>
+    /// <returns>Whether drawing was submitted.</returns>
+    bool DrawPage(IPdfRenderPicture content, IPdfRenderPicture? annotations, Matrix3x2 matrix, IPdfRenderTarget target, bool grayscale);
+
     /// <summary>Draws an image fitted to the caller's target buffer.</summary>
     /// <param name="image">The image.</param>
     /// <param name="target">The caller-owned raster target, which is borrowed only until this call returns.</param>

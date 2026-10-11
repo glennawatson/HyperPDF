@@ -29,7 +29,7 @@ public sealed class FileLinkTests
         using var test = new TestServices();
         var other = Path.Combine(test.Directory, TestPdf.LinkedDocumentName);
         await File.WriteAllBytesAsync(other, TestPdf.Create(OtherPages));
-        using var main = OpenLinks(test);
+        using var main = await OpenLinksAsync(test);
         var tab = main.SelectedTab!;
 
         tab.Navigate(Target(tab, LinkTargetKind.OtherDocument));
@@ -50,7 +50,7 @@ public sealed class FileLinkTests
         using var test = new TestServices();
         var notes = Path.Combine(test.Directory, TestPdf.LaunchedFileName);
         await File.WriteAllTextAsync(notes, TestPdf.AttachmentText);
-        using var main = OpenLinks(test);
+        using var main = await OpenLinksAsync(test);
         var tab = main.SelectedTab!;
         string? asked = null;
         string? launched = null;
@@ -77,7 +77,7 @@ public sealed class FileLinkTests
     public async Task ExplainsMissingFilesAndRefusesPrograms()
     {
         using var test = new TestServices();
-        using var main = OpenLinks(test);
+        using var main = await OpenLinksAsync(test);
         var tab = main.SelectedTab!;
         var asked = false;
         using var handler = tab.ConfirmOpenFileInteraction.RegisterHandler(context =>
@@ -103,7 +103,7 @@ public sealed class FileLinkTests
     public async Task PointsEmbeddedLinksToAttachments()
     {
         using var test = new TestServices();
-        using var main = OpenLinks(test);
+        using var main = await OpenLinksAsync(test);
         var tab = main.SelectedTab!;
 
         tab.Navigate(Target(tab, LinkTargetKind.EmbeddedDocument));
@@ -122,8 +122,9 @@ public sealed class FileLinkTests
         var path = Path.Combine(test.Directory, "attached.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateWithAttachment());
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         string? launched = null;
         using var handler = tab.ConfirmOpenFileInteraction.RegisterHandler(static context => context.SetOutput(true));
         using var launches = tab.FileLaunchRequests.SubscribeSafe(file => launched = file, static _ => { });
@@ -146,7 +147,7 @@ public sealed class FileLinkTests
         var path = Path.Combine(test.Directory, "unsupported.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateWithUnsupportedContent());
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
 
         await Assert.That(await UiWait.UntilAsync(() => tab.ContentWarning is not null)).IsTrue();
@@ -161,12 +162,12 @@ public sealed class FileLinkTests
     /// <summary>Opens the document of file links.</summary>
     /// <param name="test">The test services.</param>
     /// <returns>The window's view model, showing the document.</returns>
-    private static MainViewModel OpenLinks(TestServices test)
+    private static async Task<MainViewModel> OpenLinksAsync(TestServices test)
     {
         var path = Path.Combine(test.Directory, "links.pdf");
-        File.WriteAllBytes(path, TestPdf.CreateWithFileLinks());
+        await File.WriteAllBytesAsync(path, TestPdf.CreateWithFileLinks());
         var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         return main;
     }
 

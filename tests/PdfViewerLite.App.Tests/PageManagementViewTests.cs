@@ -75,7 +75,7 @@ public sealed class PageManagementViewTests
     {
         using var test = new TestServices(TestEngineChoice.HyperPdf);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("page-view.pdf", PageCount)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("page-view.pdf", PageCount)]);
         var tab = main.SelectedTab!;
         tab.SidebarMode = SidebarMode.Thumbnails;
         var window = new MainWindow { ViewModel = main, Width = WindowWidth, Height = WindowHeight };

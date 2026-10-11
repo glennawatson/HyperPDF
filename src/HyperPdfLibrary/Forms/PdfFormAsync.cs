@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 using HyperPdfLibrary.Navigation;
+using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Forms;
 
@@ -19,6 +20,7 @@ public static class PdfFormAsync
     {
         ArgumentNullException.ThrowIfNull(action);
         cancellationToken.ThrowIfCancellationRequested();
+        using var scope = PdfCancellation.Enter(cancellationToken);
         return ValueTask.FromResult(PdfFormActions.Reset(form, action));
     }
 
@@ -33,6 +35,7 @@ public static class PdfFormAsync
     {
         ArgumentNullException.ThrowIfNull(action);
         cancellationToken.ThrowIfCancellationRequested();
+        using var scope = PdfCancellation.Enter(cancellationToken);
         return ValueTask.FromResult(PdfFormActions.SetHidden(form, action));
     }
 
@@ -47,6 +50,7 @@ public static class PdfFormAsync
     {
         ArgumentNullException.ThrowIfNull(action);
         cancellationToken.ThrowIfCancellationRequested();
+        using var scope = PdfCancellation.Enter(cancellationToken);
         return ValueTask.FromResult(PdfFormActions.CreateSubmission(form, action));
     }
 
@@ -58,6 +62,7 @@ public static class PdfFormAsync
     public static ValueTask<string[]> GetCalculationOrderAsync(PdfForm form, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        using var scope = PdfCancellation.Enter(cancellationToken);
         List<string> names = [];
         PdfFormOrder.GetCalculationOrder(form, names);
         return ValueTask.FromResult(names.ToArray());
@@ -72,6 +77,7 @@ public static class PdfFormAsync
     public static ValueTask<int[]> GetTabSequenceAsync(PdfForm form, int pageIndex, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        using var scope = PdfCancellation.Enter(cancellationToken);
         List<int> order = [];
         PdfFormOrder.GetTabSequence(form, pageIndex, order);
         return ValueTask.FromResult(order.ToArray());

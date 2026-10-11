@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Rendering;
 using PdfViewerLite.TestAssets;
 
@@ -46,6 +47,9 @@ public sealed class AsyncCancellationTests
     /// <summary>The pages of the sample document.</summary>
     private const int SamplePages = 3;
 
+    /// <summary>The number of warm async cache hits measured for allocation.</summary>
+    private const int WarmQueries = 256;
+
     /// <summary>The time the tests let reads that were in flight settle, in milliseconds.</summary>
     private const int SettleMilliseconds = 200;
 
@@ -57,6 +61,53 @@ public sealed class AsyncCancellationTests
 
     /// <summary>A small document.</summary>
     private static readonly byte[] Sample = TestPdf.Create(SamplePages);
+
+    /// <summary>An open-only token does not cancel reads from the completed document.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task OpenOnlyCancellationDoesNotPoisonDocument()
+    {
+        using var opening = new CancellationTokenSource();
+        using var document = await PdfDocumentReader.OpenWithAsync(
+            new MemoryPdfByteSource(Sample),
+            true,
+            PdfOpenOptions.Default,
+            opening.Token,
+            CancellationToken.None);
+        await opening.CancelAsync();
+
+        var page = await PdfDocumentPages.GetPageAsync(document, 0, CancellationToken.None);
+        await Assert.That(page.Index).IsEqualTo(0);
+        await Assert.That(document.PageCount).IsEqualTo(SamplePages);
+    }
+
+    /// <summary>Warm page, text and outline reads complete inline without creating managed objects.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task WarmAsyncReadersCompleteWithoutAllocating()
+    {
+        using var document = PdfDocumentReader.Open(Sample, null);
+        _ = await PdfDocumentPages.GetPageAsync(document, 0, CancellationToken.None);
+        _ = await PdfDocumentText.GetTextPageAsync(document, 0, CancellationToken.None);
+        _ = await PdfDocumentNavigation.GetOutlineAsync(document, CancellationToken.None);
+
+        var allCompleted = true;
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < WarmQueries; i++)
+        {
+            var page = PdfDocumentPages.GetPageAsync(document, 0, CancellationToken.None);
+            var text = PdfDocumentText.GetTextPageAsync(document, 0, CancellationToken.None);
+            var outline = PdfDocumentNavigation.GetOutlineAsync(document, CancellationToken.None);
+            allCompleted &= page.IsCompletedSuccessfully && text.IsCompletedSuccessfully && outline.IsCompletedSuccessfully;
+            _ = await page;
+            _ = await text;
+            _ = await outline;
+        }
+
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        await Assert.That(allCompleted).IsTrue();
+        await Assert.That(allocated).IsEqualTo(0);
+    }
 
     /// <summary>A token that is already cancelled makes every async operation throw OperationCanceledException.</summary>
     /// <returns>A task.</returns>

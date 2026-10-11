@@ -31,6 +31,7 @@ public static class PdfFormOrder
         var seen = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < order.Count; i++)
         {
+            PdfCancellation.ThrowIfCancelled();
             if (order.GetDictionary(i)is { } field && FieldAttributes.GetFullName(field)is { Length: > 0 } name && seen.Add(name))
             {
                 output.Add(name);
@@ -85,6 +86,7 @@ public static class PdfFormOrder
         var keys = new List<TabKey>(annotations.Count);
         for (var i = 0; i < annotations.Count; i++)
         {
+            PdfCancellation.ThrowIfCancelled();
             if (PdfFormReading.Resolve(form, pageIndex, annotations, i)is { Type: not PdfFieldType.Unknown } widget)
             {
                 keys.Add(PdfFormOrder.CreateKey(page, widget, ordinals));
@@ -123,6 +125,7 @@ public static class PdfFormOrder
 
         foreach (var kid in element.Kids)
         {
+            PdfCancellation.ThrowIfCancelled();
             if (kid.Kind == PdfStructureKidKind.Object && kid.Object.IsValid)
             {
                 _ = ordinals.TryAdd(kid.Object.Number, ordinals.Count);

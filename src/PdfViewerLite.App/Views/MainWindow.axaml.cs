@@ -154,7 +154,7 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     {
         if ((e.Source as Control)?.DataContext is DocumentTabViewModel tab)
         {
-            tab.PreparePreview();
+            _ = tab.PreparePreviewAsync(CancellationToken.None);
         }
     }
 
@@ -272,6 +272,7 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     {
         disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments, static v => v.RecentMenuItem.ItemsSource));
         disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments.Count, static v => v.RecentMenuItem.IsEnabled, static count => count > 0));
+        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments.Count, static v => v.ClearRecentMenuItem.IsEnabled, static count => count > 0));
         disposables.Add(recentMenu.Events().ContainerPrepared.SubscribeSafe(args => PrepareRecentItem(args.Container), OnError));
         disposables.Add(tabsMenu.Events().Opened.SubscribeSafe(_ => ViewModel?.RefreshRecentDocuments(), OnError));
     }
@@ -333,6 +334,7 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     {
         disposables.Add(this.BindCommand(ViewModel, static vm => vm.OpenCommand, static v => v.OpenButton));
         disposables.Add(this.BindCommand(ViewModel, static vm => vm.OpenCommand, static v => v.OpenMenuItem));
+        disposables.Add(this.BindCommand(ViewModel, static vm => vm.ClearRecentCommand, static v => v.ClearRecentMenuItem));
         disposables.Add(this.BindCommand(ViewModel, static vm => vm.ReopenClosedTabCommand, static v => v.ReopenMenuItem));
         disposables.Add(this.BindCommand(ViewModel, static vm => vm.TogglePageToneCommand, static v => v.PageToneMenuItem));
         disposables.Add(this.BindCommand(ViewModel, static vm => vm.PreferencesCommand, static v => v.PreferencesMenuItem));

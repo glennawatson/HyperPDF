@@ -35,7 +35,7 @@ public sealed class TextRecognitionViewModelTests
         var path = Path.Combine(test.Directory, "scan.pdf");
         await File.WriteAllBytesAsync(path, CreateScan(test.CreateDocument("source.pdf", 1)));
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
         var before = tab.TryGetDocument()!.GetCharacterCount(0);
 
@@ -62,7 +62,7 @@ public sealed class TextRecognitionViewModelTests
         var path = Path.Combine(test.Directory, "fresh.pdf");
         await File.WriteAllBytesAsync(path, CreateScan(test.CreateDocument("fresh-source.pdf", 1)));
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
 
         _ = await tab.TextRecognition.RecognizeCommand.Execute().ToTask();
@@ -88,7 +88,7 @@ public sealed class TextRecognitionViewModelTests
         using var test = new TestServices();
         RequireTesseract(test);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("text.pdf", TextPages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("text.pdf", TextPages)]);
         var tab = main.SelectedTab!;
 
         _ = await tab.TextRecognition.RecognizeCommand.Execute().ToTask();

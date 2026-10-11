@@ -41,7 +41,7 @@ public sealed class OcrLanguagePackTests
     {
         var ocr = new FakeOcr(true);
         using var test = new TestServices(ocr);
-        using var main = OpenScan(test);
+        using var main = await OpenScanAsync(test);
         var tab = main.SelectedTab!;
 
         _ = await tab.TextRecognition.RecognizeCommand.Execute().ToTask();
@@ -59,7 +59,7 @@ public sealed class OcrLanguagePackTests
     {
         var ocr = new FakeOcr(true) { Confidence = FakeOcr.Poor };
         using var test = new TestServices(ocr);
-        using var main = OpenScan(test);
+        using var main = await OpenScanAsync(test);
         var tab = main.SelectedTab!;
         var recognition = tab.TextRecognition;
 
@@ -89,7 +89,7 @@ public sealed class OcrLanguagePackTests
     {
         var ocr = new FakeOcr(true);
         using var test = new TestServices(ocr);
-        using var main = OpenScan(test);
+        using var main = await OpenScanAsync(test);
         var recognition = main.SelectedTab!.TextRecognition;
 
         _ = await recognition.ChooseLanguageCommand.Execute().ToTask();
@@ -128,7 +128,7 @@ public sealed class OcrLanguagePackTests
     public async Task NeverAsksToInstall()
     {
         using var test = new TestServices(new FakeOcr(false));
-        using var main = OpenScan(test);
+        using var main = await OpenScanAsync(test);
         var tab = main.SelectedTab!;
 
         _ = await tab.TextRecognition.RecognizeCommand.Execute().ToTask();
@@ -176,7 +176,7 @@ public sealed class OcrLanguagePackTests
     public async Task DocumentShowsTheLanguageBar()
     {
         using var test = new TestServices(new FakeOcr(true));
-        using var main = OpenScan(test);
+        using var main = await OpenScanAsync(test);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -238,14 +238,14 @@ public sealed class OcrLanguagePackTests
     /// <summary>Opens a one page blank scan, which has no text.</summary>
     /// <param name="test">The services.</param>
     /// <returns>The main view model with the scan open.</returns>
-    private static MainViewModel OpenScan(TestServices test)
+    private static async Task<MainViewModel> OpenScanAsync(TestServices test)
     {
         var path = Path.Combine(test.Directory, ScanDocument);
         var white = new byte[ScanSide * ScanSide];
         Array.Fill(white, byte.MaxValue);
-        File.WriteAllBytes(path, TestPdf.CreateScan(white, ScanSide, ScanSide));
+        await File.WriteAllBytesAsync(path, TestPdf.CreateScan(white, ScanSide, ScanSide));
         var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         return main;
     }
 

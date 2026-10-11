@@ -268,6 +268,7 @@ public sealed class OptimizeCopyViewModelTests
 
         var pdfiumTab = pdfiumMain.SelectedTab!;
         var nativeTab = nativeMain.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => pdfiumTab.IsLoaded && nativeTab.IsLoaded)).IsTrue();
         var pdfiumCan = ((ICommand)pdfiumTab.OptimizeCopyCommand).CanExecute(null);
 
         using (Assert.Multiple())
@@ -287,8 +288,9 @@ public sealed class OptimizeCopyViewModelTests
     {
         using var test = new TestServices(TestEngineChoice.HyperPdf);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(SourceName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(SourceName, Pages)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var destination = Path.Combine(test.Directory, "real.pdf");
         OptimizeReport? report = null;
         using var handler = tab.OptimizeInteraction.RegisterHandler(async context =>
@@ -301,7 +303,8 @@ public sealed class OptimizeCopyViewModelTests
 
         _ = await tab.OptimizeCopyCommand.Execute().ToTask();
 
-        main.Open([destination]);
+        await TestServices.OpenAndWaitAsync(main, [destination]);
+        await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.IsLoaded)).IsTrue();
         await Assert.That(report).IsNotNull();
         await Assert.That(File.Exists(destination)).IsTrue();
         await Assert.That(main.Tabs.Single(t => t.FilePath == destination).Source.PageSizes.Length).IsEqualTo(Pages);

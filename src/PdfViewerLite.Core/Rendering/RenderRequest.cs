@@ -27,4 +27,8 @@ public readonly record struct RenderRequest(
     RenderPriority Priority,
     RenderClient Client,
     int Generation,
-    PageTone Tone);
+    PageTone Tone)
+{
+    /// <summary>Gets the active tab's cancellation token, when the request has one.</summary>
+    public CancellationToken CancellationToken { get; init; }
+}

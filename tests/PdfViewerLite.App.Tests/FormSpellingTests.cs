@@ -40,7 +40,7 @@ public sealed class FormSpellingTests
     public async Task FindsCorrectsAndKeepsWords()
     {
         using var test = new TestServices();
-        using var main = OpenForm(test);
+        using var main = await OpenFormAsync(test);
         var forms = main.SelectedTab!.Forms;
         _ = forms.Activate(NameField(main.SelectedTab));
         forms.EditText = Typed;
@@ -78,7 +78,7 @@ public sealed class FormSpellingTests
     public async Task MarksWordsInTheEditor()
     {
         using var test = new TestServices();
-        using var main = OpenForm(test);
+        using var main = await OpenFormAsync(test);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -111,12 +111,12 @@ public sealed class FormSpellingTests
     /// <summary>Opens the test form.</summary>
     /// <param name="test">The test services.</param>
     /// <returns>The window's view model, showing the form.</returns>
-    private static MainViewModel OpenForm(TestServices test)
+    private static async Task<MainViewModel> OpenFormAsync(TestServices test)
     {
         var path = Path.Combine(test.Directory, "form.pdf");
-        File.WriteAllBytes(path, TestPdf.CreateForm());
+        await File.WriteAllBytesAsync(path, TestPdf.CreateForm());
         var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         return main;
     }
 

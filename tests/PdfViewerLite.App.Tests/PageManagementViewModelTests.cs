@@ -74,8 +74,9 @@ public sealed class PageManagementViewModelTests
     {
         using var test = new TestServices(TestEngineChoice.HyperPdf);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("pages.pdf", ThreePages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("pages.pdf", ThreePages)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         using var pages = new PageManagementViewModel(tab);
 
         pages.SelectPages(UnnormalizedSelection);
@@ -103,8 +104,9 @@ public sealed class PageManagementViewModelTests
     {
         using var test = new TestServices(TestEngineChoice.HyperPdf);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("edit-pages.pdf", ThreePages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit-pages.pdf", ThreePages)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         using var pages = new PageManagementViewModel(tab);
         pages.SelectPages([SelectedPage]);
 
@@ -139,8 +141,10 @@ public sealed class PageManagementViewModelTests
     {
         using var test = new TestServices(TestEngineChoice.HyperPdf);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("move-pages.pdf", InitialPages)]);
-        using var pages = new PageManagementViewModel(main.SelectedTab!);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("move-pages.pdf", InitialPages)]);
+        var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
+        using var pages = new PageManagementViewModel(tab);
         pages.SelectPages([ThirdPage]);
 
         _ = await pages.MoveEarlierCommand.Execute().ToTask();
@@ -167,8 +171,9 @@ public sealed class PageManagementViewModelTests
     {
         using var test = new TestServices(TestEngineChoice.HyperPdf);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("mutation.pdf", InitialPages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("mutation.pdf", InitialPages)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         using var pages = new PageManagementViewModel(tab);
         var import = test.CreateDocument("import.pdf", ImportedPages);
         using var insert = pages.InsertInteraction.RegisterHandler(context => context.SetOutput([import]));
@@ -184,7 +189,7 @@ public sealed class PageManagementViewModelTests
         _ = await pages.RedoCommand.Execute().ToTask();
         var pageCountAfterRedo = tab.PageCount;
         var saved = tab.Save(savedPath);
-        var reopenedPageCounts = ReopenSavedDocument(savedPath);
+        var reopenedPageCounts = await ReopenSavedDocumentAsync(savedPath);
 
         using (Assert.Multiple())
         {
@@ -204,7 +209,7 @@ public sealed class PageManagementViewModelTests
     {
         using var test = new TestServices(TestEngineChoice.HyperPdf);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("file-pages.pdf", TwoPages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("file-pages.pdf", TwoPages)]);
         var tab = main.SelectedTab!;
         using var pages = new PageManagementViewModel(tab);
         var source = test.CreateDocument("source-pages.pdf", 1);
@@ -238,7 +243,7 @@ public sealed class PageManagementViewModelTests
     {
         using var test = new TestServices(TestEngineChoice.Pdfium);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("unsupported-pages.pdf", TwoPages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("unsupported-pages.pdf", TwoPages)]);
         using var pages = new PageManagementViewModel(main.SelectedTab!);
 
         using (Assert.Multiple())
@@ -330,7 +335,7 @@ public sealed class PageManagementViewModelTests
     /// <summary>Reopens a saved PDF through each supported engine.</summary>
     /// <param name="path">The saved PDF path.</param>
     /// <returns>The reopened page counts.</returns>
-    private static int[] ReopenSavedDocument(string path)
+    private static async Task<int[]> ReopenSavedDocumentAsync(string path)
     {
         var pageCounts = new int[ReadEngines.Length];
         for (var index = 0; index < ReadEngines.Length; index++)
@@ -338,7 +343,9 @@ public sealed class PageManagementViewModelTests
             using var reader = new TestServices(ReadEngines[index]);
             using var readerMain = new MainViewModel(reader.Services);
             readerMain.Open([path]);
-            pageCounts[index] = readerMain.SelectedTab!.PageCount;
+            var tab = readerMain.SelectedTab!;
+            await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
+            pageCounts[index] = tab.PageCount;
         }
 
         return pageCounts;

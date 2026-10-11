@@ -14,6 +14,9 @@ public interface ISkiaSharpApiLease : IDisposable
     /// <summary>Gets the GPU context if available.</summary>
     GRContext? GrContext { get; }
 
+    /// <summary>Gets the compositor surface's channel order for compatible GPU tile storage.</summary>
+    SKColorType SurfaceColorType { get; }
+
     /// <summary>Gets the leased Skia surface if available.</summary>
     SKSurface? SkSurface { get; }
 

@@ -70,7 +70,7 @@ public sealed class FlatFormUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("printed.pdf", TestPdf.CreateFlatForm())]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("printed.pdf", TestPdf.CreateFlatForm())]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -114,7 +114,7 @@ public sealed class FlatFormUiTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("printed.pdf", TestPdf.CreateFlatForm())]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("printed.pdf", TestPdf.CreateFlatForm())]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

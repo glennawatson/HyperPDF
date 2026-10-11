@@ -19,7 +19,10 @@
       </StackPanel>
 
       <DockPanel x:Name="RecentPanel" Grid.Row="1">
-        <TextBlock DockPanel.Dock="Top" Classes="secondary" FontWeight="SemiBold" Margin="4,0,0,8" AutomationProperties.HeadingLevel="2" Text="Recent documents" />
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="4,0,0,8">
+          <TextBlock Classes="secondary" FontWeight="SemiBold" VerticalAlignment="Center" AutomationProperties.HeadingLevel="2" Text="Recent documents" />
+          <Button x:Name="ClearRecentButton" Grid.Column="1" Content="Clear list" AutomationProperties.Name="Clear recent documents" views:ControlHelp.Text="Remove recent PDFs without deleting files. On Linux, this also clears the desktop's shared recent PDF list." />
+        </Grid>
         <ListBox x:Name="RecentList" AutomationProperties.Name="Recent documents" Background="Transparent" />
       </DockPanel>
     </Grid>

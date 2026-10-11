@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 
@@ -35,6 +36,9 @@ internal sealed class JpxDecoder : IDisposable
     /// <summary>The code-block decoder used on the calling thread.</summary>
     private readonly JpxBlockState _blocks = new();
 
+    /// <summary>The finest wavelet levels omitted from output.</summary>
+    private readonly int _reductionLevels;
+
     /// <summary>The current tile's packet data.</summary>
     private byte[] _tileData = [];
 
@@ -43,9 +47,11 @@ internal sealed class JpxDecoder : IDisposable
 
     /// <summary>Initializes a new instance of the <see cref="JpxDecoder"/> class.</summary>
     /// <param name="codestream">The codestream structure.</param>
-    private JpxDecoder(JpxCodestream codestream)
+    /// <param name="reductionLevels">The finest levels to omit.</param>
+    private JpxDecoder(JpxCodestream codestream, int reductionLevels)
     {
         _codestream = codestream;
+        _reductionLevels = reductionLevels;
         _tile = new(codestream.Geometry.Components.Length);
         _progression = new(codestream.Geometry, _packets);
         _work = new(codestream.Geometry);
@@ -65,10 +71,19 @@ internal sealed class JpxDecoder : IDisposable
     /// <param name="codestream">The codestream's structure, from <see cref="JpxCodestream.Read"/>.</param>
     /// <param name="data">The codestream, from its SOC marker.</param>
     /// <returns>The component planes; the caller disposes them.</returns>
-    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data) =>
+        Decode(codestream, data, 0);
+
+    /// <summary>Decodes only the wavelet resolutions needed for a smaller displayed image.</summary>
+    /// <param name="codestream">The parsed codestream.</param>
+    /// <param name="data">The codestream bytes.</param>
+    /// <param name="reductionLevels">The finest levels to leave out.</param>
+    /// <returns>The reduced component planes.</returns>
+    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data, int reductionLevels)
     {
-        var image = new JpxDecodedImage(codestream.Geometry);
-        using var decoder = new JpxDecoder(codestream);
+        var image = new JpxDecodedImage(codestream.Geometry, reductionLevels);
+        using var decoder = new JpxDecoder(codestream, reductionLevels);
         decoder.DecodeTiles(data, image);
         return image;
     }
@@ -202,7 +217,7 @@ internal sealed class JpxDecoder : IDisposable
         var packedLength = CopyPackedHeaders(data, parts, state);
         _packets.Start(_tile, parameters.Coding, _tileData, length, packedLength >= 0 ? _packed : null, Math.Max(packedLength, 0));
         _progression.Run(_tile, parameters);
-        _work.Run(_tile, _tileData, parameters.Coding.ComponentTransform, image, _blocks);
+        _work.Run(_tile, _tileData, parameters.Coding.ComponentTransform, image, _blocks, _reductionLevels);
     }
 
     /// <summary>Joins the tile's packet data from all its tile-parts.</summary>

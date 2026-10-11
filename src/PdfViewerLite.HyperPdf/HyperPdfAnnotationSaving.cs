@@ -63,6 +63,41 @@ internal static class HyperPdfAnnotationSaving
         }
     }
 
+    /// <summary>Builds a stable save under the annotation lock, then returns its pending output write.</summary>
+    /// <param name="annotationState">The annotation state.</param>
+    /// <param name="destination">The output stream.</param>
+    /// <param name="cancellationToken">Cancels building and writing.</param>
+    /// <param name="write">The pending write when the document is open.</param>
+    /// <returns>Whether a save was started.</returns>
+    internal static bool TryStartSaveAsync(HyperPdfAnnotations annotationState, Stream destination, CancellationToken cancellationToken, out Task write)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        cancellationToken.ThrowIfCancellationRequested();
+        write = Task.CompletedTask;
+        lock (annotationState.Gate)
+        {
+            if (annotationState.Document.IsDisposed)
+            {
+                return false;
+            }
+
+            var hidden = HideRemoved(annotationState);
+            try
+            {
+                // Both writers build their detached output before their first await.
+                write = HasSignedFields(annotationState.Store.Catalog.GetDictionary(KnownName.AcroForm)?.GetArray(KnownName.Fields), 0)
+                    ? PdfIncrementalWriter.SaveAsync(annotationState.Store, destination, cancellationToken)
+                    : PdfCompactWriter.SaveAsync(annotationState.Store, PdfCompactOptions.Default, destination, cancellationToken);
+            }
+            finally
+            {
+                Restore(annotationState, hidden);
+            }
+
+            return true;
+        }
+    }
+
     /// <summary>Determines whether a field list holds a signed signature field: <c>/FT /Sig</c> with a <c>/V</c>.</summary>
     /// <param name="fields">The fields, or their kids.</param>
     /// <param name="depth">How deep in the field tree the list is.</param>

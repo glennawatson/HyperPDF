@@ -36,4 +36,12 @@ public sealed class MacRecentDocumentStore : IRecentDocumentStore
             _ = NativeMethods.Send(controller, NativeMethods.Selector("noteNewRecentDocumentURL:"), Foundation.FileUrl(full));
         });
     }
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void Remove(string filePath) => _store.Remove(filePath);
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void Clear() => _store.Clear();
 }

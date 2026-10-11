@@ -25,9 +25,6 @@ public sealed class RenderScheduler : IDisposable
     /// <summary>The bit position of the priority within the queue ordering key.</summary>
     private const int PriorityShift = 48;
 
-    /// <summary>How long to wait for the render thread to finish on dispose.</summary>
-    private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(5);
-
     /// <summary>Guards the queue and pending map.</summary>
     private readonly Lock _gate = new();
 
@@ -70,6 +67,9 @@ public sealed class RenderScheduler : IDisposable
     /// <summary>1 once disposed.</summary>
     private int _disposed;
 
+    /// <summary>1 once the worker's synchronization resources have been released.</summary>
+    private int _resourcesDisposed;
+
     /// <summary>Initializes a new instance of the <see cref="RenderScheduler"/> class.</summary>
     /// <param name="surfaceFactory">Creates output surfaces on the render thread.</param>
     public RenderScheduler(IRenderSurfaceFactory surfaceFactory)
@@ -87,6 +87,9 @@ public sealed class RenderScheduler : IDisposable
     /// drain starts.
     /// </summary>
     public AsObservableSignal<RxVoid> Completed { get; }
+
+    /// <summary>Gets the token that cancels when this scheduler stops.</summary>
+    public CancellationToken ShutdownToken => _shutdown.Token;
 
     /// <summary>Gets the number of queued requests, including stale ones not yet discarded.</summary>
     public int QueueLength
@@ -109,24 +112,7 @@ public sealed class RenderScheduler : IDisposable
     public bool Request(in RenderRequest request)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        lock (_gate)
-        {
-            ref var pending = ref CollectionsMarshal.GetValueRefOrAddDefault(_pending, request.Key, out var exists);
-            var urgent = exists && !pending.Started && request.Priority < pending.Latest.Priority;
-            if (exists && !urgent)
-            {
-                pending = pending with { Latest = request };
-                return false;
-            }
-
-            pending = new(request, Started: false);
-            var sequence = _sequence;
-            _sequence = sequence + 1;
-            _queue.Enqueue(request, ((long)request.Priority << PriorityShift) | sequence);
-        }
-
-        _ = _signal.Release();
-        return true;
+        return !request.CancellationToken.IsCancellationRequested && EnqueueRequest(request);
     }
 
     /// <summary>
@@ -193,19 +179,17 @@ public sealed class RenderScheduler : IDisposable
         }
 
         _shutdown.Cancel();
-        var stopped = _thread.Join(ShutdownTimeout);
         while (_finished.TryDequeue(out var finished))
         {
             finished.Tile.Surface.Dispose();
         }
 
-        _completed.OnCompleted();
-        if (!stopped)
+        if (_thread.IsAlive || Interlocked.Exchange(ref _resourcesDisposed, 1) != 0)
         {
-            // A render still running may yet signal; it sees the disposed flag and drops its tile instead.
             return;
         }
 
+        _completed.OnCompleted();
         _completed.Dispose();
         _signal.Dispose();
         _shutdown.Dispose();
@@ -217,11 +201,13 @@ public sealed class RenderScheduler : IDisposable
     /// <returns><see langword="true"/> when rendered.</returns>
     private static bool RenderInto(RenderTarget target, in RenderRequest request)
     {
+        request.CancellationToken.ThrowIfCancellationRequested();
         if (!request.Document.Render(request.Info, target))
         {
             return false;
         }
 
+        request.CancellationToken.ThrowIfCancellationRequested();
         request.Tone.Apply(target);
         return true;
     }
@@ -242,36 +228,103 @@ public sealed class RenderScheduler : IDisposable
         }
     }
 
+    /// <summary>Queues an active request, preserving latest-client coalescing.</summary>
+    /// <param name="request">The active request.</param>
+    /// <returns>Whether a queue entry was added.</returns>
+    private bool EnqueueRequest(in RenderRequest request)
+    {
+        lock (_gate)
+        {
+            ref var pending = ref CollectionsMarshal.GetValueRefOrAddDefault(_pending, request.Key, out var exists);
+            var urgent = exists && !pending.Started && request.Priority < pending.Latest.Priority;
+            var superseded = exists && pending.Started
+                && (request.Generation != pending.Latest.Generation
+                    || !ReferenceEquals(request.Client, pending.Latest.Client)
+                    || !ReferenceEquals(request.Document, pending.Latest.Document));
+            if (exists && !urgent && !superseded)
+            {
+                pending = pending with { Latest = request };
+                return false;
+            }
+
+            pending = new(request, Started: false, Epoch: 0);
+            var sequence = _sequence;
+            _sequence = sequence + 1;
+            _queue.Enqueue(request, ((long)request.Priority << PriorityShift) | sequence);
+        }
+
+        _ = _signal.Release();
+        return true;
+    }
+
+    /// <summary>Uses the tab token when present and the scheduler token otherwise.</summary>
+    /// <param name="request">The render request.</param>
+    /// <returns>The token that cancels this request.</returns>
+    private CancellationToken WorkToken(in RenderRequest request) =>
+        request.CancellationToken.CanBeCanceled ? request.CancellationToken : _shutdown.Token;
+
+    /// <summary>Checks whether a request became unusable while its render was running.</summary>
+    /// <param name="request">The request being rendered.</param>
+    /// <returns>Whether the work must be discarded.</returns>
+    private bool IsWorkCancelled(in RenderRequest request) =>
+        Volatile.Read(ref _disposed) != 0 || request.CancellationToken.IsCancellationRequested
+        || request.Document.IsDisposed || request.Generation != request.Client.Generation;
+
+    /// <summary>Checks whether a finished tile still belongs to the current document and client.</summary>
+    /// <param name="finished">The completed tile.</param>
+    /// <param name="key">The tile key.</param>
+    /// <returns>Whether the result must be discarded.</returns>
+    private bool IsFinishedStale(in FinishedTile finished, in TileKey key) =>
+        IsWorkCancelled(finished.Request) || IsInvalidated(key, finished.Epoch);
+
     /// <summary>The render thread loop.</summary>
     private void Run()
     {
-        var token = _shutdown.Token;
-        while (!token.IsCancellationRequested)
+        try
         {
-            try
+            var token = _shutdown.Token;
+            while (!token.IsCancellationRequested)
             {
-                _signal.Wait(token);
+                try
+                {
+                    _signal.Wait(token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                if (!TryDequeue(out var request, out var epoch))
+                {
+                    continue;
+                }
+
+                var prepare = Prepare(request, WorkToken(request));
+                if (!prepare.IsCompletedSuccessfully)
+                {
+                    _ = PrepareAndRequeueAsync(prepare, request, epoch);
+                    continue;
+                }
+
+                if (!Execute(request, epoch))
+                {
+                    Forget(request.Key, epoch);
+                }
             }
-            catch (OperationCanceledException)
+        }
+        finally
+        {
+            while (_finished.TryDequeue(out var finished))
             {
-                return;
+                finished.Tile.Surface.Dispose();
             }
 
-            if (!TryDequeue(out var request, out var epoch))
+            if (Interlocked.Exchange(ref _resourcesDisposed, 1) == 0)
             {
-                continue;
-            }
-
-            var prepare = Prepare(request, token);
-            if (!prepare.IsCompletedSuccessfully)
-            {
-                _ = PrepareAndRequeueAsync(prepare, request, epoch);
-                continue;
-            }
-
-            if (!Execute(request, epoch))
-            {
-                Forget(request.Key, epoch);
+                _completed.OnCompleted();
+                _completed.Dispose();
+                _signal.Dispose();
+                _shutdown.Dispose();
             }
         }
     }
@@ -295,7 +348,8 @@ public sealed class RenderScheduler : IDisposable
             await prepare.ConfigureAwait(false);
             lock (_gate)
             {
-                if (Volatile.Read(ref _disposed) != 0 || !_pending.TryGetValue(request.Key, out var pending) || IsInvalidated(request.Key, epoch))
+                if (Volatile.Read(ref _disposed) != 0 || request.CancellationToken.IsCancellationRequested
+                    || !_pending.TryGetValue(request.Key, out var pending) || IsInvalidated(request.Key, epoch))
                 {
                     return;
                 }
@@ -334,13 +388,13 @@ public sealed class RenderScheduler : IDisposable
                 }
 
                 request = pending.Latest;
-                if (request.Generation != request.Client.Generation || request.Document.IsDisposed)
+                if (request.Generation != request.Client.Generation || request.Document.IsDisposed || request.CancellationToken.IsCancellationRequested)
                 {
                     _ = _pending.Remove(queued.Key);
                     continue;
                 }
 
-                pending = pending with { Started = true };
+                pending = pending with { Started = true, Epoch = epoch };
                 return true;
             }
 
@@ -357,8 +411,24 @@ public sealed class RenderScheduler : IDisposable
         var key = finished.Tile.Key;
         lock (_gate)
         {
-            if (_invalidated.TryGetValue(key.DocumentId, out var changed) && finished.Epoch < changed)
+            if (!_pending.TryGetValue(key, out var pending))
             {
+                return false;
+            }
+
+            var sameRequest = pending.Started
+                && pending.Epoch == finished.Epoch
+                && ReferenceEquals(pending.Latest.Client, finished.Request.Client)
+                && ReferenceEquals(pending.Latest.Document, finished.Request.Document)
+                && pending.Latest.Generation == finished.Request.Generation;
+            if (!sameRequest)
+            {
+                return false;
+            }
+
+            if (IsFinishedStale(finished, key))
+            {
+                _ = _pending.Remove(key);
                 return false;
             }
 
@@ -376,14 +446,23 @@ public sealed class RenderScheduler : IDisposable
         IRenderSurface? surface = null;
         try
         {
+            request.CancellationToken.ThrowIfCancellationRequested();
             surface = _surfaceFactory.Create(request.Width, request.Height);
-            if (!surface.Write(request, RenderInto))
+            var completed = surface is IRenderPreparationSurface preparation
+                ? preparation.Prepare(request, WorkToken(request))
+                : surface.Write(request, RenderInto);
+            if (!completed)
             {
                 surface.Dispose();
                 return false;
             }
         }
         catch (ObjectDisposedException)
+        {
+            surface?.Dispose();
+            return false;
+        }
+        catch (OperationCanceledException) when (IsWorkCancelled(request))
         {
             surface?.Dispose();
             return false;
@@ -395,13 +474,13 @@ public sealed class RenderScheduler : IDisposable
             return false;
         }
 
-        if (Volatile.Read(ref _disposed) != 0)
+        if (IsWorkCancelled(request))
         {
             surface.Dispose();
             return false;
         }
 
-        _finished.Enqueue(new(new(request.Key, surface), epoch));
+        _finished.Enqueue(new(new(request.Key, surface), epoch, request));
         if (Interlocked.Exchange(ref _notificationPending, 1) == 0)
         {
             _completed.OnNext(RxVoid.Default);
@@ -418,7 +497,7 @@ public sealed class RenderScheduler : IDisposable
         lock (_gate)
         {
             // Only the entry this render started is removed; a newer request queued after an invalidation stays.
-            if (!IsInvalidated(key, epoch) && _pending.TryGetValue(key, out var pending) && pending.Started)
+            if (!IsInvalidated(key, epoch) && _pending.TryGetValue(key, out var pending) && pending.Started && pending.Epoch == epoch)
             {
                 _ = _pending.Remove(key);
             }
@@ -428,10 +507,12 @@ public sealed class RenderScheduler : IDisposable
     /// <summary>The latest request for a pending tile.</summary>
     /// <param name="Latest">The most recent request.</param>
     /// <param name="Started">Whether the render thread has taken it.</param>
-    private readonly record struct PendingTile(RenderRequest Latest, bool Started);
+    /// <param name="Epoch">The invalidation epoch when the render started.</param>
+    private readonly record struct PendingTile(RenderRequest Latest, bool Started, long Epoch);
 
     /// <summary>A finished render with the invalidation epoch it started under.</summary>
     /// <param name="Tile">The tile.</param>
     /// <param name="Epoch">The epoch.</param>
-    private readonly record struct FinishedTile(RenderedTile Tile, long Epoch);
+    /// <param name="Request">The request that produced the surface.</param>
+    private readonly record struct FinishedTile(RenderedTile Tile, long Epoch, RenderRequest Request);
 }

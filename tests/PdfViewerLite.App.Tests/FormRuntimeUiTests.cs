@@ -63,10 +63,10 @@ public sealed class FormRuntimeUiTests
     [Test]
     public async Task TabKeyFollowsTheTabOrder()
     {
-        var hyperColumns = TabNames(new HyperPdfEngine(), "/Tabs /C");
-        var hyperRows = TabNames(new HyperPdfEngine(), "/Tabs /R");
-        var hyperNone = TabNames(new HyperPdfEngine(), string.Empty);
-        var pdfium = TabNames(new PdfiumEngine(), "/Tabs /C");
+        var hyperColumns = await TabNamesAsync(new HyperPdfEngine(), "/Tabs /C");
+        var hyperRows = await TabNamesAsync(new HyperPdfEngine(), "/Tabs /R");
+        var hyperNone = await TabNamesAsync(new HyperPdfEngine(), string.Empty);
+        var pdfium = await TabNamesAsync(new PdfiumEngine(), "/Tabs /C");
 
         await Assert.That(hyperColumns.SequenceEqual(ColumnOrder)).IsTrue();
         await Assert.That(hyperRows.SequenceEqual(RowOrder)).IsTrue();
@@ -81,7 +81,7 @@ public sealed class FormRuntimeUiTests
     {
         using var test = new TestServices(new HyperPdfEngine());
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("runtime.pdf", FormRuntimeSamples.Create(string.Empty))]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("runtime.pdf", FormRuntimeSamples.Create(string.Empty))]);
         var tab = main.SelectedTab!;
         var filler = (IFormFiller)DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!;
         _ = filler.SetText(0, FormRuntimeSamples.PriceIndex, "9");
@@ -137,12 +137,14 @@ public sealed class FormRuntimeUiTests
     /// <param name="engine">The engine that opens the form.</param>
     /// <param name="pageEntries">Extra entries of the page dictionary, such as <c>/Tabs /C</c>.</param>
     /// <returns>The field names in the order they were visited.</returns>
-    private static List<string> TabNames(IDocumentEngine engine, string pageEntries)
+    private static async Task<List<string>> TabNamesAsync(IDocumentEngine engine, string pageEntries)
     {
         using var test = new TestServices(engine);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("tabs.pdf", FormRuntimeSamples.Create(pageEntries))]);
-        var forms = main.SelectedTab!.Forms;
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("tabs.pdf", FormRuntimeSamples.Create(pageEntries))]);
+        var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
+        var forms = tab.Forms;
         var names = new List<string>();
         for (var next = forms.CommitAndMove(false); next is not null && names.Count < FormRuntimeSamples.WidgetCount; next = forms.CommitAndMove(false))
         {

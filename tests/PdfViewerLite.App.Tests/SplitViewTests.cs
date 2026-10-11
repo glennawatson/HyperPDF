@@ -35,7 +35,7 @@ public sealed class SplitViewTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("split.pdf", Pages), test.CreateDocument("other.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("split.pdf", Pages), test.CreateDocument("other.pdf", Pages)]);
         var tab = main.Tabs[0];
         main.SelectedTab = tab;
         tab.ReportPosition(new(ShownPage, 0), ShownPage);
@@ -68,7 +68,7 @@ public sealed class SplitViewTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("split-window.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("split-window.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try

@@ -158,6 +158,7 @@ public sealed class RedactionViewModelTests
         using var native = new TestServices(TestEngineChoice.HyperPdf);
         using var nativeMain = new MainViewModel(native.Services);
         nativeMain.Open([native.CreateDocument(SourceName, 1)]);
+        await Assert.That(await UiWait.UntilAsync(() => nativeMain.SelectedTab!.IsLoaded)).IsTrue();
 
         using (Assert.Multiple())
         {
@@ -177,8 +178,9 @@ public sealed class RedactionViewModelTests
     {
         using var test = new TestServices(TestEngineChoice.HyperPdf);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(SourceName, 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(SourceName, 1)]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var destination = Path.Combine(test.Directory, "redacted.pdf");
         var marked = tab.Annotations.AddShape(0, AnnotationKind.Redaction, Origin, Far);
         var before = tab.TryGetDocument()!.GetCharacterCount(0);
@@ -194,7 +196,8 @@ public sealed class RedactionViewModelTests
 
         _ = await tab.ApplyRedactionsCommand.Execute().ToTask();
 
-        main.Open([destination]);
+        await TestServices.OpenAndWaitAsync(main, [destination]);
+        await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.IsLoaded)).IsTrue();
         var copy = main.Tabs.Single(t => t.FilePath == destination).TryGetDocument()!;
         using (Assert.Multiple())
         {

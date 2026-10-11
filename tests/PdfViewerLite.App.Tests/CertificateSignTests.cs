@@ -48,7 +48,7 @@ public sealed class CertificateSignTests
         var certificatePath = WriteCertificate(test.Directory, CertificateFile);
         var destination = Path.Combine(test.Directory, "signed.pdf");
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("contract.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("contract.pdf", Pages)]);
         var tab = main.SelectedTab!;
         string? suggested = null;
         using var sign = AnswerWith(tab, certificatePath, false);
@@ -60,7 +60,11 @@ public sealed class CertificateSignTests
 
         _ = await tab.Signatures.SignWithCertificateCommand.Execute().ToTask();
         var opened = main.Tabs.FirstOrDefault(t => t.FilePath == destination);
-        opened?.EnsureLoaded();
+        if (opened is not null)
+        {
+            await opened.EnsureLoadedAsync(CancellationToken.None);
+        }
+
         opened?.Signatures.Refresh();
 
         await Assert.That(suggested).IsEqualTo("contract-signed.pdf");
@@ -92,7 +96,7 @@ public sealed class CertificateSignTests
         using var test = new TestServices();
         var certificatePath = WriteCertificate(test.Directory, CertificateFile);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("remember.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("remember.pdf", Pages)]);
         var tab = main.SelectedTab!;
         using var save = tab.SaveAsInteraction.RegisterHandler(context => context.SetOutput(Path.Combine(test.Directory, $"{Guid.NewGuid():N}.pdf")));
 
@@ -130,7 +134,7 @@ public sealed class CertificateSignTests
         test.Services.Settings.RememberedCertificates.AddRange([home, work]);
         test.Services.SaveSettings();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("forget.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("forget.pdf", Pages)]);
         var tab = main.SelectedTab!;
         var offered = 0;
         using var sign = tab.Signatures.CertificateSignInteraction.RegisterHandler(async context =>
@@ -163,7 +167,7 @@ public sealed class CertificateSignTests
         var certificatePath = Path.Combine(test.Directory, CertificateFile);
         await File.WriteAllBytesAsync(certificatePath, certificateFile);
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("secrets.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("secrets.pdf", Pages)]);
         var tab = main.SelectedTab!;
         using var save = tab.SaveAsInteraction.RegisterHandler(context => context.SetOutput(Path.Combine(test.Directory, "signed.pdf")));
         using (AnswerWith(tab, certificatePath, true))

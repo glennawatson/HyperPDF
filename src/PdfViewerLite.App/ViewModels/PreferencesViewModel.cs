@@ -61,7 +61,7 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     public static IReadOnlyList<string> ToolbarOptions { get; } = ["Text beside icons", "Icons only"];
 
     /// <summary>Gets the file change choices.</summary>
-    public static IReadOnlyList<string> FileChangeOptions { get; } = ["Reload automatically", "Show a Reload bar"];
+    public static IReadOnlyList<string> FileChangeOptions { get; } = ["Reload automatically", "Ask before reloading"];
 
     /// <summary>Gets the motion choices.</summary>
     public static IReadOnlyList<string> MotionOptions { get; } = [FollowDesktop, "Reduced", "Normal"];

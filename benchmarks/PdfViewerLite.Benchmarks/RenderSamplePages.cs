@@ -57,6 +57,45 @@ internal static class RenderSamplePages
             MiniPdf.Stream("/Type /XObject /Subtype /Form /BBox [0 0 612 792] /Group << /S /Transparency /CS /DeviceGray >>", "1 g 300 300 120 250 re f 0.5 g 420 300 130 250 re f"));
     }
 
+    /// <summary>Creates a dense, searchable text page using a standard PDF font.</summary>
+    /// <returns>The PDF bytes.</returns>
+    internal static byte[] CreateTextPage()
+    {
+        const int Lines = 56;
+        const int FirstBaseline = 750;
+        const int LineSpacing = 12;
+        var content = new StringBuilder();
+        for (var line = 0; line < Lines; line++)
+        {
+            _ = content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 1 0 0 1 36 {FirstBaseline - (line * LineSpacing)} Tm (Flight chart reading order and visible text line {line}) Tj ET\n");
+        }
+
+        return MiniPdf.Build(
+            Catalog,
+            Pages,
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources 5 0 R /Contents 4 0 R >>",
+            MiniPdf.Stream(string.Empty, content.ToString()),
+            "<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >>");
+    }
+
+    /// <summary>Creates a deterministic image-only PDF with a varied greyscale scan.</summary>
+    /// <returns>The PDF bytes.</returns>
+    internal static byte[] CreateScanPage()
+    {
+        const int ScanEdge = 1024;
+        var pixels = new byte[ScanEdge * ScanEdge];
+        var value = 0x5EEDU;
+        for (var i = 0; i < pixels.Length; i++)
+        {
+            value ^= value << 13;
+            value ^= value >> 17;
+            value ^= value << 5;
+            pixels[i] = (byte)value;
+        }
+
+        return TestPdf.CreateScan(pixels, ScanEdge, ScanEdge);
+    }
+
     /// <summary>Creates a Letter page of annotations with no appearance streams, so every one is generated.</summary>
     /// <returns>The PDF bytes.</returns>
     internal static byte[] CreateAnnotationPage()

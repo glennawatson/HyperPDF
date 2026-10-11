@@ -133,6 +133,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         var selected = new PdfPage[pages.Length];
         for (var i = 0; i < selected.Length; i++)
         {
+            PdfCancellation.ThrowIfCancelled();
             selected[i] = PdfDocumentPages.GetPage(document, pages[i]);
         }
 
@@ -340,6 +341,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         var pages = new PdfPage[ids.Length];
         for (var i = 0; i < ids.Length; i++)
         {
+            PdfCancellation.ThrowIfCancelled();
             ids[i] = transaction.Add(default);
             pages[i] = PdfDocumentPages.GetPage(source, sourcePages[i]);
 
@@ -350,6 +352,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         var annotations = new PdfArray?[ids.Length];
         for (var i = 0; i < ids.Length; i++)
         {
+            PdfCancellation.ThrowIfCancelled();
             annotations[i] = carrier.PrepareAnnotations(pages[i], PdfAnnotationFilter.All);
         }
 
@@ -358,6 +361,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         var inserted = new PdfPageSlot[ids.Length];
         for (var i = 0; i < ids.Length; i++)
         {
+            PdfCancellation.ThrowIfCancelled();
             var copy = PdfDocumentPageOperations.ImportPage(document, importer, pages[i], annotations[i]);
             if (structParents[i] >= 0)
             {

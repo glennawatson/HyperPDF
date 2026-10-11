@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using PdfViewerLite.App.Services;
+using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Settings;
 using PdfViewerLite.HyperPdf;
@@ -104,6 +105,18 @@ internal sealed class TestServices : IDisposable
     {
         Services.Dispose();
         System.IO.Directory.Delete(Directory, true);
+    }
+
+    /// <summary>Opens the selected document and waits until its asynchronous load finishes.</summary>
+    /// <param name="main">The viewer.</param>
+    /// <param name="items">The documents to open.</param>
+    /// <returns>A task that completes when the selected document is loaded.</returns>
+    /// <exception cref="InvalidOperationException">Opening did not select a document.</exception>
+    internal static async Task OpenAndWaitAsync(MainViewModel main, IEnumerable<string> items)
+    {
+        main.Open(items);
+        var selected = main.SelectedTab ?? throw new InvalidOperationException("Opening did not select a document.");
+        _ = await UiWait.UntilAsync(() => selected.IsLoaded, () => selected.ErrorMessage ?? "Document has not loaded.");
     }
 
     /// <summary>Writes a generated document.</summary>

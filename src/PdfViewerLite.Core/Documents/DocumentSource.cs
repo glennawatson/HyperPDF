@@ -26,6 +26,12 @@ public sealed class DocumentSource
     /// <summary>The open document, if any.</summary>
     private IDocument? _document;
 
+    /// <summary>Changes whenever a pending open must stop before publishing its result.</summary>
+    private int _lifetimeVersion;
+
+    /// <summary>True when serialized edits were not published at their destination.</summary>
+    private bool _unpublishedSave;
+
     /// <summary>Initializes a new instance of the <see cref="DocumentSource"/> class.</summary>
     /// <param name="pool">The owning pool.</param>
     /// <param name="filePath">The file path.</param>
@@ -51,7 +57,7 @@ public sealed class DocumentSource
     public bool IsOpen => _document is { IsDisposed: false };
 
     /// <summary>Gets a value indicating whether the open document has edits that are not saved; such documents are never closed to save memory.</summary>
-    public bool HasUnsavedChanges => ((_document)?.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor) is { HasUnsavedChanges: true } && IsOpen;
+    public bool HasUnsavedChanges => IsOpen && (_unpublishedSave || ((_document)?.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor) is { HasUnsavedChanges: true });
 
     /// <summary>Gets the page sizes, or an empty array before the first open.</summary>
     public PageSize[] PageSizes { get; private set; } = [];
@@ -74,10 +80,25 @@ public sealed class DocumentSource
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IDocument Acquire() => _pool.Acquire(this);
 
+    /// <summary>Gets the open document, using cancellable I/O when it must be opened.</summary>
+    /// <param name="cancellationToken">Cancels a pending open without discarding a ready document.</param>
+    /// <returns>The document; a ready document completes without scheduling.</returns>
+    /// <exception cref="DocumentOpenException">The document cannot be opened.</exception>
+    /// <exception cref="OperationCanceledException">The open was cancelled or the source closed before publication.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask<IDocument> AcquireAsync(CancellationToken cancellationToken) => _pool.AcquireAsync(this, cancellationToken);
+
+    /// <summary>Keeps the document open when its serialized edits could not replace the destination file.</summary>
+    public void MarkSaveUnpublished() => _unpublishedSave = true;
+
+    /// <summary>Clears an earlier publication failure after the destination file was replaced.</summary>
+    public void MarkSavePublished() => _unpublishedSave = false;
+
     /// <summary>Closes the document and forgets cached information so the next acquire reads the file again.</summary>
     public void Reload()
     {
         Close();
+        _unpublishedSave = false;
         PageSizes = [];
         Outline = null;
         Metadata = null;
@@ -117,11 +138,70 @@ public sealed class DocumentSource
         return document;
     }
 
+    /// <summary>Opens on a cache miss and returns a ready result on a hit.</summary>
+    /// <param name="engine">The engine that opens this source.</param>
+    /// <param name="cancellationToken">Cancels a cold open.</param>
+    /// <returns>The document.</returns>
+    internal ValueTask<IDocument> OpenIfNeededAsync(IDocumentEngine engine, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        LastUsed = Environment.TickCount64;
+        return _document is { IsDisposed: false } open
+            ? ValueTask.FromResult(open)
+            : OpenColdAsync(engine, cancellationToken);
+    }
+
     /// <summary>Closes the native document, keeping cached information.</summary>
     internal void Close()
     {
+        _ = Interlocked.Increment(ref _lifetimeVersion);
         var document = _document;
         _document = null;
         document?.Dispose();
+    }
+
+    /// <summary>Publishes only an open that remains current after I/O and parsing finish.</summary>
+    /// <param name="engine">The document engine.</param>
+    /// <param name="cancellationToken">Cancels the open.</param>
+    /// <returns>The opened document.</returns>
+    /// <exception cref="OperationCanceledException">The source was closed while opening.</exception>
+    private async ValueTask<IDocument> OpenColdAsync(IDocumentEngine engine, CancellationToken cancellationToken)
+    {
+        var version = Volatile.Read(ref _lifetimeVersion);
+
+        // The document pool belongs to the UI thread, so resume there before publishing and trimming it.
+        var document = await engine.OpenAsync(FilePath, Password, cancellationToken);
+        if (cancellationToken.IsCancellationRequested || version != Volatile.Read(ref _lifetimeVersion))
+        {
+            document.Dispose();
+            throw new OperationCanceledException("The document source changed while opening.", cancellationToken);
+        }
+
+        if (_document is { IsDisposed: false } open)
+        {
+            document.Dispose();
+            return open;
+        }
+
+        try
+        {
+            if (PageSizes.Length == 0)
+            {
+                var sizes = document.GetPageSizes();
+                var metadata = document.GetMetadata();
+                var outline = document.GetOutline();
+                PageSizes = sizes;
+                Metadata = metadata;
+                Outline = outline;
+            }
+
+            _document = document;
+            return document;
+        }
+        catch
+        {
+            document.Dispose();
+            throw;
+        }
     }
 }

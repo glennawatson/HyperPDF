@@ -53,7 +53,7 @@ public sealed class FocusRecoveryTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("focus.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("focus.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -78,7 +78,7 @@ public sealed class FocusRecoveryTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("close.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("close.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -142,7 +142,7 @@ public sealed class FocusRecoveryTests
         using var main = new MainViewModel(test.Services);
         var path = Path.Combine(test.Directory, "form.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateForm());
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         using var check = new FakeFocusAnnouncementCheck(true);

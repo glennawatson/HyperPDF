@@ -1,0 +1,39 @@
+471.848 frame backend=1 submission_us=4419
+483.980 GpuSnapshot width=220 height=285 submission_us=
+484.010 GpuPresented width=220 height=285 submission_us=
+485.159 GpuSnapshot width=221 height=171 submission_us=
+485.190 GpuPresented width=221 height=171 submission_us=
+486.033 GpuSnapshot width=220 height=285 submission_us=
+486.048 GpuPresented width=220 height=285 submission_us=
+486.687 GpuSnapshot width=220 height=285 submission_us=
+486.700 GpuPresented width=220 height=285 submission_us=
+487.971 GpuSnapshot width=512 height=512 submission_us=
+487.985 GpuPresented width=512 height=512 submission_us=
+488.024 GpuSnapshot width=304 height=512 submission_us=
+488.033 GpuPresented width=304 height=512 submission_us=
+488.069 GpuSnapshot width=512 height=512 submission_us=
+488.078 GpuPresented width=512 height=512 submission_us=
+488.112 GpuSnapshot width=304 height=512 submission_us=
+488.121 GpuPresented width=304 height=512 submission_us=
+488.265 GpuPrefetched width=221 height=171 submission_us=1
+489.708 frame backend=1 submission_us=8013
+498.661 GpuPresented width=512 height=512 submission_us=
+498.674 GpuPresented width=304 height=512 submission_us=
+498.681 GpuPresented width=512 height=512 submission_us=
+498.688 GpuPresented width=304 height=512 submission_us=
+499.552 GpuSnapshot width=512 height=512 submission_us=
+499.571 GpuPrefetched width=512 height=512 submission_us=865
+500.218 frame backend=1 submission_us=1885
+515.102 GpuPresented width=512 height=512 submission_us=
+515.120 GpuPresented width=304 height=512 submission_us=
+515.127 GpuPresented width=512 height=512 submission_us=
+515.135 GpuPresented width=304 height=512 submission_us=
+515.207 GpuSnapshot width=512 height=512 submission_us=
+515.217 GpuPrefetched width=512 height=512 submission_us=75
+515.529 frame backend=1 submission_us=619
+531.753 GpuPresented width=512 height=512 submission_us=
+531.768 GpuPresented width=304 height=512 submission_us=
+531.779 GpuPresented width=512 height=512 submission_us=
+531.790 GpuPresented width=304 height=512 submission_us=
+532.114 frame backend=1 submission_us=551
+summary frames=5 snapshots=10 presented=20 prefetched=3 software=0

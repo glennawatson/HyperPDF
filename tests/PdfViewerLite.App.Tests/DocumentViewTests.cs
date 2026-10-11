@@ -25,7 +25,7 @@ public sealed class DocumentViewTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("first.pdf", 1), test.CreateDocument("second.pdf", 1)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("first.pdf", 1), test.CreateDocument("second.pdf", 1)]);
         main.SelectedTab = main.Tabs[0];
         var window = new MainWindow { ViewModel = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();

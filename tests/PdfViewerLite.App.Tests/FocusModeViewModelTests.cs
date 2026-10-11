@@ -24,8 +24,9 @@ public sealed class FocusModeViewModelTests
         var path = Path.Combine(test.Directory, "article.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.CreateArticle(Pages));
         using var main = new MainViewModel(test.Services);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var changes = 0;
         using var probe = tab.ReadAloud.MarksChanged.SubscribeSafe(_ => changes++, static _ => { });
         tab.FocusMode.IsOn = true;

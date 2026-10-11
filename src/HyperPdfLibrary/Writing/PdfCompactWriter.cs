@@ -116,7 +116,13 @@ public static class PdfCompactWriter
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
-        var file = Build(store, options, out var length);
+        byte[]? file;
+        int length;
+        using (var scope = PdfCancellation.Enter(cancellationToken))
+        {
+            file = Build(store, options, out length);
+        }
+
         try
         {
             await destination.WriteAsync(file.AsMemory(0, length), cancellationToken).ConfigureAwait(false);

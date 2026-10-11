@@ -71,7 +71,7 @@ internal sealed class PdfJsBrowserSession : IAsyncDisposable
         var server = await PdfJsPageServer.CreateAsync(assets, bounded.Token);
         try
         {
-            return new(await FirefoxBiDi.CreateAsync(bounded.Token), server);
+            return new(await OpenBrowserAsync(bounded.Token), server);
         }
         catch
         {
@@ -122,6 +122,21 @@ internal sealed class PdfJsBrowserSession : IAsyncDisposable
         {
             await bounded.CancelAsync();
             _ = _renderGate.Release();
+        }
+    }
+
+    /// <summary>Retries one browser whose protocol startup timed out before the caller's deadline.</summary>
+    /// <param name="cancellationToken">Cancels both attempts.</param>
+    /// <returns>A ready browser.</returns>
+    private static async Task<FirefoxBiDi> OpenBrowserAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await FirefoxBiDi.CreateAsync(cancellationToken);
+        }
+        catch (TimeoutException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return await FirefoxBiDi.CreateAsync(cancellationToken);
         }
     }
 

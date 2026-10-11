@@ -8,8 +8,10 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.TextFormatting;
+using Avalonia.Metal;
 using Avalonia.OpenGL;
 using Avalonia.Platform;
+using Avalonia.Vulkan;
 using PdfViewerLite.Skia.Bitmaps;
 using PdfViewerLite.Skia.Fonts;
 using PdfViewerLite.Skia.Geometry;
@@ -65,6 +67,16 @@ internal sealed class PlatformRenderInterface : IPlatformRenderInterface
         if (graphicsApiContext is IGlContext gl)
         {
             return new SkiaBackendContext(new GlSkiaGpu(gl, _maxResourceBytes, _useStencilBuffers));
+        }
+
+        if (graphicsApiContext is IMetalDevice metal)
+        {
+            return new SkiaBackendContext(new MetalSkiaGpu(metal, _maxResourceBytes, _useStencilBuffers));
+        }
+
+        if (graphicsApiContext is IVulkanPlatformGraphicsContext vulkan)
+        {
+            return new SkiaBackendContext(new VulkanSkiaGpu(vulkan, _maxResourceBytes, _useStencilBuffers));
         }
 
         throw new ArgumentException("Graphics context type is not supported.", nameof(graphicsApiContext));

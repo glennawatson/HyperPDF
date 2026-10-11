@@ -81,7 +81,7 @@ public sealed class AnnotationUndoTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("undo.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("undo.pdf", Pages)]);
         var tab = main.SelectedTab!;
         var annotations = tab.Annotations;
         tab.SidebarMode = SidebarMode.Annotations;
@@ -148,7 +148,7 @@ public sealed class AnnotationUndoTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         var path = test.CreateDocument("history.pdf", Pages);
-        main.Open([path]);
+        await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
         var annotations = tab.Annotations;
         tab.SidebarMode = SidebarMode.Annotations;
@@ -175,7 +175,7 @@ public sealed class AnnotationUndoTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("pages.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("pages.pdf", Pages)]);
         var tab = main.SelectedTab!;
         var annotations = tab.Annotations;
         tab.SidebarMode = SidebarMode.Annotations;
@@ -203,7 +203,7 @@ public sealed class AnnotationUndoTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("style.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("style.pdf", Pages)]);
         var tab = main.SelectedTab!;
         var annotations = tab.Annotations;
         tab.SidebarMode = SidebarMode.Annotations;
@@ -246,7 +246,7 @@ public sealed class AnnotationUndoTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("author.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("author.pdf", Pages)]);
         var tab = main.SelectedTab!;
         var annotations = tab.Annotations;
         tab.SidebarMode = SidebarMode.Annotations;
@@ -269,7 +269,7 @@ public sealed class AnnotationUndoTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument("custom-stamp.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("custom-stamp.pdf", Pages)]);
         var tab = main.SelectedTab!;
         var annotations = tab.Annotations;
         tab.SidebarMode = SidebarMode.Annotations;

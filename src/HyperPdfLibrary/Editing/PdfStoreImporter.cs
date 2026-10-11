@@ -78,10 +78,12 @@ internal sealed class PdfStoreImporter : IPdfCarrySink
     /// <returns>The value in the target; a reference stays a reference.</returns>
     internal PdfValue Import(PdfValue value)
     {
+        PdfCancellation.ThrowIfCancelled();
         _current = 0;
         var copy = Copy(value, 0);
         while (_pending.TryDequeue(out var item))
         {
+            PdfCancellation.ThrowIfCancelled();
             _current = item.Source;
             var replaced = _overrides.TryGetValue(item.Source, out var replacement);
             _keepParent = replaced && replacement.KeepParent;

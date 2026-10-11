@@ -18,7 +18,7 @@ namespace PdfViewerLite.HyperPdf;
 /// Safe to call from any thread.
 /// </summary>
 [DebuggerDisplay("HyperPdfDocument: {FilePath}")]
-public sealed class HyperPdfDocument : IDocument
+public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 {
     /// <summary>The managed document.</summary>
     private readonly PdfDocument _document;
@@ -206,6 +206,18 @@ public sealed class HyperPdfDocument : IDocument
             this,
             in info,
             target);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    bool IHyperPdfGpuRenderer.Render(in PageRenderInfo info, HyperPdfLibrary.Drawing.IPdfRenderTarget target) => HyperPdfRendering.RenderGpu(this, info, target);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool Prepare(in PageRenderInfo info, CancellationToken cancellationToken) => HyperPdfRendering.Prepare(this, info, cancellationToken);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask<bool> PrepareAsync(PageRenderInfo info, CancellationToken cancellationToken) => HyperPdfRendering.PrepareAsync(this, info, cancellationToken);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

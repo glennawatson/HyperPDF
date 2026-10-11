@@ -28,5 +28,5 @@ internal readonly record struct FrameContext(DocumentTabViewModel Tab, IDocument
     /// <param name="priority">The priority.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Request(in TileKey key, in PageRenderInfo info, int width, int height, RenderPriority priority) =>
-        Hub.Scheduler.Request(new(key, Document, info, width, height, priority, Tab.CanvasClient, Generation, Tab.PageTone));
+        Hub.Scheduler.Request(new(key, Document, info, width, height, priority, Tab.CanvasClient, Generation, Tab.PageTone) { CancellationToken = Tab.SelectedWorkToken });
 }

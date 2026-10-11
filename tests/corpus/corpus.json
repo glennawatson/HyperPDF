@@ -1102,6 +1102,10 @@
       "id": "ia-us-reports-228",
       "source": "Internet Archive",
       "url": "https://archive.org/download/unitedstatesrepo0228unse/unitedstatesrepo0228unse.pdf",
+      "mirrors": [
+        "https://ia601505.us.archive.org/11/items/unitedstatesrepo0228unse/unitedstatesrepo0228unse.pdf",
+        "https://ia801505.us.archive.org/11/items/unitedstatesrepo0228unse/unitedstatesrepo0228unse.pdf"
+      ],
       "sha256": "bdbec894201ec349d759011ee1e7b51138562fbd2115021d66833139ed542ee3",
       "bytes": 45245606,
       "tags": [
@@ -1150,6 +1154,10 @@
       "id": "google-us-reports-vol2",
       "source": "Internet Archive",
       "url": "https://archive.org/download/unitedstatesrep02wagngoog/unitedstatesrep02wagngoog.pdf",
+      "mirrors": [
+        "https://ia601802.us.archive.org/2/items/unitedstatesrep02wagngoog/unitedstatesrep02wagngoog.pdf",
+        "https://ia801802.us.archive.org/2/items/unitedstatesrep02wagngoog/unitedstatesrep02wagngoog.pdf"
+      ],
       "sha256": "c93062c820f158ecd745139f7704cc93187402f8e463ecae2ff66f06b685d7eb",
       "bytes": 21881051,
       "tags": [

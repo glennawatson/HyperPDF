@@ -1,0 +1,58 @@
+PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(Workload: "Scan"): 16,584.273 us/op, 7,416 samples over 480 operations
+  with callees:
+    100.0%  16,584.273 us/op  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()
+    99.9%  16,568.619 us/op  HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest&,value class HyperPdfLibrary.Rendering.PdfTileTarget)
+    97.5%  16,161.615 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+    2.4%  398.058 us/op  HyperPdfLibrary.Content.ContentExecution.Execute(class HyperPdfLibrary.Content.ContentInterpreter,value class System.ReadOnlySpan`1<unsigned int8>)
+    2.4%  391.349 us/op  HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)
+    2.3%  386.877 us/op  HyperPdfLibrary.Rendering.PdfRenderCache.Decode(class HyperPdfLibrary.Objects.PdfStream,class HyperPdfLibrary.Graphics.Colors.OutputIntentColors)
+  own code:
+    97.5%  16,161.615 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(Workload: "Text"): 5,440.281 us/op, 9,723 samples over 1,920 operations
+  with callees:
+    100.0%  5,440.281 us/op  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()
+    98.9%  5,378.733 us/op  HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest&,value class HyperPdfLibrary.Rendering.PdfTileTarget)
+    66.5%  3,616.782 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+    29.6%  1,608.081 us/op  HyperPdfLibrary.Content.ContentExecution.Execute(class HyperPdfLibrary.Content.ContentInterpreter,value class System.ReadOnlySpan`1<unsigned int8>)
+    28.0%  1,524.152 us/op  HyperPdfLibrary.Content.ContentText.ShowCode(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Fonts.PdfFont,int32,int32)
+    28.0%  1,524.152 us/op  HyperPdfLibrary.Content.ContentText.ShowEncoded(class HyperPdfLibrary.Content.ContentInterpreter,bool,value class System.ReadOnlySpan`1<unsigned int8>)
+    28.0%  1,524.152 us/op  HyperPdfLibrary.Content.ContentText.OpShowText(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Content.ContentReader&)
+    15.2%  826.421 us/op  HyperPdfLibrary.Rendering.SkiaPathConversion.AppendCommand(class SkiaSharp.SKPathBuilder,value class HyperPdfLibrary.Drawing.PdfPathCommand)
+  own code:
+    66.5%  3,616.782 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+    14.1%  768.790 us/op  HyperPdfLibrary.Rendering.SkiaPathConversion.AppendCommand(class SkiaSharp.SKPathBuilder,value class HyperPdfLibrary.Drawing.PdfPathCommand)
+    11.6%  631.706 us/op  HyperPdfLibrary.Content.ContentText.ShowCode(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Fonts.PdfFont,int32,int32)
+    2.6%  141.560 us/op  HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest&,value class HyperPdfLibrary.Rendering.PdfTileTarget)
+PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(Workload: "Transparency"): 6,903.743 us/op, 12,407 samples over 1,920 operations
+  with callees:
+    100.0%  6,903.743 us/op  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()
+    99.7%  6,885.381 us/op  HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest&,value class HyperPdfLibrary.Rendering.PdfTileTarget)
+    98.7%  6,814.157 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+  own code:
+    98.7%  6,814.157 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.WarmReplay(Workload: "Scan"): 15,821.646 us/op, 7,111 samples over 480 operations
+  with callees:
+    100.0%  15,821.646 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+    100.0%  15,821.646 us/op  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.WarmReplay()
+  own code:
+    100.0%  15,821.646 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.WarmReplay(Workload: "Text"): 3,466.742 us/op, 12,463 samples over 3,840 operations
+  with callees:
+    100.0%  3,466.742 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+    100.0%  3,466.742 us/op  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.WarmReplay()
+  own code:
+    100.0%  3,466.742 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.WarmReplay(Workload: "Transparency"): 6,828.578 us/op, 12,255 samples over 1,920 operations
+  with callees:
+    100.0%  6,828.578 us/op  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.WarmReplay()
+    100.0%  6,826.349 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+  own code:
+    100.0%  6,826.349 us/op  HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPageContent(value class DrawDestination,class HyperPdfLibrary.Drawing.IPdfRenderPicture,class HyperPdfLibrary.Drawing.IPdfRenderPicture,value class System.Numerics.Matrix3x2,bool)
+Compared with the baseline run by run (5% leeway, growth must show in every pair):
+  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(Workload: "Scan"):  16,735.224 -> 16,584.273 us/op (-0.9%)  17,362.435 -> 17,262.025 us/op (-0.6%)
+  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(Workload: "Text"):  5,589.217 -> 5,440.281 us/op (-2.7%)  5,552.606 -> 5,454.846 us/op (-1.8%)
+  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(Workload: "Transparency"):  7,082.160 -> 6,903.743 us/op (-2.5%)  7,002.932 -> 6,894.201 us/op (-1.6%)
+  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.WarmReplay(Workload: "Scan"):  16,035.004 -> 15,821.646 us/op (-1.3%)  17,969.613 -> 15,888.430 us/op (-11.6%)
+  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.WarmReplay(Workload: "Text"):  4,098.756 -> 3,466.742 us/op (-15.4%)  3,576.775 -> 3,573.317 us/op (-0.1%)
+  PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.WarmReplay(Workload: "Transparency"):  6,897.058 -> 6,828.578 us/op (-1.0%)  6,909.058 -> 7,965.067 us/op (+15.3%)
+Nothing grew past the 5% leeway.

@@ -40,11 +40,12 @@ internal sealed class ProgressiveRecording : IDisposable
     /// <param name = "cache">The document's caches.</param>
     /// <param name = "page">The page.</param>
     /// <param name = "printing">Whether optional content follows print usage.</param>
-    internal ProgressiveRecording(PdfRenderCache cache, PdfPage page, bool printing)
+    /// <param name="imageScale">The upper device scale of the zoom band.</param>
+    internal ProgressiveRecording(PdfRenderCache cache, PdfPage page, bool printing, float imageScale = float.PositiveInfinity)
     {
         Printing = printing;
         _device = PageRecorder.Begin(page);
-        _interpreter = new(cache, _device, 0) { Printing = printing, };
+        _interpreter = new(cache, _device, 0, imageScale) { Printing = printing, };
         ContentExecution.BeginPage(_interpreter, page);
         var buffer = default(PooledBuffer);
         try

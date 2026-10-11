@@ -52,6 +52,9 @@ public sealed class JpxDecoderTests
     /// <summary>The largest 8-bit sample.</summary>
     private const int MaxSample = 255;
 
+    /// <summary>The DC level shift for eight-bit unsigned samples.</summary>
+    private const int LevelShift = 128;
+
     /// <summary>The weight of the horizontal gradient.</summary>
     private const int GradientX = 3;
 
@@ -201,6 +204,39 @@ public sealed class JpxDecoderTests
     /// <returns>A task.</returns>
     [Test]
     public async Task WrappedFileRoundTrips() => await Assert.That(RoundTrips(new() { Components = Rgb, Wrap = true })).IsTrue();
+
+    /// <summary>Reducing to the lowest resolution decodes the original lossless low-pass coefficients.</summary>
+    /// <param name="x0">The image's horizontal origin.</param>
+    /// <param name="y0">The image's vertical origin.</param>
+    /// <returns>A task.</returns>
+    /// <exception cref="InvalidOperationException">The test encoder writes an invalid codestream.</exception>
+    [Test]
+    [Arguments(0, 0)]
+    [Arguments(OddX0, OddY0)]
+    public async Task LowestResolutionMatchesIndependentForwardWavelet(int x0, int y0)
+    {
+        var options = new JpxTestOptions { X0 = x0, Y0 = y0 };
+        var planes = Planes(options);
+        var data = JpxTestEncoder.Encode(options, planes);
+        var codestream = JpxCodestream.Read(data) ?? throw new InvalidOperationException("The encoded codestream is valid.");
+        using var tile = new JpxTile(options.Components);
+        _ = tile.Build(codestream.Geometry, 0, JpxTileParameters.Resolve(codestream.Main, new(options.Components)));
+
+        var coefficients = planes[0].Select(static sample => sample - LevelShift).ToArray();
+        JpxTestWavelet.Forward(tile, tile.Components[0], coefficients);
+        using var decoded = JpxDecoder.Decode(codestream, data, options.Levels);
+        var area = decoded.Areas[0];
+        var expected = new int[area.Width * area.Height];
+        for (var y = 0; y < area.Height; y++)
+        {
+            for (var x = 0; x < area.Width; x++)
+            {
+                expected[(y * area.Width) + x] = Math.Clamp(coefficients[(y * options.Width) + x] + LevelShift, 0, MaxSample);
+            }
+        }
+
+        await Assert.That(decoded.Planes[0].AsSpan(0, expected.Length).SequenceEqual(expected)).IsTrue();
+    }
 
     /// <summary>Makes deterministic samples for each component: a gradient with noise.</summary>
     /// <param name="options">The options.</param>

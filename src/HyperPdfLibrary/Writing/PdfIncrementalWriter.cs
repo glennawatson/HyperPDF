@@ -101,7 +101,13 @@ public static class PdfIncrementalWriter
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
-        var update = BuildUpdate(store, out var length);
+        byte[]? update;
+        int length;
+        using (var scope = PdfCancellation.Enter(cancellationToken))
+        {
+            update = BuildUpdate(store, out length);
+        }
+
         try
         {
             await CopyOriginalAsync(store.Source, destination, cancellationToken).ConfigureAwait(false);

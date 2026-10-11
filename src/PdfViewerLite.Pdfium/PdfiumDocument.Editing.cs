@@ -249,6 +249,39 @@ public sealed partial class PdfiumDocument
         return true;
     }
 
+    /// <inheritdoc/>
+    public async ValueTask<bool> SaveAsync(Stream destination, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        cancellationToken.ThrowIfCancellationRequested();
+        await using var buffer = new PooledWriteStream();
+        int version;
+        using (var scope = PdfiumLibrary.EnterScope())
+        {
+            if (IsDisposed)
+            {
+                return false;
+            }
+
+            version = Volatile.Read(ref _unsavedChanges);
+            var flags = NativeMethods.FPDF_GetSignatureCount(_handle) > 0 ? SaveIncremental : SaveFull;
+            if (!WriteDocument(_handle, buffer, flags))
+            {
+                return false;
+            }
+
+            if (Volatile.Read(ref _pendingSaveWork) != 0 && AnnotationReplyLinks.HasPendingWork(buffer.Written.Span))
+            {
+                buffer.Write(AnnotationReplyLinks.CreateUpdate(buffer.Written));
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await destination.WriteAsync(buffer.Written, cancellationToken).ConfigureAwait(false);
+        _ = Interlocked.CompareExchange(ref _unsavedChanges, 0, version);
+        return true;
+    }
+
     /// <summary>Writes a saved file, followed by the update that finishes its annotations when it has any to finish.</summary>
     /// <param name="written">The file as PDFium wrote it.</param>
     /// <param name="destination">The stream.</param>

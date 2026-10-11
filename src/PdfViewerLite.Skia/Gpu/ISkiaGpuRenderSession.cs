@@ -14,6 +14,9 @@ internal interface ISkiaGpuRenderSession : IDisposable
     /// <summary>Gets the Skia surface being rendered to.</summary>
     SKSurface SkSurface { get; }
 
+    /// <summary>Gets the compositor surface's channel order.</summary>
+    SKColorType ColorType { get; }
+
     /// <summary>Gets the scaling factor for this session.</summary>
     double ScaleFactor { get; }
 

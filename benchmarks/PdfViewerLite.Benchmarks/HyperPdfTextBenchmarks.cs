@@ -9,6 +9,7 @@ using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Text;
 using PdfViewerLite.Core.Documents;
+using PdfViewerLite.HyperPdf;
 using PdfViewerLite.Pdfium;
 using PdfViewerLite.TestAssets;
 
@@ -69,6 +70,9 @@ public class HyperPdfTextBenchmarks
     /// <summary>The document opened with PDFium.</summary>
     private IDocument _pdfium = null!;
 
+    /// <summary>The document opened through the managed viewer adapter.</summary>
+    private IDocument _hyperPdf = null!;
+
     /// <summary>The document opened with HyperPDF.</summary>
     private PdfDocument _document = null!;
 
@@ -84,6 +88,8 @@ public class HyperPdfTextBenchmarks
         File.WriteAllBytes(_path, bytes);
         _pdfium = new PdfiumEngine().Open(_path, null);
         _ = _pdfium.GetCharacterCount(0);
+        _hyperPdf = new HyperPdfEngine().Open(_path, null);
+        _ = _hyperPdf.GetCharacterCount(0);
         _document = PdfDocumentReader.Open(bytes, null);
         PdfFont.Factory ??= HyperPdfStandInFont.Create;
         _page = PdfDocumentText.GetTextPage(_document, 0);
@@ -94,6 +100,7 @@ public class HyperPdfTextBenchmarks
     public void Cleanup()
     {
         _pdfium.Dispose();
+        _hyperPdf.Dispose();
         _document.Dispose();
         File.Delete(_path);
     }
@@ -132,6 +139,11 @@ public class HyperPdfTextBenchmarks
     /// <returns>The character index.</returns>
     [Benchmark]
     public int HyperPdfHitTest() => _page.GetIndexAtPosition(new(HitX, HitY), HitTolerance, HitTolerance);
+
+    /// <summary>Hit tests through the managed viewer adapter, including its page lookup and coordinate conversion.</summary>
+    /// <returns>The character index.</returns>
+    [Benchmark]
+    public int HyperPdfAdapterHitTest() => _hyperPdf.GetCharacterIndexAt(0, new(HitX, PageHeight - HitY), HitTolerance);
 
     /// <summary>Makes a page of body text, alternating plain and kerned show operators.</summary>
     /// <returns>The PDF bytes.</returns>

@@ -26,6 +26,9 @@ public static class Program
     /// <summary>Gets the documents passed on the command line, as absolute paths or URIs.</summary>
     internal static IReadOnlyList<string> StartupDocuments { get; private set; } = [];
 
+    /// <summary>Gets whether startup must forward to, or claim, the one running viewer.</summary>
+    internal static bool NeedsSingleInstancePreflight { get; private set; }
+
     /// <summary>Starts the application, or hands the documents to an already running instance.</summary>
     /// <param name="args">Files or URIs to open.</param>
     /// <returns>The exit code.</returns>
@@ -41,15 +44,7 @@ public static class Program
         var newInstance = Array.IndexOf(args, NewInstanceArgument) >= 0;
         StartupDocuments = NormalizeArguments(args);
         Platform = DesktopPlatforms.Detect();
-        if (!newInstance)
-        {
-            if (Platform.TryForwardAsync(new(StartupDocuments, Platform.GetLaunchActivationToken())).GetAwaiter().GetResult())
-            {
-                return 0;
-            }
-
-            InstanceHost = Platform.TryClaimSingleInstanceAsync().GetAwaiter().GetResult();
-        }
+        NeedsSingleInstancePreflight = !newInstance;
 
         try
         {
@@ -80,9 +75,22 @@ public static class Program
     internal static AppBuilder BuildAvaloniaApp(bool isLinux, string? x11Display, string? waylandDisplay) =>
         AppBuilder.Configure<App>()
             .UseDesktopPlatform(isLinux, x11Display, waylandDisplay)
-            .With(new X11PlatformOptions { WmClass = AppIdentity.WindowClass })
+            .With(new X11PlatformOptions { WmClass = AppIdentity.WindowClass, RenderingMode = [X11RenderingMode.Vulkan, X11RenderingMode.Egl, X11RenderingMode.Glx, X11RenderingMode.Software] })
             .LogToTrace()
             .UseReactiveUI(static _ => { });
+
+    /// <summary>Forwards startup documents to a running viewer, or claims its single-instance endpoint.</summary>
+    /// <returns>Whether this process should show its own window.</returns>
+    internal static async Task<bool> StartSingleInstanceAsync()
+    {
+        if (await Platform.TryForwardAsync(new(StartupDocuments, Platform.GetLaunchActivationToken())).ConfigureAwait(false))
+        {
+            return false;
+        }
+
+        InstanceHost = await Platform.TryClaimSingleInstanceAsync().ConfigureAwait(false);
+        return true;
+    }
 
     /// <summary>Turns command line arguments into absolute paths or URIs, dropping options.</summary>
     /// <param name="args">The arguments.</param>

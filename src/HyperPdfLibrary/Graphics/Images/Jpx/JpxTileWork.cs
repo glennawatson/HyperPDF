@@ -51,6 +51,9 @@ internal sealed class JpxTileWork
     /// <summary>The output planes.</summary>
     private JpxDecodedImage _image = null!;
 
+    /// <summary>The number of finest wavelet levels omitted from this decode.</summary>
+    private int _reductionLevels;
+
     /// <summary>Initializes a new instance of the <see cref="JpxTileWork"/> class.</summary>
     /// <param name="geometry">The image geometry.</param>
     internal JpxTileWork(JpxGeometry geometry)
@@ -73,11 +76,23 @@ internal sealed class JpxTileWork
     /// <param name="transform">Whether the tile uses the multiple component transform.</param>
     /// <param name="image">The output planes.</param>
     /// <param name="blocks">The block decoder used when the blocks decode on the calling thread.</param>
-    internal void Run(JpxTile tile, byte[] data, bool transform, JpxDecodedImage image, JpxBlockState blocks)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Run(JpxTile tile, byte[] data, bool transform, JpxDecodedImage image, JpxBlockState blocks) =>
+        Run(tile, data, transform, image, blocks, 0);
+
+    /// <summary>Rebuilds a tile only to the requested wavelet resolution.</summary>
+    /// <param name="tile">The parsed tile.</param>
+    /// <param name="data">The tile's packet data.</param>
+    /// <param name="transform">Whether the colour components are transformed.</param>
+    /// <param name="image">The reduced output planes.</param>
+    /// <param name="blocks">The calling thread's block decoder.</param>
+    /// <param name="reductionLevels">The omitted finest wavelet levels.</param>
+    internal void Run(JpxTile tile, byte[] data, bool transform, JpxDecodedImage image, JpxBlockState blocks, int reductionLevels)
     {
         _tile = tile;
         _data = data;
         _image = image;
+        _reductionLevels = reductionLevels;
         try
         {
             PrepareBuffers();
@@ -132,7 +147,7 @@ internal sealed class JpxTileWork
     {
         for (var c = 0; c < _buffers.Length; c++)
         {
-            var area = _tile.Components[c].Area;
+            var area = _tile.Components[c].Area.Reduce(_reductionLevels);
             var length = area.Width * area.Height;
             _rented[c] = area != _image.Areas[c];
             _buffers[c] = _rented[c] ? ScratchPool<int>.Shared.Rent(Math.Max(length, 1)) : _image.Planes[c];
@@ -189,7 +204,12 @@ internal sealed class JpxTileWork
     {
         var component = _tile.Bands[_tile.Blocks[index].Band].Component;
         var info = _tile.Components[component];
-        JpxBlockDecoder.Decode(decoder, _tile, index, _data, new(_buffers[component], info.Area.Width, info.Reversible, info.RoiShift, info.BlockStyle));
+        var lastResolution = _tile.Resolutions[info.FirstResolution + info.Levels - _reductionLevels];
+        if (_tile.Blocks[index].Band < lastResolution.FirstBand + lastResolution.BandCount)
+        {
+            JpxBlockDecoder.Decode(decoder, _tile, index, _data, new(_buffers[component], info.Area.Reduce(_reductionLevels).Width, info.Reversible, info.RoiShift, info.BlockStyle));
+        }
+
         return decoder;
     }
 
@@ -213,7 +233,7 @@ internal sealed class JpxTileWork
     /// <summary>Runs the inverse wavelet transform of one component.</summary>
     /// <param name="component">The component index.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void InverseWavelet(int component) => JpxWavelet.Inverse(_tile, _tile.Components[component], _buffers[component], _scratches[component]);
+    private void InverseWavelet(int component) => JpxWavelet.Inverse(_tile, _tile.Components[component], _buffers[component], _scratches[component], _reductionLevels);
 
     /// <summary>Applies the inverse RCT or ICT to the first three tile-components when they have the same size.</summary>
     private void InverseComponentTransform()
@@ -223,8 +243,8 @@ internal sealed class JpxTileWork
             return;
         }
 
-        var area = _tile.Components[0].Area;
-        if (_tile.Components[1].Area != area || _tile.Components[ThirdComponent].Area != area)
+        var area = _tile.Components[0].Area.Reduce(_reductionLevels);
+        if (_tile.Components[1].Area.Reduce(_reductionLevels) != area || _tile.Components[ThirdComponent].Area.Reduce(_reductionLevels) != area)
         {
             return;
         }
@@ -247,7 +267,7 @@ internal sealed class JpxTileWork
     private void Store(int component)
     {
         var info = _tile.Components[component];
-        var area = info.Area;
+        var area = info.Area.Reduce(_reductionLevels);
         var plane = _image.Areas[component];
         var range = JpxSampleRange.For(_geometry.Components[component]);
         var buffer = _buffers[component];

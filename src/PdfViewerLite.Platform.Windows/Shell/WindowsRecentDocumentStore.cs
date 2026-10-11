@@ -34,4 +34,12 @@ public sealed class WindowsRecentDocumentStore : IRecentDocumentStore
         _store.Add(filePath);
         NativeMethods.SHAddToRecentDocs(PathItem, Path.GetFullPath(filePath));
     }
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void Remove(string filePath) => _store.Remove(filePath);
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void Clear() => _store.Clear();
 }

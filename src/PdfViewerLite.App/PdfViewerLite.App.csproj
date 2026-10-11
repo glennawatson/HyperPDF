@@ -14,6 +14,7 @@
 
   <PropertyGroup Label="Native AOT">
     <PublishAot>true</PublishAot>
+    <EventSourceSupport>true</EventSourceSupport>
     <InvariantGlobalization>true</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
     <OptimizationPreference>Speed</OptimizationPreference>

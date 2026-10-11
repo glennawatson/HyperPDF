@@ -52,7 +52,7 @@ public sealed class ScreenReaderTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(FileName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -105,7 +105,7 @@ public sealed class ScreenReaderTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(FileName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -132,7 +132,7 @@ public sealed class ScreenReaderTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(FileName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -161,7 +161,7 @@ public sealed class ScreenReaderTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(FileName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -236,7 +236,7 @@ public sealed class ScreenReaderTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(FileName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -265,7 +265,7 @@ public sealed class ScreenReaderTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(FileName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -298,7 +298,7 @@ public sealed class ScreenReaderTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        main.Open([test.CreateDocument(FileName, Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
