@@ -118,6 +118,7 @@ public sealed class RenderScheduler : IDisposable
     /// <summary>
     /// Queues a render. When the tile is already pending, the newer request replaces it, so the render uses the latest
     /// document, generation and tone; a more urgent priority queues it again so it does not wait behind prefetch work.
+    /// A render already running for the same client and document carries on and is delivered to the newer generation.
     /// </summary>
     /// <param name="request">The request.</param>
     /// <returns><see langword="true"/> when a new job was queued.</returns>
@@ -249,9 +250,12 @@ public sealed class RenderScheduler : IDisposable
         {
             ref var pending = ref CollectionsMarshal.GetValueRefOrAddDefault(_pending, request.Key, out var exists);
             var urgent = exists && !pending.Started && request.Priority < pending.Latest.Priority;
+
+            // The key fixes the page, scale, rotation, tone and tile, so a running render for the same client and
+            // document already makes the pixels a newer generation wants. Restarting it would discard every tile that
+            // takes longer than a frame while the view keeps scrolling.
             var superseded = exists && pending.Started
-                && (request.Generation != pending.Latest.Generation
-                    || !ReferenceEquals(request.Client, pending.Latest.Client)
+                && (!ReferenceEquals(request.Client, pending.Latest.Client)
                     || !ReferenceEquals(request.Document, pending.Latest.Document));
             if (exists && !urgent && !superseded)
             {
@@ -275,19 +279,22 @@ public sealed class RenderScheduler : IDisposable
     private CancellationToken WorkToken(in RenderRequest request) =>
         request.CancellationToken.CanBeCanceled ? request.CancellationToken : _shutdown.Token;
 
-    /// <summary>Checks whether a request became unusable while its render was running.</summary>
+    /// <summary>
+    /// Checks whether a request became unusable while its render was running. A newer generation is checked when the
+    /// tile is taken, because the client may request the running tile again in the meantime.
+    /// </summary>
     /// <param name="request">The request being rendered.</param>
     /// <returns>Whether the work must be discarded.</returns>
     private bool IsWorkCancelled(in RenderRequest request) =>
-        Volatile.Read(ref _disposed) != 0 || request.CancellationToken.IsCancellationRequested
-        || request.Document.IsDisposed || request.Generation != request.Client.Generation;
+        Volatile.Read(ref _disposed) != 0 || request.CancellationToken.IsCancellationRequested || request.Document.IsDisposed;
 
-    /// <summary>Checks whether a finished tile still belongs to the current document and client.</summary>
-    /// <param name="finished">The completed tile.</param>
+    /// <summary>Checks whether a finished tile is no longer wanted by its client or shows content changed since.</summary>
+    /// <param name="latest">The latest request for the tile.</param>
     /// <param name="key">The tile key.</param>
+    /// <param name="epoch">The epoch the render started under.</param>
     /// <returns>Whether the result must be discarded.</returns>
-    private bool IsFinishedStale(in FinishedTile finished, in TileKey key) =>
-        IsWorkCancelled(finished.Request) || IsInvalidated(key, finished.Epoch);
+    private bool IsFinishedStale(in RenderRequest latest, in TileKey key, long epoch) =>
+        IsWorkCancelled(latest) || latest.Generation != latest.Client.Generation || IsInvalidated(key, epoch);
 
     /// <summary>The render thread loop.</summary>
     private void Run()
@@ -428,24 +435,18 @@ public sealed class RenderScheduler : IDisposable
                 return false;
             }
 
-            var sameRequest = pending.Started
+            // Generations may differ: a client that asked for the tile again while it rendered still wants it.
+            var sameRender = pending.Started
                 && pending.Epoch == finished.Epoch
                 && ReferenceEquals(pending.Latest.Client, finished.Request.Client)
-                && ReferenceEquals(pending.Latest.Document, finished.Request.Document)
-                && pending.Latest.Generation == finished.Request.Generation;
-            if (!sameRequest)
+                && ReferenceEquals(pending.Latest.Document, finished.Request.Document);
+            if (!sameRender)
             {
-                return false;
-            }
-
-            if (IsFinishedStale(finished, key))
-            {
-                _ = _pending.Remove(key);
                 return false;
             }
 
             _ = _pending.Remove(key);
-            return true;
+            return !IsFinishedStale(pending.Latest, key, finished.Epoch);
         }
     }
 

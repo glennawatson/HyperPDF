@@ -441,6 +441,10 @@ public sealed partial class PageCanvas : Control
 
                 // The extent changes after a layout pass; apply any pending scroll once the dispatcher is idle again.
                 scroller.WhenChanged(static x => x.Extent).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => ApplyPendingScroll(), OnError),
+
+                // Ctrl and the wheel always zoom, wherever in the scroller the pointer is. The canvas draws nothing between
+                // its pages, so a notch there never reaches it and the scroll viewer would scroll instead.
+                scroller.ObserveRouted(PointerWheelChangedEvent, RoutingStrategies.Tunnel).SubscribeSafe(e => Guard(HandleCtrlWheel, e), OnError),
             ];
         }
 
@@ -504,7 +508,7 @@ public sealed partial class PageCanvas : Control
         Wire(null);
     }
 
-    /// <summary>Handles page stepping and pointer anchored zoom.</summary>
+    /// <summary>Handles page stepping.</summary>
     /// <param name="e">The routed input.</param>
     private void HandlePointerWheel(PointerWheelEventArgs e)
     {
@@ -512,16 +516,24 @@ public sealed partial class PageCanvas : Control
         if ((e.KeyModifiers & KeyModifiers.Control) == 0 && StepPageByPage(-e.Delta.Y * LineStep))
         {
             e.Handled = true;
-            return;
         }
+    }
 
-        if ((e.KeyModifiers & KeyModifiers.Control) == 0 || Tab is not { } tab)
+    /// <summary>Zooms around the pointer on Ctrl and the wheel, and stops the scroll viewer scrolling on it.</summary>
+    /// <param name="e">The routed input, seen on its way down to the pointer's target.</param>
+    private void HandleCtrlWheel(PointerWheelEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        if ((e.KeyModifiers & KeyModifiers.Control) == 0 || e.Handled)
         {
             return;
         }
 
-        ZoomByWheel(tab, Math.Pow(WheelZoomStep, e.Delta.Y), e.GetPosition(this));
         e.Handled = true;
+        if (Tab is { } tab)
+        {
+            ZoomByWheel(tab, Math.Pow(WheelZoomStep, e.Delta.Y), e.GetPosition(this));
+        }
     }
 
     /// <summary>Begins a selection, measurement or annotation.</summary>

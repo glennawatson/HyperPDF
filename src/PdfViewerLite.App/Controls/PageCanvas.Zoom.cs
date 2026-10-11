@@ -41,7 +41,7 @@ public sealed partial class PageCanvas
     private bool _anchoring;
 
     /// <summary>Gets a value indicating whether a wheel zoom is easing.</summary>
-    private bool IsZoomEasing => Volatile.Read(ref _zoomEasing) != 0;
+    internal bool IsZoomEasing => Volatile.Read(ref _zoomEasing) != 0;
 
     /// <summary>Starts or extends a wheel zoom towards a new factor.</summary>
     /// <param name="tab">The tab.</param>

@@ -144,7 +144,7 @@ public class RenderWorkloadBenchmarks
 
     /// <summary>Gets external PDF workloads whose files are present.</summary>
     /// <returns>The configured workloads.</returns>
-    private static IEnumerable<string> ExternalWorkloads()
+    internal static IEnumerable<string> ExternalWorkloads()
     {
         if (File.Exists(Environment.GetEnvironmentVariable("PDFVIEWERLITE_BENCHMARK_CHART")))
         {
