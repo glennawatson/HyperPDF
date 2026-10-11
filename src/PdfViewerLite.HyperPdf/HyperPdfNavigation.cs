@@ -23,6 +23,7 @@ internal static class HyperPdfNavigation
     {
         ObjectDisposedException.ThrowIf(self.IsDisposed, self);
         var info = PdfDocumentMetadata.GetInfo(self.Document);
+        var payload = PdfDocumentWrapper.GetEncryptedPayload(self.Document);
         return new()
         {
             Title = info.Title,
@@ -35,6 +36,9 @@ internal static class HyperPdfNavigation
             Modified = info.Modified,
             FormatVersion = info.Version,
             IsEncrypted = info.IsEncrypted,
+            IsLinearized = PdfDocumentLinearization.GetInfo(self.Document) is not null,
+            WrappedFileName = payload?.FileName,
+            WrappedCryptographicFilter = payload?.CryptographicFilter,
         };
     }
 

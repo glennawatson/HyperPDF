@@ -3,12 +3,19 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Text;
+using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.VisualTree;
+using HyperPdfLibrary.Tests.Robustness;
 using PdfViewerLite.App.ViewModels;
+using PdfViewerLite.App.Views;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Layout;
 using PdfViewerLite.Core.Settings;
 using PdfViewerLite.HyperPdf;
+using PdfViewerLite.TestAssets;
 using ReactiveUI.Primitives;
 
 namespace PdfViewerLite.App.Tests;
@@ -92,6 +99,96 @@ public sealed class DocumentTabViewModelTests
         await Assert.That(tab.HasOutline).IsTrue();
         await Assert.That(tab.Title).IsEqualTo("PdfViewerLite Test Document");
         await Assert.That(tab.PageEntry).IsEqualTo("1");
+    }
+
+    /// <summary>A certificate-encrypted tab asks for a file and retries with the typed credential.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task OpensAfterCertificateSelection()
+    {
+        var engine = new CertificateFirstOpenEngine();
+        using var test = new TestServices(engine);
+        using var main = new MainViewModel(test.Services);
+        main.Open([test.CreateDocument(DocumentName, Pages)]);
+        var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.NeedsCertificate)).IsTrue();
+
+        tab.CertificatePathEntry = "recipient.pfx";
+        tab.CertificatePasswordEntry = "secret";
+        _ = await tab.SubmitCertificateCommand.Execute().ToTask();
+
+        await Assert.That(tab.IsLoaded).IsTrue();
+        await Assert.That(tab.NeedsCertificate).IsFalse();
+        await Assert.That(tab.CertificatePasswordEntry).IsEmpty();
+        await Assert.That(engine.CertificatePath).IsEqualTo("recipient.pfx");
+        await Assert.That(engine.CertificatePassword).IsEqualTo("secret");
+    }
+
+    /// <summary>The certificate prompt exposes named file and password fields to keyboard users.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CertificatePromptHasNamedControls()
+    {
+        var engine = new CertificateFirstOpenEngine();
+        using var test = new TestServices(engine);
+        using var main = new MainViewModel(test.Services);
+        main.Open([test.CreateDocument(DocumentName, Pages)]);
+        await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.NeedsCertificate)).IsTrue();
+
+        var window = new MainWindow { ViewModel = main };
+        window.Show();
+        try
+        {
+            await Assert.That(await UiWait.UntilAsync(() => window.GetVisualDescendants().OfType<DocumentView>().Any())).IsTrue();
+            var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
+            var panel = view.FindControl<Border>("CertificatePanel")!;
+            var file = view.FindControl<TextBox>("OpenCertificatePathBox")!;
+            var password = view.FindControl<TextBox>("OpenCertificatePasswordBox")!;
+
+            await Assert.That(panel.IsVisible).IsTrue();
+            await Assert.That(AutomationProperties.GetName(file)).IsEqualTo("Certificate file");
+            await Assert.That(AutomationProperties.GetName(password)).IsEqualTo("Certificate password");
+            await Assert.That(password.PasswordChar).IsNotEqualTo('\0');
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>A wrapper identifies its encrypted payload and tells the reader where to open it.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task WrapperReportsItsEncryptedFile()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        main.Open([test.CreateDocument("wrapper.pdf", WrapperPdf())]);
+        var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
+
+        await Assert.That(tab.Source.Metadata?.WrappedFileName).IsEqualTo("payload.pdf");
+        await Assert.That(tab.Source.Metadata?.WrappedCryptographicFilter).IsEqualTo("MicrosoftIRMServices");
+        await Assert.That(tab.Notice).Contains("Open it from Attachments");
+        await Assert.That(tab.Attachments.Items.Count).IsEqualTo(1);
+        var properties = new PropertiesViewModel(tab);
+        await Assert.That(properties.Entries.Single(static entry => entry.Name == "Wrapper encrypted").Value).IsEqualTo("No");
+        await Assert.That(properties.Entries.Single(static entry => entry.Name == "Encrypted file inside").Value).IsEqualTo("payload.pdf");
+    }
+
+    /// <summary>Properties reports whether the opened file has a valid linearization header.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PropertiesShowsLinearization()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("linearized.pdf", LinearizedDocuments.Create(false))]);
+        var tab = main.SelectedTab!;
+        var properties = new PropertiesViewModel(tab);
+
+        await Assert.That(tab.Source.Metadata?.IsLinearized).IsTrue();
+        await Assert.That(properties.Entries.Single(static entry => entry.Name == "Linearized").Value).IsEqualTo("Yes");
     }
 
     /// <summary>Verifies navigation requests and page entry parsing.</summary>
@@ -281,6 +378,15 @@ public sealed class DocumentTabViewModelTests
         await Assert.That(tab.SidebarMode).IsEqualTo(SidebarMode.Outline);
     }
 
+    /// <summary>Builds a wrapper whose embedded file is a readable PDF.</summary>
+    /// <returns>The wrapper bytes.</returns>
+    private static byte[] WrapperPdf() => MiniPdf.Build(
+        "<< /Type /Catalog /Pages 2 0 R /Collection << /View /H >> /AF [4 0 R] /Names << /EmbeddedFiles << /Names [(payload.pdf) 4 0 R] >> >> >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+        "<< /Type /Filespec /F (payload.pdf) /UF (payload.pdf) /AFRelationship /EncryptedPayload /EP << /Type /EncryptedPayload /Subtype /MicrosoftIRMServices >> /EF << /F 5 0 R >> >>",
+        MiniPdf.Stream("/Type /EmbeddedFile", Encoding.Latin1.GetString(TestPdf.Create(1))));
+
     /// <summary>Holds the first document after the engine has opened it.</summary>
     private sealed class DelayedFirstOpenEngine : IDocumentEngine
     {
@@ -377,6 +483,48 @@ public sealed class DocumentTabViewModelTests
                 ArrayPool<byte>.Shared.Return(buffer);
                 _ = _bufferReturned.TrySetResult();
             }
+        }
+    }
+
+    /// <summary>Requires a certificate once, then opens the generated PDF through HyperPdf.</summary>
+    private sealed class CertificateFirstOpenEngine : IDocumentEngine, ICertificateDocumentEngine
+    {
+        /// <summary>The real document engine used after the credential is selected.</summary>
+        private readonly HyperPdfEngine _inner = new();
+
+        /// <inheritdoc/>
+        public string Name => _inner.Name;
+
+        /// <summary>Gets the certificate path received from the tab.</summary>
+        internal string? CertificatePath { get; private set; }
+
+        /// <summary>Gets the password received from the tab.</summary>
+        internal string? CertificatePassword { get; private set; }
+
+        /// <inheritdoc/>
+        public bool CanOpen(string path) => _inner.CanOpen(path);
+
+        /// <inheritdoc/>
+        public IDocument Open(string path, string? password) => throw new DocumentOpenException(DocumentOpenError.Certificate, "Choose a recipient certificate.");
+
+        /// <inheritdoc/>
+        public ValueTask<IDocument> OpenAsync(string path, string? password, CancellationToken cancellationToken) =>
+            ValueTask.FromException<IDocument>(new DocumentOpenException(DocumentOpenError.Certificate, "Choose a recipient certificate."));
+
+        /// <inheritdoc/>
+        public IDocument OpenWithCertificate(string path, string certificatePath, string certificatePassword)
+        {
+            CertificatePath = certificatePath;
+            CertificatePassword = certificatePassword;
+            return _inner.Open(path, null);
+        }
+
+        /// <inheritdoc/>
+        public ValueTask<IDocument> OpenWithCertificateAsync(string path, string certificatePath, string certificatePassword, CancellationToken cancellationToken)
+        {
+            CertificatePath = certificatePath;
+            CertificatePassword = certificatePassword;
+            return _inner.OpenAsync(path, null, cancellationToken);
         }
     }
 }

@@ -21,4 +21,7 @@ public enum DocumentOpenError
 
     /// <summary>The document uses an unsupported security handler.</summary>
     Security = 4,
+
+    /// <summary>A recipient certificate or its password is required, or the supplied certificate is wrong.</summary>
+    Certificate = 5,
 }

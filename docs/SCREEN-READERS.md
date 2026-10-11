@@ -1,6 +1,6 @@
 # Screen readers
 
-PdfViewerLite works with the screen reader on each desktop: Narrator, NVDA or JAWS on Windows, VoiceOver on macOS and Orca on Linux.
+PdfViewerLite provides names, descriptions and keyboard access for screen readers on Windows, macOS and Linux. Use Narrator, NVDA or JAWS on Windows, VoiceOver on macOS, or Orca on Linux. Hands-on checks with these screen readers are still in progress.
 
 ## Moving around
 
@@ -14,7 +14,7 @@ PdfViewerLite works with the screen reader on each desktop: Narrator, NVDA or JA
 
 - The page area says the page, such as "Page 5 of 40", and gives the page's text as its value.
 - Caret browsing (F7) puts a text cursor on the page, so the arrow keys move through the words.
-- Focus Mode (Ctrl+4) shows the text as headings, paragraphs and lists. Screen readers can move by heading there.
+- Focus Mode (Ctrl+4) shows the text as headings, paragraphs and lists. Where the desktop exposes heading levels, use the screen reader's heading commands. On Linux, move through the blocks and listen for the spoken heading level.
 - Read Aloud reads the text in the app's own voice and marks the sentence on the page.
 
 ## Platform limits

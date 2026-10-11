@@ -51,6 +51,7 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     public DocumentView()
     {
         InitializeComponent();
+        FieldLabels.Link((OpenCertificatePathBox, OpenCertificateLabel), (OpenCertificatePasswordBox, OpenCertificatePasswordLabel));
         FieldSpelling.Editor = FieldEditor;
         PageTextUnderline.Editor = PageTextEditor;
         ThumbnailList.ItemTemplate = new FuncDataTemplate<ThumbnailItemViewModel>((_, _) => new ThumbnailItemView { Tab = ViewModel });
@@ -610,6 +611,35 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.Bind(ViewModel, static vm => vm.PasswordEntry, static v => v.PasswordBox.Text, static entry => entry, static text => text ?? string.Empty));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.SubmitPasswordCommand, static v => v.UnlockButton));
         bindings.Add(EnterPresses(PasswordBox).InvokeCommand(this, static v => v.ViewModel!.SubmitPasswordCommand));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.NeedsCertificate, static v => v.CertificatePanel.IsVisible));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.CertificatePathEntry, static v => v.OpenCertificatePathBox.Text, static entry => entry, static text => text ?? string.Empty));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.CertificatePasswordEntry, static v => v.OpenCertificatePasswordBox.Text, static entry => entry, static text => text ?? string.Empty));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.CertificateError, static v => v.OpenCertificateErrorText.Text));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.CertificateError, static v => v.OpenCertificateErrorText.IsVisible, static error => error is not null));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.BrowseCertificateCommand, static v => v.BrowseOpenCertificateButton));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SubmitCertificateCommand, static v => v.UnlockCertificateButton));
+        bindings.Add(EnterPresses(OpenCertificatePasswordBox).InvokeCommand(this, static v => v.ViewModel!.SubmitCertificateCommand));
+        bindings.Add(this.BindInteraction(ViewModel, static vm => vm.CertificateBrowseInteraction, BrowseCertificateAsync));
+    }
+
+    /// <summary>Asks the desktop for a local PKCS #12 certificate file.</summary>
+    /// <param name="context">The certificate path request.</param>
+    /// <returns>A task for the file picker.</returns>
+    private async Task BrowseCertificateAsync(IInteractionContext<RxVoid, string?> context)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } owner)
+        {
+            context.SetOutput(null);
+            return;
+        }
+
+        var files = await owner.StorageProvider.OpenFilePickerAsync(new()
+        {
+            Title = "Choose a Certificate",
+            AllowMultiple = false,
+            FileTypeFilter = [new("Certificates (.p12, .pfx)") { Patterns = ["*.p12", "*.pfx"] }],
+        });
+        context.SetOutput(files.Count > 0 ? files[0].TryGetLocalPath() : null);
     }
 
     /// <summary>Wires the menu items whose commands belong to the window rather than the tab.</summary>

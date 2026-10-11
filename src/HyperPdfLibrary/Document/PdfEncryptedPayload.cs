@@ -22,4 +22,20 @@ public sealed record PdfEncryptedPayload(string FileName, string CryptographicFi
     /// <summary>Decodes the payload's bytes: the encrypted document.</summary>
     /// <returns>The bytes, or empty when there is no stream.</returns>
     public byte[] GetBytes() => Data?.DecodeToArray() ?? [];
+
+    /// <summary>Decodes the payload after reading its encoded bytes with async I/O.</summary>
+    /// <param name="cancellationToken">Cancels reading and decoding.</param>
+    /// <returns>The encrypted document bytes, or empty when the payload has no stream.</returns>
+    public async ValueTask<byte[]> GetBytesAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (Data is not { } stream)
+        {
+            return [];
+        }
+
+        var raw = await stream.CopyRawDataAsync(cancellationToken).ConfigureAwait(false);
+        var buffered = new PdfStream(stream.Dictionary, raw, 0, raw.Length, stream.Id, stream.IsEncrypted);
+        return buffered.DecodeToArray(cancellationToken);
+    }
 }

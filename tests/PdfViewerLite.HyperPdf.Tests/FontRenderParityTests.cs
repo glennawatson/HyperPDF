@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using HyperPdfLibrary.Render.Skia.Fonts;
 using HyperPdfLibrary.Tests.Fonts;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
@@ -29,6 +30,36 @@ public sealed class FontRenderParityTests
     /// faces, so only rasterisation differs (measured 0.085).
     /// </summary>
     private const double SubstituteThreshold = 0.5;
+
+    /// <summary>The per-channel tolerance for CJK font rasterization differences.</summary>
+    private const byte CjkChannelTolerance = 16;
+
+    /// <summary>A dark pixel in a glyph's expected area.</summary>
+    private const byte InkThreshold = 200;
+
+    /// <summary>The horizontal text origin in the CJK fixtures.</summary>
+    private const int CjkTextX = 10;
+
+    /// <summary>The top of the first text line's ink area.</summary>
+    private const int CjkFirstLineY = 20;
+
+    /// <summary>The top of the second text line's ink area.</summary>
+    private const int CjkSecondLineY = 50;
+
+    /// <summary>The advance and search width of a CJK glyph at 24 points.</summary>
+    private const int CjkGlyphWidth = 24;
+
+    /// <summary>The search height of a CJK text line.</summary>
+    private const int CjkLineHeight = 30;
+
+    /// <summary>The number of glyphs in the Japanese fixture's first line.</summary>
+    private const int JapaneseGlyphs = 4;
+
+    /// <summary>The number of glyphs in each Chinese fixture line.</summary>
+    private const int ChineseGlyphs = 2;
+
+    /// <summary>The number of glyphs in the Korean and Identity-H fixtures.</summary>
+    private const int ThreeGlyphs = 3;
 
     /// <summary>The descriptor flags of a non-symbolic font.</summary>
     private const int Nonsymbolic = 32;
@@ -89,6 +120,75 @@ public sealed class FontRenderParityTests
     [Test]
     public Task StandardFontIsCloseToPdfium() =>
         AssertParity(nameof(StandardFontIsCloseToPdfium), TestPdf.Create(1), SubstituteThreshold);
+
+    /// <summary>Predefined CMaps paint every mapped glyph, including glyphs that PDFium omits with some host fonts.</summary>
+    /// <param name="encoding">The predefined CMap.</param>
+    /// <param name="ordering">The CID collection.</param>
+    /// <param name="content">The encoded text.</param>
+    /// <param name="sample">A character whose host font must be present.</param>
+    /// <param name="firstLineGlyphs">The number of glyphs on the first line.</param>
+    /// <param name="secondLineGlyphs">The number of glyphs on the second line.</param>
+    /// <returns>A task.</returns>
+    /// <exception cref="TUnit.Core.Exceptions.SkipTestException">The host has no face for this script.</exception>
+    [Test]
+    [Arguments("90ms-RKSJ-H", "Japan1", CjkParityPdf.ShiftJisContent, 'あ', JapaneseGlyphs, 0)]
+    [Arguments("GB-EUC-H", "GB1", CjkParityPdf.GbEucContent, '中', ChineseGlyphs, ChineseGlyphs)]
+    [Arguments("ETen-B5-H", "CNS1", CjkParityPdf.TraditionalContent, '一', ChineseGlyphs, 0)]
+    [Arguments("UniKS-UCS2-H", "Korea1", CjkParityPdf.UniKsContent, '한', ThreeGlyphs, 0)]
+    [Arguments("Identity-H", "Japan1", CjkParityPdf.IdentityJapan1Content, 'あ', ThreeGlyphs, 0)]
+    public async Task CjkTextDrawsAllMappedGlyphs(string encoding, string ordering, string content, char sample, int firstLineGlyphs, int secondLineGlyphs)
+    {
+        using var face = new SkiaFontProvider().MatchCharacter(sample);
+        if (face is null || face.GetGlyph(sample) == 0)
+        {
+            throw new TUnit.Core.Exceptions.SkipTestException($"No system font has the {ordering} sample glyph.");
+        }
+
+        using var input = new HyperPdfTestDocument(CjkParityPdf.Build(encoding, ordering, content, string.Empty));
+        await input.Document.PreparePageAsync(0, CancellationToken.None);
+        var info = new PageRenderInfo(0, 1, PageRotation.None, 0, 0, RenderFlags.FixedDeviceColors);
+        var reference = PdfiumReferenceRendering.Render(input.Pdf, info);
+        var actual = new byte[reference.Pixels.Length];
+        await Assert.That(input.Document.Render(info, new(actual, reference.Width, reference.Height, reference.Width * BytesPerPixel))).IsTrue();
+
+        var score = RasterScoring.Compare(
+            new(reference.Width, reference.Height, actual),
+            new(reference.Width, reference.Height, reference.Pixels),
+            CjkChannelTolerance);
+        TestContext.Current?.Output.WriteLine($"{encoding} using {face.FamilyName}: {score.ErrorPixels} of {score.CheckedPixels} pixels differ from PDFium beyond {CjkChannelTolerance}");
+        await Assert.That(score.DimensionsMatch).IsTrue();
+        for (var glyph = 0; glyph < firstLineGlyphs; glyph++)
+        {
+            await Assert.That(HasInk(actual, reference.Width, CjkTextX + (glyph * CjkGlyphWidth), CjkFirstLineY)).IsTrue();
+        }
+
+        for (var glyph = 0; glyph < secondLineGlyphs; glyph++)
+        {
+            await Assert.That(HasInk(actual, reference.Width, CjkTextX + (glyph * CjkGlyphWidth), CjkSecondLineY)).IsTrue();
+        }
+    }
+
+    /// <summary>Checks that one expected glyph cell has visible text.</summary>
+    /// <param name="pixels">The BGRA page.</param>
+    /// <param name="width">The page width.</param>
+    /// <param name="x">The glyph cell's left edge.</param>
+    /// <param name="y">The text line's top edge.</param>
+    /// <returns>Whether the cell contains ink.</returns>
+    private static bool HasInk(ReadOnlySpan<byte> pixels, int width, int x, int y)
+    {
+        for (var row = y; row < y + CjkLineHeight; row++)
+        {
+            for (var column = x; column < x + CjkGlyphWidth; column++)
+            {
+                if (pixels[((row * width) + column) * BytesPerPixel] < InkThreshold)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Renders a page with both engines and asserts the images are close.</summary>
     /// <param name="name">The test name.</param>

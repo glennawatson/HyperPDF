@@ -32,6 +32,9 @@ public sealed class DocumentSource
     /// <summary>True when serialized edits were not published at their destination.</summary>
     private bool _unpublishedSave;
 
+    /// <summary>The certificate file and password used to reopen a public-key encrypted document.</summary>
+    private CertificateCredential? _certificate;
+
     /// <summary>Initializes a new instance of the <see cref="DocumentSource"/> class.</summary>
     /// <param name="pool">The owning pool.</param>
     /// <param name="filePath">The file path.</param>
@@ -73,6 +76,17 @@ public sealed class DocumentSource
 
     /// <summary>Gets the time the document was last acquired, in <see cref="Environment.TickCount64"/> units.</summary>
     public long LastUsed { get; private set; }
+
+    /// <summary>Uses a certificate file for this tab's next open and any cache reopen.</summary>
+    /// <param name="certificatePath">The PKCS #12 file path.</param>
+    /// <param name="certificatePassword">The password, held only in memory while this tab is open.</param>
+    public void UseCertificate(string certificatePath, string certificatePassword)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(certificatePath);
+        ArgumentNullException.ThrowIfNull(certificatePassword);
+        _certificate = new(certificatePath, certificatePassword);
+        Reload();
+    }
 
     /// <summary>Gets the open document, opening it when necessary.</summary>
     /// <returns>The document.</returns>
@@ -126,7 +140,7 @@ public sealed class DocumentSource
             return open;
         }
 
-        var document = engine.Open(FilePath, Password);
+        var document = OpenWithCredentials(engine);
         _document = document;
         if (PageSizes.Length == 0)
         {
@@ -160,6 +174,13 @@ public sealed class DocumentSource
         document?.Dispose();
     }
 
+    /// <summary>Clears credentials when the tab is removed from its pool.</summary>
+    internal void ReleaseCredentials()
+    {
+        Password = null;
+        _certificate = null;
+    }
+
     /// <summary>Publishes only an open that remains current after I/O and parsing finish.</summary>
     /// <param name="engine">The document engine.</param>
     /// <param name="cancellationToken">Cancels the open.</param>
@@ -170,7 +191,7 @@ public sealed class DocumentSource
         var version = Volatile.Read(ref _lifetimeVersion);
 
         // The document pool belongs to the UI thread, so resume there before publishing and trimming it.
-        var document = await engine.OpenAsync(FilePath, Password, cancellationToken);
+        var document = await OpenWithCredentialsAsync(engine, cancellationToken);
         if (cancellationToken.IsCancellationRequested || version != Volatile.Read(ref _lifetimeVersion))
         {
             document.Dispose();
@@ -203,5 +224,46 @@ public sealed class DocumentSource
             document.Dispose();
             throw;
         }
+    }
+
+    /// <summary>Uses the credential selected for this source.</summary>
+    /// <param name="engine">The document engine.</param>
+    /// <returns>The opened document.</returns>
+    /// <exception cref="DocumentOpenException">The engine cannot use certificates.</exception>
+    private IDocument OpenWithCredentials(IDocumentEngine engine)
+    {
+        if (_certificate is not { } credential)
+        {
+            return engine.Open(FilePath, Password);
+        }
+
+        return engine is ICertificateDocumentEngine certificates
+            ? certificates.OpenWithCertificate(FilePath, credential.Path, credential.Password)
+            : throw new DocumentOpenException(DocumentOpenError.Certificate, "This document engine cannot open certificate-encrypted files.");
+    }
+
+    /// <summary>Uses the credential selected for this source with cancellable I/O.</summary>
+    /// <param name="engine">The document engine.</param>
+    /// <param name="cancellationToken">Cancels the open.</param>
+    /// <returns>The opened document.</returns>
+    private ValueTask<IDocument> OpenWithCredentialsAsync(IDocumentEngine engine, CancellationToken cancellationToken)
+    {
+        if (_certificate is not { } credential)
+        {
+            return engine.OpenAsync(FilePath, Password, cancellationToken);
+        }
+
+        return engine is ICertificateDocumentEngine certificates
+            ? certificates.OpenWithCertificateAsync(FilePath, credential.Path, credential.Password, cancellationToken)
+            : ValueTask.FromException<IDocument>(new DocumentOpenException(DocumentOpenError.Certificate, "This document engine cannot open certificate-encrypted files."));
+    }
+
+    /// <summary>The certificate selection retained by one tab.</summary>
+    /// <param name="Path">The certificate file.</param>
+    /// <param name="Password">The certificate password.</param>
+    private sealed record CertificateCredential(string Path, string Password)
+    {
+        /// <inheritdoc/>
+        public override string ToString() => Path;
     }
 }

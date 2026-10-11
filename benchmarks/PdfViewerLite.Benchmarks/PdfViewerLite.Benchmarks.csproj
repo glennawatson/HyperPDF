@@ -34,5 +34,8 @@
     <EmbeddedResource Include="..\..\src\HyperPdfLibrary\Graphics\Images\Jpx\Data\T814CxtVlc.txt" LogicalName="T814CxtVlc.txt" />
     <!-- The two page book with a form, outline, destinations, labels, layer and embedded file that the page copy benchmarks copy. -->
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Editing\CarryTestDocuments.cs" Link="CarryTestDocuments.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyPdf.cs" Link="Security\PublicKeyPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyCipher.cs" Link="Security\PublicKeyCipher.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
   </ItemGroup>
 </Project>

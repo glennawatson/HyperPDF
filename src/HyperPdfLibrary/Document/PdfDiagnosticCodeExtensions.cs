@@ -14,6 +14,6 @@ public static class PdfDiagnosticCodeExtensions
         /// <summary>Gets a value indicating whether the code reports damage that was repaired, as opposed to a limit that was reached.</summary>
         public bool IsRepair =>
             code is not (PdfDiagnosticCode.None or PdfDiagnosticCode.DecodeSizeCapped or PdfDiagnosticCode.UnknownFilter
-                or PdfDiagnosticCode.RecursionLimit or PdfDiagnosticCode.FixedOnSave);
+                or PdfDiagnosticCode.RecursionLimit or PdfDiagnosticCode.FixedOnSave or PdfDiagnosticCode.BadLinearization);
     }
 }

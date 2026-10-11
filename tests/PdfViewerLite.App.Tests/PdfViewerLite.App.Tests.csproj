@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <Compile Include="..\PdfViewerLite.Core.Tests\Fakes\FakeDocument.cs" Link="Fakes\FakeDocument.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
   </ItemGroup>
 
   <ItemGroup>

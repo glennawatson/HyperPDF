@@ -131,6 +131,68 @@ public static class PdfCompactWriter
         }
     }
 
+    /// <summary>Writes <c>%PDF-x.y</c> and a binary comment.</summary>
+    /// <param name="writer">The writer.</param>
+    /// <param name="version">The original version.</param>
+    /// <param name="objectStreams">Whether object streams are written, which need 1.5.</param>
+    internal static void WriteHeader(ref PdfObjectWriter writer, string version, bool objectStreams)
+    {
+        writer.WriteRaw("%PDF-"u8);
+        if (version.Length == 0)
+        {
+            version = DefaultVersion;
+        }
+
+        if (objectStreams && IsBefore15(version))
+        {
+            writer.WriteRaw(ObjectStreamVersion);
+        }
+        else
+        {
+            foreach (var c in version)
+            {
+                // The version holds only digits and a dot.
+                writer.Buffer.WriteByte((byte)c);
+            }
+        }
+
+        writer.WriteRaw("\n"u8);
+        writer.WriteRaw(PdfXrefWriter.BinaryMarker);
+    }
+
+    /// <summary>Writes one object under its new number. Metadata streams stay uncompressed, as XMP readers expect them plain.</summary>
+    /// <param name="writer">The writer.</param>
+    /// <param name="graph">The objects.</param>
+    /// <param name="graphNumber">The object's number in the collected graph.</param>
+    /// <param name="outputNumber">The object number written to the file.</param>
+    /// <param name="encryptNumber">The old number of the /Encrypt dictionary, which is written unencrypted.</param>
+    internal static void WriteObject(ref PdfObjectWriter writer, PdfObjectGraph graph, int graphNumber, int outputNumber, int encryptNumber)
+    {
+        var id = new PdfObjectId(outputNumber, 0);
+        var encrypt = graph.GetOldNumber(graphNumber) != encryptNumber;
+        var value = graph.GetValue(graphNumber);
+        if (value.AsStream() is not { } stream || stream.Dictionary.IsName(KnownName.Type, KnownName.Metadata))
+        {
+            writer.WriteIndirectObject(id, value, encrypt);
+            return;
+        }
+
+        if (!IsUnfiltered(stream.Dictionary))
+        {
+            // A damaged Flate or LZW stream is written again from the part that decoded, so the saved file needs no repair.
+            if (!TryWriteRepaired(ref writer, stream, id, encrypt))
+            {
+                writer.WriteIndirectObject(id, value, encrypt);
+            }
+
+            return;
+        }
+
+        writer.WriteObjectHeader(id);
+        WriteCompressed(ref writer, stream, encrypt ? id : default);
+        writer.WriteRaw("\nendobj\n"u8);
+    }
+
     /// <summary>Creates the writer, with the document's security handler unless encryption is removed.</summary>
     /// <param name="store">The document.</param>
     /// <param name="options">The layout.</param>
@@ -200,35 +262,6 @@ public static class PdfCompactWriter
         PdfXrefWriter.WriteTrailer(ref writer, trailer, sectionOffset);
     }
 
-    /// <summary>Writes <c>%PDF-x.y</c> and a binary comment.</summary>
-    /// <param name="writer">The writer.</param>
-    /// <param name="version">The original version.</param>
-    /// <param name="objectStreams">Whether object streams are written, which need 1.5.</param>
-    private static void WriteHeader(ref PdfObjectWriter writer, string version, bool objectStreams)
-    {
-        writer.WriteRaw("%PDF-"u8);
-        if (version.Length == 0)
-        {
-            version = DefaultVersion;
-        }
-
-        if (objectStreams && IsBefore15(version))
-        {
-            writer.WriteRaw(ObjectStreamVersion);
-        }
-        else
-        {
-            foreach (var c in version)
-            {
-                // The version holds only digits and a dot.
-                writer.Buffer.WriteByte((byte)c);
-            }
-        }
-
-        writer.WriteRaw("\n"u8);
-        writer.WriteRaw(PdfXrefWriter.BinaryMarker);
-    }
-
     /// <summary>Determines whether a version is older than 1.5.</summary>
     /// <param name="version">The version, for example "1.4".</param>
     /// <returns><see langword="true"/> when it is.</returns>
@@ -276,7 +309,7 @@ public static class PdfCompactWriter
         {
             cancellationToken.ThrowIfCancellationRequested();
             rows[number] = new(number, XrefEntryType.InFile, writer.Length, 0);
-            WriteObject(ref writer, graph, number, encryptNumber);
+            WriteObject(ref writer, graph, number, number, encryptNumber);
         }
     }
 
@@ -300,7 +333,7 @@ public static class PdfCompactWriter
                 if (!IsPackable(graph, number, encryptNumber))
                 {
                     rows[number] = new(number, XrefEntryType.InFile, writer.Length, 0);
-                    WriteObject(ref writer, graph, number, encryptNumber);
+                    WriteObject(ref writer, graph, number, number, encryptNumber);
                     continue;
                 }
 
@@ -337,37 +370,6 @@ public static class PdfCompactWriter
     {
         rows[streamNumber] = new(streamNumber, XrefEntryType.InFile, writer.Length, 0);
         packer.Flush(ref body, ref writer, new(streamNumber, 0));
-    }
-
-    /// <summary>Writes one object under its new number. Metadata streams stay uncompressed, as XMP readers expect them plain.</summary>
-    /// <param name="writer">The writer.</param>
-    /// <param name="graph">The objects.</param>
-    /// <param name="number">The new number.</param>
-    /// <param name="encryptNumber">The old number of the /Encrypt dictionary, which is written unencrypted.</param>
-    private static void WriteObject(ref PdfObjectWriter writer, PdfObjectGraph graph, int number, int encryptNumber)
-    {
-        var id = new PdfObjectId(number, 0);
-        var encrypt = graph.GetOldNumber(number) != encryptNumber;
-        if (graph.GetValue(number).AsStream() is not { } stream || stream.Dictionary.IsName(KnownName.Type, KnownName.Metadata))
-        {
-            writer.WriteIndirectObject(id, graph.GetValue(number), encrypt);
-            return;
-        }
-
-        if (!IsUnfiltered(stream.Dictionary))
-        {
-            // A damaged Flate or LZW stream is written again from the part that decoded, so the saved file needs no repair.
-            if (!TryWriteRepaired(ref writer, stream, id, encrypt))
-            {
-                writer.WriteIndirectObject(id, graph.GetValue(number), encrypt);
-            }
-
-            return;
-        }
-
-        writer.WriteObjectHeader(id);
-        WriteCompressed(ref writer, stream, encrypt ? id : default);
-        writer.WriteRaw("\nendobj\n"u8);
     }
 
     /// <summary>Writes a stream filtered by byte filters again as clean Flate when its data was truncated or damaged.</summary>

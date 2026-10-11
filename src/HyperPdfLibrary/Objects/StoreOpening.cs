@@ -149,7 +149,7 @@ public static class StoreOpening
     /// <exception cref = "PdfException">There is no header.</exception>
     internal static void ReadHeader(PdfObjectStore self)
     {
-        using var start = self.Source.Lease(0, (int)Math.Min(self.Source.Length, StoreOpening.HeaderSearchLength + StoreOpening.HeaderSignature.Length + StoreOpening.MaxVersionLength));
+        using var start = self.Source.Lease(0, (int)Math.Min(self.Source.Length, StoreParsing.InitialWindow));
         var span = start.Span;
         var header = span[..Math.Min(span.Length, StoreOpening.HeaderSearchLength)].IndexOf(StoreOpening.HeaderSignature);
         if (header < 0)
@@ -158,6 +158,7 @@ public static class StoreOpening
         }
 
         self.HeaderOffset = header;
+        self.MightBeLinearized = header == 0 && span.IndexOf("/Linearized"u8) >= 0;
         if (header > 0)
         {
             PdfOpenContext.Report(self.Context, PdfDiagnosticCode.HeaderOffset, "The PDF header is not at the start of the file.", 0, header);

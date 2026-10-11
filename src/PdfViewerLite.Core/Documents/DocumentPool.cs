@@ -83,6 +83,7 @@ public sealed class DocumentPool : IDisposable
     {
         ArgumentNullException.ThrowIfNull(source);
         source.Close();
+        source.ReleaseCredentials();
         _ = _sources.Remove(source);
     }
 
@@ -92,6 +93,7 @@ public sealed class DocumentPool : IDisposable
         foreach (var source in _sources)
         {
             source.Close();
+            source.ReleaseCredentials();
         }
 
         _sources.Clear();

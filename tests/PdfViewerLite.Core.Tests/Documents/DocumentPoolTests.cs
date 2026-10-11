@@ -104,6 +104,27 @@ public sealed class DocumentPoolTests
         await Assert.That(source.IsOpen).IsFalse();
     }
 
+    /// <summary>A certificate selection is used for both async opening and a later cache reopen.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CertificateSelectionSurvivesCacheReopen()
+    {
+        const int expectedOpens = 2;
+        var engine = new CertificateEngine();
+        using var pool = new DocumentPool(engine);
+        var source = pool.Create("encrypted.pdf", null);
+
+        source.UseCertificate("recipient.pfx", "secret");
+        _ = await source.AcquireAsync(CancellationToken.None);
+        source.Reload();
+        _ = source.Acquire();
+
+        await Assert.That(engine.CertificateOpens).IsEqualTo(expectedOpens);
+        await Assert.That(engine.LastCertificatePath).IsEqualTo("recipient.pfx");
+        await Assert.That(engine.LastPassword).IsEqualTo("secret");
+        await Assert.That(engine.NormalOpens).IsEqualTo(0);
+    }
+
     /// <summary>Holds one async open until the test publishes a result.</summary>
     private sealed class DelayedEngine : IDocumentEngine
     {
@@ -125,5 +146,50 @@ public sealed class DocumentPoolTests
         /// <summary>Completes the pending open.</summary>
         /// <param name="document">The opened document.</param>
         internal void Complete(IDocument document) => _ = _pending.TrySetResult(document);
+    }
+
+    /// <summary>Records the credential path without doing cryptography.</summary>
+    private sealed class CertificateEngine : IDocumentEngine, ICertificateDocumentEngine
+    {
+        /// <inheritdoc/>
+        public string Name => "Certificate";
+
+        /// <summary>Gets the number of certificate opens.</summary>
+        internal int CertificateOpens { get; private set; }
+
+        /// <summary>Gets the number of password opens.</summary>
+        internal int NormalOpens { get; private set; }
+
+        /// <summary>Gets the last certificate path.</summary>
+        internal string? LastCertificatePath { get; private set; }
+
+        /// <summary>Gets the last certificate password.</summary>
+        internal string? LastPassword { get; private set; }
+
+        /// <inheritdoc/>
+        public bool CanOpen(string path) => true;
+
+        /// <inheritdoc/>
+        public IDocument Open(string path, string? password)
+        {
+            NormalOpens++;
+            return new FakeDocument(path, FakeEngine.A4);
+        }
+
+        /// <inheritdoc/>
+        public ValueTask<IDocument> OpenAsync(string path, string? password, CancellationToken cancellationToken) => new(Open(path, password));
+
+        /// <inheritdoc/>
+        public IDocument OpenWithCertificate(string path, string certificatePath, string certificatePassword)
+        {
+            CertificateOpens++;
+            LastCertificatePath = certificatePath;
+            LastPassword = certificatePassword;
+            return new FakeDocument(path, FakeEngine.A4);
+        }
+
+        /// <inheritdoc/>
+        public ValueTask<IDocument> OpenWithCertificateAsync(string path, string certificatePath, string certificatePassword, CancellationToken cancellationToken) =>
+            new(OpenWithCertificate(path, certificatePath, certificatePassword));
     }
 }
