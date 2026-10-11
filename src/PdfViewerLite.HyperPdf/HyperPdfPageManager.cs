@@ -78,9 +78,8 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
         {
             ValidateRevision(revision, cancellationToken);
             using var access = HyperPdfNavigation.EnterPageWrite(_owner);
-            using var cancellation = PdfCancellation.Enter(cancellationToken);
             using var transaction = PdfDocumentEditing.BeginEdit(_document, label);
-            ApplyCore(_document, request.Kind, pages, request.Value);
+            ApplyCore(_document, request.Kind, pages, request.Value, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             transaction.Commit();
             Changed();
@@ -143,8 +142,7 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
         {
             ValidateRevision(revision, cancellationToken);
             using var access = HyperPdfNavigation.EnterPageWrite(_owner);
-            using var cancellation = PdfCancellation.Enter(cancellationToken);
-            bytes = PdfDocumentPageOperations.ExtractPages(_document, selected);
+            bytes = PdfDocumentPageOperations.ExtractPages(_document, selected, cancellationToken);
         }
 
         await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
@@ -197,7 +195,8 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
     /// <param name="kind">The operation.</param>
     /// <param name="pages">The frozen page selection.</param>
     /// <param name="value">The turn or destination index.</param>
-    private static void ApplyCore(PdfDocument document, PageEditKind kind, ReadOnlySpan<int> pages, int value)
+    /// <param name="cancellationToken">Cancels page copying.</param>
+    private static void ApplyCore(PdfDocument document, PageEditKind kind, ReadOnlySpan<int> pages, int value, CancellationToken cancellationToken)
     {
         switch (kind)
         {
@@ -221,7 +220,7 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 
             case PageEditKind.Duplicate:
                 {
-                    PdfDocumentPageOperations.InsertPages(document, value, document, pages);
+                    PdfDocumentPageOperations.InsertPages(document, value, document, pages, cancellationToken);
                     break;
                 }
         }
@@ -313,12 +312,11 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
     private void InsertPrepared(int index, List<ImportDocument> pending, CancellationToken cancellationToken)
     {
         _ = _imports.EnsureCapacity(checked(_imports.Count + pending.Count));
-        using var cancellation = PdfCancellation.Enter(cancellationToken);
         using var transaction = PdfDocumentEditing.BeginEdit(_document, "Insert pages");
         foreach (var source in pending)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            PdfDocumentPageOperations.InsertPages(_document, index, source.Document, source.Pages);
+            PdfDocumentPageOperations.InsertPages(_document, index, source.Document, source.Pages, cancellationToken);
             index = checked(index + source.Pages.Length);
         }
 

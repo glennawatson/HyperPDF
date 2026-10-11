@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Windows.Input;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.Core.Optimizing;
 using PdfViewerLite.TestAssets;
@@ -254,28 +253,20 @@ public sealed class OptimizeCopyViewModelTests
         await Assert.That(OptimizeReportText.OverallPercent(new(OptimizeStep.Done, 0, 0))).IsEqualTo(Complete);
     }
 
-    /// <summary>The command is available with HyperPDF and explains its limit with the PDFium reference engine.</summary>
+    /// <summary>The optimize command is available for the app's engine.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CommandFollowsTheEngine()
+    public async Task HyperPdfEnablesOptimizeCopyCommand()
     {
-        using var pdfium = new TestServices(TestEngineChoice.Pdfium);
-        using var pdfiumMain = new MainViewModel(pdfium.Services);
-        pdfiumMain.Open([pdfium.CreateDocument(SourceName, Pages)]);
-        using var native = new TestServices(TestEngineChoice.HyperPdf);
+        using var native = new TestServices();
         using var nativeMain = new MainViewModel(native.Services);
         nativeMain.Open([native.CreateDocument(SourceName, Pages)]);
 
-        var pdfiumTab = pdfiumMain.SelectedTab!;
         var nativeTab = nativeMain.SelectedTab!;
-        await Assert.That(await UiWait.UntilAsync(() => pdfiumTab.IsLoaded && nativeTab.IsLoaded)).IsTrue();
-        var pdfiumCan = ((ICommand)pdfiumTab.OptimizeCopyCommand).CanExecute(null);
+        await Assert.That(await UiWait.UntilAsync(() => nativeTab.IsLoaded)).IsTrue();
 
         using (Assert.Multiple())
         {
-            await Assert.That(pdfiumTab.CanOptimize).IsFalse();
-            await Assert.That(pdfiumCan).IsFalse();
-            await Assert.That(pdfiumTab.OptimizeMenuText).Contains("needs the HyperPDF engine");
             await Assert.That(nativeTab.CanOptimize).IsTrue();
             await Assert.That(nativeTab.OptimizeMenuText).IsEqualTo("Save _Optimised Copy…");
         }
@@ -286,7 +277,7 @@ public sealed class OptimizeCopyViewModelTests
     [Test]
     public async Task RealCopyReopensWithTheSamePages()
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(SourceName, Pages)]);
         var tab = main.SelectedTab!;

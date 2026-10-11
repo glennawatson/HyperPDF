@@ -111,7 +111,7 @@ internal sealed class DrawingContextImpl : IDrawingContextWithAcrylicLikeSupport
     /// <param name = "createInfo">The context creation parameters.</param>
     /// <param name = "disposables">Optional elements to dispose when this context is disposed.</param>
     /// <exception cref = "ArgumentException">Thrown when <c>createInfo.Surface?.Canvas</c> is <see langword="null"/>.</exception>
-    public DrawingContextImpl(in CreateInfo createInfo, params IDisposable?[]? disposables)
+    public DrawingContextImpl(in DrawingContextCreateInfo createInfo, params IDisposable?[]? disposables)
     {
         Canvas = createInfo.Canvas ?? createInfo.Surface?.Canvas ?? throw new ArgumentException("Invalid create info: no Canvas or Surface provided.", nameof(createInfo));
         _intermediateSurfaceDpi = createInfo.Dpi;
@@ -1006,7 +1006,7 @@ PopClip();
     /// <returns>The requested result.</returns>
     private SurfaceRenderTarget CreateRenderTarget(PixelSize pixelSize, bool isLayer, bool useScaledDrawing, PixelFormat? format = null)
     {
-        var createInfo = new SurfaceRenderTarget.CreateInfo
+        var createInfo = new SurfaceRenderTargetCreateInfo
         {
             Width = pixelSize.Width,
             Height = pixelSize.Height,
@@ -1104,75 +1104,6 @@ PopClip();
             {
                 DrawBoxShadow(bounds, rounded, isRounded, shadow, inset);
             }
-        }
-    }
-
-    /// <summary>Structure holding creation information for a drawing context.</summary>
-    internal readonly record struct CreateInfo
-    {
-        /// <summary>Gets the target canvas.</summary>
-        public SKCanvas? Canvas { get; init; }
-
-        /// <summary>Gets the target surface.</summary>
-        public SKSurface? Surface { get; init; }
-
-        /// <summary>Gets whether drawing should scale to DPI.</summary>
-        public bool ScaleDrawingToDpi { get; init; }
-
-        /// <summary>Gets the DPI of the drawing context.</summary>
-        public Vector Dpi { get; init; }
-
-        /// <summary>Gets whether subpixel text rendering is disabled.</summary>
-        public bool DisableSubpixelTextRendering { get; init; }
-
-        /// <summary>Gets the Skia GPU context if available.</summary>
-        public GRContext? GrContext { get; init; }
-
-        /// <summary>Gets the pixel channel order of the target surface.</summary>
-        public SKColorType? SurfaceColorType { get; init; }
-
-        /// <summary>Gets the Skia GPU platform provider if available.</summary>
-        public ISkiaGpu? Gpu { get; init; }
-
-        /// <summary>Gets the current GPU render session if available.</summary>
-        public ISkiaGpuRenderSession? CurrentSession { get; init; }
-    }
-
-    /// <summary>Owns temporary brush resources while borrowing a session paint.</summary>
-    internal readonly record struct PaintWrapper : IDisposable
-    {
-        /// <summary>Initializes a new instance of the <see cref="PaintWrapper"/> struct.</summary>
-        /// <param name="paint">The session paint.</param>
-        /// <param name="d1">The first temporary resource.</param>
-        /// <param name="d2">The second temporary resource.</param>
-        /// <param name="d3">The third temporary resource.</param>
-        public PaintWrapper(SKPaint paint, IDisposable? d1 = null, IDisposable? d2 = null, IDisposable? d3 = null)
-        {
-            Paint = paint;
-            Disposable1 = d1;
-            Disposable2 = d2;
-            Disposable3 = d3;
-        }
-
-        /// <summary>Gets the paint.</summary>
-        public SKPaint Paint { get; }
-
-        /// <summary>Gets the disposable1.</summary>
-        public IDisposable? Disposable1 { get; }
-
-        /// <summary>Gets the disposable2.</summary>
-        public IDisposable? Disposable2 { get; }
-
-        /// <summary>Gets the disposable3.</summary>
-        public IDisposable? Disposable3 { get; }
-
-        /// <inheritdoc/>
-        public void Dispose()
-        {
-            Paint.Reset();
-            Disposable1?.Dispose();
-            Disposable2?.Dispose();
-            Disposable3?.Dispose();
         }
     }
 

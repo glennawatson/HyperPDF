@@ -19,17 +19,18 @@ public sealed class TaggedPageLeaseTests
     /// <summary>The page duplicated and then restored during each edit cycle.</summary>
     private static readonly int[] FirstPage = [0];
 
-    /// <summary>The maximum time allowed for the concurrent reads and edits.</summary>
+    /// <summary>The maximum time allowed without completing an edit cycle.</summary>
     private static readonly TimeSpan OperationTimeout = TimeSpan.FromSeconds(60);
 
     /// <summary>Tagged reads and reading-structure parsing hold a page lease across concurrent duplicate edits.</summary>
     /// <param name="testToken">Cancels the test operation.</param>
     /// <returns>A task.</returns>
+    /// <exception cref="TimeoutException">An edit cycle does not complete within the progress deadline.</exception>
     [Test]
     public async Task TaggedReadsStayValidDuringRepeatedPageEdits(CancellationToken testToken)
     {
-        using var pair = new EnginePair(TestPdf.CreateTagged());
-        var document = (HyperPdfDocument)pair.HyperPdf;
+        using var test = new HyperPdfTestDocument(TestPdf.CreateTagged());
+        var document = test.Document;
         var tagged = (ITaggedStructureSource)document.GetFeature(typeof(ITaggedStructureSource))!;
         var pageManager = (IPageManagementSource)document.GetFeature(typeof(IPageManagementSource))!;
         var initial = new List<TaggedBlock>();
@@ -43,6 +44,7 @@ public sealed class TaggedPageLeaseTests
         using var progress = new SemaphoreSlim(0, 1);
         var failure = new FirstFailure();
         var running = 1;
+        var completed = 0;
         var reader = StartReader(() => ReadRepeatedly(document, tagged, progress, failure, () => Volatile.Read(ref running) != 0, timeout.Token), timeout.Token);
 
         try
@@ -58,7 +60,14 @@ public sealed class TaggedPageLeaseTests
                 {
                     failure.Record($"Tagged read after undo {index} returned no blocks.");
                 }
+
+                completed++;
+                timeout.CancelAfter(OperationTimeout);
             }
+        }
+        catch (OperationCanceledException exception) when (timeout.IsCancellationRequested && !testToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Tagged reads and edits stopped after {completed} of {EditCount} cycles.", exception);
         }
         finally
         {

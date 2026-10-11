@@ -86,7 +86,7 @@ public sealed class AsyncCancellationTests
     [Test]
     public async Task WarmAsyncReadersCompleteWithoutAllocating()
     {
-        using var document = PdfDocumentReader.Open(Sample, null);
+        using var document = SkiaTestRegistration.Open(Sample, null);
         _ = await PdfDocumentPages.GetPageAsync(document, 0, CancellationToken.None);
         _ = await PdfDocumentText.GetTextPageAsync(document, 0, CancellationToken.None);
         _ = await PdfDocumentNavigation.GetOutlineAsync(document, CancellationToken.None);
@@ -114,7 +114,7 @@ public sealed class AsyncCancellationTests
     [Test]
     public async Task CancelledTokenStopsEveryOperation()
     {
-        using var document = PdfDocumentReader.Open(Sample, null);
+        using var document = SkiaTestRegistration.Open(Sample, null);
         using var renderer = new PdfPageRenderer(document);
         using var source = new CancellationTokenSource();
         await source.CancelAsync();
@@ -123,7 +123,7 @@ public sealed class AsyncCancellationTests
         var pixels = new byte[width * height * BytesPerPixel];
         await using var output = new MemoryStream();
 
-        await Assert.That(await Cancelled(() => PdfDocumentReader.OpenAsync(Sample, null, token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => SkiaTestRegistration.OpenAsync(Sample, null, token).AsTask())).IsTrue();
         await Assert.That(await Cancelled(() => PdfDocumentText.GetTextPageAsync(document, 0, token).AsTask())).IsTrue();
         await Assert.That(await Cancelled(() => PdfDocumentPages.GetPageAsync(document, 0, token).AsTask())).IsTrue();
         await Assert.That(await Cancelled(() => PdfDocumentNavigation.GetOutlineAsync(document, token).AsTask())).IsTrue();
@@ -142,7 +142,7 @@ public sealed class AsyncCancellationTests
         await using var stream = new ThrottledStream(Heavy, TimeSpan.FromMilliseconds(ReadLatencyMilliseconds));
         using var source = new CancellationTokenSource();
         var start = Stopwatch.GetTimestamp();
-        var opening = PdfDocumentReader.OpenAsync(stream, null, source.Token).AsTask();
+        var opening = SkiaTestRegistration.OpenAsync(stream, null, source.Token).AsTask();
         source.CancelAfter(CancelAfterMilliseconds);
         await Assert.That(await Cancelled(() => opening)).IsTrue();
         var stopped = Elapsed(start);
@@ -159,7 +159,7 @@ public sealed class AsyncCancellationTests
     public async Task CancelWhileWalkingThePageTreeStopsTheWalk()
     {
         var baseline = Stopwatch.GetTimestamp();
-        using (var whole = PdfDocumentReader.Open(ManyPages, null))
+        using (var whole = SkiaTestRegistration.Open(ManyPages, null))
         {
             await Assert.That(whole.PageCount).IsEqualTo(ManyPageCount);
         }
@@ -168,7 +168,7 @@ public sealed class AsyncCancellationTests
         using var source = new CancellationTokenSource();
         source.CancelAfter(CancelAfterMilliseconds);
         var start = Stopwatch.GetTimestamp();
-        await Assert.That(await Cancelled(() => PdfDocumentReader.OpenAsync(ManyPages, null, source.Token).AsTask())).IsTrue();
+        await Assert.That(await Cancelled(() => SkiaTestRegistration.OpenAsync(ManyPages, null, source.Token).AsTask())).IsTrue();
         var elapsed = Elapsed(start);
 
         await Assert.That(uncancelled).IsGreaterThan(MinimumOpenMilliseconds);
@@ -181,7 +181,7 @@ public sealed class AsyncCancellationTests
     [Test]
     public async Task CancelWhileRenderingStopsRecording()
     {
-        using var document = PdfDocumentReader.Open(Heavy, null);
+        using var document = SkiaTestRegistration.Open(Heavy, null);
         using var renderer = new PdfPageRenderer(document);
         PdfPageRenderer.GetPixelSize(PdfDocumentPages.GetPage(document, 0), 0, 1F, out var width, out var height);
         var pixels = new byte[width * height * BytesPerPixel];
@@ -194,7 +194,7 @@ public sealed class AsyncCancellationTests
         await Assert.That(Elapsed(start)).IsLessThan(CancelAfterMilliseconds + StopLimitMilliseconds);
 
         // A fresh token on a lighter document of the same renderer family still draws.
-        using var light = PdfDocumentReader.Open(Sample, null);
+        using var light = SkiaTestRegistration.Open(Sample, null);
         using var lightRenderer = new PdfPageRenderer(light);
         PdfPageRenderer.GetPixelSize(PdfDocumentPages.GetPage(light, 0), 0, 1F, out var lightWidth, out var lightHeight);
         var lightPixels = new byte[lightWidth * lightHeight * BytesPerPixel];
@@ -206,7 +206,7 @@ public sealed class AsyncCancellationTests
     [Test]
     public async Task CancelWhileExtractingTextStopsExtraction()
     {
-        using var document = PdfDocumentReader.Open(Heavy, null);
+        using var document = SkiaTestRegistration.Open(Heavy, null);
         using var source = new CancellationTokenSource();
         source.CancelAfter(CancelAfterMilliseconds);
         var start = Stopwatch.GetTimestamp();
@@ -222,10 +222,10 @@ public sealed class AsyncCancellationTests
     {
         using var first = new CancellationTokenSource();
         await using var slow = new ThrottledStream(Heavy, TimeSpan.FromMilliseconds(ReadLatencyMilliseconds));
-        var opening = PdfDocumentReader.OpenAsync(slow, null, first.Token).AsTask();
+        var opening = SkiaTestRegistration.OpenAsync(slow, null, first.Token).AsTask();
         await first.CancelAsync();
         var start = Stopwatch.GetTimestamp();
-        using var next = await PdfDocumentReader.OpenAsync(Sample, null, CancellationToken.None);
+        using var next = await SkiaTestRegistration.OpenAsync(Sample, null, CancellationToken.None);
         var nextText = await PdfDocumentText.GetTextPageAsync(next, 0, CancellationToken.None);
         var openTime = Elapsed(start);
 

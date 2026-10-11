@@ -59,7 +59,7 @@ public static class PdfIncrementalWriter
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdate(store, ref writer);
+            WriteUpdate(store, ref writer, CancellationToken.None);
             output.Write(writer.WrittenSpan);
         }
         finally
@@ -80,7 +80,7 @@ public static class PdfIncrementalWriter
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdate(store, ref writer);
+            WriteUpdate(store, ref writer, CancellationToken.None);
             CopyOriginal(store.Source, destination);
             destination.Write(writer.WrittenSpan);
         }
@@ -101,12 +101,7 @@ public static class PdfIncrementalWriter
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
-        byte[]? update;
-        int length;
-        using (var scope = PdfCancellation.Enter(cancellationToken))
-        {
-            update = BuildUpdate(store, out length);
-        }
+        var update = BuildUpdate(store, out var length, cancellationToken);
 
         try
         {
@@ -125,13 +120,14 @@ public static class PdfIncrementalWriter
     /// <summary>Writes the update into a pooled array, so it can be written across an await.</summary>
     /// <param name="store">The document.</param>
     /// <param name="length">The update's length.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The pooled array, which the caller returns.</returns>
-    private static byte[]? BuildUpdate(PdfObjectStore store, out int length)
+    private static byte[]? BuildUpdate(PdfObjectStore store, out int length, CancellationToken cancellationToken)
     {
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdate(store, ref writer);
+            WriteUpdate(store, ref writer, cancellationToken);
             return writer.Detach(out length);
         }
         finally
@@ -143,8 +139,10 @@ public static class PdfIncrementalWriter
     /// <summary>Writes the update: the objects, the cross-reference section and the trailer.</summary>
     /// <param name="store">The document.</param>
     /// <param name="writer">The writer; its first byte follows the original file.</param>
-    private static void WriteUpdate(PdfObjectStore store, ref PdfObjectWriter writer)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void WriteUpdate(PdfObjectStore store, ref PdfObjectWriter writer, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         StoreRedaction.ThrowIfCompactSaveRequired(store);
         var file = store.Source;
         if (file.ByteAt(file.Length - 1) is not ('\n' or '\r'))
@@ -157,9 +155,9 @@ public static class PdfIncrementalWriter
 
         // One snapshot of the edits, so an edit made during the save cannot split the update.
         var edits = StoreEditing.GetEditedObjects(store, out var storeSize);
-        var objects = standalone ? LiveObjects(store) : edits;
+        var objects = standalone ? LiveObjects(store, cancellationToken) : edits;
         var rows = new XrefRow[objects.Length + ExtraRows];
-        var count = WriteObjects(store, objects, standalone, ref writer, rows);
+        var count = WriteObjects(store, objects, standalone, ref writer, rows, cancellationToken);
         var size = Math.Max(Math.Max(store.Trailer.GetInt32(KnownName.Size), storeSize), objects.Length == 0 ? 0 : objects[^1].Number + 1);
         var trailer = PdfXrefWriter.CreateTrailer(store.Trailer, size, standalone ? -1 : store.StartXref, true);
         PdfXrefWriter.CopyExtraKeys(trailer, store.Trailer);
@@ -194,8 +192,9 @@ public static class PdfIncrementalWriter
     /// <param name="standalone">Whether the update stands alone, and so starts with the free list head.</param>
     /// <param name="writer">The writer.</param>
     /// <param name="rows">The rows, filled in.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The number of rows.</returns>
-    private static int WriteObjects(PdfObjectStore store, PdfEditedObject[] objects, bool standalone, ref PdfObjectWriter writer, XrefRow[] rows)
+    private static int WriteObjects(PdfObjectStore store, PdfEditedObject[] objects, bool standalone, ref PdfObjectWriter writer, XrefRow[] rows, CancellationToken cancellationToken)
     {
         var count = 0;
         var previousFree = -1;
@@ -215,6 +214,7 @@ public static class PdfIncrementalWriter
         var repairs = new PdfSaveRepairs(store, false);
         foreach (var item in objects)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (item.Deleted)
             {
                 // Each free entry names the next one; the last names zero.
@@ -254,12 +254,14 @@ public static class PdfIncrementalWriter
 
     /// <summary>Lists every object that holds a value, leaving out old cross-reference and object streams.</summary>
     /// <param name="store">The document.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The objects, ascending.</returns>
-    private static PdfEditedObject[] LiveObjects(PdfObjectStore store)
+    private static PdfEditedObject[] LiveObjects(PdfObjectStore store, CancellationToken cancellationToken)
     {
         var objects = new List<PdfEditedObject>();
         for (var number = 1; number < store.Size; number++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var value = StoreReading.GetObject(store, new(number, 0));
             if (!value.IsNull && !IsStructureStream(value))
             {

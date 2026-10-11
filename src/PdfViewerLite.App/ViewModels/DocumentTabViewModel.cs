@@ -897,7 +897,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Reflects the publication result in the tab and its file watcher.</summary>
     /// <param name="outcome">The write and replacement result.</param>
     /// <returns>Whether the destination was saved.</returns>
-    private bool ApplySaveOutcome(DocumentSave.SaveOutcome outcome)
+    private bool ApplySaveOutcome(DocumentSaveOutcome outcome)
     {
         if (outcome.Saved)
         {

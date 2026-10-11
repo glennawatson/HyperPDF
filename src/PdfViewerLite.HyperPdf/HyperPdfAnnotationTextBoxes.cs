@@ -75,7 +75,12 @@ internal static class HyperPdfAnnotationTextBoxes
         var wrap = Math.Max(wrapWidth, 0);
         lock (annotationState.Gate)
         {
-            if (HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is not { } page || TextBoxFonts.Resolve(annotationState.Catalog ?? FontCatalog.System, clamped, text) is not { } font)
+            if (HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is not { } page
+                || TextBoxFonts.Resolve(
+                    annotationState.FontState,
+                    annotationState.Catalog ?? FontCatalog.System,
+                    clamped,
+                    text) is not { } font)
             {
                 return -1;
             }
@@ -135,7 +140,12 @@ internal static class HyperPdfAnnotationTextBoxes
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(format);
         var clamped = format.Clamped();
-        return TextBoxFonts.Resolve(HyperPdfAnnotationReading.GetFontCatalog(annotationState), clamped, text) is { } font ? TextBoxLayout.FirstBaseline(clamped, font.Shaper) : float.NaN;
+        var font = TextBoxFonts.Resolve(
+            annotationState.FontState,
+            HyperPdfAnnotationReading.GetFontCatalog(annotationState),
+            clamped,
+            text);
+        return font is not null ? TextBoxLayout.FirstBaseline(clamped, font.Shaper) : float.NaN;
     }
 
     /// <summary>Reads free text written by another program from its contents and its default appearance and style.</summary>
@@ -412,39 +422,5 @@ internal static class HyperPdfAnnotationTextBoxes
         {
             builder.Dispose();
         }
-    }
-
-    /// <summary>How a text box's glyphs are written: the font resource and the code and width of each glyph.</summary>
-    /// <param name="FontResource">The font dictionary or reference.</param>
-    /// <param name="Subset">The embedded subset, or <see langword="null"/> for a built in font.</param>
-    /// <param name="Widths">The subset's widths by code, in thousandths of an em, or <see langword="null"/>.</param>
-    /// <param name="Standard">The built in font, when there is no subset.</param>
-    /// <param name="Font">The font choice, with the styles drawn in.</param>
-    internal sealed record GlyphWriter(PdfValue FontResource, FontSubset? Subset, float[]? Widths, AppearanceFont Standard, TextBoxFont Font)
-    {
-        /// <summary>Writes a glyph's code: two bytes for a subset, one for a built in font.</summary>
-        /// <param name="glyph">The laid out glyph.</param>
-        /// <param name="destination">At least two bytes.</param>
-        /// <returns>The number of bytes written.</returns>
-        internal int Encode(ushort glyph, Span<byte> destination)
-        {
-            if (Subset is null)
-            {
-                destination[0] = (byte)glyph;
-                return 1;
-            }
-
-            var code = Subset.Map(glyph);
-            destination[0] = (byte)(code >> HighByteShift);
-            destination[1] = (byte)code;
-            return CodeBytes;
-        }
-
-        /// <summary>Gets the width a reader gives a glyph's code.</summary>
-        /// <param name="glyph">The laid out glyph.</param>
-        /// <returns>The width in thousandths of an em.</returns>
-        internal float Width(ushort glyph) => Subset is null
-            ? AppearanceFontMetrics.GetAdvance(Standard, (byte)glyph) * Thousand
-            : Widths![Subset.Map(glyph)];
     }
 }

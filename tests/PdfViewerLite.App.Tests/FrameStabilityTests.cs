@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -13,7 +15,7 @@ using PdfViewerLite.App.Controls;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
 using PdfViewerLite.Core.Settings;
-using PdfViewerLite.Pdfium;
+using PdfViewerLite.TestAssets;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 
@@ -34,8 +36,20 @@ public sealed class FrameStabilityTests
     /// <summary>The page count of the document.</summary>
     private const int Pages = 40;
 
-    /// <summary>The number of cached tiles that shows rendering is well under way.</summary>
-    private const int ExpectedTiles = 6;
+    /// <summary>The width of each marked page, in points.</summary>
+    private const int MarkedPageWidth = 612;
+
+    /// <summary>The margin and spacing of the vertical marks, in points.</summary>
+    private const int MarkSpacing = 24;
+
+    /// <summary>The catalog, page tree and shared content objects before the page objects.</summary>
+    private const int SharedPdfObjects = 3;
+
+    /// <summary>The object number of the first page in the marked PDF.</summary>
+    private const int FirstMarkedPageObject = SharedPdfObjects + 1;
+
+    /// <summary>The edges needed to show that the visible page text, rather than only its paper, has drawn.</summary>
+    private const int ReadyEdges = 20;
 
     /// <summary>The scroll distance per step, in canvas units.</summary>
     private const double ScrollStep = 90;
@@ -76,17 +90,48 @@ public sealed class FrameStabilityTests
     /// <summary>Where the wheel zoom is anchored down the viewport.</summary>
     private const double AnchorY = 0.3;
 
-    /// <summary>How long to wait for a tile that is still rendering.</summary>
-    private static readonly TimeSpan SettlePause = TimeSpan.FromMilliseconds(150);
+    /// <summary>Verifies a tile arrival does not cancel other tiles requested for the same view.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RepaintingSameViewKeepsRenderGeneration()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("repaint.pdf", Pages)]);
+        var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
+        window.Show();
+        try
+        {
+            var canvas = await SettleAsync(test, window);
+            var scroller = canvas.FindAncestorOfType<ScrollViewer>()!;
+            var client = main.SelectedTab!.CanvasClient;
+            var generation = client.Generation;
+            canvas.InvalidateVisual();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            using var repainted = window.CaptureRenderedFrame();
+            await Assert.That(client.Generation).IsEqualTo(generation);
+
+            scroller.Offset = new(scroller.Offset.X, scroller.Offset.Y + ScrollStep);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            using var scrolled = window.CaptureRenderedFrame();
+            await Assert.That(client.Generation).IsGreaterThan(generation);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 
     /// <summary>Verifies frames drawn while scrolling are as sharp as the settled frames.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task ScrollingDrawsSettledFrames()
     {
-        using var test = new TestServices(TestEngineChoice.Pdfium);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scroll.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scroll.pdf", CreateStripedPdf())]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -182,8 +227,48 @@ public sealed class FrameStabilityTests
     /// <returns>The page canvas.</returns>
     private static async Task<PageCanvas> SettleAsync(TestServices test, Window window)
     {
-        _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Cache.Count > ExpectedTiles && test.Services.RenderHub.Scheduler.QueueLength == 0);
-        return window.GetVisualDescendants().OfType<PageCanvas>().Single();
+        _ = await UiWait.UntilAsync(() => window.GetVisualDescendants().OfType<PageCanvas>().Any());
+        var canvas = window.GetVisualDescendants().OfType<PageCanvas>().Single();
+        _ = await UiWait.UntilAsync(() =>
+        {
+            var scroller = canvas.FindAncestorOfType<ScrollViewer>();
+            if (scroller is null || scroller.Viewport.Width <= 0 || scroller.Viewport.Height <= 0 || window.Bounds.Width <= 0)
+            {
+                return false;
+            }
+
+            using var frame = window.CaptureRenderedFrame();
+            return frame is not null && CountEdges(frame, scroller, window) > ReadyEdges && test.Services.RenderHub.Scheduler.IsIdle;
+        });
+        return canvas;
+    }
+
+    /// <summary>Fills every page with thin vertical marks so edge counts measure content across the full viewport.</summary>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] CreateStripedPdf()
+    {
+        var content = new StringBuilder("0 0 0 rg\n");
+        for (var x = MarkSpacing; x < MarkedPageWidth - MarkSpacing; x += MarkSpacing)
+        {
+            _ = content.Append(CultureInfo.InvariantCulture, $"{x} 0 2 792 re f\n");
+        }
+
+        var kids = new StringBuilder();
+        for (var page = 0; page < Pages; page++)
+        {
+            _ = kids.Append(CultureInfo.InvariantCulture, $"{page + FirstMarkedPageObject} 0 R ");
+        }
+
+        var objects = new string[Pages + SharedPdfObjects];
+        objects[0] = "<< /Type /Catalog /Pages 2 0 R >>";
+        objects[1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Count {Pages} /Kids [{kids}] >>");
+        objects[2] = MiniPdf.Stream(string.Empty, content.ToString());
+        for (var page = 0; page < Pages; page++)
+        {
+            objects[page + SharedPdfObjects] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 3 0 R >>";
+        }
+
+        return MiniPdf.Build(objects);
     }
 
     /// <summary>Draws the next frame, lets rendering finish, and measures how much of the canvas changed.</summary>
@@ -195,33 +280,27 @@ public sealed class FrameStabilityTests
     /// <returns>The first frame's sharp edges as a share of the settled frame's.</returns>
     private static async Task<double> CompareWithSettledAsync(TestServices test, Window window, ScrollViewer scroller, Action change, string name)
     {
-        // Holding the PDFium lock keeps tiles from arriving, as a slow page would, so the frame shows only what was cached.
-        WriteableBitmap first;
-        using (PdfiumLibrary.EnterScope())
-        {
-            change();
-            Dispatcher.UIThread.RunJobs();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            Dispatcher.UIThread.RunJobs();
-            first = window.CaptureRenderedFrame()!;
-        }
-
-        using var firstFrame = first;
-        _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.QueueLength == 0);
-
-        // The last dequeued tile may still be rendering, so keep pumping until a pause brings no new tiles.
-        using var pause = new PeriodicTimer(SettlePause);
-        var count = -1;
-        while (count != test.Services.RenderHub.Cache.Count && await pause.WaitForNextTickAsync())
-        {
-            count = test.Services.RenderHub.Cache.Count;
-            _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.QueueLength == 0);
-        }
+        var tab = scroller.GetVisualDescendants().OfType<PageCanvas>().Single().Tab!;
+        var client = tab.CanvasClient;
+        var beforeGeneration = client.Generation;
+        var beforeTiles = test.Services.RenderHub.Cache.Count;
+        change();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        using var first = window.CaptureRenderedFrame()!;
+        var firstGeneration = client.Generation;
+        var firstTiles = test.Services.RenderHub.Cache.Count;
+        _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.IsIdle);
 
         using var settled = window.CaptureRenderedFrame()!;
         var settledEdges = CountEdges(settled, scroller, window);
-        var sharpness = settledEdges > 0 ? (double)CountEdges(first, scroller, window) / settledEdges : 1;
-        TestContext.Current?.Output.WriteLine($"{name}: the first frame had {sharpness:P1} of the settled frame's sharp edges");
+        var firstEdges = CountEdges(first, scroller, window);
+        var sharpness = settledEdges > 0 ? (double)firstEdges / settledEdges : 1;
+        TestContext.Current?.Output.WriteLine(
+            $"{name}: {sharpness:P1} sharp; page={tab.CurrentPageIndex}; offset={scroller.Offset.Y:F0} viewport={scroller.Viewport.Height:F0}; "
+            + $"edges={firstEdges}/{settledEdges}; tiles={beforeTiles}/{firstTiles}/{test.Services.RenderHub.Cache.Count}; "
+            + $"generations={beforeGeneration}/{firstGeneration}/{client.Generation}");
         if (sharpness < MinSharpness)
         {
             Save(first, $"{name}-first.png");

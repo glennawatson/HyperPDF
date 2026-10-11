@@ -12,8 +12,9 @@ internal static class ToUnicodeLoader
 {
     /// <summary>Parses /ToUnicode.</summary>
     /// <param name="font">The font dictionary.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The map, or <see langword="null"/> when the font has none or it is damaged.</returns>
-    internal static ToUnicodeMap? Load(PdfDictionary font)
+    internal static ToUnicodeMap? Load(PdfDictionary font, CancellationToken cancellationToken = default)
     {
         if (font.GetStream(KnownName.ToUnicode) is not { } stream)
         {
@@ -22,7 +23,7 @@ internal static class ToUnicodeLoader
 
         try
         {
-            var map = ToUnicodeMap.Parse(stream.DecodeToArray());
+            var map = ToUnicodeMap.Parse(stream.DecodeToArray(cancellationToken));
             return map.Count > 0 ? map : null;
         }
         catch (Exception ex) when (FontLoadErrors.IsDamagedData(ex))

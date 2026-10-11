@@ -4,6 +4,7 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Rendering;
 
 namespace PdfViewerLite.Benchmarks;
@@ -34,6 +35,9 @@ public class RenderWorkloadBenchmarks
 
     /// <summary>The reused caller-owned CPU pixel buffer.</summary>
     private readonly byte[] _pixels = new byte[TileEdge * TileEdge * BytesPerPixel];
+
+    /// <summary>The drawing services reused across benchmark invocations.</summary>
+    private readonly PdfDrawingServices _drawingServices = BenchmarkDrawing.CreateServices();
 
     /// <summary>The source PDF.</summary>
     private byte[] _source = [];
@@ -83,7 +87,7 @@ public class RenderWorkloadBenchmarks
             "USGSLayered" => await File.ReadAllBytesAsync(Environment.GetEnvironmentVariable("PDFVIEWERLITE_BENCHMARK_USGS_LAYERED")!),
             _ => throw new InvalidOperationException($"Unknown render workload: {Workload}"),
         };
-        _document = PdfDocumentReader.Open(_source, null);
+        _document = BenchmarkDrawing.Open(_source, null, _drawingServices);
         _renderer = new(_document);
         if (!WarmReplay())
         {
@@ -109,7 +113,7 @@ public class RenderWorkloadBenchmarks
     [Benchmark]
     public bool ColdOpenAndRender()
     {
-        using var document = PdfDocumentReader.Open(_source, null);
+        using var document = BenchmarkDrawing.Open(_source, null, _drawingServices);
         using var renderer = new PdfPageRenderer(document);
         return renderer.Render(_origin, Target());
     }

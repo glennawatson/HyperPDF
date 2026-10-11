@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdfLibrary.Objects;
-
 namespace HyperPdfLibrary.Rendering;
 
 /// <content>Async rendering.</content>
@@ -80,7 +78,6 @@ public sealed partial class PdfPageRenderer
     private bool RenderScoped(PdfTileRequest request, Memory<byte> pixels, int width, int height, int stride, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
         var status = RenderProgressive(request, new(pixels.Span, width, height, stride), null, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return status == PdfRenderStatus.Done;

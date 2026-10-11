@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdfLibrary.Document;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.TestAssets;
@@ -36,7 +35,7 @@ public sealed class HyperPdfAdapterReadAllocationTests
     [Test]
     public async Task WarmRenderTextAndLinksAllocateZeroBytes()
     {
-        using var document = new HyperPdfDocument(PdfDocumentReader.Open(TestPdf.Create(Pages), null), "adapter-allocation.pdf");
+        using var document = new HyperPdfDocument(SkiaTestDocuments.Open(TestPdf.Create(Pages)), "adapter-allocation.pdf");
         var pixels = new byte[Edge * Edge * PixelBytes];
         var expected = Read(document, pixels);
         for (var index = 0; index < Warmup; index++)

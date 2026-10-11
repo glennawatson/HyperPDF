@@ -32,8 +32,8 @@ namespace PdfViewerLite.App.Controls;
 
 /// <summary>
 /// Draws a document as a continuous strip of pages inside a <see cref="ScrollViewer"/>. Only the tiles intersecting the
-/// viewport are drawn or requested; every frame re-requests what it is missing under a fresh render generation so work
-/// for regions that scrolled away is dropped by the scheduler before it reaches the renderer.
+/// viewport are drawn or requested. A changed view advances the render generation so work for regions that scrolled
+/// away is dropped by the scheduler before it reaches the renderer.
 /// </summary>
 [DebuggerDisplay("PageCanvas: {Tab}")]
 public sealed partial class PageCanvas : Control
@@ -76,6 +76,9 @@ public sealed partial class PageCanvas : Control
 
     /// <summary>How far beyond the viewport, in viewport heights, pages are prefetched.</summary>
     private const double PrefetchViewports = 0.75;
+
+    /// <summary>The smallest display scale change that needs a new tile generation.</summary>
+    private const double RenderScaleTolerance = 1e-9;
 
     /// <summary>Zoom change per wheel notch.</summary>
     private const double WheelZoomStep = 1.1;
@@ -170,6 +173,27 @@ public sealed partial class PageCanvas : Control
 
     /// <summary>Whether every visible page in the frame being drawn had its sharp tiles.</summary>
     private bool _frameComplete;
+
+    /// <summary>The request state used to decide when queued tiles have become stale.</summary>
+    private DocumentTabViewModel? _renderTab;
+
+    /// <summary>The document used by the last tile request.</summary>
+    private IDocument? _renderDocument;
+
+    /// <summary>The viewport used by the last tile request.</summary>
+    private Rect _renderViewport;
+
+    /// <summary>The display scale used by the last tile request.</summary>
+    private double _renderScaling;
+
+    /// <summary>The layout used by the last tile request.</summary>
+    private LayoutOptions _renderLayout;
+
+    /// <summary>The rotation used by the last tile request.</summary>
+    private PageRotation _renderRotation;
+
+    /// <summary>The tone used by the last tile request.</summary>
+    private int _renderToneId;
 
     /// <summary>The pen outlining the current search hit, rebuilt when <see cref="CurrentHitOutline"/> changes.</summary>
     private IPen? _currentHitPen;
@@ -299,7 +323,9 @@ public sealed partial class PageCanvas : Control
         }
 
         var viewport = new Rect(_scroller.Offset.X, _scroller.Offset.Y, _scroller.Viewport.Width, _scroller.Viewport.Height);
-        DrawPages(context, new(tab, document, tab.RenderHub, viewport, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1, tab.CanvasClient.Advance()));
+        var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+        var generation = RenderGeneration(tab, document, viewport, scaling);
+        DrawPages(context, new(tab, document, tab.RenderHub, viewport, scaling, generation));
         DrawAnnotationOverlay(context, tab);
         DrawRegions(context, tab, viewport);
         DrawMeasurement(context, tab);
@@ -314,6 +340,31 @@ public sealed partial class PageCanvas : Control
     /// <param name="error">The error.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void OnError(Exception error) => Trace.TraceError(error.ToString());
+
+    /// <summary>Reuses the generation when a tile arrival repaints the same view.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <param name="document">The document.</param>
+    /// <param name="viewport">The viewport.</param>
+    /// <param name="scaling">The display scale.</param>
+    /// <returns>The generation for requests from this view.</returns>
+    private int RenderGeneration(DocumentTabViewModel tab, IDocument document, in Rect viewport, double scaling)
+    {
+        if (ReferenceEquals(_renderTab, tab) && ReferenceEquals(_renderDocument, document)
+            && _renderViewport.Equals(viewport) && Math.Abs(_renderScaling - scaling) < RenderScaleTolerance
+            && _renderLayout == _layout.Options && _renderRotation == tab.Rotation && _renderToneId == tab.PageTone.Id)
+        {
+            return tab.CanvasClient.Generation;
+        }
+
+        _renderTab = tab;
+        _renderDocument = document;
+        _renderViewport = viewport;
+        _renderScaling = scaling;
+        _renderLayout = _layout.Options;
+        _renderRotation = tab.Rotation;
+        _renderToneId = tab.PageTone.Id;
+        return tab.CanvasClient.Advance();
+    }
 
     /// <summary>Draws the low resolution preview of a page, requesting it when missing.</summary>
     /// <param name="context">The drawing context.</param>
@@ -660,6 +711,7 @@ public sealed partial class PageCanvas : Control
         if (tiled)
         {
             DrawTiles(context, frame, grid, window, visible);
+            PrefetchAdjacentTiles(context, frame, page, rect, window, visible);
         }
 
         if (!visible)
@@ -726,6 +778,34 @@ public sealed partial class PageCanvas : Control
             for (var column = window.FirstColumn; column <= window.LastColumn; column++)
             {
                 DrawTile(context, frame, grid, column, row, visible, request);
+            }
+        }
+    }
+
+    /// <summary>Requests nearby rows of a visible page before scrolling exposes them.</summary>
+    /// <param name="context">The drawing context.</param>
+    /// <param name="frame">The frame.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="rect">The page bounds.</param>
+    /// <param name="visibleWindow">The tile range already requested for drawing.</param>
+    /// <param name="visible">Whether the page is visible.</param>
+    private void PrefetchAdjacentTiles(DrawingContext context, in FrameContext frame, int page, in Rect rect, in TileWindow visibleWindow, bool visible)
+    {
+        if (!visible || IsZoomEasing || !TryGetTileWindow(frame, page, rect, false, out var grid, out var window))
+        {
+            return;
+        }
+
+        for (var row = window.FirstRow; row <= window.LastRow; row++)
+        {
+            for (var column = window.FirstColumn; column <= window.LastColumn; column++)
+            {
+                if (row >= visibleWindow.FirstRow && row <= visibleWindow.LastRow && column >= visibleWindow.FirstColumn && column <= visibleWindow.LastColumn)
+                {
+                    continue;
+                }
+
+                DrawTile(context, frame, grid, column, row, false, true);
             }
         }
     }
@@ -982,6 +1062,8 @@ public sealed partial class PageCanvas : Control
             old.IsAutoScrolling = false;
         }
 
+        _renderTab = null;
+        _renderDocument = null;
         _wiredTab = tab;
         _links.Clear();
         ClearSelection();

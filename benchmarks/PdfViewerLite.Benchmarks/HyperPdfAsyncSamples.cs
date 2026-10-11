@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Rendering;
 using PdfViewerLite.TestAssets;
@@ -34,7 +35,7 @@ internal static class HyperPdfAsyncSamples
     internal const string Word = "the";
 
     /// <summary>The cached corpus folder.</summary>
-    private static readonly string CorpusFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus");
+    private static readonly string CorpusFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "reference-pdfs");
 
     /// <summary>Gets the path of a sample document, writing generated ones to the temp folder.</summary>
     /// <param name="name">Report, Scan, Form or Book.</param>
@@ -65,32 +66,34 @@ internal static class HyperPdfAsyncSamples
     /// <summary>Opens a document the synchronous way for a source kind.</summary>
     /// <param name="path">The file.</param>
     /// <param name="source">Mapped, FileStream, Memory or UserStream.</param>
+    /// <param name="drawingServices">The services reused by the benchmark.</param>
     /// <returns>The opened document.</returns>
-    internal static OpenedDocument OpenSync(string path, string source)
+    internal static OpenedDocument OpenSync(string path, string source, PdfDrawingServices drawingServices)
     {
         if (source == "UserStream")
         {
             var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.RandomAccess);
-            return new(PdfDocumentReader.Open(stream, null), stream);
+            return new(BenchmarkDrawing.Open(stream, null, drawingServices), stream);
         }
 
-        return new(PdfDocumentReader.OpenWith(path, new() { Source = KindOf(source) }), null);
+        return new(PdfDocumentReader.OpenWith(path, new() { Source = KindOf(source), DrawingServices = drawingServices }), null);
     }
 
     /// <summary>Opens a document the async way for a source kind.</summary>
     /// <param name="path">The file.</param>
     /// <param name="source">Mapped, FileStream, Memory or UserStream.</param>
+    /// <param name="drawingServices">The services reused by the benchmark.</param>
     /// <param name="cancellationToken">The token.</param>
     /// <returns>The opened document.</returns>
-    internal static async ValueTask<OpenedDocument> OpenAsync(string path, string source, CancellationToken cancellationToken)
+    internal static async ValueTask<OpenedDocument> OpenAsync(string path, string source, PdfDrawingServices drawingServices, CancellationToken cancellationToken)
     {
         if (source == "UserStream")
         {
             var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.RandomAccess | FileOptions.Asynchronous);
-            return new(await PdfDocumentReader.OpenAsync(stream, null, cancellationToken).ConfigureAwait(false), stream);
+            return new(await BenchmarkDrawing.OpenAsync(stream, null, drawingServices, cancellationToken).ConfigureAwait(false), stream);
         }
 
-        return new(await PdfDocumentReader.OpenWithAsync(path, new() { Source = KindOf(source) }, cancellationToken).ConfigureAwait(false), null);
+        return new(await PdfDocumentReader.OpenWithAsync(path, new() { Source = KindOf(source), DrawingServices = drawingServices }, cancellationToken).ConfigureAwait(false), null);
     }
 
     /// <summary>Renders a page at one pixel per point into a shared buffer.</summary>

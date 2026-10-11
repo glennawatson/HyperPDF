@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
@@ -11,6 +12,9 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 [DebuggerDisplay("JpxBlockDecoder: {_width}x{_height}")]
 internal sealed class JpxBlockState : IDisposable
 {
+    /// <summary>The cache this worker returns its buffers to.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The coefficients, twice scale, in stripe order.</summary>
     private int[] _values = [];
 
@@ -44,8 +48,21 @@ internal sealed class JpxBlockState : IDisposable
     /// <summary>Whether the vertically causal mode is on.</summary>
     private bool _causal;
 
+    /// <summary>Initializes a new instance of the <see cref="JpxBlockState"/> class.</summary>
+    internal JpxBlockState()
+        : this(new ScratchPools())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpxBlockState"/> class with an explicit cache.</summary>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal JpxBlockState(ScratchPools scratchPools) => _scratchPools = scratchPools;
+
     /// <summary>Gets the arithmetic coding context states.</summary>
     internal byte[] Contexts { get; } = new byte[JpxContexts.Count];
+
+    /// <summary>Gets the worker's scratch cache.</summary>
+    internal ScratchPools ScratchPools => _scratchPools;
 
     /// <summary>Gets a reference to the pooled coefficients in stripe order.</summary>
     internal ref int[] Values => ref _values;
@@ -83,9 +100,9 @@ internal sealed class JpxBlockState : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        JpxBlockLayout.Return(ref _values);
-        JpxBlockLayout.Return(ref _flags);
-        JpxBlockLayout.Return(ref _neighbours);
-        JpxBlockLayout.Return(ref _joined);
+        JpxBlockLayout.Return(ref _values, _scratchPools);
+        JpxBlockLayout.Return(ref _flags, _scratchPools);
+        JpxBlockLayout.Return(ref _neighbours, _scratchPools);
+        JpxBlockLayout.Return(ref _joined, _scratchPools);
     }
 }

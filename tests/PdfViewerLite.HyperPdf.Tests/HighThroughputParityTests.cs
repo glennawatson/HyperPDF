@@ -9,6 +9,7 @@ using HyperPdfLibrary.Tests.Graphics.Jpx;
 using HyperPdfLibrary.Tests.Rendering;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
+using PdfViewerLite.HyperPdf.Tests.RenderingComparison;
 
 namespace PdfViewerLite.HyperPdf.Tests;
 
@@ -112,8 +113,10 @@ public sealed class HighThroughputParityTests
         var entries = string.Create(CultureInfo.InvariantCulture, $"/Type /XObject /Subtype /Image /Width {Width} /Height {Height} /ColorSpace /{space}");
         var image = pdf.AddStream($"{entries} /BitsPerComponent 8 /Filter /JPXDecode", codestream);
         pdf.Resources = $"/XObject << /Im {image} 0 R >>";
-        using var pair = new EnginePair(pdf.ToBytes());
-        return new(Errors(Render(pair.Pdfium), planes), Errors(Render(pair.HyperPdf), planes));
+        var bytes = pdf.ToBytes();
+        using var input = new HyperPdfTestDocument(bytes);
+        var reference = PdfiumReferenceRendering.RenderPage(bytes, 0, 1);
+        return new(Errors(reference.Pixels.ToArray(), planes), Errors(Render(input.Document), planes));
     }
 
     /// <summary>Draws the page one point per pixel.</summary>

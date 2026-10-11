@@ -34,7 +34,7 @@ public static class PdfDocumentPages
         ArgumentNullException.ThrowIfNull(page);
         cancellationToken.ThrowIfCancellationRequested();
         await PdfPrefetcher.PrefetchAsync(document.Objects, page.Dictionary, PdfPrefetchKind.Page, cancellationToken).ConfigureAwait(false);
-        await FontDataPrefetcher.PrepareAsync(page, cancellationToken).ConfigureAwait(false);
+        await FontDataPrefetcher.PrepareAsync(document, page, cancellationToken).ConfigureAwait(false);
         PdfDocumentRendering.RefreshFontData(document);
     }
 

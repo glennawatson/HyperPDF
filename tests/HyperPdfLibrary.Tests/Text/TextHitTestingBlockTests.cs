@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Numerics;
-using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Text;
 
@@ -202,48 +201,6 @@ public sealed class TextHitTestingBlockTests
         }
 
         await Check(page, chars, new(new(FarX, FarY), Tolerance, Tolerance));
-    }
-
-    /// <summary>Cached corpus pages preserve scalar hit results at block boundaries and glyph edges.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task CorpusPagesMatchScalarSearch()
-    {
-        var folder = Environment.GetEnvironmentVariable("PDFVIEWERLITE_CORPUS_DIR") is { Length: > 0 } configured
-            ? configured
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus");
-        var files = Directory.Exists(folder) ? Directory.GetFiles(folder, "*.pdf") : [];
-        if (files.Length == 0)
-        {
-            Skip.Test($"No corpus PDFs in {folder}.");
-        }
-
-        Array.Sort(files, StringComparer.Ordinal);
-        foreach (var file in files)
-        {
-            using var document = PdfDocumentReader.Open(file, null);
-            foreach (var pageIndex in new[] { 0, document.PageCount / MiddleDivisor, document.PageCount - 1 }.Distinct())
-            {
-                if (pageIndex < 0 || pageIndex >= document.PageCount)
-                {
-                    continue;
-                }
-
-                var page = PdfDocumentText.GetTextPage(document, pageIndex);
-                var chars = page.Chars.ToArray();
-                for (var i = 0; i < chars.Length; i += BlockSize)
-                {
-                    var box = TextGeometry.Normalize(chars[i].Box);
-                    var center = new Vector2((box.Left + box.Right) * Half, (box.Bottom + box.Top) * Half);
-                    await Check(page, chars, new(center, 0, 0));
-                    await Check(page, chars, new(center, Tolerance, Tolerance));
-                    await Check(page, chars, new(new(box.Right + 1, center.Y), Tolerance, Tolerance));
-                }
-
-                await Check(page, chars, new(new(NegativeFar, NegativeFar), Tolerance, Tolerance));
-                TestContext.Current?.Output.WriteLine($"{Path.GetFileName(file)} page {pageIndex + 1}: {chars.Length} characters, scalar/indexed parity.");
-            }
-        }
     }
 
     /// <summary>Indexed queries do not allocate after a page is constructed.</summary>

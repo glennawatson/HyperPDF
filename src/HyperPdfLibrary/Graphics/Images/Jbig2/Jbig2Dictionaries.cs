@@ -133,8 +133,8 @@ internal static class Jbig2Dictionaries
             return Jbig2Status.Failure;
         }
 
-        using var generic = new Jbig2ContextBuffer(genericLength, ReusedGeneric(reused));
-        using var refinement = new Jbig2ContextBuffer(refinementLength, ReusedRefinement(reused));
+        using var generic = new Jbig2ContextBuffer(genericLength, ReusedGeneric(reused), state.Workspace.ScratchPools);
+        using var refinement = new Jbig2ContextBuffer(refinementLength, ReusedRefinement(reused), state.Workspace.ScratchPools);
         if (DecodeSymbols(state, ref reader, settings, Jbig2TextSegments.CollectSymbols(state, segment), generic.Span, refinement.Span) is not { } symbols)
         {
             return Jbig2Status.Failure;
@@ -167,7 +167,7 @@ internal static class Jbig2Dictionaries
             return huffman;
         }
 
-        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         var symbols = Jbig2SymbolDictionaryDecoder.DecodeArithmetic(ref decoder, settings, inputs, generic, refinement, state.Workspace);
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
         return symbols;
@@ -211,8 +211,8 @@ internal static class Jbig2Dictionaries
         }
         else
         {
-            using var contexts = new Jbig2ContextBuffer(Jbig2GenericParameters.ContextCountFor(template));
-            var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+            using var contexts = new Jbig2ContextBuffer(Jbig2GenericParameters.ContextCountFor(template), state.Workspace.ScratchPools);
+            var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
             segment.Patterns = Jbig2PatternDictionary.DecodeArithmetic(ref decoder, contexts.Span, template, width, height, (int)grayMax, state.Workspace);
             Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
         }

@@ -4,13 +4,10 @@
 
 using System.Diagnostics.Tracing;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Engines;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
-using HyperPdfLibrary.Drawing;
-using HyperPdfLibrary.Render.Skia;
 using Microsoft.Diagnostics.Tracing.Parsers;
 
 namespace PdfViewerLite.Benchmarks;
@@ -42,10 +39,6 @@ public static class Program
         Environment.SetEnvironmentVariable("XDG_RUNTIME_DIR", Path.Combine(Path.GetTempPath(), $"pdfviewerlite-benchmark-{Environment.ProcessId}"));
         _ = BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, CreateConfig(args));
     }
-
-    /// <summary>Registers drawing services in both the benchmark host and its generated worker processes.</summary>
-    [ModuleInitializer]
-    internal static void InitializeDrawing() => PdfDrawingServices.Register(new PdfRenderBackendRegistration().UseSkia());
 
     /// <summary>Creates the configuration: the default jobs, traced for allocations unless a profiler was asked for.</summary>
     /// <param name="args">The arguments.</param>

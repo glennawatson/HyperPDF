@@ -4,8 +4,6 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Document;
-using HyperPdfLibrary.Fonts;
-using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure.Tagged;
 using PdfViewerLite.Core.Reading;
 using PdfViewerLite.HyperPdf;
@@ -26,9 +24,6 @@ public class HyperPdfStructureBenchmarks
 
     /// <summary>The tagged blocks, reused.</summary>
     private readonly List<TaggedBlock> _blocks = [];
-
-    /// <summary>The font factory in force before the benchmarks.</summary>
-    private Func<PdfDictionary, PdfFont?>? _previousFactory;
 
     /// <summary>The tagged document.</summary>
     private PdfDocument _tagged = null!;
@@ -52,21 +47,20 @@ public class HyperPdfStructureBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _previousFactory = PdfFont.Factory;
-        PdfFont.Factory = static dictionary => new StructureBenchmarkFont(dictionary);
         var bytes = TestPdf.CreateTagged();
-        _tagged = PdfDocumentReader.Open(bytes, null);
-        _article = PdfDocumentReader.Open(TestPdf.CreateArticle(ArticlePages), null);
+        var options = new PdfOpenOptions { FontFactory = static dictionary => new StructureBenchmarkFont(dictionary) };
+        _tagged = PdfDocumentReader.OpenWith(bytes, options);
+        _article = PdfDocumentReader.OpenWith(TestPdf.CreateArticle(ArticlePages), options);
         _page = PdfDocumentPages.GetPage(_tagged, 0);
         _tree = PdfDocumentTagged.GetStructureTree(_tagged)!;
         _path = Path.Combine(Path.GetTempPath(), $"structure-benchmark-{Guid.NewGuid():N}.pdf");
         File.WriteAllBytes(_path, bytes);
-        _adapter = (HyperPdfDocument)new HyperPdfEngine().Open(_path, null);
+        _adapter = (HyperPdfDocument)new HyperPdfEngine(static dictionary => new StructureBenchmarkFont(dictionary)).Open(_path, null);
         _ = HyperPdfTagged.GetTaggedBlocksNative(_adapter, 0, _blocks);
         _ = PdfDocumentTagged.GetMarkedContent(_article, 0);
     }
 
-    /// <summary>Closes the documents and restores the font factory.</summary>
+    /// <summary>Closes the documents.</summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -74,7 +68,6 @@ public class HyperPdfStructureBenchmarks
         _tagged.Dispose();
         _article.Dispose();
         File.Delete(_path);
-        PdfFont.Factory = _previousFactory;
     }
 
     /// <summary>Reads the whole structure tree: elements, role maps, attributes and ids.</summary>

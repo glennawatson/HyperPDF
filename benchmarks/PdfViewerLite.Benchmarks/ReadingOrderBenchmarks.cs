@@ -31,7 +31,7 @@ public class ReadingOrderBenchmarks
     private readonly List<TaggedBlock> _taggedBlocks = [];
 
     /// <summary>The document.</summary>
-    private OcrDocument _document = null!;
+    private BenchmarkPdfDocument _document = null!;
 
     /// <summary>The document as a character source.</summary>
     private ITextLayoutSource _source = null!;
@@ -43,7 +43,7 @@ public class ReadingOrderBenchmarks
     private ReadingPage _page = null!;
 
     /// <summary>A tagged document, read through its structure tree.</summary>
-    private OcrDocument _tagged = null!;
+    private BenchmarkPdfDocument _tagged = null!;
 
     /// <summary>Opens a two-page article and reads its first page's characters.</summary>
     [GlobalSetup]

@@ -15,7 +15,8 @@ internal sealed class GpuAvailability
     /// <summary>Gets whether later tiles should prepare software pixels.</summary>
     internal bool IsUnavailable => Volatile.Read(ref _unavailable) != 0;
 
-    /// <summary>Routes subsequent tile preparation to the software path.</summary>
+    /// <summary>Routes subsequent tile preparation to software and reports the first transition.</summary>
+    /// <returns>Whether the graphics path became unavailable in this call.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void MarkUnavailable() => Volatile.Write(ref _unavailable, 1);
+    internal bool MarkUnavailable() => Interlocked.Exchange(ref _unavailable, 1) == 0;
 }

@@ -33,6 +33,9 @@ internal sealed class JpxTileWork
     /// <summary>The image geometry.</summary>
     private readonly JpxGeometry _geometry;
 
+    /// <summary>The cache used by tile component and wavelet buffers.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The tile-component buffers of the current tile.</summary>
     private readonly int[][] _buffers;
 
@@ -54,11 +57,23 @@ internal sealed class JpxTileWork
     /// <summary>The number of finest wavelet levels omitted from this decode.</summary>
     private int _reductionLevels;
 
+    /// <summary>The token for the tile currently being rebuilt.</summary>
+    private CancellationToken _cancellationToken;
+
     /// <summary>Initializes a new instance of the <see cref="JpxTileWork"/> class.</summary>
     /// <param name="geometry">The image geometry.</param>
     internal JpxTileWork(JpxGeometry geometry)
+        : this(geometry, new ScratchPools())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpxTileWork"/> class with an explicit cache.</summary>
+    /// <param name="geometry">The image geometry.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal JpxTileWork(JpxGeometry geometry, ScratchPools scratchPools)
     {
         _geometry = geometry;
+        _scratchPools = scratchPools;
         var components = geometry.Components.Length;
         _buffers = new int[components][];
         _rented = new bool[components];
@@ -78,7 +93,7 @@ internal sealed class JpxTileWork
     /// <param name="blocks">The block decoder used when the blocks decode on the calling thread.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Run(JpxTile tile, byte[] data, bool transform, JpxDecodedImage image, JpxBlockState blocks) =>
-        Run(tile, data, transform, image, blocks, 0);
+        Run(tile, data, transform, image, blocks, 0, default);
 
     /// <summary>Rebuilds a tile only to the requested wavelet resolution.</summary>
     /// <param name="tile">The parsed tile.</param>
@@ -87,12 +102,14 @@ internal sealed class JpxTileWork
     /// <param name="image">The reduced output planes.</param>
     /// <param name="blocks">The calling thread's block decoder.</param>
     /// <param name="reductionLevels">The omitted finest wavelet levels.</param>
-    internal void Run(JpxTile tile, byte[] data, bool transform, JpxDecodedImage image, JpxBlockState blocks, int reductionLevels)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal void Run(JpxTile tile, byte[] data, bool transform, JpxDecodedImage image, JpxBlockState blocks, int reductionLevels, CancellationToken cancellationToken = default)
     {
         _tile = tile;
         _data = data;
         _image = image;
         _reductionLevels = reductionLevels;
+        _cancellationToken = cancellationToken;
         try
         {
             PrepareBuffers();
@@ -121,26 +138,26 @@ internal sealed class JpxTileWork
         }
     }
 
-    /// <summary>Returns a rented array.</summary>
-    /// <param name="array">The array, emptied.</param>
-    private static void ReturnArray(ref int[] array)
-    {
-        if (array.Length > 0)
-        {
-            ScratchPool<int>.Shared.Return(array);
-        }
-
-        array = [];
-    }
-
     /// <summary>Disposes a worker's block decoder.</summary>
     /// <param name="decoder">The decoder.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ReleaseDecoder(JpxBlockState decoder) => decoder.Dispose();
 
+    /// <summary>Returns a rented array.</summary>
+    /// <param name="array">The array, emptied.</param>
+    private void ReturnArray(ref int[] array)
+    {
+        if (array.Length > 0)
+        {
+            _scratchPools.Get<int>().Return(array);
+        }
+
+        array = [];
+    }
+
     /// <summary>Creates a worker's block decoder.</summary>
     /// <returns>The decoder.</returns>
-    private static JpxBlockState CreateDecoder() => new();
+    private JpxBlockState CreateDecoder() => new(_scratchPools);
 
     /// <summary>Gets a zeroed coefficient buffer and wavelet scratch for each tile-component; the buffer is the output plane itself when the tile covers it.</summary>
     private void PrepareBuffers()
@@ -150,7 +167,7 @@ internal sealed class JpxTileWork
             var area = _tile.Components[c].Area.Reduce(_reductionLevels);
             var length = area.Width * area.Height;
             _rented[c] = area != _image.Areas[c];
-            _buffers[c] = _rented[c] ? ScratchPool<int>.Shared.Rent(Math.Max(length, 1)) : _image.Planes[c];
+            _buffers[c] = _rented[c] ? _scratchPools.Get<int>().Rent(Math.Max(length, 1)) : _image.Planes[c];
             _buffers[c].AsSpan(0, length).Clear();
             var scratch = JpxWavelet.ScratchLength(area.Width, area.Height);
             if (_scratches[c].Length >= scratch)
@@ -159,7 +176,7 @@ internal sealed class JpxTileWork
             }
 
             ReturnArray(ref _scratches[c]);
-            _scratches[c] = ScratchPool<int>.Shared.Rent(scratch);
+            _scratches[c] = _scratchPools.Get<int>().Rent(scratch);
         }
     }
 
@@ -170,7 +187,7 @@ internal sealed class JpxTileWork
         {
             if (_rented[c])
             {
-                ScratchPool<int>.Shared.Return(_buffers[c]);
+                _scratchPools.Get<int>().Return(_buffers[c]);
             }
 
             _rented[c] = false;
@@ -207,7 +224,8 @@ internal sealed class JpxTileWork
         var lastResolution = _tile.Resolutions[info.FirstResolution + info.Levels - _reductionLevels];
         if (_tile.Blocks[index].Band < lastResolution.FirstBand + lastResolution.BandCount)
         {
-            JpxBlockDecoder.Decode(decoder, _tile, index, _data, new(_buffers[component], info.Area.Reduce(_reductionLevels).Width, info.Reversible, info.RoiShift, info.BlockStyle));
+            JpxBlockTarget target = new(_buffers[component], info.Area.Reduce(_reductionLevels).Width, info.Reversible, info.RoiShift, info.BlockStyle);
+            JpxBlockDecoder.Decode(decoder, _tile, index, _data, target, _cancellationToken);
         }
 
         return decoder;

@@ -108,14 +108,26 @@ internal static class CcittG4Encoder
     /// <param name="blackIs1">Whether 1 bits are black; otherwise 0 bits are.</param>
     /// <param name="output">Receives the encoded data.</param>
     /// <exception cref="ArgumentOutOfRangeException">The size is not positive or the rows are too short.</exception>
-    internal static void Encode(ReadOnlySpan<byte> rows, int width, int height, bool blackIs1, ref PooledBuffer output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Encode(ReadOnlySpan<byte> rows, int width, int height, bool blackIs1, ref PooledBuffer output) =>
+        Encode(rows, width, height, blackIs1, ref output, new());
+
+    /// <summary>Encodes Group 4 rows with an explicitly owned scratch cache.</summary>
+    /// <param name="rows">The packed rows.</param>
+    /// <param name="width">The pixels in a row.</param>
+    /// <param name="height">The rows.</param>
+    /// <param name="blackIs1">Whether 1 bits are black.</param>
+    /// <param name="output">Receives encoded data.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal static void Encode(ReadOnlySpan<byte> rows, int width, int height, bool blackIs1, ref PooledBuffer output, ScratchPools scratchPools)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
         var stride = (width + BitMask) >> ByteShift;
         ArgumentOutOfRangeException.ThrowIfLessThan((long)rows.Length, (long)stride * height, nameof(rows));
         var lineLength = width + LineSlack;
-        var rented = ScratchPool<int>.Shared.Rent(lineLength + lineLength);
+        var pool = scratchPools.Get<int>();
+        var rented = pool.Rent(lineLength + lineLength);
         var bits = default(BitWriter);
         try
         {
@@ -142,7 +154,7 @@ internal static class CcittG4Encoder
         finally
         {
             bits.Dispose();
-            ScratchPool<int>.Shared.Return(rented);
+            pool.Return(rented);
         }
     }
 

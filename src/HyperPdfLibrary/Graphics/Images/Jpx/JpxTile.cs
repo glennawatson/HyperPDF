@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
@@ -36,31 +37,49 @@ internal sealed class JpxTile : IDisposable
 
     /// <summary>Initializes a new instance of the <see cref="JpxTile"/> class.</summary>
     /// <param name="components">The number of image components.</param>
-    internal JpxTile(int components) => Components = new JpxTileComponent[components];
+    internal JpxTile(int components)
+        : this(components, new ScratchPools())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpxTile"/> class with an explicit cache.</summary>
+    /// <param name="components">The number of image components.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal JpxTile(int components, ScratchPools scratchPools)
+    {
+        Components = new JpxTileComponent[components];
+        Resolutions = new(scratchPools);
+        Bands = new(scratchPools);
+        Precincts = new(scratchPools);
+        Blocks = new(scratchPools);
+        Segments = new(scratchPools);
+        Chunks = new(scratchPools);
+        Nodes = new(scratchPools);
+    }
 
     /// <summary>Gets the tile-components.</summary>
     internal JpxTileComponent[] Components { get; }
 
     /// <summary>Gets the resolution levels of every component.</summary>
-    internal JpxList<JpxResolutionLayout> Resolutions { get; } = new();
+    internal JpxList<JpxResolutionLayout> Resolutions { get; }
 
     /// <summary>Gets the sub-bands.</summary>
-    internal JpxList<JpxBandLayout> Bands { get; } = new();
+    internal JpxList<JpxBandLayout> Bands { get; }
 
     /// <summary>Gets the precincts, per sub-band.</summary>
-    internal JpxList<JpxPrecinctLayout> Precincts { get; } = new();
+    internal JpxList<JpxPrecinctLayout> Precincts { get; }
 
     /// <summary>Gets the code-blocks.</summary>
-    internal JpxList<JpxCodeBlock> Blocks { get; } = new();
+    internal JpxList<JpxCodeBlock> Blocks { get; }
 
     /// <summary>Gets the codeword segments.</summary>
-    internal JpxList<JpxSegment> Segments { get; } = new();
+    internal JpxList<JpxSegment> Segments { get; }
 
     /// <summary>Gets the data chunks.</summary>
-    internal JpxList<JpxChunk> Chunks { get; } = new();
+    internal JpxList<JpxChunk> Chunks { get; }
 
     /// <summary>Gets the tag tree nodes.</summary>
-    internal JpxList<JpxTagNode> Nodes { get; } = new();
+    internal JpxList<JpxTagNode> Nodes { get; }
 
     /// <summary>Gets the tile's area on the reference grid.</summary>
     internal JpxRectangle Area { get; private set; }

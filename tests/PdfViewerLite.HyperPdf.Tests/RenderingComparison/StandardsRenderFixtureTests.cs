@@ -29,11 +29,10 @@ public sealed class StandardsRenderFixtureTests
     {
         RequireBrowser();
         var fixture = StandardsRenderFixtures.Create((StandardsRenderCase)caseNumber);
-        using var pair = new EnginePair(fixture.Pdf);
-        await pair.HyperPdf.PreparePageAsync(0, cancellationToken);
-        await pair.Pdfium.PreparePageAsync(0, cancellationToken);
-        var hyper = ComparisonRendering.Render(pair.HyperPdf);
-        var pdfium = ComparisonRendering.Render(pair.Pdfium);
+        using var input = new HyperPdfTestDocument(fixture.Pdf);
+        await input.Document.PreparePageAsync(0, cancellationToken);
+        var hyper = ComparisonRendering.Render(input.Document);
+        var pdfium = PdfiumReferenceRendering.RenderPage(fixture.Pdf, 0, 1);
         await using var browser = await PdfJsBrowserSession.CreateAsync(cancellationToken);
         var pdfJs = await browser.RenderAsync(fixture.Pdf, 0, 1, cancellationToken);
         var result = ComparisonPolicy.Evaluate(hyper, pdfium, pdfJs.Raster, fixture.Oracle);

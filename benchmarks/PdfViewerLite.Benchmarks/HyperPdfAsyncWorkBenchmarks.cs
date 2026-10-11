@@ -4,6 +4,7 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Rendering;
 using HyperPdfLibrary.Text;
@@ -23,6 +24,9 @@ public class HyperPdfAsyncWorkBenchmarks
 
     /// <summary>The stream saves are written to.</summary>
     private readonly MemoryStream _saved = new();
+
+    /// <summary>The drawing services reused across benchmark invocations.</summary>
+    private readonly PdfDrawingServices _drawingServices = BenchmarkDrawing.CreateServices();
 
     /// <summary>The file.</summary>
     private string _path = string.Empty;
@@ -48,7 +52,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark(Baseline = true)]
     public int RenderPagesSync()
     {
-        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source);
+        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source, _drawingServices);
         using var renderer = new PdfPageRenderer(opened.Document);
         var drawn = 0;
         for (var i = 0; i < Math.Min(HyperPdfAsyncSamples.RenderedPages, opened.Document.PageCount); i++)
@@ -64,7 +68,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark]
     public async ValueTask<int> RenderPagesAsync()
     {
-        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, CancellationToken.None).ConfigureAwait(false);
+        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, _drawingServices, CancellationToken.None).ConfigureAwait(false);
         using var renderer = new PdfPageRenderer(opened.Document);
         var drawn = 0;
         for (var i = 0; i < Math.Min(HyperPdfAsyncSamples.RenderedPages, opened.Document.PageCount); i++)
@@ -80,7 +84,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark]
     public int TextAllSync()
     {
-        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source);
+        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source, _drawingServices);
         var characters = 0;
         for (var i = 0; i < opened.Document.PageCount; i++)
         {
@@ -95,7 +99,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark]
     public async ValueTask<int> TextAllAsync()
     {
-        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, CancellationToken.None).ConfigureAwait(false);
+        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, _drawingServices, CancellationToken.None).ConfigureAwait(false);
         var characters = 0;
         await foreach (var page in PdfDocumentText.GetTextPagesAsync(opened.Document, CancellationToken.None).ConfigureAwait(false))
         {
@@ -110,7 +114,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark]
     public int SearchSync()
     {
-        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source);
+        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source, _drawingServices);
         var found = new List<PdfTextMatch>();
         for (var i = 0; i < opened.Document.PageCount; i++)
         {
@@ -125,7 +129,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark]
     public async ValueTask<int> SearchAsync()
     {
-        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, CancellationToken.None).ConfigureAwait(false);
+        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, _drawingServices, CancellationToken.None).ConfigureAwait(false);
         var matches = 0;
         await foreach (var page in PdfDocumentText.FindAsync(opened.Document, HyperPdfAsyncSamples.Word, PdfTextSearchOptions.None, CancellationToken.None).ConfigureAwait(false))
         {
@@ -140,7 +144,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark]
     public int NavigationSync()
     {
-        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source);
+        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source, _drawingServices);
         var document = opened.Document;
         var count = PdfDocumentNavigation.GetOutline(document).Count;
         for (var i = 0; i < document.PageCount; i++)
@@ -156,7 +160,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark]
     public async ValueTask<int> NavigationAsync()
     {
-        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, CancellationToken.None).ConfigureAwait(false);
+        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, _drawingServices, CancellationToken.None).ConfigureAwait(false);
         var document = opened.Document;
         var count = (await PdfDocumentNavigation.GetOutlineAsync(document, CancellationToken.None).ConfigureAwait(false)).Count;
         for (var i = 0; i < document.PageCount; i++)
@@ -173,7 +177,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark]
     public long SaveAfterEditSync()
     {
-        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source);
+        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source, _drawingServices);
         PdfDocumentMetadataEditing.SetMetadata(opened.Document, new PdfMetadataEdit { Title = "Edited" });
         _saved.SetLength(0);
         PdfIncrementalWriter.Save(opened.Document.Objects, _saved);
@@ -185,7 +189,7 @@ public class HyperPdfAsyncWorkBenchmarks
     [Benchmark]
     public async ValueTask<long> SaveAfterEditAsync()
     {
-        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, CancellationToken.None).ConfigureAwait(false);
+        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, _drawingServices, CancellationToken.None).ConfigureAwait(false);
         PdfDocumentMetadataEditing.SetMetadata(opened.Document, new PdfMetadataEdit { Title = "Edited" });
         _saved.SetLength(0);
         await PdfDocumentSaving.SaveAsync(opened.Document, _saved, CancellationToken.None).ConfigureAwait(false);

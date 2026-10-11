@@ -41,13 +41,13 @@ public sealed partial class PdfPageRenderer
         }
 
         var page = PdfDocumentPages.GetPage(_document, pageIndex);
-        if (page.Dictionary.Get(_cache.Thumb).AsStream() is not { } thumb)
+        if (page.Dictionary.Get(Cache.Thumb).AsStream() is not { } thumb)
         {
             return null;
         }
 
         var data = PdfImageDecoder.Decode(thumb, page.Resources);
-        return data is null || data.IsStencilMask || data.UnsupportedCodec != PdfImageCodec.None ? null : PdfRenderCache.ToRenderImage(data);
+        return data is null || data.IsStencilMask || data.UnsupportedCodec != PdfImageCodec.None ? null : Cache.ToRenderImage(data);
     }
 
     /// <summary>
@@ -72,7 +72,7 @@ public sealed partial class PdfPageRenderer
             return page is not null && Render(new(pageIndex, ThumbnailScale(page, maxEdge), 0, 0, 0, PdfRenderFlags.None), target);
         }
 
-        return target.IsValid && PdfDrawingServices.Backend.GetDrawingSession().DrawImage(embedded, target);
+        return target.IsValid && _document.DrawingServices.Backend.GetDrawingSession().DrawImage(embedded, target);
     }
 
     /// <summary>Gets the scale that fits a page into a square.</summary>

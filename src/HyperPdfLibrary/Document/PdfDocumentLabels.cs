@@ -80,9 +80,9 @@ public static class PdfDocumentLabels
     /// <param name="ranges">The sorted ranges.</param>
     /// <param name="index">The page index.</param>
     /// <returns>The range, or <see langword="null"/>.</returns>
-    internal static LabelRange? FindRange(LabelRange[] ranges, int index)
+    internal static PageLabelRange? FindRange(PageLabelRange[] ranges, int index)
     {
-        LabelRange? found = null;
+        PageLabelRange? found = null;
         foreach (var range in ranges)
         {
             if (range.Start > index)
@@ -99,7 +99,7 @@ public static class PdfDocumentLabels
     /// <summary>Reads the label ranges once.</summary>
     /// <param name="document">The document.</param>
     /// <returns>The ranges, sorted by start page.</returns>
-    internal static LabelRange[] GetLabelRanges(PdfDocument document)
+    internal static PageLabelRange[] GetLabelRanges(PdfDocument document)
     {
         var ranges = Volatile.Read(ref document.State.LabelRanges);
         if (ranges is not null)
@@ -109,7 +109,7 @@ public static class PdfDocumentLabels
 
         var entries = new List<NameTreeEntry>();
         NameTree.EnumerateNumbers(document.Catalog.GetDictionary(KnownName.PageLabels), entries);
-        var list = new List<LabelRange>(entries.Count);
+        var list = new List<PageLabelRange>(entries.Count);
         foreach (var entry in entries)
         {
             if (entry.Key.IsNumber && entry.Value.AsDictionary() is { } label)
@@ -189,11 +189,6 @@ public static class PdfDocumentLabels
         var count = ((zeroBased / PdfDocumentLabels.LetterCount) + 1) % PdfDocumentLabels.MaxLetters;
         return new((char)('a' + (zeroBased % PdfDocumentLabels.LetterCount)), count);
     }
-
-    /// <summary>A run of pages sharing a label style.</summary>
-    /// <param name="Start">The first page of the run.</param>
-    /// <param name="Label">The label dictionary.</param>
-    internal readonly record struct LabelRange(int Start, PdfDictionary Label);
 
     /// <summary>The value and case written into a Roman label.</summary>
     /// <param name="Number">The value after PDFium's wrap.</param>

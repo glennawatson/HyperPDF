@@ -32,6 +32,9 @@ internal sealed class PdfStoreImporter : IPdfCarrySink
     /// <summary>The store copied from.</summary>
     private readonly PdfObjectStore _source;
 
+    /// <summary>The token for this import transaction.</summary>
+    private readonly CancellationToken _cancellationToken;
+
     /// <summary>The new number of each old number: zero when not yet copied, -1 when left out.</summary>
     private readonly int[] _map;
 
@@ -54,11 +57,13 @@ internal sealed class PdfStoreImporter : IPdfCarrySink
     /// <param name="transaction">The transaction receiving the copies.</param>
     /// <param name="target">The store receiving the copies.</param>
     /// <param name="source">The store copied from.</param>
-    internal PdfStoreImporter(PdfEditTransaction transaction, PdfObjectStore target, PdfObjectStore source)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal PdfStoreImporter(PdfEditTransaction transaction, PdfObjectStore target, PdfObjectStore source, CancellationToken cancellationToken)
     {
         _transaction = transaction;
         _target = target;
         _source = source;
+        _cancellationToken = cancellationToken;
         _map = new int[source.Size];
     }
 
@@ -78,12 +83,12 @@ internal sealed class PdfStoreImporter : IPdfCarrySink
     /// <returns>The value in the target; a reference stays a reference.</returns>
     internal PdfValue Import(PdfValue value)
     {
-        PdfCancellation.ThrowIfCancelled();
+        _cancellationToken.ThrowIfCancellationRequested();
         _current = 0;
         var copy = Copy(value, 0);
         while (_pending.TryDequeue(out var item))
         {
-            PdfCancellation.ThrowIfCancelled();
+            _cancellationToken.ThrowIfCancellationRequested();
             _current = item.Source;
             var replaced = _overrides.TryGetValue(item.Source, out var replacement);
             _keepParent = replaced && replacement.KeepParent;

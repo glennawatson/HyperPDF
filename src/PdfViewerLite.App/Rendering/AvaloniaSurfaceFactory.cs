@@ -20,9 +20,6 @@ internal sealed class AvaloniaSurfaceFactory : IRenderSurfaceFactory
     /// <param name="recoverSoftware">Requests software tiles on the UI thread after graphics failure.</param>
     internal AvaloniaSurfaceFactory(Action recoverSoftware) => _recoverSoftware = recoverSoftware;
 
-    /// <summary>Gets whether the graphics path has failed for this render hub.</summary>
-    internal bool IsGpuUnavailable => _availability.IsUnavailable;
-
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IRenderSurface Create(int width, int height) => new GpuPreparedRenderSurface(width, height, _availability, _recoverSoftware);

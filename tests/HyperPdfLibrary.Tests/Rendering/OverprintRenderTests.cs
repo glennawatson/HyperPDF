@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Rendering;
@@ -19,6 +20,9 @@ public sealed class OverprintRenderTests
 
     /// <summary>The middle of the page.</summary>
     private const int Middle = 50;
+
+    /// <summary>The render passes after both renderers are created.</summary>
+    private const int InterleavedPasses = 2;
 
     /// <summary>The DeviceCMYK colour space name.</summary>
     private const string Cmyk = "/DeviceCMYK";
@@ -49,6 +53,25 @@ public sealed class OverprintRenderTests
         var image = Render(Cmyk, CyanPixel, Overprint, false);
 
         await RenderCheck.Near(image, Middle, Middle, new(cyan.Red, cyan.Green, cyan.Blue), Tolerance, nameof(OverprintIsOffByDefault));
+    }
+
+    /// <summary>Each renderer keeps its own overprint setting when another renderer uses the same document.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ConflictingRenderersKeepTheirOverprintSettings()
+    {
+        using var document = SkiaTestRegistration.Open(CreateImagePdf(Cmyk, CyanPixel, Overprint), null);
+        using var overprinting = new PdfPageRenderer(document, PdfRenderOptions.Default with { SimulateOverprint = true });
+        using var covering = new PdfPageRenderer(document, PdfRenderOptions.Default with { SimulateOverprint = false });
+        var cyan = Cyan();
+        var green = new Rgb(cyan.Red, cyan.Green, 0);
+        var blue = new Rgb(cyan.Red, cyan.Green, cyan.Blue);
+
+        for (var i = 0; i < InterleavedPasses; i++)
+        {
+            await RenderCheck.Near(RenderConfigured(overprinting), Middle, Middle, green, Tolerance, nameof(ConflictingRenderersKeepTheirOverprintSettings));
+            await RenderCheck.Near(RenderConfigured(covering), Middle, Middle, blue, Tolerance, nameof(ConflictingRenderersKeepTheirOverprintSettings));
+        }
     }
 
     /// <summary>A Separation image overprints too.</summary>
@@ -104,7 +127,7 @@ public sealed class OverprintRenderTests
         using var page = new RenderTestPage(pdf.ToBytes());
         using var configured = new PdfPageRenderer(page.Document, PdfRenderOptions.Default with { SimulateOverprint = true });
 
-        var image = page.RenderPage();
+        var image = RenderConfigured(configured);
 
         await RenderCheck.Near(image, Middle, Middle, new(cyan.Red, cyan.Green, cyan.Blue), Tolerance, nameof(CmykFillDoesNotOverprint));
     }
@@ -128,11 +151,36 @@ public sealed class OverprintRenderTests
     /// <returns>The pixels.</returns>
     private static RenderedImage Render(string colorSpace, string hex, string state, bool simulate)
     {
+        using var page = new RenderTestPage(CreateImagePdf(colorSpace, hex, state));
+        using var configured = new PdfPageRenderer(page.Document, PdfRenderOptions.Default with { SimulateOverprint = simulate });
+        return RenderConfigured(configured);
+    }
+
+    /// <summary>Creates a one-pixel image over a yellow page.</summary>
+    /// <param name="colorSpace">The image's colour space.</param>
+    /// <param name="hex">The image data in hexadecimal.</param>
+    /// <param name="state">The ExtGState entries in force.</param>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] CreateImagePdf(string colorSpace, string hex, string state)
+    {
         var pdf = new RenderTestPdf(Size, Size) { Content = "1 1 0 rg 0 0 100 100 re f /OP gs q 100 0 0 100 0 0 cm /Im Do Q" };
         var image = pdf.AddStream($"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace {colorSpace} /BitsPerComponent 8 /Filter /ASCIIHexDecode", hex);
         pdf.Resources = $"/XObject << /Im {image} 0 R >> /ExtGState << /OP << /Type /ExtGState {state} >> >>";
-        using var page = new RenderTestPage(pdf.ToBytes());
-        using var configured = new PdfPageRenderer(page.Document, PdfRenderOptions.Default with { SimulateOverprint = simulate });
-        return page.RenderPage();
+        return pdf.ToBytes();
+    }
+
+    /// <summary>Renders the page through the specified renderer.</summary>
+    /// <param name="renderer">The renderer.</param>
+    /// <returns>The page pixels.</returns>
+    /// <exception cref="InvalidOperationException">The page could not be rendered.</exception>
+    private static RenderedImage RenderConfigured(PdfPageRenderer renderer)
+    {
+        var pixels = new byte[Size * Size * RenderedImage.BytesPerPixel];
+        if (!renderer.Render(new(0, 1, 0, 0, 0, PdfRenderFlags.None), new(pixels, Size, Size, Size * RenderedImage.BytesPerPixel)))
+        {
+            throw new InvalidOperationException("The page could not be rendered.");
+        }
+
+        return new(pixels, Size, Size);
     }
 }

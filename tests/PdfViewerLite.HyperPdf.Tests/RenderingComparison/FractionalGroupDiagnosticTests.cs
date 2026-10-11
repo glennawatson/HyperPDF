@@ -24,11 +24,10 @@ public sealed class FractionalGroupDiagnosticTests
         }
 
         var pdf = StandardsRenderFixtures.NonIsolatedGroup(true);
-        using var pair = new EnginePair(pdf);
-        await pair.HyperPdf.PreparePageAsync(0, cancellationToken);
-        await pair.Pdfium.PreparePageAsync(0, cancellationToken);
-        var hyper = ComparisonRendering.Render(pair.HyperPdf);
-        var pdfium = ComparisonRendering.Render(pair.Pdfium);
+        using var input = new HyperPdfTestDocument(pdf);
+        await input.Document.PreparePageAsync(0, cancellationToken);
+        var hyper = ComparisonRendering.Render(input.Document);
+        var pdfium = PdfiumReferenceRendering.RenderPage(pdf, 0, 1);
         await using var browser = await PdfJsBrowserSession.CreateAsync(cancellationToken);
         var pdfJs = await browser.RenderAsync(pdf, 0, 1, cancellationToken);
         var decision = ComparisonPolicy.Evaluate(hyper, pdfium, pdfJs.Raster, null);

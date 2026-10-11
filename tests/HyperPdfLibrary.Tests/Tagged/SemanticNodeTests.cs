@@ -29,8 +29,7 @@ public sealed class SemanticNodeTests
     [Test]
     public async Task FollowsLogicalOrder()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.Basic(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.Basic());
         var page = PdfReadingStructure.Read(document, 0);
         var root = page.Nodes[0];
 
@@ -50,8 +49,7 @@ public sealed class SemanticNodeTests
     [Test]
     public async Task FiguresSpeakTheirDescription()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.Basic(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.Basic());
         var figure = PdfReadingStructure.Read(document, 0).Nodes[0].Children[FigureIndex];
 
         await Assert.That(figure.Role).IsEqualTo(PdfSemanticRole.Figure);
@@ -65,8 +63,7 @@ public sealed class SemanticNodeTests
     [Test]
     public async Task ItemsMapBackToGlyphs()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.Basic(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.Basic());
         var page = PdfReadingStructure.Read(document, 0);
         var items = new List<int>();
         page.Nodes[0].Children[0].CollectItems(items);
@@ -84,8 +81,7 @@ public sealed class SemanticNodeTests
     [Test]
     public async Task LinksTableCellsToHeaders()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.TableAndList(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.TableAndList());
         var table = PdfReadingStructure.Read(document, 0).Nodes[0];
 
         await Assert.That(table.Role).IsEqualTo(PdfSemanticRole.Table);
@@ -104,8 +100,7 @@ public sealed class SemanticNodeTests
     [Test]
     public async Task ReadsLists()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.TableAndList(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.TableAndList());
         var list = PdfReadingStructure.Read(document, 0).Nodes[1];
         var item = list.Children[0];
 
@@ -123,8 +118,7 @@ public sealed class SemanticNodeTests
     [Test]
     public async Task ReadsLinksAndFormFields()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.LinksAndForms(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.LinksAndForms());
         var root = PdfReadingStructure.Read(document, 0).Nodes[0];
         var link = root.Children[0];
         var field = root.Children[FieldIndex];
@@ -145,7 +139,7 @@ public sealed class SemanticNodeTests
     [Test]
     public async Task AnnotationsLeadBackToTheirElements()
     {
-        using var document = PdfDocumentReader.Open(TaggedSamples.LinksAndForms(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.LinksAndForms());
         var tree = PdfDocumentTagged.GetStructureTree(document)!;
         var annotations = PdfDocumentPages.GetPage(document, 0).Dictionary.GetArray(Objects.KnownName.Annots)!;
 

@@ -17,7 +17,10 @@ public sealed class TextSpaceCleanupTests
     /// <summary>The index of B in the compacted result.</summary>
     private const int FinalLetter = 3;
 
-    /// <summary>Cancellation and a font failure clear populated buffers before a successful retry.</summary>
+    /// <summary>Unicode lookups allowed before an interruption.</summary>
+    private const int LookupsBeforeInterruption = 4;
+
+    /// <summary>Cancellation and a font failure clear the leased state before a successful retry.</summary>
     /// <param name="cancel">Whether to interrupt with cancellation or a font failure.</param>
     /// <param name="cancellationToken">Cancels the test.</param>
     /// <returns>A task.</returns>
@@ -26,51 +29,45 @@ public sealed class TextSpaceCleanupTests
     [Arguments(true)]
     public async Task InterruptedExtractionClearsPopulatedBuffers(bool cancel, CancellationToken cancellationToken)
     {
-        using var document = PdfDocumentReader.Open(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td [(  A) -20 (   B  )] TJ ET").ToBytes(), null);
-        await PdfDocumentPages.PrefetchPageAsync(document, 0, cancellationToken);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var probe = new InterruptionProbe(cancellation, cancel);
-        var previous = PdfFont.Factory;
+        using var document = PdfDocumentReader.OpenWith(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td [(  A) -20 (   B  )] TJ ET").ToBytes(), new PdfOpenOptions
+        {
+            FontFactory = dictionary => new InterruptingFont(dictionary, probe),
+        });
+        await PdfDocumentPages.PrefetchPageAsync(document, 0, cancellationToken);
 
         // The TJ adjustment resolves the font's space code after the first string populates both buffers.
-        PdfFont.Factory = dictionary => new InterruptingFont(dictionary, probe);
+        Exception? failure = null;
         try
         {
-            Exception? failure = null;
-            try
-            {
-                _ = await PdfDocumentText.GetTextPageAsync(document, 0, cancellation.Token);
-            }
-            catch (Exception exception) when (exception is OperationCanceledException or IOException)
-            {
-                failure = exception;
-            }
-
-            var state = probe.InterruptedState;
-            var textCountAfterFailure = state?.TempText.Count ?? -1;
-            var charCountAfterFailure = state?.Temp.Count ?? -1;
-            probe.Armed = false;
-            var recovered = await PdfDocumentText.GetTextPageAsync(document, 0, cancellationToken);
-
-            await Assert.That(probe.CharsBeforeInterruption).IsGreaterThan(0);
-            await Assert.That(probe.TextBeforeInterruption).IsEqualTo(probe.CharsBeforeInterruption);
-            await Assert.That(failure is OperationCanceledException).IsEqualTo(cancel);
-            await Assert.That(failure is IOException).IsEqualTo(!cancel);
-            await Assert.That(charCountAfterFailure).IsEqualTo(0);
-            await Assert.That(textCountAfterFailure).IsEqualTo(0);
-            await Assert.That(ReferenceEquals(state, probe.RecoveryState)).IsTrue();
-            await Assert.That(recovered.Text).IsEqualTo(" A B ");
-            await Assert.That(recovered.CharCount).IsEqualTo(recovered.Text.Length);
-            await Assert.That(recovered.GetChar(FinalLetter).Unicode).IsEqualTo('B');
-            await Assert.That(recovered.GetChar(FinalLetter).Kind).IsEqualTo(PdfTextCharKind.Normal);
-            await Assert.That(recovered.GetChar(FinalLetter).Box.Left).IsGreaterThan(recovered.GetChar(1).Box.Left);
-            await Assert.That(state!.Temp.Count).IsEqualTo(0);
-            await Assert.That(state.TempText.Count).IsEqualTo(0);
+            _ = await PdfDocumentText.GetTextPageAsync(document, 0, cancellation.Token);
         }
-        finally
+        catch (Exception exception) when (exception is OperationCanceledException or IOException)
         {
-            PdfFont.Factory = previous;
+            failure = exception;
         }
+
+        var state = document.State.TextBuild;
+        var textCountAfterFailure = state?.TempText.Count ?? -1;
+        var charCountAfterFailure = state?.Temp.Count ?? -1;
+        var callsBeforeFailure = probe.UnicodeCalls;
+        probe.Armed = false;
+        var recovered = await PdfDocumentText.GetTextPageAsync(document, 0, cancellationToken);
+
+        await Assert.That(callsBeforeFailure).IsGreaterThanOrEqualTo(LookupsBeforeInterruption);
+        await Assert.That(failure is OperationCanceledException).IsEqualTo(cancel);
+        await Assert.That(failure is IOException).IsEqualTo(!cancel);
+        await Assert.That(charCountAfterFailure).IsEqualTo(0);
+        await Assert.That(textCountAfterFailure).IsEqualTo(0);
+        await Assert.That(ReferenceEquals(state, document.State.TextBuild)).IsTrue();
+        await Assert.That(recovered.Text).IsEqualTo(" A B ");
+        await Assert.That(recovered.CharCount).IsEqualTo(recovered.Text.Length);
+        await Assert.That(recovered.GetChar(FinalLetter).Unicode).IsEqualTo('B');
+        await Assert.That(recovered.GetChar(FinalLetter).Kind).IsEqualTo(PdfTextCharKind.Normal);
+        await Assert.That(recovered.GetChar(FinalLetter).Box.Left).IsGreaterThan(recovered.GetChar(1).Box.Left);
+        await Assert.That(state!.Temp.Count).IsEqualTo(0);
+        await Assert.That(state.TempText.Count).IsEqualTo(0);
     }
 
     /// <summary>Records the real build state at the font callback.</summary>
@@ -78,46 +75,30 @@ public sealed class TextSpaceCleanupTests
     /// <param name="cancel">Whether to interrupt by cancelling.</param>
     private sealed class InterruptionProbe(CancellationTokenSource cancellation, bool cancel)
     {
-        /// <summary>Gets or sets whether the next populated callback interrupts extraction.</summary>
+        /// <summary>Gets or sets whether Unicode lookup can interrupt extraction.</summary>
         internal bool Armed { get; set; } = true;
 
-        /// <summary>Gets the state whose populated buffers were interrupted.</summary>
-        internal TextPageBuildState? InterruptedState { get; private set; }
+        /// <summary>Gets the number of Unicode lookups observed.</summary>
+        internal int UnicodeCalls { get; private set; }
 
-        /// <summary>Gets the state used by successful retry assembly.</summary>
-        internal TextPageBuildState? RecoveryState { get; private set; }
-
-        /// <summary>Gets the character count before interruption.</summary>
-        internal int CharsBeforeInterruption { get; private set; }
-
-        /// <summary>Gets the text count before interruption.</summary>
-        internal int TextBeforeInterruption { get; private set; }
-
-        /// <summary>Interrupts only after assembly has populated both parallel buffers.</summary>
+        /// <summary>Interrupts after several glyphs have been read.</summary>
         /// <exception cref="OperationCanceledException">The test cancelled extraction.</exception>
         /// <exception cref="IOException">The test font failed during assembly.</exception>
         internal void Observe()
         {
-            var state = TextPageBuild.Current;
-            if (state.Temp.Count == 0 || state.TempText.Count == 0)
-            {
-                return;
-            }
+            UnicodeCalls++;
 
             if (!Armed)
             {
-                RecoveryState ??= state;
                 return;
             }
 
-            if (InterruptedState is not null)
+            if (UnicodeCalls < LookupsBeforeInterruption)
             {
                 return;
             }
 
-            InterruptedState = state;
-            CharsBeforeInterruption = state.Temp.Count;
-            TextBeforeInterruption = state.TempText.Count;
+            Armed = false;
             if (cancel)
             {
                 cancellation.Cancel();

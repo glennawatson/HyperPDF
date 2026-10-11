@@ -4,6 +4,8 @@
 
 using System.Diagnostics;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Fonts;
+using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Rendering;
 
 namespace HyperPdfLibrary.Tests.Rendering;
@@ -15,8 +17,16 @@ internal sealed class RenderTestPage : IDisposable
     /// <summary>Initializes a new instance of the <see cref="RenderTestPage"/> class.</summary>
     /// <param name="pdf">The PDF bytes.</param>
     internal RenderTestPage(byte[] pdf)
+        : this(pdf, PdfFontLoader.Load)
     {
-        Document = PdfDocumentReader.Open(pdf, null);
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="RenderTestPage"/> class.</summary>
+    /// <param name="pdf">The PDF bytes.</param>
+    /// <param name="fontFactory">The document's font loader.</param>
+    internal RenderTestPage(byte[] pdf, Func<PdfDictionary, PdfFont?>? fontFactory)
+    {
+        Document = PdfDocumentReader.OpenWith(pdf, new PdfOpenOptions { FontFactory = fontFactory, DrawingServices = SkiaTestRegistration.CreateServices() });
         Renderer = new(Document);
     }
 

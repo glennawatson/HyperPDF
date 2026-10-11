@@ -193,8 +193,9 @@ internal sealed class PagePictures
     /// <param name="cache">The document's caches.</param>
     /// <param name="page">The page.</param>
     /// <param name="printing">Whether the annotations are for printing.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The picture.</returns>
-    internal IPdfRenderPicture GetAnnotations(PdfRenderCache cache, PdfPage page, bool printing)
+    internal IPdfRenderPicture GetAnnotations(PdfRenderCache cache, PdfPage page, bool printing, CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
@@ -203,7 +204,7 @@ internal sealed class PagePictures
                 return existing;
             }
 
-            var recorded = PageRecorder.RecordAnnotations(cache, page, printing, UpperScale, out var bytes, out var images);
+            var recorded = PageRecorder.RecordAnnotations(cache, page, printing, UpperScale, out var bytes, out var images, cancellationToken);
             AddHeld(bytes, images);
             if (printing)
             {
@@ -248,7 +249,7 @@ internal sealed class PagePictures
             _recording = null;
         }
 
-        _recording ??= new(cache, page, printing, UpperScale);
+        _recording ??= new(cache, page, printing, UpperScale, cancellationToken);
         PdfRenderStatus status;
         IPdfRenderPicture? picture;
         try

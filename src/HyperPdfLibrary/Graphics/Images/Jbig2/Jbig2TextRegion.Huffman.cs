@@ -62,7 +62,7 @@ internal static partial class Jbig2TextRegion
     /// <returns><see langword="false"/> when the data is damaged.</returns>
     private static bool DecodeRefinement(ref Jbig2Reader reader, Span<byte> contexts, in Jbig2RefinementParameters parameters, Jbig2BitmapView reference, Jbig2Bitmap refined)
     {
-        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         var decoded = Jbig2RefinementRegion.Decode(ref decoder, contexts, parameters, reference, refined);
         reader.Offset = decoder.Position;
         return decoded;

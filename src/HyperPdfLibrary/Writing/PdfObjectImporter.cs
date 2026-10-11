@@ -26,6 +26,9 @@ public sealed class PdfObjectImporter : IPdfCarrySink
     /// <summary>The document copied from.</summary>
     private readonly PdfObjectStore _source;
 
+    /// <summary>The token for this copy.</summary>
+    private readonly CancellationToken _cancellationToken;
+
     /// <summary>The new number of each old number: zero when not yet copied, -1 when left out.</summary>
     private readonly int[] _map;
 
@@ -43,11 +46,21 @@ public sealed class PdfObjectImporter : IPdfCarrySink
     /// <param name="source">The objects copied from.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     public PdfObjectImporter(PdfDocumentBuilder target, PdfObjectStore source)
+        : this(target, source, CancellationToken.None)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PdfObjectImporter"/> class with a cancellation token.</summary>
+    /// <param name="target">The output builder.</param>
+    /// <param name="source">The source objects.</param>
+    /// <param name="cancellationToken">Cancels copying.</param>
+    internal PdfObjectImporter(PdfDocumentBuilder target, PdfObjectStore source, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(source);
         _target = target;
         _source = source;
+        _cancellationToken = cancellationToken;
         _map = new int[source.Size];
     }
 
@@ -78,11 +91,11 @@ public sealed class PdfObjectImporter : IPdfCarrySink
     /// <exception cref="PdfException">The source cannot be read.</exception>
     public PdfValue Import(PdfValue value)
     {
-        PdfCancellation.ThrowIfCancelled();
+        _cancellationToken.ThrowIfCancellationRequested();
         var copy = Copy(value, 0);
         while (_pending.TryDequeue(out var item))
         {
-            PdfCancellation.ThrowIfCancelled();
+            _cancellationToken.ThrowIfCancellationRequested();
             var replaced = _overrides.TryGetValue(item.Old, out var replacement);
             _keepParent = replaced && replacement.KeepParent;
             var original = replaced ? PdfValue.FromDictionary(replacement.Dictionary) : StoreReading.GetObject(_source, new(item.Old, 0));

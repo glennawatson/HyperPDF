@@ -6,6 +6,7 @@ using System.Globalization;
 using HyperPdfLibrary.Tests.Rendering;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
+using PdfViewerLite.HyperPdf.Tests.RenderingComparison;
 
 namespace PdfViewerLite.HyperPdf.Tests;
 
@@ -156,10 +157,10 @@ public sealed class IccParityTests
     /// <returns>The mean absolute difference per channel and the share of pixels whose channels differ by more than the tolerance.</returns>
     private static ComparisonResult Compare(byte[] profile)
     {
-        using var pair = new EnginePair(BuildPdf(profile));
+        using var input = new HyperPdfTestDocument(BuildPdf(profile));
         var info = new PageRenderInfo(FirstPage, 1, PageRotation.None, 0, 0, RenderFlags.None);
-        var expected = Render(pair.Pdfium, info);
-        var actual = Render(pair.HyperPdf, info);
+        var expected = PdfiumReferenceRendering.Render(input.Pdf, info).Pixels.ToArray();
+        var actual = Render(input.Document, info);
         long total = 0;
         var differing = 0;
         for (var i = 0; i < expected.Length; i += BytesPerPixel)

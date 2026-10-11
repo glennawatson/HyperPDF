@@ -12,7 +12,6 @@
     <ProjectReference Include="..\..\src\PdfViewerLite.Skia\PdfViewerLite.Skia.csproj" />
     <ProjectReference Include="..\..\src\PdfViewerLite.Platform.Cups\PdfViewerLite.Platform.Cups.csproj" />
     <ProjectReference Include="..\..\src\PdfViewerLite.Platform.Linux\PdfViewerLite.Platform.Linux.csproj" />
-    <ProjectReference Include="..\..\src\PdfViewerLite.Pdfium\PdfViewerLite.Pdfium.csproj" />
     <ProjectReference Include="..\..\src\PdfViewerLite.HyperPdf\PdfViewerLite.HyperPdf.csproj" />
     <ProjectReference Include="..\..\src\HyperPdfLibrary\HyperPdfLibrary.csproj" />
     <ProjectReference Include="..\..\src\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />

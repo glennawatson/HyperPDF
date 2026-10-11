@@ -48,10 +48,8 @@ public class BitmapDrawBenchmarks
     public void Setup()
     {
         _surface = SKSurface.Create(new SKImageInfo(SurfaceEdge, SurfaceEdge));
-        _context = new(new DrawingContextImpl.CreateInfo { Surface = _surface, Dpi = SkiaPlatform.DefaultDpi })
-        {
-            RenderOptions = new() { BitmapInterpolationMode = BitmapInterpolationMode.HighQuality },
-        };
+        _context = new(new DrawingContextCreateInfo { Surface = _surface, Dpi = SkiaPlatform.DefaultDpi });
+        _context.RenderOptions = new() { BitmapInterpolationMode = BitmapInterpolationMode.HighQuality };
         _tile = new(new PixelSize(TileEdge, TileEdge), SkiaPlatform.DefaultDpi, PixelFormat.Bgra8888, AlphaFormat.Premul);
         Fill();
         _context.DrawBitmap(_tile, 1, TileRect, TileRect);

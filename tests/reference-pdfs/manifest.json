@@ -1,0 +1,74 @@
+{
+  "comment": "Rights-reviewed reference PDFs fetched and hash-verified by CI; see ATTRIBUTION.md.",
+  "documents": [
+    {
+      "id": "pyhanko-ua-and-a",
+      "source": "MatthiasValvekens/pyHanko",
+      "url": "https://raw.githubusercontent.com/MatthiasValvekens/pyHanko/871387373d318882e81a3fdd5e8d9089b6f5170e/internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-pdf-ua-and-a.pdf",
+      "sha256": "eb92b44f14101a98169418c56f84cf99a2092fe3692424b4f9fccd9bc9918719",
+      "bytes": 30381,
+      "tags": [
+        "tagged"
+      ],
+      "licence": "MIT test fixture with embedded Liberation font subsets; see ATTRIBUTION.md"
+    },
+    {
+      "id": "loc-marbury-v-madison",
+      "source": "Library of Congress United States Reports",
+      "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep005/usrep005137/usrep005137.pdf",
+      "sha256": "dc46074ce2db6f2250de60f8a72eaee961f9dd09d7d5daf8a40db404200a4608",
+      "bytes": 1536913,
+      "tags": [
+        "scanned",
+        "ocr",
+        "jbig2",
+        "legal"
+      ],
+      "licence": "Public domain: Marbury v. Madison, 5 U.S. 137 (1803), a US Supreme Court opinion published long before 1930"
+    },
+    {
+      "id": "irs-w9-2024",
+      "source": "Internal Revenue Service",
+      "url": "https://www.irs.gov/pub/irs-prior/fw9--2024.pdf",
+      "sha256": "2d420cbb4123dcf1fb82595b2359cfbb5d81f00b9df9d359fcc7af361d093f53",
+      "bytes": 140815,
+      "tags": [
+        "government-form",
+        "text",
+        "tables"
+      ],
+      "licence": "U.S. federal government work: 17 USC § 105 (2024); source and credit recorded in ATTRIBUTION.md"
+    },
+    {
+      "id": "usgs-morrison-1957",
+      "source": "U.S. Geological Survey Historical Topographic Map Collection",
+      "url": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Maps/HistoricalTopo/PDF/CO/24000/CO_Morrison_401624_1957_24000_geo.pdf",
+      "sha256": "36782dc5ad46e27dc3d356869c7c0d6122e4b92690ad20257e5a980d0cba2d2b",
+      "bytes": 8304276,
+      "tags": [
+        "map",
+        "raster",
+        "jpeg-tiles",
+        "geospatial",
+        "historical"
+      ],
+      "licence": "Public domain: USGS topographic map published in 1957; https://www.usgs.gov/faqs/are-usgs-topographic-maps-copyrighted"
+    },
+    {
+      "id": "usgs-lost-city-2023",
+      "source": "U.S. Geological Survey US Topo",
+      "url": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Maps/USTopo/PDF/WV/WV_Lost_City_20230613_TM_geo.pdf",
+      "sha256": "d1f203786e6b39cca67d4bd194e12fc1578ca3c799b3750e549268fcaafb0435",
+      "bytes": 50016442,
+      "tags": [
+        "map",
+        "layered",
+        "vector",
+        "raster",
+        "geospatial",
+        "large"
+      ],
+      "licence": "Public domain: 2023 US Topo map of West Virginia and Virginia; https://www.usgs.gov/faqs/are-usgs-topographic-maps-copyrighted"
+    }
+  ]
+}

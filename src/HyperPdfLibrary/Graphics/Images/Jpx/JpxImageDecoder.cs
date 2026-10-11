@@ -42,12 +42,25 @@ internal static class JpxImageDecoder
     /// <param name="data">The JPX file or codestream.</param>
     /// <param name="softMaskInData">The alpha channel marker.</param>
     /// <param name="reductionLevels">The finest wavelet levels to omit.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The decoded image, or null when damaged.</returns>
-    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels, CancellationToken cancellationToken = default) =>
+        Decode(header, data, softMaskInData, reductionLevels, new(), cancellationToken);
+
+    /// <summary>Decodes a JPX image with an explicitly owned scratch cache.</summary>
+    /// <param name="header">The image header.</param>
+    /// <param name="data">The JPX bytes.</param>
+    /// <param name="softMaskInData">The alpha channel marker.</param>
+    /// <param name="reductionLevels">The omitted finest levels.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The image, or null when damaged.</returns>
+    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         try
         {
-            return DecodeFile(header, data, softMaskInData, reductionLevels);
+            return DecodeFile(header, data, softMaskInData, reductionLevels, scratchPools, cancellationToken);
         }
         catch (Exception exception) when (exception is IndexOutOfRangeException or ArgumentException or OverflowException or InvalidCastException)
         {
@@ -88,8 +101,10 @@ internal static class JpxImageDecoder
     /// <param name="data">The JPX data.</param>
     /// <param name="softMaskInData">The <c>/SMaskInData</c> entry.</param>
     /// <param name="reductionLevels">The requested reduction.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels codestream decoding.</param>
     /// <returns>The image, <see langword="null"/>, or an image marked unsupported.</returns>
-    private static PdfImageData? DecodeFile(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels)
+    private static PdfImageData? DecodeFile(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         if (JpxFileFormat.Read(data) is not { } file)
         {
@@ -108,7 +123,7 @@ internal static class JpxImageDecoder
         }
 
         var selectedReduction = SelectReduction(codestream, stream, reductionLevels);
-        using var image = JpxDecoder.Decode(codestream, stream, selectedReduction);
+        using var image = JpxDecoder.Decode(codestream, stream, selectedReduction, scratchPools, cancellationToken);
         var indexed = header.ColorSpace?.Kind == PdfColorSpaceKind.Indexed;
         if (JpxChannels.Build(file, codestream.Geometry, indexed) is not { Length: > 0 } channels
             || JpxOutputPlan.Create(file.ColorSpace, channels, image, header.ColorSpace) is not { } plan)
@@ -125,7 +140,7 @@ internal static class JpxImageDecoder
 
         var source = new JpxSampleSource(image, channels, file.Palette, area.Width, area.Height);
         var alpha = plan.Action == JpxDecodeAction.ConvertArgbToRgb && softMaskInData == SoftMaskInData;
-        return Convert(header, source, plan, alpha);
+        return Convert(header, source, plan, alpha, scratchPools);
     }
 
     /// <summary>Uses only levels available to every component and avoids tile-specific coding overrides.</summary>
@@ -183,13 +198,15 @@ internal static class JpxImageDecoder
     /// <param name="source">The decoded channels.</param>
     /// <param name="plan">The output plan.</param>
     /// <param name="withAlpha">Whether the fourth channel is the soft mask.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The image.</returns>
-    private static PdfImageData Convert(in ImageHeader header, in JpxSampleSource source, JpxOutputPlan plan, bool withAlpha)
+    private static PdfImageData Convert(in ImageHeader header, in JpxSampleSource source, JpxOutputPlan plan, bool withAlpha, ScratchPools scratchPools)
     {
         var pixels = source.Width * source.Height;
         var length = pixels * plan.Components;
-        var samples = ScratchPool<byte>.Shared.Rent(length);
-        var alpha = withAlpha ? ScratchPool<byte>.Shared.Rent(pixels) : null;
+        var pool = scratchPools.Get<byte>();
+        var samples = pool.Rent(length);
+        var alpha = withAlpha ? pool.Rent(pixels) : null;
         try
         {
             var written = samples.AsSpan(0, length);
@@ -206,7 +223,7 @@ internal static class JpxImageDecoder
             }
 
             // A soft mask in the data multiplies into BGRA pixels, so those images are never gray.
-            var image = PdfImageDecoder.DecodeSamples(ForSamples(header, source, plan) with { Compact = header.Compact && alpha is null }, written);
+            var image = PdfImageDecoder.DecodeSamples(ForSamples(header, source, plan) with { Compact = header.Compact && alpha is null }, written, scratchPools);
             if (alpha is not null)
             {
                 ImageAlpha.Multiply(image.Pixels, alpha.AsSpan(0, pixels));
@@ -216,10 +233,10 @@ internal static class JpxImageDecoder
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(samples);
+            pool.Return(samples);
             if (alpha is not null)
             {
-                ScratchPool<byte>.Shared.Return(alpha);
+                pool.Return(alpha);
             }
         }
     }
@@ -239,7 +256,7 @@ internal static class JpxImageDecoder
     /// <param name="header">The image header.</param>
     /// <param name="source">The decoded channels.</param>
     /// <param name="plan">The output plan.</param>
-    /// <returns>The header for <see cref="PdfImageDecoder.DecodeSamples"/>.</returns>
+    /// <returns>The header for sample decoding.</returns>
     private static ImageHeader ForSamples(in ImageHeader header, in JpxSampleSource source, JpxOutputPlan plan) => header with
     {
         Width = source.Width,

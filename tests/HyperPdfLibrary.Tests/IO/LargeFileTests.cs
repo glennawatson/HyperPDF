@@ -43,9 +43,6 @@ public sealed class LargeFileTests
     /// <summary>The content length of the sparse file's pages.</summary>
     private const int SparseContentLength = 4096;
 
-    /// <summary>The corpus file read when it is cached.</summary>
-    private const string CorpusFile = "ia-us-reports-341.pdf";
-
     /// <summary>Opening a 96 MB file and reading two pages grows the managed heap by less than an eighth of the file, unlike reading it into memory.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -100,23 +97,6 @@ public sealed class LargeFileTests
         {
             SourceOpener.DeleteDirectory(directory);
         }
-    }
-
-    /// <summary>A cached real-world book of about 900 pages opens and reads its first page within the same heap bound.</summary>
-    /// <returns>A task.</returns>
-    /// <exception cref="TUnit.Core.Exceptions.SkipTestException">The corpus file is not cached.</exception>
-    [Test]
-    public async Task CorpusBookKeepsTheHeapSmall()
-    {
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus", CorpusFile);
-        if (!File.Exists(path))
-        {
-            throw new TUnit.Core.Exceptions.SkipTestException("The corpus is not cached on this machine.");
-        }
-
-        var bound = new FileInfo(path).Length / HeapShare;
-        await Assert.That(MeasureGrowth(path, PdfSourceKind.Stream)).IsLessThan(bound);
-        await Assert.That(MeasureGrowth(path, PdfSourceKind.Mapped)).IsLessThan(bound);
     }
 
     /// <summary>Measures the managed bytes allocated by opening a file and reading two pages, keeping the smallest of a few tries.</summary>

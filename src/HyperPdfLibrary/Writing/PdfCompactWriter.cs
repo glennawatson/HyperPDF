@@ -52,7 +52,7 @@ public static class PdfCompactWriter
         var writer = CreateWriter(store, options);
         try
         {
-            Write(store, options, ref writer);
+            Write(store, options, ref writer, CancellationToken.None);
             return writer.ToArray();
         }
         finally
@@ -73,7 +73,7 @@ public static class PdfCompactWriter
         var writer = CreateWriter(store, options);
         try
         {
-            Write(store, options, ref writer);
+            Write(store, options, ref writer, CancellationToken.None);
             output.Write(writer.WrittenSpan);
         }
         finally
@@ -95,7 +95,7 @@ public static class PdfCompactWriter
         var writer = CreateWriter(store, options);
         try
         {
-            Write(store, options, ref writer);
+            Write(store, options, ref writer, CancellationToken.None);
             destination.Write(writer.WrittenSpan);
         }
         finally
@@ -116,12 +116,7 @@ public static class PdfCompactWriter
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
-        byte[]? file;
-        int length;
-        using (var scope = PdfCancellation.Enter(cancellationToken))
-        {
-            file = Build(store, options, out length);
-        }
+        var file = Build(store, options, out var length, cancellationToken);
 
         try
         {
@@ -147,13 +142,14 @@ public static class PdfCompactWriter
     /// <param name="store">The document.</param>
     /// <param name="options">The layout.</param>
     /// <param name="length">The file length.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The pooled array, which the caller returns.</returns>
-    private static byte[]? Build(PdfObjectStore store, PdfCompactOptions options, out int length)
+    private static byte[]? Build(PdfObjectStore store, PdfCompactOptions options, out int length, CancellationToken cancellationToken)
     {
         var writer = CreateWriter(store, options);
         try
         {
-            Write(store, options, ref writer);
+            Write(store, options, ref writer, cancellationToken);
             return writer.Detach(out length);
         }
         finally
@@ -166,25 +162,27 @@ public static class PdfCompactWriter
     /// <param name="store">The document.</param>
     /// <param name="options">The layout.</param>
     /// <param name="writer">The writer.</param>
-    private static void Write(PdfObjectStore store, PdfCompactOptions options, ref PdfObjectWriter writer)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void Write(PdfObjectStore store, PdfCompactOptions options, ref PdfObjectWriter writer, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var keepEncrypt = store.Security is not null && !options.RemoveEncryption;
-        var graph = PdfObjectGraph.Collect(store, keepEncrypt);
+        var graph = PdfObjectGraph.Collect(store, keepEncrypt, cancellationToken);
         WriteHeader(ref writer, store.Version, options.UseObjectStreams);
         writer.SetRenumbering(graph.Map);
         var encryptNumber = keepEncrypt ? PdfXrefWriter.EncryptNumber(store.Trailer) : 0;
-        var streamCount = options.UseObjectStreams ? PackedStreamCount(graph, encryptNumber) : 0;
+        var streamCount = options.UseObjectStreams ? PackedStreamCount(graph, encryptNumber, cancellationToken) : 0;
 
         // Entry 0, the objects, the object streams and, with object streams, the cross-reference stream.
         var rows = new XrefRow[graph.Count + streamCount + 1 + (options.UseObjectStreams ? 1 : 0)];
         rows[0] = XrefRow.FreeHead;
         if (options.UseObjectStreams)
         {
-            WritePacked(ref writer, graph, encryptNumber, rows);
+            WritePacked(ref writer, graph, encryptNumber, rows, cancellationToken);
         }
         else
         {
-            WritePlain(ref writer, graph, encryptNumber, rows);
+            WritePlain(ref writer, graph, encryptNumber, rows, cancellationToken);
         }
 
         var size = rows.Length;
@@ -252,12 +250,14 @@ public static class PdfCompactWriter
     /// <summary>Counts the object streams needed.</summary>
     /// <param name="graph">The objects.</param>
     /// <param name="encryptNumber">The old number of the /Encrypt dictionary.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The number of object streams.</returns>
-    private static int PackedStreamCount(PdfObjectGraph graph, int encryptNumber)
+    private static int PackedStreamCount(PdfObjectGraph graph, int encryptNumber, CancellationToken cancellationToken)
     {
         var packed = 0;
         for (var number = 1; number <= graph.Count; number++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             packed += IsPackable(graph, number, encryptNumber) ? 1 : 0;
         }
 
@@ -269,10 +269,12 @@ public static class PdfCompactWriter
     /// <param name="graph">The objects.</param>
     /// <param name="encryptNumber">The old number of the /Encrypt dictionary.</param>
     /// <param name="rows">The cross-reference entries, filled in.</param>
-    private static void WritePlain(ref PdfObjectWriter writer, PdfObjectGraph graph, int encryptNumber, XrefRow[] rows)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void WritePlain(ref PdfObjectWriter writer, PdfObjectGraph graph, int encryptNumber, XrefRow[] rows, CancellationToken cancellationToken)
     {
         for (var number = 1; number <= graph.Count; number++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             rows[number] = new(number, XrefEntryType.InFile, writer.Length, 0);
             WriteObject(ref writer, graph, number, encryptNumber);
         }
@@ -283,7 +285,8 @@ public static class PdfCompactWriter
     /// <param name="graph">The objects.</param>
     /// <param name="encryptNumber">The old number of the /Encrypt dictionary.</param>
     /// <param name="rows">The cross-reference entries, filled in.</param>
-    private static void WritePacked(ref PdfObjectWriter writer, PdfObjectGraph graph, int encryptNumber, XrefRow[] rows)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void WritePacked(ref PdfObjectWriter writer, PdfObjectGraph graph, int encryptNumber, XrefRow[] rows, CancellationToken cancellationToken)
     {
         var body = new PdfObjectWriter(graph.Names);
         var packer = default(ObjectStreamPacker);
@@ -293,6 +296,7 @@ public static class PdfCompactWriter
             var streamNumber = graph.Count + 1;
             for (var number = 1; number <= graph.Count; number++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!IsPackable(graph, number, encryptNumber))
                 {
                     rows[number] = new(number, XrefEntryType.InFile, writer.Length, 0);
@@ -383,7 +387,7 @@ public static class PdfCompactWriter
         var compressed = default(PooledBuffer);
         try
         {
-            var probe = new PdfOpenContext(null, CancellationToken.None);
+            var probe = new PdfOpenContext(null, new(new()), CancellationToken.None);
             _ = PdfStreamDecoder.Decode(stream, probe, ref decoded);
             if (!probe.HasRepairs)
             {

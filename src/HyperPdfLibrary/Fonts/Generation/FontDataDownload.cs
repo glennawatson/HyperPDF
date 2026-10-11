@@ -14,22 +14,18 @@ internal static class FontDataDownload
     internal const int MaximumAttempts = 3;
 
     /// <summary>The maximum time for a resource request.</summary>
-    private const int TimeoutSeconds = 30;
+    internal const int TimeoutSeconds = 30;
 
     /// <summary>The initial transient failure backoff.</summary>
     private const int RetryMilliseconds = 250;
 
-    /// <summary>The shared generated download client.</summary>
-    private static readonly IFontDataApi Api = RestService.ForGenerated<IFontDataApi>(
-        new HttpClient { BaseAddress = new("https://raw.githubusercontent.com"), Timeout = TimeSpan.FromSeconds(TimeoutSeconds) },
-        FontDataJsonContext.Default);
-
     /// <summary>Reads one pinned binary resource from a font pack.</summary>
+    /// <param name="state">The selected resource cache.</param>
     /// <param name="path">The repository path.</param>
     /// <param name="cancellationToken">Cancels I/O.</param>
     /// <returns>The resource bytes.</returns>
-    internal static async ValueTask<byte[]> ReadAsync(string path, CancellationToken cancellationToken) =>
-        await ReadAsync(Api, path, cancellationToken).ConfigureAwait(false);
+    internal static async ValueTask<byte[]> ReadAsync(FontDataResourceState state, string path, CancellationToken cancellationToken) =>
+        await ReadAsync(state.Api, path, cancellationToken).ConfigureAwait(false);
 
     /// <summary>Reads a resource through an owned caller's generated client with bounded transient recovery.</summary>
     /// <param name="api">The download client.</param>

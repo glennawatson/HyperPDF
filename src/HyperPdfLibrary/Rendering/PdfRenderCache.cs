@@ -18,8 +18,8 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Rendering;
 
 /// <summary>
-/// What a document keeps between renders: loaded fonts, decoded images, colour spaces, shadings, recorded pattern cells
-/// and soft masks. Every cache is safe to use from many threads.
+/// Reusable font, image, colour, shading and mask data for document operations or renderers with equal image and drawing settings. Each cache
+/// is safe to use from many threads.
 /// </summary>
 [DebuggerDisplay("PdfRenderCache: {Images.Count} images, {Images.Bytes} bytes")]
 internal sealed class PdfRenderCache
@@ -37,6 +37,7 @@ internal sealed class PdfRenderCache
     internal PdfRenderCache(PdfDocument document, OutputIntentColors? deviceColors)
     {
         Document = document;
+        Fonts = new(document.FontFactory);
         DeviceColors = deviceColors;
         LowerCa = document.Objects.Names.Intern("ca");
         GraphicsStateName = document.Objects.Names.Intern("GS");
@@ -76,7 +77,7 @@ internal sealed class PdfRenderCache
     internal PdfName LowerCa { get; }
 
     /// <summary>Gets the loaded fonts.</summary>
-    internal PdfFontCache Fonts { get; } = new();
+    internal PdfFontCache Fonts { get; }
 
     /// <summary>Gets the decoded images, bounded by their pixel bytes.</summary>
     internal ImageCache Images { get; } = new();
@@ -104,7 +105,7 @@ internal sealed class PdfRenderCache
     /// <param name="data">The decoded image.</param>
     /// <returns>The backend image, which the caller owns.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static IPdfRenderImage? ToRenderImage(PdfImageData data) => PdfDrawingServices.Backend.CreateImage(data);
+    internal IPdfRenderImage? ToRenderImage(PdfImageData data) => Document.DrawingServices.Backend.CreateImage(data);
 
     /// <summary>
     /// Empties every cache when the document is disposed. Images are released as their last user finishes, and later
@@ -139,32 +140,30 @@ internal sealed class PdfRenderCache
     /// <summary>Gets a decoded image at the selected resolution.</summary>
     /// <param name="stream">The image stream.</param>
     /// <param name="reductionLevels">The finest levels omitted from its decode.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image, which the caller releases; null when decoding fails.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ImageEntry? AcquireImage(PdfStream stream, int reductionLevels) =>
-        Images.Acquire(new(stream, reductionLevels), DeviceColors, Decode);
+    internal ImageEntry? AcquireImage(PdfStream stream, int reductionLevels, CancellationToken cancellationToken = default) =>
+        Images.Acquire(new(stream, reductionLevels), new ImageDecodeState(this, DeviceColors, cancellationToken), Decode, cancellationToken);
 
     /// <summary>Gets a colour space from a value.</summary>
     /// <param name="value">A name or colour space array, resolved.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or null.</param>
     /// <returns>The colour space.</returns>
-    internal PdfColorSpace GetColorSpace(PdfValue value, PdfDictionary? resources)
-    {
-        using var scope = OutputIntentColors.Enter(DeviceColors);
-        return value.AsArray() is not { } array
-            ? PdfColorSpace.Parse(value, resources)
-            : ColorSpaces.GetOrCreate(array, resources, static (key, state) => PdfColorSpace.Parse(PdfValue.FromArray(key), state))
+    internal PdfColorSpace GetColorSpace(PdfValue value, PdfDictionary? resources) =>
+        value.AsArray() is not { } array
+            ? PdfColorSpace.Parse(value, resources, DeviceColors)
+            : ColorSpaces.GetOrCreate(array, new ColorSpaceRequest(resources, DeviceColors), static (key, state) =>
+                PdfColorSpace.Parse(PdfValue.FromArray(key), state.Resources, state.Colors))
                 ?? PdfColorSpace.DeviceGray;
-    }
 
     /// <summary>Decodes an image stream.</summary>
     /// <param name="key">The stream and decoded resolution.</param>
-    /// <param name="colors">The output intent substitutes for device colour spaces, or <see langword="null"/>.</param>
+    /// <param name="state">The output intent colours and caller's cancellation token.</param>
     /// <returns>The entry, or null.</returns>
-    private static ImageEntry? Decode(ImageKey key, OutputIntentColors? colors)
+    private static ImageEntry? Decode(ImageKey key, ImageDecodeState state)
     {
-        using var scope = OutputIntentColors.Enter(colors);
-        var data = PdfImageDecoder.DecodeCompact(key.Stream, key.ReductionLevels);
+        var data = PdfImageDecoder.DecodeCompact(key.Stream, key.ReductionLevels, state.Colors, state.CancellationToken);
         if (data is null)
         {
             return null;
@@ -172,11 +171,22 @@ internal sealed class PdfRenderCache
 
         if (data.UnsupportedCodec != PdfImageCodec.None)
         {
-            var image = PdfRenderHooks.UnsupportedImageDecoder?.Invoke(key.Stream);
+            var image = state.Cache.Document.DrawingServices.UnsupportedImageDecoder?.Invoke(key.Stream, state.CancellationToken);
             return image is null ? null : new ImageEntry(image, false, true);
         }
 
-        var converted = ToRenderImage(data);
+        var converted = state.Cache.ToRenderImage(data);
         return converted is null ? null : new ImageEntry(converted, data.IsStencilMask, data.Interpolate);
     }
+
+    /// <summary>The input to one image decode, passed to the cache leader without shared mutable state.</summary>
+    /// <param name="Cache">The owning render cache.</param>
+    /// <param name="Colors">The output intent colours.</param>
+    /// <param name="CancellationToken">The caller's token.</param>
+    private readonly record struct ImageDecodeState(PdfRenderCache Cache, OutputIntentColors? Colors, CancellationToken CancellationToken);
+
+    /// <summary>The resource dictionary and output-intent colours for one space parse.</summary>
+    /// <param name="Resources">The colour-space resources, or null.</param>
+    /// <param name="Colors">The output-intent substitutions, or null.</param>
+    private readonly record struct ColorSpaceRequest(PdfDictionary? Resources, OutputIntentColors? Colors);
 }

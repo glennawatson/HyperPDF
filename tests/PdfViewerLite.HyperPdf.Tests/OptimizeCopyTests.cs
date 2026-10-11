@@ -54,7 +54,7 @@ public sealed class OptimizeCopyTests
     [MethodDataSource(nameof(Presets))]
     public async Task CopyReopensWithTheSamePages(OptimizePreset preset)
     {
-        using var source = new EngineDocument(EngineDocument.HyperPdf, TestPdf.CreateArticle(Pages));
+        using var source = new HyperPdfTestDocument(TestPdf.CreateArticle(Pages));
         var before = await File.ReadAllBytesAsync(source.FilePath);
         var optimizer = (IDocumentOptimizer)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(source.Document, typeof(IDocumentOptimizer))!;
         var steps = new List<OptimizeStep>();
@@ -86,7 +86,7 @@ public sealed class OptimizeCopyTests
     [Test]
     public async Task UnsavedEditsAreIncluded()
     {
-        using var source = new EngineDocument(EngineDocument.HyperPdf, TestPdf.CreateForm());
+        using var source = new HyperPdfTestDocument(TestPdf.CreateForm());
         var editor = (IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(source.Document, typeof(IAnnotationEditor))!;
         var filler = (IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(source.Document, typeof(IFormFiller))!;
         var fields = new List<FormField>();
@@ -140,7 +140,7 @@ public sealed class OptimizeCopyTests
     [Test]
     public async Task CancelledTokenStopsTheRun()
     {
-        using var source = new EngineDocument(EngineDocument.HyperPdf, TestPdf.CreateArticle(Pages));
+        using var source = new HyperPdfTestDocument(TestPdf.CreateArticle(Pages));
         using var cancel = new CancellationTokenSource();
         await cancel.CancelAsync();
         await using var output = new MemoryStream();
@@ -156,23 +156,13 @@ public sealed class OptimizeCopyTests
     [Test]
     public async Task ClosedDocumentIsRefused()
     {
-        var source = new EngineDocument(EngineDocument.HyperPdf, TestPdf.CreateArticle(Pages));
+        var source = new HyperPdfTestDocument(TestPdf.CreateArticle(Pages));
         var optimizer = (IDocumentOptimizer)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(source.Document, typeof(IDocumentOptimizer))!;
         source.Dispose();
         await using var output = new MemoryStream();
 
         await Assert.That(async () => await optimizer.OptimizeAsync(output, OptimizeSettings.Default, null, CancellationToken.None))
             .Throws<ObjectDisposedException>();
-    }
-
-    /// <summary>PDFium cannot write an optimised copy, so its documents do not offer the capability.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task PdfiumDocumentsDoNotOffer()
-    {
-        using var source = new EngineDocument(EngineDocument.Pdfium, TestPdf.Create(Pages));
-
-        await Assert.That(((source.Document)?.GetFeature(typeof(IDocumentOptimizer)) as IDocumentOptimizer) is not null).IsFalse();
     }
 
     /// <summary>The settings map onto the library's presets and options.</summary>

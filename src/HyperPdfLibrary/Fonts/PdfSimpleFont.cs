@@ -29,14 +29,22 @@ internal sealed class PdfSimpleFont : PdfFont
     /// <summary>The font's loaded data.</summary>
     private readonly SimpleFontData _data;
 
+    /// <summary>The font resources reused by this font.</summary>
+    private readonly PdfFontResources _resources;
+
     /// <summary>The cached outlines by code.</summary>
     private readonly GlyphOutlineCache _outlines = new();
 
     /// <summary>Initializes a new instance of the <see cref="PdfSimpleFont"/> class.</summary>
     /// <param name="dictionary">The font dictionary.</param>
     /// <param name="data">The loaded data.</param>
-    internal PdfSimpleFont(PdfDictionary dictionary, SimpleFontData data)
-        : base(dictionary) => _data = data;
+    /// <param name="resources">The font resources.</param>
+    internal PdfSimpleFont(PdfDictionary dictionary, SimpleFontData data, PdfFontResources resources)
+        : base(dictionary)
+    {
+        _data = data;
+        _resources = resources;
+    }
 
     /// <inheritdoc/>
     public override bool IsBold => _data.Metrics.IsBold;
@@ -75,11 +83,11 @@ internal sealed class PdfSimpleFont : PdfFont
     {
         if (_data.ToUnicode is { } map && map.TryGetUnicode(code, destination, out var written) && written > 0)
         {
-            return PuaSymbols.Apply(_data.Remap, destination, written);
+            return PuaSymbols.Apply(_resources, _data.Remap, destination, written);
         }
 
         var text = (uint)code < FontEncodings.CodeCount ? _data.Texts[code] : null;
-        return text is not null && text.AsSpan().TryCopyTo(destination) ? PuaSymbols.Apply(_data.Remap, destination, text.Length) : 0;
+        return text is not null && text.AsSpan().TryCopyTo(destination) ? PuaSymbols.Apply(_resources, _data.Remap, destination, text.Length) : 0;
     }
 
     /// <summary>Gets a code's glyph id.</summary>
@@ -110,7 +118,7 @@ internal sealed class PdfSimpleFont : PdfFont
         if (glyph < 0)
         {
             var codePoint = GlyphNameText.FirstCodePoint(_data.Texts[code]);
-            if (!source.IsSubstitute || codePoint == 0 || SystemFontMatcher.MatchCharacter(codePoint) is not { } fallback)
+            if (!source.IsSubstitute || codePoint == 0 || SystemFontMatcher.For(Dictionary, _resources).MatchCharacter(codePoint) is not { } fallback)
             {
                 return null;
             }

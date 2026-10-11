@@ -46,7 +46,7 @@ internal sealed class PdfDocumentChecker
     {
         _document = document;
         _options = options;
-        _context = new(_faults.Add, cancellationToken);
+        _context = new(_faults.Add, document.DrawingServices, cancellationToken);
     }
 
     /// <summary>Gets one more than the highest object number.</summary>
@@ -113,7 +113,7 @@ internal sealed class PdfDocumentChecker
         var content = default(PooledBuffer);
         try
         {
-            ContentExecution.DecodeContents(page, ref content);
+            ContentExecution.DecodeContents(page, ref content, _context.CancellationToken);
             ContentChecker.Scan(content.WrittenSpan, _document.Objects.Names, page.Id.Number, _faults);
         }
         catch (Exception e) when (e is InvalidDataException or PdfException)
@@ -166,7 +166,7 @@ internal sealed class PdfDocumentChecker
         var buffer = default(PooledBuffer);
         try
         {
-            var codec = PdfStreamDecoder.Decode(stream, _context, ref buffer);
+            var codec = PdfStreamDecoder.Decode(stream, _context, ref buffer, _context.CancellationToken);
             if (codec == PdfImageCodec.Jpeg && !JpegMarkers.EndsWithEndOfImage(buffer.WrittenSpan))
             {
                 _faults.Add(new(PdfDiagnosticCode.TruncatedStream, "A JPEG image ends without its end marker; the part that decoded is used.", number, -1));

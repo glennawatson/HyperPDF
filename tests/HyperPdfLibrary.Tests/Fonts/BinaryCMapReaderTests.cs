@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdfLibrary.Fonts.Generation;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Tests.Fonts;
 
@@ -80,8 +79,8 @@ public sealed class BinaryCMapReaderTests
         using var source = new CancellationTokenSource();
         await source.CancelAsync();
 
-        await Assert.That(() => ParseWithToken(data, source.Token)).Throws<OperationCanceledException>();
-        var map = ParseWithToken(data, CancellationToken.None);
+        await Assert.That(() => BinaryCMapReader.Parse(data, source.Token)).Throws<OperationCanceledException>();
+        var map = BinaryCMapReader.Parse(data, CancellationToken.None);
         await Assert.That(map.Unicode[1]).IsEqualTo(0x3042);
     }
 
@@ -95,9 +94,9 @@ public sealed class BinaryCMapReaderTests
         using var source = new CancellationTokenSource();
         await source.CancelAsync();
 
-        await Assert.That(() => FillWithToken(values, ranges, source.Token)).Throws<OperationCanceledException>();
+        await Assert.That(() => BinaryUnicodeFallback.Fill(values, ranges, source.Token)).Throws<OperationCanceledException>();
         await Assert.That(values[1]).IsEqualTo(0);
-        FillWithToken(values, ranges, CancellationToken.None);
+        BinaryUnicodeFallback.Fill(values, ranges, CancellationToken.None);
         await Assert.That(values[1]).IsEqualTo(0x41);
     }
 
@@ -107,54 +106,14 @@ public sealed class BinaryCMapReaderTests
     public async Task CancelledPackingRestoresScope()
     {
         int[] values = [0, 0x41];
-        var map = ParseWithToken([0, 0x41, 1, 0x41, 1, 0], CancellationToken.None);
+        var map = BinaryCMapReader.Parse([0, 0x41, 1, 0x41, 1, 0], CancellationToken.None);
         var maps = new Dictionary<string, BinaryCMapData>(StringComparer.Ordinal) { ["H"] = map };
         using var source = new CancellationTokenSource();
         await source.CancelAsync();
 
-        await Assert.That(() => PackUnicodeWithToken(values, source.Token)).Throws<OperationCanceledException>();
-        await Assert.That(() => PackCMapWithToken(maps, source.Token)).Throws<OperationCanceledException>();
-        await Assert.That(PackUnicodeWithToken(values, CancellationToken.None).Length).IsGreaterThan(0);
-        await Assert.That(PackCMapWithToken(maps, CancellationToken.None).Length).IsGreaterThan(0);
-    }
-
-    /// <summary>Parses under a token that ends before any test awaits.</summary>
-    /// <param name="data">The binary mapping.</param>
-    /// <param name="cancellationToken">The scoped token.</param>
-    /// <returns>The parsed mapping.</returns>
-    private static BinaryCMapData ParseWithToken(byte[] data, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return BinaryCMapReader.Parse(data);
-    }
-
-    /// <summary>Fills Unicode mappings under a scoped token.</summary>
-    /// <param name="values">The CID mappings.</param>
-    /// <param name="ranges">The fallback ranges.</param>
-    /// <param name="cancellationToken">The scoped token.</param>
-    private static void FillWithToken(int[] values, List<CidRange> ranges, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        BinaryUnicodeFallback.Fill(values, ranges);
-    }
-
-    /// <summary>Packs Unicode mappings under a scoped token.</summary>
-    /// <param name="values">The CID mappings.</param>
-    /// <param name="cancellationToken">The scoped token.</param>
-    /// <returns>The packed table.</returns>
-    private static byte[] PackUnicodeWithToken(int[] values, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return PackedTables.PackUnicode(values);
-    }
-
-    /// <summary>Packs a CMap under a scoped token.</summary>
-    /// <param name="maps">The parsed maps.</param>
-    /// <param name="cancellationToken">The scoped token.</param>
-    /// <returns>The packed table.</returns>
-    private static byte[] PackCMapWithToken(Dictionary<string, BinaryCMapData> maps, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return PackedTables.PackCMap(maps, "H", Collections.All[0]);
+        await Assert.That(() => PackedTables.PackUnicode(values, source.Token)).Throws<OperationCanceledException>();
+        await Assert.That(() => PackedTables.PackCMap(maps, "H", Collections.All[0], source.Token)).Throws<OperationCanceledException>();
+        await Assert.That(PackedTables.PackUnicode(values, CancellationToken.None).Length).IsGreaterThan(0);
+        await Assert.That(PackedTables.PackCMap(maps, "H", Collections.All[0], CancellationToken.None).Length).IsGreaterThan(0);
     }
 }

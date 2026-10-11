@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
 using HyperPdfLibrary.Objects;
@@ -18,8 +19,10 @@ namespace HyperPdfLibrary.Optimizing;
 /// </summary>
 /// <param name="options">The options.</param>
 /// <param name="names">The optimiser's names.</param>
+/// <param name="drawingServices">The document's image codec.</param>
+/// <param name="cancellationToken">Cancels image decoding.</param>
 [DebuggerDisplay("ImageRecoder")]
-internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames names)
+internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames names, PdfDrawingServices drawingServices, CancellationToken cancellationToken)
 {
     /// <summary>The bits of an 8-bit sample.</summary>
     private const int ByteBits = 8;
@@ -35,6 +38,10 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
 
     /// <summary>The bytes of an RGB sample triple.</summary>
     private const int RgbBytes = 3;
+
+    /// <summary>Gets the image codec required by JPEG recoding.</summary>
+    private IPdfImageCodec Codec => drawingServices.Images
+        ?? throw new NotSupportedException("Supply an image codec in PdfOpenOptions.DrawingServices before optimizing JPEG images.");
 
     /// <summary>Re-encodes an image.</summary>
     /// <param name="image">The image.</param>
@@ -59,7 +66,7 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
 
         if (BilevelRecoder.IsBilevel(dictionary))
         {
-            return options.EncodeBilevelAsCcitt ? BilevelRecoder.Recode(image, codec, width, height) : ImageOutcome.Unchanged;
+            return options.EncodeBilevelAsCcitt ? BilevelRecoder.Recode(image, codec, width, height, cancellationToken) : ImageOutcome.Unchanged;
         }
 
         var eightBit = dictionary.GetInt32(KnownName.BitsPerComponent, ByteBits) == ByteBits;
@@ -156,12 +163,12 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
         var pixels = default(PooledBuffer);
         try
         {
-            if (job.Image.Decode(ref encoded) != PdfImageCodec.Jpeg || JpegMarkers.ReadComponentCount(encoded.WrittenSpan) != job.Size.Components)
+            if (job.Image.Decode(ref encoded, cancellationToken) != PdfImageCodec.Jpeg || JpegMarkers.ReadComponentCount(encoded.WrittenSpan) != job.Size.Components)
             {
                 return ImageOutcome.Unchanged;
             }
 
-            return ImagePixels.TryDecodeJpeg(encoded.WrittenSpan, job.Size.Components, ref pixels, out var decoded) && decoded == job.Size
+            return ImagePixels.TryDecodeJpeg(Codec, encoded.WrittenSpan, job.Size.Components, ref pixels, out var decoded) && decoded == job.Size
                 ? EncodeJpeg(job, pixels.WrittenSpan, target)
                 : ImageOutcome.Unchanged;
         }
@@ -184,7 +191,7 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
         var pixels = default(PooledBuffer);
         try
         {
-            if (job.Image.Decode(ref samples) != PdfImageCodec.None || samples.Length < needed)
+            if (job.Image.Decode(ref samples, cancellationToken) != PdfImageCodec.None || samples.Length < needed)
             {
                 return ImageOutcome.Unchanged;
             }
@@ -223,7 +230,7 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
             var source = pixels;
             if (target != job.Size)
             {
-                if (!ImagePixels.Downsample(pixels, job.Size, target.Width, target.Height, ref resized))
+                if (!ImagePixels.Downsample(Codec, pixels, job.Size, target.Width, target.Height, ref resized))
                 {
                     return ImageOutcome.Unchanged;
                 }
@@ -231,7 +238,7 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
                 source = resized.WrittenSpan;
             }
 
-            var jpeg = ImagePixels.EncodeJpeg(source, target, options.JpegQuality);
+            var jpeg = ImagePixels.EncodeJpeg(Codec, source, target, options.JpegQuality);
             if (jpeg is null || jpeg.Length >= job.Image.RawLength)
             {
                 return ImageOutcome.Unchanged;

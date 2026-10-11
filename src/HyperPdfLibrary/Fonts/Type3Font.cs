@@ -55,7 +55,8 @@ internal sealed class Type3Font : PdfType3Font
 
     /// <summary>Initializes a new instance of the <see cref="Type3Font"/> class.</summary>
     /// <param name="dictionary">The font dictionary.</param>
-    internal Type3Font(PdfDictionary dictionary)
+    /// <param name="resources">The resources selected by the font loader.</param>
+    internal Type3Font(PdfDictionary dictionary, PdfFontResources resources)
         : base(dictionary)
     {
         FontMatrix = ReadMatrix(dictionary.GetArray(KnownName.FontMatrix));
@@ -65,7 +66,7 @@ internal sealed class Type3Font : PdfType3Font
         var encoding = dictionary.Get(KnownName.Encoding).IsNull
             ? new SimpleEncoding(FontEncoding.None, null)
             : SimpleEncoding.Read(dictionary, new(FontEncoding.None, false, false, false, false));
-        ReadProcedures(dictionary, encoding);
+        ReadProcedures(dictionary, encoding, resources);
     }
 
     /// <inheritdoc/>
@@ -150,7 +151,8 @@ internal sealed class Type3Font : PdfType3Font
     /// <summary>Finds each code's glyph procedure by its glyph name.</summary>
     /// <param name="dictionary">The font dictionary.</param>
     /// <param name="encoding">The encoding.</param>
-    private void ReadProcedures(PdfDictionary dictionary, SimpleEncoding encoding)
+    /// <param name="resources">The selected font resources.</param>
+    private void ReadProcedures(PdfDictionary dictionary, SimpleEncoding encoding, PdfFontResources resources)
     {
         if (dictionary.GetDictionary(KnownName.CharProcs) is not { } procedures)
         {
@@ -165,7 +167,7 @@ internal sealed class Type3Font : PdfType3Font
                 continue;
             }
 
-            _texts[code] = GlyphNameText.TextOf(name, false);
+            _texts[code] = GlyphNameText.TextOf(resources, name, false);
             _procedures[code] = FindProcedure(procedures, name);
         }
     }

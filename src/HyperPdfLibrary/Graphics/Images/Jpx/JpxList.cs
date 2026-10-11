@@ -23,8 +23,15 @@ internal sealed class JpxList<T> : IDisposable
     /// <summary>The factor the capacity grows by.</summary>
     private const int GrowthFactor = 2;
 
+    /// <summary>The cache this list returns its array to.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The rented array.</summary>
     private T[] _items = [];
+
+    /// <summary>Initializes a new instance of the <see cref="JpxList{T}"/> class with an explicit cache.</summary>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal JpxList(ScratchPools scratchPools) => _scratchPools = scratchPools;
 
     /// <summary>Gets the number of elements.</summary>
     internal int Count { get; private set; }
@@ -43,7 +50,7 @@ internal sealed class JpxList<T> : IDisposable
     {
         if (_items.Length > 0)
         {
-            ScratchPool<T>.Shared.Return(_items);
+            _scratchPools.Get<T>().Return(_items);
         }
 
         _items = [];
@@ -95,11 +102,12 @@ internal sealed class JpxList<T> : IDisposable
     /// <param name="needed">The capacity needed.</param>
     private void Grow(int needed)
     {
-        var larger = ScratchPool<T>.Shared.Rent(Math.Max(Math.Max(needed, MinimumCapacity), _items.Length * GrowthFactor));
+        var pool = _scratchPools.Get<T>();
+        var larger = pool.Rent(Math.Max(Math.Max(needed, MinimumCapacity), _items.Length * GrowthFactor));
         _items.AsSpan(0, Count).CopyTo(larger);
         if (_items.Length > 0)
         {
-            ScratchPool<T>.Shared.Return(_items);
+            pool.Return(_items);
         }
 
         _items = larger;

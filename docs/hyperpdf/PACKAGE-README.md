@@ -16,7 +16,9 @@ Console.WriteLine((await PdfDocumentText.GetTextPageAsync(document, 0, Cancellat
 
 ## Render a page
 
-Install `HyperPdfLibrary.Render.Skia` to use the Skia backend. Register it once before opening documents. You can supply your own drawing backend through the contracts in `HyperPdfLibrary.Drawing`.
+Install `HyperPdfLibrary.Render.Skia` to use the Skia backend. Pass drawing services when opening a document. You can supply your own backend through the contracts in `HyperPdfLibrary.Drawing`. Documents keep the services selected at open, so separate engines can use different providers.
+
+For image formats the library cannot decode, set `PdfRenderBackendRegistration.UnsupportedImageDecoder`. The callback receives the image stream and the render operation's cancellation token.
 
 The renderer writes premultiplied BGRA pixels into a buffer you own. `Scale` is device pixels per PDF point.
 
@@ -26,8 +28,8 @@ using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Render.Skia;
 using HyperPdfLibrary.Rendering;
 
-PdfDrawingServices.Register(new PdfRenderBackendRegistration().UseSkia());
-using var document = await PdfDocumentReader.OpenAsync("input.pdf", password: null, CancellationToken.None);
+var drawing = new PdfDrawingServices(new PdfRenderBackendRegistration().UseSkia());
+using var document = await PdfDocumentReader.OpenWithAsync("input.pdf", new PdfOpenOptions { DrawingServices = drawing }, CancellationToken.None);
 
 const float scale = 2f;
 var page = PdfDocumentPages.GetPage(document, 0);
@@ -45,7 +47,7 @@ A document can be used from many render threads at once.
 
 The engine generates predefined CJK mappings and substitute faces only when a requested page needs them. It reads compact binary CMap resources and real TrueType fonts from pinned resource packs, builds the needed engine tables, and caches only the requested assets under `HyperPdfLibrary/FontData/v3` in the user's local application data folder.
 
-Use `PdfDocumentText.GetTextPageAsync`, `PdfDocumentPages.PrefetchPageAsync`, `PdfFontLoader.LoadAsync` or the renderer's `RenderAsync` for first use. These await missing font data before the synchronous core runs. The synchronous APIs use cached resources. Later accesses reuse the parsed data in memory; later runs reuse the generated files without downloading them again. The first request for an uncached resource needs internet access. Set `HYPERPDF_FONT_DATA` before first use to choose a different cache root.
+Use `PdfDocumentText.GetTextPageAsync`, `PdfDocumentPages.PrefetchPageAsync`, `PdfFontLoader.LoadAsync` or the renderer's `RenderAsync` for first use. These await missing font data before the synchronous core runs. The synchronous APIs use cached resources. Documents using the same `PdfDrawingServices` reuse parsed font data in memory; later runs reuse the generated files without downloading them again. The first request for an uncached resource needs internet access. Set `HYPERPDF_FONT_DATA` before first use to choose a different cache root.
 
 Identity CMaps and fonts embedded in the PDF need no substitute font downloads. PDFs with complete embedded CMaps and ToUnicode mappings need no external CMap data.
 

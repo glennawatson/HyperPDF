@@ -55,8 +55,7 @@ public sealed class InferredOrderTests
     [Test]
     public async Task ReadsColumnsLeftToRight()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.TwoColumns(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.TwoColumns());
         var page = PdfReadingStructure.Read(document, 0);
 
         await Assert.That(page.Origin).IsEqualTo(PdfNodeOrigin.Inferred);
@@ -77,8 +76,7 @@ public sealed class InferredOrderTests
     [Test]
     public async Task InfersLayoutForTaggedPagesOnRequest()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.Basic(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.Basic());
         var page = PdfReadingStructure.InferLayout(document, 0);
 
         await Assert.That(page.Nodes[0].Text).IsEqualTo(TaggedSamples.Title);

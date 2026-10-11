@@ -27,14 +27,18 @@ internal static class ContentExecution
     /// <summary>Decodes a page's /Contents, a stream or an array of streams, into one buffer.</summary>
     /// <param name = "page">The page.</param>
     /// <param name = "buffer">Receives the content.</param>
+    /// <param name="cancellationToken">Cancels stream decoding.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void DecodeContents(PdfPage page, ref PooledBuffer buffer) => ContentExecution.AppendContents(page.Dictionary.Get(KnownName.Contents), ref buffer);
+    internal static void DecodeContents(PdfPage page, ref PooledBuffer buffer, CancellationToken cancellationToken = default) =>
+        ContentExecution.AppendContents(page.Dictionary.Get(KnownName.Contents), ref buffer, cancellationToken);
 
     /// <summary>Decodes a /Contents value, a stream or an array of streams, into one buffer.</summary>
     /// <param name = "contents">The /Contents value.</param>
     /// <param name = "buffer">Receives the content.</param>
+    /// <param name="cancellationToken">Cancels stream decoding.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void DecodeContents(PdfValue contents, ref PooledBuffer buffer) => ContentExecution.AppendContents(contents, ref buffer);
+    internal static void DecodeContents(PdfValue contents, ref PooledBuffer buffer, CancellationToken cancellationToken = default) =>
+        ContentExecution.AppendContents(contents, ref buffer, cancellationToken);
 
     /// <summary>Runs a page's content, then returns the device to its starting state.</summary>
     /// <param name = "self">The owned interpreter state.</param>
@@ -45,7 +49,7 @@ internal static class ContentExecution
         var content = default(PooledBuffer);
         try
         {
-            ContentExecution.DecodeContents(page, ref content);
+            ContentExecution.DecodeContents(page, ref content, self.CancellationToken);
             ContentExecution.Execute(self, content.WrittenSpan);
         }
         finally
@@ -77,7 +81,7 @@ internal static class ContentExecution
     /// <returns><see langword="true"/> when the content has ended.</returns>
     internal static bool RunSlice(ContentInterpreter self, ReadOnlySpan<byte> content, ref int position, int operators)
     {
-        PdfCancellation.ThrowIfCancelled();
+        self.CancellationToken.ThrowIfCancellationRequested();
         Span<ContentOperand> operands = stackalloc ContentOperand[ContentReader.OperandSlots];
         var reader = new ContentReader(content, self.Cache.Names, operands) { Position = position, };
         for (var i = 0; i < operators; i++)
@@ -156,11 +160,12 @@ internal static class ContentExecution
     /// <summary>Decodes a page's /Contents, a stream or an array of streams, into one buffer.</summary>
     /// <param name = "contents">The /Contents value.</param>
     /// <param name = "buffer">Receives the content.</param>
-    internal static void AppendContents(PdfValue contents, ref PooledBuffer buffer)
+    /// <param name="cancellationToken">Cancels stream decoding.</param>
+    internal static void AppendContents(PdfValue contents, ref PooledBuffer buffer, CancellationToken cancellationToken = default)
     {
         if (contents.AsStream() is { } single)
         {
-            _ = single.Decode(ref buffer);
+            _ = single.Decode(ref buffer, cancellationToken);
             return;
         }
 
@@ -171,6 +176,7 @@ internal static class ContentExecution
 
         for (var i = 0; i < array.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (array.Get(i).AsStream() is not { } part)
             {
                 continue;
@@ -179,7 +185,7 @@ internal static class ContentExecution
             var piece = default(PooledBuffer);
             try
             {
-                _ = part.Decode(ref piece);
+                _ = part.Decode(ref piece, cancellationToken);
                 buffer.Write(piece.WrittenSpan);
                 buffer.WriteByte(ContentExecution.StreamSeparator);
             }
@@ -198,7 +204,7 @@ internal static class ContentExecution
         var content = default(PooledBuffer);
         try
         {
-            _ = stream.Decode(ref content);
+            _ = stream.Decode(ref content, self.CancellationToken);
             ContentExecution.Execute(self, content.WrittenSpan);
         }
         finally
@@ -225,7 +231,7 @@ internal static class ContentExecution
             batch = (batch + 1) % ContentExecution.CancelCheckOperators;
             if (batch == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                self.CancellationToken.ThrowIfCancellationRequested();
             }
         }
 

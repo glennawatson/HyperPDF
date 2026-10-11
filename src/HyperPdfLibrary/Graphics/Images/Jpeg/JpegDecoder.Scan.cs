@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdfLibrary.Filters;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpeg;
 
@@ -55,12 +54,13 @@ internal ref partial struct JpegDecoder
             return false;
         }
 
-        var rows = ScratchPool<byte>.Shared.Rent(rowBytes);
+        var pool = _scratchPools.Get<byte>();
+        var rows = pool.Rent(rowBytes);
         try
         {
             for (var y = 0; y < _height; y++)
             {
-                PdfCancellation.ThrowIfCancelled();
+                _cancellationToken.ThrowIfCancellationRequested();
                 for (var c = 0; c < components.Length; c++)
                 {
                     BuildRow(components[c], y, rows.AsSpan(c * _width, _width));
@@ -73,7 +73,7 @@ internal ref partial struct JpegDecoder
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(rows);
+            pool.Return(rows);
         }
     }
 
@@ -264,7 +264,7 @@ internal ref partial struct JpegDecoder
         {
             if ((unit & CancelCheckMask) == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                _cancellationToken.ThrowIfCancellationRequested();
             }
 
             if (_restartInterval != 0 && untilRestart == 0)

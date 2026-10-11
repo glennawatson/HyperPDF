@@ -266,8 +266,9 @@ public sealed class JpxDecoderTests
 
     /// <summary>Decodes data with the core decoder.</summary>
     /// <param name="data">A JP2 file or codestream.</param>
+    /// <param name="cancellationToken">Cancels code-block decoding.</param>
     /// <returns>Each component's samples, or <see langword="null"/> when the data is refused.</returns>
-    internal static int[][]? DecodePlanes(byte[] data)
+    internal static int[][]? DecodePlanes(byte[] data, CancellationToken cancellationToken = default)
     {
         if (JpxFileFormat.Read(data) is not { } file)
         {
@@ -280,7 +281,7 @@ public sealed class JpxDecoderTests
             return null;
         }
 
-        using var image = JpxDecoder.Decode(codestream, stream);
+        using var image = JpxDecoder.Decode(codestream, stream, 0, cancellationToken);
         var planes = new int[image.Planes.Length][];
         for (var c = 0; c < planes.Length; c++)
         {

@@ -59,7 +59,7 @@ public class HyperPdfOptimizerBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus");
+        var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "reference-pdfs");
         var scan = Path.Combine(folder, ScanFile);
         var text = Path.Combine(folder, TextFile);
         _scan = File.Exists(scan) ? PdfDocumentReader.Open(scan, null) : PdfDocumentReader.Open(TestPdf.CreateScan(new byte[PhotoPixels * PhotoPixels], PhotoPixels, PhotoPixels), null);

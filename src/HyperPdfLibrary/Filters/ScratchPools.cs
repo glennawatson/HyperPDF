@@ -2,103 +2,223 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
+using System.Diagnostics;
 
 namespace HyperPdfLibrary.Filters;
 
 /// <summary>
-/// Controls the memory the large decoder scratch buffers keep between uses. Image decoders rent buffers of many
-/// megabytes (JPEG 2000 planes, JBIG2 bitmaps, decoded streams). The shared array pool would keep them until the runtime
-/// trims it, so a viewer that has closed a scanned book still holds the book's buffers. These pools keep a bounded
-/// amount for reuse and release the rest.
+/// Owns a bounded set of reusable decoder arrays for one document or an explicitly shared drawing service. A document
+/// closes its own pool without releasing arrays kept by another document or a shared service.
 /// </summary>
-public static class ScratchPools
+[DebuggerDisplay("Scratch pools: {RetainedBytes} of {Budget} bytes")]
+public sealed class ScratchPools
 {
-    /// <summary>The number of bytes the pools may keep until <see cref="Budget"/> is set: 48 MiB, about one decoded 600 dpi page.</summary>
+    /// <summary>The default retention limit: 48 MiB, about one decoded 600 dpi page.</summary>
     private const long DefaultBytes = 48L * 1024 * 1024;
 
-    /// <summary>Guards the list of pools.</summary>
-    private static readonly Lock Gate = new();
+    /// <summary>Guards pool registration, the budget and retained-byte count.</summary>
+    private readonly Lock _gate = new();
 
-    /// <summary>The trim action of each pool made so far.</summary>
-    private static readonly List<Action> Trimmers = [];
+    /// <summary>The lazily created pools by element type.</summary>
+    private readonly Dictionary<Type, object> _pools = [];
 
-    /// <summary>The most bytes the pools may keep.</summary>
-    private static long _budget = DefaultBytes;
+    /// <summary>The trim action of each pool created by this owner.</summary>
+    private readonly List<Action> _trimmers = [];
 
-    /// <summary>The bytes the pools keep now.</summary>
-    private static long _retained;
+    /// <summary>The byte pool used most often by image decoders.</summary>
+    private ScratchPool<byte>? _bytes;
 
-    /// <summary>Gets the number of bytes the pools may keep for reuse until <see cref="Budget"/> is set.</summary>
+    /// <summary>The integer pool used by image decoders.</summary>
+    private ScratchPool<int>? _ints;
+
+    /// <summary>The short pool used by image decoders.</summary>
+    private ScratchPool<short>? _shorts;
+
+    /// <summary>The Boolean pool used by image decoders.</summary>
+    private ScratchPool<bool>? _bools;
+
+    /// <summary>The most bytes this owner may retain.</summary>
+    private long _budget = DefaultBytes;
+
+    /// <summary>The bytes this owner retains.</summary>
+    private long _retained;
+
+    /// <summary>Whether document close has ended this owner's retention.</summary>
+    private bool _closed;
+
+    /// <summary>Gets the default retention limit.</summary>
     public static long DefaultBudget => DefaultBytes;
 
-    /// <summary>Gets the bytes the pools keep for reuse now.</summary>
-    public static long RetainedBytes => Volatile.Read(ref _retained);
-
-    /// <summary>Gets or sets the most bytes the pools keep for reuse; lowering it trims the pools at once.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
-    public static long Budget
+    /// <summary>Gets the bytes this owner currently keeps for reuse.</summary>
+    public long RetainedBytes
     {
-        get => Volatile.Read(ref _budget);
+        get
+        {
+            lock (_gate)
+            {
+                return _retained;
+            }
+        }
+    }
+
+    /// <summary>Gets or sets the most bytes this owner keeps for reuse; lowering it trims its pools at once.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long Budget
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _budget;
+            }
+        }
+
         set
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
-            Volatile.Write(ref _budget, value);
-            if (RetainedBytes > value)
+            bool trim;
+            lock (_gate)
+            {
+                _budget = value;
+                trim = _retained > value;
+            }
+
+            if (trim)
             {
                 Trim();
             }
         }
     }
 
-    /// <summary>Releases every buffer the pools keep. Buffers that are in use are not affected.</summary>
-    public static void Trim()
+    /// <summary>Gets this owner's byte array pool.</summary>
+    internal ScratchPool<byte> Bytes => Volatile.Read(ref _bytes) ?? Get<byte>();
+
+    /// <summary>Gets this owner's integer array pool.</summary>
+    internal ScratchPool<int> Ints => Volatile.Read(ref _ints) ?? Get<int>();
+
+    /// <summary>Releases every buffer this owner keeps. Arrays in use are unaffected.</summary>
+    public void Trim()
     {
-        Action[] pools;
-        lock (Gate)
+        Action[] trimmers;
+        lock (_gate)
         {
-            pools = [.. Trimmers];
+            trimmers = [.. _trimmers];
         }
 
-        foreach (var trim in pools)
+        foreach (var trim in trimmers)
         {
             trim();
         }
     }
 
-    /// <summary>Registers a pool so <see cref="Trim"/> reaches it.</summary>
-    /// <param name="trim">Releases the pool's buffers.</param>
-    internal static void Register(Action trim)
+    /// <summary>Gets this owner's pool for one element type.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <returns>The owned pool.</returns>
+    internal ScratchPool<T> Get<T>()
     {
-        lock (Gate)
+        if (GetCommon<T>() is { } common)
         {
-            Trimmers.Add(trim);
+            return common;
+        }
+
+        lock (_gate)
+        {
+            if (_pools.TryGetValue(typeof(T), out var existing))
+            {
+                return (ScratchPool<T>)existing;
+            }
+
+            var created = new ScratchPool<T>(this);
+            _pools.Add(typeof(T), created);
+            _trimmers.Add(created.Trim);
+            PublishCommon(created);
+            return created;
         }
     }
 
-    /// <summary>Reserves room for a buffer a pool wants to keep.</summary>
-    /// <param name="bytes">The buffer's size.</param>
-    /// <returns><see langword="true"/> when the buffer fits in the budget.</returns>
-    internal static bool TryReserve(long bytes)
+    /// <summary>Ends retention and releases idle arrays. Later returns are dropped.</summary>
+    internal void Close()
     {
-        var limit = Volatile.Read(ref _budget);
-        while (true)
+        lock (_gate)
         {
-            var current = Volatile.Read(ref _retained);
-            if (current + bytes > limit)
+            _closed = true;
+        }
+
+        Trim();
+    }
+
+    /// <summary>Reserves room for one returned large array.</summary>
+    /// <param name="bytes">The array's size.</param>
+    /// <returns>Whether it fits this owner's budget.</returns>
+    internal bool TryReserve(long bytes)
+    {
+        lock (_gate)
+        {
+            if (_closed || bytes > _budget - _retained)
             {
                 return false;
             }
 
-            if (Interlocked.CompareExchange(ref _retained, current + bytes, current) == current)
-            {
-                return true;
-            }
+            _retained += bytes;
+            return true;
         }
     }
 
-    /// <summary>Gives back room a pool no longer uses.</summary>
-    /// <param name="bytes">The size of the buffer the pool let go.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Release(long bytes) => Interlocked.Add(ref _retained, -bytes);
+    /// <summary>Releases room when a retained array is rented or dropped.</summary>
+    /// <param name="bytes">The array's size.</param>
+    internal void Release(long bytes)
+    {
+        lock (_gate)
+        {
+            _retained -= bytes;
+        }
+    }
+
+    /// <summary>Reads a common element pool without taking the registration lock.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <returns>The pool when it has been created.</returns>
+    private ScratchPool<T>? GetCommon<T>()
+    {
+        if (typeof(T) == typeof(byte) && Volatile.Read(ref _bytes) is { } bytes)
+        {
+            return (ScratchPool<T>)(object)bytes;
+        }
+
+        if (typeof(T) == typeof(int) && Volatile.Read(ref _ints) is { } ints)
+        {
+            return (ScratchPool<T>)(object)ints;
+        }
+
+        if (typeof(T) == typeof(short) && Volatile.Read(ref _shorts) is { } shorts)
+        {
+            return (ScratchPool<T>)(object)shorts;
+        }
+
+        return typeof(T) == typeof(bool) && Volatile.Read(ref _bools) is { } bools
+            ? (ScratchPool<T>)(object)bools
+            : null;
+    }
+
+    /// <summary>Makes a new common element pool available for later reads.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <param name="created">The pool registered under the lock.</param>
+    private void PublishCommon<T>(ScratchPool<T> created)
+    {
+        if (typeof(T) == typeof(byte))
+        {
+            Volatile.Write(ref _bytes, (ScratchPool<byte>)(object)created);
+        }
+        else if (typeof(T) == typeof(int))
+        {
+            Volatile.Write(ref _ints, (ScratchPool<int>)(object)created);
+        }
+        else if (typeof(T) == typeof(short))
+        {
+            Volatile.Write(ref _shorts, (ScratchPool<short>)(object)created);
+        }
+        else if (typeof(T) == typeof(bool))
+        {
+            Volatile.Write(ref _bools, (ScratchPool<bool>)(object)created);
+        }
+    }
 }

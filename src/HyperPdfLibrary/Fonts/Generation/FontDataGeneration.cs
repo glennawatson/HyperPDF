@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Fonts.Programs;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts.Generation;
 
@@ -42,145 +41,138 @@ internal static class FontDataGeneration
     }
 
     /// <summary>Builds one engine CMap and the base maps it needs.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The map name.</param>
     /// <param name="collection">The owning collection.</param>
     /// <param name="cancellationToken">Cancels resource I/O and generation.</param>
     /// <returns>The compressed engine table.</returns>
-    internal static async ValueTask<byte[]> CMapAsync(string name, Collection collection, CancellationToken cancellationToken)
+    internal static async ValueTask<byte[]> CMapAsync(PdfFontResources resources, string name, Collection collection, CancellationToken cancellationToken)
     {
         var maps = new Dictionary<string, BinaryCMapData>(StringComparer.Ordinal);
-        await ReadMapAsync(name, collection, maps, cancellationToken).ConfigureAwait(false);
+        await ReadMapAsync(resources, name, collection, maps, cancellationToken).ConfigureAwait(false);
         return PackCMap(maps, name, collection, cancellationToken);
     }
 
     /// <summary>Builds the requested collection's Unicode table from its binary mapping.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="collection">The collection.</param>
     /// <param name="cancellationToken">Cancels resource I/O and generation.</param>
     /// <returns>The compressed table.</returns>
-    internal static async ValueTask<byte[]> UnicodeAsync(Collection collection, CancellationToken cancellationToken)
+    internal static async ValueTask<byte[]> UnicodeAsync(PdfFontResources resources, Collection collection, CancellationToken cancellationToken)
     {
-        var data = await ReadBinaryAsync(collection.UnicodeTable, cancellationToken).ConfigureAwait(false);
-        var values = ParseMap(data, cancellationToken).Unicode;
+        var data = await ReadBinaryAsync(resources, collection.UnicodeTable, cancellationToken).ConfigureAwait(false);
+        var values = BinaryCMapReader.Parse(data, cancellationToken).Unicode;
         var inverseName = Array.Find(collection.CMaps, static name => name.EndsWith("UTF32-H", StringComparison.Ordinal))!;
-        var inverse = await ReadBinaryAsync(inverseName, cancellationToken).ConfigureAwait(false);
-        return PackUnicode(values, ParseMap(inverse, cancellationToken).Ranges, cancellationToken);
+        var inverse = await ReadBinaryAsync(resources, inverseName, cancellationToken).ConfigureAwait(false);
+        return PackUnicode(values, BinaryCMapReader.Parse(inverse, cancellationToken).Ranges, cancellationToken);
     }
 
     /// <summary>Reads one requested open font program from a font pack.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The trusted font filename without its extension.</param>
     /// <param name="cancellationToken">Cancels resource I/O and validation.</param>
     /// <returns>The TrueType bytes.</returns>
     /// <exception cref="InvalidDataException">The resource is not a valid font program.</exception>
-    internal static async ValueTask<byte[]> FaceAsync(string name, CancellationToken cancellationToken)
+    internal static async ValueTask<byte[]> FaceAsync(PdfFontResources resources, string name, CancellationToken cancellationToken)
     {
         var path = name.StartsWith("Arimo-", StringComparison.Ordinal)
             ? $"google/fonts/{ArimoRevision}/apache/arimo/{name}.ttf"
             : $"google/fonts/{FontRevision}/ofl/{name[..name.IndexOf('-', StringComparison.Ordinal)].ToLowerInvariant()}/{name}.ttf";
-        var data = await FontDataDownload.ReadAsync(path, cancellationToken).ConfigureAwait(false);
+        var data = await FontDataDownload.ReadAsync(resources.Data, path, cancellationToken).ConfigureAwait(false);
         return ValidateFace(data, cancellationToken);
     }
 
     /// <summary>Reads and validates the binary CMap inheritance chain.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The map name.</param>
     /// <param name="collection">The owning collection.</param>
     /// <param name="maps">The mappings read in this chain.</param>
     /// <param name="cancellationToken">Cancels resource I/O.</param>
     /// <returns>A task completing when the mappings are available.</returns>
     /// <exception cref="InvalidDataException">The resource inheritance chain is invalid.</exception>
-    private static async ValueTask ReadMapAsync(string name, Collection collection, Dictionary<string, BinaryCMapData> maps, CancellationToken cancellationToken)
+    private static async ValueTask ReadMapAsync(PdfFontResources resources, string name, Collection collection, Dictionary<string, BinaryCMapData> maps, CancellationToken cancellationToken)
     {
         if (maps.Count >= MaxParents || maps.ContainsKey(name) || name.Contains('/') || name.Contains('\\') || name.Contains('.'))
         {
             throw new InvalidDataException("The binary CMap has an invalid inheritance chain.");
         }
 
-        var data = await ReadBinaryAsync(name, cancellationToken).ConfigureAwait(false);
-        var map = ParseMap(data, cancellationToken);
+        var data = await ReadBinaryAsync(resources, name, cancellationToken).ConfigureAwait(false);
+        var map = BinaryCMapReader.Parse(data, cancellationToken);
         maps.Add(name, map);
         if (map.Parent.Length == 0)
         {
             return;
         }
 
-        await ReadMapAsync(map.Parent, collection, maps, cancellationToken).ConfigureAwait(false);
+        await ReadMapAsync(resources, map.Parent, collection, maps, cancellationToken).ConfigureAwait(false);
         await FontDataResources.EnsureAsync(
+            resources.Data,
             "CMaps",
             $"{map.Parent}.bin",
             token => ValueTask.FromResult(PackCMap(maps, map.Parent, collection, token)),
             cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Parses one mapping within a synchronous cancellation scope.</summary>
-    /// <param name="data">The binary mapping.</param>
-    /// <param name="cancellationToken">Cancels parsing.</param>
-    /// <returns>The parsed mapping.</returns>
-    private static BinaryCMapData ParseMap(byte[] data, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return BinaryCMapReader.Parse(data);
-    }
-
-    /// <summary>Packs and compresses one CMap within a synchronous cancellation scope.</summary>
+    /// <summary>Packs and compresses one CMap with an explicit token.</summary>
     /// <param name="maps">The parsed inheritance chain.</param>
     /// <param name="name">The requested CMap.</param>
     /// <param name="collection">The owning collection.</param>
     /// <param name="cancellationToken">Cancels packing.</param>
     /// <returns>The compressed table.</returns>
-    private static byte[] PackCMap(Dictionary<string, BinaryCMapData> maps, string name, Collection collection, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return Compress(PackedTables.PackCMap(maps, name, collection));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte[] PackCMap(Dictionary<string, BinaryCMapData> maps, string name, Collection collection, CancellationToken cancellationToken) =>
+        Compress(PackedTables.PackCMap(maps, name, collection, cancellationToken), cancellationToken);
 
-    /// <summary>Fills, packs and compresses Unicode mappings within a synchronous cancellation scope.</summary>
+    /// <summary>Fills, packs and compresses Unicode mappings with an explicit token.</summary>
     /// <param name="values">The explicit CID mappings.</param>
     /// <param name="ranges">The fallback Unicode ranges.</param>
     /// <param name="cancellationToken">Cancels generation.</param>
     /// <returns>The compressed table.</returns>
     private static byte[] PackUnicode(int[] values, List<CidRange> ranges, CancellationToken cancellationToken)
     {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        BinaryUnicodeFallback.Fill(values, ranges);
-        return Compress(PackedTables.PackUnicode(values));
+        BinaryUnicodeFallback.Fill(values, ranges, cancellationToken);
+        return Compress(PackedTables.PackUnicode(values, cancellationToken), cancellationToken);
     }
 
-    /// <summary>Checks a downloaded font within a synchronous cancellation scope.</summary>
+    /// <summary>Checks a downloaded font while observing the caller's token.</summary>
     /// <param name="data">The font bytes.</param>
     /// <param name="cancellationToken">Cancels validation.</param>
     /// <returns>The validated font bytes.</returns>
     /// <exception cref="InvalidDataException">The font is invalid.</exception>
     private static byte[] ValidateFace(byte[] data, CancellationToken cancellationToken)
     {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         if (!TrueTypeProgram.TryParse(data, out var program) || program.GlyphCount == 0)
         {
             throw new InvalidDataException("The font pack resource is not a valid font program.");
         }
 
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         return data;
     }
 
     /// <summary>Reads a compact binary mapping from the resource pack.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The mapping name.</param>
     /// <param name="cancellationToken">Cancels resource I/O.</param>
     /// <returns>The binary mapping.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ValueTask<byte[]> ReadBinaryAsync(string name, CancellationToken cancellationToken) =>
-        FontDataDownload.ReadAsync($"mozilla/pdf.js/{ResourceRevision}/external/bcmaps/{name}.bcmap", cancellationToken);
+    private static ValueTask<byte[]> ReadBinaryAsync(PdfFontResources resources, string name, CancellationToken cancellationToken) =>
+        FontDataDownload.ReadAsync(resources.Data, $"mozilla/pdf.js/{ResourceRevision}/external/bcmaps/{name}.bcmap", cancellationToken);
 
     /// <summary>Compresses a generated table through the engine's codec.</summary>
     /// <param name="data">The table bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The compressed bytes.</returns>
-    private static byte[] Compress(byte[] data)
+    private static byte[] Compress(byte[] data, CancellationToken cancellationToken)
     {
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         var output = new PooledBuffer(0);
         try
         {
             ZLibCodec.Compress(data, ref output);
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             return output.WrittenSpan.ToArray();
         }
         finally

@@ -97,14 +97,14 @@ public static class PdfDocumentCheck
         await Task.Yield();
         for (var number = 1; number < checker.ObjectLimit; number++)
         {
-            PdfDocumentCheck.CheckObjectScoped(checker, number, cancellationToken);
+            checker.CheckObject(number);
             await PdfDocumentCheck.YieldEvery(number, cancellationToken).ConfigureAwait(false);
         }
 
         checker.CheckStructure();
         for (var index = 0; index < checker.PageCount; index++)
         {
-            PdfDocumentCheck.CheckContentScoped(checker, index, cancellationToken);
+            checker.CheckContent(index);
             await PdfDocumentCheck.YieldEvery(index, cancellationToken).ConfigureAwait(false);
         }
 
@@ -116,26 +116,6 @@ public static class PdfDocumentCheck
     /// <returns>A copy of the repairs, each with its object number and offset.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PdfDiagnostic[] GetRepairs(PdfDocument document) => StoreRepairs.GetRepairs(document.Objects);
-
-    /// <summary>Checks one object with the token in force, so decoding inside the step stops on it too.</summary>
-    /// <param name="checker">The checker.</param>
-    /// <param name="number">The object number.</param>
-    /// <param name="cancellationToken">The token.</param>
-    private static void CheckObjectScoped(PdfDocumentChecker checker, int number, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        checker.CheckObject(number);
-    }
-
-    /// <summary>Checks one page's content with the token in force, so interpreting and decoding inside the step stops on it too.</summary>
-    /// <param name="checker">The checker.</param>
-    /// <param name="index">The page index.</param>
-    /// <param name="cancellationToken">The token.</param>
-    private static void CheckContentScoped(PdfDocumentChecker checker, int index, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        checker.CheckContent(index);
-    }
 
     /// <summary>Maps a check's switches to open options.</summary>
     /// <param name="options">The check options.</param>

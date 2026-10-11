@@ -42,7 +42,7 @@ internal sealed class SurfaceRenderTarget : IDrawableBitmapImpl, IDrawingContext
     /// <summary>Initializes a new instance of the <see cref = "SurfaceRenderTarget"/> class.</summary>
     /// <param name = "createInfo">Creation parameters.</param>
     /// <exception cref = "InvalidOperationException">Thrown when <c>surface?.Surface.Canvas is not { } canvas</c>.</exception>
-    public SurfaceRenderTarget(in CreateInfo createInfo)
+    public SurfaceRenderTarget(in SurfaceRenderTargetCreateInfo createInfo)
     {
         _useScaledDrawing = createInfo.UseScaledDrawing;
         PixelSize = new(createInfo.Width, createInfo.Height);
@@ -120,7 +120,7 @@ internal sealed class SurfaceRenderTarget : IDrawableBitmapImpl, IDrawingContext
     {
         _canvas.RestoreToCount(-1);
         _canvas.ResetMatrix();
-        var createInfo = new DrawingContextImpl.CreateInfo
+        var createInfo = new DrawingContextCreateInfo
         {
             Surface = _surface.Surface,
             Dpi = Dpi,
@@ -178,40 +178,6 @@ internal sealed class SurfaceRenderTarget : IDrawableBitmapImpl, IDrawingContext
         var colorType = format?.ToSkColorType() ?? SKImageInfo.PlatformColorType;
         var imageInfo = new SKImageInfo(Math.Max(width, 1), Math.Max(height, 1), colorType, SKAlphaType.Premul);
         return gpu is not null ? SKSurface.Create(gpu, false, imageInfo, SurfaceProps) : SKSurface.Create(imageInfo, SurfaceProps);
-    }
-
-    /// <summary>Creation parameters for a <see cref = "SurfaceRenderTarget"/>.</summary>
-    internal readonly record struct CreateInfo
-    {
-        /// <summary>Gets width in pixels.</summary>
-        public int Width { get; init; }
-
-        /// <summary>Gets height in pixels.</summary>
-        public int Height { get; init; }
-
-        /// <summary>Gets surface DPI.</summary>
-        public Vector Dpi { get; init; }
-
-        /// <summary>Gets surface pixel format.</summary>
-        public PixelFormat? Format { get; init; }
-
-        /// <summary>Gets whether to disable subpixel LCD rendering for text.</summary>
-        public bool DisableTextLcdRendering { get; init; }
-
-        /// <summary>Gets optional GPU context.</summary>
-        public GRContext? GrContext { get; init; }
-
-        /// <summary>Gets optional GPU provider.</summary>
-        public ISkiaGpu? Gpu { get; init; }
-
-        /// <summary>Gets optional GPU render session.</summary>
-        public ISkiaGpuRenderSession? Session { get; init; }
-
-        /// <summary>Gets whether manual FBO creation is disabled.</summary>
-        public bool DisableManualFbo { get; init; }
-
-        /// <summary>Gets whether drawing should scale to DPI.</summary>
-        public bool UseScaledDrawing { get; init; }
     }
 
     /// <summary>Owns the skia surface wrapper.</summary>

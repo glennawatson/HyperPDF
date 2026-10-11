@@ -16,7 +16,7 @@ internal static class DocumentSave
     /// <param name="source">The source whose unsaved state must survive a failed replacement.</param>
     /// <param name="path">The destination file.</param>
     /// <returns>The save outcome.</returns>
-    internal static SaveOutcome Save(IAnnotationEditor editor, DocumentSource source, string path)
+    internal static DocumentSaveOutcome Save(IAnnotationEditor editor, DocumentSource source, string path)
     {
         var temporary = $"{path}.saving";
         var serialized = false;
@@ -58,7 +58,7 @@ internal static class DocumentSave
     /// <param name="path">The destination file.</param>
     /// <param name="cancellationToken">Cancels preparation and writing.</param>
     /// <returns>The save outcome.</returns>
-    internal static async Task<SaveOutcome> SaveAsync(IAnnotationEditor editor, DocumentSource source, string path, CancellationToken cancellationToken)
+    internal static async Task<DocumentSaveOutcome> SaveAsync(IAnnotationEditor editor, DocumentSource source, string path, CancellationToken cancellationToken)
     {
         var temporary = $"{path}.saving";
         var serialized = false;
@@ -127,9 +127,4 @@ internal static class DocumentSave
         {
         }
     }
-
-    /// <summary>The result of writing and publishing a document.</summary>
-    /// <param name="Saved">Whether the destination was replaced.</param>
-    /// <param name="Error">A file-system error to show to the reader, or <see langword="null"/>.</param>
-    internal readonly record struct SaveOutcome(bool Saved, string? Error);
 }

@@ -372,10 +372,4 @@ internal sealed class PdfCarryForms
 
         return merged;
     }
-
-    /// <summary>A widget ready to copy.</summary>
-    /// <param name="Dictionary">The dictionary to copy in the widget's place.</param>
-    /// <param name="KeepParent">Whether its <c>/Parent</c> names a field that was copied.</param>
-    [DebuggerDisplay("PreparedWidget: KeepParent={KeepParent}")]
-    internal readonly record struct PreparedWidget(PdfDictionary Dictionary, bool KeepParent);
 }

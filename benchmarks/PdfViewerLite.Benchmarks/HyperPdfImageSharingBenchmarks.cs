@@ -7,6 +7,7 @@ using System.IO.Compression;
 using System.Text;
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Rendering;
 using PdfViewerLite.TestAssets;
 
@@ -49,6 +50,9 @@ public class HyperPdfImageSharingBenchmarks
     /// <summary>The cache limit that keeps the one image.</summary>
     private const long ImageLimit = 64L * 1024 * 1024;
 
+    /// <summary>The drawing services reused across benchmark invocations.</summary>
+    private readonly PdfDrawingServices _drawingServices = BenchmarkDrawing.CreateServices();
+
     /// <summary>The PDF bytes.</summary>
     private byte[] _pdf = [];
 
@@ -61,7 +65,7 @@ public class HyperPdfImageSharingBenchmarks
     [Benchmark]
     public async Task<bool> ConcurrentColdImage()
     {
-        using var document = PdfDocumentReader.Open(_pdf, null);
+        using var document = BenchmarkDrawing.Open(_pdf, null, _drawingServices);
         using var renderer = new PdfPageRenderer(document);
         return await RenderBoth(renderer);
     }
@@ -71,7 +75,7 @@ public class HyperPdfImageSharingBenchmarks
     [Benchmark]
     public bool TwoPassesOverSharedImage()
     {
-        using var document = PdfDocumentReader.Open(_pdf, null);
+        using var document = BenchmarkDrawing.Open(_pdf, null, _drawingServices);
         using var renderer = new PdfPageRenderer(document, PdfRenderOptions.Default with { ImageCacheBytes = ImageLimit, PictureCacheBytes = PictureLimit });
         var all = true;
         var pixels = new byte[Tile * Tile * BytesPerPixel];

@@ -6,9 +6,9 @@ using System.Diagnostics;
 
 namespace HyperPdfLibrary.Rendering;
 
-/// <summary>Per-document limits and switches for the renderer.</summary>
+/// <summary>Limits and switches selected by a renderer; equal image and drawing settings share a document cache.</summary>
 /// <param name="ImageCacheBytes">
-/// The most decoded image pixel bytes the document keeps between page recordings. The default, 64 MiB, holds the decoded
+/// The most decoded image pixel bytes renderers with these options keep between page recordings. The default, 64 MiB, holds the decoded
 /// images of two full-page 300 dpi greyscale scans; recorded pages keep their own references, so a smaller limit only
 /// costs re-decoding when a page is recorded again.
 /// </param>

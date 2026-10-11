@@ -33,6 +33,9 @@ public sealed class RenderLifetimeTests
     /// <summary>The threads that render while the document is disposed.</summary>
     private const int Renderers = 4;
 
+    /// <summary>The distinct widget tints created while a document stays open.</summary>
+    private const int TintPolicies = 8;
+
     /// <summary>The most milliseconds the race test waits before it disposes the document.</summary>
     private const int MaxDelay = 4;
 
@@ -56,7 +59,7 @@ public sealed class RenderLifetimeTests
         using var page = CreateScanPage();
         _ = page.RenderPage();
         _ = PdfDocumentText.GetTextPage(page.Document, 0);
-        var cache = PdfDocumentRendering.GetRenderCache(page.Document);
+        var cache = page.Renderer.Cache;
         var imagesBefore = cache.Images.Count;
         var bytesBefore = cache.Images.Bytes;
         var picturesBefore = page.Renderer.PictureBytes;
@@ -79,8 +82,58 @@ public sealed class RenderLifetimeTests
     {
         using var page = CreateScanPage();
         _ = page.RenderPage();
-        await Assert.That(PdfDocumentRendering.GetRenderCache(page.Document).Images.Bytes).IsEqualTo((long)ScanSide * ScanSide);
+        await Assert.That(page.Renderer.Cache.Images.Bytes).IsEqualTo((long)ScanSide * ScanSide);
         await Assert.That(page.Renderer.PictureBytes).IsGreaterThanOrEqualTo((long)ScanSide * ScanSide);
+    }
+
+    /// <summary>The picture limit stays renderer-owned while decoded image settings select a shared cache.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task EqualOptionsShareCacheButConflictingOptionsDoNot()
+    {
+        using var document = SkiaTestRegistration.Open(TestPdf.Create(1), null);
+        var first = new PdfPageRenderer(document);
+        using var equivalent = new PdfPageRenderer(document, PdfRenderOptions.Default with { });
+        using var fewerPictures = new PdfPageRenderer(document, PdfRenderOptions.Default with { PictureCacheBytes = 1 });
+        using var limited = new PdfPageRenderer(document, PdfRenderOptions.Default with { ImageCacheBytes = 1 });
+
+        await Assert.That(ReferenceEquals(first.Cache, equivalent.Cache)).IsTrue();
+        await Assert.That(ReferenceEquals(first.Cache, fewerPictures.Cache)).IsTrue();
+        await Assert.That(ReferenceEquals(first.Cache, limited.Cache)).IsFalse();
+        await Assert.That(first.Cache.Images.Capacity).IsEqualTo(PdfRenderOptions.DefaultImageCacheBytes);
+        await Assert.That(limited.Cache.Images.Capacity).IsEqualTo(1);
+
+        first.Dispose();
+        Render(equivalent, 0);
+        await Assert.That(equivalent.PictureCount).IsEqualTo(1);
+    }
+
+    /// <summary>A cache stays alive for equal live renderers and closes when the last one leaves.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DisposingLastRendererReleasesDistinctPolicyCaches()
+    {
+        using var page = CreateScanPage();
+        for (var i = 0; i < TintPolicies; i++)
+        {
+            var options = PdfRenderOptions.Default with { FormHighlight = new((uint)i, byte.MaxValue) };
+            PdfRenderCache cache;
+            using (var second = new PdfPageRenderer(page.Document, options))
+            {
+                using (var first = new PdfPageRenderer(page.Document, options with { }))
+                {
+                    cache = first.Cache;
+                    await Assert.That(ReferenceEquals(cache, second.Cache)).IsTrue();
+                    Render(first, 0);
+                    await Assert.That(cache.Images.Count).IsEqualTo(1);
+                }
+
+                await Assert.That(cache.Images.Count).IsEqualTo(1);
+            }
+
+            await Assert.That(cache.Images.Count).IsEqualTo(0);
+            await Assert.That(page.Document.State.RendererCaches?.Count ?? 0).IsEqualTo(1);
+        }
     }
 
     /// <summary>With a small picture limit only the newest page stays; with the default limit every page of a small document stays.</summary>
@@ -88,7 +141,7 @@ public sealed class RenderLifetimeTests
     [Test]
     public async Task PictureLimitKeepsOnlyTheNewestPageWhenTiny()
     {
-        using var document = PdfDocumentReader.Open(TestPdf.Create(PageCount), null);
+        using var document = SkiaTestRegistration.Open(TestPdf.Create(PageCount), null);
         using var tiny = new PdfPageRenderer(document, PdfRenderOptions.Default with { PictureCacheBytes = 1 });
         using var roomy = new PdfPageRenderer(document);
         for (var i = 0; i < PageCount; i++)
@@ -108,7 +161,7 @@ public sealed class RenderLifetimeTests
     [Test]
     public async Task NegativePictureLimitIsRejected()
     {
-        using var document = PdfDocumentReader.Open(TestPdf.Create(1), null);
+        using var document = SkiaTestRegistration.Open(TestPdf.Create(1), null);
         await Assert.That(() => new PdfPageRenderer(document, PdfRenderOptions.Default with { PictureCacheBytes = -1 })).Throws<ArgumentOutOfRangeException>();
     }
 

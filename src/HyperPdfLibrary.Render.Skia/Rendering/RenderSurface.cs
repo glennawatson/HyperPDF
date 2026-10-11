@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace HyperPdfLibrary.Rendering;
 
-/// <summary>Owns one thread's reusable pixel wrappers and grayscale paint.</summary>
+/// <summary>Owns one drawing session's reusable pixel wrappers and grayscale paint.</summary>
 internal sealed class RenderSurface : IDisposable
 {
     /// <summary>The weight of red in luminance.</summary>
@@ -19,10 +19,6 @@ internal sealed class RenderSurface : IDisposable
     /// <summary>The weight of blue in luminance.</summary>
     private const float LumaBlue = 0.114F;
 
-    /// <summary>The surface for the current thread.</summary>
-    [ThreadStatic]
-    private static RenderSurface? _current;
-
     /// <summary>Initializes a new instance of the <see cref="RenderSurface"/> class.</summary>
     internal RenderSurface()
     {
@@ -31,9 +27,6 @@ internal sealed class RenderSurface : IDisposable
         Canvas = new(Bitmap);
         GrayPaint = CreateGrayPaint();
     }
-
-    /// <summary>Gets the current thread's surface holder.</summary>
-    internal static RenderSurface Current => _current ??= new();
 
     /// <summary>Gets the bitmap that borrows the pinned target.</summary>
     internal SKBitmap Bitmap { get; }

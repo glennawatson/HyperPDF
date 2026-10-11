@@ -4,6 +4,7 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Rendering;
 
 namespace PdfViewerLite.Benchmarks;
@@ -26,6 +27,9 @@ public class HyperPdfReplayBenchmarks
     /// <summary>The caller-owned target reused by every operation.</summary>
     private readonly byte[] _pixels = new byte[TileSize * TileSize * BytesPerPixel];
 
+    /// <summary>The drawing services reused across benchmark invocations.</summary>
+    private readonly PdfDrawingServices _drawingServices = BenchmarkDrawing.CreateServices();
+
     /// <summary>The controlled transparency fixture.</summary>
     private byte[] _source = [];
 
@@ -41,7 +45,7 @@ public class HyperPdfReplayBenchmarks
     public void Setup()
     {
         _source = RenderSamplePages.CreateTransparencyPage();
-        _document = PdfDocumentReader.Open(_source, null);
+        _document = BenchmarkDrawing.Open(_source, null, _drawingServices);
         _renderer = new(_document);
         if (!WarmReplay())
         {
@@ -67,7 +71,7 @@ public class HyperPdfReplayBenchmarks
     [Benchmark]
     public bool ColdOpenAndRender()
     {
-        using var document = PdfDocumentReader.Open(_source, null);
+        using var document = BenchmarkDrawing.Open(_source, null, _drawingServices);
         using var renderer = new PdfPageRenderer(document);
         return renderer.Render(_request, new(_pixels, TileSize, TileSize, TileSize * BytesPerPixel));
     }

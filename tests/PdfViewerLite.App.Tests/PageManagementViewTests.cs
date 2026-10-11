@@ -73,7 +73,7 @@ public sealed class PageManagementViewTests
     [Test]
     public async Task LabelsActionsAndMovesThumbnailSelectionWithKeyboard()
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("page-view.pdf", PageCount)]);
         var tab = main.SelectedTab!;
@@ -137,7 +137,7 @@ public sealed class PageManagementViewTests
         var pageSelection = string.Join(',', tab.Pages.SelectedPages);
         var thumbnailSelection = string.Join(',', tab.Pages.SelectedThumbnails.Cast<ThumbnailItemViewModel>().Select(static item => item.PageIndex));
         var selectedThumbnail = tab.SelectedThumbnail?.PageIndex.ToString() ?? "<null>";
-        return $"Engine={TestEngineChoice.HyperPdf}; SelectedPages=[{pageSelection}]; SelectedItems=[{listSelection}]; "
+        return $"Engine=HyperPDF; SelectedPages=[{pageSelection}]; SelectedItems=[{listSelection}]; "
             + $"SelectedThumbnail={selectedThumbnail}; CurrentPage={tab.CurrentPageIndex}; IsBusy={tab.Pages.IsBusy}; "
             + $"PageViewItems=[{thumbnailSelection}]; ListSelectedIndex={list.SelectedIndex}.";
     }

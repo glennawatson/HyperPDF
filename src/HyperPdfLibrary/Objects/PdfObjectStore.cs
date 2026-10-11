@@ -3,7 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Compat;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Structure;
@@ -32,10 +36,16 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>The most recently used decoded object streams, by object number; others are decoded again when needed.</summary>
     private readonly ObjectStreamCache _objectStreams = new();
 
+    /// <summary>The idle Flate decoders owned by this store.</summary>
+    private readonly FlateDecoderState? _flateDecoders = FlateDecoderState.Create();
+
+    /// <summary>Scratch buffers used if this store has no document-open context.</summary>
+    private ScratchPools? _scratchPools;
+
     /// <summary>Where each object lives.</summary>
     private XrefTable _xref;
 
-    /// <summary>The parsed objects, by number: a dictionary, array or stream, or a <see cref = "StoreReading.ValueBox"/> for other values.</summary>
+    /// <summary>The parsed objects, by number: a dictionary, array, stream, or boxed value.</summary>
     private object?[] _cache;
 
     /// <summary>Whether a damaged table has already been rebuilt.</summary>
@@ -47,8 +57,17 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>The next unused object number.</summary>
     private int _nextNumber;
 
+    /// <summary>The number of indirect object parses nested in this store, guarded by <see cref="_gate"/>.</summary>
+    private int _parseDepth;
+
     /// <summary>The offsets of the objects in the original file, sorted; made on first use.</summary>
     private long[]? _sortedOffsets;
+
+    /// <summary>The prefetch marks for dictionaries parsed by this store.</summary>
+    private ConditionalWeakTable<PdfDictionary, PdfPrefetchMark>? _prefetchMarks;
+
+    /// <summary>Fallback lookup tables for name trees owned by this store.</summary>
+    private ConditionalWeakTable<PdfDictionary, Dictionary<byte[], PdfValue>>? _nameTreeTables;
 
     /// <summary>1 once redactions were applied.</summary>
     private int _requiresCompactSave;
@@ -120,6 +139,12 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Gets the owned objectStreams state to store operations.</summary>
     internal ObjectStreamCache ObjectStreamsState => _objectStreams;
 
+    /// <summary>Gets this store's independently leased Flate decoders.</summary>
+    internal FlateDecoderState? FlateDecoders => _flateDecoders;
+
+    /// <summary>Gets the document's decoder scratch cache, or this store's fallback cache.</summary>
+    internal ScratchPools ScratchPools => Context?.ScratchPools ?? (Volatile.Read(ref _scratchPools) ?? CreateScratchPools());
+
     /// <summary>Gets a reference to the mutable xref state to store operations.</summary>
     internal ref XrefTable XrefState => ref _xref;
 
@@ -147,8 +172,17 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Gets a reference to the mutable nextNumber state to store operations.</summary>
     internal ref int NextNumberState => ref _nextNumber;
 
+    /// <summary>Gets the parse depth guarded by this store's gate.</summary>
+    internal ref int ParseDepthState => ref _parseDepth;
+
     /// <summary>Gets a reference to the mutable sortedOffsets state to store operations.</summary>
     internal ref long[]? SortedOffsetsState => ref _sortedOffsets;
+
+    /// <summary>Gets the marks for dictionaries loaded ahead from this store.</summary>
+    internal ConditionalWeakTable<PdfDictionary, PdfPrefetchMark> PrefetchMarks => LazyInitializer.EnsureInitialized(ref _prefetchMarks);
+
+    /// <summary>Gets fallback name-tree tables retained for this store's lifetime.</summary>
+    internal ConditionalWeakTable<PdfDictionary, Dictionary<byte[], PdfValue>> NameTreeTables => LazyInitializer.EnsureInitialized(ref _nameTreeTables);
 
     /// <summary>Gets the number of decoded object streams held.</summary>
     internal int CachedObjectStreams => _objectStreams.Count;
@@ -185,6 +219,7 @@ public sealed class PdfObjectStore : IDisposable
             return;
         }
 
+        _flateDecoders?.Dispose();
         lock (_gate)
         {
             // A parse in progress finishes first. Readers that already hold the old array use it until they are done.
@@ -192,10 +227,30 @@ public sealed class PdfObjectStore : IDisposable
             Volatile.Write(ref _cache, []);
         }
 
+        _ = Interlocked.Exchange(ref _prefetchMarks, null);
+        _ = Interlocked.Exchange(ref _nameTreeTables, null);
+
+        Context?.CloseScratchPools();
+        Volatile.Read(ref _scratchPools)?.Close();
+
         Security?.Dispose();
         if (_ownsSource)
         {
             _source.Dispose();
         }
+    }
+
+    /// <summary>Creates the fallback scratch cache once for a store without an open context.</summary>
+    /// <returns>The cache.</returns>
+    private ScratchPools CreateScratchPools()
+    {
+        var created = new ScratchPools();
+        var result = Interlocked.CompareExchange(ref _scratchPools, created, null) ?? created;
+        if (IsDisposed)
+        {
+            result.Close();
+        }
+
+        return result;
     }
 }

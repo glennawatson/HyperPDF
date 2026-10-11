@@ -35,17 +35,13 @@ jobs:
         id: firefox
         run: dotnet run --file scripts/InstallComparisonFirefox.cs -- "${{ runner.temp }}/comparison-firefox"
       - name: Fetch verified comparison PDFs
-        run: dotnet run --file scripts/FetchComparisonCorpus.cs -- tests/corpus/corpus.json "${{ runner.temp }}/comparison-corpus" loc-marbury-v-madison ia-us-reports-228 google-us-reports-vol2 pyhanko-ua-and-a
-      - name: Fetch verified public-domain maps
-        run: dotnet run --file scripts/FetchComparisonCorpus.cs -- tests/render-corpus/corpus.json "${{ runner.temp }}/render-corpus" usgs-morrison-1957 usgs-lost-city-2023
+        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/reference-pdfs" loc-marbury-v-madison irs-w9-2024 pyhanko-ua-and-a usgs-morrison-1957 usgs-lost-city-2023
       - name: Compare renderers against standards
         env:
           PVL_FIREFOX_PATH: ${{ steps.firefox.outputs.firefox-path }}
           PVL_REQUIRE_PDFJS: '1'
-          PVL_REQUIRE_CORPUS: '1'
-          PVL_REQUIRE_RENDER_CORPUS: '1'
-          PDFVIEWERLITE_CORPUS_DIR: ${{ runner.temp }}/comparison-corpus
-          PDFVIEWERLITE_RENDER_CORPUS_DIR: ${{ runner.temp }}/render-corpus
+          IncludeReferencePdfRenderingTests: 'true'
+          PDFVIEWERLITE_REFERENCE_PDF_DIR: ${{ runner.temp }}/reference-pdfs
           PDFVIEWERLITE_COMPARISON_OUTPUT: ${{ runner.temp }}/rendering-comparison
         run: dotnet run --project "${{ github.workspace }}/tests/PdfViewerLite.HyperPdf.Tests/PdfViewerLite.HyperPdf.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/*RenderingComparison/*/*' --report-trx --results-directory "${{ runner.temp }}/rendering-comparison"
       - name: Upload rendering comparisons

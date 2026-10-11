@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Rendering;
 
 namespace PdfViewerLite.Benchmarks;
@@ -16,6 +17,9 @@ public class HyperPdfAsyncOpenBenchmarks
 {
     /// <summary>The pixels of the shared render buffer.</summary>
     private readonly byte[] _pixels = new byte[HyperPdfAsyncSamples.MaxWidth * HyperPdfAsyncSamples.MaxHeight * HyperPdfAsyncSamples.BytesPerPixel];
+
+    /// <summary>The drawing services reused across benchmark invocations.</summary>
+    private readonly PdfDrawingServices _drawingServices = BenchmarkDrawing.CreateServices();
 
     /// <summary>The file.</summary>
     private string _path = string.Empty;
@@ -37,7 +41,7 @@ public class HyperPdfAsyncOpenBenchmarks
     [Benchmark(Baseline = true)]
     public int OpenSync()
     {
-        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source);
+        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source, _drawingServices);
         return opened.Document.PageCount;
     }
 
@@ -46,7 +50,7 @@ public class HyperPdfAsyncOpenBenchmarks
     [Benchmark]
     public async ValueTask<int> OpenAsync()
     {
-        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, CancellationToken.None).ConfigureAwait(false);
+        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, _drawingServices, CancellationToken.None).ConfigureAwait(false);
         return opened.Document.PageCount;
     }
 
@@ -55,7 +59,7 @@ public class HyperPdfAsyncOpenBenchmarks
     [Benchmark]
     public bool OpenRenderFirstSync()
     {
-        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source);
+        using var opened = HyperPdfAsyncSamples.OpenSync(_path, Source, _drawingServices);
         using var renderer = new PdfPageRenderer(opened.Document);
         return HyperPdfAsyncSamples.RenderSync(renderer, opened.Document, 0, _pixels);
     }
@@ -65,7 +69,7 @@ public class HyperPdfAsyncOpenBenchmarks
     [Benchmark]
     public async ValueTask<bool> OpenRenderFirstAsync()
     {
-        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, CancellationToken.None).ConfigureAwait(false);
+        using var opened = await HyperPdfAsyncSamples.OpenAsync(_path, Source, _drawingServices, CancellationToken.None).ConfigureAwait(false);
         using var renderer = new PdfPageRenderer(opened.Document);
         return await HyperPdfAsyncSamples.RenderAsync(renderer, opened.Document, 0, _pixels, CancellationToken.None).ConfigureAwait(false);
     }

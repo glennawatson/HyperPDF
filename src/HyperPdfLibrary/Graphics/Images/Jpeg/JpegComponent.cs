@@ -12,6 +12,9 @@ namespace HyperPdfLibrary.Graphics.Images.Jpeg;
 [DebuggerDisplay("JpegComponent: id {Id}, {HorizontalSampling}x{VerticalSampling}")]
 internal sealed class JpegComponent : IDisposable
 {
+    /// <summary>The cache this component returns its arrays to.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The coefficient array; blocks are stored row by row across the MCU-padded width.</summary>
     private short[]? _coefficients;
 
@@ -25,7 +28,17 @@ internal sealed class JpegComponent : IDisposable
     /// <param name="spec">The component as the frame header declares it.</param>
     /// <param name="grid">The block layout.</param>
     internal JpegComponent(in JpegComponentSpec spec, in JpegGrid grid)
+        : this(spec, grid, new ScratchPools())
     {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpegComponent"/> class with an explicit cache.</summary>
+    /// <param name="spec">The frame component.</param>
+    /// <param name="grid">The block layout.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal JpegComponent(in JpegComponentSpec spec, in JpegGrid grid, ScratchPools scratchPools)
+    {
+        _scratchPools = scratchPools;
         Id = spec.Id;
         HorizontalSampling = spec.HorizontalSampling;
         VerticalSampling = spec.VerticalSampling;
@@ -35,7 +48,7 @@ internal sealed class JpegComponent : IDisposable
         PaddedBlocksPerLine = grid.McusPerLine * HorizontalSampling;
         PaddedBlocksPerColumn = grid.McusPerColumn * VerticalSampling;
         var length = checked(PaddedBlocksPerLine * PaddedBlocksPerColumn * JpegBlock.Length);
-        _coefficients = ScratchPool<short>.Shared.Rent(length);
+        _coefficients = scratchPools.Get<short>().Rent(length);
         _coefficients.AsSpan(0, length).Clear();
     }
 
@@ -85,14 +98,14 @@ internal sealed class JpegComponent : IDisposable
         _coefficients = null;
         if (coefficients is not null)
         {
-            ScratchPool<short>.Shared.Return(coefficients);
+            _scratchPools.Get<short>().Return(coefficients);
         }
 
         var plane = _plane;
         _plane = null;
         if (plane is not null)
         {
-            ScratchPool<byte>.Shared.Return(plane);
+            _scratchPools.Get<byte>().Return(plane);
         }
     }
 
@@ -119,7 +132,7 @@ internal sealed class JpegComponent : IDisposable
         }
 
         var stride = Stride;
-        _plane ??= ScratchPool<byte>.Shared.Rent(stride * PaddedBlocksPerColumn * JpegBlock.Side);
+        _plane ??= _scratchPools.Get<byte>().Rent(stride * PaddedBlocksPerColumn * JpegBlock.Side);
         for (var row = 0; row < BlocksPerColumn; row++)
         {
             for (var column = 0; column < BlocksPerLine; column++)

@@ -7,9 +7,11 @@ using System.IO.Compression;
 using System.Text;
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Content;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Syntax;
+using PdfViewerLite.TestAssets;
 
 namespace PdfViewerLite.Benchmarks;
 
@@ -41,6 +43,12 @@ public class HyperPdfSyntaxBenchmarks
     /// <summary>The sample content stream, Flate compressed.</summary>
     private byte[] _compressed = [];
 
+    /// <summary>The document that owns reusable Flate decoders.</summary>
+    private PdfDocument? _ownedDocument;
+
+    /// <summary>A Flate stream with the document as its owner.</summary>
+    private PdfStream? _ownedFlate;
+
     /// <summary>The sample content stream, Brotli compressed.</summary>
     private byte[] _brotli = [];
 
@@ -62,6 +70,10 @@ public class HyperPdfSyntaxBenchmarks
 
         _content = Encoding.ASCII.GetBytes(content.ToString());
         _compressed = Compress(_content);
+        _ownedDocument = PdfDocumentReader.Open(TestPdf.Create(1), null);
+        var streamDictionary = new PdfDictionary(_ownedDocument.Objects);
+        streamDictionary.Set(KnownName.Filter, PdfValue.FromName(KnownName.FlateDecode));
+        _ownedFlate = new(streamDictionary, _compressed);
         _brotli = CompressBrotli(_content);
         var dictionary = new StringBuilder("<<");
         for (var i = 0; i < DictionaryEntries; i++)
@@ -72,6 +84,10 @@ public class HyperPdfSyntaxBenchmarks
         _dictionary = Encoding.ASCII.GetBytes(dictionary.Append(" >>").ToString());
         _names = new();
     }
+
+    /// <summary>Releases the document and its idle decoders.</summary>
+    [GlobalCleanup]
+    public void Cleanup() => _ownedDocument?.Dispose();
 
     /// <summary>Reads every operator and its operands from a content stream.</summary>
     /// <returns>The operator count.</returns>
@@ -107,6 +123,23 @@ public class HyperPdfSyntaxBenchmarks
         try
         {
             FlateFilter.Decode(_compressed, ref output);
+            return output.Length;
+        }
+        finally
+        {
+            output.Dispose();
+        }
+    }
+
+    /// <summary>Decodes a Flate stream using the document's independently leased decoder state.</summary>
+    /// <returns>The decoded length.</returns>
+    [Benchmark]
+    public int DecodeOwnedFlate()
+    {
+        var output = default(PooledBuffer);
+        try
+        {
+            _ = _ownedFlate!.Decode(ref output);
             return output.Length;
         }
         finally

@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts.Generation;
 
@@ -19,28 +18,30 @@ internal static class BinaryUnicodeFallback
     /// <summary>Fills unmapped CIDs while preserving every explicit Unicode mapping.</summary>
     /// <param name="values">The preferred CID-to-Unicode values.</param>
     /// <param name="ranges">The collection's Unicode-to-CID ranges.</param>
-    internal static void Fill(int[] values, List<CidRange> ranges)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal static void Fill(int[] values, List<CidRange> ranges, CancellationToken cancellationToken = default)
     {
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         var candidates = new int[values.Length];
-        FillCandidates(values, ranges, candidates);
-        ApplyCandidates(values, candidates);
+        FillCandidates(values, ranges, candidates, cancellationToken);
+        ApplyCandidates(values, candidates, cancellationToken);
     }
 
     /// <summary>Collects canonical fallback values from Unicode ranges.</summary>
     /// <param name="values">The explicit mappings.</param>
     /// <param name="ranges">The inverse ranges.</param>
     /// <param name="candidates">Receives fallback candidates.</param>
-    private static void FillCandidates(int[] values, List<CidRange> ranges, int[] candidates)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void FillCandidates(int[] values, List<CidRange> ranges, int[] candidates, CancellationToken cancellationToken)
     {
         for (var rangeIndex = 0; rangeIndex < ranges.Count; rangeIndex++)
         {
             if (rangeIndex % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
-            FillRangeCandidates(values, ranges[rangeIndex], candidates);
+            FillRangeCandidates(values, ranges[rangeIndex], candidates, cancellationToken);
         }
     }
 
@@ -48,14 +49,15 @@ internal static class BinaryUnicodeFallback
     /// <param name="values">The explicit mappings.</param>
     /// <param name="range">The inverse range.</param>
     /// <param name="candidates">Receives fallback candidates.</param>
-    private static void FillRangeCandidates(int[] values, CidRange range, int[] candidates)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void FillRangeCandidates(int[] values, CidRange range, int[] candidates, CancellationToken cancellationToken)
     {
         var high = Math.Min(range.High, MaxScalar);
         for (var code = range.Low; code <= high; code++)
         {
             if ((code - range.Low) % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var cid = range.Cid + (int)(code - range.Low);
@@ -75,13 +77,14 @@ internal static class BinaryUnicodeFallback
     /// <summary>Fills unmapped CIDs from the collected candidates.</summary>
     /// <param name="values">The explicit mappings to fill.</param>
     /// <param name="candidates">The fallback candidates.</param>
-    private static void ApplyCandidates(int[] values, int[] candidates)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void ApplyCandidates(int[] values, int[] candidates, CancellationToken cancellationToken)
     {
         for (var cid = 0; cid < values.Length; cid++)
         {
             if (cid % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             if (values[cid] == 0)

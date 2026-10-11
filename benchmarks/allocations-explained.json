@@ -107,39 +107,9 @@
     "reason": "A visible signature becomes one immutable image record. Cropping also creates an exact-sized pixel buffer. Full-size images reuse the owned source buffer."
   },
   {
-    "type": "System.String",
-    "frame": "PdfViewerLite.Pdfium.Native.PdfiumLibraryResolver.Resolve(",
-    "reason": "The first call to each native entry point probes absolute library paths. This builds path strings during native binding. Later calls use the bound entry point."
-  },
-  {
     "type": "",
     "frame": "PdfViewerLite.Platform.Cups.CupsPrinting.BuildOptions(",
     "reason": "Each submitted print job builds its CUPS option array and formats its copy count. These options carry paper, colour and duplex binding to the printer."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumEngine.OpenCore(",
-    "reason": "Opening a document creates its PdfiumDocument, once per file opened."
-  },
-  {
-    "type": "PdfViewerLite.Pdfium.Native.PdfiumDocumentHandle",
-    "frame": "PdfViewerLite.Pdfium.Native.NativeMethods.FPDF_LoadCustomDocument(",
-    "reason": "Opening a document wraps PDFium's document in one SafeHandle so it is always closed, once per file opened."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.Native.PdfiumFileSource..ctor(",
-    "reason": "Opening a document opens its file handle and the read structure PDFium keeps for the document's life, once per file opened."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument..ctor(",
-    "reason": "A newly opened document sets up its page sizes, its page and annotation caches and its form environment, once per file opened."
-  },
-  {
-    "type": "PdfViewerLite.Pdfium.PdfiumPage",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.GetPage(",
-    "reason": "The first use of a page loads it into a PdfiumPage, kept in the document's page cache, so it happens once per page while the document stays open."
   },
   {
     "type": "",
@@ -165,51 +135,6 @@
     "type": "",
     "frame": "PdfViewerLite.Speech.English.TextNormalizer.",
     "reason": "Normalizing a sentence for the voice rewrites it with generated regular expressions, each replacement making a new string, once per sentence before it is phonemized. Synthesizing the sentence takes hundreds of milliseconds, so this is negligible."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument+StructureWalker.",
-    "reason": "Reading a tagged page's structure tree makes one TaggedBlock (with its character index array) per element, which is the result, and remembers which marked content it has used. It runs once per page when Focus Mode or Read Aloud first reads it; ReadingDocument caches the page."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.IsBold(",
-    "reason": "The per-page cache of whether each font is bold grows its buckets when a page uses a new font; see GetCharacters."
-  },
-  {
-    "type": "System.String",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.ReadUtf16(",
-    "reason": "A string read from PDFium, such as an outline title or a figure's alternative text, is the result; one per call."
-  },
-  {
-    "type": "System.String",
-    "frame": "PdfViewerLite.Pdfium.Native.NativeText.FromUtf16(",
-    "reason": "A string read from PDFium, such as an outline title or a figure's alternative text, is the result; one per call."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.MapMarkedContent(",
-    "reason": "Reading a tagged page groups its characters by marked content id in a dictionary of index lists, once per page; ReadingDocument caches the result."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.ReadTree(",
-    "reason": "Reading a tagged page creates the structure walker and its used-id set once per page; ReadingDocument caches the result."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.ReadElementString(",
-    "reason": "An element's /ActualText or a figure's /Alt text is read into a string only when the element has one; it becomes the block's text."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.GetCharacters(",
-    "reason": "Reading a page's characters remembers whether each of its fonts is bold, so each font's name is read once per page rather than once per character. Runs once per page when its reading order is worked out."
-  },
-  {
-    "type": "System.String",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.GetText(",
-    "reason": "The extracted text is the result; one string per call, sized exactly."
   },
   {
     "type": "",
@@ -272,11 +197,6 @@
     "reason": "The layout is the result: one immutable object with arrays sized exactly to the pages and rows. It is built only when the zoom, arrangement, rotation or viewport size changes, never while scrolling; lookups on it allocate nothing."
   },
   {
-    "type": "PdfViewerLite.Pdfium.Native.Pdfium",
-    "frame": "PdfViewerLite.Pdfium.",
-    "reason": "Exporting pages for printing opens new native documents (the copy and, for several pages per sheet, the sheets) and each page whose annotations are left out; each is owned by one small SafeHandle so it is always closed. Exporting runs when print settings change, never while viewing."
-  },
-  {
     "type": "",
     "frame": "PdfViewerLite.Core.Signatures.Signing.",
     "reason": "Signing writes a new file: the original bytes plus an incremental update built as text, the cross-reference data it reads (inflated object and cross-reference streams), and a CMS signature from System.Security.Cryptography over the signed bytes, which SignedCms needs as one array. A damaged file also gets its cross-reference entries rebuilt by scanning (PdfRepair) and a full cross-reference stream. It runs once, when the user signs."
@@ -287,29 +207,9 @@
     "reason": "Reading layers parses the file's structure and returns new layer records; switching a layer writes a new copy of the file (the original bytes plus a small update with the new default visibility). Both run when the layers panel opens or a box is ticked, never while scrolling."
   },
   {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.RebuildLayerView",
-    "reason": "Switching a layer rebuilds the in-memory copy pages are drawn from: the file's bytes, the layers left hidden and the copy itself. Once per tick of a layer box; drawing from the copy allocates nothing."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.CurrentBytes",
-    "reason": "Switching a layer reads the document's current bytes (from the file, or with unsaved edits written in) to build the copy pages are drawn from. Once per tick of a layer box."
-  },
-  {
     "type": "PdfViewerLite.Core.Documents.DocumentLayer",
     "frame": "PdfViewerLite.",
     "reason": "A layer's visibility is an immutable record, replaced when its box is ticked."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumLayerView.",
-    "reason": "The layer view's page cache and the SafeHandles owning its native copy and pages, created when a layer is switched; reused for every page drawn afterwards."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.Native.NativeBufferHandle",
-    "reason": "The SafeHandle owning the native memory that holds the layer view's copy, one per switch."
   },
   {
     "type": "",
@@ -347,11 +247,6 @@
     "reason": "Flattening a page for Read Aloud returns its text and the matching character map, one string and one int array per page read, sized exactly."
   },
   {
-    "type": "System.Byte[]",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.GetCharacters(",
-    "reason": "Reading a page's characters loads PDFium's text page the first time it is used; the list it fills is the caller's and is reused."
-  },
-  {
     "type": "",
     "frame": "PdfViewerLite.Speech.Melo.WordPieceTokenizer.Clean(",
     "reason": "MeloTTS's front end runs once per sentence read aloud, while the previous sentence plays. BERT's cleaning lower-cases and decomposes the sentence into new strings, and the reused cleaning buffer grows once to the longest sentence seen; the piece ids, phones and model input lists are reused between sentences."
@@ -365,46 +260,6 @@
     "type": "",
     "frame": "PdfViewerLite.Core.Annotations.AnnotationReplyLinks.",
     "reason": "Linking replies runs once per save of a document that gained replies: it parses the saved file, gives inline annotations on pages with replies objects of their own, rewrites each reply with its /IRT reference, and returns the file with the update appended as a new array."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumAnnotations.ReadReplies(",
-    "reason": "A comment's thread is read when the annotations list is refreshed: each reply's text, author and status are new strings in a new record, and the comment's name is read once to match replies saved before linking."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumAnnotations.ReadString(",
-    "reason": "Reading an annotation's text value (contents, author, name or status) returns it as a new string; done when the list is refreshed, not while drawing."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumAnnotations.RepliesTo(",
-    "reason": "Matching a reply to its comment reads the reply's pending comment name as a string; only replies added since the last save have one."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumAnnotations.CreateReply(",
-    "reason": "Replying writes the reply's name, the comment it answers and its modification date; the name is a new string per reply."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumAnnotations.NewName(",
-    "reason": "Each reply, and a comment the first time it is replied to, gets a unique name as a new string."
-  },
-  {
-    "type": "System.Collections.Generic.List",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.ExportPages(",
-    "reason": "Printing a booklet lists the pages in booklet order, once per print preview or print; the booklet step is inlined into the export."
-  },
-  {
-    "type": "System.Int32[]",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.ExportPages(",
-    "reason": "The booklet page order's backing array, sized to the sheets, once per print preview or print."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.ImportBooklet(",
-    "reason": "The booklet page order, sized to the sheets, once per print preview or print."
   },
   {
     "type": "",
@@ -452,21 +307,6 @@
     "reason": "Running a script works on new strings for the value it formats or checks, and a closure for a calculation's field lookups; once per field per edit."
   },
   {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumForm.ReadFieldScripts(",
-    "reason": "Reading a form's scripts, once when it is first edited: each widget's name and action scripts as strings, and its scripts record."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumForm.ReadScripts(",
-    "reason": "Reading a form's scripts, once when it is first edited: the list of scripted fields grows."
-  },
-  {
-    "type": "System.String",
-    "frame": "PdfViewerLite.Pdfium.PdfiumForm.ReadUtf16(",
-    "reason": "A form field's name, value or script is read from PDFium as a new string; when fields are listed after an edit, or scripts are read once."
-  },
-  {
     "type": "System.String",
     "frame": "PdfViewerLite.Core.Documents.LinkedFiles.Resolve(",
     "reason": "Following a link to another file builds that file's full path, once per click on the link. Nothing here runs while pages draw."
@@ -485,11 +325,6 @@
     "type": "",
     "frame": "PdfViewerLite.Core.Documents.ContentWarnings.Build(",
     "reason": "The message about content that cannot be shown is built once per combination of parts and then reused for every document."
-  },
-  {
-    "type": "System.String",
-    "frame": "PdfViewerLite.Pdfium.PdfiumForm.HasUnknownScripts(",
-    "reason": "Judging whether a field's script is one PdfViewerLite runs means reading the script text, once per field in the background check made when a document opens."
   },
   {
     "type": "",
@@ -515,11 +350,6 @@
     "type": "",
     "frame": "PdfViewerLite.Platform.Linux.Spelling.CorrectionIndex.Group(",
     "reason": "Building the correction index makes the key, start and posting arrays it keeps for the life of the spell checker, once per word list."
-  },
-  {
-    "type": "System.String",
-    "frame": "PdfViewerLite.Pdfium.Native.NativeMethods.FPDF_GetSignatureCount(",
-    "reason": "The first call to a native entry point probes the library path while binding it; one string for the life of the process."
   },
   {
     "type": "",
@@ -563,48 +393,8 @@
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumAnnotations.WriteTextBoxKeys(",
-    "reason": "The text and record strings stored in the annotation, once per commit."
-  },
-  {
-    "type": "System.String",
-    "frame": "PdfViewerLite.Pdfium.PdfiumAnnotations.FreeTextEntries(",
-    "reason": "The standard free text entries, written as one string of exact length once per commit."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumAnnotations.GetTextBox(",
-    "reason": "Reading a text box returns its text and a TextBoxContent; the format record is decoded from a pooled buffer without a string."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumFonts.Resolve(",
-    "reason": "Resolving the font for a commit returns the chosen TextFont and its base font name; loaded fonts and shapers are cached."
-  },
-  {
-    "type": "",
     "frame": "PdfViewerLite.Core.Text.Fonts.FontCatalog.Find(",
     "reason": "Finding an installed face returns a FontMatch describing the face and any synthetic bold or italic, once per commit."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.Save(",
-    "reason": "When text boxes, replies or removed comments are pending, the save is written into a pooled buffer (PooledWriteStream, returned after the save) so AnnotationReplyLinks can turn kept entries into standard PDF. Saving is a user action, not a frame or keystroke."
-  },
-  {
-    "type": "System.Byte[]",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.WriteBlock(",
-    "reason": "PDFium's write callback copies each block into the stream the caller passed to Save; a growing MemoryStream destination grows here. Saves with pending work write into a pooled buffer instead."
-  },
-  {
-    "type": "System.Byte[]",
-    "frame": "PdfViewerLite.Pdfium.PdfiumDocument.WriteFinished(",
-    "reason": "The one exact copy of the saved file that the PDF reader parses to finish pending annotations, made only when the file has pending work. It replaced a growing MemoryStream, its ToArray copy and a concatenated copy of the file; the update is now written after the file instead."
-  },
-  {
-    "type": "System.Byte[]",
-    "frame": "PdfViewerLite.Pdfium.PooledWriteStream.",
-    "reason": "The save buffer is rented from the shared pool and returned when the save ends; the trace shows the pool's first rent, which later saves reuse."
   },
   {
     "type": "",
@@ -630,16 +420,6 @@
     "type": "",
     "frame": "PdfViewerLite.Benchmarks.HyperPdfInterchangeBenchmarks.Import",
     "reason": "Importing reads the file as described for the read benchmarks, then builds one annotation dictionary and object per annotation, queues them per page, links replies and pop-ups, and puts each page's array in place once. It also includes opening the fresh document, which the OpenOnly entry explains. Importing is a user action, not a render path."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfDocumentBenchmarks.HyperPdfEndToEnd",
-    "reason": "Each operation opens a fresh document, so it pays every first-use cost once: the object store, name table, page tree and page objects; the page's first recording (interpreter, graphics state stack, Skia paths, picture recorder and picture); the text page and its characters; the annotation editor and the new highlight's dictionaries; the page tree read again because the edit drops the cached pages; and the compact save's cross-reference rows and one ZLib encoder per compressed stream. All of it is open, edit and save work, which are user actions; later tiles of the same page replay the cached picture without managed allocation."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfDocumentBenchmarks.PdfiumEndToEnd",
-    "reason": "The PDFium adapter's open, text page, annotation and save wrappers: the page size and annotation lists, the text string and the managed write buffer. Native memory is not traced. Open, edit and save are user actions, not a render path."
   },
   {
     "type": "",
@@ -834,7 +614,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Syntax.",
-    "reason": "Parsing an object builds its value: a PdfDictionary or PdfArray allocated once at its final size from the per-thread parse stack, its key and value arrays, and strings with escapes. Parsed objects are cached in the object store, so each is parsed once per document. Inline marked-content property lists are parsed when a page is recorded or its text read, which is once per page; warm tiles replay the recorded picture."
+    "reason": "Parsing an object builds its value: a PdfDictionary or PdfArray allocated once at its final size from the operation-local parse stack, its key and value arrays, and strings with escapes. Parsed objects are cached in the object store, so each is parsed once per document. Inline marked-content property lists are parsed when a page is recorded or its text read, which is once per page; warm tiles replay the recorded picture."
   },
   {
     "type": "",
@@ -862,6 +642,11 @@
     "reason": "The page set holds the page array and the reverse lookup from object number to page index. It is built once per document and again after a page edit."
   },
   {
+    "type": "System.Runtime.CompilerServices.ConditionalWeakTable`2[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Document.PdfPrefetchMark]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentReader.OpenWithAsync(",
+    "reason": "The first prefetch of a stream-backed document creates one weak table owned by its object store to remember each dictionary's cache generation. Inlining attributes the table creation to async open."
+  },
+  {
     "type": "",
     "frame": "HyperPdfLibrary.Document.PdfDocument",
     "reason": "Document-level reads that return results the caller keeps or the document caches once: Create builds the document and its lazily filled caches, the page set and output intents are read once, and outline, link, URI, info, viewer preference and conformance reads return records and strings. RunContent creates one content interpreter with its graphics state, resource and marked-content stacks per content run, which happens once per text page build or raster scan, and the text page is cached. RunEdit and CurrentSlots copy the page slots for an undoable page edit. None of these run when a recorded tile is drawn."
@@ -884,12 +669,12 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Rendering.PdfRenderCache.",
-    "reason": "The document's render cache is created on the first render, and Decode and ToSkImage decode an image and wrap it in a Skia image once; the entry stays in the 64 MiB image cache until evicted. Large pixel arrays are placed on the pinned object heap and become Skia's own pixel memory, so the decode output is not copied."
+    "reason": "A render cache is created when a document first needs a set of image and drawing settings, then shared by live renderers with those settings. Decode and ToSkImage decode an image and wrap it in a Skia image once per cache; its image limit bounds retained entries. Large pixel arrays are placed on the pinned object heap and become Skia's own pixel memory, so the decode output is not copied."
   },
   {
     "type": "",
     "frame": "HyperPdfLibrary.Rendering.ImageCache..ctor",
-    "reason": "The image cache's dictionary and recency list, created once per document on the first render."
+    "reason": "The image cache's dictionary and recency list are created with each cache for a document's active image and drawing settings."
   },
   {
     "type": "",
@@ -924,7 +709,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Graphics.Images.PdfImageDecoder.",
-    "reason": "Decoding an image returns its pixels (one gray byte, BGRA or alpha coverage) as a new array the size of the image. Arrays of 64 KiB or more are zeroed arrays on the pinned object heap that Skia then uses as its own pixel memory, so nothing is copied; smaller ones are copied into Skia. The gray table (256 bytes) and the unpacker tables are built once per image. Each image is decoded once while it stays in the cache. Scratch rows are rented from the shared or the bounded scratch pool; when a pool has no array of a size yet, the first rent allocates it under this frame."
+    "reason": "Decoding an image returns its pixels (one gray byte, BGRA or alpha coverage) as a new array the size of the image. Arrays of 64 KiB or more are zeroed arrays on the pinned object heap that Skia then uses as its own pixel memory, so nothing is copied; smaller ones are copied into Skia. The gray table (256 bytes) and the unpacker tables are built once per image. Each image is decoded once while it stays in the cache. Small scratch rows use ArrayPool<T>.Shared; rows of at least 256 KiB use a document-owned or explicitly shared ScratchPools cache with a default 48 MiB retention limit. A first rent of an array size may allocate under this frame."
   },
   {
     "type": "",
@@ -954,7 +739,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Fonts.",
-    "reason": "Loading a font, once per font dictionary per document: its descriptor, program and tables, encoding and widths, glyph name text (one-character texts are shared across fonts), name words for system font matching, and the substitute face. Glyph outlines are built the first time a code is drawn and kept in the font's outline cache, in pages of 256 slots. Predefined CMaps and CID-to-Unicode tables are read from the assembly once per process. Warm text tiles, width and text lookups and CMap lookups allocate nothing."
+    "reason": "Loading a font once per font dictionary per document creates its descriptor, program, encoding, widths, glyph text and substitute face. The font retains its selected resource owner for later glyph lookups; the matcher belongs to the drawing service or detached resource owner. One-character texts, predefined CMaps and CID-to-Unicode tables are cached within the selected resource owner; documents using one drawing service share that owner. Generated asset files are shared on disk. Glyph outlines are built on first draw and kept in pages of 256 slots. Warm text tiles, width and text lookups and CMap lookups allocate nothing."
   },
   {
     "type": "",
@@ -1040,11 +825,6 @@
     "type": "",
     "frame": "PdfViewerLite.HyperPdf.Tagged",
     "reason": "The tagged block walker and character map build the reading order blocks the app asks for, once per page."
-  },
-  {
-    "type": "",
-    "frame": "PdfViewerLite.Pdfium.",
-    "reason": "The PDFium adapter's open, navigation and text wrappers, measured as the comparison baseline: native handles, outline and link lists, label and URI strings. Native memory is not traced. These run on open or on user actions."
   },
   {
     "type": "",
@@ -1507,6 +1287,16 @@
     "reason": "A cache miss records the soft-mask form with an owned child content interpreter. This isolates its parsing and graphics state from the outer page interpreter, and the completed mask recording is retained."
   },
   {
+    "type": "HyperPdfLibrary.Drawing.PdfPathBuilder",
+    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
+    "reason": "The child interpreter recording an uncached soft-mask form creates path and text-clip builders. The completed mask recording is cached, so warm replay does not create them."
+  },
+  {
+    "type": "System.Collections.Generic.List\u00601[HyperPdfLibrary.Drawing.PdfPathCommand]",
+    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
+    "reason": "The child interpreter's path and text-clip builders each own a command list. These lists are created during first soft-mask recording, not warm replay."
+  },
+  {
     "type": "Node[System.IntPtr,SkiaSharp.SKObject]",
     "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
     "reason": "SkiaSharp registers the native wrappers made while recording the soft-mask form in its handle dictionary. The sampled node type identifies that handle-table entry; warm replay reuses the recorded mask."
@@ -1624,7 +1414,7 @@
   {
     "type": "HyperPdfLibrary.Objects.PdfStream",
     "frame": "HyperPdfLibrary.Objects.StoreParsing.ReadStream(class HyperPdfLibrary.Objects.PdfObjectStore,class HyperPdfLibrary.Objects.PdfDictionary,int64,value class HyperPdfLibrary.Objects.PdfObjectId)",
-    "reason": "Parsing a stream object creates its PdfStream wrapper with the dictionary, source range and object identity. The object store retains the wrapper after first loading the stream; the fixture\u0027s bytes are not copied here."
+    "reason": "Parsing a stream object creates its PdfStream wrapper with the dictionary, source range, object identity and a nullable ICC result slot. The object store retains the wrapper after first loading the stream; the fixture\u0027s bytes are not copied here."
   },
   {
     "type": "System.Collections.Generic.List\u00601[HyperPdfLibrary.Drawing.PdfPathCommand]",
@@ -1855,15 +1645,10 @@
   {"type":"Tables[System.IntPtr,SkiaSharp.SKObject]","frame":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget.","reason":"SkiaSharp allocates native-handle registry tables as GPU surface wrappers are created and disposed for distinct tiles."},
   {"type":"Node[System.IntPtr,SkiaSharp.SKObject]","frame":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget.get_Canvas()","reason":"SkiaSharp registers a newly exposed canvas wrapper in its native-handle table. Cached presentation reuses the retained image."},
   {"type":"System.Collections.Concurrent.ConcurrentDictionary`2[System.IntPtr,SkiaSharp.SKObject]","frame":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget.get_Canvas()","reason":"SkiaSharp creates native-handle bookkeeping while exposing a canvas for a new GPU target; warm replay and cached draw do not recreate it."},
-  {"type":"SkiaSharp.SKSurface","frame":"PdfViewerLite.GpuProbe.Program+GpuProbeState.TryCreateSurface(","reason":"Each new GPU tile owns a distinct Skia surface wrapper. The same tile's retained image is drawn without rebuilding that surface."},
   {"type":"SkiaSharp.SKCanvas","frame":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget.get_Canvas()","reason":"A new GPU surface exposes a managed canvas wrapper; the trace resolves this at the target's canvas property."},
   {"type":"SkiaSharp.SKImage","frame":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget.Snapshot()","reason":"Each new tile snapshots its completed GPU surface into one retained image wrapper. Repeated presentation draws that image."},
-  {"type":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget","frame":"PdfViewerLite.GpuProbe.Program+GpuProbeState.CreateTarget(","reason":"The probe creates one owned render-target wrapper for each distinct GPU tile, then disposes it after snapshot."},
-  {"type":"System.WeakReference","frame":"PdfViewerLite.GpuProbe.Program+GpuProbeState.TryCreateSurface(","reason":"SkiaSharp tracks a fresh GPU surface wrapper through weak native-handle bookkeeping; the sampled stack stops at the probe's surface factory."},
   {"type":"System.WeakReference","frame":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget.","reason":"SkiaSharp tracks fresh canvas and image wrappers through weak native-handle bookkeeping; this is attributed only to new-target access and snapshot."},
-  {"type":"Avalonia.Threading.DispatcherOperation","frame":"PdfViewerLite.GpuProbe.Program.Main(","reason":"A small amount of compositor dispatch work overlapped the 100-tile trace. The sampled frame is the probe's event loop, so it cannot be assigned to PDF replay."},
-  {"type":"CultureAndContext","frame":"PdfViewerLite.GpuProbe.Program.Main(","reason":"A small amount of event-loop context work overlapped the 100-tile trace; the sampled frame does not resolve a PDF rendering call."},
-  {"type":"Avalonia.Threading.CulturePreservingExecutionContext","frame":"PdfViewerLite.GpuProbe.Program.Main(","reason":"Avalonia event-loop context work overlapped the 100-tile trace; the sampled frame does not resolve a PDF rendering call."},
   {"type":"System.Object[]","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.get_Current()","reason":"The first replay on a graphics thread initializes thread-local drawing-session bookkeeping. The nested array constructor is not resolved; later replay reuses the session."},
-  {"type":"HyperPdfLibrary.Rendering.SkiaDrawingSession","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.get_Current()","reason":"The first PDF replay on a graphics thread creates its reusable drawing session. Subsequent warm replay reuses that same session."}
+  {"type":"HyperPdfLibrary.Rendering.SkiaDrawingSession","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.get_Current()","reason":"The first PDF replay on a graphics thread creates its reusable drawing session. Subsequent warm replay reuses that same session."},
+  {"type":"HyperPdfLibrary.Objects.PdfStream","frame":"PdfViewerLite.Benchmarks.HyperPdfIccProfileCacheBenchmarks.NewProfileStream()","reason":"Each operation creates one 72-byte stream wrapper, including its nullable ICC profile result slot. Warm profile lookups reuse the stream and allocate nothing."}
 ]

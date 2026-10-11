@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Tests.Rendering;
@@ -25,9 +26,18 @@ internal sealed class FontTestDocument : IDisposable
     /// <param name="spec">The font.</param>
     /// <exception cref="InvalidOperationException">The font did not load.</exception>
     internal FontTestDocument(FontSpec spec)
+        : this(spec, new PdfDrawingServices(new()))
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="FontTestDocument"/> class. Uses the selected drawing services.</summary>
+    /// <param name="spec">The font.</param>
+    /// <param name="drawingServices">The services that own font resources.</param>
+    /// <exception cref="InvalidOperationException">The font did not load.</exception>
+    internal FontTestDocument(FontSpec spec, PdfDrawingServices drawingServices)
     {
         Bytes = Build(spec);
-        Document = PdfDocumentReader.Open(Bytes, null);
+        Document = PdfDocumentReader.OpenWith(Bytes, new PdfOpenOptions { DrawingServices = drawingServices });
         var fonts = PdfDocumentPages.GetPage(Document, 0).Resources?.GetDictionary(KnownName.Font) ?? throw new InvalidOperationException("The page has no fonts.");
         var dictionary = fonts.Get(fonts.GetKeyAt(0)).AsDictionary() ?? throw new InvalidOperationException("The font is not a dictionary.");
         Font = PdfFontLoader.Load(dictionary) ?? throw new InvalidOperationException("The font did not load.");

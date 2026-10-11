@@ -15,8 +15,14 @@ namespace HyperPdfLibrary.Writing;
 [DebuggerDisplay("PdfObjectGraph: {Count} objects")]
 internal sealed class PdfObjectGraph
 {
+    /// <summary>Checks cancellation after each 128 visited values.</summary>
+    private const int CancellationCheckMask = 127;
+
     /// <summary>The objects read from.</summary>
     private readonly PdfObjectStore _store;
+
+    /// <summary>The token for this graph walk.</summary>
+    private readonly CancellationToken _cancellationToken;
 
     /// <summary>Makes the catalog, page tree and pages conform as they are numbered.</summary>
     private readonly PdfSaveRepairs _repairs;
@@ -27,11 +33,16 @@ internal sealed class PdfObjectGraph
     /// <summary>The value of each new number, less one.</summary>
     private readonly List<PdfValue> _values = [];
 
+    /// <summary>The values visited since the walk began.</summary>
+    private int _visits;
+
     /// <summary>Initializes a new instance of the <see cref="PdfObjectGraph"/> class.</summary>
     /// <param name="store">The objects read from.</param>
-    private PdfObjectGraph(PdfObjectStore store)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private PdfObjectGraph(PdfObjectStore store, CancellationToken cancellationToken)
     {
         _store = store;
+        _cancellationToken = cancellationToken;
         _repairs = new(store, true);
 
         // One extra slot for a page tree root the repairs may have to make.
@@ -50,11 +61,13 @@ internal sealed class PdfObjectGraph
     /// <summary>Walks the objects reachable from a trailer's /Root and /Info, and /Encrypt when kept.</summary>
     /// <param name="store">The objects.</param>
     /// <param name="keepEncrypt">Whether /Encrypt is kept.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The graph.</returns>
     /// <exception cref="PdfException">The trailer's /Root does not resolve to a dictionary.</exception>
-    internal static PdfObjectGraph Collect(PdfObjectStore store, bool keepEncrypt)
+    internal static PdfObjectGraph Collect(PdfObjectStore store, bool keepEncrypt, CancellationToken cancellationToken = default)
     {
-        var graph = new PdfObjectGraph(store);
+        cancellationToken.ThrowIfCancellationRequested();
+        var graph = new PdfObjectGraph(store, cancellationToken);
         var trailer = store.Trailer;
         graph.Scan(trailer.GetRaw(KnownName.Root), 0);
         if (StoreReading.Resolve(store, trailer.GetRaw(KnownName.Root)).AsDictionary() is null)
@@ -94,6 +107,12 @@ internal sealed class PdfObjectGraph
     /// <param name="depth">The nesting depth.</param>
     private void Scan(PdfValue value, int depth)
     {
+        _visits++;
+        if ((_visits & CancellationCheckMask) == 0)
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
+
         if (depth > PdfLimits.MaxNesting)
         {
             // The writer refuses values this deep, so there is nothing more to find.

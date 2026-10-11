@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
@@ -15,6 +16,9 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 [DebuggerDisplay("Jbig2Workspace: {Remaining} left")]
 internal sealed class Jbig2Workspace : IDisposable
 {
+    /// <summary>The decoder's explicitly owned scratch cache.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The scratch bitmap for symbols being decoded, or <see langword="null"/> before first use.</summary>
     private Jbig2Bitmap? _symbol;
 
@@ -22,10 +26,24 @@ internal sealed class Jbig2Workspace : IDisposable
     private Jbig2Bitmap? _refinement;
 
     /// <summary>Initializes a new instance of the <see cref="Jbig2Workspace"/> class with <see cref="Jbig2Limits.MaxWork"/>.</summary>
-    internal Jbig2Workspace() => Remaining = Jbig2Limits.MaxWork;
+    internal Jbig2Workspace()
+        : this(new ScratchPools())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="Jbig2Workspace"/> class with an explicit cache.</summary>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal Jbig2Workspace(ScratchPools scratchPools)
+    {
+        _scratchPools = scratchPools;
+        Remaining = Jbig2Limits.MaxWork;
+    }
 
     /// <summary>Gets the work left.</summary>
     internal long Remaining { get; private set; }
+
+    /// <summary>Gets the decoder's scratch cache.</summary>
+    internal ScratchPools ScratchPools => _scratchPools;
 
     /// <summary>Returns the scratch bitmaps' buffers to the pool.</summary>
     public void Dispose()
@@ -64,11 +82,11 @@ internal sealed class Jbig2Workspace : IDisposable
     /// <param name="width">The width.</param>
     /// <param name="height">The height.</param>
     /// <returns>The bitmap, or <see langword="null"/> when the size is not valid.</returns>
-    private static Jbig2Bitmap? Reuse(ref Jbig2Bitmap? scratch, int width, int height)
+    private Jbig2Bitmap? Reuse(ref Jbig2Bitmap? scratch, int width, int height)
     {
         if (scratch is null)
         {
-            scratch = Jbig2Bitmap.Create(width, height);
+            scratch = Jbig2Bitmap.Create(width, height, _scratchPools);
             return scratch;
         }
 

@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Numerics;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts.Generation;
 
@@ -54,17 +53,18 @@ internal static class BinaryCMapReader
 
     /// <summary>Reads a compact binary CMap.</summary>
     /// <param name="data">The binary mapping bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The decoded mapping.</returns>
     /// <exception cref="InvalidDataException">The resource has an invalid block or mapping.</exception>
-    internal static BinaryCMapData Parse(ReadOnlySpan<byte> data)
+    internal static BinaryCMapData Parse(ReadOnlySpan<byte> data, CancellationToken cancellationToken = default)
     {
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         var stream = new BinaryCMapStream(data);
         var vertical = (stream.ReadByte() & 1) != 0;
         var map = new BinaryCMapData(string.Empty, vertical, [], [], new int[MaxItems]);
         while (!stream.AtEnd)
         {
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             var header = stream.ReadByte();
             var kind = header >> KindShift;
             if (kind == MetadataKind)
@@ -85,7 +85,7 @@ internal static class BinaryCMapReader
                 throw new InvalidDataException("The binary CMap has an invalid block.");
             }
 
-            ReadBlock(ref stream, map, new(kind, width, count, (header & SequenceFlag) != 0));
+            ReadBlock(ref stream, map, new(kind, width, count, (header & SequenceFlag) != 0), cancellationToken);
         }
 
         return map;
@@ -95,7 +95,8 @@ internal static class BinaryCMapReader
     /// <param name="stream">The resource reader.</param>
     /// <param name="map">Receives the mappings.</param>
     /// <param name="block">The encoded block shape.</param>
-    private static void ReadBlock(ref BinaryCMapStream stream, BinaryCMapData map, BinaryCMapBlock block)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void ReadBlock(ref BinaryCMapStream stream, BinaryCMapData map, BinaryCMapBlock block, CancellationToken cancellationToken)
     {
         var width = block.Kind >= UnicodeCharacter ? CidBytes : block.Width;
         var isCharacter = block.Kind is CidCharacter or UnicodeCharacter;
@@ -106,7 +107,7 @@ internal static class BinaryCMapReader
         {
             if (index % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             if (index != 0)
@@ -120,7 +121,7 @@ internal static class BinaryCMapReader
 
             high = isCharacter ? low : low + stream.ReadNumber();
             destination = ReadDestination(ref stream, block, index, destination);
-            AddMapping(map, block, low, high, destination);
+            AddMapping(map, block, low, high, destination, cancellationToken);
         }
     }
 
@@ -145,8 +146,9 @@ internal static class BinaryCMapReader
     /// <param name="low">The first code.</param>
     /// <param name="high">The last code.</param>
     /// <param name="destination">The first destination.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <exception cref="InvalidDataException">A code range is invalid.</exception>
-    private static void AddMapping(BinaryCMapData map, BinaryCMapBlock block, BigInteger low, BigInteger high, BigInteger destination)
+    private static void AddMapping(BinaryCMapData map, BinaryCMapBlock block, BigInteger low, BigInteger high, BigInteger destination, CancellationToken cancellationToken)
     {
         if (low < 0 || high > uint.MaxValue || high < low)
         {
@@ -169,7 +171,7 @@ internal static class BinaryCMapReader
 
             case UnicodeCharacter or UnicodeRange:
                 {
-                    AddUnicode(map.Unicode, block.Width, low, high, destination);
+                    AddUnicode(map.Unicode, block.Width, low, high, destination, cancellationToken);
                     break;
                 }
         }
@@ -181,7 +183,8 @@ internal static class BinaryCMapReader
     /// <param name="low">The first CID.</param>
     /// <param name="high">The last CID.</param>
     /// <param name="destination">The first UTF-16 value.</param>
-    private static void AddUnicode(int[] values, int width, BigInteger low, BigInteger high, BigInteger destination)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void AddUnicode(int[] values, int width, BigInteger low, BigInteger high, BigInteger destination, CancellationToken cancellationToken)
     {
         if (width is not (CidBytes or SupplementaryBytes) || high >= values.Length)
         {
@@ -192,7 +195,7 @@ internal static class BinaryCMapReader
         {
             if ((cid - (int)low) % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var scalar = ScalarOf(destination + cid - low, width);

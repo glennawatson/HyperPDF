@@ -6,8 +6,8 @@ using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Ocr;
+using PdfViewerLite.HyperPdf;
 using PdfViewerLite.Ocr;
-using PdfViewerLite.Pdfium;
 using PdfViewerLite.TestAssets;
 using ReactiveUI.Primitives;
 
@@ -145,7 +145,7 @@ public sealed class TextRecognitionViewModelTests
     /// <returns>The scan.</returns>
     private static byte[] CreateScan(string sourcePath)
     {
-        using var source = new PdfiumEngine().Open(sourcePath, null);
+        using var source = new HyperPdfEngine().Open(sourcePath, null);
         var size = source.GetPageSizes()[0];
         var width = (int)MathF.Ceiling(size.Width * ScanScale);
         var height = (int)MathF.Ceiling(size.Height * ScanScale);

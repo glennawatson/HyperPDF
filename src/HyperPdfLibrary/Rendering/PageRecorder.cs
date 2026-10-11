@@ -38,7 +38,7 @@ internal static class PageRecorder
     /// <returns>The recorded picture.</returns>
     internal static IPdfRenderPicture RecordContent(PdfRenderCache cache, PdfPage page, bool printing, float imageScale, out long bytes, out ImageWeight[] images)
     {
-        using var device = Begin(page);
+        using var device = Begin(cache, page);
         using var interpreter = new ContentInterpreter(cache, device, 0, imageScale) { Printing = printing, };
         ContentExecution.RunPage(interpreter, page);
         return Finish(device, out bytes, out images);
@@ -79,11 +79,19 @@ internal static class PageRecorder
     /// <param name="imageScale">The upper scale of the zoom band.</param>
     /// <param name="bytes">Receives picture bytes.</param>
     /// <param name="images">Receives image weights.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The recorded picture.</returns>
-    internal static IPdfRenderPicture RecordAnnotations(PdfRenderCache cache, PdfPage page, bool printing, float imageScale, out long bytes, out ImageWeight[] images)
+    internal static IPdfRenderPicture RecordAnnotations(
+        PdfRenderCache cache,
+        PdfPage page,
+        bool printing,
+        float imageScale,
+        out long bytes,
+        out ImageWeight[] images,
+        CancellationToken cancellationToken = default)
     {
-        using var device = Begin(page);
-        using var interpreter = new ContentInterpreter(cache, device, 0, imageScale) { Printing = printing, };
+        using var device = Begin(cache, page);
+        using var interpreter = new ContentInterpreter(cache, device, 0, imageScale, cancellationToken) { Printing = printing, };
         var annotations = page.Dictionary.GetArray(KnownName.Annots);
         DrawPass(new(cache, interpreter, page, printing), annotations, false);
         DrawPass(new(cache, interpreter, page, printing), annotations, true);
@@ -121,12 +129,13 @@ internal static class PageRecorder
     }
 
     /// <summary>Starts a device that records the page area and clips to it.</summary>
+    /// <param name="cache">The document's caches.</param>
     /// <param name = "page">The page.</param>
     /// <returns>The device.</returns>
-    internal static IPictureDevice Begin(PdfPage page)
+    internal static IPictureDevice Begin(PdfRenderCache cache, PdfPage page)
     {
         var bounds = new PdfRect(0, 0, page.Width, page.Height);
-        var device = PdfDrawingServices.Backend.CreatePictureDevice(bounds);
+        var device = cache.Document.DrawingServices.Backend.CreatePictureDevice(bounds);
         var builder = new PdfPathBuilder();
         builder.AddRect(bounds);
         var clip = builder.Detach();

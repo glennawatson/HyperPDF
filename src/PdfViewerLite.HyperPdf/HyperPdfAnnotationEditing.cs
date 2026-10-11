@@ -69,7 +69,7 @@ internal static class HyperPdfAnnotationEditing
                 return false;
             }
 
-            HyperPdfAnnotationReading.SetModified(annotation);
+            HyperPdfAnnotationReading.SetModified(annotationState, annotation);
             return HyperPdfAnnotationReading.Commit(annotationState, pageIndex, page, index, annotation);
         }
     }
@@ -102,7 +102,7 @@ internal static class HyperPdfAnnotationEditing
                 return false;
             }
 
-            HyperPdfAnnotationReading.SetModified(annotation);
+            HyperPdfAnnotationReading.SetModified(annotationState, annotation);
             return HyperPdfAnnotationReading.Commit(annotationState, pageIndex, page, index, annotation);
         }
     }
@@ -198,7 +198,7 @@ internal static class HyperPdfAnnotationEditing
 
         _ = PdfAnnotations.SetNormalAppearance(annotationState.Store, annotation, recolored);
         PdfAnnotations.SetColor(annotation, KnownName.C, color);
-        HyperPdfAnnotationReading.SetModified(annotation);
+        HyperPdfAnnotationReading.SetModified(annotationState, annotation);
         return true;
     }
 
@@ -215,7 +215,7 @@ internal static class HyperPdfAnnotationEditing
             return false;
         }
 
-        HyperPdfAnnotationReading.SetModified(annotation);
+        HyperPdfAnnotationReading.SetModified(annotationState, annotation);
         return true;
     }
 

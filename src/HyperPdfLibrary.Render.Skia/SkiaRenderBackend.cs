@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -16,15 +17,19 @@ using SkiaSharp;
 namespace HyperPdfLibrary.Render.Skia;
 
 /// <summary>Creates Skia drawing resources behind the managed PDF drawing contracts.</summary>
+[DebuggerDisplay("Skia drawing backend")]
 public sealed class SkiaRenderBackend : IPdfRenderBackend
 {
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-public IPdfDrawingSession GetDrawingSession() => SkiaDrawingSession.Current;
+    /// <summary>The reusable drawing session for each thread that uses this backend.</summary>
+    private readonly ConditionalWeakTable<Thread, SkiaDrawingSession> _sessions = new();
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-public IPictureDevice CreatePictureDevice(PdfRect bounds) => new SkiaContentDevice(SkiaConversions.ToSkRect(bounds));
+    public IPdfDrawingSession GetDrawingSession() => _sessions.GetValue(Thread.CurrentThread, static _ => new());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IPictureDevice CreatePictureDevice(PdfRect bounds) => new SkiaContentDevice(SkiaConversions.ToSkRect(bounds));
 
     /// <inheritdoc/>
     public IPdfRenderImage? CreateImage(PdfImageData data)

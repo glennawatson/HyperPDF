@@ -18,7 +18,7 @@ public sealed class RepairNoticeTests
     [Test]
     public async Task DamagedFileShowsTheNoticeOnce()
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         var path = Path.Combine(test.Directory, "damaged.pdf");
         var damaged = Encoding.Latin1.GetString(TestPdf.Create(1)).Replace("startxref", "startxxxx", StringComparison.Ordinal);
         await File.WriteAllBytesAsync(path, Encoding.Latin1.GetBytes(damaged));
@@ -45,7 +45,7 @@ public sealed class RepairNoticeTests
     [Test]
     public async Task CleanFileShowsNoNotice()
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         var path = Path.Combine(test.Directory, "clean.pdf");
         await File.WriteAllBytesAsync(path, TestPdf.Create(1));
         using var main = new MainViewModel(test.Services);

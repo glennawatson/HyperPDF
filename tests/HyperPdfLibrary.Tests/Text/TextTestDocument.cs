@@ -29,9 +29,6 @@ internal static class TextTestDocument
     /// <summary>The base font name of the bold test font, /F3.</summary>
     private const string BoldName = "TextTestBold";
 
-    /// <summary>Guards swapping the global font factory.</summary>
-    private static readonly Lock FactoryGate = new();
-
     /// <summary>Creates a page with the test fonts as /F1 (horizontal), /F2 (vertical) and /F3 (bold).</summary>
     /// <param name="content">The page content.</param>
     /// <returns>The PDF builder, for more resources or page entries.</returns>
@@ -55,27 +52,15 @@ internal static class TextTestDocument
     /// <returns>The text page.</returns>
     internal static PdfTextPage Extract(RenderTestPdf pdf) => PdfDocumentText.GetTextPage(Open(pdf.ToBytes()), 0);
 
-    /// <summary>Opens a document and loads its fonts with the test fonts, so later text extraction needs no factory.</summary>
+    /// <summary>Opens a document with its own test font loader.</summary>
     /// <param name="bytes">The PDF bytes.</param>
-    /// <returns>The document, with the first page's text already extracted and cached.</returns>
+    /// <returns>The document with its text pages warmed.</returns>
     internal static PdfDocument Open(byte[] bytes)
     {
-        var document = PdfDocumentReader.Open(bytes, null);
-        lock (FactoryGate)
+        var document = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { FontFactory = static dictionary => Load(dictionary) ?? PdfFontLoader.Load(dictionary) });
+        for (var i = 0; i < document.PageCount; i++)
         {
-            var previous = PdfFont.Factory;
-            PdfFont.Factory = dictionary => Load(dictionary) ?? previous?.Invoke(dictionary);
-            try
-            {
-                for (var i = 0; i < document.PageCount; i++)
-                {
-                    _ = PdfDocumentText.GetTextPage(document, i);
-                }
-            }
-            finally
-            {
-                PdfFont.Factory = previous;
-            }
+            _ = PdfDocumentText.GetTextPage(document, i);
         }
 
         return document;

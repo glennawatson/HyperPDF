@@ -11,7 +11,7 @@ namespace HyperPdfLibrary.Syntax;
 /// <summary>
 /// Parses PDF values from a buffer or from a window of a file. Strings without escapes point into a buffer instead of
 /// being copied (a window's strings are copied, as the window does not outlive the parse), and arrays and dictionaries
-/// are collected on a per-thread stack so each is allocated once at its final size.
+/// are collected on an operation-local stack so each is allocated once at its final size.
 /// </summary>
 internal ref struct PdfParser
 {
@@ -116,23 +116,17 @@ internal ref struct PdfParser
     /// <summary>Parses the next value.</summary>
     /// <returns>The value; null at the end of the data or where a value is missing.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal PdfValue ParseValue() => ParseValue(_lexer.Next(), 0);
-
-    /// <summary>Parses a value whose first token has been read.</summary>
-    /// <param name="kind">The first token's kind.</param>
-    /// <param name="depth">The nesting depth.</param>
-    /// <returns>The value.</returns>
-    internal PdfValue ParseValue(PdfTokenKind kind, int depth) => kind switch
+    internal PdfValue ParseValue()
     {
-        PdfTokenKind.Number => ParseNumberOrReference(),
-        PdfTokenKind.Name => PdfValue.FromName(InternName(_lexer.Lexeme)),
-        PdfTokenKind.LiteralString => ParseLiteralString(),
-        PdfTokenKind.HexString => ParseHexString(),
-        PdfTokenKind.ArrayStart => ParseArray(depth),
-        PdfTokenKind.DictionaryStart => ParseDictionary(depth),
-        PdfTokenKind.Keyword => ParseKeyword(_lexer.Keyword),
-        _ => default,
-    };
+        var kind = _lexer.Next();
+        if (kind is not (PdfTokenKind.ArrayStart or PdfTokenKind.DictionaryStart))
+        {
+            return ParseScalar(kind);
+        }
+
+        ParseScratch scratch = default;
+        return ParseValue(kind, 0, ref scratch);
+    }
 
     /// <summary>Interns a name token, decoding its escapes.</summary>
     /// <param name="raw">The token.</param>
@@ -168,6 +162,31 @@ internal ref struct PdfParser
     /// <param name="keyword">The keyword.</param>
     /// <returns><see langword="true"/> for <c>endobj</c>, <c>stream</c> and <c>obj</c>.</returns>
     private static bool IsObjectEnd(PdfKeyword keyword) => keyword is PdfKeyword.EndObj or PdfKeyword.Stream or PdfKeyword.Obj;
+
+    /// <summary>Parses a value whose first token has been read.</summary>
+    /// <param name="kind">The first token's kind.</param>
+    /// <param name="depth">The nesting depth.</param>
+    /// <param name="scratch">The stack for this parse.</param>
+    /// <returns>The value.</returns>
+    private PdfValue ParseValue(PdfTokenKind kind, int depth, ref ParseScratch scratch) => kind switch
+    {
+        PdfTokenKind.ArrayStart => ParseArray(depth, ref scratch),
+        PdfTokenKind.DictionaryStart => ParseDictionary(depth, ref scratch),
+        _ => ParseScalar(kind),
+    };
+
+    /// <summary>Parses a value that cannot contain nested values.</summary>
+    /// <param name="kind">The token kind.</param>
+    /// <returns>The value.</returns>
+    private PdfValue ParseScalar(PdfTokenKind kind) => kind switch
+    {
+        PdfTokenKind.Number => ParseNumberOrReference(),
+        PdfTokenKind.Name => PdfValue.FromName(InternName(_lexer.Lexeme)),
+        PdfTokenKind.LiteralString => ParseLiteralString(),
+        PdfTokenKind.HexString => ParseHexString(),
+        PdfTokenKind.Keyword => ParseKeyword(_lexer.Keyword),
+        _ => default,
+    };
 
     /// <summary>Parses a number, or a reference when it is followed by a generation and <c>R</c>.</summary>
     /// <returns>The value.</returns>
@@ -240,10 +259,10 @@ internal ref struct PdfParser
 
     /// <summary>Parses an array whose opening bracket has been read.</summary>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="scratch">The stack for this parse.</param>
     /// <returns>The value.</returns>
-    private PdfValue ParseArray(int depth)
+    private PdfValue ParseArray(int depth, ref ParseScratch scratch)
     {
-        var scratch = ParseScratch.Current;
         var mark = scratch.Count;
         while (depth < PdfLimits.MaxNesting)
         {
@@ -260,7 +279,7 @@ internal ref struct PdfParser
                 break;
             }
 
-            scratch.Push(0, ParseValue(kind, depth + 1));
+            scratch.Push(0, ParseValue(kind, depth + 1, ref scratch));
         }
 
         return PdfValue.FromArray(scratch.PopArray(mark, _owner));
@@ -268,15 +287,15 @@ internal ref struct PdfParser
 
     /// <summary>Parses a dictionary whose opening brackets have been read.</summary>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="scratch">The stack for this parse.</param>
     /// <returns>The value.</returns>
-    private PdfValue ParseDictionary(int depth)
+    private PdfValue ParseDictionary(int depth, ref ParseScratch scratch)
     {
-        var scratch = ParseScratch.Current;
         var mark = scratch.Count;
         var more = depth < PdfLimits.MaxNesting;
         while (more)
         {
-            more = ParseEntry(scratch, depth);
+            more = ParseEntry(ref scratch, depth);
         }
 
         return PdfValue.FromDictionary(scratch.PopDictionary(mark, _owner));
@@ -286,7 +305,7 @@ internal ref struct PdfParser
     /// <param name="scratch">The scratch stack.</param>
     /// <param name="depth">The dictionary's nesting depth.</param>
     /// <returns><see langword="false"/> at the end of the dictionary.</returns>
-    private bool ParseEntry(ParseScratch scratch, int depth)
+    private bool ParseEntry(ref ParseScratch scratch, int depth)
     {
         var kind = _lexer.Next();
         if (kind != PdfTokenKind.Name)
@@ -314,7 +333,7 @@ internal ref struct PdfParser
             return false;
         }
 
-        var value = ParseValue(valueKind, depth + 1);
+        var value = ParseValue(valueKind, depth + 1, ref scratch);
         if (!value.IsNull)
         {
             scratch.Push(key.Id, value);

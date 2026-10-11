@@ -33,6 +33,9 @@ internal sealed class JpxProgression
     /// <summary>The packet decoder.</summary>
     private readonly JpxPacketDecoder _packets;
 
+    /// <summary>The cache this progression walker uses for packet marks.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The tile.</summary>
     private JpxTile _tile = null!;
 
@@ -52,9 +55,19 @@ internal sealed class JpxProgression
     /// <param name="geometry">The image geometry.</param>
     /// <param name="packets">The packet decoder.</param>
     internal JpxProgression(JpxGeometry geometry, JpxPacketDecoder packets)
+        : this(geometry, packets, new ScratchPools())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpxProgression"/> class with an explicit cache.</summary>
+    /// <param name="geometry">The image geometry.</param>
+    /// <param name="packets">The packet decoder.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal JpxProgression(JpxGeometry geometry, JpxPacketDecoder packets, ScratchPools scratchPools)
     {
         _geometry = geometry;
         _packets = packets;
+        _scratchPools = scratchPools;
     }
 
     /// <summary>Reads every packet of a tile.</summary>
@@ -66,7 +79,7 @@ internal sealed class JpxProgression
         _layers = parameters.Coding.Layers;
         MeasureTile();
         var count = (long)_layers * _resolutions * tile.Components.Length * _precincts;
-        _seen = count <= MaxTracked ? ScratchPool<bool>.Shared.Rent((int)count) : null;
+        _seen = count <= MaxTracked ? _scratchPools.Get<bool>().Rent((int)count) : null;
         _seen?.AsSpan(0, (int)count).Clear();
         try
         {
@@ -76,7 +89,7 @@ internal sealed class JpxProgression
         {
             if (_seen is not null)
             {
-                ScratchPool<bool>.Shared.Return(_seen);
+                _scratchPools.Get<bool>().Return(_seen);
             }
 
             _seen = null;

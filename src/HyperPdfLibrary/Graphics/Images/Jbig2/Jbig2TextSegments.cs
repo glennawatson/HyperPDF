@@ -169,7 +169,8 @@ internal static class Jbig2TextSegments
             return false;
         }
 
-        var lengths = ScratchPool<byte>.Shared.Rent(Math.Max(symbolCount, 1));
+        var pool = reader.ScratchPools.Bytes;
+        var lengths = pool.Rent(Math.Max(symbolCount, 1));
         try
         {
             var span = lengths.AsSpan(0, symbolCount);
@@ -179,7 +180,7 @@ internal static class Jbig2TextSegments
         }
         finally
         {
-            ScratchPool<byte>.Shared.Return(lengths);
+            pool.Return(lengths);
         }
     }
 
@@ -259,7 +260,7 @@ internal static class Jbig2TextSegments
             return Jbig2Status.Failure;
         }
 
-        var region = Jbig2Bitmap.Create(settings.Width, settings.Height);
+        var region = Jbig2Bitmap.Create(settings.Width, settings.Height, state.Workspace.ScratchPools);
         if (region is null || !DecodeText(state, ref reader, settings, symbols, region))
         {
             region?.Dispose();
@@ -278,7 +279,7 @@ internal static class Jbig2TextSegments
     /// <returns><see langword="false"/> when the region cannot be decoded.</returns>
     internal static bool DecodeText(Jbig2DecodeState state, ref Jbig2Reader reader, Jbig2TextRegionSettings settings, Jbig2SymbolSet symbols, Jbig2Bitmap region)
     {
-        using var refinement = new Jbig2ContextBuffer(settings.Refine ? Jbig2RefinementParameters.ContextCountFor(settings.RefinementTemplate) : 0);
+        using var refinement = new Jbig2ContextBuffer(settings.Refine ? Jbig2RefinementParameters.ContextCountFor(settings.RefinementTemplate) : 0, state.Workspace.ScratchPools);
         if (settings.Huffman)
         {
             var decoded = Jbig2TextRegion.DecodeHuffman(ref reader, settings, symbols, refinement.Span, region, state.Workspace);
@@ -286,8 +287,8 @@ internal static class Jbig2TextSegments
             return decoded;
         }
 
-        using var integers = new Jbig2IntegerContexts(settings.SymbolCodeLength);
-        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+        using var integers = new Jbig2IntegerContexts(settings.SymbolCodeLength, state.Workspace.ScratchPools);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         var result = Jbig2TextRegion.DecodeArithmetic(ref decoder, settings, symbols, integers, refinement.Span, region, state.Workspace);
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
         return result;

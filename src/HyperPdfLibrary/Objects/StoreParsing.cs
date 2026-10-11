@@ -20,10 +20,6 @@ public static class StoreParsing
     /// <summary>The growth factor of an object's window.</summary>
     internal const int WindowGrowth = 2;
 
-    /// <summary>How many object parses the current thread is inside.</summary>
-    [ThreadStatic]
-    private static int _parseDepth;
-
     /// <summary>Parses the indirect object whose header is at an offset.</summary>
     /// <param name = "self">The owned object-store state.</param>
     /// <param name = "offset">The offset of the object number.</param>
@@ -39,20 +35,25 @@ public static class StoreParsing
             return false;
         }
 
-        if (StoreParsing._parseDepth >= StoreParsing.MaxParseDepth)
+        lock (self.Gate)
         {
-            PdfOpenContext.Report(self.Context, PdfDiagnosticCode.RecursionLimit, "Objects referred to each other too deeply while parsing.", 0, offset);
-            return false;
-        }
+            if (self.ParseDepthState >= StoreParsing.MaxParseDepth)
+            {
+                PdfOpenContext.Report(self.Context, PdfDiagnosticCode.RecursionLimit, "Objects referred to each other too deeply while parsing.", 0, offset);
+                return false;
+            }
 
-        StoreParsing._parseDepth++;
-        try
-        {
-            return self.ArrayState is not null ? StoreParsing.TryParseInArray(self, self.ArrayState, (int)offset, out id, out value) : StoreParsing.TryParseInWindows(self, offset, out id, out value);
-        }
-        finally
-        {
-            StoreParsing._parseDepth--;
+            self.ParseDepthState++;
+            try
+            {
+                return self.ArrayState is not null
+                    ? StoreParsing.TryParseInArray(self, self.ArrayState, (int)offset, out id, out value)
+                    : StoreParsing.TryParseInWindows(self, offset, out id, out value);
+            }
+            finally
+            {
+                self.ParseDepthState--;
+            }
         }
     }
 

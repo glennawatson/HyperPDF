@@ -122,7 +122,7 @@ public sealed class PrintTests
             preview.TwoSided = true;
             preview.Binding = binding;
             preview.Colour = false;
-            _ = await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Summary == "2 sheets");
+            await Assert.That(await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer && preview.Summary == "2 sheets")).IsTrue();
             sheets = preview.Sheets.Count;
             context.SetOutput(true);
         });
@@ -153,10 +153,10 @@ public sealed class PrintTests
         {
             var preview = context.Input;
             preview.LayoutIndex = PosterLayout;
-            _ = await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Sheets.Count == RangePages * PosterSheetsPerPage);
+            await Assert.That(await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Sheets.Count == RangePages * PosterSheetsPerPage)).IsTrue();
             posterSheets = preview.Sheets.Count;
             preview.LayoutIndex = BookletLayout;
-            _ = await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Sheets.Count < RangePages);
+            await Assert.That(await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer && preview.Sheets.Count < RangePages)).IsTrue();
             bookletSheets = preview.Sheets.Count;
             context.SetOutput(true);
         });
@@ -174,7 +174,7 @@ public sealed class PrintTests
     private static async Task ConfirmWhenReadyAsync(IInteractionContext<PrintPreviewViewModel, bool> context)
     {
         var preview = context.Input;
-        _ = await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer);
+        await Assert.That(await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer)).IsTrue();
         context.SetOutput(true);
     }
 

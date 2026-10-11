@@ -4,7 +4,6 @@
 
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -49,7 +48,6 @@ public static class PdfOptimizer
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(options);
         var session = new OptimizeSession(source, options, progress, cancellationToken);
-        using var scope = PdfCancellation.Enter(cancellationToken);
         var plan = session.Prepare();
         return session.Finish(plan.WriteTo(destination, cancellationToken), plan.Mode);
     }
@@ -104,18 +102,8 @@ public static class PdfOptimizer
     /// <returns>What was done.</returns>
     private static async Task<PdfOptimizeReport> RunAsync(OptimizeSession session, Stream destination, CancellationToken cancellationToken)
     {
-        var plan = PrepareScoped(session, cancellationToken);
+        var plan = session.Prepare();
         var written = await plan.WriteToAsync(destination, cancellationToken).ConfigureAwait(false);
         return session.Finish(written, plan.Mode);
-    }
-
-    /// <summary>Prepares a run with the token in force for the synchronous core, so image and stream decoding stops on it too.</summary>
-    /// <param name="session">The run.</param>
-    /// <param name="cancellationToken">The token.</param>
-    /// <returns>The write plan.</returns>
-    private static WritePlan PrepareScoped(OptimizeSession session, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return session.Prepare();
     }
 }

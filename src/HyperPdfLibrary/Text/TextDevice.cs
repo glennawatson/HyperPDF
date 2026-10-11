@@ -16,7 +16,7 @@ namespace HyperPdfLibrary.Text;
 
 /// <summary>
 /// A content device that collects shown glyphs into text runs, the counterparts of PDFium's text objects. Paths, images
-/// and shadings are ignored. One device serves one thread and is reused between pages.
+/// and shadings are ignored. Each active extraction owns a device, which its document may reuse later.
 /// </summary>
 [DebuggerDisplay("TextDevice: {Runs.Count} runs, {Glyphs.Count} glyphs")]
 internal sealed partial class TextDevice : ITextObjectDevice
@@ -41,6 +41,9 @@ internal sealed partial class TextDevice : ITextObjectDevice
 
     /// <summary>Whether a text object started since the last glyph.</summary>
     private bool _newObject;
+
+    /// <summary>The drawing services of the page currently being collected.</summary>
+    private PdfDrawingServices? _drawingServices;
 
     /// <summary>Gets the runs, in content order.</summary>
     internal List<TextRun> Runs { get; } = [with(RunCapacity)];
@@ -124,7 +127,7 @@ internal sealed partial class TextDevice : ITextObjectDevice
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPictureDevice CreatePictureDevice(PdfRect cull) => PdfDrawingServices.Backend.CreatePictureDevice(cull);
+    public IPictureDevice CreatePictureDevice(PdfRect cull) => (_drawingServices ?? throw new InvalidOperationException("Reset the text device for a page first.")).Backend.CreatePictureDevice(cull);
 
     /// <inheritdoc/>
     public void DrawGlyph(in GlyphEvent glyph, ref GraphicsState state)
@@ -146,6 +149,7 @@ internal sealed partial class TextDevice : ITextObjectDevice
     internal void Reset(PdfPage page)
     {
         Clear();
+        _drawingServices = PdfDrawingServices.For(page.Dictionary);
         _userTransform = page.UserTransform;
     }
 

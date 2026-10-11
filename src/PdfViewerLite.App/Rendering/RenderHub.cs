@@ -73,7 +73,7 @@ public sealed class RenderHub : IDisposable
         _tilesArrived.Dispose();
     }
 
-    /// <summary>Schedules a cache refresh so software tiles are rendered by the worker after device loss.</summary>
+    /// <summary>Schedules a repaint so cached GPU tiles can present software pixels after device loss.</summary>
     internal void RequestSoftwareRecovery()
     {
         if (Volatile.Read(ref _disposed) != 0 || Interlocked.Exchange(ref _recoveryQueued, 1) != 0)
@@ -116,12 +116,6 @@ public sealed class RenderHub : IDisposable
         var any = false;
         while (Scheduler.TryTakeCompleted(out var tile))
         {
-            if (_surfaceFactory.IsGpuUnavailable && tile.Surface is GpuPreparedRenderSurface { SoftwareBitmap: null })
-            {
-                tile.Surface.Dispose();
-                continue;
-            }
-
             Cache.Add(tile.Key, tile.Surface);
             any = true;
         }
@@ -132,7 +126,7 @@ public sealed class RenderHub : IDisposable
         }
     }
 
-    /// <summary>Releases stale GPU tiles and asks visible controls to request software output.</summary>
+    /// <summary>Repaints visible tiles after GPU loss while retaining cached tiles for software presentation.</summary>
     private void RecoverSoftwareOnUi()
     {
         Volatile.Write(ref _recoveryQueued, 0);
@@ -141,7 +135,6 @@ public sealed class RenderHub : IDisposable
             return;
         }
 
-        Cache.Clear();
         _tilesArrived.OnNext(RxVoid.Default);
         InvalidateWindows();
     }

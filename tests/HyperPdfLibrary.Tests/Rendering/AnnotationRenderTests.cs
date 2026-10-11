@@ -317,6 +317,29 @@ public sealed class AnnotationRenderTests
         await RenderCheck.Near(image, WidgetColumn, WidgetRow, Rgb.Green255, Tolerance, nameof(WidgetsAreDrawnWhenTheFormNeedsAppearances));
     }
 
+    /// <summary>Two renderers of one form keep their own widget tint when rendering in turns.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ConflictingRenderersKeepTheirFormHighlights()
+    {
+        const uint redTint = 0xFF0000;
+        const uint blueTint = 0x0000FF;
+        const int passes = 2;
+        var pdf = new RenderTestPdf(Size, Size);
+        var widget = pdf.AddObject("<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /Rect [20 20 80 40] /F 4 >>");
+        pdf.PageEntries = $"/Annots [{widget} 0 R]";
+        pdf.CatalogEntries = $"/AcroForm << /Fields [{widget} 0 R] /NeedAppearances true /DA (/Helv 0 Tf 0 g) >>";
+        using var page = new RenderTestPage(pdf.ToBytes());
+        using var red = new PdfPageRenderer(page.Document, PdfRenderOptions.Default with { FormHighlight = new(redTint, byte.MaxValue) });
+        using var blue = new PdfPageRenderer(page.Document, PdfRenderOptions.Default with { FormHighlight = new(blueTint, byte.MaxValue) });
+
+        for (var i = 0; i < passes; i++)
+        {
+            await RenderCheck.Near(RenderWidget(red), WidgetColumn, WidgetRow, Rgb.Red255, Tolerance, nameof(ConflictingRenderersKeepTheirFormHighlights));
+            await RenderCheck.Near(RenderWidget(blue), WidgetColumn, WidgetRow, Rgb.Blue255, Tolerance, nameof(ConflictingRenderersKeepTheirFormHighlights));
+        }
+    }
+
     /// <summary>Widgets are drawn after the other annotations, whatever their order in /Annots, as PDFium draws them.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -346,6 +369,21 @@ public sealed class AnnotationRenderTests
         pdf.PageEntries = $"/Annots [{annotation} 0 R]";
         using var page = new RenderTestPage(pdf.ToBytes());
         return page.RenderPage(scale, 0, flags);
+    }
+
+    /// <summary>Renders annotations through a configured renderer.</summary>
+    /// <param name="renderer">The renderer.</param>
+    /// <returns>The page pixels.</returns>
+    /// <exception cref="InvalidOperationException">The page could not be rendered.</exception>
+    private static RenderedImage RenderWidget(PdfPageRenderer renderer)
+    {
+        var pixels = new byte[Size * Size * RenderedImage.BytesPerPixel];
+        if (!renderer.Render(new(0, 1, 0, 0, 0, PdfRenderFlags.Annotations), new(pixels, Size, Size, Size * RenderedImage.BytesPerPixel)))
+        {
+            throw new InvalidOperationException("The widget page could not be rendered.");
+        }
+
+        return new(pixels, Size, Size);
     }
 
     /// <summary>Determines whether any pixel in a column range of rows is near a colour.</summary>

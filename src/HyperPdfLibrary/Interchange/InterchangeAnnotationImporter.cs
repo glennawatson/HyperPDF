@@ -234,12 +234,6 @@ internal static class InterchangeAnnotationImporter
         return index;
     }
 
-    /// <summary>How many annotations were added, replaced and skipped.</summary>
-    /// <param name="Added">The annotations added.</param>
-    /// <param name="Replaced">The annotations that replaced one.</param>
-    /// <param name="Skipped">The annotations left out.</param>
-    internal readonly record struct AnnotationCounts(int Added, int Replaced, int Skipped);
-
     /// <summary>An annotation name on a page.</summary>
     /// <param name="Page">The page index.</param>
     /// <param name="Name">The annotation's name.</param>

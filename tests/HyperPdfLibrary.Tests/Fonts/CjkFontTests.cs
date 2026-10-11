@@ -37,13 +37,16 @@ public sealed class CjkFontTests
     /// <summary>The descriptor flags of a symbolic font.</summary>
     private const int Symbolic = 4;
 
+    /// <summary>The resources owned by this test.</summary>
+    private readonly PdfFontResources _resources = new();
+
     /// <summary>A Shift-JIS font measures codes by their CIDs' /W widths and gives their text through Adobe-Japan1.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task ShiftJisFontUsesCidWidthsAndText()
     {
-        await PredefinedCMaps.EnsureAsync("90ms-RKSJ-H", CancellationToken.None);
-        await CidToUnicodeTable.EnsureAsync(CjkScript.Japanese, CancellationToken.None);
+        await PredefinedCMaps.EnsureAsync(_resources, "90ms-RKSJ-H", CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_resources, CjkScript.Japanese, CancellationToken.None);
 
         using var document = PdfDocumentReader.Open(CjkFontPdf.Build("90ms-RKSJ-H", "Japan1", CjkFontPdf.ShiftJisContent, CjkFontPdf.HiraganaAWidth), null);
         var font = CjkFontPdf.LoadFont(document);
@@ -59,7 +62,7 @@ public sealed class CjkFontTests
     [Test]
     public async Task IdentityFontUsesItsCollection()
     {
-        await CidToUnicodeTable.EnsureAsync(CjkScript.Japanese, CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_resources, CjkScript.Japanese, CancellationToken.None);
 
         using var document = PdfDocumentReader.Open(CjkFontPdf.Build("Identity-H", "Japan1", CjkFontPdf.IdentityJapan1Content, string.Empty), null);
         var font = CjkFontPdf.LoadFont(document);
@@ -72,10 +75,10 @@ public sealed class CjkFontTests
     [Test]
     public async Task ChineseAndKoreanFontsGiveText()
     {
-        await PredefinedCMaps.EnsureAsync("GB-EUC-H", CancellationToken.None);
-        await PredefinedCMaps.EnsureAsync("UniKS-UCS2-H", CancellationToken.None);
-        await CidToUnicodeTable.EnsureAsync(CjkScript.SimplifiedChinese, CancellationToken.None);
-        await CidToUnicodeTable.EnsureAsync(CjkScript.Korean, CancellationToken.None);
+        await PredefinedCMaps.EnsureAsync(_resources, "GB-EUC-H", CancellationToken.None);
+        await PredefinedCMaps.EnsureAsync(_resources, "UniKS-UCS2-H", CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_resources, CjkScript.SimplifiedChinese, CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_resources, CjkScript.Korean, CancellationToken.None);
 
         using var gb = PdfDocumentReader.Open(CjkFontPdf.Build("GB-EUC-H", "GB1", CjkFontPdf.GbEucContent, string.Empty), null);
         using var ks = PdfDocumentReader.Open(CjkFontPdf.Build("UniKS-UCS2-H", "Korea1", CjkFontPdf.UniKsContent, string.Empty), null);
@@ -89,8 +92,8 @@ public sealed class CjkFontTests
     [Test]
     public async Task CidKeyedCffDrawsThroughAPredefinedCMap()
     {
-        await PredefinedCMaps.EnsureAsync("UniGB-UCS2-H", CancellationToken.None);
-        await CidToUnicodeTable.EnsureAsync(CjkScript.SimplifiedChinese, CancellationToken.None);
+        await PredefinedCMaps.EnsureAsync(_resources, "UniGB-UCS2-H", CancellationToken.None);
+        await CidToUnicodeTable.EnsureAsync(_resources, CjkScript.SimplifiedChinese, CancellationToken.None);
 
         using var document = new FontTestDocument(new()
         {

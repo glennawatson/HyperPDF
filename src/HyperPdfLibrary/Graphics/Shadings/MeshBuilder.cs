@@ -343,13 +343,14 @@ internal sealed partial class MeshBuilder
         }
 
         var chunks = new List<IPdfRenderVertices>();
+        var backend = PdfDrawingServices.For(_shading.Dictionary).Backend;
         for (var start = 0; start < total; start += ChunkVertices)
         {
             var count = Math.Min(ChunkVertices, total - start);
             var positions = _positions.GetRange(start, count).ToArray();
             chunks.Add(UsesRamp
-                ? PdfDrawingServices.Backend.CreateVertices(positions, _texels.GetRange(start, count).ToArray(), null!)
-                : PdfDrawingServices.Backend.CreateVertices(positions, _colors.GetRange(start, count).ToArray()));
+                ? backend.CreateVertices(positions, _texels.GetRange(start, count).ToArray(), null!)
+                : backend.CreateVertices(positions, _colors.GetRange(start, count).ToArray()));
         }
 
         return new([..chunks], UsesRamp ? CreateRamp() : null);
@@ -370,7 +371,8 @@ internal sealed partial class MeshBuilder
             pixels[(i * BytesPerPixel) + AlphaOffset] = byte.MaxValue;
         }
 
-        using var image = PdfDrawingServices.Backend.CreateImage(new(RampWidth, 1, PdfImagePixelFormat.Bgra8888), pixels, RampWidth * BytesPerPixel);
-        return PdfDrawingServices.Backend.CreateImageShader(image, PdfShaderTileMode.Clamp, PdfShaderTileMode.Clamp, true, System.Numerics.Matrix3x2.Identity);
+        var backend = PdfDrawingServices.For(_shading.Dictionary).Backend;
+        using var image = backend.CreateImage(new(RampWidth, 1, PdfImagePixelFormat.Bgra8888), pixels, RampWidth * BytesPerPixel);
+        return backend.CreateImageShader(image, PdfShaderTileMode.Clamp, PdfShaderTileMode.Clamp, true, System.Numerics.Matrix3x2.Identity);
     }
 }

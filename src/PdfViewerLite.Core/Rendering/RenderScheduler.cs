@@ -103,6 +103,18 @@ public sealed class RenderScheduler : IDisposable
         }
     }
 
+    /// <summary>Gets whether no requests are queued or currently rendering.</summary>
+    public bool IsIdle
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _queue.Count == 0 && _pending.Count == 0;
+            }
+        }
+    }
+
     /// <summary>
     /// Queues a render. When the tile is already pending, the newer request replaces it, so the render uses the latest
     /// document, generation and tone; a more urgent priority queues it again so it does not wait behind prefetch work.

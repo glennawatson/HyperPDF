@@ -116,7 +116,7 @@ public sealed class NativeAnnotationEditingTests
     [Test]
     public async Task MovesAndResizesAnnotations()
     {
-        using var test = new NativeDocument(PageCount);
+        using var test = new HyperPdfTestDocument(PageCount);
         var editor = test.Editor;
         int[] indexes =
         [
@@ -129,16 +129,16 @@ public sealed class NativeAnnotationEditingTests
             HyperPdfAnnotationShapes.AddPolygon(editor, Page, AnnotationKind.Polygon, Triangle, AnnotationColors.Slate, Width),
             HyperPdfAnnotationCallouts.AddCallout(editor, Page, CalloutTarget, CalloutText, "Look here", FontSize, AnnotationColors.Ink),
         ];
-        var before = NativeDocument.Read(editor, Page);
+        var before = HyperPdfTestDocument.Read(editor, Page);
         foreach (var annotation in before)
         {
             _ = HyperPdfAnnotationEditing.SetBounds(editor, Page, annotation.Index, annotation.Bounds with { Top = annotation.Bounds.Top + Shift });
         }
 
-        var moved = NativeDocument.Read(editor, Page);
+        var moved = HyperPdfTestDocument.Read(editor, Page);
         var grown = HyperPdfAnnotationEditing.SetBounds(editor, Page, indexes[0], moved[0].Bounds with { Width = moved[0].Bounds.Width * Double });
-        var current = NativeDocument.Read(editor, Page);
-        var reopened = NativeDocument.ReadWithPdfium(NativeDocument.Save(editor), Page);
+        var current = HyperPdfTestDocument.Read(editor, Page);
+        var reopened = HyperPdfTestDocument.ReadSaved(HyperPdfTestDocument.Save(editor), Page);
 
         await Assert.That(Array.TrueForAll(indexes, static i => i >= 0)).IsTrue();
         await Assert.That(moved.Count).IsEqualTo(indexes.Length);
@@ -159,7 +159,7 @@ public sealed class NativeAnnotationEditingTests
     [Test]
     public async Task RefusesToMoveMarkupAndRemovedAnnotations()
     {
-        using var test = new NativeDocument(PageCount);
+        using var test = new HyperPdfTestDocument(PageCount);
         var editor = test.Editor;
         var highlight = HyperPdfAnnotationShapes.AddMarkup(editor, Page, AnnotationKind.Highlight, [MarkedLine], AnnotationColors.Sand, string.Empty);
         var box = HyperPdfAnnotationShapes.AddShape(editor, Page, AnnotationKind.Rectangle, BoxStart, BoxEnd, AnnotationColors.Clay, Width);
@@ -174,18 +174,18 @@ public sealed class NativeAnnotationEditingTests
     [Test]
     public async Task RemovesAndRestoresWithoutShiftingIndexes()
     {
-        using var test = new NativeDocument(PageCount);
+        using var test = new HyperPdfTestDocument(PageCount);
         var editor = test.Editor;
         var box = HyperPdfAnnotationShapes.AddShape(editor, Page, AnnotationKind.Rectangle, BoxStart, BoxEnd, AnnotationColors.Clay, Width);
         var note = HyperPdfAnnotationShapes.AddNote(editor, Page, NoteAt, "Keep me", AnnotationColors.Sand);
 
         var removed = HyperPdfAnnotationReading.SetRemoved(editor, Page, box, true);
         var removedTwice = HyperPdfAnnotationReading.SetRemoved(editor, Page, box, true);
-        var afterRemove = NativeDocument.Read(editor, Page);
+        var afterRemove = HyperPdfTestDocument.Read(editor, Page);
         var restored = HyperPdfAnnotationReading.SetRemoved(editor, Page, box, false);
-        var afterRestore = NativeDocument.Read(editor, Page);
+        var afterRestore = HyperPdfTestDocument.Read(editor, Page);
         _ = HyperPdfAnnotationReading.SetRemoved(editor, Page, box, true);
-        var reopened = NativeDocument.ReadWithPdfium(NativeDocument.Save(editor), Page);
+        var reopened = HyperPdfTestDocument.ReadSaved(HyperPdfTestDocument.Save(editor), Page);
         var stillRemovable = HyperPdfAnnotationReading.SetRemoved(editor, Page, box, false);
 
         await Assert.That(removed && !removedTwice && restored).IsTrue();
@@ -194,7 +194,7 @@ public sealed class NativeAnnotationEditingTests
         await Assert.That(afterRestore[0].Color).IsEqualTo(AnnotationColors.Clay);
         await Assert.That(reopened.Single().Contents).IsEqualTo("Keep me");
         await Assert.That(stillRemovable).IsTrue();
-        await Assert.That(NativeDocument.Read(editor, Page).Count).IsEqualTo(Two);
+        await Assert.That(HyperPdfTestDocument.Read(editor, Page).Count).IsEqualTo(Two);
     }
 
     /// <summary>Line widths and text sizes change and are read back; recolouring a drawing keeps it drawn.</summary>
@@ -202,13 +202,13 @@ public sealed class NativeAnnotationEditingTests
     [Test]
     public async Task RestylesAnnotations()
     {
-        using var test = new NativeDocument(PageCount);
+        using var test = new HyperPdfTestDocument(PageCount);
         var editor = test.Editor;
         var ink = HyperPdfAnnotationShapes.AddInk(editor, Page, Stroke, Strokes, AnnotationColors.Ink, Width, AnnotationKind.Ink);
         var box = HyperPdfAnnotationShapes.AddShape(editor, Page, AnnotationKind.Rectangle, BoxStart, BoxEnd, AnnotationColors.Clay, Width);
         var text = HyperPdfAnnotationText.AddText(editor, Page, TextAt, "Bigger", FontSize, AnnotationColors.Ink, AnnotationKind.TextBox);
         var callout = HyperPdfAnnotationCallouts.AddCallout(editor, Page, CalloutTarget, CalloutText, "Look", FontSize, AnnotationColors.Ink);
-        var before = NativeDocument.Read(editor, Page);
+        var before = HyperPdfTestDocument.Read(editor, Page);
 
         var thickInk = HyperPdfAnnotationEditing.SetLineWidth(editor, Page, ink, ThickWidth);
         var thickBox = HyperPdfAnnotationEditing.SetLineWidth(editor, Page, box, ThickWidth);
@@ -217,8 +217,8 @@ public sealed class NativeAnnotationEditingTests
         var recoloured = HyperPdfAnnotationEditing.SetColor(editor, Page, ink, AnnotationColors.Deep(AnnotationColors.Sage));
         var noWidthForText = HyperPdfAnnotationEditing.SetLineWidth(editor, Page, text, ThickWidth);
         var noSizeForBox = HyperPdfAnnotationText.SetFontSize(editor, Page, box, LargeFontSize);
-        var after = NativeDocument.Read(editor, Page);
-        var reopened = NativeDocument.ReadWithPdfium(NativeDocument.Save(editor), Page);
+        var after = HyperPdfTestDocument.Read(editor, Page);
+        var reopened = HyperPdfTestDocument.ReadSaved(HyperPdfTestDocument.Save(editor), Page);
 
         await Assert.That(thickInk && thickBox && largeText && largeCallout && recoloured).IsTrue();
         await Assert.That(noWidthForText || noSizeForBox).IsFalse();
@@ -241,7 +241,7 @@ public sealed class NativeAnnotationEditingTests
     [Test]
     public async Task SavesPolygonsCloudsAndCalloutsAsStandardTypes()
     {
-        using var test = new NativeDocument(PageCount);
+        using var test = new HyperPdfTestDocument(PageCount);
         var editor = test.Editor;
         int[] indexes =
         [
@@ -251,23 +251,23 @@ public sealed class NativeAnnotationEditingTests
             HyperPdfAnnotationCallouts.AddCallout(editor, Page, CalloutTarget, CalloutText, "Check this", FontSize, AnnotationColors.Ink),
         ];
         var tooFew = HyperPdfAnnotationShapes.AddPolygon(editor, Page, AnnotationKind.Polygon, Stroke.AsSpan(0, Two), AnnotationColors.Ink, Width);
-        var kinds = NativeDocument.Read(editor, Page).Select(static a => a.Kind).ToArray();
-        var saved = NativeDocument.Save(editor);
-        var dictionaries = NativeDocument.Dictionaries(saved, Page);
-        var reopened = NativeDocument.ReadWithPdfium(saved, Page);
+        var kinds = HyperPdfTestDocument.Read(editor, Page).Select(static a => a.Kind).ToArray();
+        var saved = HyperPdfTestDocument.Save(editor);
+        var dictionaries = HyperPdfTestDocument.Dictionaries(saved, Page);
+        var reopened = HyperPdfTestDocument.ReadSaved(saved, Page);
 
         await Assert.That(Array.TrueForAll(indexes, static i => i >= 0)).IsTrue();
         await Assert.That(tooFew).IsEqualTo(-1);
         await Assert.That(kinds).IsEquivalentTo(StandardKinds);
         await Assert.That(reopened.Select(static a => a.Kind).ToArray()).IsEquivalentTo(StandardKinds);
         await Assert.That(reopened[^1].Contents).IsEqualTo("Check this");
-        await Assert.That(NativeDocument.Name(dictionaries[0], KnownName.Subtype)).IsEqualTo("Polygon");
-        await Assert.That(NativeDocument.Name(dictionaries[1], KnownName.IT)).IsEqualTo("PolygonCloud");
+        await Assert.That(HyperPdfTestDocument.Name(dictionaries[0], KnownName.Subtype)).IsEqualTo("Polygon");
+        await Assert.That(HyperPdfTestDocument.Name(dictionaries[1], KnownName.IT)).IsEqualTo("PolygonCloud");
         await Assert.That(dictionaries[1].GetDictionary(KnownName.BE)!.IsName(KnownName.S, KnownName.C)).IsTrue();
-        await Assert.That(NativeDocument.Name(dictionaries[2], KnownName.Subtype)).IsEqualTo("PolyLine");
+        await Assert.That(HyperPdfTestDocument.Name(dictionaries[2], KnownName.Subtype)).IsEqualTo("PolyLine");
         await Assert.That(dictionaries[0].GetArray(KnownName.Vertices)!.Count).IsEqualTo(Triangle.Length * Two);
-        await Assert.That(NativeDocument.Name(dictionaries[3], KnownName.Subtype)).IsEqualTo("FreeText");
-        await Assert.That(NativeDocument.Name(dictionaries[3], KnownName.IT)).IsEqualTo("FreeTextCallout");
+        await Assert.That(HyperPdfTestDocument.Name(dictionaries[3], KnownName.Subtype)).IsEqualTo("FreeText");
+        await Assert.That(HyperPdfTestDocument.Name(dictionaries[3], KnownName.IT)).IsEqualTo("FreeTextCallout");
         await Assert.That(dictionaries[3].GetArray(KnownName.CL)!.Count).IsEqualTo(Two * Two);
         await Assert.That(PdfAnnotations.GetNormalAppearance(dictionaries[3])).IsNotNull();
     }
@@ -277,14 +277,14 @@ public sealed class NativeAnnotationEditingTests
     [Test]
     public async Task MovesSavedPolygons()
     {
-        using var first = new NativeDocument(PageCount);
+        using var first = new HyperPdfTestDocument(PageCount);
         _ = HyperPdfAnnotationShapes.AddPolygon(first.Editor, Page, AnnotationKind.Cloud, Triangle, AnnotationColors.Clay, Width);
-        using var test = new NativeDocument(NativeDocument.Save(first.Editor));
+        using var test = new HyperPdfTestDocument(HyperPdfTestDocument.Save(first.Editor));
         var editor = test.Editor;
-        var before = NativeDocument.Read(editor, Page)[0];
+        var before = HyperPdfTestDocument.Read(editor, Page)[0];
         var moved = HyperPdfAnnotationEditing.SetBounds(editor, Page, before.Index, before.Bounds with { Top = before.Bounds.Top + Shift });
         var recoloured = HyperPdfAnnotationEditing.SetColor(editor, Page, before.Index, AnnotationColors.Slate);
-        var again = NativeDocument.ReadWithPdfium(NativeDocument.Save(editor), Page);
+        var again = HyperPdfTestDocument.ReadSaved(HyperPdfTestDocument.Save(editor), Page);
 
         await Assert.That(moved && recoloured).IsTrue();
         await Assert.That(again[0].Kind).IsEqualTo(AnnotationKind.Cloud);
@@ -296,15 +296,15 @@ public sealed class NativeAnnotationEditingTests
     [Test]
     public async Task PlacesPictureStamps()
     {
-        using var test = new NativeDocument(PageCount);
+        using var test = new HyperPdfTestDocument(PageCount);
         var editor = test.Editor;
         var pixels = new byte[PictureSide * PictureSide * BytesPerPixel];
         Array.Fill(pixels, Grey);
         var stamp = HyperPdfAnnotationImages.AddImageStamp(editor, Page, PictureAt, pixels, PictureSide, PictureSide);
         var tooShort = HyperPdfAnnotationImages.AddImageStamp(editor, Page, PictureAt, pixels.AsSpan(0, BytesPerPixel), PictureSide, PictureSide);
         var moved = HyperPdfAnnotationEditing.SetBounds(editor, Page, stamp, PictureMoved);
-        var annotation = NativeDocument.Read(editor, Page).Single();
-        var reopened = NativeDocument.ReadWithPdfium(NativeDocument.Save(editor), Page).Single();
+        var annotation = HyperPdfTestDocument.Read(editor, Page).Single();
+        var reopened = HyperPdfTestDocument.ReadSaved(HyperPdfTestDocument.Save(editor), Page).Single();
 
         await Assert.That(stamp).IsGreaterThanOrEqualTo(0);
         await Assert.That(tooShort).IsEqualTo(-1);
@@ -320,7 +320,7 @@ public sealed class NativeAnnotationEditingTests
     [Test]
     public async Task RecordsTheChosenAuthor()
     {
-        using var test = new NativeDocument(PageCount);
+        using var test = new HyperPdfTestDocument(PageCount);
         var editor = test.Editor;
         var defaultAuthor = HyperPdfAnnotationReading.GetAuthor(editor);
         HyperPdfAnnotationReading.SetAuthor(editor, "  Sam Reviewer ");
@@ -328,7 +328,7 @@ public sealed class NativeAnnotationEditingTests
         _ = HyperPdfAnnotationReplies.AddReply(editor, Page, note, "Thanks", ReviewState.None);
         var replies = new List<AnnotationReply>();
         HyperPdfAnnotationReplies.GetReplies(editor, Page, note, replies);
-        var listed = NativeDocument.Read(editor, Page).Single();
+        var listed = HyperPdfTestDocument.Read(editor, Page).Single();
         HyperPdfAnnotationReading.SetAuthor(editor, " ");
 
         await Assert.That(defaultAuthor).IsEqualTo(Environment.UserName);

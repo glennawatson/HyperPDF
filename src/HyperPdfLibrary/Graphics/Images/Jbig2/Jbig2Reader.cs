@@ -4,6 +4,7 @@
 
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
@@ -34,6 +35,12 @@ internal ref struct Jbig2Reader
     /// <summary>The data.</summary>
     private readonly ReadOnlySpan<byte> _data;
 
+    /// <summary>The token for the containing segment decode.</summary>
+    private readonly CancellationToken _cancellationToken;
+
+    /// <summary>The explicit scratch cache for this decode.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The position of the current byte.</summary>
     private int _offset;
 
@@ -42,7 +49,28 @@ internal ref struct Jbig2Reader
 
     /// <summary>Initializes a new instance of the <see cref="Jbig2Reader"/> struct.</summary>
     /// <param name="data">The data.</param>
-    internal Jbig2Reader(ReadOnlySpan<byte> data) => _data = data;
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal Jbig2Reader(ReadOnlySpan<byte> data, CancellationToken cancellationToken = default)
+        : this(data, new ScratchPools(), cancellationToken)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="Jbig2Reader"/> struct with an explicit cache.</summary>
+    /// <param name="data">The data.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal Jbig2Reader(ReadOnlySpan<byte> data, ScratchPools scratchPools, CancellationToken cancellationToken)
+    {
+        _data = data;
+        _scratchPools = scratchPools;
+        _cancellationToken = cancellationToken;
+    }
+
+    /// <summary>Gets the token passed to arithmetic region decoders.</summary>
+    internal readonly CancellationToken CancellationToken => _cancellationToken;
+
+    /// <summary>Gets the explicit scratch cache for this decode.</summary>
+    internal readonly ScratchPools ScratchPools => _scratchPools;
 
     /// <summary>Gets the data.</summary>
     internal readonly ReadOnlySpan<byte> Data => _data;

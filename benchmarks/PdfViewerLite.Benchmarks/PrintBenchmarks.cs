@@ -66,10 +66,10 @@ public class PrintBenchmarks
     private readonly MemoryStream _copy = new();
 
     /// <summary>The document.</summary>
-    private OcrDocument _document = null!;
+    private BenchmarkPdfDocument _document = null!;
 
     /// <summary>A document with upright and wide pages.</summary>
-    private OcrDocument _mixed = null!;
+    private BenchmarkPdfDocument _mixed = null!;
 
     /// <summary>The mixed document's page exporter.</summary>
     private IPageExporter _mixedExporter = null!;

@@ -4,7 +4,8 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.Drawing;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Document;
@@ -22,9 +23,12 @@ public sealed class PdfDocument : IDisposable
 
     /// <summary>Initializes a new instance of the <see cref="PdfDocument"/> class.</summary>
     /// <param name="objects">The document's objects.</param>
-    internal PdfDocument(PdfObjectStore objects)
+    /// <param name="fontFactory">The font loader for the document.</param>
+    internal PdfDocument(PdfObjectStore objects, Func<PdfDictionary, PdfFont?>? fontFactory)
     {
         Objects = objects;
+        FontFactory = fontFactory;
+        DrawingServices = objects.Context?.DrawingServices ?? new(new());
         State.PageSet = PdfPageSet.Read(objects);
     }
 
@@ -43,6 +47,12 @@ public sealed class PdfDocument : IDisposable
     /// <summary>Gets a value indicating whether the document has been disposed.</summary>
     public bool IsDisposed => Volatile.Read(ref State.Disposed) != 0;
 
+    /// <summary>Gets the drawing services selected when this document was opened.</summary>
+    public PdfDrawingServices DrawingServices { get; }
+
+    /// <summary>Gets the font loader selected for this document.</summary>
+    internal Func<PdfDictionary, PdfFont?>? FontFactory { get; }
+
     /// <summary>Gets the cache state owned by this document.</summary>
     internal ref PdfDocumentState State => ref _state;
 
@@ -50,7 +60,7 @@ public sealed class PdfDocument : IDisposable
     /// Closes the file and empties the document's caches: the parsed objects, the page pictures of every renderer made for
     /// the document, the decoded images, fonts and other render caches, and the recent text pages. Work that is running on
     /// other threads fails with <see cref="ObjectDisposedException"/> or finishes with what it already holds; it never
-    /// reads freed memory. The shared decoder scratch buffers are trimmed too.
+    /// reads freed memory. Its own decoder scratch buffers are released too; a service-shared cache stays available.
     /// </summary>
     public void Dispose()
     {
@@ -62,7 +72,8 @@ public sealed class PdfDocument : IDisposable
         // Closing the objects first means nothing running can parse and re-fill the caches that are emptied next.
         Objects.Dispose();
         PdfDocumentRendering.ReleaseRendering(this);
-        ScratchPools.Trim();
+        _ = Interlocked.Exchange(ref State.TextBuild, null);
+        _ = Interlocked.Exchange(ref State.FontPreparations, null);
     }
 
     /// <summary>Invalidates document caches when the owned object store changes.</summary>

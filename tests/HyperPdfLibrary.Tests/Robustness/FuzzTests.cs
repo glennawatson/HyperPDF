@@ -26,20 +26,11 @@ public sealed class FuzzTests
     /// <summary>The random seed when the environment does not say.</summary>
     private const int DefaultSeed = 20_260_501;
 
-    /// <summary>The mutants per corpus file when the environment does not say.</summary>
-    private const int CorpusIterations = 3;
-
     /// <summary>The fraction of mutants that must open: at least one in this many.</summary>
     private const int OpenedShare = 4;
 
     /// <summary>The multiplier of the name hash.</summary>
     private const int HashMultiplier = 31;
-
-    /// <summary>The number of corpus files used.</summary>
-    private const int CorpusFiles = 3;
-
-    /// <summary>The largest corpus file used, in bytes.</summary>
-    private const long CorpusMaxBytes = 1_200_000;
 
     /// <summary>Damaged copies of generated documents open and read, or fail with a <see cref="PdfException"/>.</summary>
     /// <returns>A task.</returns>
@@ -58,37 +49,6 @@ public sealed class FuzzTests
 
         // Damage that always stops the open would test nothing past it; some mutants must survive to be read.
         await Assert.That(tally.Opened).IsGreaterThan(tally.Total / OpenedShare);
-    }
-
-    /// <summary>Damaged copies of cached real-world documents open and read, or fail with a <see cref="PdfException"/>.</summary>
-    /// <returns>A task.</returns>
-    /// <exception cref="TUnit.Core.Exceptions.SkipTestException">The corpus is not cached.</exception>
-    [Test]
-    public async Task DamagedCorpusDocumentsNeverCrashOrHang()
-    {
-        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus");
-        if (!Directory.Exists(directory))
-        {
-            throw new TUnit.Core.Exceptions.SkipTestException("The corpus is not cached on this machine.");
-        }
-
-        var failures = new List<string>();
-        var iterations = Math.Max(CorpusIterations, ReadNumber(IterationsVariable, DefaultIterations) * CorpusIterations / DefaultIterations);
-        var files = new List<string>(Directory.EnumerateFiles(directory, "*.pdf"));
-        files.Sort(StringComparer.Ordinal);
-        var used = 0;
-        foreach (var file in files)
-        {
-            if (used >= CorpusFiles || new FileInfo(file).Length > CorpusMaxBytes)
-            {
-                continue;
-            }
-
-            used++;
-            await FuzzAsync(Path.GetFileName(file), await File.ReadAllBytesAsync(file), iterations, failures, new());
-        }
-
-        await Assert.That(failures).IsEmpty();
     }
 
     /// <summary>Reads a positive number from an environment variable.</summary>

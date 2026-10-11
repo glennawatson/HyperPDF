@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Objects;
@@ -30,9 +29,6 @@ internal sealed class FormCodeMap
     /// <summary>The most characters one code maps to that are looked at.</summary>
     private const int MaxText = 8;
 
-    /// <summary>The maps built so far, by font.</summary>
-    private static readonly ConditionalWeakTable<PdfFont, FormCodeMap> Maps = [];
-
     /// <summary>The code to show for each character.</summary>
     private readonly Dictionary<int, int> _codes;
 
@@ -53,46 +49,11 @@ internal sealed class FormCodeMap
     /// <summary>Gets the bytes in a code.</summary>
     internal int UnitBytes { get; }
 
-    /// <summary>Gets the map of a font, making it on first use.</summary>
-    /// <param name="font">The loaded font.</param>
-    /// <param name="names">The document's names.</param>
-    /// <returns>The map; <see langword="null"/> when the font's codes cannot be written from text, such as a legacy multi-byte CMap.</returns>
-    internal static FormCodeMap? For(PdfFont font, PdfNameTable names)
-    {
-        if (Maps.TryGetValue(font, out var existing))
-        {
-            return existing;
-        }
-
-        var created = Create(font, names);
-        if (created is not null)
-        {
-            Maps.AddOrUpdate(font, created);
-        }
-
-        return created;
-    }
-
-    /// <summary>Finds the code a character is shown with.</summary>
-    /// <param name="rune">The character.</param>
-    /// <param name="code">The code.</param>
-    /// <returns><see langword="true"/> when the font has the character.</returns>
-    internal bool TryGetCode(Rune rune, out int code)
-    {
-        if (_isUnicode && rune.Value < WideCodes)
-        {
-            code = rune.Value;
-            return true;
-        }
-
-        return _codes.TryGetValue(rune.Value, out code);
-    }
-
     /// <summary>Makes the map of a font.</summary>
     /// <param name="font">The loaded font.</param>
     /// <param name="names">The document's names.</param>
     /// <returns>The map, or <see langword="null"/> for a font written with a legacy multi-byte CMap.</returns>
-    private static FormCodeMap? Create(PdfFont font, PdfNameTable names)
+    internal static FormCodeMap? Create(PdfFont font, PdfNameTable names)
     {
         if (!font.Dictionary.IsName(KnownName.Subtype, KnownName.Type0))
         {
@@ -112,6 +73,21 @@ internal sealed class FormCodeMap
         }
 
         return name.EndsWith("Identity-H", StringComparison.Ordinal) ? new(WideBytes, Scan(font, WideCodes), false) : null;
+    }
+
+    /// <summary>Finds the code a character is shown with.</summary>
+    /// <param name="rune">The character.</param>
+    /// <param name="code">The code.</param>
+    /// <returns><see langword="true"/> when the font has the character.</returns>
+    internal bool TryGetCode(Rune rune, out int code)
+    {
+        if (_isUnicode && rune.Value < WideCodes)
+        {
+            code = rune.Value;
+            return true;
+        }
+
+        return _codes.TryGetValue(rune.Value, out code);
     }
 
     /// <summary>Reads what each code of a font stands for and turns it around.</summary>

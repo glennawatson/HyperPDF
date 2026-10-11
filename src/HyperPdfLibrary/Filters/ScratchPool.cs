@@ -11,9 +11,8 @@ namespace HyperPdfLibrary.Filters;
 
 /// <summary>
 /// An array pool for decoder scratch space. Small arrays come from the shared pool. Arrays of 256 KiB or more are kept
-/// in a few slots, and only while <see cref="ScratchPools.Budget"/> has room, so closing a scanned book does not leave
-/// its decoder buffers behind. Sizes round up to one eighth steps, so a returned buffer fits the next page of a similar
-/// size. <see cref="ScratchPools.Trim"/> empties every pool.
+/// in a few slots, and only while its owner's budget has room. Sizes round up to one eighth steps, so a returned buffer
+/// fits the next page of a similar size. The owner empties its pools when it closes.
 /// </summary>
 /// <typeparam name="T">The element type.</typeparam>
 [DebuggerDisplay("ScratchPool: {_count} large arrays")]
@@ -37,6 +36,9 @@ internal sealed class ScratchPool<T>
     /// <summary>Whether the elements hold references, so arrays must be cleared before they are kept.</summary>
     private static readonly bool HoldsReferences = RuntimeHelpers.IsReferenceOrContainsReferences<T>();
 
+    /// <summary>The budget and lifetime owner of this element pool.</summary>
+    private readonly ScratchPools _owner;
+
     /// <summary>Guards the slots.</summary>
     private readonly Lock _gate = new();
 
@@ -47,10 +49,8 @@ internal sealed class ScratchPool<T>
     private int _count;
 
     /// <summary>Initializes a new instance of the <see cref="ScratchPool{T}"/> class.</summary>
-    private ScratchPool() => ScratchPools.Register(Trim);
-
-    /// <summary>Gets the pool.</summary>
-    internal static ScratchPool<T> Shared { get; } = new();
+    /// <param name="owner">The budget and lifetime owner.</param>
+    internal ScratchPool(ScratchPools owner) => _owner = owner;
 
     /// <summary>Rents an array of at least the given length. Its contents are not defined.</summary>
     /// <param name="minimumLength">The least length.</param>
@@ -96,7 +96,7 @@ internal sealed class ScratchPool<T>
                     continue;
                 }
 
-                ScratchPools.Release((long)array.Length * ElementBytes);
+                _owner.Release((long)array.Length * ElementBytes);
                 _slots[i] = null;
             }
 
@@ -144,7 +144,7 @@ internal sealed class ScratchPool<T>
             var array = _slots[best]!;
             _slots[best] = null;
             _count--;
-            ScratchPools.Release((long)array.Length * ElementBytes);
+            _owner.Release((long)array.Length * ElementBytes);
             return array;
         }
     }
@@ -162,7 +162,7 @@ internal sealed class ScratchPool<T>
                     continue;
                 }
 
-                if (ScratchPools.TryReserve((long)array.Length * ElementBytes))
+                if (_owner.TryReserve((long)array.Length * ElementBytes))
                 {
                     _slots[i] = array;
                     _count++;

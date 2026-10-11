@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Graphics.Functions;
@@ -89,27 +90,8 @@ public sealed class PdfShading
     /// <param name="value">The shading dictionary or stream, resolved.</param>
     /// <param name="colorSpaceResources">The /ColorSpace resource dictionary for named spaces, or null.</param>
     /// <returns>The shading, or null when it is damaged.</returns>
-    public static PdfShading? Parse(PdfValue value, PdfDictionary? colorSpaceResources)
-    {
-        var dictionary = value.AsDictionary();
-        if (dictionary is null)
-        {
-            return null;
-        }
-
-        var type = dictionary.GetInt32(KnownName.ShadingType);
-        if (type is < (int)PdfShadingKind.FunctionBased or > (int)PdfShadingKind.Tensor)
-        {
-            return null;
-        }
-
-        var space = PdfColorSpace.Parse(dictionary.Get(KnownName.ColorSpace), colorSpaceResources);
-        var functionValue = dictionary.Get(KnownName.Function);
-        var function = functionValue.IsNull ? null : PdfFunction.Parse(functionValue);
-        var kind = (PdfShadingKind)type;
-        var stream = value.AsStream();
-        return kind >= PdfShadingKind.FreeForm && stream is null ? null : new(kind, dictionary, stream, space, function);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfShading? Parse(PdfValue value, PdfDictionary? colorSpaceResources) => Parse(value, colorSpaceResources, null);
 
     /// <summary>Converts PDF colour components to a managed drawing colour.</summary>
     /// <param name="space">The colour space.</param>
@@ -158,6 +140,33 @@ public sealed class PdfShading
 
             return _meshes[bucket];
         }
+    }
+
+    /// <summary>Parses a shading using output-intent colour substitutions.</summary>
+    /// <param name="value">The shading dictionary or stream.</param>
+    /// <param name="colorSpaceResources">The colour-space resources, or null.</param>
+    /// <param name="colors">The output-intent substitutions, or null.</param>
+    /// <returns>The shading, or null when invalid.</returns>
+    internal static PdfShading? Parse(PdfValue value, PdfDictionary? colorSpaceResources, OutputIntentColors? colors)
+    {
+        var dictionary = value.AsDictionary();
+        if (dictionary is null)
+        {
+            return null;
+        }
+
+        var type = dictionary.GetInt32(KnownName.ShadingType);
+        if (type is < (int)PdfShadingKind.FunctionBased or > (int)PdfShadingKind.Tensor)
+        {
+            return null;
+        }
+
+        var space = PdfColorSpace.Parse(dictionary.Get(KnownName.ColorSpace), colorSpaceResources, colors);
+        var functionValue = dictionary.Get(KnownName.Function);
+        var function = functionValue.IsNull ? null : PdfFunction.Parse(functionValue);
+        var kind = (PdfShadingKind)type;
+        var stream = value.AsStream();
+        return kind >= PdfShadingKind.FreeForm && stream is null ? null : new(kind, dictionary, stream, space, function);
     }
 
     /// <summary>Gets the bucket of a scale: the power of two at or above it, clamped to the kept range.</summary>

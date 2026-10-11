@@ -17,6 +17,19 @@ public sealed class SecurityStoreTests
     /// <summary>Gets a stand-in OCSP response; the store lists it as data.</summary>
     private static ReadOnlySpan<byte> OcspStandIn => [0x30, 0x03, 0x0A, 0x01, 0x06];
 
+    /// <summary>The empty store returned for a document does not expose a writable shared /VRI map.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task EmptyStoreVriIsReadOnly()
+    {
+        using var document = PdfDocumentReader.Open(SignatureSamples.Unsigned(), null);
+        var store = PdfDocumentSignatureValidation.GetSecurityStore(document);
+        var writable = store.Vri is IDictionary<string, PdfValidationRelatedInfo> dictionary && !dictionary.IsReadOnly;
+
+        await Assert.That(store.Vri.Count).IsEqualTo(0);
+        await Assert.That(writable).IsFalse();
+    }
+
     /// <summary>The store's certificates, OCSP responses and CRLs are listed.</summary>
     /// <returns>A task.</returns>
     [Test]

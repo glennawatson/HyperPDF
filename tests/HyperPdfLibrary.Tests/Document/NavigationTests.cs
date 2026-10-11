@@ -59,6 +59,25 @@ public sealed class NavigationTests
         await Assert.That(PdfDocumentNavigation.ResolveDestination(document, PdfValue.FromString("absent"u8.ToArray()))).IsNull();
     }
 
+    /// <summary>An ownerless tree rebuilt after a fallback sees changes to its entries.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task OwnerlessNameTreeFallbackReadsChangedEntry()
+    {
+        const long UpdatedValue = 2;
+        var limits = new PdfArray(null, [PdfValue.FromString("a"u8.ToArray()), PdfValue.FromString("b"u8.ToArray())]);
+        var names = new PdfArray(null, [PdfValue.FromString("z"u8.ToArray()), PdfValue.FromInteger(1)]);
+        var child = new PdfDictionary(null);
+        child.Set(KnownName.Limits, PdfValue.FromArray(limits));
+        child.Set(KnownName.Names, PdfValue.FromArray(names));
+        var root = new PdfDictionary(null);
+        root.Set(KnownName.Kids, PdfValue.FromArray(new(null, [PdfValue.FromDictionary(child)])));
+
+        await Assert.That(NameTree.Find(root, "z"u8).AsInteger()).IsEqualTo(1);
+        names.SetAt(1, PdfValue.FromInteger(UpdatedValue));
+        await Assert.That(NameTree.Find(root, "z"u8).AsInteger()).IsEqualTo(UpdatedValue);
+    }
+
     /// <summary>A named destination is looked up in the name tree before the catalog's /Dests dictionary.</summary>
     /// <returns>A task.</returns>
     [Test]

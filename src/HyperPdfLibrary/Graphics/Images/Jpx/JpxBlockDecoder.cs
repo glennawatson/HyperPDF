@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.InteropServices;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
@@ -31,9 +30,10 @@ internal static class JpxBlockDecoder
     /// <param name="blockIndex">The code-block index.</param>
     /// <param name="data">The tile's packet data.</param>
     /// <param name="target">Where the coefficients go.</param>
-    internal static void Decode(JpxBlockState state, JpxTile tile, int blockIndex, byte[] data, in JpxBlockTarget target)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal static void Decode(JpxBlockState state, JpxTile tile, int blockIndex, byte[] data, in JpxBlockTarget target, CancellationToken cancellationToken)
     {
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         var block = tile.Blocks[blockIndex];
         var planes = target.RoiShift + block.BitPlanes;
         if (block.DataLength == 0 || block.FirstSegment < 0 || planes >= MaxPlanes || planes < 1 || block.Area.IsEmpty)
@@ -72,9 +72,9 @@ internal static class JpxBlockDecoder
         state.Stripes = (height + JpxBlockLayout.LastRow) / JpxBlockLayout.StripeRows;
         state.StripeStride = (width + JpxBlockLayout.Border) * JpxBlockLayout.StripeRows;
         state.Length = (state.Stripes + JpxBlockLayout.Border) * state.StripeStride;
-        JpxBlockLayout.Ensure(ref state.Values, state.Length);
-        JpxBlockLayout.Ensure(ref state.Flags, state.Length);
-        JpxBlockLayout.Ensure(ref state.Neighbours, state.Length);
+        JpxBlockLayout.Ensure(ref state.Values, state.Length, state.ScratchPools);
+        JpxBlockLayout.Ensure(ref state.Flags, state.Length, state.ScratchPools);
+        JpxBlockLayout.Ensure(ref state.Neighbours, state.Length, state.ScratchPools);
         state.Values.AsSpan(0, state.Length).Clear();
         state.Flags.AsSpan(0, state.Length).Clear();
         state.Neighbours.AsSpan(0, state.Length).Clear();
@@ -109,7 +109,7 @@ internal static class JpxBlockDecoder
             return data;
         }
 
-        JpxBlockLayout.Ensure(ref state.Joined, block.DataLength);
+        JpxBlockLayout.Ensure(ref state.Joined, block.DataLength, state.ScratchPools);
         var written = 0;
         for (var chunk = block.FirstChunk; chunk >= 0; chunk = tile.Chunks[chunk].Next)
         {
@@ -151,69 +151,6 @@ internal static class JpxBlockDecoder
 
             offset += length;
             cursor = RunPasses(state, ref coder, current.Passes, raw, target.Style, cursor);
-        }
-    }
-
-    /// <summary>Runs a segment's coding passes.</summary>
-    /// <param name="state">The decoder's mutable state.</param>
-    /// <param name="coder">The segment's decoder.</param>
-    /// <param name="passes">The passes in the segment.</param>
-    /// <param name="raw">Whether the segment is raw bypass data.</param>
-    /// <param name="style">The mode switches.</param>
-    /// <param name="cursor">The bit-plane and pass to start at.</param>
-    /// <returns>The bit-plane and pass after the segment.</returns>
-    internal static PassCursor RunPasses(JpxBlockState state, ref JpxMqDecoder coder, int passes, bool raw, JpxBlockStyle style, PassCursor cursor)
-    {
-        var (plane, pass) = cursor;
-        for (var i = 0; i < passes && plane >= 1; i++)
-        {
-            RunPass(state, ref coder, pass, plane, raw, style);
-            if (!raw && (style & JpxBlockStyle.Reset) != 0)
-            {
-                ResetContexts(state);
-            }
-
-            pass++;
-            if (pass != PassesPerPlane)
-            {
-                continue;
-            }
-
-            pass = 0;
-            plane--;
-        }
-
-        return new(plane, pass);
-    }
-
-    /// <summary>Runs one coding pass.</summary>
-    /// <param name="state">The decoder's mutable state.</param>
-    /// <param name="coder">The decoder.</param>
-    /// <param name="pass">The pass type: 0 significance, 1 refinement, 2 cleanup.</param>
-    /// <param name="plane">The bit-plane plus one.</param>
-    /// <param name="raw">Whether the pass is raw bypass data.</param>
-    /// <param name="style">The mode switches.</param>
-    internal static void RunPass(JpxBlockState state, ref JpxMqDecoder coder, int pass, int plane, bool raw, JpxBlockStyle style)
-    {
-        switch (pass)
-        {
-            case 0:
-                {
-                    JpxBlockPasses.Significance(state, ref coder, plane, raw);
-                    break;
-                }
-
-            case 1:
-                {
-                    JpxBlockPasses.Refinement(state, ref coder, plane, raw);
-                    break;
-                }
-
-            default:
-                {
-                    JpxBlockPasses.Cleanup(state, ref coder, plane, (style & JpxBlockStyle.SegmentationSymbols) != 0);
-                    break;
-                }
         }
     }
 
@@ -286,8 +223,71 @@ internal static class JpxBlockDecoder
         }
     }
 
+    /// <summary>Runs a segment's coding passes.</summary>
+    /// <param name="state">The decoder's mutable state.</param>
+    /// <param name="coder">The segment's decoder.</param>
+    /// <param name="passes">The passes in the segment.</param>
+    /// <param name="raw">Whether the segment is raw bypass data.</param>
+    /// <param name="style">The mode switches.</param>
+    /// <param name="cursor">The bit-plane and pass to start at.</param>
+    /// <returns>The bit-plane and pass after the segment.</returns>
+    private static PassCursor RunPasses(JpxBlockState state, ref JpxMqDecoder coder, int passes, bool raw, JpxBlockStyle style, PassCursor cursor)
+    {
+        var (plane, pass) = cursor;
+        for (var i = 0; i < passes && plane >= 1; i++)
+        {
+            RunPass(state, ref coder, pass, plane, raw, style);
+            if (!raw && (style & JpxBlockStyle.Reset) != 0)
+            {
+                ResetContexts(state);
+            }
+
+            pass++;
+            if (pass != PassesPerPlane)
+            {
+                continue;
+            }
+
+            pass = 0;
+            plane--;
+        }
+
+        return new(plane, pass);
+    }
+
+    /// <summary>Runs one coding pass.</summary>
+    /// <param name="state">The decoder's mutable state.</param>
+    /// <param name="coder">The decoder.</param>
+    /// <param name="pass">The pass type: 0 significance, 1 refinement, 2 cleanup.</param>
+    /// <param name="plane">The bit-plane plus one.</param>
+    /// <param name="raw">Whether the pass is raw bypass data.</param>
+    /// <param name="style">The mode switches.</param>
+    private static void RunPass(JpxBlockState state, ref JpxMqDecoder coder, int pass, int plane, bool raw, JpxBlockStyle style)
+    {
+        switch (pass)
+        {
+            case 0:
+                {
+                    JpxBlockPasses.Significance(state, ref coder, plane, raw);
+                    break;
+                }
+
+            case 1:
+                {
+                    JpxBlockPasses.Refinement(state, ref coder, plane, raw);
+                    break;
+                }
+
+            default:
+                {
+                    JpxBlockPasses.Cleanup(state, ref coder, plane, (style & JpxBlockStyle.SegmentationSymbols) != 0);
+                    break;
+                }
+        }
+    }
+
     /// <summary>The position of the decoder in the pass sequence.</summary>
     /// <param name="Plane">The bit-plane plus one.</param>
     /// <param name="Pass">The pass within the bit-plane: 0 significance, 1 refinement, 2 cleanup.</param>
-    internal readonly record struct PassCursor(int Plane, int Pass);
+    private readonly record struct PassCursor(int Plane, int Pass);
 }

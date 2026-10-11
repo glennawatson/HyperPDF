@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Rendering;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
@@ -23,7 +22,7 @@ public sealed class HyperPdfGpuRendererTests
     [Test]
     public async Task FeaturePreparesAndDraws(CancellationToken cancellationToken)
     {
-        using var document = new HyperPdfDocument(PdfDocumentReader.Open(TestPdf.Create(1), null), "graphics-feature.pdf");
+        using var document = new HyperPdfDocument(SkiaTestDocuments.Open(TestPdf.Create(1)), "graphics-feature.pdf");
         var feature = document.GetFeature(typeof(IHyperPdfGpuRenderer));
         await Assert.That(feature).IsTypeOf<IHyperPdfGpuRenderer>();
         var renderer = (IHyperPdfGpuRenderer)feature!;

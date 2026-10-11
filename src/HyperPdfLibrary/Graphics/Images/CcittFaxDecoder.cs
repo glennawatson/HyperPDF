@@ -42,7 +42,17 @@ internal static class CcittFaxDecoder
     /// <param name="output">The buffer receiving the rows; rows that do not fit are skipped.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Decode(ReadOnlySpan<byte> data, in CcittParameters parameters, int width, int height, Span<byte> output) =>
-        _ = DecodeRows(data, parameters, width, height, output);
+        _ = DecodeRows(data, parameters, width, height, output, new());
+
+    /// <summary>Decodes fax rows with an explicitly owned scratch cache.</summary>
+    /// <param name="data">The encoded data.</param>
+    /// <param name="parameters">The filter parameters.</param>
+    /// <param name="width">The image width.</param>
+    /// <param name="height">The rows to produce.</param>
+    /// <param name="output">Receives packed rows.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal static void Decode(ReadOnlySpan<byte> data, in CcittParameters parameters, int width, int height, Span<byte> output, ScratchPools scratchPools) =>
+        _ = DecodeRows(data, parameters, width, height, output, scratchPools);
 
     /// <summary>Decodes JBIG2 MMR data: Group 4 coding with no options, black as 1 bits. Rows that are not decoded are left white.</summary>
     /// <param name="data">The encoded data.</param>
@@ -52,7 +62,18 @@ internal static class CcittFaxDecoder
     /// <returns>The bits read from <paramref name="data"/>: where the last decoded row ended.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static long DecodeMmr(ReadOnlySpan<byte> data, int width, int height, Span<byte> output) =>
-        DecodeRows(data, new(-1, width, height, true, false, false, false), width, height, output);
+        DecodeRows(data, new(-1, width, height, true, false, false, false), width, height, output, new());
+
+    /// <summary>Decodes MMR rows with an explicitly owned scratch cache.</summary>
+    /// <param name="data">The encoded data.</param>
+    /// <param name="width">The image width.</param>
+    /// <param name="height">The rows to decode.</param>
+    /// <param name="output">Receives packed rows.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <returns>The bits read.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static long DecodeMmr(ReadOnlySpan<byte> data, int width, int height, Span<byte> output, ScratchPools scratchPools) =>
+        DecodeRows(data, new(-1, width, height, true, false, false, false), width, height, output, scratchPools);
 
     /// <summary>Decodes fax data into packed 1-bit rows and reports where decoding stopped.</summary>
     /// <param name="data">The encoded data.</param>
@@ -60,8 +81,9 @@ internal static class CcittFaxDecoder
     /// <param name="width">The image width in pixels; each output row holds <c>(width + 7) / 8</c> bytes.</param>
     /// <param name="height">The rows to produce; a positive /Rows smaller than this limits the rows decoded.</param>
     /// <param name="output">The buffer receiving the rows; rows that do not fit are skipped.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The bits read from <paramref name="data"/>.</returns>
-    private static long DecodeRows(ReadOnlySpan<byte> data, in CcittParameters parameters, int width, int height, Span<byte> output)
+    private static long DecodeRows(ReadOnlySpan<byte> data, in CcittParameters parameters, int width, int height, Span<byte> output, ScratchPools scratchPools)
     {
         if (width <= 0 || height <= 0)
         {
@@ -78,7 +100,8 @@ internal static class CcittFaxDecoder
 
         var columns = Math.Clamp(parameters.Columns > 0 ? parameters.Columns : width, 1, MaxColumns);
         var lineLength = columns + LineSlack;
-        var rented = ScratchPool<int>.Shared.Rent(lineLength + lineLength);
+        var pool = scratchPools.Get<int>();
+        var rented = pool.Rent(lineLength + lineLength);
         try
         {
             var decoder = new LineDecoder(data, parameters, columns, rented.AsSpan(0, lineLength), rented.AsSpan(lineLength, lineLength));
@@ -92,7 +115,7 @@ internal static class CcittFaxDecoder
         }
         finally
         {
-            ScratchPool<int>.Shared.Return(rented);
+            pool.Return(rented);
         }
     }
 

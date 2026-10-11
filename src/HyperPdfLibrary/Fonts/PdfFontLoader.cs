@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts;
@@ -20,24 +21,45 @@ public static class PdfFontLoader
     public static async ValueTask<PdfFont?> LoadAsync(PdfDictionary dictionary, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dictionary);
-        await FontDataPrefetcher.PrepareFontAsync(dictionary, cancellationToken).ConfigureAwait(false);
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return Load(dictionary);
+        var resources = PdfFontResources.For(dictionary);
+        try
+        {
+            await FontDataPrefetcher.PrepareFontAsync(dictionary, resources, cancellationToken).ConfigureAwait(false);
+            return LoadPrepared(dictionary, resources, cancellationToken);
+        }
+        finally
+        {
+            if (dictionary.Owner?.Context is null)
+            {
+                resources.CloseDownloadClient();
+            }
+        }
     }
 
     /// <summary>Loads a font from its dictionary.</summary>
     /// <param name="dictionary">The font dictionary.</param>
     /// <returns>The font, or <see langword="null"/> when a composite font lacks its descendant or encoding.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="dictionary"/> is <see langword="null"/>.</exception>
-    public static PdfFont? Load(PdfDictionary dictionary)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfFont? Load(PdfDictionary dictionary) =>
+        LoadPrepared(dictionary, null, CancellationToken.None);
+
+    /// <summary>Loads a font using the selected resources.</summary>
+    /// <param name="dictionary">The font dictionary.</param>
+    /// <param name="selectedResources">Resources already selected by an async prefetch, if any.</param>
+    /// <param name="cancellationToken">Cancels loading.</param>
+    /// <returns>The font, or null.</returns>
+    private static PdfFont? LoadPrepared(PdfDictionary dictionary, PdfFontResources? selectedResources, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dictionary);
+        cancellationToken.ThrowIfCancellationRequested();
         var subtype = dictionary.GetName(KnownName.Subtype);
+        var resources = selectedResources ?? PdfFontResources.For(dictionary);
         if (subtype.Is(KnownName.Type0))
         {
-            return CompositeFontLoader.Load(dictionary);
+            return CompositeFontLoader.Load(dictionary, resources, cancellationToken);
         }
 
-        return subtype.Is(KnownName.Type3) ? new Type3Font(dictionary) : SimpleFontLoader.Load(dictionary, subtype.Is(KnownName.TrueType));
+        return subtype.Is(KnownName.Type3) ? new Type3Font(dictionary, resources) : SimpleFontLoader.Load(dictionary, subtype.Is(KnownName.TrueType), resources, cancellationToken);
     }
 }

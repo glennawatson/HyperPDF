@@ -4,7 +4,6 @@
 
 using HyperPdfLibrary;
 using HyperPdfLibrary.Annotations;
-using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 namespace PdfViewerLite.HyperPdf;
@@ -128,9 +127,9 @@ internal static class HyperPdfAnnotationSaving
     /// <summary>Takes annotations removed but kept off their pages for saving.</summary>
     /// <param name="annotationState">The annotation state.</param>
     /// <returns>The pages changed and their full annotation arrays, to put back.</returns>
-    internal static List<RemovedPage> HideRemoved(HyperPdfAnnotations annotationState)
+    internal static List<RemovedAnnotationPage> HideRemoved(HyperPdfAnnotations annotationState)
     {
-        var hidden = new List<RemovedPage>(annotationState.PagesWithRemoved.Count);
+        var hidden = new List<RemovedAnnotationPage>(annotationState.PagesWithRemoved.Count);
         foreach (var pageIndex in annotationState.PagesWithRemoved)
         {
             if (HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is not { } page || PdfPageAnnotations.GetArray(annotationState.Store, page) is not { } annotations)
@@ -159,16 +158,11 @@ internal static class HyperPdfAnnotationSaving
     /// <summary>Puts back the annotations taken off for saving.</summary>
     /// <param name="annotationState">The annotation state.</param>
     /// <param name="hidden">The pages and their full arrays.</param>
-    internal static void Restore(HyperPdfAnnotations annotationState, List<RemovedPage> hidden)
+    internal static void Restore(HyperPdfAnnotations annotationState, List<RemovedAnnotationPage> hidden)
     {
         foreach (var (page, annotations) in hidden)
         {
             _ = PdfPageAnnotations.SetArray(annotationState.Store, page, annotations);
         }
     }
-
-    /// <summary>A page whose removed annotations were taken off for saving, and its full annotation array.</summary>
-    /// <param name="Page">The page.</param>
-    /// <param name="Annotations">The full array.</param>
-    internal sealed record RemovedPage(PdfPage Page, PdfArray Annotations);
 }

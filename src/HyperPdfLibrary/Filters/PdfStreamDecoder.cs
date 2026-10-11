@@ -15,17 +15,19 @@ internal static class PdfStreamDecoder
     /// <summary>Decodes a stream.</summary>
     /// <param name="stream">The stream.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image codec still to apply, if any.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static PdfImageCodec Decode(PdfStream stream, ref PooledBuffer output) =>
-        Decode(stream, stream.Dictionary.Owner?.Context, ref output);
+    internal static PdfImageCodec Decode(PdfStream stream, ref PooledBuffer output, CancellationToken cancellationToken = default) =>
+        Decode(stream, stream.Dictionary.Owner?.Context, ref output, cancellationToken);
 
     /// <summary>Decodes a stream, reporting to a given context instead of the document's own.</summary>
     /// <param name="stream">The stream.</param>
     /// <param name="context">The context that receives diagnostics and cancellation, or <see langword="null"/>.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image codec still to apply, if any.</returns>
-    internal static PdfImageCodec Decode(PdfStream stream, PdfOpenContext? context, ref PooledBuffer output)
+    internal static PdfImageCodec Decode(PdfStream stream, PdfOpenContext? context, ref PooledBuffer output, CancellationToken cancellationToken = default)
     {
         var dictionary = stream.Dictionary;
         using var raw = stream.LeaseRawData();
@@ -35,7 +37,7 @@ internal static class PdfStreamDecoder
             data = plain;
         }
 
-        return Apply(data, dictionary.Get(KnownName.Filter), dictionary.Get(KnownName.DecodeParms), new(context, stream.Id.Number), ref output);
+        return Apply(data, dictionary.Get(KnownName.Filter), dictionary.Get(KnownName.DecodeParms), new(context, stream.Id.Number, dictionary.Owner?.FlateDecoders, cancellationToken), ref output);
     }
 
     /// <summary>Applies a filter chain to data.</summary>
@@ -43,10 +45,23 @@ internal static class PdfStreamDecoder
     /// <param name="filters">The /Filter value: a name, an array of names, or null.</param>
     /// <param name="parameters">The /DecodeParms value: a dictionary, an array, or null.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image codec still to apply, if any.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, ref PooledBuffer output) =>
-        Apply(data, filters, parameters, default, ref output);
+    internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, ref PooledBuffer output, CancellationToken cancellationToken = default) =>
+        Apply(data, filters, parameters, new(null, 0, null, cancellationToken), ref output);
+
+    /// <summary>Applies a filter chain with independently leased decoders owned by a store.</summary>
+    /// <param name="data">The encoded bytes.</param>
+    /// <param name="filters">The stream filters.</param>
+    /// <param name="parameters">The filter parameters.</param>
+    /// <param name="owner">The decoder owner, or null for a standalone decode.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The image codec still to apply, if any.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, PdfObjectStore? owner, ref PooledBuffer output, CancellationToken cancellationToken) =>
+        Apply(data, filters, parameters, new(null, 0, owner?.FlateDecoders, cancellationToken), ref output);
 
     /// <summary>Applies a filter chain to data, checking for cancellation and reporting diagnostics.</summary>
     /// <param name="data">The encoded data.</param>
@@ -55,7 +70,7 @@ internal static class PdfStreamDecoder
     /// <param name="source">The cancellation and diagnostics context, and the stream's object number.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
     /// <returns>The image codec still to apply, if any.</returns>
-    internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, DecodeSource source, ref PooledBuffer output)
+    internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, in DecodeSource source, ref PooledBuffer output)
     {
         var filterArray = filters.AsArray();
         var declared = filterArray?.Count ?? (filters.Kind == PdfKind.Name ? 1 : 0);
@@ -68,6 +83,7 @@ internal static class PdfStreamDecoder
             for (var i = 0; i < count; i++)
             {
                 PdfOpenContext.ThrowIfCancelled(source.Context);
+                source.CancellationToken.ThrowIfCancellationRequested();
                 var name = filterArray?.GetName(i) ?? filters.AsName();
                 var codec = ImageCodec(name);
                 if (codec != PdfImageCodec.None)
@@ -126,7 +142,7 @@ internal static class PdfStreamDecoder
     /// <param name="declared">The filters the stream names.</param>
     /// <param name="applied">The filters that will run.</param>
     /// <param name="source">The diagnostics context and the stream's object number.</param>
-    private static void ReportExtraFilters(int declared, int applied, DecodeSource source)
+    private static void ReportExtraFilters(int declared, int applied, in DecodeSource source)
     {
         if (declared > applied)
         {
@@ -141,11 +157,11 @@ internal static class PdfStreamDecoder
     /// <param name="source">The diagnostics context and the stream's object number.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
     /// <returns><see langword="false"/> when decoding stopped at the size cap.</returns>
-    private static bool TryApplyOne(PdfName name, ReadOnlySpan<byte> input, PdfDictionary? parms, DecodeSource source, ref PooledBuffer output)
+    private static bool TryApplyOne(PdfName name, ReadOnlySpan<byte> input, PdfDictionary? parms, in DecodeSource source, ref PooledBuffer output)
     {
         try
         {
-            ReportResult(ApplyOne(name, input, parms, ref output), source);
+            ReportResult(ApplyOne(name, input, parms, ref output, source), source);
             return true;
         }
         catch (InvalidDataException)
@@ -158,7 +174,7 @@ internal static class PdfStreamDecoder
     /// <summary>Reports an unknown filter or truncated data.</summary>
     /// <param name="result">How the filter went.</param>
     /// <param name="source">The diagnostics context and the stream's object number.</param>
-    private static void ReportResult(FilterResult result, DecodeSource source)
+    private static void ReportResult(FilterResult result, in DecodeSource source)
     {
         switch (result)
         {
@@ -186,15 +202,16 @@ internal static class PdfStreamDecoder
     /// <param name="input">The encoded data.</param>
     /// <param name="parms">The filter's parameters.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
+    /// <param name="source">The cancellation token and decoder owner.</param>
     /// <returns>How the filter went; <see cref="FilterResult.Unknown"/> when it is not one this library knows.</returns>
-    private static FilterResult ApplyOne(PdfName name, ReadOnlySpan<byte> input, PdfDictionary? parms, ref PooledBuffer output)
+    private static FilterResult ApplyOne(PdfName name, ReadOnlySpan<byte> input, PdfDictionary? parms, ref PooledBuffer output, in DecodeSource source)
     {
         var known = name.ToKnownName();
         switch (known)
         {
             case KnownName.FlateDecode or KnownName.Fl or KnownName.LZWDecode or KnownName.LZW:
             {
-                return ApplyDictionaryCoder(known, input, parms, ref output);
+                return ApplyDictionaryCoder(known, input, parms, ref output, source);
             }
 
             case KnownName.ASCIIHexDecode or KnownName.AHx:
@@ -237,12 +254,13 @@ internal static class PdfStreamDecoder
     /// <param name="input">The encoded data.</param>
     /// <param name="parms">The filter's parameters.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
+    /// <param name="source">The cancellation token and decoder owner.</param>
     /// <returns><see cref="FilterResult.Damaged"/> when the data was truncated or damaged.</returns>
-    private static FilterResult ApplyDictionaryCoder(KnownName known, ReadOnlySpan<byte> input, PdfDictionary? parms, ref PooledBuffer output)
+    private static FilterResult ApplyDictionaryCoder(KnownName known, ReadOnlySpan<byte> input, PdfDictionary? parms, ref PooledBuffer output, in DecodeSource source)
     {
         var clean = known is KnownName.FlateDecode or KnownName.Fl
-            ? FlateFilter.TryDecode(input, ref output)
-            : LzwFilter.TryDecode(input, parms?.GetInt32(KnownName.EarlyChange, 1) ?? 1, ref output);
+            ? FlateFilter.TryDecode(input, ref output, source.Decoders, source.CancellationToken)
+            : LzwFilter.TryDecode(input, parms?.GetInt32(KnownName.EarlyChange, 1) ?? 1, ref output, source.CancellationToken);
         PredictorFilter.Apply(parms, ref output);
         return clean ? FilterResult.Applied : FilterResult.Damaged;
     }

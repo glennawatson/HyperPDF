@@ -5,16 +5,19 @@
 using System.Text;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts.Data;
+using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
 /// Chooses a system font for a font the PDF does not embed, in the spirit of PDFium's font mapper: the named family in
 /// the asked weight and slant, then a standard stand-in chosen by the standard 14 name or the serif, fixed-pitch and
-/// symbolic flags. The registered font provider resolves platform-specific faces.
-/// Faces are cached for the process by family, weight and slant.
+/// symbolic flags. The selected font provider resolves platform-specific faces.
+/// Faces are cached for the drawing service instance by family, weight and slant.
 /// </summary>
-internal static class SystemFontMatcher
+/// <param name="provider">The provider of system faces, or null for bundled faces only.</param>
+/// <param name="resources">The selected cached font resources.</param>
+internal sealed class SystemFontMatcher(IPdfFontProvider? provider, PdfFontResources resources)
 {
     /// <summary>The weight from which a face counts as bold.</summary>
     private const int BoldThreshold = 600;
@@ -47,19 +50,26 @@ internal static class SystemFontMatcher
     private static readonly string[] KoreanFamilies = ["Noto Sans CJK KR", "Source Han Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", "Droid Sans Fallback"];
 
     /// <summary>Guards the face cache.</summary>
-    private static readonly Lock Gate = new();
+    private readonly Lock _gate = new();
 
     /// <summary>The faces found so far; null records a family the system does not have.</summary>
-    private static readonly Dictionary<FaceKey, SubstituteFace?> Faces = [];
+    private readonly Dictionary<FaceKey, SubstituteFace?> _faces = [];
 
     /// <summary>The face used when nothing else matches.</summary>
-    private static SubstituteFace? _fallback;
+    private SubstituteFace? _fallback;
+
+    /// <summary>Gets the selected matcher, sharing the supplied resources for detached dictionaries.</summary>
+    /// <param name="dictionary">The font dictionary.</param>
+    /// <param name="resources">The selected font resources.</param>
+    /// <returns>The matcher for that document or direct font load.</returns>
+    internal static SystemFontMatcher For(PdfDictionary dictionary, PdfFontResources resources) =>
+        dictionary.Owner?.Context?.DrawingServices.FontMatcher ?? resources.DetachedMatcher;
 
     /// <summary>Loads the open font program a cold request will use.</summary>
     /// <param name="request">The font request.</param>
     /// <param name="cancellationToken">Cancels source I/O.</param>
     /// <returns>A task completing when the needed face is cached.</returns>
-    internal static ValueTask EnsureAsync(SubstituteRequest request, CancellationToken cancellationToken)
+    internal ValueTask EnsureAsync(SubstituteRequest request, CancellationToken cancellationToken)
     {
         var resolved = ResolveStandard(request);
         var parsed = resolved.Standard == StandardFont.None ? ParsedFontName.Parse(resolved.BaseFont) : new ParsedFontName(string.Empty, 0, false);
@@ -78,13 +88,13 @@ internal static class SystemFontMatcher
             _ when IsSerif(resolved) => BundledFamily.Serif,
             _ => BundledFamily.Sans,
         };
-        return BundledFaces.EnsureAsync(family, weight >= BoldThreshold, italic, cancellationToken);
+        return BundledFaces.EnsureAsync(resources, family, weight >= BoldThreshold, italic, cancellationToken);
     }
 
     /// <summary>Finds a system font for a request.</summary>
     /// <param name="request">The request.</param>
     /// <returns>The face; the platform default font when nothing matches.</returns>
-    internal static SubstituteFace Match(in SubstituteRequest request)
+    internal SubstituteFace Match(in SubstituteRequest request)
     {
         var resolved = ResolveStandard(request);
 
@@ -94,7 +104,7 @@ internal static class SystemFontMatcher
         var italic = parsed.Italic || (resolved.Flags & FontFlags.Italic) != 0 || IsStandardItalic(resolved.Standard);
 
         // Standard fonts use the same open font pack on every platform.
-        return resolved.Standard != StandardFont.None && BundledFor(resolved, weight, italic) is { } bundled
+        return resolved.Standard != StandardFont.None && BundledFor(resources, resolved, weight, italic) is { } bundled
             ? bundled
             : MatchByName(resolved, parsed, weight, italic);
     }
@@ -102,9 +112,9 @@ internal static class SystemFontMatcher
     /// <summary>Finds a typeface for a Unicode code point the primary face lacks, through the system fallback list.</summary>
     /// <param name="codePoint">The code point.</param>
     /// <returns>The face, or <see langword="null"/> when no system font has the character.</returns>
-    internal static SubstituteFace? MatchCharacter(int codePoint)
+    internal SubstituteFace? MatchCharacter(int codePoint)
     {
-        var font = PdfDrawingServices.Fonts?.MatchCharacter(codePoint);
+        var font = provider?.MatchCharacter(codePoint);
         if (font is null || string.IsNullOrEmpty(font.FamilyName))
         {
             font?.Dispose();
@@ -112,16 +122,16 @@ internal static class SystemFontMatcher
         }
 
         var key = new FaceKey(font.FamilyName, font.Weight, font.Italic, false);
-        lock (Gate)
+        lock (_gate)
         {
-            if (Faces.TryGetValue(key, out var cached) && cached is not null)
+            if (_faces.TryGetValue(key, out var cached) && cached is not null)
             {
                 font.Dispose();
                 return cached;
             }
 
             var face = new SubstituteFace(font, false);
-            Faces[key] = face;
+            _faces[key] = face;
             return face;
         }
     }
@@ -137,28 +147,13 @@ internal static class SystemFontMatcher
             ? request with { Standard = StandardFonts.Find(Encoding.UTF8.GetBytes(request.BaseFont)) }
             : request;
 
-    /// <summary>Finds a system font by name, then the bundled generic face, then the generic system families.</summary>
-    /// <param name="request">The request.</param>
-    /// <param name="parsed">The parsed name.</param>
-    /// <param name="weight">The chosen weight.</param>
-    /// <param name="italic">Whether the face slants.</param>
-    /// <returns>The face.</returns>
-    private static SubstituteFace MatchByName(in SubstituteRequest request, ParsedFontName parsed, int weight, bool italic)
-    {
-        // A font the system lacks falls back to the bundled generic face; the system generic list only covers a missing resource.
-        return FindFirst(NamedCandidates(request, parsed), weight, italic)
-            ?? BundledFor(request, weight, italic)
-            ?? FindFirst(GenericCandidates(request), weight, italic)
-            ?? Volatile.Read(ref _fallback)
-            ?? CreateFallback();
-    }
-
     /// <summary>Gets the bundled face for a request: the family the standard font or the flags name, in the weight and slant.</summary>
+    /// <param name="resources">The selected cached font resources.</param>
     /// <param name="request">The request.</param>
     /// <param name="weight">The chosen weight.</param>
     /// <param name="italic">Whether the face slants.</param>
     /// <returns>The face, or <see langword="null"/> when the bundled resource is missing.</returns>
-    private static SubstituteFace? BundledFor(in SubstituteRequest request, int weight, bool italic)
+    private static SubstituteFace? BundledFor(PdfFontResources resources, in SubstituteRequest request, int weight, bool italic)
     {
         var family = request.Standard switch
         {
@@ -168,25 +163,7 @@ internal static class SystemFontMatcher
             _ when IsSerif(request) => BundledFamily.Serif,
             _ => BundledFamily.Sans,
         };
-        return BundledFaces.Get(family, weight >= BoldThreshold, italic);
-    }
-
-    /// <summary>Finds the first listed family the system has.</summary>
-    /// <param name="candidates">The candidates.</param>
-    /// <param name="weight">The weight.</param>
-    /// <param name="italic">Whether the face slants.</param>
-    /// <returns>The face, or <see langword="null"/>.</returns>
-    private static SubstituteFace? FindFirst(List<FamilyCandidate> candidates, int weight, bool italic)
-    {
-        foreach (var candidate in candidates)
-        {
-            if (Find(new(candidate.Family, weight, italic, candidate.Requested)) is { } face)
-            {
-                return face;
-            }
-        }
-
-        return null;
+        return BundledFaces.Get(resources, family, weight >= BoldThreshold, italic);
     }
 
     /// <summary>Determines whether a request means a fixed-pitch face: a Courier standard font, or the flag on another font.</summary>
@@ -338,48 +315,6 @@ internal static class SystemFontMatcher
         return false;
     }
 
-    /// <summary>Finds a cached face, or asks the font manager for it.</summary>
-    /// <param name="key">The face key.</param>
-    /// <returns>The face, or <see langword="null"/> when the system lacks the family.</returns>
-    private static SubstituteFace? Find(FaceKey key)
-    {
-        lock (Gate)
-        {
-            if (Faces.TryGetValue(key, out var cached))
-            {
-                return cached;
-            }
-        }
-
-        var created = Create(key);
-        lock (Gate)
-        {
-            if (Faces.TryGetValue(key, out var raced))
-            {
-                return raced;
-            }
-
-            Faces[key] = created;
-            return created;
-        }
-    }
-
-    /// <summary>Asks the font manager for a family in a weight and slant.</summary>
-    /// <param name="key">The face key.</param>
-    /// <returns>The face, or <see langword="null"/>.</returns>
-    private static SubstituteFace? Create(FaceKey key)
-    {
-        var font = PdfDrawingServices.Fonts?.Match(key.Family, key.Weight, key.Italic);
-        if (font is null || string.IsNullOrEmpty(font.FamilyName) || font.GlyphCount == 0)
-        {
-            font?.Dispose();
-            return null;
-        }
-
-        var requested = key.Requested && NamesMatch(font.FamilyName, key.Family);
-        return new(font, requested);
-    }
-
     /// <summary>Compares family names, ignoring case and spaces.</summary>
     /// <param name="actual">The typeface's family.</param>
     /// <param name="wanted">The family asked for.</param>
@@ -415,19 +350,102 @@ internal static class SystemFontMatcher
         }
     }
 
-    /// <summary>Makes the face used when no family matches: the platform default.</summary>
+    /// <summary>Finds a system font by name, then the bundled generic face, then the generic system families.</summary>
+    /// <param name="request">The request.</param>
+    /// <param name="parsed">The parsed name.</param>
+    /// <param name="weight">The chosen weight.</param>
+    /// <param name="italic">Whether the face slants.</param>
     /// <returns>The face.</returns>
-    /// <exception cref="InvalidOperationException">No bundled default face or registered font provider is available.</exception>
-    private static SubstituteFace CreateFallback()
+    private SubstituteFace MatchByName(in SubstituteRequest request, ParsedFontName parsed, int weight, bool italic)
     {
-        var font = PdfDrawingServices.Fonts?.DefaultFace;
-        if (font is null)
+        // A font the system lacks falls back to the bundled generic face; the system generic list only covers a missing resource.
+        return FindFirst(NamedCandidates(request, parsed), weight, italic)
+            ?? BundledFor(resources, request, weight, italic)
+            ?? FindFirst(GenericCandidates(request), weight, italic)
+            ?? Volatile.Read(ref _fallback)
+            ?? CreateFallback();
+    }
+
+    /// <summary>Finds the first listed family the system has.</summary>
+    /// <param name="candidates">The candidates.</param>
+    /// <param name="weight">The weight.</param>
+    /// <param name="italic">Whether the face slants.</param>
+    /// <returns>The face, or <see langword="null"/>.</returns>
+    private SubstituteFace? FindFirst(List<FamilyCandidate> candidates, int weight, bool italic)
+    {
+        foreach (var candidate in candidates)
         {
-            return BundledFaces.Get(BundledFamily.Sans, false, false)
-                ?? throw new InvalidOperationException("No bundled default font or registered font provider is available.");
+            if (Find(new(candidate.Family, weight, italic, candidate.Requested)) is { } face)
+            {
+                return face;
+            }
         }
 
-        var face = new SubstituteFace(font, false);
-        return Interlocked.CompareExchange(ref _fallback, face, null) ?? face;
+        return null;
+    }
+
+    /// <summary>Finds a cached face, or asks the font manager for it.</summary>
+    /// <param name="key">The face key.</param>
+    /// <returns>The face, or <see langword="null"/> when the system lacks the family.</returns>
+    private SubstituteFace? Find(FaceKey key)
+    {
+        lock (_gate)
+        {
+            if (_faces.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+        }
+
+        var created = Create(key);
+        lock (_gate)
+        {
+            if (_faces.TryGetValue(key, out var raced))
+            {
+                created?.Dispose();
+                return raced;
+            }
+
+            _faces[key] = created;
+            return created;
+        }
+    }
+
+    /// <summary>Asks the font manager for a family in a weight and slant.</summary>
+    /// <param name="key">The face key.</param>
+    /// <returns>The face, or <see langword="null"/>.</returns>
+    private SubstituteFace? Create(FaceKey key)
+    {
+        var font = provider?.Match(key.Family, key.Weight, key.Italic);
+        if (font is null || string.IsNullOrEmpty(font.FamilyName) || font.GlyphCount == 0)
+        {
+            font?.Dispose();
+            return null;
+        }
+
+        var requested = key.Requested && NamesMatch(font.FamilyName, key.Family);
+        return new(font, requested);
+    }
+
+    /// <summary>Makes the face used when no family matches: the platform default.</summary>
+    /// <returns>The face.</returns>
+    /// <exception cref="InvalidOperationException">No bundled default face or selected font provider is available.</exception>
+    private SubstituteFace CreateFallback()
+    {
+        lock (_gate)
+        {
+            if (_fallback is { } cached)
+            {
+                return cached;
+            }
+
+            var font = provider?.DefaultFace;
+            var face = font is null
+                ? BundledFaces.Get(resources, BundledFamily.Sans, false, false)
+                    ?? throw new InvalidOperationException("No bundled default font or selected font provider is available.")
+                : new SubstituteFace(font, false);
+            Volatile.Write(ref _fallback, face);
+            return face;
+        }
     }
 }

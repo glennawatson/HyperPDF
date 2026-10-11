@@ -2,33 +2,105 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
+using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.Fonts;
+using HyperPdfLibrary.Graphics.Colors;
+using HyperPdfLibrary.Objects;
+
 namespace HyperPdfLibrary.Drawing;
 
-/// <summary>Stores explicitly registered drawing services for the process.</summary>
-public static class PdfDrawingServices
+/// <summary>The drawing services shared by documents opened with this instance.</summary>
+[DebuggerDisplay("Drawing {ConfiguredBackend}, fonts {Fonts}, images {Images}")]
+public sealed class PdfDrawingServices
 {
-    /// <summary>The configured immutable registration.</summary>
-    private static PdfRenderBackendRegistration _registration = new();
+    /// <summary>The font resources shared by documents using this service.</summary>
+    private PdfFontResources? _fontResources;
 
-    /// <summary>Gets the optional font provider.</summary>
-    public static IPdfFontProvider? Fonts => Volatile.Read(ref _registration).Fonts;
-
-    /// <summary>Gets the optional image codec.</summary>
-    public static IPdfImageCodec? Images => Volatile.Read(ref _registration).Images;
-
-    /// <summary>Gets the registered drawing backend.</summary>
-    /// <exception cref="InvalidOperationException">No drawing backend has been registered.</exception>
-    public static IPdfRenderBackend Backend => PdfDrawingServices.ConfiguredBackend
-        ?? throw new InvalidOperationException("Register a drawing backend before rendering PDF pages.");
-
-    /// <summary>Gets the optional drawing backend for rendering resources.</summary>
-    internal static IPdfRenderBackend? ConfiguredBackend => Volatile.Read(ref _registration).Backend;
-
-    /// <summary>Registers drawing services before opening documents that use them.</summary>
-    /// <param name="registration">The immutable service registration.</param>
-    public static void Register(PdfRenderBackendRegistration registration)
+    /// <summary>Initializes a new instance of the <see cref="PdfDrawingServices"/> class.</summary>
+    /// <param name="registration">The drawing backend and providers.</param>
+    public PdfDrawingServices(PdfRenderBackendRegistration registration)
     {
         ArgumentNullException.ThrowIfNull(registration);
-        Volatile.Write(ref _registration, registration);
+        ConfiguredBackend = registration.Backend;
+        Fonts = registration.Fonts;
+        Images = registration.Images;
+        UnsupportedImageDecoder = registration.UnsupportedImageDecoder;
     }
+
+    /// <summary>Gets the optional font provider.</summary>
+    public IPdfFontProvider? Fonts { get; }
+
+    /// <summary>Gets the optional image codec.</summary>
+    public IPdfImageCodec? Images { get; }
+
+    /// <summary>Gets the decoder for images not supported by the library.</summary>
+    public Func<PdfStream, CancellationToken, IPdfRenderImage?>? UnsupportedImageDecoder { get; }
+
+    /// <summary>Gets a decoder scratch cache shared by documents using this service instance, or null for document-owned caches.</summary>
+    public ScratchPools? SharedScratchPools { get; init; }
+
+    /// <summary>Gets the drawing backend.</summary>
+    /// <exception cref="InvalidOperationException">No backend was supplied.</exception>
+    public IPdfRenderBackend Backend => ConfiguredBackend
+        ?? throw new InvalidOperationException("Supply a drawing backend in PdfOpenOptions.DrawingServices before rendering PDF pages.");
+
+    /// <summary>Gets the optional drawing backend for rendering resources.</summary>
+    internal IPdfRenderBackend? ConfiguredBackend { get; }
+
+    /// <summary>Gets the font match cache for this service instance.</summary>
+    internal SystemFontMatcher FontMatcher
+    {
+        get
+        {
+            var existing = Volatile.Read(ref field);
+            if (existing is not null)
+            {
+                return existing;
+            }
+
+            var created = new SystemFontMatcher(Fonts, FontResources);
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets the font resources selected by this service.</summary>
+    internal PdfFontResources FontResources
+    {
+        get
+        {
+            var cached = Volatile.Read(ref _fontResources);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            var created = new PdfFontResources();
+            return Interlocked.CompareExchange(ref _fontResources, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets the font resource generation without making an empty cache.</summary>
+    internal int FontResourceGeneration => Volatile.Read(ref _fontResources)?.Generation ?? 0;
+
+    /// <summary>Gets the ICC transforms shared by documents opened with this service instance.</summary>
+    internal IccProfileCache Profiles
+    {
+        get
+        {
+            var existing = Volatile.Read(ref field);
+            if (existing is not null)
+            {
+                return existing;
+            }
+
+            var created = new IccProfileCache();
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets a dictionary's document services, or empty services for a detached dictionary.</summary>
+    /// <param name="dictionary">The dictionary owned by a document.</param>
+    /// <returns>The drawing services.</returns>
+    internal static PdfDrawingServices For(PdfDictionary dictionary) => dictionary.Owner?.Context?.DrawingServices ?? new(new());
 }

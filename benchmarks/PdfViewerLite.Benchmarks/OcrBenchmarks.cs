@@ -34,7 +34,7 @@ public class OcrBenchmarks
     private TesseractEngine _engine = null!;
 
     /// <summary>A document with text.</summary>
-    private OcrDocument _text = null!;
+    private BenchmarkPdfDocument _text = null!;
 
     /// <summary>The scanned page as greyscale pixels.</summary>
     private byte[] _grey = [];

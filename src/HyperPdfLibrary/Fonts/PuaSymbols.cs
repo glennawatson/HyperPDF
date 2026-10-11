@@ -38,11 +38,12 @@ internal static class PuaSymbols
     }
 
     /// <summary>Replaces a single private-use character with the Unicode character its code means.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="remap">The font's remapping.</param>
     /// <param name="text">The text, which holds <paramref name="length"/> characters.</param>
     /// <param name="length">The number of characters written.</param>
     /// <returns>The new number of characters.</returns>
-    internal static int Apply(PuaRemap remap, Span<char> text, int length)
+    internal static int Apply(PdfFontResources resources, PuaRemap remap, Span<char> text, int length)
     {
         if (remap == PuaRemap.None || length != 1 || text[0] < PageStart || text[0] > PageEnd)
         {
@@ -50,7 +51,7 @@ internal static class PuaSymbols
         }
 
         var encoding = remap == PuaRemap.Symbol ? FontEncoding.Symbol : FontEncoding.ZapfDingbats;
-        var mapped = GlyphNameText.TextOf(FontEncodings.GetGlyphName(encoding, text[0] & CodeMask), remap == PuaRemap.Dingbats);
+        var mapped = GlyphNameText.TextOf(resources, FontEncodings.GetGlyphName(encoding, text[0] & CodeMask), remap == PuaRemap.Dingbats);
         return mapped is not null && mapped.AsSpan().TryCopyTo(text) ? mapped.Length : length;
     }
 }

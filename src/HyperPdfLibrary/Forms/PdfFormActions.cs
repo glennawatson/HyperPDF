@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Objects;
@@ -24,7 +25,16 @@ public static class PdfFormActions
     /// <param name = "action">The action. With no fields listed every field is reset; with the exclude flag set every field but the listed ones is.</param>
     /// <returns>The number of fields reset.</returns>
     /// <exception cref = "ArgumentNullException"><paramref name = "action"/> is <see langword="null"/>.</exception>
-    public static int Reset(PdfForm form, ResetFormAction action)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int Reset(PdfForm form, ResetFormAction action) =>
+        Reset(form, action, CancellationToken.None);
+
+    /// <summary>Resets form fields while observing the caller's token between widgets.</summary>
+    /// <param name="form">The shared form state.</param>
+    /// <param name="action">The reset action.</param>
+    /// <param name="cancellationToken">Cancels the reset.</param>
+    /// <returns>The number of fields reset.</returns>
+    public static int Reset(PdfForm form, ResetFormAction action, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(action);
         lock (form.Gate)
@@ -38,7 +48,7 @@ public static class PdfFormActions
             var count = 0;
             for (var page = 0; page < form.Document.PageCount; page++)
             {
-                count += PdfFormActions.ResetPage(form, page, action, done);
+                count += PdfFormActions.ResetPage(form, page, action, done, cancellationToken);
             }
 
             return count;
@@ -50,7 +60,16 @@ public static class PdfFormActions
     /// <param name = "action">The action; its targets are field names or annotation titles.</param>
     /// <returns>The number of annotations changed.</returns>
     /// <exception cref = "ArgumentNullException"><paramref name = "action"/> is <see langword="null"/>.</exception>
-    public static int SetHidden(PdfForm form, HideAction action)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int SetHidden(PdfForm form, HideAction action) =>
+        SetHidden(form, action, CancellationToken.None);
+
+    /// <summary>Shows or hides named fields while observing the caller's token.</summary>
+    /// <param name="form">The shared form state.</param>
+    /// <param name="action">The hide action.</param>
+    /// <param name="cancellationToken">Cancels the change.</param>
+    /// <returns>The number of annotations changed.</returns>
+    public static int SetHidden(PdfForm form, HideAction action, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(action);
         lock (form.Gate)
@@ -58,7 +77,7 @@ public static class PdfFormActions
             var count = 0;
             for (var page = 0; page < form.Document.PageCount && action.Targets.Length > 0; page++)
             {
-                count += PdfFormActions.HidePage(form, page, action);
+                count += PdfFormActions.HidePage(form, page, action, cancellationToken);
             }
 
             return count;
@@ -70,7 +89,16 @@ public static class PdfFormActions
     /// <param name = "action">The action.</param>
     /// <returns>The submission.</returns>
     /// <exception cref = "ArgumentNullException"><paramref name = "action"/> is <see langword="null"/>.</exception>
-    public static PdfFormSubmission CreateSubmission(PdfForm form, SubmitFormAction action)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfFormSubmission CreateSubmission(PdfForm form, SubmitFormAction action) =>
+        CreateSubmission(form, action, CancellationToken.None);
+
+    /// <summary>Collects a submission while observing the caller's token.</summary>
+    /// <param name="form">The shared form state.</param>
+    /// <param name="action">The submit action.</param>
+    /// <param name="cancellationToken">Cancels the collection.</param>
+    /// <returns>The submission.</returns>
+    public static PdfFormSubmission CreateSubmission(PdfForm form, SubmitFormAction action, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(action);
         var fields = new List<PdfSubmittedField>();
@@ -78,7 +106,7 @@ public static class PdfFormActions
         var widgets = new List<PdfFormWidget>();
         for (var page = 0; PdfFormReading.HasForm(form) && page < form.Document.PageCount; page++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             widgets.Clear();
             PdfFormReading.GetWidgets(form, page, widgets);
             foreach (var widget in widgets)
@@ -164,8 +192,9 @@ public static class PdfFormActions
     /// <param name = "page">The zero based page index.</param>
     /// <param name = "action">The action.</param>
     /// <param name = "done">The object numbers of the fields already reset.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The number of fields reset.</returns>
-    internal static int ResetPage(PdfForm form, int page, ResetFormAction action, HashSet<int> done)
+    internal static int ResetPage(PdfForm form, int page, ResetFormAction action, HashSet<int> done, CancellationToken cancellationToken)
     {
         if (PdfFormReading.GetAnnotations(form, page)is not { } annotations)
         {
@@ -176,6 +205,7 @@ public static class PdfFormActions
         var exclude = (action.Flags & ExcludeFlag) != 0;
         for (var i = 0; i < annotations.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (PdfFormReading.Resolve(form, page, annotations, i) is { FieldId.IsValid: true } widget
                 && widget.Type is not (PdfFieldType.Unknown or PdfFieldType.PushButton or PdfFieldType.Signature)
                 && PdfFormActions.IsChosen(widget.Name, action.Fields, exclude) && done.Add(widget.FieldId.Number)
@@ -247,8 +277,9 @@ public static class PdfFormActions
     /// <param name = "form">The shared form state.</param>
     /// <param name = "page">The zero based page index.</param>
     /// <param name = "action">The action.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The number of annotations changed.</returns>
-    internal static int HidePage(PdfForm form, int page, HideAction action)
+    internal static int HidePage(PdfForm form, int page, HideAction action, CancellationToken cancellationToken)
     {
         if (PdfFormReading.GetAnnotations(form, page)is not { } annotations)
         {
@@ -259,6 +290,7 @@ public static class PdfFormActions
         var count = 0;
         for (var i = 0; i < annotations.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (annotations.GetDictionary(i) is { } annotation
                 && PdfFormActions.IsListed(FieldAttributes.GetFullName(annotation), action.Targets)
                 && PdfFormActions.SetHiddenFlag(edit, annotations.GetRaw(i).AsReference(), annotation, action.Hide))

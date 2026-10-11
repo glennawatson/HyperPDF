@@ -4,13 +4,19 @@
     <PackageReference Include="Refit" />
     <ProjectReference Include="..\..\src\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
     <ProjectReference Include="..\..\src\PdfViewerLite.HyperPdf\PdfViewerLite.HyperPdf.csproj" />
-    <!-- PDFium is the comparison baseline for the parity tests; the adapter itself does not reference it. -->
-    <ProjectReference Include="..\..\src\PdfViewerLite.Pdfium\PdfViewerLite.Pdfium.csproj" />
+    <PackageReference Include="bblanchon.PDFium.Linux" />
+    <PackageReference Include="bblanchon.PDFium.Win32" />
+    <PackageReference Include="bblanchon.PDFium.macOS" />
     <ProjectReference Include="..\PdfViewerLite.TestAssets\PdfViewerLite.TestAssets.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(IncludeReferencePdfRenderingTests)' != 'true'">
+    <Compile Remove="RenderingComparison/ReferencePdfRenderingTests.cs" />
+  </ItemGroup>
+
   <ItemGroup>
-    <None Include="..\render-corpus\corpus.json" Link="render-corpus.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../reference-pdfs/ATTRIBUTION.md" Link="reference-pdfs-attribution.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../reference-pdfs/manifest.json" Link="reference-pdfs-manifest.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

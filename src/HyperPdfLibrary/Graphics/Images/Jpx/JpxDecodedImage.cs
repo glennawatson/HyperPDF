@@ -14,6 +14,9 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 [DebuggerDisplay("JpxDecodedImage: {Geometry.Image.Width}x{Geometry.Image.Height}")]
 internal sealed class JpxDecodedImage : IDisposable
 {
+    /// <summary>The cache this image returns its planes to.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>Initializes a new instance of the <see cref="JpxDecodedImage"/> class with every sample zero.</summary>
     /// <param name="geometry">The image geometry.</param>
     internal JpxDecodedImage(JpxGeometry geometry)
@@ -25,8 +28,18 @@ internal sealed class JpxDecodedImage : IDisposable
     /// <param name="geometry">The codestream geometry.</param>
     /// <param name="reductionLevels">The number of finest wavelet levels left out.</param>
     internal JpxDecodedImage(JpxGeometry geometry, int reductionLevels)
+        : this(geometry, reductionLevels, new ScratchPools())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpxDecodedImage"/> class with an explicit cache.</summary>
+    /// <param name="geometry">The codestream geometry.</param>
+    /// <param name="reductionLevels">The omitted finest levels.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    internal JpxDecodedImage(JpxGeometry geometry, int reductionLevels, ScratchPools scratchPools)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(reductionLevels);
+        _scratchPools = scratchPools;
         Geometry = geometry;
         var count = geometry.Components.Length;
         Planes = new int[count][];
@@ -36,7 +49,7 @@ internal sealed class JpxDecodedImage : IDisposable
             var area = geometry.ToComponent(geometry.Image, c).Reduce(reductionLevels);
             var length = area.Width * area.Height;
             Areas[c] = area;
-            Planes[c] = ScratchPool<int>.Shared.Rent(length);
+            Planes[c] = scratchPools.Get<int>().Rent(length);
             Planes[c].AsSpan(0, length).Clear();
         }
     }
@@ -60,7 +73,7 @@ internal sealed class JpxDecodedImage : IDisposable
                 continue;
             }
 
-            ScratchPool<int>.Shared.Return(Planes[c]);
+            _scratchPools.Get<int>().Return(Planes[c]);
             Planes[c] = [];
         }
     }

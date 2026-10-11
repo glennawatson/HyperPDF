@@ -43,6 +43,9 @@ namespace PdfViewerLite.Scripts
         /// <summary>The namespace prefix of the code under audit.</summary>
         private const string LibraryPrefix = "PdfViewerLite.";
 
+        /// <summary>The namespace prefix of the managed PDF engine and its drawing backend.</summary>
+        private const string HyperPdfPrefix = "HyperPdfLibrary.";
+
         /// <summary>The namespace prefix of the benchmark classes.</summary>
         private const string BenchmarkPrefix = "PdfViewerLite.Benchmarks.";
 
@@ -309,7 +312,8 @@ namespace PdfViewerLite.Scripts
         /// <param name="name">The method.</param>
         /// <returns><see langword="true"/> for library code.</returns>
         private static bool IsLibrary(string name) =>
-            name.StartsWith(LibraryPrefix, StringComparison.Ordinal) && !name.StartsWith(BenchmarkPrefix, StringComparison.Ordinal);
+            name.StartsWith(HyperPdfPrefix, StringComparison.Ordinal)
+            || (name.StartsWith(LibraryPrefix, StringComparison.Ordinal) && !name.StartsWith(BenchmarkPrefix, StringComparison.Ordinal));
 
         /// <summary>Gets the change from one value to another, in percent.</summary>
         /// <param name="was">The baseline value.</param>

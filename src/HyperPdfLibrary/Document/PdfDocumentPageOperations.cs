@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
@@ -106,8 +107,19 @@ static (transaction, edit) => PdfDocumentPageOperations.ReorderCore(edit.Documen
     /// <param name="sourcePages">The zero based indexes of the pages copied, in order.</param>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">An index is out of range.</exception>
-    public static void InsertPages(PdfDocument document, int index, PdfDocument source, ReadOnlySpan<int> sourcePages)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void InsertPages(PdfDocument document, int index, PdfDocument source, ReadOnlySpan<int> sourcePages) =>
+        InsertPages(document, index, source, sourcePages, CancellationToken.None);
+
+    /// <summary>Inserts pages while passing cancellation to the object importer.</summary>
+    /// <param name="document">The destination.</param>
+    /// <param name="index">The insertion index.</param>
+    /// <param name="source">The source document.</param>
+    /// <param name="sourcePages">The source page indexes.</param>
+    /// <param name="cancellationToken">Cancels copying.</param>
+    public static void InsertPages(PdfDocument document, int index, PdfDocument source, ReadOnlySpan<int> sourcePages, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(source);
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(index, document.PageCount);
@@ -116,8 +128,8 @@ static (transaction, edit) => PdfDocumentPageOperations.ReorderCore(edit.Documen
 document,
 "Insert pages",
 PdfChangeKinds.PageChanges,
-new PageEdit(document, sourcePages, index, source),
-static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document, transaction, edit.Value, edit.Source!, edit.Pages));
+new PageEdit(document, sourcePages, index, source, cancellationToken),
+static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document, transaction, edit.Value, edit.Source!, edit.Pages, edit.CancellationToken));
     }
 
     /// <summary>Writes some pages as a new document, keeping their content, resources, boxes, rotation and annotations.</summary>
@@ -125,15 +137,25 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     /// <param name="pages">The zero based page indexes, in order.</param>
     /// <returns>The new document's bytes.</returns>
     /// <exception cref="ArgumentOutOfRangeException">An index is not a page.</exception>
-    public static byte[] ExtractPages(PdfDocument document, ReadOnlySpan<int> pages)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static byte[] ExtractPages(PdfDocument document, ReadOnlySpan<int> pages) =>
+        ExtractPages(document, pages, CancellationToken.None);
+
+    /// <summary>Writes selected pages while passing cancellation to the page importer.</summary>
+    /// <param name="document">The source document.</param>
+    /// <param name="pages">The selected page indexes.</param>
+    /// <param name="cancellationToken">Cancels copying.</param>
+    /// <returns>The new PDF bytes.</returns>
+    public static byte[] ExtractPages(PdfDocument document, ReadOnlySpan<int> pages, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         PdfDocumentPageOperations.ValidatePages(document, pages);
         var builder = new PdfDocumentBuilder();
-        var importer = new PdfPageImporter(builder, document, true);
+        var importer = new PdfPageImporter(builder, document, true, cancellationToken);
         var selected = new PdfPage[pages.Length];
         for (var i = 0; i < selected.Length; i++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             selected[i] = PdfDocumentPages.GetPage(document, pages[i]);
         }
 
@@ -333,15 +355,16 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     /// <param name="index">The index of the first copy.</param>
     /// <param name="source">The document copied from.</param>
     /// <param name="sourcePages">The source page indexes.</param>
-    private static void InsertCore(PdfDocument document, PdfEditTransaction transaction, int index, PdfDocument source, ReadOnlySpan<int> sourcePages)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void InsertCore(PdfDocument document, PdfEditTransaction transaction, int index, PdfDocument source, ReadOnlySpan<int> sourcePages, CancellationToken cancellationToken)
     {
-        var importer = new PdfStoreImporter(transaction, document.Objects, source.Objects);
+        var importer = new PdfStoreImporter(transaction, document.Objects, source.Objects, cancellationToken);
         var carrier = new PdfDocumentCarrier(importer);
         var ids = new PdfObjectId[sourcePages.Length];
         var pages = new PdfPage[ids.Length];
         for (var i = 0; i < ids.Length; i++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             ids[i] = transaction.Add(default);
             pages[i] = PdfDocumentPages.GetPage(source, sourcePages[i]);
 
@@ -352,7 +375,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         var annotations = new PdfArray?[ids.Length];
         for (var i = 0; i < ids.Length; i++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             annotations[i] = carrier.PrepareAnnotations(pages[i], PdfAnnotationFilter.All);
         }
 
@@ -361,7 +384,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         var inserted = new PdfPageSlot[ids.Length];
         for (var i = 0; i < ids.Length; i++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             var copy = PdfDocumentPageOperations.ImportPage(document, importer, pages[i], annotations[i]);
             if (structParents[i] >= 0)
             {
@@ -497,7 +520,8 @@ slots);
     /// <param name="pages">The page indexes.</param>
     /// <param name="value">The operation's number: a rotation, a destination or an insertion index.</param>
     /// <param name="source">The document pages are copied from, for an insertion.</param>
-    private readonly ref struct PageEdit(PdfDocument document, ReadOnlySpan<int> pages, int value, PdfDocument? source)
+    /// <param name="cancellationToken">Cancels object import.</param>
+    private readonly ref struct PageEdit(PdfDocument document, ReadOnlySpan<int> pages, int value, PdfDocument? source, CancellationToken cancellationToken = default)
     {
         /// <summary>Gets the document.</summary>
         internal PdfDocument Document { get; } = document;
@@ -510,5 +534,8 @@ slots);
 
         /// <summary>Gets the source document.</summary>
         internal PdfDocument? Source { get; } = source;
+
+        /// <summary>Gets the token for this edit.</summary>
+        internal CancellationToken CancellationToken { get; } = cancellationToken;
     }
 }

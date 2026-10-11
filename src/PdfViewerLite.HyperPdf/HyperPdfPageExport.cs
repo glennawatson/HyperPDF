@@ -390,10 +390,4 @@ internal static class HyperPdfPageExport
         forms[index] = item;
         return item;
     }
-
-    /// <summary>A page form and its size on an output sheet.</summary>
-    /// <param name="Form">The page form object.</param>
-    /// <param name="Width">The page width in points.</param>
-    /// <param name="Height">The page height in points.</param>
-    internal readonly record struct SheetPage(PdfObjectId Form, float Width, float Height);
 }

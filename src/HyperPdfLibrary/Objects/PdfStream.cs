@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.IO;
 
 namespace HyperPdfLibrary.Objects;
@@ -24,6 +25,9 @@ public sealed class PdfStream
 
     /// <summary>The offset of the encoded data.</summary>
     private readonly long _offset;
+
+    /// <summary>The parsed ICC profile for this stream, including an unsupported result.</summary>
+    private IccProfileCache.Entry? _cachedIccProfile;
 
     /// <summary>Initializes a new instance of the <see cref="PdfStream"/> class over part of a buffer.</summary>
     /// <param name="dictionary">The stream dictionary.</param>
@@ -84,6 +88,9 @@ public sealed class PdfStream
     /// <summary>Gets a value indicating whether the data must be decrypted before decoding.</summary>
     public bool IsEncrypted { get; }
 
+    /// <summary>Gets the parsed ICC profile result, if one has been published.</summary>
+    internal IccProfileCache.Entry? CachedIccProfile => Volatile.Read(ref _cachedIccProfile);
+
     /// <summary>
     /// Gets the encoded (and possibly encrypted) data. Dispose the lease when done; for a stream read from a file it may
     /// hold a pooled copy or a reference on the file's mapping.
@@ -106,16 +113,30 @@ public sealed class PdfStream
     /// <param name="output">The buffer receiving the decoded data.</param>
     /// <returns>The image codec still to apply, if any.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public PdfImageCodec Decode(ref PooledBuffer output) => PdfStreamDecoder.Decode(this, ref output);
+    public PdfImageCodec Decode(ref PooledBuffer output) => Decode(ref output, CancellationToken.None);
+
+    /// <summary>Decodes stream filters while observing the caller's token.</summary>
+    /// <param name="output">Receives decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The remaining image codec, if any.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public PdfImageCodec Decode(ref PooledBuffer output, CancellationToken cancellationToken) =>
+        PdfStreamDecoder.Decode(this, ref output, cancellationToken);
 
     /// <summary>Decodes the data into a new array of exactly its length.</summary>
     /// <returns>The decoded bytes.</returns>
-    public byte[] DecodeToArray()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public byte[] DecodeToArray() => DecodeToArray(CancellationToken.None);
+
+    /// <summary>Decodes the data into a new array while observing the caller's token.</summary>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The decoded bytes.</returns>
+    public byte[] DecodeToArray(CancellationToken cancellationToken)
     {
         var output = default(PooledBuffer);
         try
         {
-            _ = Decode(ref output);
+            _ = Decode(ref output, cancellationToken);
             return output.ToArray();
         }
         finally
@@ -133,4 +154,10 @@ public sealed class PdfStream
         segment = array is null ? default : new(array, (int)_offset, RawLength);
         return array is not null;
     }
+
+    /// <summary>Publishes a parsed ICC profile result once for this stream.</summary>
+    /// <param name="loaded">The newly loaded result.</param>
+    /// <returns>The published result.</returns>
+    internal IccProfileCache.Entry PublishIccProfileEntry(IccProfileCache.Entry loaded) =>
+        Interlocked.CompareExchange(ref _cachedIccProfile, loaded, null) ?? loaded;
 }

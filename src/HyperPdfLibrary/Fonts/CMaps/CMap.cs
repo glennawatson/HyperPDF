@@ -101,14 +101,7 @@ public sealed class CMap
     {
         var content = CMapParser.Parse(data);
         var parent = content.HasUseCMap ? GetPredefined(content.UseCMap.Span) ?? resolver?.Invoke(content.UseCMap.Span) : null;
-        var codespaces = new List<CodespaceRange>(content.Codespaces);
-        if (parent is not null)
-        {
-            codespaces.AddRange(parent._codespaces);
-        }
-
-        codespaces.Sort(static (a, b) => a.Length.CompareTo(b.Length));
-        return new([.. codespaces], content.Cids.Build(true), content.Notdefs.Build(false), parent, content.WritingMode, false);
+        return Create(content, parent);
     }
 
     /// <summary>Reads one character code, using two bytes when no codespace range matches.</summary>
@@ -159,6 +152,17 @@ public sealed class CMap
         return TryGetCid((uint)code, out var cid) || TryGetNotdef((uint)code, out cid) ? cid : 0;
     }
 
+    /// <summary>Parses an embedded CMap with base maps from one font resource owner.</summary>
+    /// <param name="data">The decoded stream.</param>
+    /// <param name="resources">The selected font resources.</param>
+    /// <returns>The CMap.</returns>
+    internal static CMap ParseWithResources(ReadOnlySpan<byte> data, PdfFontResources resources)
+    {
+        var content = CMapParser.Parse(data);
+        var parent = content.HasUseCMap ? GetPredefined(content.UseCMap.Span) ?? PredefinedCMaps.Find(resources, content.UseCMap.Span)?.Map : null;
+        return Create(content, parent);
+    }
+
     /// <summary>Makes a CMap from tables already built, such as the predefined CMaps embedded in the library.</summary>
     /// <param name="codespaces">Every codespace range the CMap reads by, shortest first; the base CMap's are not added.</param>
     /// <param name="cids">The CID ranges.</param>
@@ -167,6 +171,22 @@ public sealed class CMap
     /// <returns>The CMap.</returns>
     internal static CMap Create(CodespaceRange[] codespaces, CodeRangeMap cids, CMap? parent, int writingMode) =>
         new(codespaces, cids, CodeRangeMap.Empty, parent, writingMode, false);
+
+    /// <summary>Builds a CMap from parsed content and its resolved base map.</summary>
+    /// <param name="content">The parsed mapping content.</param>
+    /// <param name="parent">The resolved base map, if any.</param>
+    /// <returns>The CMap.</returns>
+    private static CMap Create(CMapContent content, CMap? parent)
+    {
+        var codespaces = new List<CodespaceRange>(content.Codespaces);
+        if (parent is not null)
+        {
+            codespaces.AddRange(parent._codespaces);
+        }
+
+        codespaces.Sort(static (a, b) => a.Length.CompareTo(b.Length));
+        return new([.. codespaces], content.Cids.Build(true), content.Notdefs.Build(false), parent, content.WritingMode, false);
+    }
 
     /// <summary>Looks a code up in the CID ranges of this CMap and its bases.</summary>
     /// <param name="code">The code.</param>

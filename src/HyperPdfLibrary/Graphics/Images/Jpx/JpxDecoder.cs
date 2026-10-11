@@ -5,7 +5,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
@@ -21,6 +20,9 @@ internal sealed class JpxDecoder : IDisposable
     /// <summary>The codestream structure.</summary>
     private readonly JpxCodestream _codestream;
 
+    /// <summary>The cache used by this codestream decode.</summary>
+    private readonly ScratchPools _scratchPools;
+
     /// <summary>The tile layout, reused for every tile.</summary>
     private readonly JpxTile _tile;
 
@@ -34,10 +36,13 @@ internal sealed class JpxDecoder : IDisposable
     private readonly JpxTileWork _work;
 
     /// <summary>The code-block decoder used on the calling thread.</summary>
-    private readonly JpxBlockState _blocks = new();
+    private readonly JpxBlockState _blocks;
 
     /// <summary>The finest wavelet levels omitted from output.</summary>
     private readonly int _reductionLevels;
+
+    /// <summary>The token for this codestream decode.</summary>
+    private readonly CancellationToken _cancellationToken;
 
     /// <summary>The current tile's packet data.</summary>
     private byte[] _tileData = [];
@@ -48,13 +53,18 @@ internal sealed class JpxDecoder : IDisposable
     /// <summary>Initializes a new instance of the <see cref="JpxDecoder"/> class.</summary>
     /// <param name="codestream">The codestream structure.</param>
     /// <param name="reductionLevels">The finest levels to omit.</param>
-    private JpxDecoder(JpxCodestream codestream, int reductionLevels)
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private JpxDecoder(JpxCodestream codestream, int reductionLevels, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         _codestream = codestream;
+        _scratchPools = scratchPools;
         _reductionLevels = reductionLevels;
-        _tile = new(codestream.Geometry.Components.Length);
-        _progression = new(codestream.Geometry, _packets);
-        _work = new(codestream.Geometry);
+        _cancellationToken = cancellationToken;
+        _tile = new(codestream.Geometry.Components.Length, scratchPools);
+        _progression = new(codestream.Geometry, _packets, scratchPools);
+        _work = new(codestream.Geometry, scratchPools);
+        _blocks = new(scratchPools);
     }
 
     /// <inheritdoc/>
@@ -79,72 +89,25 @@ internal sealed class JpxDecoder : IDisposable
     /// <param name="codestream">The parsed codestream.</param>
     /// <param name="data">The codestream bytes.</param>
     /// <param name="reductionLevels">The finest levels to leave out.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The reduced component planes.</returns>
-    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data, int reductionLevels)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data, int reductionLevels, CancellationToken cancellationToken = default) =>
+        Decode(codestream, data, reductionLevels, new(), cancellationToken);
+
+    /// <summary>Decodes a codestream with an explicitly owned scratch cache.</summary>
+    /// <param name="codestream">The parsed codestream.</param>
+    /// <param name="data">The codestream bytes.</param>
+    /// <param name="reductionLevels">The omitted finest levels.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The decoded component planes.</returns>
+    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data, int reductionLevels, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
-        var image = new JpxDecodedImage(codestream.Geometry, reductionLevels);
-        using var decoder = new JpxDecoder(codestream, reductionLevels);
+        var image = new JpxDecodedImage(codestream.Geometry, reductionLevels, scratchPools);
+        using var decoder = new JpxDecoder(codestream, reductionLevels, scratchPools, cancellationToken);
         decoder.DecodeTiles(data, image);
         return image;
-    }
-
-    /// <summary>Returns a rented array.</summary>
-    /// <typeparam name="T">The element type.</typeparam>
-    /// <param name="array">The array, emptied.</param>
-    private static void ReturnArray<T>(ref T[] array)
-    {
-        if (array.Length > 0)
-        {
-            ScratchPool<T>.Shared.Return(array);
-        }
-
-        array = [];
-    }
-
-    /// <summary>Makes sure a rented array holds enough elements, keeping none of its contents.</summary>
-    /// <typeparam name="T">The element type.</typeparam>
-    /// <param name="array">The array, replaced when too small.</param>
-    /// <param name="length">The elements needed.</param>
-    private static void EnsureArray<T>(ref T[] array, int length)
-    {
-        if (array.Length >= length)
-        {
-            return;
-        }
-
-        ReturnArray(ref array);
-        array = ScratchPool<T>.Shared.Rent(length);
-    }
-
-    /// <summary>Sorts the tile-part indices by tile, keeping codestream order within a tile.</summary>
-    /// <param name="parts">The tile-parts.</param>
-    /// <param name="tiles">The number of tiles.</param>
-    /// <param name="starts">Receives where each tile's tile-parts start in <paramref name="order"/>, plus the end.</param>
-    /// <param name="order">Receives the tile-part indices.</param>
-    private static void GroupByTile(List<JpxTilePart> parts, int tiles, int[] starts, int[] order)
-    {
-        starts.AsSpan(0, tiles + 1).Clear();
-        foreach (var part in parts)
-        {
-            starts[part.Tile + 1]++;
-        }
-
-        for (var t = 0; t < tiles; t++)
-        {
-            starts[t + 1] += starts[t];
-        }
-
-        // Each tile's next free slot starts at its start and moves one along per tile-part placed.
-        var next = ScratchPool<int>.Shared.Rent(tiles);
-        starts.AsSpan(0, tiles).CopyTo(next);
-        for (var i = 0; i < parts.Count; i++)
-        {
-            var tile = parts[i].Tile;
-            order[next[tile]] = i;
-            next[tile]++;
-        }
-
-        ScratchPool<int>.Shared.Return(next);
     }
 
     /// <summary>Determines whether a tile mixes HT and regular code-blocks within a component, which is not decoded.</summary>
@@ -163,6 +126,66 @@ internal sealed class JpxDecoder : IDisposable
         return false;
     }
 
+    /// <summary>Returns a rented array.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <param name="array">The array, emptied.</param>
+    private void ReturnArray<T>(ref T[] array)
+    {
+        if (array.Length > 0)
+        {
+            _scratchPools.Get<T>().Return(array);
+        }
+
+        array = [];
+    }
+
+    /// <summary>Makes sure a rented array holds enough elements, keeping none of its contents.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <param name="array">The array, replaced when too small.</param>
+    /// <param name="length">The elements needed.</param>
+    private void EnsureArray<T>(ref T[] array, int length)
+    {
+        if (array.Length >= length)
+        {
+            return;
+        }
+
+        ReturnArray(ref array);
+        array = _scratchPools.Get<T>().Rent(length);
+    }
+
+    /// <summary>Sorts the tile-part indices by tile, keeping codestream order within a tile.</summary>
+    /// <param name="parts">The tile-parts.</param>
+    /// <param name="tiles">The number of tiles.</param>
+    /// <param name="starts">Receives where each tile's tile-parts start in <paramref name="order"/>, plus the end.</param>
+    /// <param name="order">Receives the tile-part indices.</param>
+    private void GroupByTile(List<JpxTilePart> parts, int tiles, int[] starts, int[] order)
+    {
+        starts.AsSpan(0, tiles + 1).Clear();
+        foreach (var part in parts)
+        {
+            starts[part.Tile + 1]++;
+        }
+
+        for (var t = 0; t < tiles; t++)
+        {
+            starts[t + 1] += starts[t];
+        }
+
+        // Each tile's next free slot starts at its start and moves one along per tile-part placed.
+        var pool = _scratchPools.Get<int>();
+        var next = pool.Rent(tiles);
+        starts.AsSpan(0, tiles).CopyTo(next);
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var tile = parts[i].Tile;
+            order[next[tile]] = i;
+            next[tile]++;
+        }
+
+        pool.Return(next);
+    }
+
     /// <summary>Decodes every tile that has data, in tile order.</summary>
     /// <param name="data">The codestream.</param>
     /// <param name="image">The output planes.</param>
@@ -170,14 +193,15 @@ internal sealed class JpxDecoder : IDisposable
     {
         var parts = _codestream.TileParts;
         var tiles = _codestream.Geometry.TilesAcross * _codestream.Geometry.TilesDown;
-        var starts = ScratchPool<int>.Shared.Rent(tiles + 1);
-        var order = ScratchPool<int>.Shared.Rent(Math.Max(parts.Count, 1));
+        var pool = _scratchPools.Get<int>();
+        var starts = pool.Rent(tiles + 1);
+        var order = pool.Rent(Math.Max(parts.Count, 1));
         try
         {
             GroupByTile(parts, tiles, starts, order);
             for (var t = 0; t < tiles; t++)
             {
-                PdfCancellation.ThrowIfCancelled();
+                _cancellationToken.ThrowIfCancellationRequested();
                 if (starts[t + 1] > starts[t])
                 {
                     DecodeTile(data, t, order.AsSpan(starts[t], starts[t + 1] - starts[t]), image);
@@ -186,8 +210,8 @@ internal sealed class JpxDecoder : IDisposable
         }
         finally
         {
-            ScratchPool<int>.Shared.Return(starts);
-            ScratchPool<int>.Shared.Return(order);
+            pool.Return(starts);
+            pool.Return(order);
         }
     }
 
@@ -217,7 +241,7 @@ internal sealed class JpxDecoder : IDisposable
         var packedLength = CopyPackedHeaders(data, parts, state);
         _packets.Start(_tile, parameters.Coding, _tileData, length, packedLength >= 0 ? _packed : null, Math.Max(packedLength, 0));
         _progression.Run(_tile, parameters);
-        _work.Run(_tile, _tileData, parameters.Coding.ComponentTransform, image, _blocks, _reductionLevels);
+        _work.Run(_tile, _tileData, parameters.Coding.ComponentTransform, image, _blocks, _reductionLevels, _cancellationToken);
     }
 
     /// <summary>Joins the tile's packet data from all its tile-parts.</summary>

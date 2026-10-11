@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
@@ -54,7 +53,7 @@ internal static partial class Jbig2GenericRegion
     /// <returns>The bits read.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static long DecodeMmr(ReadOnlySpan<byte> data, Jbig2Bitmap target) =>
-        CcittFaxDecoder.DecodeMmr(data, target.Width, target.Height, target.Data);
+        CcittFaxDecoder.DecodeMmr(data, target.Width, target.Height, target.Data, target.ScratchPools);
 
     /// <summary>Decodes a region with one template.</summary>
     /// <typeparam name="TTemplate">The template.</typeparam>
@@ -71,7 +70,7 @@ internal static partial class Jbig2GenericRegion
         var typical = 0;
         for (var y = 0; y < target.Height; y++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            decoder.CancellationToken.ThrowIfCancellationRequested();
             if (parameters.TypicalPrediction)
             {
                 if (decoder.IsComplete)

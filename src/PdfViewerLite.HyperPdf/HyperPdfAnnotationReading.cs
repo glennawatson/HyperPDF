@@ -105,7 +105,7 @@ internal static class HyperPdfAnnotationReading
             }
 
             PdfAnnotations.SetText(annotation, KnownName.Contents, contents);
-            SetModified(annotation);
+            SetModified(annotationState, annotation);
             return Commit(annotationState, pageIndex, page, index, annotation);
         }
     }
@@ -215,9 +215,10 @@ internal static class HyperPdfAnnotationReading
     }
 
     /// <summary>Records the current time as the modification date.</summary>
+    /// <param name="annotationState">The annotation state.</param>
     /// <param name="annotation">The annotation.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void SetModified(PdfDictionary annotation) => PdfAnnotations.SetDate(annotation, KnownName.M, HyperPdfAnnotations.Clock.GetUtcNow());
+    internal static void SetModified(HyperPdfAnnotations annotationState, PdfDictionary annotation) => PdfAnnotations.SetDate(annotation, KnownName.M, annotationState.Clock.GetUtcNow());
 
     /// <summary>Gets a page, or <see langword="null"/> when the index is out of range or the document is closed.</summary>
     /// <param name="annotationState">The annotation state.</param>
@@ -318,7 +319,7 @@ internal static class HyperPdfAnnotationReading
         PdfAnnotations.SetOpacity(annotation, 1);
         PdfAnnotations.SetFlags(annotation, PrintFlags);
         PdfAnnotations.SetText(annotation, KnownName.T, GetAuthor(annotationState));
-        SetModified(annotation);
+        SetModified(annotationState, annotation);
         if (contents.Length > 0)
         {
             PdfAnnotations.SetText(annotation, KnownName.Contents, contents);

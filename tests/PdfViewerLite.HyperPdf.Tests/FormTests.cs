@@ -7,7 +7,6 @@ using PdfViewerLite.Core.Annotations;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.Core.Geometry;
-using PdfViewerLite.Pdfium;
 using PdfViewerLite.TestAssets;
 
 namespace PdfViewerLite.HyperPdf.Tests;
@@ -75,9 +74,7 @@ public sealed class FormTests
         {
             using var reopened = new HyperPdfEngine().Open(managed, null);
             var viaManaged = Read((IFormFiller)DocumentFeatures.CastFeature(reopened, typeof(IFormFiller))!);
-            using var viaPdfium = new PdfiumEngine().Open(managed, null);
-            var readByPdfium = Read((IFormFiller)DocumentFeatures.CastFeature(viaPdfium, typeof(IFormFiller))!);
-            using var viaCopy = new PdfiumEngine().Open(copy, null);
+            using var viaCopy = new HyperPdfEngine().Open(copy, null);
             var readFromCopy = Read((IFormFiller)DocumentFeatures.CastFeature(viaCopy, typeof(IFormFiller))!);
 
             await Assert.That(typed).IsTrue();
@@ -86,7 +83,6 @@ public sealed class FormTests
             await Assert.That(unsaved).IsTrue();
             await AssertFilled(after);
             await AssertFilled(viaManaged);
-            await AssertFilled(readByPdfium);
             await AssertFilled(readFromCopy);
         }
         finally

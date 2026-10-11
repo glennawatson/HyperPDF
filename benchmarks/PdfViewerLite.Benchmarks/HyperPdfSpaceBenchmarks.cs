@@ -4,7 +4,6 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Document;
-using HyperPdfLibrary.Fonts;
 using PdfViewerLite.TestAssets;
 
 namespace PdfViewerLite.Benchmarks;
@@ -26,7 +25,6 @@ public class HyperPdfSpaceBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        PdfFont.Factory ??= HyperPdfStandInFont.Create;
         _repeated = PdfDocumentReader.Open(CreateDocument($"A{new string(' ', Spaces)}B"), null);
         _body = PdfDocumentReader.Open(CreateDocument("The quick brown fox jumps over the lazy dog while reading a long accessible document"), null);
         _ = PdfDocumentText.GetTextPage(_repeated, 0);

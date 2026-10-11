@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
 
@@ -29,9 +28,6 @@ internal static class PdfPrefetcher
 
     /// <summary>The most levels followed along an outline.</summary>
     private const int OutlineLevels = 256;
-
-    /// <summary>The generation each walked dictionary was last loaded at; entries go when their dictionary does.</summary>
-    private static readonly ConditionalWeakTable<PdfDictionary, PdfPrefetchMark> Marks = new();
 
     /// <summary>Loads a file's ends, or all of it when it fits the cache, so opening finds the header, trailer and cross-reference data cached.</summary>
     /// <param name="source">The file.</param>
@@ -62,7 +58,7 @@ internal static class PdfPrefetcher
         }
 
         // While nothing has been dropped from the cache since the last walk, what it loaded is still there.
-        var mark = Marks.GetValue(start, static _ => new());
+        var mark = objects.PrefetchMarks.GetValue(start, static _ => new());
         var generation = source.CacheGeneration;
         return mark.IsLoadedAt(generation) ? ValueTask.CompletedTask : WalkAsync(objects, start, kind, mark, generation, cancellationToken);
     }

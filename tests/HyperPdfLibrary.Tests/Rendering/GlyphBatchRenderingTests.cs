@@ -6,7 +6,6 @@ using System.Numerics;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
-using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Rendering;
 using SkiaSharp;
 
@@ -31,8 +30,8 @@ public sealed class GlyphBatchRenderingTests
     public async Task SeparateOpaqueGlyphsKeepPixels()
     {
         var pdf = CreatePdf("BT /F1 20 Tf 12 Tc 10 20 Td (AAAAA) Tj ET");
-        var original = RenderWithFont(pdf, false);
-        var grouped = RenderWithFont(pdf, true);
+        var original = Render(pdf, false);
+        var grouped = Render(pdf, true);
 
         await Assert.That(original.AsSpan().SequenceEqual(grouped)).IsTrue();
     }
@@ -43,8 +42,8 @@ public sealed class GlyphBatchRenderingTests
     public async Task OverlappingGlyphsKeepPixels()
     {
         var pdf = CreatePdf("BT /F1 20 Tf 10 20 Td (AAAAA) Tj ET");
-        var original = RenderWithFont(pdf, false);
-        var grouped = RenderWithFont(pdf, true);
+        var original = Render(pdf, false);
+        var grouped = Render(pdf, true);
 
         await Assert.That(original.AsSpan().SequenceEqual(grouped)).IsTrue();
     }
@@ -55,8 +54,8 @@ public sealed class GlyphBatchRenderingTests
     public async Task InterleavedPaintKeepsPixels()
     {
         var pdf = CreatePdf("BT /F1 20 Tf 12 Tc 10 20 Td (AAAA) Tj ET 1 0 0 rg 20 20 24 20 re f 0 0 0 rg BT /F1 20 Tf 12 Tc 10 50 Td (AAAA) Tj ET");
-        var original = RenderWithFont(pdf, false);
-        var grouped = RenderWithFont(pdf, true);
+        var original = Render(pdf, false);
+        var grouped = Render(pdf, true);
 
         await Assert.That(original.AsSpan().SequenceEqual(grouped)).IsTrue();
     }
@@ -71,24 +70,6 @@ public sealed class GlyphBatchRenderingTests
         return pdf.ToBytes();
     }
 
-    /// <summary>Installs the test font only while one recording is made.</summary>
-    /// <param name="pdf">The document.</param>
-    /// <param name="batchGlyphs">Whether compatible glyphs are grouped.</param>
-    /// <returns>The software pixels.</returns>
-    private static byte[] RenderWithFont(byte[] pdf, bool batchGlyphs)
-    {
-        var previous = PdfFont.Factory;
-        PdfFont.Factory = static dictionary => new SquareFont(dictionary);
-        try
-        {
-            return Render(pdf, batchGlyphs);
-        }
-        finally
-        {
-            PdfFont.Factory = previous;
-        }
-    }
-
     /// <summary>Records a page directly so the grouped and original modes can be compared.</summary>
     /// <param name="pdf">The document.</param>
     /// <param name="batchGlyphs">Whether compatible glyphs are grouped.</param>
@@ -96,7 +77,11 @@ public sealed class GlyphBatchRenderingTests
     /// <exception cref="InvalidOperationException">The test surface cannot be read.</exception>
     private static unsafe byte[] Render(byte[] pdf, bool batchGlyphs)
     {
-        using var document = PdfDocumentReader.Open(pdf, null);
+        using var document = PdfDocumentReader.OpenWith(pdf, new PdfOpenOptions
+        {
+            FontFactory = static dictionary => new SquareFont(dictionary),
+            DrawingServices = SkiaTestRegistration.CreateServices(),
+        });
         var page = PdfDocumentPages.GetPage(document, 0);
         var bounds = new PdfRect(0, 0, page.Width, page.Height);
         using var device = new SkiaContentDevice(new(0, 0, page.Width, page.Height), batchGlyphs);

@@ -148,8 +148,7 @@ internal static class AccessibilityPdfs
     /// <returns>The report.</returns>
     internal static PdfAccessibilityReport Report(AccessibilitySpec spec)
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(Build(spec), null);
+        using var document = TaggedTestDocument.Open(Build(spec));
         return PdfDocumentAccessibility.GetAccessibilityReport(document);
     }
 }

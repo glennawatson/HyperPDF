@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Fonts.CMaps;
 using HyperPdfLibrary.Fonts.Data;
 using HyperPdfLibrary.Fonts.Programs;
@@ -26,34 +27,52 @@ internal static class CompositeFontLoader
 
     /// <summary>Loads a composite font.</summary>
     /// <param name="font">The /Type0 font dictionary.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The font, or <see langword="null"/> when it has no single descendant or no /Encoding, as PDFium refuses it.</returns>
-    internal static PdfCompositeFont? Load(PdfDictionary font)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfCompositeFont? Load(PdfDictionary font, CancellationToken cancellationToken = default) =>
+        Load(font, PdfFontResources.For(font), cancellationToken);
+
+    /// <summary>Loads a composite font with resources selected by the caller.</summary>
+    /// <param name="font">The /Type0 font dictionary.</param>
+    /// <param name="resources">The selected resources.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    /// <returns>The font, or <see langword="null"/> when it lacks a descendant or encoding.</returns>
+    internal static PdfCompositeFont? Load(PdfDictionary font, PdfFontResources resources, CancellationToken cancellationToken)
     {
         if (font.GetArray(KnownName.DescendantFonts) is not { Count: 1 } descendants || descendants.GetDictionary(0) is not { } cidFont)
         {
             return null;
         }
 
-        if (ReadCMap(font) is not { } cmap)
+        if (ReadCMap(resources, font, cancellationToken) is not { } cmap)
         {
             return null;
         }
 
         var descriptor = FontDescriptor.Read(cidFont.GetDictionary(KnownName.FontDescriptor));
-        var program = EmbeddedFontLoader.Load(descriptor);
-        var toUnicode = ToUnicodeLoader.Load(font);
+        var program = EmbeddedFontLoader.Load(descriptor, cancellationToken);
+        var toUnicode = ToUnicodeLoader.Load(font, cancellationToken);
         var baseFont = PdfNames.BaseFontOf(cidFont);
         var collection = ReadCollection(cmap, cidFont);
-        GlyphSource source = program is not null
-            ? new ProgramGlyphSource(program)
-            : SystemFontMatcher.Match(new(baseFont, StandardFont.None, descriptor.Flags, descriptor.Weight, collection));
-        var route = program is null ? CidGlyphRoute.Identity : ChooseRoute(cidFont, program);
+        GlyphSource source;
+        if (program is not null)
+        {
+            source = new ProgramGlyphSource(program);
+        }
+        else
+        {
+            var matcher = SystemFontMatcher.For(font, resources);
+            source = matcher.Match(new(baseFont, StandardFont.None, descriptor.Flags, descriptor.Weight, collection));
+        }
+
+        var route = program is null ? CidGlyphRoute.Identity : ChooseRoute(cidFont, program, cancellationToken);
         var metrics = new FontMetrics(
             (descriptor.Ascent != 0 ? descriptor.Ascent : source.Ascent) / GlyphUnits,
             (descriptor.Descent != 0 ? descriptor.Descent : source.Descent) / GlyphUnits,
             FontStyle.IsBold(descriptor.Flags, descriptor.Weight, baseFont),
             false);
-        return new(font, new(
+        var data = new CompositeFontData(
             cmap,
             source,
             route,
@@ -62,19 +81,22 @@ internal static class CompositeFontLoader
             cmap.IsVertical ? CidMetricsTable.ReadVertical(cidFont.GetArray(KnownName.W2)) : CidMetricsTable.Empty,
             ReadVerticalDefault(cidFont.GetArray(KnownName.DW2)),
             toUnicode,
-            CidToUnicodeTable.Get(collection),
-            metrics));
+            CidToUnicodeTable.Get(resources, collection),
+            metrics);
+        return new(font, data, resources);
     }
 
     /// <summary>Reads /Encoding: a predefined CMap name or an embedded CMap stream.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="font">The font dictionary.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The CMap, or <see langword="null"/> when /Encoding is missing or damaged.</returns>
-    private static CompositeCMap? ReadCMap(PdfDictionary font)
+    private static CompositeCMap? ReadCMap(PdfFontResources resources, PdfDictionary font, CancellationToken cancellationToken)
     {
         var encoding = font.Get(KnownName.Encoding);
         if (encoding.TryGetName(out var name))
         {
-            return PredefinedCMaps.Get(PdfNames.Spell(font, name));
+            return PredefinedCMaps.Get(resources, PdfNames.Spell(font, name));
         }
 
         if (encoding.AsStream() is not { } stream)
@@ -85,7 +107,7 @@ internal static class CompositeFontLoader
         try
         {
             // PDFium gives embedded CMaps no coding, so their codes have no text without /ToUnicode.
-            var map = CMap.Parse(stream.DecodeToArray(), static name => PredefinedCMaps.Find(name)?.Map);
+            var map = CMap.ParseWithResources(stream.DecodeToArray(cancellationToken), resources);
             return new(map, CidCoding.Unknown, CjkScript.None);
         }
         catch (Exception ex) when (FontLoadErrors.IsDamagedData(ex))
@@ -97,14 +119,15 @@ internal static class CompositeFontLoader
     /// <summary>Chooses how CIDs become glyph ids in an embedded program.</summary>
     /// <param name="cidFont">The descendant font.</param>
     /// <param name="program">The program.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The route.</returns>
-    private static CidGlyphRoute ChooseRoute(PdfDictionary cidFont, FontProgram program)
+    private static CidGlyphRoute ChooseRoute(PdfDictionary cidFont, FontProgram program, CancellationToken cancellationToken)
     {
         if (cidFont.GetStream(KnownName.CIDToGIDMap) is { } table)
         {
             try
             {
-                return new(table.DecodeToArray(), null);
+                return new(table.DecodeToArray(cancellationToken), null);
             }
             catch (Exception ex) when (FontLoadErrors.IsDamagedData(ex))
             {

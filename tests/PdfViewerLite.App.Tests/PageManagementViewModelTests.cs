@@ -60,9 +60,6 @@ public sealed class PageManagementViewModelTests
         PageOperation.Merge,
     ];
 
-    /// <summary>The engines used to reopen each saved edit.</summary>
-    private static readonly TestEngineChoice[] ReadEngines = [TestEngineChoice.HyperPdf, TestEngineChoice.Pdfium];
-
     /// <summary>Gets every page mutation covered by undo, redo and save.</summary>
     /// <returns>The mutation cases.</returns>
     public static IEnumerable<PageOperation> Operations() => PageOperations;
@@ -72,7 +69,7 @@ public sealed class PageManagementViewModelTests
     [Test]
     public async Task SelectionIsNormalizedAndLastPageCannotBeDeleted()
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("pages.pdf", ThreePages)]);
         var tab = main.SelectedTab!;
@@ -102,7 +99,7 @@ public sealed class PageManagementViewModelTests
     [Test]
     public async Task EditCommandsUpdatePagesAndUndoHistory()
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit-pages.pdf", ThreePages)]);
         var tab = main.SelectedTab!;
@@ -139,7 +136,7 @@ public sealed class PageManagementViewModelTests
     [Test]
     public async Task MoveCommandsSelectTheMovedPages()
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("move-pages.pdf", InitialPages)]);
         var tab = main.SelectedTab!;
@@ -167,9 +164,9 @@ public sealed class PageManagementViewModelTests
     /// <returns>A task.</returns>
     [Test]
     [MethodDataSource(nameof(Operations))]
-    public async Task MutationsUndoRedoAndSaveAcrossEngines(PageOperation operation)
+    public async Task MutationsUndoRedoAndSave(PageOperation operation)
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("mutation.pdf", InitialPages)]);
         var tab = main.SelectedTab!;
@@ -189,7 +186,7 @@ public sealed class PageManagementViewModelTests
         _ = await pages.RedoCommand.Execute().ToTask();
         var pageCountAfterRedo = tab.PageCount;
         var saved = tab.Save(savedPath);
-        var reopenedPageCounts = await ReopenSavedDocumentAsync(savedPath);
+        var reopenedPageCount = await ReopenSavedDocumentAsync(savedPath);
 
         using (Assert.Multiple())
         {
@@ -198,7 +195,7 @@ public sealed class PageManagementViewModelTests
             await Assert.That(canRedo).IsTrue();
             await Assert.That(pageCountAfterRedo).IsEqualTo(expectedPages);
             await Assert.That(saved).IsTrue();
-            await Assert.That(reopenedPageCounts).IsEquivalentTo([expectedPages, expectedPages]);
+            await Assert.That(reopenedPageCount).IsEqualTo(expectedPages);
         }
     }
 
@@ -207,7 +204,7 @@ public sealed class PageManagementViewModelTests
     [Test]
     public async Task FileCommandsInsertMergeAndExtractPages()
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("file-pages.pdf", TwoPages)]);
         var tab = main.SelectedTab!;
@@ -233,24 +230,6 @@ public sealed class PageManagementViewModelTests
             await Assert.That(File.Exists(destination)).IsTrue();
             await Assert.That(new FileInfo(destination).Length).IsGreaterThan(0);
             await Assert.That(tab.PageCount).IsEqualTo(InitialPages);
-        }
-    }
-
-    /// <summary>Verifies the app explains why page operations are unavailable on PDFium.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task UnsupportedEngineExplainsPageEditingRequirement()
-    {
-        using var test = new TestServices(TestEngineChoice.Pdfium);
-        using var main = new MainViewModel(test.Services);
-        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("unsupported-pages.pdf", TwoPages)]);
-        using var pages = new PageManagementViewModel(main.SelectedTab!);
-
-        using (Assert.Multiple())
-        {
-            await Assert.That(pages.CanEdit).IsFalse();
-            await Assert.That(pages.Status).Contains("HyperPDF");
-            await Assert.That(((ICommand)pages.InsertFilesCommand).CanExecute(null)).IsFalse();
         }
     }
 
@@ -332,22 +311,14 @@ public sealed class PageManagementViewModelTests
         _ => InitialPages,
     };
 
-    /// <summary>Reopens a saved PDF through each supported engine.</summary>
+    /// <summary>Reopens a saved PDF.</summary>
     /// <param name="path">The saved PDF path.</param>
-    /// <returns>The reopened page counts.</returns>
-    private static async Task<int[]> ReopenSavedDocumentAsync(string path)
+    /// <returns>The reopened page count.</returns>
+    private static async Task<int> ReopenSavedDocumentAsync(string path)
     {
-        var pageCounts = new int[ReadEngines.Length];
-        for (var index = 0; index < ReadEngines.Length; index++)
-        {
-            using var reader = new TestServices(ReadEngines[index]);
-            using var readerMain = new MainViewModel(reader.Services);
-            readerMain.Open([path]);
-            var tab = readerMain.SelectedTab!;
-            await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
-            pageCounts[index] = tab.PageCount;
-        }
-
-        return pageCounts;
+        using var reader = new TestServices();
+        using var readerMain = new MainViewModel(reader.Services);
+        await TestServices.OpenAndWaitAsync(readerMain, [path]);
+        return readerMain.SelectedTab!.PageCount;
     }
 }
