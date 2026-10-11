@@ -46,11 +46,11 @@ public sealed class HyperPdfEngine : IDocumentEngine
     {
     }
 
-    /// <summary>Initializes a new instance of the <see cref="HyperPdfEngine"/> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="HyperPdfEngine"/> class with one bounded scratch cache shared by its documents.</summary>
     /// <param name="fontFactory">The loader for each document's fonts, or null to disable font loading.</param>
     /// <param name="annotationClock">The clock used for annotation modification dates.</param>
     public HyperPdfEngine(Func<PdfDictionary, PdfFont?>? fontFactory, TimeProvider annotationClock)
-        : this(fontFactory, annotationClock, new(new PdfRenderBackendRegistration().UseSkia()))
+        : this(fontFactory, annotationClock, new(new PdfRenderBackendRegistration().UseSkia()) { SharedScratchPools = new() })
     {
     }
 
