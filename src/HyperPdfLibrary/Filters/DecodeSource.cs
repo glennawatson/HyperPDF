@@ -9,4 +9,5 @@ namespace HyperPdfLibrary.Filters;
 /// <summary>Where a filter chain's data came from: the open context for cancellation and diagnostics, and the stream's object number.</summary>
 /// <param name="Context">The open context, or <see langword="null"/>.</param>
 /// <param name="ObjectNumber">The stream's object number, or 0.</param>
-internal readonly record struct DecodeSource(PdfOpenContext? Context, int ObjectNumber);
+/// <param name="CancellationToken">Cancels this decode operation.</param>
+internal readonly record struct DecodeSource(PdfOpenContext? Context, int ObjectNumber, CancellationToken CancellationToken = default);

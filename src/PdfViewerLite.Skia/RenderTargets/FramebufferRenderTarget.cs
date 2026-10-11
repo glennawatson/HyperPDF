@@ -60,7 +60,7 @@ internal sealed class FramebufferRenderTarget : IRenderTarget
         canvas.RestoreToCount(-1);
         _ = canvas.Save();
         canvas.ResetMatrix();
-        var createInfo = new DrawingContextImpl.CreateInfo { Surface = _framebufferSurface, Dpi = framebuffer.Dpi, ScaleDrawingToDpi = _useScaledDrawing, };
+        var createInfo = new DrawingContextCreateInfo { Surface = _framebufferSurface, Dpi = framebuffer.Dpi, ScaleDrawingToDpi = _useScaledDrawing, };
         properties = new() { PreviousFrameIsRetained = lockProperties.PreviousFrameIsRetained, };
         return new DrawingContextImpl(createInfo, framebuffer);
     }

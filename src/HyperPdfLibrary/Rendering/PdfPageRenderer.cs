@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.Numerics;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Rendering;
 
@@ -215,7 +214,6 @@ public sealed partial class PdfPageRenderer : IDisposable
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
         var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, _cache), request.Scale);
@@ -232,7 +230,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
             if ((request.Flags & PdfRenderFlags.Annotations) != 0)
             {
-                _ = entry.GetAnnotations(cache, page, printing);
+                _ = entry.GetAnnotations(cache, page, printing, cancellationToken);
             }
 
             TrimIfRecorded(entry, recorded);
@@ -278,6 +276,11 @@ public sealed partial class PdfPageRenderer : IDisposable
                 return status;
             }
 
+            if ((request.Flags & PdfRenderFlags.Annotations) != 0)
+            {
+                _ = entry.GetAnnotations(cache, page, (request.Flags & PdfRenderFlags.Printing) != 0, cancellationToken);
+            }
+
             var drawn = Draw(PdfDrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);
             if (drawn)
             {
@@ -317,6 +320,11 @@ public sealed partial class PdfPageRenderer : IDisposable
             if (status != PdfRenderStatus.Done)
             {
                 return status;
+            }
+
+            if ((request.Flags & PdfRenderFlags.Annotations) != 0)
+            {
+                _ = entry.GetAnnotations(cache, page, (request.Flags & PdfRenderFlags.Printing) != 0, cancellationToken);
             }
 
             var drawn = Draw(PdfDrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);

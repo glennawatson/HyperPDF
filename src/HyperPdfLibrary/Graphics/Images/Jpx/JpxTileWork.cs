@@ -54,6 +54,9 @@ internal sealed class JpxTileWork
     /// <summary>The number of finest wavelet levels omitted from this decode.</summary>
     private int _reductionLevels;
 
+    /// <summary>The token for the tile currently being rebuilt.</summary>
+    private CancellationToken _cancellationToken;
+
     /// <summary>Initializes a new instance of the <see cref="JpxTileWork"/> class.</summary>
     /// <param name="geometry">The image geometry.</param>
     internal JpxTileWork(JpxGeometry geometry)
@@ -78,7 +81,7 @@ internal sealed class JpxTileWork
     /// <param name="blocks">The block decoder used when the blocks decode on the calling thread.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Run(JpxTile tile, byte[] data, bool transform, JpxDecodedImage image, JpxBlockState blocks) =>
-        Run(tile, data, transform, image, blocks, 0);
+        Run(tile, data, transform, image, blocks, 0, default);
 
     /// <summary>Rebuilds a tile only to the requested wavelet resolution.</summary>
     /// <param name="tile">The parsed tile.</param>
@@ -87,12 +90,14 @@ internal sealed class JpxTileWork
     /// <param name="image">The reduced output planes.</param>
     /// <param name="blocks">The calling thread's block decoder.</param>
     /// <param name="reductionLevels">The omitted finest wavelet levels.</param>
-    internal void Run(JpxTile tile, byte[] data, bool transform, JpxDecodedImage image, JpxBlockState blocks, int reductionLevels)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal void Run(JpxTile tile, byte[] data, bool transform, JpxDecodedImage image, JpxBlockState blocks, int reductionLevels, CancellationToken cancellationToken = default)
     {
         _tile = tile;
         _data = data;
         _image = image;
         _reductionLevels = reductionLevels;
+        _cancellationToken = cancellationToken;
         try
         {
             PrepareBuffers();
@@ -207,7 +212,8 @@ internal sealed class JpxTileWork
         var lastResolution = _tile.Resolutions[info.FirstResolution + info.Levels - _reductionLevels];
         if (_tile.Blocks[index].Band < lastResolution.FirstBand + lastResolution.BandCount)
         {
-            JpxBlockDecoder.Decode(decoder, _tile, index, _data, new(_buffers[component], info.Area.Reduce(_reductionLevels).Width, info.Reversible, info.RoiShift, info.BlockStyle));
+            JpxBlockTarget target = new(_buffers[component], info.Area.Reduce(_reductionLevels).Width, info.Reversible, info.RoiShift, info.BlockStyle);
+            JpxBlockDecoder.Decode(decoder, _tile, index, _data, target, _cancellationToken);
         }
 
         return decoder;

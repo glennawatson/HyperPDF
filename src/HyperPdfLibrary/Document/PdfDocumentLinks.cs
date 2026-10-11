@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Objects;
 
@@ -27,8 +28,19 @@ public static class PdfDocumentLinks
     /// <param name="document">The document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>The links that lead somewhere.</returns>
-    public static IReadOnlyList<PdfLink> GetLinks(PdfDocument document, int pageIndex)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IReadOnlyList<PdfLink> GetLinks(PdfDocument document, int pageIndex) =>
+        ReadLinksPrepared(document, pageIndex, CancellationToken.None);
+
+    /// <summary>Gets a page's links while checking cancellation during first extraction.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page.</param>
+    /// <param name="cancellationToken">Cancels extraction.</param>
+    /// <returns>The links that lead somewhere.</returns>
+    private static PdfLink[] ReadLinksPrepared(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Read the page set once: the pages and the link cache come from the same snapshot, so a concurrent edit cannot mix them.
         var set = PdfDocumentPages.GetPageSet(document);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)pageIndex, (uint)set.Pages.Length, nameof(pageIndex));
@@ -38,7 +50,7 @@ public static class PdfDocumentLinks
             return links;
         }
 
-        links = PdfDocumentLinks.ReadLinks(document, set.Pages[pageIndex]);
+        links = PdfDocumentLinks.ReadLinks(document, set.Pages[pageIndex], cancellationToken);
         Volatile.Write(ref set.Links[pageIndex], links);
         return links;
     }
@@ -52,7 +64,7 @@ public static class PdfDocumentLinks
     {
         try
         {
-            return new(PdfDocumentLinks.ReadLinksScoped(document, pageIndex, cancellationToken));
+            return new(PdfDocumentLinks.ReadLinksPrepared(document, pageIndex, cancellationToken));
         }
         catch (Exception ex) when (PdfDocumentAsyncTasks.IsTaskFault(ex))
         {
@@ -69,26 +81,15 @@ public static class PdfDocumentLinks
     private static async ValueTask<IReadOnlyList<PdfLink>> LinksAfterAsync(PdfDocument document, ValueTask load, int pageIndex, CancellationToken cancellationToken)
     {
         await load.ConfigureAwait(false);
-        return PdfDocumentLinks.ReadLinksScoped(document, pageIndex, cancellationToken);
-    }
-
-    /// <summary>Reads a page's links with the token in force.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="pageIndex">The page index.</param>
-    /// <param name="cancellationToken">The token.</param>
-    /// <returns>The links.</returns>
-    private static IReadOnlyList<PdfLink> ReadLinksScoped(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return PdfDocumentLinks.GetLinks(document, pageIndex);
+        return PdfDocumentLinks.ReadLinksPrepared(document, pageIndex, cancellationToken);
     }
 
     /// <summary>Reads the link annotations of a page.</summary>
     /// <param name="document">The document.</param>
     /// <param name="page">The page.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The links.</returns>
-    private static PdfLink[] ReadLinks(PdfDocument document, PdfPage page)
+    private static PdfLink[] ReadLinks(PdfDocument document, PdfPage page, CancellationToken cancellationToken)
     {
         var annotations = page.Dictionary.GetArray(KnownName.Annots);
         if (annotations is null)
@@ -99,6 +100,7 @@ public static class PdfDocumentLinks
         var links = new List<PdfLink>();
         for (var i = 0; i < annotations.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var annotation = annotations.GetDictionary(i);
             if (annotation is null || !annotation.IsName(KnownName.Subtype, KnownName.Link) || !annotation.TryGetRectangle(KnownName.Rect, out var bounds))
             {

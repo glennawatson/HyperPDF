@@ -83,7 +83,7 @@ internal sealed class SkiaBackendContext(ISkiaGpu? gpu) : IPlatformRenderInterfa
     public IDrawingContextLayerImpl CreateOffscreenRenderTarget(PixelSize pixelSize, Vector scaling, bool enableTextAntialiasing)
     {
         using var gr = _gpu?.TryGetGrContext();
-        var createInfo = new SurfaceRenderTarget.CreateInfo
+        var createInfo = new SurfaceRenderTargetCreateInfo
         {
             Width = pixelSize.Width,
             Height = pixelSize.Height,

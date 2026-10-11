@@ -106,16 +106,30 @@ public sealed class PdfStream
     /// <param name="output">The buffer receiving the decoded data.</param>
     /// <returns>The image codec still to apply, if any.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public PdfImageCodec Decode(ref PooledBuffer output) => PdfStreamDecoder.Decode(this, ref output);
+    public PdfImageCodec Decode(ref PooledBuffer output) => Decode(ref output, CancellationToken.None);
+
+    /// <summary>Decodes stream filters while observing the caller's token.</summary>
+    /// <param name="output">Receives decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The remaining image codec, if any.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public PdfImageCodec Decode(ref PooledBuffer output, CancellationToken cancellationToken) =>
+        PdfStreamDecoder.Decode(this, ref output, cancellationToken);
 
     /// <summary>Decodes the data into a new array of exactly its length.</summary>
     /// <returns>The decoded bytes.</returns>
-    public byte[] DecodeToArray()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public byte[] DecodeToArray() => DecodeToArray(CancellationToken.None);
+
+    /// <summary>Decodes the data into a new array while observing the caller's token.</summary>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The decoded bytes.</returns>
+    public byte[] DecodeToArray(CancellationToken cancellationToken)
     {
         var output = default(PooledBuffer);
         try
         {
-            _ = Decode(ref output);
+            _ = Decode(ref output, cancellationToken);
             return output.ToArray();
         }
         finally

@@ -144,7 +144,7 @@ internal static class FontDataPrefetcher
         }
         else if (font.GetStream(KnownName.Encoding) is { } embedded)
         {
-            var parsed = ReadEmbedded(embedded);
+            var parsed = ReadEmbedded(embedded, cancellationToken);
             if (parsed is { HasUseCMap: true })
             {
                 await PredefinedCMaps.EnsureAsync(Encoding.ASCII.GetString(parsed.UseCMap.Span), cancellationToken).ConfigureAwait(false);
@@ -156,12 +156,13 @@ internal static class FontDataPrefetcher
 
     /// <summary>Treats a damaged embedded encoding as missing, as the font loader does.</summary>
     /// <param name="stream">The encoding stream.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The parsed encoding, or null.</returns>
-    private static CMapContent? ReadEmbedded(PdfStream stream)
+    private static CMapContent? ReadEmbedded(PdfStream stream, CancellationToken cancellationToken)
     {
         try
         {
-            return CMapParser.Parse(stream.DecodeToArray());
+            return CMapParser.Parse(stream.DecodeToArray(cancellationToken));
         }
         catch (Exception exception) when (FontLoadErrors.IsDamagedData(exception))
         {

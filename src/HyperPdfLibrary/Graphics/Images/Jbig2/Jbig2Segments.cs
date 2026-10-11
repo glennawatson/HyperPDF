@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdfLibrary.Objects;
-
 namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
 /// <summary>Processes JBIG2 segments and transfers decoded regions to their owner or page.</summary>
@@ -84,10 +82,10 @@ internal static class Jbig2Segments
             return Jbig2Status.Failure;
         }
 
-        var reader = new Jbig2Reader(data);
+        var reader = new Jbig2Reader(data, state.CancellationToken);
         while (reader.BytesLeft >= MinSegmentSize)
         {
-            PdfCancellation.ThrowIfCancelled();
+            state.CancellationToken.ThrowIfCancellationRequested();
             if (Jbig2Segment.Parse(ref reader) is not { } segment)
             {
                 return Jbig2Status.Failure;

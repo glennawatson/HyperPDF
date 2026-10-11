@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Fonts.Programs;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts.Generation;
 
@@ -60,10 +59,10 @@ internal static class FontDataGeneration
     internal static async ValueTask<byte[]> UnicodeAsync(Collection collection, CancellationToken cancellationToken)
     {
         var data = await ReadBinaryAsync(collection.UnicodeTable, cancellationToken).ConfigureAwait(false);
-        var values = ParseMap(data, cancellationToken).Unicode;
+        var values = BinaryCMapReader.Parse(data, cancellationToken).Unicode;
         var inverseName = Array.Find(collection.CMaps, static name => name.EndsWith("UTF32-H", StringComparison.Ordinal))!;
         var inverse = await ReadBinaryAsync(inverseName, cancellationToken).ConfigureAwait(false);
-        return PackUnicode(values, ParseMap(inverse, cancellationToken).Ranges, cancellationToken);
+        return PackUnicode(values, BinaryCMapReader.Parse(inverse, cancellationToken).Ranges, cancellationToken);
     }
 
     /// <summary>Reads one requested open font program from a font pack.</summary>
@@ -95,7 +94,7 @@ internal static class FontDataGeneration
         }
 
         var data = await ReadBinaryAsync(name, cancellationToken).ConfigureAwait(false);
-        var map = ParseMap(data, cancellationToken);
+        var map = BinaryCMapReader.Parse(data, cancellationToken);
         maps.Add(name, map);
         if (map.Parent.Length == 0)
         {
@@ -110,55 +109,41 @@ internal static class FontDataGeneration
             cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Parses one mapping within a synchronous cancellation scope.</summary>
-    /// <param name="data">The binary mapping.</param>
-    /// <param name="cancellationToken">Cancels parsing.</param>
-    /// <returns>The parsed mapping.</returns>
-    private static BinaryCMapData ParseMap(byte[] data, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return BinaryCMapReader.Parse(data);
-    }
-
-    /// <summary>Packs and compresses one CMap within a synchronous cancellation scope.</summary>
+    /// <summary>Packs and compresses one CMap with an explicit token.</summary>
     /// <param name="maps">The parsed inheritance chain.</param>
     /// <param name="name">The requested CMap.</param>
     /// <param name="collection">The owning collection.</param>
     /// <param name="cancellationToken">Cancels packing.</param>
     /// <returns>The compressed table.</returns>
-    private static byte[] PackCMap(Dictionary<string, BinaryCMapData> maps, string name, Collection collection, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return Compress(PackedTables.PackCMap(maps, name, collection));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte[] PackCMap(Dictionary<string, BinaryCMapData> maps, string name, Collection collection, CancellationToken cancellationToken) =>
+        Compress(PackedTables.PackCMap(maps, name, collection, cancellationToken), cancellationToken);
 
-    /// <summary>Fills, packs and compresses Unicode mappings within a synchronous cancellation scope.</summary>
+    /// <summary>Fills, packs and compresses Unicode mappings with an explicit token.</summary>
     /// <param name="values">The explicit CID mappings.</param>
     /// <param name="ranges">The fallback Unicode ranges.</param>
     /// <param name="cancellationToken">Cancels generation.</param>
     /// <returns>The compressed table.</returns>
     private static byte[] PackUnicode(int[] values, List<CidRange> ranges, CancellationToken cancellationToken)
     {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        BinaryUnicodeFallback.Fill(values, ranges);
-        return Compress(PackedTables.PackUnicode(values));
+        BinaryUnicodeFallback.Fill(values, ranges, cancellationToken);
+        return Compress(PackedTables.PackUnicode(values, cancellationToken), cancellationToken);
     }
 
-    /// <summary>Checks a downloaded font within a synchronous cancellation scope.</summary>
+    /// <summary>Checks a downloaded font while observing the caller's token.</summary>
     /// <param name="data">The font bytes.</param>
     /// <param name="cancellationToken">Cancels validation.</param>
     /// <returns>The validated font bytes.</returns>
     /// <exception cref="InvalidDataException">The font is invalid.</exception>
     private static byte[] ValidateFace(byte[] data, CancellationToken cancellationToken)
     {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         if (!TrueTypeProgram.TryParse(data, out var program) || program.GlyphCount == 0)
         {
             throw new InvalidDataException("The font pack resource is not a valid font program.");
         }
 
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         return data;
     }
 
@@ -172,15 +157,16 @@ internal static class FontDataGeneration
 
     /// <summary>Compresses a generated table through the engine's codec.</summary>
     /// <param name="data">The table bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The compressed bytes.</returns>
-    private static byte[] Compress(byte[] data)
+    private static byte[] Compress(byte[] data, CancellationToken cancellationToken)
     {
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         var output = new PooledBuffer(0);
         try
         {
             ZLibCodec.Compress(data, ref output);
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             return output.WrittenSpan.ToArray();
         }
         finally

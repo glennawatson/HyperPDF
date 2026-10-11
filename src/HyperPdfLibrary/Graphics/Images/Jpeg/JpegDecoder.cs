@@ -66,6 +66,9 @@ internal ref partial struct JpegDecoder
     /// <summary>The data being decoded.</summary>
     private readonly ReadOnlySpan<byte> _data;
 
+    /// <summary>The token for this image decode.</summary>
+    private readonly CancellationToken _cancellationToken;
+
     /// <summary>The DC Huffman tables by id.</summary>
     private readonly JpegHuffmanTable?[] _codesDc;
 
@@ -110,9 +113,11 @@ internal ref partial struct JpegDecoder
 
     /// <summary>Initializes a new instance of the <see cref="JpegDecoder"/> struct.</summary>
     /// <param name="data">The JPEG data.</param>
-    internal JpegDecoder(ReadOnlySpan<byte> data)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal JpegDecoder(ReadOnlySpan<byte> data, CancellationToken cancellationToken = default)
     {
         _data = data;
+        _cancellationToken = cancellationToken;
         _codesDc = new JpegHuffmanTable?[TableSlots];
         _codesAc = new JpegHuffmanTable?[TableSlots];
         _quantTables = new int[]?[TableSlots];
@@ -135,11 +140,12 @@ internal ref partial struct JpegDecoder
     /// <param name="data">The JPEG data.</param>
     /// <param name="convertColor">Whether to convert YCbCr to RGB (three components) or YCCK to CMYK (four).</param>
     /// <param name="output">Receives width * height * components bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see langword="true"/> when at least one scan decoded and <paramref name="output"/> was filled.</returns>
-    internal static bool TryDecode(ReadOnlySpan<byte> data, bool convertColor, Span<byte> output)
+    internal static bool TryDecode(ReadOnlySpan<byte> data, bool convertColor, Span<byte> output, CancellationToken cancellationToken = default)
     {
         // Not a using declaration: that would make the decoder read-only and the calls below would act on a copy.
-        var decoder = new JpegDecoder(data);
+        var decoder = new JpegDecoder(data, cancellationToken);
         try
         {
             return decoder.Decode() && decoder.Write(output, convertColor);

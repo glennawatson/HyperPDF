@@ -34,12 +34,14 @@ internal static class SimpleFontLoader
     /// <summary>Loads a simple font.</summary>
     /// <param name="font">The font dictionary.</param>
     /// <param name="trueType">Whether the /Subtype is /TrueType.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The font.</returns>
-    internal static PdfSimpleFont Load(PdfDictionary font, bool trueType)
+    internal static PdfSimpleFont Load(PdfDictionary font, bool trueType, CancellationToken cancellationToken = default)
     {
-        var facts = ReadFacts(font, trueType);
+        cancellationToken.ThrowIfCancellationRequested();
+        var facts = ReadFacts(font, trueType, cancellationToken);
         var encoding = SimpleEncoding.Read(font, new(InitialEncoding(facts), facts.Program is not null, facts.HasTrueTypeFace, facts.IsSymbolic, IsSymbolName(facts)));
-        var toUnicode = ToUnicodeLoader.Load(font);
+        var toUnicode = ToUnicodeLoader.Load(font, cancellationToken);
         GlyphSource source;
         SimpleGlyphMap map;
         if (facts.Program is { } program)
@@ -70,13 +72,14 @@ internal static class SimpleFontLoader
     /// <summary>Reads the dictionary, descriptor and program.</summary>
     /// <param name="font">The font dictionary.</param>
     /// <param name="trueType">Whether the /Subtype is /TrueType.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The facts.</returns>
-    private static SimpleFontFacts ReadFacts(PdfDictionary font, bool trueType)
+    private static SimpleFontFacts ReadFacts(PdfDictionary font, bool trueType, CancellationToken cancellationToken)
     {
         var baseFont = PdfNames.BaseFontOf(font);
         var standard = trueType ? StandardFont.None : StandardFonts.Find(Encoding.UTF8.GetBytes(baseFont));
         var descriptor = FontDescriptor.Read(font.GetDictionary(KnownName.FontDescriptor));
-        var program = EmbeddedFontLoader.Load(descriptor);
+        var program = EmbeddedFontLoader.Load(descriptor, cancellationToken);
         var flags = descriptor.Flags;
         if (standard != StandardFont.None && !descriptor.HasFlags)
         {

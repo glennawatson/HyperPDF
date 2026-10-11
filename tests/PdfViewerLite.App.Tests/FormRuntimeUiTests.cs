@@ -8,7 +8,6 @@ using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.HyperPdf;
-using PdfViewerLite.Pdfium;
 using PdfViewerLite.TestAssets;
 
 namespace PdfViewerLite.App.Tests;
@@ -66,12 +65,10 @@ public sealed class FormRuntimeUiTests
         var hyperColumns = await TabNamesAsync(new HyperPdfEngine(), "/Tabs /C");
         var hyperRows = await TabNamesAsync(new HyperPdfEngine(), "/Tabs /R");
         var hyperNone = await TabNamesAsync(new HyperPdfEngine(), string.Empty);
-        var pdfium = await TabNamesAsync(new PdfiumEngine(), "/Tabs /C");
 
         await Assert.That(hyperColumns.SequenceEqual(ColumnOrder)).IsTrue();
         await Assert.That(hyperRows.SequenceEqual(RowOrder)).IsTrue();
         await Assert.That(hyperNone.SequenceEqual(AnnotationOrder)).IsTrue();
-        await Assert.That(pdfium.SequenceEqual(AnnotationOrder)).IsTrue();
     }
 
     /// <summary>Buttons reset the form and hide a field, and a submit button sends nothing and says so.</summary>

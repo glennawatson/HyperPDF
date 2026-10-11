@@ -8,7 +8,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="PdfViewerLite.Pdfium.Tests" />
     <InternalsVisibleTo Include="PdfViewerLite.Benchmarks" />
   </ItemGroup>
 </Project>

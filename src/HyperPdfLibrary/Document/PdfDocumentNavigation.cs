@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Objects;
 
@@ -46,21 +47,9 @@ public static class PdfDocumentNavigation
     /// <summary>Gets the outline (bookmarks).</summary>
     /// <param name="document">The document.</param>
     /// <returns>The root entries.</returns>
-    public static IReadOnlyList<PdfOutlineItem> GetOutline(PdfDocument document)
-    {
-        var outline = Volatile.Read(ref document.State.Outline);
-        if (outline is not null)
-        {
-            return outline;
-        }
-
-        var budget = PdfDocumentNavigation.MaxOutlineEntries;
-        var visited = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
-        var first = document.Catalog.GetDictionary(KnownName.Outlines)?.GetDictionary(KnownName.First);
-        outline = [.. PdfDocumentNavigation.ReadOutlineLevel(document, first, 0, visited, ref budget)];
-        Volatile.Write(ref document.State.Outline, outline);
-        return outline;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IReadOnlyList<PdfOutlineItem> GetOutline(PdfDocument document) =>
+        ReadOutlinePrepared(document, CancellationToken.None);
 
     /// <summary>Resolves a destination: an explicit array, or a name looked up in the document's named destinations.</summary>
     /// <param name="document">The document.</param>
@@ -109,6 +98,27 @@ public static class PdfDocumentNavigation
         return document.Catalog.GetDictionary(KnownName.Dests) is { } dests ? dests.Get(document.Objects.Names.Intern(bytes)) : default;
     }
 
+    /// <summary>Gets the outline while checking cancellation during its first walk.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="cancellationToken">Cancels the walk.</param>
+    /// <returns>The root entries.</returns>
+    private static PdfOutlineItem[] ReadOutlinePrepared(PdfDocument document, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var outline = Volatile.Read(ref document.State.Outline);
+        if (outline is not null)
+        {
+            return outline;
+        }
+
+        var budget = PdfDocumentNavigation.MaxOutlineEntries;
+        var visited = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
+        var first = document.Catalog.GetDictionary(KnownName.Outlines)?.GetDictionary(KnownName.First);
+        outline = [.. PdfDocumentNavigation.ReadOutlineLevel(document, first, 0, visited, ref budget, cancellationToken)];
+        Volatile.Write(ref document.State.Outline, outline);
+        return outline;
+    }
+
     /// <summary>Reads the outline once its objects are loaded, reporting failures through the task.</summary>
     /// <param name="document">The document.</param>
     /// <param name="cancellationToken">The token.</param>
@@ -117,7 +127,7 @@ public static class PdfDocumentNavigation
     {
         try
         {
-            return new(PdfDocumentNavigation.ReadOutlineScoped(document, cancellationToken));
+            return new(PdfDocumentNavigation.ReadOutlinePrepared(document, cancellationToken));
         }
         catch (Exception ex) when (PdfDocumentAsyncTasks.IsTaskFault(ex))
         {
@@ -133,18 +143,7 @@ public static class PdfDocumentNavigation
     private static async ValueTask<IReadOnlyList<PdfOutlineItem>> OutlineAfterAsync(PdfDocument document, ValueTask load, CancellationToken cancellationToken)
     {
         await load.ConfigureAwait(false);
-        return PdfDocumentNavigation.ReadOutlineScoped(document, cancellationToken);
-    }
-
-    /// <summary>Reads the outline with the token in force.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="cancellationToken">The token.</param>
-    /// <returns>The root entries.</returns>
-    private static IReadOnlyList<PdfOutlineItem> ReadOutlineScoped(PdfDocument document, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return PdfDocumentNavigation.GetOutline(document);
+        return PdfDocumentNavigation.ReadOutlinePrepared(document, cancellationToken);
     }
 
     /// <summary>Reads an optional coordinate; null means "unchanged".</summary>
@@ -179,14 +178,16 @@ public static class PdfDocumentNavigation
     /// <param name="depth">The level's depth.</param>
     /// <param name="visited">The entries already read, to stop at loops.</param>
     /// <param name="budget">The entries still allowed.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The entries.</returns>
-    private static List<PdfOutlineItem> ReadOutlineLevel(PdfDocument document, PdfDictionary? first, int depth, HashSet<PdfDictionary> visited, ref int budget)
+    private static List<PdfOutlineItem> ReadOutlineLevel(PdfDocument document, PdfDictionary? first, int depth, HashSet<PdfDictionary> visited, ref int budget, CancellationToken cancellationToken)
     {
         var items = new List<PdfOutlineItem>();
         for (var entry = first; entry is not null && budget > 0 && depth < PdfDocumentNavigation.MaxOutlineDepth && visited.Add(entry); entry = entry.GetDictionary(KnownName.Next))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             budget--;
-            var children = PdfDocumentNavigation.ReadOutlineLevel(document, entry.GetDictionary(KnownName.First), depth + 1, visited, ref budget);
+            var children = PdfDocumentNavigation.ReadOutlineLevel(document, entry.GetDictionary(KnownName.First), depth + 1, visited, ref budget, cancellationToken);
             items.Add(new(entry.GetText(KnownName.Title) ?? string.Empty, PdfDocumentNavigation.ReadOutlineTarget(document, entry), [.. children], entry.GetInteger(KnownName.Count) > 0));
         }
 

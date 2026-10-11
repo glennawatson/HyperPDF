@@ -4,7 +4,6 @@
 
 using System.Runtime.CompilerServices;
 using System.Text;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts.Generation;
 
@@ -55,10 +54,11 @@ internal static class PackedTables
 
     /// <summary>Packs BMP values with surrogate-range indices for supplementary scalars.</summary>
     /// <param name="values">The scalar value of each CID.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The packed bytes.</returns>
-    internal static byte[] PackUnicode(int[] values)
+    internal static byte[] PackUnicode(int[] values, CancellationToken cancellationToken = default)
     {
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         using var output = new MemoryStream();
         output.WriteByte(UnicodeVersion);
         var count = values.Length;
@@ -66,7 +66,7 @@ internal static class PackedTables
         {
             if ((values.Length - count) % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             count--;
@@ -79,7 +79,7 @@ internal static class PackedTables
         {
             if (index % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var packed = PackedScalar(values[index], supplementary);
@@ -94,7 +94,7 @@ internal static class PackedTables
         {
             if (supplementaryIndex % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             scalars[index] = scalar;
@@ -105,7 +105,7 @@ internal static class PackedTables
         {
             if (index % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             WriteNumber(output, (uint)scalars[index]);
@@ -118,10 +118,11 @@ internal static class PackedTables
     /// <param name="maps">Every parsed CMap of the collection.</param>
     /// <param name="name">The CMap to pack.</param>
     /// <param name="collection">The collection it belongs to.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The packed bytes.</returns>
-    internal static byte[] PackCMap(Dictionary<string, BinaryCMapData> maps, string name, Collection collection)
+    internal static byte[] PackCMap(Dictionary<string, BinaryCMapData> maps, string name, Collection collection, CancellationToken cancellationToken = default)
     {
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         var map = maps[name];
         using var output = new MemoryStream();
         output.WriteByte(Version);
@@ -132,15 +133,15 @@ internal static class PackedTables
         output.WriteByte((byte)parent.Length);
         output.Write(parent);
         var codespaces = new List<Codespace>();
-        AddCodespaces(maps, name, codespaces);
-        PdfCancellation.ThrowIfCancelled();
+        AddCodespaces(maps, name, codespaces, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         codespaces.Sort(static (a, b) => a.Length.CompareTo(b.Length));
         output.WriteByte((byte)codespaces.Count);
         for (var index = 0; index < codespaces.Count; index++)
         {
             if (index % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var codespace = codespaces[index];
@@ -149,7 +150,7 @@ internal static class PackedTables
             WriteNumber(output, codespace.High);
         }
 
-        WriteRanges(output, Merge(Sort(map.Ranges)));
+        WriteRanges(output, Merge(Sort(map.Ranges, cancellationToken), cancellationToken), cancellationToken);
         return output.ToArray();
     }
 
@@ -157,20 +158,21 @@ internal static class PackedTables
     /// <param name="maps">Every parsed CMap.</param>
     /// <param name="name">The CMap name.</param>
     /// <param name="output">Receives the ranges without duplicates.</param>
-    private static void AddCodespaces(Dictionary<string, BinaryCMapData> maps, string name, List<Codespace> output)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void AddCodespaces(Dictionary<string, BinaryCMapData> maps, string name, List<Codespace> output, CancellationToken cancellationToken)
     {
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         var map = maps[name];
         if (map.Parent.Length > 0)
         {
-            AddCodespaces(maps, map.Parent, output);
+            AddCodespaces(maps, map.Parent, output, cancellationToken);
         }
 
         for (var index = 0; index < map.Codespaces.Count; index++)
         {
             if (index % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var codespace = map.Codespaces[index];
@@ -183,8 +185,9 @@ internal static class PackedTables
 
     /// <summary>Sorts ranges by first code, keeping file order among equal codes so the later entry wins.</summary>
     /// <param name="ranges">The ranges.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The sorted ranges.</returns>
-    private static List<CidRange> Sort(List<CidRange> ranges)
+    private static List<CidRange> Sort(List<CidRange> ranges, CancellationToken cancellationToken)
     {
         var sorted = new List<CidRange>(ranges);
         var order = new int[sorted.Count];
@@ -192,21 +195,21 @@ internal static class PackedTables
         {
             if (i % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             order[i] = i;
         }
 
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         Array.Sort(order, (a, b) => sorted[a].Low != sorted[b].Low ? sorted[a].Low.CompareTo(sorted[b].Low) : a.CompareTo(b));
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         var result = new List<CidRange>(sorted.Count);
         for (var i = 0; i < order.Length; i++)
         {
             if (i % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             result.Add(sorted[order[i]]);
@@ -217,15 +220,16 @@ internal static class PackedTables
 
     /// <summary>Joins neighbouring ranges that continue each other.</summary>
     /// <param name="ranges">The sorted ranges.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The merged ranges.</returns>
-    private static List<CidRange> Merge(List<CidRange> ranges)
+    private static List<CidRange> Merge(List<CidRange> ranges, CancellationToken cancellationToken)
     {
         var merged = new List<CidRange>(ranges.Count);
         for (var index = 0; index < ranges.Count; index++)
         {
             if (index % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var range = ranges[index];
@@ -252,7 +256,8 @@ internal static class PackedTables
     /// <summary>Writes the CID ranges as deltas.</summary>
     /// <param name="output">The output.</param>
     /// <param name="ranges">The sorted ranges.</param>
-    private static void WriteRanges(MemoryStream output, List<CidRange> ranges)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void WriteRanges(MemoryStream output, List<CidRange> ranges, CancellationToken cancellationToken)
     {
         WriteNumber(output, (uint)ranges.Count);
         uint low = 0;
@@ -261,7 +266,7 @@ internal static class PackedTables
         {
             if (index % CancellationChunk == 0)
             {
-                PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var range = ranges[index];

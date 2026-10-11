@@ -24,8 +24,9 @@ internal static class EmbeddedFontLoader
 
     /// <summary>Loads an embedded program.</summary>
     /// <param name="descriptor">The font descriptor.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The program, or <see langword="null"/> when the font is not embedded or its program cannot be read.</returns>
-    internal static FontProgram? Load(FontDescriptor descriptor)
+    internal static FontProgram? Load(FontDescriptor descriptor, CancellationToken cancellationToken = default)
     {
         if (descriptor.FontFile is not { } stream)
         {
@@ -34,7 +35,7 @@ internal static class EmbeddedFontLoader
 
         try
         {
-            var data = stream.DecodeToArray();
+            var data = stream.DecodeToArray(cancellationToken);
             return data.Length < MinProgramLength ? null : Parse(data, descriptor.FileKind, ReadLength1(stream));
         }
         catch (Exception ex) when (FontLoadErrors.IsDamagedData(ex))

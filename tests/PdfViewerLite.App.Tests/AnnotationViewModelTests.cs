@@ -86,14 +86,11 @@ public sealed class AnnotationViewModelTests
     }
 
     /// <summary>A failed destination replacement keeps the document dirty and its source open for a retry.</summary>
-    /// <param name="engine">The editing engine.</param>
     /// <returns>A task.</returns>
     [Test]
-    [Arguments(TestEngineChoice.HyperPdf)]
-    [Arguments(TestEngineChoice.Pdfium)]
-    public async Task FailedSaveReplacementKeepsUnsavedChanges(TestEngineChoice engine)
+    public async Task FailedSaveReplacementKeepsUnsavedChanges()
     {
-        using var test = new TestServices(engine);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("replace.pdf", Pages)]);
         var tab = main.SelectedTab!;

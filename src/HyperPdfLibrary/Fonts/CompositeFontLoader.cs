@@ -26,28 +26,29 @@ internal static class CompositeFontLoader
 
     /// <summary>Loads a composite font.</summary>
     /// <param name="font">The /Type0 font dictionary.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The font, or <see langword="null"/> when it has no single descendant or no /Encoding, as PDFium refuses it.</returns>
-    internal static PdfCompositeFont? Load(PdfDictionary font)
+    internal static PdfCompositeFont? Load(PdfDictionary font, CancellationToken cancellationToken = default)
     {
         if (font.GetArray(KnownName.DescendantFonts) is not { Count: 1 } descendants || descendants.GetDictionary(0) is not { } cidFont)
         {
             return null;
         }
 
-        if (ReadCMap(font) is not { } cmap)
+        if (ReadCMap(font, cancellationToken) is not { } cmap)
         {
             return null;
         }
 
         var descriptor = FontDescriptor.Read(cidFont.GetDictionary(KnownName.FontDescriptor));
-        var program = EmbeddedFontLoader.Load(descriptor);
-        var toUnicode = ToUnicodeLoader.Load(font);
+        var program = EmbeddedFontLoader.Load(descriptor, cancellationToken);
+        var toUnicode = ToUnicodeLoader.Load(font, cancellationToken);
         var baseFont = PdfNames.BaseFontOf(cidFont);
         var collection = ReadCollection(cmap, cidFont);
         GlyphSource source = program is not null
             ? new ProgramGlyphSource(program)
             : SystemFontMatcher.Match(new(baseFont, StandardFont.None, descriptor.Flags, descriptor.Weight, collection));
-        var route = program is null ? CidGlyphRoute.Identity : ChooseRoute(cidFont, program);
+        var route = program is null ? CidGlyphRoute.Identity : ChooseRoute(cidFont, program, cancellationToken);
         var metrics = new FontMetrics(
             (descriptor.Ascent != 0 ? descriptor.Ascent : source.Ascent) / GlyphUnits,
             (descriptor.Descent != 0 ? descriptor.Descent : source.Descent) / GlyphUnits,
@@ -68,8 +69,9 @@ internal static class CompositeFontLoader
 
     /// <summary>Reads /Encoding: a predefined CMap name or an embedded CMap stream.</summary>
     /// <param name="font">The font dictionary.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The CMap, or <see langword="null"/> when /Encoding is missing or damaged.</returns>
-    private static CompositeCMap? ReadCMap(PdfDictionary font)
+    private static CompositeCMap? ReadCMap(PdfDictionary font, CancellationToken cancellationToken)
     {
         var encoding = font.Get(KnownName.Encoding);
         if (encoding.TryGetName(out var name))
@@ -85,7 +87,7 @@ internal static class CompositeFontLoader
         try
         {
             // PDFium gives embedded CMaps no coding, so their codes have no text without /ToUnicode.
-            var map = CMap.Parse(stream.DecodeToArray(), static name => PredefinedCMaps.Find(name)?.Map);
+            var map = CMap.Parse(stream.DecodeToArray(cancellationToken), static name => PredefinedCMaps.Find(name)?.Map);
             return new(map, CidCoding.Unknown, CjkScript.None);
         }
         catch (Exception ex) when (FontLoadErrors.IsDamagedData(ex))
@@ -97,14 +99,15 @@ internal static class CompositeFontLoader
     /// <summary>Chooses how CIDs become glyph ids in an embedded program.</summary>
     /// <param name="cidFont">The descendant font.</param>
     /// <param name="program">The program.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The route.</returns>
-    private static CidGlyphRoute ChooseRoute(PdfDictionary cidFont, FontProgram program)
+    private static CidGlyphRoute ChooseRoute(PdfDictionary cidFont, FontProgram program, CancellationToken cancellationToken)
     {
         if (cidFont.GetStream(KnownName.CIDToGIDMap) is { } table)
         {
             try
             {
-                return new(table.DecodeToArray(), null);
+                return new(table.DecodeToArray(cancellationToken), null);
             }
             catch (Exception ex) when (FontLoadErrors.IsDamagedData(ex))
             {

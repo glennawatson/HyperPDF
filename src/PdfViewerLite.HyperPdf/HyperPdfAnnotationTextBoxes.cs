@@ -413,38 +413,4 @@ internal static class HyperPdfAnnotationTextBoxes
             builder.Dispose();
         }
     }
-
-    /// <summary>How a text box's glyphs are written: the font resource and the code and width of each glyph.</summary>
-    /// <param name="FontResource">The font dictionary or reference.</param>
-    /// <param name="Subset">The embedded subset, or <see langword="null"/> for a built in font.</param>
-    /// <param name="Widths">The subset's widths by code, in thousandths of an em, or <see langword="null"/>.</param>
-    /// <param name="Standard">The built in font, when there is no subset.</param>
-    /// <param name="Font">The font choice, with the styles drawn in.</param>
-    internal sealed record GlyphWriter(PdfValue FontResource, FontSubset? Subset, float[]? Widths, AppearanceFont Standard, TextBoxFont Font)
-    {
-        /// <summary>Writes a glyph's code: two bytes for a subset, one for a built in font.</summary>
-        /// <param name="glyph">The laid out glyph.</param>
-        /// <param name="destination">At least two bytes.</param>
-        /// <returns>The number of bytes written.</returns>
-        internal int Encode(ushort glyph, Span<byte> destination)
-        {
-            if (Subset is null)
-            {
-                destination[0] = (byte)glyph;
-                return 1;
-            }
-
-            var code = Subset.Map(glyph);
-            destination[0] = (byte)(code >> HighByteShift);
-            destination[1] = (byte)code;
-            return CodeBytes;
-        }
-
-        /// <summary>Gets the width a reader gives a glyph's code.</summary>
-        /// <param name="glyph">The laid out glyph.</param>
-        /// <returns>The width in thousandths of an em.</returns>
-        internal float Width(ushort glyph) => Subset is null
-            ? AppearanceFontMetrics.GetAdvance(Standard, (byte)glyph) * Thousand
-            : Widths![Subset.Map(glyph)];
-    }
 }

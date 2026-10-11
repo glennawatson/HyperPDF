@@ -112,7 +112,7 @@ internal sealed partial class OptimizeSession : IObjectTransformer
         Report(PdfOptimizePhase.Checking, 0, 0);
         _working = _ownsSource ? _source : PdfDocumentOptimizing.OpenWorkingCopy(_source);
         _names = new(Working.Objects.Names);
-        _recoder = new(_options, Names);
+        _recoder = new(_options, Names, _cancellationToken);
         _report.PdfAPart = PdfDocumentMetadata.GetXmp(Working)?.PdfAPart ?? 0;
         _report.WasSigned = IsSigned(Working);
         if (_report.WasSigned)

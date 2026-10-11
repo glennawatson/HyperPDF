@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
@@ -71,7 +70,7 @@ internal static partial class Jbig2GenericRegion
         var typical = 0;
         for (var y = 0; y < target.Height; y++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            decoder.CancellationToken.ThrowIfCancellationRequested();
             if (parameters.TypicalPrediction)
             {
                 if (decoder.IsComplete)

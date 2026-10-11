@@ -61,13 +61,9 @@ public static class PdfDocumentText
     /// <returns>The text page.</returns>
     /// <exception cref = "ArgumentOutOfRangeException">The page does not exist.</exception>
     /// <exception cref = "ObjectDisposedException">The document has been disposed.</exception>
-    public static PdfTextPage GetTextPage(PdfDocument document, int pageIndex)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, document.PageCount);
-        ObjectDisposedException.ThrowIf(document.IsDisposed, document);
-        return PdfDocumentText.GetTextPages(document).GetOrAdd(pageIndex, document, static (index, document) => PdfDocumentText.ExtractText(document, index));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfTextPage GetTextPage(PdfDocument document, int pageIndex) =>
+        GetTextPagePrepared(document, pageIndex, CancellationToken.None);
 
     /// <summary>Gets the recently used text pages.</summary>
     /// <param name = "document">The document.</param>
@@ -86,8 +82,9 @@ public static class PdfDocumentText
     /// <summary>Extracts a page's text without caching it.</summary>
     /// <param name = "document">The document.</param>
     /// <param name = "pageIndex">The zero based page index.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The text page.</returns>
-    internal static PdfTextPage ExtractText(PdfDocument document, int pageIndex)
+    internal static PdfTextPage ExtractText(PdfDocument document, int pageIndex, CancellationToken cancellationToken = default)
     {
         var page = PdfDocumentPages.GetPage(document, pageIndex);
         var state = TextPageBuild.Current;
@@ -95,7 +92,7 @@ public static class PdfDocumentText
         device.Reset(page);
         try
         {
-            PdfDocumentText.RunContent(document, page, device);
+            PdfDocumentText.RunContent(document, page, device, cancellationToken);
             device.Finish();
             return TextPageBuild.Build(state, page, PdfDocumentText.IsRightToLeft(document));
         }
@@ -103,6 +100,23 @@ public static class PdfDocumentText
         {
             device.Clear();
         }
+    }
+
+    /// <summary>Gets a text page while passing the caller's token to first extraction.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page.</param>
+    /// <param name="cancellationToken">Cancels first extraction.</param>
+    /// <returns>The text page.</returns>
+    private static PdfTextPage GetTextPagePrepared(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, document.PageCount);
+        ObjectDisposedException.ThrowIf(document.IsDisposed, document);
+        var request = new TextExtractionRequest(document, cancellationToken);
+        return PdfDocumentText.GetTextPages(document).GetOrAdd(
+            pageIndex,
+            request,
+            static (index, state) => PdfDocumentText.ExtractText(state.Document, index, state.CancellationToken));
     }
 
     /// <summary>Walks the pages, yielding those with matches.</summary>
@@ -163,17 +177,17 @@ public static class PdfDocumentText
     private static PdfTextPage ExtractTextScoped(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return PdfDocumentText.GetTextPage(document, pageIndex);
+        return PdfDocumentText.GetTextPagePrepared(document, pageIndex, cancellationToken);
     }
 
     /// <summary>Runs a page's content into the text device, keeping the text read before damaged content stops it, as PDFium does.</summary>
     /// <param name = "document">The document.</param>
     /// <param name = "page">The page.</param>
     /// <param name = "device">The text device.</param>
-    private static void RunContent(PdfDocument document, PdfPage page, TextDevice device)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void RunContent(PdfDocument document, PdfPage page, TextDevice device, CancellationToken cancellationToken)
     {
-        using var interpreter = new ContentInterpreter(PdfDocumentRendering.GetRenderCache(document), device, 0);
+        using var interpreter = new ContentInterpreter(PdfDocumentRendering.GetRenderCache(document), device, 0, cancellationToken: cancellationToken);
         try
         {
             ContentExecution.RunPage(interpreter, page);
@@ -205,4 +219,9 @@ public static class PdfDocumentText
         var direction = preferences.GetName(names.Intern("Direction"u8));
         return names.NameEquals(direction, "R2L"u8);
     }
+
+    /// <summary>The document and token passed to a first text extraction without a closure.</summary>
+    /// <param name="Document">The document.</param>
+    /// <param name="CancellationToken">The extraction token.</param>
+    private readonly record struct TextExtractionRequest(PdfDocument Document, CancellationToken CancellationToken);
 }

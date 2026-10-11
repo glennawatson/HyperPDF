@@ -167,7 +167,7 @@ internal static class Jbig2Dictionaries
             return huffman;
         }
 
-        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         var symbols = Jbig2SymbolDictionaryDecoder.DecodeArithmetic(ref decoder, settings, inputs, generic, refinement, state.Workspace);
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
         return symbols;
@@ -212,7 +212,7 @@ internal static class Jbig2Dictionaries
         else
         {
             using var contexts = new Jbig2ContextBuffer(Jbig2GenericParameters.ContextCountFor(template));
-            var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+            var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
             segment.Patterns = Jbig2PatternDictionary.DecodeArithmetic(ref decoder, contexts.Span, template, width, height, (int)grayMax, state.Workspace);
             Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
         }

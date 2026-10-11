@@ -23,26 +23,32 @@ internal static class LzwFilter
     /// <summary>The bits in a byte.</summary>
     private const int ByteBits = 8;
 
+    /// <summary>Checks cancellation after each 4096 encoded bytes.</summary>
+    private const int CancellationCheckMask = 4095;
+
     /// <summary>Decodes LZW data.</summary>
     /// <param name="input">The encoded data.</param>
     /// <param name="earlyChange">The /EarlyChange value: 1 widens codes one entry early.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Decode(ReadOnlySpan<byte> input, int earlyChange, ref PooledBuffer output) => _ = TryDecode(input, earlyChange, ref output);
+    internal static void Decode(ReadOnlySpan<byte> input, int earlyChange, ref PooledBuffer output, CancellationToken cancellationToken = default) =>
+        _ = TryDecode(input, earlyChange, ref output, cancellationToken);
 
     /// <summary>Decodes LZW data and says whether every code was valid.</summary>
     /// <param name="input">The encoded data.</param>
     /// <param name="earlyChange">The /EarlyChange value: 1 widens codes one entry early.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see langword="false"/> when a code was invalid, so the data is damaged; data that simply ends without an end code is fine.</returns>
-    internal static bool TryDecode(ReadOnlySpan<byte> input, int earlyChange, ref PooledBuffer output)
+    internal static bool TryDecode(ReadOnlySpan<byte> input, int earlyChange, ref PooledBuffer output, CancellationToken cancellationToken = default)
     {
         var offsets = ArrayPool<int>.Shared.Rent(TableSize);
         var lengths = ArrayPool<int>.Shared.Rent(TableSize);
         try
         {
             var decoder = new Decoder(offsets, lengths, earlyChange);
-            Run(input, ref decoder, ref output);
+            Run(input, ref decoder, ref output, cancellationToken);
             return !decoder.Damaged;
         }
         finally
@@ -56,12 +62,21 @@ internal static class LzwFilter
     /// <param name="input">The encoded data.</param>
     /// <param name="decoder">The decoder.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
-    private static void Run(ReadOnlySpan<byte> input, ref Decoder decoder, ref PooledBuffer output)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void Run(ReadOnlySpan<byte> input, ref Decoder decoder, ref PooledBuffer output, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var bitBuffer = 0U;
         var bitCount = 0;
+        var read = 0;
         foreach (var b in input)
         {
+            read++;
+            if ((read & CancellationCheckMask) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
             bitBuffer = (bitBuffer << ByteBits) | b;
             bitCount += ByteBits;
             while (bitCount >= decoder.Width)

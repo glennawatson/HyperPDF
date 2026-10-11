@@ -108,54 +108,6 @@ public static class PdfPageContentTextWriter
         PdfPageContentTextWriter.EmitShow(ref builder, items, codes);
     }
 
-    /// <summary>Ends the string run being collected.</summary>
-    /// <param name = "items">The pieces of the show.</param>
-    /// <param name = "codes">The collected string bytes.</param>
-    /// <param name = "runStart">Where the run starts in <paramref name = "codes"/>, or -1; reset to -1.</param>
-    internal static void CloseRun(List<ShowItem> items, List<byte> codes, ref int runStart)
-    {
-        if (runStart >= 0 && codes.Count > runStart)
-        {
-            items.Add(new(false, 0, runStart, codes.Count - runStart));
-        }
-
-        runStart = -1;
-    }
-
-    /// <summary>Writes the collected pieces as <c>Tj</c> when it is one string, otherwise as <c>TJ</c>.</summary>
-    /// <param name = "builder">The output.</param>
-    /// <param name = "items">The pieces.</param>
-    /// <param name = "codes">The string bytes the pieces point into.</param>
-    internal static void EmitShow(ref PdfContentBuilder builder, List<ShowItem> items, List<byte> codes)
-    {
-        if (items.Count == 0)
-        {
-            return;
-        }
-
-        var bytes = CollectionsMarshal.AsSpan(codes);
-        if (items.Count == 1 && !items[0].IsNumber)
-        {
-            builder.ShowText(bytes.Slice(items[0].Start, items[0].Length));
-            return;
-        }
-
-        builder.BeginTextArray();
-        foreach (var item in items)
-        {
-            if (item.IsNumber)
-            {
-                builder.AddTextArrayAdjustment(item.Number);
-            }
-            else
-            {
-                builder.AddTextArrayString(bytes.Slice(item.Start, item.Length));
-            }
-        }
-
-        builder.EndTextArray();
-    }
-
     /// <summary>Writes a text object: its glyphs less the removed ones, with the text position kept where it would have been.</summary>
     /// <param name = "state">The owned parse or content state.</param>
     /// <param name = "builder">The output.</param>
@@ -206,10 +158,58 @@ public static class PdfPageContentTextWriter
         }
     }
 
+    /// <summary>Ends the string run being collected.</summary>
+    /// <param name = "items">The pieces of the show.</param>
+    /// <param name = "codes">The collected string bytes.</param>
+    /// <param name = "runStart">Where the run starts in <paramref name = "codes"/>, or -1; reset to -1.</param>
+    private static void CloseRun(List<ShowItem> items, List<byte> codes, ref int runStart)
+    {
+        if (runStart >= 0 && codes.Count > runStart)
+        {
+            items.Add(new(false, 0, runStart, codes.Count - runStart));
+        }
+
+        runStart = -1;
+    }
+
+    /// <summary>Writes the collected pieces as <c>Tj</c> when it is one string, otherwise as <c>TJ</c>.</summary>
+    /// <param name = "builder">The output.</param>
+    /// <param name = "items">The pieces.</param>
+    /// <param name = "codes">The string bytes the pieces point into.</param>
+    private static void EmitShow(ref PdfContentBuilder builder, List<ShowItem> items, List<byte> codes)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        var bytes = CollectionsMarshal.AsSpan(codes);
+        if (items.Count == 1 && !items[0].IsNumber)
+        {
+            builder.ShowText(bytes.Slice(items[0].Start, items[0].Length));
+            return;
+        }
+
+        builder.BeginTextArray();
+        foreach (var item in items)
+        {
+            if (item.IsNumber)
+            {
+                builder.AddTextArrayAdjustment(item.Number);
+            }
+            else
+            {
+                builder.AddTextArrayString(bytes.Slice(item.Start, item.Length));
+            }
+        }
+
+        builder.EndTextArray();
+    }
+
     /// <summary>One piece of a <c>TJ</c> array: a string run or a number.</summary>
     /// <param name = "IsNumber">Whether the piece is a number.</param>
     /// <param name = "Number">The number, in thousandths of text space.</param>
     /// <param name = "Start">The first byte of a string run.</param>
     /// <param name = "Length">The length of a string run.</param>
-    internal readonly record struct ShowItem(bool IsNumber, float Number, int Start, int Length);
+    private readonly record struct ShowItem(bool IsNumber, float Number, int Start, int Length);
 }

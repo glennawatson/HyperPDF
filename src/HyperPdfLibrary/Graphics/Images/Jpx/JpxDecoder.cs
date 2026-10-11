@@ -5,7 +5,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
@@ -39,6 +38,9 @@ internal sealed class JpxDecoder : IDisposable
     /// <summary>The finest wavelet levels omitted from output.</summary>
     private readonly int _reductionLevels;
 
+    /// <summary>The token for this codestream decode.</summary>
+    private readonly CancellationToken _cancellationToken;
+
     /// <summary>The current tile's packet data.</summary>
     private byte[] _tileData = [];
 
@@ -48,10 +50,12 @@ internal sealed class JpxDecoder : IDisposable
     /// <summary>Initializes a new instance of the <see cref="JpxDecoder"/> class.</summary>
     /// <param name="codestream">The codestream structure.</param>
     /// <param name="reductionLevels">The finest levels to omit.</param>
-    private JpxDecoder(JpxCodestream codestream, int reductionLevels)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private JpxDecoder(JpxCodestream codestream, int reductionLevels, CancellationToken cancellationToken)
     {
         _codestream = codestream;
         _reductionLevels = reductionLevels;
+        _cancellationToken = cancellationToken;
         _tile = new(codestream.Geometry.Components.Length);
         _progression = new(codestream.Geometry, _packets);
         _work = new(codestream.Geometry);
@@ -79,11 +83,12 @@ internal sealed class JpxDecoder : IDisposable
     /// <param name="codestream">The parsed codestream.</param>
     /// <param name="data">The codestream bytes.</param>
     /// <param name="reductionLevels">The finest levels to leave out.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The reduced component planes.</returns>
-    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data, int reductionLevels)
+    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data, int reductionLevels, CancellationToken cancellationToken = default)
     {
         var image = new JpxDecodedImage(codestream.Geometry, reductionLevels);
-        using var decoder = new JpxDecoder(codestream, reductionLevels);
+        using var decoder = new JpxDecoder(codestream, reductionLevels, cancellationToken);
         decoder.DecodeTiles(data, image);
         return image;
     }
@@ -177,7 +182,7 @@ internal sealed class JpxDecoder : IDisposable
             GroupByTile(parts, tiles, starts, order);
             for (var t = 0; t < tiles; t++)
             {
-                PdfCancellation.ThrowIfCancelled();
+                _cancellationToken.ThrowIfCancellationRequested();
                 if (starts[t + 1] > starts[t])
                 {
                     DecodeTile(data, t, order.AsSpan(starts[t], starts[t + 1] - starts[t]), image);
@@ -217,7 +222,7 @@ internal sealed class JpxDecoder : IDisposable
         var packedLength = CopyPackedHeaders(data, parts, state);
         _packets.Start(_tile, parameters.Coding, _tileData, length, packedLength >= 0 ? _packed : null, Math.Max(packedLength, 0));
         _progression.Run(_tile, parameters);
-        _work.Run(_tile, _tileData, parameters.Coding.ComponentTransform, image, _blocks, _reductionLevels);
+        _work.Run(_tile, _tileData, parameters.Coding.ComponentTransform, image, _blocks, _reductionLevels, _cancellationToken);
     }
 
     /// <summary>Joins the tile's packet data from all its tile-parts.</summary>

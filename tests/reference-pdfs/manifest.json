@@ -1,0 +1,102 @@
+{
+  "comment": "Publicly available reference PDFs fetched and verified by CI.",
+  "documents": [
+    {
+      "id": "pyhanko-ua-and-a",
+      "source": "MatthiasValvekens/pyHanko",
+      "url": "https://raw.githubusercontent.com/MatthiasValvekens/pyHanko/871387373d318882e81a3fdd5e8d9089b6f5170e/internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-pdf-ua-and-a.pdf",
+      "sha256": "eb92b44f14101a98169418c56f84cf99a2092fe3692424b4f9fccd9bc9918719",
+      "bytes": 30381,
+      "tags": [
+        "tagged"
+      ],
+      "licence": "MIT repository; signing test data"
+    },
+    {
+      "id": "loc-marbury-v-madison",
+      "source": "Library of Congress United States Reports",
+      "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep005/usrep005137/usrep005137.pdf",
+      "sha256": "dc46074ce2db6f2250de60f8a72eaee961f9dd09d7d5daf8a40db404200a4608",
+      "bytes": 1536913,
+      "tags": [
+        "scanned",
+        "ocr",
+        "jbig2",
+        "legal"
+      ],
+      "licence": "Public domain: Marbury v. Madison, 5 U.S. 137 (1803), a US Supreme Court opinion published long before 1930"
+    },
+    {
+      "id": "ia-us-reports-228",
+      "source": "Internet Archive",
+      "url": "https://archive.org/download/unitedstatesrepo0228unse/unitedstatesrepo0228unse.pdf",
+      "mirrors": [
+        "https://ia601505.us.archive.org/11/items/unitedstatesrepo0228unse/unitedstatesrepo0228unse.pdf",
+        "https://ia801505.us.archive.org/11/items/unitedstatesrepo0228unse/unitedstatesrepo0228unse.pdf"
+      ],
+      "sha256": "bdbec894201ec349d759011ee1e7b51138562fbd2115021d66833139ed542ee3",
+      "bytes": 45245606,
+      "tags": [
+        "scanned",
+        "ocr",
+        "jpx",
+        "legal",
+        "long",
+        "mixed-page-sizes"
+      ],
+      "licence": "Public domain: United States Reports volume 228 (1913), US Supreme Court opinions published before 1930"
+    },
+    {
+      "id": "google-us-reports-vol2",
+      "source": "Internet Archive",
+      "url": "https://archive.org/download/unitedstatesrep02wagngoog/unitedstatesrep02wagngoog.pdf",
+      "mirrors": [
+        "https://ia601802.us.archive.org/2/items/unitedstatesrep02wagngoog/unitedstatesrep02wagngoog.pdf",
+        "https://ia801802.us.archive.org/2/items/unitedstatesrep02wagngoog/unitedstatesrep02wagngoog.pdf"
+      ],
+      "sha256": "c93062c820f158ecd745139f7704cc93187402f8e463ecae2ff66f06b685d7eb",
+      "bytes": 21881051,
+      "tags": [
+        "scanned",
+        "image-only",
+        "jbig2",
+        "jpx",
+        "legal",
+        "long",
+        "mixed-page-sizes"
+      ],
+      "licence": "Public domain: United States Reports, US Supreme Court opinions published before 1930; Google Books marks the scan as not in copyright"
+    },
+    {
+      "id": "usgs-morrison-1957",
+      "source": "U.S. Geological Survey Historical Topographic Map Collection",
+      "url": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Maps/HistoricalTopo/PDF/CO/24000/CO_Morrison_401624_1957_24000_geo.pdf",
+      "sha256": "36782dc5ad46e27dc3d356869c7c0d6122e4b92690ad20257e5a980d0cba2d2b",
+      "bytes": 8304276,
+      "tags": [
+        "map",
+        "raster",
+        "jpeg-tiles",
+        "geospatial",
+        "historical"
+      ],
+      "licence": "Public domain: USGS topographic map published in 1957; https://www.usgs.gov/faqs/are-usgs-topographic-maps-copyrighted"
+    },
+    {
+      "id": "usgs-lost-city-2023",
+      "source": "U.S. Geological Survey US Topo",
+      "url": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Maps/USTopo/PDF/WV/WV_Lost_City_20230613_TM_geo.pdf",
+      "sha256": "d1f203786e6b39cca67d4bd194e12fc1578ca3c799b3750e549268fcaafb0435",
+      "bytes": 50016442,
+      "tags": [
+        "map",
+        "layered",
+        "vector",
+        "raster",
+        "geospatial",
+        "large"
+      ],
+      "licence": "Public domain: 2023 US Topo map of West Virginia and Virginia; https://www.usgs.gov/faqs/are-usgs-topographic-maps-copyrighted"
+    }
+  ]
+}

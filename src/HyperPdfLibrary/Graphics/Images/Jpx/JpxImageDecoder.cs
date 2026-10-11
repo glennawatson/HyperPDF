@@ -42,12 +42,13 @@ internal static class JpxImageDecoder
     /// <param name="data">The JPX file or codestream.</param>
     /// <param name="softMaskInData">The alpha channel marker.</param>
     /// <param name="reductionLevels">The finest wavelet levels to omit.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The decoded image, or null when damaged.</returns>
-    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels)
+    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels, CancellationToken cancellationToken = default)
     {
         try
         {
-            return DecodeFile(header, data, softMaskInData, reductionLevels);
+            return DecodeFile(header, data, softMaskInData, reductionLevels, cancellationToken);
         }
         catch (Exception exception) when (exception is IndexOutOfRangeException or ArgumentException or OverflowException or InvalidCastException)
         {
@@ -88,8 +89,9 @@ internal static class JpxImageDecoder
     /// <param name="data">The JPX data.</param>
     /// <param name="softMaskInData">The <c>/SMaskInData</c> entry.</param>
     /// <param name="reductionLevels">The requested reduction.</param>
+    /// <param name="cancellationToken">Cancels codestream decoding.</param>
     /// <returns>The image, <see langword="null"/>, or an image marked unsupported.</returns>
-    private static PdfImageData? DecodeFile(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels)
+    private static PdfImageData? DecodeFile(in ImageHeader header, ReadOnlySpan<byte> data, int softMaskInData, int reductionLevels, CancellationToken cancellationToken)
     {
         if (JpxFileFormat.Read(data) is not { } file)
         {
@@ -108,7 +110,7 @@ internal static class JpxImageDecoder
         }
 
         var selectedReduction = SelectReduction(codestream, stream, reductionLevels);
-        using var image = JpxDecoder.Decode(codestream, stream, selectedReduction);
+        using var image = JpxDecoder.Decode(codestream, stream, selectedReduction, cancellationToken);
         var indexed = header.ColorSpace?.Kind == PdfColorSpaceKind.Indexed;
         if (JpxChannels.Build(file, codestream.Geometry, indexed) is not { Length: > 0 } channels
             || JpxOutputPlan.Create(file.ColorSpace, channels, image, header.ColorSpace) is not { } plan)

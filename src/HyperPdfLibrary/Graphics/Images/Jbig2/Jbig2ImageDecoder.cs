@@ -39,9 +39,10 @@ internal static class Jbig2ImageDecoder
     /// <param name="data">The JBIG2 data.</param>
     /// <param name="parameters">The codec parameters.</param>
     /// <param name="reductionLevels">The number of halvings requested.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The decoded display image, or null when decoding fails.</returns>
     /// <exception cref="InvalidDataException">The /JBIG2Globals stream's filters fail.</exception>
-    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, PdfDictionary? parameters, int reductionLevels)
+    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, PdfDictionary? parameters, int reductionLevels, CancellationToken cancellationToken = default)
     {
         var bits = header with { BitsPerComponent = OneBit };
         if (bits.ColorSpace?.Components > 1)
@@ -54,9 +55,9 @@ internal static class Jbig2ImageDecoder
         var globals = default(PooledBuffer);
         try
         {
-            _ = parameters?.GetStream(KnownName.JBIG2Globals)?.Decode(ref globals);
+            _ = parameters?.GetStream(KnownName.JBIG2Globals)?.Decode(ref globals, cancellationToken);
             var output = rows.AsSpan(0, length);
-            if (!Jbig2Decoder.TryDecode(data, globals.WrittenSpan, bits.Width, bits.Height, output))
+            if (!Jbig2Decoder.TryDecode(data, globals.WrittenSpan, bits.Width, bits.Height, output, cancellationToken))
             {
                 return null;
             }

@@ -29,6 +29,9 @@ internal sealed partial class InferredTagger
     /// <summary>The working copy.</summary>
     private readonly PdfDocument _document;
 
+    /// <summary>The token for this tagging pass.</summary>
+    private readonly CancellationToken _cancellationToken;
+
     /// <summary>The optimiser's names.</summary>
     private readonly OptimizerNames _names;
 
@@ -50,9 +53,11 @@ internal sealed partial class InferredTagger
     /// <summary>Initializes a new instance of the <see cref = "InferredTagger"/> class.</summary>
     /// <param name = "document">The working copy.</param>
     /// <param name = "names">The optimiser's names.</param>
-    private InferredTagger(PdfDocument document, OptimizerNames names)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private InferredTagger(PdfDocument document, OptimizerNames names, CancellationToken cancellationToken)
     {
         _document = document;
+        _cancellationToken = cancellationToken;
         _names = names;
         _documentElement = StoreEditing.Add(document.Objects, PdfValue.Null);
     }
@@ -70,7 +75,7 @@ internal sealed partial class InferredTagger
             return;
         }
 
-        var tagger = new InferredTagger(document, names);
+        var tagger = new InferredTagger(document, names, cancellationToken);
         for (var i = 0; i < document.PageCount; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -142,7 +147,7 @@ internal sealed partial class InferredTagger
         var marked = default(PooledBuffer);
         try
         {
-            ContentExecution.DecodeContents(page, ref content);
+            ContentExecution.DecodeContents(page, ref content, _cancellationToken);
             var units = MarkedContentRewriter.FindUnits(content.WrittenSpan, store.Names, page.Resources, store);
             if (units.Count == 0)
             {

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts;
@@ -21,23 +22,31 @@ public static class PdfFontLoader
     {
         ArgumentNullException.ThrowIfNull(dictionary);
         await FontDataPrefetcher.PrepareFontAsync(dictionary, cancellationToken).ConfigureAwait(false);
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return Load(dictionary);
+        return LoadPrepared(dictionary, cancellationToken);
     }
 
     /// <summary>Loads a font from its dictionary.</summary>
     /// <param name="dictionary">The font dictionary.</param>
     /// <returns>The font, or <see langword="null"/> when a composite font lacks its descendant or encoding.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="dictionary"/> is <see langword="null"/>.</exception>
-    public static PdfFont? Load(PdfDictionary dictionary)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfFont? Load(PdfDictionary dictionary) =>
+        LoadPrepared(dictionary, CancellationToken.None);
+
+    /// <summary>Loads a font while passing the caller's token to embedded streams.</summary>
+    /// <param name="dictionary">The font dictionary.</param>
+    /// <param name="cancellationToken">Cancels loading.</param>
+    /// <returns>The font, or null.</returns>
+    private static PdfFont? LoadPrepared(PdfDictionary dictionary, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dictionary);
+        cancellationToken.ThrowIfCancellationRequested();
         var subtype = dictionary.GetName(KnownName.Subtype);
         if (subtype.Is(KnownName.Type0))
         {
-            return CompositeFontLoader.Load(dictionary);
+            return CompositeFontLoader.Load(dictionary, cancellationToken);
         }
 
-        return subtype.Is(KnownName.Type3) ? new Type3Font(dictionary) : SimpleFontLoader.Load(dictionary, subtype.Is(KnownName.TrueType));
+        return subtype.Is(KnownName.Type3) ? new Type3Font(dictionary) : SimpleFontLoader.Load(dictionary, subtype.Is(KnownName.TrueType), cancellationToken);
     }
 }

@@ -55,7 +55,7 @@ public class GlyphRunBenchmarks
         using var shaped = _shaper.ShapeText(Text.AsMemory(), _options);
         _run = new(_typeface, FontSize, shaped, new(0, FontSize));
         _surface = SKSurface.Create(new SKImageInfo(SurfaceWidth, SurfaceHeight));
-        _context = new(new DrawingContextImpl.CreateInfo { Surface = _surface, Dpi = SkiaPlatform.DefaultDpi });
+        _context = new(new DrawingContextCreateInfo { Surface = _surface, Dpi = SkiaPlatform.DefaultDpi });
         _context.DrawGlyphRun(Brushes.Black, _run);
     }
 

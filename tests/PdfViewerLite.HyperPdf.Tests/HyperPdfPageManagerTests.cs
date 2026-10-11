@@ -127,16 +127,14 @@ public sealed class HyperPdfPageManagerTests
         await Assert.That(Texts(document)).IsEqualTo(expected);
         await using var saved = new MemoryStream();
         await Assert.That(PdfViewerLite.HyperPdf.HyperPdfDocumentAnnotationEditing.Save(document, saved)).IsTrue();
-        using var pair = new EnginePair(saved.ToArray());
-        await Assert.That(pair.Pdfium.PageCount).IsEqualTo(document.PageCount);
-        await Assert.That(pair.HyperPdf.PageCount).IsEqualTo(document.PageCount);
+        using var reopened = new HyperPdfTestDocument(saved.ToArray());
+        await Assert.That(reopened.Document.PageCount).IsEqualTo(document.PageCount);
         if (kind != PageEditKind.Rotate)
         {
             return;
         }
 
-        await Assert.That(pair.Pdfium.GetPageSizes()[page].Width).IsEqualTo(PageHeight);
-        await Assert.That(pair.HyperPdf.GetPageSizes()[page].Width).IsEqualTo(PageHeight);
+        await Assert.That(reopened.Document.GetPageSizes()[page].Width).IsEqualTo(PageHeight);
     }
 
     /// <summary>Multiple source files form one edit and retain copied fields, outlines and links through redo and saving.</summary>
@@ -160,9 +158,8 @@ public sealed class HyperPdfPageManagerTests
             await Assert.That(await PdfViewerLite.HyperPdf.HyperPdfDocumentPageManagement.GetPageManager(document).RedoAsync(CancellationToken.None)).IsTrue();
             await using var saved = new MemoryStream();
             await Assert.That(PdfViewerLite.HyperPdf.HyperPdfDocumentAnnotationEditing.Save(document, saved)).IsTrue();
-            using var pair = new EnginePair(saved.ToArray());
-            await AssertStructures(pair.HyperPdf);
-            await AssertStructures(pair.Pdfium);
+            using var reopened = new HyperPdfTestDocument(saved.ToArray());
+            await AssertStructures(reopened.Document);
         }
         finally
         {
@@ -275,9 +272,8 @@ public sealed class HyperPdfPageManagerTests
         await Assert.That(PdfViewerLite.HyperPdf.HyperPdfDocumentAnnotationEditing.SetRemoved(document, destination, removed, true)).IsTrue();
         await using var saved = new MemoryStream();
         await Assert.That(PdfViewerLite.HyperPdf.HyperPdfDocumentAnnotationEditing.Save(document, saved)).IsTrue();
-        using var pair = new EnginePair(saved.ToArray());
-        await AssertNotes(pair.HyperPdf, expected);
-        await AssertNotes(pair.Pdfium, expected);
+        using var reopened = new HyperPdfTestDocument(saved.ToArray());
+        await AssertNotes(reopened.Document, expected);
     }
 
     /// <summary>Readers of the last page remain safe while its page index is deleted, restored and moved.</summary>
@@ -360,7 +356,7 @@ public sealed class HyperPdfPageManagerTests
     /// <param name="document">The current or saved document.</param>
     /// <param name="expected">The expected page indexes.</param>
     /// <returns>A task.</returns>
-    private static async Task AssertNotes(IDocument document, string expected)
+    private static async Task AssertNotes(HyperPdfDocument document, string expected)
     {
         var pages = new List<int>();
         var notes = new List<PageAnnotation>();
@@ -378,10 +374,10 @@ public sealed class HyperPdfPageManagerTests
         await Assert.That(string.Join(',', pages)).IsEqualTo(expected);
     }
 
-    /// <summary>Checks the carried form, outline and page-link targets in either engine.</summary>
+    /// <summary>Checks the carried form, outline and page-link targets after reopening.</summary>
     /// <param name="document">The reopened saved document.</param>
     /// <returns>A task.</returns>
-    private static async Task AssertStructures(IDocument document)
+    private static async Task AssertStructures(HyperPdfDocument document)
     {
         await Assert.That(document.PageCount).IsEqualTo(MergedPageCount);
         await Assert.That(document.GetOutline().Count).IsEqualTo(OutlineCount);

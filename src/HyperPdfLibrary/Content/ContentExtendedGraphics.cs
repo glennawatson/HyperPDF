@@ -300,7 +300,7 @@ internal static class ContentExtendedGraphics
             ? ctm.MapRect(new(box.Left, box.Bottom, box.Right, box.Top))
             : PdfRect.Create(-UnboundedExtent, -UnboundedExtent, UnboundedSize, UnboundedSize);
         using var recorder = self.Device.CreatePictureDevice(bounds);
-        using var child = new ContentInterpreter(self.Cache, recorder, self.Depth + 1) { Printing = self.Printing };
+        using var child = new ContentInterpreter(self.Cache, recorder, self.Depth + 1, cancellationToken: self.CancellationToken) { Printing = self.Printing };
         ContentExecution.RunForm(child, group, ctm, ContentExecution.CurrentResources(self));
         var picture = recorder.Finish();
         var luminosity = mask.IsName(KnownName.S, KnownName.Luminosity);

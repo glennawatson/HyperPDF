@@ -35,7 +35,7 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Where each object lives.</summary>
     private XrefTable _xref;
 
-    /// <summary>The parsed objects, by number: a dictionary, array or stream, or a <see cref = "StoreReading.ValueBox"/> for other values.</summary>
+    /// <summary>The parsed objects, by number: a dictionary, array, stream, or boxed value.</summary>
     private object?[] _cache;
 
     /// <summary>Whether a damaged table has already been rebuilt.</summary>

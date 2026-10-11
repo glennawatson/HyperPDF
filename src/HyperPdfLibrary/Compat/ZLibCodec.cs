@@ -38,8 +38,9 @@ internal static class ZLibCodec
     /// <param name="input">The compressed bytes.</param>
     /// <param name="raw">Whether the data is raw deflate rather than zlib.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see langword="true"/> when the data ended cleanly; <see langword="false"/> when it was truncated or damaged and the part before the fault was kept.</returns>
-    internal static bool Decompress(ReadOnlySpan<byte> input, bool raw, ref PooledBuffer output)
+    internal static bool Decompress(ReadOnlySpan<byte> input, bool raw, ref PooledBuffer output, CancellationToken cancellationToken = default)
     {
         var hint = (int)Math.Min(PdfLimits.MaxDecodedLength, (long)input.Length * ExpectedRatio);
 #if NET11_0_OR_GREATER
@@ -48,7 +49,13 @@ internal static class ZLibCodec
         {
             var deflate = _deflate ??= new DeflateDecoder();
             deflate.Reset();
-            while ((status = Step(deflate.Decompress(input, output.GetSpan(hint), out var consumed, out var written), consumed, written, ref input, ref output)) == OperationStatus.DestinationTooSmall)
+            while ((status = Step(
+                deflate.Decompress(input, output.GetSpan(hint), out var consumed, out var written),
+                consumed,
+                written,
+                ref input,
+                ref output,
+                cancellationToken)) == OperationStatus.DestinationTooSmall)
             {
                 hint = Math.Max(hint, output.Length);
             }
@@ -58,14 +65,20 @@ internal static class ZLibCodec
 
         var zlib = _zlib ??= new ZLibDecoder();
         zlib.Reset();
-        while ((status = Step(zlib.Decompress(input, output.GetSpan(hint), out var consumed, out var written), consumed, written, ref input, ref output)) == OperationStatus.DestinationTooSmall)
+        while ((status = Step(
+            zlib.Decompress(input, output.GetSpan(hint), out var consumed, out var written),
+            consumed,
+            written,
+            ref input,
+            ref output,
+            cancellationToken)) == OperationStatus.DestinationTooSmall)
         {
             hint = Math.Max(hint, output.Length);
         }
 
         return status == OperationStatus.Done;
 #else
-        return DecompressStream(input, raw, hint, ref output);
+        return DecompressStream(input, raw, hint, ref output, cancellationToken);
 #endif
     }
 
@@ -97,10 +110,11 @@ internal static class ZLibCodec
     /// <param name="written">The output bytes written.</param>
     /// <param name="input">The remaining input.</param>
     /// <param name="output">The output buffer.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The status; only <see cref="OperationStatus.DestinationTooSmall"/> continues. Done, truncated (NeedMoreData) and damaged (InvalidData) all stop, keeping what decoded.</returns>
-    private static OperationStatus Step(OperationStatus status, int consumed, int written, ref ReadOnlySpan<byte> input, ref PooledBuffer output)
+    private static OperationStatus Step(OperationStatus status, int consumed, int written, ref ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken)
     {
-        Objects.PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         output.Advance(written);
         input = input[consumed..];
         return status;
@@ -111,8 +125,9 @@ internal static class ZLibCodec
     /// <param name="raw">Whether the data is raw deflate.</param>
     /// <param name="hint">The first output buffer size.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels decompression.</param>
     /// <returns><see langword="false"/> when the data was damaged or ended early.</returns>
-    private static unsafe bool DecompressStream(ReadOnlySpan<byte> input, bool raw, int hint, ref PooledBuffer output)
+    private static unsafe bool DecompressStream(ReadOnlySpan<byte> input, bool raw, int hint, ref PooledBuffer output, CancellationToken cancellationToken)
     {
         fixed (byte* pointer = input)
         {
@@ -123,7 +138,7 @@ internal static class ZLibCodec
             var clean = true;
             for (var read = ReadSome(inflater, output.GetSpan(hint), ref clean); read > 0; read = ReadSome(inflater, output.GetSpan(hint), ref clean))
             {
-                Objects.PdfCancellation.ThrowIfCancelled();
+                cancellationToken.ThrowIfCancellationRequested();
                 output.Advance(read);
             }
 

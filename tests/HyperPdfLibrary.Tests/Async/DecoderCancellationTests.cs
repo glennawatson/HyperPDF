@@ -4,14 +4,13 @@
 
 using HyperPdfLibrary.Graphics.Images.Jbig2;
 using HyperPdfLibrary.Graphics.Images.Jpeg;
-using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Tests.Graphics.Jpeg;
 using HyperPdfLibrary.Tests.Graphics.Jpx;
 using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Async;
 
-/// <summary>Checks that the image decoders stop on the running call's cancelled token and finish normally on a live one.</summary>
+/// <summary>Checks that image decoders stop on explicit tokens and finish normally on live ones.</summary>
 [NotInParallel]
 public sealed class DecoderCancellationTests
 {
@@ -49,11 +48,10 @@ public sealed class DecoderCancellationTests
     /// <returns><see langword="true"/> when the decode threw OperationCanceledException.</returns>
     private static bool Jbig2Cancelled(Jbig2Sample sample, bool cancelled)
     {
-        using var scope = PdfCancellation.Enter(new(cancelled));
         var rows = new byte[Jbig2Decoder.GetRowBytes(sample.Width) * sample.Height];
         try
         {
-            _ = Jbig2Decoder.TryDecode(sample.Data, sample.Globals, sample.Width, sample.Height, rows);
+            _ = Jbig2Decoder.TryDecode(sample.Data, sample.Globals, sample.Width, sample.Height, rows, new(cancelled));
             return false;
         }
         catch (OperationCanceledException)
@@ -67,11 +65,10 @@ public sealed class DecoderCancellationTests
     /// <returns><see langword="true"/> when the decode threw OperationCanceledException.</returns>
     private static bool JpegCancelled(bool cancelled)
     {
-        using var scope = PdfCancellation.Enter(new(cancelled));
         var output = new byte[JpegFixtures.ProgressiveRgbWidth * JpegFixtures.ProgressiveRgbHeight * RgbComponents];
         try
         {
-            _ = JpegDecoder.TryDecode(JpegFixtures.ProgressiveRgb, true, output);
+            _ = JpegDecoder.TryDecode(JpegFixtures.ProgressiveRgb, true, output, new(cancelled));
             return false;
         }
         catch (OperationCanceledException)
@@ -85,10 +82,9 @@ public sealed class DecoderCancellationTests
     /// <returns><see langword="true"/> when the decode threw OperationCanceledException.</returns>
     private static bool JpxCancelled(bool cancelled)
     {
-        using var scope = PdfCancellation.Enter(new(cancelled));
         try
         {
-            _ = JpxDecoderTests.DecodePlanes(Convert.FromBase64String(JpxFixtures.Reversible));
+            _ = JpxDecoderTests.DecodePlanes(Convert.FromBase64String(JpxFixtures.Reversible), new(cancelled));
             return false;
         }
         catch (OperationCanceledException)

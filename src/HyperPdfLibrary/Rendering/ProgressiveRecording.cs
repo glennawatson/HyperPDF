@@ -41,16 +41,17 @@ internal sealed class ProgressiveRecording : IDisposable
     /// <param name = "page">The page.</param>
     /// <param name = "printing">Whether optional content follows print usage.</param>
     /// <param name="imageScale">The upper device scale of the zoom band.</param>
-    internal ProgressiveRecording(PdfRenderCache cache, PdfPage page, bool printing, float imageScale = float.PositiveInfinity)
+    /// <param name="cancellationToken">Cancels content decoding and recording.</param>
+    internal ProgressiveRecording(PdfRenderCache cache, PdfPage page, bool printing, float imageScale = float.PositiveInfinity, CancellationToken cancellationToken = default)
     {
         Printing = printing;
         _device = PageRecorder.Begin(page);
-        _interpreter = new(cache, _device, 0, imageScale) { Printing = printing, };
+        _interpreter = new(cache, _device, 0, imageScale, cancellationToken) { Printing = printing, };
         ContentExecution.BeginPage(_interpreter, page);
         var buffer = default(PooledBuffer);
         try
         {
-            ContentExecution.DecodeContents(page, ref buffer);
+            ContentExecution.DecodeContents(page, ref buffer, cancellationToken);
             _length = buffer.Length;
             _content = ArrayPool<byte>.Shared.Rent(Math.Max(1, _length));
             buffer.WrittenSpan.CopyTo(_content);
@@ -91,6 +92,7 @@ internal sealed class ProgressiveRecording : IDisposable
     /// <returns>The status.</returns>
     internal PdfRenderStatus Continue(Func<bool>? shouldPause, CancellationToken cancellationToken, out IPdfRenderPicture? picture)
     {
+        _interpreter.SetCancellationToken(cancellationToken);
         picture = null;
         while (true)
         {

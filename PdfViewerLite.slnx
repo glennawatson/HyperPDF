@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/PdfViewerLite.Benchmarks/PdfViewerLite.Benchmarks.csproj" />
-    <Project Path="benchmarks/PdfViewerLite.GpuProbe/PdfViewerLite.GpuProbe.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj" />
@@ -11,7 +10,6 @@
     <Project Path="src/PdfViewerLite.Http/PdfViewerLite.Http.csproj" />
     <Project Path="src/PdfViewerLite.HyperPdf/PdfViewerLite.HyperPdf.csproj" />
     <Project Path="src/PdfViewerLite.Ocr/PdfViewerLite.Ocr.csproj" />
-    <Project Path="src/PdfViewerLite.Pdfium/PdfViewerLite.Pdfium.csproj" />
     <Project Path="src/PdfViewerLite.Speech/PdfViewerLite.Speech.csproj" />
     <Project Path="src/PdfViewerLite.Platform.Cups/PdfViewerLite.Platform.Cups.csproj" />
     <Project Path="src/PdfViewerLite.Platform.Linux/PdfViewerLite.Platform.Linux.csproj" />
@@ -23,9 +21,7 @@
     <Project Path="tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" />
     <Project Path="tests/PdfViewerLite.HyperPdf.Tests/PdfViewerLite.HyperPdf.Tests.csproj" />
     <Project Path="tests/PdfViewerLite.App.Tests/PdfViewerLite.App.Tests.csproj" />
-    <Project Path="tests/PdfViewerLite.Compatibility.Tests/PdfViewerLite.Compatibility.Tests.csproj" />
     <Project Path="tests/PdfViewerLite.Core.Tests/PdfViewerLite.Core.Tests.csproj" />
-    <Project Path="tests/PdfViewerLite.Pdfium.Tests/PdfViewerLite.Pdfium.Tests.csproj" />
     <Project Path="tests/PdfViewerLite.TestAssets/PdfViewerLite.TestAssets.csproj" />
   </Folder>
 </Solution>

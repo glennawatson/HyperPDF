@@ -5,11 +5,10 @@
 using PdfViewerLite.Core.Annotations;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Printing;
-using PdfViewerLite.Pdfium;
 
 namespace PdfViewerLite.HyperPdf.Tests;
 
-/// <summary>One export of a source file, opened with PDFium to read back, deleted on dispose.</summary>
+/// <summary>One exported file reopened for assertions and deleted on dispose.</summary>
 internal sealed class ExportRun : IDisposable
 {
     /// <summary>The file the export was written to.</summary>
@@ -22,7 +21,7 @@ internal sealed class ExportRun : IDisposable
     {
         _path = path;
         Written = written;
-        Output = written ? new PdfiumEngine().Open(path, null) : null;
+        Output = written ? new HyperPdfEngine().Open(path, null) : null;
     }
 
     /// <summary>Gets the exported file's path.</summary>
@@ -31,7 +30,7 @@ internal sealed class ExportRun : IDisposable
     /// <summary>Gets a value indicating whether the export reported success.</summary>
     internal bool Written { get; }
 
-    /// <summary>Gets the exported document opened with PDFium, or <see langword="null"/> when nothing was written.</summary>
+    /// <summary>Gets the reopened export, or <see langword="null"/> when nothing was written.</summary>
     internal IDocument? Output { get; }
 
     /// <inheritdoc/>
@@ -45,13 +44,12 @@ internal sealed class ExportRun : IDisposable
     /// <param name="source">The source file.</param>
     /// <param name="pages">The pages, zero-based.</param>
     /// <param name="layout">The layout.</param>
-    /// <param name="useHyperPdf">Whether HyperPDF exports; otherwise PDFium does.</param>
     /// <returns>The export.</returns>
-    internal static ExportRun Create(string source, int[] pages, in SheetLayout layout, bool useHyperPdf)
+    internal static ExportRun Create(string source, int[] pages, in SheetLayout layout)
     {
         var path = Path.Combine(Path.GetTempPath(), $"hyperpdf-export-{Guid.NewGuid():N}.pdf");
         bool written;
-        using (var document = useHyperPdf ? new HyperPdfEngine().Open(source, null) : new PdfiumEngine().Open(source, null))
+        using (var document = new HyperPdfEngine().Open(source, null))
         {
             using var stream = File.Create(path);
             written = ((IPageExporter)DocumentFeatures.CastFeature(document, typeof(IPageExporter))!).ExportPages(pages, layout, stream);
@@ -60,7 +58,7 @@ internal sealed class ExportRun : IDisposable
         return new(path, written);
     }
 
-    /// <summary>Opens a generated file with PDFium, lets a callback edit it, and saves the result to a new file.</summary>
+    /// <summary>Opens a generated file, lets a callback edit it, and saves the result to a new file.</summary>
     /// <param name="bytes">The PDF bytes.</param>
     /// <param name="edit">Edits the document.</param>
     /// <returns>The path of the edited file, which the caller deletes.</returns>
@@ -71,7 +69,7 @@ internal sealed class ExportRun : IDisposable
         File.WriteAllBytes(original, bytes);
         try
         {
-            using var document = new PdfiumEngine().Open(original, null);
+            using var document = new HyperPdfEngine().Open(original, null);
             edit(document);
             using var stream = File.Create(edited);
             _ = ((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).Save(stream);

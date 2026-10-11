@@ -21,45 +21,27 @@ public sealed class DocumentFeatureLookupTests
         int Marker { get; }
     }
 
-    /// <summary>The PDFium default implementation returns the document when it directly implements a feature.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task DefaultLookupReturnsTheConcretePdfiumDocument()
-    {
-        using var pair = new EnginePair(TestPdf.Create(1));
-        var layout = pair.Pdfium.GetFeature(typeof(ITextLayoutSource));
-        var textBoxes = pair.Pdfium.GetFeature(typeof(ITextBoxEditor));
-        var editor = pair.Pdfium.GetFeature(typeof(IAnnotationEditor));
-
-        await Assert.That(ReferenceEquals(layout, pair.Pdfium)).IsTrue();
-        await Assert.That(ReferenceEquals(textBoxes, pair.Pdfium)).IsTrue();
-        await Assert.That(ReferenceEquals(editor, pair.Pdfium)).IsTrue();
-        await Assert.That(ReferenceEquals(
-            DocumentFeatures.CastFeature(pair.Pdfium, typeof(ITextBoxEditor)),
-            pair.Pdfium)).IsTrue();
-    }
-
     /// <summary>HyperPDF returns the same lazily created feature instance for its owner.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task HyperPdfFeatureInstancesAreStableAndWarmLookupsAllocateNothing()
     {
-        using var pair = new EnginePair(TestPdf.Create(1));
+        using var pair = new HyperPdfTestDocument(TestPdf.Create(1));
         const int Warmup = 128;
         const int Measured = 1024;
         var featureType = typeof(IAnnotationEditor);
-        var first = pair.HyperPdf.GetFeature(featureType);
+        var first = pair.Document.GetFeature(featureType);
 
         for (var index = 0; index < Warmup; index++)
         {
-            _ = pair.HyperPdf.GetFeature(featureType);
+            _ = pair.Document.GetFeature(featureType);
         }
 
         var mismatches = 0;
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var index = 0; index < Measured; index++)
         {
-            if (!ReferenceEquals(first, pair.HyperPdf.GetFeature(featureType)))
+            if (!ReferenceEquals(first, pair.Document.GetFeature(featureType)))
             {
                 mismatches++;
             }
@@ -76,14 +58,13 @@ public sealed class DocumentFeatureLookupTests
     [Test]
     public async Task UnsupportedAndNullFeatureRequestsHaveDefinedResults()
     {
-        using var pair = new EnginePair(TestPdf.Create(1));
+        using var pair = new HyperPdfTestDocument(TestPdf.Create(1));
 
-        await Assert.That(pair.HyperPdf.GetFeature(typeof(IUnsupportedFeature))).IsNull();
-        await Assert.That(pair.Pdfium.GetFeature(typeof(IUnsupportedFeature))).IsNull();
+        await Assert.That(pair.Document.GetFeature(typeof(IUnsupportedFeature))).IsNull();
         await Assert.That(DocumentFeatures.CastFeature(null, typeof(IUnsupportedFeature))).IsNull();
-        await Assert.That(() => pair.HyperPdf.GetFeature(null!)).Throws<ArgumentNullException>();
-        await Assert.That(() => DocumentFeatures.CastFeature(pair.HyperPdf, null!)).Throws<ArgumentNullException>();
-        await Assert.That(() => DocumentFeatures.CastFeature(pair.HyperPdf, typeof(IUnsupportedFeature))).Throws<InvalidCastException>();
+        await Assert.That(() => pair.Document.GetFeature(null!)).Throws<ArgumentNullException>();
+        await Assert.That(() => DocumentFeatures.CastFeature(pair.Document, null!)).Throws<ArgumentNullException>();
+        await Assert.That(() => DocumentFeatures.CastFeature(pair.Document, typeof(IUnsupportedFeature))).Throws<InvalidCastException>();
     }
 
     /// <summary>A previously obtained feature still observes owner disposal.</summary>
@@ -91,12 +72,12 @@ public sealed class DocumentFeatureLookupTests
     [Test]
     public async Task FeatureCallsRespectOwnerDisposal()
     {
-        using var pair = new EnginePair(TestPdf.Create(1));
-        var layout = (ITextLayoutSource)pair.HyperPdf.GetFeature(typeof(ITextLayoutSource))!;
-        pair.HyperPdf.Dispose();
+        using var pair = new HyperPdfTestDocument(TestPdf.Create(1));
+        var layout = (ITextLayoutSource)pair.Document.GetFeature(typeof(ITextLayoutSource))!;
+        pair.Document.Dispose();
         var characters = new List<PageCharacter>();
 
-        await Assert.That(() => pair.HyperPdf.GetFeature(typeof(ITextLayoutSource))).Throws<ObjectDisposedException>();
+        await Assert.That(() => pair.Document.GetFeature(typeof(ITextLayoutSource))).Throws<ObjectDisposedException>();
         layout.GetCharacters(0, characters);
         await Assert.That(characters).IsEmpty();
     }

@@ -5,26 +5,18 @@
 using System.Globalization;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
-using PdfViewerLite.Core.Annotations;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Ocr;
-using PdfViewerLite.Pdfium;
 using PdfViewerLite.TestAssets;
 
 namespace PdfViewerLite.HyperPdf.Tests;
 
-/// <summary>
-/// The native OCR text layer: words written with HyperPDF, saved and read back with PDFium are found by search, copy
-/// the right text, sit inside their boxes and match what the PDFium writer produces.
-/// </summary>
+/// <summary>Words written into an OCR text layer remain searchable within their boxes after saving.</summary>
 public sealed class NativeTextLayerTests
 {
     /// <summary>How far, in points, a character box may sit outside its word's box.</summary>
     private const float BoundsTolerance = 2;
-
-    /// <summary>How far, in points, the HyperPDF and PDFium writers may place a character apart.</summary>
-    private const float ParityTolerance = 1;
 
     /// <summary>The left edge of the words.</summary>
     private const float Column = 40;
@@ -88,33 +80,26 @@ public sealed class NativeTextLayerTests
         using var test = Open(Blank(string.Empty));
         var written = HyperPdfAnnotationTextLayer.AddTextLayer(test.Editor, 0, Latin);
         var unsaved = HyperPdfAnnotationReading.GetHasUnsavedChanges(test.Editor);
-        var saved = NativeDocument.Save(test.Editor);
+        var saved = HyperPdfTestDocument.Save(test.Editor);
         var found = new List<int>();
         var overshoot = 0F;
-        using var reopened = NativeDocument.OpenWithPdfium(saved, out var path);
-        try
+        using var reopenedFile = new HyperPdfTestDocument(saved);
+        var reopened = reopenedFile.Document;
+        foreach (var word in Latin)
         {
-            foreach (var word in Latin)
-            {
-                var matches = new List<TextMatch>();
-                reopened.Find(0, word.Text, default, matches);
-                found.Add(matches.Count);
-                overshoot = Math.Max(overshoot, Overshoot(reopened, matches[0], word.Bounds));
-            }
-
-            var text = reopened.GetText(0, 0, reopened.GetCharacterCount(0));
-
-            await Assert.That(written).IsEqualTo(LatinWords);
-            await Assert.That(unsaved).IsTrue();
-            await Assert.That(found).IsEquivalentTo(OnceEach);
-            await Assert.That(text).Contains(Hello);
-            await Assert.That(text).Contains("café");
-            await Assert.That(overshoot).IsLessThanOrEqualTo(BoundsTolerance);
+            var matches = new List<TextMatch>();
+            reopened.Find(0, word.Text, default, matches);
+            found.Add(matches.Count);
+            overshoot = Math.Max(overshoot, Overshoot(reopened, matches[0], word.Bounds));
         }
-        finally
-        {
-            File.Delete(path);
-        }
+
+        var text = reopened.GetText(0, 0, reopened.GetCharacterCount(0));
+        await Assert.That(written).IsEqualTo(LatinWords);
+        await Assert.That(unsaved).IsTrue();
+        await Assert.That(found).IsEquivalentTo(OnceEach);
+        await Assert.That(text).Contains(Hello);
+        await Assert.That(text).Contains("café");
+        await Assert.That(overshoot).IsLessThanOrEqualTo(BoundsTolerance);
     }
 
     /// <summary>Non-Latin words use an embedded font with a text map, so search and copy return the right Unicode.</summary>
@@ -124,30 +109,24 @@ public sealed class NativeTextLayerTests
     {
         using var test = Open(Blank(string.Empty));
         var written = HyperPdfAnnotationTextLayer.AddTextLayer(test.Editor, 0, Other);
-        var saved = NativeDocument.Save(test.Editor);
-        using var reopened = NativeDocument.OpenWithPdfium(saved, out var path);
+        var saved = HyperPdfTestDocument.Save(test.Editor);
+        using var reopenedFile = new HyperPdfTestDocument(saved);
+        var reopened = reopenedFile.Document;
         using var managed = PdfDocumentReader.Open(saved, null);
-        try
-        {
-            var greek = new List<TextMatch>();
-            var cyrillic = new List<TextMatch>();
-            reopened.Find(0, "αβ", default, greek);
-            reopened.Find(0, "Ж", default, cyrillic);
-            var fonts = PdfDocumentPages.GetPage(managed, 0).Dictionary.GetDictionary(KnownName.Resources)!.GetDictionary(KnownName.Font)!;
-            var font = fonts.GetDictionary(fonts.GetKeyAt(0))!;
+        var greek = new List<TextMatch>();
+        var cyrillic = new List<TextMatch>();
+        reopened.Find(0, "αβ", default, greek);
+        reopened.Find(0, "Ж", default, cyrillic);
+        var fonts = PdfDocumentPages.GetPage(managed, 0).Dictionary.GetDictionary(KnownName.Resources)!.GetDictionary(KnownName.Font)!;
+        var font = fonts.GetDictionary(fonts.GetKeyAt(0))!;
 
-            await Assert.That(written).IsEqualTo(OtherWords);
-            await Assert.That(greek.Count).IsEqualTo(1);
-            await Assert.That(cyrillic.Count).IsEqualTo(1);
-            await Assert.That(Overshoot(reopened, greek[0], Other[0].Bounds)).IsLessThanOrEqualTo(BoundsTolerance);
-            await Assert.That(Overshoot(reopened, cyrillic[0], Other[1].Bounds)).IsLessThanOrEqualTo(BoundsTolerance);
-            await Assert.That(font.IsName(KnownName.Subtype, KnownName.Type0)).IsTrue();
-            await Assert.That(font.ContainsKey(KnownName.ToUnicode)).IsTrue();
-        }
-        finally
-        {
-            File.Delete(path);
-        }
+        await Assert.That(written).IsEqualTo(OtherWords);
+        await Assert.That(greek.Count).IsEqualTo(1);
+        await Assert.That(cyrillic.Count).IsEqualTo(1);
+        await Assert.That(Overshoot(reopened, greek[0], Other[0].Bounds)).IsLessThanOrEqualTo(BoundsTolerance);
+        await Assert.That(Overshoot(reopened, cyrillic[0], Other[1].Bounds)).IsLessThanOrEqualTo(BoundsTolerance);
+        await Assert.That(font.IsName(KnownName.Subtype, KnownName.Type0)).IsTrue();
+        await Assert.That(font.ContainsKey(KnownName.ToUnicode)).IsTrue();
     }
 
     /// <summary>On a rotated page the characters still sit inside the boxes the viewer shows.</summary>
@@ -157,20 +136,14 @@ public sealed class NativeTextLayerTests
     {
         using var test = Open(Blank("/Rotate 90"));
         _ = HyperPdfAnnotationTextLayer.AddTextLayer(test.Editor, 0, Latin);
-        var saved = NativeDocument.Save(test.Editor);
-        using var reopened = NativeDocument.OpenWithPdfium(saved, out var path);
-        try
-        {
-            var matches = new List<TextMatch>();
-            reopened.Find(0, Hello, default, matches);
+        var saved = HyperPdfTestDocument.Save(test.Editor);
+        using var reopenedFile = new HyperPdfTestDocument(saved);
+        var reopened = reopenedFile.Document;
+        var matches = new List<TextMatch>();
+        reopened.Find(0, Hello, default, matches);
 
-            await Assert.That(matches.Count).IsEqualTo(1);
-            await Assert.That(Overshoot(reopened, matches[0], Latin[0].Bounds)).IsLessThanOrEqualTo(BoundsTolerance);
-        }
-        finally
-        {
-            File.Delete(path);
-        }
+        await Assert.That(matches.Count).IsEqualTo(1);
+        await Assert.That(Overshoot(reopened, matches[0], Latin[0].Bounds)).IsLessThanOrEqualTo(BoundsTolerance);
     }
 
     /// <summary>Existing page text and content survive, and an empty list or a bad page changes nothing.</summary>
@@ -178,72 +151,33 @@ public sealed class NativeTextLayerTests
     [Test]
     public async Task KeepsExistingTextAndIgnoresNothingToWrite()
     {
-        using var test = new NativeDocument(1);
+        using var test = new HyperPdfTestDocument(1);
         var writer = test.Editor;
         var none = HyperPdfAnnotationTextLayer.AddTextLayer(writer, 0, []);
         var badPage = HyperPdfAnnotationTextLayer.AddTextLayer(writer, 1, Latin);
         var unchanged = HyperPdfAnnotationReading.GetHasUnsavedChanges(test.Editor);
         _ = HyperPdfAnnotationTextLayer.AddTextLayer(writer, 0, Latin);
-        var saved = NativeDocument.Save(test.Editor);
-        using var reopened = NativeDocument.OpenWithPdfium(saved, out var path);
-        try
-        {
-            var existing = new List<TextMatch>();
-            var layer = new List<TextMatch>();
-            reopened.Find(0, "quick", default, existing);
-            reopened.Find(0, Hello, default, layer);
+        var saved = HyperPdfTestDocument.Save(test.Editor);
+        using var reopenedFile = new HyperPdfTestDocument(saved);
+        var reopened = reopenedFile.Document;
+        var existing = new List<TextMatch>();
+        var layer = new List<TextMatch>();
+        reopened.Find(0, "quick", default, existing);
+        reopened.Find(0, Hello, default, layer);
 
-            await Assert.That(none).IsEqualTo(0);
-            await Assert.That(badPage).IsEqualTo(0);
-            await Assert.That(unchanged).IsFalse();
-            await Assert.That(existing.Count).IsEqualTo(1);
-            await Assert.That(layer.Count).IsEqualTo(1);
-        }
-        finally
-        {
-            File.Delete(path);
-        }
-    }
-
-    /// <summary>The native writer places characters where the PDFium writer does, and finds the same text.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task MatchesThePdfiumWriter()
-    {
-        var bytes = Blank(string.Empty);
-        using var native = Open(bytes);
-        _ = HyperPdfAnnotationTextLayer.AddTextLayer(native.Editor, 0, Latin);
-        var nativeSaved = NativeDocument.Save(native.Editor);
-        var pdfiumSaved = SaveWithPdfium(bytes);
-        using var fromNative = NativeDocument.OpenWithPdfium(nativeSaved, out var nativePath);
-        using var fromPdfium = NativeDocument.OpenWithPdfium(pdfiumSaved, out var pdfiumPath);
-        try
-        {
-            var apart = 0F;
-            foreach (var word in Latin)
-            {
-                var a = Bounds(fromNative, word.Text);
-                var b = Bounds(fromPdfium, word.Text);
-                apart = Math.Max(apart, Math.Max(Math.Abs(a.Left - b.Left), Math.Max(Math.Abs(a.Right - b.Right), Math.Max(Math.Abs(a.Top - b.Top), Math.Abs(a.Bottom - b.Bottom)))));
-            }
-
-            await Assert.That(fromNative.GetCharacterCount(0)).IsEqualTo(fromPdfium.GetCharacterCount(0));
-            await Assert.That(fromNative.GetText(0, 0, fromNative.GetCharacterCount(0))).IsEqualTo(fromPdfium.GetText(0, 0, fromPdfium.GetCharacterCount(0)));
-            await Assert.That(apart).IsLessThanOrEqualTo(ParityTolerance);
-        }
-        finally
-        {
-            File.Delete(nativePath);
-            File.Delete(pdfiumPath);
-        }
+        await Assert.That(none).IsEqualTo(0);
+        await Assert.That(badPage).IsEqualTo(0);
+        await Assert.That(unchanged).IsFalse();
+        await Assert.That(existing.Count).IsEqualTo(1);
+        await Assert.That(layer.Count).IsEqualTo(1);
     }
 
     /// <summary>Opens bytes with HyperPDF for native editing, with the test fonts installed.</summary>
     /// <param name="bytes">The PDF.</param>
     /// <returns>The document.</returns>
-    private static NativeDocument Open(byte[] bytes)
+    private static HyperPdfTestDocument Open(byte[] bytes)
     {
-        var test = new NativeDocument(bytes);
+        var test = new HyperPdfTestDocument(bytes);
         HyperPdfAnnotationReading.SetFontCatalog(test.Editor, TestFont.Catalog);
         return test;
     }
@@ -256,51 +190,12 @@ public sealed class NativeTextLayerTests
         "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
         string.Create(CultureInfo.InvariantCulture, $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {PageWidth} {PageHeight}] /Resources << >> {pageEntries} >>"));
 
-    /// <summary>Writes the Latin words with the PDFium writer and saves the document.</summary>
-    /// <param name="bytes">The PDF.</param>
-    /// <returns>The saved file.</returns>
-    private static byte[] SaveWithPdfium(byte[] bytes)
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"hyperpdf-parity-{Guid.NewGuid():N}.pdf");
-        File.WriteAllBytes(path, bytes);
-        try
-        {
-            using var document = new PdfiumEngine().Open(path, null);
-            ((PdfiumDocument)document).FontCatalog = TestFont.Catalog;
-            _ = ((ITextLayerWriter)DocumentFeatures.CastFeature(document, typeof(ITextLayerWriter))!).AddTextLayer(0, Latin);
-            return NativeDocument.Save((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!);
-        }
-        finally
-        {
-            File.Delete(path);
-        }
-    }
-
-    /// <summary>Gets the box of a word found by search.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="word">The word.</param>
-    /// <returns>The union of its character boxes.</returns>
-    private static PageRect Bounds(IDocument document, string word)
-    {
-        var matches = new List<TextMatch>();
-        document.Find(0, word, default, matches);
-        var rectangles = new List<PageRect>();
-        document.GetTextBounds(0, matches[0].Start, matches[0].Length, rectangles);
-        var union = rectangles[0];
-        foreach (var rectangle in rectangles)
-        {
-            union = union.Union(rectangle);
-        }
-
-        return union;
-    }
-
     /// <summary>Gets how far a found word sticks out of the box it was written for.</summary>
     /// <param name="document">The document.</param>
     /// <param name="match">The match.</param>
     /// <param name="box">The word's box.</param>
     /// <returns>The largest overshoot on any side, in points; 0 when inside.</returns>
-    private static float Overshoot(IDocument document, TextMatch match, PageRect box)
+    private static float Overshoot(HyperPdfDocument document, TextMatch match, PageRect box)
     {
         var rectangles = new List<PageRect>();
         document.GetTextBounds(0, match.Start, match.Length, rectangles);

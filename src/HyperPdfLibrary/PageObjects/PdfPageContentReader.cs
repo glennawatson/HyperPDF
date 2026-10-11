@@ -59,7 +59,7 @@ public static class PdfPageContentReader
         var buffer = default(PooledBuffer);
         try
         {
-            ContentExecution.DecodeContents(current.Get(KnownName.Contents), ref buffer);
+            ContentExecution.DecodeContents(current.Get(KnownName.Contents), ref buffer, cancellationToken);
             var content = new PdfPageContent(document, page, null, current.GetDictionary(KnownName.Resources) ?? page.Resources, Matrix3x2.Identity, buffer.ToArray(), 0);
             PdfPageContentReader.Load(content, null, cancellationToken);
             return content;

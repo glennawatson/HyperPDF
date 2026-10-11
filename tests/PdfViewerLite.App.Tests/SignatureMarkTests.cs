@@ -16,7 +16,7 @@ using PdfViewerLite.Core.Annotations;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Settings;
-using PdfViewerLite.Pdfium;
+using PdfViewerLite.HyperPdf;
 using ReactiveUI.Primitives;
 
 namespace PdfViewerLite.App.Tests;
@@ -251,7 +251,7 @@ public sealed class SignatureMarkTests
         var path = Path.Combine(test.Directory, "saved.pdf");
 
         var saved = tab.Save(path);
-        using var reopened = new PdfiumEngine().Open(path, null);
+        using var reopened = new HyperPdfEngine().Open(path, null);
         List<PageAnnotation> annotations = [];
         ((IAnnotationEditor)DocumentFeatures.CastFeature(reopened, typeof(IAnnotationEditor))!).GetAnnotations(0, annotations);
 
@@ -318,7 +318,7 @@ public sealed class SignatureMarkTests
         _ = fill.Cancel();
         var remembered = test.Services.SignatureMarks.Signature;
         SignatureMark? afterRestart;
-        using (var restarted = new AppServices(new SettingsStore(test.Services.SettingsStore.FilePath), new PdfiumEngine(), new FallbackPlatform()))
+        using (var restarted = new AppServices(new SettingsStore(test.Services.SettingsStore.FilePath), new HyperPdfEngine(), new FallbackPlatform()))
         {
             afterRestart = restarted.SignatureMarks.Signature;
         }

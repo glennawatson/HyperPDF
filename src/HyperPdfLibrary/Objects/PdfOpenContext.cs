@@ -44,6 +44,9 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, CancellationTo
     /// <summary>Gets a value indicating whether any report of repaired damage has been logged.</summary>
     internal bool HasRepairs => Volatile.Read(ref _hasRepairs) != 0;
 
+    /// <summary>Gets the token passed to this document-open or check operation.</summary>
+    internal CancellationToken CancellationToken => token;
+
     /// <summary>Creates a context for options.</summary>
     /// <param name="options">The options.</param>
     /// <returns>The context.</returns>
@@ -54,11 +57,7 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, CancellationTo
     /// <param name="context">The context, or <see langword="null"/>.</param>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void ThrowIfCancelled(PdfOpenContext? context)
-    {
-        context?.ThrowIfCancelled();
-        PdfCancellation.ThrowIfCancelled();
-    }
+    internal static void ThrowIfCancelled(PdfOpenContext? context) => context?.ThrowIfCancelled();
 
     /// <summary>Logs a diagnostic and passes it to the sink.</summary>
     /// <param name="context">The context, or <see langword="null"/>.</param>

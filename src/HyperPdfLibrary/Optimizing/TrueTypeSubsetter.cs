@@ -103,10 +103,12 @@ internal static class TrueTypeSubsetter
     /// <param name="program">The /FontFile2 stream.</param>
     /// <param name="glyphs">The glyphs to keep.</param>
     /// <param name="names">The optimiser's names.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The subset program stream, or <see langword="null"/> when the font cannot be subset or nothing is gained.</returns>
-    internal static PdfStream? Subset(PdfStream program, HashSet<int> glyphs, OptimizerNames names)
+    internal static PdfStream? Subset(PdfStream program, HashSet<int> glyphs, OptimizerNames names, CancellationToken cancellationToken)
     {
-        var font = program.DecodeToArray();
+        var font = program.DecodeToArray(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!TryReadTables(font, out var tables) || ForbidsSubsetting(font, Find(tables, Os2Tag)))
         {
             return null;

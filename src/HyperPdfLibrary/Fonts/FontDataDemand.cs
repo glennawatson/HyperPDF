@@ -30,7 +30,7 @@ internal static class FontDataDemand
         var content = new PooledBuffer(0);
         try
         {
-            ContentExecution.DecodeContents(page, ref content);
+            ContentExecution.DecodeContents(page, ref content, cancellationToken);
             Scan(content.WrittenSpan, page.Dictionary.Owner!.Names, scope, fonts, queue, cancellationToken);
         }
         finally
@@ -53,7 +53,7 @@ internal static class FontDataDemand
                 throw new InvalidDataException("The page has too many nested font resources.");
             }
 
-            var bytes = next.Stream.DecodeToArray();
+            var bytes = next.Stream.DecodeToArray(cancellationToken);
             Scan(bytes, page.Dictionary.Owner.Names, next.Resources, fonts, queue, cancellationToken);
         }
 

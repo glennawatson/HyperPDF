@@ -147,25 +147,17 @@ public sealed class RedactionViewModelTests
         await Assert.That(vm.Error).Contains("Nothing is marked");
     }
 
-    /// <summary>The command is available with HyperPDF and explains its limit with the PDFium reference engine.</summary>
+    /// <summary>The redaction command is available for the app's engine.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CommandFollowsTheEngine()
+    public async Task HyperPdfEnablesRedactionCommand()
     {
-        using var pdfium = new TestServices(TestEngineChoice.Pdfium);
-        using var pdfiumMain = new MainViewModel(pdfium.Services);
-        pdfiumMain.Open([pdfium.CreateDocument(SourceName, 1)]);
-        using var native = new TestServices(TestEngineChoice.HyperPdf);
+        using var native = new TestServices();
         using var nativeMain = new MainViewModel(native.Services);
         nativeMain.Open([native.CreateDocument(SourceName, 1)]);
         await Assert.That(await UiWait.UntilAsync(() => nativeMain.SelectedTab!.IsLoaded)).IsTrue();
 
-        using (Assert.Multiple())
-        {
-            await Assert.That(pdfiumMain.SelectedTab!.CanRedact).IsFalse();
-            await Assert.That(pdfiumMain.SelectedTab.RedactMenuText).Contains("needs the HyperPDF engine");
-            await Assert.That(nativeMain.SelectedTab!.CanRedact).IsTrue();
-        }
+        await Assert.That(nativeMain.SelectedTab!.CanRedact).IsTrue();
     }
 
     /// <summary>
@@ -176,7 +168,7 @@ public sealed class RedactionViewModelTests
     [Test]
     public async Task MarkApplySaveAndReopen()
     {
-        using var test = new TestServices(TestEngineChoice.HyperPdf);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(SourceName, 1)]);
         var tab = main.SelectedTab!;

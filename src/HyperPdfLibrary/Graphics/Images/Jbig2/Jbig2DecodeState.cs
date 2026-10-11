@@ -29,11 +29,13 @@ internal sealed class Jbig2DecodeState : IDisposable
     /// <param name="page">The page bitmap, or <see langword="null"/> for global segments.</param>
     /// <param name="workspace">The work budget and scratch bitmaps.</param>
     /// <param name="globals">The global context, or <see langword="null"/>.</param>
-    internal Jbig2DecodeState(Jbig2Bitmap? page, Jbig2Workspace workspace, Jbig2DecodeState? globals)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal Jbig2DecodeState(Jbig2Bitmap? page, Jbig2Workspace workspace, Jbig2DecodeState? globals, CancellationToken cancellationToken = default)
     {
         _page = page;
         _workspace = workspace;
         _globals = globals;
+        CancellationToken = cancellationToken;
     }
 
     /// <summary>Gets the owned segment results.</summary>
@@ -47,6 +49,9 @@ internal sealed class Jbig2DecodeState : IDisposable
 
     /// <summary>Gets the shared work budget and scratch bitmaps.</summary>
     internal Jbig2Workspace Workspace => _workspace;
+
+    /// <summary>Gets the token for this page or global segment decode.</summary>
+    internal CancellationToken CancellationToken { get; }
 
     /// <summary>Gets a reference to the flag indicating page information has started the page.</summary>
     internal ref bool InPage => ref _inPage;

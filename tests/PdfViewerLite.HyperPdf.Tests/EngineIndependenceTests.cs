@@ -22,7 +22,7 @@ public sealed class EngineIndependenceTests
     /// <summary>The adapter assembly references no PDFium assembly and imports no PDFium library.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task AdapterHasNoPdfiumReference() => await Assert.That(ReferencesContaining(typeof(HyperPdfDocument).Assembly.Location, PdfiumName)).IsEmpty();
+    public async Task HyperPdfAdapterHasNoPdfiumReference() => await Assert.That(ReferencesContaining(typeof(HyperPdfDocument).Assembly.Location, PdfiumName)).IsEmpty();
 
     /// <summary>The managed engine assembly references no PDFium assembly and imports no PDFium library.</summary>
     /// <returns>A task.</returns>
@@ -39,11 +39,15 @@ public sealed class EngineIndependenceTests
     [Test]
     public async Task SkiaBackendHasNoPdfiumReference() => await Assert.That(ReferencesContaining(typeof(SkiaRenderBackend).Assembly.Location, PdfiumName)).IsEmpty();
 
-    /// <summary>The check sees a reference when there is one: this test assembly references the PDFium engine for parity.</summary>
+    /// <summary>The rendering tests import native PDFium directly without a managed PDFium adapter.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CheckFindsTheTestAssemblysPdfiumReference() =>
-        await Assert.That(ReferencesContaining(typeof(EngineIndependenceTests).Assembly.Location, PdfiumName)).Contains("PdfViewerLite.Pdfium");
+    public async Task RenderingTestsImportNativePdfiumOnly()
+    {
+        var references = ReferencesContaining(typeof(EngineIndependenceTests).Assembly.Location, PdfiumName);
+        await Assert.That(references).Contains("pdfium");
+        await Assert.That(references).DoesNotContain("PdfViewerLite.Pdfium");
+    }
 
     /// <summary>Lists assembly references and module imports that contain a name fragment.</summary>
     /// <param name="path">The assembly file.</param>

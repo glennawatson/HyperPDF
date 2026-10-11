@@ -78,7 +78,7 @@ public class HyperPdfSourceBenchmarks
             return;
         }
 
-        var corpus = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus", CorpusFile);
+        var corpus = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "reference-pdfs", CorpusFile);
         if (File.Exists(corpus))
         {
             _path = corpus;

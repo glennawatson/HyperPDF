@@ -7,7 +7,7 @@ using PdfViewerLite.TestAssets;
 
 namespace PdfViewerLite.HyperPdf.Tests;
 
-/// <summary>Tests finding content the viewer cannot show or run, natively and against PDFium.</summary>
+/// <summary>Tests finding content the viewer cannot show or run.</summary>
 public sealed class ContentCheckTests
 {
     /// <summary>A page index past the end of every sample.</summary>
@@ -79,15 +79,13 @@ public sealed class ContentCheckTests
     [Test]
     public async Task RecognisedFormScriptsAreNotFlagged()
     {
-        using var pair = new EnginePair(TestPdf.CreateCalculatedForm());
-
-        await Assert.That(((IContentCheck)DocumentFeatures.CastFeature(pair.HyperPdf, typeof(IContentCheck))!).CheckPage(0)).IsEqualTo(UnsupportedContent.None);
-        await Assert.That(((IContentCheck)DocumentFeatures.CastFeature(
-            pair.HyperPdf,
-            typeof(IContentCheck))!).CheckDocument()).IsEqualTo(((IContentCheck)DocumentFeatures.CastFeature(pair.Pdfium, typeof(IContentCheck))!).CheckDocument());
+        using var test = new HyperPdfTestDocument(TestPdf.CreateCalculatedForm());
+        var check = (IContentCheck)DocumentFeatures.CastFeature(test.Document, typeof(IContentCheck))!;
+        await Assert.That(check.CheckPage(0)).IsEqualTo(UnsupportedContent.None);
+        await Assert.That(check.CheckDocument()).IsEqualTo(UnsupportedContent.None);
     }
 
-    /// <summary>Every sample document is judged the same by HyperPDF and PDFium.</summary>
+    /// <summary>Pages outside each sample document have no unsupported content.</summary>
     /// <param name="sample">The sample.</param>
     /// <returns>A task.</returns>
     [Test]
@@ -101,16 +99,12 @@ public sealed class ContentCheckTests
     [Arguments(Sample.Tagged)]
     [Arguments(Sample.Layers)]
     [Arguments(Sample.Attachment)]
-    public async Task VerdictsMatchPdfium(Sample sample)
+    public async Task MissingPagesHaveNoUnsupportedContent(Sample sample)
     {
-        using var pair = new EnginePair(CreateSample(sample));
-        var expected = (IContentCheck)DocumentFeatures.CastFeature(pair.Pdfium, typeof(IContentCheck))!;
-        var actual = (IContentCheck)DocumentFeatures.CastFeature(pair.HyperPdf, typeof(IContentCheck))!;
-
-        await Assert.That(actual.CheckDocument()).IsEqualTo(expected.CheckDocument());
-        await Assert.That(actual.CheckPage(0)).IsEqualTo(expected.CheckPage(0));
-        await Assert.That(actual.CheckPage(MissingPage)).IsEqualTo(expected.CheckPage(MissingPage));
-        await Assert.That(actual.CheckPage(-1)).IsEqualTo(expected.CheckPage(-1));
+        using var test = new HyperPdfTestDocument(CreateSample(sample));
+        var check = (IContentCheck)DocumentFeatures.CastFeature(test.Document, typeof(IContentCheck))!;
+        await Assert.That(check.CheckPage(MissingPage)).IsEqualTo(UnsupportedContent.None);
+        await Assert.That(check.CheckPage(-1)).IsEqualTo(UnsupportedContent.None);
     }
 
     /// <summary>Creates one of the sample documents.</summary>

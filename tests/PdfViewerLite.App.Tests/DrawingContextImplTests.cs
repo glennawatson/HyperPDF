@@ -29,7 +29,7 @@ public sealed class DrawingContextImplTests
         const int repetitions = 1000;
         const int cornerRadius = 4;
         using var surface = SKSurface.Create(new SKImageInfo(size, size));
-        using var context = new DrawingContextImpl(new DrawingContextImpl.CreateInfo { Surface = surface, Dpi = SkiaPlatform.DefaultDpi });
+        using var context = new DrawingContextImpl(new DrawingContextCreateInfo { Surface = surface, Dpi = SkiaPlatform.DefaultDpi });
         IBrush brush = gradient ? new LinearGradientBrush { GradientStops = [new(Colors.Red, 0), new(Colors.Blue, 1)] } : Brushes.Blue;
         var bounds = new RoundedRect(new Rect(0, 0, size, size), rounded ? cornerRadius : 0);
         for (var i = 0; i < repetitions; i++)
@@ -56,7 +56,7 @@ public sealed class DrawingContextImplTests
         const int fontSize = 16;
         const int repetitions = 1000;
         using var surface = SKSurface.Create(new SKImageInfo(size, size));
-        using var context = new DrawingContextImpl(new DrawingContextImpl.CreateInfo { Surface = surface, Dpi = SkiaPlatform.DefaultDpi });
+        using var context = new DrawingContextImpl(new DrawingContextCreateInfo { Surface = surface, Dpi = SkiaPlatform.DefaultDpi });
         var typeface = new GlyphTypeface(new SkiaTypeface(SKTypeface.FromFamilyName(null), FontSimulations.None));
         using var lifetime = DisposeAction.Create(typeface.Dispose);
         using var shaped = new HarfBuzzTextShaper().ShapeText("A test".AsMemory(), new(typeface, fontSize));

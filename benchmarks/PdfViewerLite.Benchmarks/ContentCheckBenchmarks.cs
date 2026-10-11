@@ -12,7 +12,7 @@ namespace PdfViewerLite.Benchmarks;
 public class ContentCheckBenchmarks
 {
     /// <summary>The document using every unsupported feature.</summary>
-    private OcrDocument _document = null!;
+    private BenchmarkPdfDocument _document = null!;
 
     /// <summary>The document's content check.</summary>
     private IContentCheck _check = null!;

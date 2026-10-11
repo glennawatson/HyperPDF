@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 using HyperPdfLibrary.Navigation;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Forms;
 
@@ -20,8 +19,7 @@ public static class PdfFormAsync
     {
         ArgumentNullException.ThrowIfNull(action);
         cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return ValueTask.FromResult(PdfFormActions.Reset(form, action));
+        return ValueTask.FromResult(PdfFormActions.Reset(form, action, cancellationToken));
     }
 
     /// <summary>Shows or hides the fields a hide action names.</summary>
@@ -35,8 +33,7 @@ public static class PdfFormAsync
     {
         ArgumentNullException.ThrowIfNull(action);
         cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return ValueTask.FromResult(PdfFormActions.SetHidden(form, action));
+        return ValueTask.FromResult(PdfFormActions.SetHidden(form, action, cancellationToken));
     }
 
     /// <summary>Collects the data a submit-form action would send. Nothing is sent.</summary>
@@ -50,8 +47,7 @@ public static class PdfFormAsync
     {
         ArgumentNullException.ThrowIfNull(action);
         cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return ValueTask.FromResult(PdfFormActions.CreateSubmission(form, action));
+        return ValueTask.FromResult(PdfFormActions.CreateSubmission(form, action, cancellationToken));
     }
 
     /// <summary>Reads the order calculated fields are recalculated in.</summary>
@@ -62,9 +58,8 @@ public static class PdfFormAsync
     public static ValueTask<string[]> GetCalculationOrderAsync(PdfForm form, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
         List<string> names = [];
-        PdfFormOrder.GetCalculationOrder(form, names);
+        PdfFormOrder.GetCalculationOrder(form, names, cancellationToken);
         return ValueTask.FromResult(names.ToArray());
     }
 
@@ -77,9 +72,8 @@ public static class PdfFormAsync
     public static ValueTask<int[]> GetTabSequenceAsync(PdfForm form, int pageIndex, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var scope = PdfCancellation.Enter(cancellationToken);
         List<int> order = [];
-        PdfFormOrder.GetTabSequence(form, pageIndex, order);
+        PdfFormOrder.GetTabSequence(form, pageIndex, order, cancellationToken);
         return ValueTask.FromResult(order.ToArray());
     }
 }

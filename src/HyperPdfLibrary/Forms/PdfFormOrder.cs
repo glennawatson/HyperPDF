@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure.Tagged;
@@ -20,7 +21,15 @@ public static class PdfFormOrder
     /// <param name = "form">The shared form state.</param>
     /// <param name = "output">The list receiving the names.</param>
     /// <exception cref = "ArgumentNullException"><paramref name = "output"/> is <see langword="null"/>.</exception>
-    public static void GetCalculationOrder(PdfForm form, List<string> output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void GetCalculationOrder(PdfForm form, List<string> output) =>
+        GetCalculationOrder(form, output, CancellationToken.None);
+
+    /// <summary>Appends calculated field names while observing the caller's token.</summary>
+    /// <param name="form">The shared form state.</param>
+    /// <param name="output">Receives the names.</param>
+    /// <param name="cancellationToken">Cancels the walk.</param>
+    public static void GetCalculationOrder(PdfForm form, List<string> output, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(output);
         if (!PdfFormReading.HasForm(form) || form.Document.Catalog.GetDictionary(KnownName.AcroForm)?.GetArray(KnownName.CO)is not { } order)
@@ -31,7 +40,7 @@ public static class PdfFormOrder
         var seen = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < order.Count; i++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             if (order.GetDictionary(i)is { } field && FieldAttributes.GetFullName(field)is { Length: > 0 } name && seen.Add(name))
             {
                 output.Add(name);
@@ -72,7 +81,16 @@ public static class PdfFormOrder
     /// <param name = "pageIndex">The zero based page index.</param>
     /// <param name = "output">The list receiving the widget indexes, as <see cref = "PdfFormWidget.Index"/> gives them.</param>
     /// <exception cref = "ArgumentNullException"><paramref name = "output"/> is <see langword="null"/>.</exception>
-    public static void GetTabSequence(PdfForm form, int pageIndex, List<int> output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void GetTabSequence(PdfForm form, int pageIndex, List<int> output) =>
+        GetTabSequence(form, pageIndex, output, CancellationToken.None);
+
+    /// <summary>Appends a page's tab order while observing the caller's token.</summary>
+    /// <param name="form">The shared form state.</param>
+    /// <param name="pageIndex">The zero-based page.</param>
+    /// <param name="output">Receives widget indexes.</param>
+    /// <param name="cancellationToken">Cancels the walk.</param>
+    public static void GetTabSequence(PdfForm form, int pageIndex, List<int> output, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(output);
         if (!PdfFormReading.HasForm(form) || PdfFormReading.GetAnnotations(form, pageIndex)is not { } annotations)
@@ -82,11 +100,11 @@ public static class PdfFormOrder
 
         var order = PdfFormOrder.GetTabOrder(form, pageIndex);
         var page = PdfDocumentPages.GetPage(form.Document, pageIndex);
-        var ordinals = order == PdfTabOrder.Structure ? PdfFormOrder.ReadStructureOrdinals(form) : null;
+        var ordinals = order == PdfTabOrder.Structure ? PdfFormOrder.ReadStructureOrdinals(form, cancellationToken) : null;
         var keys = new List<TabKey>(annotations.Count);
         for (var i = 0; i < annotations.Count; i++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             if (PdfFormReading.Resolve(form, pageIndex, annotations, i)is { Type: not PdfFieldType.Unknown } widget)
             {
                 keys.Add(PdfFormOrder.CreateKey(page, widget, ordinals));
@@ -116,7 +134,8 @@ public static class PdfFormOrder
     /// <param name = "element">The element.</param>
     /// <param name = "ordinals">The places, added to.</param>
     /// <param name = "depth">The depth, which bounds the walk.</param>
-    internal static void Number(PdfStructureElement element, Dictionary<int, int> ordinals, int depth)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal static void Number(PdfStructureElement element, Dictionary<int, int> ordinals, int depth, CancellationToken cancellationToken)
     {
         if (depth > PdfLimits.MaxNesting)
         {
@@ -125,22 +144,23 @@ public static class PdfFormOrder
 
         foreach (var kid in element.Kids)
         {
-            PdfCancellation.ThrowIfCancelled();
+            cancellationToken.ThrowIfCancellationRequested();
             if (kid.Kind == PdfStructureKidKind.Object && kid.Object.IsValid)
             {
                 _ = ordinals.TryAdd(kid.Object.Number, ordinals.Count);
             }
             else if (kid.Kind == PdfStructureKidKind.Element && kid.Element is { } child)
             {
-                PdfFormOrder.Number(child, ordinals, depth + 1);
+                PdfFormOrder.Number(child, ordinals, depth + 1, cancellationToken);
             }
         }
     }
 
     /// <summary>Numbers the annotation objects the structure tree refers to, in tree order.</summary>
     /// <param name = "form">The shared form state.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The places by object number; <see langword="null"/> when the document has no structure tree.</returns>
-    internal static Dictionary<int, int>? ReadStructureOrdinals(PdfForm form)
+    internal static Dictionary<int, int>? ReadStructureOrdinals(PdfForm form, CancellationToken cancellationToken)
     {
         if (PdfDocumentTagged.GetStructureTree(form.Document)is not { } tree)
         {
@@ -150,7 +170,7 @@ public static class PdfFormOrder
         var ordinals = new Dictionary<int, int>();
         foreach (var root in tree.Roots)
         {
-            PdfFormOrder.Number(root, ordinals, 0);
+            PdfFormOrder.Number(root, ordinals, 0, cancellationToken);
         }
 
         return ordinals;

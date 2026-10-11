@@ -28,8 +28,8 @@ public sealed class TaggedPageLeaseTests
     [Test]
     public async Task TaggedReadsStayValidDuringRepeatedPageEdits(CancellationToken testToken)
     {
-        using var pair = new EnginePair(TestPdf.CreateTagged());
-        var document = (HyperPdfDocument)pair.HyperPdf;
+        using var test = new HyperPdfTestDocument(TestPdf.CreateTagged());
+        var document = test.Document;
         var tagged = (ITaggedStructureSource)document.GetFeature(typeof(ITaggedStructureSource))!;
         var pageManager = (IPageManagementSource)document.GetFeature(typeof(IPageManagementSource))!;
         var initial = new List<TaggedBlock>();

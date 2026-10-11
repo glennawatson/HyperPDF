@@ -287,7 +287,7 @@ internal static class Jbig2TextSegments
         }
 
         using var integers = new Jbig2IntegerContexts(settings.SymbolCodeLength);
-        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         var result = Jbig2TextRegion.DecodeArithmetic(ref decoder, settings, symbols, integers, refinement.Span, region, state.Workspace);
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
         return result;

@@ -213,12 +213,12 @@ public sealed class InterchangeRoundTripTests
         await Assert.That(Encoding.UTF8.GetString(XfdfWriter.Write(read))).IsEqualTo(Encoding.UTF8.GetString(first));
     }
 
-    /// <summary>Forms in the pdf.js corpus export and import again without change, when the file is available.</summary>
+    /// <summary>Forms in the pdf.js reference files export and import again without change, when available.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CorpusFormsRoundTrip()
+    public async Task PdfJsFormsRoundTrip()
     {
-        foreach (var path in CorpusForms())
+        foreach (var path in PdfJsFormSamples())
         {
             using var original = PdfDocumentReader.Open(path, null);
             var xfdf = PdfInterchange.ExportXfdf(original);
@@ -230,11 +230,11 @@ public sealed class InterchangeRoundTripTests
         }
     }
 
-    /// <summary>Finds corpus form files on this machine.</summary>
+    /// <summary>Finds pdf.js form files on this machine.</summary>
     /// <returns>The paths that exist.</returns>
-    private static IEnumerable<string> CorpusForms()
+    private static IEnumerable<string> PdfJsFormSamples()
     {
-        var root = Environment.GetEnvironmentVariable("PDFVIEWERLITE_CORPUS");
+        var root = Environment.GetEnvironmentVariable("PDFVIEWERLITE_PDFJS_PDF_DIR");
         string[] candidates =
         [
             "/home/glennwatson/source/pdf/pdf.js/test/pdfs/textfields.pdf",

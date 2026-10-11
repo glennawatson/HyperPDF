@@ -31,7 +31,7 @@ internal record struct PdfDocumentState
     private PdfForm? _form;
 
     /// <summary>Parsed page label ranges until structural invalidation.</summary>
-    private PdfDocumentLabels.LabelRange[]? _labelRanges;
+    private PageLabelRange[]? _labelRanges;
 
     /// <summary>Optional content state until structural invalidation.</summary>
     private PdfOptionalContent? _optionalContent;
@@ -108,7 +108,7 @@ internal record struct PdfDocumentState
 
     /// <summary>Gets storage for parsed page label ranges until structural invalidation.</summary>
     [UnscopedRef]
-    internal ref PdfDocumentLabels.LabelRange[]? LabelRanges => ref _labelRanges;
+    internal ref PageLabelRange[]? LabelRanges => ref _labelRanges;
 
     /// <summary>Gets storage for optional content state until structural invalidation.</summary>
     [UnscopedRef]

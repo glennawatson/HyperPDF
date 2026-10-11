@@ -45,10 +45,18 @@ public static class PdfImageDecoder
     /// </param>
     /// <returns>The image, or <see langword="null"/> when it cannot be decoded.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
-    public static PdfImageData? Decode(PdfStream image, PdfDictionary? resources)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfImageData? Decode(PdfStream image, PdfDictionary? resources) => Decode(image, resources, CancellationToken.None);
+
+    /// <summary>Decodes an image XObject while observing the caller's token.</summary>
+    /// <param name="image">The image stream.</param>
+    /// <param name="resources">The page or form resources.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The decoded image, or null.</returns>
+    public static PdfImageData? Decode(PdfStream image, PdfDictionary? resources, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(image);
-        return DecodeStream(image, ImageRole.Image, resources?.GetDictionary(KnownName.ColorSpace) ?? resources);
+        return DecodeStream(image, ImageRole.Image, resources?.GetDictionary(KnownName.ColorSpace) ?? resources, false, 0, cancellationToken);
     }
 
     /// <summary>Decodes an inline image.</summary>
@@ -60,7 +68,17 @@ public static class PdfImageDecoder
     /// </param>
     /// <returns>The image, or <see langword="null"/> when it cannot be decoded.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="dictionary"/> is <see langword="null"/>.</exception>
-    public static PdfImageData? DecodeInline(PdfDictionary dictionary, ReadOnlySpan<byte> data, PdfDictionary? resources)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfImageData? DecodeInline(PdfDictionary dictionary, ReadOnlySpan<byte> data, PdfDictionary? resources) =>
+        DecodeInline(dictionary, data, resources, CancellationToken.None);
+
+    /// <summary>Decodes an inline image while observing the caller's token.</summary>
+    /// <param name="dictionary">The inline image dictionary.</param>
+    /// <param name="data">The encoded image bytes.</param>
+    /// <param name="resources">The colour-space resources.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The decoded image, or null.</returns>
+    public static PdfImageData? DecodeInline(PdfDictionary dictionary, ReadOnlySpan<byte> data, PdfDictionary? resources, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dictionary);
         var colorSpaces = resources?.GetDictionary(KnownName.ColorSpace) ?? resources;
@@ -74,8 +92,8 @@ public static class PdfImageDecoder
         var buffer = default(PooledBuffer);
         try
         {
-            var codec = PdfStreamDecoder.Apply(data, filters, parameters, ref buffer);
-            return DecodeData(header, codec, buffer.WrittenSpan, CodecParameters(filters, parameters), 0, default);
+            var codec = PdfStreamDecoder.Apply(data, filters, parameters, ref buffer, cancellationToken);
+            return DecodeData(header, codec, buffer.WrittenSpan, CodecParameters(filters, parameters), 0, default, cancellationToken);
         }
         catch (Exception e) when (e is InvalidDataException or ArgumentException or OutOfMemoryException)
         {
@@ -112,11 +130,12 @@ public static class PdfImageDecoder
     /// <param name="colorSpaces">The colour-space resources.</param>
     /// <param name="compact">Whether opaque gray pixels may stay compact.</param>
     /// <param name="reductionLevels">The finest resolution levels omitted.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The decoded image, or null.</returns>
-    internal static PdfImageData? DecodeStream(PdfStream image, ImageRole role, PdfDictionary? colorSpaces, bool compact, int reductionLevels)
+    internal static PdfImageData? DecodeStream(PdfStream image, ImageRole role, PdfDictionary? colorSpaces, bool compact, int reductionLevels, CancellationToken cancellationToken = default)
     {
         var dictionary = image.Dictionary;
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         if (ImageHeader.FromXObject(dictionary, colorSpaces) is not { } header)
         {
             return null;
@@ -132,13 +151,13 @@ public static class PdfImageDecoder
         var buffer = default(PooledBuffer);
         try
         {
-            var codec = image.Decode(ref buffer);
+            var codec = image.Decode(ref buffer, cancellationToken);
             var softMaskInData = role == ImageRole.Image ? dictionary.GetInt32(KnownName.SMaskInData, 0) : 0;
             var parameters = CodecParameters(dictionary.Get(KnownName.Filter), dictionary.Get(KnownName.DecodeParms));
             var report = new ImageDecodeReport(dictionary.Owner?.Context, image.Id.Number, SelectReduction(role, reductionLevels));
-            var result = DecodeData(header, codec, buffer.WrittenSpan, parameters, softMaskInData, report);
+            var result = DecodeData(header, codec, buffer.WrittenSpan, parameters, softMaskInData, report, cancellationToken);
             return role == ImageRole.Image && result is { IsStencilMask: false, UnsupportedCodec: PdfImageCodec.None }
-                ? ApplyMasks(result, dictionary, header.ColorSpace, colorSpaces, report.ReductionLevels)
+                ? ApplyMasks(result, dictionary, header.ColorSpace, colorSpaces, report.ReductionLevels, cancellationToken)
                 : result;
         }
         catch (Exception e) when (e is InvalidDataException or ArgumentException or OutOfMemoryException)
@@ -163,10 +182,11 @@ public static class PdfImageDecoder
     /// <summary>Decodes an image for drawing at a selected scan resolution.</summary>
     /// <param name="image">The image stream.</param>
     /// <param name="reductionLevels">The finest resolution levels omitted.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The decoded image, or null.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static PdfImageData? DecodeCompact(PdfStream image, int reductionLevels) =>
-        DecodeStream(image, ImageRole.Image, null, true, reductionLevels);
+    internal static PdfImageData? DecodeCompact(PdfStream image, int reductionLevels, CancellationToken cancellationToken = default) =>
+        DecodeStream(image, ImageRole.Image, null, true, reductionLevels, cancellationToken);
 
     /// <summary>Decodes unpacked sample data: stencil coverage or BGRA through the colour space.</summary>
     /// <param name="header">The image header.</param>
@@ -216,7 +236,7 @@ public static class PdfImageDecoder
     /// <returns>The image, or <see langword="null"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static PdfImageData? DecodeData(in ImageHeader header, PdfImageCodec codec, ReadOnlySpan<byte> data, PdfDictionary? codecParameters, int softMaskInData) =>
-        DecodeData(header, codec, data, codecParameters, softMaskInData, default);
+        DecodeData(header, codec, data, codecParameters, softMaskInData, default, default);
 
     /// <summary>Decodes data after the byte filters, by codec, reporting damage to a context.</summary>
     /// <param name="header">The image header.</param>
@@ -225,6 +245,7 @@ public static class PdfImageDecoder
     /// <param name="codecParameters">The codec's decode parameters, or <see langword="null"/>.</param>
     /// <param name="softMaskInData">The image's /SMaskInData value; 0 for masks and inline images.</param>
     /// <param name="report">The damage-report context and display resolution.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image, or <see langword="null"/>.</returns>
     private static PdfImageData? DecodeData(
         in ImageHeader header,
@@ -232,13 +253,14 @@ public static class PdfImageDecoder
         ReadOnlySpan<byte> data,
         PdfDictionary? codecParameters,
         int softMaskInData,
-        ImageDecodeReport report) => codec switch
+        ImageDecodeReport report,
+        CancellationToken cancellationToken) => codec switch
     {
         PdfImageCodec.None => IsTooShort(header, data) ? null : DecodeSamples(header, data),
-        PdfImageCodec.Jpeg => JpegImageDecoder.Decode(header, data, ColorTransform(codecParameters), report.Context, report.ObjectNumber),
-        PdfImageCodec.Jpeg2000 => JpxImageDecoder.Decode(header, data, softMaskInData, report.ReductionLevels),
+        PdfImageCodec.Jpeg => JpegImageDecoder.Decode(header, data, ColorTransform(codecParameters), report.Context, report.ObjectNumber, cancellationToken),
+        PdfImageCodec.Jpeg2000 => JpxImageDecoder.Decode(header, data, softMaskInData, report.ReductionLevels, cancellationToken),
         PdfImageCodec.Ccitt => DecodeFax(header, data, codecParameters),
-        PdfImageCodec.Jbig2 => Jbig2ImageDecoder.Decode(header, data, codecParameters, report.ReductionLevels),
+        PdfImageCodec.Jbig2 => Jbig2ImageDecoder.Decode(header, data, codecParameters, report.ReductionLevels, cancellationToken),
         _ => new(header.Width, header.Height, [], header.IsStencil, header.Interpolate, codec),
     };
 
@@ -359,12 +381,15 @@ public static class PdfImageDecoder
     /// <param name="space">The image's colour space, used to convert a soft mask's /Matte.</param>
     /// <param name="colorSpaces">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="reductionLevels">The display resolution also requested of a soft mask.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image with the mask applied; the input when there is no usable mask.</returns>
-    private static PdfImageData ApplyMasks(PdfImageData image, PdfDictionary dictionary, PdfColorSpace? space, PdfDictionary? colorSpaces, int reductionLevels)
+    private static PdfImageData ApplyMasks(PdfImageData image, PdfDictionary dictionary, PdfColorSpace? space, PdfDictionary? colorSpaces, int reductionLevels, CancellationToken cancellationToken)
     {
         var softMask = dictionary.GetStream(KnownName.SMask);
         var mask = softMask is null ? dictionary.Get(KnownName.Mask).AsStream() : null;
-        var decoded = softMask is not null ? DecodeStream(softMask, ImageRole.SoftMask, colorSpaces, true, reductionLevels) : DecodeMask(mask, colorSpaces, reductionLevels);
+        var decoded = softMask is not null
+            ? DecodeStream(softMask, ImageRole.SoftMask, colorSpaces, true, reductionLevels, cancellationToken)
+            : DecodeMask(mask, colorSpaces, reductionLevels, cancellationToken);
         if (decoded is null || decoded.Pixels.Length == 0)
         {
             return image;
@@ -385,9 +410,10 @@ public static class PdfImageDecoder
     /// <param name="mask">The mask stream, or <see langword="null"/>.</param>
     /// <param name="colorSpaces">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="reductionLevels">The display resolution selected for the image and mask pair.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The coverage, or <see langword="null"/>.</returns>
-    private static PdfImageData? DecodeMask(PdfStream? mask, PdfDictionary? colorSpaces, int reductionLevels) =>
-        mask is null ? null : DecodeStream(mask, ImageRole.StencilMask, colorSpaces, false, reductionLevels);
+    private static PdfImageData? DecodeMask(PdfStream? mask, PdfDictionary? colorSpaces, int reductionLevels, CancellationToken cancellationToken) =>
+        mask is null ? null : DecodeStream(mask, ImageRole.StencilMask, colorSpaces, false, reductionLevels, cancellationToken);
 
     /// <summary>Gets the decode parameters of the last filter, the one an image codec must be.</summary>
     /// <param name="filters">The /Filter value.</param>

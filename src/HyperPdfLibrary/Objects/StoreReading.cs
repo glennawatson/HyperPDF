@@ -175,7 +175,7 @@ public static class StoreReading
 
     /// <summary>A cached value that is not a dictionary, array or stream.</summary>
     /// <param name = "value">The value.</param>
-    internal sealed class ValueBox(PdfValue value)
+    private sealed class ValueBox(PdfValue value)
     {
         /// <summary>Gets the shared box for null objects.</summary>
         internal static ValueBox NullValue { get; } = new(default);

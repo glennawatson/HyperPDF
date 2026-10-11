@@ -76,7 +76,7 @@ public sealed class NativeTextBoxTests
         using var test = Open();
         var editor = test.Editor;
         var index = HyperPdfAnnotationTextBoxes.AddTextBox(editor, 0, At, Wrap, Sentence, Installed);
-        var annotation = NativeDocument.Read(editor, 0)[^1];
+        var annotation = HyperPdfTestDocument.Read(editor, 0)[^1];
         var content = HyperPdfAnnotationTextBoxes.GetTextBox(editor, 0, index);
 
         await Assert.That(index).IsGreaterThanOrEqualTo(0);
@@ -92,37 +92,30 @@ public sealed class NativeTextBoxTests
         await Assert.That(HyperPdfAnnotationReading.GetHasUnsavedChanges(editor)).IsTrue();
     }
 
-    /// <summary>Saving writes typewriter free text with an embedded subset font and a text map, which PDFium reads back for editing.</summary>
+    /// <summary>Saving writes typewriter free text with an embedded subset font and a text map that reopen for editing.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task SavesAsFreeTextAndReopens()
     {
         using var test = Open();
         _ = HyperPdfAnnotationTextBoxes.AddTextBox(test.Editor, 0, At, 0, Greeting, Installed);
-        var saved = NativeDocument.Save(test.Editor);
-        var dictionary = NativeDocument.Dictionaries(saved, 0).Single();
+        var saved = HyperPdfTestDocument.Save(test.Editor);
+        var dictionary = HyperPdfTestDocument.Dictionaries(saved, 0).Single();
         var font = Font(dictionary);
-        using var reopened = NativeDocument.OpenWithPdfium(saved, out var path);
-        try
-        {
-            var annotations = NativeDocument.Read((IAnnotationEditor)Core.Documents.DocumentFeatures.CastFeature(reopened, typeof(IAnnotationEditor))!, 0);
-            var content = ((ITextBoxEditor)Core.Documents.DocumentFeatures.CastFeature(reopened, typeof(ITextBoxEditor))!).GetTextBox(0, annotations[0].Index);
+        using var reopened = new HyperPdfTestDocument(saved);
+        var annotations = HyperPdfTestDocument.Read(reopened.Editor, 0);
+        var content = ((ITextBoxEditor)Core.Documents.DocumentFeatures.CastFeature(reopened.Document, typeof(ITextBoxEditor))!).GetTextBox(0, annotations[0].Index);
 
-            await Assert.That(NativeDocument.Name(dictionary, KnownName.Subtype)).IsEqualTo("FreeText");
-            await Assert.That(NativeDocument.Name(dictionary, KnownName.IT)).IsEqualTo("FreeTextTypeWriter");
-            await Assert.That(dictionary.ContainsKey(KnownName.RC) && dictionary.ContainsKey(KnownName.DS) && dictionary.ContainsKey(KnownName.DA)).IsTrue();
-            await Assert.That(font.IsName(KnownName.Subtype, KnownName.Type0)).IsTrue();
-            await Assert.That(font.ContainsKey(KnownName.ToUnicode)).IsTrue();
-            await Assert.That(font.GetArray(KnownName.DescendantFonts)!.GetDictionary(0)!.GetDictionary(KnownName.FontDescriptor)!.ContainsKey(KnownName.FontFile2)).IsTrue();
-            await Assert.That(annotations.Count).IsEqualTo(1);
-            await Assert.That(annotations[0].Kind).IsEqualTo(AnnotationKind.TextBox);
-            await Assert.That(content!.Text).IsEqualTo(Greeting);
-            await Assert.That(content.Format).IsEqualTo(Installed);
-        }
-        finally
-        {
-            File.Delete(path);
-        }
+        await Assert.That(HyperPdfTestDocument.Name(dictionary, KnownName.Subtype)).IsEqualTo("FreeText");
+        await Assert.That(HyperPdfTestDocument.Name(dictionary, KnownName.IT)).IsEqualTo("FreeTextTypeWriter");
+        await Assert.That(dictionary.ContainsKey(KnownName.RC) && dictionary.ContainsKey(KnownName.DS) && dictionary.ContainsKey(KnownName.DA)).IsTrue();
+        await Assert.That(font.IsName(KnownName.Subtype, KnownName.Type0)).IsTrue();
+        await Assert.That(font.ContainsKey(KnownName.ToUnicode)).IsTrue();
+        await Assert.That(font.GetArray(KnownName.DescendantFonts)!.GetDictionary(0)!.GetDictionary(KnownName.FontDescriptor)!.ContainsKey(KnownName.FontFile2)).IsTrue();
+        await Assert.That(annotations.Count).IsEqualTo(1);
+        await Assert.That(annotations[0].Kind).IsEqualTo(AnnotationKind.TextBox);
+        await Assert.That(content!.Text).IsEqualTo(Greeting);
+        await Assert.That(content.Format).IsEqualTo(Installed);
     }
 
     /// <summary>Built in families need no embedded font; text a built in font lacks moves to an installed font that has it.</summary>
@@ -135,7 +128,7 @@ public sealed class NativeTextBoxTests
         var times = HyperPdfAnnotationTextBoxes.AddTextBox(editor, 0, At, 0, "Plain", new("Times", Size, 0) { IsItalic = true });
         var mono = HyperPdfAnnotationTextBoxes.AddTextBox(editor, 0, new(At.X, At.Y + Wrap), 0, "Missing family", new("No Such Mono", Size, 0));
         var fallback = HyperPdfAnnotationTextBoxes.AddTextBox(editor, 0, new(At.X, At.Y + Wrap + Wrap), 0, "中 αβ", new("Helvetica", Size, 0));
-        var dictionaries = NativeDocument.Dictionaries(NativeDocument.Save(editor), 0);
+        var dictionaries = HyperPdfTestDocument.Dictionaries(HyperPdfTestDocument.Save(editor), 0);
 
         await Assert.That(BaseFont(Font(dictionaries[times]))).IsEqualTo("Times-Italic");
         await Assert.That(BaseFont(Font(dictionaries[mono]))).IsEqualTo("Courier");
@@ -149,7 +142,7 @@ public sealed class NativeTextBoxTests
     {
         using var test = Open();
         var index = HyperPdfAnnotationTextBoxes.AddTextBox(test.Editor, 0, At, 0, "Licensed", new(TestFont.LockedFamily, Size, 0));
-        var dictionaries = NativeDocument.Dictionaries(NativeDocument.Save(test.Editor), 0);
+        var dictionaries = HyperPdfTestDocument.Dictionaries(HyperPdfTestDocument.Save(test.Editor), 0);
 
         await Assert.That(BaseFont(Font(dictionaries[index]))).IsEqualTo("Helvetica");
     }
@@ -164,7 +157,7 @@ public sealed class NativeTextBoxTests
         var one = HyperPdfAnnotationTextBoxes.AddTextBox(editor, 0, At, 0, "short", Installed with { IsUnderline = false });
         var wrapped = HyperPdfAnnotationTextBoxes.AddTextBox(editor, 0, At, Wrap, "a much longer piece of text that wraps", Installed with { IsUnderline = false });
         var comb = HyperPdfAnnotationTextBoxes.AddTextBox(editor, 0, At, CombWidth, "AB123XYZ", Installed with { CombCells = Cells, Alignment = TextBoxAlignment.Left });
-        var annotations = NativeDocument.Read(editor, 0);
+        var annotations = HyperPdfTestDocument.Read(editor, 0);
         var oneBox = annotations.Single(a => a.Index == one).Bounds;
         var wrappedBox = annotations.Single(a => a.Index == wrapped).Bounds;
         var combBox = annotations.Single(a => a.Index == comb).Bounds;
@@ -180,8 +173,8 @@ public sealed class NativeTextBoxTests
     [Test]
     public async Task ReadsOtherProgramsFreeText()
     {
-        using var test = new NativeDocument(TestPdf.CreateWithFreeText());
-        var annotations = NativeDocument.Read(test.Editor, 0);
+        using var test = new HyperPdfTestDocument(TestPdf.CreateWithFreeText());
+        var annotations = HyperPdfTestDocument.Read(test.Editor, 0);
         var content = HyperPdfAnnotationTextBoxes.GetTextBox(test.Editor, 0, annotations[0].Index);
 
         await Assert.That(annotations[0].Kind).IsEqualTo(AnnotationKind.TextBox);
@@ -208,33 +201,14 @@ public sealed class NativeTextBoxTests
         await Assert.That(HyperPdfAnnotationTextBoxes.GetTextBox(editor, 0, int.MaxValue)).IsNull();
     }
 
-    /// <summary>The first baseline matches the PDFium engine's for the same text and format.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task MeasuresTheFirstBaselineLikePdfium()
-    {
-        using var test = Open();
-        using var pdfium = NativeDocument.OpenWithPdfium(TestPdf.Create(1), out var path);
-        try
-        {
-            var expected = ((ITextBoxEditor)Core.Documents.DocumentFeatures.CastFeature(pdfium, typeof(ITextBoxEditor))!).GetFirstBaseline(Greeting, TextFormat.Default);
-
-            await Assert.That(HyperPdfAnnotationTextBoxes.GetFirstBaseline(test.Editor, Greeting, TextFormat.Default)).IsEqualTo(expected).Within(Tolerance);
-        }
-        finally
-        {
-            File.Delete(path);
-        }
-    }
-
     /// <summary>An image signature is saved as a signature stamp with its bounds, and PDFium reads it back.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task SavesImageSignatures()
     {
-        using var test = new NativeDocument(1);
+        using var test = new HyperPdfTestDocument(1);
         var index = HyperPdfAnnotationImages.AddImageSignature(test.Editor, 0, Bounds, Ink, ImageSize, ImageSize);
-        var reopened = NativeDocument.ReadWithPdfium(NativeDocument.Save(test.Editor), 0);
+        var reopened = HyperPdfTestDocument.ReadSaved(HyperPdfTestDocument.Save(test.Editor), 0);
         var removed = HyperPdfAnnotationReading.Remove(test.Editor, 0, index);
 
         await Assert.That(index).IsGreaterThanOrEqualTo(0);
@@ -242,7 +216,7 @@ public sealed class NativeTextBoxTests
         await Assert.That(reopened[0].Kind).IsEqualTo(AnnotationKind.Signature);
         await Assert.That(reopened[0].Bounds).IsEqualTo(Bounds);
         await Assert.That(removed).IsTrue();
-        await Assert.That(NativeDocument.Read(test.Editor, 0)).IsEmpty();
+        await Assert.That(HyperPdfTestDocument.Read(test.Editor, 0)).IsEmpty();
     }
 
     /// <summary>Incomplete images, invalid sizes and missing pages fail without editing the document.</summary>
@@ -250,7 +224,7 @@ public sealed class NativeTextBoxTests
     [Test]
     public async Task RejectsBadImageSignatures()
     {
-        using var test = new NativeDocument(1);
+        using var test = new HyperPdfTestDocument(1);
         var editor = test.Editor;
 
         await Assert.That(() => HyperPdfAnnotationImages.AddImageSignature(editor, 0, Bounds, [], ImageSize, ImageSize)).Throws<ArgumentException>();
@@ -262,9 +236,9 @@ public sealed class NativeTextBoxTests
 
     /// <summary>Opens a one page document whose text boxes may use the test fonts.</summary>
     /// <returns>The document.</returns>
-    private static NativeDocument Open()
+    private static HyperPdfTestDocument Open()
     {
-        var test = new NativeDocument(1);
+        var test = new HyperPdfTestDocument(1);
         HyperPdfAnnotationReading.SetFontCatalog(test.Editor, TestFont.Catalog);
         return test;
     }
@@ -281,5 +255,5 @@ public sealed class NativeTextBoxTests
     /// <summary>Gets a font's base font name.</summary>
     /// <param name="font">The font.</param>
     /// <returns>The name.</returns>
-    private static string BaseFont(PdfDictionary font) => NativeDocument.Name(font, KnownName.BaseFont);
+    private static string BaseFont(PdfDictionary font) => HyperPdfTestDocument.Name(font, KnownName.BaseFont);
 }

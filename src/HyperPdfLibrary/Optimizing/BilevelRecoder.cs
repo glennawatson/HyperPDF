@@ -35,8 +35,9 @@ internal static class BilevelRecoder
     /// <param name="codec">Its codec.</param>
     /// <param name="width">The width.</param>
     /// <param name="height">The height.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The outcome.</returns>
-    internal static ImageOutcome Recode(PdfStream image, CodecKind codec, int width, int height)
+    internal static ImageOutcome Recode(PdfStream image, CodecKind codec, int width, int height, CancellationToken cancellationToken)
     {
         var parameters = ImageFilters.CodecParameters(image.Dictionary);
         if (codec == CodecKind.Jpeg || (codec == CodecKind.Fax && (parameters?.GetInt32(KnownName.K, 0) ?? 0) < 0))
@@ -50,7 +51,7 @@ internal static class BilevelRecoder
         var rows = default(PooledBuffer);
         try
         {
-            if (image.Decode(ref decoded) == PdfImageCodec.Ccitt)
+            if (image.Decode(ref decoded, cancellationToken) == PdfImageCodec.Ccitt)
             {
                 var target = rows.GetSpan(stride * height)[..(stride * height)];
                 CcittFaxDecoder.Decode(decoded.WrittenSpan, CcittParameters.FromDictionary(parameters), width, height, target);

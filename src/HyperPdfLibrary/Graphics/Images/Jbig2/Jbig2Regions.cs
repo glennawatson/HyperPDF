@@ -51,7 +51,7 @@ internal static class Jbig2Regions
     internal static void DecodeArithmeticRegion(ref Jbig2Reader reader, Jbig2Bitmap region, in Jbig2GenericParameters parameters)
     {
         using var contexts = new Jbig2ContextBuffer(parameters.ContextCount);
-        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         _ = Jbig2GenericRegion.Decode(ref decoder, contexts.Span, parameters, region, null);
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
     }
@@ -245,7 +245,7 @@ internal static class Jbig2Regions
         }
 
         using var contexts = new Jbig2ContextBuffer(parameters.ContextCount);
-        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         if (!Jbig2RefinementRegion.Decode(ref decoder, contexts.Span, parameters, reference.View, region))
         {
             region.Dispose();
@@ -312,7 +312,7 @@ internal static class Jbig2Regions
         }
 
         using var contexts = new Jbig2ContextBuffer(Jbig2GenericParameters.ContextCountFor(settings.Template));
-        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         var decoded = Jbig2HalftoneRegion.DecodeArithmetic(ref decoder, contexts.Span, settings, patterns, region, state.Workspace);
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
         return decoded;

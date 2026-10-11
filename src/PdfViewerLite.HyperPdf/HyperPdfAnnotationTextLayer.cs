@@ -59,7 +59,7 @@ internal static class HyperPdfAnnotationTextLayer
     /// <param name="store">The document.</param>
     /// <param name="catalog">The installed fonts.</param>
     [DebuggerDisplay("TextLayerFonts: {_groups.Count} embedded")]
-    internal sealed class TextLayerFonts(PdfObjectStore store, FontCatalog catalog)
+    private sealed class TextLayerFonts(PdfObjectStore store, FontCatalog catalog)
     {
         /// <summary>The installed fonts needed, by font program.</summary>
         private readonly Dictionary<FontProgram, Group> _groups = [];
@@ -150,7 +150,7 @@ internal static class HyperPdfAnnotationTextLayer
     /// <param name="Program">The font.</param>
     /// <param name="Index">Its place among the embedded fonts, from zero.</param>
     [DebuggerDisplay("Group: {Program.Face.Family} ({Glyphs.Count} glyphs)")]
-    internal sealed record Group(FontProgram Program, int Index)
+    private sealed record Group(FontProgram Program, int Index)
     {
         /// <summary>Gets the glyphs used, always with the missing-glyph slot.</summary>
         internal HashSet<ushort> Glyphs { get; } = [0];

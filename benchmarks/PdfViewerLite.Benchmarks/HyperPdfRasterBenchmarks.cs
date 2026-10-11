@@ -26,7 +26,7 @@ public class HyperPdfRasterBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus", $"{CorpusId}.pdf");
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "reference-pdfs", $"{CorpusId}.pdf");
         _document = File.Exists(path) ? PdfDocumentReader.Open(path, null) : null;
     }
 

@@ -336,7 +336,7 @@ internal static class ContentColors
         }
 
         using var recorder = self.Device.CreatePictureDevice(new(box.Left, box.Bottom, box.Right, box.Top));
-        using var child = new ContentInterpreter(self.Cache, recorder, self.Depth + 1) { Printing = self.Printing };
+        using var child = new ContentInterpreter(self.Cache, recorder, self.Depth + 1, cancellationToken: self.CancellationToken) { Printing = self.Printing };
         ContentExecution.RunPattern(child, pattern, uncolored, rgb);
         using var cell = recorder.Finish();
         return PdfDrawingServices.Backend.ComposeTile(cell, box, stepX, stepY, scale);

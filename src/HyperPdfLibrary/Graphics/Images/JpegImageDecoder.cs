@@ -57,9 +57,11 @@ internal static class JpegImageDecoder
     /// <param name="colorTransform">The <c>/ColorTransform</c> decode parameter, or <see cref="JpegInfo.NoColorTransform"/>.</param>
     /// <param name="context">The open context that receives the report, or <see langword="null"/>.</param>
     /// <param name="objectNumber">The image stream's object number, or 0.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image, <see langword="null"/> when it is too large, or an image marked unsupported when no decoder can read it.</returns>
-    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int colorTransform, PdfOpenContext? context, int objectNumber)
+    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int colorTransform, PdfOpenContext? context, int objectNumber, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ReportIfTruncated(data, context, objectNumber);
 
         if (!JpegMarkers.TryReadInfo(data, out var info) || !info.IsSupported)
@@ -75,8 +77,9 @@ internal static class JpegImageDecoder
         var convert = info.UsesColorTransform(colorTransform);
         var needsRawSamples = info.Components == CmykComponents || (info.Components == RgbComponents && !convert);
         var image = needsRawSamples
-            ? DecodeManaged(header, data, info, convert)
-            : DecodeProvider(header, data, info) ?? DecodeManaged(header, data, info, convert);
+            ? DecodeManaged(header, data, info, convert, cancellationToken)
+            : DecodeProvider(header, data, info) ?? DecodeManaged(header, data, info, convert, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         return image ?? Unsupported(header);
     }
 
@@ -123,15 +126,16 @@ internal static class JpegImageDecoder
     /// <param name="data">The JPEG data.</param>
     /// <param name="info">The JPEG's headers.</param>
     /// <param name="convert">Whether the samples are YCbCr or YCCK and need converting.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image, or <see langword="null"/> when the JPEG cannot be decoded.</returns>
-    private static PdfImageData? DecodeManaged(in ImageHeader header, ReadOnlySpan<byte> data, in JpegInfo info, bool convert)
+    private static PdfImageData? DecodeManaged(in ImageHeader header, ReadOnlySpan<byte> data, in JpegInfo info, bool convert, CancellationToken cancellationToken)
     {
         var length = info.Width * info.Height * info.Components;
         var samples = ScratchPool<byte>.Shared.Rent(length);
         try
         {
             var raw = samples.AsSpan(0, length);
-            return JpegDecoder.TryDecode(data, convert, raw) ? PdfImageDecoder.DecodeSamples(ForSamples(header, info), raw) : null;
+            return JpegDecoder.TryDecode(data, convert, raw, cancellationToken) ? PdfImageDecoder.DecodeSamples(ForSamples(header, info), raw) : null;
         }
         finally
         {

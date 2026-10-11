@@ -19,8 +19,7 @@ internal sealed partial class OptimizeSession
             return value;
         }
 
-        // The writer calls back between awaits, possibly on another thread, so the token is put in force for each object.
-        using var scope = PdfCancellation.Enter(_cancellationToken);
+        // The writer may call back on another thread, so each object uses this session's token.
         _cancellationToken.ThrowIfCancellationRequested();
         if (_images.TryGetValue(oldNumber, out var use) && TransformImage(oldNumber, stream, use) is { } image)
         {
@@ -32,7 +31,7 @@ internal sealed partial class OptimizeSession
             return PdfValue.FromStream(font);
         }
 
-        if (_options.RecompressStreams && StreamRecompressor.TryRecompress(stream) is { } smaller)
+        if (_options.RecompressStreams && StreamRecompressor.TryRecompress(stream, _cancellationToken) is { } smaller)
         {
             _report.Measure(PdfOptimizeCategory.Streams, stream.RawLength, smaller.RawLength);
             return PdfValue.FromStream(smaller);
@@ -74,7 +73,7 @@ internal sealed partial class OptimizeSession
     /// <returns>The subset program, or <see langword="null"/> when nothing was gained.</returns>
     private PdfStream? TransformFont(int oldNumber, PdfStream program, HashSet<int> glyphs)
     {
-        if (TrueTypeSubsetter.Subset(program, glyphs, Names) is not { } subset)
+        if (TrueTypeSubsetter.Subset(program, glyphs, Names, _cancellationToken) is not { } subset)
         {
             _report.Skip(PdfOptimizeCategory.Fonts, oldNumber, "The font program could not be subset or subsetting saved nothing.");
             return null;

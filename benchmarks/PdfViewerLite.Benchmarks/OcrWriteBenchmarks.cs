@@ -38,14 +38,14 @@ public class OcrWriteBenchmarks
     private OcrWord[] _recognized = [];
 
     /// <summary>The scan opened for this iteration.</summary>
-    private OcrDocument? _document;
+    private BenchmarkPdfDocument? _document;
 
     /// <summary>Makes the scan and recognises it once.</summary>
     [GlobalSetup]
     public void Setup()
     {
         _engine = new("eng");
-        using var source = new OcrDocument(TestPdf.Create(1));
+        using var source = new BenchmarkPdfDocument(TestPdf.Create(1));
         var size = source.Document.GetPageSizes()[0];
         var width = (int)MathF.Ceiling(size.Width * ScanScale);
         var height = (int)MathF.Ceiling(size.Height * ScanScale);

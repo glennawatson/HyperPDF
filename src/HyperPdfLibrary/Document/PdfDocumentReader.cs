@@ -336,25 +336,23 @@ public static class PdfDocumentReader
         }
     }
 
-    /// <summary>Opens the objects with the token in force for the synchronous core.</summary>
+    /// <summary>Opens the objects with the caller's token in the open context.</summary>
     /// <param name="source">The file.</param>
     /// <param name="ownsSource">Whether the objects own the source.</param>
     /// <param name="options">The options.</param>
     /// <param name="cancellationToken">The token.</param>
     /// <returns>The objects.</returns>
-    private static PdfObjectStore OpenObjects(PdfByteSource source, bool ownsSource, PdfOpenOptions options, CancellationToken cancellationToken)
-    {
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        return StoreOpening.OpenWith(source, ownsSource, options);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static PdfObjectStore OpenObjects(PdfByteSource source, bool ownsSource, PdfOpenOptions options, CancellationToken cancellationToken) =>
+        StoreOpening.OpenWith(source, ownsSource, options with { CancellationToken = cancellationToken });
 
-    /// <summary>Makes the document, reading the page tree, with the token in force.</summary>
+    /// <summary>Makes the document, reading the page tree with its open context.</summary>
     /// <param name="objects">The objects.</param>
     /// <param name="cancellationToken">The token.</param>
     /// <returns>The document.</returns>
     private static PdfDocument CreateScoped(PdfObjectStore objects, CancellationToken cancellationToken)
     {
-        using var scope = PdfCancellation.Enter(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         return PdfDocumentReader.Create(objects);
     }
 }

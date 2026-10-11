@@ -38,7 +38,7 @@ public class RectangleBenchmarks
     public void Setup()
     {
         _surface = SKSurface.Create(new SKImageInfo(RectangleSize, RectangleSize));
-        _context = new(new DrawingContextImpl.CreateInfo { Surface = _surface, Dpi = SkiaPlatform.DefaultDpi });
+        _context = new(new DrawingContextCreateInfo { Surface = _surface, Dpi = SkiaPlatform.DefaultDpi });
         using var builder = new SKPathBuilder();
         builder.AddRect(new(0, 0, RectangleSize, RectangleSize));
         var path = builder.Detach();

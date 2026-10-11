@@ -48,6 +48,9 @@ public sealed class PdfPageImporter
     /// <summary>The document copied from.</summary>
     private readonly PdfDocument _source;
 
+    /// <summary>The token for this page copy.</summary>
+    private readonly CancellationToken _cancellationToken;
+
     /// <summary>Copies the objects pages refer to.</summary>
     private readonly PdfObjectImporter _objects;
 
@@ -67,14 +70,16 @@ public sealed class PdfPageImporter
     /// <param name="target">The document being built.</param>
     /// <param name="source">The document copied from.</param>
     /// <param name="carryStructures">Whether <see cref="ImportPages"/> also keeps forms, outlines, destinations, labels, layers and embedded file names.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    internal PdfPageImporter(PdfDocumentBuilder target, PdfDocument source, bool carryStructures)
+    internal PdfPageImporter(PdfDocumentBuilder target, PdfDocument source, bool carryStructures, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(source);
         _target = target;
         _source = source;
-        _objects = new(target, source.Objects);
+        _cancellationToken = cancellationToken;
+        _objects = new(target, source.Objects, cancellationToken);
         _carrier = carryStructures ? new(_objects) : null;
     }
 
@@ -189,20 +194,20 @@ public sealed class PdfPageImporter
         var prepared = new PdfArray?[pages.Length];
         for (var i = 0; i < ids.Length; i++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            _cancellationToken.ThrowIfCancellationRequested();
             ids[i] = _target.Reserve();
             carrier.AddPage(pages[i].Id, ids[i]);
         }
 
         for (var i = 0; i < ids.Length; i++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            _cancellationToken.ThrowIfCancellationRequested();
             prepared[i] = carrier.PrepareAnnotations(pages[i], PdfAnnotationFilter.All);
         }
 
         for (var i = 0; i < ids.Length; i++)
         {
-            PdfCancellation.ThrowIfCancelled();
+            _cancellationToken.ThrowIfCancellationRequested();
             _ = ImportPageCore(pages[i], ids[i], prepared[i], PdfAnnotationFilter.All);
         }
 

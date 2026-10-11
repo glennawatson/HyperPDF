@@ -22,7 +22,7 @@ public class LayerBenchmarks
     private byte[] _file = [];
 
     /// <summary>The open document.</summary>
-    private OcrDocument _document = null!;
+    private BenchmarkPdfDocument _document = null!;
 
     /// <summary>The document's layers.</summary>
     private ILayerSource _layers = null!;

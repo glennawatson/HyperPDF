@@ -5,7 +5,7 @@
 using HyperPdfLibrary.Tests.Rendering;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
-using PdfViewerLite.Core.Rendering;
+using PdfViewerLite.HyperPdf.Tests.RenderingComparison;
 using PdfViewerLite.TestAssets;
 using SkiaSharp;
 
@@ -362,14 +362,12 @@ public sealed class RenderParityTests
     /// <returns>A task.</returns>
     private static async Task AssertParity(string name, byte[] pdf, PageRenderInfo info, double threshold, int tileEdge)
     {
-        using var pair = new EnginePair(pdf);
-        var size = pair.Pdfium.GetPageSizes()[info.PageIndex];
-        TileGrid.GetPagePixelSize(size, info.Rotation, info.Scale, out var pageWidth, out var pageHeight);
-        var width = tileEdge == 0 ? pageWidth : Math.Min(tileEdge, pageWidth - info.OffsetX);
-        var height = tileEdge == 0 ? pageHeight : Math.Min(tileEdge, pageHeight - info.OffsetY);
-
-        var expected = Render(pair.Pdfium, info, width, height);
-        var actual = Render(pair.HyperPdf, info, width, height);
+        using var input = new HyperPdfTestDocument(pdf);
+        var reference = PdfiumReferenceRendering.Render(pdf, info, tileEdge, tileEdge);
+        var width = reference.Width;
+        var height = reference.Height;
+        var expected = reference.Pixels.ToArray();
+        var actual = Render(input.Document, info, width, height);
         var difference = MeanDifference(expected, actual);
         if (difference >= threshold)
         {

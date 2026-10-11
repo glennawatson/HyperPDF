@@ -84,7 +84,7 @@ public sealed class PageExportTests
         try
         {
             var layout = new SheetLayout(pagesPerSheet, PaperSize.A4, false) { Imposition = imposition, PosterTiles = 1 };
-            using var run = ExportRun.Create(source, [0], layout, true);
+            using var run = ExportRun.Create(source, [0], layout);
 
             await Assert.That(run.Written).IsTrue();
             await Assert.That(ExportRun.GetAllText(run.Output!)).Contains(PrintedField);
@@ -119,7 +119,7 @@ public sealed class PageExportTests
         try
         {
             var layout = new SheetLayout(GridPages, PaperSize.A4, includeAnnotations) { Imposition = imposition, PosterTiles = 1 };
-            using var run = ExportRun.Create(source, [0], layout, true);
+            using var run = ExportRun.Create(source, [0], layout);
 
             await Assert.That(run.Written).IsTrue();
             await Assert.That(ExportRun.GetAllText(run.Output!).Contains(PrintedSignature, StringComparison.Ordinal)).IsEqualTo(includeAnnotations);
@@ -173,7 +173,7 @@ public sealed class PageExportTests
         var source = FilledForm();
         try
         {
-            using var run = ExportRun.Create(source, [0], new(1, paper, true) { FitToPaper = true }, true);
+            using var run = ExportRun.Create(source, [0], new(1, paper, true) { FitToPaper = true });
             SheetGrid.GetSheetSize(paper, false, out var width, out var height);
 
             await Assert.That(run.Written).IsTrue();
@@ -198,7 +198,7 @@ public sealed class PageExportTests
         var source = TestPdf.WriteTempFile(Pages);
         try
         {
-            using var run = ExportRun.Create(source, [0, WidePage], new(1, paper, true) { FitToPaper = true }, true);
+            using var run = ExportRun.Create(source, [0, WidePage], new(1, paper, true) { FitToPaper = true });
             SheetGrid.GetSheetSize(paper, false, out var width, out var height);
             var sizes = run.Output!.GetPageSizes();
             PageSize upright = new(width, height);
@@ -223,7 +223,7 @@ public sealed class PageExportTests
             _ = ((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).AddNote(0, NoteAt, "On the first page", AnnotationColors.Sand));
         try
         {
-            using var run = ExportRun.Create(source, [ThirdPage, 0], SheetLayout.Default, true);
+            using var run = ExportRun.Create(source, [ThirdPage, 0], SheetLayout.Default);
             var output = run.Output ?? throw new InvalidOperationException();
             List<PageAnnotation> annotations = [];
             ((IAnnotationEditor)DocumentFeatures.CastFeature(output!, typeof(IAnnotationEditor))!).GetAnnotations(1, annotations);
@@ -249,10 +249,8 @@ public sealed class PageExportTests
             _ = ((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).AddNote(0, NoteAt, "Left out", AnnotationColors.Sand));
         try
         {
-            using var run = ExportRun.Create(source, [0], new(1, PaperSize.A4, false), true);
-            using var reference = ExportRun.Create(source, [0], new(1, PaperSize.A4, false), false);
+            using var run = ExportRun.Create(source, [0], new(1, PaperSize.A4, false));
 
-            await Assert.That(CountSubtypes(run.FilePath, KnownName.Widget)).IsEqualTo(CountSubtypes(reference.FilePath, KnownName.Widget));
             await Assert.That(CountSubtypes(run.FilePath, KnownName.Widget)).IsGreaterThan(0);
             await Assert.That(CountSubtypes(run.FilePath, KnownName.Text)).IsEqualTo(0);
         }
@@ -276,7 +274,7 @@ public sealed class PageExportTests
             _ = ((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).AddNote(0, NoteAt, "Left out", AnnotationColors.Sand));
         try
         {
-            using var run = ExportRun.Create(source, [0, 1, ThirdPage, Pages - 1], new(perSheet, PaperSize.A4, false), true);
+            using var run = ExportRun.Create(source, [0, 1, ThirdPage, Pages - 1], new(perSheet, PaperSize.A4, false));
             var size = run.Output!.GetPageSizes()[0];
             List<PageAnnotation> annotations = [];
             ((IAnnotationEditor)DocumentFeatures.CastFeature(run.Output, typeof(IAnnotationEditor))!).GetAnnotations(0, annotations);
@@ -415,7 +413,7 @@ public sealed class PageExportTests
     /// <returns>The pixels that are not white paper.</returns>
     private static Task<int> PrintedInkAsync(string source)
     {
-        using var run = ExportRun.Create(source, [0], new(GridPages, PaperSize.A4, true), true);
+        using var run = ExportRun.Create(source, [0], new(GridPages, PaperSize.A4, true));
         return Task.FromResult(CountInk(run.Output!, 0));
     }
 
@@ -444,7 +442,7 @@ public sealed class PageExportTests
         var source = TestPdf.WriteTempFile(Pages);
         try
         {
-            return ExportRun.Create(source, pages, layout, true);
+            return ExportRun.Create(source, pages, layout);
         }
         finally
         {

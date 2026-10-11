@@ -79,11 +79,19 @@ internal static class PageRecorder
     /// <param name="imageScale">The upper scale of the zoom band.</param>
     /// <param name="bytes">Receives picture bytes.</param>
     /// <param name="images">Receives image weights.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The recorded picture.</returns>
-    internal static IPdfRenderPicture RecordAnnotations(PdfRenderCache cache, PdfPage page, bool printing, float imageScale, out long bytes, out ImageWeight[] images)
+    internal static IPdfRenderPicture RecordAnnotations(
+        PdfRenderCache cache,
+        PdfPage page,
+        bool printing,
+        float imageScale,
+        out long bytes,
+        out ImageWeight[] images,
+        CancellationToken cancellationToken = default)
     {
         using var device = Begin(page);
-        using var interpreter = new ContentInterpreter(cache, device, 0, imageScale) { Printing = printing, };
+        using var interpreter = new ContentInterpreter(cache, device, 0, imageScale, cancellationToken) { Printing = printing, };
         var annotations = page.Dictionary.GetArray(KnownName.Annots);
         DrawPass(new(cache, interpreter, page, printing), annotations, false);
         DrawPass(new(cache, interpreter, page, printing), annotations, true);

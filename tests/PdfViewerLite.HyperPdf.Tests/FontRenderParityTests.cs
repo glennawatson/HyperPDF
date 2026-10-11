@@ -6,7 +6,7 @@ using System.Globalization;
 using HyperPdfLibrary.Tests.Fonts;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
-using PdfViewerLite.Core.Rendering;
+using PdfViewerLite.HyperPdf.Tests.RenderingComparison;
 using PdfViewerLite.TestAssets;
 
 namespace PdfViewerLite.HyperPdf.Tests;
@@ -30,18 +30,6 @@ public sealed class FontRenderParityTests
     /// </summary>
     private const double SubstituteThreshold = 0.5;
 
-    /// <summary>
-    /// The broad corpus smoke-test limit. It detects severe render failures; per-page pixel differences are written
-    /// to the test output and do not establish standards conformance.
-    /// </summary>
-    private const double CorpusThreshold = 200.0;
-
-    /// <summary>The pages of each corpus file compared.</summary>
-    private const int CorpusPages = 2;
-
-    /// <summary>The render scale of corpus pages.</summary>
-    private const float CorpusScale = 0.5F;
-
     /// <summary>The descriptor flags of a non-symbolic font.</summary>
     private const int Nonsymbolic = 32;
 
@@ -53,9 +41,6 @@ public sealed class FontRenderParityTests
 
     /// <summary>The composite text page content: CIDs of A, B and m.</summary>
     private const string CompositeText = "BT /F1 24 Tf 10 60 Td <00220023004E> Tj 0 -30 Td <0022> Tj ET";
-
-    /// <summary>The variable naming another corpus folder.</summary>
-    private const string CorpusVariable = "PDFVIEWERLITE_CORPUS_DIR";
 
     /// <summary>An embedded TrueType font matches PDFium.</summary>
     /// <returns>A task.</returns>
@@ -105,47 +90,6 @@ public sealed class FontRenderParityTests
     public Task StandardFontIsCloseToPdfium() =>
         AssertParity(nameof(StandardFontIsCloseToPdfium), TestPdf.Create(1), SubstituteThreshold);
 
-    /// <summary>The first pages of each cached corpus document stay close to PDFium; skipped when the corpus is absent.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task CorpusPagesAreCloseToPdfium()
-    {
-        var folder = Environment.GetEnvironmentVariable(CorpusVariable) is { Length: > 0 } configured
-            ? configured
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus");
-        var files = Directory.Exists(folder) ? Directory.GetFiles(folder, "*.pdf") : [];
-        if (files.Length == 0)
-        {
-            Skip.Test($"No corpus PDFs in {folder}.");
-        }
-
-        var worst = 0.0;
-        foreach (var file in files)
-        {
-            worst = Math.Max(worst, await CompareFileAsync(file));
-        }
-
-        await Assert.That(worst).IsLessThan(CorpusThreshold);
-    }
-
-    /// <summary>Compares the first pages of one file.</summary>
-    /// <param name="file">The PDF path.</param>
-    /// <returns>The largest mean difference.</returns>
-    private static async Task<double> CompareFileAsync(string file)
-    {
-        using var pair = new EnginePair(await File.ReadAllBytesAsync(file));
-        var worst = 0.0;
-        var pages = Math.Min(CorpusPages, pair.Pdfium.PageCount);
-        for (var page = 0; page < pages; page++)
-        {
-            var difference = Compare(pair, new(page, CorpusScale, PageRotation.None, 0, 0, RenderFlags.FixedDeviceColors), out _);
-            TestContext.Current?.Output.WriteLine($"{Path.GetFileName(file)} page {page + 1}: mean difference {difference:F3}");
-            worst = Math.Max(worst, difference);
-        }
-
-        return worst;
-    }
-
     /// <summary>Renders a page with both engines and asserts the images are close.</summary>
     /// <param name="name">The test name.</param>
     /// <param name="pdf">The PDF bytes.</param>
@@ -153,9 +97,9 @@ public sealed class FontRenderParityTests
     /// <returns>A task.</returns>
     private static async Task AssertParity(string name, byte[] pdf, double threshold)
     {
-        using var pair = new EnginePair(pdf);
-        await pair.HyperPdf.PreparePageAsync(0, CancellationToken.None);
-        var difference = Compare(pair, new(0, 1, PageRotation.None, 0, 0, RenderFlags.FixedDeviceColors), out var images);
+        using var input = new HyperPdfTestDocument(pdf);
+        await input.Document.PreparePageAsync(0, CancellationToken.None);
+        var difference = Compare(input, new(0, 1, PageRotation.None, 0, 0, RenderFlags.FixedDeviceColors), out var images);
         TestContext.Current?.Output.WriteLine($"{name}: mean difference {difference:F3}");
         if (difference >= threshold)
         {
@@ -166,19 +110,19 @@ public sealed class FontRenderParityTests
     }
 
     /// <summary>Renders a page with both engines.</summary>
-    /// <param name="pair">The documents.</param>
+    /// <param name="input">The comparison PDF and HyperPDF document.</param>
     /// <param name="info">The page request.</param>
     /// <param name="images">The two renders.</param>
     /// <returns>The mean absolute difference per channel.</returns>
     /// <exception cref="InvalidOperationException">An engine could not render the page.</exception>
-    private static double Compare(EnginePair pair, in PageRenderInfo info, out ParityImages images)
+    private static double Compare(HyperPdfTestDocument input, in PageRenderInfo info, out ParityImages images)
     {
-        var size = pair.Pdfium.GetPageSizes()[info.PageIndex];
-        TileGrid.GetPagePixelSize(size, info.Rotation, info.Scale, out var width, out var height);
-        var expected = new byte[width * height * BytesPerPixel];
+        var reference = PdfiumReferenceRendering.Render(input.Pdf, info);
+        var width = reference.Width;
+        var height = reference.Height;
+        var expected = reference.Pixels.ToArray();
         var actual = new byte[expected.Length];
-        var target = new RenderTarget(expected, width, height, width * BytesPerPixel);
-        if (!pair.Pdfium.Render(info, target) || !pair.HyperPdf.Render(info, new(actual, width, height, width * BytesPerPixel)))
+        if (!input.Document.Render(info, new(actual, width, height, width * BytesPerPixel)))
         {
             throw new InvalidOperationException("The page could not be rendered.");
         }

@@ -12,7 +12,7 @@ using PdfViewerLite.App.Services;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
 using PdfViewerLite.Core.Settings;
-using PdfViewerLite.Pdfium;
+using PdfViewerLite.HyperPdf;
 using PdfViewerLite.TestAssets;
 using ReactiveUI.Primitives;
 
@@ -190,7 +190,7 @@ public sealed class CertificateSignTests
 
         RememberedCertificate[] remembered;
         string? signature;
-        using (var reopened = new AppServices(new SettingsStore(test.Services.SettingsStore.FilePath), new PdfiumEngine(), new FallbackPlatform()))
+        using (var reopened = new AppServices(new SettingsStore(test.Services.SettingsStore.FilePath), new HyperPdfEngine(), new FallbackPlatform()))
         {
             remembered = [.. reopened.Settings.RememberedCertificates];
             signature = reopened.SignatureMarks.Signature?.Text;

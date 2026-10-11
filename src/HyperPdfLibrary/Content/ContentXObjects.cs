@@ -129,7 +129,7 @@ internal static class ContentXObjects
         }
 
         var reduction = ImageReduction.Select(image.Dictionary, self.State.Ctm, self.ImageScale);
-        var entry = self.Cache.AcquireImage(image, reduction);
+        var entry = self.Cache.AcquireImage(image, reduction, self.CancellationToken);
         if (entry is null)
         {
             return;
@@ -254,7 +254,7 @@ internal static class ContentXObjects
         }
 
         using var scope = Graphics.Colors.OutputIntentColors.Enter(self.Cache.DeviceColors);
-        var data = PdfImageDecoder.DecodeInline(dictionary, content[reader.InlineImageData], ContentExecution.CurrentResources(self));
+        var data = PdfImageDecoder.DecodeInline(dictionary, content[reader.InlineImageData], ContentExecution.CurrentResources(self), self.CancellationToken);
         if (data is null || data.UnsupportedCodec != PdfImageCodec.None)
         {
             return;

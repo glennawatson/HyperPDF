@@ -139,10 +139,11 @@ internal sealed class PdfRenderCache
     /// <summary>Gets a decoded image at the selected resolution.</summary>
     /// <param name="stream">The image stream.</param>
     /// <param name="reductionLevels">The finest levels omitted from its decode.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image, which the caller releases; null when decoding fails.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ImageEntry? AcquireImage(PdfStream stream, int reductionLevels) =>
-        Images.Acquire(new(stream, reductionLevels), DeviceColors, Decode);
+    internal ImageEntry? AcquireImage(PdfStream stream, int reductionLevels, CancellationToken cancellationToken = default) =>
+        Images.Acquire(new(stream, reductionLevels), new ImageDecodeState(DeviceColors, cancellationToken), Decode, cancellationToken);
 
     /// <summary>Gets a colour space from a value.</summary>
     /// <param name="value">A name or colour space array, resolved.</param>
@@ -159,12 +160,12 @@ internal sealed class PdfRenderCache
 
     /// <summary>Decodes an image stream.</summary>
     /// <param name="key">The stream and decoded resolution.</param>
-    /// <param name="colors">The output intent substitutes for device colour spaces, or <see langword="null"/>.</param>
+    /// <param name="state">The output intent colours and caller's cancellation token.</param>
     /// <returns>The entry, or null.</returns>
-    private static ImageEntry? Decode(ImageKey key, OutputIntentColors? colors)
+    private static ImageEntry? Decode(ImageKey key, ImageDecodeState state)
     {
-        using var scope = OutputIntentColors.Enter(colors);
-        var data = PdfImageDecoder.DecodeCompact(key.Stream, key.ReductionLevels);
+        using var scope = OutputIntentColors.Enter(state.Colors);
+        var data = PdfImageDecoder.DecodeCompact(key.Stream, key.ReductionLevels, state.CancellationToken);
         if (data is null)
         {
             return null;
@@ -179,4 +180,9 @@ internal sealed class PdfRenderCache
         var converted = ToRenderImage(data);
         return converted is null ? null : new ImageEntry(converted, data.IsStencilMask, data.Interpolate);
     }
+
+    /// <summary>The input to one image decode, passed to the cache leader without shared mutable state.</summary>
+    /// <param name="Colors">The output intent colours.</param>
+    /// <param name="CancellationToken">The caller's token.</param>
+    private readonly record struct ImageDecodeState(OutputIntentColors? Colors, CancellationToken CancellationToken);
 }

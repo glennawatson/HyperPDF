@@ -56,6 +56,9 @@ internal sealed partial class ContentUsageScanner
     /// <summary>The forms, patterns and appearance streams already walked as fixed.</summary>
     private readonly HashSet<int> _fixedWalked = [];
 
+    /// <summary>The token of the current document scan.</summary>
+    private CancellationToken _cancellationToken;
+
     /// <summary>Initializes a new instance of the <see cref = "ContentUsageScanner"/> class.</summary>
     /// <param name = "document">The document to read.</param>
     internal ContentUsageScanner(PdfDocument document) => _document = document;
@@ -83,6 +86,7 @@ internal sealed partial class ContentUsageScanner
     /// <param name = "cancellationToken">Stops the scan.</param>
     internal void ScanDocument(Action<int>? pageDone, CancellationToken cancellationToken)
     {
+        _cancellationToken = cancellationToken;
         for (var i = 0; i < _document.PageCount; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -101,7 +105,7 @@ internal sealed partial class ContentUsageScanner
         var content = default(PooledBuffer);
         try
         {
-            ContentExecution.DecodeContents(page, ref content);
+            ContentExecution.DecodeContents(page, ref content, _cancellationToken);
             Walk(content.WrittenSpan, page.Resources, Matrix3x2.Identity, new(userUnit, 0, false));
         }
         finally
@@ -439,7 +443,7 @@ internal sealed partial class ContentUsageScanner
         var content = default(PooledBuffer);
         try
         {
-            _ = stream.Decode(ref content);
+            _ = stream.Decode(ref content, _cancellationToken);
             Walk(content.WrittenSpan, resources, ctm, walk);
         }
         finally

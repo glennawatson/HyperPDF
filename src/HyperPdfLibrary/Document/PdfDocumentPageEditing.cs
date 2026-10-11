@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdfLibrary.Objects;
-
 namespace HyperPdfLibrary.Document;
 
 /// <summary>Loads page resources asynchronously before applying cancellable page edits.</summary>
@@ -18,8 +16,7 @@ public static class PdfDocumentPageEditing
     public static async ValueTask RotatePagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, int degrees, CancellationToken cancellationToken)
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         PdfDocumentPageOperations.RotatePages(document, pages.Span, degrees);
     }
 
@@ -31,8 +28,7 @@ public static class PdfDocumentPageEditing
     public static async ValueTask DeletePagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, CancellationToken cancellationToken)
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         PdfDocumentPageOperations.DeletePages(document, pages.Span);
     }
 
@@ -45,8 +41,7 @@ public static class PdfDocumentPageEditing
     public static async ValueTask MovePagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, int destination, CancellationToken cancellationToken)
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        PdfCancellation.ThrowIfCancelled();
+        cancellationToken.ThrowIfCancellationRequested();
         PdfDocumentPageOperations.MovePages(document, pages.Span, destination);
     }
 
@@ -60,9 +55,7 @@ public static class PdfDocumentPageEditing
     public static async ValueTask InsertPagesAsync(PdfDocument document, int index, PdfDocument source, ReadOnlyMemory<int> pages, CancellationToken cancellationToken)
     {
         await PrefetchAsync(source, pages, cancellationToken).ConfigureAwait(false);
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        PdfCancellation.ThrowIfCancelled();
-        PdfDocumentPageOperations.InsertPages(document, index, source, pages.Span);
+        PdfDocumentPageOperations.InsertPages(document, index, source, pages.Span, cancellationToken);
     }
 
     /// <summary>Writes selected pages to a new PDF, retaining their structure.</summary>
@@ -73,9 +66,7 @@ public static class PdfDocumentPageEditing
     public static async ValueTask<byte[]> ExtractPagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, CancellationToken cancellationToken)
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
-        using var scope = PdfCancellation.Enter(cancellationToken);
-        PdfCancellation.ThrowIfCancelled();
-        return PdfDocumentPageOperations.ExtractPages(document, pages.Span);
+        return PdfDocumentPageOperations.ExtractPages(document, pages.Span, cancellationToken);
     }
 
     /// <summary>Loads selected pages before entering the synchronous editing scope.</summary>

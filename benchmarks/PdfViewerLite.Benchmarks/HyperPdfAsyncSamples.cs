@@ -34,7 +34,7 @@ internal static class HyperPdfAsyncSamples
     internal const string Word = "the";
 
     /// <summary>The cached corpus folder.</summary>
-    private static readonly string CorpusFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "corpus");
+    private static readonly string CorpusFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "pdfviewerlite", "reference-pdfs");
 
     /// <summary>Gets the path of a sample document, writing generated ones to the temp folder.</summary>
     /// <param name="name">Report, Scan, Form or Book.</param>

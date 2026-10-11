@@ -64,6 +64,9 @@ internal ref struct Jbig2ArithmeticDecoder
     /// <summary>The data.</summary>
     private readonly ReadOnlySpan<byte> _data;
 
+    /// <summary>The token for the containing segment decode.</summary>
+    private readonly CancellationToken _cancellationToken;
+
     /// <summary>The position of the byte last read into the code register.</summary>
     private int _position;
 
@@ -82,9 +85,11 @@ internal ref struct Jbig2ArithmeticDecoder
     /// <summary>Initializes a new instance of the <see cref="Jbig2ArithmeticDecoder"/> struct.</summary>
     /// <param name="data">The data, usually the whole JBIG2 stream.</param>
     /// <param name="position">The position of the first coded byte.</param>
-    internal Jbig2ArithmeticDecoder(ReadOnlySpan<byte> data, int position)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal Jbig2ArithmeticDecoder(ReadOnlySpan<byte> data, int position, CancellationToken cancellationToken = default)
     {
         _data = data;
+        _cancellationToken = cancellationToken;
         _position = Math.Clamp(position, 0, data.Length);
         _b = _position < data.Length ? data[_position] : Fill;
         _c = (uint)(_b ^ Fill) << CodeShift;
@@ -96,6 +101,9 @@ internal ref struct Jbig2ArithmeticDecoder
 
     /// <summary>Gets the position of the byte last read, where the next segment field starts after alignment.</summary>
     internal readonly int Position => _position;
+
+    /// <summary>Gets the token for arithmetic region loops.</summary>
+    internal readonly CancellationToken CancellationToken => _cancellationToken;
 
     /// <summary>Gets a value indicating whether the decoder has read past the end of the data.</summary>
     internal bool IsComplete { readonly get; private set; }

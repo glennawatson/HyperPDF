@@ -35,9 +35,11 @@ internal static class StreamRecompressor
 
     /// <summary>Recompresses a stream when that makes it smaller.</summary>
     /// <param name="stream">The stream.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The smaller stream, or <see langword="null"/> when nothing was gained.</returns>
-    internal static PdfStream? TryRecompress(PdfStream stream)
+    internal static PdfStream? TryRecompress(PdfStream stream, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var dictionary = stream.Dictionary;
         if (dictionary.IsName(KnownName.Type, KnownName.Metadata) || dictionary.ContainsKey(KnownName.F))
         {
@@ -49,16 +51,16 @@ internal static class StreamRecompressor
         var plain = dictionary.GetRaw(KnownName.DecodeParms).IsNull;
         if (count == 0)
         {
-            return plain ? Compress(stream, dictionary, default, false) : null;
+            return plain ? Compress(stream, dictionary, default, false, cancellationToken) : null;
         }
 
         var first = ImageFilters.At(filters, 0);
         if (count == 1 && IsPredictable(first))
         {
-            return RecompressSingle(stream, first, Parameters(dictionary));
+            return RecompressSingle(stream, first, Parameters(dictionary), cancellationToken);
         }
 
-        return plain && IsByteChain(filters, count) ? Compress(stream, dictionary, filters, true) : null;
+        return plain && IsByteChain(filters, count) ? Compress(stream, dictionary, filters, true, cancellationToken) : null;
     }
 
     /// <summary>Compresses data at the best level.</summary>
@@ -102,8 +104,9 @@ internal static class StreamRecompressor
     /// <param name="stream">The stream.</param>
     /// <param name="filter">The filter.</param>
     /// <param name="parameters">Its parameters, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The smaller stream, or <see langword="null"/>.</returns>
-    private static PdfStream? RecompressSingle(PdfStream stream, KnownName filter, PdfDictionary? parameters)
+    private static PdfStream? RecompressSingle(PdfStream stream, KnownName filter, PdfDictionary? parameters, CancellationToken cancellationToken)
     {
         using var raw = stream.LeaseRawData();
         var plain = PdfObjectWriter.PlainData(stream, raw.Span);
@@ -111,8 +114,10 @@ internal static class StreamRecompressor
         var deflated = default(PooledBuffer);
         try
         {
-            Inflate(plain, filter, parameters, ref inflated);
+            Inflate(plain, filter, parameters, ref inflated, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             Deflate(inflated.WrittenSpan, ref deflated);
+            cancellationToken.ThrowIfCancellationRequested();
             return deflated.Length < stream.RawLength ? Finish(FlateDictionary(stream.Dictionary, parameters), deflated.WrittenSpan) : null;
         }
         finally
@@ -127,15 +132,16 @@ internal static class StreamRecompressor
     /// <param name="filter">The filter.</param>
     /// <param name="parameters">Its parameters, or <see langword="null"/>.</param>
     /// <param name="output">Receives the predicted bytes.</param>
-    private static void Inflate(ReadOnlySpan<byte> data, KnownName filter, PdfDictionary? parameters, ref PooledBuffer output)
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void Inflate(ReadOnlySpan<byte> data, KnownName filter, PdfDictionary? parameters, ref PooledBuffer output, CancellationToken cancellationToken)
     {
         if (filter is KnownName.FlateDecode or KnownName.Fl)
         {
-            FlateFilter.Decode(data, ref output);
+            FlateFilter.Decode(data, ref output, cancellationToken);
             return;
         }
 
-        LzwFilter.Decode(data, parameters?.GetInt32(KnownName.EarlyChange, 1) ?? 1, ref output);
+        LzwFilter.Decode(data, parameters?.GetInt32(KnownName.EarlyChange, 1) ?? 1, ref output, cancellationToken);
     }
 
     /// <summary>Copies a stream dictionary as a Flate stream with the same predictor.</summary>
@@ -161,8 +167,9 @@ internal static class StreamRecompressor
     /// <param name="dictionary">The stream dictionary.</param>
     /// <param name="filters">The filters to decode, or a null value for none.</param>
     /// <param name="decode">Whether to decode the filters first.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The smaller stream, or <see langword="null"/>.</returns>
-    private static PdfStream? Compress(PdfStream stream, PdfDictionary dictionary, PdfValue filters, bool decode)
+    private static PdfStream? Compress(PdfStream stream, PdfDictionary dictionary, PdfValue filters, bool decode, CancellationToken cancellationToken)
     {
         using var raw = stream.LeaseRawData();
         var plain = PdfObjectWriter.PlainData(stream, raw.Span);
@@ -173,11 +180,13 @@ internal static class StreamRecompressor
             var data = plain;
             if (decode)
             {
-                _ = PdfStreamDecoder.Apply(plain, filters, default, ref decoded);
+                _ = PdfStreamDecoder.Apply(plain, filters, default, ref decoded, cancellationToken);
                 data = decoded.WrittenSpan;
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             Deflate(data, ref deflated);
+            cancellationToken.ThrowIfCancellationRequested();
             if (deflated.Length >= stream.RawLength)
             {
                 return null;

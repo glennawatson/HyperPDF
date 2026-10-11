@@ -76,7 +76,8 @@ internal sealed class ContentInterpreter : IDisposable
     /// <param name = "device">The device to draw on.</param>
     /// <param name = "depth">The nesting depth already in use, for streams run from inside others.</param>
     /// <param name="imageScale">The upper device scale for selecting decoded image resolution.</param>
-    internal ContentInterpreter(PdfRenderCache cache, IContentDevice device, int depth, float imageScale = float.PositiveInfinity)
+    /// <param name="cancellationToken">Cancels content and image decoding.</param>
+    internal ContentInterpreter(PdfRenderCache cache, IContentDevice device, int depth, float imageScale = float.PositiveInfinity, CancellationToken cancellationToken = default)
     {
         _cache = cache;
         _device = device;
@@ -84,10 +85,14 @@ internal sealed class ContentInterpreter : IDisposable
         _layers = PdfDocumentLayers.GetOptionalContent(cache.Document);
         _depth = depth;
         ImageScale = imageScale;
+        CancellationToken = cancellationToken;
     }
 
     /// <summary>Gets the upper device scale for decoded images in this recording.</summary>
     internal float ImageScale { get; }
+
+    /// <summary>Gets the token for the current content execution.</summary>
+    internal CancellationToken CancellationToken { get; private set; }
 
     /// <summary>Gets the interpreter's Cache state.</summary>
     internal PdfRenderCache Cache => _cache;
@@ -165,4 +170,8 @@ internal sealed class ContentInterpreter : IDisposable
     public void Dispose()
     {
     }
+
+    /// <summary>Updates the token when a paused recording resumes under a new call.</summary>
+    /// <param name="cancellationToken">The current caller's token.</param>
+    internal void SetCancellationToken(CancellationToken cancellationToken) => CancellationToken = cancellationToken;
 }

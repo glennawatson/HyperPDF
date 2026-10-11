@@ -6,7 +6,7 @@ using PdfViewerLite.Core.Annotations;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Platform;
-using PdfViewerLite.Pdfium;
+using PdfViewerLite.HyperPdf;
 
 namespace PdfViewerLite.App.Tests;
 
@@ -75,7 +75,7 @@ internal sealed class RecordingPrinter : IPrintService
     {
         Path = filePath;
         Title = title;
-        using var document = new PdfiumEngine().Open(filePath, null);
+        using var document = new HyperPdfEngine().Open(filePath, null);
         PageCount = document.PageCount;
         PageText = document.GetText(0, 0, document.GetCharacterCount(0));
         List<PageAnnotation> annotations = [];

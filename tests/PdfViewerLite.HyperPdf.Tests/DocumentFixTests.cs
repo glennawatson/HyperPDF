@@ -24,6 +24,12 @@ public sealed class DocumentFixTests
     /// <summary>The pages in the three page sample.</summary>
     private const int ThreePages = 3;
 
+    /// <summary>The edge of the repeated small page.</summary>
+    private const float SmallPageEdge = 100;
+
+    /// <summary>The edge of the page following the missing kid.</summary>
+    private const float LargePageEdge = 200;
+
     /// <summary>The middle page's index.</summary>
     private const int MiddlePage = 1;
 
@@ -53,7 +59,7 @@ public sealed class DocumentFixTests
     [Test]
     public async Task AttachmentSizesComeFromParamsThenDecodingAndSurviveBadStreams()
     {
-        using var pair = new EnginePair(
+        using var test = new HyperPdfTestDocument(
             MiniPdf.Build(
                 "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(a.txt) 5 0 R (b.txt) 6 0 R (c.txt) 7 0 R] >> >> >>",
                 "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -65,7 +71,7 @@ public sealed class DocumentFixTests
                 MiniPdf.Stream("/Type /EmbeddedFile /Params << /Size 12345 >>", "hello"),
                 MiniPdf.Stream("/Type /EmbeddedFile /Filter /FlateDecode", "not zlib at all"),
                 MiniPdf.Stream("/Type /EmbeddedFile", "world!")));
-        var attachments = ((IAttachmentSource)DocumentFeatures.CastFeature(pair.HyperPdf, typeof(IAttachmentSource))!).GetAttachments();
+        var attachments = ((IAttachmentSource)DocumentFeatures.CastFeature(test.Document, typeof(IAttachmentSource))!).GetAttachments();
 
         await Assert.That(attachments.Count).IsEqualTo(AttachmentCount);
         await Assert.That(attachments[0].Size).IsEqualTo(RecordedSize);
@@ -78,7 +84,7 @@ public sealed class DocumentFixTests
     [Test]
     public async Task NamedActionsLeadToPages()
     {
-        using var pair = new EnginePair(
+        using var test = new HyperPdfTestDocument(
             MiniPdf.Build(
                 "<< /Type /Catalog /Pages 2 0 R /Outlines 9 0 R >>",
                 "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>",
@@ -92,8 +98,8 @@ public sealed class DocumentFixTests
                 "<< /Title (Next) /Parent 9 0 R /Next 12 0 R /A << /S /Named /N /NextPage >> >>",
                 Named("LastPage"),
                 "<< /Title (Last) /Parent 9 0 R /Prev 10 0 R /A << /S /Named /N /LastPage >> >>"));
-        var links = pair.HyperPdf.GetLinks(MiddlePage);
-        var outline = pair.HyperPdf.GetOutline();
+        var links = test.Document.GetLinks(MiddlePage);
+        var outline = test.Document.GetOutline();
 
         await Assert.That(links.Count).IsEqualTo(MiddleLinks);
         await Assert.That(links[0].Target.PageIndex).IsEqualTo(FinalIndex);
@@ -109,55 +115,51 @@ public sealed class DocumentFixTests
     [Test]
     public async Task DestinationLocationHonoursCropBoxAndRotation()
     {
-        using var pair = new EnginePair(
+        using var test = new HyperPdfTestDocument(
             MiniPdf.Build(
                 "<< /Type /Catalog /Pages 2 0 R >>",
                 "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
                 "<< /Type /Page /Parent 2 0 R /Rotate 90 /MediaBox [0 0 600 800] /CropBox [100 100 500 700] /Annots [4 0 R] >>",
                 "<< /Type /Annot /Subtype /Link /Rect [10 10 50 50] /Dest [3 0 R /XYZ 200 300 0] >>"));
-        var links = pair.HyperPdf.GetLinks(0);
+        var links = test.Document.GetLinks(0);
 
         await Assert.That(links.Count).IsEqualTo(1);
         await Assert.That(links[0].Target.Location).IsEqualTo(new PagePoint(ViewerX, ViewerY));
     }
 
-    /// <summary>A hidden layer that is shown reads back as shown, and PDFium agrees after the same change.</summary>
+    /// <summary>A hidden layer can be shown and reads back as visible.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task LayerChangesMatchPdfium()
+    public async Task HiddenLayerCanBeShown()
     {
-        using var pair = new EnginePair(TestPdf.CreateWithLayers());
-        var hyper = (ILayerSource)DocumentFeatures.CastFeature(pair.HyperPdf, typeof(ILayerSource))!;
-        var pdfium = (ILayerSource)DocumentFeatures.CastFeature(pair.Pdfium, typeof(ILayerSource))!;
+        using var test = new HyperPdfTestDocument(TestPdf.CreateWithLayers());
+        var hyper = (ILayerSource)DocumentFeatures.CastFeature(test.Document, typeof(ILayerSource))!;
         var hidden = hyper.GetLayers()[HiddenLayer];
 
         await Assert.That(hidden.IsVisible).IsFalse();
         await Assert.That(hyper.SetLayerVisible(hidden.Id, true)).IsTrue();
-        await Assert.That(pdfium.SetLayerVisible(hidden.Id, true)).IsTrue();
         await Assert.That(hyper.GetLayers()[HiddenLayer].IsVisible).IsTrue();
-        await Assert.That(pdfium.GetLayers()[HiddenLayer].IsVisible).IsTrue();
     }
 
-    /// <summary>A page tree with a repeated kid and a missing kid has the pages PDFium finds, in the same order.</summary>
+    /// <summary>A page tree skips a missing kid and keeps the following real page.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task DamagedPageTreeMatchesPdfium()
+    public async Task DamagedPageTreeSkipsMissingKid()
     {
-        using var pair = new EnginePair(
+        using var test = new HyperPdfTestDocument(
             MiniPdf.Build(
                 "<< /Type /Catalog /Pages 2 0 R >>",
                 "<< /Type /Pages /Kids [3 0 R 3 0 R 99 0 R 4 0 R] /Count 3 >>",
                 "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>",
                 "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>"));
 
-        await Assert.That(pair.HyperPdf.PageCount).IsEqualTo(pair.Pdfium.PageCount);
-        var expected = pair.Pdfium.GetPageSizes();
-        var actual = pair.HyperPdf.GetPageSizes();
-
-        // PDFium answers the page after the missing kid with the first page again; HyperPDF skips the missing kid and
-        // lists the next real page, so only the pages before it are compared.
-        await Assert.That(actual[0]).IsEqualTo(expected[0]);
-        await Assert.That(actual[1]).IsEqualTo(expected[1]);
+        var sizes = test.Document.GetPageSizes();
+        await Assert.That(test.Document.PageCount).IsEqualTo(ThreePages);
+        PageSize small = new(SmallPageEdge, SmallPageEdge);
+        PageSize large = new(LargePageEdge, LargePageEdge);
+        await Assert.That(sizes[0]).IsEqualTo(small);
+        await Assert.That(sizes[1]).IsEqualTo(small);
+        await Assert.That(sizes[FinalIndex]).IsEqualTo(large);
     }
 
     /// <summary>Writes a link annotation that runs a named action.</summary>

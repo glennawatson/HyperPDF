@@ -203,12 +203,12 @@ public sealed class PdfActionRunner
         {
             case ResetFormAction reset:
                 {
-                    return Local(HyperPdfLibrary.Forms.PdfFormActions.Reset(PdfDocumentForms.GetForm(_document), reset));
+                    return Local(HyperPdfLibrary.Forms.PdfFormActions.Reset(PdfDocumentForms.GetForm(_document), reset, cancellationToken));
                 }
 
             case HideAction hide:
                 {
-                    return Local(HyperPdfLibrary.Forms.PdfFormActions.SetHidden(PdfDocumentForms.GetForm(_document), hide));
+                    return Local(HyperPdfLibrary.Forms.PdfFormActions.SetHidden(PdfDocumentForms.GetForm(_document), hide, cancellationToken));
                 }
 
             case SetOcgStateAction layers:
@@ -223,7 +223,7 @@ public sealed class PdfActionRunner
 
             case SubmitFormAction submit:
                 {
-                    var submission = HyperPdfLibrary.Forms.PdfFormActions.CreateSubmission(PdfDocumentForms.GetForm(_document), submit);
+                    var submission = HyperPdfLibrary.Forms.PdfFormActions.CreateSubmission(PdfDocumentForms.GetForm(_document), submit, cancellationToken);
                     return Asked(await _host.SubmitFormAsync(submission, cancellationToken).ConfigureAwait(false));
                 }
 

@@ -15,7 +15,7 @@ public class AttachmentBenchmarks
     private readonly MemoryStream _destination = new();
 
     /// <summary>The document.</summary>
-    private OcrDocument _document = null!;
+    private BenchmarkPdfDocument _document = null!;
 
     /// <summary>The document as an attachment source.</summary>
     private IAttachmentSource _source = null!;

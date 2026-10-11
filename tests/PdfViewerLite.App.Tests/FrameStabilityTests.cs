@@ -13,7 +13,6 @@ using PdfViewerLite.App.Controls;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
 using PdfViewerLite.Core.Settings;
-using PdfViewerLite.Pdfium;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 
@@ -84,7 +83,7 @@ public sealed class FrameStabilityTests
     [Test]
     public async Task ScrollingDrawsSettledFrames()
     {
-        using var test = new TestServices(TestEngineChoice.Pdfium);
+        using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scroll.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
@@ -195,18 +194,11 @@ public sealed class FrameStabilityTests
     /// <returns>The first frame's sharp edges as a share of the settled frame's.</returns>
     private static async Task<double> CompareWithSettledAsync(TestServices test, Window window, ScrollViewer scroller, Action change, string name)
     {
-        // Holding the PDFium lock keeps tiles from arriving, as a slow page would, so the frame shows only what was cached.
-        WriteableBitmap first;
-        using (PdfiumLibrary.EnterScope())
-        {
-            change();
-            Dispatcher.UIThread.RunJobs();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            Dispatcher.UIThread.RunJobs();
-            first = window.CaptureRenderedFrame()!;
-        }
-
-        using var firstFrame = first;
+        change();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        using var first = window.CaptureRenderedFrame()!;
         _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.QueueLength == 0);
 
         // The last dequeued tile may still be rendering, so keep pumping until a pause brings no new tiles.

@@ -201,7 +201,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
         var start = reader.Offset;
         var settings = context.Settings;
         var parameters = new Jbig2RefinementParameters(settings.RefinementTemplate, false, dx, dy, settings.RefinementAt);
-        var decoder = new Jbig2ArithmeticDecoder(reader.Data, start);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, start, reader.CancellationToken);
         var decoded = Jbig2RefinementRegion.Decode(ref decoder, refinementContexts, parameters, store.Get(index), bitmap);
         reader.Offset = decoder.Position;
         reader.AlignByte();
