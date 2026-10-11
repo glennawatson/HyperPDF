@@ -430,12 +430,15 @@ public sealed class RenderSchedulerTests
         await Assert.That(scheduler.IsPending(key)).IsFalse();
     }
 
-    /// <summary>A new generation requested during an active render replaces its stale result.</summary>
+    /// <summary>
+    /// A tile requested again by a newer generation while it renders is delivered once, as when a page keeps scrolling
+    /// past while its tile takes longer than a frame.
+    /// </summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task ActiveRenderIsReplacedAfterGenerationAdvance()
+    public async Task ActiveRenderIsKeptAfterGenerationAdvance()
     {
-        const int expectedRenders = 2;
+        const int frames = 3;
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
         using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
@@ -446,8 +449,79 @@ public sealed class RenderSchedulerTests
 
         _ = scheduler.Request(Request(key, document, client, RenderPriority.Visible));
         await document.FirstRenderStarted.WaitAsync(Timeout);
+        var requeued = false;
+        for (var frame = 0; frame < frames; frame++)
+        {
+            var generation = client.Advance();
+            requeued |= scheduler.Request(Request(key, document, client, RenderPriority.Visible) with { Generation = generation });
+        }
+
+        gate.Set();
+        var taken = 0;
+        while (scheduler.IsPending(key))
+        {
+            await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+            while (scheduler.TryTakeCompleted(out var tile))
+            {
+                taken++;
+                tile.Surface.Dispose();
+            }
+        }
+
+        await Assert.That(requeued).IsFalse();
+        await Assert.That(document.RenderCount).IsEqualTo(1);
+        await Assert.That(taken).IsEqualTo(1);
+    }
+
+    /// <summary>A tile whose client moved on while it rendered, without asking for it again, is discarded.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ActiveRenderDropsWhenNoLongerRequested()
+    {
+        using var gate = new ManualResetEventSlim(false);
+        using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
+        using var document = new FakeDocument(DocumentName, FakeEngine.A4) { Gate = gate };
+        using var timeout = new CancellationTokenSource(Timeout);
+        using var timer = new PeriodicTimer(PollInterval);
+        var client = new RenderClient();
+        var key = Key(0);
+
+        _ = scheduler.Request(Request(key, document, client, RenderPriority.Visible));
+        await document.FirstRenderStarted.WaitAsync(Timeout);
         _ = client.Advance();
-        var requeued = scheduler.Request(Request(key, document, client, RenderPriority.Visible));
+        gate.Set();
+
+        var taken = 0;
+        while (scheduler.IsPending(key) && await timer.WaitForNextTickAsync(timeout.Token))
+        {
+            while (scheduler.TryTakeCompleted(out var tile))
+            {
+                taken++;
+                tile.Surface.Dispose();
+            }
+        }
+
+        await Assert.That(taken).IsEqualTo(0);
+        await Assert.That(document.RenderCount).IsEqualTo(1);
+    }
+
+    /// <summary>A tile requested for a reopened document while the old one renders is rendered again from the new one.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ActiveRenderIsReplacedForANewDocument()
+    {
+        using var gate = new ManualResetEventSlim(false);
+        using var completed = new SemaphoreSlim(0);
+        using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
+        using var completions = scheduler.Completed.SubscribeSafe(_ => completed.Release(), static _ => { });
+        using var closed = new FakeDocument(DocumentName, FakeEngine.A4) { Gate = gate };
+        using var reopened = new FakeDocument(DocumentName, FakeEngine.A4);
+        var client = new RenderClient();
+        var key = Key(0);
+
+        _ = scheduler.Request(Request(key, closed, client, RenderPriority.Visible));
+        await closed.FirstRenderStarted.WaitAsync(Timeout);
+        var requeued = scheduler.Request(Request(key, reopened, client, RenderPriority.Visible));
         gate.Set();
 
         var taken = 0;
@@ -462,7 +536,7 @@ public sealed class RenderSchedulerTests
         }
 
         await Assert.That(requeued).IsTrue();
-        await Assert.That(document.RenderCount).IsEqualTo(expectedRenders);
+        await Assert.That(reopened.RenderCount).IsEqualTo(1);
         await Assert.That(taken).IsEqualTo(1);
     }
 
