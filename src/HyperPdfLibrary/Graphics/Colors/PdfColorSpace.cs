@@ -57,7 +57,20 @@ public abstract class PdfColorSpace
     public virtual bool PaintsNothing => false;
 
     /// <summary>Gets the decode range of 8-bit row samples, as min/max pairs.</summary>
-    private protected float[] SampleDecode => field ??= GetDefaultDecode(ByteBits);
+    private protected float[] SampleDecode
+    {
+        get
+        {
+            var cached = Volatile.Read(ref field);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            var created = GetDefaultDecode(ByteBits);
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
 
     /// <summary>Parses a colour space, resolving names through the /ColorSpace resource dictionary.</summary>
     /// <param name="value">A name or a colour space array, already resolved.</param>
