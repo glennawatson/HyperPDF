@@ -660,6 +660,7 @@ public sealed partial class PageCanvas : Control
         if (tiled)
         {
             DrawTiles(context, frame, grid, window, visible);
+            PrefetchAdjacentTiles(context, frame, page, rect, window, visible);
         }
 
         if (!visible)
@@ -726,6 +727,34 @@ public sealed partial class PageCanvas : Control
             for (var column = window.FirstColumn; column <= window.LastColumn; column++)
             {
                 DrawTile(context, frame, grid, column, row, visible, request);
+            }
+        }
+    }
+
+    /// <summary>Requests nearby rows of a visible page before scrolling exposes them.</summary>
+    /// <param name="context">The drawing context.</param>
+    /// <param name="frame">The frame.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="rect">The page bounds.</param>
+    /// <param name="visibleWindow">The tile range already requested for drawing.</param>
+    /// <param name="visible">Whether the page is visible.</param>
+    private void PrefetchAdjacentTiles(DrawingContext context, in FrameContext frame, int page, in Rect rect, in TileWindow visibleWindow, bool visible)
+    {
+        if (!visible || IsZoomEasing || !TryGetTileWindow(frame, page, rect, false, out var grid, out var window))
+        {
+            return;
+        }
+
+        for (var row = window.FirstRow; row <= window.LastRow; row++)
+        {
+            for (var column = window.FirstColumn; column <= window.LastColumn; column++)
+            {
+                if (row >= visibleWindow.FirstRow && row <= visibleWindow.LastRow && column >= visibleWindow.FirstColumn && column <= visibleWindow.LastColumn)
+                {
+                    continue;
+                }
+
+                DrawTile(context, frame, grid, column, row, false, true);
             }
         }
     }

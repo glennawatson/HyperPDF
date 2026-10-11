@@ -33,8 +33,8 @@ public sealed class FrameStabilityTests
     /// <summary>The page count of the document.</summary>
     private const int Pages = 40;
 
-    /// <summary>The number of cached tiles that shows rendering is well under way.</summary>
-    private const int ExpectedTiles = 6;
+    /// <summary>The edges needed to show that the visible page text, rather than only its paper, has drawn.</summary>
+    private const int ReadyEdges = 20;
 
     /// <summary>The scroll distance per step, in canvas units.</summary>
     private const double ScrollStep = 90;
@@ -74,9 +74,6 @@ public sealed class FrameStabilityTests
 
     /// <summary>Where the wheel zoom is anchored down the viewport.</summary>
     private const double AnchorY = 0.3;
-
-    /// <summary>How long to wait for a tile that is still rendering.</summary>
-    private static readonly TimeSpan SettlePause = TimeSpan.FromMilliseconds(150);
 
     /// <summary>Verifies frames drawn while scrolling are as sharp as the settled frames.</summary>
     /// <returns>A task.</returns>
@@ -181,8 +178,20 @@ public sealed class FrameStabilityTests
     /// <returns>The page canvas.</returns>
     private static async Task<PageCanvas> SettleAsync(TestServices test, Window window)
     {
-        _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Cache.Count > ExpectedTiles && test.Services.RenderHub.Scheduler.QueueLength == 0);
-        return window.GetVisualDescendants().OfType<PageCanvas>().Single();
+        _ = await UiWait.UntilAsync(() => window.GetVisualDescendants().OfType<PageCanvas>().Any());
+        var canvas = window.GetVisualDescendants().OfType<PageCanvas>().Single();
+        _ = await UiWait.UntilAsync(() =>
+        {
+            var scroller = canvas.FindAncestorOfType<ScrollViewer>();
+            if (scroller is null || scroller.Viewport.Width <= 0 || scroller.Viewport.Height <= 0 || window.Bounds.Width <= 0)
+            {
+                return false;
+            }
+
+            using var frame = window.CaptureRenderedFrame();
+            return frame is not null && CountEdges(frame, scroller, window) > ReadyEdges && test.Services.RenderHub.Scheduler.IsIdle;
+        });
+        return canvas;
     }
 
     /// <summary>Draws the next frame, lets rendering finish, and measures how much of the canvas changed.</summary>
@@ -199,16 +208,7 @@ public sealed class FrameStabilityTests
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
         using var first = window.CaptureRenderedFrame()!;
-        _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.QueueLength == 0);
-
-        // The last dequeued tile may still be rendering, so keep pumping until a pause brings no new tiles.
-        using var pause = new PeriodicTimer(SettlePause);
-        var count = -1;
-        while (count != test.Services.RenderHub.Cache.Count && await pause.WaitForNextTickAsync())
-        {
-            count = test.Services.RenderHub.Cache.Count;
-            _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.QueueLength == 0);
-        }
+        _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.IsIdle);
 
         using var settled = window.CaptureRenderedFrame()!;
         var settledEdges = CountEdges(settled, scroller, window);
