@@ -19,6 +19,9 @@ public class HyperPdfColorSpaceParseBenchmarks
     /// <summary>The resource dictionary with a recursive /DefaultRGB.</summary>
     private PdfDictionary _resources = null!;
 
+    /// <summary>An explicit output-intent mapping with no substitutions.</summary>
+    private OutputIntentColors _colors = null!;
+
     /// <summary>Creates a document and a colour resource with a recursive default.</summary>
     [GlobalSetup]
     public void Setup()
@@ -26,6 +29,7 @@ public class HyperPdfColorSpaceParseBenchmarks
         _document = PdfDocumentReader.Open(TestPdf.CreateTagged(), null);
         _resources = new(_document.Objects);
         _resources.Add(_document.Objects.Names.Intern("DefaultRGB"), PdfValue.FromName(KnownName.DeviceRGB));
+        _colors = OutputIntentColors.Create([]);
     }
 
     /// <summary>Closes the fixture document.</summary>
@@ -36,4 +40,9 @@ public class HyperPdfColorSpaceParseBenchmarks
     /// <returns>The space's component count.</returns>
     [Benchmark]
     public int ParseDefaultRgb() => PdfColorSpace.Parse(PdfValue.FromName(KnownName.DeviceRGB), _resources).Components;
+
+    /// <summary>Parses a device space through an explicit output-intent scope.</summary>
+    /// <returns>The space's component count.</returns>
+    [Benchmark]
+    public int ParseWithIntent() => ColorSpaceParser.Parse(PdfValue.FromName(KnownName.DeviceRGB), _resources, 0, _colors)!.Components;
 }

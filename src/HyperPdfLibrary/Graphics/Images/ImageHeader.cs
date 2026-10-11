@@ -64,21 +64,39 @@ internal readonly record struct ImageHeader(
     /// <param name="dictionary">The image dictionary.</param>
     /// <returns>The header, or <see langword="null"/> when the size or depth is invalid.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ImageHeader? FromXObject(PdfDictionary dictionary) => Read(dictionary, null, false);
+    internal static ImageHeader? FromXObject(PdfDictionary dictionary) => Read(dictionary, null, false, null);
 
     /// <summary>Reads the header of an image XObject whose colour space may name a page or form resource.</summary>
     /// <param name="dictionary">The image dictionary.</param>
     /// <param name="colorSpaces">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <returns>The header, or <see langword="null"/> when the size or depth is invalid.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ImageHeader? FromXObject(PdfDictionary dictionary, PdfDictionary? colorSpaces) => Read(dictionary, colorSpaces, false);
+    internal static ImageHeader? FromXObject(PdfDictionary dictionary, PdfDictionary? colorSpaces) => Read(dictionary, colorSpaces, false, null);
+
+    /// <summary>Reads an image XObject with an explicit output-intent colour selection.</summary>
+    /// <param name="dictionary">The image dictionary.</param>
+    /// <param name="colorSpaces">The colour-space resource dictionary, or null.</param>
+    /// <param name="colors">The output-intent substitutions, or null.</param>
+    /// <returns>The header, or null when invalid.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ImageHeader? FromXObject(PdfDictionary dictionary, PdfDictionary? colorSpaces, OutputIntentColors? colors) =>
+        Read(dictionary, colorSpaces, false, colors);
 
     /// <summary>Reads the header of an inline image, which may use abbreviated keys and name a resource colour space.</summary>
     /// <param name="dictionary">The inline image dictionary.</param>
     /// <param name="colorSpaces">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <returns>The header, or <see langword="null"/> when the size or depth is invalid.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ImageHeader? FromInline(PdfDictionary dictionary, PdfDictionary? colorSpaces) => Read(dictionary, colorSpaces, true);
+    internal static ImageHeader? FromInline(PdfDictionary dictionary, PdfDictionary? colorSpaces) => Read(dictionary, colorSpaces, true, null);
+
+    /// <summary>Reads an inline image with an explicit output-intent colour selection.</summary>
+    /// <param name="dictionary">The inline image dictionary.</param>
+    /// <param name="colorSpaces">The colour-space resource dictionary, or null.</param>
+    /// <param name="colors">The output-intent substitutions, or null.</param>
+    /// <returns>The header, or null when invalid.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ImageHeader? FromInline(PdfDictionary dictionary, PdfDictionary? colorSpaces, OutputIntentColors? colors) =>
+        Read(dictionary, colorSpaces, true, colors);
 
     /// <summary>Gets a value by its full key, or by its inline abbreviation.</summary>
     /// <param name="dictionary">The dictionary.</param>
@@ -108,8 +126,9 @@ internal readonly record struct ImageHeader(
     /// <param name="dictionary">The dictionary.</param>
     /// <param name="colorSpaces">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="inline">Whether this is an inline image.</param>
+    /// <param name="colors">The output-intent substitutions, or null.</param>
     /// <returns>The header, or <see langword="null"/>.</returns>
-    private static ImageHeader? Read(PdfDictionary dictionary, PdfDictionary? colorSpaces, bool inline)
+    private static ImageHeader? Read(PdfDictionary dictionary, PdfDictionary? colorSpaces, bool inline, OutputIntentColors? colors)
     {
         var width = Get(dictionary, KnownName.Width, KnownName.W, inline).AsInt32();
         var height = Get(dictionary, KnownName.Height, KnownName.H, inline).AsInt32();
@@ -121,7 +140,7 @@ internal readonly record struct ImageHeader(
             return null;
         }
 
-        var header = ReadRest(dictionary, colorSpaces, inline, new(width, height, bits, isStencil, false, null, null, null));
+        var header = ReadRest(dictionary, colorSpaces, inline, colors, new(width, height, bits, isStencil, false, null, null, null));
         return IsAffordable(header) ? header : null;
     }
 
@@ -139,11 +158,12 @@ internal readonly record struct ImageHeader(
     /// <param name="dictionary">The dictionary.</param>
     /// <param name="colorSpaces">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="inline">Whether this is an inline image.</param>
+    /// <param name="colors">The output-intent substitutions, or null.</param>
     /// <param name="header">The header with its size and depth.</param>
     /// <returns>The completed header.</returns>
-    private static ImageHeader ReadRest(PdfDictionary dictionary, PdfDictionary? colorSpaces, bool inline, in ImageHeader header)
+    private static ImageHeader ReadRest(PdfDictionary dictionary, PdfDictionary? colorSpaces, bool inline, OutputIntentColors? colors, in ImageHeader header)
     {
-        var colorSpace = header.IsStencil ? null : ColorSpaceParser.Parse(Get(dictionary, KnownName.ColorSpace, KnownName.CS, inline), colorSpaces, 0);
+        var colorSpace = header.IsStencil ? null : ColorSpaceParser.Parse(Get(dictionary, KnownName.ColorSpace, KnownName.CS, inline), colorSpaces, 0, colors);
         var components = header.IsStencil ? 1 : colorSpace?.Components ?? 1;
         return header with
         {

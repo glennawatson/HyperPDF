@@ -125,6 +125,14 @@ public abstract class PdfColorSpace
         return decode;
     }
 
+    /// <summary>Parses a colour space using a renderer's output-intent substitutions.</summary>
+    /// <param name="value">The colour space value.</param>
+    /// <param name="colorSpaceResources">The colour-space resource dictionary, or null.</param>
+    /// <param name="colors">The output-intent substitutions, or null.</param>
+    /// <returns>The colour space; DeviceGray when invalid.</returns>
+    internal static PdfColorSpace Parse(PdfValue value, PdfDictionary? colorSpaceResources, OutputIntentColors? colors) =>
+        ColorSpaceParser.Parse(value, colorSpaceResources, 0, colors) ?? DeviceGrayColorSpace.Instance;
+
     /// <summary>Builds a 256-entry BGRA table for a one-component space from its RGB conversion.</summary>
     /// <param name="space">The colour space.</param>
     /// <returns>The native-endian BGRA words, indexed by sample byte.</returns>

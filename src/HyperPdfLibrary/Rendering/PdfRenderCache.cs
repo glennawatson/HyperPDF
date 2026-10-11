@@ -150,14 +150,12 @@ internal sealed class PdfRenderCache
     /// <param name="value">A name or colour space array, resolved.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or null.</param>
     /// <returns>The colour space.</returns>
-    internal PdfColorSpace GetColorSpace(PdfValue value, PdfDictionary? resources)
-    {
-        using var scope = OutputIntentColors.Enter(DeviceColors);
-        return value.AsArray() is not { } array
-            ? PdfColorSpace.Parse(value, resources)
-            : ColorSpaces.GetOrCreate(array, resources, static (key, state) => PdfColorSpace.Parse(PdfValue.FromArray(key), state))
+    internal PdfColorSpace GetColorSpace(PdfValue value, PdfDictionary? resources) =>
+        value.AsArray() is not { } array
+            ? PdfColorSpace.Parse(value, resources, DeviceColors)
+            : ColorSpaces.GetOrCreate(array, new ColorSpaceRequest(resources, DeviceColors), static (key, state) =>
+                PdfColorSpace.Parse(PdfValue.FromArray(key), state.Resources, state.Colors))
                 ?? PdfColorSpace.DeviceGray;
-    }
 
     /// <summary>Decodes an image stream.</summary>
     /// <param name="key">The stream and decoded resolution.</param>
@@ -165,8 +163,7 @@ internal sealed class PdfRenderCache
     /// <returns>The entry, or null.</returns>
     private static ImageEntry? Decode(ImageKey key, ImageDecodeState state)
     {
-        using var scope = OutputIntentColors.Enter(state.Colors);
-        var data = PdfImageDecoder.DecodeCompact(key.Stream, key.ReductionLevels, state.CancellationToken);
+        var data = PdfImageDecoder.DecodeCompact(key.Stream, key.ReductionLevels, state.Colors, state.CancellationToken);
         if (data is null)
         {
             return null;
@@ -187,4 +184,9 @@ internal sealed class PdfRenderCache
     /// <param name="Colors">The output intent colours.</param>
     /// <param name="CancellationToken">The caller's token.</param>
     private readonly record struct ImageDecodeState(PdfRenderCache Cache, OutputIntentColors? Colors, CancellationToken CancellationToken);
+
+    /// <summary>The resource dictionary and output-intent colours for one space parse.</summary>
+    /// <param name="Resources">The colour-space resources, or null.</param>
+    /// <param name="Colors">The output-intent substitutions, or null.</param>
+    private readonly record struct ColorSpaceRequest(PdfDictionary? Resources, OutputIntentColors? Colors);
 }

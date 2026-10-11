@@ -309,8 +309,8 @@ internal static class ContentColors
         }
 
         var spaces = ContentExecution.CurrentResources(self)?.GetDictionary(KnownName.ColorSpace);
-        using var scope = OutputIntentColors.Enter(self.Cache.DeviceColors);
-        return self.Cache.Shadings.GetOrCreate(dictionary, new ShadingRequest(value, spaces), static (key, request) => PdfShading.Parse(request.Value, request.Spaces));
+        return self.Cache.Shadings.GetOrCreate(dictionary, new ShadingRequest(value, spaces, self.Cache.DeviceColors), static (key, request) =>
+            PdfShading.Parse(request.Value, request.Spaces, request.Colors));
     }
 
     /// <summary>Records a tiling pattern's cell.</summary>

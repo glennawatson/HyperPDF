@@ -253,8 +253,7 @@ internal static class ContentXObjects
             return;
         }
 
-        using var scope = Graphics.Colors.OutputIntentColors.Enter(self.Cache.DeviceColors);
-        var data = PdfImageDecoder.DecodeInline(dictionary, content[reader.InlineImageData], ContentExecution.CurrentResources(self), self.CancellationToken);
+        var data = PdfImageDecoder.DecodeInline(dictionary, content[reader.InlineImageData], ContentExecution.CurrentResources(self), self.Cache.DeviceColors, self.CancellationToken);
         if (data is null || data.UnsupportedCodec != PdfImageCodec.None)
         {
             return;

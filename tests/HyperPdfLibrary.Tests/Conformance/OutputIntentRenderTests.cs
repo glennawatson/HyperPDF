@@ -85,6 +85,25 @@ public sealed class OutputIntentRenderTests
         await Assert.That(third.IsNear(Middle, Middle, ProfileColor(), Tolerance)).IsTrue();
     }
 
+    /// <summary>Concurrent documents keep their own output-intent choice while rendering.</summary>
+    /// <param name="testToken">Cancels the concurrent render.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ConcurrentDocumentsKeepIntentSelectionsSeparate(CancellationToken testToken)
+    {
+        var plain = ConformancePdf.Page();
+        plain.Content = CmykFill;
+        using var intended = new RenderTestPage(IntentPdf(CmykFill).ToBytes());
+        using var fixedColors = new RenderTestPage(plain.ToBytes());
+
+        var intendedTask = Task.Run(() => intended.RenderPage(1, 0, On), testToken);
+        var fixedTask = Task.Run(() => fixedColors.RenderPage(1, 0, On), testToken);
+        var images = await Task.WhenAll(intendedTask, fixedTask);
+
+        await Assert.That(images[0].IsNear(Middle, Middle, ProfileColor(), Tolerance)).IsTrue();
+        await Assert.That(images[1].IsNear(Middle, Middle, DeviceColor(), Tolerance)).IsTrue();
+    }
+
     /// <summary>A colour space selected by name converts through the profile as well.</summary>
     /// <returns>A task.</returns>
     [Test]

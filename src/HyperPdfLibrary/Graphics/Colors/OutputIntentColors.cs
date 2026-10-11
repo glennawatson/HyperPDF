@@ -24,10 +24,6 @@ internal sealed class OutputIntentColors
     /// <summary>The profile components of a gray profile.</summary>
     private const int GrayComponents = 1;
 
-    /// <summary>The substitutes in force on this thread while an image, shading or colour space is parsed, or <see langword="null"/>.</summary>
-    [ThreadStatic]
-    private static OutputIntentColors? _active;
-
     /// <summary>The substitute for DeviceGray, or <see langword="null"/>.</summary>
     private readonly PdfColorSpace? _gray;
 
@@ -50,25 +46,6 @@ internal sealed class OutputIntentColors
 
     /// <summary>Gets a value indicating whether no device space has a substitute.</summary>
     internal bool IsEmpty => _gray is null && _rgb is null && _cmyk is null;
-
-    /// <summary>Makes substitutes apply to device colour spaces parsed on this thread until the scope is disposed.</summary>
-    /// <param name="colors">The substitutes, or <see langword="null"/> for none.</param>
-    /// <returns>The scope; dispose it to restore the previous substitutes.</returns>
-    internal static OutputIntentColorScope Enter(OutputIntentColors? colors)
-    {
-        var scope = new OutputIntentColorScope(_active);
-        _active = colors;
-        return scope;
-    }
-
-    /// <summary>Restores the output intent substitutes that were previously active.</summary>
-    /// <param name="previous">The earlier substitutes.</param>
-    internal static void Restore(OutputIntentColors? previous) => _active = previous;
-
-    /// <summary>Applies the substitutes in force on this thread to a device space.</summary>
-    /// <param name="space">The device space, or <see langword="null"/>.</param>
-    /// <returns>The substitute, or <paramref name="space"/> when none applies.</returns>
-    internal static PdfColorSpace? Apply(PdfColorSpace? space) => space is not null && _active is { } colors ? colors.Map(space) : space;
 
     /// <summary>Builds the substitutes from the document's output intents.</summary>
     /// <param name="intents">The output intents.</param>
