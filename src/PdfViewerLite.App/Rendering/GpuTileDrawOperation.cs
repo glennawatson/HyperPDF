@@ -124,11 +124,17 @@ internal sealed class GpuTileDrawOperation : ICustomDrawOperation
         }
     }
 
-    /// <summary>Draws software pixels prepared by the worker before this operation entered the scene.</summary>
+    /// <summary>Draws software pixels, preparing a cached GPU tile on its first recovery draw.</summary>
     /// <param name="context">The immediate context.</param>
     private void DrawSoftware(ImmediateDrawingContext context)
     {
-        if (_tile.SoftwareBitmap is { } bitmap)
+        var bitmap = _tile.SoftwareBitmap;
+        if (bitmap is null && _tile.IsGpuUnavailable && _tile.EnsureSoftwareBitmap())
+        {
+            bitmap = _tile.SoftwareBitmap;
+        }
+
+        if (bitmap is not null)
         {
             context.DrawBitmap(bitmap, new(0, 0, _tile.Width, _tile.Height), Bounds);
         }

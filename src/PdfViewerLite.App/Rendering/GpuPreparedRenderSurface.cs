@@ -90,6 +90,9 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
     /// <summary>Gets the fallback bitmap after it has been rendered.</summary>
     internal Bitmap? SoftwareBitmap => Volatile.Read(ref _software)?.Bitmap;
 
+    /// <summary>Gets whether this tile's render hub can no longer use GPU presentation.</summary>
+    internal bool IsGpuUnavailable => _availability.IsUnavailable;
+
     /// <inheritdoc/>
     public bool Prepare(in RenderRequest request, CancellationToken cancellationToken)
     {
@@ -126,8 +129,10 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void MarkGpuUnavailable()
     {
-        _availability.MarkUnavailable();
-        _recoverSoftware();
+        if (_availability.MarkUnavailable())
+        {
+            _recoverSoftware();
+        }
     }
 
     /// <summary>Retains the tile while a queued composition operation may use it.</summary>

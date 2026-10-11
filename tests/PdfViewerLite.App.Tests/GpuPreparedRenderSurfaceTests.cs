@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics.Tracing;
+using Avalonia.Threading;
 using PdfViewerLite.App.Rendering;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
@@ -90,6 +91,38 @@ public sealed class GpuPreparedRenderSurfaceTests
         }
     }
 
+    /// <summary>Recovery keeps a prepared tile available to render software pixels on its next draw.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RecoveryRetainsPreparedTileForSoftwarePresentation()
+    {
+        using var test = new TestServices();
+        using var document = new HyperPdfEngine().Open(test.CreateDocument("gpu-retained.pdf", 1), null);
+        var hub = test.Services.RenderHub;
+        var availability = new GpuAvailability();
+        var tile = new GpuPreparedRenderSurface(TileSide, TileSide, availability, hub.RequestSoftwareRecovery);
+        var request = Request(document);
+        var prepared = tile.Prepare(request, CancellationToken.None);
+        hub.Cache.Add(request.Key, tile);
+        var notified = false;
+        using var subscription = hub.TilesArrived.SubscribeSafe(_ => notified = true, static _ => { });
+
+        tile.MarkGpuUnavailable();
+        Dispatcher.UIThread.RunJobs();
+        var retained = hub.Cache.TryGet(request.Key, out var cached);
+        var softwareRendered = tile.EnsureSoftwareBitmap();
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(prepared).IsTrue();
+            await Assert.That(notified).IsTrue();
+            await Assert.That(retained).IsTrue();
+            await Assert.That(ReferenceEquals(cached, tile)).IsTrue();
+            await Assert.That(softwareRendered).IsTrue();
+            await Assert.That(tile.SoftwareBitmap).IsNotNull();
+        }
+    }
+
     /// <summary>The default soft-paper effect keeps page recording on the GPU path.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -115,7 +148,7 @@ public sealed class GpuPreparedRenderSurfaceTests
         using var test = new TestServices();
         using var document = new HyperPdfEngine().Open(test.CreateDocument("gpu-events.pdf", 1), null);
         var availability = new GpuAvailability();
-        availability.MarkUnavailable();
+        _ = availability.MarkUnavailable();
         using var surface = new GpuPreparedRenderSurface(TileSide, TileSide, availability);
 
         var prepared = surface.Prepare(Request(document), CancellationToken.None);
