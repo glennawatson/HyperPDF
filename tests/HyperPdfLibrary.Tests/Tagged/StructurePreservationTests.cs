@@ -46,7 +46,6 @@ public sealed class StructurePreservationTests
     [Test]
     public async Task AnnotationEditsKeepStructure()
     {
-        using var fonts = new TaggedFontScope();
         var saved = Edit(static (document, page) =>
         {
             var store = document.Objects;
@@ -56,7 +55,7 @@ public sealed class StructurePreservationTests
             _ = PdfPageAnnotations.Append(store, page, PdfAnnotations.Create(store, KnownName.Square, new(NoteLeft, NoteBottom, NoteRight, NoteTop)));
         });
 
-        using var reopened = PdfDocumentReader.Open(saved, null);
+        using var reopened = TaggedTestDocument.Open(saved);
 
         await Assert.That(Annotations(reopened).Count).IsEqualTo(AnnotationsAfterAdd);
         await AssertResolvesAsync(reopened, 0, TaggedSamples.FieldIndex);
@@ -68,10 +67,9 @@ public sealed class StructurePreservationTests
     [Test]
     public async Task FormEditsKeepStructure()
     {
-        using var fonts = new TaggedFontScope();
         var saved = Edit(static (document, page) => _ = HyperPdfLibrary.Forms.PdfFormEditing.SetText(PdfDocumentForms.GetForm(document), page.Index, TaggedSamples.FieldIndex, TypedValue));
 
-        using var reopened = PdfDocumentReader.Open(saved, null);
+        using var reopened = TaggedTestDocument.Open(saved);
         var field = ReadNodes(reopened)[FieldNode];
 
         await AssertResolvesAsync(reopened, 0, TaggedSamples.FieldIndex);
@@ -84,10 +82,9 @@ public sealed class StructurePreservationTests
     [Test]
     public async Task RemovingAnAnnotationKeepsTheOthers()
     {
-        using var fonts = new TaggedFontScope();
         var saved = Edit(static (document, page) => _ = PdfPageAnnotations.RemoveAt(document.Objects, page, 0));
 
-        using var reopened = PdfDocumentReader.Open(saved, null);
+        using var reopened = TaggedTestDocument.Open(saved);
         var tree = PdfDocumentTagged.GetStructureTree(reopened)!;
         var widget = Annotations(reopened).GetDictionary(0)!;
         var nodes = ReadNodes(reopened);
@@ -103,14 +100,13 @@ public sealed class StructurePreservationTests
     [Test]
     public async Task CompactRewriteKeepsStructure()
     {
-        using var fonts = new TaggedFontScope();
         byte[] saved;
-        using (var document = PdfDocumentReader.Open(TaggedSamples.LinksAndForms(), null))
+        using (var document = TaggedTestDocument.Open(TaggedSamples.LinksAndForms()))
         {
             saved = PdfCompactWriter.Save(document.Objects, PdfCompactOptions.Default);
         }
 
-        using var reopened = PdfDocumentReader.Open(saved, null);
+        using var reopened = TaggedTestDocument.Open(saved);
 
         await AssertResolvesAsync(reopened, 0, TaggedSamples.FieldIndex);
     }
@@ -120,7 +116,7 @@ public sealed class StructurePreservationTests
     /// <returns>The saved file.</returns>
     private static byte[] Edit(Action<PdfDocument, PdfPage> edit)
     {
-        using var document = PdfDocumentReader.Open(TaggedSamples.LinksAndForms(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.LinksAndForms());
         edit(document, PdfDocumentPages.GetPage(document, 0));
         return PdfIncrementalWriter.Save(document.Objects);
     }

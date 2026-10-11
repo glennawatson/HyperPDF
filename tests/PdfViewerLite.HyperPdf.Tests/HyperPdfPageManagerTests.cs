@@ -396,7 +396,7 @@ public sealed class HyperPdfPageManagerTests
     /// <summary>Opens an in-memory adapter for a generated PDF.</summary>
     /// <param name="bytes">The generated PDF.</param>
     /// <returns>The owned adapter.</returns>
-    private static HyperPdfDocument Open(byte[] bytes) => new(PdfDocumentReader.Open(bytes, null), "memory.pdf");
+    private static HyperPdfDocument Open(byte[] bytes) => new(SkiaTestDocuments.Open(bytes), "memory.pdf");
 
     /// <summary>Gets the current page text in page order.</summary>
     /// <param name="document">The edited adapter.</param>

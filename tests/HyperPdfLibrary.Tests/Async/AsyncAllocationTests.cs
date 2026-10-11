@@ -103,9 +103,9 @@ public sealed class AsyncAllocationTests
     /// <returns>The document.</returns>
     private static async Task<PdfDocument> OpenAsync(string source, string path, Stream stream) => source switch
     {
-        "mapped" => await PdfDocumentReader.OpenWithAsync(path, new() { Source = PdfSourceKind.Mapped }, CancellationToken.None),
-        "memory" => await PdfDocumentReader.OpenWithAsync(path, new() { Source = PdfSourceKind.Memory }, CancellationToken.None),
-        _ => await PdfDocumentReader.OpenAsync(stream, null, CancellationToken.None),
+        "mapped" => await PdfDocumentReader.OpenWithAsync(path, new() { Source = PdfSourceKind.Mapped, DrawingServices = SkiaTestRegistration.CreateServices() }, CancellationToken.None),
+        "memory" => await PdfDocumentReader.OpenWithAsync(path, new() { Source = PdfSourceKind.Memory, DrawingServices = SkiaTestRegistration.CreateServices() }, CancellationToken.None),
+        _ => await SkiaTestRegistration.OpenAsync(stream, null, CancellationToken.None),
     };
 
     /// <summary>Measures the bytes allocated by awaiting a task-returning form repeatedly, each call completing at once.</summary>

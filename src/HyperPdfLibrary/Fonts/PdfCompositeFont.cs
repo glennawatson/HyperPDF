@@ -144,7 +144,7 @@ internal sealed class PdfCompositeFont : PdfFont
         }
 
         var glyph = face.GetGlyph(codePoint);
-        if (glyph == 0 && SystemFontMatcher.MatchCharacter(codePoint) is { } fallback)
+        if (glyph == 0 && SystemFontMatcher.For(Dictionary).MatchCharacter(codePoint) is { } fallback)
         {
             face = fallback;
             glyph = fallback.GetGlyph(codePoint);

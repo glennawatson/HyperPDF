@@ -78,7 +78,7 @@ internal static class HyperPdfAnnotationReplies
             var reply = PdfAnnotations.Create(annotationState.Store, KnownName.Text, PdfAnnotations.GetRectangle(parent));
             PdfAnnotations.SetFlags(reply, ReplyFlags);
             PdfAnnotations.SetText(reply, KnownName.T, HyperPdfAnnotationReading.GetAuthor(annotationState));
-            HyperPdfAnnotationReading.SetModified(reply);
+            HyperPdfAnnotationReading.SetModified(annotationState, reply);
             PdfAnnotations.SetText(reply, KnownName.NM, NewName());
             PdfAnnotations.SetInReplyTo(reply, parentId);
             if (contents.Length > 0)

@@ -45,7 +45,7 @@ internal sealed class ProgressiveRecording : IDisposable
     internal ProgressiveRecording(PdfRenderCache cache, PdfPage page, bool printing, float imageScale = float.PositiveInfinity, CancellationToken cancellationToken = default)
     {
         Printing = printing;
-        _device = PageRecorder.Begin(page);
+        _device = PageRecorder.Begin(cache, page);
         _interpreter = new(cache, _device, 0, imageScale, cancellationToken) { Printing = printing, };
         ContentExecution.BeginPage(_interpreter, page);
         var buffer = default(PooledBuffer);

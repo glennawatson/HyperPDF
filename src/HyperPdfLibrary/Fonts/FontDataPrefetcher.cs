@@ -13,17 +13,23 @@ namespace HyperPdfLibrary.Fonts;
 /// <summary>Prepares only the font data referenced by a page's resources.</summary>
 internal static class FontDataPrefetcher
 {
-    /// <summary>Remembers preparation of page snapshots, which edits replace.</summary>
-    private static readonly ConditionalWeakTable<PdfPage, FontDataPreparation> Prepared = new();
-
     /// <summary>Prepares only fonts selected by a page's content and appearances.</summary>
+    /// <param name="document">The document owning the page snapshot.</param>
     /// <param name="page">The requested page.</param>
     /// <param name="cancellationToken">Cancels downloads and traversal.</param>
     /// <returns>A task completing when the needed assets are cached.</returns>
-    internal static ValueTask PrepareAsync(PdfPage page, CancellationToken cancellationToken)
+    internal static ValueTask PrepareAsync(PdfDocument document, PdfPage page, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var state = Prepared.GetValue(page, static _ => new());
+        ObjectDisposedException.ThrowIf(document.IsDisposed, document);
+        var prepared = Volatile.Read(ref document.State.FontPreparations);
+        if (prepared is null)
+        {
+            var created = new ConditionalWeakTable<PdfPage, FontDataPreparation>();
+            prepared = Interlocked.CompareExchange(ref document.State.FontPreparations, created, null) ?? created;
+        }
+
+        var state = prepared.GetValue(page, static _ => new());
         if (state.Ready)
         {
             return ValueTask.CompletedTask;
@@ -48,16 +54,17 @@ internal static class FontDataPrefetcher
             ownerToken = state.PendingCancellation;
         }
 
-        return WaitForPreparationAsync(page, pending, ownerToken, cancellationToken);
+        return WaitForPreparationAsync(document, page, pending, ownerToken, cancellationToken);
     }
 
     /// <summary>Retries a shared attempt cancelled by another caller.</summary>
+    /// <param name="document">The document owning the page snapshot.</param>
     /// <param name="page">The requested page.</param>
     /// <param name="pending">The shared preparation.</param>
     /// <param name="ownerToken">The token controlling the shared attempt.</param>
     /// <param name="cancellationToken">The waiting caller's token.</param>
     /// <returns>A task completing when preparation succeeds for this caller.</returns>
-    internal static async ValueTask WaitForPreparationAsync(PdfPage page, Task pending, CancellationToken ownerToken, CancellationToken cancellationToken)
+    internal static async ValueTask WaitForPreparationAsync(PdfDocument document, PdfPage page, Task pending, CancellationToken ownerToken, CancellationToken cancellationToken)
     {
         try
         {
@@ -65,7 +72,7 @@ internal static class FontDataPrefetcher
         }
         catch (OperationCanceledException) when (ownerToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            await PrepareAsync(page, cancellationToken).ConfigureAwait(false);
+            await PrepareAsync(document, page, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -99,7 +106,7 @@ internal static class FontDataPrefetcher
 
         var baseFont = PdfNames.BaseFontOf(source);
         var standard = StandardFonts.Find(Encoding.UTF8.GetBytes(baseFont));
-        await SystemFontMatcher.EnsureAsync(new(baseFont, standard, descriptor.Flags, descriptor.Weight, collection), cancellationToken).ConfigureAwait(false);
+        await SystemFontMatcher.For(font).EnsureAsync(new(baseFont, standard, descriptor.Flags, descriptor.Weight, collection), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Checks whether a font needs the collection's Unicode fallback.</summary>

@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text;
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
@@ -50,6 +51,9 @@ public class HyperPdfSourceBenchmarks
 
     /// <summary>The content repeated to fill each generated page.</summary>
     private const string Filler = "q Q\n";
+
+    /// <summary>The drawing services reused across benchmark invocations.</summary>
+    private readonly PdfDrawingServices _drawingServices = BenchmarkDrawing.CreateServices();
 
     /// <summary>The file read.</summary>
     private string _path = string.Empty;
@@ -114,7 +118,10 @@ public class HyperPdfSourceBenchmarks
     [Benchmark]
     public async ValueTask<int> OpenFirstPageAsync()
     {
-        using var document = await PdfDocumentReader.OpenWithAsync(_path, new PdfOpenOptions { Source = Source, CacheBytes = CacheBytes }, CancellationToken.None).ConfigureAwait(false);
+        using var document = await PdfDocumentReader.OpenWithAsync(
+            _path,
+            new PdfOpenOptions { Source = Source, CacheBytes = CacheBytes, DrawingServices = _drawingServices },
+            CancellationToken.None).ConfigureAwait(false);
         return DecodePage(document, 0);
     }
 
@@ -202,5 +209,5 @@ public class HyperPdfSourceBenchmarks
 
     /// <summary>Opens the file with the chosen source.</summary>
     /// <returns>The document.</returns>
-    private PdfDocument Open() => PdfDocumentReader.OpenWith(_path, new PdfOpenOptions { Source = Source, CacheBytes = CacheBytes });
+    private PdfDocument Open() => PdfDocumentReader.OpenWith(_path, new PdfOpenOptions { Source = Source, CacheBytes = CacheBytes, DrawingServices = _drawingServices });
 }

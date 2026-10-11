@@ -45,7 +45,7 @@ public sealed class AsyncParityTests
         {
             var path = Path.Combine(directory.FullName, "sample.pdf");
             await File.WriteAllBytesAsync(path, Sample);
-            using var sync = PdfDocumentReader.Open(Sample, null);
+            using var sync = SkiaTestRegistration.Open(Sample, null);
             using var opened = await OpenAsync(path, kind);
             var document = opened.Document;
             await Assert.That(document.PageCount).IsEqualTo(sync.PageCount);
@@ -69,8 +69,8 @@ public sealed class AsyncParityTests
     [Test]
     public async Task TextWalkAndSearchMatchSync()
     {
-        using var sync = PdfDocumentReader.Open(Sample, null);
-        using var document = await PdfDocumentReader.OpenAsync(Sample, null, CancellationToken.None);
+        using var sync = SkiaTestRegistration.Open(Sample, null);
+        using var document = await SkiaTestRegistration.OpenAsync(Sample, null, CancellationToken.None);
         var index = 0;
         await foreach (var page in PdfDocumentText.GetTextPagesAsync(document, CancellationToken.None))
         {
@@ -105,7 +105,7 @@ public sealed class AsyncParityTests
     [Test]
     public async Task RenderAsyncMatchesSync()
     {
-        using var document = PdfDocumentReader.Open(Sample, null);
+        using var document = SkiaTestRegistration.Open(Sample, null);
         using var renderer = new PdfPageRenderer(document);
         using var asyncRenderer = new PdfPageRenderer(document);
         for (var i = 0; i < Pages; i++)
@@ -125,7 +125,7 @@ public sealed class AsyncParityTests
     [Test]
     public async Task ConcurrentRendersMatchSync()
     {
-        using var document = PdfDocumentReader.Open(Sample, null);
+        using var document = SkiaTestRegistration.Open(Sample, null);
         using var renderer = new PdfPageRenderer(document);
         var expected = new byte[ParallelPages][];
         var actual = new byte[ParallelPages][];
@@ -159,8 +159,8 @@ public sealed class AsyncParityTests
     [Test]
     public async Task SaveAsyncMatchesSync()
     {
-        using var sync = PdfDocumentReader.Open(Sample, null);
-        using var document = await PdfDocumentReader.OpenAsync(Sample, null, CancellationToken.None);
+        using var sync = SkiaTestRegistration.Open(Sample, null);
+        using var document = await SkiaTestRegistration.OpenAsync(Sample, null, CancellationToken.None);
         PdfDocumentMetadataEditing.SetMetadata(sync, new() { Title = "Edited" });
         PdfDocumentMetadataEditing.SetMetadata(document, new() { Title = "Edited" });
         await using var expected = new MemoryStream();
@@ -180,7 +180,7 @@ public sealed class AsyncParityTests
         {
             case "bytes":
                 {
-                    return new(await PdfDocumentReader.OpenAsync(await File.ReadAllBytesAsync(path), null, CancellationToken.None), null);
+                    return new(await SkiaTestRegistration.OpenAsync(await File.ReadAllBytesAsync(path), null, CancellationToken.None), null);
                 }
 
             case "handle":
@@ -196,7 +196,7 @@ public sealed class AsyncParityTests
             case "stream":
                 {
                     var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1, FileOptions.Asynchronous);
-                    return new(await PdfDocumentReader.OpenAsync(stream, null, CancellationToken.None), stream);
+                    return new(await SkiaTestRegistration.OpenAsync(stream, null, CancellationToken.None), stream);
                 }
 
             default:

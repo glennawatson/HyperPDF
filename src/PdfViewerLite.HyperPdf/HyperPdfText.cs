@@ -5,7 +5,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
-using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Text;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
@@ -21,14 +20,6 @@ internal static class HyperPdfText
 
     /// <summary>The scale ratio used to identify enlarged text.</summary>
     internal const float ScaledTextRatio = 1.5F;
-
-    /// <summary>The user space rectangles of the calling thread's last query, reused so queries allocate only their output.</summary>
-    [ThreadStatic]
-    private static List<PdfRectangle>? _rectScratch;
-
-    /// <summary>The matches of the calling thread's last search, reused so searches allocate only their output.</summary>
-    [ThreadStatic]
-    private static List<PdfTextMatch>? _matchScratch;
 
     /// <summary>Gets the number of text characters on a page.</summary>
     /// <param name="self">The owning document.</param>
@@ -119,10 +110,11 @@ internal static class HyperPdfText
             return;
         }
 
-        var rects = _rectScratch ??= [];
-        rects.Clear();
-        text.GetRects(start, count, rects);
-        AddViewerRects(text, rects, output);
+        text.GetRects(
+            start,
+            count,
+            new RectOutput(text, output),
+            static (state, rect) => state.Output.Add(LinkTargets.ToPageRect(state.Text.Page.ToViewerRectangle(rect))));
     }
 
     /// <summary>Finds every occurrence of text on a page, as <see cref="HyperPdfDocument.Find"/> will.</summary>
@@ -140,13 +132,11 @@ internal static class HyperPdfText
             return;
         }
 
-        var matches = _matchScratch ??= [];
-        matches.Clear();
-        text.Find(query, ToLibraryOptions(options), matches);
-        foreach (var (start, length) in matches)
-        {
-            output.Add(new(pageIndex, start, length));
-        }
+        text.Find(
+            query,
+            ToLibraryOptions(options),
+            new MatchOutput(pageIndex, output),
+            static (state, start, length) => state.Output.Add(new(state.PageIndex, start, length)));
     }
 
     /// <summary>Appends every character of a page in viewer space.</summary>
@@ -182,19 +172,15 @@ internal static class HyperPdfText
             return;
         }
 
-        var rects = _rectScratch ??= [];
-        var viewer = new List<PageRect>();
         foreach (var link in text.GetWebLinks())
         {
-            rects.Clear();
-            viewer.Clear();
-            text.GetWebLinkRects(link, rects);
-            AddViewerRects(text, rects, viewer);
-            var target = LinkTarget.ForUri(link.Url);
-            foreach (var rect in viewer)
-            {
-                output.Add(new(rect, target));
-            }
+            text.GetRects(
+                link.Start,
+                link.Count,
+                new LinkOutput(text, output, LinkTarget.ForUri(link.Url)),
+                static (state, rect) => state.Output.Add(new(
+                    LinkTargets.ToPageRect(state.Text.Page.ToViewerRectangle(rect)),
+                    state.Target)));
         }
     }
 
@@ -215,18 +201,6 @@ internal static class HyperPdfText
         }
 
         return result;
-    }
-
-    /// <summary>Converts user space rectangles to viewer space.</summary>
-    /// <param name="text">The text page.</param>
-    /// <param name="rects">The rectangles in user space.</param>
-    /// <param name="output">The list receiving the viewer rectangles.</param>
-    internal static void AddViewerRects(PdfTextPage text, List<PdfRectangle> rects, List<PageRect> output)
-    {
-        foreach (var rect in rects)
-        {
-            output.Add(LinkTargets.ToPageRect(text.Page.ToViewerRectangle(rect)));
-        }
     }
 
     /// <summary>
@@ -265,4 +239,20 @@ internal static class HyperPdfText
         using var access = HyperPdfNavigation.EnterPageRead(self);
         return self.IsDisposed || (uint)pageIndex >= (uint)self.PageCount ? null : PdfDocumentText.GetTextPage(self.Document, pageIndex);
     }
+
+    /// <summary>The page and caller's list for rectangle conversion.</summary>
+    /// <param name="Text">The text page.</param>
+    /// <param name="Output">The converted rectangles.</param>
+    private readonly record struct RectOutput(PdfTextPage Text, List<PageRect> Output);
+
+    /// <summary>The page index and caller's list for match conversion.</summary>
+    /// <param name="PageIndex">The page index.</param>
+    /// <param name="Output">The converted matches.</param>
+    private readonly record struct MatchOutput(int PageIndex, List<TextMatch> Output);
+
+    /// <summary>The page, caller's list and target for link conversion.</summary>
+    /// <param name="Text">The text page.</param>
+    /// <param name="Output">The converted links.</param>
+    /// <param name="Target">The link's target.</param>
+    private readonly record struct LinkOutput(PdfTextPage Text, List<PageLink> Output, LinkTarget Target);
 }

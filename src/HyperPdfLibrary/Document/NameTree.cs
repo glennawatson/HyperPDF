@@ -19,9 +19,6 @@ internal static class NameTree
     /// <summary>The most entries enumerated from one tree, guarding against huge or hostile trees.</summary>
     private const int MaxEntries = 1_000_000;
 
-    /// <summary>The lookup tables of whole trees, keyed by the tree's root and built on the first miss.</summary>
-    private static readonly ConditionalWeakTable<PdfDictionary, Dictionary<byte[], PdfValue>> Tables = new();
-
     /// <summary>Finds a value by string key.</summary>
     /// <param name="root">The tree's root node.</param>
     /// <param name="key">The key's bytes.</param>
@@ -232,13 +229,13 @@ internal static class NameTree
         return limits is null || (limits.Get(0).AsStringBytes().SequenceCompareTo(key) <= 0 && limits.Get(1).AsStringBytes().SequenceCompareTo(key) >= 0);
     }
 
-    /// <summary>Looks a key up in a table of the whole tree, built on first use for trees whose /Limits are wrong.</summary>
+    /// <summary>Looks a key up in a whole-tree table, retained for store-owned roots with wrong /Limits.</summary>
     /// <param name="root">The tree's root node.</param>
     /// <param name="key">The key.</param>
     /// <returns>The value, or null.</returns>
     private static PdfValue FindInTable(PdfDictionary root, ReadOnlySpan<byte> key)
     {
-        var table = Tables.GetValue(root, BuildTable);
+        var table = root.Owner is { IsDisposed: false } owner ? owner.NameTreeTables.GetValue(root, BuildTable) : BuildTable(root);
         return table.GetAlternateLookup<ReadOnlySpan<byte>>().TryGetValue(key, out var value) ? value : default;
     }
 

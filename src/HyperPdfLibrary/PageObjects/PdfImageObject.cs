@@ -90,7 +90,7 @@ public sealed class PdfImageObject : PdfPageObject
         {
             var filters = ImageHeader.Get(Dictionary, KnownName.Filter, KnownName.F, true);
             var parameters = ImageHeader.Get(Dictionary, KnownName.DecodeParms, KnownName.DP, true);
-            _ = PdfStreamDecoder.Apply(InlineData, filters, parameters, ref output);
+            _ = PdfStreamDecoder.Apply(InlineData, filters, parameters, Dictionary.Owner, ref output, CancellationToken.None);
             return output.ToArray();
         }
         finally

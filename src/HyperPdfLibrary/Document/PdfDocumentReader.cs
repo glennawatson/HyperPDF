@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
 
@@ -178,7 +179,7 @@ public static class PdfDocumentReader
                 await PdfPrefetcher.PrefetchAsync(objects, tree, PdfPrefetchKind.PageTree, cancellationToken).ConfigureAwait(false);
             }
 
-            return PdfDocumentReader.CreateScoped(objects, cancellationToken);
+            return PdfDocumentReader.CreateScoped(objects, options.FontFactory, cancellationToken);
         }
         catch
         {
@@ -250,7 +251,7 @@ public static class PdfDocumentReader
     {
         ArgumentNullException.ThrowIfNull(bytes);
         ArgumentNullException.ThrowIfNull(options);
-        return PdfDocumentReader.Create(StoreOpening.OpenWith(bytes, options));
+        return PdfDocumentReader.Create(StoreOpening.OpenWith(bytes, options), options.FontFactory);
     }
 
     /// <summary>
@@ -281,7 +282,7 @@ public static class PdfDocumentReader
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(options);
-        return PdfDocumentReader.Create(StoreOpening.OpenWith(source, ownsSource, options));
+        return PdfDocumentReader.Create(StoreOpening.OpenWith(source, ownsSource, options), options.FontFactory);
     }
 
     /// <summary>
@@ -303,7 +304,7 @@ public static class PdfDocumentReader
     public static PdfDocument Open(byte[] bytes, string? password)
     {
         ArgumentNullException.ThrowIfNull(bytes);
-        return PdfDocumentReader.Create(StoreOpening.Open(bytes, password));
+        return PdfDocumentReader.Create(StoreOpening.Open(bytes, password), PdfOpenOptions.Default.FontFactory);
     }
 
     /// <summary>
@@ -320,12 +321,13 @@ public static class PdfDocumentReader
 
     /// <summary>Creates a document over opened objects, disposing them if initialization fails.</summary>
     /// <param name="objects">The objects owned by the document.</param>
+    /// <param name="fontFactory">The document's font loader.</param>
     /// <returns>The opened document.</returns>
-    internal static PdfDocument Create(PdfObjectStore objects)
+    internal static PdfDocument Create(PdfObjectStore objects, Func<PdfDictionary, PdfFont?>? fontFactory)
     {
         try
         {
-            var document = new PdfDocument(objects);
+            var document = new PdfDocument(objects, fontFactory);
             StoreTransactions.SetChangeCallback(objects, document.OnObjectsChanged);
             return document;
         }
@@ -348,11 +350,12 @@ public static class PdfDocumentReader
 
     /// <summary>Makes the document, reading the page tree with its open context.</summary>
     /// <param name="objects">The objects.</param>
+    /// <param name="fontFactory">The document's font loader.</param>
     /// <param name="cancellationToken">The token.</param>
     /// <returns>The document.</returns>
-    private static PdfDocument CreateScoped(PdfObjectStore objects, CancellationToken cancellationToken)
+    private static PdfDocument CreateScoped(PdfObjectStore objects, Func<PdfDictionary, PdfFont?>? fontFactory, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return PdfDocumentReader.Create(objects);
+        return PdfDocumentReader.Create(objects, fontFactory);
     }
 }

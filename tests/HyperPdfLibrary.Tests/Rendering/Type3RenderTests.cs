@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdfLibrary.Fonts;
-
 namespace HyperPdfLibrary.Tests.Rendering;
 
 /// <summary>Renders Type 3 glyphs that give their own colour (<c>d0</c>) or only a shape (<c>d1</c>).</summary>
@@ -64,16 +62,7 @@ public sealed class Type3RenderTests
             $"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /a {glyph} 0 R >> "
             + $"/Encoding << /Differences [65 /a] >> /FirstChar 65 /LastChar 65 /Widths [1000] /Resources << /XObject << /Im {image} 0 R >> >> >>");
         pdf.Resources = $"/Font << /F1 {font} 0 R >>";
-        var previous = PdfFont.Factory;
-        PdfFont.Factory = static dictionary => new TestType3Font(dictionary);
-        try
-        {
-            using var page = new RenderTestPage(pdf.ToBytes());
-            return page.RenderPage();
-        }
-        finally
-        {
-            PdfFont.Factory = previous;
-        }
+        using var page = new RenderTestPage(pdf.ToBytes(), static dictionary => new TestType3Font(dictionary));
+        return page.RenderPage();
     }
 }

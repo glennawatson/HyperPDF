@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdfLibrary.Fonts;
-
 namespace HyperPdfLibrary.Tests.Rendering;
 
 /// <summary>Renders knockout and non-isolated transparency groups, fill and stroke knockout, soft mask backdrops and transfers, and text knockout.</summary>
@@ -193,16 +191,7 @@ public sealed class GroupRenderTests
         var pdf = new RenderTestPdf(Size, Size) { Content = "1 0 0 rg /GS gs BT /F1 20 Tf 10 10 Td (AA) Tj ET" };
         var font = pdf.AddObject("<< /Type /Font /Subtype /Type1 /BaseFont /Test >>");
         pdf.Resources = $"/Font << /F1 {font} 0 R >> /ExtGState << /GS << /Type /ExtGState /ca 0.5 {extraState} >> >>";
-        var previous = PdfFont.Factory;
-        PdfFont.Factory = static dictionary => new SquareFont(dictionary);
-        try
-        {
-            using var page = new RenderTestPage(pdf.ToBytes());
-            return page.RenderPage();
-        }
-        finally
-        {
-            PdfFont.Factory = previous;
-        }
+        using var page = new RenderTestPage(pdf.ToBytes(), static dictionary => new SquareFont(dictionary));
+        return page.RenderPage();
     }
 }

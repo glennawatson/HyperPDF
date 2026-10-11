@@ -47,7 +47,7 @@ internal static class CompositeFontLoader
         var collection = ReadCollection(cmap, cidFont);
         GlyphSource source = program is not null
             ? new ProgramGlyphSource(program)
-            : SystemFontMatcher.Match(new(baseFont, StandardFont.None, descriptor.Flags, descriptor.Weight, collection));
+            : SystemFontMatcher.For(font).Match(new(baseFont, StandardFont.None, descriptor.Flags, descriptor.Weight, collection));
         var route = program is null ? CidGlyphRoute.Identity : ChooseRoute(cidFont, program, cancellationToken);
         var metrics = new FontMetrics(
             (descriptor.Ascent != 0 ? descriptor.Ascent : source.Ascent) / GlyphUnits,

@@ -87,11 +87,11 @@ public static class PdfDocumentText
     internal static PdfTextPage ExtractText(PdfDocument document, int pageIndex, CancellationToken cancellationToken = default)
     {
         var page = PdfDocumentPages.GetPage(document, pageIndex);
-        var state = TextPageBuild.Current;
+        var state = TextPageBuild.Rent(document);
         var device = state.Device;
-        device.Reset(page);
         try
         {
+            device.Reset(page);
             PdfDocumentText.RunContent(document, page, device, cancellationToken);
             device.Finish();
             return TextPageBuild.Build(state, page, PdfDocumentText.IsRightToLeft(document));
@@ -99,6 +99,7 @@ public static class PdfDocumentText
         finally
         {
             device.Clear();
+            TextPageBuild.Return(document, state);
         }
     }
 

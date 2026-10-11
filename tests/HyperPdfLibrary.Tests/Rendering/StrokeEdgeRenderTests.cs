@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdfLibrary.Fonts;
-
 namespace HyperPdfLibrary.Tests.Rendering;
 
 /// <summary>Renders thin lines, zero-length dashes, miter limits, clip rules, ignored operators and text clips in hidden content.</summary>
@@ -149,20 +147,11 @@ public sealed class StrokeEdgeRenderTests
         var font = pdf.AddObject("<< /Type /Font /Subtype /Type1 /BaseFont /Test >>");
         pdf.Resources = $"/Font << /F1 {font} 0 R >> /Properties << /L1 {layer} 0 R >>";
         pdf.CatalogEntries = $"/OCProperties << /OCGs [{layer} 0 R] /D << /OFF [{layer} 0 R] >> >>";
-        var previous = PdfFont.Factory;
-        PdfFont.Factory = static dictionary => new SquareFont(dictionary);
-        try
-        {
-            using var page = new RenderTestPage(pdf.ToBytes());
-            var image = page.RenderPage();
+        using var page = new RenderTestPage(pdf.ToBytes(), static dictionary => new SquareFont(dictionary));
+        var image = page.RenderPage();
 
-            await RenderCheck.Near(image, GlyphColumn, GlyphRow, Rgb.Green255, Tolerance, nameof(HiddenClippingTextStillClips));
-            await RenderCheck.Near(image, GlyphColumn, AboveGlyph, Rgb.White, Tolerance, nameof(HiddenClippingTextStillClips));
-        }
-        finally
-        {
-            PdfFont.Factory = previous;
-        }
+        await RenderCheck.Near(image, GlyphColumn, GlyphRow, Rgb.Green255, Tolerance, nameof(HiddenClippingTextStillClips));
+        await RenderCheck.Near(image, GlyphColumn, AboveGlyph, Rgb.White, Tolerance, nameof(HiddenClippingTextStillClips));
     }
 
     /// <summary>Renders a page at one pixel per point.</summary>

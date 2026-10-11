@@ -35,7 +35,7 @@ public sealed class SkiaSurfaceRenderTargetTests
     [Arguments(true, SKColorType.Rgba8888)]
     public async Task SurfaceReplayMatchesCallerPixels(bool grayscale, SKColorType colorType)
     {
-        using var document = PdfDocumentReader.Open(TestPdf.Create(1), null);
+        using var document = SkiaTestRegistration.Open(TestPdf.Create(1), null);
         using var renderer = new PdfPageRenderer(document);
         var flags = grayscale ? PdfRenderFlags.Grayscale : PdfRenderFlags.None;
         var request = new PdfTileRequest(0, 1, 0, 0, 0, flags);

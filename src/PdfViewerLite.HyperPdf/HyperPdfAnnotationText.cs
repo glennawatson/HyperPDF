@@ -179,7 +179,7 @@ internal static class HyperPdfAnnotationText
                 RelayText(annotationState, annotation, text, fontSize, color);
             }
 
-            HyperPdfAnnotationReading.SetModified(annotation);
+            HyperPdfAnnotationReading.SetModified(annotationState, annotation);
             return HyperPdfAnnotationReading.Commit(annotationState, pageIndex, page, index, annotation);
         }
     }

@@ -30,11 +30,6 @@ internal static class ImagePixels
     /// <summary>The smallest shrink factor worth averaging whole blocks for before the cubic resample.</summary>
     private const int MinBoxFactor = 2;
 
-    /// <summary>Gets the codec required for JPEG encoding and image resampling.</summary>
-    /// <exception cref="NotSupportedException">No image codec has been registered.</exception>
-    private static IPdfImageCodec Codec => PdfDrawingServices.Images
-        ?? throw new NotSupportedException("Register an image codec before optimizing JPEG images or resampling pixels.");
-
     /// <summary>Gets the bytes per pixel of a pixel layout.</summary>
     /// <param name="components">One for grey, three for RGB.</param>
     /// <returns>1 or 4.</returns>
@@ -68,25 +63,26 @@ internal static class ImagePixels
     }
 
     /// <summary>Shrinks pixels to a target size: whole blocks averaged first, then a cubic resample to the exact size.</summary>
+    /// <param name="codec">The selected image codec.</param>
     /// <param name="source">The pixels.</param>
     /// <param name="size">The source size and layout.</param>
     /// <param name="targetWidth">The target width.</param>
     /// <param name="targetHeight">The target height.</param>
     /// <param name="output">Receives the target pixels.</param>
     /// <returns><see langword="true"/> when the resample ran.</returns>
-    internal static bool Downsample(ReadOnlySpan<byte> source, PixelSize size, int targetWidth, int targetHeight, ref PooledBuffer output)
+    internal static bool Downsample(IPdfImageCodec codec, ReadOnlySpan<byte> source, PixelSize size, int targetWidth, int targetHeight, ref PooledBuffer output)
     {
         var factor = Math.Min(size.Width / targetWidth, size.Height / targetHeight);
         if (factor < MinBoxFactor)
         {
-            return Resample(source, size, targetWidth, targetHeight, ref output);
+            return Resample(codec, source, size, targetWidth, targetHeight, ref output);
         }
 
         var reduced = default(PooledBuffer);
         try
         {
             var boxed = BoxReduce(source, size, factor, ref reduced);
-            return Resample(reduced.WrittenSpan, boxed, targetWidth, targetHeight, ref output);
+            return Resample(codec, reduced.WrittenSpan, boxed, targetWidth, targetHeight, ref output);
         }
         finally
         {
@@ -95,21 +91,23 @@ internal static class ImagePixels
     }
 
     /// <summary>Encodes pixels through the configured image codec.</summary>
+    /// <param name="codec">The selected image codec.</param>
     /// <param name="pixels">The gray or RGBX pixels.</param>
     /// <param name="size">The source dimensions and layout.</param>
     /// <param name="quality">The JPEG quality.</param>
     /// <returns>The encoded bytes, or null when encoding fails.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static byte[]? EncodeJpeg(ReadOnlySpan<byte> pixels, PixelSize size, int quality) =>
-        Codec.EncodeJpeg(pixels, Layout(size), quality);
+    internal static byte[]? EncodeJpeg(IPdfImageCodec codec, ReadOnlySpan<byte> pixels, PixelSize size, int quality) =>
+        codec.EncodeJpeg(pixels, Layout(size), quality);
 
     /// <summary>Decodes JPEG pixels through the configured image codec.</summary>
+    /// <param name="codec">The selected image codec.</param>
     /// <param name="jpeg">The JPEG bytes.</param>
     /// <param name="components">One for gray, three for RGBX.</param>
     /// <param name="pixels">Receives the decoded pixels.</param>
     /// <param name="size">Receives the JPEG dimensions.</param>
     /// <returns>True when usable pixels were decoded.</returns>
-    internal static bool TryDecodeJpeg(ReadOnlySpan<byte> jpeg, int components, ref PooledBuffer pixels, out PixelSize size)
+    internal static bool TryDecodeJpeg(IPdfImageCodec codec, ReadOnlySpan<byte> jpeg, int components, ref PooledBuffer pixels, out PixelSize size)
     {
         size = default;
         if (!JpegMarkers.TryReadInfo(jpeg, out var info) || !info.IsSupported)
@@ -124,7 +122,7 @@ internal static class ImagePixels
         }
 
         var decoded = new PixelSize(info.Width, info.Height, components);
-        if (!Codec.TryDecodeJpeg(jpeg, Layout(decoded), pixels.GetSpan((int)length)))
+        if (!codec.TryDecodeJpeg(jpeg, Layout(decoded), pixels.GetSpan((int)length)))
         {
             return false;
         }
@@ -135,13 +133,14 @@ internal static class ImagePixels
     }
 
     /// <summary>Resamples pixels through the configured image codec.</summary>
+    /// <param name="codec">The selected image codec.</param>
     /// <param name="source">The source pixels.</param>
     /// <param name="size">Their dimensions and layout.</param>
     /// <param name="targetWidth">The target width.</param>
     /// <param name="targetHeight">The target height.</param>
     /// <param name="output">Receives the target pixels.</param>
     /// <returns>True when resampling succeeds.</returns>
-    private static bool Resample(ReadOnlySpan<byte> source, PixelSize size, int targetWidth, int targetHeight, ref PooledBuffer output)
+    private static bool Resample(IPdfImageCodec codec, ReadOnlySpan<byte> source, PixelSize size, int targetWidth, int targetHeight, ref PooledBuffer output)
     {
         var bytes = PixelBytes(size.Components);
         if (size.Width == targetWidth && size.Height == targetHeight)
@@ -151,7 +150,7 @@ internal static class ImagePixels
         }
 
         var length = checked(targetWidth * targetHeight * bytes);
-        if (!Codec.Resample(source, Layout(size), targetWidth, targetHeight, output.GetSpan(length)))
+        if (!codec.Resample(source, Layout(size), targetWidth, targetHeight, output.GetSpan(length)))
         {
             return false;
         }

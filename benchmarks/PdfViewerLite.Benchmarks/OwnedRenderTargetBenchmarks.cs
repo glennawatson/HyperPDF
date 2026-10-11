@@ -38,7 +38,7 @@ public class OwnedRenderTargetBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _document = PdfDocumentReader.Open(RenderSamplePages.CreateTransparencyPage(), null);
+        _document = BenchmarkDrawing.Open(RenderSamplePages.CreateTransparencyPage(), null);
         _renderer = new(_document);
         var info = new SKImageInfo(TileEdge, TileEdge, SKColorType.Bgra8888, SKAlphaType.Premul);
         _target = new(SKSurface.Create(info), info);

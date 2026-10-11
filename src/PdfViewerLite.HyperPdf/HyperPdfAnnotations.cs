@@ -23,6 +23,12 @@ internal sealed class HyperPdfAnnotations
     /// <summary>The names the editor uses that the library does not know.</summary>
     private readonly AnnotationNames _names;
 
+    /// <summary>The clock chosen for this document's annotation dates.</summary>
+    private readonly TimeProvider _clock;
+
+    /// <summary>The annotation font state chosen by the engine.</summary>
+    private readonly TextBoxFontState _fontState;
+
     /// <summary>The number of edits since opening or the last save.</summary>
     private int _unsavedChanges;
 
@@ -34,15 +40,21 @@ internal sealed class HyperPdfAnnotations
 
     /// <summary>Initializes a new instance of the <see cref="HyperPdfAnnotations"/> class.</summary>
     /// <param name="document">The document.</param>
-    internal HyperPdfAnnotations(PdfDocument document)
+    /// <param name="clock">The clock chosen for this document.</param>
+    /// <param name="fontState">The annotation font cache chosen by the engine.</param>
+    internal HyperPdfAnnotations(PdfDocument document, TimeProvider clock, TextBoxFontState fontState)
     {
+        ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(fontState);
         _document = document;
         _store = document.Objects;
         _names = AnnotationNames.Create(_store.Names);
+        _clock = clock;
+        _fontState = fontState;
     }
 
-    /// <summary>Gets or sets the clock used for modification dates; tests replace it.</summary>
-    internal static TimeProvider Clock { get; set; } = TimeProvider.System;
+    /// <summary>Gets the clock used for this document's annotation modification dates.</summary>
+    internal TimeProvider Clock => _clock;
 
     /// <summary>Gets the Gate state.</summary>
     internal Lock Gate { get; } = new();
@@ -64,6 +76,9 @@ internal sealed class HyperPdfAnnotations
 
     /// <summary>Gets the Layout state.</summary>
     internal TextBoxLayout Layout { get; } = new();
+
+    /// <summary>Gets the font cache selected by the engine.</summary>
+    internal TextBoxFontState FontState => _fontState;
 
     /// <summary>Gets a reference to the UnsavedChanges state.</summary>
     internal ref int UnsavedChanges => ref _unsavedChanges;

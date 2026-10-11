@@ -177,6 +177,18 @@ public sealed partial class PdfTextPage
     public void GetRects(int start, int count, List<PdfRectangle> output)
     {
         ArgumentNullException.ThrowIfNull(output);
+        GetRects(start, count, output, static (rects, rect) => rects.Add(rect));
+    }
+
+    /// <summary>Visits the rectangles covering a run of characters without an intermediate list.</summary>
+    /// <typeparam name="TState">The caller's state passed to each visit.</typeparam>
+    /// <param name="start">The first character.</param>
+    /// <param name="count">The number of characters; a negative count runs to the end of the page.</param>
+    /// <param name="state">The caller's state.</param>
+    /// <param name="visit">Receives each rectangle in user space.</param>
+    public void GetRects<TState>(int start, int count, TState state, Action<TState, PdfRectangle> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
         var length = _chars.Length;
         if (start < 0 || count == 0 || start >= length)
         {
@@ -206,14 +218,14 @@ public sealed partial class PdfTextPage
 
             if (run != int.MinValue)
             {
-                output.Add(rect);
+                visit(state, rect);
             }
 
             run = _runs[i];
             rect = TextGeometry.Normalize(box);
         }
 
-        output.Add(rect);
+        visit(state, rect);
     }
 
     /// <summary>Finds the character at a point, or the nearest one within a tolerance, as PDFium's FPDFText_GetCharIndexAtPos does.</summary>

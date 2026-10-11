@@ -53,8 +53,7 @@ public sealed class MarkedContentTests
     [Test]
     public async Task GroupsGlyphsByMarkedContentId()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.Basic(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.Basic());
         var page = PdfDocumentTagged.GetMarkedContent(document, 0);
 
         await Assert.That(TextOf(page, HeadingMcid)).IsEqualTo(TaggedSamples.Title);
@@ -69,8 +68,7 @@ public sealed class MarkedContentTests
     [Test]
     public async Task GlyphBoxesAreInViewerSpace()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.Basic(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.Basic());
         var page = PdfDocumentTagged.GetMarkedContent(document, 0);
         var box = page.GetBounds(HeadingMcid);
         var glyph = page.Glyphs[page.GetGlyphs(HeadingMcid)[0]];
@@ -85,8 +83,7 @@ public sealed class MarkedContentTests
     [Test]
     public async Task FlagsArtifacts()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.Basic(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.Basic());
         var page = PdfDocumentTagged.GetMarkedContent(document, 0);
         var artifacts = 0;
         foreach (var glyph in page.Glyphs)
@@ -103,8 +100,7 @@ public sealed class MarkedContentTests
     [Test]
     public async Task RecordsGraphicBounds()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.Basic(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.Basic());
         var box = PdfDocumentTagged.GetMarkedContent(document, 0).GetBounds(FigureMcid);
 
         await Assert.That(box.Left).IsEqualTo(FigureLeft).Within(Tolerance);
@@ -116,8 +112,7 @@ public sealed class MarkedContentTests
     [Test]
     public async Task ReadsNamedAndFormContent()
     {
-        using var fonts = new TaggedFontScope();
-        using var document = PdfDocumentReader.Open(TaggedSamples.NamedAndFormContent(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.NamedAndFormContent());
         var page = PdfDocumentTagged.GetMarkedContent(document, 0);
 
         await Assert.That(TextOf(page, NamedMcid)).IsEqualTo("Named");
@@ -129,7 +124,7 @@ public sealed class MarkedContentTests
     [Test]
     public async Task DetectsImageOnlyPages()
     {
-        using var document = PdfDocumentReader.Open(TaggedSamples.ImageOnly(), null);
+        using var document = TaggedTestDocument.Open(TaggedSamples.ImageOnly());
         var page = PdfDocumentTagged.GetMarkedContent(document, 0);
 
         await Assert.That(page.HasImages).IsTrue();

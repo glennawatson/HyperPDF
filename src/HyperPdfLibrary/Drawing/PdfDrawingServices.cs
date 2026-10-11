@@ -2,33 +2,62 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
+using HyperPdfLibrary.Fonts;
+using HyperPdfLibrary.Objects;
+
 namespace HyperPdfLibrary.Drawing;
 
-/// <summary>Stores explicitly registered drawing services for the process.</summary>
-public static class PdfDrawingServices
+/// <summary>The drawing services shared by documents opened with this instance.</summary>
+[DebuggerDisplay("Drawing {ConfiguredBackend}, fonts {Fonts}, images {Images}")]
+public sealed class PdfDrawingServices
 {
-    /// <summary>The configured immutable registration.</summary>
-    private static PdfRenderBackendRegistration _registration = new();
-
-    /// <summary>Gets the optional font provider.</summary>
-    public static IPdfFontProvider? Fonts => Volatile.Read(ref _registration).Fonts;
-
-    /// <summary>Gets the optional image codec.</summary>
-    public static IPdfImageCodec? Images => Volatile.Read(ref _registration).Images;
-
-    /// <summary>Gets the registered drawing backend.</summary>
-    /// <exception cref="InvalidOperationException">No drawing backend has been registered.</exception>
-    public static IPdfRenderBackend Backend => PdfDrawingServices.ConfiguredBackend
-        ?? throw new InvalidOperationException("Register a drawing backend before rendering PDF pages.");
-
-    /// <summary>Gets the optional drawing backend for rendering resources.</summary>
-    internal static IPdfRenderBackend? ConfiguredBackend => Volatile.Read(ref _registration).Backend;
-
-    /// <summary>Registers drawing services before opening documents that use them.</summary>
-    /// <param name="registration">The immutable service registration.</param>
-    public static void Register(PdfRenderBackendRegistration registration)
+    /// <summary>Initializes a new instance of the <see cref="PdfDrawingServices"/> class.</summary>
+    /// <param name="registration">The drawing backend and providers.</param>
+    public PdfDrawingServices(PdfRenderBackendRegistration registration)
     {
         ArgumentNullException.ThrowIfNull(registration);
-        Volatile.Write(ref _registration, registration);
+        ConfiguredBackend = registration.Backend;
+        Fonts = registration.Fonts;
+        Images = registration.Images;
+        UnsupportedImageDecoder = registration.UnsupportedImageDecoder;
     }
+
+    /// <summary>Gets the optional font provider.</summary>
+    public IPdfFontProvider? Fonts { get; }
+
+    /// <summary>Gets the optional image codec.</summary>
+    public IPdfImageCodec? Images { get; }
+
+    /// <summary>Gets the decoder for images not supported by the library.</summary>
+    public Func<PdfStream, CancellationToken, IPdfRenderImage?>? UnsupportedImageDecoder { get; }
+
+    /// <summary>Gets the drawing backend.</summary>
+    /// <exception cref="InvalidOperationException">No backend was supplied.</exception>
+    public IPdfRenderBackend Backend => ConfiguredBackend
+        ?? throw new InvalidOperationException("Supply a drawing backend in PdfOpenOptions.DrawingServices before rendering PDF pages.");
+
+    /// <summary>Gets the optional drawing backend for rendering resources.</summary>
+    internal IPdfRenderBackend? ConfiguredBackend { get; }
+
+    /// <summary>Gets the font match cache for this service instance.</summary>
+    internal SystemFontMatcher FontMatcher
+    {
+        get
+        {
+            var existing = Volatile.Read(ref field);
+            if (existing is not null)
+            {
+                return existing;
+            }
+
+            var created = new SystemFontMatcher(Fonts);
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets a dictionary's document services, or empty services for a detached dictionary.</summary>
+    /// <param name="dictionary">The dictionary owned by a document.</param>
+    /// <returns>The drawing services.</returns>
+    internal static PdfDrawingServices For(PdfDictionary dictionary) => dictionary.Owner?.Context?.DrawingServices ?? new(new());
 }

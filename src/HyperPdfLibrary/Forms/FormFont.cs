@@ -154,7 +154,7 @@ internal sealed class FormFont
     {
         var composite = font.IsName(KnownName.Subtype, KnownName.Type0);
         var loaded = fonts?.Get(font);
-        var map = loaded is null ? null : FormCodeMap.For(loaded, store.Names);
+        var map = loaded is null || fonts is null ? null : fonts.GetCodeMap(loaded, store.Names);
         if (composite && map is null)
         {
             return null;

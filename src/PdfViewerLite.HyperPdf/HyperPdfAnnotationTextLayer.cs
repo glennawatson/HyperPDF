@@ -34,7 +34,7 @@ internal static class HyperPdfAnnotationTextLayer
                 return 0;
             }
 
-            var fonts = new TextLayerFonts(annotationState.Store, annotationState.Catalog ?? FontCatalog.System);
+            var fonts = new TextLayerFonts(annotationState.Store, annotationState.Catalog ?? FontCatalog.System, annotationState.FontState);
             var layer = ArrayPool<PdfTextLayerWord>.Shared.Rent(words.Length);
             try
             {
@@ -58,8 +58,9 @@ internal static class HyperPdfAnnotationTextLayer
     /// <summary>The fonts one text layer is written in: the built in font, and a subset of each installed font its other words need.</summary>
     /// <param name="store">The document.</param>
     /// <param name="catalog">The installed fonts.</param>
+    /// <param name="fontState">The viewer engine's reusable font state.</param>
     [DebuggerDisplay("TextLayerFonts: {_groups.Count} embedded")]
-    private sealed class TextLayerFonts(PdfObjectStore store, FontCatalog catalog)
+    private sealed class TextLayerFonts(PdfObjectStore store, FontCatalog catalog, TextBoxFontState fontState)
     {
         /// <summary>The installed fonts needed, by font program.</summary>
         private readonly Dictionary<FontProgram, Group> _groups = [];
@@ -118,7 +119,7 @@ internal static class HyperPdfAnnotationTextLayer
                 return HyperPdfAnnotationTextLayer.StandardFont;
             }
 
-            if (TextBoxFonts.Resolve(catalog, TextFormat.Default, text) is not { Program: { } program })
+            if (TextBoxFonts.Resolve(fontState, catalog, TextFormat.Default, text) is not { Program: { } program })
             {
                 return -1;
             }

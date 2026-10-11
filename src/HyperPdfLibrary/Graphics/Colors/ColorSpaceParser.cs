@@ -30,32 +30,13 @@ internal static class ColorSpaceParser
     /// <summary>The most components of an ICCBased space without a device fallback.</summary>
     private const int MaxWideIcc = 8;
 
-    /// <summary>Whether this thread is parsing a default colour space, which must not pick up defaults itself.</summary>
-    [ThreadStatic]
-    private static bool _isParsingDefault;
-
     /// <summary>Parses a colour space.</summary>
     /// <param name="value">A name or an array.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
     /// <returns>The colour space, or <see langword="null"/> when unknown or invalid.</returns>
-    internal static PdfColorSpace? Parse(PdfValue value, PdfDictionary? resources, int depth)
-    {
-        if (depth > MaxDepth)
-        {
-            return null;
-        }
-
-        if (value.TryGetName(out var name))
-        {
-            var family = name.ToKnownName();
-            var device = Device(family);
-            return device is null ? ParseResource(name, resources, depth) : ApplyDefault(device, family, resources, depth);
-        }
-
-        var array = value.AsArray();
-        return array is null || array.Count == 0 ? null : ParseArray(array, resources, depth);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfColorSpace? Parse(PdfValue value, PdfDictionary? resources, int depth) => ParseCore(value, resources, depth, false);
 
     /// <summary>Finds a dictionary value by a key that the library does not intern.</summary>
     /// <param name="dictionary">The dictionary.</param>
@@ -76,31 +57,48 @@ internal static class ColorSpaceParser
         return default;
     }
 
+    /// <summary>Parses a colour space with the current default-space recursion state.</summary>
+    /// <param name="value">A name or an array.</param>
+    /// <param name="resources">The /ColorSpace resource dictionary, or null.</param>
+    /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
+    /// <returns>The colour space, or null.</returns>
+    private static PdfColorSpace? ParseCore(PdfValue value, PdfDictionary? resources, int depth, bool parsingDefault)
+    {
+        if (depth > MaxDepth)
+        {
+            return null;
+        }
+
+        if (value.TryGetName(out var name))
+        {
+            var family = name.ToKnownName();
+            var device = Device(family);
+            return device is null ? ParseResource(name, resources, depth, parsingDefault) : ApplyDefault(device, family, resources, depth, parsingDefault);
+        }
+
+        var array = value.AsArray();
+        return array is null || array.Count == 0 ? null : ParseArray(array, resources, depth, parsingDefault);
+    }
+
     /// <summary>Replaces a device space with the resources' /DefaultGray, /DefaultRGB or /DefaultCMYK space when one fits.</summary>
     /// <param name="device">The device space (or Pattern).</param>
     /// <param name="family">The family name that selected it.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The default space, or <paramref name="device"/>.</returns>
-    private static PdfColorSpace ApplyDefault(PdfColorSpace device, KnownName family, PdfDictionary? resources, int depth)
+    private static PdfColorSpace ApplyDefault(PdfColorSpace device, KnownName family, PdfDictionary? resources, int depth, bool parsingDefault)
     {
         var key = DefaultKey(family);
-        if (resources is null || _isParsingDefault || key.IsEmpty)
+        if (resources is null || parsingDefault || key.IsEmpty)
         {
             return device;
         }
 
         var value = FindByName(resources, key);
-        _isParsingDefault = true;
-        try
-        {
-            var replacement = Parse(value, resources, depth + 1);
-            return replacement is not null && replacement.Components == device.Components && replacement.Kind != PdfColorSpaceKind.Pattern ? replacement : device;
-        }
-        finally
-        {
-            _isParsingDefault = false;
-        }
+        var replacement = ParseCore(value, resources, depth + 1, true);
+        return replacement is not null && replacement.Components == device.Components && replacement.Kind != PdfColorSpaceKind.Pattern ? replacement : device;
     }
 
     /// <summary>Gets the resource key of the default colour space for a device family.</summary>
@@ -136,24 +134,26 @@ internal static class ColorSpaceParser
     /// <param name="name">The name.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The colour space, or <see langword="null"/>.</returns>
-    private static PdfColorSpace? ParseResource(PdfName name, PdfDictionary? resources, int depth) =>
-        resources is null || name.IsNone ? null : Parse(resources.Get(name), resources, depth + 1);
+    private static PdfColorSpace? ParseResource(PdfName name, PdfDictionary? resources, int depth, bool parsingDefault) =>
+        resources is null || name.IsNone ? null : ParseCore(resources.Get(name), resources, depth + 1, parsingDefault);
 
     /// <summary>Parses a colour space array.</summary>
     /// <param name="array">The array.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The colour space, or <see langword="null"/>.</returns>
-    private static PdfColorSpace? ParseArray(PdfArray array, PdfDictionary? resources, int depth)
+    private static PdfColorSpace? ParseArray(PdfArray array, PdfDictionary? resources, int depth, bool parsingDefault)
     {
         var family = array.GetName(0).ToKnownName();
         if (family == KnownName.Pattern)
         {
-            return array.Count > FirstParameter ? new PatternColorSpace(Parse(array.Get(FirstParameter), resources, depth + 1)) : PatternColorSpace.Colored;
+            return array.Count > FirstParameter ? new PatternColorSpace(ParseCore(array.Get(FirstParameter), resources, depth + 1, parsingDefault)) : PatternColorSpace.Colored;
         }
 
-        return Device(family) ?? ParseCalibrated(family, array) ?? ParseSpecial(family, array, resources, depth);
+        return Device(family) ?? ParseCalibrated(family, array) ?? ParseSpecial(family, array, resources, depth, parsingDefault);
     }
 
     /// <summary>Parses the CIE-based families that need no other space.</summary>
@@ -173,13 +173,14 @@ internal static class ColorSpaceParser
     /// <param name="array">The array.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The colour space, or <see langword="null"/>.</returns>
-    private static PdfColorSpace? ParseSpecial(KnownName family, PdfArray array, PdfDictionary? resources, int depth) => family switch
+    private static PdfColorSpace? ParseSpecial(KnownName family, PdfArray array, PdfDictionary? resources, int depth, bool parsingDefault) => family switch
     {
-        KnownName.ICCBased => ParseIccBased(array, resources, depth),
-        KnownName.Indexed or KnownName.I => ParseIndexed(array, resources, depth),
-        KnownName.Separation => ParseSeparation(array, resources, depth),
-        KnownName.DeviceN => ParseDeviceN(array, resources, depth),
+        KnownName.ICCBased => ParseIccBased(array, resources, depth, parsingDefault),
+        KnownName.Indexed or KnownName.I => ParseIndexed(array, resources, depth, parsingDefault),
+        KnownName.Separation => ParseSeparation(array, resources, depth, parsingDefault),
+        KnownName.DeviceN => ParseDeviceN(array, resources, depth, parsingDefault),
         _ => null,
     };
 
@@ -187,8 +188,9 @@ internal static class ColorSpaceParser
     /// <param name="array">The array.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The colour space, or <see langword="null"/>.</returns>
-    private static IccBasedColorSpace? ParseIccBased(PdfArray array, PdfDictionary? resources, int depth)
+    private static IccBasedColorSpace? ParseIccBased(PdfArray array, PdfDictionary? resources, int depth, bool parsingDefault)
     {
         var stream = array.Get(FirstParameter).AsStream();
         var dictionary = stream?.Dictionary ?? array.GetDictionary(FirstParameter);
@@ -197,7 +199,7 @@ internal static class ColorSpaceParser
             return null;
         }
 
-        var alternate = ResolveIccAlternate(dictionary, resources, depth);
+        var alternate = ResolveIccAlternate(dictionary, resources, depth, parsingDefault);
         if (alternate is null)
         {
             return stream is null ? null : ParseWideIcc(stream, dictionary.GetInt32(KnownName.N));
@@ -241,11 +243,12 @@ internal static class ColorSpaceParser
     /// <param name="dictionary">The profile stream dictionary.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The space, or <see langword="null"/> when /N is not 1, 3 or 4 and the alternate is unusable.</returns>
-    private static PdfColorSpace? ResolveIccAlternate(PdfDictionary dictionary, PdfDictionary? resources, int depth)
+    private static PdfColorSpace? ResolveIccAlternate(PdfDictionary dictionary, PdfDictionary? resources, int depth, bool parsingDefault)
     {
         var components = dictionary.GetInt32(KnownName.N);
-        var alternate = Parse(dictionary.Get(KnownName.Alternate), resources, depth + 1);
+        var alternate = ParseCore(dictionary.Get(KnownName.Alternate), resources, depth + 1, parsingDefault);
         if (FitsIcc(alternate, components))
         {
             return alternate;
@@ -281,10 +284,11 @@ internal static class ColorSpaceParser
     /// <param name="array">The array.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The colour space, or <see langword="null"/>.</returns>
-    private static IndexedColorSpace? ParseIndexed(PdfArray array, PdfDictionary? resources, int depth)
+    private static IndexedColorSpace? ParseIndexed(PdfArray array, PdfDictionary? resources, int depth, bool parsingDefault)
     {
-        var baseSpace = Parse(array.Get(FirstParameter), resources, depth + 1);
+        var baseSpace = ParseCore(array.Get(FirstParameter), resources, depth + 1, parsingDefault);
         if (baseSpace is null || baseSpace.Kind is PdfColorSpaceKind.Pattern or PdfColorSpaceKind.Indexed)
         {
             return null;
@@ -314,19 +318,21 @@ internal static class ColorSpaceParser
     /// <param name="array">The array.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The colour space.</returns>
-    private static SeparationColorSpace ParseSeparation(PdfArray array, PdfDictionary? resources, int depth)
+    private static SeparationColorSpace ParseSeparation(PdfArray array, PdfDictionary? resources, int depth, bool parsingDefault)
     {
         var isNone = IsNone(array.GetName(FirstParameter), array.Owner);
-        return new(ParseTint(array, resources, depth, 1), isNone);
+        return new(ParseTint(array, resources, depth, 1, parsingDefault), isNone);
     }
 
     /// <summary>Parses a DeviceN space.</summary>
     /// <param name="array">The array.</param>
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The colour space, or <see langword="null"/> when the names are invalid.</returns>
-    private static DeviceNColorSpace? ParseDeviceN(PdfArray array, PdfDictionary? resources, int depth)
+    private static DeviceNColorSpace? ParseDeviceN(PdfArray array, PdfDictionary? resources, int depth, bool parsingDefault)
     {
         var names = array.GetArray(FirstParameter);
         if (names is null || names.Count == 0 || names.Count > PdfColorSpace.MaxComponents)
@@ -340,7 +346,7 @@ internal static class ColorSpaceParser
             allNone = IsNone(names.GetName(i), names.Owner);
         }
 
-        return new(names.Count, ParseTint(array, resources, depth, names.Count), allNone);
+        return new(names.Count, ParseTint(array, resources, depth, names.Count, parsingDefault), allNone);
     }
 
     /// <summary>Parses the alternate space and tint transform of a Separation or DeviceN space.</summary>
@@ -348,10 +354,11 @@ internal static class ColorSpaceParser
     /// <param name="resources">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="depth">The nesting depth.</param>
     /// <param name="tints">The number of tints.</param>
+    /// <param name="parsingDefault">Whether a default colour space is being resolved.</param>
     /// <returns>The tint transform.</returns>
-    private static TintTransform ParseTint(PdfArray array, PdfDictionary? resources, int depth, int tints)
+    private static TintTransform ParseTint(PdfArray array, PdfDictionary? resources, int depth, int tints, bool parsingDefault)
     {
-        var alternate = Parse(array.Get(SecondParameter), resources, depth + 1);
+        var alternate = ParseCore(array.Get(SecondParameter), resources, depth + 1, parsingDefault);
         return alternate is null || IsSpecial(alternate)
             ? new(DeviceGrayColorSpace.Instance, null)
             : TintTransform.Create(alternate, PdfFunction.Parse(array.Get(ThirdParameter)), tints);

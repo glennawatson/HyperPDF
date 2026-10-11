@@ -387,7 +387,7 @@ public static class PdfCompactWriter
         var compressed = default(PooledBuffer);
         try
         {
-            var probe = new PdfOpenContext(null, CancellationToken.None);
+            var probe = new PdfOpenContext(null, new(new()), CancellationToken.None);
             _ = PdfStreamDecoder.Decode(stream, probe, ref decoded);
             if (!probe.HasRepairs)
             {

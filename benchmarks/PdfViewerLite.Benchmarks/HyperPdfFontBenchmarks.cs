@@ -5,6 +5,7 @@
 using System.Text;
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Fonts.Data;
 using HyperPdfLibrary.Objects;
@@ -56,6 +57,9 @@ public class HyperPdfFontBenchmarks
     /// <summary>The tile pixels.</summary>
     private readonly byte[] _pixels = new byte[TileSize * TileSize * BytesPerPixel];
 
+    /// <summary>The drawing services reused across benchmark invocations.</summary>
+    private readonly PdfDrawingServices _drawingServices = BenchmarkDrawing.CreateServices();
+
     /// <summary>The codes of the line, encoded for the font.</summary>
     private byte[] _codes = [];
 
@@ -95,7 +99,7 @@ public class HyperPdfFontBenchmarks
     {
         _codes = EncodeLine(Kind);
         _pdf = CreateDocument(Kind, _codes);
-        _document = PdfDocumentReader.Open(_pdf, null);
+        _document = BenchmarkDrawing.Open(_pdf, null, _drawingServices);
         await PdfDocumentPages.PrefetchPageAsync(_document, 0, CancellationToken.None);
         await PredefinedCMaps.EnsureAsync(ColdCMapName, CancellationToken.None);
         await PredefinedCMaps.EnsureAsync("90ms-RKSJ-H", CancellationToken.None);
@@ -182,7 +186,7 @@ public class HyperPdfFontBenchmarks
     /// <summary>Chooses the substitute for Helvetica-Bold once the bundled face is cached, as every non-embedded font load does.</summary>
     /// <returns>The face.</returns>
     [Benchmark]
-    public object MatchBundledFace() => SystemFontMatcher.Match(new("Helvetica-Bold", StandardFont.HelveticaBold, FontFlags.Nonsymbolic, 0, CjkScript.None));
+    public object MatchBundledFace() => _document.DrawingServices.FontMatcher.Match(new("Helvetica-Bold", StandardFont.HelveticaBold, FontFlags.Nonsymbolic, 0, CjkScript.None));
 
     /// <summary>Reads a predefined CMap from disk: decompresses and decodes UniJIS-UCS2-H, as on first use.</summary>
     /// <returns>The CMap.</returns>
@@ -222,7 +226,7 @@ public class HyperPdfFontBenchmarks
     [Benchmark]
     public bool ColdTextTile()
     {
-        using var document = PdfDocumentReader.Open(_pdf, null);
+        using var document = BenchmarkDrawing.Open(_pdf, null, _drawingServices);
         using var renderer = new PdfPageRenderer(document);
         return renderer.Render(new(0, Scale, 0, 0, 0, PdfRenderFlags.None), new(_pixels, TileSize, TileSize, TileSize * BytesPerPixel));
     }

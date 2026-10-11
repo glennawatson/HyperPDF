@@ -18,8 +18,8 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Rendering;
 
 /// <summary>
-/// What a document keeps between renders: loaded fonts, decoded images, colour spaces, shadings, recorded pattern cells
-/// and soft masks. Every cache is safe to use from many threads.
+/// Reusable font, image, colour, shading and mask data for document operations or renderers with equal image and drawing settings. Each cache
+/// is safe to use from many threads.
 /// </summary>
 [DebuggerDisplay("PdfRenderCache: {Images.Count} images, {Images.Bytes} bytes")]
 internal sealed class PdfRenderCache
@@ -37,6 +37,7 @@ internal sealed class PdfRenderCache
     internal PdfRenderCache(PdfDocument document, OutputIntentColors? deviceColors)
     {
         Document = document;
+        Fonts = new(document.FontFactory);
         DeviceColors = deviceColors;
         LowerCa = document.Objects.Names.Intern("ca");
         GraphicsStateName = document.Objects.Names.Intern("GS");
@@ -76,7 +77,7 @@ internal sealed class PdfRenderCache
     internal PdfName LowerCa { get; }
 
     /// <summary>Gets the loaded fonts.</summary>
-    internal PdfFontCache Fonts { get; } = new();
+    internal PdfFontCache Fonts { get; }
 
     /// <summary>Gets the decoded images, bounded by their pixel bytes.</summary>
     internal ImageCache Images { get; } = new();
@@ -104,7 +105,7 @@ internal sealed class PdfRenderCache
     /// <param name="data">The decoded image.</param>
     /// <returns>The backend image, which the caller owns.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static IPdfRenderImage? ToRenderImage(PdfImageData data) => PdfDrawingServices.Backend.CreateImage(data);
+    internal IPdfRenderImage? ToRenderImage(PdfImageData data) => Document.DrawingServices.Backend.CreateImage(data);
 
     /// <summary>
     /// Empties every cache when the document is disposed. Images are released as their last user finishes, and later
@@ -143,7 +144,7 @@ internal sealed class PdfRenderCache
     /// <returns>The image, which the caller releases; null when decoding fails.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ImageEntry? AcquireImage(PdfStream stream, int reductionLevels, CancellationToken cancellationToken = default) =>
-        Images.Acquire(new(stream, reductionLevels), new ImageDecodeState(DeviceColors, cancellationToken), Decode, cancellationToken);
+        Images.Acquire(new(stream, reductionLevels), new ImageDecodeState(this, DeviceColors, cancellationToken), Decode, cancellationToken);
 
     /// <summary>Gets a colour space from a value.</summary>
     /// <param name="value">A name or colour space array, resolved.</param>
@@ -173,16 +174,17 @@ internal sealed class PdfRenderCache
 
         if (data.UnsupportedCodec != PdfImageCodec.None)
         {
-            var image = PdfRenderHooks.UnsupportedImageDecoder?.Invoke(key.Stream);
+            var image = state.Cache.Document.DrawingServices.UnsupportedImageDecoder?.Invoke(key.Stream, state.CancellationToken);
             return image is null ? null : new ImageEntry(image, false, true);
         }
 
-        var converted = ToRenderImage(data);
+        var converted = state.Cache.ToRenderImage(data);
         return converted is null ? null : new ImageEntry(converted, data.IsStencilMask, data.Interpolate);
     }
 
     /// <summary>The input to one image decode, passed to the cache leader without shared mutable state.</summary>
+    /// <param name="Cache">The owning render cache.</param>
     /// <param name="Colors">The output intent colours.</param>
     /// <param name="CancellationToken">The caller's token.</param>
-    private readonly record struct ImageDecodeState(OutputIntentColors? Colors, CancellationToken CancellationToken);
+    private readonly record struct ImageDecodeState(PdfRenderCache Cache, OutputIntentColors? Colors, CancellationToken CancellationToken);
 }

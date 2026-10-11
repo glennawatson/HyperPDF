@@ -10,8 +10,9 @@ using HyperPdfLibrary.Fonts.Programs;
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
-/// A system font standing in for a font the PDF does not embed. Faces are shared by every document and live for the
-/// process, so the cache never disposes them. Backend calls run only while a glyph is first loaded.
+/// A system font standing in for a font the PDF does not embed. Faces are shared by documents using the same drawing
+/// services. The service cache retains them while it is reachable; documents may keep a face after the cache is gone.
+/// Backend calls run only while a glyph is first loaded.
 /// </summary>
 [DebuggerDisplay("SubstituteFace: {FamilyName}")]
 internal sealed class SubstituteFace : GlyphSource, IDisposable

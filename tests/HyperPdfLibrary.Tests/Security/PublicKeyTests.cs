@@ -68,8 +68,10 @@ public sealed class PublicKeyTests
     [Test]
     public async Task RendersLikePlaintextTwin()
     {
-        using var encrypted = PdfDocumentReader.OpenWithCertificate(PublicKeyPdf.Encrypted(PublicKeyCipher.Aes256, Permissions, true, Recipient), Recipient);
-        using var plain = PdfDocumentReader.Open(PublicKeyPdf.Plain(), null);
+        using var encrypted = PdfDocumentReader.OpenWith(
+            PublicKeyPdf.Encrypted(PublicKeyCipher.Aes256, Permissions, true, Recipient),
+            new PdfOpenOptions { Certificate = Recipient, DrawingServices = SkiaTestRegistration.CreateServices() });
+        using var plain = SkiaTestRegistration.Open(PublicKeyPdf.Plain(), null);
 
         await Assert.That(Render(encrypted)).IsEquivalentTo(Render(plain));
     }
@@ -80,7 +82,7 @@ public sealed class PublicKeyTests
     public async Task NoCertificateIsAClearError()
     {
         var file = PublicKeyPdf.Encrypted(PublicKeyCipher.Aes256, Permissions, true, Recipient);
-        var exception = await Assert.That(() => PdfDocumentReader.Open(file, null)).Throws<PdfException>();
+        var exception = await Assert.That(() => SkiaTestRegistration.Open(file, null)).Throws<PdfException>();
 
         await Assert.That(exception!.Error).IsEqualTo(PdfError.Certificate);
     }

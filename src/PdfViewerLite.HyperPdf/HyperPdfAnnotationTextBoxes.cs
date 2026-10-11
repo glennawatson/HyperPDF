@@ -75,7 +75,12 @@ internal static class HyperPdfAnnotationTextBoxes
         var wrap = Math.Max(wrapWidth, 0);
         lock (annotationState.Gate)
         {
-            if (HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is not { } page || TextBoxFonts.Resolve(annotationState.Catalog ?? FontCatalog.System, clamped, text) is not { } font)
+            if (HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is not { } page
+                || TextBoxFonts.Resolve(
+                    annotationState.FontState,
+                    annotationState.Catalog ?? FontCatalog.System,
+                    clamped,
+                    text) is not { } font)
             {
                 return -1;
             }
@@ -135,7 +140,12 @@ internal static class HyperPdfAnnotationTextBoxes
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(format);
         var clamped = format.Clamped();
-        return TextBoxFonts.Resolve(HyperPdfAnnotationReading.GetFontCatalog(annotationState), clamped, text) is { } font ? TextBoxLayout.FirstBaseline(clamped, font.Shaper) : float.NaN;
+        var font = TextBoxFonts.Resolve(
+            annotationState.FontState,
+            HyperPdfAnnotationReading.GetFontCatalog(annotationState),
+            clamped,
+            text);
+        return font is not null ? TextBoxLayout.FirstBaseline(clamped, font.Shaper) : float.NaN;
     }
 
     /// <summary>Reads free text written by another program from its contents and its default appearance and style.</summary>

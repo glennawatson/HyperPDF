@@ -54,7 +54,7 @@ public class HyperPdfFormRuntimeBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _document = PdfDocumentReader.Open(FormRuntimeSamples.Create("/Tabs /R"), null);
+        _document = BenchmarkDrawing.Open(FormRuntimeSamples.Create("/Tabs /R"), null);
         _renderer = new(_document, PdfRenderOptions.Default with { FormHighlight = new(TintColor, TintAlpha) });
         _pixels = new byte[PageWidth * PageHeight * PixelBytes];
         _ = RenderTinted();

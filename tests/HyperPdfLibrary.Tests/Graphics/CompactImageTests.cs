@@ -156,7 +156,7 @@ public sealed class CompactImageTests
     {
         var gray = PdfImageDecoder.DecodeCompact(GrayImage(ByteBits, AlignedWidth, false))!;
 
-        using var wrapper = PdfDrawingServices.Backend.CreateImage(gray);
+        using var wrapper = SkiaTestRegistration.CreateServices().Backend.CreateImage(gray);
         await Assert.That(wrapper).IsNotNull();
         var image = SkiaResources.Image(wrapper!);
 

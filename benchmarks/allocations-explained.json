@@ -614,7 +614,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Syntax.",
-    "reason": "Parsing an object builds its value: a PdfDictionary or PdfArray allocated once at its final size from the per-thread parse stack, its key and value arrays, and strings with escapes. Parsed objects are cached in the object store, so each is parsed once per document. Inline marked-content property lists are parsed when a page is recorded or its text read, which is once per page; warm tiles replay the recorded picture."
+    "reason": "Parsing an object builds its value: a PdfDictionary or PdfArray allocated once at its final size from the operation-local parse stack, its key and value arrays, and strings with escapes. Parsed objects are cached in the object store, so each is parsed once per document. Inline marked-content property lists are parsed when a page is recorded or its text read, which is once per page; warm tiles replay the recorded picture."
   },
   {
     "type": "",
@@ -642,6 +642,11 @@
     "reason": "The page set holds the page array and the reverse lookup from object number to page index. It is built once per document and again after a page edit."
   },
   {
+    "type": "System.Runtime.CompilerServices.ConditionalWeakTable`2[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Document.PdfPrefetchMark]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentReader.OpenWithAsync(",
+    "reason": "The first prefetch of a stream-backed document creates one weak table owned by its object store to remember each dictionary's cache generation. Inlining attributes the table creation to async open."
+  },
+  {
     "type": "",
     "frame": "HyperPdfLibrary.Document.PdfDocument",
     "reason": "Document-level reads that return results the caller keeps or the document caches once: Create builds the document and its lazily filled caches, the page set and output intents are read once, and outline, link, URI, info, viewer preference and conformance reads return records and strings. RunContent creates one content interpreter with its graphics state, resource and marked-content stacks per content run, which happens once per text page build or raster scan, and the text page is cached. RunEdit and CurrentSlots copy the page slots for an undoable page edit. None of these run when a recorded tile is drawn."
@@ -664,12 +669,12 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Rendering.PdfRenderCache.",
-    "reason": "The document's render cache is created on the first render, and Decode and ToSkImage decode an image and wrap it in a Skia image once; the entry stays in the 64 MiB image cache until evicted. Large pixel arrays are placed on the pinned object heap and become Skia's own pixel memory, so the decode output is not copied."
+    "reason": "A render cache is created when a document first needs a set of image and drawing settings, then shared by live renderers with those settings. Decode and ToSkImage decode an image and wrap it in a Skia image once per cache; its image limit bounds retained entries. Large pixel arrays are placed on the pinned object heap and become Skia's own pixel memory, so the decode output is not copied."
   },
   {
     "type": "",
     "frame": "HyperPdfLibrary.Rendering.ImageCache..ctor",
-    "reason": "The image cache's dictionary and recency list, created once per document on the first render."
+    "reason": "The image cache's dictionary and recency list are created with each cache for a document's active image and drawing settings."
   },
   {
     "type": "",
@@ -1280,6 +1285,16 @@
     "type": "HyperPdfLibrary.Content.ContentInterpreter",
     "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
     "reason": "A cache miss records the soft-mask form with an owned child content interpreter. This isolates its parsing and graphics state from the outer page interpreter, and the completed mask recording is retained."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfPathBuilder",
+    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
+    "reason": "The child interpreter recording an uncached soft-mask form creates path and text-clip builders. The completed mask recording is cached, so warm replay does not create them."
+  },
+  {
+    "type": "System.Collections.Generic.List\u00601[HyperPdfLibrary.Drawing.PdfPathCommand]",
+    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
+    "reason": "The child interpreter's path and text-clip builders each own a command list. These lists are created during first soft-mask recording, not warm replay."
   },
   {
     "type": "Node[System.IntPtr,SkiaSharp.SKObject]",

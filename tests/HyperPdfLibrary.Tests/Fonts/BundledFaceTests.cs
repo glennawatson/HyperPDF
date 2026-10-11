@@ -78,9 +78,10 @@ public sealed class BundledFaceTests
     {
         var (baseFont, expected) = make;
         var standard = StandardFonts.Find(System.Text.Encoding.UTF8.GetBytes(baseFont));
+        var matcher = new SystemFontMatcher(null);
 
-        await SystemFontMatcher.EnsureAsync(new(baseFont, standard, FontFlags.Nonsymbolic, 0, CjkScript.None), CancellationToken.None);
-        var face = SystemFontMatcher.Match(new(baseFont, standard, FontFlags.Nonsymbolic, 0, CjkScript.None));
+        await matcher.EnsureAsync(new(baseFont, standard, FontFlags.Nonsymbolic, 0, CjkScript.None), CancellationToken.None);
+        var face = matcher.Match(new(baseFont, standard, FontFlags.Nonsymbolic, 0, CjkScript.None));
 
         await Assert.That(face.IsBundled).IsTrue();
         await Assert.That(face.FamilyName).IsEqualTo(expected);
@@ -93,9 +94,10 @@ public sealed class BundledFaceTests
     {
         await BundledFaces.EnsureAsync(BundledFamily.Sans, true, false, CancellationToken.None);
         await BundledFaces.EnsureAsync(BundledFamily.Serif, false, false, CancellationToken.None);
+        var matcher = new SystemFontMatcher(null);
 
-        var arial = SystemFontMatcher.Match(new("Arial,Bold", StandardFont.None, FontFlags.Nonsymbolic, 0, CjkScript.None));
-        var times = SystemFontMatcher.Match(new("TimesNewRoman", StandardFont.None, FontFlags.Nonsymbolic, 0, CjkScript.None));
+        var arial = matcher.Match(new("Arial,Bold", StandardFont.None, FontFlags.Nonsymbolic, 0, CjkScript.None));
+        var times = matcher.Match(new("TimesNewRoman", StandardFont.None, FontFlags.Nonsymbolic, 0, CjkScript.None));
 
         await Assert.That(arial.FamilyName).IsEqualTo(SansBoldFace);
         await Assert.That(times.FamilyName).IsEqualTo(SerifFace);
@@ -110,11 +112,12 @@ public sealed class BundledFaceTests
         await BundledFaces.EnsureAsync(BundledFamily.Fixed, false, false, CancellationToken.None);
         await BundledFaces.EnsureAsync(BundledFamily.Sans, true, false, CancellationToken.None);
         await BundledFaces.EnsureAsync(BundledFamily.Sans, false, true, CancellationToken.None);
+        var matcher = new SystemFontMatcher(null);
 
-        var serif = SystemFontMatcher.Match(new(UnknownFont, StandardFont.None, FontFlags.Serif | FontFlags.Nonsymbolic, RegularWeight, CjkScript.None));
-        var fixedPitch = SystemFontMatcher.Match(new(UnknownFont, StandardFont.None, FontFlags.FixedPitch | FontFlags.Nonsymbolic, RegularWeight, CjkScript.None));
-        var sansBold = SystemFontMatcher.Match(new(UnknownFont, StandardFont.None, FontFlags.Nonsymbolic, BoldWeight, CjkScript.None));
-        var sansItalic = SystemFontMatcher.Match(new("NoSuchFontXyz-Italic", StandardFont.None, FontFlags.Nonsymbolic, RegularWeight, CjkScript.None));
+        var serif = matcher.Match(new(UnknownFont, StandardFont.None, FontFlags.Serif | FontFlags.Nonsymbolic, RegularWeight, CjkScript.None));
+        var fixedPitch = matcher.Match(new(UnknownFont, StandardFont.None, FontFlags.FixedPitch | FontFlags.Nonsymbolic, RegularWeight, CjkScript.None));
+        var sansBold = matcher.Match(new(UnknownFont, StandardFont.None, FontFlags.Nonsymbolic, BoldWeight, CjkScript.None));
+        var sansItalic = matcher.Match(new("NoSuchFontXyz-Italic", StandardFont.None, FontFlags.Nonsymbolic, RegularWeight, CjkScript.None));
 
         await Assert.That(serif.FamilyName).IsEqualTo(SerifFace);
         await Assert.That(fixedPitch.FamilyName).IsEqualTo("Cousine-Regular");

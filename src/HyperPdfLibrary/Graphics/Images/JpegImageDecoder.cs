@@ -49,7 +49,7 @@ internal static class JpegImageDecoder
     /// <returns>The image, <see langword="null"/> when it is too large, or an image marked unsupported when no decoder can read it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int colorTransform) =>
-        Decode(header, data, colorTransform, null, 0);
+        Decode(header, data, colorTransform, null, 0, null, CancellationToken.None);
 
     /// <summary>Decodes a JPEG image, reporting data that ends before its end-of-image marker.</summary>
     /// <param name="header">The image header.</param>
@@ -57,9 +57,17 @@ internal static class JpegImageDecoder
     /// <param name="colorTransform">The <c>/ColorTransform</c> decode parameter, or <see cref="JpegInfo.NoColorTransform"/>.</param>
     /// <param name="context">The open context that receives the report, or <see langword="null"/>.</param>
     /// <param name="objectNumber">The image stream's object number, or 0.</param>
+    /// <param name="imageCodec">The optional provider codec.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The image, <see langword="null"/> when it is too large, or an image marked unsupported when no decoder can read it.</returns>
-    internal static PdfImageData? Decode(in ImageHeader header, ReadOnlySpan<byte> data, int colorTransform, PdfOpenContext? context, int objectNumber, CancellationToken cancellationToken = default)
+    internal static PdfImageData? Decode(
+        in ImageHeader header,
+        ReadOnlySpan<byte> data,
+        int colorTransform,
+        PdfOpenContext? context,
+        int objectNumber,
+        IPdfImageCodec? imageCodec,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ReportIfTruncated(data, context, objectNumber);
@@ -78,7 +86,7 @@ internal static class JpegImageDecoder
         var needsRawSamples = info.Components == CmykComponents || (info.Components == RgbComponents && !convert);
         var image = needsRawSamples
             ? DecodeManaged(header, data, info, convert, cancellationToken)
-            : DecodeProvider(header, data, info) ?? DecodeManaged(header, data, info, convert, cancellationToken);
+            : DecodeProvider(header, data, info, imageCodec) ?? DecodeManaged(header, data, info, convert, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return image ?? Unsupported(header);
     }
@@ -147,10 +155,11 @@ internal static class JpegImageDecoder
     /// <param name="header">The PDF image header.</param>
     /// <param name="data">The JPEG bytes.</param>
     /// <param name="info">The JPEG dimensions and component layout.</param>
+    /// <param name="codec">The optional provider codec.</param>
     /// <returns>The decoded image, or null when the provider cannot decode it.</returns>
-    private static PdfImageData? DecodeProvider(in ImageHeader header, ReadOnlySpan<byte> data, in JpegInfo info)
+    private static PdfImageData? DecodeProvider(in ImageHeader header, ReadOnlySpan<byte> data, in JpegInfo info, IPdfImageCodec? codec)
     {
-        if (PdfDrawingServices.Images is not { } codec)
+        if (codec is null)
         {
             return null;
         }

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Text;
 
 namespace HyperPdfLibrary.Tests.Text;
@@ -88,16 +89,18 @@ public sealed class TextSpaceCompactionTests
 
     /// <summary>The next extraction starts with clean buffers after a compacted line.</summary>
     /// <returns>A task.</returns>
+    /// <exception cref="InvalidOperationException">The first extraction did not return its state.</exception>
     [Test]
     public async Task ReusesCleanBuildStateAfterCompaction()
     {
-        var state = TextPageBuild.Current;
-        var first = TextTestDocument.Extract("BT /F1 10 Tf 10 100 Td (A       B) Tj ET");
+        using var document = TextTestDocument.Open(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td (A       B) Tj ET").ToBytes());
+        var first = PdfDocumentText.ExtractText(document, 0);
+        var state = document.State.TextBuild ?? throw new InvalidOperationException("The first extraction did not return its state.");
         var second = TextTestDocument.Extract("BT /F1 10 Tf 10 100 Td (C) Tj ET");
 
         await Assert.That(first.Text).IsEqualTo("A B");
         await Assert.That(second.Text).IsEqualTo("C");
-        await Assert.That(ReferenceEquals(state, TextPageBuild.Current)).IsTrue();
+        await Assert.That(ReferenceEquals(state, document.State.TextBuild)).IsTrue();
         await Assert.That(state.Temp.Count).IsEqualTo(0);
         await Assert.That(state.TempText.Count).IsEqualTo(0);
     }

@@ -106,6 +106,33 @@ public sealed class TextQueryTests
         await Assert.That(rects[0].Right).IsEqualTo(LineRight).Within(Tolerance);
     }
 
+    /// <summary>Callback queries return the same rectangles and matches without an intermediate list.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CallbackQueriesMatchListQueriesWithoutAllocating()
+    {
+        var page = TextTestDocument.Extract(TwoLines);
+        var rects = new List<PdfRectangle>(OutputCapacity);
+        var matches = new List<PdfTextMatch>(OutputCapacity);
+        page.GetRects(0, page.CharCount, rects);
+        page.Find(Word, PdfTextSearchOptions.None, matches);
+
+        var visitedRects = new List<PdfRectangle>(OutputCapacity);
+        var visitedMatches = new List<PdfTextMatch>(OutputCapacity);
+        CallbackQuery(page, visitedRects, visitedMatches);
+        await Assert.That(visitedRects).IsEquivalentTo(rects);
+        await Assert.That(visitedMatches).IsEquivalentTo(matches);
+
+        CallbackQuery(page, visitedRects, visitedMatches);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < Repeats; i++)
+        {
+            CallbackQuery(page, visitedRects, visitedMatches);
+        }
+
+        await Assert.That(GC.GetAllocatedBytesForCurrentThread() - before).IsEqualTo(0L);
+    }
+
     /// <summary>Search ignores case by default, can match case and whole words, and crosses line breaks.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -189,6 +216,18 @@ public sealed class TextQueryTests
         var hit = page.GetIndexAtPosition(new(ThirdGlyphX, GlyphY), HitTolerance, HitTolerance);
         var text = page.GetTextSpan(0, WordLength);
         return page.CharCount + hit + text.Length + rects.Count + matches.Count + page.TextIndexFromCharIndex(ThirdGlyph);
+    }
+
+    /// <summary>Runs both callback queries with caller-owned result lists.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="rects">The rectangle list.</param>
+    /// <param name="matches">The match list.</param>
+    private static void CallbackQuery(PdfTextPage page, List<PdfRectangle> rects, List<PdfTextMatch> matches)
+    {
+        rects.Clear();
+        matches.Clear();
+        page.GetRects(0, page.CharCount, rects, static (output, rect) => output.Add(rect));
+        page.Find(Word, PdfTextSearchOptions.None, matches, static (output, start, count) => output.Add(new(start, count)));
     }
 
     /// <summary>Finds every match of a query.</summary>

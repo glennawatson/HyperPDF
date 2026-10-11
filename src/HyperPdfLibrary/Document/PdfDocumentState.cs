@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Layers;
 using HyperPdfLibrary.Navigation;
@@ -42,7 +44,7 @@ internal record struct PdfDocumentState
     /// <summary>The outline snapshot until structural invalidation.</summary>
     private PdfOutlineItem[]? _outline;
 
-    /// <summary>Renderers configured for the output intent.</summary>
+    /// <summary>The document's output-intent colour source for renderer caches.</summary>
     private PdfRenderCache? _intentRenderCache;
 
     /// <summary>Whether the output intent renderer has been selected.</summary>
@@ -54,11 +56,20 @@ internal record struct PdfDocumentState
     /// <summary>Page content edit count used in renderer cache keys.</summary>
     private int _pageContentEdits;
 
-    /// <summary>The normal page renderers.</summary>
+    /// <summary>The document-owned cache for content operations outside page renderers.</summary>
     private PdfRenderCache? _renderCache;
+
+    /// <summary>The normal caches indexed by renderer options, created on first render.</summary>
+    private Dictionary<PdfRenderCacheKey, PdfRenderCacheEntry>? _rendererCaches;
+
+    /// <summary>The output-intent caches indexed by renderer options, created on first use.</summary>
+    private Dictionary<PdfRenderCacheKey, PdfRenderCacheEntry>? _intentRendererCaches;
 
     /// <summary>The font data refresh generation for renderer caches.</summary>
     private int _fontDataGeneration;
+
+    /// <summary>Font preparation work by page snapshot, created on first asynchronous prefetch.</summary>
+    private ConditionalWeakTable<PdfPage, FontDataPreparation>? _fontPreparations;
 
     /// <summary>The lazily read signature details.</summary>
     private PdfSignatureDetails[]? _signatureDetails;
@@ -77,6 +88,9 @@ internal record struct PdfDocumentState
 
     /// <summary>Extracted text pages until page content invalidation.</summary>
     private PdfTextPageCache? _textPages;
+
+    /// <summary>A cleaned text build state available for another extraction.</summary>
+    private TextPageBuildState? _textBuild;
 
     /// <summary>1 once the owning document is disposed.</summary>
     private int _disposed;
@@ -141,16 +155,28 @@ internal record struct PdfDocumentState
     /// <summary>Gets the lock that synchronizes tracked page renderers.</summary>
     internal Lock RenderersGate { get; } = new();
 
-    /// <summary>Gets the weakly tracked page renderers for disposal and font refresh.</summary>
+    /// <summary>Gets the weakly tracked page renderers for disposal.</summary>
     internal List<WeakReference<PdfPageRenderer>> Renderers { get; } = [];
 
-    /// <summary>Gets storage for the normal page renderers.</summary>
+    /// <summary>Gets storage for normal render caches indexed by their immutable options.</summary>
+    [UnscopedRef]
+    internal ref Dictionary<PdfRenderCacheKey, PdfRenderCacheEntry>? RendererCaches => ref _rendererCaches;
+
+    /// <summary>Gets storage for output-intent render caches indexed by their immutable options.</summary>
+    [UnscopedRef]
+    internal ref Dictionary<PdfRenderCacheKey, PdfRenderCacheEntry>? IntentRendererCaches => ref _intentRendererCaches;
+
+    /// <summary>Gets storage for the document-owned cache outside page renderers.</summary>
     [UnscopedRef]
     internal ref PdfRenderCache? RenderCache => ref _renderCache;
 
     /// <summary>Gets storage for the font data refresh generation.</summary>
     [UnscopedRef]
     internal ref int FontDataGeneration => ref _fontDataGeneration;
+
+    /// <summary>Gets storage for the font preparation marks of this document's pages.</summary>
+    [UnscopedRef]
+    internal ref ConditionalWeakTable<PdfPage, FontDataPreparation>? FontPreparations => ref _fontPreparations;
 
     /// <summary>Gets storage for lazily read signature details.</summary>
     [UnscopedRef]
@@ -178,4 +204,8 @@ internal record struct PdfDocumentState
     /// <summary>Gets storage for extracted text pages until page content invalidation.</summary>
     [UnscopedRef]
     internal ref PdfTextPageCache? TextPages => ref _textPages;
+
+    /// <summary>Gets storage for one reusable text build state.</summary>
+    [UnscopedRef]
+    internal ref TextPageBuildState? TextBuild => ref _textBuild;
 }

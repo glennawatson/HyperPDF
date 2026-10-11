@@ -23,7 +23,7 @@ public sealed class PageContentRoundTripTests
     [Test]
     public async Task PreserveGivesTheSameContentBytes()
     {
-        using var document = PdfDocumentReader.Open(PageObjectSamples.Mixed(), null);
+        using var document = SkiaTestRegistration.Open(PageObjectSamples.Mixed(), null);
         var content = PdfDocumentPageContent.GetPageContent(document, 0);
 
         await Assert.That(PdfPageContentWriter.Regenerate(content).AsSpan().SequenceEqual(content.Source)).IsTrue();
@@ -74,7 +74,7 @@ public sealed class PageContentRoundTripTests
     /// <returns>The saved bytes.</returns>
     private static byte[] RoundTrip(byte[] pdf, PdfRegenerateMode mode)
     {
-        using var document = PdfDocumentReader.Open(pdf, null);
+        using var document = SkiaTestRegistration.Open(pdf, null);
         PdfPageContentApplication.Apply(PdfDocumentPageContent.GetPageContent(document, 0), mode);
         return PdfCompactWriter.Save(document.Objects, PdfCompactOptions.Default);
     }
@@ -84,7 +84,7 @@ public sealed class PageContentRoundTripTests
     /// <returns>The text.</returns>
     private static string TextOf(byte[] pdf)
     {
-        using var document = PdfDocumentReader.Open(pdf, null);
+        using var document = SkiaTestRegistration.Open(pdf, null);
         return PdfDocumentText.GetTextPage(document, 0).Text;
     }
 

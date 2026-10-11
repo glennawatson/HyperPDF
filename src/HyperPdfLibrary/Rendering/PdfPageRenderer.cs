@@ -10,7 +10,7 @@ using HyperPdfLibrary.Drawing;
 namespace HyperPdfLibrary.Rendering;
 
 /// <summary>
-/// Renders tiles of a document's pages through the registered backend. Each page is recorded once, in viewer space, and every
+/// Renders tiles of a document's pages through its selected backend. Each page is recorded once, in viewer space, and every
 /// tile replays it, so after the first render of a page a tile costs one replay and no managed allocation. The pictures
 /// are kept least recently used first, bounded by the memory they hold (<see cref="PdfRenderOptions.PictureCacheBytes"/>).
 /// Safe to call from many threads at once.
@@ -51,17 +51,17 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <summary>The document.</summary>
     private readonly PdfDocument _document;
 
-    /// <summary>The document's caches.</summary>
-    private readonly PdfRenderCache _cache;
+    /// <summary>The cache entry shared with renderers of this document that have equal image and drawing settings.</summary>
+    private readonly PdfRenderCacheEntry _cacheEntry;
 
     /// <summary>The limits the renderer was made with, applied to the output intent caches too.</summary>
     private readonly PdfRenderOptions _options;
 
+    /// <summary>The output-intent cache entry acquired on first use for this renderer's options.</summary>
+    private PdfRenderCacheEntry? _intentEntry;
+
     /// <summary>Whether the renderer has been disposed.</summary>
     private bool _disposed;
-
-    /// <summary>Whether the output intent cache has been given the renderer's limits; 0 or 1.</summary>
-    private int _intentConfigured;
 
     /// <summary>Whether the document knows the renderer, so it can release the renderer's pictures on dispose; 0 or 1.</summary>
     private int _registered;
@@ -74,23 +74,23 @@ public sealed partial class PdfPageRenderer : IDisposable
     {
     }
 
-    /// <summary>Initializes a new instance of the <see cref="PdfPageRenderer"/> class with limits for the document.</summary>
+    /// <summary>Initializes a new instance of the <see cref="PdfPageRenderer"/> class with cache limits for its options.</summary>
     /// <param name="document">The document to render.</param>
-    /// <param name="options">The limits, applied to the document's shared caches.</param>
+    /// <param name="options">The limits and switches for this renderer and its compatible shared caches.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The image cache or picture cache limit is negative.</exception>
     public PdfPageRenderer(PdfDocument document, PdfRenderOptions options)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(options);
-        _document = document;
-        _cache = PdfDocumentRendering.GetRenderCache(document);
-        _options = options;
         ArgumentOutOfRangeException.ThrowIfNegative(options.PictureCacheBytes, nameof(options));
-        _cache.Images.Capacity = options.ImageCacheBytes;
-        _cache.SimulateOverprint = options.SimulateOverprint;
-        _cache.FormHighlight = options.FormHighlight;
+        _document = document;
+        _cacheEntry = PdfDocumentRendering.GetRendererCache(document, options);
+        _options = options;
     }
+
+    /// <summary>Gets this renderer's selected normal cache for diagnostics and tests.</summary>
+    internal PdfRenderCache Cache => _cacheEntry.Cache;
 
     /// <summary>Gets the number of pages whose pictures are kept.</summary>
     internal int PictureCount
@@ -150,11 +150,11 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, _cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
         try
         {
             var recorded = entry.Recordings;
-            var drawn = Draw(PdfDrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);
+            var drawn = Draw(_document.DrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);
             if (drawn)
             {
                 TrimIfRecorded(entry, recorded);
@@ -183,11 +183,11 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, _cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
         try
         {
             var recorded = entry.Recordings;
-            var drawn = Draw(PdfDrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);
+            var drawn = Draw(_document.DrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);
             if (drawn)
             {
                 TrimIfRecorded(entry, recorded);
@@ -216,7 +216,7 @@ public sealed partial class PdfPageRenderer : IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, _cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
         try
         {
             var recorded = entry.Recordings;
@@ -266,7 +266,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, _cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
         try
         {
             var recorded = entry.Recordings;
@@ -281,7 +281,7 @@ public sealed partial class PdfPageRenderer : IDisposable
                 _ = entry.GetAnnotations(cache, page, (request.Flags & PdfRenderFlags.Printing) != 0, cancellationToken);
             }
 
-            var drawn = Draw(PdfDrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);
+            var drawn = Draw(_document.DrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);
             if (drawn)
             {
                 TrimIfRecorded(entry, recorded);
@@ -312,7 +312,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, _cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
         try
         {
             var recorded = entry.Recordings;
@@ -327,7 +327,7 @@ public sealed partial class PdfPageRenderer : IDisposable
                 _ = entry.GetAnnotations(cache, page, (request.Flags & PdfRenderFlags.Printing) != 0, cancellationToken);
             }
 
-            var drawn = Draw(PdfDrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);
+            var drawn = Draw(_document.DrawingServices.Backend.GetDrawingSession(), entry, cache, page, request, target);
             if (drawn)
             {
                 TrimIfRecorded(entry, recorded);
@@ -346,6 +346,11 @@ public sealed partial class PdfPageRenderer : IDisposable
     {
         lock (_gate)
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             _disposed = true;
             foreach (var entry in _entries)
             {
@@ -353,6 +358,11 @@ public sealed partial class PdfPageRenderer : IDisposable
             }
 
             _entries.Clear();
+            PdfDocumentRendering.ReleaseRendererCache(_document, _cacheEntry);
+            if (_intentEntry is { } intent)
+            {
+                PdfDocumentRendering.ReleaseRendererCache(_document, intent);
+            }
         }
     }
 
@@ -439,28 +449,36 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// PDF/A and has a usable intent, unless <see cref="PdfRenderFlags.FixedDeviceColors"/> forces the fixed conversions.
     /// </summary>
     /// <param name="flags">The render flags.</param>
-    /// <returns>The document's caches, or those that convert device colours through the output intent.</returns>
+    /// <returns>The cache selected by this renderer's options and the output-intent flag.</returns>
     private PdfRenderCache CacheFor(PdfRenderFlags flags)
     {
         if ((flags & PdfRenderFlags.FixedDeviceColors) != 0 || ((flags & PdfRenderFlags.OutputIntent) == 0 && !PdfDocumentOutputIntentRendering.ClaimsPdfA(_document)))
         {
-            return _cache;
+            return Cache;
         }
 
-        var intent = PdfDocumentOutputIntentRendering.GetOutputIntentRenderCache(_document);
-        if (intent is null)
+        if (Volatile.Read(ref _intentEntry) is { } configured)
         {
-            return _cache;
+            return configured.Cache;
         }
 
-        if (Interlocked.Exchange(ref _intentConfigured, 1) == 0)
+        var documentIntent = PdfDocumentOutputIntentRendering.GetOutputIntentRenderCache(_document);
+        if (documentIntent is null)
         {
-            intent.Images.Capacity = _options.ImageCacheBytes;
-            intent.SimulateOverprint = _options.SimulateOverprint;
-            intent.FormHighlight = _options.FormHighlight;
+            return Cache;
         }
 
-        return intent;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed || _document.IsDisposed, this);
+            if (_intentEntry is not { } entry)
+            {
+                entry = PdfDocumentRendering.GetOutputIntentRendererCache(_document, _options, documentIntent);
+                Volatile.Write(ref _intentEntry, entry);
+            }
+
+            return entry.Cache;
+        }
     }
 
     /// <summary>Finds or creates the entry for a page at the current optional content version, and marks it in use.</summary>

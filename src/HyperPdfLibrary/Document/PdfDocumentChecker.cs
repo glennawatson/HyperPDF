@@ -46,7 +46,7 @@ internal sealed class PdfDocumentChecker
     {
         _document = document;
         _options = options;
-        _context = new(_faults.Add, cancellationToken);
+        _context = new(_faults.Add, document.DrawingServices, cancellationToken);
     }
 
     /// <summary>Gets one more than the highest object number.</summary>

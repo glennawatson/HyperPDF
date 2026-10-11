@@ -6,7 +6,9 @@ using System.Diagnostics;
 using HyperPdfLibrary;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.IO;
+using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Render.Skia;
 using PdfViewerLite.Core.Documents;
 
@@ -19,8 +21,51 @@ public sealed class HyperPdfEngine : IDocumentEngine
     /// <summary>How far into the file the signature may appear; some writers prefix junk.</summary>
     private const int SignatureSearchLength = 1024;
 
-    /// <summary>Registers the Skia drawing services used by this adapter.</summary>
-    static HyperPdfEngine() => PdfDrawingServices.Register(new PdfRenderBackendRegistration().UseSkia());
+    /// <summary>The font loader used for documents opened by this engine.</summary>
+    private readonly Func<PdfDictionary, PdfFont?>? _fontFactory;
+
+    /// <summary>The drawing services shared by documents opened through this engine.</summary>
+    private readonly PdfDrawingServices _drawingServices;
+
+    /// <summary>The clock used for annotation dates in documents opened by this engine.</summary>
+    private readonly TimeProvider _annotationClock;
+
+    /// <summary>The annotation font cache shared by documents opened through this engine, built on first use.</summary>
+    private readonly Lazy<TextBoxFontState> _fontState = new(static () => new());
+
+    /// <summary>Initializes a new instance of the <see cref="HyperPdfEngine"/> class.</summary>
+    public HyperPdfEngine()
+        : this(PdfFontLoader.Load, TimeProvider.System)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="HyperPdfEngine"/> class.</summary>
+    /// <param name="fontFactory">The loader for each document's fonts, or null to disable font loading.</param>
+    public HyperPdfEngine(Func<PdfDictionary, PdfFont?>? fontFactory)
+        : this(fontFactory, TimeProvider.System)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="HyperPdfEngine"/> class.</summary>
+    /// <param name="fontFactory">The loader for each document's fonts, or null to disable font loading.</param>
+    /// <param name="annotationClock">The clock used for annotation modification dates.</param>
+    public HyperPdfEngine(Func<PdfDictionary, PdfFont?>? fontFactory, TimeProvider annotationClock)
+        : this(fontFactory, annotationClock, new(new PdfRenderBackendRegistration().UseSkia()))
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="HyperPdfEngine"/> class with drawing services.</summary>
+    /// <param name="fontFactory">The loader for each document's fonts, or null to disable font loading.</param>
+    /// <param name="annotationClock">The clock used for annotation modification dates.</param>
+    /// <param name="drawingServices">The drawing services used for documents opened by this engine.</param>
+    public HyperPdfEngine(Func<PdfDictionary, PdfFont?>? fontFactory, TimeProvider annotationClock, PdfDrawingServices drawingServices)
+    {
+        ArgumentNullException.ThrowIfNull(annotationClock);
+        ArgumentNullException.ThrowIfNull(drawingServices);
+        _fontFactory = fontFactory;
+        _annotationClock = annotationClock;
+        _drawingServices = drawingServices;
+    }
 
     /// <inheritdoc/>
     public string Name => "HyperPDF";
@@ -62,14 +107,14 @@ public sealed class HyperPdfEngine : IDocumentEngine
         PdfDocument document;
         try
         {
-            document = PdfDocumentReader.Open(fullPath, password);
+            document = PdfDocumentReader.OpenWith(fullPath, new PdfOpenOptions { Password = password, FontFactory = _fontFactory, DrawingServices = _drawingServices });
         }
         catch (PdfException ex)
         {
             throw CreateOpenException(ex, fullPath);
         }
 
-        return CreateOpened(document, fullPath);
+        return CreateOpened(document, fullPath, _annotationClock, _fontState);
     }
 
     /// <inheritdoc/>
@@ -77,24 +122,35 @@ public sealed class HyperPdfEngine : IDocumentEngine
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         cancellationToken.ThrowIfCancellationRequested();
-        return OpenCoreAsync(Path.GetFullPath(path), password, cancellationToken);
+        return OpenCoreAsync(Path.GetFullPath(path), password, _fontFactory, _drawingServices, _annotationClock, _fontState, cancellationToken);
     }
 
     /// <summary>Opens through an asynchronous file source without retaining the open token on the document.</summary>
     /// <param name="fullPath">The absolute PDF path.</param>
     /// <param name="password">The password, if needed.</param>
+    /// <param name="fontFactory">The font loader for this document.</param>
+    /// <param name="drawingServices">The drawing services selected by this engine.</param>
+    /// <param name="annotationClock">The clock used for this document's annotation dates.</param>
+    /// <param name="fontState">The annotation font cache chosen by this engine.</param>
     /// <param name="cancellationToken">Cancels I/O and parsing during the open.</param>
     /// <returns>The opened document.</returns>
     /// <exception cref="DocumentOpenException">The PDF cannot be opened.</exception>
     /// <exception cref="OperationCanceledException">The open was cancelled.</exception>
-    private static async ValueTask<IDocument> OpenCoreAsync(string fullPath, string? password, CancellationToken cancellationToken)
+    private static async ValueTask<IDocument> OpenCoreAsync(
+        string fullPath,
+        string? password,
+        Func<PdfDictionary, PdfFont?>? fontFactory,
+        PdfDrawingServices drawingServices,
+        TimeProvider annotationClock,
+        Lazy<TextBoxFontState> fontState,
+        CancellationToken cancellationToken)
     {
         PdfDocument document;
         try
         {
             document = await PdfDocumentReader.OpenWithAsync(
                 fullPath,
-                new PdfOpenOptions { Password = password, Source = PdfSourceKind.Stream },
+                new PdfOpenOptions { Password = password, Source = PdfSourceKind.Stream, FontFactory = fontFactory, DrawingServices = drawingServices },
                 cancellationToken,
                 CancellationToken.None).ConfigureAwait(false);
         }
@@ -109,15 +165,17 @@ public sealed class HyperPdfEngine : IDocumentEngine
             cancellationToken.ThrowIfCancellationRequested();
         }
 
-        return CreateOpened(document, fullPath);
+        return CreateOpened(document, fullPath, annotationClock, fontState);
     }
 
     /// <summary>Rejects a recovered PDF with no pages before giving its lifetime to the adapter.</summary>
     /// <param name="document">The opened managed document.</param>
     /// <param name="fullPath">The absolute PDF path.</param>
+    /// <param name="annotationClock">The clock used for this document's annotation dates.</param>
+    /// <param name="fontState">The annotation font cache chosen by this engine.</param>
     /// <returns>The document adapter.</returns>
     /// <exception cref="DocumentOpenException">The PDF contains no readable pages.</exception>
-    private static HyperPdfDocument CreateOpened(PdfDocument document, string fullPath)
+    private static HyperPdfDocument CreateOpened(PdfDocument document, string fullPath, TimeProvider annotationClock, Lazy<TextBoxFontState> fontState)
     {
         if (document.PageCount == 0)
         {
@@ -128,7 +186,7 @@ public sealed class HyperPdfEngine : IDocumentEngine
 
         try
         {
-            return new(document, fullPath);
+            return new(document, fullPath, annotationClock, fontState);
         }
         catch
         {

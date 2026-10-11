@@ -24,11 +24,21 @@ internal sealed class HyperPdfTestDocument : IDisposable
     /// <param name="bytes">The PDF bytes.</param>
     /// <exception cref="InvalidOperationException">The document has no text layer writer.</exception>
     internal HyperPdfTestDocument(byte[] bytes)
+        : this(bytes, new HyperPdfEngine())
     {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="HyperPdfTestDocument"/> class.</summary>
+    /// <param name="bytes">The PDF bytes.</param>
+    /// <param name="engine">The engine that opens the document.</param>
+    /// <exception cref="InvalidOperationException">The document has no text layer writer.</exception>
+    internal HyperPdfTestDocument(byte[] bytes, HyperPdfEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
         Pdf = bytes;
         FilePath = Path.Combine(Path.GetTempPath(), $"hyperpdf-annotations-{Guid.NewGuid():N}.pdf");
         File.WriteAllBytes(FilePath, bytes);
-        Document = (HyperPdfDocument)new HyperPdfEngine().Open(FilePath, null);
+        Document = (HyperPdfDocument)engine.Open(FilePath, null);
         Editor = HyperPdfAnnotationStateAccess.GetAnnotations(Document);
     }
 

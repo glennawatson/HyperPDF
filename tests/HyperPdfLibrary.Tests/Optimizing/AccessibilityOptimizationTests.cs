@@ -26,11 +26,10 @@ public sealed class AccessibilityOptimizationTests
     [Test]
     public async Task KeepsTheStructureTree()
     {
-        using var fonts = new TaggedFontScope();
         var source = TaggedSamples.Basic();
         var result = OptimizerTestKit.Optimize(source, PdfOptimizeOptions.Smaller);
-        using var before = PdfDocumentReader.Open(source, null);
-        using var after = PdfDocumentReader.Open(result.Bytes, null);
+        using var before = TaggedTestDocument.Open(source);
+        using var after = TaggedTestDocument.Open(result.Bytes);
 
         await Assert.That(Signature(after)).IsEqualTo(Signature(before));
         await Assert.That(Spoken(after)).IsEqualTo(Spoken(before));
@@ -77,7 +76,7 @@ public sealed class AccessibilityOptimizationTests
     {
         var source = OptimizerSamples.UntaggedText(Title);
         var result = OptimizerTestKit.Optimize(source, PdfOptimizeOptions.KeepQuality with { AddInferredTags = true, Language = Language });
-        using var document = PdfDocumentReader.Open(result.Bytes, null);
+        using var document = SkiaTestRegistration.Open(result.Bytes, null);
         var tagged = PdfReadingStructure.ReadTagged(document, 0);
         var types = new List<PdfSemanticRole>();
         var spoken = new StringBuilder();
@@ -104,11 +103,10 @@ public sealed class AccessibilityOptimizationTests
     [Test]
     public async Task LeavesTaggedDocumentsAlone()
     {
-        using var fonts = new TaggedFontScope();
         var source = TaggedSamples.Basic();
         var result = OptimizerTestKit.Optimize(source, PdfOptimizeOptions.KeepQuality with { AddInferredTags = true });
-        using var before = PdfDocumentReader.Open(source, null);
-        using var after = PdfDocumentReader.Open(result.Bytes, null);
+        using var before = TaggedTestDocument.Open(source);
+        using var after = TaggedTestDocument.Open(result.Bytes);
 
         await Assert.That(result.Report.TagsInferred).IsFalse();
         await Assert.That(Signature(after)).IsEqualTo(Signature(before));

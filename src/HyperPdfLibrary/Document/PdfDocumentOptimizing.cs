@@ -26,7 +26,7 @@ public static class PdfDocumentOptimizing
             StoreTransactions.RefreshCatalogLocked(store);
         }
 
-        var copy = new PdfDocument(store);
+        var copy = new PdfDocument(store, document.FontFactory);
         StoreTransactions.SetChangeCallback(store, copy.OnObjectsChanged);
         return copy;
     }

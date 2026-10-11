@@ -283,7 +283,7 @@ internal static class ContentExtendedGraphics
     /// <param name = "mask">The soft mask dictionary.</param>
     /// <returns>The mask, or null when it is damaged or no drawing backend is registered.</returns>
     internal static PdfSoftMask? GetSoftMask(ContentInterpreter self, PdfDictionary mask) =>
-        PdfDrawingServices.ConfiguredBackend is null || mask.GetStream(KnownName.G) is null ? null : self.Cache.SoftMasks.GetOrCreate(
+        self.Cache.Document.DrawingServices.ConfiguredBackend is null || mask.GetStream(KnownName.G) is null ? null : self.Cache.SoftMasks.GetOrCreate(
             new(mask, self.State.Ctm),
             new SoftMaskRequest(self, mask),
             static (key, request) => ContentExtendedGraphics.RecordSoftMask(request.Owner, request.Mask, key.Ctm));

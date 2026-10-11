@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 
 namespace HyperPdfLibrary.Objects;
 
@@ -13,9 +14,10 @@ namespace HyperPdfLibrary.Objects;
 /// context: it keeps each distinct report (up to a cap) so the document can say whether it was repaired.
 /// </summary>
 /// <param name="sink">The diagnostics callback, or <see langword="null"/>.</param>
+/// <param name="drawingServices">The drawing services selected for this document.</param>
 /// <param name="token">The cancellation token.</param>
 [DebuggerDisplay("PdfOpenContext: {HasRepairs} repairs")]
-internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, CancellationToken token)
+internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServices drawingServices, CancellationToken token)
 {
     /// <summary>The most distinct reports kept; later ones still reach the sink.</summary>
     private const int MaxLogged = 1024;
@@ -47,11 +49,14 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, CancellationTo
     /// <summary>Gets the token passed to this document-open or check operation.</summary>
     internal CancellationToken CancellationToken => token;
 
+    /// <summary>Gets the drawing services selected for this open.</summary>
+    internal PdfDrawingServices DrawingServices => drawingServices;
+
     /// <summary>Creates a context for options.</summary>
     /// <param name="options">The options.</param>
     /// <returns>The context.</returns>
     internal static PdfOpenContext Create(PdfOpenOptions options) =>
-        new(options.Diagnostics, options.CancellationToken) { Recovery = options.Recovery, IgnoreXrefStreams = options.IgnoreXrefStreams };
+        new(options.Diagnostics, options.DrawingServices ?? new(new()), options.CancellationToken) { Recovery = options.Recovery, IgnoreXrefStreams = options.IgnoreXrefStreams };
 
     /// <summary>Throws when the open was cancelled.</summary>
     /// <param name="context">The context, or <see langword="null"/>.</param>

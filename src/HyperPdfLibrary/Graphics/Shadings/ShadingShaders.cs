@@ -96,7 +96,7 @@ internal static class ShadingShaders
         }
 
         var stops = CreateStops(shading, domain);
-        return PdfDrawingServices.Backend.CreateLinearGradient(start, end, stops.Colors, stops.Positions, PdfShaderTileMode.Clamp);
+        return PdfDrawingServices.For(shading.Dictionary).Backend.CreateLinearGradient(start, end, stops.Colors, stops.Positions, PdfShaderTileMode.Clamp);
     }
 
     /// <summary>Creates a two-point conical gradient for a radial shading.</summary>
@@ -112,7 +112,7 @@ internal static class ShadingShaders
         var stops = CreateStops(shading, domain);
         var start = new PdfPoint(coords[0], coords[1]);
         var end = new PdfPoint(coords[AxialCoords - 1], coords[AxialCoords]);
-        return PdfDrawingServices.Backend.CreateTwoPointConicalGradient(start, coords[2], end, coords[SecondRadius], stops.Colors, stops.Positions, PdfShaderTileMode.Clamp);
+        return PdfDrawingServices.For(shading.Dictionary).Backend.CreateTwoPointConicalGradient(start, coords[2], end, coords[SecondRadius], stops.Colors, stops.Positions, PdfShaderTileMode.Clamp);
     }
 
     /// <summary>Reads the coordinates and domain of a gradient.</summary>
@@ -189,12 +189,13 @@ internal static class ShadingShaders
 
         var pixels = new byte[FunctionRaster * FunctionRaster * BytesPerPixel];
         Fill(shading, function, domain, pixels);
-        using var image = PdfDrawingServices.Backend.CreateImage(new(FunctionRaster, FunctionRaster, PdfImagePixelFormat.Bgra8888), pixels, FunctionRaster * BytesPerPixel);
+        var backend = PdfDrawingServices.For(shading.Dictionary).Backend;
+        using var image = backend.CreateImage(new(FunctionRaster, FunctionRaster, PdfImagePixelFormat.Bgra8888), pixels, FunctionRaster * BytesPerPixel);
         var cell = Matrix3x2.CreateScale(
             (domain[1] - domain[0]) / FunctionRaster,
             (domain[FunctionInputs + 1] - domain[FunctionInputs]) / FunctionRaster) * Matrix3x2.CreateTranslation(domain[0], domain[FunctionInputs]);
         var local = cell * ReadMatrix(shading.Dictionary);
-        return PdfDrawingServices.Backend.CreateImageShader(image, PdfShaderTileMode.Decal, PdfShaderTileMode.Decal, true, local);
+        return backend.CreateImageShader(image, PdfShaderTileMode.Decal, PdfShaderTileMode.Decal, true, local);
     }
 
     /// <summary>Evaluates a two-input function for every pixel of the raster.</summary>

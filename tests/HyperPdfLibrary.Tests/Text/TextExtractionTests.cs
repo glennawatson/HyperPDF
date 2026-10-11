@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Text;
 
 namespace HyperPdfLibrary.Tests.Text;
@@ -342,24 +343,25 @@ public sealed class TextExtractionTests
         await Assert.That(page.GetText(0, 1)).IsEqualTo(string.Empty);
     }
 
-    /// <summary>Each extraction reuses the thread's build state and clears its retained buffers.</summary>
+    /// <summary>Sequential extractions reuse the document's cleaned build state.</summary>
     /// <returns>A task.</returns>
+    /// <exception cref="InvalidOperationException">The first extraction did not return its state.</exception>
     [Test]
-    public async Task ReusesThreadStateAndClearsBuffers()
+    public async Task ReusesDocumentStateAndClearsBuffers()
     {
-        var state = TextPageBuild.Current;
-        var first = TextTestDocument.Extract(HelloContent);
-        var reusedAfterFirst = ReferenceEquals(state, TextPageBuild.Current);
+        using var document = TextTestDocument.Open(TextTestDocument.Create(HelloContent).ToBytes());
+        var first = PdfDocumentText.ExtractText(document, 0);
+        var state = document.State.TextBuild ?? throw new InvalidOperationException("The first extraction did not return its state.");
         var retainedItems = state.Chars.Count + state.Temp.Count + state.Text.Count + state.TempText.Count
             + state.Line.Count + state.Segments.Count + state.SpaceCodes.Count + state.Runs.Count
             + state.Glyphs.Count + state.Unicode.Count;
 
-        var second = TextTestDocument.Extract("0 0 10 10 re f");
-        var reusedAfterSecond = ReferenceEquals(state, TextPageBuild.Current);
+        var second = PdfDocumentText.ExtractText(document, 0);
+        var reusedAfterSecond = ReferenceEquals(state, document.State.TextBuild);
         var clearAfterSecond = state.Chars.Count + state.Temp.Count + state.Runs.Count == 0;
 
         await Assert.That(first.Text).IsEqualTo(Hello);
-        await Assert.That(second.CharCount).IsEqualTo(0);
-        await Assert.That(reusedAfterFirst && reusedAfterSecond && retainedItems == 0 && clearAfterSecond).IsTrue();
+        await Assert.That(second.Text).IsEqualTo(Hello);
+        await Assert.That(reusedAfterSecond && retainedItems == 0 && clearAfterSecond).IsTrue();
     }
 }

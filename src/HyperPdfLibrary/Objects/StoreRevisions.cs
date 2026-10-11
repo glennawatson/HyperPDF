@@ -58,6 +58,7 @@ public static class StoreRevisions
         {
             HeaderOffset = self.HeaderOffset,
             Version = self.Version,
+            Context = self.Context is { } context ? new PdfOpenContext(null, context.DrawingServices, CancellationToken.None) : null,
 
             // The key is known already; setting it first makes every object parse decrypted.
             Security = self.Security,

@@ -23,6 +23,12 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
     /// <summary>The managed document.</summary>
     private readonly PdfDocument _document;
 
+    /// <summary>The clock chosen by the engine for this document's annotations.</summary>
+    private readonly TimeProvider _annotationClock;
+
+    /// <summary>The annotation font cache chosen by the engine, built on first use.</summary>
+    private readonly Lazy<TextBoxFontState> _fontState;
+
     /// <summary>Allows concurrent page reads and excludes them while page structure changes.</summary>
     private readonly ReaderWriterLockSlim _pageAccess = new(LockRecursionPolicy.SupportsRecursion);
 
@@ -75,8 +81,22 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
     /// <param name="document">The managed document.</param>
     /// <param name="filePath">The file path.</param>
     internal HyperPdfDocument(PdfDocument document, string filePath)
+        : this(document, filePath, TimeProvider.System, new Lazy<TextBoxFontState>(static () => new()))
     {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="HyperPdfDocument"/> class.</summary>
+    /// <param name="document">The managed document.</param>
+    /// <param name="filePath">The file path.</param>
+    /// <param name="annotationClock">The clock used for annotation dates.</param>
+    /// <param name="fontState">The annotation font cache shared by this engine's documents.</param>
+    internal HyperPdfDocument(PdfDocument document, string filePath, TimeProvider annotationClock, Lazy<TextBoxFontState> fontState)
+    {
+        ArgumentNullException.ThrowIfNull(annotationClock);
+        ArgumentNullException.ThrowIfNull(fontState);
         _document = document;
+        _annotationClock = annotationClock;
+        _fontState = fontState;
         FilePath = filePath;
         _pageSizes = new PageSize[document.PageCount];
         for (var i = 0; i < _pageSizes.Length; i++)
@@ -124,6 +144,12 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <summary>Gets the managed document.</summary>
     internal PdfDocument Document => _document;
+
+    /// <summary>Gets the clock selected for this document's annotations.</summary>
+    internal TimeProvider AnnotationClock => _annotationClock;
+
+    /// <summary>Gets the annotation font cache selected by the engine.</summary>
+    internal TextBoxFontState FontState => _fontState.Value;
 
     /// <summary>Gets the owned EditGate state.</summary>
     internal Lock EditGate => _editGate;

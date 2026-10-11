@@ -26,6 +26,18 @@ public sealed partial class PdfTextPage
     public void Find(ReadOnlySpan<char> query, PdfTextSearchOptions options, List<PdfTextMatch> output)
     {
         ArgumentNullException.ThrowIfNull(output);
+        Find(query, options, output, static (matches, start, count) => matches.Add(new(start, count)));
+    }
+
+    /// <summary>Visits every match of a query without an intermediate list.</summary>
+    /// <typeparam name="TState">The caller's state passed to each visit.</typeparam>
+    /// <param name="query">The text to find.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="state">The caller's state.</param>
+    /// <param name="visit">Receives each match's first character and length.</param>
+    public void Find<TState>(ReadOnlySpan<char> query, PdfTextSearchOptions options, TState state, Action<TState, int, int> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
         if (query.IsEmpty || _text.Length == 0)
         {
             return;
@@ -53,7 +65,7 @@ public sealed partial class PdfTextPage
             while (finder.FindNext())
             {
                 var start = CharIndexFromTextIndex(finder.MatchStart);
-                output.Add(new(start, CharIndexFromTextIndex(finder.MatchEnd) - start + 1));
+                visit(state, start, CharIndexFromTextIndex(finder.MatchEnd) - start + 1);
             }
         }
         finally

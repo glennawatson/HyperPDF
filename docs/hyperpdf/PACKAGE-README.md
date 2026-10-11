@@ -16,7 +16,9 @@ Console.WriteLine((await PdfDocumentText.GetTextPageAsync(document, 0, Cancellat
 
 ## Render a page
 
-Install `HyperPdfLibrary.Render.Skia` to use the Skia backend. Register it once before opening documents. You can supply your own drawing backend through the contracts in `HyperPdfLibrary.Drawing`.
+Install `HyperPdfLibrary.Render.Skia` to use the Skia backend. Pass drawing services when opening a document. You can supply your own backend through the contracts in `HyperPdfLibrary.Drawing`. Documents keep the services selected at open, so separate engines can use different providers.
+
+For image formats the library cannot decode, set `PdfRenderBackendRegistration.UnsupportedImageDecoder`. The callback receives the image stream and the render operation's cancellation token.
 
 The renderer writes premultiplied BGRA pixels into a buffer you own. `Scale` is device pixels per PDF point.
 
@@ -26,8 +28,8 @@ using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Render.Skia;
 using HyperPdfLibrary.Rendering;
 
-PdfDrawingServices.Register(new PdfRenderBackendRegistration().UseSkia());
-using var document = await PdfDocumentReader.OpenAsync("input.pdf", password: null, CancellationToken.None);
+var drawing = new PdfDrawingServices(new PdfRenderBackendRegistration().UseSkia());
+using var document = await PdfDocumentReader.OpenWithAsync("input.pdf", new PdfOpenOptions { DrawingServices = drawing }, CancellationToken.None);
 
 const float scale = 2f;
 var page = PdfDocumentPages.GetPage(document, 0);

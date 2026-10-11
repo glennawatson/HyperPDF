@@ -110,7 +110,7 @@ internal sealed class PdfSimpleFont : PdfFont
         if (glyph < 0)
         {
             var codePoint = GlyphNameText.FirstCodePoint(_data.Texts[code]);
-            if (!source.IsSubstitute || codePoint == 0 || SystemFontMatcher.MatchCharacter(codePoint) is not { } fallback)
+            if (!source.IsSubstitute || codePoint == 0 || SystemFontMatcher.For(Dictionary).MatchCharacter(codePoint) is not { } fallback)
             {
                 return null;
             }

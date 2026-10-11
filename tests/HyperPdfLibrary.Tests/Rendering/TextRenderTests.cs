@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
-using HyperPdfLibrary.Fonts;
 
 namespace HyperPdfLibrary.Tests.Rendering;
 
@@ -192,19 +191,10 @@ public sealed class TextRenderTests
     {
         var pdf = new RenderTestPdf(Size, Size) { Content = "BT /F1 20 Tf 10 10 Td (A) Tj ET" };
         pdf.Resources = $"/Font << /F1 {pdf.AddObject("<< /Type /Font /Subtype /Type1 /BaseFont /Test >>")} 0 R >>";
-        var previous = PdfFont.Factory;
-        PdfFont.Factory = null;
-        try
-        {
-            using var page = new RenderTestPage(pdf.ToBytes());
-            var image = page.RenderPage();
+        using var page = new RenderTestPage(pdf.ToBytes(), null);
+        var image = page.RenderPage();
 
-            await Assert.That(image.IsNear(FirstGlyph, GlyphRow, Rgb.White, Tolerance)).IsTrue();
-        }
-        finally
-        {
-            PdfFont.Factory = previous;
-        }
+        await Assert.That(image.IsNear(FirstGlyph, GlyphRow, Rgb.White, Tolerance)).IsTrue();
     }
 
     /// <summary>Renders a page whose font /F1 is the square test font.</summary>
@@ -214,17 +204,8 @@ public sealed class TextRenderTests
     {
         var pdf = new RenderTestPdf(Size, Size) { Content = content };
         pdf.Resources = $"/Font << /F1 {pdf.AddObject("<< /Type /Font /Subtype /Type1 /BaseFont /Test >>")} 0 R >>";
-        var previous = PdfFont.Factory;
-        PdfFont.Factory = static dictionary => new SquareFont(dictionary);
-        try
-        {
-            using var page = new RenderTestPage(pdf.ToBytes());
-            return page.RenderPage();
-        }
-        finally
-        {
-            PdfFont.Factory = previous;
-        }
+        using var page = new RenderTestPage(pdf.ToBytes(), static dictionary => new SquareFont(dictionary));
+        return page.RenderPage();
     }
 
     /// <summary>Checks an interior pixel against an exact colour.</summary>

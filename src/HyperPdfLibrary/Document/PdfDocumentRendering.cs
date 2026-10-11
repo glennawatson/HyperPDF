@@ -2,7 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Fonts;
+using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Rendering;
 
 namespace HyperPdfLibrary.Document;
@@ -10,9 +12,9 @@ namespace HyperPdfLibrary.Document;
 /// <summary>Renders pages and manages renderer caches.</summary>
 public static class PdfDocumentRendering
 {
-    /// <summary>Gets what the document keeps between renders.</summary>
+    /// <summary>Gets the document-owned cache used by content operations outside a page renderer.</summary>
     /// <param name="document">The document.</param>
-    /// <returns>The normal page render cache.</returns>
+    /// <returns>The document's shared content cache.</returns>
     internal static PdfRenderCache GetRenderCache(PdfDocument document)
     {
         if (Volatile.Read(ref document.State.RenderCache) is { } existing)
@@ -24,6 +26,47 @@ public static class PdfDocumentRendering
         return Volatile.Read(ref document.State.RenderCache)!;
     }
 
+    /// <summary>Gets the normal render cache shared by renderers with equal image and drawing settings.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="options">The renderer's cache limits and drawing switches.</param>
+    /// <returns>The matching cache entry, marked in use by this renderer.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfRenderCacheEntry GetRendererCache(PdfDocument document, PdfRenderOptions options) => GetRendererCacheCore(document, options, null, false);
+
+    /// <summary>Gets the output-intent cache shared by renderers with equal image and drawing settings.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="options">The renderer's cache limits and drawing switches.</param>
+    /// <param name="outputIntent">The document's cache holding its output-intent colours.</param>
+    /// <returns>The matching output-intent cache entry, marked in use by this renderer.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfRenderCacheEntry GetOutputIntentRendererCache(PdfDocument document, PdfRenderOptions options, PdfRenderCache outputIntent) =>
+        GetRendererCacheCore(document, options, outputIntent.DeviceColors, true);
+
+    /// <summary>Releases one renderer's cache use and closes the cache after its last user leaves.</summary>
+    /// <param name="document">The document that owns the cache entry.</param>
+    /// <param name="entry">The entry the renderer acquired.</param>
+    internal static void ReleaseRendererCache(PdfDocument document, PdfRenderCacheEntry entry)
+    {
+        lock (document.State.RenderersGate)
+        {
+            var caches = entry.UsesOutputIntent ? document.State.IntentRendererCaches : document.State.RendererCaches;
+            if (caches is null || !caches.TryGetValue(entry.Key, out var current) || !ReferenceEquals(current, entry))
+            {
+                return;
+            }
+
+            entry.Users--;
+            if (entry.Users != 0)
+            {
+                return;
+            }
+
+            _ = caches.Remove(entry.Key);
+        }
+
+        entry.Cache.Close();
+    }
+
     /// <summary>Records a renderer, so disposing the document releases the renderer's page pictures.</summary>
     /// <param name="document">The document.</param>
     /// <param name="renderer">The renderer.</param>
@@ -31,6 +74,7 @@ public static class PdfDocumentRendering
     {
         lock (document.State.RenderersGate)
         {
+            ObjectDisposedException.ThrowIf(document.IsDisposed, document);
             _ = document.State.Renderers.RemoveAll(static reference => !reference.TryGetTarget(out _));
             document.State.Renderers.Add(new(renderer));
         }
@@ -55,6 +99,22 @@ public static class PdfDocumentRendering
 
             Volatile.Read(ref document.State.RenderCache)?.InvalidateFonts();
             Volatile.Read(ref document.State.IntentRenderCache)?.InvalidateFonts();
+            if (document.State.RendererCaches is { } normalCaches)
+            {
+                foreach (var entry in normalCaches.Values)
+                {
+                    entry.Cache.InvalidateFonts();
+                }
+            }
+
+            if (document.State.IntentRendererCaches is { } intentCaches)
+            {
+                foreach (var entry in intentCaches.Values)
+                {
+                    entry.Cache.InvalidateFonts();
+                }
+            }
+
             PdfDocumentPageContent.InvalidatePageContent(document);
             Volatile.Write(ref document.State.FontDataGeneration, generation);
         }
@@ -65,10 +125,16 @@ public static class PdfDocumentRendering
     internal static void ReleaseRendering(PdfDocument document)
     {
         WeakReference<PdfPageRenderer>[] renderers;
+        PdfRenderCacheEntry[] normalCaches;
+        PdfRenderCacheEntry[] intentCaches;
         lock (document.State.RenderersGate)
         {
             renderers = [.. document.State.Renderers];
             document.State.Renderers.Clear();
+            normalCaches = document.State.RendererCaches is { } normal ? [.. normal.Values] : [];
+            intentCaches = document.State.IntentRendererCaches is { } intent ? [.. intent.Values] : [];
+            document.State.RendererCaches = null;
+            document.State.IntentRendererCaches = null;
         }
 
         foreach (var reference in renderers)
@@ -81,6 +147,47 @@ public static class PdfDocumentRendering
 
         Volatile.Read(ref document.State.RenderCache)?.Close();
         Volatile.Read(ref document.State.IntentRenderCache)?.Close();
+        foreach (var entry in normalCaches)
+        {
+            entry.Cache.Close();
+        }
+
+        foreach (var entry in intentCaches)
+        {
+            entry.Cache.Close();
+        }
+
         Volatile.Read(ref document.State.TextPages)?.Clear();
+    }
+
+    /// <summary>Finds or creates a cache whose options never change after publication.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="options">The renderer options whose image and drawing settings form the key.</param>
+    /// <param name="colors">The output-intent colours, or null for fixed device colours.</param>
+    /// <param name="outputIntent">Whether the cache is for output-intent rendering.</param>
+    /// <returns>The matching cache entry, marked in use.</returns>
+    private static PdfRenderCacheEntry GetRendererCacheCore(PdfDocument document, PdfRenderOptions options, OutputIntentColors? colors, bool outputIntent)
+    {
+        lock (document.State.RenderersGate)
+        {
+            ObjectDisposedException.ThrowIf(document.IsDisposed, document);
+            var key = new PdfRenderCacheKey(options.ImageCacheBytes, options.SimulateOverprint, options.FormHighlight);
+            var caches = outputIntent
+                ? document.State.IntentRendererCaches ??= []
+                : document.State.RendererCaches ??= [];
+            if (caches.TryGetValue(key, out var existing))
+            {
+                existing.Users++;
+                return existing;
+            }
+
+            var cache = new PdfRenderCache(document, colors);
+            cache.Images.Capacity = key.ImageCacheBytes;
+            cache.SimulateOverprint = key.SimulateOverprint;
+            cache.FormHighlight = key.FormHighlight;
+            var created = new PdfRenderCacheEntry(key, cache, outputIntent);
+            caches.Add(key, created);
+            return created;
+        }
     }
 }

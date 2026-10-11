@@ -53,7 +53,7 @@ internal static class SimpleFontLoader
         }
         else
         {
-            var face = SystemFontMatcher.Match(new(facts.BaseFont, facts.Standard, facts.Flags, facts.Descriptor.Weight, CjkScript.None));
+            var face = SystemFontMatcher.For(font).Match(new(facts.BaseFont, facts.Standard, facts.Flags, facts.Descriptor.Weight, CjkScript.None));
             source = face;
             map = SubstituteGlyphMapper.Map(face, encoding, facts.SymbolEncoding, facts.IsSymbolic, toUnicode);
         }

@@ -6,15 +6,29 @@ using HyperPdfLibrary.Document;
 
 namespace HyperPdfLibrary.Text;
 
-/// <summary>Builds text pages with one reusable state for each thread.</summary>
+/// <summary>Builds text pages with independently leased state for each extraction.</summary>
 internal static class TextPageBuild
 {
-    /// <summary>The reusable state of the current thread.</summary>
-    [ThreadStatic]
-    private static TextPageBuildState? _current;
+    /// <summary>Gets a cleaned state from the document, or makes one when another extraction is using it.</summary>
+    /// <param name="document">The document that owns the reusable state.</param>
+    /// <returns>The state exclusively owned by this extraction.</returns>
+    internal static TextPageBuildState Rent(PdfDocument document) => Interlocked.Exchange(ref document.State.TextBuild, null) ?? new();
 
-    /// <summary>Gets the reusable state of the current thread.</summary>
-    internal static TextPageBuildState Current => _current ??= new();
+    /// <summary>Offers a cleaned state to its document for another extraction.</summary>
+    /// <param name="document">The document that owns the reusable state.</param>
+    /// <param name="state">The cleaned state.</param>
+    internal static void Return(PdfDocument document, TextPageBuildState state)
+    {
+        if (document.IsDisposed)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref document.State.TextBuild, state, null) is null && document.IsDisposed)
+        {
+            _ = Interlocked.CompareExchange(ref document.State.TextBuild, null, state);
+        }
+    }
 
     /// <summary>Builds a text page from the collected runs, then clears the state.</summary>
     /// <param name="state">The reusable build state.</param>

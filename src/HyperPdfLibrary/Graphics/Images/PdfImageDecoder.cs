@@ -92,8 +92,8 @@ public static class PdfImageDecoder
         var buffer = default(PooledBuffer);
         try
         {
-            var codec = PdfStreamDecoder.Apply(data, filters, parameters, ref buffer, cancellationToken);
-            return DecodeData(header, codec, buffer.WrittenSpan, CodecParameters(filters, parameters), 0, default, cancellationToken);
+            var codec = PdfStreamDecoder.Apply(data, filters, parameters, dictionary.Owner, ref buffer, cancellationToken);
+            return DecodeData(header, codec, buffer.WrittenSpan, CodecParameters(filters, parameters), 0, new(dictionary.Owner?.Context, 0, 0), cancellationToken);
         }
         catch (Exception e) when (e is InvalidDataException or ArgumentException or OutOfMemoryException)
         {
@@ -227,17 +227,6 @@ public static class PdfImageDecoder
     private static int SelectReduction(ImageRole role, int requested) =>
         (role is ImageRole.Image or ImageRole.SoftMask or ImageRole.StencilMask) && requested > 0 ? requested : 0;
 
-    /// <summary>Decodes data after the byte filters, by codec.</summary>
-    /// <param name="header">The image header.</param>
-    /// <param name="codec">The image codec still to apply.</param>
-    /// <param name="data">The data.</param>
-    /// <param name="codecParameters">The codec's decode parameters, or <see langword="null"/>.</param>
-    /// <param name="softMaskInData">The image's /SMaskInData value; 0 for masks and inline images.</param>
-    /// <returns>The image, or <see langword="null"/>.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static PdfImageData? DecodeData(in ImageHeader header, PdfImageCodec codec, ReadOnlySpan<byte> data, PdfDictionary? codecParameters, int softMaskInData) =>
-        DecodeData(header, codec, data, codecParameters, softMaskInData, default, default);
-
     /// <summary>Decodes data after the byte filters, by codec, reporting damage to a context.</summary>
     /// <param name="header">The image header.</param>
     /// <param name="codec">The image codec still to apply.</param>
@@ -257,7 +246,7 @@ public static class PdfImageDecoder
         CancellationToken cancellationToken) => codec switch
     {
         PdfImageCodec.None => IsTooShort(header, data) ? null : DecodeSamples(header, data),
-        PdfImageCodec.Jpeg => JpegImageDecoder.Decode(header, data, ColorTransform(codecParameters), report.Context, report.ObjectNumber, cancellationToken),
+        PdfImageCodec.Jpeg => JpegImageDecoder.Decode(header, data, ColorTransform(codecParameters), report.Context, report.ObjectNumber, report.Context?.DrawingServices.Images, cancellationToken),
         PdfImageCodec.Jpeg2000 => JpxImageDecoder.Decode(header, data, softMaskInData, report.ReductionLevels, cancellationToken),
         PdfImageCodec.Ccitt => DecodeFax(header, data, codecParameters),
         PdfImageCodec.Jbig2 => Jbig2ImageDecoder.Decode(header, data, codecParameters, report.ReductionLevels, cancellationToken),

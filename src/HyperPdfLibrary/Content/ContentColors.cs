@@ -258,7 +258,7 @@ internal static class ContentColors
     /// <returns>The paint, or null when the pattern is missing or damaged or no drawing backend is registered.</returns>
     internal static PdfPatternPaint? CreatePatternPaint(ContentInterpreter self, PdfName name, uint rgb)
     {
-        if (PdfDrawingServices.ConfiguredBackend is null)
+        if (self.Cache.Document.DrawingServices.ConfiguredBackend is null)
         {
             return null;
         }
@@ -339,6 +339,6 @@ internal static class ContentColors
         using var child = new ContentInterpreter(self.Cache, recorder, self.Depth + 1, cancellationToken: self.CancellationToken) { Printing = self.Printing };
         ContentExecution.RunPattern(child, pattern, uncolored, rgb);
         using var cell = recorder.Finish();
-        return PdfDrawingServices.Backend.ComposeTile(cell, box, stepX, stepY, scale);
+        return self.Cache.Document.DrawingServices.Backend.ComposeTile(cell, box, stepX, stepY, scale);
     }
 }

@@ -82,7 +82,7 @@ public sealed class FontDataDemandTests
         using var document = PdfDocumentReader.Open(pdf.ToBytes(), null);
         using var owner = new CancellationTokenSource();
         await owner.CancelAsync();
-        await FontDataPrefetcher.WaitForPreparationAsync(PdfDocumentPages.GetPage(document, 0), Task.FromCanceled(owner.Token), owner.Token, CancellationToken.None);
+        await FontDataPrefetcher.WaitForPreparationAsync(document, PdfDocumentPages.GetPage(document, 0), Task.FromCanceled(owner.Token), owner.Token, CancellationToken.None);
         await PdfDocumentPages.PrefetchPageAsync(document, 0, CancellationToken.None);
     }
 

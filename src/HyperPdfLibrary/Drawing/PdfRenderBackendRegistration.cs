@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Drawing;
 
@@ -18,4 +19,7 @@ public sealed record PdfRenderBackendRegistration
 
     /// <summary>Gets the optional image codec.</summary>
     public IPdfImageCodec? Images { get; init; }
+
+    /// <summary>Gets the optional decoder for unsupported image formats.</summary>
+    public Func<PdfStream, CancellationToken, IPdfRenderImage?>? UnsupportedImageDecoder { get; init; }
 }

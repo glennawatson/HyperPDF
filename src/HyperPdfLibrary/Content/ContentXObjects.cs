@@ -260,7 +260,7 @@ internal static class ContentXObjects
             return;
         }
 
-        using var image = PdfRenderCache.ToRenderImage(data);
+        using var image = self.Cache.ToRenderImage(data);
         if (image is not null && !(data.IsStencilMask && self.State.Fill.PaintsNothing))
         {
             ContentXObjects.DrawDecodedImage(self, image, data.IsStencilMask, data.Interpolate, dictionary);

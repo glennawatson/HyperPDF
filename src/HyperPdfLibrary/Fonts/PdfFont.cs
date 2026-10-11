@@ -41,12 +41,6 @@ public abstract class PdfFont
     /// <summary>Gets the longest Unicode text one code maps to, such as a ligature.</summary>
     public static int MaxUnicodeLength => UnicodeLimit;
 
-    /// <summary>
-    /// Gets or sets the delegate that loads a font from its dictionary; text shows nothing while it is unset or returns
-    /// null. It starts as <see cref="PdfFontLoader.Load"/>.
-    /// </summary>
-    public static Func<PdfDictionary, PdfFont?>? Factory { get; set; } = PdfFontLoader.Load;
-
     /// <summary>Gets the font dictionary.</summary>
     public PdfDictionary Dictionary { get; }
 

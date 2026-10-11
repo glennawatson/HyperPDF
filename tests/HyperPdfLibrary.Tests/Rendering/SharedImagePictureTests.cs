@@ -48,7 +48,7 @@ public sealed class SharedImagePictureTests
     [Test]
     public async Task ARepeatedLogoIsCountedOnce()
     {
-        using var document = PdfDocumentReader.Open(Build(static _ => 0), null);
+        using var document = SkiaTestRegistration.Open(Build(static _ => 0), null);
         using var renderer = new PdfPageRenderer(document);
 
         RenderAll(renderer);
@@ -63,7 +63,7 @@ public sealed class SharedImagePictureTests
     [Test]
     public async Task DistinctImagesAreEachCounted()
     {
-        using var document = PdfDocumentReader.Open(Build(static page => page), null);
+        using var document = SkiaTestRegistration.Open(Build(static page => page), null);
         using var renderer = new PdfPageRenderer(document);
 
         RenderAll(renderer);
@@ -76,7 +76,7 @@ public sealed class SharedImagePictureTests
     [Test]
     public async Task PagesThatShareAnImageAllFitUnderALimitForOne()
     {
-        using var document = PdfDocumentReader.Open(Build(static _ => 0), null);
+        using var document = SkiaTestRegistration.Open(Build(static _ => 0), null);
         using var renderer = new PdfPageRenderer(document, PdfRenderOptions.Default with { PictureCacheBytes = RoomForTwoAndAHalf });
 
         RenderAll(renderer);
@@ -90,7 +90,7 @@ public sealed class SharedImagePictureTests
     [Test]
     public async Task DistinctImagesStillBoundTheMemory()
     {
-        using var document = PdfDocumentReader.Open(Build(static page => page), null);
+        using var document = SkiaTestRegistration.Open(Build(static page => page), null);
         using var renderer = new PdfPageRenderer(document, PdfRenderOptions.Default with { PictureCacheBytes = RoomForTwoAndAHalf });
 
         RenderAll(renderer);
@@ -104,7 +104,7 @@ public sealed class SharedImagePictureTests
     [Test]
     public async Task AnImageIsReleasedWithItsLastPage()
     {
-        using var document = PdfDocumentReader.Open(Build(static page => page < Twice ? 0 : 1), null);
+        using var document = SkiaTestRegistration.Open(Build(static page => page < Twice ? 0 : 1), null);
         using var renderer = new PdfPageRenderer(document, PdfRenderOptions.Default with { PictureCacheBytes = RoomForOneAndAHalf });
 
         for (var page = 0; page < Pages; page++)
@@ -123,7 +123,7 @@ public sealed class SharedImagePictureTests
     [Test]
     public async Task ZoomBandsShareThePictureBudget()
     {
-        using var document = PdfDocumentReader.Open(Build(static _ => 0), null);
+        using var document = SkiaTestRegistration.Open(Build(static _ => 0), null);
         using var roomy = new PdfPageRenderer(document);
         Render(roomy, 0);
         Render(roomy, 0, ZoomScale);

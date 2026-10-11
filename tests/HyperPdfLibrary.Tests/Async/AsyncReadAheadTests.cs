@@ -48,7 +48,7 @@ public sealed class AsyncReadAheadTests
     public async Task SmallDocumentNeverReadsTheStreamSynchronously()
     {
         await using var stream = new ThrottledStream(Small, TimeSpan.FromMilliseconds(LatencyMilliseconds));
-        using var document = await PdfDocumentReader.OpenAsync(stream, null, CancellationToken.None);
+        using var document = await SkiaTestRegistration.OpenAsync(stream, null, CancellationToken.None);
         for (var i = 0; i < document.PageCount; i++)
         {
             _ = await PdfDocumentText.GetTextPageAsync(document, i, CancellationToken.None);
@@ -66,7 +66,7 @@ public sealed class AsyncReadAheadTests
     public async Task LargeDocumentLoadsAPageAheadOfRenderingIt()
     {
         await using var stream = new ThrottledStream(Large, TimeSpan.FromMilliseconds(LatencyMilliseconds));
-        using var document = await PdfDocumentReader.OpenAsync(stream, null, CancellationToken.None);
+        using var document = await SkiaTestRegistration.OpenAsync(stream, null, CancellationToken.None);
         using var renderer = new PdfPageRenderer(document);
         PdfPageRenderer.GetPixelSize(PdfDocumentPages.GetPage(document, 0), 0, 1F, out var width, out var height);
         var pixels = new byte[width * height * BytesPerPixel];
@@ -82,7 +82,7 @@ public sealed class AsyncReadAheadTests
     public async Task RepeatedPrefetchSkipsTheWalkUntilSomethingIsEvicted()
     {
         await using var stream = new ThrottledStream(Large, TimeSpan.FromMilliseconds(LatencyMilliseconds));
-        using var document = await PdfDocumentReader.OpenAsync(stream, null, CancellationToken.None);
+        using var document = await SkiaTestRegistration.OpenAsync(stream, null, CancellationToken.None);
         await PdfDocumentPages.PrefetchPageAsync(document, 0, CancellationToken.None);
         var reads = stream.AsyncReads;
 
@@ -133,7 +133,7 @@ public sealed class AsyncReadAheadTests
     public async Task DisposingTheDocumentLeavesTheStreamOpen()
     {
         await using var stream = new ThrottledStream(Small, TimeSpan.FromMilliseconds(LatencyMilliseconds));
-        var document = await PdfDocumentReader.OpenAsync(stream, null, CancellationToken.None);
+        var document = await SkiaTestRegistration.OpenAsync(stream, null, CancellationToken.None);
         document.Dispose();
         var reads = stream.AsyncReads;
 

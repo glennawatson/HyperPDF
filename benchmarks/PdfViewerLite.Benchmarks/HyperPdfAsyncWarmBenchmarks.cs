@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Rendering;
 using HyperPdfLibrary.Text;
 
@@ -27,6 +28,9 @@ public class HyperPdfAsyncWarmBenchmarks
     /// <summary>The search results, reused.</summary>
     private readonly List<PdfTextMatch> _found = [];
 
+    /// <summary>The drawing services reused across benchmark invocations.</summary>
+    private readonly PdfDrawingServices _drawingServices = BenchmarkDrawing.CreateServices();
+
     /// <summary>The open document.</summary>
     private OpenedDocument _opened = null!;
 
@@ -48,8 +52,8 @@ public class HyperPdfAsyncWarmBenchmarks
     {
         var path = HyperPdfAsyncSamples.PathFor(Document);
         _opened = Source == "FileStreamAsync"
-            ? await HyperPdfAsyncSamples.OpenAsync(path, "FileStream", CancellationToken.None).ConfigureAwait(false)
-            : HyperPdfAsyncSamples.OpenSync(path, Source);
+            ? await HyperPdfAsyncSamples.OpenAsync(path, "FileStream", _drawingServices, CancellationToken.None).ConfigureAwait(false)
+            : HyperPdfAsyncSamples.OpenSync(path, Source, _drawingServices);
         _renderer = new(_opened.Document);
         for (var i = 0; i < ParallelPages; i++)
         {

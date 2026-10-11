@@ -2,34 +2,34 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Syntax;
 
 /// <summary>
-/// A per-thread stack the parser collects array items and dictionary entries on, so each array or dictionary is
+/// An operation-local stack the parser collects array items and dictionary entries on, so each array or dictionary is
 /// allocated once at its final size instead of growing.
 /// </summary>
-internal sealed class ParseScratch
+internal ref struct ParseScratch
 {
-    /// <summary>The initial capacity.</summary>
-    private const int InitialCapacity = 256;
+    /// <summary>The values kept on the stack before an overflow array is needed.</summary>
+    private const int InlineCapacity = 64;
 
     /// <summary>The factor the capacity grows by.</summary>
     private const int GrowthFactor = 2;
 
-    /// <summary>The scratch of the current thread.</summary>
-    [ThreadStatic]
-    private static ParseScratch? _current;
+    /// <summary>The values before the first overflow.</summary>
+    private ValueBuffer _inlineValues;
 
-    /// <summary>The collected values.</summary>
-    private PdfValue[] _values = new PdfValue[InitialCapacity];
+    /// <summary>The keys before the first overflow.</summary>
+    private KeyBuffer _inlineKeys;
 
-    /// <summary>The collected keys, parallel to <see cref="_values"/>; unused for arrays.</summary>
-    private int[] _keys = new int[InitialCapacity];
+    /// <summary>The values after an overflow, or <see langword="null"/> while they fit inline.</summary>
+    private PdfValue[]? _values;
 
-    /// <summary>Gets the scratch of the current thread.</summary>
-    internal static ParseScratch Current => _current ??= new();
+    /// <summary>The keys after an overflow, parallel to <see cref="_values"/>.</summary>
+    private int[]? _keys;
 
     /// <summary>Gets the number of values on the stack.</summary>
     internal int Count { get; private set; }
@@ -39,14 +39,38 @@ internal sealed class ParseScratch
     /// <param name="value">The value.</param>
     internal void Push(int key, PdfValue value)
     {
-        if (Count == _values.Length)
+        if (_values is null && Count == InlineCapacity)
         {
-            Array.Resize(ref _values, Count * GrowthFactor);
-            Array.Resize(ref _keys, Count * GrowthFactor);
+            _values = new PdfValue[InlineCapacity * GrowthFactor];
+            _keys = new int[InlineCapacity * GrowthFactor];
+            Span<PdfValue> values = _inlineValues;
+            Span<int> keys = _inlineKeys;
+            values.CopyTo(_values);
+            keys.CopyTo(_keys);
         }
 
-        _keys[Count] = key;
-        _values[Count] = value;
+        if (_values is not null)
+        {
+            if (Count == _values.Length)
+            {
+                Array.Resize(ref _values, Count * GrowthFactor);
+                Array.Resize(ref _keys, Count * GrowthFactor);
+            }
+
+            _keys![Count] = key;
+            _values[Count] = value;
+        }
+        else if (Count == 0)
+        {
+            _inlineKeys.SetFirst(key);
+            _inlineValues.SetFirst(value);
+        }
+        else
+        {
+            _inlineKeys[Count] = key;
+            _inlineValues[Count] = value;
+        }
+
         Count++;
     }
 
@@ -56,7 +80,15 @@ internal sealed class ParseScratch
     /// <returns>The array.</returns>
     internal PdfArray PopArray(int mark, PdfObjectStore? owner)
     {
-        var array = new PdfArray(owner, _values.AsSpan(mark, Count - mark));
+        if (_values is null && mark == 0 && Count == 1)
+        {
+            var single = new PdfArray(owner, [_inlineValues.GetFirst()]);
+            Release(0);
+            return single;
+        }
+
+        Span<PdfValue> values = _values is null ? _inlineValues : _values;
+        var array = new PdfArray(owner, values.Slice(mark, Count - mark));
         Release(mark);
         return array;
     }
@@ -68,9 +100,18 @@ internal sealed class ParseScratch
     internal PdfDictionary PopDictionary(int mark, PdfObjectStore? owner)
     {
         var dictionary = new PdfDictionary(owner, Count - mark);
+        if (_values is null && mark == 0 && Count == 1)
+        {
+            dictionary.Add(new(_inlineKeys.GetFirst()), _inlineValues.GetFirst());
+            Release(0);
+            return dictionary;
+        }
+
+        Span<PdfValue> values = _values is null ? _inlineValues : _values;
+        Span<int> keys = _keys is null ? _inlineKeys : _keys;
         for (var i = mark; i < Count; i++)
         {
-            dictionary.Add(new(_keys[i]), _values[i]);
+            dictionary.Add(new(keys[i]), values[i]);
         }
 
         Release(mark);
@@ -81,7 +122,42 @@ internal sealed class ParseScratch
     /// <param name="mark">The count to return to.</param>
     internal void Release(int mark)
     {
-        _values.AsSpan(mark, Count - mark).Clear();
+        Span<PdfValue> values = _values is null ? _inlineValues : _values;
+        values.Slice(mark, Count - mark).Clear();
         Count = mark;
+    }
+
+    /// <summary>The inline values.</summary>
+    [InlineArray(InlineCapacity)]
+    private struct ValueBuffer
+    {
+        /// <summary>The first value.</summary>
+        private PdfValue _element0;
+
+        /// <summary>Sets the first value.</summary>
+        /// <param name="value">The value.</param>
+        internal void SetFirst(PdfValue value) => _element0 = value;
+
+        /// <summary>Gets the first value.</summary>
+        /// <returns>The value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal readonly PdfValue GetFirst() => _element0;
+    }
+
+    /// <summary>The inline keys.</summary>
+    [InlineArray(InlineCapacity)]
+    private struct KeyBuffer
+    {
+        /// <summary>The first key.</summary>
+        private int _element0;
+
+        /// <summary>Sets the first key.</summary>
+        /// <param name="key">The key.</param>
+        internal void SetFirst(int key) => _element0 = key;
+
+        /// <summary>Gets the first key.</summary>
+        /// <returns>The key.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal readonly int GetFirst() => _element0;
     }
 }

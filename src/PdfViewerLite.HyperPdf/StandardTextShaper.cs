@@ -18,6 +18,9 @@ namespace PdfViewerLite.HyperPdf;
 [DebuggerDisplay("StandardTextShaper: {Font}")]
 internal sealed class StandardTextShaper : ITextShaper
 {
+    /// <summary>The number of built in fonts.</summary>
+    internal const int FontCount = 12;
+
     /// <summary>Where the underline sits in all three families, as the PDFium engine places it.</summary>
     private const float Underline = -0.1F;
 
@@ -29,12 +32,6 @@ internal sealed class StandardTextShaper : ITextShaper
 
     /// <summary>The index of the Courier family.</summary>
     private const int CourierFamily = 2;
-
-    /// <summary>The number of built in fonts.</summary>
-    private const int FontCount = 12;
-
-    /// <summary>One shaper per font, made on first use.</summary>
-    private static readonly StandardTextShaper?[] Shapers = new StandardTextShaper?[FontCount];
 
     /// <summary>Initializes a new instance of the <see cref="StandardTextShaper"/> class.</summary>
     /// <param name="font">The font.</param>
@@ -73,14 +70,15 @@ internal sealed class StandardTextShaper : ITextShaper
     public bool Covers(int codePoint) => AppearanceFontMetrics.TryEncode(codePoint, out _);
 
     /// <summary>Gets the shaper of a built in family in a style.</summary>
+    /// <param name="state">The engine's reusable font state.</param>
     /// <param name="family">The standard family; anything else is treated as Helvetica.</param>
     /// <param name="bold">Whether bold.</param>
     /// <param name="italic">Whether italic.</param>
     /// <returns>The shaper.</returns>
-    internal static StandardTextShaper For(string family, bool bold, bool italic)
+    internal static StandardTextShaper For(TextBoxFontState state, string family, bool bold, bool italic)
     {
         var font = AppearanceFontMetrics.FromStyle(FamilyIndex(family), bold, italic);
-        ref var slot = ref Shapers[(int)font];
+        ref var slot = ref state.StandardShapers[(int)font];
         return Volatile.Read(ref slot) ?? Interlocked.CompareExchange(ref slot, new(font), null) ?? Volatile.Read(ref slot)!;
     }
 

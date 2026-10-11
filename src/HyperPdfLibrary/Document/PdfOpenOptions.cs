@@ -4,7 +4,10 @@
 
 using System.Diagnostics;
 using System.Security.Cryptography.X509Certificates;
+using HyperPdfLibrary.Drawing;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.IO;
+using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Document;
 
@@ -14,6 +17,12 @@ public sealed record PdfOpenOptions
 {
     /// <summary>Gets the shared options with no password, no cancellation and no diagnostics.</summary>
     public static PdfOpenOptions Default { get; } = new();
+
+    /// <summary>Gets the font loader for this document; null leaves text and glyphs without a font.</summary>
+    public Func<PdfDictionary, PdfFont?>? FontFactory { get; init; } = PdfFontLoader.Load;
+
+    /// <summary>Gets drawing, font and image services for this document, or null for managed defaults.</summary>
+    public PdfDrawingServices? DrawingServices { get; init; }
 
     /// <summary>Gets or sets the password, or <see langword="null"/>.</summary>
     public string? Password { get; init; }
