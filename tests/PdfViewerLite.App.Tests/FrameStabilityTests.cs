@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -13,6 +15,7 @@ using PdfViewerLite.App.Controls;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
 using PdfViewerLite.Core.Settings;
+using PdfViewerLite.TestAssets;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 
@@ -32,6 +35,18 @@ public sealed class FrameStabilityTests
 
     /// <summary>The page count of the document.</summary>
     private const int Pages = 40;
+
+    /// <summary>The width of each marked page, in points.</summary>
+    private const int MarkedPageWidth = 612;
+
+    /// <summary>The margin and spacing of the vertical marks, in points.</summary>
+    private const int MarkSpacing = 24;
+
+    /// <summary>The catalog, page tree and shared content objects before the page objects.</summary>
+    private const int SharedPdfObjects = 3;
+
+    /// <summary>The object number of the first page in the marked PDF.</summary>
+    private const int FirstMarkedPageObject = SharedPdfObjects + 1;
 
     /// <summary>The edges needed to show that the visible page text, rather than only its paper, has drawn.</summary>
     private const int ReadyEdges = 20;
@@ -116,7 +131,7 @@ public sealed class FrameStabilityTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scroll.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scroll.pdf", CreateStripedPdf())]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -226,6 +241,34 @@ public sealed class FrameStabilityTests
             return frame is not null && CountEdges(frame, scroller, window) > ReadyEdges && test.Services.RenderHub.Scheduler.IsIdle;
         });
         return canvas;
+    }
+
+    /// <summary>Fills every page with thin vertical marks so edge counts measure content across the full viewport.</summary>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] CreateStripedPdf()
+    {
+        var content = new StringBuilder("0 0 0 rg\n");
+        for (var x = MarkSpacing; x < MarkedPageWidth - MarkSpacing; x += MarkSpacing)
+        {
+            _ = content.Append(CultureInfo.InvariantCulture, $"{x} 0 2 792 re f\n");
+        }
+
+        var kids = new StringBuilder();
+        for (var page = 0; page < Pages; page++)
+        {
+            _ = kids.Append(CultureInfo.InvariantCulture, $"{page + FirstMarkedPageObject} 0 R ");
+        }
+
+        var objects = new string[Pages + SharedPdfObjects];
+        objects[0] = "<< /Type /Catalog /Pages 2 0 R >>";
+        objects[1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Count {Pages} /Kids [{kids}] >>");
+        objects[2] = MiniPdf.Stream(string.Empty, content.ToString());
+        for (var page = 0; page < Pages; page++)
+        {
+            objects[page + SharedPdfObjects] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 3 0 R >>";
+        }
+
+        return MiniPdf.Build(objects);
     }
 
     /// <summary>Draws the next frame, lets rendering finish, and measures how much of the canvas changed.</summary>
