@@ -51,7 +51,6 @@ internal static class SimpleFontLoader
     {
         cancellationToken.ThrowIfCancellationRequested();
         var facts = ReadFacts(font, trueType, cancellationToken);
-        SystemFontMatcher? matcher = null;
         var encoding = SimpleEncoding.Read(font, new(InitialEncoding(facts), facts.Program is not null, facts.HasTrueTypeFace, facts.IsSymbolic, IsSymbolName(facts)));
         var toUnicode = ToUnicodeLoader.Load(font, cancellationToken);
         GlyphSource source;
@@ -65,7 +64,7 @@ internal static class SimpleFontLoader
         }
         else
         {
-            matcher = SystemFontMatcher.For(font, resources);
+            var matcher = SystemFontMatcher.For(font, resources);
             var face = matcher.Match(new(facts.BaseFont, facts.Standard, facts.Flags, facts.Descriptor.Weight, CjkScript.None));
             source = face;
             map = SubstituteGlyphMapper.Map(resources, face, encoding, facts.SymbolEncoding, facts.IsSymbolic, toUnicode);
@@ -79,7 +78,7 @@ internal static class SimpleFontLoader
             ChooseDescent(facts, source),
             IsBold(facts),
             hasWidths && source is SubstituteFace { IsRequestedFamily: false } && facts.Standard == StandardFont.None);
-        return new(font, new(source, map.Glyphs, map.Texts, widths, toUnicode, metrics, PuaSymbols.KindOf(facts.BaseFont, facts.Standard)), resources, matcher);
+        return new(font, new(source, map.Glyphs, map.Texts, widths, toUnicode, metrics, PuaSymbols.KindOf(facts.BaseFont, facts.Standard)), resources);
     }
 
     /// <summary>Reads the dictionary, descriptor and program.</summary>

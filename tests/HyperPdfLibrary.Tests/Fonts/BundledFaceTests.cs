@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Fonts.Data;
 
@@ -50,7 +51,13 @@ public sealed class BundledFaceTests
     private const float CourierWidth = 600F;
 
     /// <summary>The resources owned by this test.</summary>
-    private readonly PdfFontResources _resources = new();
+    private readonly PdfDrawingServices _services = new(new());
+
+    /// <summary>The font resources owned by this test's services.</summary>
+    private readonly PdfFontResources _resources;
+
+    /// <summary>Initializes a new instance of the <see cref="BundledFaceTests"/> class.</summary>
+    public BundledFaceTests() => _resources = _services.FontResources;
 
     /// <summary>The standard 14 names with the bundled face each uses.</summary>
     /// <returns>The cases.</returns>
@@ -173,8 +180,8 @@ public sealed class BundledFaceTests
         await BundledFaces.EnsureAsync(_resources, BundledFamily.Symbol, false, false, CancellationToken.None);
         await BundledFaces.EnsureAsync(_resources, BundledFamily.Dingbats, false, false, CancellationToken.None);
 
-        using var symbol = new FontTestDocument(new() { Subtype = Type1, BaseFont = SymbolFont, Flags = -1 });
-        using var dingbats = new FontTestDocument(new() { Subtype = Type1, BaseFont = "ZapfDingbats", Flags = -1 });
+        using var symbol = new FontTestDocument(new() { Subtype = Type1, BaseFont = SymbolFont, Flags = -1 }, _services);
+        using var dingbats = new FontTestDocument(new() { Subtype = Type1, BaseFont = "ZapfDingbats", Flags = -1 }, _services);
 
         await Assert.That(FontProbe.Bounds(symbol.Font, CodeAlpha).IsEmpty).IsFalse();
         await Assert.That(FontProbe.Bounds(dingbats.Font, CodeFirstDingbat).IsEmpty).IsFalse();
@@ -188,7 +195,7 @@ public sealed class BundledFaceTests
     {
         await BundledFaces.EnsureAsync(_resources, BundledFamily.Sans, false, false, CancellationToken.None);
 
-        using var document = new FontTestDocument(new() { Subtype = Type1, BaseFont = "Helvetica", Flags = -1 });
+        using var document = new FontTestDocument(new() { Subtype = Type1, BaseFont = "Helvetica", Flags = -1 }, _services);
 
         await Assert.That(FontProbe.Bounds(document.Font, CodeA).IsEmpty).IsFalse();
     }
@@ -200,7 +207,8 @@ public sealed class BundledFaceTests
     {
         const string cmap = "/CIDInit /ProcSet findresource begin 12 dict begin begincmap 1 begincodespacerange <00> <FF> endcodespacerange "
             + "1 beginbfchar <61> <F061> endbfchar endcmap end end";
-        using var symbol = new FontTestDocument(new() { Subtype = Type1, BaseFont = SymbolFont, Flags = -1, ToUnicode = cmap });
+        await BundledFaces.EnsureAsync(_resources, BundledFamily.Symbol, false, false, CancellationToken.None);
+        using var symbol = new FontTestDocument(new() { Subtype = Type1, BaseFont = SymbolFont, Flags = -1, ToUnicode = cmap }, _services);
 
         await Assert.That(FontProbe.Text(symbol.Font, CodeAlpha)).IsEqualTo("α");
     }

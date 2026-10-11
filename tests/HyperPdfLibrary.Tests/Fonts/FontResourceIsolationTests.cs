@@ -4,6 +4,7 @@
 
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts;
+using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Tests.Fonts;
 
@@ -69,6 +70,20 @@ public sealed class FontResourceIsolationTests
         await Assert.That(leftText).IsEqualTo("•");
         await Assert.That(ReferenceEquals(leftText, GlyphNameText.TextOf(left, BulletName, false))).IsTrue();
         await Assert.That(ReferenceEquals(leftText, rightText)).IsFalse();
+    }
+
+    /// <summary>A detached font reuses the matcher held by its selected resource owner.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DetachedMatcherUsesSelectedResources()
+    {
+        var dictionary = new PdfDictionary(null);
+        var left = new PdfFontResources();
+        var right = new PdfFontResources();
+        var leftMatcher = SystemFontMatcher.For(dictionary, left);
+
+        await Assert.That(ReferenceEquals(leftMatcher, SystemFontMatcher.For(dictionary, left))).IsTrue();
+        await Assert.That(ReferenceEquals(leftMatcher, SystemFontMatcher.For(dictionary, right))).IsFalse();
     }
 
     /// <summary>Observing a resource file advances only the selected owner's generation.</summary>

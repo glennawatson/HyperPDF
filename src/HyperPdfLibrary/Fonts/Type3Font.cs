@@ -55,8 +55,8 @@ internal sealed class Type3Font : PdfType3Font
 
     /// <summary>Initializes a new instance of the <see cref="Type3Font"/> class.</summary>
     /// <param name="dictionary">The font dictionary.</param>
-    /// <param name="selectedResources">The resources selected by the font loader.</param>
-    internal Type3Font(PdfDictionary dictionary, PdfFontResources? selectedResources = null)
+    /// <param name="resources">The resources selected by the font loader.</param>
+    internal Type3Font(PdfDictionary dictionary, PdfFontResources resources)
         : base(dictionary)
     {
         FontMatrix = ReadMatrix(dictionary.GetArray(KnownName.FontMatrix));
@@ -66,7 +66,7 @@ internal sealed class Type3Font : PdfType3Font
         var encoding = dictionary.Get(KnownName.Encoding).IsNull
             ? new SimpleEncoding(FontEncoding.None, null)
             : SimpleEncoding.Read(dictionary, new(FontEncoding.None, false, false, false, false));
-        ReadProcedures(dictionary, encoding, selectedResources ?? PdfFontResources.For(dictionary));
+        ReadProcedures(dictionary, encoding, resources);
     }
 
     /// <inheritdoc/>

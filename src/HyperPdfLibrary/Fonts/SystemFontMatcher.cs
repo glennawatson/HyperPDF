@@ -63,7 +63,7 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider, PdfFontResou
     /// <param name="resources">The selected font resources.</param>
     /// <returns>The matcher for that document or direct font load.</returns>
     internal static SystemFontMatcher For(PdfDictionary dictionary, PdfFontResources resources) =>
-        dictionary.Owner?.Context?.DrawingServices.FontMatcher ?? new(null, resources);
+        dictionary.Owner?.Context?.DrawingServices.FontMatcher ?? resources.DetachedMatcher;
 
     /// <summary>Loads the open font program a cold request will use.</summary>
     /// <param name="request">The font request.</param>

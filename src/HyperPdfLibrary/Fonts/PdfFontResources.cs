@@ -95,6 +95,22 @@ internal sealed class PdfFontResources
         }
     }
 
+    /// <summary>Gets the provider-free matcher shared by a directly loaded detached font.</summary>
+    internal SystemFontMatcher DetachedMatcher
+    {
+        get
+        {
+            var cached = Volatile.Read(ref field);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            var created = new SystemFontMatcher(null, this);
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
     /// <summary>Gets the generation without creating resource state.</summary>
     internal int Generation => Volatile.Read(ref _data)?.Generation ?? 0;
 

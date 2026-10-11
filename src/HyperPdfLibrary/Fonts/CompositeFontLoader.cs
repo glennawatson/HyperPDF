@@ -55,7 +55,6 @@ internal static class CompositeFontLoader
         var toUnicode = ToUnicodeLoader.Load(font, cancellationToken);
         var baseFont = PdfNames.BaseFontOf(cidFont);
         var collection = ReadCollection(cmap, cidFont);
-        SystemFontMatcher? matcher = null;
         GlyphSource source;
         if (program is not null)
         {
@@ -63,7 +62,7 @@ internal static class CompositeFontLoader
         }
         else
         {
-            matcher = SystemFontMatcher.For(font, resources);
+            var matcher = SystemFontMatcher.For(font, resources);
             source = matcher.Match(new(baseFont, StandardFont.None, descriptor.Flags, descriptor.Weight, collection));
         }
 
@@ -84,7 +83,7 @@ internal static class CompositeFontLoader
             toUnicode,
             CidToUnicodeTable.Get(resources, collection),
             metrics);
-        return new(font, data, matcher);
+        return new(font, data, resources);
     }
 
     /// <summary>Reads /Encoding: a predefined CMap name or an embedded CMap stream.</summary>
@@ -108,8 +107,7 @@ internal static class CompositeFontLoader
         try
         {
             // PDFium gives embedded CMaps no coding, so their codes have no text without /ToUnicode.
-            // CMap.Parse has no state-passing resolver; this cold load keeps the selected resource cache in its callback.
-            var map = CMap.Parse(stream.DecodeToArray(cancellationToken), name => PredefinedCMaps.Find(resources, name)?.Map);
+            var map = CMap.ParseWithResources(stream.DecodeToArray(cancellationToken), resources);
             return new(map, CidCoding.Unknown, CjkScript.None);
         }
         catch (Exception ex) when (FontLoadErrors.IsDamagedData(ex))

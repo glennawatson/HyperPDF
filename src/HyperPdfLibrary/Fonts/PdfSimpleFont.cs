@@ -32,9 +32,6 @@ internal sealed class PdfSimpleFont : PdfFont
     /// <summary>The font resources reused by this font.</summary>
     private readonly PdfFontResources _resources;
 
-    /// <summary>The matcher used when a substitute face lacks a character.</summary>
-    private readonly SystemFontMatcher? _matcher;
-
     /// <summary>The cached outlines by code.</summary>
     private readonly GlyphOutlineCache _outlines = new();
 
@@ -42,13 +39,11 @@ internal sealed class PdfSimpleFont : PdfFont
     /// <param name="dictionary">The font dictionary.</param>
     /// <param name="data">The loaded data.</param>
     /// <param name="resources">The font resources.</param>
-    /// <param name="matcher">The substitute font matcher.</param>
-    internal PdfSimpleFont(PdfDictionary dictionary, SimpleFontData data, PdfFontResources resources, SystemFontMatcher? matcher)
+    internal PdfSimpleFont(PdfDictionary dictionary, SimpleFontData data, PdfFontResources resources)
         : base(dictionary)
     {
         _data = data;
         _resources = resources;
-        _matcher = matcher;
     }
 
     /// <inheritdoc/>
@@ -123,7 +118,7 @@ internal sealed class PdfSimpleFont : PdfFont
         if (glyph < 0)
         {
             var codePoint = GlyphNameText.FirstCodePoint(_data.Texts[code]);
-            if (!source.IsSubstitute || codePoint == 0 || _matcher?.MatchCharacter(codePoint) is not { } fallback)
+            if (!source.IsSubstitute || codePoint == 0 || SystemFontMatcher.For(Dictionary, _resources).MatchCharacter(codePoint) is not { } fallback)
             {
                 return null;
             }
