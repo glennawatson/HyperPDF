@@ -8,30 +8,22 @@ using SkiaSharp;
 
 namespace HyperPdfLibrary.Rendering;
 
-/// <summary>Reuses one thread's native wrappers for drawing into pinned caller pixels.</summary>
+/// <summary>Reuses one backend thread's native wrappers for drawing into pinned caller pixels.</summary>
 internal sealed class SkiaDrawingSession : IPdfDrawingSession
 {
     /// <summary>The opaque PDF page background without initializing Skia's named-colour table.</summary>
     private static readonly SKColor White = new(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue);
 
-    /// <summary>The drawing session isolated to the current thread.</summary>
-    [ThreadStatic]
-    private static SkiaDrawingSession? _current;
-
     /// <summary>The graphics thread's grayscale paint, initialized only for grayscale GPU output.</summary>
-    [ThreadStatic]
-    private static SKPaint? _gpuGrayPaint;
+    private SKPaint? _gpuGrayPaint;
 
     /// <summary>The thread's reusable native wrappers.</summary>
     private RenderSurface? _surface;
 
-    /// <summary>Gets the reusable session for the current thread.</summary>
-    internal static SkiaDrawingSession Current => _current ??= new();
-
     /// <inheritdoc/>
     public unsafe bool DrawPage(IPdfRenderPicture content, IPdfRenderPicture? annotations, Matrix3x2 matrix, PdfTileTarget target, bool grayscale)
     {
-        var surface = _surface ??= RenderSurface.Current;
+        var surface = _surface ??= new RenderSurface();
         BorrowedPixelDrawing.CheckAvailable(surface);
         fixed (byte* pixels = target.Pixels)
         {
@@ -69,7 +61,7 @@ internal sealed class SkiaDrawingSession : IPdfDrawingSession
     /// <inheritdoc/>
     public unsafe bool DrawImage(IPdfRenderImage image, PdfTileTarget target)
     {
-        var surface = _surface ??= RenderSurface.Current;
+        var surface = _surface ??= new RenderSurface();
         BorrowedPixelDrawing.CheckAvailable(surface);
         fixed (byte* pixels = target.Pixels)
         {

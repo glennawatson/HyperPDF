@@ -3,8 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Graphics.Colors;
@@ -12,8 +10,8 @@ namespace HyperPdfLibrary.Graphics.Colors;
 /// <summary>
 /// Reads ICC profiles for ICCBased colour spaces. Profiles with an AToB0 look-up table (CMYK, Lab, N-colour and RGB or gray
 /// profiles that have one) convert through <see cref="IccLutTransform"/>; other RGB and gray profiles use their matrix and
-/// curves. Profiles that cannot be read make the colour space fall back to its /Alternate. Parsed profiles are cached per
-/// stream, and a short list of recent profiles lets streams with identical bytes share a transform.
+/// curves. Profiles that cannot be read make the colour space fall back to its /Alternate. A document's drawing services
+/// cache parsed profiles per stream and share transforms between streams containing the same bytes.
 /// </summary>
 internal static class IccProfile
 {
@@ -55,9 +53,6 @@ internal static class IccProfile
 
     /// <summary>The bytes in an XYZ tag.</summary>
     private const int XyzTagSize = 20;
-
-    /// <summary>The most profile bytes read.</summary>
-    private const int MaxProfileSize = 1 << 25;
 
     /// <summary>The 'acsp' signature.</summary>
     private const uint FileSignature = 0x61637370;
@@ -107,9 +102,6 @@ internal static class IccProfile
     /// <summary>The most channels of a 'nCLR' colour space that are supported.</summary>
     private const int MaxColorants = 8;
 
-    /// <summary>The profiles kept in the cache of recent profiles.</summary>
-    private const int RecentCapacity = 16;
-
     /// <summary>The 'rXYZ' tag.</summary>
     private const uint RedColorant = 0x7258595A;
 
@@ -158,18 +150,6 @@ internal static class IccProfile
     /// <summary>D50 XYZ to linear sRGB, blue from Z.</summary>
     private const float BB = 1.4052427F;
 
-    /// <summary>The transforms by profile stream; an entry with no transform records a profile that cannot be used.</summary>
-    private static readonly ConditionalWeakTable<PdfStream, Entry> Cache = [];
-
-    /// <summary>Guards <see cref="Recent"/> and <see cref="_nextRecent"/>.</summary>
-    private static readonly Lock RecentGate = new();
-
-    /// <summary>The latest profiles loaded, so streams that embed the same profile share one transform and its grid.</summary>
-    private static readonly RecentProfile?[] Recent = new RecentProfile?[RecentCapacity];
-
-    /// <summary>The slot of <see cref="Recent"/> that the next profile replaces.</summary>
-    private static int _nextRecent;
-
     /// <summary>Gets the matrix from D50 XYZ (the profile connection space) to linear sRGB, Bradford adapted.</summary>
     internal static Matrix3 XyzToSrgb { get; } = new(RR, RG, RB, GR, GG, GB, BR, BG, BB);
 
@@ -179,8 +159,12 @@ internal static class IccProfile
     /// <returns>The transform, or <see langword="null"/> when the profile is unreadable, unsupported or has another component count.</returns>
     internal static IccTransform? Get(PdfStream stream, int components)
     {
-        var transform = Cache.GetValue(stream, static s => new Entry(Load(s))).Transform;
-        return transform?.Components == components ? transform : null;
+        if (stream.Dictionary.Owner?.Context?.DrawingServices is { } services)
+        {
+            return services.Profiles.Get(stream, components);
+        }
+
+        return IccProfileCache.ReadUnowned(stream, components);
     }
 
     /// <summary>Reads a profile from bytes.</summary>
@@ -274,52 +258,6 @@ internal static class IccProfile
         return (space & ColorantSuffixMask) == ColorantSuffix && digit is >= MinColorants and <= MaxColorants ? digit : 0;
     }
 
-    /// <summary>Loads the transform of a stream, sharing it with other streams that hold the same profile.</summary>
-    /// <param name="stream">The profile stream.</param>
-    /// <returns>The transform, or <see langword="null"/>.</returns>
-    private static IccTransform? Load(PdfStream stream)
-    {
-        try
-        {
-            var data = stream.DecodeToArray();
-            return data.Length > MaxProfileSize ? null : Shared(data);
-        }
-        catch (InvalidDataException)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>Gets the transform of profile bytes from the cache of recent profiles, adding it when absent.</summary>
-    /// <param name="data">The profile bytes.</param>
-    /// <returns>The transform, or <see langword="null"/>.</returns>
-    private static IccTransform? Shared(byte[] data)
-    {
-        Span<byte> digest = stackalloc byte[SHA256.HashSizeInBytes];
-        _ = SHA256.HashData(data, digest);
-        var key = new ProfileKey(BinaryPrimitives.ReadUInt128LittleEndian(digest), data.Length);
-        lock (RecentGate)
-        {
-            foreach (var recent in Recent)
-            {
-                if (recent?.Key == key)
-                {
-                    return recent.Transform;
-                }
-            }
-        }
-
-        // Building happens outside the lock; two threads that load the same new profile both build it and the later one wins the slot.
-        var entry = new RecentProfile(key, Create(data));
-        lock (RecentGate)
-        {
-            Recent[_nextRecent] = entry;
-            _nextRecent = (_nextRecent + 1) % Recent.Length;
-        }
-
-        return entry.Transform;
-    }
-
     /// <summary>Builds the transform of an RGB matrix profile.</summary>
     /// <param name="profile">The profile data.</param>
     /// <returns>The transform, or <see langword="null"/> when a colorant or curve tag is missing.</returns>
@@ -367,17 +305,4 @@ internal static class IccProfile
         return true;
     }
 
-    /// <summary>Identifies profile bytes by a hash and length.</summary>
-    /// <param name="Hash">The first 16 bytes of the SHA-256 digest.</param>
-    /// <param name="Length">The profile length.</param>
-    private readonly record struct ProfileKey(UInt128 Hash, int Length);
-
-    /// <summary>A cached load result.</summary>
-    /// <param name="Transform">The transform, or <see langword="null"/>.</param>
-    private sealed record Entry(IccTransform? Transform);
-
-    /// <summary>A recently loaded profile.</summary>
-    /// <param name="Key">The identity of the profile bytes.</param>
-    /// <param name="Transform">The transform, or <see langword="null"/> when the profile is unsupported.</param>
-    private sealed record RecentProfile(ProfileKey Key, IccTransform? Transform);
 }

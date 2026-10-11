@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Structure;
@@ -37,6 +38,9 @@ public sealed class PdfObjectStore : IDisposable
 
     /// <summary>The idle Flate decoders owned by this store.</summary>
     private readonly FlateDecoderState? _flateDecoders = FlateDecoderState.Create();
+
+    /// <summary>Scratch buffers used if this store has no document-open context.</summary>
+    private ScratchPools? _scratchPools;
 
     /// <summary>Where each object lives.</summary>
     private XrefTable _xref;
@@ -138,6 +142,9 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Gets this store's independently leased Flate decoders.</summary>
     internal FlateDecoderState? FlateDecoders => _flateDecoders;
 
+    /// <summary>Gets the document's decoder scratch cache, or this store's fallback cache.</summary>
+    internal ScratchPools ScratchPools => Context?.ScratchPools ?? (Volatile.Read(ref _scratchPools) ?? CreateScratchPools());
+
     /// <summary>Gets a reference to the mutable xref state to store operations.</summary>
     internal ref XrefTable XrefState => ref _xref;
 
@@ -223,10 +230,21 @@ public sealed class PdfObjectStore : IDisposable
         _ = Interlocked.Exchange(ref _prefetchMarks, null);
         _ = Interlocked.Exchange(ref _nameTreeTables, null);
 
+        Context?.CloseScratchPools();
+        Volatile.Read(ref _scratchPools)?.Close();
+
         Security?.Dispose();
         if (_ownsSource)
         {
             _source.Dispose();
         }
+    }
+
+    /// <summary>Creates the fallback scratch cache once for a store without an open context.</summary>
+    /// <returns>The cache.</returns>
+    private ScratchPools CreateScratchPools()
+    {
+        var created = new ScratchPools();
+        return Interlocked.CompareExchange(ref _scratchPools, created, null) ?? created;
     }
 }

@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Objects;
 
@@ -52,11 +53,26 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <summary>Gets the drawing services selected for this open.</summary>
     internal PdfDrawingServices DrawingServices => drawingServices;
 
+    /// <summary>Gets this document's scratch buffers or the cache explicitly shared by its drawing services.</summary>
+    internal ScratchPools ScratchPools { get; } = drawingServices.SharedScratchPools ?? new();
+
+    /// <summary>Gets whether this document owns its scratch cache.</summary>
+    internal bool OwnsScratchPools { get; } = drawingServices.SharedScratchPools is null;
+
     /// <summary>Creates a context for options.</summary>
     /// <param name="options">The options.</param>
     /// <returns>The context.</returns>
     internal static PdfOpenContext Create(PdfOpenOptions options) =>
         new(options.Diagnostics, options.DrawingServices ?? new(new()), options.CancellationToken) { Recovery = options.Recovery, IgnoreXrefStreams = options.IgnoreXrefStreams };
+
+    /// <summary>Releases this document's idle scratch buffers, leaving an explicitly shared cache alone.</summary>
+    internal void CloseScratchPools()
+    {
+        if (OwnsScratchPools)
+        {
+            ScratchPools.Close();
+        }
+    }
 
     /// <summary>Throws when the open was cancelled.</summary>
     /// <param name="context">The context, or <see langword="null"/>.</param>

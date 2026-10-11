@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Fonts;
+using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Drawing;
@@ -55,6 +57,25 @@ public sealed class PdfDrawingServices
             return Interlocked.CompareExchange(ref field, created, null) ?? created;
         }
     }
+
+    /// <summary>Gets the ICC transforms shared by documents opened with this service instance.</summary>
+    internal IccProfileCache Profiles
+    {
+        get
+        {
+            var existing = Volatile.Read(ref field);
+            if (existing is not null)
+            {
+                return existing;
+            }
+
+            var created = new IccProfileCache();
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets a decoder scratch cache shared by documents using this service instance, or null for document-owned caches.</summary>
+    public ScratchPools? SharedScratchPools { get; init; }
 
     /// <summary>Gets a dictionary's document services, or empty services for a detached dictionary.</summary>
     /// <param name="dictionary">The dictionary owned by a document.</param>

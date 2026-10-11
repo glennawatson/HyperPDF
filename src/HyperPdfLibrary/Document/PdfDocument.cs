@@ -5,7 +5,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Drawing;
-using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Objects;
 
@@ -61,7 +60,7 @@ public sealed class PdfDocument : IDisposable
     /// Closes the file and empties the document's caches: the parsed objects, the page pictures of every renderer made for
     /// the document, the decoded images, fonts and other render caches, and the recent text pages. Work that is running on
     /// other threads fails with <see cref="ObjectDisposedException"/> or finishes with what it already holds; it never
-    /// reads freed memory. The shared decoder scratch buffers are trimmed too.
+    /// reads freed memory. Its own decoder scratch buffers are released too; a service-shared cache stays available.
     /// </summary>
     public void Dispose()
     {
@@ -75,7 +74,6 @@ public sealed class PdfDocument : IDisposable
         PdfDocumentRendering.ReleaseRendering(this);
         _ = Interlocked.Exchange(ref State.TextBuild, null);
         _ = Interlocked.Exchange(ref State.FontPreparations, null);
-        ScratchPools.Trim();
     }
 
     /// <summary>Invalidates document caches when the owned object store changes.</summary>

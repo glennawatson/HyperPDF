@@ -3,9 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
+using System.Globalization;
 using System.Text;
+using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Tests.Rendering;
 
 namespace HyperPdfLibrary.Tests.Graphics;
 
@@ -174,6 +178,30 @@ public sealed class IccProfileTests
         var space = IccSpace(Gray(GammaCurve(Gamma22)), RgbComponents);
 
         await Assert.That(space.Components).IsEqualTo(RgbComponents);
+    }
+
+    /// <summary>Documents with one drawing service share a transform; a separate service keeps its own.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ProfileCachesKeepIndependentTransformInstances()
+    {
+        var curve = GammaCurve(LinearGamma);
+        var pdf = new RenderTestPdf(1, 1);
+        var profileId = pdf.AddStream("/N 3", Rgb(curve, curve, curve));
+        pdf.CatalogEntries = string.Create(CultureInfo.InvariantCulture, $"/Metadata {profileId} 0 R");
+        var bytes = pdf.ToBytes();
+        var shared = new PdfDrawingServices(new());
+        using var firstDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = shared });
+        using var duplicateDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = shared });
+        using var separateDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = new(new()) });
+
+        var first = IccProfile.Get(firstDocument.Catalog.GetStream(KnownName.Metadata)!, RgbComponents);
+        var duplicate = IccProfile.Get(duplicateDocument.Catalog.GetStream(KnownName.Metadata)!, RgbComponents);
+        var isolated = IccProfile.Get(separateDocument.Catalog.GetStream(KnownName.Metadata)!, RgbComponents);
+
+        await Assert.That(first).IsNotNull();
+        await Assert.That(ReferenceEquals(first, duplicate)).IsTrue();
+        await Assert.That(ReferenceEquals(first, isolated)).IsFalse();
     }
 
     /// <summary>Creates an ICCBased colour space from profile bytes.</summary>
