@@ -16,6 +16,9 @@ internal static class CjkParityPdf
     /// <summary>The GB-EUC-H page content: two hanzi, then two more on a second line.</summary>
     internal const string GbEucContent = "BT /F1 24 Tf 10 60 Td <B0A1D6D0> Tj 0 -30 Td <B9FAC8CB> Tj ET";
 
+    /// <summary>The Big5 page content: two copies of the ideograph one.</summary>
+    internal const string TraditionalContent = "BT /F1 24 Tf 10 60 Td <A440A440> Tj ET";
+
     /// <summary>The UniKS-UCS2-H page content: three hangul syllables.</summary>
     internal const string UniKsContent = "BT /F1 24 Tf 10 60 Td <AC00D55CAE00> Tj ET";
 

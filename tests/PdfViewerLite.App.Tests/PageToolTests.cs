@@ -4,6 +4,7 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -334,6 +335,40 @@ public sealed class PageToolTests
             await Assert.That(stopped).IsTrue();
             await Assert.That(restarted).IsTrue();
             await Assert.That(clickStopped).IsTrue();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>Verifies a click on the page scrollbar stops auto-scroll without needing to hit the page canvas.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task AutoScrollStopsWhenPageScrollbarIsClicked()
+    {
+        using var test = new TestServices();
+        test.Services.Settings.Motion = MotionPreference.Normal;
+        test.Services.ApplySettings();
+        using var main = new MainViewModel(test.Services);
+        var window = await OpenAsync(test, main, "auto-scrollbar.pdf");
+        try
+        {
+            var (tab, canvas, scroller, _) = Parts(window, main);
+            _ = tab.ChangeAutoScrollSpeed(-AutoScroller.MaxSpeed);
+            _ = await tab.ToggleAutoScrollCommand.Execute().ToTask();
+            _ = await UiWait.UntilAsync(() => canvas.IsAutoScrollRunning);
+            window.UpdateLayout();
+
+            var bar = scroller.GetVisualDescendants().OfType<ScrollBar>().MaxBy(static item => item.Bounds.Height)!;
+            await Assert.That(bar.IsVisible).IsTrue();
+            await Assert.That(bar.Bounds.Height).IsGreaterThan(bar.Bounds.Width);
+            var point = bar.TranslatePoint(new(bar.Bounds.Width * StartX, bar.Bounds.Height * StartY), window)!.Value;
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+
+            var stopped = await UiWait.UntilAsync(() => !tab.IsAutoScrolling);
+            await Assert.That(stopped).IsTrue();
         }
         finally
         {

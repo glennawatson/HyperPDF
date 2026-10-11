@@ -130,6 +130,9 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Gets a value indicating whether the store has been disposed.</summary>
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
+    /// <summary>Gets or sets whether the first file window names a linearization dictionary.</summary>
+    internal bool MightBeLinearized { get; set; }
+
     /// <summary>Gets the owned array state to store operations.</summary>
     internal byte[]? ArrayState => _array;
 

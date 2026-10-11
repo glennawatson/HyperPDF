@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Document;
@@ -67,6 +68,21 @@ public static class PdfDocumentWrapper
     {
         var payload = PdfDocumentWrapper.GetEncryptedPayload(document) ?? throw new PdfException(PdfError.Format, "The document is not a wrapper document.");
         return PdfDocumentReader.Open(payload.GetBytes(), password);
+    }
+
+    /// <summary>Opens a wrapper's encrypted payload with cancellable I/O and decoding.</summary>
+    /// <param name="document">The wrapper document.</param>
+    /// <param name="password">The payload's password, or null.</param>
+    /// <param name="cancellationToken">Cancels payload reading, decoding and opening.</param>
+    /// <returns>The payload document; the caller disposes it.</returns>
+    /// <exception cref="PdfException">This is not a wrapper document, or the payload cannot be opened.</exception>
+    public static async ValueTask<PdfDocument> OpenEncryptedPayloadAsync(PdfDocument document, string? password, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var payload = PdfDocumentWrapper.GetEncryptedPayload(document) ?? throw new PdfException(PdfError.Format, "The document is not a wrapper document.");
+        var bytes = await payload.GetBytesAsync(cancellationToken).ConfigureAwait(false);
+        var options = password is null ? PdfOpenOptions.Default : new PdfOpenOptions { Password = password };
+        return await PdfDocumentReader.OpenWithAsync(new MemoryPdfByteSource(bytes), true, options, cancellationToken, CancellationToken.None).ConfigureAwait(false);
     }
 
     /// <summary>Determines whether an /AFRelationship is EncryptedPayload.</summary>

@@ -45,7 +45,10 @@ public sealed partial class PropertiesViewModel : ReactiveObject
             Add(entries, "Created", metadata.Created?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
             Add(entries, "Modified", metadata.Modified?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
             Add(entries, "PDF version", metadata.FormatVersion);
-            entries.Add(new("Encrypted", metadata.IsEncrypted ? "Yes" : "No"));
+            entries.Add(new(metadata.WrappedFileName is null ? "Encrypted" : "Wrapper encrypted", metadata.IsEncrypted ? "Yes" : "No"));
+            entries.Add(new("Linearized", metadata.IsLinearized ? "Yes" : "No"));
+            Add(entries, "Encrypted file inside", metadata.WrappedFileName);
+            Add(entries, "Cryptographic filter", metadata.WrappedCryptographicFilter);
         }
 
         if (tab.Source.PageSizes is [var first, ..])

@@ -33,6 +33,12 @@ public sealed class FontRenderTests
     /// <summary>The descriptor flags of a non-symbolic font.</summary>
     private const int Nonsymbolic = 32;
 
+    /// <summary>A channel value below this means the pixel contains glyph ink.</summary>
+    private const byte InkThreshold = 200;
+
+    /// <summary>The vertical text used to compare default and overridden advances.</summary>
+    private const string VerticalContent = "BT /F1 30 Tf 50 80 Td <00220023> Tj ET";
+
     /// <summary>The content that shows A at 50 points from (10, 20).</summary>
     private const string SimpleContent = "BT /F1 50 Tf 10 20 Td (A) Tj ET";
 
@@ -79,6 +85,24 @@ public sealed class FontRenderTests
     [Test]
     public Task CompositeTextDraws() => AssertDrawsA(new() { Subtype = "Type0", Program = TestFont.Create(), Flags = Symbolic, Content = CompositeContent, });
 
+    /// <summary>An overridden vertical advance moves the second glyph farther down while keeping the same column.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task VerticalTextUsesW2Advance()
+    {
+        var font = new FontSpec { Subtype = "Type0", Program = TestFont.Create(), Flags = Symbolic, CidEncoding = "/Identity-V", CidEntries = "/DW2 [880 -1000]", Content = VerticalContent, };
+        using var defaultPage = new RenderTestPage(FontTestDocument.Build(font));
+        using var changedPage = new RenderTestPage(FontTestDocument.Build(font with { CidEntries = "/DW2 [880 -1000] /W2 [34 [-2000 250 800]]" }));
+        var normal = InkExtentOf(defaultPage.RenderPage());
+        var changed = InkExtentOf(changedPage.RenderPage());
+
+        await Assert.That(normal.IsEmpty).IsFalse();
+        await Assert.That(changed.IsEmpty).IsFalse();
+        await Assert.That(changed.MaxY).IsGreaterThan(normal.MaxY);
+        await Assert.That(changed.MinX).IsEqualTo(normal.MinX).Within(Tolerance);
+        await Assert.That(changed.MaxX).IsEqualTo(normal.MaxX).Within(Tolerance);
+    }
+
     /// <summary>Renders a spec's page and checks A is drawn where expected.</summary>
     /// <param name="spec">The font.</param>
     /// <returns>A task.</returns>
@@ -90,5 +114,44 @@ public sealed class FontRenderTests
         await Assert.That(image.IsNear(InsideX, InsideY, Rgb.Black, Tolerance)).IsTrue();
         await Assert.That(image.IsNear(InsideX, AboveY, Rgb.White, Tolerance)).IsTrue();
         await Assert.That(image.IsNear(RightX, InsideY, Rgb.White, Tolerance)).IsTrue();
+    }
+
+    /// <summary>Finds the ink bounds of a rendered page.</summary>
+    /// <param name="image">The page.</param>
+    /// <returns>The bounds, or an empty extent.</returns>
+    private static InkExtent InkExtentOf(RenderedImage image)
+    {
+        var minX = image.Width;
+        var minY = image.Height;
+        var maxX = -1;
+        var maxY = -1;
+        for (var y = 0; y < image.Height; y++)
+        {
+            for (var x = 0; x < image.Width; x++)
+            {
+                if (image.Pixels[((y * image.Width) + x) * RenderedImage.BytesPerPixel] >= InkThreshold)
+                {
+                    continue;
+                }
+
+                minX = Math.Min(minX, x);
+                minY = Math.Min(minY, y);
+                maxX = Math.Max(maxX, x);
+                maxY = Math.Max(maxY, y);
+            }
+        }
+
+        return new(minX, maxX, minY, maxY);
+    }
+
+    /// <summary>The outer pixels containing text ink.</summary>
+    /// <param name="MinX">The left edge.</param>
+    /// <param name="MaxX">The right edge.</param>
+    /// <param name="MinY">The top edge.</param>
+    /// <param name="MaxY">The bottom edge.</param>
+    private readonly record struct InkExtent(int MinX, int MaxX, int MinY, int MaxY)
+    {
+        /// <summary>Gets whether the page has no ink.</summary>
+        internal bool IsEmpty => MaxX < MinX || MaxY < MinY;
     }
 }

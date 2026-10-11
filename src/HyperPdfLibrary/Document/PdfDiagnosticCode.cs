@@ -66,4 +66,7 @@ public enum PdfDiagnosticCode
 
     /// <summary>A structure was written in its conforming form when the file was saved.</summary>
     FixedOnSave = 19,
+
+    /// <summary>A linearization header or hint table is inconsistent with the file (found by a check).</summary>
+    BadLinearization = 20,
 }

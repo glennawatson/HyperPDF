@@ -39,4 +39,13 @@ public sealed record DocumentMetadata
 
     /// <summary>Gets a value indicating whether the document is encrypted.</summary>
     public bool IsEncrypted { get; init; }
+
+    /// <summary>Gets whether the source file has a valid linearization header.</summary>
+    public bool IsLinearized { get; init; }
+
+    /// <summary>Gets the encrypted document's file name when this is a wrapper PDF.</summary>
+    public string? WrappedFileName { get; init; }
+
+    /// <summary>Gets the cryptographic filter named by a wrapper PDF, or null for ordinary documents.</summary>
+    public string? WrappedCryptographicFilter { get; init; }
 }

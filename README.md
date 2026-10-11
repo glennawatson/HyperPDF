@@ -13,6 +13,8 @@ Download a package from [GitHub releases](https://github.com/glennawatson/PdfVie
 3. Choose **Find** to search or **Focus** for adjustable reading text.
 4. Open **Tabs & settings → Preferences** for appearance and startup settings.
 
+If a PDF needs a recipient certificate, choose your `.p12` or `.pfx` file and enter its password. The viewer keeps that choice only while the tab is open. A wrapper PDF names its enclosed document and offers it in **Attachments**; open that file there and enter its document password if asked.
+
 ## Features
 
 | Task | Options |
@@ -22,7 +24,7 @@ Download a package from [GitHub releases](https://github.com/glennawatson/PdfVie
 | View | Continuous, page-by-page, two-page and cover layouts. Rotate, fit page, fit width or set zoom. Ctrl+wheel or a pinch zooms around the pointer. Zoom to a dragged area, move pages with the Hand tool and auto-scroll at an adjustable speed. Split View shows two places at once; New Window opens another window. |
 | Find text | Match case or whole words. Search one PDF or every PDF in a folder. |
 | Read | Select and copy text, or all of a page's text. Copy an image of part of a page with Snapshot. Use caret browsing, Read Mode or presentation. |
-| Inspect | Document properties, layers and attachments. Open or save attachments. A message names content the app cannot show, such as XFA forms or 3D. |
+| Inspect | Document properties, including whether a PDF is linearized, layers and attachments. Open or save attachments. A message names content the app cannot show, such as XFA forms or 3D. |
 | Annotate | Highlights, underlines, strike-outs, squiggles, notes, text, callouts, ink, shapes, arrows, polygons, clouds and stamps, including your own words or a picture. Move, resize, recolour and restyle comments after placing them. Undo and redo every change. |
 | Review | Browse comments, filter them by text, type, colour or author, sort them, reply and set review status. Set the author name in Preferences. |
 | Fill forms | Text fields, check boxes, radio buttons, lists and one-letter-per-box fields. Tab and Shift+Tab move between fields; Space ticks. On printed forms, lines, boxes and letter boxes are outlined and text snaps to them. Save filled forms. Common calculations and formats are supported. Spelling is checked with the desktop's dictionaries. |

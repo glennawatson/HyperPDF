@@ -941,4 +941,7 @@ public static class Descriptions
 
     /// <summary>Joins an explanation to its shortcut.</summary>
     private const string Shortcut = " Shortcut: ";
+
+    /// <summary>Gets the button help text for opening a certificate-encrypted PDF.</summary>
+    public static string OpenCertificateDocument => "Open this document with the certificate and private key you chose.";
 }

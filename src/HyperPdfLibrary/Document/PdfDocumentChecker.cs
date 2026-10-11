@@ -96,6 +96,7 @@ internal sealed class PdfDocumentChecker
     {
         _context.ThrowIfCancelled();
         new PageTreeChecker(_document.Objects, _faults).Check();
+        CheckLinearization();
     }
 
     /// <summary>Parses one page's content.</summary>
@@ -154,6 +155,38 @@ internal sealed class PdfDocumentChecker
         if (seen.Add(new(fault.Code, fault.ObjectNumber, fault.Message)))
         {
             report.Add(fault);
+        }
+    }
+
+    /// <summary>Reports a declared linearization header or page hint table that cannot be validated.</summary>
+    private void CheckLinearization()
+    {
+        if (!PdfDocumentLinearization.IsDeclared(_document))
+        {
+            return;
+        }
+
+        var info = PdfDocumentLinearization.GetInfo(_document);
+        if (info is null)
+        {
+            _faults.Add(new(PdfDiagnosticCode.BadLinearization, "The linearization header does not match this file.", 0, 0));
+            return;
+        }
+
+        try
+        {
+            if (info.Hints.IsDefaultOrEmpty || PdfLinearizationHints.GetPageRanges(_document, _context.CancellationToken) is not { } ranges)
+            {
+                _faults.Add(new(PdfDiagnosticCode.BadLinearization, "The linearization page hints are missing or damaged.", 0, info.Hints.IsDefaultOrEmpty ? 0 : info.Hints[0].Offset));
+            }
+            else if (!PdfLinearizationValidity.TryCheck(_document, info, ranges, _context.CancellationToken, out var reason, out var offset))
+            {
+                _faults.Add(new(PdfDiagnosticCode.BadLinearization, reason, 0, offset));
+            }
+        }
+        catch (Exception error) when (error is PdfException or InvalidDataException or OverflowException)
+        {
+            _faults.Add(new(PdfDiagnosticCode.BadLinearization, "The linearization page hints cannot be decoded.", 0, info.Hints[0].Offset));
         }
     }
 

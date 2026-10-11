@@ -109,6 +109,18 @@ public sealed class PdfStream
         return raw.Span.ToArray();
     }
 
+    /// <summary>Copies the encoded data with async I/O when it is backed by a file.</summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The encoded bytes.</returns>
+    /// <exception cref="EndOfStreamException">The source ended before the stream's recorded length.</exception>
+    public ValueTask<byte[]> CopyRawDataAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return _buffer is not null
+            ? ValueTask.FromResult(_buffer.AsSpan((int)_offset, RawLength).ToArray())
+            : CopyFromSourceAsync(this, cancellationToken);
+    }
+
     /// <summary>Decodes the data through every filter except image codecs, which are left for the image decoder.</summary>
     /// <param name="output">The buffer receiving the decoded data.</param>
     /// <returns>The image codec still to apply, if any.</returns>
@@ -160,4 +172,25 @@ public sealed class PdfStream
     /// <returns>The published result.</returns>
     internal IccProfileCache.Entry PublishIccProfileEntry(IccProfileCache.Entry loaded) =>
         Interlocked.CompareExchange(ref _cachedIccProfile, loaded, null) ?? loaded;
+
+    /// <summary>Reads a file-backed stream without blocking the caller.</summary>
+    /// <param name="self">The stream.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The encoded bytes.</returns>
+    /// <exception cref="EndOfStreamException">The file ended early.</exception>
+    private static async ValueTask<byte[]> CopyFromSourceAsync(PdfStream self, CancellationToken cancellationToken)
+    {
+        var bytes = new byte[self.RawLength];
+        var read = 0;
+        for (var offset = 0; offset < bytes.Length; offset += read)
+        {
+            read = await self._source!.ReadAsync(self._offset + offset, bytes.AsMemory(offset), cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                throw new EndOfStreamException("The stream ended before its recorded length.");
+            }
+        }
+
+        return bytes;
+    }
 }

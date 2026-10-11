@@ -32,6 +32,9 @@
     <Compile Include="..\HyperPdfLibrary.Tests\Fonts\FontSpec.cs" Link="Fonts\FontSpec.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Fonts\FontTestDocument.cs" Link="Fonts\FontTestDocument.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Fonts\TestFontPrograms.cs" Link="Fonts\TestFontPrograms.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Security\PublicKeyPdf.cs" Link="Security\PublicKeyPdf.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Security\PublicKeyCipher.cs" Link="Security\PublicKeyCipher.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
     <!-- The JPEG 2000 test encoder, which writes the HTJ2K images the high-throughput parity tests compare. -->
     <Compile Include="..\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
     <Compile Include="..\..\scripts\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />

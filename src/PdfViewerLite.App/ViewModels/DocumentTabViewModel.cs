@@ -249,9 +249,28 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial bool NeedsPassword { get; private set; }
 
+    /// <summary>Gets a value indicating whether opening requires a recipient certificate.</summary>
+    [Reactive]
+    public partial bool NeedsCertificate { get; private set; }
+
     /// <summary>Gets or sets the password being typed.</summary>
     [Reactive]
     public partial string PasswordEntry { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the PKCS #12 certificate file chosen to unlock this document.</summary>
+    [Reactive]
+    public partial string CertificatePathEntry { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the certificate file password being typed.</summary>
+    [Reactive]
+    public partial string CertificatePasswordEntry { get; set; } = string.Empty;
+
+    /// <summary>Gets the reason a certificate open failed, or null.</summary>
+    [Reactive]
+    public partial string? CertificateError { get; private set; }
+
+    /// <summary>Gets the request to choose a PKCS #12 certificate file.</summary>
+    public Interaction<RxVoid, string?> CertificateBrowseInteraction { get; } = new();
 
     /// <summary>Gets the number of pages.</summary>
     [Reactive]
@@ -499,7 +518,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
         try
         {
-            return NeedsPassword || ErrorMessage is not null ? null : Source.Acquire();
+            return NeedsPassword || NeedsCertificate || ErrorMessage is not null ? null : Source.Acquire();
         }
         catch (DocumentOpenException)
         {
@@ -654,7 +673,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         catch (DocumentOpenException ex)
         {
             PreviewHeight = 0;
-            PreviewCaption = ex.Error == DocumentOpenError.Password ? "Password protected" : ex.Message;
+            PreviewCaption = ex.Error switch
+            {
+                DocumentOpenError.Password => "Password protected",
+                DocumentOpenError.Certificate => "Certificate required",
+                _ => ex.Message,
+            };
             return;
         }
         catch (Exception ex)
@@ -927,7 +951,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         catch (DocumentOpenException ex)
         {
             NeedsPassword = ex.Error == DocumentOpenError.Password;
-            ErrorMessage = NeedsPassword ? null : ex.Message;
+            NeedsCertificate = ex.Error == DocumentOpenError.Certificate;
+            CertificateError = NeedsCertificate ? ex.Message : null;
+            ErrorMessage = NeedsPassword || NeedsCertificate ? null : ex.Message;
         }
     }
 
@@ -954,6 +980,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     private void CompleteLoad(IDocument document)
     {
         NeedsPassword = false;
+        NeedsCertificate = false;
+        CertificateError = null;
         ErrorMessage = null;
         if (!IsLoaded)
         {
@@ -991,6 +1019,11 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             _ = CheckContentAsync(document);
             CheckRepairs(document);
             WatchFile();
+        }
+
+        if (Source.Metadata?.WrappedFileName is { Length: > 0 } wrappedName)
+        {
+            Notice = $"This file contains an encrypted document named {wrappedName}. Open it from Attachments.";
         }
 
         IsLoaded = true;
@@ -1371,6 +1404,37 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Source.Password = PasswordEntry;
         PasswordEntry = string.Empty;
         NeedsPassword = false;
+        var token = SelectedWorkToken;
+        try
+        {
+            await EnsureLoadedAsync(token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+    }
+
+    /// <summary>Chooses a certificate file through the desktop picker.</summary>
+    /// <returns>A task for the picker.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Task BrowseCertificateAsync() => DocumentCertificateBrowsing.BrowseAsync(this);
+
+    /// <summary>Retries opening with the selected recipient certificate.</summary>
+    /// <returns>A task for the open attempt.</returns>
+    [ReactiveCommand]
+    private async Task SubmitCertificateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(CertificatePathEntry))
+        {
+            CertificateError = "Choose a certificate file first.";
+            return;
+        }
+
+        Source.UseCertificate(CertificatePathEntry, CertificatePasswordEntry);
+        CertificatePasswordEntry = string.Empty;
+        CertificateError = null;
+        NeedsCertificate = false;
         var token = SelectedWorkToken;
         try
         {
