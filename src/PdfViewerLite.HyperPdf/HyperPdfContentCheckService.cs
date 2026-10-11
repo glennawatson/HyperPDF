@@ -18,6 +18,9 @@ internal sealed class HyperPdfContentCheckService : IContentCheck
     internal HyperPdfContentCheckService(HyperPdfDocument owner) => _owner = owner;
 
     /// <inheritdoc/>
+    public IDocument Document => _owner;
+
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public UnsupportedContent CheckDocument() => HyperPdfDocumentContentInspection.CheckDocument(_owner);
 

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Signatures;
 
 namespace PdfViewerLite.HyperPdf;
@@ -16,6 +17,9 @@ internal sealed class HyperPdfSignatureSourceService : ISignatureSource
     /// <summary>Initializes a new instance of the <see cref="HyperPdfSignatureSourceService"/> class.</summary>
     /// <param name="owner">The owning document.</param>
     internal HyperPdfSignatureSourceService(HyperPdfDocument owner) => _owner = owner;
+
+    /// <inheritdoc/>
+    public IDocument Document => _owner;
 
     /// <inheritdoc/>
     public int SignatureCount { get => HyperPdfDocumentSignatures.GetSignatureCount(_owner); }

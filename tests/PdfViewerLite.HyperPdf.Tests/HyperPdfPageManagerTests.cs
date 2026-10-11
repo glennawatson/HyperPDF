@@ -337,7 +337,7 @@ public sealed class HyperPdfPageManagerTests
                 _ = PdfViewerLite.HyperPdf.HyperPdfText.GetCharacterCount(document, LastPage);
                 _ = PdfViewerLite.HyperPdf.HyperPdfNavigation.GetLinks(document, LastPage);
                 annotations.Clear();
-                ((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).GetAnnotations(LastPage, annotations);
+                DocumentFeature<IAnnotationEditor>.Cast(document)!.GetAnnotations(LastPage, annotations);
                 _ = PdfViewerLite.HyperPdf.HyperPdfRendering.Render(document, info, new(pixels, RenderEdge, RenderEdge, RenderEdge * PixelBytes));
             }
             catch (Exception exception)
@@ -363,7 +363,7 @@ public sealed class HyperPdfPageManagerTests
         for (var page = 0; page < document.PageCount; page++)
         {
             notes.Clear();
-            ((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).GetAnnotations(page, notes);
+            DocumentFeature<IAnnotationEditor>.Cast(document)!.GetAnnotations(page, notes);
             await Assert.That(notes.Exists(static annotation => annotation.Contents == RemovedNote)).IsFalse();
             if (notes.Exists(static annotation => annotation.Contents == VisibleNote))
             {
@@ -382,7 +382,7 @@ public sealed class HyperPdfPageManagerTests
         await Assert.That(document.PageCount).IsEqualTo(MergedPageCount);
         await Assert.That(document.GetOutline().Count).IsEqualTo(OutlineCount);
         var fields = new List<FormField>();
-        ((IFormFiller)DocumentFeatures.CastFeature(document, typeof(IFormFiller))!).GetFields(ImportedPage, fields);
+        DocumentFeature<IFormFiller>.Cast(document)!.GetFields(ImportedPage, fields);
         await Assert.That(string.Join(',', fields.ConvertAll(static field => field.Name))).IsEqualTo("Name_1,Address_1.Street");
         var links = new List<int>();
         foreach (var link in document.GetLinks(ImportedPage))

@@ -52,7 +52,7 @@ internal sealed class ExportRun : IDisposable
         using (var document = new HyperPdfEngine().Open(source, null))
         {
             using var stream = File.Create(path);
-            written = ((IPageExporter)DocumentFeatures.CastFeature(document, typeof(IPageExporter))!).ExportPages(pages, layout, stream);
+            written = DocumentFeature<IPageExporter>.Cast(document)!.ExportPages(pages, layout, stream);
         }
 
         return new(path, written);
@@ -72,7 +72,7 @@ internal sealed class ExportRun : IDisposable
             using var document = new HyperPdfEngine().Open(original, null);
             edit(document);
             using var stream = File.Create(edited);
-            _ = ((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).Save(stream);
+            _ = DocumentFeature<IAnnotationEditor>.Cast(document)!.Save(stream);
         }
         finally
         {

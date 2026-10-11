@@ -75,7 +75,7 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
     private PdfPageRenderer? _renderer;
 
     /// <summary>The optional services, created and retained under the edit gate.</summary>
-    private object?[]? _featureSlots;
+    private IDocumentFeature?[]? _featureSlots;
 
     /// <summary>Initializes a new instance of the <see cref="HyperPdfDocument"/> class.</summary>
     /// <param name="document">The managed document.</param>
@@ -167,7 +167,7 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
     internal ref PdfPageRenderer? RendererState => ref _renderer;
 
     /// <summary>Gets or sets the cached feature services.</summary>
-    internal ref object?[]? FeatureSlots => ref _featureSlots;
+    internal ref IDocumentFeature?[]? FeatureSlots => ref _featureSlots;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -290,7 +290,7 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
     /// <returns>The stable feature, or null when unsupported.</returns>
     /// <exception cref="ArgumentNullException">The feature type is null.</exception>
     /// <exception cref="ObjectDisposedException">The document is closed.</exception>
-    public object? GetFeature(Type featureType)
+    public IDocumentFeature? GetFeature(Type featureType)
     {
         ArgumentNullException.ThrowIfNull(featureType);
         return HyperPdfFeatureRegistry.Get(this, featureType);

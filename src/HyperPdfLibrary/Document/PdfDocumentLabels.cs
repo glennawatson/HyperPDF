@@ -11,21 +11,6 @@ namespace HyperPdfLibrary.Document;
 /// <summary>Reads page labels.</summary>
 public static class PdfDocumentLabels
 {
-    /// <summary>The letters in the alphabet styles.</summary>
-    private const int LetterCount = 26;
-
-    /// <summary>The largest number written in Roman numerals before wrapping, as PDFium does.</summary>
-    private const int MaxRoman = 1_000_000;
-
-    /// <summary>The longest run of letters written, as PDFium limits it.</summary>
-    private const int MaxLetters = 1000;
-
-    /// <summary>Gets the values of the Roman numeral symbols, largest first.</summary>
-    private static ReadOnlySpan<int> RomanValues => [0x3E8, 0x384, 0x1F4, 0x190, 0x64, 0x5A, 0x32, 0x28, 0x0A, 0x09, 0x05, 0x04, 0x01];
-
-    /// <summary>Gets the lower-case Roman numeral symbols, matching <see cref="RomanValues"/>.</summary>
-    private static string[] RomanSymbols { get; } = ["m", "cm", "d", "cd", "c", "xc", "l", "xl", "x", "ix", "v", "iv", "i"];
-
     /// <summary>Gets a page's label, for example "iv".</summary>
     /// <param name="document">The document.</param>
     /// <param name="index">The zero based page index.</param>
@@ -45,10 +30,10 @@ public static class PdfDocumentLabels
         }
 
         var dictionary = range.Value.Label;
-        var prefix = dictionary.GetText(KnownName.P) ?? string.Empty;
+        var prefix = dictionary.Get(KnownName.P);
         var number = index - range.Value.Start + dictionary.GetInt32(KnownName.St, 1);
-        var label = prefix + PdfDocumentLabels.FormatNumber(number, document.Objects.Names.GetSpelling(dictionary.GetName(KnownName.S)));
-        return label.Length == 0 ? null : label;
+        var style = document.Objects.Names.GetSpelling(dictionary.GetName(KnownName.S));
+        return PageLabelText.Create(prefix.Kind == PdfKind.String ? prefix.AsStringBytes() : default, number, style.Length == 1 ? style[0] : default);
     }
 
     /// <summary>Gets the labels of some pages as style and number, for pages copied into another document.</summary>
@@ -123,75 +108,4 @@ public static class PdfDocumentLabels
         Volatile.Write(ref document.State.LabelRanges, ranges);
         return ranges;
     }
-
-    /// <summary>Formats the number part of a label.</summary>
-    /// <param name="number">The number.</param>
-    /// <param name="spelling">The /S style name's spelling.</param>
-    /// <returns>The text.</returns>
-    private static string FormatNumber(int number, ReadOnlySpan<byte> spelling) => spelling.Length != 1 ? string.Empty : spelling[0] switch
-    {
-        (byte)'D' => number.ToString(CultureInfo.InvariantCulture),
-        (byte)'R' => PdfDocumentLabels.Roman(number, true),
-        (byte)'r' => PdfDocumentLabels.Roman(number, false),
-        (byte)'A' => PdfDocumentLabels.Letters(number).ToUpperInvariant(),
-        (byte)'a' => PdfDocumentLabels.Letters(number),
-        _ => string.Empty,
-    };
-
-    /// <summary>Writes a number in Roman numerals.</summary>
-    /// <param name="number">The number.</param>
-    /// <param name="upperCase">Whether to use upper-case symbols.</param>
-    /// <returns>The numerals.</returns>
-    private static string Roman(int number, bool upperCase)
-    {
-        number %= PdfDocumentLabels.MaxRoman;
-        var remaining = number;
-        var length = 0;
-        for (var i = 0; i < PdfDocumentLabels.RomanValues.Length && remaining > 0; i++)
-        {
-            var count = remaining / PdfDocumentLabels.RomanValues[i];
-            length += count * PdfDocumentLabels.RomanSymbols[i].Length;
-            remaining %= PdfDocumentLabels.RomanValues[i];
-        }
-
-        return string.Create(length, new RomanState(number, upperCase), static (destination, state) =>
-        {
-            var remaining = state.Number;
-            var offset = 0;
-            for (var i = 0; i < PdfDocumentLabels.RomanValues.Length && remaining > 0; i++)
-            {
-                var count = remaining / PdfDocumentLabels.RomanValues[i];
-                remaining %= PdfDocumentLabels.RomanValues[i];
-                var symbol = PdfDocumentLabels.RomanSymbols[i];
-                for (var occurrence = 0; occurrence < count; occurrence++)
-                {
-                    foreach (var value in symbol)
-                    {
-                        destination[offset] = state.UpperCase ? char.ToUpperInvariant(value) : value;
-                        offset++;
-                    }
-                }
-            }
-        });
-    }
-
-    /// <summary>Writes a number as letters: a..z, then aa..zz, and so on.</summary>
-    /// <param name="number">The number.</param>
-    /// <returns>The letters.</returns>
-    private static string Letters(int number)
-    {
-        if (number <= 0)
-        {
-            return string.Empty;
-        }
-
-        var zeroBased = number - 1;
-        var count = ((zeroBased / PdfDocumentLabels.LetterCount) + 1) % PdfDocumentLabels.MaxLetters;
-        return new((char)('a' + (zeroBased % PdfDocumentLabels.LetterCount)), count);
-    }
-
-    /// <summary>The value and case written into a Roman label.</summary>
-    /// <param name="Number">The value after PDFium's wrap.</param>
-    /// <param name="UpperCase">Whether to use upper-case symbols.</param>
-    private readonly record struct RomanState(int Number, bool UpperCase);
 }

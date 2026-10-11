@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Platform;
 using PdfViewerLite.TestAssets;
@@ -43,7 +44,7 @@ public sealed class SaveOverOpenFileTests
         {
             using (var document = new HyperPdfEngine().Open(path, null))
             {
-                var editor = (IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!;
+                var editor = PdfViewerLite.Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(document)!;
                 _ = editor.AddMarkup(0, AnnotationKind.Highlight, [Line], AnnotationColors.Sage, "Saved over");
                 await Assert.That(SaveOver(editor, path)).IsTrue();
 
@@ -56,7 +57,7 @@ public sealed class SaveOverOpenFileTests
 
             using var reopened = new HyperPdfEngine().Open(path, null);
             var annotations = new List<PageAnnotation>();
-            ((IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(reopened, typeof(IAnnotationEditor))!).GetAnnotations(0, annotations);
+            PdfViewerLite.Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(reopened)!.GetAnnotations(0, annotations);
             await Assert.That(annotations.Count).IsEqualTo(1);
             await Assert.That(Directory.GetFiles(directory).Length).IsEqualTo(1);
         }
@@ -78,7 +79,7 @@ public sealed class SaveOverOpenFileTests
         try
         {
             using var document = new HyperPdfEngine().Open(path, null);
-            var editor = (IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!;
+            var editor = PdfViewerLite.Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(document)!;
             _ = editor.AddNote(0, FirstNote, "first", AnnotationColors.Sage);
             await using var output = new PausedWriteStream();
             using var timeout = new CancellationTokenSource(WriteTimeout);

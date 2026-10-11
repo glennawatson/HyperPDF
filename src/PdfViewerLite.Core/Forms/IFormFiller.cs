@@ -2,13 +2,15 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
+
 namespace PdfViewerLite.Core.Forms;
 
 /// <summary>
 /// Reads and fills a document's interactive form. Changes go through the PDF's own form logic, so appearances and
 /// calculated fields update as they would in other readers. Safe to call from any thread.
 /// </summary>
-public interface IFormFiller
+public interface IFormFiller : IDocumentFeature
 {
     /// <summary>Gets a value indicating whether the document has a fillable form.</summary>
     bool HasForm { get; }

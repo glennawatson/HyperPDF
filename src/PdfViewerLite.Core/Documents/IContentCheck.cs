@@ -5,7 +5,7 @@
 namespace PdfViewerLite.Core.Documents;
 
 /// <summary>Finds content a document holds that cannot be shown or run.</summary>
-public interface IContentCheck
+public interface IContentCheck : IDocumentFeature
 {
     /// <summary>Checks the document as a whole: its form type and document scripts.</summary>
     /// <returns>What cannot be shown.</returns>

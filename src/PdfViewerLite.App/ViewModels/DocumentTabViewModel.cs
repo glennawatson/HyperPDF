@@ -531,7 +531,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public ReadingDocument? GetReadingDocument()
     {
         var document = TryGetDocument();
-        var layout = ((document?.GetFeature(typeof(ITextLayoutSource))) as ITextLayoutSource);
+        var layout = DocumentFeature<ITextLayoutSource>.Get(document);
         if (document is null || layout is null)
         {
             return null;
@@ -752,7 +752,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <returns><see langword="true"/> when saved.</returns>
     public bool Save(string path)
     {
-        if (TryGetDocument()?.GetFeature(typeof(IAnnotationEditor)) is not IAnnotationEditor editor)
+        if (DocumentFeature<IAnnotationEditor>.Get(TryGetDocument()) is not { } editor)
         {
             return false;
         }
@@ -785,7 +785,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             return false;
         }
 
-        if (document.GetFeature(typeof(IAnnotationEditor)) is not IAnnotationEditor editor)
+        if (DocumentFeature<IAnnotationEditor>.Get(document) is not { } editor)
         {
             return false;
         }
@@ -995,11 +995,11 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     {
         var document = Volatile.Read(ref _readingSource);
         return document is null || document.IsDisposed
-            || ((document.GetFeature(typeof(ITextLayoutSource))) as ITextLayoutSource) is not { } characters
+            || DocumentFeature<ITextLayoutSource>.Get(document) is not { } characters
             ? null
             : new ReadingSources(
             characters,
-            ((document.GetFeature(typeof(ITaggedStructureSource))) as ITaggedStructureSource));
+            DocumentFeature<ITaggedStructureSource>.Get(document));
     }
 
     /// <summary>Reads document structure after the first successful open.</summary>
@@ -1112,7 +1112,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             return;
         }
 
-        if (((TryGetDocument())?.GetFeature(typeof(IPageExporter)) as IPageExporter) is not
+        if (DocumentFeature<IPageExporter>.Get(TryGetDocument()) is not
             {
             } exporter || Source.PageCount == 0)
         {

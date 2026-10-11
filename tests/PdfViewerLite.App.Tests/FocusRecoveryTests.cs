@@ -9,6 +9,7 @@ using Avalonia.VisualTree;
 using PdfViewerLite.App.Controls;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.TestAssets;
@@ -152,7 +153,7 @@ public sealed class FocusRecoveryTests
             var tab = main.SelectedTab!;
             _ = await FocusCanvasAsync(window);
             var fields = new List<FormField>();
-            ((IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!).GetFields(0, fields);
+            PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(tab.TryGetDocument()!)!.GetFields(0, fields);
             var nameField = fields.Single(static f => f.Kind == FormFieldKind.Text);
             var centre = new PagePoint(nameField.Bounds.Left + (nameField.Bounds.Width * Half), nameField.Bounds.Top + (nameField.Bounds.Height * Half));
             var before = check.Checks;

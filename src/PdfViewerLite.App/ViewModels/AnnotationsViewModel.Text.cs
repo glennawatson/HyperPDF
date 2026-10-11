@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Text;
 using PdfViewerLite.Core.Text.Fonts;
@@ -165,7 +166,7 @@ public sealed partial class AnnotationsViewModel
     }.Clamped();
 
     /// <summary>Gets the text box editor, or <see langword="null"/> when the document cannot hold text boxes.</summary>
-    private ITextBoxEditor? TextBoxes => ((_owner.TryGetDocument())?.GetFeature(typeof(ITextBoxEditor)) as ITextBoxEditor);
+    private ITextBoxEditor? TextBoxes => DocumentFeature<ITextBoxEditor>.Get(_owner.TryGetDocument());
 
     /// <summary>Gets how far below the top of the text being typed its first baseline will be written, in points.</summary>
     /// <returns>The baseline's depth, or <see cref="float.NaN"/> when it is not known.</returns>
@@ -193,7 +194,7 @@ public sealed partial class AnnotationsViewModel
     public bool BeginText(int page, PagePoint point, float wrapWidth)
     {
         _ = CommitText();
-        if (((DocumentForChange()?.GetFeature(typeof(ITextBoxEditor))) as ITextBoxEditor) is not
+        if (DocumentFeature<ITextBoxEditor>.Get(DocumentForChange()) is not
             {
             })
         {
@@ -218,7 +219,7 @@ public sealed partial class AnnotationsViewModel
     public bool BeginTextAt(int page, PagePoint location, float wrapWidth)
     {
         _ = CommitText();
-        if (((DocumentForChange()?.GetFeature(typeof(ITextBoxEditor))) as ITextBoxEditor) is not
+        if (DocumentFeature<ITextBoxEditor>.Get(DocumentForChange()) is not
             {
             })
         {
@@ -241,7 +242,7 @@ public sealed partial class AnnotationsViewModel
         }
 
         _ = CommitText();
-        if (((DocumentForChange()?.GetFeature(typeof(ITextBoxEditor))) as ITextBoxEditor) is not
+        if (DocumentFeature<ITextBoxEditor>.Get(DocumentForChange()) is not
             {
             } boxes || Find(annotation.PageIndex, annotation.Index) is not { } current
             || boxes.GetTextBox(current.PageIndex, current.Index) is not { } content)
@@ -268,7 +269,7 @@ public sealed partial class AnnotationsViewModel
         var text = EditingText;
         TextEdit = null;
         EditingText = string.Empty;
-        if (((DocumentForChange()?.GetFeature(typeof(ITextBoxEditor))) as ITextBoxEditor) is not
+        if (DocumentFeature<ITextBoxEditor>.Get(DocumentForChange()) is not
             {
             } boxes)
         {
@@ -557,8 +558,8 @@ public sealed partial class AnnotationsViewModel
     {
         var document = DocumentForChange();
         if (document is null
-            || ((document.GetFeature(typeof(IAnnotationEditor))) as IAnnotationEditor) is not { } editor
-            || ((document.GetFeature(typeof(ITextBoxEditor))) as ITextBoxEditor) is not { } boxes)
+            || DocumentFeature<IAnnotationEditor>.Get(document) is not { } editor
+            || DocumentFeature<ITextBoxEditor>.Get(document) is not { } boxes)
         {
             return false;
         }

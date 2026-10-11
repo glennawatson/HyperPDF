@@ -10,9 +10,6 @@ namespace HyperPdfLibrary.Objects;
 /// <summary>Parses and formats PDF numbers. PDF numbers have no exponent; parsing is lenient the way viewers are.</summary>
 public static class PdfNumber
 {
-    /// <summary>The base of decimal digits.</summary>
-    private const int Ten = 10;
-
     /// <summary>The most significant digits accumulated; more are below double precision.</summary>
     private const int MaxDigits = 18;
 
@@ -28,11 +25,17 @@ public static class PdfNumber
     /// <summary>The length of "-0".</summary>
     private const int NegativeZeroLength = 2;
 
-    /// <summary>The powers of ten used to scale decimals.</summary>
-    private static readonly double[] PowersOfTen = CreatePowersOfTen();
-
     /// <summary>Gets the longest number <see cref="Format(double, Span{byte})"/> writes.</summary>
     public static int MaxFormattedLength => FormattedLength;
+
+    /// <summary>Gets the IEEE 754 bits of the powers of ten that scale decimals, 10^0 to 10^<see cref="MaxDigits"/>; each is exact in a double.</summary>
+    private static ReadOnlySpan<long> PowerOfTenBits =>
+    [
+        0x3FF0000000000000, 0x4024000000000000, 0x4059000000000000, 0x408F400000000000, 0x40C3880000000000,
+        0x40F86A0000000000, 0x412E848000000000, 0x416312D000000000, 0x4197D78400000000, 0x41CDCD6500000000,
+        0x4202A05F20000000, 0x42374876E8000000, 0x426D1A94A2000000, 0x42A2309CE5400000, 0x42D6BCC41E900000,
+        0x430C6BF526340000, 0x4341C37937E08000, 0x4376345785D8A000, 0x43ABC16D674EC800,
+    ];
 
     /// <summary>Parses a number token.</summary>
     /// <param name="lexeme">The token's bytes.</param>
@@ -63,7 +66,7 @@ public static class PdfNumber
         }
 
         var mantissa = negative ? -digits.Mantissa : digits.Mantissa;
-        value = digits.Decimals < 0 ? PdfValue.FromInteger(mantissa) : PdfValue.FromReal(mantissa / PowersOfTen[Math.Min(digits.Decimals, MaxDigits)]);
+        value = digits.Decimals < 0 ? PdfValue.FromInteger(mantissa) : PdfValue.FromReal(mantissa / BitConverter.Int64BitsToDouble(PowerOfTenBits[Math.Min(digits.Decimals, MaxDigits)]));
         return true;
     }
 
@@ -169,23 +172,12 @@ public static class PdfNumber
     private static bool TryFormatFraction(double number, Span<byte> destination, bool precise, out int written) =>
         number.TryFormat(destination, out written, precise ? PreciseFormat : RealFormat, CultureInfo.InvariantCulture);
 
-    /// <summary>Builds the powers of ten.</summary>
-    /// <returns>The powers, from 10^0.</returns>
-    private static double[] CreatePowersOfTen()
-    {
-        var powers = new double[MaxDigits + 1];
-        powers[0] = 1;
-        for (var i = 1; i < powers.Length; i++)
-        {
-            powers[i] = powers[i - 1] * Ten;
-        }
-
-        return powers;
-    }
-
     /// <summary>Collects the digits and decimal point of a number.</summary>
     private struct DigitAccumulator
     {
+        /// <summary>The base of decimal digits.</summary>
+        private const int Ten = 10;
+
         /// <summary>Initializes a new instance of the <see cref="DigitAccumulator"/> struct.</summary>
         public DigitAccumulator() => Decimals = -1;
 

@@ -15,6 +15,7 @@ using PdfViewerLite.App.Controls;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Text;
 using ReactiveUI.Primitives;
 
@@ -116,7 +117,7 @@ public sealed class TextEditingFlowTests
             var stillEditing = annotations.IsEditingText && view.PageTextEditor.Text == Words;
             Save(window, "font-list.png");
             _ = annotations.CommitText();
-            var format = ((ITextBoxEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(ITextBoxEditor))!).GetTextBox(
+            var format = PdfViewerLite.Core.Documents.DocumentFeature<ITextBoxEditor>.Cast(tab.TryGetDocument()!)!.GetTextBox(
                 0,
                 annotations.Items[0].Annotation.Index)!.Format;
 
@@ -173,7 +174,7 @@ public sealed class TextEditingFlowTests
             var composedShown = Lines(editor.Text) == Expected;
             window.KeyPress(Key.Enter, RawInputModifiers.Control, PhysicalKey.Enter, null);
             var written = await UiWait.UntilAsync(() => annotations.Items.Count == 1);
-            var stored = ((ITextBoxEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(ITextBoxEditor))!).GetTextBox(
+            var stored = PdfViewerLite.Core.Documents.DocumentFeature<ITextBoxEditor>.Cast(tab.TryGetDocument()!)!.GetTextBox(
                 0,
                 annotations.Items[0].Annotation.Index)!.Text;
 
@@ -289,7 +290,7 @@ public sealed class TextEditingFlowTests
             var afterCommit = editor.Text;
             window.KeyPress(Key.Enter, RawInputModifiers.Control, PhysicalKey.Enter, null);
             var written = await UiWait.UntilAsync(() => annotations.Items.Count == 1);
-            var stored = ((ITextBoxEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(ITextBoxEditor))!).GetTextBox(
+            var stored = PdfViewerLite.Core.Documents.DocumentFeature<ITextBoxEditor>.Cast(tab.TryGetDocument()!)!.GetTextBox(
                 0,
                 annotations.Items[0].Annotation.Index)!.Text;
 
@@ -378,8 +379,8 @@ public sealed class TextEditingFlowTests
             var canvas = await ReadyAsync(reopenedWindow, tab);
             var view = reopenedWindow.GetVisualDescendants().OfType<DocumentView>().Single();
             var document = tab.TryGetDocument() ?? throw new InvalidOperationException();
-            var editor = (IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!;
-            var boxes = (ITextBoxEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(document, typeof(ITextBoxEditor))!;
+            var editor = PdfViewerLite.Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(document)!;
+            var boxes = PdfViewerLite.Core.Documents.DocumentFeature<ITextBoxEditor>.Cast(document)!;
             var found = new List<PageAnnotation>();
             (editor).GetAnnotations(0, found);
             var first = found.Find(static a => a.Kind == AnnotationKind.TextBox && a.Contents.StartsWith("Grüße", StringComparison.Ordinal))!;

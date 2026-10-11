@@ -72,7 +72,7 @@ public sealed class FormHighlightRenderingTests
     public async Task CustomTintUsesSpecifiedColorAndOpacity()
     {
         using var input = new HyperPdfTestDocument(FormSamples.CreateRichForm());
-        ((IFormHighlight)DocumentFeatures.CastFeature(input.Document, typeof(IFormHighlight))!).Highlight = new(CustomColor, CustomAlpha);
+        DocumentFeature<IFormHighlight>.Cast(input.Document)!.Highlight = new(CustomColor, CustomAlpha);
         var hyper = new PagePixels(input.Document, 0, RenderFlags.Annotations);
 
         await Assert.That(Math.Abs(Read(hyper, FillableX, FillableY, RedSlot) - Expected(CustomColor >> RedShift))).IsLessThanOrEqualTo(Tolerance);
@@ -86,7 +86,7 @@ public sealed class FormHighlightRenderingTests
     public async Task ZeroOpacityLeavesTheFieldUntinted()
     {
         using var input = new HyperPdfTestDocument(FormSamples.CreateRichForm());
-        ((IFormHighlight)DocumentFeatures.CastFeature(input.Document, typeof(IFormHighlight))!).Highlight = new(CustomColor, 0);
+        DocumentFeature<IFormHighlight>.Cast(input.Document)!.Highlight = new(CustomColor, 0);
         var hyper = new PagePixels(input.Document, 0, RenderFlags.Annotations);
 
         await Assert.That(hyper.IsTinted(FillableX, FillableY)).IsFalse();

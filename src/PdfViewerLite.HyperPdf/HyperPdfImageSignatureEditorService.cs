@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 
 namespace PdfViewerLite.HyperPdf;
@@ -17,6 +18,9 @@ internal sealed class HyperPdfImageSignatureEditorService : IImageSignatureEdito
     /// <summary>Initializes a new instance of the <see cref="HyperPdfImageSignatureEditorService"/> class.</summary>
     /// <param name="owner">The owning document.</param>
     internal HyperPdfImageSignatureEditorService(HyperPdfDocument owner) => _owner = owner;
+
+    /// <inheritdoc/>
+    public IDocument Document => _owner;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

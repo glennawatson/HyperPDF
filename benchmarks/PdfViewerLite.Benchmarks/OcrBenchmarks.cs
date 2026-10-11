@@ -100,5 +100,5 @@ public class OcrBenchmarks
     /// <returns>The status.</returns>
     [Benchmark]
     public OcrPageStatus SkipPageWithText() =>
-        OcrRunner.RecognizePage(_text.Document, (ITextLayerWriter)DocumentFeatures.CastFeature(_text.Document, typeof(ITextLayerWriter))!, _engine, 0, _words).Status;
+        OcrRunner.RecognizePage(_text.Document, DocumentFeature<ITextLayerWriter>.Cast(_text.Document)!, _engine, 0, _words).Status;
 }

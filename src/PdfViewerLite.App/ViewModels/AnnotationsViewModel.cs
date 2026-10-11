@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using PdfViewerLite.App.Services;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using ReactiveUI;
 using ReactiveUI.Primitives;
@@ -218,7 +219,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     public bool CanAnnotate => Editor is not null;
 
     /// <summary>Gets the document's editor, or <see langword="null"/> when the document cannot be edited.</summary>
-    private IAnnotationEditor? Editor => ((_owner.TryGetDocument())?.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor);
+    private IAnnotationEditor? Editor => DocumentFeature<IAnnotationEditor>.Get(_owner.TryGetDocument());
 
     /// <summary>Gets the markup kind a tool creates, or <see langword="null"/> when it does not mark text.</summary>
     /// <param name="tool">The tool.</param>
@@ -423,13 +424,13 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
         ArgumentNullException.ThrowIfNull(mark);
         var document = DocumentForChange();
         if (document is null
-            || ((document.GetFeature(typeof(IAnnotationEditor))) as IAnnotationEditor) is not { } editor
+            || DocumentFeature<IAnnotationEditor>.Get(document) is not { } editor
             || !mark.IsValid)
         {
             return null;
         }
 
-        var imageSignatureEditor = ((document.GetFeature(typeof(IImageSignatureEditor))) as IImageSignatureEditor);
+        var imageSignatureEditor = DocumentFeature<IImageSignatureEditor>.Get(document);
 
         var index = mark.Style switch
         {

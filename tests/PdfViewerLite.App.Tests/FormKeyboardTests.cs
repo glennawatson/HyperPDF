@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using PdfViewerLite.App.Controls;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.TestAssets;
@@ -78,7 +79,7 @@ public sealed class FormKeyboardTests
             window.KeyPress(Key.Tab, RawInputModifiers.Shift, PhysicalKey.Tab, null);
             var back = forms.Focused;
             var fields = new List<FormField>();
-            ((IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!).GetFields(0, fields);
+            PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(tab.TryGetDocument()!)!.GetFields(0, fields);
 
             await Assert.That(defaultTool).IsEqualTo(AnnotationTool.Text);
             await Assert.That(first && comb && onBox).IsTrue();
@@ -118,7 +119,7 @@ public sealed class FormKeyboardTests
             await SettleLayout(window);
             var textTool = tab.Annotations.Tool == AnnotationTool.Text && view.FillSignToggle.IsChecked == true;
             var fields = new List<FormField>();
-            ((IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!).GetFields(0, fields);
+            PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(tab.TryGetDocument()!)!.GetFields(0, fields);
             var name = fields.Single(static f => f.Name == "Name");
             Click(window, ToWindow(canvas, window, new(name.Bounds.Left + Inside, name.Bounds.Top + Inside)));
             var filling = await UiWait.UntilAsync(() => tab.Forms.Editing?.Name == "Name");

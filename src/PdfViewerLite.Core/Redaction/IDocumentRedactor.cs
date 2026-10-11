@@ -2,13 +2,15 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
+
 namespace PdfViewerLite.Core.Redaction;
 
 /// <summary>
 /// Removes marked content for good. Marks are made with the annotation editor (<c>AnnotationKind.Redaction</c>); this
 /// writes a new file in which what lies under every mark is gone. Not every engine can; ask with a type check.
 /// </summary>
-public interface IDocumentRedactor
+public interface IDocumentRedactor : IDocumentFeature
 {
     /// <summary>Applies every redaction mark and writes a new file. The open document is never changed, and neither is its file.</summary>
     /// <param name="destination">The writable stream that receives the new file; it holds a partial file after a failure or cancel.</param>

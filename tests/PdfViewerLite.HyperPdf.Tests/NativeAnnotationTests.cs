@@ -4,6 +4,7 @@
 
 using HyperPdfLibrary.Objects;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 
 namespace PdfViewerLite.HyperPdf.Tests;
@@ -249,7 +250,7 @@ public sealed class NativeAnnotationTests
         var saved = HyperPdfTestDocument.Save(editor);
         var dictionaries = HyperPdfTestDocument.Dictionaries(saved, 0);
         using var reopened = new HyperPdfTestDocument(saved);
-        var reopenedEditor = (IAnnotationEditor)Core.Documents.DocumentFeatures.CastFeature(reopened.Document, typeof(IAnnotationEditor))!;
+        var reopenedEditor = Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(reopened.Document)!;
         var annotations = HyperPdfTestDocument.Read(reopenedEditor, 0);
         var replies = new List<AnnotationReply>();
         reopenedEditor.GetReplies(0, annotations[0].Index, replies);

@@ -348,7 +348,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     /// <returns>A task.</returns>
     private async Task RunAsync(bool confirmed)
     {
-        if (_owner.TryGetDocument() is not { } document || ((document)?.GetFeature(typeof(ITextLayerWriter)) as ITextLayerWriter) is not
+        if (_owner.TryGetDocument() is not { } document || DocumentFeature<ITextLayerWriter>.Get(document) is not
             {
             } writer || !CheckReady())
         {

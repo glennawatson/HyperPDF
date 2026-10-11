@@ -5,7 +5,7 @@
 namespace PdfViewerLite.Core.Documents;
 
 /// <summary>Lists a document's layers and shows or hides them for viewing. Safe to call from any thread.</summary>
-public interface ILayerSource
+public interface ILayerSource : IDocumentFeature
 {
     /// <summary>Gets the layers with their current visibility; empty when the document has none.</summary>
     /// <returns>The layers.</returns>

@@ -5,7 +5,7 @@
 namespace PdfViewerLite.Core.Documents;
 
 /// <summary>A document that provides undoable page management.</summary>
-public interface IPageManagementSource
+public interface IPageManagementSource : IDocumentFeature
 {
     /// <summary>Gets the page editor for this open document.</summary>
     IPageManager PageManager { get; }

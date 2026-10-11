@@ -5,6 +5,7 @@
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Objects;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Text;
 using PdfViewerLite.TestAssets;
@@ -104,7 +105,7 @@ public sealed class NativeTextBoxTests
         var font = Font(dictionary);
         using var reopened = new HyperPdfTestDocument(saved);
         var annotations = HyperPdfTestDocument.Read(reopened.Editor, 0);
-        var content = ((ITextBoxEditor)Core.Documents.DocumentFeatures.CastFeature(reopened.Document, typeof(ITextBoxEditor))!).GetTextBox(0, annotations[0].Index);
+        var content = Core.Documents.DocumentFeature<ITextBoxEditor>.Cast(reopened.Document)!.GetTextBox(0, annotations[0].Index);
 
         await Assert.That(HyperPdfTestDocument.Name(dictionary, KnownName.Subtype)).IsEqualTo("FreeText");
         await Assert.That(HyperPdfTestDocument.Name(dictionary, KnownName.IT)).IsEqualTo("FreeTextTypeWriter");

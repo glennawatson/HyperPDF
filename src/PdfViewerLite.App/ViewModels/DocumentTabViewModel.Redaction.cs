@@ -37,7 +37,7 @@ public sealed partial class DocumentTabViewModel
     /// <param name="document">The open document.</param>
     internal void RefreshRedaction(IDocument document)
     {
-        var can = ((document)?.GetFeature(typeof(IDocumentRedactor)) as IDocumentRedactor) is not null && ((document)?.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor) is not null;
+        var can = DocumentFeature<IDocumentRedactor>.Get(document) is not null && DocumentFeature<IAnnotationEditor>.Get(document) is not null;
         CanRedact = can;
         RedactMenuText = can ? RedactAvailableText : RedactUnavailableText;
     }
@@ -49,7 +49,7 @@ public sealed partial class DocumentTabViewModel
     {
         areas = 0;
         pages = 0;
-        if (((TryGetDocument())?.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor) is not
+        if (DocumentFeature<IAnnotationEditor>.Get(TryGetDocument()) is not
             {
             } editor)
         {
@@ -77,7 +77,7 @@ public sealed partial class DocumentTabViewModel
     [ReactiveCommand(CanExecute = nameof(_canRedact))]
     private async Task ApplyRedactionsAsync()
     {
-        if (((TryGetDocument())?.GetFeature(typeof(IDocumentRedactor)) as IDocumentRedactor) is not
+        if (DocumentFeature<IDocumentRedactor>.Get(TryGetDocument()) is not
             {
             } redactor)
         {

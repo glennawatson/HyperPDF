@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Text;
 
@@ -18,6 +19,9 @@ internal sealed class HyperPdfTextBoxEditorService : ITextBoxEditor
     /// <summary>Initializes a new instance of the <see cref="HyperPdfTextBoxEditorService"/> class.</summary>
     /// <param name="owner">The owning document.</param>
     internal HyperPdfTextBoxEditorService(HyperPdfDocument owner) => _owner = owner;
+
+    /// <inheritdoc/>
+    public IDocument Document => _owner;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

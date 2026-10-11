@@ -39,7 +39,7 @@ internal sealed class HighlightedHyperPdfEngine : IDocumentEngine
     public IDocument Open(string path, string? password)
     {
         var document = _engine.Open(path, password);
-        if (document.GetFeature(typeof(IFormHighlight)) is IFormHighlight tinted)
+        if (DocumentFeature<IFormHighlight>.Get(document) is { } tinted)
         {
             tinted.Highlight = _highlight();
         }

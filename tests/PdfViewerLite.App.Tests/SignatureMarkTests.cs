@@ -193,7 +193,7 @@ public sealed class SignatureMarkTests
         {
             var tab = main.SelectedTab!;
             var fill = tab.FillAndSign;
-            var editor = (IAnnotationEditor)DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IAnnotationEditor))!;
+            var editor = DocumentFeature<IAnnotationEditor>.Cast(tab.TryGetDocument()!)!;
             _ = await fill.StartCommand.Execute().ToTask();
             var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
             var canvas = window.GetVisualDescendants().OfType<PageCanvas>().Single();
@@ -253,7 +253,7 @@ public sealed class SignatureMarkTests
         var saved = tab.Save(path);
         using var reopened = new HyperPdfEngine().Open(path, null);
         List<PageAnnotation> annotations = [];
-        ((IAnnotationEditor)DocumentFeatures.CastFeature(reopened, typeof(IAnnotationEditor))!).GetAnnotations(0, annotations);
+        DocumentFeature<IAnnotationEditor>.Cast(reopened)!.GetAnnotations(0, annotations);
 
         await Assert.That(saved).IsTrue();
         await Assert.That(annotations.Count).IsEqualTo(1);

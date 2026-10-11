@@ -31,8 +31,8 @@ public sealed class TaggedPageLeaseTests
     {
         using var test = new HyperPdfTestDocument(TestPdf.CreateTagged());
         var document = test.Document;
-        var tagged = (ITaggedStructureSource)document.GetFeature(typeof(ITaggedStructureSource))!;
-        var pageManager = (IPageManagementSource)document.GetFeature(typeof(IPageManagementSource))!;
+        var tagged = DocumentFeature<ITaggedStructureSource>.Get(document)!;
+        var pageManager = DocumentFeature<IPageManagementSource>.Get(document)!;
         var initial = new List<TaggedBlock>();
 
         await Assert.That(tagged.GetTaggedBlocks(0, initial)).IsTrue();

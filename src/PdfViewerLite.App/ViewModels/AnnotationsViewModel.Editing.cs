@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using ReactiveUI.Primitives;
 using ReactiveUI.SourceGenerators;
@@ -187,15 +188,15 @@ public sealed partial class AnnotationsViewModel
     /// document was reopened, so the old history no longer applies and is forgotten.
     /// </summary>
     /// <returns>The editor, or <see langword="null"/> when the document cannot be edited.</returns>
-    private IAnnotationEditor? EditorForChange() => ((DocumentForChange()
-        ?.GetFeature(typeof(IAnnotationEditor))) as IAnnotationEditor);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IAnnotationEditor? EditorForChange() => DocumentFeature<IAnnotationEditor>.Get(DocumentForChange());
 
     /// <summary>Gets and prepares the document used for annotation changes.</summary>
     /// <returns>The prepared document, or <see langword="null"/> when it cannot be edited.</returns>
-    private global::PdfViewerLite.Core.Documents.IDocument? DocumentForChange()
+    private IDocument? DocumentForChange()
     {
         if (_owner.TryGetDocument() is not { } document
-            || ((document.GetFeature(typeof(IAnnotationEditor))) as IAnnotationEditor) is not { } editor)
+            || DocumentFeature<IAnnotationEditor>.Get(document) is not { } editor)
         {
             return null;
         }

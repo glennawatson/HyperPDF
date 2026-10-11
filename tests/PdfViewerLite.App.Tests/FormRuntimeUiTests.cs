@@ -80,7 +80,7 @@ public sealed class FormRuntimeUiTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("runtime.pdf", FormRuntimeSamples.Create(string.Empty))]);
         var tab = main.SelectedTab!;
-        var filler = (IFormFiller)DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!;
+        var filler = DocumentFeature<IFormFiller>.Cast(tab.TryGetDocument()!)!;
         _ = filler.SetText(0, FormRuntimeSamples.PriceIndex, "9");
 
         var reset = await tab.Forms.RunButtonAsync(Field(tab, "Clear"));
@@ -115,7 +115,7 @@ public sealed class FormRuntimeUiTests
 
             await Assert.That(rendered).IsTrue();
             FormHighlight expected = new(TintColor, TintAlpha);
-            await Assert.That(((IFormHighlight)DocumentFeatures.CastFeature(document, typeof(IFormHighlight))!).Highlight).IsEqualTo(expected);
+            await Assert.That(DocumentFeature<IFormHighlight>.Cast(document)!.Highlight).IsEqualTo(expected);
             await Assert.That(Math.Abs(pixels[offset + RedSlot] - Blend(TintColor >> RedShift))).IsLessThanOrEqualTo(Tolerance);
             await Assert.That(Math.Abs(pixels[offset + BlueSlot] - Blend(TintColor))).IsLessThanOrEqualTo(Tolerance);
         }
@@ -158,7 +158,7 @@ public sealed class FormRuntimeUiTests
     private static FormField Field(DocumentTabViewModel tab, string name)
     {
         var fields = new List<FormField>();
-        ((IFormFiller)DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!).GetFields(0, fields);
+        DocumentFeature<IFormFiller>.Cast(tab.TryGetDocument()!)!.GetFields(0, fields);
         return fields.Single(field => field.Name == name);
     }
 }

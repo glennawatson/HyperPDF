@@ -4,6 +4,7 @@
 
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Printing;
 using ReactiveUI.Primitives;
@@ -59,7 +60,7 @@ public sealed class PrintTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("print.pdf", 1)]);
         var tab = main.SelectedTab!;
-        _ = ((IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IAnnotationEditor))!).AddText(
+        _ = PdfViewerLite.Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(tab.TryGetDocument()!)!.AddText(
             0,
             NoteAt,
             "Printed note",

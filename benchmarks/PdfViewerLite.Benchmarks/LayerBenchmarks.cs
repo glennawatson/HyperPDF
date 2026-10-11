@@ -42,7 +42,7 @@ public class LayerBenchmarks
     {
         _file = TestPdf.CreateWithLayers();
         _document = new(_file);
-        _layers = (ILayerSource)DocumentFeatures.CastFeature(_document.Document, typeof(ILayerSource))!;
+        _layers = DocumentFeature<ILayerSource>.Cast(_document.Document)!;
         _notes = _layers.GetLayers()[1].Id;
         _ = _layers.SetLayerVisible(_notes, true);
         _pixels = new byte[Tile * Tile * BytesPerPixel];

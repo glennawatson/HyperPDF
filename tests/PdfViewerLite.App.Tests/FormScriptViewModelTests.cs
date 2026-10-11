@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using PdfViewerLite.App.ViewModels;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.TestAssets;
 
@@ -105,7 +106,7 @@ public sealed class FormScriptViewModelTests
     private static FormField Field(DocumentTabViewModel tab, string name)
     {
         var fields = new List<FormField>();
-        ((IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!).GetFields(0, fields);
+        PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(tab.TryGetDocument()!)!.GetFields(0, fields);
         return fields.Single(field => field.Name == name);
     }
 }

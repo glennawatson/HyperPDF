@@ -9,6 +9,7 @@ using Avalonia.VisualTree;
 using PdfViewerLite.App.Controls;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.Core.Reading;
 using PdfViewerLite.TestAssets;
@@ -126,7 +127,7 @@ public sealed class FormSpellingTests
     private static FormField NameField(DocumentTabViewModel tab)
     {
         List<FormField> fields = [];
-        ((IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!).GetFields(0, fields);
+        PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(tab.TryGetDocument()!)!.GetFields(0, fields);
         return fields.Single(static field => field.Kind == FormFieldKind.Text);
     }
 }

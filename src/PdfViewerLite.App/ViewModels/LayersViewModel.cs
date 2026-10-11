@@ -43,7 +43,7 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
     {
         Items.Clear();
         MultipleDisposable itemChanges = [];
-        if (((_owner.TryGetDocument())?.GetFeature(typeof(ILayerSource)) as ILayerSource) is
+        if (DocumentFeature<ILayerSource>.Get(_owner.TryGetDocument()) is
             {
             } source)
         {
@@ -76,7 +76,7 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
     /// <param name="visible">Whether to show it.</param>
     private void SetVisible(LayerItemViewModel item, bool visible)
     {
-        if (((_owner.TryGetDocument())?.GetFeature(typeof(ILayerSource)) as ILayerSource) is
+        if (DocumentFeature<ILayerSource>.Get(_owner.TryGetDocument()) is
             {
             } source && source.SetLayerVisible(item.Id, visible))
         {

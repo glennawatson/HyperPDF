@@ -5,7 +5,7 @@
 namespace PdfViewerLite.Core.Documents;
 
 /// <summary>Says whether a document was damaged and had to be repaired to be shown, and what was repaired.</summary>
-public interface IRepairReport
+public interface IRepairReport : IDocumentFeature
 {
     /// <summary>Gets a value indicating whether reading the document repaired damage so far. Some damage shows only when a page is drawn, so ask again later.</summary>
     bool WasRepaired { get; }

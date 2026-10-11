@@ -18,6 +18,9 @@ internal sealed class HyperPdfRepairReportService : IRepairReport
     internal HyperPdfRepairReportService(HyperPdfDocument owner) => _owner = owner;
 
     /// <inheritdoc/>
+    public IDocument Document => _owner;
+
+    /// <inheritdoc/>
     public bool WasRepaired { get => HyperPdfDocumentRepairs.GetWasRepaired(_owner); }
 
     /// <inheritdoc/>

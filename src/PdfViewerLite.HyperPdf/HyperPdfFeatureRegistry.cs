@@ -15,42 +15,17 @@ using PdfViewerLite.Core.Redaction;
 using PdfViewerLite.Core.Signatures;
 namespace PdfViewerLite.HyperPdf;
 
-/// <summary>Resolves supported services without reflection or activation.</summary>
+/// <summary>Resolves supported services without reflection, activation or stored tables.</summary>
 internal static class HyperPdfFeatureRegistry
 {
-    /// <summary>The feature types in the same order as their factories.</summary>
-    private static readonly Type[] Types = [typeof(IAttachmentSource), typeof(ISignatureSource), typeof(IContentCheck), typeof(IPageManagementSource),
-        typeof(IAnnotationEditor), typeof(ITextBoxEditor), typeof(IImageSignatureEditor), typeof(ITextLayerWriter), typeof(IPageExporter), typeof(IFormOrder),
-            typeof(IFormActions), typeof(IFormHighlight), typeof(IFormFiller), typeof(IFormScriptSource), typeof(ILayerSource), typeof(IDocumentOptimizer),
-                typeof(IDocumentRedactor), typeof(IRepairReport), typeof(ITaggedStructureSource), typeof(ITextLayoutSource)];
-
-    /// <summary>Creates one lightweight service borrowing the document's resources.</summary>
-    private static readonly Func<HyperPdfDocument, object>[] Factories = [static owner => new HyperPdfAttachmentSourceService(owner),
-static owner => new HyperPdfSignatureSourceService(owner),
-static owner => new HyperPdfContentCheckService(owner),
-static owner => new HyperPdfPageManagementSourceService(owner),
-static owner => new HyperPdfAnnotationEditorService(owner),
-static owner => new HyperPdfTextBoxEditorService(owner),
-static owner => new HyperPdfImageSignatureEditorService(owner),
-static owner => new HyperPdfTextLayerWriterService(owner),
-static owner => new HyperPdfPageExporterService(owner),
-static owner => new HyperPdfFormOrderService(owner),
-static owner => new HyperPdfFormActionsService(owner),
-static owner => new HyperPdfFormHighlightService(owner),
-static owner => new HyperPdfFormFillerService(owner),
-static owner => new HyperPdfFormScriptSourceService(owner),
-static owner => new HyperPdfLayerSourceService(owner),
-static owner => new HyperPdfDocumentOptimizerService(owner),
-static owner => new HyperPdfDocumentRedactorService(owner),
-static owner => new HyperPdfRepairReportService(owner),
-static owner => new HyperPdfTaggedStructureSourceService(owner),
-static owner => new HyperPdfTextLayoutSourceService(owner)];
+    /// <summary>The number of feature slots a document holds.</summary>
+    private const int SlotCount = (int)FeatureSlot.FormScripts + 1;
 
     /// <summary>Gets a stable service while leaving feature resources lazy.</summary>
     /// <param name="owner">The owning document.</param>
     /// <param name="featureType">The feature interface type.</param>
     /// <returns>The feature, or null when unsupported.</returns>
-    internal static object? Get(HyperPdfDocument owner, Type featureType)
+    internal static IDocumentFeature? Get(HyperPdfDocument owner, Type featureType)
     {
         lock (owner.EditGate)
         {
@@ -63,21 +38,129 @@ static owner => new HyperPdfTextLayoutSourceService(owner)];
     /// <param name="owner">The owning document.</param>
     /// <param name="featureType">The feature interface type.</param>
     /// <returns>The feature, or null when unsupported.</returns>
-    private static object? GetOpen(HyperPdfDocument owner, Type featureType)
+    private static IDocumentFeature? GetOpen(HyperPdfDocument owner, Type featureType)
     {
-        if (featureType.IsInstanceOfType(owner))
-        {
-            return owner;
-        }
-
-        var index = Array.IndexOf(Types, featureType);
-        if (index < 0)
+        var slot = HyperPdfFeatureRegistry.SlotOf(featureType);
+        if (slot == FeatureSlot.None)
         {
             return null;
         }
 
-        var slots = owner.FeatureSlots ??= new object?[Types.Length];
-        var feature = slots[index] ??= Factories[index](owner);
+        var slots = owner.FeatureSlots ??= new IDocumentFeature?[SlotCount];
+        var feature = slots[(int)slot] ??= HyperPdfFeatureRegistry.Create(owner, slot);
         return feature;
     }
+
+    /// <summary>Finds the slot of a feature interface.</summary>
+    /// <param name="featureType">The feature interface type.</param>
+    /// <returns>The slot, or <see cref="FeatureSlot.None"/>.</returns>
+    private static FeatureSlot SlotOf(Type featureType)
+    {
+        var slot = HyperPdfFeatureRegistry.DocumentSlotOf(featureType);
+        if (slot == FeatureSlot.None)
+        {
+            slot = HyperPdfFeatureRegistry.EditingSlotOf(featureType);
+        }
+
+        return slot == FeatureSlot.None ? HyperPdfFeatureRegistry.FormSlotOf(featureType) : slot;
+    }
+
+    /// <summary>Finds the slot of a document service interface.</summary>
+    /// <param name="featureType">The feature interface type.</param>
+    /// <returns>The slot, or <see cref="FeatureSlot.None"/>.</returns>
+    private static FeatureSlot DocumentSlotOf(Type featureType) => featureType switch
+    {
+        _ when featureType == typeof(IAttachmentSource) => FeatureSlot.Attachments,
+        _ when featureType == typeof(ISignatureSource) => FeatureSlot.Signatures,
+        _ when featureType == typeof(IContentCheck) => FeatureSlot.ContentCheck,
+        _ when featureType == typeof(ILayerSource) => FeatureSlot.Layers,
+        _ when featureType == typeof(IDocumentOptimizer) => FeatureSlot.Optimizer,
+        _ when featureType == typeof(IDocumentRedactor) => FeatureSlot.Redactor,
+        _ when featureType == typeof(IRepairReport) => FeatureSlot.RepairReport,
+        _ when featureType == typeof(ITaggedStructureSource) => FeatureSlot.TaggedStructure,
+        _ when featureType == typeof(ITextLayoutSource) => FeatureSlot.TextLayout,
+        _ => FeatureSlot.None,
+    };
+
+    /// <summary>Finds the slot of an editing service interface.</summary>
+    /// <param name="featureType">The feature interface type.</param>
+    /// <returns>The slot, or <see cref="FeatureSlot.None"/>.</returns>
+    private static FeatureSlot EditingSlotOf(Type featureType) => featureType switch
+    {
+        _ when featureType == typeof(IPageManagementSource) => FeatureSlot.PageManagement,
+        _ when featureType == typeof(IAnnotationEditor) => FeatureSlot.AnnotationEditor,
+        _ when featureType == typeof(ITextBoxEditor) => FeatureSlot.TextBoxEditor,
+        _ when featureType == typeof(IImageSignatureEditor) => FeatureSlot.ImageSignatureEditor,
+        _ when featureType == typeof(ITextLayerWriter) => FeatureSlot.TextLayerWriter,
+        _ when featureType == typeof(IPageExporter) => FeatureSlot.PageExporter,
+        _ => FeatureSlot.None,
+    };
+
+    /// <summary>Finds the slot of a form service interface.</summary>
+    /// <param name="featureType">The feature interface type.</param>
+    /// <returns>The slot, or <see cref="FeatureSlot.None"/>.</returns>
+    private static FeatureSlot FormSlotOf(Type featureType) => featureType switch
+    {
+        _ when featureType == typeof(IFormOrder) => FeatureSlot.FormOrder,
+        _ when featureType == typeof(IFormActions) => FeatureSlot.FormActions,
+        _ when featureType == typeof(IFormHighlight) => FeatureSlot.FormHighlight,
+        _ when featureType == typeof(IFormFiller) => FeatureSlot.FormFiller,
+        _ when featureType == typeof(IFormScriptSource) => FeatureSlot.FormScripts,
+        _ => FeatureSlot.None,
+    };
+
+    /// <summary>Creates one lightweight service borrowing the document's resources.</summary>
+    /// <param name="owner">The owning document.</param>
+    /// <param name="slot">The service's slot.</param>
+    /// <returns>The service.</returns>
+    private static IDocumentFeature Create(HyperPdfDocument owner, FeatureSlot slot) => slot switch
+    {
+        <= FeatureSlot.TextLayout => HyperPdfFeatureRegistry.CreateDocumentService(owner, slot),
+        <= FeatureSlot.PageExporter => HyperPdfFeatureRegistry.CreateEditingService(owner, slot),
+        _ => HyperPdfFeatureRegistry.CreateFormService(owner, slot),
+    };
+
+    /// <summary>Creates a document service.</summary>
+    /// <param name="owner">The owning document.</param>
+    /// <param name="slot">The service's slot.</param>
+    /// <returns>The service.</returns>
+    private static IDocumentFeature CreateDocumentService(HyperPdfDocument owner, FeatureSlot slot) => slot switch
+    {
+        FeatureSlot.Attachments => new HyperPdfAttachmentSourceService(owner),
+        FeatureSlot.Signatures => new HyperPdfSignatureSourceService(owner),
+        FeatureSlot.ContentCheck => new HyperPdfContentCheckService(owner),
+        FeatureSlot.Layers => new HyperPdfLayerSourceService(owner),
+        FeatureSlot.Optimizer => new HyperPdfDocumentOptimizerService(owner),
+        FeatureSlot.Redactor => new HyperPdfDocumentRedactorService(owner),
+        FeatureSlot.RepairReport => new HyperPdfRepairReportService(owner),
+        FeatureSlot.TaggedStructure => new HyperPdfTaggedStructureSourceService(owner),
+        _ => new HyperPdfTextLayoutSourceService(owner),
+    };
+
+    /// <summary>Creates an editing service.</summary>
+    /// <param name="owner">The owning document.</param>
+    /// <param name="slot">The service's slot.</param>
+    /// <returns>The service.</returns>
+    private static IDocumentFeature CreateEditingService(HyperPdfDocument owner, FeatureSlot slot) => slot switch
+    {
+        FeatureSlot.PageManagement => new HyperPdfPageManagementSourceService(owner),
+        FeatureSlot.AnnotationEditor => new HyperPdfAnnotationEditorService(owner),
+        FeatureSlot.TextBoxEditor => new HyperPdfTextBoxEditorService(owner),
+        FeatureSlot.ImageSignatureEditor => new HyperPdfImageSignatureEditorService(owner),
+        FeatureSlot.TextLayerWriter => new HyperPdfTextLayerWriterService(owner),
+        _ => new HyperPdfPageExporterService(owner),
+    };
+
+    /// <summary>Creates a form service.</summary>
+    /// <param name="owner">The owning document.</param>
+    /// <param name="slot">The service's slot.</param>
+    /// <returns>The service.</returns>
+    private static IDocumentFeature CreateFormService(HyperPdfDocument owner, FeatureSlot slot) => slot switch
+    {
+        FeatureSlot.FormOrder => new HyperPdfFormOrderService(owner),
+        FeatureSlot.FormActions => new HyperPdfFormActionsService(owner),
+        FeatureSlot.FormHighlight => new HyperPdfFormHighlightService(owner),
+        FeatureSlot.FormFiller => new HyperPdfFormFillerService(owner),
+        _ => new HyperPdfFormScriptSourceService(owner),
+    };
 }

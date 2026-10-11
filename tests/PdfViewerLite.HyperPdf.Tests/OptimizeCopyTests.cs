@@ -4,6 +4,7 @@
 
 using HyperPdfLibrary.Optimizing;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.Core.Optimizing;
 using PdfViewerLite.TestAssets;
@@ -56,7 +57,7 @@ public sealed class OptimizeCopyTests
     {
         using var source = new HyperPdfTestDocument(TestPdf.CreateArticle(Pages));
         var before = await File.ReadAllBytesAsync(source.FilePath);
-        var optimizer = (IDocumentOptimizer)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(source.Document, typeof(IDocumentOptimizer))!;
+        var optimizer = PdfViewerLite.Core.Documents.DocumentFeature<IDocumentOptimizer>.Cast(source.Document)!;
         var steps = new List<OptimizeStep>();
         await using var output = new MemoryStream();
 
@@ -87,8 +88,8 @@ public sealed class OptimizeCopyTests
     public async Task UnsavedEditsAreIncluded()
     {
         using var source = new HyperPdfTestDocument(TestPdf.CreateForm());
-        var editor = (IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(source.Document, typeof(IAnnotationEditor))!;
-        var filler = (IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(source.Document, typeof(IFormFiller))!;
+        var editor = PdfViewerLite.Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(source.Document)!;
+        var filler = PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(source.Document)!;
         var fields = new List<FormField>();
         filler.GetFields(0, fields);
         var kept = editor.AddNote(0, new(NoteX, NoteY), KeptNote, NoteColor);
@@ -97,7 +98,7 @@ public sealed class OptimizeCopyTests
         var hidden = editor.SetRemoved(0, removed, true);
         await using var output = new MemoryStream();
 
-        _ = await ((IDocumentOptimizer)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(source.Document, typeof(IDocumentOptimizer))!).OptimizeAsync(
+        _ = await PdfViewerLite.Core.Documents.DocumentFeature<IDocumentOptimizer>.Cast(source.Document)!.OptimizeAsync(
             output,
             new(OptimizePreset.KeepQuality, false, string.Empty, false, false),
             null,
@@ -109,9 +110,9 @@ public sealed class OptimizeCopyTests
         {
             using var reopened = new HyperPdfEngine().Open(path, null);
             var notes = new List<PageAnnotation>();
-            ((IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(reopened, typeof(IAnnotationEditor))!).GetAnnotations(0, notes);
+            PdfViewerLite.Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(reopened)!.GetAnnotations(0, notes);
             var reopenedFields = new List<FormField>();
-            ((IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(reopened, typeof(IFormFiller))!).GetFields(0, reopenedFields);
+            PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(reopened)!.GetFields(0, reopenedFields);
             var current = new List<PageAnnotation>();
             editor.GetAnnotations(0, current);
             var restored = editor.SetRemoved(0, removed, false);
@@ -145,9 +146,8 @@ public sealed class OptimizeCopyTests
         await cancel.CancelAsync();
         await using var output = new MemoryStream();
 
-        await Assert.That(async () => await ((IDocumentOptimizer)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(
-            source.Document,
-            typeof(IDocumentOptimizer))!).OptimizeAsync(output, OptimizeSettings.Default, null, cancel.Token))
+        await Assert.That(async () => await PdfViewerLite.Core.Documents.DocumentFeature<IDocumentOptimizer>.Cast(
+            source.Document)!.OptimizeAsync(output, OptimizeSettings.Default, null, cancel.Token))
             .Throws<OperationCanceledException>();
     }
 
@@ -157,7 +157,7 @@ public sealed class OptimizeCopyTests
     public async Task ClosedDocumentIsRefused()
     {
         var source = new HyperPdfTestDocument(TestPdf.CreateArticle(Pages));
-        var optimizer = (IDocumentOptimizer)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(source.Document, typeof(IDocumentOptimizer))!;
+        var optimizer = PdfViewerLite.Core.Documents.DocumentFeature<IDocumentOptimizer>.Cast(source.Document)!;
         source.Dispose();
         await using var output = new MemoryStream();
 

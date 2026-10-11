@@ -15,7 +15,7 @@ namespace PdfViewerLite.HyperPdf.Tests;
 public sealed class DocumentFeatureLookupTests
 {
     /// <summary>A contract that neither engine implements.</summary>
-    private interface IUnsupportedFeature
+    private interface IUnsupportedFeature : IDocumentFeature
     {
         /// <summary>Gets the marker value.</summary>
         int Marker { get; }
@@ -29,19 +29,18 @@ public sealed class DocumentFeatureLookupTests
         using var pair = new HyperPdfTestDocument(TestPdf.Create(1));
         const int Warmup = 128;
         const int Measured = 1024;
-        var featureType = typeof(IAnnotationEditor);
-        var first = pair.Document.GetFeature(featureType);
+        var first = DocumentFeature<IAnnotationEditor>.Get(pair.Document);
 
         for (var index = 0; index < Warmup; index++)
         {
-            _ = pair.Document.GetFeature(featureType);
+            _ = DocumentFeature<IAnnotationEditor>.Get(pair.Document);
         }
 
         var mismatches = 0;
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var index = 0; index < Measured; index++)
         {
-            if (!ReferenceEquals(first, pair.Document.GetFeature(featureType)))
+            if (!ReferenceEquals(first, DocumentFeature<IAnnotationEditor>.Get(pair.Document)))
             {
                 mismatches++;
             }
@@ -60,11 +59,10 @@ public sealed class DocumentFeatureLookupTests
     {
         using var pair = new HyperPdfTestDocument(TestPdf.Create(1));
 
-        await Assert.That(pair.Document.GetFeature(typeof(IUnsupportedFeature))).IsNull();
-        await Assert.That(DocumentFeatures.CastFeature(null, typeof(IUnsupportedFeature))).IsNull();
+        await Assert.That(DocumentFeature<IUnsupportedFeature>.Get(pair.Document)).IsNull();
+        await Assert.That(DocumentFeature<IUnsupportedFeature>.Cast(null)).IsNull();
         await Assert.That(() => pair.Document.GetFeature(null!)).Throws<ArgumentNullException>();
-        await Assert.That(() => DocumentFeatures.CastFeature(pair.Document, null!)).Throws<ArgumentNullException>();
-        await Assert.That(() => DocumentFeatures.CastFeature(pair.Document, typeof(IUnsupportedFeature))).Throws<InvalidCastException>();
+        await Assert.That(() => DocumentFeature<IUnsupportedFeature>.Cast(pair.Document)).Throws<InvalidCastException>();
     }
 
     /// <summary>A previously obtained feature still observes owner disposal.</summary>
@@ -73,11 +71,11 @@ public sealed class DocumentFeatureLookupTests
     public async Task FeatureCallsRespectOwnerDisposal()
     {
         using var pair = new HyperPdfTestDocument(TestPdf.Create(1));
-        var layout = (ITextLayoutSource)pair.Document.GetFeature(typeof(ITextLayoutSource))!;
+        var layout = DocumentFeature<ITextLayoutSource>.Get(pair.Document)!;
         pair.Document.Dispose();
         var characters = new List<PageCharacter>();
 
-        await Assert.That(() => pair.Document.GetFeature(typeof(ITextLayoutSource))).Throws<ObjectDisposedException>();
+        await Assert.That(() => DocumentFeature<ITextLayoutSource>.Get(pair.Document)).Throws<ObjectDisposedException>();
         layout.GetCharacters(0, characters);
         await Assert.That(characters).IsEmpty();
     }

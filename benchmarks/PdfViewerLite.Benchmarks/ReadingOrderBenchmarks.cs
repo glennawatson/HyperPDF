@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Reading;
 using PdfViewerLite.TestAssets;
@@ -50,13 +51,13 @@ public class ReadingOrderBenchmarks
     public void Setup()
     {
         _document = new(TestPdf.CreateArticle(Pages));
-        _source = (ITextLayoutSource)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(_document.Document, typeof(ITextLayoutSource))!;
+        _source = PdfViewerLite.Core.Documents.DocumentFeature<ITextLayoutSource>.Cast(_document.Document)!;
         _size = _document.Document.GetPageSizes()[0];
         _source.GetCharacters(0, _characters);
         _page = ReadingOrder.Analyze(0, _size, _characters, _repeated);
         _tagged = new(TestPdf.CreateTagged());
-        ((ITextLayoutSource)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(_tagged.Document, typeof(ITextLayoutSource))!).GetCharacters(0, _taggedCharacters);
-        _ = ((ITaggedStructureSource)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(_tagged.Document, typeof(ITaggedStructureSource))!).GetTaggedBlocks(0, _taggedBlocks);
+        PdfViewerLite.Core.Documents.DocumentFeature<ITextLayoutSource>.Cast(_tagged.Document)!.GetCharacters(0, _taggedCharacters);
+        _ = PdfViewerLite.Core.Documents.DocumentFeature<ITaggedStructureSource>.Cast(_tagged.Document)!.GetTaggedBlocks(0, _taggedBlocks);
     }
 
     /// <summary>Closes the document.</summary>
@@ -93,7 +94,7 @@ public class ReadingOrderBenchmarks
     public int ReadTags()
     {
         _taggedBlocks.Clear();
-        _ = ((ITaggedStructureSource)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(_tagged.Document, typeof(ITaggedStructureSource))!).GetTaggedBlocks(0, _taggedBlocks);
+        _ = PdfViewerLite.Core.Documents.DocumentFeature<ITaggedStructureSource>.Cast(_tagged.Document)!.GetTaggedBlocks(0, _taggedBlocks);
         return _taggedBlocks.Count;
     }
 

@@ -66,16 +66,16 @@ public sealed class FormTests
         var ticked = filler.SetChecked(0, fields[1].Index, true);
         var chosen = filler.SelectOption(0, fields[2].Index, Blue);
         var after = Read(filler);
-        var unsaved = (test.Document.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor) is { HasUnsavedChanges: true }
+        var unsaved = DocumentFeature<IAnnotationEditor>.Get(test.Document) is { HasUnsavedChanges: true }
             && PdfViewerLite.HyperPdf.HyperPdfForms.GetHasManagedEdits(((HyperPdfDocument)test.Document));
         var managed = SaveManaged(document);
         var copy = SaveThroughCopy(document);
         try
         {
             using var reopened = new HyperPdfEngine().Open(managed, null);
-            var viaManaged = Read((IFormFiller)DocumentFeatures.CastFeature(reopened, typeof(IFormFiller))!);
+            var viaManaged = Read(DocumentFeature<IFormFiller>.Cast(reopened)!);
             using var viaCopy = new HyperPdfEngine().Open(copy, null);
-            var readFromCopy = Read((IFormFiller)DocumentFeatures.CastFeature(viaCopy, typeof(IFormFiller))!);
+            var readFromCopy = Read(DocumentFeature<IFormFiller>.Cast(viaCopy)!);
 
             await Assert.That(typed).IsTrue();
             await Assert.That(ticked).IsTrue();
@@ -135,7 +135,7 @@ public sealed class FormTests
         await Assert.That(filler.SelectOption(0, ComboIndex, MissingOption)).IsFalse();
         await Assert.That(filler.SetText(0, FieldCount, "x")).IsFalse();
         await Assert.That(filler.SetText(1, 0, "x")).IsFalse();
-        await Assert.That(((test.Document)?.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor) is { HasUnsavedChanges: false }).IsTrue();
+        await Assert.That(DocumentFeature<IAnnotationEditor>.Get(test.Document) is { HasUnsavedChanges: false }).IsTrue();
     }
 
     /// <summary>
@@ -151,7 +151,7 @@ public sealed class FormTests
         try
         {
             using var document = new HyperPdfEngine().Open(path, null);
-            var filler = (IFormFiller)DocumentFeatures.CastFeature(document, typeof(IFormFiller))!;
+            var filler = DocumentFeature<IFormFiller>.Cast(document)!;
             var changed = filler.SetText(0, FormSamples.LockedIndex, "changed");
 
             await Assert.That(changed).IsFalse();
@@ -202,7 +202,7 @@ public sealed class FormTests
     {
         var path = Path.Combine(Path.GetTempPath(), $"hyperpdf-formcopy-{Guid.NewGuid():N}.pdf");
         using var stream = File.Create(path);
-        _ = ((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).Save(stream);
+        _ = DocumentFeature<IAnnotationEditor>.Cast(document)!.Save(stream);
         return path;
     }
 
@@ -224,7 +224,7 @@ public sealed class FormTests
         public IDocument Document { get; }
 
         /// <summary>Gets the form filler.</summary>
-        public IFormFiller Filler => (IFormFiller)DocumentFeatures.CastFeature(Document, typeof(IFormFiller))!;
+        public IFormFiller Filler => DocumentFeature<IFormFiller>.Cast(Document)!;
 
         /// <inheritdoc/>
         public void Dispose()

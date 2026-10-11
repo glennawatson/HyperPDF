@@ -9,25 +9,22 @@ namespace HyperPdfLibrary.Document;
 /// <summary>Reads tagged content and structure trees.</summary>
 public static class PdfDocumentTagged
 {
-    /// <summary>Stands for a document read and found to have no structure tree.</summary>
-    private static readonly object NoStructureTree = new();
-
     /// <summary>Gets the structure tree, read on first use; <see langword="null"/> for a document that has none.</summary>
     /// <param name="document">The document.</param>
     /// <returns>The structure tree, or null when the document has none.</returns>
     public static PdfStructureTree? GetStructureTree(PdfDocument document)
     {
-        var tree = Volatile.Read(ref document.State.StructureTree);
-        if (tree is null)
+        var read = Volatile.Read(ref document.State.StructureTree);
+        if (read is null)
         {
             lock (document.State.StructureGate)
             {
-                tree = document.State.StructureTree ?? PdfStructureTree.Load(document) ?? PdfDocumentTagged.NoStructureTree;
-                Volatile.Write(ref document.State.StructureTree, tree);
+                read = document.State.StructureTree ?? new(PdfStructureTree.Load(document));
+                Volatile.Write(ref document.State.StructureTree, read);
             }
         }
 
-        return tree as PdfStructureTree;
+        return read.Tree;
     }
 
     /// <summary>Gets what a page draws inside marked content: each glyph's text, box, marked content id and artifact flag.</summary>
