@@ -709,7 +709,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Graphics.Images.PdfImageDecoder.",
-    "reason": "Decoding an image returns its pixels (one gray byte, BGRA or alpha coverage) as a new array the size of the image. Arrays of 64 KiB or more are zeroed arrays on the pinned object heap that Skia then uses as its own pixel memory, so nothing is copied; smaller ones are copied into Skia. The gray table (256 bytes) and the unpacker tables are built once per image. Each image is decoded once while it stays in the cache. Scratch rows are rented from the shared or the bounded scratch pool; when a pool has no array of a size yet, the first rent allocates it under this frame."
+    "reason": "Decoding an image returns its pixels (one gray byte, BGRA or alpha coverage) as a new array the size of the image. Arrays of 64 KiB or more are zeroed arrays on the pinned object heap that Skia then uses as its own pixel memory, so nothing is copied; smaller ones are copied into Skia. The gray table (256 bytes) and the unpacker tables are built once per image. Each image is decoded once while it stays in the cache. Small scratch rows use ArrayPool<T>.Shared; rows of at least 256 KiB use a document-owned or explicitly shared ScratchPools cache with a default 48 MiB retention limit. A first rent of an array size may allocate under this frame."
   },
   {
     "type": "",
@@ -739,7 +739,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Fonts.",
-    "reason": "Loading a font, once per font dictionary per document: its descriptor, program and tables, encoding and widths, glyph name text (one-character texts are shared across fonts), name words for system font matching, and the substitute face. Glyph outlines are built the first time a code is drawn and kept in the font's outline cache, in pages of 256 slots. Predefined CMaps and CID-to-Unicode tables are read from the assembly once per process. Warm text tiles, width and text lookups and CMap lookups allocate nothing."
+    "reason": "Loading a font once per font dictionary per document creates its descriptor, program, encoding, widths, glyph text and substitute face. The font retains its selected resource owner for later glyph lookups; the matcher belongs to the drawing service or detached resource owner. One-character texts, predefined CMaps and CID-to-Unicode tables are cached within the selected resource owner; documents using one drawing service share that owner. Generated asset files are shared on disk. Glyph outlines are built on first draw and kept in pages of 256 slots. Warm text tiles, width and text lookups and CMap lookups allocate nothing."
   },
   {
     "type": "",
