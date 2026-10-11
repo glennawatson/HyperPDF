@@ -75,6 +75,40 @@ public sealed class FrameStabilityTests
     /// <summary>Where the wheel zoom is anchored down the viewport.</summary>
     private const double AnchorY = 0.3;
 
+    /// <summary>Verifies a tile arrival does not cancel other tiles requested for the same view.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RepaintingSameViewKeepsRenderGeneration()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("repaint.pdf", Pages)]);
+        var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
+        window.Show();
+        try
+        {
+            var canvas = await SettleAsync(test, window);
+            var scroller = canvas.FindAncestorOfType<ScrollViewer>()!;
+            var client = main.SelectedTab!.CanvasClient;
+            var generation = client.Generation;
+            canvas.InvalidateVisual();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            using var repainted = window.CaptureRenderedFrame();
+            await Assert.That(client.Generation).IsEqualTo(generation);
+
+            scroller.Offset = new(scroller.Offset.X, scroller.Offset.Y + ScrollStep);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            using var scrolled = window.CaptureRenderedFrame();
+            await Assert.That(client.Generation).IsGreaterThan(generation);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     /// <summary>Verifies frames drawn while scrolling are as sharp as the settled frames.</summary>
     /// <returns>A task.</returns>
     [Test]
