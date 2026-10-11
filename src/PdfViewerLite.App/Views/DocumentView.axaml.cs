@@ -592,6 +592,7 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     private void BindPages(MultipleDisposable bindings)
     {
         bindings.Add(this.WhenChanged(static v => v.ViewModel).BindTo(this, static v => v.Canvas.Tab));
+        bindings.Add(PageArea.ObserveRouted(InputElement.PointerPressedEvent, RoutingStrategies.Tunnel).SubscribeSafe(StopAutoScrollOnPagePress, OnError));
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.UriRequests).SwitchTo().SubscribeSafe(OpenUri, OnError));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ContentWarning, static v => v.ContentWarningText.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ContentWarning, static v => v.ContentWarningBar.IsVisible, static warning => warning is not null));
@@ -620,6 +621,20 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.SubmitCertificateCommand, static v => v.UnlockCertificateButton));
         bindings.Add(EnterPresses(OpenCertificatePasswordBox).InvokeCommand(this, static v => v.ViewModel!.SubmitCertificateCommand));
         bindings.Add(this.BindInteraction(ViewModel, static vm => vm.CertificateBrowseInteraction, BrowseCertificateAsync));
+    }
+
+    /// <summary>Stops auto-scroll when any part of the page area is clicked.</summary>
+    /// <param name="e">The pointer press.</param>
+    private void StopAutoScrollOnPagePress(PointerPressedEventArgs e)
+    {
+        if (ViewModel is not { IsAutoScrolling: true } tab)
+        {
+            return;
+        }
+
+        tab.IsAutoScrolling = false;
+        _ = Canvas.Focus();
+        e.Handled = true;
     }
 
     /// <summary>Asks the desktop for a local PKCS #12 certificate file.</summary>
