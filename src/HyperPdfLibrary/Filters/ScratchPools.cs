@@ -90,6 +90,12 @@ public sealed class ScratchPools
         }
     }
 
+    /// <summary>Gets this owner's byte array pool.</summary>
+    internal ScratchPool<byte> Bytes => Volatile.Read(ref _bytes) ?? Get<byte>();
+
+    /// <summary>Gets this owner's integer array pool.</summary>
+    internal ScratchPool<int> Ints => Volatile.Read(ref _ints) ?? Get<int>();
+
     /// <summary>Releases every buffer this owner keeps. Arrays in use are unaffected.</summary>
     public void Trim()
     {
@@ -104,12 +110,6 @@ public sealed class ScratchPools
             trim();
         }
     }
-
-    /// <summary>Gets this owner's byte array pool.</summary>
-    internal ScratchPool<byte> Bytes => Volatile.Read(ref _bytes) ?? Get<byte>();
-
-    /// <summary>Gets this owner's integer array pool.</summary>
-    internal ScratchPool<int> Ints => Volatile.Read(ref _ints) ?? Get<int>();
 
     /// <summary>Gets this owner's pool for one element type.</summary>
     /// <typeparam name="T">The element type.</typeparam>
