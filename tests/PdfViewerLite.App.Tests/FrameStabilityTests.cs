@@ -237,17 +237,27 @@ public sealed class FrameStabilityTests
     /// <returns>The first frame's sharp edges as a share of the settled frame's.</returns>
     private static async Task<double> CompareWithSettledAsync(TestServices test, Window window, ScrollViewer scroller, Action change, string name)
     {
+        var tab = scroller.GetVisualDescendants().OfType<PageCanvas>().Single().Tab!;
+        var client = tab.CanvasClient;
+        var beforeGeneration = client.Generation;
+        var beforeTiles = test.Services.RenderHub.Cache.Count;
         change();
         Dispatcher.UIThread.RunJobs();
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
         using var first = window.CaptureRenderedFrame()!;
+        var firstGeneration = client.Generation;
+        var firstTiles = test.Services.RenderHub.Cache.Count;
         _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.IsIdle);
 
         using var settled = window.CaptureRenderedFrame()!;
         var settledEdges = CountEdges(settled, scroller, window);
-        var sharpness = settledEdges > 0 ? (double)CountEdges(first, scroller, window) / settledEdges : 1;
-        TestContext.Current?.Output.WriteLine($"{name}: the first frame had {sharpness:P1} of the settled frame's sharp edges");
+        var firstEdges = CountEdges(first, scroller, window);
+        var sharpness = settledEdges > 0 ? (double)firstEdges / settledEdges : 1;
+        TestContext.Current?.Output.WriteLine(
+            $"{name}: {sharpness:P1} sharp; page={tab.CurrentPageIndex}; offset={scroller.Offset.Y:F0} viewport={scroller.Viewport.Height:F0}; "
+            + $"edges={firstEdges}/{settledEdges}; tiles={beforeTiles}/{firstTiles}/{test.Services.RenderHub.Cache.Count}; "
+            + $"generations={beforeGeneration}/{firstGeneration}/{client.Generation}");
         if (sharpness < MinSharpness)
         {
             Save(first, $"{name}-first.png");
