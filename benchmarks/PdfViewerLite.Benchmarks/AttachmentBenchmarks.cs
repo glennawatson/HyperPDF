@@ -4,6 +4,7 @@
 
 using BenchmarkDotNet.Attributes;
 using PdfViewerLite.Core.Attachments;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.TestAssets;
 
 namespace PdfViewerLite.Benchmarks;
@@ -25,7 +26,7 @@ public class AttachmentBenchmarks
     public void Setup()
     {
         _document = new(TestPdf.CreateWithAttachment());
-        _source = (IAttachmentSource)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(_document.Document, typeof(IAttachmentSource))!;
+        _source = PdfViewerLite.Core.Documents.DocumentFeature<IAttachmentSource>.Cast(_document.Document)!;
         _ = _source.GetAttachments();
     }
 

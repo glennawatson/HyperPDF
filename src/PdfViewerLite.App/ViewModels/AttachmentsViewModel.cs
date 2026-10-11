@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using PdfViewerLite.Core.Attachments;
+using PdfViewerLite.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -76,7 +77,7 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
     {
         Items.Clear();
         Selected = null;
-        if (((_owner.TryGetDocument())?.GetFeature(typeof(IAttachmentSource)) as IAttachmentSource) is
+        if (DocumentFeature<IAttachmentSource>.Get(_owner.TryGetDocument()) is
             {
             } source)
         {
@@ -144,7 +145,7 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
     /// <returns><see langword="true"/> when written.</returns>
     private bool Write(DocumentAttachment attachment, string path)
     {
-        if (((_owner.TryGetDocument())?.GetFeature(typeof(IAttachmentSource)) as IAttachmentSource) is not
+        if (DocumentFeature<IAttachmentSource>.Get(_owner.TryGetDocument()) is not
             {
             } source)
         {

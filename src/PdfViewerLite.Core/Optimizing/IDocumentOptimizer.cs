@@ -2,10 +2,12 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
+
 namespace PdfViewerLite.Core.Optimizing;
 
 /// <summary>Writes a smaller or more accessible copy of a document. Not every engine can; ask with a type check.</summary>
-public interface IDocumentOptimizer
+public interface IDocumentOptimizer : IDocumentFeature
 {
     /// <summary>Writes an optimised copy. The open document is never changed.</summary>
     /// <param name="destination">The writable stream that receives the new file; it holds a partial file after a failure or cancel.</param>

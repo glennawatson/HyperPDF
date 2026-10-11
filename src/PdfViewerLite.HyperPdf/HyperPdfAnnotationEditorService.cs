@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 
 namespace PdfViewerLite.HyperPdf;
@@ -17,6 +18,9 @@ internal sealed class HyperPdfAnnotationEditorService : IAnnotationEditor
     /// <summary>Initializes a new instance of the <see cref="HyperPdfAnnotationEditorService"/> class.</summary>
     /// <param name="owner">The owning document.</param>
     internal HyperPdfAnnotationEditorService(HyperPdfDocument owner) => _owner = owner;
+
+    /// <inheritdoc/>
+    public IDocument Document => _owner;
 
     /// <inheritdoc/>
     public bool HasUnsavedChanges { get => HyperPdfDocumentAnnotationEditing.GetHasUnsavedChanges(_owner); }

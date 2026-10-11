@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Ocr;
 
 namespace PdfViewerLite.HyperPdf;
@@ -16,6 +17,9 @@ internal sealed class HyperPdfTextLayerWriterService : ITextLayerWriter
     /// <summary>Initializes a new instance of the <see cref="HyperPdfTextLayerWriterService"/> class.</summary>
     /// <param name="owner">The owning document.</param>
     internal HyperPdfTextLayerWriterService(HyperPdfDocument owner) => _owner = owner;
+
+    /// <inheritdoc/>
+    public IDocument Document => _owner;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -73,10 +73,10 @@ public class OcrWriteBenchmarks
     /// <summary>Writes the recognised words onto the scanned page.</summary>
     /// <returns>The number written.</returns>
     [Benchmark]
-    public int WriteTextLayer() => ((ITextLayerWriter)DocumentFeatures.CastFeature(_document!.Document, typeof(ITextLayerWriter))!).AddTextLayer(0, _recognized);
+    public int WriteTextLayer() => DocumentFeature<ITextLayerWriter>.Cast(_document!.Document)!.AddTextLayer(0, _recognized);
 
     /// <summary>Renders, recognises and writes the text layer of the scanned page.</summary>
     /// <returns>The number of words written.</returns>
     [Benchmark]
-    public int RecognizePage() => OcrRunner.RecognizePage(_document!.Document, (ITextLayerWriter)DocumentFeatures.CastFeature(_document.Document, typeof(ITextLayerWriter))!, _engine, 0, _words).Words;
+    public int RecognizePage() => OcrRunner.RecognizePage(_document!.Document, DocumentFeature<ITextLayerWriter>.Cast(_document.Document)!, _engine, 0, _words).Words;
 }

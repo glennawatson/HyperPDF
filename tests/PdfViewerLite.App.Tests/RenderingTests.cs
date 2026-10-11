@@ -15,6 +15,7 @@ using PdfViewerLite.App.Theming;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Settings;
@@ -303,7 +304,7 @@ public sealed class RenderingTests
         {
             var tab = main.SelectedTab!;
             var fields = new List<FormField>();
-            ((IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!).GetFields(0, fields);
+            PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(tab.TryGetDocument()!)!.GetFields(0, fields);
             var nameField = fields.Single(static f => f.Kind == FormFieldKind.Text);
             var agree = fields.Single(static f => f.Kind == FormFieldKind.CheckBox);
             var centre = new PagePoint(nameField.Bounds.Left + (nameField.Bounds.Width * Half), nameField.Bounds.Top + (nameField.Bounds.Height * Half));
@@ -320,7 +321,7 @@ public sealed class RenderingTests
             var editorShown = editor.IsVisible;
             tab.Forms.Commit();
             fields.Clear();
-            ((IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(IFormFiller))!).GetFields(0, fields);
+            PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(tab.TryGetDocument()!)!.GetFields(0, fields);
 
             await Assert.That(hit).IsNotNull();
             await Assert.That(editorShown).IsTrue();
@@ -639,7 +640,7 @@ public sealed class RenderingTests
             _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Cache.Count > 0 && test.Services.RenderHub.Scheduler.QueueLength == 0);
             using var frame = window.CaptureRenderedFrame();
             Save(frame, "layers.png");
-            var source = (Core.Documents.ILayerSource)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(Core.Documents.ILayerSource))!;
+            var source = PdfViewerLite.Core.Documents.DocumentFeature<ILayerSource>.Cast(tab.TryGetDocument()!)!;
 
             await Assert.That(listed).IsTrue();
             await Assert.That(layers.Items.Count).IsEqualTo(LayerCount);

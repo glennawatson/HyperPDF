@@ -2,12 +2,13 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 
 namespace PdfViewerLite.Core.Annotations;
 
 /// <summary>Places image signatures with their original transparency.</summary>
-public interface IImageSignatureEditor
+public interface IImageSignatureEditor : IDocumentFeature
 {
     /// <summary>Copies an image into a removable signature annotation.</summary>
     /// <param name="pageIndex">The zero-based page index.</param>

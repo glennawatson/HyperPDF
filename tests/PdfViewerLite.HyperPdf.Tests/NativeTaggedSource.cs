@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Reading;
 
 namespace PdfViewerLite.HyperPdf.Tests;
@@ -15,6 +16,9 @@ namespace PdfViewerLite.HyperPdf.Tests;
 [DebuggerDisplay("NativeTaggedSource")]
 internal sealed class NativeTaggedSource(HyperPdfDocument document) : ITextLayoutSource, ITaggedStructureSource
 {
+    /// <inheritdoc/>
+    public IDocument Document => document;
+
     /// <inheritdoc/>
     public void GetCharacters(int pageIndex, List<PageCharacter> output) => PdfViewerLite.HyperPdf.HyperPdfDocumentCharacterLayout.GetCharacters(document, pageIndex, output);
 

@@ -80,8 +80,8 @@ internal record struct PdfDocumentState
     /// <summary>The lazily read document revisions.</summary>
     private PdfRevision[]? _revisions;
 
-    /// <summary>The structure tree or the no-tree sentinel.</summary>
-    private object? _structureTree;
+    /// <summary>The structure tree read, or <see langword="null"/> before it is read.</summary>
+    private StructureTreeRead? _structureTree;
 
     /// <summary>Independently published marked-content pages.</summary>
     private PdfMarkedContentPage?[]? _markedContent;
@@ -193,9 +193,9 @@ internal record struct PdfDocumentState
     /// <summary>Gets the lock that synchronizes structure tree initialization.</summary>
     internal Lock StructureGate { get; } = new();
 
-    /// <summary>Gets storage for the structure tree or no-tree sentinel.</summary>
+    /// <summary>Gets storage for the structure tree read, which stays <see langword="null"/> until the tree is read.</summary>
     [UnscopedRef]
-    internal ref object? StructureTree => ref _structureTree;
+    internal ref StructureTreeRead? StructureTree => ref _structureTree;
 
     /// <summary>Gets storage for independently published marked-content pages.</summary>
     [UnscopedRef]

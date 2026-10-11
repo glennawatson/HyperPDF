@@ -23,9 +23,7 @@ public sealed class HyperPdfGpuRendererTests
     public async Task FeaturePreparesAndDraws(CancellationToken cancellationToken)
     {
         using var document = new HyperPdfDocument(SkiaTestDocuments.Open(TestPdf.Create(1)), "graphics-feature.pdf");
-        var feature = document.GetFeature(typeof(IHyperPdfGpuRenderer));
-        await Assert.That(feature).IsTypeOf<IHyperPdfGpuRenderer>();
-        var renderer = (IHyperPdfGpuRenderer)feature!;
+        IHyperPdfGpuRenderer renderer = document;
         var info = new PageRenderInfo(0, 1, PageRotation.None, 0, 0, RenderFlags.Annotations);
         var layout = new SKImageInfo(Edge, Edge, SKColorType.Bgra8888, SKAlphaType.Premul);
         using var target = new SkiaSurfaceRenderTarget(SKSurface.Create(layout), layout);

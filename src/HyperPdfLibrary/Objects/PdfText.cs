@@ -68,12 +68,12 @@ public static class PdfText
     {
         if (bytes.StartsWith(Utf16BigEndianMark))
         {
-            return Encoding.BigEndianUnicode.GetString(bytes[Utf16Size..][..((bytes.Length - Utf16Size) & ~1)]);
+            return Encoding.BigEndianUnicode.GetString(Utf16Body(bytes));
         }
 
         if (bytes.StartsWith(Utf16LittleEndianMark))
         {
-            return Encoding.Unicode.GetString(bytes[Utf16Size..][..((bytes.Length - Utf16Size) & ~1)]);
+            return Encoding.Unicode.GetString(Utf16Body(bytes));
         }
 
         if (bytes.StartsWith(Utf8Mark))
@@ -165,6 +165,59 @@ public static class PdfText
         _ = Encoding.UTF8.GetBytes(text, bytes.AsSpan(Utf8Mark.Length));
         return bytes;
     }
+
+    /// <summary>Counts the characters a text string decodes to.</summary>
+    /// <param name="bytes">The string's bytes.</param>
+    /// <returns>The length of the text <see cref="Decode(ReadOnlySpan{byte})"/> returns.</returns>
+    internal static int GetDecodedLength(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.StartsWith(Utf16BigEndianMark))
+        {
+            return Encoding.BigEndianUnicode.GetCharCount(Utf16Body(bytes));
+        }
+
+        if (bytes.StartsWith(Utf16LittleEndianMark))
+        {
+            return Encoding.Unicode.GetCharCount(Utf16Body(bytes));
+        }
+
+        return bytes.StartsWith(Utf8Mark) ? Encoding.UTF8.GetCharCount(bytes[Utf8Mark.Length..]) : bytes.Length;
+    }
+
+    /// <summary>Decodes a text string into characters, without creating a string.</summary>
+    /// <param name="bytes">The string's bytes.</param>
+    /// <param name="destination">At least <see cref="GetDecodedLength"/> characters.</param>
+    /// <returns>The characters written.</returns>
+    internal static int Decode(ReadOnlySpan<byte> bytes, Span<char> destination)
+    {
+        if (bytes.StartsWith(Utf16BigEndianMark))
+        {
+            return Encoding.BigEndianUnicode.GetChars(Utf16Body(bytes), destination);
+        }
+
+        if (bytes.StartsWith(Utf16LittleEndianMark))
+        {
+            return Encoding.Unicode.GetChars(Utf16Body(bytes), destination);
+        }
+
+        if (bytes.StartsWith(Utf8Mark))
+        {
+            return Encoding.UTF8.GetChars(bytes[Utf8Mark.Length..], destination);
+        }
+
+        for (var i = 0; i < bytes.Length; i++)
+        {
+            destination[i] = DecodeDocByte(bytes[i]);
+        }
+
+        return bytes.Length;
+    }
+
+    /// <summary>Gets the code units of a UTF-16 text string after its byte order mark, dropping an odd trailing byte.</summary>
+    /// <param name="bytes">The string's bytes, starting with a UTF-16 byte order mark.</param>
+    /// <returns>The code unit bytes.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ReadOnlySpan<byte> Utf16Body(ReadOnlySpan<byte> bytes) => bytes[Utf16Size..][..((bytes.Length - Utf16Size) & ~1)];
 
     /// <summary>Encodes text as UTF-16 big-endian with a byte order mark, as PDF versions before 2.0 require for text outside PDFDocEncoding.</summary>
     /// <param name="text">The text.</param>

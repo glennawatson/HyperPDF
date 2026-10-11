@@ -4,6 +4,7 @@
 
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.TestAssets;
 using ReactiveUI.Primitives;
@@ -312,7 +313,7 @@ public sealed class AnnotationUndoTests
     {
         using var document = test.Services.Engine.Open(path, null);
         var annotations = new List<PageAnnotation>();
-        ((IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).GetAnnotations(0, annotations);
+        PdfViewerLite.Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(document)!.GetAnnotations(0, annotations);
         return [.. annotations.Select(static a => a.Kind)];
     }
 }

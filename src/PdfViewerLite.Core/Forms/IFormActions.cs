@@ -2,13 +2,15 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
+
 namespace PdfViewerLite.Core.Forms;
 
 /// <summary>
 /// Runs the actions of a document's form buttons and pages: reset, hide, show or hide layers, and the ones the host
 /// handles. Scripts are never run. Implemented by documents that can; safe to call from any thread.
 /// </summary>
-public interface IFormActions
+public interface IFormActions : IDocumentFeature
 {
     /// <summary>Runs the action of a form button, and the actions that follow it.</summary>
     /// <param name="pageIndex">The zero based page index.</param>

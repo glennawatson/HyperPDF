@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Text;
 
@@ -11,7 +12,7 @@ namespace PdfViewerLite.Core.Annotations;
 /// Writes formatted text boxes and reads them back for editing. Text is kept as a standard free text annotation with
 /// its own drawn appearance, so other readers show it the same way. Safe to call from any thread.
 /// </summary>
-public interface ITextBoxEditor
+public interface ITextBoxEditor : IDocumentFeature
 {
     /// <summary>Writes a text box.</summary>
     /// <param name="pageIndex">The zero based page index.</param>

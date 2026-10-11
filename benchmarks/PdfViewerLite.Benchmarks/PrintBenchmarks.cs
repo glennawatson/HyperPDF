@@ -4,6 +4,7 @@
 
 using BenchmarkDotNet.Attributes;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Printing;
@@ -85,11 +86,11 @@ public class PrintBenchmarks
     public void Setup()
     {
         _document = new(TestPdf.CreateForm());
-        _editor = (IAnnotationEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(_document.Document, typeof(IAnnotationEditor))!;
-        _exporter = (IPageExporter)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(_document.Document, typeof(IPageExporter))!;
+        _editor = PdfViewerLite.Core.Documents.DocumentFeature<IAnnotationEditor>.Cast(_document.Document)!;
+        _exporter = PdfViewerLite.Core.Documents.DocumentFeature<IPageExporter>.Cast(_document.Document)!;
         _mixed = new(TestPdf.Create(MixedPageCount));
-        _mixedExporter = (IPageExporter)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(_mixed.Document, typeof(IPageExporter))!;
-        var filler = (IFormFiller)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(_document.Document, typeof(IFormFiller))!;
+        _mixedExporter = PdfViewerLite.Core.Documents.DocumentFeature<IPageExporter>.Cast(_mixed.Document)!;
+        var filler = PdfViewerLite.Core.Documents.DocumentFeature<IFormFiller>.Cast(_document.Document)!;
         List<FormField> fields = [];
         filler.GetFields(0, fields);
         _ = filler.SetText(0, fields[0].Index, "Glenn Watson");

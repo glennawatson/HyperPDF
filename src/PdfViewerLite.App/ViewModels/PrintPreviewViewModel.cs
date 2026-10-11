@@ -406,7 +406,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     private async Task RebuildAsync()
     {
         var version = ++_version;
-        if (((_tab.TryGetDocument())?.GetFeature(typeof(IPageExporter)) as IPageExporter) is not
+        if (DocumentFeature<IPageExporter>.Get(_tab.TryGetDocument()) is not
             {
             } exporter || !ChoosePages())
         {

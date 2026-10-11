@@ -13,6 +13,7 @@ using PdfViewerLite.App.Controls;
 using PdfViewerLite.App.ViewModels;
 using PdfViewerLite.App.Views;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.Core.Text;
 using ReactiveUI.Primitives;
@@ -223,7 +224,7 @@ public sealed class TextEditingUiTests
             var stillEditing = annotations.IsEditingText;
             _ = annotations.CommitText();
             var index = annotations.Items[0].Annotation.Index;
-            var format = ((ITextBoxEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(ITextBoxEditor))!).GetTextBox(0, index)!.Format;
+            var format = PdfViewerLite.Core.Documents.DocumentFeature<ITextBoxEditor>.Cast(tab.TryGetDocument()!)!.GetTextBox(0, index)!.Format;
 
             await Assert.That(weight).IsEqualTo(FontWeight.Bold);
             await Assert.That(style).IsEqualTo(FontStyle.Italic);
@@ -253,7 +254,7 @@ public sealed class TextEditingUiTests
             var tab = main.SelectedTab!;
             var annotations = tab.Annotations;
             _ = await ReadyAsync(window, tab);
-            var editor = (ITextBoxEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(ITextBoxEditor))!;
+            var editor = PdfViewerLite.Core.Documents.DocumentFeature<ITextBoxEditor>.Cast(tab.TryGetDocument()!)!;
             Write(annotations, Typed);
             annotations.Select(annotations.Items[0].Annotation);
             annotations.FontFamily = StandardFontFamilies.Serif;
@@ -332,7 +333,7 @@ public sealed class TextEditingUiTests
             var before = annotations.Items[0].Annotation;
             var moved = annotations.Move(before, before.Bounds with { Width = Narrow }, false);
             var after = annotations.Items[0].Annotation;
-            var content = ((ITextBoxEditor)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(tab.TryGetDocument()!, typeof(ITextBoxEditor))!).GetTextBox(0, after.Index)!;
+            var content = PdfViewerLite.Core.Documents.DocumentFeature<ITextBoxEditor>.Cast(tab.TryGetDocument()!)!.GetTextBox(0, after.Index)!;
 
             await Assert.That(moved).IsTrue();
             await Assert.That(content.WrapWidth).IsEqualTo(Narrow);

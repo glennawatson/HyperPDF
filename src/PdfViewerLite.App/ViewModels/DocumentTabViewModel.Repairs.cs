@@ -25,7 +25,7 @@ public sealed partial class DocumentTabViewModel
     /// <param name="document">The document.</param>
     internal void CheckRepairs(IDocument document)
     {
-        if (_repairNoticeShown || ((document)?.GetFeature(typeof(IRepairReport)) as IRepairReport) is not { WasRepaired: true })
+        if (_repairNoticeShown || DocumentFeature<IRepairReport>.Get(document) is not { WasRepaired: true })
         {
             return;
         }
@@ -53,7 +53,7 @@ public sealed partial class DocumentTabViewModel
             return;
         }
 
-        RepairDetails = ((Source.Acquire())?.GetFeature(typeof(IRepairReport)) as IRepairReport) is { } report ? RepairWarnings.Describe(report.GetRepairs()) : null;
+        RepairDetails = DocumentFeature<IRepairReport>.Get(Source.Acquire()) is { } report ? RepairWarnings.Describe(report.GetRepairs()) : null;
     }
 
     /// <summary>Puts the repair notice away.</summary>

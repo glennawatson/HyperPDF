@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Optimizing;
 
 namespace PdfViewerLite.App.Tests;
@@ -17,6 +18,9 @@ internal sealed class FakeOptimizer : IDocumentOptimizer
 
     /// <summary>The bytes the fake writes.</summary>
     private static readonly byte[] Output = "%PDF-1.7 fake optimised copy"u8.ToArray();
+
+    /// <inheritdoc/>
+    public IDocument Document => throw new NotSupportedException("The fake belongs to no document.");
 
     /// <summary>Gets how many times the optimiser ran.</summary>
     internal int Calls { get; private set; }

@@ -60,7 +60,7 @@ public sealed class DocumentSource
     public bool IsOpen => _document is { IsDisposed: false };
 
     /// <summary>Gets a value indicating whether the open document has edits that are not saved; such documents are never closed to save memory.</summary>
-    public bool HasUnsavedChanges => IsOpen && (_unpublishedSave || ((_document)?.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor) is { HasUnsavedChanges: true });
+    public bool HasUnsavedChanges => IsOpen && (_unpublishedSave || DocumentFeature<IAnnotationEditor>.Get(_document) is { HasUnsavedChanges: true });
 
     /// <summary>Gets the page sizes, or an empty array before the first open.</summary>
     public PageSize[] PageSizes { get; private set; } = [];

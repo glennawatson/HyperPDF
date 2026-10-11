@@ -2,10 +2,12 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
+
 namespace PdfViewerLite.Core.Reading;
 
 /// <summary>Reads the logical structure of a tagged document: headings, paragraphs, lists, tables and figures in order.</summary>
-public interface ITaggedStructureSource
+public interface ITaggedStructureSource : IDocumentFeature
 {
     /// <summary>Gets a page's block-level elements in logical order.</summary>
     /// <param name="pageIndex">The page.</param>

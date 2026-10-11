@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Reading;
 
 namespace PdfViewerLite.HyperPdf;
@@ -16,6 +17,9 @@ internal sealed class HyperPdfTextLayoutSourceService : ITextLayoutSource
     /// <summary>Initializes a new instance of the <see cref="HyperPdfTextLayoutSourceService"/> class.</summary>
     /// <param name="owner">The owning document.</param>
     internal HyperPdfTextLayoutSourceService(HyperPdfDocument owner) => _owner = owner;
+
+    /// <inheritdoc/>
+    public IDocument Document => _owner;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

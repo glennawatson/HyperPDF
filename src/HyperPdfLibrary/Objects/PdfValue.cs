@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 namespace HyperPdfLibrary.Objects;
 
 /// <summary>
-/// One PDF value in 16 bytes. A shared kind marker tags inline payloads; strings point at their bytes in the file or a
+/// One PDF value in 16 bytes. A constant kind tag marks inline payloads; strings point at their bytes in the file or a
 /// decoded buffer; arrays, dictionaries and streams point at their objects. Copying a value never allocates.
 /// </summary>
 [DebuggerDisplay("PdfValue: {Kind}")]
@@ -20,22 +20,25 @@ public readonly struct PdfValue : IEquatable<PdfValue>
     /// <summary>The shift of the high half.</summary>
     private const int HighShift = 32;
 
-    /// <summary>The shared tag for boolean values.</summary>
-    private static readonly object BooleanTag = new KindTag(PdfKind.Boolean);
+    /// <summary>Tags a boolean. Each inline tag is a one-character literal whose character is the kind.</summary>
+    private const string BooleanTag = "\u0001";
 
-    /// <summary>The shared tag for integer values.</summary>
-    private static readonly object IntegerTag = new KindTag(PdfKind.Integer);
+    /// <summary>Tags an integer.</summary>
+    private const string IntegerTag = "\u0002";
 
-    /// <summary>The shared tag for real values.</summary>
-    private static readonly object RealTag = new KindTag(PdfKind.Real);
+    /// <summary>Tags a real number.</summary>
+    private const string RealTag = "\u0003";
 
-    /// <summary>The shared tag for names.</summary>
-    private static readonly object NameTag = new KindTag(PdfKind.Name);
+    /// <summary>Tags a name.</summary>
+    private const string NameTag = "\u0004";
 
-    /// <summary>The shared tag for indirect references.</summary>
-    private static readonly object ReferenceTag = new KindTag(PdfKind.Reference);
+    /// <summary>Tags an indirect reference.</summary>
+    private const string ReferenceTag = "\u0009";
 
-    /// <summary>The referenced object, string buffer or shared inline-kind tag.</summary>
+    /// <summary>
+    /// The referenced object or string buffer, or for an inline payload its kind tag. The runtime interns each tag
+    /// literal once, so the tags need no stored state, and a PDF payload is never a <see cref="string"/>.
+    /// </summary>
     private readonly object? _object;
 
     /// <summary>The inline payload or string range.</summary>
@@ -61,7 +64,7 @@ public readonly struct PdfValue : IEquatable<PdfValue>
         get => _object switch
         {
             null => PdfKind.Null,
-            KindTag tag => tag.Kind,
+            string tag => (PdfKind)tag[0],
             byte[] => PdfKind.String,
             PdfArray => PdfKind.Array,
             PdfDictionary => PdfKind.Dictionary,
@@ -302,12 +305,4 @@ public readonly struct PdfValue : IEquatable<PdfValue>
 
     /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(_bits, _object);
-
-    /// <summary>Identifies an inline value kind without boxing each value.</summary>
-    /// <param name="kind">The kind represented by this tag.</param>
-    private sealed class KindTag(PdfKind kind)
-    {
-        /// <summary>Gets the kind represented by this tag.</summary>
-        internal PdfKind Kind { get; } = kind;
-    }
 }

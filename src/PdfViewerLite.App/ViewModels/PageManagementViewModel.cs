@@ -687,5 +687,5 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Gets a manager exposed by the current open document.</summary>
     /// <returns>The page manager, or null when page management is unavailable.</returns>
-    private IPageManager? GetManager() => ((_owner.TryGetDocument())?.GetFeature(typeof(IPageManagementSource)) as IPageManagementSource) is { } source ? source.PageManager : null;
+    private IPageManager? GetManager() => DocumentFeature<IPageManagementSource>.Get(_owner.TryGetDocument()) is { } source ? source.PageManager : null;
 }

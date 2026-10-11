@@ -71,7 +71,7 @@ public sealed class DocumentFixTests
                 MiniPdf.Stream("/Type /EmbeddedFile /Params << /Size 12345 >>", "hello"),
                 MiniPdf.Stream("/Type /EmbeddedFile /Filter /FlateDecode", "not zlib at all"),
                 MiniPdf.Stream("/Type /EmbeddedFile", "world!")));
-        var attachments = ((IAttachmentSource)DocumentFeatures.CastFeature(test.Document, typeof(IAttachmentSource))!).GetAttachments();
+        var attachments = DocumentFeature<IAttachmentSource>.Cast(test.Document)!.GetAttachments();
 
         await Assert.That(attachments.Count).IsEqualTo(AttachmentCount);
         await Assert.That(attachments[0].Size).IsEqualTo(RecordedSize);
@@ -133,7 +133,7 @@ public sealed class DocumentFixTests
     public async Task HiddenLayerCanBeShown()
     {
         using var test = new HyperPdfTestDocument(TestPdf.CreateWithLayers());
-        var hyper = (ILayerSource)DocumentFeatures.CastFeature(test.Document, typeof(ILayerSource))!;
+        var hyper = DocumentFeature<ILayerSource>.Cast(test.Document)!;
         var hidden = hyper.GetLayers()[HiddenLayer];
 
         await Assert.That(hidden.IsVisible).IsFalse();

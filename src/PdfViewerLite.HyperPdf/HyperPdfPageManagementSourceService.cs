@@ -17,5 +17,8 @@ internal sealed class HyperPdfPageManagementSourceService : IPageManagementSourc
     internal HyperPdfPageManagementSourceService(HyperPdfDocument owner) => _owner = owner;
 
     /// <inheritdoc/>
+    public IDocument Document => _owner;
+
+    /// <inheritdoc/>
     public IPageManager PageManager { get => HyperPdfDocumentPageManagement.GetPageManager(_owner); }
 }

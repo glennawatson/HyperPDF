@@ -18,6 +18,9 @@ internal sealed class HyperPdfLayerSourceService : ILayerSource
     internal HyperPdfLayerSourceService(HyperPdfDocument owner) => _owner = owner;
 
     /// <inheritdoc/>
+    public IDocument Document => _owner;
+
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IReadOnlyList<DocumentLayer> GetLayers() => HyperPdfDocumentLayers.GetLayers(_owner);
 

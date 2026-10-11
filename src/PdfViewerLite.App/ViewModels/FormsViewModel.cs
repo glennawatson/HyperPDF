@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms;
 using PdfViewerLite.Core.Forms.Scripting;
 using PdfViewerLite.Core.Geometry;
@@ -55,7 +56,7 @@ public sealed partial class FormsViewModel : ReactiveObject
     public partial string EditText { get; set; } = string.Empty;
 
     /// <summary>Gets the document's form filler, or <see langword="null"/>.</summary>
-    private IFormFiller? Filler => ((_owner.TryGetDocument())?.GetFeature(typeof(IFormFiller)) as IFormFiller);
+    private IFormFiller? Filler => DocumentFeature<IFormFiller>.Get(_owner.TryGetDocument());
 
     /// <summary>Finds the fillable field under a point.</summary>
     /// <param name="page">The page.</param>
@@ -133,7 +134,7 @@ public sealed partial class FormsViewModel : ReactiveObject
     public async Task<FormActionResult> RunButtonAsync(FormField field)
     {
         ArgumentNullException.ThrowIfNull(field);
-        if (((_owner.TryGetDocument())?.GetFeature(typeof(IFormActions)) as IFormActions) is not
+        if (DocumentFeature<IFormActions>.Get(_owner.TryGetDocument()) is not
             {
             } actions)
         {
@@ -154,7 +155,7 @@ public sealed partial class FormsViewModel : ReactiveObject
     /// <param name="pageIndex">The zero based page index.</param>
     public void OnPageShown(int pageIndex)
     {
-        if (((_owner.TryGetDocument())?.GetFeature(typeof(IFormActions)) as IFormActions) is not null && PageOpenedCommand is ICommand command && command.CanExecute(pageIndex))
+        if (DocumentFeature<IFormActions>.Get(_owner.TryGetDocument()) is not null && PageOpenedCommand is ICommand command && command.CanExecute(pageIndex))
         {
             command.Execute(pageIndex);
         }
@@ -165,7 +166,7 @@ public sealed partial class FormsViewModel : ReactiveObject
     /// <returns>What happened.</returns>
     public async Task<FormActionResult> RunPageOpenedAsync(int pageIndex)
     {
-        if (((_owner.TryGetDocument())?.GetFeature(typeof(IFormActions)) as IFormActions) is not
+        if (DocumentFeature<IFormActions>.Get(_owner.TryGetDocument()) is not
             {
             } actions)
         {
@@ -406,7 +407,7 @@ public sealed partial class FormsViewModel : ReactiveObject
             return all;
         }
 
-        var order = ((_owner.TryGetDocument())?.GetFeature(typeof(IFormOrder)) as IFormOrder);
+        var order = DocumentFeature<IFormOrder>.Get(_owner.TryGetDocument());
         var sequence = new List<int>();
         for (var page = 0; page < _owner.PageCount; page++)
         {
@@ -482,7 +483,7 @@ public sealed partial class FormsViewModel : ReactiveObject
 
         _scripts = [with(StringComparer.Ordinal)];
         _calculated = [];
-        if (((_owner.TryGetDocument())?.GetFeature(typeof(IFormScriptSource)) as IFormScriptSource) is not
+        if (DocumentFeature<IFormScriptSource>.Get(_owner.TryGetDocument()) is not
             {
             } source)
         {
@@ -512,7 +513,7 @@ public sealed partial class FormsViewModel : ReactiveObject
     /// <param name="calculated">The calculated fields in page order, reordered in place.</param>
     private void OrderCalculations(List<FieldScripts> calculated)
     {
-        if (calculated.Count < 2 || ((_owner.TryGetDocument())?.GetFeature(typeof(IFormOrder)) as IFormOrder) is not
+        if (calculated.Count < 2 || DocumentFeature<IFormOrder>.Get(_owner.TryGetDocument()) is not
             {
             } source)
         {
@@ -552,7 +553,7 @@ public sealed partial class FormsViewModel : ReactiveObject
     private bool StartButton(FormField field)
     {
         Focused = field;
-        var actions = ((_owner.TryGetDocument()?.GetFeature(typeof(IFormActions))) as IFormActions);
+        var actions = DocumentFeature<IFormActions>.Get(_owner.TryGetDocument());
         if (actions is null || RunButtonCommand is not ICommand command || !command.CanExecute(field))
         {
             return false;

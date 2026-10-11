@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using PdfViewerLite.Core.Attachments;
+using PdfViewerLite.Core.Documents;
 
 namespace PdfViewerLite.HyperPdf;
 
@@ -16,6 +17,9 @@ internal sealed class HyperPdfAttachmentSourceService : IAttachmentSource
     /// <summary>Initializes a new instance of the <see cref="HyperPdfAttachmentSourceService"/> class.</summary>
     /// <param name="owner">The owning document.</param>
     internal HyperPdfAttachmentSourceService(HyperPdfDocument owner) => _owner = owner;
+
+    /// <inheritdoc/>
+    public IDocument Document => _owner;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

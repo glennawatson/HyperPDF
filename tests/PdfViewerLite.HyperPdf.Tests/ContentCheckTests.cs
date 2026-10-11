@@ -58,14 +58,14 @@ public sealed class ContentCheckTests
         try
         {
             using var document = new HyperPdfEngine().Open(path, null);
-            var check = (IContentCheck)DocumentFeatures.CastFeature(document, typeof(IContentCheck))!;
+            var check = DocumentFeature<IContentCheck>.Cast(document)!;
             await Assert.That(check.CheckDocument()).IsEqualTo(UnsupportedContent.XfaForm | UnsupportedContent.JavaScript);
             await Assert.That(check.CheckPage(0)).IsEqualTo(UnsupportedContent.Multimedia | UnsupportedContent.ThreeD | UnsupportedContent.JavaScript);
             await Assert.That(check.CheckPage(1)).IsEqualTo(UnsupportedContent.None);
 
             using var simple = new HyperPdfEngine().Open(plain, null);
-            await Assert.That(((IContentCheck)DocumentFeatures.CastFeature(simple, typeof(IContentCheck))!).CheckDocument()).IsEqualTo(UnsupportedContent.None);
-            await Assert.That(((IContentCheck)DocumentFeatures.CastFeature(simple, typeof(IContentCheck))!).CheckPage(0)).IsEqualTo(UnsupportedContent.None);
+            await Assert.That(DocumentFeature<IContentCheck>.Cast(simple)!.CheckDocument()).IsEqualTo(UnsupportedContent.None);
+            await Assert.That(DocumentFeature<IContentCheck>.Cast(simple)!.CheckPage(0)).IsEqualTo(UnsupportedContent.None);
         }
         finally
         {
@@ -80,7 +80,7 @@ public sealed class ContentCheckTests
     public async Task RecognisedFormScriptsAreNotFlagged()
     {
         using var test = new HyperPdfTestDocument(TestPdf.CreateCalculatedForm());
-        var check = (IContentCheck)DocumentFeatures.CastFeature(test.Document, typeof(IContentCheck))!;
+        var check = DocumentFeature<IContentCheck>.Cast(test.Document)!;
         await Assert.That(check.CheckPage(0)).IsEqualTo(UnsupportedContent.None);
         await Assert.That(check.CheckDocument()).IsEqualTo(UnsupportedContent.None);
     }
@@ -102,7 +102,7 @@ public sealed class ContentCheckTests
     public async Task MissingPagesHaveNoUnsupportedContent(Sample sample)
     {
         using var test = new HyperPdfTestDocument(CreateSample(sample));
-        var check = (IContentCheck)DocumentFeatures.CastFeature(test.Document, typeof(IContentCheck))!;
+        var check = DocumentFeature<IContentCheck>.Cast(test.Document)!;
         await Assert.That(check.CheckPage(MissingPage)).IsEqualTo(UnsupportedContent.None);
         await Assert.That(check.CheckPage(-1)).IsEqualTo(UnsupportedContent.None);
     }

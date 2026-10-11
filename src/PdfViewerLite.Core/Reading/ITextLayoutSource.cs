@@ -2,10 +2,12 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
+
 namespace PdfViewerLite.Core.Reading;
 
 /// <summary>A document that can describe where each character of a page is, for working out reading order.</summary>
-public interface ITextLayoutSource
+public interface ITextLayoutSource : IDocumentFeature
 {
     /// <summary>Appends every character of a page, in the engine's order; the index in the list is the character index.</summary>
     /// <param name="pageIndex">The zero based page index.</param>

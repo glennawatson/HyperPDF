@@ -18,13 +18,13 @@ public interface IDocument : IDisposable
     /// <summary>Gets a value indicating whether the document has been disposed.</summary>
     bool IsDisposed { get; }
 
-    /// <summary>Gets an optional document feature when the engine supports it.</summary>
+    /// <summary>Gets an optional document feature when the engine supports it. <see cref="DocumentFeature{TFeature}"/> gives it its interface type.</summary>
     /// <param name="featureType">The feature interface type.</param>
     /// <returns>The feature, or <see langword="null"/> when it is unsupported.</returns>
-    object? GetFeature(Type featureType)
+    IDocumentFeature? GetFeature(Type featureType)
     {
         ArgumentNullException.ThrowIfNull(featureType);
-        return featureType.IsInstanceOfType(this) ? this : null;
+        return featureType.IsInstanceOfType(this) ? this as IDocumentFeature : null;
     }
 
     /// <summary>Gets the size of every page, in points, without loading the pages.</summary>

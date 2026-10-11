@@ -28,7 +28,7 @@ public sealed partial class DocumentTabViewModel
     /// <returns>A task.</returns>
     internal async Task CheckContentAsync(IDocument document)
     {
-        if (((document)?.GetFeature(typeof(IContentCheck)) as IContentCheck) is not
+        if (DocumentFeature<IContentCheck>.Get(document) is not
             {
             } check)
         {

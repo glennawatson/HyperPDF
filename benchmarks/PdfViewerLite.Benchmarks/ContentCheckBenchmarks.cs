@@ -22,7 +22,7 @@ public class ContentCheckBenchmarks
     public void Setup()
     {
         _document = new(TestPdf.CreateWithUnsupportedContent());
-        _check = (IContentCheck)DocumentFeatures.CastFeature(_document.Document, typeof(IContentCheck))!;
+        _check = DocumentFeature<IContentCheck>.Cast(_document.Document)!;
     }
 
     /// <summary>Closes the document.</summary>

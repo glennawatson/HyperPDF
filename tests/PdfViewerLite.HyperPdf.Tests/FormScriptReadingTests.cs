@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Forms.Scripting;
 using PdfViewerLite.TestAssets;
 
@@ -24,7 +25,7 @@ public sealed class FormScriptReadingTests
         {
             using var document = new HyperPdfEngine().Open(path, null);
             var scripts = new List<FieldScripts>();
-            ((IFormScriptSource)PdfViewerLite.Core.Documents.DocumentFeatures.CastFeature(document, typeof(IFormScriptSource))!).GetScripts(0, scripts);
+            PdfViewerLite.Core.Documents.DocumentFeature<IFormScriptSource>.Cast(document)!.GetScripts(0, scripts);
             var byName = scripts.ToDictionary(static s => s.Name, StringComparer.Ordinal);
 
             await Assert.That(scripts.Count).IsEqualTo(Fields);

@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using PdfViewerLite.App.Services;
 using PdfViewerLite.Core.Annotations;
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Platform;
 using PdfViewerLite.Core.Settings;
 using PdfViewerLite.Core.Signatures;
@@ -60,7 +61,7 @@ public sealed partial class SignaturesViewModel : ReactiveObject
     /// <summary>Counts the document's signatures; called when the document loads.</summary>
     public void Refresh()
     {
-        SignatureCount = (((_owner.TryGetDocument())?.GetFeature(typeof(ISignatureSource)) as ISignatureSource))?.SignatureCount ?? 0;
+        SignatureCount = DocumentFeature<ISignatureSource>.Get(_owner.TryGetDocument())?.SignatureCount ?? 0;
         Signatures.Clear();
     }
 
@@ -152,7 +153,7 @@ public sealed partial class SignaturesViewModel : ReactiveObject
     private byte[]? ReadCurrent()
     {
         var document = _owner.TryGetDocument();
-        if (((document)?.GetFeature(typeof(IAnnotationEditor)) as IAnnotationEditor) is { HasUnsavedChanges: true } editor)
+        if (DocumentFeature<IAnnotationEditor>.Get(document) is { HasUnsavedChanges: true } editor)
         {
             using var stream = new MemoryStream();
             return editor.Save(stream) ? stream.ToArray() : null;
@@ -216,7 +217,7 @@ public sealed partial class SignaturesViewModel : ReactiveObject
     [ReactiveCommand]
     private async Task CheckAsync()
     {
-        if (((_owner.TryGetDocument())?.GetFeature(typeof(ISignatureSource)) as ISignatureSource) is not
+        if (DocumentFeature<ISignatureSource>.Get(_owner.TryGetDocument()) is not
             {
             } source)
         {

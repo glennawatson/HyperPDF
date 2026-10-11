@@ -79,7 +79,7 @@ internal sealed class RecordingPrinter : IPrintService
         PageCount = document.PageCount;
         PageText = document.GetText(0, 0, document.GetCharacterCount(0));
         List<PageAnnotation> annotations = [];
-        ((IAnnotationEditor)DocumentFeatures.CastFeature(document, typeof(IAnnotationEditor))!).GetAnnotations(0, annotations);
+        DocumentFeature<IAnnotationEditor>.Cast(document)!.GetAnnotations(0, annotations);
         AnnotationCount = annotations.Count;
         if (InkArea.Width > 0)
         {

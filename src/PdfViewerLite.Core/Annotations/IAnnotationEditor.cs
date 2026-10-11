@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 
 namespace PdfViewerLite.Core.Annotations;
@@ -10,7 +11,7 @@ namespace PdfViewerLite.Core.Annotations;
 /// Reads, adds and changes annotations, and saves the document. Implemented by documents that support editing;
 /// safe to call from any thread. Positions are in page space (points, top-left origin).
 /// </summary>
-public interface IAnnotationEditor
+public interface IAnnotationEditor : IDocumentFeature
 {
     /// <summary>Gets a value indicating whether the document has changes that are not saved.</summary>
     bool HasUnsavedChanges { get; }

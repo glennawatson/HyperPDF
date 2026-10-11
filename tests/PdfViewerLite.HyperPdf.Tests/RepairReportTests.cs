@@ -23,7 +23,7 @@ public sealed class RepairReportTests
         try
         {
             using var document = new HyperPdfEngine().Open(damaged, null);
-            var report = (IRepairReport)DocumentFeatures.CastFeature(document, typeof(IRepairReport))!;
+            var report = DocumentFeature<IRepairReport>.Cast(document)!;
             var notes = report.GetRepairs();
 
             await Assert.That(report.WasRepaired).IsTrue();
@@ -31,8 +31,8 @@ public sealed class RepairReportTests
             await Assert.That(RepairWarnings.Describe(notes)).Contains("index");
 
             using var clean = new HyperPdfEngine().Open(plain, null);
-            await Assert.That(((IRepairReport)DocumentFeatures.CastFeature(clean, typeof(IRepairReport))!).WasRepaired).IsFalse();
-            await Assert.That(((IRepairReport)DocumentFeatures.CastFeature(clean, typeof(IRepairReport))!).GetRepairs().Count).IsEqualTo(0);
+            await Assert.That(DocumentFeature<IRepairReport>.Cast(clean)!.WasRepaired).IsFalse();
+            await Assert.That(DocumentFeature<IRepairReport>.Cast(clean)!.GetRepairs().Count).IsEqualTo(0);
         }
         finally
         {

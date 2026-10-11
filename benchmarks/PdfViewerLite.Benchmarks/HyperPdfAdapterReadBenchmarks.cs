@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
-using HyperPdfLibrary.Document;
 using PdfViewerLite.Core.Documents;
 using PdfViewerLite.Core.Geometry;
 using PdfViewerLite.HyperPdf;
@@ -36,7 +35,7 @@ public class HyperPdfAdapterReadBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _document = new(PdfDocumentReader.Open(TestPdf.Create(Pages), null), "adapter-read-benchmark.pdf");
+        _document = new(BenchmarkDrawing.Open(TestPdf.Create(Pages), null, BenchmarkDrawing.CreateServices()), "adapter-read-benchmark.pdf");
         _ = WarmRead();
         _ = WarmRenderAndRead();
     }
