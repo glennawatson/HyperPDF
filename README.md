@@ -103,19 +103,6 @@ Spell checking uses the Windows and macOS spell checkers. On Linux it uses the i
 
 Linux uses X11 when available, then native Wayland. Native Wayland does not expose the required screen-reader tree. Use X11 for Linux screen-reader access. See [screen readers](docs/SCREEN-READERS.md) for navigation and other platform limits.
 
-## Build
-
-Use the SDK in [global.json](global.json). Everything builds for .NET 10 and .NET 11; releases are Native AOT builds from .NET 11. Native AOT needs a native compiler and zlib development files.
-
-```bash
-dotnet build HyperPdf.slnx
-dotnet test --solution HyperPdf.slnx
-dotnet run -f net11.0 --project src/HyperPdf.App -- some.pdf
-scripts/publish-linux.sh linux-x64
-```
-
-Install a Linux build with `packaging/linux/install.sh`. See [development rules](AGENTS.md).
-
 ## Report a problem
 
 Report a problem with the [bug form](https://github.com/glennawatson/HyperPDF/issues/new?template=bugs.yml). Suggest a change with the [feature form](https://github.com/glennawatson/HyperPDF/issues/new?template=features.yml).

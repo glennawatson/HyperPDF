@@ -50,6 +50,8 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 
 ## Verification
 
+Native AOT publishing needs a native compiler and zlib development files. Run the app with `dotnet run -f net11.0 --project src/PdfViewerLite.App -- some.pdf`; install a Linux build with `packaging/linux/install.sh`. Keep `README.md` for end users only; build, test and contributor notes belong here.
+
 ```bash
 dotnet build HyperPdf.slnx
 dotnet test --solution HyperPdf.slnx
