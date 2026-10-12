@@ -20,6 +20,18 @@
   "semanticCommitScope": "deps",
   "commitMessageAction": "bump",
   "osvVulnerabilityAlerts": true,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The veraPDF release scripts/InstallVeraPdf.cs installs for the PDF/A tests.",
+      "managerFilePatterns": ["/^verapdf\\.json$/"],
+      "matchStrings": ["\"version\":\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "veraPDF/veraPDF-apps",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v(?<version>.+)$",
+      "versioningTemplate": "regex:^(?<major>\\d+)\\.(?<minor>\\d*[02468])\\.(?<patch>\\d+)$"
+    }
+  ],
   "vulnerabilityAlerts": {
     "schedule": ["at any time"],
     "labels": ["dependencies", "security"]
@@ -78,6 +90,11 @@
       "matchPackageNames": ["glennawatson/actions-common"],
       "groupName": "shared actions",
       "automerge": false
+    },
+    {
+      "description": "veraPDF tags odd minors as development builds and posts release installers after tagging.",
+      "matchDepNames": ["veraPDF/veraPDF-apps"],
+      "minimumReleaseAge": "3 days"
     },
     {
       "matchDatasources": ["docker"],

@@ -121,7 +121,7 @@ Install a Linux build with `packaging/linux/install.sh`. See [development rules]
 The PDF/A tests check every file the library writes with [veraPDF](https://verapdf.org/), the reference PDF/A validator. veraPDF runs as a separate Java program; it is not part of the library. Without it the tests skip. To run them:
 
 1. Install Java 11 or later.
-2. Install veraPDF into a folder of your choice:
+2. Install veraPDF into a folder of your choice. The script installs the release named in [verapdf.json](verapdf.json), which Renovate keeps current:
 
    ```bash
    dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/pdfviewerlite/verapdf

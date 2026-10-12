@@ -1,0 +1,4 @@
+{
+  "comment": "The veraPDF release that scripts/InstallVeraPdf.cs installs for the PDF/A tests. Renovate updates it from the veraPDF/veraPDF-apps release tags.",
+  "version": "1.30.3"
+}
