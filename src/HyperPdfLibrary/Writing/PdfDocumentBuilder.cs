@@ -58,8 +58,8 @@ public sealed class PdfDocumentBuilder
     /// <summary>Gets or sets the catalog entries besides /Type and /Pages, such as /AcroForm, /Outlines and /PageLabels.</summary>
     internal PdfDictionary CatalogEntries { get; set; } = new(null);
 
-    /// <summary>Gets or sets the header version, such as 1.7 or 2.0.</summary>
-    internal PdfHeaderVersion Version { get; set; } = PdfHeaderVersion.Pdf17;
+    /// <summary>Gets or sets the header version; new documents are PDF 2.0 unless a PDF/A level needs an earlier one.</summary>
+    internal PdfHeaderVersion Version { get; set; } = PdfHeaderVersion.Pdf20;
 
     /// <summary>Reserves an object number to fill in later with <see cref="Set"/>, so objects can refer to each other.</summary>
     /// <returns>The new object's id.</returns>

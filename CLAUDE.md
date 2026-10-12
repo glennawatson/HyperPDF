@@ -67,11 +67,15 @@ Every change to a writer, editor or the optimiser must keep PDF/A output valid. 
 ```bash
 dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/pdfviewerlite/verapdf
 dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/pdfviewerlite/pdfa-corpus <the verapdf-pdfa* ids in the manifest>
+dotnet run --file scripts/FetchVeraPdfCorpus.cs -- ~/.cache/pdfviewerlite/verapdf-corpus
 PDFVIEWERLITE_VERAPDF=~/.cache/pdfviewerlite/verapdf PDFVIEWERLITE_PDFA_CORPUS_DIR=~/.cache/pdfviewerlite/pdfa-corpus \
+  PDFVIEWERLITE_VERAPDF_CORPUS=~/.cache/pdfviewerlite/verapdf-corpus \
   dotnet run --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*'
 ```
 
-The installer reads the release from `verapdf.json`, which Renovate updates. Set `PDFVIEWERLITE_PDFA_OUTPUT` to keep the files the tests write. CI lists the corpus ids in `.github/workflows/ci.yml`.
+The installer reads the release from `verapdf.json`, which Renovate updates; the same file pins the veraPDF corpus commit. Set `PDFVIEWERLITE_PDFA_OUTPUT` to keep the files the tests write. CI lists the corpus ids in `.github/workflows/ci.yml`.
+
+`PdfAValidator` must give veraPDF's pass or fail for every rule it checks on every corpus file; `PdfAValidatorAgreementTests` compares it with `tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-corpus-results.tsv`. After a veraPDF or corpus update, record that file again with `dotnet run --file scripts/RecordVeraPdfCorpusResults.cs -- <corpus> <verapdf home> <that file>`. A rule joins a checker's `Rules` list only when it agrees on the whole corpus.
 
 Warnings are failures. Verify all affected frameworks, saved output and user-visible behaviour. TUnit uses Microsoft.Testing.Platform; runner arguments follow `--`. With SDK 11, use absolute paths for `--project`. UI tests and benchmarks run headless. Set `HYPERPDF_SCREENSHOTS` to save UI frames.
 

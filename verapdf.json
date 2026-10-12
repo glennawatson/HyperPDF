@@ -1,4 +1,5 @@
 {
-  "comment": "The veraPDF release that scripts/InstallVeraPdf.cs installs for the PDF/A tests. Renovate updates it from the veraPDF/veraPDF-apps release tags.",
-  "version": "1.30.3"
+  "comment": "The veraPDF release that scripts/InstallVeraPdf.cs installs for the PDF/A tests. Renovate updates it from the veraPDF/veraPDF-apps release tags. corpusCommit pins the veraPDF-corpus checkout that scripts/FetchVeraPdfCorpus.cs fetches; after changing either value, rerun scripts/RecordVeraPdfCorpusResults.cs.",
+  "version": "1.30.3",
+  "corpusCommit": "bb75f4f0073d9350dfd058c0162a367e6fadf25e"
 }

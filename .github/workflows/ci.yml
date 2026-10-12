@@ -58,7 +58,7 @@ jobs:
   pdfa-validation:
     name: PDF/A output validation (veraPDF)
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -78,11 +78,15 @@ jobs:
         run: dotnet run --file scripts/InstallVeraPdf.cs -- "${{ runner.temp }}/verapdf"
       - name: Fetch verified veraPDF corpus files
         run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/pdfa-corpus" verapdf-pdfa1a-unicode-cmap verapdf-pdfa1b-info-title verapdf-pdfa1b-linearize-settle verapdf-pdfa1b-deep-references verapdf-pdfa1b-utf32le-xmp verapdf-pdfa1b-utf32be-bom-xmp verapdf-pdfa2a-language verapdf-pdfa2b-signed verapdf-pdfa2b-extension-schemas verapdf-pdfa2u-tounicode verapdf-pdfa3b-embedded-file verapdf-pdfa4-signed verapdf-pdfa4-pieceinfo verapdf-pdfa4e-embedded-file verapdf-pdfa4f-embedded-file
+      - name: Check out the veraPDF corpus
+        id: corpus
+        run: dotnet run --file scripts/FetchVeraPdfCorpus.cs -- "${{ runner.temp }}/verapdf-corpus"
       - name: Validate PDF/A output with veraPDF
         env:
           PDFVIEWERLITE_VERAPDF: ${{ steps.verapdf.outputs.verapdf-home }}
           PDFVIEWERLITE_REQUIRE_VERAPDF: '1'
           PDFVIEWERLITE_PDFA_CORPUS_DIR: ${{ runner.temp }}/pdfa-corpus
+          PDFVIEWERLITE_VERAPDF_CORPUS: ${{ steps.corpus.outputs.corpus-dir }}
           PDFVIEWERLITE_PDFA_OUTPUT: ${{ runner.temp }}/pdfa-output
         run: dotnet run --project "${{ github.workspace }}/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*' --report-trx --results-directory "${{ runner.temp }}/pdfa-output"
       - name: Upload PDF/A outputs
