@@ -116,9 +116,17 @@ internal static class PdfAEmbeddedFileRules
             return null;
         }
 
+        var bytes = file.DecodeToArray(context.CancellationToken);
+
+        // Most attachments are not PDFs; checking for the header the reader looks for avoids a failed open for each.
+        if (bytes.AsSpan(0, Math.Min(bytes.Length, StoreOpening.HeaderSearchLength)).IndexOf("%PDF-"u8) < 0)
+        {
+            return null;
+        }
+
         try
         {
-            using var document = PdfDocumentReader.Open(file.DecodeToArray(context.CancellationToken), null);
+            using var document = PdfDocumentReader.Open(bytes, null);
             if (PdfAValidator.ClaimedLevel(document) is not { } level || level is not (PdfALevel.PdfA1B or PdfALevel.PdfA2B or PdfALevel.PdfA4))
             {
                 return null;

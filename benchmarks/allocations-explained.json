@@ -763,6 +763,11 @@
   },
   {
     "type": "",
+    "frame": "HyperPdfLibrary.Conformance.PdfA",
+    "reason": "PDF/A validation is a user action that returns a report with one result per rule of the level. Each run builds its walk state (visited-object sets, font, colour space and glyph caches, operand stacks, the XMP tree and cross-reference sections) and the rule lists, then releases them. Validation never runs while rendering."
+  },
+  {
+    "type": "",
     "frame": "HyperPdfLibrary.Conformance.",
     "reason": "The conformance report is a user action that returns a report: the PDF/A claim, the output intents and one observation per page and font."
   },
