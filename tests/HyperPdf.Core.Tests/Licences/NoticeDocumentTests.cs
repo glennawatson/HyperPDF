@@ -94,6 +94,7 @@ public sealed class NoticeDocumentTests
     [Arguments("Apache-2.0", true)]
     [Arguments("MIT AND Apache-2.0", true)]
     [Arguments("(MIT OR Apache-2.0)", true)]
+    [Arguments("CC-BY-4.0", true)]
     [Arguments("GPL-3.0-only", false)]
     [Arguments("MIT AND LGPL-2.1-only", false)]
     [Arguments("", false)]

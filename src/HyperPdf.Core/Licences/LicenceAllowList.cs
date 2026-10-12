@@ -9,9 +9,13 @@ namespace HyperPdf.Core.Licences;
 /// <summary>The licences that components shipped with the app may use.</summary>
 public static class LicenceAllowList
 {
-    /// <summary>The SPDX ids allowed: MIT, BSD, Apache-2.0, OFL-1.1, Zlib, ISC, Unicode and MS-PL.</summary>
+    /// <summary>
+    /// The SPDX ids allowed: MIT, BSD, Apache-2.0, OFL-1.1, Zlib, ISC, Unicode, MS-PL, and CC-BY-4.0 for data that needs
+    /// only attribution, such as the veraPDF rule descriptions.
+    /// </summary>
     private static readonly FrozenSet<string> Allowed = new[]
     {
+        "CC-BY-4.0",
         "MIT",
         "BSD-2-Clause",
         "BSD-3-Clause",
