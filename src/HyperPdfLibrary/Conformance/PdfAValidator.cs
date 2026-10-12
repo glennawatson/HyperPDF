@@ -33,19 +33,9 @@ public static class PdfAValidator
     /// <param name="cancellationToken">Stops the check between objects.</param>
     /// <returns>The report.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public static PdfAValidationReport Validate(PdfDocument document, PdfALevel level, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(document);
-        var context = new PdfAValidationContext(document, level, cancellationToken);
-        var areas = PdfARuleAreas.All();
-        foreach (var area in areas)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            area.Check(context);
-        }
-
-        return BuildReport(context, areas);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfAValidationReport Validate(PdfDocument document, PdfALevel level, CancellationToken cancellationToken) =>
+        Validate(document, level, 0, cancellationToken);
 
     /// <summary>Checks a document against a PDF/A level, yielding between rule areas.</summary>
     /// <param name="document">The document.</param>
@@ -75,6 +65,27 @@ public static class PdfAValidator
     {
         ArgumentNullException.ThrowIfNull(document);
         return PdfALevels.FromClaim(PdfDocumentConformance.ReadPdfAClaim(PdfDocumentMetadata.GetXmp(document)));
+    }
+
+    /// <summary>Checks a document, possibly one embedded in the document being checked, against a PDF/A level.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="level">The level.</param>
+    /// <param name="depth">How many embedded files deep the document is; 0 for the document the caller passed.</param>
+    /// <param name="cancellationToken">Stops the check between objects.</param>
+    /// <returns>The report.</returns>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    internal static PdfAValidationReport Validate(PdfDocument document, PdfALevel level, int depth, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        var context = new PdfAValidationContext(document, level, depth, cancellationToken);
+        var areas = PdfARuleAreas.All();
+        foreach (var area in areas)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            area.Check(context);
+        }
+
+        return BuildReport(context, areas);
     }
 
     /// <summary>Turns the recorded failures into the report for the level's rules.</summary>

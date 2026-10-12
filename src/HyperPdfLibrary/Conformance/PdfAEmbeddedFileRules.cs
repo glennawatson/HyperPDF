@@ -24,6 +24,9 @@ internal static class PdfAEmbeddedFileRules
     /// <summary>The PDF/A part whose embedded files must be PDF/A-1, PDF/A-2 or PDF/A-4.</summary>
     private const int Part4 = 4;
 
+    /// <summary>The deepest embedded PDF that is validated; one nested more deeply is not proven valid.</summary>
+    private const int MaxNesting = 4;
+
     /// <summary>The keys of an /EF dictionary that hold embedded file streams.</summary>
     private static readonly KnownName[] FileKeys = [KnownName.F, KnownName.UF];
 
@@ -106,6 +109,13 @@ internal static class PdfAEmbeddedFileRules
     /// <returns>The level, or <see langword="null"/> when the file is not a PDF, claims another level or fails it.</returns>
     private static PdfALevel? EmbeddedLevel(PdfAValidationContext context, PdfStream file)
     {
+        // Each embedded PDF is validated in full, so nesting is cut off at a limit rather than followed without end. A
+        // file nested deeper than the limit is not proven valid.
+        if (context.Depth >= MaxNesting)
+        {
+            return null;
+        }
+
         try
         {
             using var document = PdfDocumentReader.Open(file.DecodeToArray(context.CancellationToken), null);
@@ -114,7 +124,7 @@ internal static class PdfAEmbeddedFileRules
                 return null;
             }
 
-            return PdfAValidator.Validate(document, level, context.CancellationToken).Passed ? level : null;
+            return PdfAValidator.Validate(document, level, context.Depth + 1, context.CancellationToken).Passed ? level : null;
         }
         catch (PdfException)
         {

@@ -22,10 +22,21 @@ internal sealed class PdfAValidationContext
     /// <param name="level">The level checked.</param>
     /// <param name="cancellationToken">Cancels the validation.</param>
     internal PdfAValidationContext(PdfDocument document, PdfALevel level, CancellationToken cancellationToken)
+        : this(document, level, 0, cancellationToken)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PdfAValidationContext"/> class for a nested document.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="level">The level checked.</param>
+    /// <param name="depth">How many embedded files deep the document is; 0 for the document the caller passed.</param>
+    /// <param name="cancellationToken">Cancels the validation.</param>
+    internal PdfAValidationContext(PdfDocument document, PdfALevel level, int depth, CancellationToken cancellationToken)
     {
         Document = document;
         Level = level;
         Part = PdfALevels.Part(level);
+        Depth = depth;
         CancellationToken = cancellationToken;
     }
 
@@ -37,6 +48,9 @@ internal sealed class PdfAValidationContext
 
     /// <summary>Gets the part of ISO 19005 checked: 1, 2, 3 or 4.</summary>
     internal int Part { get; }
+
+    /// <summary>Gets how many embedded files deep the document is; 0 for the document the caller passed.</summary>
+    internal int Depth { get; }
 
     /// <summary>Gets the token that cancels the validation.</summary>
     internal CancellationToken CancellationToken { get; }
