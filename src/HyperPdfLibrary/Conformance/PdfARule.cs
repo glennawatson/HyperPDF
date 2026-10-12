@@ -521,7 +521,7 @@ internal enum PdfARule
     /// Annotation types not defined in ISO 32000-2:2020, 12.5.6.1, Table 171 shall not be permitted. Additionally, the Sound, Screen, Movie, 3D and RichMedia types shall not be permitted.
     /// The FileAttachment type shall only be permitted in a PDF/A-4f compliant file as described in Annex A.
     /// </summary>
-    AnnotationTypePdfA4 = 125,
+    AnnotationTypePdfA4F = 125,
 
     /// <summary>
     /// Annotation types not defined in ISO 32000-2:2020, 12.5.6.1, Table 171 shall not be permitted. Additionally, the Sound, Screen, Movie and FileAttachment types shall not be
@@ -533,7 +533,7 @@ internal enum PdfARule
     /// Annotation types not defined in ISO 32000-2:2020, 12.5.6.1, Table 171 shall not be permitted. Additionally, the Sound, Screen, Movie, 3D, RichMedia and FileAttachment types shall
     /// not be permitted.
     /// </summary>
-    AnnotationTypePdfA4F = 127,
+    AnnotationTypePdfA4 = 127,
 
     /// <summary>
     /// ISO 32000-1:2008, 9.7.4, Table 117 requires that all embedded Type 2 CIDFonts in the CIDFont dictionary shall contain a CIDToGIDMap entry that shall be a stream mapping from CIDs

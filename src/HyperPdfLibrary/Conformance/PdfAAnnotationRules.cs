@@ -132,11 +132,8 @@ internal static class PdfAAnnotationRules
         var inPdfA4 = types.PdfA4.Contains(subtype);
         PdfAAnnotations.Require(context, types.PdfA1.Contains(subtype), PdfARule.AnnotationTypePdfA1, annotation);
         PdfAAnnotations.Require(context, inPdfA2, PdfARule.AnnotationTypePdfA2, annotation);
-
-        // The generated rule names for plain PDF/A-4 and PDF/A-4f are crossed: AnnotationTypePdfA4 is the PDF/A-4f rule
-        // (which also allows FileAttachment) and AnnotationTypePdfA4F the plain PDF/A-4 rule.
-        PdfAAnnotations.Require(context, inPdfA4 || subtype == types.FileAttachment, PdfARule.AnnotationTypePdfA4, annotation);
-        PdfAAnnotations.Require(context, inPdfA4, PdfARule.AnnotationTypePdfA4F, annotation);
+        PdfAAnnotations.Require(context, inPdfA4, PdfARule.AnnotationTypePdfA4, annotation);
+        PdfAAnnotations.Require(context, inPdfA4 || subtype == types.FileAttachment, PdfARule.AnnotationTypePdfA4F, annotation);
         PdfAAnnotations.Require(context, inPdfA4 || types.PdfA4E.Contains(subtype), PdfARule.AnnotationTypePdfA4E, annotation);
     }
 
@@ -154,6 +151,7 @@ internal static class PdfAAnnotationRules
         PdfAAnnotations.Require(context, present && printable && (flags & ForbiddenFlagsPdfA1) == 0, PdfARule.AnnotationFlagsPdfA1, annotation);
         PdfAAnnotations.Require(context, !present || (printable && (flags & ForbiddenFlags) == 0), PdfARule.AnnotationFlags, annotation);
         PdfAAnnotations.Require(context, popup || present, PdfARule.AnnotationFlagsPresent, annotation);
+
         // ISO 19005-4 also exempts annotations with no width and height. The current veraPDF profiles do too; the
         // profile bundled with veraPDF 1.30.3 predates that and still fails them.
         PdfAAnnotations.Require(context, popup || present || IsPoint(dictionary), PdfARule.AnnotationFlagsPresentPdfA4, annotation);
