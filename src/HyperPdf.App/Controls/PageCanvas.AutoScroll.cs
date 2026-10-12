@@ -39,7 +39,7 @@ public sealed partial class PageCanvas
     /// <returns><see langword="true"/> when the key was used.</returns>
     private static bool HandleAutoScrollKey(DocumentTabViewModel tab, KeyEventArgs e)
     {
-        if (!tab.IsAutoScrolling || (e.KeyModifiers & ~KeyModifiers.Shift) != 0)
+        if (!tab.PageTools.IsAutoScrolling || (e.KeyModifiers & ~KeyModifiers.Shift) != 0)
         {
             return false;
         }
@@ -48,19 +48,19 @@ public sealed partial class PageCanvas
         {
             case Key.Up or Key.OemPlus or Key.Add:
             {
-                _ = tab.ChangeAutoScrollSpeed(1);
+                _ = tab.PageTools.ChangeAutoScrollSpeed(1);
                 return true;
             }
 
             case Key.Down or Key.OemMinus or Key.Subtract:
             {
-                _ = tab.ChangeAutoScrollSpeed(-1);
+                _ = tab.PageTools.ChangeAutoScrollSpeed(-1);
                 return true;
             }
 
             case Key.Escape:
             {
-                tab.IsAutoScrolling = false;
+                tab.PageTools.IsAutoScrolling = false;
                 return true;
             }
 
@@ -113,7 +113,7 @@ public sealed partial class PageCanvas
     /// <param name="time">The frame time, unused because the scroller measures its own time.</param>
     private void OnAutoScrollFrame(TimeSpan time)
     {
-        if (!IsAutoScrollRunning || _scroller is null || Tab is not { IsAutoScrolling: true } tab)
+        if (!IsAutoScrollRunning || _scroller is null || Tab is not { PageTools.IsAutoScrolling: true } tab)
         {
             StopAutoScrollFrames();
             return;
@@ -122,12 +122,12 @@ public sealed partial class PageCanvas
         var now = Stopwatch.GetTimestamp();
         var seconds = Stopwatch.GetElapsedTime(_autoScrollLast, now).TotalSeconds;
         _autoScrollLast = now;
-        var distance = _autoScroller.Advance(seconds, tab.AutoScrollSpeed, tab.ReduceMotion);
+        var distance = _autoScroller.Advance(seconds, tab.PageTools.AutoScrollSpeed, tab.ReduceMotion);
         if (distance > 0 && !AutoScrollBy(distance))
         {
             // The end of the document: auto-scroll stops by itself.
             StopAutoScrollFrames();
-            tab.IsAutoScrolling = false;
+            tab.PageTools.IsAutoScrolling = false;
             return;
         }
 
@@ -172,12 +172,12 @@ public sealed partial class PageCanvas
     /// <returns><see langword="true"/> when the press stopped auto-scroll.</returns>
     private bool StopAutoScrollOnPress(PointerPressedEventArgs e)
     {
-        if (Tab is not { IsAutoScrolling: true } tab)
+        if (Tab is not { PageTools.IsAutoScrolling: true } tab)
         {
             return false;
         }
 
-        tab.IsAutoScrolling = false;
+        tab.PageTools.IsAutoScrolling = false;
         _ = Focus();
         e.Handled = true;
         return true;

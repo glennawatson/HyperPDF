@@ -20,18 +20,18 @@ public sealed class PageToolViewModelTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("tools.pdf", 1)]);
         var tab = main.SelectedTab!;
-        var start = tab.IsSelectTextTool;
+        var start = tab.PageTools.IsSelectTextTool;
 
-        _ = await tab.SetPageToolCommand.Execute(PageTool.Hand).ToTask();
-        var hand = (tab.IsHandTool, tab.IsSelectTextTool, tab.IsZoomAreaTool, tab.IsSnapshotTool);
-        _ = await tab.ToggleSnapshotToolCommand.Execute().ToTask();
-        var snapshot = tab.IsSnapshotTool;
-        _ = await tab.ToggleSnapshotToolCommand.Execute().ToTask();
+        _ = await tab.PageTools.SetPageToolCommand.Execute(PageTool.Hand).ToTask();
+        var hand = (tab.PageTools.IsHandTool, tab.PageTools.IsSelectTextTool, tab.PageTools.IsZoomAreaTool, tab.PageTools.IsSnapshotTool);
+        _ = await tab.PageTools.ToggleSnapshotToolCommand.Execute().ToTask();
+        var snapshot = tab.PageTools.IsSnapshotTool;
+        _ = await tab.PageTools.ToggleSnapshotToolCommand.Execute().ToTask();
 
         await Assert.That(start).IsTrue();
         await Assert.That(hand).IsEqualTo((true, false, false, false));
         await Assert.That(snapshot).IsTrue();
-        await Assert.That(tab.PageTool).IsEqualTo(PageTool.SelectText);
+        await Assert.That(tab.PageTools.PageTool).IsEqualTo(PageTool.SelectText);
     }
 
     /// <summary>Verifies the auto-scroll speed stays within its limits and its text tells the speed.</summary>
@@ -46,26 +46,26 @@ public sealed class PageToolViewModelTests
 
         for (var i = 0; i < AutoScroller.MaxSpeed; i++)
         {
-            _ = await tab.FasterAutoScrollCommand.Execute().ToTask();
+            _ = await tab.PageTools.FasterAutoScrollCommand.Execute().ToTask();
         }
 
-        var fastest = tab.AutoScrollSpeed;
-        var beyond = tab.ChangeAutoScrollSpeed(1);
+        var fastest = tab.PageTools.AutoScrollSpeed;
+        var beyond = tab.PageTools.ChangeAutoScrollSpeed(1);
         for (var i = 0; i < AutoScroller.MaxSpeed; i++)
         {
-            _ = await tab.SlowerAutoScrollCommand.Execute().ToTask();
+            _ = await tab.PageTools.SlowerAutoScrollCommand.Execute().ToTask();
         }
 
-        _ = await tab.ToggleAutoScrollCommand.Execute().ToTask();
-        var on = tab.IsAutoScrolling;
-        _ = await tab.StopAutoScrollCommand.Execute().ToTask();
+        _ = await tab.PageTools.ToggleAutoScrollCommand.Execute().ToTask();
+        var on = tab.PageTools.IsAutoScrolling;
+        _ = await tab.PageTools.StopAutoScrollCommand.Execute().ToTask();
 
         await Assert.That(fastest).IsEqualTo(AutoScroller.MaxSpeed);
         await Assert.That(beyond).IsFalse();
-        await Assert.That(tab.AutoScrollSpeed).IsEqualTo(AutoScroller.MinSpeed);
-        await Assert.That(tab.AutoScrollText).Contains($"speed {AutoScroller.MinSpeed} of {AutoScroller.MaxSpeed}");
+        await Assert.That(tab.PageTools.AutoScrollSpeed).IsEqualTo(AutoScroller.MinSpeed);
+        await Assert.That(tab.PageTools.AutoScrollText).Contains($"speed {AutoScroller.MinSpeed} of {AutoScroller.MaxSpeed}");
         await Assert.That(on).IsTrue();
-        await Assert.That(tab.IsAutoScrolling).IsFalse();
+        await Assert.That(tab.PageTools.IsAutoScrolling).IsFalse();
     }
 
     /// <summary>Verifies Select All asks the view to select the current page's text.</summary>
@@ -78,9 +78,9 @@ public sealed class PageToolViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("select.pdf", 1)]);
         var tab = main.SelectedTab!;
         var requests = 0;
-        using var watch = tab.SelectAllRequests.SubscribeSafe(_ => requests++, static _ => { });
+        using var watch = tab.PageTools.SelectAllRequests.SubscribeSafe(_ => requests++, static _ => { });
 
-        _ = await tab.SelectAllCommand.Execute().ToTask();
+        _ = await tab.PageTools.SelectAllCommand.Execute().ToTask();
 
         await Assert.That(requests).IsEqualTo(1);
     }

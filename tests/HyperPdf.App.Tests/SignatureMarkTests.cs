@@ -280,9 +280,9 @@ public sealed class SignatureMarkTests
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         printer.InkArea = await PlaceAsync(tab, style);
-        using var preview = tab.PrintPreviewInteraction.RegisterHandler(ConfirmWhenReadyAsync);
+        using var preview = tab.Printing.PrintPreviewInteraction.RegisterHandler(ConfirmWhenReadyAsync);
 
-        _ = await tab.PrintCommand.Execute().ToTask();
+        _ = await tab.Printing.PrintCommand.Execute().ToTask();
 
         await Assert.That(printer.AnnotationCount).IsGreaterThanOrEqualTo(0);
         await Assert.That(printer.InkPixels).IsGreaterThan(0);

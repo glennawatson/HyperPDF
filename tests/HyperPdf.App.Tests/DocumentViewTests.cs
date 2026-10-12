@@ -35,7 +35,7 @@ public sealed class DocumentViewTests
             var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
             main.SelectedTab = main.Tabs[1];
             await Assert.That(await UiWait.UntilAsync(() => ReferenceEquals(view.ViewModel, main.SelectedTab))).IsTrue();
-            var printing = main.SelectedTab.PrintCommand.Execute().ToTask();
+            var printing = main.SelectedTab.Printing.PrintCommand.Execute().ToTask();
             await Assert.That(await UiWait.UntilAsync(() => window.OwnedWindows.OfType<PrintPreviewWindow>().Any() || printing.IsCompleted)).IsTrue();
             var preview = window.OwnedWindows.OfType<PrintPreviewWindow>().SingleOrDefault();
             preview?.Close(false);

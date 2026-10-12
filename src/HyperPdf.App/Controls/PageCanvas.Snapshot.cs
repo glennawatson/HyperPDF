@@ -77,7 +77,7 @@ public sealed partial class PageCanvas
                 .ConfigureAwait(true);
             if (bitmap is null)
             {
-                tab.ReportSnapshot(FailedMessage);
+                tab.Notice = FailedMessage;
                 return;
             }
 
@@ -88,7 +88,7 @@ public sealed partial class PageCanvas
         catch (Exception error) when (error is not OutOfMemoryException)
         {
             OnError(error);
-            tab.ReportSnapshot(FailedMessage);
+            tab.Notice = FailedMessage;
         }
     }
 
@@ -123,7 +123,7 @@ public sealed partial class PageCanvas
             try
             {
                 await clipboard.SetBitmapAsync(bitmap).ConfigureAwait(true);
-                tab.ReportSnapshot(CopiedMessage);
+                tab.Notice = CopiedMessage;
                 return;
             }
             catch (NotSupportedException error)
@@ -133,7 +133,7 @@ public sealed partial class PageCanvas
             }
         }
 
-        var path = await tab.SaveImageInteraction.Handle(tab.SnapshotName).ToTask().ConfigureAwait(true);
+        var path = await tab.PageTools.SaveImageInteraction.Handle(tab.PageTools.SnapshotName).ToTask().ConfigureAwait(true);
         if (string.IsNullOrEmpty(path))
         {
             return;
@@ -142,15 +142,15 @@ public sealed partial class PageCanvas
         try
         {
             bitmap.Save(path, new PngBitmapEncoderOptions());
-            tab.ReportSnapshot($"This desktop's clipboard cannot hold images, so the image of the area was saved as {Path.GetFileName(path)}.");
+            tab.Notice = $"This desktop's clipboard cannot hold images, so the image of the area was saved as {Path.GetFileName(path)}.";
         }
         catch (IOException error)
         {
-            tab.ReportSnapshot($"Could not save the image: {error.Message}");
+            tab.Notice = $"Could not save the image: {error.Message}";
         }
         catch (UnauthorizedAccessException error)
         {
-            tab.ReportSnapshot($"Could not save the image: {error.Message}");
+            tab.Notice = $"Could not save the image: {error.Message}";
         }
     }
 }

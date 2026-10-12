@@ -67,9 +67,9 @@ public sealed class PrintTests
             AnnotationTextSize,
             AnnotationColors.Sand,
             AnnotationKind.TextBox);
-        using var handler = tab.PrintPreviewInteraction.RegisterHandler(ConfirmWhenReadyAsync);
+        using var handler = tab.Printing.PrintPreviewInteraction.RegisterHandler(ConfirmWhenReadyAsync);
 
-        _ = await tab.PrintCommand.Execute().ToTask();
+        _ = await tab.Printing.PrintCommand.Execute().ToTask();
 
         await Assert.That(printer.Title).IsEqualTo("print.pdf");
         await Assert.That(printer.PageText).Contains("Printed note");
@@ -88,13 +88,13 @@ public sealed class PrintTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("noprint.pdf", 1)]);
         var tab = main.SelectedTab!;
-        using var handler = tab.PrintPreviewInteraction.RegisterHandler(static context =>
+        using var handler = tab.Printing.PrintPreviewInteraction.RegisterHandler(static context =>
         {
             _ = context.Input.SystemDialogCommand.Execute().Subscribe();
             context.SetOutput(true);
         });
 
-        _ = await tab.PrintCommand.Execute().ToTask();
+        _ = await tab.Printing.PrintCommand.Execute().ToTask();
 
         await Assert.That(tab.Notice).IsEqualTo("Printing is not available on this desktop. Choose Save as PDF instead.");
     }
@@ -113,7 +113,7 @@ public sealed class PrintTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("range.pdf", RangePages)]);
         var tab = main.SelectedTab!;
         var sheets = 0;
-        using var handler = tab.PrintPreviewInteraction.RegisterHandler(async context =>
+        using var handler = tab.Printing.PrintPreviewInteraction.RegisterHandler(async context =>
         {
             var preview = context.Input;
             preview.PageChoice = PrintPageChoice.Custom;
@@ -128,7 +128,7 @@ public sealed class PrintTests
             context.SetOutput(true);
         });
 
-        _ = await tab.PrintCommand.Execute().ToTask();
+        _ = await tab.Printing.PrintCommand.Execute().ToTask();
 
         await Assert.That(sheets).IsEqualTo(ExpectedSheets);
         await Assert.That(printer.PageCount).IsEqualTo(ExpectedSheets);
@@ -150,7 +150,7 @@ public sealed class PrintTests
         var tab = main.SelectedTab!;
         var posterSheets = 0;
         var bookletSheets = 0;
-        using var handler = tab.PrintPreviewInteraction.RegisterHandler(async context =>
+        using var handler = tab.Printing.PrintPreviewInteraction.RegisterHandler(async context =>
         {
             var preview = context.Input;
             preview.LayoutIndex = PosterLayout;
@@ -162,7 +162,7 @@ public sealed class PrintTests
             context.SetOutput(true);
         });
 
-        _ = await tab.PrintCommand.Execute().ToTask();
+        _ = await tab.Printing.PrintCommand.Execute().ToTask();
 
         await Assert.That(posterSheets).IsEqualTo(RangePages * PosterSheetsPerPage);
         await Assert.That(bookletSheets).IsEqualTo(Booklet.SheetCount(RangePages) * BookletSides);

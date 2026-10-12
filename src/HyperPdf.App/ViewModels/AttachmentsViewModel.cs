@@ -136,7 +136,7 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
         }
 
         var path = Path.Combine(folder, name.Length > 0 ? name : UnnamedFile);
-        return Write(attachment, path) && await _owner.OpenFileAsync(path, 0).ConfigureAwait(true);
+        return Write(attachment, path) && await _owner.Links.OpenFileAsync(path, 0).ConfigureAwait(true);
     }
 
     /// <summary>Writes an embedded file to a path, saying what went wrong when it cannot.</summary>

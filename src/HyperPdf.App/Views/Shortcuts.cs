@@ -31,8 +31,8 @@ internal static class Shortcuts
         (new(Key.Enter, KeyModifiers.Alt), static vm => vm.PropertiesCommand),
         (new(Key.S, KeyModifiers.Control), static vm => vm.SelectedTab?.SaveCommand),
         (new(Key.S, KeyModifiers.Control | KeyModifiers.Shift), static vm => vm.SelectedTab?.SaveAsCommand),
-        (new(Key.P, KeyModifiers.Control), static vm => vm.SelectedTab?.PrintCommand),
-        (new(Key.P, KeyModifiers.Control | KeyModifiers.Shift), static vm => vm.SelectedTab?.PrintWithSystemDialogCommand),
+        (new(Key.P, KeyModifiers.Control), static vm => vm.SelectedTab?.Printing.PrintCommand),
+        (new(Key.P, KeyModifiers.Control | KeyModifiers.Shift), static vm => vm.SelectedTab?.Printing.PrintWithSystemDialogCommand),
         (new(Key.Z, KeyModifiers.Control), static vm => vm.SelectedTab?.Annotations.UndoCommand),
         (new(Key.Y, KeyModifiers.Control), static vm => vm.SelectedTab?.Annotations.RedoCommand),
         (new(Key.Z, KeyModifiers.Control | KeyModifiers.Shift), static vm => vm.SelectedTab?.Annotations.RedoCommand),
@@ -62,7 +62,7 @@ internal static class Shortcuts
         (new(Key.F5), static vm => vm.SelectedTab?.ReloadCommand),
         (new(Key.F5, KeyModifiers.Shift), static vm => vm.SelectedTab?.PresentCommand),
         (new(Key.H, KeyModifiers.Control), static vm => vm.SelectedTab?.ReadModeCommand),
-        (new(Key.H, KeyModifiers.Control | KeyModifiers.Shift), static vm => vm.SelectedTab?.ToggleAutoScrollCommand),
+        (new(Key.H, KeyModifiers.Control | KeyModifiers.Shift), static vm => vm.SelectedTab?.PageTools.ToggleAutoScrollCommand),
     ];
 
     /// <summary>

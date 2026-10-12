@@ -1071,7 +1071,7 @@ public sealed partial class PageCanvas : Control
         if (_wiredTab is { } old)
         {
             _ = old.CanvasClient.Advance();
-            old.IsAutoScrolling = false;
+            old.PageTools.IsAutoScrolling = false;
         }
 
         _renderTab = null;
@@ -1118,9 +1118,9 @@ public sealed partial class PageCanvas : Control
             tab.FillAndSign.WhenChanged(static x => x.Placement).Skip(1).SubscribeSafe(_ => InvalidateVisual(), OnError),
 
             // Moving around and grabbing content (PageCanvas.Navigation.cs, PageCanvas.AutoScroll.cs, PageCanvas.Area.cs).
-            tab.SelectAllRequests.SubscribeSafe(_ => OnSelectAllRequested(), OnError),
-            tab.WhenChanged(static x => x.IsAutoScrolling).SubscribeSafe(OnAutoScrollChanged, OnError),
-            tab.WhenChanged(static x => x.PageTool).Skip(1).SubscribeSafe(_ => OnPageToolChanged(), OnError),
+            tab.PageTools.SelectAllRequests.SubscribeSafe(_ => OnSelectAllRequested(), OnError),
+            tab.WhenChanged(static x => x.PageTools.IsAutoScrolling).SubscribeSafe(OnAutoScrollChanged, OnError),
+            tab.WhenChanged(static x => x.PageTools.PageTool).Skip(1).SubscribeSafe(_ => OnPageToolChanged(), OnError),
         ];
         var position = tab.Position;
         RebuildLayout();

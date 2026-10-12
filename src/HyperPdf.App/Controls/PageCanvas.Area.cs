@@ -39,7 +39,7 @@ public sealed partial class PageCanvas
     /// <returns><see langword="true"/> when the press starts an area.</returns>
     private bool BeginArea(PointerPressedEventArgs e, PointerPoint point)
     {
-        if (Tab is not { PageTool: PageTool.ZoomArea or PageTool.Snapshot } || !point.Properties.IsLeftButtonPressed)
+        if (Tab is not { PageTools.PageTool: PageTool.ZoomArea or PageTool.Snapshot } || !point.Properties.IsLeftButtonPressed)
         {
             return false;
         }
@@ -87,7 +87,7 @@ public sealed partial class PageCanvas
         }
 
         var area = Between(_areaStart, position);
-        if (tab.PageTool == PageTool.ZoomArea)
+        if (tab.PageTools.PageTool == PageTool.ZoomArea)
         {
             ZoomToArea(tab, area);
         }
@@ -111,12 +111,12 @@ public sealed partial class PageCanvas
             return true;
         }
 
-        if (tab.PageTool == PageTool.SelectText)
+        if (tab.PageTools.PageTool == PageTool.SelectText)
         {
             return false;
         }
 
-        tab.PageTool = PageTool.SelectText;
+        tab.PageTools.PageTool = PageTool.SelectText;
         Cursor = null;
         return true;
     }

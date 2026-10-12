@@ -12,8 +12,6 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Navigation;
-using HyperPdf.Core.Platform;
-using HyperPdf.Core.Printing;
 using HyperPdf.Core.Reading;
 using HyperPdf.Core.Rendering;
 using ReactiveUI;
@@ -33,9 +31,6 @@ namespace HyperPdf.App.ViewModels;
 [DebuggerDisplay("DocumentTabViewModel: {FileName}")]
 public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 {
-    /// <summary>How long after saving a file change notice is taken to be our own save.</summary>
-    private const long SelfSaveWindowMilliseconds = 2000;
-
     /// <summary>The width of tab hover previews, in device independent pixels.</summary>
     private const double PreviewSize = 180;
 
@@ -63,6 +58,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Emits text for the view to put on the clipboard.</summary>
     private readonly Signal<string> _copyRequests = new();
 
+    /// <summary>Follows changes other programs make to the open file.</summary>
+    private readonly TabFileWatch _fileWatch = new();
+
     /// <summary>Owns the subscriptions that react to this tab's own property changes.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
@@ -75,11 +73,17 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Whether the sidebar was shown before read mode put it away.</summary>
     private bool _sidebarBeforeReading;
 
-    /// <summary>When the file was last saved from this tab, so the change notice that follows is not taken for an outside edit.</summary>
-    private long _savedAt;
+    /// <summary>Saving an optimised copy, once used.</summary>
+    private TabCopyAction<OptimizeCopyViewModel>? _optimize;
 
-    /// <summary>Watches the file for changes once loaded.</summary>
-    private IDisposable? _fileWatch;
+    /// <summary>Saving a PDF/A copy, once used.</summary>
+    private TabCopyAction<ArchiveCopyViewModel>? _archive;
+
+    /// <summary>Applying redactions, once used.</summary>
+    private TabCopyAction<RedactionViewModel>? _redact;
+
+    /// <summary>Links to other files, once used.</summary>
+    private TabFileLinks? _links;
 
     /// <summary>The Read Aloud state, once used.</summary>
     private ReadAloudViewModel? _readAloud;
@@ -137,9 +141,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         PageTone = services.CurrentTheme.PageTone;
         _canGoBack = this.WhenChanged(static vm => vm.CanGoBack);
         _canGoForward = this.WhenChanged(static vm => vm.CanGoForward);
-        _canOptimize = this.WhenChanged(static vm => vm.CanOptimize);
-        _canArchive = this.WhenChanged(static vm => vm.CanArchive);
-        _canRedact = this.WhenChanged(static vm => vm.CanRedact);
+        Notices = new(source);
 
         NavigationRequests = new(_navigationRequests);
         UriRequests = new(_uriRequests);
@@ -428,6 +430,37 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets the Fill &amp; Sign state.</summary>
     public FillAndSignViewModel FillAndSign => field ??= new(this, _services);
 
+    /// <summary>Gets saving an optimised copy, for engines that can write one.</summary>
+    public TabCopyAction<OptimizeCopyViewModel> Optimize => _optimize ??= new(this, TabCopyActions.Optimize);
+
+    /// <summary>Gets saving a PDF/A copy, for engines that can write one.</summary>
+    public TabCopyAction<ArchiveCopyViewModel> Archive => _archive ??= new(this, TabCopyActions.Archive);
+
+    /// <summary>Gets applying redactions, for engines that can remove marked content for good.</summary>
+    public TabCopyAction<RedactionViewModel> Redact => _redact ??= new(this, TabCopyActions.Redact);
+
+    /// <summary>Gets the links to other files: PDFs open in a tab, other files with the desktop's app after asking.</summary>
+    public TabFileLinks Links => _links ??= new(this);
+
+    /// <summary>Gets the notices about content that cannot be shown and about a repaired file.</summary>
+    public TabNoticesViewModel Notices { get; }
+
+    /// <summary>Gets the page tools: select text, hand, zoom to area, snapshot and auto-scroll.</summary>
+    public PageToolsViewModel PageTools { get; } = new();
+
+    /// <summary>Gets how another PDF is opened in a tab, at a zero-based page; set by the window.</summary>
+    public Action<string, int>? OpenDocument { get; init; }
+
+    /// <summary>Gets how the window splits or unsplits the view of this document; set by the window.</summary>
+    public Action<DocumentTabViewModel>? ToggleSplitView { get; init; }
+
+    /// <summary>Gets a value indicating whether this is the second view of a split, which leaves file watching and messages to the first.</summary>
+    public bool IsSecondaryView { get; init; }
+
+    /// <summary>Gets a value indicating whether the window shows this document split into two views.</summary>
+    [Reactive]
+    public partial bool IsSplitView { get; internal set; }
+
     /// <summary>Gets a value indicating whether the document has annotations or form entries that are not saved.</summary>
     [Reactive]
     public partial bool HasUnsavedChanges { get; private set; }
@@ -457,8 +490,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial OutlineItemViewModel? SelectedOutlineItem { get; set; }
 
-    /// <summary>Gets the interaction showing the print preview; the output says whether to print.</summary>
-    public Interaction<PrintPreviewViewModel, bool> PrintPreviewInteraction { get; } = new();
+    /// <summary>Gets printing: the print preview, the desktop's print dialog and saving the printed pages as a PDF.</summary>
+    public TabPrintingViewModel Printing => field ??= new(this);
 
     /// <summary>Gets a message about the document that waits until dismissed, for example a failed save.</summary>
     [Reactive]
@@ -470,6 +503,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets a value indicating whether the file changed on disk and the user chose to be asked before reloading.</summary>
     [Reactive]
     public partial bool HasPendingReload { get; private set; }
+
+    /// <summary>Gets the application services, for the parts of the tab that need settings or desktop services.</summary>
+    internal AppServices Services => _services;
 
     /// <summary>Opens the document with cancellable I/O and loads its structure on the UI thread.</summary>
     /// <param name="cancellationToken">Cancels the open and first-page work.</param>
@@ -586,7 +622,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
             case LinkTargetKind.OtherDocument or LinkTargetKind.LaunchFile or LinkTargetKind.EmbeddedDocument:
                 {
-                    NavigateToFile(target);
+                    Links.NavigateToFile(target);
                     break;
                 }
 
@@ -852,6 +888,42 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Unload() => RenderHub.RemoveDocumentTiles(Source.Id);
 
+    /// <summary>Reloads the document from disk, keeping the current page.</summary>
+    /// <returns>A task for the selected tab's reload.</returns>
+    [ReactiveCommand]
+    public async Task ReloadAsync()
+    {
+        HasPendingReload = false;
+        var page = CurrentPageIndex;
+        var token = SelectedWorkToken;
+        RenderHub.Scheduler.Invalidate(Source.Id);
+        RenderHub.RemoveDocumentTiles(Source.Id);
+        Source.Reload();
+        IsLoaded = false;
+        _documentChanges.OnNext(RxVoid.Default);
+        if (_selectedWork is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await EnsureLoadedAsync(token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        GoToPage(page);
+        Search.Refresh();
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -864,45 +936,37 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         _measure?.Dispose();
         _annotations?.Dispose();
         _pages?.Dispose();
-        _fileWatch?.Dispose();
+        DisposeFeatures();
         Search.Dispose();
         _navigationRequests.Dispose();
         _uriRequests.Dispose();
-        _fileLaunchRequests.Dispose();
         _documentChanges.Dispose();
         _pageEdits.Dispose();
         _copyRequests.Dispose();
-        _selectAllRequests.Dispose();
         RenderHub.Scheduler.Invalidate(Source.Id);
         RenderHub.RemoveDocumentTiles(Source.Id);
         _ = CanvasClient.Advance();
         _ = ThumbnailClient.Advance();
     }
 
+    /// <summary>Reloads a changed file, or offers to, depending on the user's choice. Unsaved edits are never discarded silently.</summary>
+    internal void OnFileChanged()
+    {
+        var response = _fileWatch.Check(FilePath, _services.Settings.FileChangeAction, Source.HasUnsavedChanges);
+        if (response == FileChangeResponse.Ask)
+        {
+            HasPendingReload = true;
+        }
+        else if (response == FileChangeResponse.Reload)
+        {
+            _ = ReloadChangedFileAsync();
+        }
+    }
+
     /// <summary>Traces an error from a property subscription.</summary>
     /// <param name="error">The error.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void OnError(Exception error) => Trace.TraceError(error.ToString());
-
-    /// <summary>Deletes a file, ignoring failures.</summary>
-    /// <param name="path">The file.</param>
-    /// <returns><see langword="true"/> when deleted.</returns>
-    private static bool TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-            return true;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
 
     /// <summary>Cancels callbacks without blocking the UI thread, then releases the token source.</summary>
     /// <param name="work">The old selected-tab token source.</param>
@@ -926,7 +990,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     {
         if (outcome.Saved)
         {
-            _ = Interlocked.Exchange(ref _savedAt, Environment.TickCount64);
+            _fileWatch.MarkSaved();
         }
 
         if (outcome.Error is { } error)
@@ -1015,16 +1079,16 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
-        RefreshOptimize(document);
-        RefreshArchive(document);
-        RefreshRedaction(document);
+        Optimize.Refresh(document);
+        Archive.Refresh(document);
+        Redact.Refresh(document);
         _pages?.Refresh();
         if (!IsSecondaryView)
         {
             _services.RecentDocuments.Add(FilePath);
-            _ = CheckContentAsync(document);
-            CheckRepairs(document);
-            WatchFile();
+            _ = Notices.CheckContentAsync(document, Attachments.Items.Count);
+            Notices.CheckRepairs(document);
+            _fileWatch.Start(FilePath, OnFileChanged);
         }
 
         if (Source.Metadata?.WrappedFileName is { Length: > 0 } wrappedName)
@@ -1057,127 +1121,6 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Thumbnails = thumbnails;
         PageCount = sizes.Length;
         PageEntry = GetPageDisplay(CurrentPageIndex);
-    }
-
-    /// <summary>
-    /// Shows the print preview, then sends the file it built straight to the chosen printer, saves it as a PDF or opens
-    /// the desktop's print dialog, saying what happened in the notice.
-    /// </summary>
-    /// <returns>A task.</returns>
-    [ReactiveCommand]
-    private async Task PrintAsync()
-    {
-        using var preview = new PrintPreviewViewModel(this, _services);
-        if (!await PrintPreviewInteraction.Handle(preview).ToTask().ConfigureAwait(true))
-        {
-            return;
-        }
-
-        var destination = preview.Destination;
-        var label = preview.SelectedTarget?.Label ?? string.Empty;
-        var job = preview.JobOptions;
-        var file = preview.TakePrintFile();
-        if (destination == PrintDestination.SystemDialog)
-        {
-            _ = file is not null && TryDelete(file);
-            await PrintWithSystemDialogAsync().ConfigureAwait(true);
-            return;
-        }
-
-        if (file is null)
-        {
-            return;
-        }
-
-        try
-        {
-            if (destination == PrintDestination.SaveAsPdf)
-            {
-                await SavePrintAsPdfAsync(file).ConfigureAwait(true);
-                return;
-            }
-
-            var outcome = await _services.Platform.Printer.SubmitAsync(file, FileName, job, CancellationToken.None).ConfigureAwait(true);
-            Notice = outcome.Sent ? $"Sent to {label}." : $"Could not print: {outcome.Detail}";
-        }
-        finally
-        {
-            _ = TryDelete(file);
-        }
-    }
-
-    /// <summary>Hands the whole document, as it looks now, straight to the desktop's print dialog.</summary>
-    /// <returns>A task.</returns>
-    [ReactiveCommand]
-    private async Task PrintWithSystemDialogAsync()
-    {
-        var printer = _services.Platform.Printer;
-        if (!printer.IsAvailable)
-        {
-            Notice = "Printing is not available on this desktop. Choose Save as PDF instead.";
-            return;
-        }
-
-        if (DocumentFeature<IPageExporter>.Get(TryGetDocument()) is not
-            {
-            } exporter || Source.PageCount == 0)
-        {
-            return;
-        }
-
-        var file = Path.Combine(Path.GetTempPath(), $"hyperpdf-print-{Guid.NewGuid():N}.pdf");
-        try
-        {
-            var pages = new int[Source.PageCount];
-            for (var i = 0; i < pages.Length; i++)
-            {
-                pages[i] = i;
-            }
-
-            bool written;
-            await using (var stream = File.Create(file))
-            {
-                written = exporter.ExportPages(pages, SheetLayout.Default, stream);
-            }
-
-            if (!written)
-            {
-                Notice = "Could not prepare the document for printing.";
-            }
-            else if (!await printer.PrintAsync(file, FileName, CancellationToken.None).ConfigureAwait(true))
-            {
-                Notice = "The print dialog could not be opened.";
-            }
-        }
-        finally
-        {
-            _ = TryDelete(file);
-        }
-    }
-
-    /// <summary>Asks where to save the printed pages as a PDF and copies them there.</summary>
-    /// <param name="file">The printed pages.</param>
-    /// <returns>A task.</returns>
-    private async Task SavePrintAsPdfAsync(string file)
-    {
-        var path = await SaveAsInteraction.Handle(FileName).ToTask().ConfigureAwait(true);
-        if (string.IsNullOrEmpty(path))
-        {
-            return;
-        }
-
-        try
-        {
-            File.Copy(file, path, true);
-        }
-        catch (IOException ex)
-        {
-            Notice = $"Could not save: {ex.Message}";
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Notice = $"Could not save: {ex.Message}";
-        }
     }
 
     /// <summary>Asks where to save a copy and saves it there.</summary>
@@ -1483,4 +1426,43 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             SidebarMode = mode;
         }
     }
+
+    /// <summary>Reloads on the UI thread while observing errors from the file watcher callback.</summary>
+    /// <returns>A task.</returns>
+    private async Task ReloadChangedFileAsync()
+    {
+        try
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+        catch (Exception error)
+        {
+            Trace.TraceError(error.ToString());
+        }
+    }
+
+    /// <summary>Releases the copy commands, links, page tools and file watch.</summary>
+    private void DisposeFeatures()
+    {
+        _optimize?.Dispose();
+        _archive?.Dispose();
+        _redact?.Dispose();
+        _links?.Dispose();
+        PageTools.Dispose();
+        _fileWatch.Dispose();
+    }
+
+    /// <summary>Checks an open document again for repairs, because some damage shows only once a page is read or drawn.</summary>
+    private void CheckRepairsOfOpenDocument()
+    {
+        if (!Notices.RepairNoticeShown && IsLoaded && Source.IsOpen)
+        {
+            Notices.CheckRepairs(Source.Acquire());
+        }
+    }
+
+    /// <summary>Splits the view in two, or puts the second view away.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SplitView() => ToggleSplitView?.Invoke(this);
 }

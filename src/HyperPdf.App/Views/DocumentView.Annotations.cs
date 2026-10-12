@@ -42,8 +42,8 @@ public sealed partial class DocumentView
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.PolyLineItem, Parameter(AnnotationTool.PolyLine)));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.RedactAreaItem, Parameter(AnnotationTool.Redact)));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.RedactTextItem, Parameter(AnnotationTool.RedactText)));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.CanRedact, static v => v.RedactAreaItem.IsEnabled));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.CanRedact, static v => v.RedactTextItem.IsEnabled));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Redact.CanRun, static v => v.RedactAreaItem.IsEnabled));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Redact.CanRun, static v => v.RedactTextItem.IsEnabled));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.CustomStampCommand, static v => v.CustomStampItem));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.PictureStampCommand, static v => v.PictureStampItem));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetColorCommand, static v => v.PurpleItem, Parameter("Purple")));

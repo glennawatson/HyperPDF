@@ -294,8 +294,8 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.LayoutMode, static v => v.DualLayoutItem.IsChecked, static mode => mode == PageLayoutMode.Dual));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.LayoutMode, static v => v.CoverLayoutItem.IsChecked, static mode => mode == PageLayoutMode.DualCover));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveItem));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PrintCommand, static v => v.PrintItem));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.PrintPreviewInteraction), ShowPrintPreviewAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Printing.PrintCommand, static v => v.PrintItem));
+        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Printing.PrintPreviewInteraction), ShowPrintPreviewAsync));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.PresentCommand, static v => v.PresentItem));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ShowsChrome, static v => v.Chrome.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsReading, static v => v.ReadModeBar.IsVisible));
@@ -338,24 +338,24 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     /// <param name="bindings">The bindings.</param>
     private void BindPageTools(MultipleDisposable bindings)
     {
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetPageToolCommand, static v => v.SelectTextToolItem, Parameter(PageTool.SelectText)));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetPageToolCommand, static v => v.HandToolItem, Parameter(PageTool.Hand)));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetPageToolCommand, static v => v.ZoomAreaToolItem, Parameter(PageTool.ZoomArea)));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.ToggleSnapshotToolCommand, static v => v.SnapshotToolItem));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsSelectTextTool, static v => v.SelectTextToolItem.IsChecked));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsHandTool, static v => v.HandToolItem.IsChecked));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsZoomAreaTool, static v => v.ZoomAreaToolItem.IsChecked));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsSnapshotTool, static v => v.SnapshotToolItem.IsChecked));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.IsAutoScrolling, static v => v.AutoScrollItem.IsChecked, static on => on, static on => on));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsAutoScrolling, static v => v.AutoScrollBar.IsVisible));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.AutoScrollText, static v => v.AutoScrollText.Text));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SlowerAutoScrollCommand, static v => v.AutoScrollSlowerButton));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.FasterAutoScrollCommand, static v => v.AutoScrollFasterButton));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.StopAutoScrollCommand, static v => v.AutoScrollStopButton));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SetPageToolCommand, static v => v.SelectTextToolItem, Parameter(PageTool.SelectText)));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SetPageToolCommand, static v => v.HandToolItem, Parameter(PageTool.Hand)));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SetPageToolCommand, static v => v.ZoomAreaToolItem, Parameter(PageTool.ZoomArea)));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.ToggleSnapshotToolCommand, static v => v.SnapshotToolItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.PageTools.IsSelectTextTool, static v => v.SelectTextToolItem.IsChecked));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.PageTools.IsHandTool, static v => v.HandToolItem.IsChecked));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.PageTools.IsZoomAreaTool, static v => v.ZoomAreaToolItem.IsChecked));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.PageTools.IsSnapshotTool, static v => v.SnapshotToolItem.IsChecked));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.PageTools.IsAutoScrolling, static v => v.AutoScrollItem.IsChecked, static on => on, static on => on));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.PageTools.IsAutoScrolling, static v => v.AutoScrollBar.IsVisible));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.PageTools.AutoScrollText, static v => v.AutoScrollText.Text));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SlowerAutoScrollCommand, static v => v.AutoScrollSlowerButton));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.FasterAutoScrollCommand, static v => v.AutoScrollFasterButton));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.StopAutoScrollCommand, static v => v.AutoScrollStopButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.FirstPageCommand, static v => v.FirstPageItem));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.LastPageCommand, static v => v.LastPageItem));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SelectAllCommand, static v => v.SelectAllItem));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.SaveImageInteraction), SaveImageAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SelectAllCommand, static v => v.SelectAllItem));
+        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.PageTools.SaveImageInteraction), SaveImageAsync));
     }
 
     /// <summary>Binds the Annotate and Fill &amp; Sign tool rows.</summary>
@@ -594,18 +594,22 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.WhenChanged(static v => v.ViewModel).BindTo(this, static v => v.Canvas.Tab));
         bindings.Add(PageArea.ObserveRouted(InputElement.PointerPressedEvent, RoutingStrategies.Tunnel).SubscribeSafe(StopAutoScrollOnPagePress, OnError));
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.UriRequests).SwitchTo().SubscribeSafe(OpenUri, OnError));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ContentWarning, static v => v.ContentWarningText.Text));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ContentWarning, static v => v.ContentWarningBar.IsVisible, static warning => warning is not null));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.DismissContentWarningCommand, static v => v.DismissContentWarningButton));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.RepairNotice, static v => v.RepairNoticeText.Text));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.RepairNotice, static v => v.RepairNoticeBar.IsVisible, static notice => notice is not null));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.RepairDetails, static v => v.RepairDetailsText.Text));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.RepairDetails, static v => v.RepairDetailsText.IsVisible, static details => details is not null));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.RepairDetails, static v => v.ToggleRepairDetailsButton.Content, static details => details is null ? "Details" : "Hide details"));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.ToggleRepairDetailsCommand, static v => v.ToggleRepairDetailsButton));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.DismissRepairNoticeCommand, static v => v.DismissRepairNoticeButton));
-        bindings.Add(this.WhenChanged(static v => v.ViewModel!.FileLaunchRequests).SwitchMap(static requests => requests).SubscribeSafe(LaunchFile, OnError));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.ConfirmOpenFileInteraction), ConfirmOpenFileAsync));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.ContentWarning, static v => v.ContentWarningText.Text));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.ContentWarning, static v => v.ContentWarningBar.IsVisible, static warning => warning is not null));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Notices.DismissContentWarningCommand, static v => v.DismissContentWarningButton));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RepairNotice, static v => v.RepairNoticeText.Text));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RepairNotice, static v => v.RepairNoticeBar.IsVisible, static notice => notice is not null));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RepairDetails, static v => v.RepairDetailsText.Text));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RepairDetails, static v => v.RepairDetailsText.IsVisible, static details => details is not null));
+        bindings.Add(this.OneWayBind(
+            ViewModel,
+            static vm => vm.Notices.RepairDetails,
+            static v => v.ToggleRepairDetailsButton.Content,
+            static details => details is null ? "Details" : "Hide details"));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Notices.ToggleRepairDetailsCommand, static v => v.ToggleRepairDetailsButton));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Notices.DismissRepairNoticeCommand, static v => v.DismissRepairNoticeButton));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Links.FileLaunchRequests).SwitchMap(static requests => requests).SubscribeSafe(LaunchFile, OnError));
+        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Links.ConfirmOpenFileInteraction), ConfirmOpenFileAsync));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ErrorMessage, static v => v.ErrorText.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ErrorMessage, static v => v.ErrorPanel.IsVisible, static message => message is not null));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.NeedsPassword, static v => v.PasswordPanel.IsVisible));
@@ -627,12 +631,12 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     /// <param name="e">The pointer press.</param>
     private void StopAutoScrollOnPagePress(PointerPressedEventArgs e)
     {
-        if (ViewModel is not { IsAutoScrolling: true } tab)
+        if (ViewModel is not { PageTools.IsAutoScrolling: true } tab)
         {
             return;
         }
 
-        tab.IsAutoScrolling = false;
+        tab.PageTools.IsAutoScrolling = false;
         _ = Canvas.Focus();
         e.Handled = true;
     }
@@ -931,15 +935,15 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     /// <param name="bindings">The bindings.</param>
     private void BindRedaction(MultipleDisposable bindings)
     {
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.OptimizeCopyCommand, static v => v.OptimizeCopyItem));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.OptimizeMenuText, static v => v.OptimizeCopyItem.Header));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.OptimizeInteraction), ShowOptimizeAsync));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.ArchiveCopyCommand, static v => v.ArchiveCopyItem));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ArchiveMenuText, static v => v.ArchiveCopyItem.Header));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.ArchiveInteraction), ShowArchiveAsync));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.ApplyRedactionsCommand, static v => v.ApplyRedactionsItem));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.RedactMenuText, static v => v.ApplyRedactionsItem.Header));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.RedactInteraction), ShowRedactionAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Optimize.RunCommand, static v => v.OptimizeCopyItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Optimize.MenuText, static v => v.OptimizeCopyItem.Header));
+        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Optimize.Interaction), ShowOptimizeAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Archive.RunCommand, static v => v.ArchiveCopyItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Archive.MenuText, static v => v.ArchiveCopyItem.Header));
+        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Archive.Interaction), ShowArchiveAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Redact.RunCommand, static v => v.ApplyRedactionsItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Redact.MenuText, static v => v.ApplyRedactionsItem.Header));
+        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Redact.Interaction), ShowRedactionAsync));
     }
 
     /// <summary>Shows the "Apply Redactions" window.</summary>

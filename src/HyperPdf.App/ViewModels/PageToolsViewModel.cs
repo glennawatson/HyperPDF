@@ -2,9 +2,11 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Navigation;
+using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Signals;
@@ -13,10 +15,11 @@ using ReactiveUI.SourceGenerators;
 namespace HyperPdf.App.ViewModels;
 
 /// <summary>
-/// Moving around and grabbing content: the select text, hand, zoom to area and snapshot tools, auto-scroll and
+/// Moving around and grabbing content in a tab: the select text, hand, zoom to area and snapshot tools, auto-scroll and
 /// selecting all the text on a page.
 /// </summary>
-public sealed partial class DocumentTabViewModel
+[DebuggerDisplay("PageToolsViewModel: {PageTool}")]
+public sealed partial class PageToolsViewModel : ReactiveObject, IDisposable
 {
     /// <summary>The file name suggested when a snapshot is saved as a picture.</summary>
     private const string SnapshotFileName = "snapshot.png";
@@ -76,10 +79,9 @@ public sealed partial class DocumentTabViewModel
         return true;
     }
 
-    /// <summary>Says what happened to a snapshot.</summary>
-    /// <param name="message">The message.</param>
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void ReportSnapshot(string message) => Notice = message;
+    public void Dispose() => _selectAllRequests.Dispose();
 
     /// <summary>Chooses what dragging on the pages does.</summary>
     /// <param name="tool">The tool.</param>

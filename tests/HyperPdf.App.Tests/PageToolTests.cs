@@ -75,7 +75,7 @@ public sealed class PageToolTests
         try
         {
             var (tab, canvas, scroller, view) = Parts(window, main);
-            _ = await tab.SetPageToolCommand.Execute(PageTool.Hand).ToTask();
+            _ = await tab.PageTools.SetPageToolCommand.Execute(PageTool.Hand).ToTask();
             _ = await tab.SetZoomCommand.Execute(WideZoom).ToTask();
             _ = await UiWait.UntilAsync(() => scroller.Extent.Width > scroller.Viewport.Width);
             var before = scroller.Offset;
@@ -118,7 +118,7 @@ public sealed class PageToolTests
             window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
             var space = await UiWait.UntilAsync(() => Math.Abs(scroller.Offset.Y - before - DragDistance) < Tolerance);
 
-            await Assert.That(tab.PageTool).IsEqualTo(PageTool.SelectText);
+            await Assert.That(tab.PageTools.PageTool).IsEqualTo(PageTool.SelectText);
             await Assert.That(middle).IsTrue();
             await Assert.That(space).IsTrue();
         }
@@ -167,7 +167,7 @@ public sealed class PageToolTests
         {
             var (tab, _, scroller, view) = Parts(window, main);
             _ = await tab.SetZoomCommand.Execute("100").ToTask();
-            _ = await tab.SetPageToolCommand.Execute(PageTool.ZoomArea).ToTask();
+            _ = await tab.PageTools.SetPageToolCommand.Execute(PageTool.ZoomArea).ToTask();
             var start = Start(scroller, window);
 
             // Escape during the drag leaves the zoom alone.
@@ -184,7 +184,7 @@ public sealed class PageToolTests
             var zoomed = await UiWait.UntilAsync(() => Math.Abs(tab.Zoom - expected) < ZoomTolerance);
 
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
-            var back = await UiWait.UntilAsync(() => tab.PageTool == PageTool.SelectText);
+            var back = await UiWait.UntilAsync(() => tab.PageTools.PageTool == PageTool.SelectText);
 
             await Assert.That(cancelled).IsEqualTo(1).Within(ZoomTolerance);
             await Assert.That(zoomed).IsTrue();
@@ -251,7 +251,7 @@ public sealed class PageToolTests
 
             canvas.ClearSelection();
             _ = await tab.ToggleCaretModeCommand.Execute().ToTask();
-            _ = await tab.SelectAllCommand.Execute().ToTask();
+            _ = await tab.PageTools.SelectAllCommand.Execute().ToTask();
             var fromMenu = await UiWait.UntilAsync(() => canvas.GetSelectedText() == text);
 
             await Assert.That(count).IsGreaterThan(0);
@@ -278,7 +278,7 @@ public sealed class PageToolTests
         {
             var (tab, canvas, scroller, view) = Parts(window, main);
             _ = await tab.SetZoomCommand.Execute("100").ToTask();
-            _ = await tab.ToggleSnapshotToolCommand.Execute().ToTask();
+            _ = await tab.PageTools.ToggleSnapshotToolCommand.Execute().ToTask();
             var chosen = view.SnapshotToolItem.IsChecked;
             var start = Start(scroller, window);
             Drag(window, start, start + new Vector(AreaWidth, AreaHeight), MouseButton.Left, RawInputModifiers.None);
@@ -318,16 +318,16 @@ public sealed class PageToolTests
             var moving = await UiWait.UntilAsync(() => scroller.Offset.Y > before + Tolerance);
             var barShown = view.AutoScrollBar.IsVisible;
             window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
-            var faster = tab.AutoScrollSpeed;
+            var faster = tab.PageTools.AutoScrollSpeed;
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
-            var stopped = await UiWait.UntilAsync(() => !tab.IsAutoScrolling && !canvas.IsAutoScrollRunning && !view.AutoScrollBar.IsVisible);
+            var stopped = await UiWait.UntilAsync(() => !tab.PageTools.IsAutoScrolling && !canvas.IsAutoScrollRunning && !view.AutoScrollBar.IsVisible);
 
-            _ = await tab.ToggleAutoScrollCommand.Execute().ToTask();
+            _ = await tab.PageTools.ToggleAutoScrollCommand.Execute().ToTask();
             var restarted = await UiWait.UntilAsync(() => canvas.IsAutoScrollRunning && view.AutoScrollBar.IsVisible);
             window.UpdateLayout();
             window.MouseDown(Start(scroller, window), MouseButton.Left);
             window.MouseUp(Start(scroller, window), MouseButton.Left);
-            var clickStopped = await UiWait.UntilAsync(() => !tab.IsAutoScrolling && !view.AutoScrollBar.IsVisible);
+            var clickStopped = await UiWait.UntilAsync(() => !tab.PageTools.IsAutoScrolling && !view.AutoScrollBar.IsVisible);
 
             await Assert.That(moving).IsTrue();
             await Assert.That(barShown).IsTrue();
@@ -355,8 +355,8 @@ public sealed class PageToolTests
         try
         {
             var (tab, canvas, scroller, _) = Parts(window, main);
-            _ = tab.ChangeAutoScrollSpeed(-AutoScroller.MaxSpeed);
-            _ = await tab.ToggleAutoScrollCommand.Execute().ToTask();
+            _ = tab.PageTools.ChangeAutoScrollSpeed(-AutoScroller.MaxSpeed);
+            _ = await tab.PageTools.ToggleAutoScrollCommand.Execute().ToTask();
             _ = await UiWait.UntilAsync(() => canvas.IsAutoScrollRunning);
             window.UpdateLayout();
 
@@ -367,7 +367,7 @@ public sealed class PageToolTests
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
 
-            var stopped = await UiWait.UntilAsync(() => !tab.IsAutoScrolling);
+            var stopped = await UiWait.UntilAsync(() => !tab.PageTools.IsAutoScrolling);
             await Assert.That(stopped).IsTrue();
         }
         finally
@@ -390,14 +390,14 @@ public sealed class PageToolTests
         {
             var (tab, _, scroller, _) = Parts(window, main);
             var offsets = new List<double>();
-            _ = await tab.ToggleAutoScrollCommand.Execute().ToTask();
+            _ = await tab.PageTools.ToggleAutoScrollCommand.Execute().ToTask();
             var start = scroller.Offset.Y;
             _ = await UiWait.UntilAsync(() =>
             {
                 offsets.Add(scroller.Offset.Y - start);
                 return scroller.Offset.Y > start + AutoScroller.LineDistance;
             });
-            tab.IsAutoScrolling = false;
+            tab.PageTools.IsAutoScrolling = false;
 
             // Every offset seen is a whole number of lines: the pages never glide between them.
             var partial = offsets.Where(static offset => Math.Abs(Math.IEEERemainder(offset, AutoScroller.LineDistance)) > Tolerance).ToArray();

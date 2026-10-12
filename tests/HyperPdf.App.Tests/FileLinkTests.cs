@@ -54,12 +54,12 @@ public sealed class FileLinkTests
         var tab = main.SelectedTab!;
         string? asked = null;
         string? launched = null;
-        using var handler = tab.ConfirmOpenFileInteraction.RegisterHandler(context =>
+        using var handler = tab.Links.ConfirmOpenFileInteraction.RegisterHandler(context =>
         {
             asked = context.Input;
             context.SetOutput(agree);
         });
-        using var launches = tab.FileLaunchRequests.SubscribeSafe(path => launched = path, static _ => { });
+        using var launches = tab.Links.FileLaunchRequests.SubscribeSafe(path => launched = path, static _ => { });
 
         tab.Navigate(Target(tab, LinkTargetKind.LaunchFile));
 
@@ -67,7 +67,7 @@ public sealed class FileLinkTests
         await Assert.That(asked).IsEqualTo(TestPdf.LaunchedFileName);
 
         // Opening the same file directly returns once the answer is acted on, so a refusal needs no wait for a launch that never comes.
-        await Assert.That(await tab.OpenFileAsync(notes, 0)).IsEqualTo(agree);
+        await Assert.That(await tab.Links.OpenFileAsync(notes, 0)).IsEqualTo(agree);
         await Assert.That(launched).IsEqualTo(agree ? notes : null);
     }
 
@@ -80,7 +80,7 @@ public sealed class FileLinkTests
         using var main = await OpenLinksAsync(test);
         var tab = main.SelectedTab!;
         var asked = false;
-        using var handler = tab.ConfirmOpenFileInteraction.RegisterHandler(context =>
+        using var handler = tab.Links.ConfirmOpenFileInteraction.RegisterHandler(context =>
         {
             asked = true;
             context.SetOutput(true);
@@ -92,7 +92,7 @@ public sealed class FileLinkTests
 
         var program = Path.Combine(test.Directory, "setup.exe");
         await File.WriteAllTextAsync(program, "MZ");
-        await Assert.That(await tab.OpenFileAsync(program, 0)).IsFalse();
+        await Assert.That(await tab.Links.OpenFileAsync(program, 0)).IsFalse();
         await Assert.That(tab.Notice).Contains("never starts programs");
         await Assert.That(asked).IsFalse();
     }
@@ -126,8 +126,8 @@ public sealed class FileLinkTests
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         string? launched = null;
-        using var handler = tab.ConfirmOpenFileInteraction.RegisterHandler(static context => context.SetOutput(true));
-        using var launches = tab.FileLaunchRequests.SubscribeSafe(file => launched = file, static _ => { });
+        using var handler = tab.Links.ConfirmOpenFileInteraction.RegisterHandler(static context => context.SetOutput(true));
+        using var launches = tab.Links.FileLaunchRequests.SubscribeSafe(file => launched = file, static _ => { });
 
         tab.Attachments.Selected = tab.Attachments.Items[0];
         _ = await tab.Attachments.OpenSelectedCommand.Execute().ToTask();
@@ -150,13 +150,13 @@ public sealed class FileLinkTests
         await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
 
-        await Assert.That(await UiWait.UntilAsync(() => tab.ContentWarning is not null)).IsTrue();
+        await Assert.That(await UiWait.UntilAsync(() => tab.Notices.ContentWarning is not null)).IsTrue();
         const UnsupportedContent everything = UnsupportedContent.XfaForm | UnsupportedContent.JavaScript | UnsupportedContent.Multimedia
             | UnsupportedContent.ThreeD | UnsupportedContent.Portfolio;
-        await Assert.That(tab.UnsupportedContent).IsEqualTo(everything);
-        await Assert.That(tab.ContentWarning).Contains("an XFA form");
-        _ = await tab.DismissContentWarningCommand.Execute().ToTask();
-        await Assert.That(tab.ContentWarning).IsNull();
+        await Assert.That(tab.Notices.UnsupportedContent).IsEqualTo(everything);
+        await Assert.That(tab.Notices.ContentWarning).Contains("an XFA form");
+        _ = await tab.Notices.DismissContentWarningCommand.Execute().ToTask();
+        await Assert.That(tab.Notices.ContentWarning).IsNull();
     }
 
     /// <summary>Opens the document of file links.</summary>

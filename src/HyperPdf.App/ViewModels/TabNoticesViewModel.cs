@@ -2,16 +2,28 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using HyperPdf.App.Services;
 using HyperPdf.Core.Documents;
+using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
 
-/// <content>Tells the reader, once, about content that cannot be shown or run, instead of silently showing fallback pages.</content>
-public sealed partial class DocumentTabViewModel
+/// <summary>
+/// The calm, dismissible notices of a tab: content that cannot be shown or run, told once instead of silently showing
+/// fallback pages, and a file that was damaged and repaired to be shown.
+/// </summary>
+[DebuggerDisplay("TabNoticesViewModel: {ContentWarning} {RepairNotice}")]
+public sealed partial class TabNoticesViewModel : ReactiveObject
 {
+    /// <summary>The tab's document source.</summary>
+    private readonly DocumentSource _source;
+
+    /// <summary>Initializes a new instance of the <see cref="TabNoticesViewModel"/> class.</summary>
+    /// <param name="source">The tab's document source.</param>
+    internal TabNoticesViewModel(DocumentSource source) => _source = source;
+
     /// <summary>Gets what the document holds that cannot be shown or run, once checked.</summary>
     [Reactive]
     public partial UnsupportedContent UnsupportedContent { get; private set; }
@@ -20,28 +32,48 @@ public sealed partial class DocumentTabViewModel
     [Reactive]
     public partial string? ContentWarning { get; private set; }
 
-    /// <summary>Gets the application services, for the parts of the tab that need settings or desktop services.</summary>
-    internal AppServices Services => _services;
+    /// <summary>Gets the calm message about a repaired file, until dismissed.</summary>
+    [Reactive]
+    public partial string? RepairNotice { get; private set; }
+
+    /// <summary>Gets what was repaired, in plain words, while the reader has asked to see it.</summary>
+    [Reactive]
+    public partial string? RepairDetails { get; private set; }
+
+    /// <summary>Gets a value indicating whether the repair notice has been shown for this open, so it is never shown twice.</summary>
+    internal bool RepairNoticeShown { get; private set; }
 
     /// <summary>Checks the whole document on a background thread, a page at a time so pages keep drawing meanwhile.</summary>
     /// <param name="document">The document.</param>
+    /// <param name="attachments">The number of attached files.</param>
     /// <returns>A task.</returns>
-    internal async Task CheckContentAsync(IDocument document)
+    internal async Task CheckContentAsync(IDocument document, int attachments)
     {
-        if (DocumentFeature<IContentCheck>.Get(document) is not
-            {
-            } check)
+        if (DocumentFeature<IContentCheck>.Get(document) is not { } check)
         {
             return;
         }
 
-        var attachments = Attachments.Items.Count;
+        // Task.Run has no state-passing form, so the check reads the values it needs from this closure.
         var found = await Task.Run(() => Check(check, document, attachments)).ConfigureAwait(true);
         UnsupportedContent = found;
         ContentWarning = ContentWarnings.Describe(found);
 
         // The scan above read every page's annotations, which may have shown damage the open did not.
         CheckRepairs(document);
+    }
+
+    /// <summary>Shows the repair notice the first time the document reports that it was repaired.</summary>
+    /// <param name="document">The document.</param>
+    internal void CheckRepairs(IDocument document)
+    {
+        if (RepairNoticeShown || DocumentFeature<IRepairReport>.Get(document) is not { WasRepaired: true })
+        {
+            return;
+        }
+
+        RepairNoticeShown = true;
+        RepairNotice = RepairWarnings.Summary;
     }
 
     /// <summary>Checks the document and each page.</summary>
@@ -72,4 +104,25 @@ public sealed partial class DocumentTabViewModel
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void DismissContentWarning() => ContentWarning = null;
+
+    /// <summary>Shows or hides the list of repairs.</summary>
+    [ReactiveCommand]
+    private void ToggleRepairDetails()
+    {
+        if (RepairDetails is not null)
+        {
+            RepairDetails = null;
+            return;
+        }
+
+        RepairDetails = DocumentFeature<IRepairReport>.Get(_source.Acquire()) is { } report ? RepairWarnings.Describe(report.GetRepairs()) : null;
+    }
+
+    /// <summary>Puts the repair notice away.</summary>
+    [ReactiveCommand]
+    private void DismissRepairNotice()
+    {
+        RepairNotice = null;
+        RepairDetails = null;
+    }
 }

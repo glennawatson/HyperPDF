@@ -2,20 +2,28 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
+using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.ViewModels;
 
-/// <content>Links to other files: other PDFs open in a tab; other files open with the desktop's app once the reader agrees.</content>
-public sealed partial class DocumentTabViewModel
+/// <summary>Links to other files: other PDFs open in a tab; other files open with the desktop's app once the reader agrees.</summary>
+[DebuggerDisplay("TabFileLinks: {_owner.FileName}")]
+public sealed class TabFileLinks : ReactiveObject, IDisposable
 {
+    /// <summary>The owning tab.</summary>
+    private readonly DocumentTabViewModel _owner;
+
     /// <summary>Raises files the reader agreed to open with the desktop's app.</summary>
     private readonly Signal<string> _fileLaunchRequests = new();
 
-    /// <summary>Gets how another PDF is opened in a tab, at a zero-based page; set by the window.</summary>
-    public Action<string, int>? OpenDocument { get; init; }
+    /// <summary>Initializes a new instance of the <see cref="TabFileLinks"/> class.</summary>
+    /// <param name="owner">The owning tab.</param>
+    internal TabFileLinks(DocumentTabViewModel owner) => _owner = owner;
 
     /// <summary>Gets the question asked before a file opens in another app: the file's name in, <see langword="true"/> to open it.</summary>
     public Interaction<string, bool> ConfirmOpenFileInteraction { get; } = new();
@@ -33,19 +41,19 @@ public sealed partial class DocumentTabViewModel
         var name = Path.GetFileName(fullPath);
         if (!File.Exists(fullPath))
         {
-            Notice = $"The linked file {name} was not found. It may have been moved or not sent with this document.";
+            _owner.Notice = $"The linked file {name} was not found. It may have been moved or not sent with this document.";
             return false;
         }
 
         if (LinkedFiles.IsPdf(fullPath))
         {
-            OpenDocument?.Invoke(fullPath, pageIndex);
-            return OpenDocument is not null;
+            _owner.OpenDocument?.Invoke(fullPath, pageIndex);
+            return _owner.OpenDocument is not null;
         }
 
         if (LinkedFiles.IsRunnable(fullPath))
         {
-            Notice = $"{name} is a program or script. HyperPDF never starts programs from documents.";
+            _owner.Notice = $"{name} is a program or script. HyperPDF never starts programs from documents.";
             return false;
         }
 
@@ -58,21 +66,25 @@ public sealed partial class DocumentTabViewModel
         return true;
     }
 
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _fileLaunchRequests.Dispose();
+
     /// <summary>Follows a link to another file, or to a document embedded in this one.</summary>
     /// <param name="target">The target.</param>
-    private void NavigateToFile(in LinkTarget target)
+    internal void NavigateToFile(in LinkTarget target)
     {
         if (target.Kind == LinkTargetKind.EmbeddedDocument)
         {
-            SidebarVisible = true;
-            SidebarMode = SidebarMode.Attachments;
-            Notice = "This link opens a document attached to this one. Choose it in Attachments, then Open Attachment.";
+            _owner.SidebarVisible = true;
+            _owner.SidebarMode = SidebarMode.Attachments;
+            _owner.Notice = "This link opens a document attached to this one. Choose it in Attachments, then Open Attachment.";
             return;
         }
 
-        if (LinkedFiles.Resolve(FilePath, target.Uri ?? string.Empty) is not { } path)
+        if (LinkedFiles.Resolve(_owner.FilePath, target.Uri ?? string.Empty) is not { } path)
         {
-            Notice = "This link points to a file that cannot be opened from here.";
+            _owner.Notice = "This link points to a file that cannot be opened from here.";
             return;
         }
 

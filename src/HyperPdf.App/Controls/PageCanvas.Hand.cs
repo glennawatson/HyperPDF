@@ -39,7 +39,7 @@ public sealed partial class PageCanvas
     private bool BeginPan(PointerPressedEventArgs e, PointerPoint point)
     {
         var left = point.Properties.IsLeftButtonPressed;
-        if (_scroller is null || Tab is not { } tab || !(point.Properties.IsMiddleButtonPressed || (left && (_spaceHeld || tab.PageTool == PageTool.Hand))))
+        if (_scroller is null || Tab is not { } tab || !(point.Properties.IsMiddleButtonPressed || (left && (_spaceHeld || tab.PageTools.PageTool == PageTool.Hand))))
         {
             return false;
         }
@@ -160,7 +160,7 @@ public sealed partial class PageCanvas
     /// <summary>Gets the pointer for the chosen tool when it is not over anything special.</summary>
     /// <returns>The cursor, or <see langword="null"/> for select text, whose pointer follows what is under it.</returns>
     private Cursor? ToolCursor() =>
-        _spaceHeld ? HandCursor : Tab?.PageTool switch
+        _spaceHeld ? HandCursor : Tab?.PageTools.PageTool switch
         {
             PageTool.Hand => HandCursor,
             PageTool.ZoomArea or PageTool.Snapshot => CrossCursor,

@@ -26,18 +26,18 @@ public sealed class RepairNoticeTests
         await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
 
-        await Assert.That(await UiWait.UntilAsync(() => tab.RepairNotice is not null)).IsTrue();
-        await Assert.That(tab.RepairNotice).IsEqualTo(RepairWarnings.Summary);
-        await Assert.That(tab.RepairDetails).IsNull();
+        await Assert.That(await UiWait.UntilAsync(() => tab.Notices.RepairNotice is not null)).IsTrue();
+        await Assert.That(tab.Notices.RepairNotice).IsEqualTo(RepairWarnings.Summary);
+        await Assert.That(tab.Notices.RepairDetails).IsNull();
 
-        _ = await tab.ToggleRepairDetailsCommand.Execute().ToTask();
-        await Assert.That(tab.RepairDetails).IsNotNull();
-        _ = await tab.ToggleRepairDetailsCommand.Execute().ToTask();
-        await Assert.That(tab.RepairDetails).IsNull();
+        _ = await tab.Notices.ToggleRepairDetailsCommand.Execute().ToTask();
+        await Assert.That(tab.Notices.RepairDetails).IsNotNull();
+        _ = await tab.Notices.ToggleRepairDetailsCommand.Execute().ToTask();
+        await Assert.That(tab.Notices.RepairDetails).IsNull();
 
-        _ = await tab.DismissRepairNoticeCommand.Execute().ToTask();
+        _ = await tab.Notices.DismissRepairNoticeCommand.Execute().ToTask();
         tab.GoToPage(0);
-        await Assert.That(tab.RepairNotice).IsNull();
+        await Assert.That(tab.Notices.RepairNotice).IsNull();
     }
 
     /// <summary>Verifies a clean file shows no notice.</summary>
@@ -53,6 +53,6 @@ public sealed class RepairNoticeTests
         var tab = main.SelectedTab!;
 
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
-        await Assert.That(tab.RepairNotice).IsNull();
+        await Assert.That(tab.Notices.RepairNotice).IsNull();
     }
 }
