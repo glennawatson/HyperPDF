@@ -12277,6 +12277,28 @@ The engine builds and caches only the requested mappings. No CMap data is includ
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ````
 
+## CC-BY-4.0
+
+### veraPDF validation profile rule descriptions
+- Version: veraPDF-validation-profiles commit 070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8
+- Origin: Rule descriptions and clause numbers copied into HyperPdfLibrary's PDF/A rule table
+- Copyright: Copyright 2015 veraPDF Consortium.
+- Link: https://github.com/veraPDF/veraPDF-validation-profiles/tree/070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8/PDF_A
+
+````text
+veraPDF validation profiles
+© 2015 veraPDF Consortium (http://www.verapdf.org)
+https://github.com/veraPDF/veraPDF-validation-profiles
+
+This work is licensed under a Creative Commons Attribution 4.0 International licence (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+
+HyperPdfLibrary uses the PDF/A rule descriptions, clause numbers and test numbers from the PDF_A profiles at commit
+070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8. Changes: rules that the profiles repeat across PDF/A parts are merged
+into one entry, and each description ends with a full stop. The rule checks are HyperPdfLibrary's own code; no
+veraPDF software is included.
+````
+
 ## LicenseRef-CMU-0.6 AND BSD-2-Clause
 
 ### CMU Pronouncing Dictionary (used with MeloTTS)

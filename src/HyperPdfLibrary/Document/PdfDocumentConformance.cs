@@ -48,6 +48,20 @@ public static class PdfDocumentConformance
         return new(xmp is not null, claim, xmp?.PdfUaPart, PdfDocumentConformance.ReadPdfXVersion(document, xmp), summaries, observations);
     }
 
+    /// <summary>Reads the PDF/A claim from the <c>pdfaid</c> properties.</summary>
+    /// <param name="xmp">The catalog's XMP, or null.</param>
+    /// <returns>The claim, or null when the packet has no <c>pdfaid:part</c>.</returns>
+    internal static PdfAClaim? ReadPdfAClaim(XmpMetadata? xmp)
+    {
+        if (xmp?.PdfAPart is not { } part)
+        {
+            return null;
+        }
+
+        var conformance = xmp.PdfAConformance?.Trim().ToUpperInvariant();
+        return new(part, string.IsNullOrEmpty(conformance) ? null : conformance, xmp.PdfARevision);
+    }
+
     /// <summary>Summarises an output intent for the report.</summary>
     /// <param name="intent">The intent.</param>
     /// <returns>The summary.</returns>
@@ -65,20 +79,6 @@ public static class PdfDocumentConformance
         PdfDocumentConformance.CmykProfileComponents => "CMYK",
         _ => null,
     });
-
-    /// <summary>Reads the PDF/A claim from the <c>pdfaid</c> properties.</summary>
-    /// <param name="xmp">The catalog's XMP, or null.</param>
-    /// <returns>The claim, or null when the packet has no <c>pdfaid:part</c>.</returns>
-    private static PdfAClaim? ReadPdfAClaim(XmpMetadata? xmp)
-    {
-        if (xmp?.PdfAPart is not { } part)
-        {
-            return null;
-        }
-
-        var conformance = xmp.PdfAConformance?.Trim().ToUpperInvariant();
-        return new(part, string.IsNullOrEmpty(conformance) ? null : conformance, xmp.PdfARevision);
-    }
 
     /// <summary>Reads the PDF/X version from the Info dictionary, else from the XMP.</summary>
     /// <param name="document">The document.</param>
