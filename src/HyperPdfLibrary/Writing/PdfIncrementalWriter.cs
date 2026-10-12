@@ -57,11 +57,16 @@ public static class PdfIncrementalWriter
     public static void Save(PdfObjectStore store, ref PooledBuffer output)
     {
         ArgumentNullException.ThrowIfNull(store);
-        CopyOriginal(store.Source, ref output);
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdate(store, ref writer, null, CancellationToken.None);
+            if (WriteUpdate(store, ref writer, null, CancellationToken.None) is { } repaired)
+            {
+                output.Write(repaired);
+                return;
+            }
+
+            CopyOriginal(store.Source, ref output);
             output.Write(writer.WrittenSpan);
         }
         finally
@@ -78,7 +83,10 @@ public static class PdfIncrementalWriter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Save(PdfObjectStore store, Stream destination) => Save(store, destination, null);
 
-    /// <summary>Saves the document to a stream and reports what the user should know.</summary>
+    /// <summary>
+    /// Saves the document to a stream and reports what the user should know. When the saved file would break the PDF/A
+    /// level it claims, the repaired file is written in full instead of an update.
+    /// </summary>
     /// <param name="store">The document.</param>
     /// <param name="destination">The stream.</param>
     /// <param name="report">Receives the check of the document's PDF/A claim, or <see langword="null"/>.</param>
@@ -91,7 +99,12 @@ public static class PdfIncrementalWriter
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdate(store, ref writer, report, CancellationToken.None);
+            if (WriteUpdate(store, ref writer, report, CancellationToken.None) is { } repaired)
+            {
+                destination.Write(repaired);
+                return;
+            }
+
             CopyOriginal(store.Source, destination);
             destination.Write(writer.WrittenSpan);
         }
@@ -112,7 +125,11 @@ public static class PdfIncrementalWriter
     public static Task SaveAsync(PdfObjectStore store, Stream destination, CancellationToken cancellationToken) =>
         SaveAsync(store, destination, null, cancellationToken);
 
-    /// <summary>Saves the document to a stream asynchronously and reports what the user should know.</summary>
+    /// <summary>
+    /// Saves the document to a stream asynchronously and reports what the user should know. When the saved file would
+    /// break the PDF/A level it claims, it is repaired, downloading font data the repair needs, and the repaired file is
+    /// written in full instead of an update.
+    /// </summary>
     /// <param name="store">The document.</param>
     /// <param name="destination">The stream.</param>
     /// <param name="report">Receives the check of the document's PDF/A claim, or <see langword="null"/>.</param>
@@ -124,34 +141,46 @@ public static class PdfIncrementalWriter
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
-        var update = BuildUpdate(store, report, out var length, cancellationToken);
-
+        var update = BuildUpdate(store, out var length, cancellationToken);
         try
         {
+            var outcome = length > 0 && PdfAClaimGuard.IsClaimed(store)
+                ? await PdfAClaimGuard.CheckOutputAsync(store, SavedFile(store.Source, update.AsSpan(0, length)), cancellationToken).ConfigureAwait(false)
+                : null;
+            report?.Claim = Rewritten(outcome);
+            if (outcome?.Repaired is { } repaired)
+            {
+                await destination.WriteAsync(repaired, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (outcome is { Check.Removed: true })
+            {
+                var rebuilt = BuildUpdate(store, out length, cancellationToken);
+                ReturnBuffer(update);
+                update = rebuilt;
+            }
+
             await CopyOriginalAsync(store.Source, destination, cancellationToken).ConfigureAwait(false);
             await destination.WriteAsync(update.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            if (update is not null)
-            {
-                ArrayPool<byte>.Shared.Return(update);
-            }
+            ReturnBuffer(update);
         }
     }
 
-    /// <summary>Writes the update into a pooled array, so it can be written across an await.</summary>
+    /// <summary>Writes the update once, without the PDF/A claim check, into a pooled array for an await.</summary>
     /// <param name="store">The document.</param>
-    /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
     /// <param name="length">The update's length.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The pooled array, which the caller returns.</returns>
-    private static byte[]? BuildUpdate(PdfObjectStore store, PdfSaveReport? report, out int length, CancellationToken cancellationToken)
+    private static byte[]? BuildUpdate(PdfObjectStore store, out int length, CancellationToken cancellationToken)
     {
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdate(store, ref writer, report, cancellationToken);
+            WriteUpdateOnce(store, ref writer, cancellationToken);
             return writer.Detach(out length);
         }
         finally
@@ -160,32 +189,51 @@ public static class PdfIncrementalWriter
         }
     }
 
+    /// <summary>Returns a pooled array from <see cref="BuildUpdate"/>.</summary>
+    /// <param name="update">The array, or <see langword="null"/>.</param>
+    private static void ReturnBuffer(byte[]? update)
+    {
+        if (update is not null)
+        {
+            ArrayPool<byte>.Shared.Return(update);
+        }
+    }
+
+    /// <summary>Gets the check to report, marking a repair as a full rewrite of the file.</summary>
+    /// <param name="outcome">The outcome, or <see langword="null"/>.</param>
+    /// <returns>The check, or <see langword="null"/>.</returns>
+    private static PdfAClaimCheck? Rewritten(PdfAClaimOutcome? outcome) =>
+        outcome is { } found ? found.Check with { Rewritten = found.Repaired is not null } : null;
+
     /// <summary>
-    /// Writes the update. When the saved file claims PDF/A, the original and the update are checked together; when they
-    /// break a rule, the claim is removed from the document and the update is written again.
+    /// Writes the update. When the saved file claims PDF/A, the original and the update are checked together. When they
+    /// break a rule, the repaired file is returned, to be written in full; when it cannot be repaired, the claim is
+    /// removed from the document and the update is written again.
     /// </summary>
     /// <param name="store">The document.</param>
     /// <param name="writer">The writer; its first byte follows the original file. It is replaced when the update is written again.</param>
     /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void WriteUpdate(PdfObjectStore store, ref PdfObjectWriter writer, PdfSaveReport? report, CancellationToken cancellationToken)
+    /// <returns>The repaired file to write instead of the original and the update, or <see langword="null"/>.</returns>
+    private static byte[]? WriteUpdate(PdfObjectStore store, ref PdfObjectWriter writer, PdfSaveReport? report, CancellationToken cancellationToken)
     {
         WriteUpdateOnce(store, ref writer, cancellationToken);
         if (writer.Length == 0 || !PdfAClaimGuard.IsClaimed(store)
-            || PdfAClaimGuard.CheckOutput(store, SavedFile(store.Source, writer.WrittenSpan), cancellationToken) is not { } check)
+            || PdfAClaimGuard.CheckOutput(store, SavedFile(store.Source, writer.WrittenSpan), cancellationToken) is not { } outcome)
         {
-            return;
+            return null;
         }
 
-        report?.Claim = check;
-        if (!check.Removed)
+        report?.Claim = Rewritten(outcome);
+        if (outcome.Repaired is not null || !outcome.Check.Removed)
         {
-            return;
+            return outcome.Repaired;
         }
 
         writer.Dispose();
         writer = new(store.Names, store.Security);
         WriteUpdateOnce(store, ref writer, cancellationToken);
+        return null;
     }
 
     /// <summary>Joins the original file and an update into the file a save writes.</summary>

@@ -19,4 +19,7 @@ internal readonly record struct DocumentSaveOutcome(bool Saved, string? Error, A
         : this(saved, error, null)
     {
     }
+
+    /// <summary>Gets the fixes the save made so the file still meets its PDF/A level, or <see langword="null"/>.</summary>
+    internal ArchiveClaimRepair? ClaimRepaired { get; init; }
 }

@@ -78,10 +78,10 @@ public sealed class ArchiveCopyTests
         await Assert.That(output.Length).IsEqualTo(0);
     }
 
-    /// <summary>Saving a file that breaks its PDF/A claim removes the claim and reports it.</summary>
+    /// <summary>Saving a file that breaks its PDF/A claim and can be fixed writes a fixed file and reports the fixes.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task SaveReportsARemovedClaim()
+    public async Task SaveReportsARepairedClaim()
     {
         using var source = new HyperPdfTestDocument(TestPdf.CreateWithFalsePdfAClaim());
         var editor = DocumentFeature<IAnnotationEditor>.Cast(source.Document)!;
@@ -91,11 +91,50 @@ public sealed class ArchiveCopyTests
         var saved = await editor.SaveAsync(output, report, CancellationToken.None);
 
         await Assert.That(saved).IsTrue();
+        await Assert.That(report.ClaimRemoved).IsNull();
+        await Assert.That(report.ClaimRepaired).IsNotNull();
+        await Assert.That(report.ClaimRepaired!.Level).IsEqualTo(ArchiveLevel.PdfA2B);
+        await Assert.That(report.ClaimRepaired.Repairs).IsNotEmpty();
+        using var copy = PdfDocumentReader.Open(output.ToArray(), null);
+        await Assert.That(PdfAValidator.Validate(copy)!.Passed).IsTrue();
+    }
+
+    /// <summary>Saving a file that breaks its PDF/A claim and cannot be fixed removes the claim and says why.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SaveReportsARemovedClaim()
+    {
+        using var source = new HyperPdfTestDocument(TestPdf.CreateWithUnrepairablePdfAClaim());
+        var editor = DocumentFeature<IAnnotationEditor>.Cast(source.Document)!;
+        var report = new DocumentSaveReport();
+        await using var output = new MemoryStream();
+
+        var saved = await editor.SaveAsync(output, report, CancellationToken.None);
+
+        await Assert.That(saved).IsTrue();
+        await Assert.That(report.ClaimRepaired).IsNull();
         await Assert.That(report.ClaimRemoved).IsNotNull();
         await Assert.That(report.ClaimRemoved!.Level).IsEqualTo(ArchiveLevel.PdfA2B);
         await Assert.That(report.ClaimRemoved.BrokenRules).IsNotEmpty();
+        await Assert.That(report.ClaimRemoved.Reasons).IsNotEmpty();
         using var copy = PdfDocumentReader.Open(output.ToArray(), null);
         await Assert.That(PdfAValidator.ClaimedLevel(copy)).IsNull();
+    }
+
+    /// <summary>The optimiser's report carries a repaired claim.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task OptimiseReportsARepairedClaim()
+    {
+        using var source = new HyperPdfTestDocument(TestPdf.CreateWithFalsePdfAClaim());
+        var optimizer = DocumentFeature<IDocumentOptimizer>.Cast(source.Document)!;
+        await using var output = new MemoryStream();
+
+        var report = await optimizer.OptimizeAsync(output, new(OptimizePreset.KeepQuality, false, "en-AU", false, false), null, CancellationToken.None);
+
+        await Assert.That(report.ClaimRemoved).IsNull();
+        await Assert.That(report.ClaimRepaired).IsNotNull();
+        await Assert.That(report.ClaimRepaired!.Level).IsEqualTo(ArchiveLevel.PdfA2B);
     }
 
     /// <summary>The optimiser's report carries a removed claim.</summary>
@@ -103,7 +142,7 @@ public sealed class ArchiveCopyTests
     [Test]
     public async Task OptimiseReportsARemovedClaim()
     {
-        using var source = new HyperPdfTestDocument(TestPdf.CreateWithFalsePdfAClaim());
+        using var source = new HyperPdfTestDocument(TestPdf.CreateWithUnrepairablePdfAClaim());
         var optimizer = DocumentFeature<IDocumentOptimizer>.Cast(source.Document)!;
         await using var output = new MemoryStream();
 

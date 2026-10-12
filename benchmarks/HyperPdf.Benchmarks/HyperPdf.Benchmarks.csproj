@@ -38,5 +38,8 @@
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyPdf.cs" Link="Security\PublicKeyPdf.cs" />
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyCipher.cs" Link="Security\PublicKeyCipher.cs" />
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
+    <!-- Valid PDF/A files, so the conformant save benchmarks measure a claim that is kept rather than repaired. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtures.cs" Link="Conformance\PdfAFixtures.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtureLevel.cs" Link="Conformance\PdfAFixtureLevel.cs" />
   </ItemGroup>
 </Project>

@@ -40,7 +40,11 @@ public static class PdfLinearizedWriter
     public static Task SaveAsync(PdfDocument document, Stream destination, CancellationToken cancellationToken) =>
         SaveAsync(document, destination, null, cancellationToken);
 
-    /// <summary>Writes a linearized document to a stream asynchronously and reports what the user should know.</summary>
+    /// <summary>
+    /// Writes a linearized document to a stream asynchronously and reports what the user should know. A file that breaks
+    /// the PDF/A level it claims is repaired, downloading font data the repair needs, and the repaired file is linearized
+    /// and written instead.
+    /// </summary>
     /// <param name="document">The document to save.</param>
     /// <param name="destination">The writable stream.</param>
     /// <param name="report">Receives the check of the document's PDF/A claim, or <see langword="null"/>.</param>
@@ -53,13 +57,20 @@ public static class PdfLinearizedWriter
         ArgumentNullException.ThrowIfNull(destination);
         cancellationToken.ThrowIfCancellationRequested();
         SignaturePresence.ThrowIfSigned(document.Objects);
-        var bytes = BuildChecked(document, report, cancellationToken);
+        var claimed = PdfAClaimGuard.IsClaimed(document.Objects);
+        var bytes = Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken);
+        if (claimed)
+        {
+            var outcome = await PdfAClaimGuard.CheckOutputAsync(document.Objects, bytes, cancellationToken).ConfigureAwait(false);
+            bytes = Settle(document, bytes, report, outcome, cancellationToken);
+        }
+
         await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Lays out and writes the file. A file that claims PDF/A is checked as written; when it breaks a rule, the claim is
-    /// removed from the document and the file is written again.
+    /// Lays out and writes the file. A file that claims PDF/A is checked as written; when it breaks a rule, the repaired
+    /// file is linearized instead, or, when it cannot be repaired, the claim is removed and the file is written again.
     /// </summary>
     /// <param name="document">The document to save.</param>
     /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
@@ -69,13 +80,31 @@ public static class PdfLinearizedWriter
     {
         var claimed = PdfAClaimGuard.IsClaimed(document.Objects);
         var bytes = Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken);
-        if (!claimed || PdfAClaimGuard.CheckOutput(document.Objects, bytes, cancellationToken) is not { } check)
+        return claimed ? Settle(document, bytes, report, PdfAClaimGuard.CheckOutput(document.Objects, bytes, cancellationToken), cancellationToken) : bytes;
+    }
+
+    /// <summary>Acts on the claim check of a written file.</summary>
+    /// <param name="document">The document being saved.</param>
+    /// <param name="bytes">The written file.</param>
+    /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
+    /// <param name="outcome">The check, or <see langword="null"/> when the file claims no level.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>The file to write.</returns>
+    private static byte[] Settle(PdfDocument document, byte[] bytes, PdfSaveReport? report, PdfAClaimOutcome? outcome, CancellationToken cancellationToken)
+    {
+        if (outcome is not { } found)
         {
             return bytes;
         }
 
-        report?.Claim = check;
-        return check.Removed ? Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken) : bytes;
+        report?.Claim = found.Check;
+        if (found.Repaired is { } repaired)
+        {
+            using var copy = PdfDocumentReader.Open(repaired, null);
+            return Build(copy.Objects, PdfLinearizationPlan.Create(copy, cancellationToken), cancellationToken);
+        }
+
+        return found.Check.Removed ? Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken) : bytes;
     }
 
     /// <summary>Repeats the write until all cross-reference and hint offsets are stable.</summary>

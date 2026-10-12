@@ -16,8 +16,10 @@ public sealed class PdfSaveReport
 {
     /// <summary>
     /// Gets the check of the document's PDF/A claim, or <see langword="null"/> when the saved file claims no PDF/A level.
-    /// When <see cref="PdfAClaimCheck.Removed"/> is set, the written file no longer met its level, so the claim was
-    /// removed before writing; tell the user which rules it breaks.
+    /// When <see cref="PdfAClaimCheck.Repaired"/> is set, the written file broke its level and the save wrote a repaired
+    /// copy instead; an incremental save then writes that copy in full (<see cref="PdfAClaimCheck.Rewritten"/>). The
+    /// document in memory is not changed by a repair. When <see cref="PdfAClaimCheck.Removed"/> is set, the file could not
+    /// be repaired, so the claim was removed before writing; tell the user why.
     /// </summary>
     public PdfAClaimCheck? Claim { get; internal set; }
 }

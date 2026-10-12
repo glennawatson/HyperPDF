@@ -2,15 +2,19 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using HyperPdf.Core.Archiving;
 
 namespace HyperPdf.App.ViewModels;
 
-/// <summary>Describes PDF/A levels, PDF/A copies and removed PDF/A claims in plain words.</summary>
+/// <summary>Describes PDF/A levels, PDF/A copies and removed or repaired PDF/A claims in plain words.</summary>
 internal static class ArchiveText
 {
     /// <summary>The lines before the list of changes: where the copy was saved, and the list's heading.</summary>
     private const int HeadingLines = 2;
+
+    /// <summary>The most fixes a repaired-save note names, so it stays short.</summary>
+    private const int ShownRepairs = 3;
 
     /// <summary>Gets a level's name, such as PDF/A-2b.</summary>
     /// <param name="level">The level.</param>
@@ -36,7 +40,36 @@ internal static class ArchiveText
     internal static string ClaimRemovedNotice(ArchiveClaimRemoval removal)
     {
         ArgumentNullException.ThrowIfNull(removal);
-        return $"This file no longer met {Label(removal.Level)}, so HyperPDF removed its PDF/A claim. Use Save PDF/A Copy to make a PDF/A version.";
+        var notice = $"This file no longer met {Label(removal.Level)}, so HyperPDF removed its PDF/A claim.";
+        return removal.Reasons.Count > 0
+            ? $"{notice} It could not be fixed: {removal.Reasons[0]} Use Save PDF/A Copy to make a PDF/A version."
+            : $"{notice} Use Save PDF/A Copy to make a PDF/A version.";
+    }
+
+    /// <summary>Gets the note shown when a save fixed a file so it still meets its PDF/A level.</summary>
+    /// <param name="repair">The fixes.</param>
+    /// <returns>The note, listing at most a few fixes.</returns>
+    internal static string ClaimRepairedNotice(ArchiveClaimRepair repair)
+    {
+        ArgumentNullException.ThrowIfNull(repair);
+        var notice = $"HyperPDF fixed the saved file so it still meets {Label(repair.Level)}.";
+        var shown = Math.Min(repair.Repairs.Count, ShownRepairs);
+        if (shown == 0)
+        {
+            return notice;
+        }
+
+        var named = new string[shown];
+        for (var i = 0; i < shown; i++)
+        {
+            named[i] = repair.Repairs[i];
+        }
+
+        var fixes = string.Join(' ', named);
+        var more = repair.Repairs.Count - shown;
+        return more > 0
+            ? string.Create(CultureInfo.CurrentCulture, $"{notice} {fixes} And {more} more fixes.")
+            : $"{notice} {fixes}";
     }
 
     /// <summary>Describes a finished PDF/A copy, one point per line.</summary>

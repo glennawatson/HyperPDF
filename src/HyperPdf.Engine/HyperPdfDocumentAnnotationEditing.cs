@@ -373,6 +373,7 @@ internal static class HyperPdfDocumentAnnotationEditing
             }
 
             report?.ClaimRemoved = ArchiveMapping.ToRemoval(save.Claim);
+            report?.ClaimRepaired = ArchiveMapping.ToRepair(save.Claim);
             Volatile.Write(ref self.SavedVersion, version);
             return true;
         }
@@ -437,6 +438,7 @@ internal static class HyperPdfDocumentAnnotationEditing
         }
 
         reports.Caller?.ClaimRemoved = ArchiveMapping.ToRemoval(reports.Writer.Claim);
+        reports.Caller?.ClaimRepaired = ArchiveMapping.ToRepair(reports.Writer.Claim);
 
         lock (self.EditGate)
         {

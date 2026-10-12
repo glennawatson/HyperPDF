@@ -82,7 +82,9 @@ public sealed class PdfAOutputValidationTests
             var stream = document.Catalog.GetStream(KnownName.Metadata)!;
             var packet = XmpEditor.Apply(stream.DecodeToArray(cancellationToken), [change])!;
             StoreEditing.Replace(document.Objects, document.Catalog.GetRaw(KnownName.Metadata).AsReference(), PdfValue.FromStream(new(stream.Dictionary.Clone(), packet)));
-            await File.WriteAllBytesAsync(undescribed, PdfCompactWriter.Save(document.Objects, PdfCompactOptions.Default), cancellationToken);
+
+            // The control must stay broken, so it is written without the claim check, which would repair it.
+            await File.WriteAllBytesAsync(undescribed, PdfCompactWriter.SaveUnchecked(document.Objects, PdfCompactOptions.Default), cancellationToken);
         }
 
         var results = await VeraPdfValidator.ValidateAsync(home, level.Flavour, [described, undescribed], cancellationToken);

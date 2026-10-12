@@ -68,7 +68,27 @@ internal static class ArchiveMapping
             broken[i] = check.Broken[i].Description;
         }
 
-        return new(FromLibrary(check.Level), broken);
+        return new(FromLibrary(check.Level), broken) { Reasons = Descriptions(check.Problems) };
+    }
+
+    /// <summary>Gets the fixes a save made, when it repaired a file that broke its PDF/A level.</summary>
+    /// <param name="check">The writer's check of the claim, or <see langword="null"/>.</param>
+    /// <returns>The repair, or <see langword="null"/> when nothing was repaired.</returns>
+    internal static ArchiveClaimRepair? ToRepair(PdfAClaimCheck? check) =>
+        check is { Repaired: true } ? new(FromLibrary(check.Level), Descriptions(check.Repairs)) : null;
+
+    /// <summary>Gets the plain-words descriptions of conversion notes.</summary>
+    /// <param name="notes">The notes.</param>
+    /// <returns>The descriptions.</returns>
+    private static string[] Descriptions(PdfAConversionNote[] notes)
+    {
+        var descriptions = new string[notes.Length];
+        for (var i = 0; i < notes.Length; i++)
+        {
+            descriptions[i] = notes[i].Description;
+        }
+
+        return descriptions;
     }
 
     /// <summary>Converts conversion notes.</summary>

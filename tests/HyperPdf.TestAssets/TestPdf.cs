@@ -807,25 +807,18 @@ public static class TestPdf
 
     /// <summary>
     /// Creates a one page file whose XMP claims PDF/A-2b but whose form asks viewers to redraw its fields
-    /// (<c>/NeedAppearances true</c>), which PDF/A forbids; saving it drops the claim.
+    /// (<c>/NeedAppearances true</c>), which PDF/A forbids; saving it repairs the saved file.
     /// </summary>
     /// <returns>The PDF bytes.</returns>
-    public static byte[] CreateWithFalsePdfAClaim()
-    {
-        const string packet = "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\">"
-            + "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:pdfaid=\"http://www.aiim.org/pdfa/ns/id/\">"
-            + "<pdfaid:part>2</pdfaid:part><pdfaid:conformance>B</pdfaid:conformance></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end=\"w\"?>";
-        var objects = new List<string>();
-        var catalog = Reserve(objects);
-        var pages = Reserve(objects);
-        var page = Reserve(objects);
-        var metadata = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Type /Metadata /Subtype /XML /Length {packet.Length} >>\nstream\n{packet}\nendstream"));
-        objects[page - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {PortraitWidth} {PortraitHeight}] >>");
-        objects[pages - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{page} 0 R] /Count 1 >>");
-        objects[catalog - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Catalog /Pages {pages} 0 R /Metadata {metadata} 0 R /AcroForm << /Fields [] /NeedAppearances true >> >>");
-        var info = Add(objects, $"<< /Author ({Author}) >>");
-        return Serialize(objects, catalog, info);
-    }
+    public static byte[] CreateWithFalsePdfAClaim() =>
+        CreateWithPdfAClaim(string.Empty, " /AcroForm << /Fields [] /NeedAppearances true >>");
+
+    /// <summary>
+    /// Creates a one page file whose XMP claims PDF/A-2b but which paints in DeviceCMYK with no output intent to give it
+    /// meaning; the file cannot be repaired, so saving it drops the claim.
+    /// </summary>
+    /// <returns>The PDF bytes.</returns>
+    public static byte[] CreateWithUnrepairablePdfAClaim() => CreateWithPdfAClaim("0 0 0 1 k 10 10 50 50 re f", string.Empty);
 
     /// <summary>Writes a PDF to a new temporary file.</summary>
     /// <param name="pageCount">The number of pages.</param>
@@ -846,6 +839,34 @@ public static class TestPdf
         var landscape = pageIndex == LandscapePage - 1;
         width = landscape ? PortraitHeight : PortraitWidth;
         height = landscape ? PortraitWidth : PortraitHeight;
+    }
+
+    /// <summary>Creates a one page file whose XMP claims PDF/A-2b.</summary>
+    /// <param name="content">The page's content stream; empty for none.</param>
+    /// <param name="catalogEntries">Extra catalog entries.</param>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] CreateWithPdfAClaim(string content, string catalogEntries)
+    {
+        const string packet = "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\">"
+            + "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:pdfaid=\"http://www.aiim.org/pdfa/ns/id/\">"
+            + "<pdfaid:part>2</pdfaid:part><pdfaid:conformance>B</pdfaid:conformance></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end=\"w\"?>";
+        var objects = new List<string>();
+        var catalog = Reserve(objects);
+        var pages = Reserve(objects);
+        var page = Reserve(objects);
+        var metadata = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Type /Metadata /Subtype /XML /Length {packet.Length} >>\nstream\n{packet}\nendstream"));
+        var contents = string.Empty;
+        if (content.Length > 0)
+        {
+            var stream = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Length {content.Length} >>\nstream\n{content}\nendstream"));
+            contents = string.Create(CultureInfo.InvariantCulture, $" /Contents {stream} 0 R");
+        }
+
+        objects[page - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {PortraitWidth} {PortraitHeight}]{contents} >>");
+        objects[pages - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{page} 0 R] /Count 1 >>");
+        objects[catalog - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Catalog /Pages {pages} 0 R /Metadata {metadata} 0 R{catalogEntries} >>");
+        var info = Add(objects, $"<< /Author ({Author}) >>");
+        return Serialize(objects, catalog, info);
     }
 
     /// <summary>Reserves an object number to be filled in later.</summary>

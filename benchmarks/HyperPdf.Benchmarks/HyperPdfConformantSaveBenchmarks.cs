@@ -7,6 +7,7 @@ using BenchmarkDotNet.Attributes;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
+using HyperPdfLibrary.Tests.Conformance;
 using HyperPdfLibrary.Tests.Editing;
 using HyperPdfLibrary.Tests.Rendering;
 using HyperPdfLibrary.Writing;
@@ -14,8 +15,9 @@ using HyperPdfLibrary.Writing;
 namespace HyperPdf.Benchmarks;
 
 /// <summary>
-/// Measures the save and metadata paths that keep a PDF/A claim valid: compact saves of an unclaimed and a PDF/A-1
-/// document, an incremental save without edits, and a document property edit with and without a claim.
+/// Measures the save and metadata paths that keep a PDF/A claim valid: compact saves of an unclaimed document, a valid
+/// PDF/A-1b document and a PDF/A-2b document the save must repair, an incremental save without edits, and a document
+/// property edit with and without a claim.
 /// </summary>
 public class HyperPdfConformantSaveBenchmarks
 {
@@ -31,8 +33,11 @@ public class HyperPdfConformantSaveBenchmarks
     /// <summary>The unclaimed form and outline document.</summary>
     private PdfDocument _book = null!;
 
-    /// <summary>A document that claims PDF/A-1b.</summary>
+    /// <summary>A valid PDF/A-1b document.</summary>
     private PdfDocument _pdfA1 = null!;
+
+    /// <summary>A PDF/A-2b claim the save must repair: its form asks viewers to draw appearances.</summary>
+    private PdfDocument _broken = null!;
 
     /// <summary>A document that claims PDF/A-2b, for the claimed edit.</summary>
     private PdfDocument _pdfA2 = null!;
@@ -51,8 +56,9 @@ public class HyperPdfConformantSaveBenchmarks
     public void Setup()
     {
         _book = PdfDocumentReader.Open(CarryTestDocuments.CreateBook(), null);
-        _pdfA1 = PdfDocumentReader.Open(Claimed(1), null);
-        _pdfA2 = PdfDocumentReader.Open(Claimed(Part2), null);
+        _pdfA1 = PdfDocumentReader.Open(PdfAFixtures.Create(PdfAFixtureLevel.A1B), null);
+        _broken = PdfDocumentReader.Open(Claimed(Part2, " /AcroForm << /Fields [] /NeedAppearances true >>"), null);
+        _pdfA2 = PdfDocumentReader.Open(Claimed(Part2, string.Empty), null);
         _plain = PdfDocumentReader.Open(TestPdf.Create(1), null);
         _unedited = PdfDocumentReader.Open(TestPdf.Create(Pages), null);
     }
@@ -63,6 +69,7 @@ public class HyperPdfConformantSaveBenchmarks
     {
         _book.Dispose();
         _pdfA1.Dispose();
+        _broken.Dispose();
         _pdfA2.Dispose();
         _plain.Dispose();
         _unedited.Dispose();
@@ -73,10 +80,15 @@ public class HyperPdfConformantSaveBenchmarks
     [Benchmark(Baseline = true)]
     public byte[] CompactUnclaimed() => PdfCompactWriter.Save(_book.Objects, PdfCompactOptions.Default);
 
-    /// <summary>Rewrites a PDF/A-1 document with the default layout.</summary>
+    /// <summary>Rewrites a valid PDF/A-1 document with the default layout; the check keeps its claim.</summary>
     /// <returns>The saved file.</returns>
     [Benchmark]
     public byte[] CompactPdfA1() => PdfCompactWriter.Save(_pdfA1.Objects, PdfCompactOptions.Default);
+
+    /// <summary>Rewrites a PDF/A-2b document that breaks its level, so the save writes a repaired copy.</summary>
+    /// <returns>The saved file.</returns>
+    [Benchmark]
+    public byte[] CompactRepairPdfA2() => PdfCompactWriter.Save(_broken.Objects, PdfCompactOptions.Default);
 
     /// <summary>Saves a document without edits incrementally.</summary>
     /// <returns>The saved length.</returns>
@@ -103,8 +115,9 @@ public class HyperPdfConformantSaveBenchmarks
 
     /// <summary>Builds a one-page document whose XMP claims a PDF/A part at level B.</summary>
     /// <param name="part">The part.</param>
+    /// <param name="catalogEntries">Extra catalog entries.</param>
     /// <returns>The file.</returns>
-    private static byte[] Claimed(int part)
+    private static byte[] Claimed(int part, string catalogEntries)
     {
         var pdf = new RenderTestPdf(PageSize, PageSize) { Content = "0 0 1 rg 10 10 80 80 re f" };
         var packet = "<?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\">"
@@ -114,7 +127,7 @@ public class HyperPdfConformantSaveBenchmarks
             + $"<pdfaid:part>{part}</pdfaid:part><pdfaid:conformance>B</pdfaid:conformance></rdf:Description></rdf:RDF></x:xmpmeta>"
             + new string(' ', PageSize) + "<?xpacket end=\"w\"?>";
         var metadata = pdf.AddStream("/Type /Metadata /Subtype /XML", Encoding.UTF8.GetBytes(packet));
-        pdf.CatalogEntries = $"/Metadata {metadata} 0 R";
+        pdf.CatalogEntries = $"/Metadata {metadata} 0 R{catalogEntries}";
         return pdf.ToBytes();
     }
 }

@@ -135,7 +135,7 @@ internal sealed class WritePlan
                 await using (buffer.ConfigureAwait(false))
                 {
                     _ = await _writer.WriteToAsync(buffer, cancellationToken).ConfigureAwait(false);
-                    await counter.WriteAsync(CheckRewrite(buffer.ToArray(), cancellationToken), cancellationToken).ConfigureAwait(false);
+                    await counter.WriteAsync(await CheckRewriteAsync(buffer.ToArray(), cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
                     return counter.Written;
                 }
             }
@@ -152,8 +152,9 @@ internal sealed class WritePlan
     }
 
     /// <summary>
-    /// Checks a rewritten file against the PDF/A level it claims. A file that breaks a rule gets an incremental update
-    /// that removes the claim, so the optimiser never writes a false claim and its layout is kept.
+    /// Checks a rewritten file against the PDF/A level it claims, with font data already on this computer. A file that
+    /// breaks a rule is replaced by its repaired copy; when it cannot be repaired, it gets an incremental update that
+    /// removes the claim, so the optimiser never writes a false claim and its layout is kept.
     /// </summary>
     /// <param name="file">The rewritten file.</param>
     /// <param name="cancellationToken">Stops the check.</param>
@@ -161,8 +162,34 @@ internal sealed class WritePlan
     private byte[] CheckRewrite(byte[] file, CancellationToken cancellationToken)
     {
         using var written = PdfDocumentReader.Open(file, null);
-        _save.Claim = PdfAClaimGuard.CheckOutput(written.Objects, file, cancellationToken);
-        return _save.Claim is { Removed: true } ? PdfIncrementalWriter.Save(written.Objects) : file;
+        return Settle(written, file, PdfAClaimGuard.CheckOutput(written.Objects, file, cancellationToken));
+    }
+
+    /// <summary>Checks a rewritten file against the PDF/A level it claims, downloading font data a repair needs.</summary>
+    /// <param name="file">The rewritten file.</param>
+    /// <param name="cancellationToken">Stops the check and the downloads.</param>
+    /// <returns>The file to write.</returns>
+    private async Task<byte[]> CheckRewriteAsync(byte[] file, CancellationToken cancellationToken)
+    {
+        using var written = PdfDocumentReader.Open(file, null);
+        var outcome = await PdfAClaimGuard.CheckOutputAsync(written.Objects, file, cancellationToken).ConfigureAwait(false);
+        return Settle(written, file, outcome);
+    }
+
+    /// <summary>Records the claim check and picks the file to write.</summary>
+    /// <param name="written">The rewritten file, opened.</param>
+    /// <param name="file">The rewritten file.</param>
+    /// <param name="outcome">The check, or <see langword="null"/> when the file claims no level.</param>
+    /// <returns>The file to write.</returns>
+    private byte[] Settle(PdfDocument written, byte[] file, PdfAClaimOutcome? outcome)
+    {
+        _save.Claim = outcome?.Check;
+        return outcome switch
+        {
+            { Repaired: { } repaired } => repaired,
+            { Check.Removed: true } => PdfIncrementalWriter.Save(written.Objects),
+            _ => file,
+        };
     }
 
     /// <summary>Copies the original file asynchronously.</summary>

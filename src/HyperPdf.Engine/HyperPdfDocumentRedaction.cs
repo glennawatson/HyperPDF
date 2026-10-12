@@ -39,6 +39,7 @@ internal static class HyperPdfDocumentRedaction
             return new(report.Regions, report.Pages, report.GlyphsRemoved, report.ImagesRemoved + report.ImagesBlanked, report.PathsRemoved, report.AnnotationsRemoved)
             {
                 ClaimRemoved = ArchiveMapping.ToRemoval(save.Claim),
+                ClaimRepaired = ArchiveMapping.ToRepair(save.Claim),
             };
         }
         catch (PdfException ex)

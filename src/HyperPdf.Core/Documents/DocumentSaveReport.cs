@@ -16,4 +16,7 @@ public sealed class DocumentSaveReport
     /// when the file kept its claim or had none.
     /// </summary>
     public ArchiveClaimRemoval? ClaimRemoved { get; set; }
+
+    /// <summary>Gets or sets the fixes the save made so the file still meets its PDF/A level, or <see langword="null"/>.</summary>
+    public ArchiveClaimRepair? ClaimRepaired { get; set; }
 }

@@ -140,6 +140,10 @@ internal static class OptimizeReportText
         {
             lines.Add(ArchiveText.ClaimRemovedNotice(removal));
         }
+        else if (report.ClaimRepaired is { } repair)
+        {
+            lines.Add(ArchiveText.ClaimRepairedNotice(repair));
+        }
         else if (report.PdfAPart > 0)
         {
             lines.Add($"The document claims PDF/A part {report.PdfAPart}, so only changes that keep it valid were made.");

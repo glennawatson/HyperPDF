@@ -47,4 +47,7 @@ public sealed record OptimizeReport(
     /// its claim or had none.
     /// </summary>
     public ArchiveClaimRemoval? ClaimRemoved { get; init; }
+
+    /// <summary>Gets the fixes made so the copy still meets its PDF/A level, or <see langword="null"/>.</summary>
+    public ArchiveClaimRepair? ClaimRepaired { get; init; }
 }

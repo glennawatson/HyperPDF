@@ -763,6 +763,11 @@
   },
   {
     "type": "",
+    "frame": "HyperPdfLibrary.Conformance.PdfAClaim",
+    "reason": "Saving a document that claims PDF/A reopens the written file to check it against the claimed level: a copy of the output, the reopened document, its validation report and the claim check returned to the caller. When the file breaks the level, the repair converts it and returns the repaired file. Saves of unclaimed documents skip this."
+  },
+  {
+    "type": "",
     "frame": "HyperPdfLibrary.Conformance.PdfA",
     "reason": "PDF/A validation is a user action that returns a report with one result per rule of the level. Each run builds its walk state (visited-object sets, font, colour space and glyph caches, operand stacks, the XMP tree and cross-reference sections) and the rule lists, then releases them. Validation never runs while rendering."
   },

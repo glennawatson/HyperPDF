@@ -134,9 +134,12 @@ public static class PdfCompactWriter
     public static Task SaveAsync(PdfObjectStore store, PdfCompactOptions options, Stream destination, CancellationToken cancellationToken) =>
         SaveAsync(store, options, destination, null, cancellationToken);
 
-    /// <summary>Saves the document to a stream asynchronously and reports what the user should know.</summary>
+    /// <summary>
+    /// Saves the document to a stream asynchronously and reports what the user should know. A file that breaks the PDF/A
+    /// level it claims is repaired, downloading font data the repair needs, and the repaired file is written instead.
+    /// </summary>
     /// <param name="store">The document.</param>
-    /// <param name="options">The layout.</param>
+    /// <param name="options">The layout; a repaired file uses the layout its PDF/A level needs.</param>
     /// <param name="destination">The stream.</param>
     /// <param name="report">Receives the check of the document's PDF/A claim, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels the write.</param>
@@ -147,18 +150,52 @@ public static class PdfCompactWriter
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
-        var file = Build(store, options, report, out var length, cancellationToken);
-
+        var claimed = PdfAClaimGuard.IsClaimed(store);
+        var file = Build(store, options, out var length, cancellationToken);
         try
         {
+            var outcome = claimed ? await PdfAClaimGuard.CheckOutputAsync(store, file.AsSpan(0, length).ToArray(), cancellationToken).ConfigureAwait(false) : null;
+            report?.Claim = outcome?.Check;
+            if (outcome?.Repaired is { } repaired)
+            {
+                await destination.WriteAsync(repaired, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (outcome is { Check.Removed: true })
+            {
+                var rebuilt = Build(store, options, out length, cancellationToken);
+                ReturnBuffer(file);
+                file = rebuilt;
+            }
+
             await destination.WriteAsync(file.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            if (file is not null)
-            {
-                ArrayPool<byte>.Shared.Return(file);
-            }
+            ReturnBuffer(file);
+        }
+    }
+
+    /// <summary>
+    /// Saves the document into a new array without checking its PDF/A claim, for the PDF/A conversion, which validates
+    /// its own output and must not change the claim of the document it copies.
+    /// </summary>
+    /// <param name="store">The document.</param>
+    /// <param name="options">The layout.</param>
+    /// <returns>The file bytes.</returns>
+    /// <exception cref="PdfException">The document is signed, or a value cannot be written.</exception>
+    internal static byte[] SaveUnchecked(PdfObjectStore store, PdfCompactOptions options)
+    {
+        var writer = CreateWriter(store, options);
+        try
+        {
+            WriteFile(store, options, ref writer, CancellationToken.None);
+            return writer.ToArray();
+        }
+        finally
+        {
+            writer.Dispose();
         }
     }
 
@@ -244,19 +281,18 @@ public static class PdfCompactWriter
     private static PdfObjectWriter CreateWriter(PdfObjectStore store, PdfCompactOptions options) =>
         new(store.Names, options.RemoveEncryption ? null : store.Security);
 
-    /// <summary>Writes the document into a pooled array, so it can be written across an await.</summary>
+    /// <summary>Writes the document once, without the PDF/A claim check, into a pooled array for an await.</summary>
     /// <param name="store">The document.</param>
     /// <param name="options">The layout.</param>
-    /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
     /// <param name="length">The file length.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The pooled array, which the caller returns.</returns>
-    private static byte[]? Build(PdfObjectStore store, PdfCompactOptions options, PdfSaveReport? report, out int length, CancellationToken cancellationToken)
+    private static byte[]? Build(PdfObjectStore store, PdfCompactOptions options, out int length, CancellationToken cancellationToken)
     {
         var writer = CreateWriter(store, options);
         try
         {
-            Write(store, options, ref writer, report, cancellationToken);
+            WriteFile(store, options, ref writer, cancellationToken);
             return writer.Detach(out length);
         }
         finally
@@ -265,26 +301,45 @@ public static class PdfCompactWriter
         }
     }
 
+    /// <summary>Returns a pooled array from <see cref="Build"/>.</summary>
+    /// <param name="file">The array, or <see langword="null"/>.</param>
+    private static void ReturnBuffer(byte[]? file)
+    {
+        if (file is not null)
+        {
+            ArrayPool<byte>.Shared.Return(file);
+        }
+    }
+
     /// <summary>
-    /// Writes the whole document. A file that claims PDF/A is checked as written; when it breaks a rule, the claim is
-    /// removed from the document and the file is written again.
+    /// Writes the whole document. A file that claims PDF/A is checked as written; when it breaks a rule, the repaired
+    /// file replaces it, or, when it cannot be repaired, the claim is removed from the document and the file is written
+    /// again.
     /// </summary>
     /// <param name="store">The document.</param>
     /// <param name="options">The layout.</param>
-    /// <param name="writer">The writer, replaced when the file is written again.</param>
+    /// <param name="writer">The writer, replaced when the file is repaired or written again.</param>
     /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     private static void Write(PdfObjectStore store, PdfCompactOptions options, ref PdfObjectWriter writer, PdfSaveReport? report, CancellationToken cancellationToken)
     {
         var claimed = PdfAClaimGuard.IsClaimed(store);
         WriteFile(store, options, ref writer, cancellationToken);
-        if (!claimed || PdfAClaimGuard.CheckOutput(store, writer.WrittenSpan.ToArray(), cancellationToken) is not { } check)
+        if (!claimed || PdfAClaimGuard.CheckOutput(store, writer.WrittenSpan.ToArray(), cancellationToken) is not { } outcome)
         {
             return;
         }
 
-        report?.Claim = check;
-        if (!check.Removed)
+        report?.Claim = outcome.Check;
+        if (outcome.Repaired is { } repaired)
+        {
+            writer.Dispose();
+            writer = new(store.Names, null);
+            writer.WriteRaw(repaired);
+            return;
+        }
+
+        if (!outcome.Check.Removed)
         {
             return;
         }

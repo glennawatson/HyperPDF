@@ -37,7 +37,7 @@ internal static class DocumentSave
             FileReplacement.Replace(temporary, path);
             published = true;
             source.MarkSavePublished();
-            return new(true, null, report.ClaimRemoved);
+            return new(true, null, report.ClaimRemoved) { ClaimRepaired = report.ClaimRepaired };
         }
         catch (IOException ex)
         {
@@ -81,7 +81,7 @@ internal static class DocumentSave
             FileReplacement.Replace(temporary, path);
             published = true;
             source.MarkSavePublished();
-            return new(true, null, report.ClaimRemoved);
+            return new(true, null, report.ClaimRemoved) { ClaimRepaired = report.ClaimRepaired };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

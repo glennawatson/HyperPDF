@@ -91,10 +91,12 @@ public static class PdfAConverter
             return refused;
         }
 
+        // The conversion's own writes skip the PDF/A claim check: the copy must not change the caller's claim, and the
+        // output is validated below, so checking it would only repeat the work, or repair a repair.
         byte[] copy;
         try
         {
-            copy = PdfCompactWriter.Save(document.Objects, new(false, true));
+            copy = PdfCompactWriter.SaveUnchecked(document.Objects, new(false, true));
         }
         catch (PdfException)
         {
@@ -109,7 +111,7 @@ public static class PdfAConverter
             return new(new(level, session.GetChanges(), session.GetProblems(), null), null);
         }
 
-        var file = PdfCompactWriter.Save(working.Objects, new(session.Part != PdfAClaim.Part1, false));
+        var file = PdfCompactWriter.SaveUnchecked(working.Objects, new(session.Part != PdfAClaim.Part1, false));
         using var written = PdfDocumentReader.Open(file, null);
         var report = PdfAValidator.Validate(written, level, cancellationToken);
         foreach (var failed in report.Failed)

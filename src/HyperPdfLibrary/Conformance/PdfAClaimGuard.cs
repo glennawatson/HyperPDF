@@ -9,10 +9,15 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Conformance;
 
 /// <summary>
-/// Keeps a document's PDF/A claim true when it is saved. The incremental, compact and linearized writers check the file
-/// they are about to write against the level it claims. When it breaks a rule, they remove the claim from the document,
-/// as an undoable edit, and write again, so no file is written with a false claim. The writers repair some defects as
-/// they write, such as filtered metadata or a broken cross-reference table, so the written bytes are what is checked.
+/// Keeps a document's PDF/A claim true when it is saved. The incremental, compact and linearized writers and the optimiser
+/// check the file they are about to write against the level it claims; the writers repair some defects as they write,
+/// such as filtered metadata or a broken cross-reference table, so the written bytes are what is checked. When the file
+/// breaks a rule, it is first converted at the claimed level with <see cref="PdfAConverter"/>; when that succeeds, the
+/// converted file is written instead. The repair applies to the saved file only: the document in memory keeps its state,
+/// so the next save repairs it again. Applying the conversion's fixes to the document as an edit is not done, as the
+/// conversion rebuilds the file (fonts, metadata, output intent) rather than changing objects in place. When the file
+/// cannot be repaired, the claim is removed from the document, as an undoable edit, and the file is written again, so
+/// no file is written with a false claim.
 /// </summary>
 internal static class PdfAClaimGuard
 {
@@ -41,27 +46,66 @@ internal static class PdfAClaimGuard
     internal static bool IsClaimed(PdfObjectStore store) => PdfAClaimReading.ReadPart(store) != 0;
 
     /// <summary>
-    /// Checks a file a writer is about to write against the PDF/A level it claims. When it breaks a rule, the claim is
-    /// removed from the document being written, and the writer must write again.
+    /// Checks a file a writer is about to write against the PDF/A level it claims. A file that breaks a rule is repaired
+    /// with font data already on this computer; when it cannot be, the claim is removed from the document being written,
+    /// and the writer must write again.
     /// </summary>
     /// <param name="store">The objects being written.</param>
     /// <param name="output">The file the writer produced.</param>
     /// <param name="cancellationToken">Stops the check.</param>
-    /// <returns>What was found, or <see langword="null"/> when the file claims no level the standards define.</returns>
+    /// <returns>What to do, or <see langword="null"/> when the file claims no level the standards define.</returns>
     /// <exception cref="PdfException">The claim must be removed, but the document's XMP packet cannot be edited.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    internal static PdfAClaimCheck? CheckOutput(PdfObjectStore store, byte[] output, CancellationToken cancellationToken)
+    internal static PdfAClaimOutcome? CheckOutput(PdfObjectStore store, byte[] output, CancellationToken cancellationToken)
     {
         var report = ValidateOutput(store, output, cancellationToken);
         if (report is null || report.Passed)
         {
-            return report is null ? null : new(report.Level, false, []);
+            return report is null ? null : new PdfAClaimOutcome(new(report.Level, false, []), null);
+        }
+
+        return Finish(store, report, PdfAClaimRepairs.Repair(output, report.Level, cancellationToken));
+    }
+
+    /// <summary>
+    /// Checks a file a writer is about to write against the PDF/A level it claims. A file that breaks a rule is repaired,
+    /// downloading font data the repair needs; when it cannot be, the claim is removed from the document being written,
+    /// and the writer must write again.
+    /// </summary>
+    /// <param name="store">The objects being written.</param>
+    /// <param name="output">The file the writer produced.</param>
+    /// <param name="cancellationToken">Stops the check and the downloads.</param>
+    /// <returns>What to do, or <see langword="null"/> when the file claims no level the standards define.</returns>
+    /// <exception cref="PdfException">The claim must be removed, but the document's XMP packet cannot be edited.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    internal static async ValueTask<PdfAClaimOutcome?> CheckOutputAsync(PdfObjectStore store, byte[] output, CancellationToken cancellationToken)
+    {
+        var report = ValidateOutput(store, output, cancellationToken);
+        if (report is null || report.Passed)
+        {
+            return report is null ? null : new PdfAClaimOutcome(new(report.Level, false, []), null);
+        }
+
+        return Finish(store, report, await PdfAClaimRepairs.RepairAsync(output, report.Level, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>Keeps the repaired file, or removes the claim when there is none.</summary>
+    /// <param name="store">The objects being written.</param>
+    /// <param name="report">The written file's report.</param>
+    /// <param name="repair">The repair attempt.</param>
+    /// <returns>What to do.</returns>
+    /// <exception cref="PdfException">The claim must be removed, but the document's XMP packet cannot be edited.</exception>
+    private static PdfAClaimOutcome Finish(PdfObjectStore store, PdfAValidationReport report, PdfAClaimRepair repair)
+    {
+        if (repair.File is { } file)
+        {
+            return new(new(report.Level, false, report.Failed) { Repaired = true, Repairs = repair.Changes }, file);
         }
 
         // A view over the writer's objects; it is not disposed, as disposing it would close them.
         PdfDocument view = new(store, null);
         PdfDocumentEditing.RunEdit(view, RemoveLabel, PdfChangeKinds.Metadata, view, static (transaction, state) => RemoveClaim(state, transaction));
-        return new(report.Level, true, report.Failed);
+        return new(new(report.Level, true, report.Failed) { Problems = repair.Problems }, null);
     }
 
     /// <summary>Validates a written file against the level it claims.</summary>

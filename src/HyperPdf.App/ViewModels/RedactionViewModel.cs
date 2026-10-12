@@ -299,8 +299,11 @@ public sealed partial class RedactionViewModel : ReactiveObject, IDisposable
             $"Removed {report.Characters} text characters, {report.Pictures} pictures, {report.Drawings} drawings and {report.Annotations} links, comments or form fields from {report.Pages} pages.");
         var saved = string.Create(CultureInfo.CurrentCulture, $"The redacted copy is saved as {path}. Your open file was not changed.");
         const string check = "Open the copy and check it before you share it.";
-        ResultText = report.ClaimRemoved is { } removal
-            ? string.Join('\n', removed, saved, ArchiveText.ClaimRemovedNotice(removal), check)
-            : string.Join('\n', removed, saved, check);
+        ResultText = report switch
+        {
+            { ClaimRemoved: { } removal } => string.Join('\n', removed, saved, ArchiveText.ClaimRemovedNotice(removal), check),
+            { ClaimRepaired: { } repair } => string.Join('\n', removed, saved, ArchiveText.ClaimRepairedNotice(repair), check),
+            _ => string.Join('\n', removed, saved, check),
+        };
     }
 }

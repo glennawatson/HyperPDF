@@ -211,10 +211,59 @@ public sealed class ArchiveCopyViewModelTests
         }
     }
 
-    /// <summary>Saving a file that no longer meets its PDF/A claim tells the reader the claim was removed.</summary>
+    /// <summary>The copy summaries say when the copy was fixed to keep its PDF/A level, naming a few fixes.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CopiesNoteWhenTheClaimWasRepaired()
+    {
+        var repair = new ArchiveClaimRepair(ArchiveLevel.PdfA2B, ["Added a colour profile.", "Drew form appearances.", "Removed a script.", "Embedded a font."]);
+        var optimized = new OptimizeReport(FakeOptimizer.SourceBytes, FakeOptimizer.NewBytes, OptimizeWriteMode.Rewritten, [], []) { PdfAPart = ClaimedPart, ClaimRepaired = repair };
+
+        var lines = OptimizeReportText.Join(OptimizeReportText.Lines(optimized, "/x/y.pdf"));
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(lines).Contains(
+                "HyperPDF fixed the saved file so it still meets PDF/A-2b. Added a colour profile. Drew form appearances. Removed a script. And 1 more fixes.");
+            await Assert.That(lines).DoesNotContain("only changes that keep it valid");
+            await Assert.That(new RedactionReport(1, 1, 1, 0, 0, 0) { ClaimRepaired = repair }.ClaimRepaired).IsEqualTo(repair);
+            await Assert.That(ArchiveText.ClaimRepairedNotice(repair with { Repairs = [] })).IsEqualTo("HyperPDF fixed the saved file so it still meets PDF/A-2b.");
+        }
+    }
+
+    /// <summary>The removal warning names the first reason the file could not be fixed.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RemovalWarningGivesTheReason()
+    {
+        var removal = new ArchiveClaimRemoval(ArchiveLevel.PdfA2B, ["Fonts shall be embedded."]) { Reasons = ["The file is signed."] };
+
+        await Assert.That(ArchiveText.ClaimRemovedNotice(removal)).IsEqualTo(
+            "This file no longer met PDF/A-2b, so HyperPDF removed its PDF/A claim. It could not be fixed: The file is signed. Use Save PDF/A Copy to make a PDF/A version.");
+    }
+
+    /// <summary>Saving a file that no longer meets its PDF/A claim and cannot be fixed tells the reader the claim was removed.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task SaveWarnsWhenItRemovesTheClaim()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("claimed.pdf", TestPdf.CreateWithUnrepairablePdfAClaim())]);
+        var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
+
+        var saved = await tab.SaveAsync(Path.Combine(test.Directory, "claimed-saved.pdf"), CancellationToken.None);
+
+        await Assert.That(saved).IsTrue();
+        await Assert.That(tab.Notice).StartsWith("This file no longer met PDF/A-2b, so HyperPDF removed its PDF/A claim. It could not be fixed: ");
+        await Assert.That(tab.Notice).EndsWith(" Use Save PDF/A Copy to make a PDF/A version.");
+    }
+
+    /// <summary>Saving a file that no longer meets its PDF/A claim but can be fixed tells the reader it was fixed.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SaveSaysWhenItRepairsTheFile()
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
@@ -225,7 +274,7 @@ public sealed class ArchiveCopyViewModelTests
         var saved = await tab.SaveAsync(Path.Combine(test.Directory, "claimed-saved.pdf"), CancellationToken.None);
 
         await Assert.That(saved).IsTrue();
-        await Assert.That(tab.Notice).IsEqualTo("This file no longer met PDF/A-2b, so HyperPDF removed its PDF/A claim. Use Save PDF/A Copy to make a PDF/A version.");
+        await Assert.That(tab.Notice).StartsWith("HyperPDF fixed the saved file so it still meets PDF/A-2b.");
     }
 
     /// <summary>On HyperPDF the command is on, opens the window and a real PDF/A copy reopens with the same pages.</summary>

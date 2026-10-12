@@ -25,4 +25,7 @@ public sealed record RedactionReport(int Areas, int Pages, int Characters, int P
     /// copy kept its claim or had none.
     /// </summary>
     public ArchiveClaimRemoval? ClaimRemoved { get; init; }
+
+    /// <summary>Gets the fixes made so the redacted copy still meets its PDF/A level, or <see langword="null"/>.</summary>
+    public ArchiveClaimRepair? ClaimRepaired { get; init; }
 }

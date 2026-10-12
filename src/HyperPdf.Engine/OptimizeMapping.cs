@@ -51,6 +51,7 @@ internal static class OptimizeMapping
             IsEncrypted = report.IsEncrypted,
             PdfAPart = report.PdfAPart,
             ClaimRemoved = ArchiveMapping.ToRemoval(report.PdfAClaim),
+            ClaimRepaired = ArchiveMapping.ToRepair(report.PdfAClaim),
         };
     }
 

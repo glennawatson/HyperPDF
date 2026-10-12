@@ -986,7 +986,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Reflects the publication result in the tab and its file watcher.</summary>
     /// <param name="outcome">The write and replacement result.</param>
     /// <returns>Whether the destination was saved.</returns>
-    private bool ApplySaveOutcome(DocumentSaveOutcome outcome)
+    private bool ApplySaveOutcome(in DocumentSaveOutcome outcome)
     {
         if (outcome.Saved)
         {
@@ -1000,6 +1000,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         else if (outcome.ClaimRemoved is { } removal)
         {
             Notice = ArchiveText.ClaimRemovedNotice(removal);
+        }
+        else if (outcome.ClaimRepaired is { } repair)
+        {
+            Notice = ArchiveText.ClaimRepairedNotice(repair);
         }
 
         HasUnsavedChanges = Source.HasUnsavedChanges;
