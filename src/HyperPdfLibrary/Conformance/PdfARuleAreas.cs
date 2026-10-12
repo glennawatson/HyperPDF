@@ -14,5 +14,11 @@ internal static class PdfARuleAreas
         new("document", PdfADocumentRules.Rules, PdfADocumentRules.Check),
         new("graphics", PdfAGraphicsRules.Rules, PdfAGraphicsRules.Check),
         new("structure types", PdfAStructureElementRules.Rules, PdfAStructureElementRules.Check),
+        new("annotations", PdfAAnnotationRules.Rules, PdfAAnnotationRules.Check),
+        new("appearances", PdfAAppearanceRules.Rules, PdfAAppearanceRules.Check),
+        new("actions", PdfAActionRules.Rules, PdfAActionRules.Check),
+        new("form fields", PdfAFormRules.Rules, PdfAFormRules.Check),
+        new("optional content", PdfAOptionalContentRules.Rules, PdfAOptionalContentRules.Check),
+        new("page transparency", PdfAPageRules.Rules, PdfAPageRules.Check),
     ];
 }
