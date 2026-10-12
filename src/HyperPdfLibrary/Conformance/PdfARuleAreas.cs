@@ -23,5 +23,6 @@ internal static class PdfARuleAreas
         new("colour", PdfAColourRules.Rules, PdfAColourRules.Check),
         new("metadata", PdfAMetadataRules.Rules, PdfAMetadataRules.Check),
         new("file structure", PdfAFileStructureRules.Rules, PdfAFileStructureRules.Check),
+        new("fonts", PdfAFontRules.Rules, PdfAFontRules.Check),
     ];
 }
