@@ -83,11 +83,11 @@ jobs:
         run: dotnet run --file scripts/FetchVeraPdfCorpus.cs -- "${{ runner.temp }}/verapdf-corpus"
       - name: Validate PDF/A output with veraPDF
         env:
-          PDFVIEWERLITE_VERAPDF: ${{ steps.verapdf.outputs.verapdf-home }}
-          PDFVIEWERLITE_REQUIRE_VERAPDF: '1'
-          PDFVIEWERLITE_PDFA_CORPUS_DIR: ${{ runner.temp }}/pdfa-corpus
-          PDFVIEWERLITE_VERAPDF_CORPUS: ${{ steps.corpus.outputs.corpus-dir }}
-          PDFVIEWERLITE_PDFA_OUTPUT: ${{ runner.temp }}/pdfa-output
+          HYPERPDF_VERAPDF: ${{ steps.verapdf.outputs.verapdf-home }}
+          HYPERPDF_REQUIRE_VERAPDF: '1'
+          HYPERPDF_PDFA_CORPUS_DIR: ${{ runner.temp }}/pdfa-corpus
+          HYPERPDF_VERAPDF_CORPUS: ${{ steps.corpus.outputs.corpus-dir }}
+          HYPERPDF_PDFA_OUTPUT: ${{ runner.temp }}/pdfa-output
         run: dotnet run --project "${{ github.workspace }}/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*' --report-trx --results-directory "${{ runner.temp }}/pdfa-output"
       - name: Upload PDF/A outputs
         if: always()

@@ -15,10 +15,10 @@ namespace HyperPdfLibrary.Tests.Conformance.VeraPdf;
 internal static class VeraPdfValidator
 {
     /// <summary>The variable naming the veraPDF installation directory.</summary>
-    internal const string HomeVariable = "PDFVIEWERLITE_VERAPDF";
+    internal const string HomeVariable = "HYPERPDF_VERAPDF";
 
     /// <summary>The variable that turns a missing installation into a failure.</summary>
-    internal const string RequireVariable = "PDFVIEWERLITE_REQUIRE_VERAPDF";
+    internal const string RequireVariable = "HYPERPDF_REQUIRE_VERAPDF";
 
     /// <summary>The flavour that makes veraPDF pick the profile from the file's own claim.</summary>
     internal const string DetectFlavour = "0";

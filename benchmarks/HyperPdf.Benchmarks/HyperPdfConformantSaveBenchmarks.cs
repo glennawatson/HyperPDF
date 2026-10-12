@@ -4,14 +4,14 @@
 
 using System.Text;
 using BenchmarkDotNet.Attributes;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Tests.Editing;
 using HyperPdfLibrary.Tests.Rendering;
 using HyperPdfLibrary.Writing;
-using PdfViewerLite.TestAssets;
 
-namespace PdfViewerLite.Benchmarks;
+namespace HyperPdf.Benchmarks;
 
 /// <summary>
 /// Measures the save and metadata paths that keep a PDF/A claim valid: compact saves of an unclaimed and a PDF/A-1

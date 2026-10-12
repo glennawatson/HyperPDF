@@ -16,7 +16,7 @@ namespace HyperPdfLibrary.Tests.Conformance.VeraPdf;
 public sealed class PdfAValidatorAgreementTests
 {
     /// <summary>The variable naming the corpus checkout.</summary>
-    internal const string CorpusVariable = "PDFVIEWERLITE_VERAPDF_CORPUS";
+    internal const string CorpusVariable = "HYPERPDF_VERAPDF_CORPUS";
 
     /// <summary>The most disagreements listed in a failure message.</summary>
     private const int ListedDisagreements = 50;

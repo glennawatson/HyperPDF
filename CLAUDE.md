@@ -50,7 +50,7 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 
 ## Verification
 
-Native AOT publishing needs a native compiler and zlib development files. Run the app with `dotnet run -f net11.0 --project src/PdfViewerLite.App -- some.pdf`; install a Linux build with `packaging/linux/install.sh`. Keep `README.md` for end users only; build, test and contributor notes belong here.
+Native AOT publishing needs a native compiler and zlib development files. Run the app with `dotnet run -f net11.0 --project src/HyperPdf.App -- some.pdf`; install a Linux build with `packaging/linux/install.sh`. Keep `README.md` for end users only; build, test and contributor notes belong here.
 
 ```bash
 dotnet build HyperPdf.slnx
@@ -65,15 +65,15 @@ scripts/publish-linux.sh linux-x64
 Every change to a writer, editor or the optimiser must keep PDF/A output valid. The `HyperPdfLibrary.Tests.Conformance.VeraPdf` tests check generated and corpus files with veraPDF, which runs as a separate Java (11+) process and is never linked or shipped. They skip without veraPDF; CI's `PDF/A output validation (veraPDF)` job requires it.
 
 ```bash
-dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/pdfviewerlite/verapdf
-dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/pdfviewerlite/pdfa-corpus <the verapdf-pdfa* ids in the manifest>
-dotnet run --file scripts/FetchVeraPdfCorpus.cs -- ~/.cache/pdfviewerlite/verapdf-corpus
-PDFVIEWERLITE_VERAPDF=~/.cache/pdfviewerlite/verapdf PDFVIEWERLITE_PDFA_CORPUS_DIR=~/.cache/pdfviewerlite/pdfa-corpus \
-  PDFVIEWERLITE_VERAPDF_CORPUS=~/.cache/pdfviewerlite/verapdf-corpus \
+dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/hyperpdf/verapdf
+dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/hyperpdf/pdfa-corpus <the verapdf-pdfa* ids in the manifest>
+dotnet run --file scripts/FetchVeraPdfCorpus.cs -- ~/.cache/hyperpdf/verapdf-corpus
+HYPERPDF_VERAPDF=~/.cache/hyperpdf/verapdf HYPERPDF_PDFA_CORPUS_DIR=~/.cache/hyperpdf/pdfa-corpus \
+  HYPERPDF_VERAPDF_CORPUS=~/.cache/hyperpdf/verapdf-corpus \
   dotnet run --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*'
 ```
 
-The installer reads the release from `verapdf.json`, which Renovate updates; the same file pins the veraPDF corpus commit. Set `PDFVIEWERLITE_PDFA_OUTPUT` to keep the files the tests write. CI lists the corpus ids in `.github/workflows/ci.yml`.
+The installer reads the release from `verapdf.json`, which Renovate updates; the same file pins the veraPDF corpus commit. Set `HYPERPDF_PDFA_OUTPUT` to keep the files the tests write. CI lists the corpus ids in `.github/workflows/ci.yml`.
 
 `PdfAValidator` must give veraPDF's pass or fail for every rule it checks on every corpus file; `PdfAValidatorAgreementTests` compares it with `tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-corpus-results.tsv`. After a veraPDF or corpus update, record that file again with `dotnet run --file scripts/RecordVeraPdfCorpusResults.cs -- <corpus> <verapdf home> <that file>`. A rule joins a checker's `Rules` list only when it agrees on the whole corpus.
 

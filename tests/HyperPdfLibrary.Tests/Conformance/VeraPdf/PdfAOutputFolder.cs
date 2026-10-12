@@ -14,7 +14,7 @@ namespace HyperPdfLibrary.Tests.Conformance.VeraPdf;
 internal sealed class PdfAOutputFolder : IDisposable
 {
     /// <summary>The variable naming a folder that keeps the written files.</summary>
-    internal const string OutputVariable = "PDFVIEWERLITE_PDFA_OUTPUT";
+    internal const string OutputVariable = "HYPERPDF_PDFA_OUTPUT";
 
     /// <summary>Whether the folder is deleted on dispose.</summary>
     private readonly bool _temporary;

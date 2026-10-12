@@ -14,7 +14,7 @@ using System.Text;
 using System.Text.Json;
 using System.Xml;
 
-namespace PdfViewerLite.Scripts;
+namespace HyperPdf.Scripts;
 
 /// <summary>
 /// Installs the veraPDF command-line validator that the PDF/A output tests run as a separate process. veraPDF is
@@ -262,7 +262,7 @@ internal static class InstallVeraPdf
 
         Console.WriteLine(reported.Trim());
         Console.WriteLine($"veraPDF home: {home}");
-        Console.WriteLine($"Set PDFVIEWERLITE_VERAPDF={home} to run the PDF/A validation tests.");
+        Console.WriteLine($"Set HYPERPDF_VERAPDF={home} to run the PDF/A validation tests.");
     }
 
     /// <summary>Gets the command-line validator's jar for a release.</summary>

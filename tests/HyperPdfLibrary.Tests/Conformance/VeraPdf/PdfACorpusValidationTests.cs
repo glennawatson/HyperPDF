@@ -17,7 +17,7 @@ namespace HyperPdfLibrary.Tests.Conformance.VeraPdf;
 public sealed class PdfACorpusValidationTests
 {
     /// <summary>The variable naming the folder of fetched corpus files.</summary>
-    internal const string CorpusVariable = "PDFVIEWERLITE_PDFA_CORPUS_DIR";
+    internal const string CorpusVariable = "HYPERPDF_PDFA_CORPUS_DIR";
 
     /// <summary>Every corpus file reads as veraPDF reads it, and its edited copies pass veraPDF with the same claim.</summary>
     /// <param name="cancellationToken">Cancels the saves and validation.</param>

@@ -8,7 +8,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 
-namespace PdfViewerLite.Scripts;
+namespace HyperPdf.Scripts;
 
 /// <summary>
 /// Checks out the PDF/A folders of the veraPDF test corpus (CC BY 4.0) at the commit <c>verapdf.json</c> pins, for the
@@ -69,7 +69,7 @@ internal static class FetchVeraPdfCorpus
         }
 
         Console.WriteLine($"veraPDF corpus {commit}: {folder}");
-        Console.WriteLine($"Set PDFVIEWERLITE_VERAPDF_CORPUS={folder} to run the PDF/A validator agreement test.");
+        Console.WriteLine($"Set HYPERPDF_VERAPDF_CORPUS={folder} to run the PDF/A validator agreement test.");
     }
 
     /// <summary>Reads the pinned commit from the version file, looking up from the working folder.</summary>

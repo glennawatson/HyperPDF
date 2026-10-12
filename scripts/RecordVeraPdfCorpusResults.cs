@@ -9,7 +9,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
-namespace PdfViewerLite.Scripts;
+namespace HyperPdf.Scripts;
 
 /// <summary>
 /// Validates every file of a veraPDF corpus checkout with veraPDF, each against its folder's PDF/A level, and records
