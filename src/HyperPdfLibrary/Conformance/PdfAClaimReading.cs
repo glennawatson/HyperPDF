@@ -19,4 +19,13 @@ internal static class PdfAClaimReading
         var packet = store.Catalog.GetStream(KnownName.Metadata).DecodeOrEmpty();
         return packet.Length == 0 ? 0 : XmpParser.Parse(packet).PdfAPart ?? 0;
     }
+
+    /// <summary>Reads the whole claim, part and conformance letter, from the catalog's XMP.</summary>
+    /// <param name="store">The document's objects.</param>
+    /// <returns>The claim, or <see langword="null"/> when the document makes none.</returns>
+    internal static PdfAClaim? ReadClaim(PdfObjectStore store)
+    {
+        var packet = store.Catalog.GetStream(KnownName.Metadata).DecodeOrEmpty();
+        return packet.Length == 0 ? null : PdfDocumentConformance.ReadPdfAClaim(XmpParser.Parse(packet));
+    }
 }

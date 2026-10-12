@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Signatures;
@@ -25,8 +27,7 @@ public static class PdfLinearizedWriter
     {
         ArgumentNullException.ThrowIfNull(document);
         SignaturePresence.ThrowIfSigned(document.Objects);
-        var plan = PdfLinearizationPlan.Create(document, CancellationToken.None);
-        return Build(document.Objects, plan, CancellationToken.None);
+        return BuildChecked(document, null, CancellationToken.None);
     }
 
     /// <summary>Writes a linearized document to a stream asynchronously.</summary>
@@ -35,15 +36,46 @@ public static class PdfLinearizedWriter
     /// <param name="cancellationToken">Cancels the save and stream write.</param>
     /// <returns>A task that completes after the output is written.</returns>
     /// <exception cref="PdfException">The document is signed, or cannot be written as a conforming linearized file.</exception>
-    public static async Task SaveAsync(PdfDocument document, Stream destination, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Task SaveAsync(PdfDocument document, Stream destination, CancellationToken cancellationToken) =>
+        SaveAsync(document, destination, null, cancellationToken);
+
+    /// <summary>Writes a linearized document to a stream asynchronously and reports what the user should know.</summary>
+    /// <param name="document">The document to save.</param>
+    /// <param name="destination">The writable stream.</param>
+    /// <param name="report">Receives the check of the document's PDF/A claim, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels the save and stream write.</param>
+    /// <returns>A task that completes after the output is written.</returns>
+    /// <exception cref="PdfException">The document is signed, or cannot be written as a conforming linearized file.</exception>
+    public static async Task SaveAsync(PdfDocument document, Stream destination, PdfSaveReport? report, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(destination);
         cancellationToken.ThrowIfCancellationRequested();
         SignaturePresence.ThrowIfSigned(document.Objects);
-        var plan = PdfLinearizationPlan.Create(document, cancellationToken);
-        var bytes = Build(document.Objects, plan, cancellationToken);
+        var bytes = BuildChecked(document, report, cancellationToken);
         await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Lays out and writes the file. A file that claims PDF/A is checked as written; when it breaks a rule, the claim is
+    /// removed from the document and the file is written again.
+    /// </summary>
+    /// <param name="document">The document to save.</param>
+    /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A complete linearized file.</returns>
+    private static byte[] BuildChecked(PdfDocument document, PdfSaveReport? report, CancellationToken cancellationToken)
+    {
+        var claimed = PdfAClaimGuard.IsClaimed(document.Objects);
+        var bytes = Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken);
+        if (!claimed || PdfAClaimGuard.CheckOutput(document.Objects, bytes, cancellationToken) is not { } check)
+        {
+            return bytes;
+        }
+
+        report?.Claim = check;
+        return check.Removed ? Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken) : bytes;
     }
 
     /// <summary>Repeats the write until all cross-reference and hint offsets are stable.</summary>

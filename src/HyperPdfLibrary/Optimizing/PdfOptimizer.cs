@@ -49,7 +49,7 @@ public static class PdfOptimizer
         ArgumentNullException.ThrowIfNull(options);
         var session = new OptimizeSession(source, options, progress, cancellationToken);
         var plan = session.Prepare();
-        return session.Finish(plan.WriteTo(destination, cancellationToken), plan.Mode);
+        return session.Finish(plan.WriteTo(destination, cancellationToken), plan);
     }
 
     /// <summary>Optimises a document into a stream asynchronously, writing to the destination with asynchronous I/O.</summary>
@@ -104,6 +104,6 @@ public static class PdfOptimizer
     {
         var plan = session.Prepare();
         var written = await plan.WriteToAsync(destination, cancellationToken).ConfigureAwait(false);
-        return session.Finish(written, plan.Mode);
+        return session.Finish(written, plan);
     }
 }

@@ -105,7 +105,10 @@ public sealed class SafetyTests
         await Assert.That(OptimizerTestKit.Text(result.Bytes)).IsEquivalentTo(OptimizerTestKit.Text(source));
     }
 
-    /// <summary>A PDF/A-1 claim keeps a classic cross-reference table and the 1.4 header, and refuses the unembedded text layer font.</summary>
+    /// <summary>
+    /// A PDF/A-1 claim keeps a classic cross-reference table and the 1.4 header, and refuses the unembedded text layer
+    /// font. The fixture only claims PDF/A-1 and has no output intent, so the copy's claim is removed and reported.
+    /// </summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task RespectsPdfAOne()
@@ -114,6 +117,7 @@ public sealed class SafetyTests
         var result = OptimizerTestKit.Optimize(source, PdfOptimizeOptions.Balanced with { OcrWords = static _ => Words() });
         var text = Encoding.Latin1.GetString(result.Bytes);
         await Assert.That(result.Report.PdfAPart).IsEqualTo(1);
+        await Assert.That(result.Report.PdfAClaim!.Removed).IsTrue();
         await Assert.That(text).DoesNotContain("/ObjStm");
         await Assert.That(text).StartsWith("%PDF-1.4");
         await Assert.That(result.Report.Skipped.Any(static skip => skip.Category == PdfOptimizeCategory.Layout)).IsTrue();

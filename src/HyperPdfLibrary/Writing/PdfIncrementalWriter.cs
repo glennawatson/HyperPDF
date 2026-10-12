@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
@@ -59,7 +61,7 @@ public static class PdfIncrementalWriter
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdate(store, ref writer, CancellationToken.None);
+            WriteUpdate(store, ref writer, null, CancellationToken.None);
             output.Write(writer.WrittenSpan);
         }
         finally
@@ -73,14 +75,23 @@ public static class PdfIncrementalWriter
     /// <param name="destination">The stream.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="PdfException">An edited value cannot be written.</exception>
-    public static void Save(PdfObjectStore store, Stream destination)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Save(PdfObjectStore store, Stream destination) => Save(store, destination, null);
+
+    /// <summary>Saves the document to a stream and reports what the user should know.</summary>
+    /// <param name="store">The document.</param>
+    /// <param name="destination">The stream.</param>
+    /// <param name="report">Receives the check of the document's PDF/A claim, or <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException">An argument other than <paramref name="report"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PdfException">An edited value cannot be written.</exception>
+    public static void Save(PdfObjectStore store, Stream destination, PdfSaveReport? report)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdate(store, ref writer, CancellationToken.None);
+            WriteUpdate(store, ref writer, report, CancellationToken.None);
             CopyOriginal(store.Source, destination);
             destination.Write(writer.WrittenSpan);
         }
@@ -97,11 +108,23 @@ public static class PdfIncrementalWriter
     /// <returns>A task that completes when the bytes are written.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="PdfException">An edited value cannot be written.</exception>
-    public static async Task SaveAsync(PdfObjectStore store, Stream destination, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Task SaveAsync(PdfObjectStore store, Stream destination, CancellationToken cancellationToken) =>
+        SaveAsync(store, destination, null, cancellationToken);
+
+    /// <summary>Saves the document to a stream asynchronously and reports what the user should know.</summary>
+    /// <param name="store">The document.</param>
+    /// <param name="destination">The stream.</param>
+    /// <param name="report">Receives the check of the document's PDF/A claim, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels the writes.</param>
+    /// <returns>A task that completes when the bytes are written.</returns>
+    /// <exception cref="ArgumentNullException">An argument other than <paramref name="report"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PdfException">An edited value cannot be written.</exception>
+    public static async Task SaveAsync(PdfObjectStore store, Stream destination, PdfSaveReport? report, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
-        var update = BuildUpdate(store, out var length, cancellationToken);
+        var update = BuildUpdate(store, report, out var length, cancellationToken);
 
         try
         {
@@ -119,15 +142,16 @@ public static class PdfIncrementalWriter
 
     /// <summary>Writes the update into a pooled array, so it can be written across an await.</summary>
     /// <param name="store">The document.</param>
+    /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
     /// <param name="length">The update's length.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The pooled array, which the caller returns.</returns>
-    private static byte[]? BuildUpdate(PdfObjectStore store, out int length, CancellationToken cancellationToken)
+    private static byte[]? BuildUpdate(PdfObjectStore store, PdfSaveReport? report, out int length, CancellationToken cancellationToken)
     {
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdate(store, ref writer, cancellationToken);
+            WriteUpdate(store, ref writer, report, cancellationToken);
             return writer.Detach(out length);
         }
         finally
@@ -136,11 +160,58 @@ public static class PdfIncrementalWriter
         }
     }
 
-    /// <summary>Writes the update: the objects, the cross-reference section and the trailer.</summary>
+    /// <summary>
+    /// Writes the update. When the saved file claims PDF/A, the original and the update are checked together; when they
+    /// break a rule, the claim is removed from the document and the update is written again.
+    /// </summary>
+    /// <param name="store">The document.</param>
+    /// <param name="writer">The writer; its first byte follows the original file. It is replaced when the update is written again.</param>
+    /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void WriteUpdate(PdfObjectStore store, ref PdfObjectWriter writer, PdfSaveReport? report, CancellationToken cancellationToken)
+    {
+        WriteUpdateOnce(store, ref writer, cancellationToken);
+        if (writer.Length == 0 || !PdfAClaimGuard.IsClaimed(store)
+            || PdfAClaimGuard.CheckOutput(store, SavedFile(store.Source, writer.WrittenSpan), cancellationToken) is not { } check)
+        {
+            return;
+        }
+
+        report?.Claim = check;
+        if (!check.Removed)
+        {
+            return;
+        }
+
+        writer.Dispose();
+        writer = new(store.Names, store.Security);
+        WriteUpdateOnce(store, ref writer, cancellationToken);
+    }
+
+    /// <summary>Joins the original file and an update into the file a save writes.</summary>
+    /// <param name="file">The original file.</param>
+    /// <param name="update">The update.</param>
+    /// <returns>The saved file.</returns>
+    private static byte[] SavedFile(PdfByteSource file, ReadOnlySpan<byte> update)
+    {
+        var output = default(PooledBuffer);
+        try
+        {
+            CopyOriginal(file, ref output);
+            output.Write(update);
+            return output.ToArray();
+        }
+        finally
+        {
+            output.Dispose();
+        }
+    }
+
+    /// <summary>Writes the update once: the objects, the cross-reference section and the trailer.</summary>
     /// <param name="store">The document.</param>
     /// <param name="writer">The writer; its first byte follows the original file.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void WriteUpdate(PdfObjectStore store, ref PdfObjectWriter writer, CancellationToken cancellationToken)
+    private static void WriteUpdateOnce(PdfObjectStore store, ref PdfObjectWriter writer, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         StoreRedaction.ThrowIfCompactSaveRequired(store);

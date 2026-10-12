@@ -128,12 +128,13 @@ internal sealed partial class OptimizeSession : IObjectTransformer
 
     /// <summary>Builds the report once the file is written.</summary>
     /// <param name="written">The bytes written.</param>
-    /// <param name="mode">How the file was written.</param>
+    /// <param name="plan">How the file was written, with the check of its PDF/A claim.</param>
     /// <returns>The report.</returns>
-    internal PdfOptimizeReport Finish(long written, PdfOptimizeMode mode)
+    internal PdfOptimizeReport Finish(long written, WritePlan plan)
     {
         Report(PdfOptimizePhase.Done, 1, 1);
-        return _report.Build(_source.Objects.Source.Length, written, mode);
+        _report.PdfAClaim = plan.Claim;
+        return _report.Build(_source.Objects.Source.Length, written, plan.Mode);
     }
 
     /// <summary>Determines whether a document has a signature: a filled signature field, or usage rights or modification detection permissions.</summary>

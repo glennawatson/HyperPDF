@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Conformance;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -38,6 +39,13 @@ public sealed record PdfOptimizeReport(
 
     /// <summary>Gets the PDF/A part the document claims, or zero when it claims none.</summary>
     public int PdfAPart { get; init; }
+
+    /// <summary>
+    /// Gets the check of the written file's PDF/A claim, or <see langword="null"/> when it claims none or was copied
+    /// unchanged. When <see cref="PdfAClaimCheck.Removed"/> is set, the copy no longer met its level, so its claim was
+    /// removed; tell the user which rules it breaks.
+    /// </summary>
+    public PdfAClaimCheck? PdfAClaim { get; init; }
 
     /// <summary>Gets a value indicating whether the document was signed.</summary>
     public bool WasSigned { get; init; }
