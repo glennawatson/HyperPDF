@@ -55,9 +55,7 @@ internal static class PdfAImageChecks
 
         var bits = bitsPerComponent.AsInteger();
         var allowed = bits is 1 or TwoBits or FourBits or EightBits || (bits == SixteenBits && context.Part != Part1);
-
-        // The profiles' names for these two rules are crossed: the one named for PDF/A-1 applies to later parts.
-        context.Require(allowed, context.Part == Part1 ? PdfARule.ImageBitsPerComponent : PdfARule.ImageBitsPerComponentPdfA1, null);
+        context.Require(allowed, context.Part == Part1 ? PdfARule.ImageBitsPerComponentPdfA1 : PdfARule.ImageBitsPerComponent, null);
     }
 
     /// <summary>Visits an image in one of its roles.</summary>

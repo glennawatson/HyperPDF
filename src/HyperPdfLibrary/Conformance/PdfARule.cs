@@ -915,14 +915,14 @@ internal enum PdfARule
     /// CIDFont. - Otherwise, the corresponding Registry and Ordering strings in both CIDSystemInfo dictionaries shall be identical, and the value of the Supplement key in the
     /// CIDSystemInfo dictionary of the CIDFont shall be less than or equal to the Supplement key in the CIDSystemInfo dictionary of the CMap.
     /// </summary>
-    Type0CMapOrderingPdfA1 = 216,
+    Type0CMapOrdering = 216,
 
     /// <summary>
     /// For any given composite (Type 0) font referenced within a conforming file, the CIDSystemInfo entries of its CIDFont and CMap dictionaries shall be compatible. In other words, the
     /// Registry and Ordering strings of the CIDSystemInfo dictionaries for that font shall be identical, unless the value of the Encoding key in the font dictionary is Identity-H or
     /// Identity-V.
     /// </summary>
-    Type0CMapOrdering = 217,
+    Type0CMapOrderingPdfA1 = 217,
 
     /// <summary>
     /// If the FontDescriptor dictionary of an embedded Type 1 font contains a CharSet string, then it shall list the character names of all glyphs present in the font program, regardless
@@ -970,10 +970,10 @@ internal enum PdfARule
     ImageOpi = 230,
 
     /// <summary>If an Image dictionary contains the BitsPerComponent key, its value shall be 1, 2, 4 or 8.</summary>
-    ImageBitsPerComponent = 231,
+    ImageBitsPerComponentPdfA1 = 231,
 
     /// <summary>If an Image dictionary contains the BitsPerComponent key, its value shall be 1, 2, 4, 8 or 16.</summary>
-    ImageBitsPerComponentPdfA1 = 232,
+    ImageBitsPerComponent = 232,
 
     /// <summary>A conforming file shall not contain any PostScript XObjects.</summary>
     XObjectPostScript = 233,
