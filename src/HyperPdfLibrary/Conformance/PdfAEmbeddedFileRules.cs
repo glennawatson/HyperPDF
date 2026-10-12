@@ -24,8 +24,14 @@ internal static class PdfAEmbeddedFileRules
     /// <summary>The PDF/A part whose embedded files must be PDF/A-1, PDF/A-2 or PDF/A-4.</summary>
     private const int Part4 = 4;
 
-    /// <summary>The deepest embedded PDF that is validated; one nested more deeply is not proven valid.</summary>
-    private const int MaxNesting = 4;
+    /// <summary>
+    /// The deepest embedded PDF that is validated; one nested more deeply is not proven valid, so it fails the embedded
+    /// file rules. This is HyperPDF's own resource limit, not a PDF/A rule: ISO 19005-2 §6.8 and ISO 19005-4 §6.9 set no
+    /// nesting limit, and veraPDF sets none either. Each level is a full validation one call deeper, so a crafted file of
+    /// PDFs nested thousands deep would otherwise exhaust the stack, which ends the process. Real archives rarely nest
+    /// more than one or two levels.
+    /// </summary>
+    private const int MaxNesting = 32;
 
     /// <summary>The keys of an /EF dictionary that hold embedded file streams.</summary>
     private static readonly KnownName[] FileKeys = [KnownName.F, KnownName.UF];
@@ -109,8 +115,6 @@ internal static class PdfAEmbeddedFileRules
     /// <returns>The level, or <see langword="null"/> when the file is not a PDF, claims another level or fails it.</returns>
     private static PdfALevel? EmbeddedLevel(PdfAValidationContext context, PdfStream file)
     {
-        // Each embedded PDF is validated in full, so nesting is cut off at a limit rather than followed without end. A
-        // file nested deeper than the limit is not proven valid.
         if (context.Depth >= MaxNesting)
         {
             return null;

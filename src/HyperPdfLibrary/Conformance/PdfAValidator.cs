@@ -12,6 +12,11 @@ namespace HyperPdfLibrary.Conformance;
 /// veraPDF profiles number them. The rules checked give the same pass or fail as veraPDF on the veraPDF test corpus; the
 /// report lists the rules that are not checked. This is a practical check, not a certification.
 /// </summary>
+/// <remarks>
+/// PDF/A-2 and PDF/A-4 require embedded PDFs to be PDF/A files themselves, so the validator checks each embedded PDF in
+/// full. HyperPDF stops at 32 levels of nesting, a limit of its own that the standards and veraPDF do not set, so a crafted
+/// file cannot exhaust the stack. An embedded PDF nested more deeply is not proven valid and fails the embedded file rule.
+/// </remarks>
 public static class PdfAValidator
 {
     /// <summary>Checks a document against the level it claims.</summary>

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Text;
 using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Document;
 
@@ -18,6 +19,12 @@ public sealed class PdfAFileStructureRulesTests
 
     /// <summary>One byte more than the longest string in PDF/A-2.</summary>
     private const int TooLongString = 32_768;
+
+    /// <summary>HyperPDF's limit on validating nested embedded PDFs.</summary>
+    private const int NestingLimit = 32;
+
+    /// <summary>The PDF/A-2 rule that an embedded file is a valid PDF/A-1 or PDF/A-2 file.</summary>
+    private const string EmbeddedPdfARule = "6.8:5";
 
     /// <summary>The PDF/A-2 file structure clauses an untouched file passes.</summary>
     private static readonly string[] StructureClauses =
@@ -252,6 +259,27 @@ public sealed class PdfAFileStructureRulesTests
 
         await Assert.That(failed).Contains("6.9:4");
         await Assert.That(failed).Contains("6.9:1");
+    }
+
+    /// <summary>
+    /// A valid embedded PDF/A-2b file passes the PDF/A-2 embedded file rule, until the file sits beyond HyperPDF's nesting
+    /// limit of 32, where it is no longer checked and so not proven valid.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task EmbeddedPdfAIsCheckedUpToTheNestingLimit()
+    {
+        var inner = Encoding.Latin1.GetString(PdfAFixtures.Create(PdfAFixtureLevel.A2B));
+        var pdf = new StructureTestPdf { CatalogEntries = " /Names << /EmbeddedFiles << /Names [(a.pdf) 5 0 R] >> >>" };
+        pdf.Extra.Add("<< /Type /Filespec /F (a.pdf) /UF (a.pdf) /EF << /F 6 0 R >> /AFRelationship /Source >>");
+        pdf.Extra.Add(StructureTestPdf.Stream(" /Type /EmbeddedFile /Subtype /application#2Fpdf", inner));
+        using var document = PdfDocumentReader.Open(pdf.Build(), null);
+
+        var top = Clauses(PdfAValidator.Validate(document, PdfALevel.PdfA2B, 0, CancellationToken.None).Failed);
+        var tooDeep = Clauses(PdfAValidator.Validate(document, PdfALevel.PdfA2B, NestingLimit, CancellationToken.None).Failed);
+
+        await Assert.That(top).DoesNotContain(EmbeddedPdfARule);
+        await Assert.That(tooDeep).Contains(EmbeddedPdfARule);
     }
 
     /// <summary>Validation stops when cancelled.</summary>
