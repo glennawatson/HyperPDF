@@ -34,6 +34,9 @@ internal static class TrueTypeSubsetter
     /// <summary>The tag of the maximum profile table.</summary>
     private const uint MaxpTag = 0x6D617870;
 
+    /// <summary>The tag of the character to glyph mapping table.</summary>
+    private const uint CmapTag = 0x636D6170;
+
     /// <summary>The tag of the OS/2 table.</summary>
     private const uint Os2Tag = 0x4F532F32;
 
@@ -130,8 +133,42 @@ internal static class TrueTypeSubsetter
         }
 
         var keep = GlyphClosure.Find(font.AsSpan(glyf.Offset, glyf.Length), offsets, glyphs);
-        var subset = Rebuild(font, tables, offsets, keep);
+        var subset = Rebuild(font, tables, offsets, keep, default);
         return subset.Length < font.Length ? Compress(program, subset, names) : null;
+    }
+
+    /// <summary>
+    /// Cuts a whole TrueType font down to some glyphs and gives it a new cmap table, for embedding a substitute font. Glyph
+    /// numbers are kept, as in <see cref="Subset"/>.
+    /// </summary>
+    /// <param name="font">The font program.</param>
+    /// <param name="glyphs">The glyphs to keep.</param>
+    /// <param name="cmap">The cmap table to write in place of the font's own.</param>
+    /// <returns>The new font, or <see langword="null"/> when the font is not a whole TrueType-outline font.</returns>
+    internal static byte[]? SubsetWithCmap(byte[] font, HashSet<int> glyphs, byte[] cmap)
+    {
+        if (!TryReadTables(font, out var tables))
+        {
+            return null;
+        }
+
+        var glyf = Find(tables, GlyfTag);
+        var head = Find(tables, HeadTag);
+        var maxp = Find(tables, MaxpTag);
+        if (glyf.Length == 0 || head.Length < HeadSize || maxp.Length < MaxpGlyphs + ShortEntry)
+        {
+            return null;
+        }
+
+        var count = BinaryPrimitives.ReadUInt16BigEndian(font.AsSpan(maxp.Offset + MaxpGlyphs));
+        var longLoca = BinaryPrimitives.ReadInt16BigEndian(font.AsSpan(head.Offset + HeadLocaFormat)) == 1;
+        if (!TryReadLoca(font, Find(tables, LocaTag), glyf, count, longLoca, out var offsets))
+        {
+            return null;
+        }
+
+        var keep = GlyphClosure.Find(font.AsSpan(glyf.Offset, glyf.Length), offsets, glyphs);
+        return Rebuild(font, tables, offsets, keep, cmap);
     }
 
     /// <summary>Reads the table directory of a single TrueType font.</summary>
@@ -229,8 +266,9 @@ internal static class TrueTypeSubsetter
     /// <param name="tables">Its tables.</param>
     /// <param name="offsets">The glyph offsets into /glyf.</param>
     /// <param name="keep">Whether each glyph is kept.</param>
+    /// <param name="cmap">A cmap table to write in place of the font's own, or empty to keep it.</param>
     /// <returns>The new font.</returns>
-    private static byte[] Rebuild(byte[] font, List<SfntTable> tables, int[] offsets, bool[] keep)
+    private static byte[] Rebuild(byte[] font, List<SfntTable> tables, int[] offsets, bool[] keep, ReadOnlyMemory<byte> cmap)
     {
         var newGlyf = KeptGlyphs(font, Find(tables, GlyfTag), offsets, keep, out var newLoca);
         var head = font.AsSpan(Find(tables, HeadTag).Offset, Find(tables, HeadTag).Length).ToArray();
@@ -250,6 +288,7 @@ internal static class TrueTypeSubsetter
                 GlyfTag => newGlyf,
                 LocaTag => newLoca,
                 HeadTag => head,
+                CmapTag when !cmap.IsEmpty => cmap,
                 _ => font.AsMemory(table.Offset, table.Length),
             }));
         }
