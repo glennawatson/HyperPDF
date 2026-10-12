@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Features;
 using HyperPdfLibrary.Metadata;
@@ -27,25 +28,50 @@ public static class PdfDocumentConformance
     private const int CmykProfileComponents = 4;
 
     /// <summary>
-    /// Reads what the file claims about PDF/A, PDF/UA and PDF/X and lists the features a viewer can see without full
-    /// validation. This is a reading report, not a validator: it never says that a file conforms. Use veraPDF to validate.
-    /// It reads every object and the page resources on each call, so keep the result.
+    /// Reads what the file claims about PDF/A, PDF/UA and PDF/X and lists the features its drawn content uses. For a file
+    /// that claims a PDF/A level, the report also holds the rule-by-rule check of that level. It reads every object and
+    /// the content of every page on each call, so keep the result.
     /// </summary>
     /// <param name="document">The document.</param>
     /// <returns>The report.</returns>
-    public static PdfConformanceReport GetConformance(PdfDocument document)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfConformanceReport GetConformance(PdfDocument document) => GetConformance(document, CancellationToken.None);
+
+    /// <summary>
+    /// Reads what the file claims about PDF/A, PDF/UA and PDF/X and lists the features its drawn content uses. For a file
+    /// that claims a PDF/A level, the report also holds the rule-by-rule check of that level.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="cancellationToken">Stops the scan and the check.</param>
+    /// <returns>The report.</returns>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static PdfConformanceReport GetConformance(PdfDocument document, CancellationToken cancellationToken)
     {
-        var xmp = PdfDocumentMetadata.GetXmp(document);
-        var intents = PdfDocumentCatalog.GetOutputIntents(document);
-        var summaries = new PdfOutputIntentSummary[intents.Length];
-        for (var i = 0; i < intents.Length; i++)
+        ArgumentNullException.ThrowIfNull(document);
+        var report = PdfDocumentConformance.Read(document, cancellationToken);
+        return PdfALevels.FromClaim(report.PdfA) is { } level ? report with { PdfAValidation = PdfAValidator.Validate(document, level, cancellationToken) } : report;
+    }
+
+    /// <summary>
+    /// Reads the conformance report after loading every page with asynchronous reads, yielding between the PDF/A rule
+    /// areas. Use it when the file may still be loading or the caller needs to cancel.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="cancellationToken">Stops the reads, the scan and the check.</param>
+    /// <returns>The report.</returns>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static async ValueTask<PdfConformanceReport> GetConformanceAsync(PdfDocument document, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        for (var index = 0; index < document.PageCount; index++)
         {
-            summaries[i] = PdfDocumentConformance.Summarise(intents[i]);
+            _ = await PdfDocumentPages.GetPageAsync(document, index, cancellationToken).ConfigureAwait(false);
         }
 
-        var claim = PdfDocumentConformance.ReadPdfAClaim(xmp);
-        var observations = new ConformanceScan(document).Run(claim, intents.Length > 0);
-        return new(xmp is not null, claim, xmp?.PdfUaPart, PdfDocumentConformance.ReadPdfXVersion(document, xmp), summaries, observations);
+        var report = PdfDocumentConformance.Read(document, cancellationToken);
+        return PdfALevels.FromClaim(report.PdfA) is { } level
+            ? report with { PdfAValidation = await PdfAValidator.ValidateAsync(document, level, cancellationToken).ConfigureAwait(false) }
+            : report;
     }
 
     /// <summary>Reads the PDF/A claim from the <c>pdfaid</c> properties.</summary>
@@ -60,6 +86,25 @@ public static class PdfDocumentConformance
 
         var conformance = xmp.PdfAConformance?.Trim().ToUpperInvariant();
         return new(part, string.IsNullOrEmpty(conformance) ? null : conformance, xmp.PdfARevision);
+    }
+
+    /// <summary>Reads the claims, output intents and observations, without the PDF/A rule check.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="cancellationToken">Stops the scan.</param>
+    /// <returns>The report.</returns>
+    private static PdfConformanceReport Read(PdfDocument document, CancellationToken cancellationToken)
+    {
+        var xmp = PdfDocumentMetadata.GetXmp(document);
+        var intents = PdfDocumentCatalog.GetOutputIntents(document);
+        var summaries = new PdfOutputIntentSummary[intents.Length];
+        for (var i = 0; i < intents.Length; i++)
+        {
+            summaries[i] = PdfDocumentConformance.Summarise(intents[i]);
+        }
+
+        var claim = PdfDocumentConformance.ReadPdfAClaim(xmp);
+        var observations = new ConformanceScan(document).Run(claim, intents.Length > 0, cancellationToken);
+        return new(xmp is not null, claim, xmp?.PdfUaPart, PdfDocumentConformance.ReadPdfXVersion(document, xmp), summaries, observations);
     }
 
     /// <summary>Summarises an output intent for the report.</summary>

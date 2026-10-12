@@ -53,7 +53,7 @@ public sealed class PdfAValidatorAgreementTests
     /// <param name="report">HyperPdf's report.</param>
     /// <param name="disagreements">Receives each rule that differs.</param>
     /// <returns>The number of rules compared.</returns>
-    private static int Compare(VeraPdfCorpusResult expected, PdfAValidationReport report, List<string> disagreements)
+    internal static int Compare(VeraPdfCorpusResult expected, PdfAValidationReport report, List<string> disagreements)
     {
         var failed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var result in report.Failed)
@@ -77,7 +77,7 @@ public sealed class PdfAValidatorAgreementTests
     /// <summary>Gets the corpus checkout, or skips the test when there is none.</summary>
     /// <returns>The checkout folder.</returns>
     /// <exception cref="DirectoryNotFoundException">The corpus is required but missing.</exception>
-    private static string RequireCorpus()
+    internal static string RequireCorpus()
     {
         var folder = Environment.GetEnvironmentVariable(CorpusVariable);
         if (folder is { Length: > 0 } && Directory.Exists(Path.Combine(folder, "PDF_A-1b")))

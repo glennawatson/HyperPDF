@@ -769,7 +769,12 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Conformance.",
-    "reason": "The conformance report is a user action that returns a report: the PDF/A claim, the output intents and one observation per page and font."
+    "reason": "The conformance report is a user action that returns a report: the PDF/A claim, the output intents and one observation per feature, with the lists of fonts, forms, images, graphics states and patterns that page content uses, each collected once."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Optimizing.ContentUsageScanner.",
+    "reason": "The content usage walk serves two user actions, optimising and the conformance report. It records, per resource dictionary, the names page, form, pattern and appearance content uses, plus the fonts and images drawn, as sets built once per run. Neither action runs while viewing or rendering."
   },
   {
     "type": "",
