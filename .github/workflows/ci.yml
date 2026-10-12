@@ -76,17 +76,17 @@ jobs:
       - name: Install verified veraPDF
         id: verapdf
         run: dotnet run --file scripts/InstallVeraPdf.cs -- "${{ runner.temp }}/verapdf"
-      - name: Fetch verified veraPDF corpus files
-        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/pdfa-corpus" verapdf-pdfa1a-unicode-cmap verapdf-pdfa1b-info-title verapdf-pdfa1b-linearize-settle verapdf-pdfa1b-deep-references verapdf-pdfa1b-utf32le-xmp verapdf-pdfa1b-utf32be-bom-xmp verapdf-pdfa2a-language verapdf-pdfa2b-signed verapdf-pdfa2b-extension-schemas verapdf-pdfa2u-tounicode verapdf-pdfa3b-embedded-file verapdf-pdfa4-signed verapdf-pdfa4-pieceinfo verapdf-pdfa4e-embedded-file verapdf-pdfa4f-embedded-file
-      - name: Check out the veraPDF corpus
-        id: corpus
-        run: dotnet run --file scripts/FetchVeraPdfCorpus.cs -- "${{ runner.temp }}/verapdf-corpus"
+      - name: Fetch the PDF/A sample files
+        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/pdfa-samples" verapdf-pdfa1a-unicode-cmap verapdf-pdfa1b-info-title verapdf-pdfa1b-linearize-settle verapdf-pdfa1b-deep-references verapdf-pdfa1b-utf32le-xmp verapdf-pdfa1b-utf32be-bom-xmp verapdf-pdfa2a-language verapdf-pdfa2b-signed verapdf-pdfa2b-extension-schemas verapdf-pdfa2u-tounicode verapdf-pdfa3b-embedded-file verapdf-pdfa4-signed verapdf-pdfa4-pieceinfo verapdf-pdfa4e-embedded-file verapdf-pdfa4f-embedded-file
+      - name: Check out veraPDF's PDF/A test files
+        id: testfiles
+        run: dotnet run --file scripts/FetchVeraPdfTestFiles.cs -- "${{ runner.temp }}/verapdf-test-files"
       - name: Validate PDF/A output with veraPDF
         env:
           HYPERPDF_VERAPDF: ${{ steps.verapdf.outputs.verapdf-home }}
           HYPERPDF_REQUIRE_VERAPDF: '1'
-          HYPERPDF_PDFA_CORPUS_DIR: ${{ runner.temp }}/pdfa-corpus
-          HYPERPDF_VERAPDF_CORPUS: ${{ steps.corpus.outputs.corpus-dir }}
+          HYPERPDF_PDFA_SAMPLES: ${{ runner.temp }}/pdfa-samples
+          HYPERPDF_VERAPDF_TEST_FILES: ${{ steps.testfiles.outputs.test-files-dir }}
           HYPERPDF_PDFA_OUTPUT: ${{ runner.temp }}/pdfa-output
         run: dotnet run --project "${{ github.workspace }}/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*' --report-trx --results-directory "${{ runner.temp }}/pdfa-output"
       - name: Upload PDF/A outputs

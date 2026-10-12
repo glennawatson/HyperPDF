@@ -62,20 +62,20 @@ scripts/publish-linux.sh linux-x64
 
 ### PDF/A output
 
-Every change to a writer, editor or the optimiser must keep PDF/A output valid. The `HyperPdfLibrary.Tests.Conformance.VeraPdf` tests check generated and corpus files with veraPDF, which runs as a separate Java (11+) process and is never linked or shipped. They skip without veraPDF; CI's `PDF/A output validation (veraPDF)` job requires it.
+Every change to a writer, editor or the optimiser must keep PDF/A output valid. The `HyperPdfLibrary.Tests.Conformance.VeraPdf` tests check generated files and veraPDF's sample PDFs with veraPDF, which runs as a separate Java (11+) process and is never linked or shipped. They skip without veraPDF; CI's `PDF/A output validation (veraPDF)` job requires it.
 
 ```bash
 dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/hyperpdf/verapdf
-dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/hyperpdf/pdfa-corpus <the verapdf-pdfa* ids in the manifest>
-dotnet run --file scripts/FetchVeraPdfCorpus.cs -- ~/.cache/hyperpdf/verapdf-corpus
-HYPERPDF_VERAPDF=~/.cache/hyperpdf/verapdf HYPERPDF_PDFA_CORPUS_DIR=~/.cache/hyperpdf/pdfa-corpus \
-  HYPERPDF_VERAPDF_CORPUS=~/.cache/hyperpdf/verapdf-corpus \
+dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/hyperpdf/pdfa-samples <the verapdf-pdfa* ids in the manifest>
+dotnet run --file scripts/FetchVeraPdfTestFiles.cs -- ~/.cache/hyperpdf/verapdf-test-files
+HYPERPDF_VERAPDF=~/.cache/hyperpdf/verapdf HYPERPDF_PDFA_SAMPLES=~/.cache/hyperpdf/pdfa-samples \
+  HYPERPDF_VERAPDF_TEST_FILES=~/.cache/hyperpdf/verapdf-test-files \
   dotnet run --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*'
 ```
 
-The installer reads the release from `verapdf.json`, which Renovate updates; the same file pins the veraPDF corpus commit. Set `HYPERPDF_PDFA_OUTPUT` to keep the files the tests write. CI lists the corpus ids in `.github/workflows/ci.yml`.
+The installer reads the release from `verapdf.json`, which Renovate updates; the same file pins the commit of veraPDF's PDF/A test files. Set `HYPERPDF_PDFA_OUTPUT` to keep the files the tests write. CI lists the sample ids in `.github/workflows/ci.yml`.
 
-`PdfAValidator` must give veraPDF's pass or fail for every rule it checks on every corpus file; `PdfAValidatorAgreementTests` compares it with `tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-corpus-results.tsv`. After a veraPDF or corpus update, record that file again with `dotnet run --file scripts/RecordVeraPdfCorpusResults.cs -- <corpus> <verapdf home> <that file>`. A rule joins a checker's `Rules` list only when it agrees on the whole corpus.
+`PdfAValidator` must give veraPDF's pass or fail for every rule it checks on every one of veraPDF's PDF/A test files; `PdfAValidatorAgreementTests` compares it with `tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-results.tsv`. After a veraPDF update or a new test file commit, record that file again with `dotnet run --file scripts/RecordVeraPdfResults.cs -- <test files folder> <verapdf home> <that file>`. A rule joins a checker's `Rules` list only when it agrees on all of veraPDF's PDF/A test files.
 
 Warnings are failures. Verify all affected frameworks, saved output and user-visible behaviour. TUnit uses Microsoft.Testing.Platform; runner arguments follow `--`. With SDK 11, use absolute paths for `--project`. UI tests and benchmarks run headless. Set `HYPERPDF_SCREENSHOTS` to save UI frames.
 

@@ -8,36 +8,36 @@ using HyperPdfLibrary.Document;
 namespace HyperPdfLibrary.Tests.Conformance.VeraPdf;
 
 /// <summary>
-/// Checks HyperPdf's PDF/A validator against veraPDF on the veraPDF test corpus (CC BY 4.0), fetched at the commit
-/// <c>verapdf.json</c> pins by <c>scripts/FetchVeraPdfCorpus.cs</c>. For every file and every rule the validator checks,
-/// it must fail the rule exactly when veraPDF's recorded result does. Without the corpus the test skips, unless
+/// Checks HyperPdf's PDF/A validator against veraPDF on veraPDF's PDF/A test files (CC BY 4.0), fetched at the commit
+/// <c>verapdf.json</c> pins by <c>scripts/FetchVeraPdfTestFiles.cs</c>. For every file and every rule the validator checks,
+/// it must fail the rule exactly when veraPDF's recorded result does. Without the test files the test skips, unless
 /// <see cref="VeraPdfValidator.RequireVariable"/> is set, as it is in CI.
 /// </summary>
 public sealed class PdfAValidatorAgreementTests
 {
-    /// <summary>The variable naming the corpus checkout.</summary>
-    internal const string CorpusVariable = "HYPERPDF_VERAPDF_CORPUS";
+    /// <summary>The variable naming the checkout of veraPDF's PDF/A test files.</summary>
+    internal const string TestFilesVariable = "HYPERPDF_VERAPDF_TEST_FILES";
 
     /// <summary>The most disagreements listed in a failure message.</summary>
     private const int ListedDisagreements = 50;
 
-    /// <summary>Every rule the validator checks gives veraPDF's pass or fail on every corpus file.</summary>
+    /// <summary>Every rule the validator checks gives veraPDF's pass or fail on every test file.</summary>
     /// <param name="cancellationToken">Cancels the validation.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task ValidatorAgreesWithVeraPdfOnTheCorpus(CancellationToken cancellationToken)
+    public async Task ValidatorAgreesWithVeraPdf(CancellationToken cancellationToken)
     {
-        var corpus = RequireCorpus();
+        var testFiles = RequireTestFiles();
         var disagreements = new List<string>();
         var compared = 0;
-        foreach (var expected in VeraPdfCorpusResults.Read())
+        foreach (var expected in VeraPdfRecordedResults.Read())
         {
             if (!expected.Completed)
             {
                 continue;
             }
 
-            var file = Path.Combine(corpus, expected.Path.Replace('/', Path.DirectorySeparatorChar));
+            var file = Path.Combine(testFiles, expected.Path.Replace('/', Path.DirectorySeparatorChar));
             using var document = await PdfDocumentReader.OpenAsync(file, null, cancellationToken);
             var report = await PdfAValidator.ValidateAsync(document, expected.Level, cancellationToken);
             compared += Compare(expected, report, disagreements);
@@ -53,7 +53,7 @@ public sealed class PdfAValidatorAgreementTests
     /// <param name="report">HyperPdf's report.</param>
     /// <param name="disagreements">Receives each rule that differs.</param>
     /// <returns>The number of rules compared.</returns>
-    internal static int Compare(VeraPdfCorpusResult expected, PdfAValidationReport report, List<string> disagreements)
+    internal static int Compare(VeraPdfRecordedResult expected, PdfAValidationReport report, List<string> disagreements)
     {
         var failed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var result in report.Failed)
@@ -74,18 +74,18 @@ public sealed class PdfAValidatorAgreementTests
         return report.Checked.Length;
     }
 
-    /// <summary>Gets the corpus checkout, or skips the test when there is none.</summary>
+    /// <summary>Gets the checkout of veraPDF's PDF/A test files, or skips the test when there is none.</summary>
     /// <returns>The checkout folder.</returns>
-    /// <exception cref="DirectoryNotFoundException">The corpus is required but missing.</exception>
-    internal static string RequireCorpus()
+    /// <exception cref="DirectoryNotFoundException">The test files are required but missing.</exception>
+    internal static string RequireTestFiles()
     {
-        var folder = Environment.GetEnvironmentVariable(CorpusVariable);
+        var folder = Environment.GetEnvironmentVariable(TestFilesVariable);
         if (folder is { Length: > 0 } && Directory.Exists(Path.Combine(folder, "PDF_A-1b")))
         {
             return folder;
         }
 
-        const string message = $"No veraPDF corpus. Run 'dotnet run --file scripts/FetchVeraPdfCorpus.cs -- <dir>' and set {CorpusVariable} to that directory.";
+        const string message = $"No veraPDF PDF/A test files. Run 'dotnet run --file scripts/FetchVeraPdfTestFiles.cs -- <dir>' and set {TestFilesVariable} to that directory.";
         if (Environment.GetEnvironmentVariable(VeraPdfValidator.RequireVariable) == "1")
         {
             throw new DirectoryNotFoundException(message);

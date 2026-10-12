@@ -9,28 +9,28 @@ using HyperPdfLibrary.Writing;
 namespace HyperPdfLibrary.Tests.Conformance.VeraPdf;
 
 /// <summary>
-/// Reads and saves valid veraPDF corpus files (CC BY 4.0, fetched by CI from <c>tests/reference-pdfs/manifest.json</c>).
+/// Reads and saves valid veraPDF sample PDFs (CC BY 4.0, fetched by CI from <c>tests/reference-pdfs/manifest.json</c>).
 /// HyperPdf must read each file as veraPDF does, and every edited copy it writes must keep a claim that veraPDF accepts.
 /// A signed file must be refused by full rewrites and saved incrementally.
 /// </summary>
 [NotInParallel(nameof(VeraPdfValidator))]
-public sealed class PdfACorpusValidationTests
+public sealed class PdfASampleValidationTests
 {
-    /// <summary>The variable naming the folder of fetched corpus files.</summary>
-    internal const string CorpusVariable = "HYPERPDF_PDFA_CORPUS_DIR";
+    /// <summary>The variable naming the folder of fetched sample PDFs.</summary>
+    internal const string SamplesVariable = "HYPERPDF_PDFA_SAMPLES";
 
-    /// <summary>Every corpus file reads as veraPDF reads it, and its edited copies pass veraPDF with the same claim.</summary>
+    /// <summary>Every sample PDF reads as veraPDF reads it, and its edited copies pass veraPDF with the same claim.</summary>
     /// <param name="cancellationToken">Cancels the saves and validation.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CorpusFilesReadAndSaveAsVeraPdfExpects(CancellationToken cancellationToken)
+    public async Task SamplesReadAndSaveAsVeraPdfExpects(CancellationToken cancellationToken)
     {
         var home = VeraPdfValidator.RequireHome();
-        var files = RequireCorpus();
+        var files = RequireSamples();
         var sources = await VeraPdfValidator.ValidateAsync(home, VeraPdfValidator.DetectFlavour, files, cancellationToken);
         var problems = new List<string>();
         var outputs = new Dictionary<string, string?>(StringComparer.Ordinal);
-        using var folder = new PdfAOutputFolder("corpus");
+        using var folder = new PdfAOutputFolder("samples");
         foreach (var file in files)
         {
             var source = sources[Path.GetFullPath(file)];
@@ -76,12 +76,12 @@ public sealed class PdfACorpusValidationTests
     public async Task IssueFilesLinearize(CancellationToken cancellationToken)
     {
         var home = VeraPdfValidator.RequireHome();
-        var corpus = Path.GetDirectoryName(RequireCorpus()[0])!;
+        var samples = Path.GetDirectoryName(RequireSamples()[0])!;
         using var folder = new PdfAOutputFolder("issue-181");
         var outputs = new List<string>();
         foreach (var name in (string[])["verapdf-pdfa1b-linearize-settle.pdf", "verapdf-pdfa1b-deep-references.pdf"])
         {
-            var file = Path.Combine(corpus, name);
+            var file = Path.Combine(samples, name);
             using var document = await PdfDocumentReader.OpenAsync(file, null, cancellationToken);
             PdfDocumentMetadataEditing.SetMetadata(document, new() { Title = "HyperPdf standards audit" });
             var path = Path.Combine(folder.Path, Path.GetFileName(file));
@@ -101,19 +101,19 @@ public sealed class PdfACorpusValidationTests
         }
     }
 
-    /// <summary>Gets the fetched corpus files, or skips the test when there are none.</summary>
+    /// <summary>Gets the fetched sample PDFs, or skips the test when there are none.</summary>
     /// <returns>The files.</returns>
     /// <exception cref="DirectoryNotFoundException">The files are required but missing.</exception>
-    private static string[] RequireCorpus()
+    private static string[] RequireSamples()
     {
-        var folder = Environment.GetEnvironmentVariable(CorpusVariable);
+        var folder = Environment.GetEnvironmentVariable(SamplesVariable);
         var files = folder is { Length: > 0 } && Directory.Exists(folder) ? Directory.GetFiles(folder, "verapdf-pdfa*.pdf").Order(StringComparer.Ordinal).ToArray() : [];
         if (files.Length > 0)
         {
             return files;
         }
 
-        const string message = $"No veraPDF corpus files. Fetch the verapdf-pdfa* entries of tests/reference-pdfs/manifest.json with scripts/FetchReferencePdfs.cs and set {CorpusVariable}.";
+        const string message = $"No veraPDF sample PDFs. Fetch the verapdf-pdfa* entries of tests/reference-pdfs/manifest.json with scripts/FetchReferencePdfs.cs and set {SamplesVariable}.";
         if (Environment.GetEnvironmentVariable(VeraPdfValidator.RequireVariable) == "1")
         {
             throw new DirectoryNotFoundException(message);
@@ -124,10 +124,10 @@ public sealed class PdfACorpusValidationTests
     }
 
     /// <summary>
-    /// Edits a corpus file's properties and saves it incrementally, compactly and linearized. A signed file must be
+    /// Edits a sample PDF's properties and saves it incrementally, compactly and linearized. A signed file must be
     /// refused by the full rewrites, as a rewrite would break its signature.
     /// </summary>
-    /// <param name="file">The corpus file.</param>
+    /// <param name="file">The sample PDF.</param>
     /// <param name="folder">The folder for this file's outputs.</param>
     /// <param name="problems">Receives what went wrong.</param>
     /// <param name="cancellationToken">Cancels the saves.</param>

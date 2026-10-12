@@ -80,7 +80,7 @@
         "pdfa",
         "pdfa-1a"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa1b-info-title",
@@ -92,7 +92,7 @@
         "pdfa",
         "pdfa-1b"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa1b-linearize-settle",
@@ -104,7 +104,7 @@
         "pdfa",
         "pdfa-1b"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa1b-deep-references",
@@ -116,7 +116,7 @@
         "pdfa",
         "pdfa-1b"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa1b-utf32le-xmp",
@@ -128,7 +128,7 @@
         "pdfa",
         "pdfa-1b"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa1b-utf32be-bom-xmp",
@@ -140,7 +140,7 @@
         "pdfa",
         "pdfa-1b"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa2a-language",
@@ -152,7 +152,7 @@
         "pdfa",
         "pdfa-2a"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa2b-signed",
@@ -165,7 +165,7 @@
         "pdfa-2b",
         "signed"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa2b-extension-schemas",
@@ -177,7 +177,7 @@
         "pdfa",
         "pdfa-2b"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa2u-tounicode",
@@ -189,7 +189,7 @@
         "pdfa",
         "pdfa-2u"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa3b-embedded-file",
@@ -201,7 +201,7 @@
         "pdfa",
         "pdfa-3b"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa4-signed",
@@ -214,7 +214,7 @@
         "pdfa-4",
         "signed"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa4-pieceinfo",
@@ -226,7 +226,7 @@
         "pdfa",
         "pdfa-4"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa4e-embedded-file",
@@ -238,7 +238,7 @@
         "pdfa",
         "pdfa-4e"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     },
     {
       "id": "verapdf-pdfa4f-embedded-file",
@@ -250,7 +250,7 @@
         "pdfa",
         "pdfa-4f"
       ],
-      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
     }
   ]
 }

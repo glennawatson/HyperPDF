@@ -9,7 +9,7 @@ namespace HyperPdfLibrary.Conformance;
 
 /// <summary>
 /// Checks a document against a PDF/A level, rule by rule, and reports each rule with its clause and test number as the
-/// veraPDF profiles number them. The rules checked give the same pass or fail as veraPDF on the veraPDF test corpus; the
+/// veraPDF profiles number them. The rules checked give the same pass or fail as veraPDF on veraPDF's PDF/A test files; the
 /// report lists the rules that are not checked. This is a practical check, not a certification.
 /// </summary>
 /// <remarks>

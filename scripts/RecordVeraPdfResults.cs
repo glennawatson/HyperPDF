@@ -12,16 +12,16 @@ using System.Text.Json;
 namespace HyperPdf.Scripts;
 
 /// <summary>
-/// Validates every file of a veraPDF corpus checkout with veraPDF, each against its folder's PDF/A level, and records
+/// Validates every file of a checkout of veraPDF's PDF/A test files with veraPDF, each against its folder's PDF/A level, and records
 /// the rules that fail. The PDF/A validator agreement test compares HyperPdf with this record, so CI does not run veraPDF
-/// over the whole corpus. Rerun it after changing the veraPDF release or the corpus commit in <c>verapdf.json</c>.
+/// over all of them. Rerun it after changing the veraPDF release or the test file commit in <c>verapdf.json</c>.
 /// </summary>
 /// <remarks>
-/// Output: two <c>#</c> header lines naming the veraPDF release and corpus commit, then one tab-separated line per file:
+/// Output: two <c>#</c> header lines naming the veraPDF release and the test file commit, then one tab-separated line per file:
 /// the path relative to the checkout with <c>/</c> separators, the level, whether veraPDF found it compliant, the job
 /// status, and the failed rules as <c>clause:test</c> joined by <c>;</c>.
 /// </remarks>
-internal static class RecordVeraPdfCorpusResults
+internal static class RecordVeraPdfResults
 {
     /// <summary>The files validated per veraPDF start.</summary>
     private const int BatchSize = 80;
@@ -32,10 +32,10 @@ internal static class RecordVeraPdfCorpusResults
     /// <summary>The longest a killed process may take to exit.</summary>
     private const int ProcessCleanupSeconds = 30;
 
-    /// <summary>The header lines before the results: the veraPDF release and the corpus commit.</summary>
+    /// <summary>The header lines before the results: the veraPDF release and the test file commit.</summary>
     private const int HeaderLines = 2;
 
-    /// <summary>Gets the corpus folders and the veraPDF flavour each is validated against.</summary>
+    /// <summary>Gets the folders and the veraPDF flavour each is validated against.</summary>
     private static Dictionary<string, string> Flavours => new(StringComparer.Ordinal)
     {
         ["PDF_A-1a"] = "1a",
@@ -50,33 +50,33 @@ internal static class RecordVeraPdfCorpusResults
     };
 
     /// <summary>Records the results.</summary>
-    /// <param name="args">The corpus checkout, the veraPDF installation directory and the output file.</param>
+    /// <param name="args">The test file checkout, the veraPDF installation directory and the output file.</param>
     /// <returns>A task.</returns>
     /// <exception cref="ArgumentException">The arguments are wrong.</exception>
     internal static async Task Main(string[] args)
     {
-        if (args is not [var corpusArgument, var homeArgument, var outputArgument])
+        if (args is not [var testFilesArgument, var homeArgument, var outputArgument])
         {
-            throw new ArgumentException("Provide the corpus checkout, the veraPDF installation directory and the output file.");
+            throw new ArgumentException("Provide the test file checkout, the veraPDF installation directory and the output file.");
         }
 
-        var corpus = Path.GetFullPath(corpusArgument);
+        var testFiles = Path.GetFullPath(testFilesArgument);
         var home = Path.GetFullPath(homeArgument);
         using var setup = new CancellationTokenSource(TimeSpan.FromMinutes(BatchMinutes));
 
         // The first line of the version banner names the release, such as "veraPDF 1.30.3".
         var release = (await RunAsync(FindJava(), [.. CliArguments(home), "--version"], setup.Token)).Trim().Split('\n')[0].Trim();
-        var commit = (await RunAsync("git", ["-C", corpus, "rev-parse", "HEAD"], setup.Token)).Trim();
-        var lines = new List<string> { $"# {release}", $"# veraPDF-corpus {commit}" };
+        var commit = (await RunAsync("git", ["-C", testFiles, "rev-parse", "HEAD"], setup.Token)).Trim();
+        var lines = new List<string> { $"# {release}", $"# veraPDF test files {commit}" };
         foreach (var (folder, flavour) in Flavours)
         {
-            var files = Directory.GetFiles(Path.Combine(corpus, folder), "*.pdf", SearchOption.AllDirectories);
+            var files = Directory.GetFiles(Path.Combine(testFiles, folder), "*.pdf", SearchOption.AllDirectories);
             Array.Sort(files, StringComparer.Ordinal);
             foreach (var batch in files.Chunk(BatchSize))
             {
                 using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(BatchMinutes));
                 var json = await RunAsync(FindJava(), [.. CliArguments(home), "--format", "json", "--maxfailuresdisplayed", "1", "-f", flavour, .. batch], timeout.Token);
-                AddResults(lines, corpus, flavour, json);
+                AddResults(lines, testFiles, flavour, json);
             }
 
             Console.WriteLine($"{folder}: {files.Length} files");
@@ -93,15 +93,15 @@ internal static class RecordVeraPdfCorpusResults
 
     /// <summary>Adds a line for each job of a veraPDF JSON report.</summary>
     /// <param name="lines">The lines.</param>
-    /// <param name="corpus">The corpus checkout.</param>
+    /// <param name="testFiles">The test file checkout.</param>
     /// <param name="flavour">The flavour validated.</param>
     /// <param name="json">The JSON report.</param>
-    private static void AddResults(List<string> lines, string corpus, string flavour, string json)
+    private static void AddResults(List<string> lines, string testFiles, string flavour, string json)
     {
         using var document = JsonDocument.Parse(json);
         foreach (var job in document.RootElement.GetProperty("report").GetProperty("jobs").EnumerateArray())
         {
-            var path = Path.GetRelativePath(corpus, job.GetProperty("itemDetails").GetProperty("name").GetString() ?? string.Empty).Replace('\\', '/');
+            var path = Path.GetRelativePath(testFiles, job.GetProperty("itemDetails").GetProperty("name").GetString() ?? string.Empty).Replace('\\', '/');
             if (!job.TryGetProperty("validationResult", out var results) || results.GetArrayLength() == 0)
             {
                 lines.Add($"{path}\t{flavour}\tFalse\terror\t");

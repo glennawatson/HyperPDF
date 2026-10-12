@@ -7,13 +7,13 @@ using HyperPdfLibrary.Conformance;
 namespace HyperPdfLibrary.Tests.Conformance.VeraPdf;
 
 /// <summary>
-/// Reads the veraPDF results recorded for the corpus by <c>scripts/RecordVeraPdfCorpusResults.cs</c>
-/// (<c>Data/verapdf-corpus-results.tsv</c>, embedded in the test assembly).
+/// Reads the veraPDF results recorded for veraPDF's PDF/A test files by <c>scripts/RecordVeraPdfResults.cs</c>
+/// (<c>Data/verapdf-results.tsv</c>, embedded in the test assembly).
 /// </summary>
-internal static class VeraPdfCorpusResults
+internal static class VeraPdfRecordedResults
 {
     /// <summary>The manifest name of the recorded results.</summary>
-    private const string ResourceName = "HyperPdfLibrary.Tests.VeraPdfCorpusResults.tsv";
+    private const string ResourceName = "HyperPdfLibrary.Tests.VeraPdfRecordedResults.tsv";
 
     /// <summary>The tab-separated columns of a result line.</summary>
     private const int Columns = 5;
@@ -42,15 +42,15 @@ internal static class VeraPdfCorpusResults
     };
 
     /// <summary>Reads the recorded results.</summary>
-    /// <returns>One result per corpus file.</returns>
+    /// <returns>One result per test file.</returns>
     /// <exception cref="InvalidDataException">The record is missing or malformed.</exception>
-    internal static List<VeraPdfCorpusResult> Read()
+    internal static List<VeraPdfRecordedResult> Read()
     {
-        using var stream = typeof(VeraPdfCorpusResults).Assembly.GetManifestResourceStream(ResourceName)
-            ?? throw new InvalidDataException("The recorded veraPDF corpus results are missing from the test assembly.");
+        using var stream = typeof(VeraPdfRecordedResults).Assembly.GetManifestResourceStream(ResourceName)
+            ?? throw new InvalidDataException("The recorded veraPDF results are missing from the test assembly.");
         using var reader = new StreamReader(stream);
         var levels = Levels;
-        var results = new List<VeraPdfCorpusResult>();
+        var results = new List<VeraPdfRecordedResult>();
         while (reader.ReadLine() is { } line)
         {
             if (line.Length == 0 || line[0] == '#')

@@ -7,32 +7,32 @@ using HyperPdfLibrary.Document;
 namespace HyperPdfLibrary.Tests.Conformance.VeraPdf;
 
 /// <summary>
-/// Checks the conformance report's PDF/A rule results against veraPDF's recorded verdicts on the pinned veraPDF corpus.
+/// Checks the conformance report's PDF/A rule results against veraPDF's recorded verdicts on veraPDF's pinned PDF/A test files.
 /// The report checks the level a file claims, so each file whose claim names the level veraPDF validated is compared
-/// rule by rule. Without the corpus the test skips, unless <see cref="VeraPdfValidator.RequireVariable"/> is set.
+/// rule by rule. Without the test files the test skips, unless <see cref="VeraPdfValidator.RequireVariable"/> is set.
 /// </summary>
 public sealed class PdfConformanceReportAgreementTests
 {
     /// <summary>The most disagreements listed in a failure message.</summary>
     private const int ListedDisagreements = 50;
 
-    /// <summary>Every rule the report checks gives veraPDF's pass or fail on every corpus file that claims the level veraPDF checked.</summary>
+    /// <summary>Every rule the report checks gives veraPDF's pass or fail on every test file that claims the level veraPDF checked.</summary>
     /// <param name="cancellationToken">Cancels the reports.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task ReportAgreesWithVeraPdfOnTheCorpus(CancellationToken cancellationToken)
+    public async Task ReportAgreesWithVeraPdf(CancellationToken cancellationToken)
     {
-        var corpus = PdfAValidatorAgreementTests.RequireCorpus();
+        var testFiles = PdfAValidatorAgreementTests.RequireTestFiles();
         var disagreements = new List<string>();
         var compared = 0;
-        foreach (var expected in VeraPdfCorpusResults.Read())
+        foreach (var expected in VeraPdfRecordedResults.Read())
         {
             if (!expected.Completed)
             {
                 continue;
             }
 
-            var file = Path.Combine(corpus, expected.Path.Replace('/', Path.DirectorySeparatorChar));
+            var file = Path.Combine(testFiles, expected.Path.Replace('/', Path.DirectorySeparatorChar));
             using var document = await PdfDocumentReader.OpenAsync(file, null, cancellationToken);
             var report = await PdfDocumentConformance.GetConformanceAsync(document, cancellationToken);
             if (report.PdfAValidation is { } rules && rules.Level == expected.Level)

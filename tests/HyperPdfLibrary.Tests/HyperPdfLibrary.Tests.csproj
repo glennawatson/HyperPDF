@@ -16,8 +16,8 @@
     <EmbeddedResource Include="..\..\src\HyperPdfLibrary\Graphics\Images\Jpx\JpxHtTables.cs" LogicalName="JpxHtTables.cs" />
   </ItemGroup>
 
-  <!-- veraPDF's results for the corpus, recorded by scripts/RecordVeraPdfCorpusResults.cs, for the validator agreement test. -->
+  <!-- veraPDF's results for its PDF/A test files, recorded by scripts/RecordVeraPdfResults.cs, for the validator agreement test. -->
   <ItemGroup>
-    <EmbeddedResource Include="Conformance\VeraPdf\Data\verapdf-corpus-results.tsv" LogicalName="HyperPdfLibrary.Tests.VeraPdfCorpusResults.tsv" />
+    <EmbeddedResource Include="Conformance\VeraPdf\Data\verapdf-results.tsv" LogicalName="HyperPdfLibrary.Tests.VeraPdfRecordedResults.tsv" />
   </ItemGroup>
 </Project>
