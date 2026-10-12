@@ -95,6 +95,30 @@
       "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
     },
     {
+      "id": "verapdf-pdfa1b-linearize-settle",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-1b/6.7%20Metadata/6.7.3%20Document%20information%20dictionary/veraPDF%20test%20suite%206-7-3-t03-pass-a.pdf",
+      "sha256": "1f382c629b5fa2d3e10fac0fbf453e4b82c770d9551f90e40856e9515e5be078",
+      "bytes": 9722,
+      "tags": [
+        "pdfa",
+        "pdfa-1b"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa1b-deep-references",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-1b/6.1%20File%20structure/6.1.12%20Implementation%20limits/veraPDF%20test%20suite%206-1-12-t08-pass-c.pdf",
+      "sha256": "a0a7c4cb5c4aa8f45ad8a7703262fe83440e3d44607ccaff353f9e34cb2b8912",
+      "bytes": 11913,
+      "tags": [
+        "pdfa",
+        "pdfa-1b"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
       "id": "verapdf-pdfa1b-utf32le-xmp",
       "source": "veraPDF/veraPDF-corpus",
       "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-1b/6.7%20Metadata/6.7.9%20Validation/veraPDF%20test%20suite%206-7-9-t04-pass-m.pdf",

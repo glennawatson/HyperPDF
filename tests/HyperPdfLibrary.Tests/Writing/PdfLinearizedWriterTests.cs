@@ -24,6 +24,9 @@ public sealed class PdfLinearizedWriterTests
     /// <summary>The case with an object shared only by later pages.</summary>
     private const int LaterSharedPageCount = 3;
 
+    /// <summary>The parts of a file identifier.</summary>
+    private const int IdParts = 2;
+
     /// <summary>Gets the raw stream-data marker in the unfiltered writer output.</summary>
     private static ReadOnlySpan<byte> StreamKeyword => "stream\r\n"u8;
 
@@ -146,6 +149,57 @@ public sealed class PdfLinearizedWriterTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
         await Assert.That(async () => await PdfLinearizedWriter.SaveAsync(document, output, cancelled.Token)).Throws<OperationCanceledException>();
+    }
+
+    /// <summary>A page that reaches a long chain of indirect objects, such as a linked list, linearizes with every link kept (#181).</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task Save_LongReferenceChainLinearizes()
+    {
+        const int links = 500;
+        var builder = new PdfDocumentBuilder();
+        var next = builder.Names.Intern("Next"u8);
+        var head = default(PdfObjectId);
+        for (var index = 0; index < links; index++)
+        {
+            var link = new PdfDictionary(null);
+            if (head.IsValid)
+            {
+                link.Set(next, PdfValue.FromReference(head));
+            }
+
+            head = builder.Add(PdfValue.FromDictionary(link));
+        }
+
+        var page = new PdfDictionary(null);
+        page.Set(KnownName.MediaBox, PdfValue.FromArray(PdfArray.FromNumbers(null, [0, 0, PageWidth, PageHeight])));
+        page.Set(builder.Names.Intern("Chain"u8), PdfValue.FromReference(head));
+        _ = builder.AddPage(page);
+        using var source = PdfDocumentReader.Open(builder.ToArray(), null);
+        using var reopened = PdfDocumentReader.Open(PdfLinearizedWriter.Save(source), null);
+        var count = 0;
+        var chain = reopened.Objects.Names.Intern("Chain"u8);
+        var nextLink = reopened.Objects.Names.Intern("Next"u8);
+        for (var link = PdfDocumentPages.GetPage(reopened, 0).Dictionary.GetDictionary(chain); link is not null; link = link.GetDictionary(nextLink))
+        {
+            count++;
+        }
+
+        await Assert.That(count).IsEqualTo(links);
+        await AssertNoLinearizationFaults(reopened);
+    }
+
+    /// <summary>Saving the same document twice gives the same bytes, with one /ID shared by both trailers.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task Save_IsDeterministic()
+    {
+        using var source = PdfDocumentReader.Open(CreatePages(LaterSharedPageCount), null);
+        var first = PdfLinearizedWriter.Save(source);
+        var second = PdfLinearizedWriter.Save(source);
+        using var reopened = PdfDocumentReader.Open(first, null);
+        await Assert.That(second).IsEquivalentTo(first);
+        await Assert.That(reopened.Objects.Trailer.GetArray(KnownName.ID)?.Count).IsEqualTo(IdParts);
     }
 
     /// <summary>Builds pages with a font shared by the later two pages.</summary>

@@ -77,7 +77,7 @@ jobs:
         id: verapdf
         run: dotnet run --file scripts/InstallVeraPdf.cs -- "${{ runner.temp }}/verapdf"
       - name: Fetch verified veraPDF corpus files
-        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/pdfa-corpus" verapdf-pdfa1a-unicode-cmap verapdf-pdfa1b-info-title verapdf-pdfa1b-utf32le-xmp verapdf-pdfa1b-utf32be-bom-xmp verapdf-pdfa2a-language verapdf-pdfa2b-signed verapdf-pdfa2b-extension-schemas verapdf-pdfa2u-tounicode verapdf-pdfa3b-embedded-file verapdf-pdfa4-signed verapdf-pdfa4-pieceinfo verapdf-pdfa4e-embedded-file verapdf-pdfa4f-embedded-file
+        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/pdfa-corpus" verapdf-pdfa1a-unicode-cmap verapdf-pdfa1b-info-title verapdf-pdfa1b-linearize-settle verapdf-pdfa1b-deep-references verapdf-pdfa1b-utf32le-xmp verapdf-pdfa1b-utf32be-bom-xmp verapdf-pdfa2a-language verapdf-pdfa2b-signed verapdf-pdfa2b-extension-schemas verapdf-pdfa2u-tounicode verapdf-pdfa3b-embedded-file verapdf-pdfa4-signed verapdf-pdfa4-pieceinfo verapdf-pdfa4e-embedded-file verapdf-pdfa4f-embedded-file
       - name: Validate PDF/A output with veraPDF
         env:
           PDFVIEWERLITE_VERAPDF: ${{ steps.verapdf.outputs.verapdf-home }}

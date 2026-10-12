@@ -15,16 +15,24 @@ internal static class PdfLinearizationOutput
     /// <param name="store">The input document.</param>
     /// <param name="plan">The numbered page groups.</param>
     /// <param name="previous">The preceding pass's positions.</param>
+    /// <param name="fileId">The /ID array both trailers carry, or a null value to make one from the bytes before the first trailer.</param>
     /// <param name="cancellationToken">Cancels the write.</param>
     /// <returns>The positions written by this pass.</returns>
-    internal static PdfLinearizationLayout Write(ref PdfObjectWriter writer, PdfObjectStore store, PdfLinearizationPlan plan, PdfLinearizationLayout previous, CancellationToken cancellationToken)
+    internal static PdfLinearizationLayout Write(
+        ref PdfObjectWriter writer,
+        PdfObjectStore store,
+        PdfLinearizationPlan plan,
+        PdfLinearizationLayout previous,
+        PdfValue fileId,
+        CancellationToken cancellationToken)
     {
         var current = new PdfLinearizationLayout(plan.HintNumber, plan.PageGroups.Length);
         writer.SetRenumbering(plan.Renumbering);
         PdfCompactWriter.WriteHeader(ref writer, store.Version, false);
         WriteHeader(ref writer, store, plan, previous, current);
         current.FirstXrefOffset = writer.Length;
-        var firstTrailer = WriteFirstXref(ref writer, store, plan, previous);
+        var firstTrailer = WriteFirstXref(ref writer, store, plan, previous, fileId);
+        current.FileId = firstTrailer.GetRaw(KnownName.ID);
         WriteHints(ref writer, plan, previous, current);
         WriteGraphObject(ref writer, store, plan, plan.CatalogGraphNumber, current);
         WriteGraphGroup(ref writer, store, plan, plan.OpenDocument, current, cancellationToken);
@@ -73,8 +81,9 @@ internal static class PdfLinearizationOutput
     /// <param name="store">The original file.</param>
     /// <param name="plan">The object numbering.</param>
     /// <param name="previous">The preceding pass.</param>
+    /// <param name="fileId">The /ID array, or a null value to make one from the bytes written so far.</param>
     /// <returns>The first trailer, including its file identifier.</returns>
-    private static PdfDictionary WriteFirstXref(ref PdfObjectWriter writer, PdfObjectStore store, PdfLinearizationPlan plan, PdfLinearizationLayout previous)
+    private static PdfDictionary WriteFirstXref(ref PdfObjectWriter writer, PdfObjectStore store, PdfLinearizationPlan plan, PdfLinearizationLayout previous, PdfValue fileId)
     {
         var rows = new XrefRow[plan.HintNumber - plan.CatalogNumber + 1];
         for (var number = plan.CatalogNumber; number <= plan.HintNumber; number++)
@@ -85,7 +94,15 @@ internal static class PdfLinearizationOutput
         PdfXrefWriter.WriteTable(ref writer, rows);
         var encrypted = store.Security is not null;
         var trailer = PdfXrefWriter.CreateTrailer(store.Trailer, plan.HintNumber + 1, previous.MainXrefOffset, encrypted);
-        PdfXrefWriter.SetFileId(trailer, store.Trailer, writer.WrittenSpan, encrypted);
+        if (fileId.IsNull)
+        {
+            PdfXrefWriter.SetFileId(trailer, store.Trailer, writer.WrittenSpan, encrypted);
+        }
+        else
+        {
+            trailer.Set(KnownName.ID, fileId);
+        }
+
         PdfXrefWriter.WriteTrailer(ref writer, trailer, 0);
         return trailer;
     }

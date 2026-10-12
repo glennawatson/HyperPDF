@@ -66,6 +66,41 @@ public sealed class PdfACorpusValidationTests
         await Assert.That(problems).IsEmpty().Because(string.Join(Environment.NewLine, problems));
     }
 
+    /// <summary>
+    /// The edit that left these files' linearized layout unsettled, when each pass hashed a fresh /ID of a different
+    /// length (#181), and the page reference chain once too deep to walk, now linearize and pass veraPDF.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the saves and validation.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task IssueFilesLinearize(CancellationToken cancellationToken)
+    {
+        var home = VeraPdfValidator.RequireHome();
+        var corpus = Path.GetDirectoryName(RequireCorpus()[0])!;
+        using var folder = new PdfAOutputFolder("issue-181");
+        var outputs = new List<string>();
+        foreach (var name in (string[])["verapdf-pdfa1b-linearize-settle.pdf", "verapdf-pdfa1b-deep-references.pdf"])
+        {
+            var file = Path.Combine(corpus, name);
+            using var document = await PdfDocumentReader.OpenAsync(file, null, cancellationToken);
+            PdfDocumentMetadataEditing.SetMetadata(document, new() { Title = "HyperPdf standards audit" });
+            var path = Path.Combine(folder.Path, Path.GetFileName(file));
+            await using (var stream = File.Create(path))
+            {
+                await PdfLinearizedWriter.SaveAsync(document, stream, cancellationToken);
+            }
+
+            outputs.Add(path);
+        }
+
+        var results = await VeraPdfValidator.ValidateAsync(home, "1b", outputs, cancellationToken);
+        foreach (var path in outputs)
+        {
+            var job = results[Path.GetFullPath(path)];
+            await Assert.That(job.IsCompliant).IsTrue().Because($"{Path.GetFileName(path)} fails {job.FailureSummary}");
+        }
+    }
+
     /// <summary>Gets the fetched corpus files, or skips the test when there are none.</summary>
     /// <returns>The files.</returns>
     /// <exception cref="DirectoryNotFoundException">The files are required but missing.</exception>
@@ -89,8 +124,8 @@ public sealed class PdfACorpusValidationTests
     }
 
     /// <summary>
-    /// Edits a corpus file's properties and saves it incrementally and compactly. A signed file must be refused by the
-    /// compact writer, as a rewrite would break its signature.
+    /// Edits a corpus file's properties and saves it incrementally, compactly and linearized. A signed file must be
+    /// refused by the full rewrites, as a rewrite would break its signature.
     /// </summary>
     /// <param name="file">The corpus file.</param>
     /// <param name="folder">The folder for this file's outputs.</param>
@@ -110,24 +145,42 @@ public sealed class PdfACorpusValidationTests
         }
 
         var compact = Path.Combine(folder, "compact.pdf");
+        await RewriteAsync(outputs, compact, document, problems, stream => PdfCompactWriter.SaveAsync(document.Objects, PdfCompactOptions.Default, stream, cancellationToken));
+        var linearized = Path.Combine(folder, "linearized.pdf");
+        await RewriteAsync(outputs, linearized, document, problems, stream => PdfLinearizedWriter.SaveAsync(document, stream, cancellationToken));
+        return outputs;
+    }
+
+    /// <summary>Rewrites the whole file, which must succeed for an unsigned file and be refused for a signed one.</summary>
+    /// <param name="outputs">The outputs, added to.</param>
+    /// <param name="path">The output path.</param>
+    /// <param name="document">The edited document.</param>
+    /// <param name="problems">Receives what went wrong.</param>
+    /// <param name="save">Writes the file.</param>
+    /// <returns>A task.</returns>
+    private static async Task RewriteAsync(Dictionary<string, string> outputs, string path, PdfDocument document, List<string> problems, Func<Stream, Task> save)
+    {
+        var signed = SignaturePresence.HasSignature(document.Objects);
         try
         {
-            await using (var stream = File.Create(compact))
+            await using (var stream = File.Create(path))
             {
-                await PdfCompactWriter.SaveAsync(document.Objects, PdfCompactOptions.Default, stream, cancellationToken);
+                await save(stream);
             }
 
-            outputs["compact"] = compact;
-            if (SignaturePresence.HasSignature(document.Objects))
+            outputs[Path.GetFileNameWithoutExtension(path)] = path;
+            if (signed)
             {
-                problems.Add($"{Path.GetFileName(folder)}: the compact writer rewrote a signed file");
+                problems.Add($"{path}: a signed file was rewritten");
             }
         }
-        catch (PdfException) when (SignaturePresence.HasSignature(document.Objects))
+        catch (PdfException error)
         {
-            File.Delete(compact);
+            File.Delete(path);
+            if (!signed)
+            {
+                problems.Add($"{path}: {error.Message}");
+            }
         }
-
-        return outputs;
     }
 }

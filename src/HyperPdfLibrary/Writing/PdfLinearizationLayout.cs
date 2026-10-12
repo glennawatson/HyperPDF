@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Objects;
+
 namespace HyperPdfLibrary.Writing;
 
 /// <summary>Records the byte positions that the next linearized write pass declares.</summary>
@@ -38,6 +40,9 @@ internal sealed class PdfLinearizationLayout(int objectCount, int pageCount)
 
     /// <summary>Gets or sets the whole file length.</summary>
     internal long FileLength { get; set; }
+
+    /// <summary>Gets or sets the /ID array the trailers carry, or a null value for none.</summary>
+    internal PdfValue FileId { get; set; }
 
     /// <summary>Checks whether another pass wrote all measured positions unchanged.</summary>
     /// <param name="other">The preceding pass.</param>

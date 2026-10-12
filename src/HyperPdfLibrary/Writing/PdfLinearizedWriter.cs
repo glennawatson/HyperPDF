@@ -55,16 +55,24 @@ public static class PdfLinearizedWriter
     private static byte[] Build(PdfObjectStore store, PdfLinearizationPlan plan, CancellationToken cancellationToken)
     {
         var previous = new PdfLinearizationLayout(plan.HintNumber, plan.PageGroups.Length);
+        var fileId = default(PdfValue);
         for (var pass = 0; pass < MaxPasses; pass++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var writer = new PdfObjectWriter(store.Names, store.Security);
             try
             {
-                var current = PdfLinearizationOutput.Write(ref writer, store, plan, previous, cancellationToken);
+                var current = PdfLinearizationOutput.Write(ref writer, store, plan, previous, fileId, cancellationToken);
                 if (current.Matches(previous))
                 {
                     return writer.ToArray();
+                }
+
+                // The id is a hash written as a literal or hex string whose length follows its bytes, so a fresh id each
+                // pass would move every later offset; the first pass's id is kept for the rest.
+                if (pass == 0)
+                {
+                    fileId = current.FileId;
                 }
 
                 previous = current;
