@@ -3,9 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Writing;
 
@@ -16,7 +16,7 @@ public sealed class IncrementalWriterTests
     private const int PageCount = 3;
 
     /// <summary>The key added to the catalog.</summary>
-    private const string MarkerKey = "PdfViewerLiteMarker";
+    private const string MarkerKey = "HyperPdfMarker";
 
     /// <summary>The text stored in the added object.</summary>
     private const string MarkerText = "Saved (incrementally) \\ again";

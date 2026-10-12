@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HyperPdf.App.Views.AnnotationItemView">
+  <StackPanel Spacing="2" Background="Transparent">
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <Border x:Name="Swatch" Classes="swatch" />
+      <TextBlock x:Name="KindText" Classes="secondary" FontSize="11" />
+    </StackPanel>
+    <TextBlock x:Name="SummaryText" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
+    <TextBlock x:Name="DetailsText" Classes="secondary" FontSize="11" TextTrimming="CharacterEllipsis" />
+    <TextBlock x:Name="RepliesText" Classes="secondary" TextWrapping="Wrap" MaxLines="6" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" />
+  </StackPanel>
+</UserControl>

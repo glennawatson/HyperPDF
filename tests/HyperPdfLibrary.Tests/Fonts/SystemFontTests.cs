@@ -4,8 +4,8 @@
 
 using System.Buffers.Binary;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Fonts.Programs;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Fonts;
 

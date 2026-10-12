@@ -13,8 +13,8 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="HyperPdfLibrary.Tests" />
-    <InternalsVisibleTo Include="PdfViewerLite.HyperPdf.Tests" />
-    <InternalsVisibleTo Include="PdfViewerLite.Benchmarks" />
+    <InternalsVisibleTo Include="HyperPdf.Engine.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
   </ItemGroup>
   <PropertyGroup>
     <NoticesResourceName>HyperPdfLibrary.Render.Skia.ThirdPartyNotices.md</NoticesResourceName>

@@ -1,6 +1,6 @@
 # Screen readers
 
-PdfViewerLite provides names, descriptions and keyboard access for screen readers on Windows, macOS and Linux. Use Narrator, NVDA or JAWS on Windows, VoiceOver on macOS, or Orca on Linux. Hands-on checks with these screen readers are still in progress.
+HyperPDF provides names, descriptions and keyboard access for screen readers on Windows, macOS and Linux. Use Narrator, NVDA or JAWS on Windows, VoiceOver on macOS, or Orca on Linux. Hands-on checks with these screen readers are still in progress.
 
 ## Moving around
 

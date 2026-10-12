@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             xmlns:controls="using:HyperPdf.App.Controls"
+             x:Class="HyperPdf.App.Views.TabItemView"
+             ToolTip.ShowDelay="600" ToolTip.Placement="Bottom">
+  <!-- Hover preview: the page the tab is on, its name and where it lives. It appears only on hover and does not animate. -->
+  <ToolTip.Tip>
+    <StackPanel x:Name="Preview" Spacing="6" Margin="2">
+      <controls:PageThumbnail x:Name="PreviewPage" />
+      <TextBlock x:Name="PreviewTitle" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+      <TextBlock x:Name="PreviewCaption" Classes="secondary" />
+      <TextBlock x:Name="PreviewPath" Classes="secondary" TextWrapping="Wrap" FontSize="11" />
+    </StackPanel>
+  </ToolTip.Tip>
+  <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+    <!-- A steady dot marks unsaved annotations or form entries; it never blinks. -->
+    <Ellipse x:Name="UnsavedDot" Classes="unsaved" />
+    <TextBlock Grid.Column="1" x:Name="NameText" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+    <Button Grid.Column="2" AutomationProperties.Name="Close tab" x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseTab}" Classes="tabclose">
+      <Path Classes="icon remove" Data="{StaticResource IconClose}" />
+    </Button>
+  </Grid>
+</UserControl>

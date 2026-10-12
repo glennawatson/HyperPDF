@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Linux desktop integration (D-Bus single instance, KDE colours, recent files, file manager, CUPS and portal printing, PulseAudio or PipeWire sound) for HyperPDF.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\HyperPdf.Platform.Cups\HyperPdf.Platform.Cups.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Tmds.DBus.Protocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Core.Tests" />
+  </ItemGroup>
+</Project>

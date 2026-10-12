@@ -1,6 +1,6 @@
 # Project rules
 
-PdfViewerLite is a local PDF viewer for Linux, Windows and macOS. Primary users are people with ADHD or autism. Improve low-vision access alongside those needs. Follow the [comfort rules](../docs/PdViewerLite/COMFORT.md). Use the [research](docs/research/README.md) to guide choices. Keep controls clear, stable and adjustable.
+HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are people with ADHD or autism. Improve low-vision access alongside those needs. Follow the [comfort rules](../docs/PdViewerLite/COMFORT.md). Use the [research](docs/research/README.md) to guide choices. Keep controls clear, stable and adjustable.
 
 ## Performance
 
@@ -36,7 +36,7 @@ PdfViewerLite is a local PDF viewer for Linux, Windows and macOS. Primary users 
 
 ## HyperPdfLibrary
 
-- `src/HyperPdfLibrary` is the managed PDF engine; `src/PdfViewerLite.HyperPdf` adapts it to the app's interfaces. Neither references PDFium; `EngineIndependenceTests` checks this. The app always opens documents with HyperPDF.
+- `src/HyperPdfLibrary` is the managed PDF engine; `src/HyperPdf.Engine` adapts it to the app's interfaces. Neither references PDFium; `EngineIndependenceTests` checks this. The app always opens documents with HyperPDF.
 - Match PDFium's behaviour where useful, and use pdf.js where PDFium is clearly wrong. Add parity tests comparing both engines through `EnginePair`.
 - Read leniently, write strictly. Open and recover malformed files where possible, but every file the library writes must conform to ISO 32000 (and to any PDF/A or PDF/UA level the file claims). Saving fixes what can be fixed in the parts it writes, such as wrong `/Length`, broken cross-reference data, missing required keys and invalid boxes. The viewer tells the user in plain words when a file was damaged and repaired on open, and what saving will fix. Never add a feature that needs non-conforming output.
 - Where PDFium blocks a standards feature (PDF 2.0, PDF/A, PDF/UA, PDF/R, XFDF, XMP), follow the standard. Keep a way to get PDFium-compatible output so parity tests still compare. PDFium remains a test and parity reference, not an app engine.
@@ -51,13 +51,13 @@ PdfViewerLite is a local PDF viewer for Linux, Windows and macOS. Primary users 
 ## Verification
 
 ```bash
-dotnet build PdfViewerLite.slnx
-dotnet test --solution PdfViewerLite.slnx
-dotnet run -c Release -f net11.0 --project benchmarks/PdfViewerLite.Benchmarks -- --filter '*RelevantBenchmark*'
+dotnet build HyperPdf.slnx
+dotnet test --solution HyperPdf.slnx
+dotnet run -c Release -f net11.0 --project benchmarks/HyperPdf.Benchmarks -- --filter '*RelevantBenchmark*'
 scripts/audit-allocations.sh '*RelevantBenchmark*'
 scripts/publish-linux.sh linux-x64
 ```
 
-Warnings are failures. Verify all affected frameworks, saved output and user-visible behaviour. TUnit uses Microsoft.Testing.Platform; runner arguments follow `--`. With SDK 11, use absolute paths for `--project`. UI tests and benchmarks run headless. Set `PDFVIEWERLITE_SCREENSHOTS` to save UI frames.
+Warnings are failures. Verify all affected frameworks, saved output and user-visible behaviour. TUnit uses Microsoft.Testing.Platform; runner arguments follow `--`. With SDK 11, use absolute paths for `--project`. UI tests and benchmarks run headless. Set `HYPERPDF_SCREENSHOTS` to save UI frames.
 
 Continue authorised goal work through verification. Treat feedback as work to fix. Report concrete blockers and missing dependencies. Follow the user's current commit and publishing instructions.

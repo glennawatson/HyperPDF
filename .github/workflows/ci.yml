@@ -13,7 +13,7 @@ jobs:
     uses: glennawatson/actions-common/.github/workflows/workflow-common-setup-and-build.yml@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
     with:
       srcFolder: '.'
-      solutionFile: PdfViewerLite.slnx
+      solutionFile: HyperPdf.slnx
       minverTagPrefix: ''
       uploadCodecov: false
       dotnetVersions: |
@@ -42,9 +42,9 @@ jobs:
           PVL_FIREFOX_PATH: ${{ steps.firefox.outputs.firefox-path }}
           PVL_REQUIRE_PDFJS: '1'
           IncludeReferencePdfRenderingTests: 'true'
-          PDFVIEWERLITE_REFERENCE_PDF_DIR: ${{ runner.temp }}/reference-pdfs
-          PDFVIEWERLITE_COMPARISON_OUTPUT: ${{ runner.temp }}/rendering-comparison
-        run: dotnet run --project "${{ github.workspace }}/tests/PdfViewerLite.HyperPdf.Tests/PdfViewerLite.HyperPdf.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/*RenderingComparison/*/*' --report-trx --results-directory "${{ runner.temp }}/rendering-comparison"
+          HYPERPDF_REFERENCE_PDF_DIR: ${{ runner.temp }}/reference-pdfs
+          HYPERPDF_COMPARISON_OUTPUT: ${{ runner.temp }}/rendering-comparison
+        run: dotnet run --project "${{ github.workspace }}/tests/HyperPdf.Engine.Tests/HyperPdf.Engine.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/*RenderingComparison/*/*' --report-trx --results-directory "${{ runner.temp }}/rendering-comparison"
       - name: Upload rendering comparisons
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

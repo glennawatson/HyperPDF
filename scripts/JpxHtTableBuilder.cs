@@ -5,7 +5,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace PdfViewerLite.Scripts;
+namespace HyperPdf.Scripts;
 
 /// <summary>
 /// Turns the CxtVLC rows of T.814 Annex C into the decoder's packed lookup tables and the source text of

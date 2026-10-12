@@ -1,6 +1,6 @@
 # Bug reports
 
-Search [open and closed issues](https://github.com/glennawatson/PdfViewerLite/issues) before filing a report. Use the [bug form](https://github.com/glennawatson/PdfViewerLite/issues/new?template=bugs.yml). Keep one fault in each issue.
+Search [open and closed issues](https://github.com/glennawatson/HyperPDF/issues) before filing a report. Use the [bug form](https://github.com/glennawatson/HyperPDF/issues/new?template=bugs.yml). Keep one fault in each issue.
 
 Name the trigger and the fault in the title. For example, `[Bug]: Print preview moves when scrolling`.
 
@@ -16,6 +16,6 @@ Fill each field in this order:
 | Completion checks | Observable results that prove the fault is fixed. Leave each checkbox unchecked. |
 | Context | Related issues, logs, screenshots or a sample file. Separate observations from suspected causes. |
 
-For command-line submissions, use these exact field labels as `###` headings. Keep their order. Write `Not provided` for an optional field you cannot fill. Use `gh issue create --repo glennawatson/PdfViewerLite --title '<title>' --body-file <file>`.
+For command-line submissions, use these exact field labels as `###` headings. Keep their order. Write `Not provided` for an optional field you cannot fill. Use `gh issue create --repo glennawatson/HyperPDF --title '<title>' --body-file <file>`.
 
 Give the smallest example that shows the fault. Record missing details as unknown. Use repo-relative paths for code references. Link an existing report when the fault is already tracked.

@@ -17,9 +17,9 @@ using System.Text;
 using System.Text.Json;
 using System.Xml;
 
-return PdfViewerLite.Scripts.GenerateThirdPartyNotices.Run(args);
+return HyperPdf.Scripts.GenerateThirdPartyNotices.Run(args);
 
-namespace PdfViewerLite.Scripts
+namespace HyperPdf.Scripts
 {
     /// <summary>Builds the third-party notices file.</summary>
     internal static class GenerateThirdPartyNotices
@@ -73,7 +73,7 @@ namespace PdfViewerLite.Scripts
         {
             var text = File.ReadAllText(options.ProjectLicence).Trim();
             var copyright = Array.Find(text.Split('\n'), static line => line.StartsWith("Copyright", StringComparison.Ordinal))?.Trim() ?? string.Empty;
-            return new(options.ProjectName, string.Empty, ThisApplication, "MIT", copyright, "https://github.com/glennawatson/PdfViewerLite", text);
+            return new(options.ProjectName, string.Empty, ThisApplication, "MIT", copyright, "https://github.com/glennawatson/HyperPDF", text);
         }
 
         /// <summary>Adds every shipped package of the assets files.</summary>
@@ -523,7 +523,7 @@ namespace PdfViewerLite.Scripts
             private const int OptionWidth = 2;
 
             /// <summary>Gets the name of the project whose notices are generated.</summary>
-            internal string ProjectName { get; private init; } = "PdfViewerLite";
+            internal string ProjectName { get; private init; } = "HyperPDF";
 
             /// <summary>Parses the arguments.</summary>
             /// <param name="args">The arguments.</param>
@@ -533,7 +533,7 @@ namespace PdfViewerLite.Scripts
                 string? output = null;
                 string? licences = null;
                 string? projectLicence = null;
-                var projectName = "PdfViewerLite";
+                var projectName = "HyperPDF";
                 var assets = new List<string>();
                 var components = new List<string>();
                 for (var i = 0; i + 1 < args.Length; i += OptionWidth)

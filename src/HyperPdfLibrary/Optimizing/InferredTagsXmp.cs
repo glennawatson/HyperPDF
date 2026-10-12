@@ -18,7 +18,7 @@ namespace HyperPdfLibrary.Optimizing;
 internal static class InferredTagsXmp
 {
     /// <summary>The namespace of the optimiser's XMP properties.</summary>
-    internal const string Namespace = "https://github.com/glennawatson/PdfViewerLite/ns/hyperpdf/1.0/";
+    internal const string Namespace = "https://github.com/glennawatson/HyperPDF/ns/hyperpdf/1.0/";
 
     /// <summary>The prefix of the optimiser's XMP properties.</summary>
     internal const string Prefix = "hyperpdf";

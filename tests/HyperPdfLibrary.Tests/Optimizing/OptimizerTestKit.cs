@@ -94,7 +94,7 @@ internal static class OptimizerTestKit
         return pages;
     }
 
-    /// <summary>Writes bytes as a Latin-1 string, so binary data can go into a <see cref="PdfViewerLite.TestAssets.MiniPdf"/> object.</summary>
+    /// <summary>Writes bytes as a Latin-1 string, so binary data can go into a <see cref="HyperPdf.TestAssets.MiniPdf"/> object.</summary>
     /// <param name="data">The bytes.</param>
     /// <returns>One character per byte.</returns>
     internal static string Latin1(byte[] data) => Encoding.Latin1.GetString(data);

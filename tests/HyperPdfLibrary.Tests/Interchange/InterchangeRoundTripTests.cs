@@ -3,13 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Interchange;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Interchange;
 
@@ -234,7 +234,7 @@ public sealed class InterchangeRoundTripTests
     /// <returns>The paths that exist.</returns>
     private static IEnumerable<string> PdfJsFormSamples()
     {
-        var root = Environment.GetEnvironmentVariable("PDFVIEWERLITE_PDFJS_PDF_DIR");
+        var root = Environment.GetEnvironmentVariable("HYPERPDF_PDFJS_PDF_DIR");
         string[] candidates =
         [
             "/home/glennwatson/source/pdf/pdf.js/test/pdfs/textfields.pdf",

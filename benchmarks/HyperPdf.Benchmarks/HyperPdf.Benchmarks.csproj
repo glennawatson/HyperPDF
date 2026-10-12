@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <Description>Allocation and throughput benchmarks for HyperPDF.</Description>
+    <UsesTesseractNative>true</UsesTesseractNative>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.Skia\HyperPdf.Skia.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.Platform.Cups\HyperPdf.Platform.Cups.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.Engine\HyperPdf.Engine.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdfLibrary\HyperPdfLibrary.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.Speech\HyperPdf.Speech.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.Http\HyperPdf.Http.csproj" />
+    <ProjectReference Include="..\..\tests\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\HyperPdf.App\Services\DesktopBackend.cs" Link="DesktopBackend.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\Views\FocusAnnouncementRepair.cs" Link="FocusAnnouncementRepair.cs" />
+    <!-- The JPEG 2000 test encoder, which re-encodes a corpus page as HTJ2K for the high-throughput benchmarks. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
+    <Compile Include="..\..\scripts\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />
+    <EmbeddedResource Include="..\..\src\HyperPdfLibrary\Graphics\Images\Jpx\Data\T814CxtVlc.txt" LogicalName="T814CxtVlc.txt" />
+    <!-- The two page book with a form, outline, destinations, labels, layer and embedded file that the page copy benchmarks copy. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Editing\CarryTestDocuments.cs" Link="CarryTestDocuments.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyPdf.cs" Link="Security\PublicKeyPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyCipher.cs" Link="Security\PublicKeyCipher.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
+  </ItemGroup>
+</Project>

@@ -6,12 +6,12 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Structure;
 using HyperPdfLibrary.Syntax;
 using HyperPdfLibrary.Writing;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Robustness;
 

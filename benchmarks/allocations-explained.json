@@ -1,439 +1,439 @@
 [
   {
     "type": "System.String",
-    "frame": "PdfViewerLite.Skia.Rendering.DrawingContextImpl.DrawRectangle(",
+    "frame": "HyperPdf.Skia.Rendering.DrawingContextImpl.DrawRectangle(",
     "reason": "One 48-byte string was sampled during the rounded-fill trace, with no allocating callee resolved below DrawRectangle. This isolated tick does not establish a per-draw cost. Allocation-counter tests measured zero managed bytes across 1,000 warmed solid and rounded fills, including small gradients."
   },
   {
     "type": "System.String",
-    "frame": "PdfViewerLite.Skia.Rendering.DrawingContextImpl.DrawGlyphRun(",
+    "frame": "HyperPdf.Skia.Rendering.DrawingContextImpl.DrawGlyphRun(",
     "reason": "One 48-byte string was sampled with no allocating callee resolved below DrawGlyphRun. This isolated tick does not establish a per-draw cost. A separate allocation-counter test checks warmed repeated glyph draws."
   },
   {
     "type": "Avalonia.Media.TextFormatting.ShapedBuffer",
-    "frame": "PdfViewerLite.Skia.Fonts.HarfBuzzTextShaper.ShapeText(",
+    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(",
     "reason": "Avalonia's shaping contract returns an owned layout buffer. Each shaping request creates this wrapper; retained glyph runs reuse the result for drawing."
   },
   {
     "type": "PooledArray`1[Avalonia.Media.TextFormatting.GlyphInfo]",
-    "frame": "PdfViewerLite.Skia.Fonts.HarfBuzzTextShaper.ShapeText(",
+    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(",
     "reason": "The shaped layout owns a wrapper around pooled glyph storage. The wrapper is created during shaping, while the glyph array is reused from Avalonia's pool."
   },
   {
     "type": "Ref`1[Avalonia.Media.TextFormatting.ShapedBuffer+PooledArray`1[Avalonia.Media.TextFormatting.GlyphInfo]]",
-    "frame": "PdfViewerLite.Skia.Fonts.HarfBuzzTextShaper.ShapeText(",
+    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(",
     "reason": "Avalonia retains the shaped glyph storage through a reference wrapper so layout slices can share its lifetime. This runs during shaping, not each retained draw."
   },
   {
     "type": "RefCounter",
-    "frame": "PdfViewerLite.Skia.Fonts.HarfBuzzTextShaper.ShapeText(",
+    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(",
     "reason": "The layout buffer's reference counter releases its pooled glyph storage when the final layout slice is disposed."
   },
-  // Every allocation PdfViewerLite makes inside a measured benchmark must be listed here with its reason.
-  // "type" and "frame" are prefixes of the allocated type and the innermost PdfViewerLite method.
+  // Every allocation HyperPDF makes inside a measured benchmark must be listed here with its reason.
+  // "type" and "frame" are prefixes of the allocated type and the innermost HyperPDF method.
   {
     "type": "Avalonia.Platform.LockedFramebuffer",
-    "frame": "PdfViewerLite.Skia.Bitmaps.WriteableBitmapImpl.Lock(",
+    "frame": "HyperPdf.Skia.Bitmaps.WriteableBitmapImpl.Lock(",
     "reason": "Avalonia's ILockedFramebuffer contract returns a disposable lock object. A tile is locked once, while the render thread writes its pixels; drawing a cached tile does not lock it."
   },
   {
     "type": "SkiaSharp.SKPixmap",
-    "frame": "PdfViewerLite.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
+    "frame": "HyperPdf.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
     "reason": "SKImage.FromPixels wraps the tile's pixels in a pixmap instead of copying 1 MB per tile. It runs on a tile's first draw after a write; later frames reuse the cached image (DrawOneToOne allocates nothing)."
   },
   {
     "type": "SkiaSharp.SKImage",
-    "frame": "PdfViewerLite.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
+    "frame": "HyperPdf.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
     "reason": "The image that shares the tile's pixels, created on the first draw after a write and cached until the next write."
   },
   {
     "type": "System.WeakReference",
-    "frame": "PdfViewerLite.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
+    "frame": "HyperPdf.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
     "reason": "SkiaSharp registers each new native wrapper in its handle table with a weak reference. One per image snapshot, once per written tile."
   },
   {
     "type": "<>c__DisplayClass",
-    "frame": "PdfViewerLite.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
+    "frame": "HyperPdf.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
     "reason": "SkiaSharp's FromPixels keeps the pixmap alive through a release callback closure. One per image snapshot, once per written tile."
   },
   {
     "type": "System.Object",
-    "frame": "PdfViewerLite.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
+    "frame": "HyperPdf.Skia.Bitmaps.WriteableBitmapImpl.GetOrCreateImage(",
     "reason": "SkiaSharp's handle table entry for a new native wrapper. One per image snapshot, once per written tile."
   },
   {
     "type": "Avalonia.AvaloniaPropertyChangedEventArgs`1[System.Double]",
-    "frame": "PdfViewerLite.App.Views.PrintPreviewPageView.SetSheetSize(",
+    "frame": "HyperPdf.App.Views.PrintPreviewPageView.SetSheetSize(",
     "reason": "Assigning a preview sheet changes its image width and height. Avalonia creates property notifications for layout. This runs when a sheet is assigned or recycled."
   },
   {
     "type": "Avalonia.AvaloniaPropertyChangedEventArgs`1[System.String]",
-    "frame": "PdfViewerLite.App.Views.PrintPreviewPageView.SetSheetSize(",
+    "frame": "HyperPdf.App.Views.PrintPreviewPageView.SetSheetSize(",
     "reason": "Assigning a preview sheet changes its caption. Avalonia creates a text property notification. This runs when the caption changes."
   },
   {
     "type": "Avalonia.AvaloniaPropertyChangedEventArgs`1[System.Object]",
-    "frame": "PdfViewerLite.App.Views.PrintPreviewPageView.OnPropertyChanged(",
+    "frame": "HyperPdf.App.Views.PrintPreviewPageView.OnPropertyChanged(",
     "reason": "Changing the preview view model updates the control's data context. Avalonia creates a property notification for the new context."
   },
   {
     "type": "System.ComponentModel.PropertyChangedEventArgs",
-    "frame": "PdfViewerLite.App.Views.PrintPreviewPageView.OnPropertyChanged(",
+    "frame": "HyperPdf.App.Views.PrintPreviewPageView.OnPropertyChanged(",
     "reason": "ReactiveUI notifies subscribers when the preview view model changes. Each assigned sheet triggers this notification."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.App.ViewModels.PropertiesViewModel..ctor(",
+    "frame": "HyperPdf.App.ViewModels.PropertiesViewModel..ctor(",
     "reason": "Opening document properties creates a file-info object, display strings and property entries in a list. The dialog owns this snapshot."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.App.ViewModels.PropertiesViewModel.FormatSize(",
+    "frame": "HyperPdf.App.ViewModels.PropertiesViewModel.FormatSize(",
     "reason": "The properties dialog formats the file size as a display string. Its units array is local to that conversion."
   },
   {
-    "type": "PdfViewerLite.App.ViewModels.PropertyEntry",
-    "frame": "PdfViewerLite.App.ViewModels.PropertiesViewModel.Add(",
+    "type": "HyperPdf.App.ViewModels.PropertyEntry",
+    "frame": "HyperPdf.App.ViewModels.PropertiesViewModel.Add(",
     "reason": "Each metadata value shown by the properties dialog becomes one entry in its snapshot."
   },
   {
     "type": "System.Byte[]",
-    "frame": "PdfViewerLite.Core.Annotations.SignatureImage.Create(",
+    "frame": "HyperPdf.Core.Annotations.SignatureImage.Create(",
     "reason": "Importing a signature copies the source pixels into an owned buffer. It runs when the user imports an image."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Annotations.SignatureImage.Trim(",
+    "frame": "HyperPdf.Core.Annotations.SignatureImage.Trim(",
     "reason": "A visible signature becomes one immutable image record. Cropping also creates an exact-sized pixel buffer. Full-size images reuse the owned source buffer."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Platform.Cups.CupsPrinting.BuildOptions(",
+    "frame": "HyperPdf.Platform.Cups.CupsPrinting.BuildOptions(",
     "reason": "Each submitted print job builds its CUPS option array and formats its copy count. These options carry paper, colour and duplex binding to the printer."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Search.FolderSearch.",
+    "frame": "HyperPdf.Core.Search.FolderSearch.",
     "reason": "Search in Folder keeps each match with its snippet (the result) and lists the file's matches; it runs off the UI thread once per file searched."
   },
   {
     "type": "System.String",
-    "frame": "PdfViewerLite.Core.Measuring.Measurement.Describe(",
+    "frame": "HyperPdf.Core.Measuring.Measurement.Describe(",
     "reason": "The measurement's description is the result shown in the Measure bar and beside the shape; one string per pointer move while measuring."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Measuring.",
+    "frame": "HyperPdf.Core.Measuring.",
     "reason": "Reading a drawing's declared scale parses the file's cross-reference data and its viewport and measure dictionaries, once per page when measuring starts on it."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Speech.English.TextNormalizer+",
+    "frame": "HyperPdf.Speech.English.TextNormalizer+",
     "reason": "The replacements of the sentence normalizer read their match groups and build the spoken words, once per sentence before it is phonemized; see TextNormalizer."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Speech.English.TextNormalizer.",
+    "frame": "HyperPdf.Speech.English.TextNormalizer.",
     "reason": "Normalizing a sentence for the voice rewrites it with generated regular expressions, each replacement making a new string, once per sentence before it is phonemized. Synthesizing the sentence takes hundreds of milliseconds, so this is negligible."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Signatures.SignatureVerifier.",
+    "frame": "HyperPdf.Core.Signatures.SignatureVerifier.",
     "reason": "Checking a signature decodes the CMS and builds the certificate chain with System.Security.Cryptography, which allocates, and SignedCms needs the signed bytes as one array. It runs only when the user asks to check signatures."
   },
   {
     "type": "System.Byte[]",
-    "frame": "PdfViewerLite.Core.Ocr.OcrRunner.",
+    "frame": "HyperPdf.Core.Ocr.OcrRunner.",
     "reason": "The page and strip pixel buffers are rented from ArrayPool<byte>.Shared. The pool allocates them the first time a page is recognised (or after it trims idle buffers on a gen 2 GC); later pages reuse them. Seen once per trace."
   },
   {
     "type": "System.String",
-    "frame": "PdfViewerLite.Ocr.TesseractEngine.HasLanguages(",
+    "frame": "HyperPdf.Ocr.TesseractEngine.HasLanguages(",
     "reason": "Finding a language's data builds one path string per folder and language checked, because File.Exists takes a string. It runs once each time Recognise Text is pressed, never per page."
   },
   {
     "type": "System.String",
-    "frame": "PdfViewerLite.Ocr.TesseractEngine.FindDataDirectory(",
+    "frame": "HyperPdf.Ocr.TesseractEngine.FindDataDirectory(",
     "reason": "Reading TESSDATA_PREFIX returns a new string. It runs once each time Recognise Text is pressed, never per page."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Http.VerifiedDownload.IsCurrent(",
+    "frame": "HyperPdf.Http.VerifiedDownload.IsCurrent(",
     "reason": "Checking a downloaded language or voice file reads its size through FileInfo and builds the path of its recorded hash. It runs when Recognise Text is pressed or a download starts, not while reading or rendering."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Http.Ocr.OcrLanguagePackDownloader.",
+    "frame": "HyperPdf.Http.Ocr.OcrLanguagePackDownloader.",
     "reason": "Listing the language packs still to download builds each pack's path and returns a new list of the missing packs. It runs when Recognise Text is pressed or a download starts."
   },
   {
     "type": "System.Byte[]",
-    "frame": "PdfViewerLite.Http.Ocr.OcrLanguagePackDownloader+<DownloadAsync>",
+    "frame": "HyperPdf.Http.Ocr.OcrLanguagePackDownloader+<DownloadAsync>",
     "reason": "The download's copy buffer is rented from ArrayPool<byte>.Shared. The pool allocates a buffer when the download continues on a core whose cache is still empty; later downloads on that core reuse it. A download runs only when the person asks for a language."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Http.Ocr.OcrLanguagePackDownloader+<>c__DisplayClass",
+    "frame": "HyperPdf.Http.Ocr.OcrLanguagePackDownloader+<>c__DisplayClass",
     "reason": "Starting a language download builds the Refit request and its User-Agent header inside System.Net.Http. It happens once per language downloaded."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Ocr.OcrLanguageCatalog.Parse(",
+    "frame": "HyperPdf.Core.Ocr.OcrLanguageCatalog.Parse(",
     "reason": "Splitting the language setting, for example eng+deu, returns a new list of codes. It runs when Recognise Text is pressed or Preferences opens."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Ocr.",
+    "frame": "HyperPdf.Ocr.",
     "reason": "Each recognised word becomes a string (the result), and Tesseract's result iterator is wrapped in one SafeHandle per page. Recognition itself takes hundreds of milliseconds in Tesseract's native code."
   },
   {
     "type": "RuntimeTypeCache",
-    "frame": "PdfViewerLite.",
+    "frame": "HyperPdf.",
     "reason": "The first time a LibraryImport returns a given SafeHandle type, the generated marshaller creates it with new T(), which builds the runtime's per-type activator cache once for the life of the process."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Layout.DocumentLayout.Create(",
+    "frame": "HyperPdf.Core.Layout.DocumentLayout.Create(",
     "reason": "The layout is the result: one immutable object with arrays sized exactly to the pages and rows. It is built only when the zoom, arrangement, rotation or viewport size changes, never while scrolling; lookups on it allocate nothing."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Signatures.Signing.",
+    "frame": "HyperPdf.Core.Signatures.Signing.",
     "reason": "Signing writes a new file: the original bytes plus an incremental update built as text, the cross-reference data it reads (inflated object and cross-reference streams), and a CMS signature from System.Security.Cryptography over the signed bytes, which SignedCms needs as one array. A damaged file also gets its cross-reference entries rebuilt by scanning (PdfRepair) and a full cross-reference stream. It runs once, when the user signs."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Documents.PdfLayers.",
+    "frame": "HyperPdf.Core.Documents.PdfLayers.",
     "reason": "Reading layers parses the file's structure and returns new layer records; switching a layer writes a new copy of the file (the original bytes plus a small update with the new default visibility). Both run when the layers panel opens or a box is ticked, never while scrolling."
   },
   {
-    "type": "PdfViewerLite.Core.Documents.DocumentLayer",
-    "frame": "PdfViewerLite.",
+    "type": "HyperPdf.Core.Documents.DocumentLayer",
+    "frame": "HyperPdf.",
     "reason": "A layer's visibility is an immutable record, replaced when its box is ticked."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Speech.English.EnglishPhonemizer.",
+    "frame": "HyperPdf.Speech.English.EnglishPhonemizer.",
     "reason": "Phonemizing runs once per sentence read aloud, while the previous sentence plays. Each word is cut out as a string to look it up in the pronunciation dictionary (and lower-cased when it is not listed as written), and the phonemes are the returned string. The token list and output builder are reused between sentences; a trace can still show the reused builder growing its chunks."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Speech.English.NumberWords.",
+    "frame": "HyperPdf.Speech.English.NumberWords.",
     "reason": "Numbers in a sentence are said as words, for example 1984 as 'nineteen eighty four'; the words are a new string per number, made only for sentences that contain digits."
   },
   {
     "type": "System.",
-    "frame": "PdfViewerLite.Core.Speech.SentenceSplitter.ToSpeech(",
+    "frame": "HyperPdf.Core.Speech.SentenceSplitter.ToSpeech(",
     "reason": "Preparing a sentence for the voice returns it as a new string with line breaks joined; one per sentence read aloud, built in a StringBuilder sized to the sentence."
   },
   {
     "type": "System.String",
-    "frame": "PdfViewerLite.Http.Speech.AzureSpeechEngine.BuildSsml(",
+    "frame": "HyperPdf.Http.Speech.AzureSpeechEngine.BuildSsml(",
     "reason": "The SSML document sent to Azure for one sentence is the result; one string per sentence, with the text escaped."
   },
   {
     "type": "System.Single[]",
-    "frame": "PdfViewerLite.Http.Speech.AzureSpeechEngine.ToSamples(",
+    "frame": "HyperPdf.Http.Speech.AzureSpeechEngine.ToSamples(",
     "reason": "The samples are the returned audio for one sentence, handed to the sound output; one array per sentence, sized exactly."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Reading.ReadingOrder",
+    "frame": "HyperPdf.Core.Reading.ReadingOrder",
     "reason": "Reading order runs once per page, when the page is first read aloud or shown in Focus Mode, and the result is kept by ReadingDocument. It builds a line object per line of text, a block object per paragraph, the joined text of each block with the page character index of every character (the map that lets the spoken sentence be highlighted on the page), and the lists the XY-cut groups blocks into; all proportional to the page's text."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Reading.ReadingDocument.Flatten(",
+    "frame": "HyperPdf.Core.Reading.ReadingDocument.Flatten(",
     "reason": "Flattening a page for Read Aloud returns its text and the matching character map, one string and one int array per page read, sized exactly."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Speech.Melo.WordPieceTokenizer.Clean(",
+    "frame": "HyperPdf.Speech.Melo.WordPieceTokenizer.Clean(",
     "reason": "MeloTTS's front end runs once per sentence read aloud, while the previous sentence plays. BERT's cleaning lower-cases and decomposes the sentence into new strings, and the reused cleaning buffer grows once to the longest sentence seen; the piece ids, phones and model input lists are reused between sentences."
   },
   {
     "type": "System.String[]",
-    "frame": "PdfViewerLite.Speech.Melo.SpellingToSound.Predict(",
+    "frame": "HyperPdf.Speech.Melo.SpellingToSound.Predict(",
     "reason": "The caller's reused list of guessed phones grows once to the longest guess; the phone names themselves are shared strings and the network's state is reused."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Annotations.AnnotationReplyLinks.",
+    "frame": "HyperPdf.Core.Annotations.AnnotationReplyLinks.",
     "reason": "Linking replies runs once per save of a document that gained replies: it parses the saved file, gives inline annotations on pages with replies objects of their own, rewrites each reply with its /IRT reference, and returns the file with the update appended as a new array."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.TestAssets.TestTimestampAuthority.",
+    "frame": "HyperPdf.TestAssets.TestTimestampAuthority.",
     "reason": "The benchmark's local timestamp authority, standing in for a remote one: it builds and signs each token. The app makes none of these allocations; its tokens come from the network."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Signatures.DocumentSecurityStore.",
+    "frame": "HyperPdf.Core.Signatures.DocumentSecurityStore.",
     "reason": "The document security store is read once when the user checks a document's signatures: the file's structure, the store's certificate streams, and a certificate object for each."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Signatures.SignatureVerifier.",
+    "frame": "HyperPdf.Core.Signatures.SignatureVerifier.",
     "reason": "Checking a signature runs when the user asks to see the signatures: it reads the signed bytes, decodes the CMS and any timestamp token, and builds certificate chains."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Signatures.Signing.PdfSigner.",
+    "frame": "HyperPdf.Core.Signatures.Signing.PdfSigner.",
     "reason": "Signing or timestamping writes a new copy of the file with an incremental update, the CMS signature or token, and its hex form; once per signature."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Forms.Scripting.FormScript.",
+    "frame": "HyperPdf.Core.Forms.Scripting.FormScript.",
     "reason": "Field scripts are recognised once, when a form is first edited: the regular expressions' matches, the arguments and field names as strings, and the script record."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Forms.Scripting.FormExpression",
+    "frame": "HyperPdf.Core.Forms.Scripting.FormExpression",
     "reason": "Evaluating a calculation reads each field name as a string to look its value up; once per calculated field per edit."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Forms.Scripting.FormNumbers.",
+    "frame": "HyperPdf.Core.Forms.Scripting.FormNumbers.",
     "reason": "Formatting or reading a number builds the text, with its separators and currency, as new strings; once per field per edit."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Forms.Scripting.FormDates.",
+    "frame": "HyperPdf.Core.Forms.Scripting.FormDates.",
     "reason": "Formatting or reading a date converts the field's format into a pattern string; once per date field per edit."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Forms.Scripting.FormScriptEngine",
+    "frame": "HyperPdf.Core.Forms.Scripting.FormScriptEngine",
     "reason": "Running a script works on new strings for the value it formats or checks, and a closure for a calculation's field lookups; once per field per edit."
   },
   {
     "type": "System.String",
-    "frame": "PdfViewerLite.Core.Documents.LinkedFiles.Resolve(",
+    "frame": "HyperPdf.Core.Documents.LinkedFiles.Resolve(",
     "reason": "Following a link to another file builds that file's full path, once per click on the link. Nothing here runs while pages draw."
   },
   {
     "type": "System.String",
-    "frame": "PdfViewerLite.Core.Documents.LinkedFiles.ToNativeSeparators(",
+    "frame": "HyperPdf.Core.Documents.LinkedFiles.ToNativeSeparators(",
     "reason": "A link written with the other system's folder separators is rewritten once per click so the file can be found; a path that already uses this system's separators is returned as it is."
   },
   {
-    "type": "PdfViewerLite.Core.Settings.LastViewedPage",
-    "frame": "PdfViewerLite.Core.Settings.LastPages.Remember(",
+    "type": "HyperPdf.Core.Settings.LastViewedPage",
+    "frame": "HyperPdf.Core.Settings.LastPages.Remember(",
     "reason": "Closing a tab at a new page records one small entry in the settings; an unchanged newest entry is kept without allocating."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Documents.ContentWarnings.Build(",
+    "frame": "HyperPdf.Core.Documents.ContentWarnings.Build(",
     "reason": "The message about content that cannot be shown is built once per combination of parts and then reused for every document."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Platform.Linux.Spelling.WordListSpellChecker.Suggest(",
+    "frame": "HyperPdf.Platform.Linux.Spelling.WordListSpellChecker.Suggest(",
     "reason": "The corrections are returned in a new list of five, the list and its array. Copying them into an array of their exact count saved the list but measured 30 to 40 ns slower. Corrections are looked up only when the reader opens the menu on a misspelled word."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Platform.Linux.Spelling.WordListSpellChecker..ctor(",
+    "frame": "HyperPdf.Platform.Linux.Spelling.WordListSpellChecker..ctor(",
     "reason": "Loading a word list reads each word into a set, once per spell checker, when spell checking first starts."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Platform.Linux.Spelling.CorrectionIndex..ctor(",
+    "frame": "HyperPdf.Platform.Linux.Spelling.CorrectionIndex..ctor(",
     "reason": "The correction index is built once per word list, the first time a correction is asked for: the lower-case words, the per-word lookup marks and the hash directory."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Platform.Linux.Spelling.CorrectionIndex.SortedEntries(",
+    "frame": "HyperPdf.Platform.Linux.Spelling.CorrectionIndex.SortedEntries(",
     "reason": "Building the correction index makes one packed entry per word delete and a count per hash bucket, once per word list; the entries are dropped once grouped."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Platform.Linux.Spelling.CorrectionIndex.Group(",
+    "frame": "HyperPdf.Platform.Linux.Spelling.CorrectionIndex.Group(",
     "reason": "Building the correction index makes the key, start and posting arrays it keeps for the life of the spell checker, once per word list."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Text.Fonts.FontSubsetter.",
+    "frame": "HyperPdf.Core.Text.Fonts.FontSubsetter.",
     "reason": "Subsetting builds the new font program PDFium embeds: the renumbered glyph, metric and cmap tables and the assembled file. It runs when a text box in an installed font is written, once per 128-character block of new letters, never while typing or drawing. SubsetFont measures about 1 ms for a paragraph."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Text.Fonts.CharacterMap.Map(",
+    "frame": "HyperPdf.Core.Text.Fonts.CharacterMap.Map(",
     "reason": "Lists the characters a font maps while its subset's cmap is built, once per subset."
   },
   {
     "type": "System.Byte[]",
-    "frame": "PdfViewerLite.Core.Forms.Detection.FlatFormFinder.Find(",
+    "frame": "HyperPdf.Core.Forms.Detection.FlatFormFinder.Find(",
     "reason": "The page and grey buffers are rented from ArrayPool and returned after each read. The trace shows two rents in the whole run, when the pool first fills; every later read reuses them. Detect itself allocates nothing."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Text.FreeTextStyle.",
+    "frame": "HyperPdf.Core.Text.FreeTextStyle.",
     "reason": "Writing a text box makes its /DA, /DS and /RC values once per commit; PDFium copies them into the annotation. Reading a foreign FreeText makes its format once."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Text.TextFormatCodec.Write(",
+    "frame": "HyperPdf.Core.Text.TextFormatCodec.Write(",
     "reason": "The format record kept with a text box: one string per commit, built in a stack buffer."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Text.TextFormatCodec.TryRead(",
+    "frame": "HyperPdf.Core.Text.TextFormatCodec.TryRead(",
     "reason": "Reading a text box back to edit it makes the one TextFormat it returns. Settings are parsed into a struct first, so only the final record is allocated."
   },
   {
     "type": "System.String",
-    "frame": "PdfViewerLite.Core.Text.TextFormatCodec+<>c.",
+    "frame": "HyperPdf.Core.Text.TextFormatCodec+<>c.",
     "reason": "An installed font's family name read from a text box's record; built-in family names are reused."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Text.TextFormat.Clamped(",
+    "frame": "HyperPdf.Core.Text.TextFormat.Clamped(",
     "reason": "A format with values out of range is copied once with usable ones; formats already in range are returned as they are."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Text.Fonts.FontCatalog.Find(",
+    "frame": "HyperPdf.Core.Text.Fonts.FontCatalog.Find(",
     "reason": "Finding an installed face returns a FontMatch describing the face and any synthetic bold or italic, once per commit."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.CertificateSigningBenchmarks.Sign",
+    "frame": "HyperPdf.Benchmarks.CertificateSigningBenchmarks.Sign",
     "reason": "PdfSigner.Sign is inlined into the signing benchmark methods, so its allocations carry their names: the signed copy of the file and its incremental update as strings and bytes, and the CMS signature's ASN.1 reader and writer state. They are the same work the PdfSigner and PdfUpdateWriter entries explain, once per signature, which is a user action."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfInterchangeBenchmarks.OpenOnly",
+    "frame": "HyperPdf.Benchmarks.HyperPdfInterchangeBenchmarks.OpenOnly",
     "reason": "Opening a document reads its cross-reference table and page tree into an object store, a name table and dictionaries. The import benchmarks include this cost, so it is the baseline to subtract from them. Opening a file is a user action."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfInterchangeBenchmarks.Read",
+    "frame": "HyperPdf.Benchmarks.HyperPdfInterchangeBenchmarks.Read",
     "reason": "Reading an XFDF or FDF file builds the data model: one annotation object per annotation with its text as strings and its numbers as arrays. XFDF goes through XmlReader, which keeps its own node, attribute and name-table state and returns attribute values as strings. FDF goes through the PDF object parser into dictionaries and arrays. Reading a file is a user action, not a render path."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfInterchangeBenchmarks.Export",
+    "frame": "HyperPdf.Benchmarks.HyperPdfInterchangeBenchmarks.Export",
     "reason": "Exporting reads each annotation dictionary into the data model and writes it out. XFDF is written through XmlWriter, which formats attribute values as strings and keeps its own element, namespace and buffer state. FDF is written as PDF syntax into a pooled buffer and copied into the result array, with annotation dictionaries built as free objects. Exporting is a user action, not a render path."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfInterchangeBenchmarks.Import",
+    "frame": "HyperPdf.Benchmarks.HyperPdfInterchangeBenchmarks.Import",
     "reason": "Importing reads the file as described for the read benchmarks, then builds one annotation dictionary and object per annotation, queues them per page, links replies and pop-ups, and puts each page's array in place once. It also includes opening the fresh document, which the OpenOnly entry explains. Importing is a user action, not a render path."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfCarryBenchmarks.InsertPlain",
+    "frame": "HyperPdf.Benchmarks.HyperPdfCarryBenchmarks.InsertPlain",
     "reason": "Inserting pages is an edit transaction: the transaction and its undo record, the page set and page tree read again after the edit, the copied page dictionaries and the rewritten page tree. The carrier objects and their lists are created once per insertion and find nothing to carry in a plain document. Inserting pages is a user action, not a render path."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfCarryBenchmarks.InsertBook",
+    "frame": "HyperPdf.Benchmarks.HyperPdfCarryBenchmarks.InsertBook",
     "reason": "Everything InsertPlain allocates, plus what the carried structures need: prepared annotation copies, the field nodes and their rebuilt dictionaries, the outline entries and their reserved objects, the named destination and embedded file name entries merged into new name tree leaves, the layer list, and the merged AcroForm, resources and catalog copies. Each is built once per insertion. Inserting pages is a user action, not a render path."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfCarryBenchmarks.ExtractBook",
+    "frame": "HyperPdf.Benchmarks.HyperPdfCarryBenchmarks.ExtractBook",
     "reason": "Extracting builds a new document: the builder's object list, the copied page and annotation objects, the same carried structures as InsertBook written into the new catalog, and the file bytes with compressed streams. Extracting pages is a user action, not a render path."
   },
   {
@@ -803,57 +803,57 @@
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.HyperPdf.HyperPdfEngine.Open",
+    "frame": "HyperPdf.Engine.HyperPdfEngine.Open",
     "reason": "Opening a document through the adapter creates the library document and its wrapper. Opening is a user action."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.HyperPdf.HyperPdfDocument.",
+    "frame": "HyperPdf.Engine.HyperPdfDocument.",
     "reason": "The adapter converts library results into the app's records: the wrapper's state on open, outline items, links and viewer rectangles. RenderNative creates the document's renderer entry on the first render; later tiles find it and allocate nothing, as the warm tile benchmarks measure."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.HyperPdf.HyperPdfAnnotations",
+    "frame": "HyperPdf.Engine.HyperPdfAnnotations",
     "reason": "The adapter's annotation editor: its name table, the new markup's dictionaries and the text layer's font list. Annotation and text layer edits are user actions."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.HyperPdf.AnnotationNames.",
+    "frame": "HyperPdf.Engine.AnnotationNames.",
     "reason": "The annotation name index, created once per annotation editor."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.HyperPdf.Tagged",
+    "frame": "HyperPdf.Engine.Tagged",
     "reason": "The tagged block walker and character map build the reading order blocks the app asks for, once per page."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdf",
+    "frame": "HyperPdf.Benchmarks.HyperPdf",
     "reason": "Library code inlined into a HyperPDF benchmark method allocates under the benchmark's name. Each such site is the same first-use or result work the library entries explain: opening documents and creating renderers in cold benchmarks, decoder state in the codec benchmarks, the returned encoded bytes, image, report or page records, and the copied hidden set of a layer toggle. Every warm render, text query, font lookup, colour and syntax benchmark measures zero."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.AccessibilityReportBenchmarks.",
+    "frame": "HyperPdf.Benchmarks.AccessibilityReportBenchmarks.",
     "reason": "Library code inlined into the accessibility report benchmark: opening the document and the report's result records, as the accessibility entry explains."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.HyperPdf.OptimizeMapping.",
+    "frame": "HyperPdf.Engine.OptimizeMapping.",
     "reason": "Mapping the app's settings to the library's options and the library's report to the app's creates the option record, the report record and its lists. Once per run, when the user clicks Save a Copy."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.HyperPdf.HyperPdfAnnotations.HideRemoved",
+    "frame": "HyperPdf.Engine.HyperPdfAnnotations.HideRemoved",
     "reason": "Taking the snapshot lists the pages that hold annotations removed but kept, so they can be left out of the copy and put back. Once per run, only when such annotations exist."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfOptimizeCopyBenchmarks.",
+    "frame": "HyperPdf.Benchmarks.HyperPdfOptimizeCopyBenchmarks.",
     "reason": "Benchmark harness code: the output stream that stops the run at its first write, and the mapping calls the benchmark makes on purpose. Not shipped."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfOpenContext",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfRepairBenchmarks",
+    "frame": "HyperPdf.Benchmarks.HyperPdfRepairBenchmarks",
     "reason": "One 64-byte context per open holds the cancellation token, recovery switches and the repair log, so a document can say whether it was repaired. Opening is a user action, not a render path."
   },
   {
@@ -873,17 +873,17 @@
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Licences.NoticeDocument.Parse(",
+    "frame": "HyperPdf.Core.Licences.NoticeDocument.Parse(",
     "reason": "Reading the notices decodes the UTF-8 file to a string, then builds the data model: one entry per component with its licence text as a string, a field dictionary per component, and the group lists. It runs once, when the user opens the Licences window, and is not a render path."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.LicenceNoticesBenchmarks.ParseUtf8",
+    "frame": "HyperPdf.Benchmarks.LicenceNoticesBenchmarks.ParseUtf8",
     "reason": "Decoding the UTF-8 notices file to one string, which the compiler inlines into the caller; the string holds the whole file (about 800 KB for 70 components). It happens once, when the user opens the Licences window, and is not a render path."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Core.Licences.NoticeReader.",
+    "frame": "HyperPdf.Core.Licences.NoticeReader.",
     "reason": "The reader keeps a string builder for the licence text and a field dictionary for each component, and fills the entry and group lists. It runs once, when the user opens the Licences window, and is not a render path."
   },
   {
@@ -908,12 +908,12 @@
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfRedactionBenchmarks",
+    "frame": "HyperPdf.Benchmarks.HyperPdfRedactionBenchmarks",
     "reason": "Inlined library calls carry the benchmark's name: opening the document, applying the redaction and writing the saved copy to the output stream. The pages and the picture are built once in setup."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfPageObjectBenchmarks",
+    "frame": "HyperPdf.Benchmarks.HyperPdfPageObjectBenchmarks",
     "reason": "Inlined library calls carry the benchmark's name: the byte array a regenerate returns, and the objects an edit benchmark parses before it changes them."
   },
   {
@@ -1033,7 +1033,7 @@
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.Benchmarks.HyperPdfAsync",
+    "frame": "HyperPdf.Benchmarks.HyperPdfAsync",
     "reason": "The benchmark harness: the opened-document wrapper, the delegates and tasks that start parallel renders, the task array and the throttled streams. Not library allocations."
   },
   {
@@ -1243,12 +1243,12 @@
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.HyperPdf.HyperPdfPageManager+<ApplyAsync>",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager+<ApplyAsync>",
     "reason": "A page action copies the selected indexes before awaiting resource loads. It creates an edit transaction, its open-transaction guard and lists of original objects and trailer entries for undo. Inlined page validation and cache rebuilds also create integer selections and visited sets. These allocations belong to the user-requested edit and its undo history; warmed reading and rendering do not enter ApplyAsync."
   },
   {
     "type": "",
-    "frame": "PdfViewerLite.HyperPdf.HyperPdfPageManager.ApplyAsync(",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager.ApplyAsync(",
     "reason": "Runtime async reports the page action directly on .NET 11. The action freezes selected indexes, starts an undoable edit transaction and its guard, records original objects and trailer entries, and validates or rebuilds page selections using integer arrays and visited sets. These allocations belong to an explicit page edit and never run during warmed reading or rendering."
   },
   {
@@ -1591,45 +1591,45 @@
   {"type":"HyperPdfLibrary.Rendering.SkiaRenderPicture","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)","reason":"The first Render call records a page and creates its picture, image weights and native picture wrapper. The trace resolves the enclosing Render frame because nested construction was inlined; warm replay keeps the picture."},
   {"type":"SkiaSharp.SKPicture","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)","reason":"The first Render call records a page and creates its picture, image weights and native picture wrapper. The trace resolves the enclosing Render frame because nested construction was inlined; warm replay keeps the picture."},
   {"type":"System.Collections.Generic.HashSet\u00601[System.UInt32]","frame":"HyperPdfLibrary.Rendering.PictureWeight..ctor()","reason":"A new page recording creates an image-id set for picture memory accounting. The set lives with the recording and is not rebuilt for warm tiles."},
-  {"type":"HyperPdfLibrary.Fonts.PdfFontCache","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.IO.MemoryPdfByteSource","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Objects.PdfOpenContext","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Rendering.ImageCache","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Objects.PdfArray,HyperPdfLibrary.Graphics.Colors.PdfColorSpace]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Fonts.PdfFont]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Graphics.Shadings.PdfShading]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.SoftMaskKey,HyperPdfLibrary.Graphics.PdfSoftMask]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Rendering.PagePictures[]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Rendering.PdfPageRenderer","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Rendering.PdfRenderCache","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"Node[System.String,HyperPdfLibrary.Objects.PdfName]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Objects.PdfArray,HyperPdfLibrary.Graphics.Colors.PdfColorSpace]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Fonts.PdfFont]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Graphics.Shadings.PdfShading]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.SoftMaskKey,HyperPdfLibrary.Graphics.PdfSoftMask]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"System.Collections.Generic.HashSet\u00601[System.UInt32]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Rendering.PagePictures]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"System.Threading.Lock","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
-  {"type":"HyperPdfLibrary.Content.ContentInterpreter","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"HyperPdfLibrary.Drawing.PdfPathBuilder","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"HyperPdfLibrary.Graphics.GraphicsState[]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"HyperPdfLibrary.Objects.PdfDictionary[]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"HyperPdfLibrary.Rendering.ImageWeight[]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"HyperPdfLibrary.Rendering.PagePictures[]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"HyperPdfLibrary.Rendering.PdfPageRenderer","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"HyperPdfLibrary.Rendering.SkiaRenderPicture","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"SkiaSharp.SKPicture","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"System.Collections.Generic.HashSet\u00601[System.UInt32]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Drawing.PdfPathCommand]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Graphics.GraphicsState]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Objects.PdfDictionary]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Rendering.PagePictures]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"System.Collections.Generic.List\u00601[System.Boolean]","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"System.Object","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"System.Threading.Lock","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
-  {"type":"System.WeakReference","frame":"PdfViewerLite.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"HyperPdfLibrary.Fonts.PdfFontCache","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.IO.MemoryPdfByteSource","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Objects.PdfOpenContext","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Rendering.ImageCache","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Objects.PdfArray,HyperPdfLibrary.Graphics.Colors.PdfColorSpace]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Fonts.PdfFont]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Graphics.Shadings.PdfShading]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.SoftMaskKey,HyperPdfLibrary.Graphics.PdfSoftMask]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Rendering.PagePictures[]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Rendering.PdfPageRenderer","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Rendering.PdfRenderCache","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"Node[System.String,HyperPdfLibrary.Objects.PdfName]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Objects.PdfArray,HyperPdfLibrary.Graphics.Colors.PdfColorSpace]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Fonts.PdfFont]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Graphics.Shadings.PdfShading]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.SoftMaskKey,HyperPdfLibrary.Graphics.PdfSoftMask]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"System.Collections.Generic.HashSet\u00601[System.UInt32]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Rendering.PagePictures]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"System.Threading.Lock","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
+  {"type":"HyperPdfLibrary.Content.ContentInterpreter","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"HyperPdfLibrary.Drawing.PdfPathBuilder","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"HyperPdfLibrary.Graphics.GraphicsState[]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"HyperPdfLibrary.Objects.PdfDictionary[]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"HyperPdfLibrary.Rendering.ImageWeight[]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"HyperPdfLibrary.Rendering.PagePictures[]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"HyperPdfLibrary.Rendering.PdfPageRenderer","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"HyperPdfLibrary.Rendering.SkiaRenderPicture","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"SkiaSharp.SKPicture","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"System.Collections.Generic.HashSet\u00601[System.UInt32]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Drawing.PdfPathCommand]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Graphics.GraphicsState]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Objects.PdfDictionary]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Rendering.PagePictures]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"System.Collections.Generic.List\u00601[System.Boolean]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"System.Object","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"System.Threading.Lock","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
+  {"type":"System.WeakReference","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.FirstRecordOnOpenDocument()","reason":"FirstRecordOnOpenDocument creates and disposes a renderer for every operation, recording its first page while the document stays open. The trace attributes inlined recording and native-wrapper setup to the benchmark method; retained-picture replay does not rebuild it."},
   {"type":"HyperPdfLibrary.Compat.EndTrackingStream","frame":"HyperPdfLibrary.Compat.ZLibCodec.DecompressStream(value class System.ReadOnlySpan\u00601\u003Cunsigned int8\u003E,bool,int32,value class HyperPdfLibrary.Filters.PooledBuffer\u0026)","reason":"The .NET 10 fallback constructs ZLib and Deflate stream decoders during first image decompression. The decoded image is cached; warm picture replay does not decompress it again. .NET 11 uses the span decoder."},
   {"type":"System.IO.Compression.DeflateStream","frame":"HyperPdfLibrary.Compat.ZLibCodec.DecompressStream(value class System.ReadOnlySpan\u00601\u003Cunsigned int8\u003E,bool,int32,value class HyperPdfLibrary.Filters.PooledBuffer\u0026)","reason":"The .NET 10 fallback constructs ZLib and Deflate stream decoders during first image decompression. The decoded image is cached; warm picture replay does not decompress it again. .NET 11 uses the span decoder."},
   {"type":"System.IO.Compression.Inflater","frame":"HyperPdfLibrary.Compat.ZLibCodec.DecompressStream(value class System.ReadOnlySpan\u00601\u003Cunsigned int8\u003E,bool,int32,value class HyperPdfLibrary.Filters.PooledBuffer\u0026)","reason":"The .NET 10 fallback constructs ZLib and Deflate stream decoders during first image decompression. The decoded image is cached; warm picture replay does not decompress it again. .NET 11 uses the span decoder."},
@@ -1650,9 +1650,9 @@
   {"type":"System.WeakReference","frame":"HyperPdfLibrary.Rendering.SkiaSurfaceRenderTarget.","reason":"SkiaSharp tracks fresh canvas and image wrappers through weak native-handle bookkeeping; this is attributed only to new-target access and snapshot."},
   {"type":"System.Object[]","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.get_Current()","reason":"The first replay on a graphics thread initializes thread-local drawing-session bookkeeping. The nested array constructor is not resolved; later replay reuses the session."},
   {"type":"HyperPdfLibrary.Rendering.SkiaDrawingSession","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.get_Current()","reason":"The first PDF replay on a graphics thread creates its reusable drawing session. Subsequent warm replay reuses that same session."},
-  {"type":"HyperPdfLibrary.Objects.PdfStream","frame":"PdfViewerLite.Benchmarks.HyperPdfIccProfileCacheBenchmarks.NewProfileStream()","reason":"Each operation creates one 72-byte stream wrapper, including its nullable ICC profile result slot. Warm profile lookups reuse the stream and allocate nothing."},
-  {"type":"","frame":"PdfViewerLite.HyperPdf.HyperPdfEngine.ReadCertificate(","reason":"A certificate open reads the PKCS #12 file into one owned byte array and creates file-path and file-handle state. The bytes are cleared after the key is imported. This runs once per requested open, not during page rendering."},
-  {"type":"","frame":"PdfViewerLite.HyperPdf.HyperPdfEngine.LoadCertificate(","reason":"Importing a PKCS #12 recipient creates cryptography, ASN.1, key and native-handle objects in the .NET runtime. The imported key is ephemeral and disposed after the document key is derived. The trace resolves these allocations at the import call."},
+  {"type":"HyperPdfLibrary.Objects.PdfStream","frame":"HyperPdf.Benchmarks.HyperPdfIccProfileCacheBenchmarks.NewProfileStream()","reason":"Each operation creates one 72-byte stream wrapper, including its nullable ICC profile result slot. Warm profile lookups reuse the stream and allocate nothing."},
+  {"type":"","frame":"HyperPdf.Engine.HyperPdfEngine.ReadCertificate(","reason":"A certificate open reads the PKCS #12 file into one owned byte array and creates file-path and file-handle state. The bytes are cleared after the key is imported. This runs once per requested open, not during page rendering."},
+  {"type":"","frame":"HyperPdf.Engine.HyperPdfEngine.LoadCertificate(","reason":"Importing a PKCS #12 recipient creates cryptography, ASN.1, key and native-handle objects in the .NET runtime. The imported key is ephemeral and disposed after the document key is derived. The trace resolves these allocations at the import call."},
   {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.ReadRecipients(","reason":"Opening a public-key PDF copies the bounded recipient entries from its encryption dictionary so each envelope can be checked. The arrays live only for authentication."},
   {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.DecryptEnvelope(","reason":"Certificate authentication decodes and checks the CMS recipient envelopes. The temporary arrays and cryptography wrappers belong to one document open."},
   {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.TryDecrypt(","reason":"The .NET CMS and RSA APIs parse the recipient envelope, match the certificate and decrypt its seed. ASN.1 records, keys, byte arrays and crypto handles are per-open work; the resulting file key is retained by the document security handler."},
@@ -1660,7 +1660,7 @@
   {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.TryCreatePublicKey(","reason":"Selecting the public-key security handler builds its crypt-filter and recipient state once when the document opens."},
   {"type":"","frame":"HyperPdfLibrary.Objects.StoreOpening.Authenticate(","reason":"Authentication creates the public-key handler and refreshes object caches after the file key becomes available. This happens once per open."},
   {"type":"","frame":"HyperPdfLibrary.Objects.PdfOpenContext.Create(","reason":"Each benchmark operation opens a new document and creates its bounded open context; warm reads of an already open document do not repeat it."},
-  {"type":"","frame":"PdfViewerLite.HyperPdf.HyperPdfEngine.CreateOpened(","reason":"The viewer creates one managed adapter and its page-size snapshot after each successful document open. Page rendering reuses the adapter."},
+  {"type":"","frame":"HyperPdf.Engine.HyperPdfEngine.CreateOpened(","reason":"The viewer creates one managed adapter and its page-size snapshot after each successful document open. Page rendering reuses the adapter."},
   {"type":"HyperPdfLibrary.Objects.PdfValue[]","frame":"HyperPdfLibrary.Objects.PdfArray..ctor(","reason":"Parsing the public-key document snapshots PDF arrays, including recipient and file identifier entries, into exact-sized value buffers. The benchmark opens a fresh document for every operation; cached document reads do not rebuild these arrays."},
   {"type":"System.Byte[]","frame":"HyperPdfLibrary.Objects.PdfStream.CopyFromSourceAsync(","reason":"The optional async hint read copies the short encoded hint stream into an owned byte array before decoding. It runs once when page hints are requested, outside normal first-page opening."},
   {"type":"System.Byte[]","frame":"HyperPdfLibrary.Document.PdfLinearizationHints.GetPageRangesAsync(","reason":"Decoding the copied hint stream creates a byte array for its page and shared-object tables. The viewer's bounded first-page open does not request this optional table."},
@@ -1687,27 +1687,27 @@
   {"type":"System.Byte[]","frame":"HyperPdfLibrary.Content.ContentExecution.RunStreamBody(","reason":"A content stream's decoded bytes are copied into an owned array before the interpreter reads them. This happens once per content stream while the page is recorded; warm tiles replay the recorded picture."},
   {"type":"HyperPdfLibrary.Objects.PdfStream","frame":"HyperPdfLibrary.Objects.StoreParsing.TryParseInWindows(","reason":"While the first page is rendered, the object store parses the objects it has not read yet, and every stream object becomes one PdfStream value. This happens once per stream object per document."},
   {"type":"System.String","frame":"HyperPdfLibrary.Metadata.XmpMetadata.Key(","reason":"Building the XMP property lookup key joins the namespace and local name into one string. This runs for each property read while the document opens cold, not on the tile path of a warm document."},
-  {"type":"System.Byte[]","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.Execute(","reason":"Execute asks the surface factory for a tile surface. The benchmark's CPU surface owns one BGRA byte array per tile (width x height x 4). The app uses GPU or Avalonia surfaces instead. This is the tile pixel storage, allocated once per delivered tile."},
-  {"type":"System.Byte[]","frame":"PdfViewerLite.Benchmarks.ScrollTileDeliveryBenchmarks+PixelSurface..ctor(","reason":"The benchmark's CPU surface owns one BGRA byte array per tile (width x height x 4). This is the tile pixel storage, allocated once per delivered tile. The app uses GPU or Avalonia surfaces instead."},
-  {"type":"Entry[PdfViewerLite.Core.Rendering.TileKey,PdfViewerLite.Core.Rendering.RenderScheduler+PendingTile][]","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.EnqueueRequest(","reason":"The pending-tile dictionary allocates its first entry array on the first request. Each iteration of this benchmark creates a new scheduler, so it happens once per iteration."},
-  {"type":"System.ValueTuple`2[PdfViewerLite.Core.Rendering.RenderRequest,System.Int64][]","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.EnqueueRequest(","reason":"The scheduler's priority queue allocates its first backing array on the first request. Each iteration of this benchmark creates a new scheduler, so it happens once per iteration."},
-  {"type":"System.Int32[]","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.EnqueueRequest(","reason":"The pending-tile dictionary allocates its hash bucket array when it first grows. Each iteration of this benchmark creates a new scheduler, so this is repeated set-up, not per-frame work. It is amortised across the measured operations."},
-  {"type":"System.Object[]","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.Run(","reason":"The render thread's first semaphore wait touches thread-static state, so the runtime allocates that thread's static storage array. Each iteration of this benchmark creates a new scheduler and render thread, so it happens once per iteration; the app's render thread pays it once."},
-  {"type":"System.Threading.Condition","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.Run(","reason":"The first semaphore wait on the new render thread creates the monitor condition the semaphore uses. Each iteration of this benchmark creates a new scheduler, so it happens once per iteration."},
-  {"type":"System.Threading.Lock","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.Run(","reason":"The render thread's first semaphore wait and page preparation create small locks. Each iteration of this benchmark creates a new scheduler and render thread, so it happens once per iteration."},
-  {"type":"System.Threading.Lock","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.RenderInto(","reason":"The first render of a page in a freshly opened document creates the locks guarding its caches, picture store and renderer. Cold page-render code is inlined into this frame. It happens once per document, so warm tiles do not repeat it."},
-  {"type":"Node[System.String,HyperPdfLibrary.Objects.PdfName]","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.RenderInto(","reason":"The document's name table interns a name spelling it has not seen yet. Cold page-render code is inlined into this frame. Each spelling is interned once per document."},
-  {"type":"System.Int32[]","frame":"PdfViewerLite.Core.Rendering.RenderScheduler.RenderInto(","reason":"Cold page-render code inlined into this frame sizes the hash buckets of a document cache or name table on first use. This happens once per document, so warm tiles do not repeat it."},
-  {"type":"PdfViewerLite.Core.Rendering.RenderClient","frame":"PdfViewerLite.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The benchmark creates one RenderClient per measured operation to stand for the scrolling view. The generation advances on this one object for every frame."},
-  {"type":"System.Threading.PeriodicTimer","frame":"PdfViewerLite.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The benchmark creates one 60 Hz PeriodicTimer per measured operation to pace its frames. It is created once per operation, not per frame."},
-  {"type":"System.Threading.TimerQueueTimer","frame":"PdfViewerLite.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The PeriodicTimer registers one runtime timer. It is created once per measured operation, not per frame."},
-  {"type":"State","frame":"PdfViewerLite.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The measured method awaits the timer, so the runtime allocates one state box for the async method. It is allocated once per measured operation."},
+  {"type":"System.Byte[]","frame":"HyperPdf.Core.Rendering.RenderScheduler.Execute(","reason":"Execute asks the surface factory for a tile surface. The benchmark's CPU surface owns one BGRA byte array per tile (width x height x 4). The app uses GPU or Avalonia surfaces instead. This is the tile pixel storage, allocated once per delivered tile."},
+  {"type":"System.Byte[]","frame":"HyperPdf.Benchmarks.ScrollTileDeliveryBenchmarks+PixelSurface..ctor(","reason":"The benchmark's CPU surface owns one BGRA byte array per tile (width x height x 4). This is the tile pixel storage, allocated once per delivered tile. The app uses GPU or Avalonia surfaces instead."},
+  {"type":"Entry[HyperPdf.Core.Rendering.TileKey,HyperPdf.Core.Rendering.RenderScheduler+PendingTile][]","frame":"HyperPdf.Core.Rendering.RenderScheduler.EnqueueRequest(","reason":"The pending-tile dictionary allocates its first entry array on the first request. Each iteration of this benchmark creates a new scheduler, so it happens once per iteration."},
+  {"type":"System.ValueTuple`2[HyperPdf.Core.Rendering.RenderRequest,System.Int64][]","frame":"HyperPdf.Core.Rendering.RenderScheduler.EnqueueRequest(","reason":"The scheduler's priority queue allocates its first backing array on the first request. Each iteration of this benchmark creates a new scheduler, so it happens once per iteration."},
+  {"type":"System.Int32[]","frame":"HyperPdf.Core.Rendering.RenderScheduler.EnqueueRequest(","reason":"The pending-tile dictionary allocates its hash bucket array when it first grows. Each iteration of this benchmark creates a new scheduler, so this is repeated set-up, not per-frame work. It is amortised across the measured operations."},
+  {"type":"System.Object[]","frame":"HyperPdf.Core.Rendering.RenderScheduler.Run(","reason":"The render thread's first semaphore wait touches thread-static state, so the runtime allocates that thread's static storage array. Each iteration of this benchmark creates a new scheduler and render thread, so it happens once per iteration; the app's render thread pays it once."},
+  {"type":"System.Threading.Condition","frame":"HyperPdf.Core.Rendering.RenderScheduler.Run(","reason":"The first semaphore wait on the new render thread creates the monitor condition the semaphore uses. Each iteration of this benchmark creates a new scheduler, so it happens once per iteration."},
+  {"type":"System.Threading.Lock","frame":"HyperPdf.Core.Rendering.RenderScheduler.Run(","reason":"The render thread's first semaphore wait and page preparation create small locks. Each iteration of this benchmark creates a new scheduler and render thread, so it happens once per iteration."},
+  {"type":"System.Threading.Lock","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"The first render of a page in a freshly opened document creates the locks guarding its caches, picture store and renderer. Cold page-render code is inlined into this frame. It happens once per document, so warm tiles do not repeat it."},
+  {"type":"Node[System.String,HyperPdfLibrary.Objects.PdfName]","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"The document's name table interns a name spelling it has not seen yet. Cold page-render code is inlined into this frame. Each spelling is interned once per document."},
+  {"type":"System.Int32[]","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"Cold page-render code inlined into this frame sizes the hash buckets of a document cache or name table on first use. This happens once per document, so warm tiles do not repeat it."},
+  {"type":"HyperPdf.Core.Rendering.RenderClient","frame":"HyperPdf.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The benchmark creates one RenderClient per measured operation to stand for the scrolling view. The generation advances on this one object for every frame."},
+  {"type":"System.Threading.PeriodicTimer","frame":"HyperPdf.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The benchmark creates one 60 Hz PeriodicTimer per measured operation to pace its frames. It is created once per operation, not per frame."},
+  {"type":"System.Threading.TimerQueueTimer","frame":"HyperPdf.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The PeriodicTimer registers one runtime timer. It is created once per measured operation, not per frame."},
+  {"type":"State","frame":"HyperPdf.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The measured method awaits the timer, so the runtime allocates one state box for the async method. It is allocated once per measured operation."},
   {"type":"HyperPdfLibrary.Rendering.AnnotationPass","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.Render(","reason":"Recording the first page creates one annotation pass object. This happens once per page recording; warm tiles replay the recorded picture."},
   {"type":"HyperPdfLibrary.Rendering.SkiaContentDevice","frame":"HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreatePictureDevice(","reason":"The page recording creates one content device that draws into the picture. This happens once per page recording; warm tiles replay the picture."},
   {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer..ctor(","reason":"A new renderer creates the lock guarding its picture and image caches. It happens once per renderer, which is once per document in this benchmark."},
   {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Rendering.PagePictures..ctor(","reason":"The picture store for a page creates its lock when the page is first rendered. It happens once per page store, which is once per document in this benchmark."},
-  {"type":"System.Object[]","frame":"PdfViewerLite.HyperPdf.HyperPdfRendering.PreparePageAsync(","reason":"Page preparation is the first code on a new render thread to touch some thread-static state, so the runtime allocates that thread's static storage array. This benchmark starts a new render thread in every iteration; the app's render thread pays it once."},
-  {"type":"System.Object[]","frame":"PdfViewerLite.HyperPdf.HyperPdfPageAccess..ctor(","reason":"Taking page access enters the reader-writer lock, whose per-thread lock records live in thread-static storage; the first use on a thread makes the runtime allocate that storage array. The render thread and the document are new in every iteration of this benchmark; the app's render thread pays it once."},
+  {"type":"System.Object[]","frame":"HyperPdf.Engine.HyperPdfRendering.PreparePageAsync(","reason":"Page preparation is the first code on a new render thread to touch some thread-static state, so the runtime allocates that thread's static storage array. This benchmark starts a new render thread in every iteration; the app's render thread pays it once."},
+  {"type":"System.Object[]","frame":"HyperPdf.Engine.HyperPdfPageAccess..ctor(","reason":"Taking page access enters the reader-writer lock, whose per-thread lock records live in thread-static storage; the first use on a thread makes the runtime allocate that storage array. The render thread and the document are new in every iteration of this benchmark; the app's render thread pays it once."},
   {"type":"System.Object","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"Creating the render surface wraps Skia handles. SkiaSharp creates lock and bookkeeping objects for each handle it registers. The surface is created once per renderer, which is once per document in this benchmark."},
   {"type":"SkiaSharp.SKPixmap","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The render surface holds one reusable pixel description, created with the surface. It is created once per renderer, which is once per document in this benchmark."},
   {"type":"SkiaSharp.SKPaint","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The render surface creates its grayscale paint once. It is created once per renderer, which is once per document in this benchmark."},

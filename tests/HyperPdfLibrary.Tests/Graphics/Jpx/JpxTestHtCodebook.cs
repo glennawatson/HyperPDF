@@ -4,7 +4,7 @@
 
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
-using PdfViewerLite.Scripts;
+using HyperPdf.Scripts;
 
 namespace HyperPdfLibrary.Tests.Graphics.Jpx;
 

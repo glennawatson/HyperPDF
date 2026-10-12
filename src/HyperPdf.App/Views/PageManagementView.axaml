@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.PageManagementView">
+  <StackPanel Margin="8" Spacing="4">
+    <Menu Background="Transparent">
+      <MenuItem Header="Page actions" AutomationProperties.Name="Page actions" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Actions}">
+        <MenuItem x:Name="DeleteItem" Header="Delete selected pages" AutomationProperties.Name="Delete selected pages" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Delete}" />
+        <MenuItem x:Name="ClockwiseItem" Header="Rotate clockwise" AutomationProperties.Name="Rotate selected pages clockwise" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Clockwise}" />
+        <MenuItem x:Name="CounterclockwiseItem" Header="Rotate anticlockwise" AutomationProperties.Name="Rotate selected pages anticlockwise" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Counterclockwise}" />
+        <MenuItem x:Name="DuplicateItem" Header="Duplicate selected pages" AutomationProperties.Name="Duplicate selected pages" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Duplicate}" />
+        <Separator />
+        <MenuItem x:Name="EarlierItem" Header="Move earlier (Ctrl+Alt+Up)" AutomationProperties.Name="Move selected pages earlier" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Earlier}" />
+        <MenuItem x:Name="LaterItem" Header="Move later (Ctrl+Alt+Down)" AutomationProperties.Name="Move selected pages later" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Later}" />
+        <MenuItem x:Name="InsertItem" Header="Insert PDF before selection…" AutomationProperties.Name="Insert PDF before selection" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Insert}" />
+        <MenuItem x:Name="MergeItem" Header="Merge PDFs at end…" AutomationProperties.Name="Merge PDFs at end" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Merge}" />
+        <MenuItem x:Name="ExtractItem" Header="Extract selected pages…" AutomationProperties.Name="Extract selected pages" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Extract}" />
+        <Separator />
+        <MenuItem x:Name="UndoItem" Header="Undo page edit" AutomationProperties.Name="Undo page edit" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Undo}" />
+        <MenuItem x:Name="RedoItem" Header="Redo page edit" AutomationProperties.Name="Redo page edit" views:ControlHelp.Text="{x:Static views:PageActionDescriptions.Redo}" />
+      </MenuItem>
+    </Menu>
+    <TextBlock x:Name="PageStatusText" Classes="secondary" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+    <TextBlock Classes="secondary" TextWrapping="Wrap" Text="Ctrl or Shift selects several pages. Drag selected pages to move them." />
+  </StackPanel>
+</UserControl>

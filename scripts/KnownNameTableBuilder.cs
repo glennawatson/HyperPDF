@@ -6,7 +6,7 @@ using System.Globalization;
 using System.Text;
 using HyperPdfLibrary.Objects;
 
-namespace PdfViewerLite.Scripts;
+namespace HyperPdf.Scripts;
 
 /// <summary>Generates a UTF-8 spelling blob and a minimal perfect hash from the fixed known-name ids.</summary>
 internal static class KnownNameTableBuilder

@@ -4,9 +4,9 @@
 
 using System.Globalization;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Writing;
 
@@ -23,7 +23,7 @@ public sealed class WriterFixTests
     private const int TrailerValue = 7;
 
     /// <summary>The custom trailer key.</summary>
-    private const string TrailerKey = "PdfViewerLiteTrailerKey";
+    private const string TrailerKey = "HyperPdfTrailerKey";
 
     /// <summary>An object number above anything the document holds.</summary>
     private const int MissingObject = 9999;

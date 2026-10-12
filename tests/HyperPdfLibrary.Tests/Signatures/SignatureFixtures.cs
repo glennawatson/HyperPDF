@@ -4,9 +4,9 @@
 
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Signatures;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Signatures;
 

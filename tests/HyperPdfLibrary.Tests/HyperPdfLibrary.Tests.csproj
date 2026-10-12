@@ -2,7 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HyperPdfLibrary\HyperPdfLibrary.csproj" />
     <ProjectReference Include="..\..\src\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
-    <ProjectReference Include="..\PdfViewerLite.TestAssets\PdfViewerLite.TestAssets.csproj" />
+    <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
   </ItemGroup>
 
   <!-- The HT table generator's builder is shared with the tests, which rebuild the decoder's tables from the T.814 rows

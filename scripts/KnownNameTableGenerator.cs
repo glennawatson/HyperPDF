@@ -8,7 +8,7 @@
 // See the LICENSE file in the project root for full license information.
 
 // Usage: dotnet run --file scripts/KnownNameTableGenerator.cs -- [repository root]
-using PdfViewerLite.Scripts;
+using HyperPdf.Scripts;
 
 const string InputPath = "src/HyperPdfLibrary/Objects/KnownName.cs";
 

@@ -4,7 +4,7 @@
          xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
          IgnorableNamespaces="uap uap3 rescap">
-  <Identity Name="net.glennwatson.PdfViewerLite"
+  <Identity Name="net.glennwatson.HyperPDF"
             Publisher="CN=Glenn Andrew Watson, O=Glenn Andrew Watson, L=Mooroolbark, S=Victoria, C=AU"
             Version="0.1.0.0" ProcessorArchitecture="x64" />
   <Properties>
@@ -18,7 +18,7 @@
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
   <Applications>
-    <Application Id="PdfViewerLite" Executable="pdfviewerlite.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="HyperPDF" Executable="hyperpdf.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements DisplayName="Hyper PDF Viewer" Description="A calm PDF viewer"
                           BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png"
                           Square44x44Logo="Assets\Square44x44Logo.png" />

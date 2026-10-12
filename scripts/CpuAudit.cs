@@ -21,9 +21,9 @@ using System.Text;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Etlx;
 
-return PdfViewerLite.Scripts.CpuAudit.Run(args);
+return HyperPdf.Scripts.CpuAudit.Run(args);
 
-namespace PdfViewerLite.Scripts
+namespace HyperPdf.Scripts
 {
     /// <summary>
     /// Attributes the CPU samples taken while BenchmarkDotNet runs its measured iterations to the methods on their
@@ -41,13 +41,13 @@ namespace PdfViewerLite.Scripts
         private const int Usage = 2;
 
         /// <summary>The namespace prefix of the code under audit.</summary>
-        private const string LibraryPrefix = "PdfViewerLite.";
+        private const string LibraryPrefix = "HyperPdf.";
 
         /// <summary>The namespace prefix of the managed PDF engine and its drawing backend.</summary>
         private const string HyperPdfPrefix = "HyperPdfLibrary.";
 
         /// <summary>The namespace prefix of the benchmark classes.</summary>
-        private const string BenchmarkPrefix = "PdfViewerLite.Benchmarks.";
+        private const string BenchmarkPrefix = "HyperPdf.Benchmarks.";
 
         /// <summary>The option naming the baseline traces.</summary>
         private const string BaselineOption = "--baseline";
@@ -234,7 +234,7 @@ namespace PdfViewerLite.Scripts
         }
 
         /// <summary>
-        /// Lists PdfViewerLite methods that grew out of proportion in every pair: more than the leeway beyond the
+        /// Lists HyperPDF methods that grew out of proportion in every pair: more than the leeway beyond the
         /// benchmark's own change, so a machine that ran slower does not make every method look worse. Runtime methods
         /// are left out: the JIT inlines them differently from build to build, which moves their samples between frames.
         /// </summary>
@@ -308,7 +308,7 @@ namespace PdfViewerLite.Scripts
             return (false, true);
         }
 
-        /// <summary>Gets whether a method is PdfViewerLite code under audit, not a benchmark or the runtime.</summary>
+        /// <summary>Gets whether a method is HyperPDF code under audit, not a benchmark or the runtime.</summary>
         /// <param name="name">The method.</param>
         /// <returns><see langword="true"/> for library code.</returns>
         private static bool IsLibrary(string name) =>

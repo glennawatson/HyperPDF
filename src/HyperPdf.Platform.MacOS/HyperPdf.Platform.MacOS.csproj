@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>macOS desktop integration (CoreAudio sound, Finder, the Dock's recent documents, single instance, CUPS printing and system colours) for HyperPDF.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\HyperPdf.Platform.Cups\HyperPdf.Platform.Cups.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Core.Tests" />
+  </ItemGroup>
+</Project>

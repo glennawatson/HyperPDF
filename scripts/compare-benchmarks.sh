@@ -10,18 +10,18 @@ REF="${1:?baseline ref}"
 read -r -a FILTERS <<< "${2:?benchmark filter}"
 LEEWAY="${3:-5}"
 FRAMEWORK="${BENCHMARK_FRAMEWORK:-net11.0}"
-OUT="$ROOT/benchmarks/PdfViewerLite.Benchmarks/BenchmarkDotNet.Comparison"
+OUT="$ROOT/benchmarks/HyperPdf.Benchmarks/BenchmarkDotNet.Comparison"
 BASE="$(mktemp -d)/baseline"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 git -C "$ROOT" worktree add --detach "$BASE" "$REF" >/dev/null
 trap 'git -C "$ROOT" worktree remove --force "$BASE"' EXIT
-tar -C "$ROOT/benchmarks/PdfViewerLite.Benchmarks" --exclude=bin --exclude=obj --exclude='BenchmarkDotNet.*' -cf - . \
-  | tar -C "$BASE/benchmarks/PdfViewerLite.Benchmarks" -xf -
+tar -C "$ROOT/benchmarks/HyperPdf.Benchmarks" --exclude=bin --exclude=obj --exclude='BenchmarkDotNet.*' -cf - . \
+  | tar -C "$BASE/benchmarks/HyperPdf.Benchmarks" -xf -
 
 # BenchmarkDotNet builds the benchmark project it finds under the working directory, so each run starts in its own tree.
 run() {
-  (cd "$1" && dotnet run -c Release -f "$FRAMEWORK" --project "$1/benchmarks/PdfViewerLite.Benchmarks" -- --filter "${FILTERS[@]}" --artifacts "$2" "${@:3}")
+  (cd "$1" && dotnet run -c Release -f "$FRAMEWORK" --project "$1/benchmarks/HyperPdf.Benchmarks" -- --filter "${FILTERS[@]}" --artifacts "$2" "${@:3}")
 }
 
 # Allocations: long iterations measure many operations, so the runtime's batched samples blur the totals very little.

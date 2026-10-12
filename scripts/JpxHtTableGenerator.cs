@@ -9,7 +9,7 @@
 
 // Builds the HT cleanup pass lookup tables from the CxtVLC rows of ITU-T T.814 Annex C and writes JpxHtTables.cs.
 // Usage: dotnet run --file scripts/JpxHtTableGenerator.cs -- [repository root]
-using PdfViewerLite.Scripts;
+using HyperPdf.Scripts;
 
 const string DataPath = "src/HyperPdfLibrary/Graphics/Images/Jpx/Data/T814CxtVlc.txt";
 

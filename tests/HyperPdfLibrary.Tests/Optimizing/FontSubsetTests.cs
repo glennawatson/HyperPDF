@@ -3,10 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Optimizing;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Optimizing;
 

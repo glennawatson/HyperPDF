@@ -4,7 +4,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
-using PdfViewerLite.TestAssets;
+using HyperPdf.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Tagged;
 

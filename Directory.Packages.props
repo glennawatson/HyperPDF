@@ -26,7 +26,7 @@
     <PackageVersion Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
   </ItemGroup>
 
-  <!-- X11's package declares Skia, but its assembly does not reference it. Rendering is supplied by PdfViewerLite.Skia. -->
+  <!-- X11's package declares Skia, but its assembly does not reference it. Rendering is supplied by HyperPdf.Skia. -->
   <ItemGroup>
     <PrunePackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
   </ItemGroup>

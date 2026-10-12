@@ -1,6 +1,6 @@
 # HyperPdfLibrary async API: measurements
 
-Measured on 9 October 2026 on an AMD Ryzen 7 5800X. The API itself is described in [docs/hyperpdf/async.md](../docs/hyperpdf/async.md); the benchmarks are the `HyperPdfAsync*` classes in `PdfViewerLite.Benchmarks`.
+Measured on 9 October 2026 on an AMD Ryzen 7 5800X. The API itself is described in [docs/hyperpdf/async.md](../docs/hyperpdf/async.md); the benchmarks are the `HyperPdfAsync*` classes in `HyperPdf.Benchmarks`.
 
 Times are means with the half-width of the 99.9% interval. Differences smaller than the two intervals added together
 are noise. Each row compares the sync form (S) with the async form (A) in the same run.

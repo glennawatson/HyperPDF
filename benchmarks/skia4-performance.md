@@ -32,7 +32,7 @@ The solid shortcut used about **49% less time** than drawing the equivalent gene
 
 ## Allocations
 
-EventPipe traces and `PdfViewerLite.AllocationAudit` found no renderer allocation samples in the measured general-path, solid-rectangle, rectangle-geometry or native-gradient cases. The array-factory comparison allocates arrays and shader wrappers; these belong to SkiaSharp and the benchmark harness rather than a renderer-owned allocation site.
+EventPipe traces and `HyperPdf.AllocationAudit` found no renderer allocation samples in the measured general-path, solid-rectangle, rectangle-geometry or native-gradient cases. The array-factory comparison allocates arrays and shader wrappers; these belong to SkiaSharp and the benchmark harness rather than a renderer-owned allocation site.
 
 Cached text drawing had one sampled 48-byte string with no allocating callee resolved below `DrawGlyphRun`. One tick does not establish a per-draw cost. The trace's 106,048-byte bucket is a sampling weight, not the size of that string or a per-operation allocation total.
 
@@ -55,8 +55,8 @@ Eighteen saved UI frames were compared with an isolated working Avalonia.Skia/Sk
 ## Reproduce
 
 ```bash
-taskset -c 2 dotnet run -c Release --project "$PWD/benchmarks/PdfViewerLite.Benchmarks/PdfViewerLite.Benchmarks.csproj" -- --filter '*GradientBenchmarks*' '*RectangleBenchmarks*' '*GlyphRunBenchmarks*' --warmupCount 5 --iterationCount 15 --artifacts /tmp/pdf-skia-benchmarks
+taskset -c 2 dotnet run -c Release --project "$PWD/benchmarks/HyperPdf.Benchmarks/HyperPdf.Benchmarks.csproj" -- --filter '*GradientBenchmarks*' '*RectangleBenchmarks*' '*GlyphRunBenchmarks*' --warmupCount 5 --iterationCount 15 --artifacts /tmp/pdf-skia-benchmarks
 dotnet run --file "$PWD/scripts/AllocationAudit.cs" -- /tmp/pdf-skia-benchmarks "$PWD/benchmarks/allocations-explained.json"
 ```
 
-Raw reports: [gradients](results/skia4/PdfViewerLite.Benchmarks.GradientBenchmarks-report-github.md), [rectangles](results/skia4/PdfViewerLite.Benchmarks.RectangleBenchmarks-report-github.md), [text](results/skia4/PdfViewerLite.Benchmarks.GlyphRunBenchmarks-report-github.md).
+Raw reports: [gradients](results/skia4/HyperPdf.Benchmarks.GradientBenchmarks-report-github.md), [rectangles](results/skia4/HyperPdf.Benchmarks.RectangleBenchmarks-report-github.md), [text](results/skia4/HyperPdf.Benchmarks.GlyphRunBenchmarks-report-github.md).

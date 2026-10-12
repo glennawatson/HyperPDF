@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HyperPdf.App.Views.TabSummaryView">
+  <StackPanel Spacing="1">
+    <TextBlock x:Name="NameText" TextTrimming="CharacterEllipsis" />
+    <TextBlock x:Name="FolderText" Classes="secondary" FontSize="11" TextTrimming="CharacterEllipsis" />
+  </StackPanel>
+</UserControl>

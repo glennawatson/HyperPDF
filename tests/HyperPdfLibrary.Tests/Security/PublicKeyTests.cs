@@ -4,10 +4,10 @@
 
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Rendering;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Security;
 

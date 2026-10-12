@@ -2,11 +2,11 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Graphics.Images.Jbig2;
 using HyperPdfLibrary.Graphics.Images.Jpeg;
 using HyperPdfLibrary.Tests.Graphics.Jpeg;
 using HyperPdfLibrary.Tests.Graphics.Jpx;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Async;
 

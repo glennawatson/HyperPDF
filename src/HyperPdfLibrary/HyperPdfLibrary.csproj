@@ -14,7 +14,7 @@
     <PackageId>HyperPdfLibrary</PackageId>
     <Title>HyperPdfLibrary</Title>
     <PackageTags>pdf;pdf-renderer;pdf-parser;pdf-text;annotations;aot</PackageTags>
-    <PackageProjectUrl>https://github.com/glennawatson/PdfViewerLite</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/glennawatson/HyperPDF</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -73,8 +73,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="HyperPdfLibrary.Tests" />
-    <InternalsVisibleTo Include="PdfViewerLite.HyperPdf" />
-    <InternalsVisibleTo Include="PdfViewerLite.HyperPdf.Tests" />
-    <InternalsVisibleTo Include="PdfViewerLite.Benchmarks" />
+    <InternalsVisibleTo Include="HyperPdf.Engine" />
+    <InternalsVisibleTo Include="HyperPdf.Engine.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
   </ItemGroup>
 </Project>

@@ -2,7 +2,7 @@
 # Starts the app on a private display, D-Bus session and accessibility bus, then checks a screen reader can see the
 # window and a name for every control. Needs the .NET SDK, dbus, systemd and at-spi2-core.
 # Uses a private Xvfb display, or a private headless Weston compositor with --wayland.
-# Usage: scripts/check-screen-reader.sh [--wayland] <path to pdfviewerlite> [minimum controls]
+# Usage: scripts/check-screen-reader.sh [--wayland] <path to hyperpdf> [minimum controls]
 set -euo pipefail
 
 if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" || "${CHECK_SCREEN_READER_INNER:-}" != 1 ]]; then
@@ -75,7 +75,7 @@ pids+=($!)
 # Give the window time to appear, then let the walk decide.
 for _ in $(seq 30); do
   sleep 1
-  name=$(busctl --address="$address" list --no-pager 2>/dev/null | awk '$3 == "pdfviewerlite" { print $1; exit }')
+  name=$(busctl --address="$address" list --no-pager 2>/dev/null | awk '$3 == "hyperpdf" { print $1; exit }')
   if [[ -n "$name" ]] && dotnet run --file "$check" -- atspi-walk "$address" "$name" "$minimum" >"$work/walk.txt" 2>&1; then
     cat "$work/walk.txt"
     exit 0

@@ -9,7 +9,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 
-namespace PdfViewerLite.Scripts;
+namespace HyperPdf.Scripts;
 
 /// <summary>Fetches explicitly selected, checksum-pinned PDF comparison fixtures.</summary>
 internal static class FetchReferencePdfs
@@ -54,7 +54,7 @@ internal static class FetchReferencePdfs
     private const string DocumentExtension = ".pdf";
 
     /// <summary>The HTTP user agent sent to PDF hosts.</summary>
-    private const string UserAgent = "PdfViewerLite reference PDF verifier";
+    private const string UserAgent = "HyperPDF reference PDF verifier";
 
     /// <summary>Runs the fetcher with a manifest path, destination directory and one or more IDs.</summary>
     /// <param name="args">The command-line arguments.</param>

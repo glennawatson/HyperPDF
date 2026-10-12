@@ -1,0 +1,9 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:HyperPdf.App.Controls"
+             x:Class="HyperPdf.App.Views.ThumbnailItemView">
+  <StackPanel Spacing="4">
+    <controls:PageThumbnail x:Name="Thumbnail" />
+    <TextBlock x:Name="LabelText" HorizontalAlignment="Center" Classes="secondary" />
+  </StackPanel>
+</UserControl>

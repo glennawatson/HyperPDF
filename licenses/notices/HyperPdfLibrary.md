@@ -7,7 +7,7 @@ HyperPdfLibrary is released under the MIT licence below. It includes or download
 ### HyperPdfLibrary
 - Origin: This application
 - Copyright: Copyright (c) 2026 Glenn Watson
-- Link: https://github.com/glennawatson/PdfViewerLite
+- Link: https://github.com/glennawatson/HyperPDF
 
 ````text
 MIT License

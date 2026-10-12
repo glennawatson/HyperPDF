@@ -2,10 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Filters;
 
