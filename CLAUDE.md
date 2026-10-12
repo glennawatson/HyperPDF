@@ -58,6 +58,19 @@ scripts/audit-allocations.sh '*RelevantBenchmark*'
 scripts/publish-linux.sh linux-x64
 ```
 
+### PDF/A output
+
+Every change to a writer, editor or the optimiser must keep PDF/A output valid. The `HyperPdfLibrary.Tests.Conformance.VeraPdf` tests check generated and corpus files with veraPDF, which runs as a separate Java (11+) process and is never linked or shipped. They skip without veraPDF; CI's `PDF/A output validation (veraPDF)` job requires it.
+
+```bash
+dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/pdfviewerlite/verapdf
+dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/pdfviewerlite/pdfa-corpus <the verapdf-pdfa* ids in the manifest>
+PDFVIEWERLITE_VERAPDF=~/.cache/pdfviewerlite/verapdf PDFVIEWERLITE_PDFA_CORPUS_DIR=~/.cache/pdfviewerlite/pdfa-corpus \
+  dotnet run --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*'
+```
+
+The installer reads the release from `verapdf.json`, which Renovate updates. Set `PDFVIEWERLITE_PDFA_OUTPUT` to keep the files the tests write. CI lists the corpus ids in `.github/workflows/ci.yml`.
+
 Warnings are failures. Verify all affected frameworks, saved output and user-visible behaviour. TUnit uses Microsoft.Testing.Platform; runner arguments follow `--`. With SDK 11, use absolute paths for `--project`. UI tests and benchmarks run headless. Set `HYPERPDF_SCREENSHOTS` to save UI frames.
 
 Continue authorised goal work through verification. Treat feedback as work to fix. Report concrete blockers and missing dependencies. Follow the user's current commit and publishing instructions.
