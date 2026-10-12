@@ -12,5 +12,7 @@ internal static class PdfARuleAreas
     internal static PdfARuleArea[] All() =>
     [
         new("document", PdfADocumentRules.Rules, PdfADocumentRules.Check),
+        new("graphics", PdfAGraphicsRules.Rules, PdfAGraphicsRules.Check),
+        new("structure types", PdfAStructureElementRules.Rules, PdfAStructureElementRules.Check),
     ];
 }
