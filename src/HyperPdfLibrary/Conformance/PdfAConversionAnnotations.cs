@@ -267,7 +267,7 @@ internal static class PdfAConversionAnnotations
     {
         foreach (var subtype in tally.Forbidden)
         {
-            session.Refuse(
+            session.RefuseIfBroken(
                 string.Create(CultureInfo.InvariantCulture, $"The document has a {subtype} annotation, which {PdfALevels.Label(session.Level)} does not allow."),
                 PdfARule.AnnotationTypePdfA2,
                 PdfARule.AnnotationTypePdfA1,
@@ -278,12 +278,12 @@ internal static class PdfAConversionAnnotations
 
         if (tally.HiddenFields > 0)
         {
-            session.Refuse("The form has hidden fields. PDF/A needs every field to be visible.", PdfARule.AnnotationFlags, PdfARule.AnnotationFlagsPdfA1);
+            session.RefuseIfBroken("The form has hidden fields. PDF/A needs every field to be visible.", PdfARule.AnnotationFlags, PdfARule.AnnotationFlagsPdfA1);
         }
 
         if (tally.Transparent > 0)
         {
-            session.Refuse("Some annotations are see-through, and PDF/A-1 does not allow transparency. Choose PDF/A-2 or later.", PdfARule.AnnotationOpacity);
+            session.RefuseIfBroken("Some annotations are see-through, and PDF/A-1 does not allow transparency. Choose PDF/A-2 or later.", PdfARule.AnnotationOpacity);
         }
 
         if (tally.Removed > 0)

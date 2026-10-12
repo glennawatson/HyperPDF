@@ -166,17 +166,17 @@ internal static class PdfAConversionStreams
 
         if (tally.External > 0)
         {
-            session.Refuse("Some content is stored in another file, and PDF/A needs everything inside the document.", PdfARule.StreamExternalFile);
+            session.RefuseIfBroken("Some content is stored in another file, and PDF/A needs everything inside the document.", PdfARule.StreamExternalFile);
         }
 
         if (tally.Crypt > 0)
         {
-            session.Refuse("Some streams use a crypt filter, which PDF/A does not allow.", PdfARule.FilterAllowed);
+            session.RefuseIfBroken("Some streams use a crypt filter, which PDF/A does not allow.", PdfARule.FilterAllowed);
         }
 
         if (tally.Jpx > 0)
         {
-            session.Refuse("The document has JPEG 2000 images, which PDF/A-1 does not allow. Choose PDF/A-2 or later.", PdfARule.FilterAllowed, PdfARule.FilterLzwForbidden);
+            session.RefuseIfBroken("The document has JPEG 2000 images, which PDF/A-1 does not allow. Choose PDF/A-2 or later.", PdfARule.FilterAllowed, PdfARule.FilterLzwForbidden);
         }
     }
 }

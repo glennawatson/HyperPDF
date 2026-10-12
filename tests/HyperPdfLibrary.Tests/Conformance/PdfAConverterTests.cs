@@ -30,6 +30,21 @@ public sealed class PdfAConverterTests
     /// <summary>The components of the sRGB profile.</summary>
     private const int RgbComponents = 3;
 
+    /// <summary>The case of a font named only in the form's default resources.</summary>
+    private const string UnusedDingbats = "unused-dingbats";
+
+    /// <summary>The case of an undefined operator only in a form nothing draws.</summary>
+    private const string UnusedOperator = "unused-operator";
+
+    /// <summary>The case of device CMYK only in a form nothing draws.</summary>
+    private const string UnusedCmyk = "unused-cmyk";
+
+    /// <summary>The case of deep nesting only in a form nothing draws.</summary>
+    private const string UnusedNesting = "unused-nesting";
+
+    /// <summary>The case of a see-through graphics state nothing sets.</summary>
+    private const string UnusedTransparency = "unused-transparency";
+
     /// <summary>Gets the levels the conversion targets in these tests.</summary>
     /// <returns>The levels.</returns>
     public static IEnumerable<PdfALevel> Levels() => [PdfALevel.PdfA1B, PdfALevel.PdfA2B, PdfALevel.PdfA2U, PdfALevel.PdfA3B, PdfALevel.PdfA4];
@@ -149,6 +164,72 @@ public sealed class PdfAConverterTests
         await Assert.That(Array.Exists(result.Problems, static problem => problem.Description.Contains("CMYK", StringComparison.Ordinal))).IsTrue();
     }
 
+    /// <summary>
+    /// Content the conversion's scan counts but the validator does not, as veraPDF does not, converts instead of being
+    /// refused: a font named only in the form's resources, and an undefined operator, device CMYK, deep nesting and
+    /// transparency only in resources nothing draws.
+    /// </summary>
+    /// <param name="name">The case.</param>
+    /// <param name="level">The level.</param>
+    /// <param name="cancellationToken">Cancels the conversion.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(UnusedDingbats, PdfALevel.PdfA2B)]
+    [Arguments(UnusedDingbats, PdfALevel.PdfA1B)]
+    [Arguments(UnusedOperator, PdfALevel.PdfA2B)]
+    [Arguments(UnusedOperator, PdfALevel.PdfA1B)]
+    [Arguments(UnusedCmyk, PdfALevel.PdfA2B)]
+    [Arguments(UnusedCmyk, PdfALevel.PdfA4)]
+    [Arguments(UnusedNesting, PdfALevel.PdfA1B)]
+    [Arguments(UnusedTransparency, PdfALevel.PdfA1B)]
+    public async Task UnusedOrAcceptedContentIsNotRefused(string name, PdfALevel level, CancellationToken cancellationToken)
+    {
+        var (result, output) = await ConvertAsync(Build(name), level, cancellationToken);
+
+        await Assert.That(result.Converted).IsTrue().Because(Describe(result));
+        using var converted = PdfDocumentReader.Open(output, null);
+        var report = await PdfAValidator.ValidateAsync(converted, level, cancellationToken);
+        await Assert.That(report.Passed).IsTrue().Because(string.Join("; ", report.Failed.Select(static rule => $"{rule.Clause}:{rule.Test}")));
+    }
+
+    /// <summary>
+    /// A field whose font cannot be embedded keeps its saved appearance when the form asks readers to draw appearances
+    /// again, so the conversion does not draw with a font it cannot embed.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the conversion.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task FieldKeepsSavedAppearanceWhenItsFontCannotBeEmbedded(CancellationToken cancellationToken)
+    {
+        var (result, output) = await ConvertAsync(ConversionTestPdf.DingbatsFieldWithSavedAppearance(), PdfALevel.PdfA2B, cancellationToken);
+
+        await Assert.That(result.Converted).IsTrue().Because(Describe(result));
+        await Assert.That(Array.Exists(result.Changes, static change => change.Description.Contains("Kept the saved appearance", StringComparison.Ordinal))).IsTrue();
+        using var converted = PdfDocumentReader.Open(output, null);
+        await Assert.That(converted.Catalog.GetDictionary(KnownName.AcroForm)!.ContainsKey(converted.Objects.Names.Intern("NeedAppearances"u8))).IsFalse();
+        await Assert.That((await PdfAValidator.ValidateAsync(converted, PdfALevel.PdfA2B, cancellationToken)).Passed).IsTrue();
+    }
+
+    /// <summary>
+    /// An undefined operator in drawn content still stops the conversion, inside a BX/EX section or not, as the validator
+    /// and veraPDF both fail it.
+    /// </summary>
+    /// <param name="compatibilitySection">Whether the operator sits inside BX/EX.</param>
+    /// <param name="cancellationToken">Cancels the conversion.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task DrawnUndefinedOperatorIsRefused(bool compatibilitySection, CancellationToken cancellationToken)
+    {
+        var file = compatibilitySection ? ConversionTestPdf.UndefinedOperatorInCompatibilitySection() : ConversionTestPdf.UndefinedOperator();
+        var (result, output) = await ConvertAsync(file, PdfALevel.PdfA2B, cancellationToken);
+
+        await Assert.That(result.Converted).IsFalse();
+        await Assert.That(output).IsEmpty();
+        await Assert.That(Array.Exists(result.Problems, static problem => problem.Description.Contains("commands the PDF standard does not define", StringComparison.Ordinal))).IsTrue();
+    }
+
     /// <summary>A signed file is refused, as converting it would break the signature.</summary>
     /// <param name="cancellationToken">Cancels the conversion.</param>
     /// <returns>A task.</returns>
@@ -204,6 +285,18 @@ public sealed class PdfAConverterTests
         var result = await PdfAConverter.SaveAsPdfAAsync(source, level, stream, cancellationToken);
         return new(result, stream.ToArray());
     }
+
+    /// <summary>Builds a case of <see cref="UnusedOrAcceptedContentIsNotRefused"/>.</summary>
+    /// <param name="name">The case.</param>
+    /// <returns>The file's bytes.</returns>
+    private static byte[] Build(string name) => name switch
+    {
+        UnusedDingbats => ConversionTestPdf.UnusedDingbatsInFormResources(),
+        UnusedOperator => ConversionTestPdf.UnusedUndefinedOperatorForm(),
+        UnusedCmyk => ConversionTestPdf.UnusedCmykForm(),
+        UnusedNesting => ConversionTestPdf.UnusedDeepNestingForm(),
+        _ => ConversionTestPdf.UnusedTransparentGraphicsState(),
+    };
 
     /// <summary>Lists a refused conversion's problems, for assertion messages.</summary>
     /// <param name="result">The outcome.</param>

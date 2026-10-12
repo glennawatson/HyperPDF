@@ -64,7 +64,7 @@ internal static class PdfAConversionAppearances
     {
         if (tally.MissingAppearances > 0)
         {
-            session.Refuse(
+            session.RefuseIfBroken(
                 "Some annotations have no saved appearance, so they would look different in each reader.",
                 PdfARule.AnnotationAppearancePdfA2,
                 PdfARule.AnnotationAppearancePdfA4,

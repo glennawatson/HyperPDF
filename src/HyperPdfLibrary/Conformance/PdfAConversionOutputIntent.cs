@@ -48,6 +48,9 @@ internal static class PdfAConversionOutputIntent
     /// <summary>The components of an RGB profile.</summary>
     private const int RgbComponents = 3;
 
+    /// <summary>The components of a CMYK profile.</summary>
+    private const int CmykComponents = 4;
+
     /// <summary>Gets the output intent type of PDF/A.</summary>
     private static ReadOnlySpan<byte> PdfAIntent => "GTS_PDFA1"u8;
 
@@ -63,6 +66,7 @@ internal static class PdfAConversionOutputIntent
         var store = session.Store;
         var key = store.Names.Intern("OutputIntents"u8);
         var intents = StoreReading.Resolve(store, store.Catalog.GetRaw(key)).AsArray();
+        Refine(session, facts, intents);
         var pdfa = FindPdfAIntent(session, intents, out var profileRef, out var space);
         if (pdfa is null || !Covers(facts, space))
         {
@@ -77,6 +81,51 @@ internal static class PdfAConversionOutputIntent
 
         WriteIntents(session, key, intents, pdfa, profileRef);
         return space;
+    }
+
+    /// <summary>
+    /// Drops the device colour the scan counted but nothing draws. The scan counts a colour space named anywhere; the
+    /// validator counts only colour used to draw, as veraPDF does. When the input meets the device colour rule and no
+    /// intent carries a profile of that kind, the rule cannot have been met by a profile, so the colour is not drawn and
+    /// needs no profile.
+    /// </summary>
+    /// <param name="session">The conversion.</param>
+    /// <param name="facts">What the scan found; changed in place.</param>
+    /// <param name="intents">The input's intents, or <see langword="null"/>.</param>
+    private static void Refine(PdfAConversionSession session, PdfAConversionFacts facts, PdfArray? intents)
+    {
+        if (facts.UsesCmyk && !HasProfile(session, intents, CmykComponents) && !session.Breaks(PdfARule.DeviceCmyk, PdfARule.DeviceCmykPdfA4))
+        {
+            facts.UsesCmyk = false;
+        }
+
+        // RGB alone gets an sRGB intent either way, so the check only matters when CMYK is used too.
+        if (facts.UsesRgb && facts.UsesCmyk && !HasProfile(session, intents, RgbComponents) && !session.Breaks(PdfARule.DeviceRgb, PdfARule.DeviceRgbPdfA4))
+        {
+            facts.UsesRgb = false;
+        }
+    }
+
+    /// <summary>Determines whether any intent carries a profile with the given number of components.</summary>
+    /// <param name="session">The conversion.</param>
+    /// <param name="intents">The intents, or <see langword="null"/>.</param>
+    /// <param name="components">The components, 3 for RGB or 4 for CMYK.</param>
+    /// <returns><see langword="true"/> when one does.</returns>
+    private static bool HasProfile(PdfAConversionSession session, PdfArray? intents, int components)
+    {
+        var store = session.Store;
+        var profileKey = store.Names.Intern(ProfileKey);
+        for (var i = 0; intents is not null && i < intents.Count; i++)
+        {
+            if (StoreReading.Resolve(store, intents.Get(i)).AsDictionary() is { } intent
+                && StoreReading.Resolve(store, intent.GetRaw(profileKey)).AsStream() is { } profile
+                && profile.Dictionary.GetInt32(KnownName.N, 0) == components)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Creates an intent for the colour the pages use, or refuses when no profile can describe it.</summary>

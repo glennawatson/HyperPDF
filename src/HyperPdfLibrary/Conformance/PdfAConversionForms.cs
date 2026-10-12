@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Objects;
@@ -31,6 +32,7 @@ internal static class PdfAConversionForms
         var pdfForm = new PdfForm(document);
         var widgets = new List<PdfFormWidget>();
         var drawn = 0;
+        var kept = 0;
         for (var page = 0; page < document.PageCount; page++)
         {
             session.CancellationToken.ThrowIfCancellationRequested();
@@ -38,6 +40,12 @@ internal static class PdfAConversionForms
             PdfFormReading.GetWidgets(pdfForm, page, widgets);
             foreach (var widget in widgets)
             {
+                if (KeepsSavedAppearance(session, form, pdfForm, page, widget.Index))
+                {
+                    kept++;
+                    continue;
+                }
+
                 drawn += PdfFormEditing.RegenerateAppearance(pdfForm, page, widget.Index) ? 1 : 0;
             }
         }
@@ -45,6 +53,14 @@ internal static class PdfAConversionForms
         if (drawn > 0)
         {
             session.Changed("Drew and saved the appearance of the form fields, so readers do not have to.", PdfARule.NeedAppearances, PdfARule.WidgetAppearance);
+        }
+
+        if (kept > 0)
+        {
+            session.Changed(
+                string.Create(CultureInfo.InvariantCulture, $"Kept the saved appearance of {kept} form fields, as their font cannot be embedded to draw them again."),
+                PdfARule.NeedAppearances,
+                PdfARule.FontEmbedded);
         }
     }
 
@@ -78,6 +94,26 @@ internal static class PdfAConversionForms
         }
 
         return changed;
+    }
+
+    /// <summary>
+    /// Determines whether a field keeps its saved appearance instead of being drawn again: it has a normal appearance, and
+    /// its text font is neither embedded nor one the conversion can embed, so drawing it again would break the font rules.
+    /// </summary>
+    /// <param name="session">The conversion.</param>
+    /// <param name="form">The interactive form dictionary.</param>
+    /// <param name="pdfForm">The form reader.</param>
+    /// <param name="page">The page index.</param>
+    /// <param name="index">The widget's index on the page.</param>
+    /// <returns><see langword="true"/> when the saved appearance is kept.</returns>
+    private static bool KeepsSavedAppearance(PdfAConversionSession session, PdfDictionary form, PdfForm pdfForm, int page, int index)
+    {
+        lock (pdfForm.Gate)
+        {
+            return PdfFormReading.Resolve(pdfForm, page, index) is { } widget
+                && widget.Widget.GetDictionary(KnownName.AP)?.ContainsKey(KnownName.N) == true
+                && PdfAConversionFieldFonts.CannotEmbedFont(session, form, widget);
+        }
     }
 
     /// <summary>Removes the XFA form data, or refuses when the form has no AcroForm fields to fall back on.</summary>

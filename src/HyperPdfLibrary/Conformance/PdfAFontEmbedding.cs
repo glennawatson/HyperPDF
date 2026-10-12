@@ -161,7 +161,10 @@ internal static class PdfAFontEmbedding
         return faces;
     }
 
-    /// <summary>Embeds one font unless it only draws invisible text, or refuses with the reason it cannot be embedded.</summary>
+    /// <summary>
+    /// Embeds one font unless no content draws with it or it only draws invisible text, or refuses with the reason it
+    /// cannot be embedded.
+    /// </summary>
     /// <param name="session">The conversion.</param>
     /// <param name="id">The font object.</param>
     /// <param name="usage">The codes each font shows, or <see langword="null"/> when the content could not be run.</param>
@@ -171,7 +174,10 @@ internal static class PdfAFontEmbedding
         var store = session.Store;
         var font = StoreReading.GetObject(store, id).AsDictionary()!;
         var codes = usage?.GetValueOrDefault(font);
-        if (codes is { Visible.Count: 0, Invisible: true })
+
+        // PDF/A needs only the fonts used to draw embedded, so a font no content draws, such as one named only in a form's
+        // default resources, is left as it is; one that draws only invisible text needs no program either.
+        if ((usage is not null && codes is null) || codes is { Visible.Count: 0, Invisible: true })
         {
             return;
         }

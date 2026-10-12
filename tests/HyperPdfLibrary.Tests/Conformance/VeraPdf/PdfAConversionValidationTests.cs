@@ -58,5 +58,11 @@ public sealed class PdfAConversionValidationTests
         new("helvetica", ConversionTestPdf.HelveticaText()),
         new("scripts", ConversionTestPdf.Scripts()),
         new("invisible-text", ConversionTestPdf.InvisibleText()),
+        new("unused-dingbats", ConversionTestPdf.UnusedDingbatsInFormResources()),
+        new("dingbats-field", ConversionTestPdf.DingbatsFieldWithSavedAppearance()),
+        new("unused-operator", ConversionTestPdf.UnusedUndefinedOperatorForm()),
+        new("unused-cmyk", ConversionTestPdf.UnusedCmykForm()),
+        new("unused-nesting", ConversionTestPdf.UnusedDeepNestingForm()),
+        new("unused-transparency", ConversionTestPdf.UnusedTransparentGraphicsState()),
     ];
 }

@@ -24,7 +24,14 @@ internal static class PdfAConversionTransparency
 
         var found = new PdfAConversionTransparencyTally();
         var changed = PdfAConversionRewriter.Rewrite(session, found, static (s, tally, dictionary) => Fix(s, dictionary, tally));
-        if (found.Effects > 0)
+        var breaks = found.Effects > 0 && session.Breaks(
+            PdfARule.ExtGStateSoftMask,
+            PdfARule.ExtGStateFillAlpha,
+            PdfARule.ExtGStateStrokeAlpha,
+            PdfARule.ExtGStateBlendModePdfA1,
+            PdfARule.XObjectSoftMaskPdfA1,
+            PdfARule.TransparencyGroupPdfA1);
+        if (breaks)
         {
             session.Refuse(
                 "The document uses transparency, such as see-through objects or soft masks, which PDF/A-1 does not allow. Choose PDF/A-2 or later.",

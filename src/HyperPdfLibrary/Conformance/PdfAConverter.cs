@@ -104,7 +104,7 @@ public static class PdfAConverter
         }
 
         using var working = PdfDocumentReader.Open(copy, null);
-        var session = new PdfAConversionSession(working, level, cancellationToken);
+        var session = new PdfAConversionSession(working, level, copy, cancellationToken);
         Fix(session);
         if (session.HasProblems)
         {

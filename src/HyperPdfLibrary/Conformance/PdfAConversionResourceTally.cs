@@ -42,7 +42,7 @@ internal sealed class PdfAConversionResourceTally
 
         if (PostScript > 0)
         {
-            session.Refuse("The document has PostScript graphics, which PDF/A does not allow.", PdfARule.XObjectPostScript, PdfARule.FormPostScript, PdfARule.FormPostScriptPdfA1);
+            session.RefuseIfBroken("The document has PostScript graphics, which PDF/A does not allow.", PdfARule.XObjectPostScript, PdfARule.FormPostScript, PdfARule.FormPostScriptPdfA1);
         }
 
         if (BadHalftones > 0)
@@ -52,12 +52,12 @@ internal sealed class PdfAConversionResourceTally
 
         if (UnknownBlendModes > 0)
         {
-            session.Refuse("The document uses a blend mode the PDF standard does not define.", PdfARule.BlendModeName, PdfARule.ExtGStateBlendModePdfA1);
+            session.RefuseIfBroken("The document uses a blend mode the PDF standard does not define.", PdfARule.BlendModeName, PdfARule.ExtGStateBlendModePdfA1);
         }
 
         if (BadBitDepths > 0)
         {
-            session.Refuse("Some images have a colour depth PDF/A does not allow.", PdfARule.ImageBitsPerComponent, PdfARule.ImageBitsPerComponentPdfA1);
+            session.RefuseIfBroken("Some images have a colour depth PDF/A does not allow.", PdfARule.ImageBitsPerComponent, PdfARule.ImageBitsPerComponentPdfA1);
         }
     }
 }
