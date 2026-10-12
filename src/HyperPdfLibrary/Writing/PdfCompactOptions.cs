@@ -9,7 +9,8 @@ namespace HyperPdfLibrary.Writing;
 /// <summary>How <see cref="PdfCompactWriter"/> lays out a document.</summary>
 /// <param name="UseObjectStreams">
 /// Whether to pack objects into compressed object streams with a cross-reference stream (PDF 1.5 and later); otherwise
-/// every object is written plainly with a classic table.
+/// every object is written plainly with a classic table. A document that claims PDF/A-1 always gets a classic table, as
+/// ISO 19005-1 forbids cross-reference streams.
 /// </param>
 /// <param name="RemoveEncryption">Whether to write an encrypted document decrypted, without /Encrypt.</param>
 [DebuggerDisplay("PdfCompactOptions: object streams {UseObjectStreams}, remove encryption {RemoveEncryption}")]

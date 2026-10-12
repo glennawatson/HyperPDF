@@ -172,6 +172,9 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Gets the owned freedGenerations state to store operations.</summary>
     internal Dictionary<int, int> FreedGenerationsState { get; } = [];
 
+    /// <summary>Gets or sets a value indicating whether a transaction changed a trailer entry, guarded by the lock.</summary>
+    internal bool TrailerEditedState { get; set; }
+
     /// <summary>Gets a reference to the mutable nextNumber state to store operations.</summary>
     internal ref int NextNumberState => ref _nextNumber;
 

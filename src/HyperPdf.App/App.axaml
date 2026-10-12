@@ -1,0 +1,40 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HyperPdf.App.App"
+             RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://hyperpdf/Styles/Icons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <!-- Calm defaults for the designer; App.Initialize applies the resolved scheme before the first frame. -->
+      <SolidColorBrush x:Key="AppWindowBackground" Color="#282624" />
+      <SolidColorBrush x:Key="AppHeaderBackground" Color="#312F2C" />
+      <SolidColorBrush x:Key="AppViewBackground" Color="#2E2C29" />
+      <SolidColorBrush x:Key="AppCanvasBackground" Color="#22201E" />
+      <SolidColorBrush x:Key="AppForeground" Color="#D2CDC5" />
+      <SolidColorBrush x:Key="AppSecondaryForeground" Color="#9E9992" />
+      <SolidColorBrush x:Key="AppAccentBrush" Color="#8FA8B8" />
+      <SolidColorBrush x:Key="AppBorderBrush" Color="#807B75" />
+      <SolidColorBrush x:Key="AppTabHoverBackground" Color="#268FA8B8" />
+      <SolidColorBrush x:Key="AppSelectionBrush" Color="#343C42" />
+      <SolidColorBrush x:Key="AppIconBrush" Color="#AEAAA3" />
+      <SolidColorBrush x:Key="AppIconNav" Color="#8FA8B8" />
+      <SolidColorBrush x:Key="AppIconAdd" Color="#9DBF93" />
+      <SolidColorBrush x:Key="AppIconEdit" Color="#CDB683" />
+      <SolidColorBrush x:Key="AppIconRemove" Color="#D49A94" />
+      <SolidColorBrush x:Key="AppHitBrush" Color="#59CDB683" />
+      <SolidColorBrush x:Key="AppCurrentHitOutline" Color="#8FA8B8" />
+      <SolidColorBrush x:Key="AppTextSelectionBrush" Color="#598FA8B8" />
+      <SolidColorBrush x:Key="AppSpokenBrush" Color="#409DBF93" />
+      <SolidColorBrush x:Key="AppDimBrush" Color="#992A2826" />
+      <SolidColorBrush x:Key="AppPaperBrush" Color="#2A2826" />
+      <!-- Signatures are drawn and previewed on soft paper in every scheme, because they are written on the page in dark ink. -->
+      <SolidColorBrush x:Key="AppSignaturePaperBrush" Color="#FBF9F4" />
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://hyperpdf/Styles/AppStyles.axaml" />
+  </Application.Styles>
+</Application>

@@ -53,9 +53,9 @@
     "textFile": "upstream/kokoro.txt",
     "licenceSource": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/1939ad2a8e416c0acfeecc08a694d14ef25f2231/README.md",
     "sourceNote": "The pinned upstream model card declares Apache-2.0; the repository has no standalone LICENSE file. The licence text is Apache-2.0.",
-    "versionEvidence": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
-    "exportSource": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
-    "release": "https://github.com/glennawatson/PdfViewerLite/releases/tag/voices-2",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
     "artifactSha256": {
       "kokoro-af_bella.bin": "f69d836209b78eb8c66e75e3cda491e26ea838a3674257e9d4e5703cbaf55c8b",
       "kokoro-af_heart.bin": "d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b",
@@ -75,9 +75,9 @@
     "link": "https://github.com/hexgrad/misaki/blob/fba1236595f2d2bf21d414ba6e57d25256afada3/LICENSE",
     "textFile": "upstream/misaki.txt",
     "licenceSource": "https://github.com/hexgrad/misaki/blob/fba1236595f2d2bf21d414ba6e57d25256afada3/LICENSE",
-    "versionEvidence": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
-    "exportSource": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
-    "release": "https://github.com/glennawatson/PdfViewerLite/releases/tag/voices-2",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
     "artifactSha256": {
       "misaki-gb_gold.json": "29e62f4b60261c88f7f3c2c7811ca3825978948090b72d2b27d565b729282f71",
       "misaki-gb_silver.json": "48131e2d92ccc41655f4543e87e0f938e71463eb5a54be7f0693bb712ebb6bce",
@@ -97,9 +97,9 @@
     "licenceSource": "https://github.com/myshell-ai/MeloTTS/blob/209145371cff8fc3bd60d7be902ea69cbdb7965a/LICENSE",
     "modelLicenceSource": "https://huggingface.co/myshell-ai/MeloTTS-English/blob/bb4fb7346d566d277ba8c8c7dbfdf6786139b8ef/README.md",
     "sourceNote": "The model card declares MIT. The exporter fetched the checkpoint without a revision; its original upstream revision was not recorded. The voices-2 export and hashes identify the shipped files.",
-    "versionEvidence": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
-    "exportSource": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
-    "release": "https://github.com/glennawatson/PdfViewerLite/releases/tag/voices-2",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
     "artifactSha256": {
       "melo-en.json": "d93a30aceedcd4854c456baf1c57457c05c9e530161d54e591ef62a5fe9bd126",
       "melo-en.onnx": "8e0246aa38588fd143af6562ebf2d2d9d92bbfc989b25770f61081ee182f66f5"
@@ -116,9 +116,9 @@
     "textFile": "upstream/bert-base-uncased.txt",
     "licenceSource": "https://huggingface.co/google-bert/bert-base-uncased/blob/86b5e0934494bd15c9632b12f734a8a67f723594/LICENSE",
     "sourceNote": "Licence verified at upstream revision 86b5e0934494bd15c9632b12f734a8a67f723594. The exporter fetched the model without a revision; its original upstream revision was not recorded. The voices-2 export and hashes identify the shipped files.",
-    "versionEvidence": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
-    "exportSource": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
-    "release": "https://github.com/glennawatson/PdfViewerLite/releases/tag/voices-2",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
     "artifactSha256": {
       "bert-en-vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
       "bert-en.onnx": "eb44339cd9f71471955e906aff4145a976fa22e51b0e23668113d48cb2087184"
@@ -136,8 +136,8 @@
     "licenceSource": "https://github.com/Kyubyong/g2p/blob/c6439c274c42b9724a7fee1dc07ca6a4c68a0538/LICENSE.txt",
     "versionEvidence": "https://pypi.org/project/g2p-en/2.1.0/",
     "sourceNote": "The checked-in text is LICENSE.txt from the 2.1.0 wheel, verified against upstream LICENSE.txt.",
-    "exportSource": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
-    "release": "https://github.com/glennawatson/PdfViewerLite/releases/tag/voices-2",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
     "artifactSha256": {
       "g2p-en.bin": "9c0eff98ae7f6c69fde21dc4bf4849c0f28240527524ef2e87400e2a229c965d"
     }
@@ -154,9 +154,9 @@
     "licenceSource": "https://github.com/myshell-ai/MeloTTS/blob/209145371cff8fc3bd60d7be902ea69cbdb7965a/melo/text/cmudict.rep",
     "additionalLicenceSource": "https://github.com/nltk/nltk_data/blob/5f09e470fe339e1a119dd174ca284129a3c7a5bb/packages/corpora/cmudict.zip (cmudict/README)",
     "sourceNote": "The exporter merges MeloTTS CMU 0.6 with NLTK CMU 0.7a. The last NLTK corpus commit before release is 5f09e470fe339e1a119dd174ca284129a3c7a5bb; the export did not record that fetch revision. The voices-2 hash identifies the shipped merged lexicon.",
-    "versionEvidence": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
-    "exportSource": "https://github.com/glennawatson/PdfViewerLite/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
-    "release": "https://github.com/glennawatson/PdfViewerLite/releases/tag/voices-2",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
     "artifactSha256": {
       "melo-en-lexicon.txt": "e0f56092fca1721f9556ac7e9cab66cff2d4ec7b5afe5618036747c99513a823"
     }
@@ -317,5 +317,16 @@
     "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
     "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/zlib.txt",
     "textFile": "pdfium/zlib.txt"
+  },
+  {
+    "id": "verapdf-profile-text",
+    "name": "veraPDF validation profile rule descriptions",
+    "version": "veraPDF-validation-profiles commit 070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8",
+    "origin": "Rule descriptions and clause numbers copied into HyperPdfLibrary's PDF/A rule table",
+    "licence": "CC-BY-4.0",
+    "copyright": "Copyright 2015 veraPDF Consortium.",
+    "link": "https://github.com/veraPDF/veraPDF-validation-profiles/tree/070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8/PDF_A",
+    "licenceSource": "https://github.com/veraPDF/veraPDF-validation-profiles/blob/070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8/README.md",
+    "textFile": "upstream/verapdf-validation-profiles.txt"
   }
 ]

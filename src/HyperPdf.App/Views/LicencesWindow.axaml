@@ -1,0 +1,39 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:HyperPdf.App.Views"
+        x:Class="HyperPdf.App.Views.LicencesWindow"
+        Title="About and Licences" Width="900" Height="640" MinWidth="620" MinHeight="420" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppWindowBackground}">
+  <!-- Layout only: bindings are made in code (LicencesWindow.axaml.cs). Every licence heading opens to show its components. -->
+  <Grid RowDefinitions="Auto,*,Auto" Margin="16" RowSpacing="12">
+    <StackPanel Spacing="4">
+      <TextBlock Text="About and Licences" AutomationProperties.HeadingLevel="1" FontWeight="SemiBold" FontSize="20" />
+      <TextBlock Classes="secondary" TextWrapping="Wrap"
+                 Text="HyperPDF is free software under the MIT licence, shown first. The components below are grouped by licence. Some are downloaded only when you turn a feature on." />
+    </StackPanel>
+    <Grid Grid.Row="1" ColumnDefinitions="300,16,*">
+      <DockPanel>
+        <TextBlock x:Name="SearchLabel" DockPanel.Dock="Top" Text="Search components" />
+        <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="0,4,0,4" views:ControlHelp.Text="{x:Static views:Descriptions.LicenceSearch}" AutomationProperties.Name="Search components" PlaceholderText="Name, licence or where it comes from" />
+        <TextBlock x:Name="SummaryText" DockPanel.Dock="Top" Classes="secondary" Margin="0,0,0,4" AutomationProperties.LiveSetting="Polite" />
+        <TreeView x:Name="LicenceTree" views:ControlHelp.Text="{x:Static views:Descriptions.LicenceTree}" AutomationProperties.Name="Licences and components">
+          <TreeView.Styles>
+            <Style Selector="TreeViewItem">
+              <Setter Property="IsExpanded" Value="True" />
+            </Style>
+          </TreeView.Styles>
+        </TreeView>
+      </DockPanel>
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*" RowSpacing="8">
+        <TextBlock x:Name="DetailTitleText" AutomationProperties.HeadingLevel="2" FontWeight="SemiBold" FontSize="16" TextWrapping="Wrap" />
+        <SelectableTextBlock x:Name="DetailsText" Grid.Row="1" TextWrapping="Wrap" AutomationProperties.Name="Details of the chosen component" />
+        <TextBox x:Name="LicenceTextBox" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" views:ControlHelp.Text="{x:Static views:Descriptions.LicenceText}" AutomationProperties.Name="Licence text" />
+      </Grid>
+    </Grid>
+    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto">
+      <Button x:Name="CopyButton" views:ControlHelp.Text="{x:Static views:Descriptions.CopyLicence}" Content="_Copy licence text" />
+      <TextBlock x:Name="StatusText" Grid.Column="1" Margin="12,0" VerticalAlignment="Center" Classes="secondary" AutomationProperties.LiveSetting="Polite" />
+      <Button x:Name="CloseButton" Grid.Column="2" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" Content="Close" IsCancel="True" />
+    </Grid>
+  </Grid>
+</Window>

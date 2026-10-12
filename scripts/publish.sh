@@ -10,7 +10,7 @@ OUT="$ROOT/artifacts/$RID"
 SYMBOLS="$ROOT/artifacts/symbols/$RID"
 
 rm -rf "$OUT"
-dotnet publish "$ROOT/src/PdfViewerLite.App/PdfViewerLite.App.csproj" -c Release -f net11.0 -r "$RID" -o "$OUT" "${@:2}"
+dotnet publish "$ROOT/src/HyperPdf.App/HyperPdf.App.csproj" -c Release -f net11.0 -r "$RID" -o "$OUT" "${@:2}"
 
 # Debug symbols are kept next to the artifacts, not shipped.
 mkdir -p "$SYMBOLS"

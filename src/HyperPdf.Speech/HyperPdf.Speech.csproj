@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Reading aloud for HyperPDF: the Kokoro-82M neural voice on this computer through ONNX Runtime, an English phonemizer built on the misaki lexicon. Sound output comes from each desktop integration.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Core.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+</Project>

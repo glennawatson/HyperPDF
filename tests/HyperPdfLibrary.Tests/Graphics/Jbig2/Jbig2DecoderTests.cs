@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Security.Cryptography;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Graphics.Images.Jbig2;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Graphics.Jbig2;
 

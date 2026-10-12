@@ -7,7 +7,7 @@ HyperPdfLibrary.Render.Skia is released under the MIT licence below. It includes
 ### HyperPdfLibrary.Render.Skia
 - Origin: This application
 - Copyright: Copyright (c) 2026 Glenn Watson
-- Link: https://github.com/glennawatson/PdfViewerLite
+- Link: https://github.com/glennawatson/HyperPDF
 
 ````text
 MIT License

@@ -94,6 +94,9 @@ internal sealed class OptimizedFileWriter
     /// <summary>Gets the bytes handed out so far.</summary>
     internal long Position => _position;
 
+    /// <summary>Gets the store the objects come from.</summary>
+    internal PdfObjectStore Store => _store;
+
     /// <summary>Writes the whole file to a stream.</summary>
     /// <param name="destination">The destination.</param>
     /// <param name="cancellationToken">Stops the write between chunks.</param>

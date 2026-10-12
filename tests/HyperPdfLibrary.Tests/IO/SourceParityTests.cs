@@ -4,12 +4,12 @@
 
 using System.Globalization;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Tests.Robustness;
 using HyperPdfLibrary.Tests.Signatures;
 using HyperPdfLibrary.Writing;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.IO;
 

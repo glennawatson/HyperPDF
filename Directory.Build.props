@@ -11,10 +11,10 @@
     <DebugType>embedded</DebugType>
     <Authors>Glenn Watson</Authors>
     <Company>Glenn Watson</Company>
-    <Product>PdfViewerLite</Product>
+    <Product>HyperPDF</Product>
     <Copyright>Copyright (c) 2026 Glenn Watson</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/glennawatson/PdfViewerLite</RepositoryUrl>
+    <RepositoryUrl>https://github.com/glennawatson/HyperPDF</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

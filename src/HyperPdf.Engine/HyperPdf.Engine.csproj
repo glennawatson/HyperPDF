@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Connects the managed HyperPdfLibrary engine to HyperPDF.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdfLibrary\HyperPdfLibrary.csproj" />
+    <ProjectReference Include="..\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Engine.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+    <InternalsVisibleTo Include="HyperPdf.App.Tests" />
+  </ItemGroup>
+</Project>

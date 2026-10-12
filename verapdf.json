@@ -1,0 +1,5 @@
+{
+  "comment": "The veraPDF release that scripts/InstallVeraPdf.cs installs for the PDF/A tests. Renovate updates it from the veraPDF/veraPDF-apps release tags. testFilesCommit pins the commit of veraPDF's PDF/A test files (the veraPDF-corpus repository) that scripts/FetchVeraPdfTestFiles.cs fetches; after changing either value, rerun scripts/RecordVeraPdfResults.cs.",
+  "version": "1.30.3",
+  "testFilesCommit": "bb75f4f0073d9350dfd058c0162a367e6fadf25e"
+}

@@ -10,7 +10,7 @@ Visible signatures are marks on a page. Certificate signatures help readers chec
 
 The [accessibility research](research/README.md) guides labels, choice and keyboard access. White-paper removal uses the [source-over compositing equation](https://www.w3.org/TR/compositing-1/#simplealphacompositing). It assumes white paper. Shadows and off-white paper may not disappear cleanly.
 
-Signing work is tracked in [form signing controls](https://github.com/glennawatson/PdfViewerLite/issues/7) and [optional signing identity reuse](https://github.com/glennawatson/PdfViewerLite/issues/8).
+Signing work is tracked in [form signing controls](https://github.com/glennawatson/HyperPDF/issues/7) and [optional signing identity reuse](https://github.com/glennawatson/HyperPDF/issues/8).
 
 ## Typing on the page
 

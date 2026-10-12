@@ -1,8 +1,0 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="PdfViewerLite.App.Views.SearchResultView">
-  <StackPanel Spacing="2">
-    <TextBlock x:Name="PageText" Classes="secondary" FontSize="11" />
-    <TextBlock x:Name="ContextText" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
-  </StackPanel>
-</UserControl>

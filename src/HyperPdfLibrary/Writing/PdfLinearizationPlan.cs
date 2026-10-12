@@ -210,11 +210,11 @@ internal sealed class PdfLinearizationPlan
     {
         var catalog = graph.GetValue(catalogNumber).AsDictionary()!;
         var set = new HashSet<int>();
-        var walk = new WalkState(graph, excluded, set, true, cancellationToken);
-        Scan(catalog.GetRaw(KnownName.AcroForm), walk, 0);
-        Scan(catalog.GetRaw(KnownName.ViewerPreferences), walk, 0);
-        Scan(catalog.GetRaw(KnownName.Threads), walk, 0);
-        Scan(catalog.GetRaw(KnownName.OpenAction), walk, 0);
+        var walk = new WalkState(graph, excluded, set, true, new(), cancellationToken);
+        Scan(catalog.GetRaw(KnownName.AcroForm), walk);
+        Scan(catalog.GetRaw(KnownName.ViewerPreferences), walk);
+        Scan(catalog.GetRaw(KnownName.Threads), walk);
+        Scan(catalog.GetRaw(KnownName.OpenAction), walk);
         return Ordered(graph.Count, set);
     }
 
@@ -228,8 +228,8 @@ internal sealed class PdfLinearizationPlan
     {
         var catalog = graph.GetValue(catalogNumber).AsDictionary()!;
         var set = new HashSet<int>();
-        var walk = new WalkState(graph, excluded, set, true, cancellationToken);
-        Scan(catalog.GetRaw(KnownName.Outlines), walk, 0);
+        var walk = new WalkState(graph, excluded, set, true, new(), cancellationToken);
+        Scan(catalog.GetRaw(KnownName.Outlines), walk);
         return Ordered(graph.Count, set);
     }
 
@@ -272,13 +272,14 @@ internal sealed class PdfLinearizationPlan
     private static HashSet<int>[] CollectPageSets(PdfDocument document, PdfObjectGraph graph, int[] pages, bool[] excluded, CancellationToken cancellationToken)
     {
         var sets = new HashSet<int>[pages.Length];
+        var pending = new Stack<PdfValue>();
         for (var index = 0; index < pages.Length; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var page = PdfDocumentPages.GetPage(document, index);
             var set = new HashSet<int> { pages[index] };
-            var walk = new WalkState(graph, excluded, set, false, cancellationToken);
-            Scan(graph.GetValue(pages[index]), walk, 0);
+            var walk = new WalkState(graph, excluded, set, false, pending, cancellationToken);
+            Scan(graph.GetValue(pages[index]), walk);
             ScanInheritedResources(page, walk);
             sets[index] = set;
         }
@@ -297,7 +298,7 @@ internal sealed class PdfLinearizationPlan
             var resources = node.GetRaw(KnownName.Resources);
             if (!resources.IsNull)
             {
-                Scan(resources, walk, depth);
+                Scan(resources, walk);
                 return;
             }
 
@@ -305,50 +306,50 @@ internal sealed class PdfLinearizationPlan
         }
     }
 
-    /// <summary>Collects indirect references in one page value.</summary>
+    /// <summary>
+    /// Collects the indirect objects a value reaches. The walk keeps its own stack, so a long chain of references, such as
+    /// a linked list of outline items or structure elements, needs no call depth; the visited set ends cycles.
+    /// </summary>
     /// <param name="value">The value.</param>
     /// <param name="walk">The graph walk.</param>
-    /// <param name="depth">The reference nesting depth.</param>
-    /// <exception cref="PdfException">References exceed the permitted nesting depth.</exception>
-    private static void Scan(PdfValue value, WalkState walk, int depth)
+    private static void Scan(PdfValue value, WalkState walk)
     {
-        if (depth >= PdfLimits.MaxNesting)
+        var pending = walk.Pending;
+        pending.Push(value);
+        while (pending.TryPop(out var next))
         {
-            throw new PdfException(PdfError.Format, "The page references are too deep to linearize.");
-        }
+            switch (next.Kind)
+            {
+                case PdfKind.Reference:
+                    {
+                        PushReference(next.AsReference().Number, walk);
+                        break;
+                    }
 
-        switch (value.Kind)
-        {
-            case PdfKind.Reference:
-                {
-                    ScanReference(value.AsReference().Number, walk, depth);
-                    break;
-                }
+                case PdfKind.Array:
+                    {
+                        PushArray(next.AsArray()!, pending);
+                        break;
+                    }
 
-            case PdfKind.Array:
-                {
-                    ScanArray(value.AsArray()!, walk, depth);
-                    break;
-                }
+                case PdfKind.Dictionary or PdfKind.Stream:
+                    {
+                        PushDictionary(next.AsDictionary()!, next.Kind == PdfKind.Stream, walk);
+                        break;
+                    }
 
-            case PdfKind.Dictionary or PdfKind.Stream:
-                {
-                    ScanDictionary(value.AsDictionary()!, value.Kind == PdfKind.Stream, walk, depth);
-                    break;
-                }
-
-            default:
-                {
-                    break;
-                }
+                default:
+                    {
+                        break;
+                    }
+            }
         }
     }
 
-    /// <summary>Follows one indirect page dependency when it is not a page-tree or back reference.</summary>
+    /// <summary>Queues one indirect page dependency when it is not a page-tree or back reference and not yet visited.</summary>
     /// <param name="number">The old object number.</param>
     /// <param name="walk">The graph walk.</param>
-    /// <param name="depth">The reference depth.</param>
-    private static void ScanReference(int number, WalkState walk, int depth)
+    private static void PushReference(int number, WalkState walk)
     {
         if (number < 1 || number >= walk.Graph.Map.Length)
         {
@@ -362,27 +363,25 @@ internal sealed class PdfLinearizationPlan
         }
 
         walk.CancellationToken.ThrowIfCancellationRequested();
-        Scan(walk.Graph.GetValue(graphNumber), walk, depth + 1);
+        walk.Pending.Push(walk.Graph.GetValue(graphNumber));
     }
 
-    /// <summary>Visits the values of a direct PDF array.</summary>
+    /// <summary>Queues the values of a direct PDF array.</summary>
     /// <param name="array">The array.</param>
-    /// <param name="walk">The graph walk.</param>
-    /// <param name="depth">The reference depth.</param>
-    private static void ScanArray(PdfArray array, WalkState walk, int depth)
+    /// <param name="pending">The values still to visit.</param>
+    private static void PushArray(PdfArray array, Stack<PdfValue> pending)
     {
         foreach (var item in array.Items)
         {
-            Scan(item, walk, depth + 1);
+            pending.Push(item);
         }
     }
 
-    /// <summary>Visits dictionary entries other than page parents, form children and stream lengths.</summary>
+    /// <summary>Queues dictionary entries other than page parents, form children and stream lengths.</summary>
     /// <param name="dictionary">The dictionary.</param>
     /// <param name="isStream">Whether the writer replaces its length.</param>
     /// <param name="walk">The graph walk.</param>
-    /// <param name="depth">The reference depth.</param>
-    private static void ScanDictionary(PdfDictionary dictionary, bool isStream, WalkState walk, int depth)
+    private static void PushDictionary(PdfDictionary dictionary, bool isStream, WalkState walk)
     {
         for (var index = 0; index < dictionary.Count; index++)
         {
@@ -392,7 +391,7 @@ internal sealed class PdfLinearizationPlan
                 continue;
             }
 
-            Scan(dictionary.GetValueAt(index), walk, depth + 1);
+            walk.Pending.Push(dictionary.GetValueAt(index));
         }
     }
 
@@ -553,8 +552,9 @@ internal sealed class PdfLinearizationPlan
     /// <param name="Excluded">Objects outside this section.</param>
     /// <param name="Set">The visited objects.</param>
     /// <param name="IncludeFormTree">Whether to follow form parent and child links.</param>
+    /// <param name="Pending">The values still to visit; empty between scans, so walks can share it.</param>
     /// <param name="CancellationToken">Cancels the walk.</param>
-    private sealed record WalkState(PdfObjectGraph Graph, bool[] Excluded, HashSet<int> Set, bool IncludeFormTree, CancellationToken CancellationToken);
+    private sealed record WalkState(PdfObjectGraph Graph, bool[] Excluded, HashSet<int> Set, bool IncludeFormTree, Stack<PdfValue> Pending, CancellationToken CancellationToken);
 
     /// <summary>The ordered sections placed around the two cross-reference tables.</summary>
     /// <param name="PageGroups">The page groups.</param>

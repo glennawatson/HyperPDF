@@ -2,7 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HyperPdfLibrary\HyperPdfLibrary.csproj" />
     <ProjectReference Include="..\..\src\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
-    <ProjectReference Include="..\PdfViewerLite.TestAssets\PdfViewerLite.TestAssets.csproj" />
+    <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
   </ItemGroup>
 
   <!-- The HT table generator's builder is shared with the tests, which rebuild the decoder's tables from the T.814 rows
@@ -14,5 +14,10 @@
     <EmbeddedResource Include="..\..\src\HyperPdfLibrary\Objects\KnownNameSpellings.cs" LogicalName="KnownNameSpellings.cs" />
     <EmbeddedResource Include="..\..\src\HyperPdfLibrary\Graphics\Images\Jpx\Data\T814CxtVlc.txt" LogicalName="T814CxtVlc.txt" />
     <EmbeddedResource Include="..\..\src\HyperPdfLibrary\Graphics\Images\Jpx\JpxHtTables.cs" LogicalName="JpxHtTables.cs" />
+  </ItemGroup>
+
+  <!-- veraPDF's results for its PDF/A test files, recorded by scripts/RecordVeraPdfResults.cs, for the validator agreement test. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Conformance\VeraPdf\Data\verapdf-results.tsv" LogicalName="HyperPdfLibrary.Tests.VeraPdfRecordedResults.tsv" />
   </ItemGroup>
 </Project>

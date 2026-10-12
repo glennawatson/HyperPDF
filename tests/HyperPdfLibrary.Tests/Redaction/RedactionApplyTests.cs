@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
@@ -10,7 +11,6 @@ using HyperPdfLibrary.Redaction;
 using HyperPdfLibrary.Rendering;
 using HyperPdfLibrary.Tests.PageObjects;
 using HyperPdfLibrary.Tests.Rendering;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Redaction;
 

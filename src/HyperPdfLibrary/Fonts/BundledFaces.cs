@@ -65,6 +65,14 @@ internal static class BundledFaces
         return Volatile.Read(ref faces[slot]) ?? Load(faces, slot);
     }
 
+    /// <summary>Gets the resource name of a face, without its .ttf extension.</summary>
+    /// <param name="family">The family.</param>
+    /// <param name="bold">Whether the face is bold; ignored for the symbol families.</param>
+    /// <param name="italic">Whether the face slants; ignored for the symbol families.</param>
+    /// <returns>The name, such as Arimo-Bold.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string ResourceName(BundledFamily family, bool bold, bool italic) => Names[SlotOf(family, bold, italic)];
+
     /// <summary>Reads a face from its resource without caching it, as the first use of a face does.</summary>
     /// <param name="family">The family.</param>
     /// <param name="bold">Whether the face is bold; ignored for the symbol families.</param>

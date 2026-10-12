@@ -14,13 +14,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-APP_ID="net.glennwatson.PdfViewerLite"
-LIB_DIR="$PREFIX/lib/pdfviewerlite"
+APP_ID="net.glennwatson.HyperPDF"
+LIB_DIR="$PREFIX/lib/hyperpdf"
 install -d "$LIB_DIR" "$PREFIX/bin" "$PREFIX/share/applications" "$PREFIX/share/metainfo" "$PREFIX/share/icons/hicolor"
-install -m 755 "$FROM/pdfviewerlite" "$LIB_DIR/pdfviewerlite"
+install -m 755 "$FROM/hyperpdf" "$LIB_DIR/hyperpdf"
 for lib in "$FROM"/*.so; do install -m 644 "$lib" "$LIB_DIR/"; done
-ln -sf "$LIB_DIR/pdfviewerlite" "$PREFIX/bin/pdfviewerlite"
-sed "s|^Exec=pdfviewerlite|Exec=$PREFIX/bin/pdfviewerlite|; s|^TryExec=pdfviewerlite|TryExec=$PREFIX/bin/pdfviewerlite|" \
+ln -sf "$LIB_DIR/hyperpdf" "$PREFIX/bin/hyperpdf"
+sed "s|^Exec=hyperpdf|Exec=$PREFIX/bin/hyperpdf|; s|^TryExec=hyperpdf|TryExec=$PREFIX/bin/hyperpdf|" \
   "$ROOT/packaging/linux/$APP_ID.desktop" > "$PREFIX/share/applications/$APP_ID.desktop"
 install -m 644 "$ROOT/packaging/linux/$APP_ID.metainfo.xml" "$PREFIX/share/metainfo/"
 cp -R "$ROOT/packaging/linux/icons/hicolor/." "$PREFIX/share/icons/hicolor/"

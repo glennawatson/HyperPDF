@@ -4,9 +4,9 @@
 
 using System.Globalization;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Rendering;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Rendering;
 

@@ -14,7 +14,7 @@
     <PackageId>HyperPdfLibrary</PackageId>
     <Title>HyperPdfLibrary</Title>
     <PackageTags>pdf;pdf-renderer;pdf-parser;pdf-text;annotations;aot</PackageTags>
-    <PackageProjectUrl>https://github.com/glennawatson/PdfViewerLite</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/glennawatson/HyperPDF</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -59,12 +59,14 @@
   <ItemGroup>
     <EmbeddedResource Include="Fonts\Data\CMaps\LICENSE.txt" LogicalName="HyperPdfLibrary.CMaps.LICENSE.txt" />
     <EmbeddedResource Include="Fonts\Data\Faces\LICENSE.txt" LogicalName="HyperPdfLibrary.Faces.LICENSE.txt" />
+    <EmbeddedResource Include="Conformance\Data\PdfARules.tsv" LogicalName="HyperPdfLibrary.Conformance.PdfARules.tsv" />
+    <EmbeddedResource Include="Conformance\Data\XmpSchemas.tsv" LogicalName="HyperPdfLibrary.Conformance.XmpSchemas.tsv" />
   </ItemGroup>
 
   <!-- The notices of what the library ships: its packages and the font and CMap resource packs. The nupkg carries them as THIRD-PARTY-NOTICES.md. -->
   <PropertyGroup>
     <NoticesResourceName>HyperPdfLibrary.ThirdPartyNotices.md</NoticesResourceName>
-    <NoticesComponents>open-font-pack;adobe-cmaps;pdfium-cmyk-table</NoticesComponents>
+    <NoticesComponents>open-font-pack;adobe-cmaps;pdfium-cmyk-table;verapdf-profile-text</NoticesComponents>
   </PropertyGroup>
   <Import Project="..\..\licenses\ThirdPartyNotices.targets" />
   <ItemGroup>
@@ -73,8 +75,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="HyperPdfLibrary.Tests" />
-    <InternalsVisibleTo Include="PdfViewerLite.HyperPdf" />
-    <InternalsVisibleTo Include="PdfViewerLite.HyperPdf.Tests" />
-    <InternalsVisibleTo Include="PdfViewerLite.Benchmarks" />
+    <InternalsVisibleTo Include="HyperPdf.Engine" />
+    <InternalsVisibleTo Include="HyperPdf.Engine.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
   </ItemGroup>
 </Project>

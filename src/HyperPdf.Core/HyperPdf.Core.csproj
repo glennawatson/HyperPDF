@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>UI-agnostic document model, render scheduling, tile caching and search for HyperPDF.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ReactiveUI.Primitives" />
+    <PackageReference Include="ReactiveUI.Primitives.ObservableEvents" PrivateAssets="all" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Core.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+</Project>

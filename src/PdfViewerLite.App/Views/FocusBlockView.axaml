@@ -1,6 +1,0 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="PdfViewerLite.App.Views.FocusBlockView">
-  <!-- Sizes, spacing, colours and typeface come from Focus Mode's settings as resources (FocusView.axaml.cs). -->
-  <TextBlock x:Name="Body" Classes="focus" TextWrapping="Wrap" />
-</UserControl>

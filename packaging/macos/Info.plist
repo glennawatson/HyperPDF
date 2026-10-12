@@ -7,11 +7,11 @@
   <key>CFBundleDisplayName</key>
   <string>Hyper PDF Viewer</string>
   <key>CFBundleIdentifier</key>
-  <string>net.glennwatson.PdfViewerLite</string>
+  <string>net.glennwatson.HyperPDF</string>
   <key>CFBundleExecutable</key>
-  <string>pdfviewerlite</string>
+  <string>hyperpdf</string>
   <key>CFBundleIconFile</key>
-  <string>PdfViewerLite</string>
+  <string>HyperPDF</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

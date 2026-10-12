@@ -15,4 +15,10 @@ internal enum XmpEncoding
 
     /// <summary>UTF-16, little-endian.</summary>
     Utf16LittleEndian = 2,
+
+    /// <summary>UTF-32, big-endian.</summary>
+    Utf32BigEndian = 3,
+
+    /// <summary>UTF-32, little-endian.</summary>
+    Utf32LittleEndian = 4,
 }

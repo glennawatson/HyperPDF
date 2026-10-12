@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Tests.Rendering;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Fonts;
 

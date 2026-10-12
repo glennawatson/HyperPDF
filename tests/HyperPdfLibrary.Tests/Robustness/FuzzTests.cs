@@ -9,16 +9,16 @@ namespace HyperPdfLibrary.Tests.Robustness;
 
 /// <summary>
 /// Opens thousands of damaged documents and reads everything from each. Only <see cref="PdfException"/> may escape, and
-/// each mutant must finish in time. Set PDFVIEWERLITE_FUZZ_ITERATIONS for more mutants per seed and
-/// PDFVIEWERLITE_FUZZ_SEED to change the random seed.
+/// each mutant must finish in time. Set HYPERPDF_FUZZ_ITERATIONS for more mutants per seed and
+/// HYPERPDF_FUZZ_SEED to change the random seed.
 /// </summary>
 public sealed class FuzzTests
 {
     /// <summary>The environment variable holding the mutants per seed document.</summary>
-    private const string IterationsVariable = "PDFVIEWERLITE_FUZZ_ITERATIONS";
+    private const string IterationsVariable = "HYPERPDF_FUZZ_ITERATIONS";
 
     /// <summary>The environment variable holding the random seed.</summary>
-    private const string SeedVariable = "PDFVIEWERLITE_FUZZ_SEED";
+    private const string SeedVariable = "HYPERPDF_FUZZ_SEED";
 
     /// <summary>The mutants per seed document when the environment does not say.</summary>
     private const int DefaultIterations = 120;

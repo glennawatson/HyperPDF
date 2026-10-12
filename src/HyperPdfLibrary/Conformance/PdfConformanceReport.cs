@@ -7,8 +7,9 @@ using System.Diagnostics;
 namespace HyperPdfLibrary.Conformance;
 
 /// <summary>
-/// What a file says about its PDF/A, PDF/UA and PDF/X conformance, and the features a viewer can see cheaply. This is a
-/// reading report, not a validator: it never says that a file conforms. Use veraPDF for validation.
+/// What a file says about its PDF/A, PDF/UA and PDF/X conformance, and the features its drawn content uses. For a file
+/// that claims a PDF/A level, <see cref="PdfAValidation"/> holds the rule-by-rule check of that level with clause numbers.
+/// This is a practical report, not a certification; veraPDF stays the reference validator.
 /// </summary>
 /// <param name="HasXmp">Whether the catalog has a readable XMP packet.</param>
 /// <param name="PdfA">The PDF/A claim from <c>pdfaid</c>, or null when the file makes none.</param>
@@ -25,6 +26,13 @@ public sealed record PdfConformanceReport(
     PdfOutputIntentSummary[] OutputIntents,
     PdfConformanceObservation[] Observations)
 {
+    /// <summary>
+    /// Gets the rule-by-rule check of the claimed PDF/A level: each rule with its standard, clause, test number and
+    /// description, and the rules not checked. It is <see langword="null"/> when the file claims no PDF/A level the
+    /// standards define.
+    /// </summary>
+    public PdfAValidationReport? PdfAValidation { get; init; }
+
     /// <summary>Gets a value indicating whether any observation is forbidden by the claimed PDF/A part.</summary>
     public bool HasConflicts => Array.Exists(Observations, static observation => observation.ConflictsWithClaim);
 

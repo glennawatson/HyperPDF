@@ -13,8 +13,8 @@ namespace HyperPdfLibrary.Editing;
 /// stays byte for byte. A property written as an element is replaced, one written as an attribute has its value
 /// replaced, and a missing one is added to the first rdf:Description. A language alternative keeps its other
 /// languages: only x-default and the change's language are replaced. Written elements declare their own namespace, so
-/// they are well-formed wherever they land. UTF-16 packets (either byte order) are edited as UTF-8 and written back in
-/// their own encoding. The result is checked with an XML reader; a packet that is not well-formed, or that the edits
+/// they are well-formed wherever they land. UTF-16 and UTF-32 packets (either byte order) are edited as UTF-8 and written
+/// back in their own encoding. The result is checked with an XML reader; a packet that is not well-formed, or that the edits
 /// leave unchanged, gives no result and is left alone.
 /// </summary>
 internal static class XmpEditor
@@ -41,30 +41,45 @@ internal static class XmpEditor
     /// <param name="packet">The packet's bytes.</param>
     /// <param name="changes">The changes.</param>
     /// <returns>The new packet, or <see langword="null"/> when it could not be edited safely or the edits changed nothing.</returns>
-    internal static byte[]? Apply(ReadOnlySpan<byte> packet, ReadOnlySpan<XmpChange> changes)
+    internal static byte[]? Apply(ReadOnlySpan<byte> packet, ReadOnlySpan<XmpChange> changes) =>
+        TryApply(packet, changes, out var edited) ? edited : null;
+
+    /// <summary>Applies changes to a packet, telling a packet that cannot be edited apart from one that already holds the values.</summary>
+    /// <param name="packet">The packet's bytes.</param>
+    /// <param name="changes">The changes.</param>
+    /// <param name="edited">The new packet, or <see langword="null"/> when the edits changed nothing.</param>
+    /// <returns><see langword="false"/> when the packet could not be edited safely.</returns>
+    internal static bool TryApply(ReadOnlySpan<byte> packet, ReadOnlySpan<XmpChange> changes, out byte[]? edited)
     {
+        edited = null;
         if (packet.IsEmpty || packet.Length > MaxPacketLength)
         {
-            return null;
+            return false;
         }
 
         var format = XmpTranscoder.Detect(packet, out var markLength);
         var original = packet.ToArray();
         if (!IsWellFormed(original))
         {
-            return null;
+            return false;
         }
 
-        // UTF-16 packets are edited as UTF-8 and written back in their own encoding and byte order mark.
+        // UTF-16 and UTF-32 packets are edited as UTF-8 and written back in their own encoding and byte order mark.
         var utf8 = format == XmpEncoding.Utf8 ? original : XmpTranscoder.ToUtf8(packet[markLength..], format);
         if (utf8 is null)
         {
-            return null;
+            return false;
         }
 
-        var edited = ApplyAll(utf8, changes);
-        var result = format == XmpEncoding.Utf8 ? edited : XmpTranscoder.FromUtf8(edited, format, packet[..markLength]);
-        return result is not null && !packet.SequenceEqual(result) && IsWellFormed(result) ? result : null;
+        var applied = ApplyAll(utf8, changes);
+        var result = format == XmpEncoding.Utf8 ? applied : XmpTranscoder.FromUtf8(applied, format, packet[..markLength]);
+        if (result is null || !IsWellFormed(result))
+        {
+            return false;
+        }
+
+        edited = packet.SequenceEqual(result) ? null : result;
+        return true;
     }
 
     /// <summary>Determines whether bytes are well-formed XML.</summary>
@@ -93,6 +108,76 @@ internal static class XmpEditor
         {
             return false;
         }
+    }
+
+    /// <summary>Finds the prefix a packet binds to a namespace.</summary>
+    /// <param name="xmp">The packet.</param>
+    /// <param name="ns">The namespace URI.</param>
+    /// <returns>The prefix, or <see langword="null"/> when the namespace is not declared.</returns>
+    internal static byte[]? FindPrefix(byte[] xmp, ReadOnlySpan<byte> ns)
+    {
+        var from = 0;
+        while (from < xmp.Length)
+        {
+            var found = xmp.AsSpan(from).IndexOf(ns);
+            if (found < 0)
+            {
+                return null;
+            }
+
+            var at = from + found;
+            from = at + 1;
+            if (at > 0 && at + ns.Length < xmp.Length && xmp[at - 1] is (byte)'"' or (byte)'\'' && xmp[at + ns.Length] == xmp[at - 1]
+                && ReadDeclaredPrefix(xmp, at - 1) is { } prefix)
+            {
+                return prefix;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Finds a name followed by a byte that ends names.</summary>
+    /// <param name="xmp">The packet.</param>
+    /// <param name="name">The name, with any leading <c>&lt;</c> or <c>&lt;/</c>.</param>
+    /// <param name="from">The index to search from.</param>
+    /// <returns>The index, or -1.</returns>
+    internal static int FindName(byte[] xmp, byte[] name, int from)
+    {
+        while (from < xmp.Length)
+        {
+            var found = xmp.AsSpan(from).IndexOf(name);
+            if (found < 0)
+            {
+                return -1;
+            }
+
+            var at = from + found;
+            var after = at + name.Length;
+            if (after < xmp.Length && NameEnds.Contains(xmp[after]))
+            {
+                return at;
+            }
+
+            from = at + 1;
+        }
+
+        return -1;
+    }
+
+    /// <summary>Replaces a range of bytes.</summary>
+    /// <param name="source">The bytes.</param>
+    /// <param name="start">The first index replaced.</param>
+    /// <param name="end">The index after the last replaced.</param>
+    /// <param name="insert">The new bytes.</param>
+    /// <returns>The new array.</returns>
+    internal static byte[] Splice(byte[] source, int start, int end, ReadOnlySpan<byte> insert)
+    {
+        var result = new byte[source.Length - (end - start) + insert.Length];
+        source.AsSpan(0, start).CopyTo(result);
+        insert.CopyTo(result.AsSpan(start));
+        source.AsSpan(end).CopyTo(result.AsSpan(start + insert.Length));
+        return result;
     }
 
     /// <summary>Applies every change to UTF-8 packet bytes.</summary>
@@ -386,33 +471,6 @@ internal static class XmpEditor
         return false;
     }
 
-    /// <summary>Finds the prefix a packet binds to a namespace.</summary>
-    /// <param name="xmp">The packet.</param>
-    /// <param name="ns">The namespace URI.</param>
-    /// <returns>The prefix, or <see langword="null"/> when the namespace is not declared.</returns>
-    private static byte[]? FindPrefix(byte[] xmp, ReadOnlySpan<byte> ns)
-    {
-        var from = 0;
-        while (from < xmp.Length)
-        {
-            var found = xmp.AsSpan(from).IndexOf(ns);
-            if (found < 0)
-            {
-                return null;
-            }
-
-            var at = from + found;
-            from = at + 1;
-            if (at > 0 && at + ns.Length < xmp.Length && xmp[at - 1] is (byte)'"' or (byte)'\'' && xmp[at + ns.Length] == xmp[at - 1]
-                && ReadDeclaredPrefix(xmp, at - 1) is { } prefix)
-            {
-                return prefix;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>Reads the prefix of an <c>xmlns:prefix=</c> attribute that ends just before a quote.</summary>
     /// <param name="xmp">The packet.</param>
     /// <param name="quote">The index of the value's opening quote.</param>
@@ -434,34 +492,6 @@ internal static class XmpEditor
 
         var attribute = xmp.AsSpan(position + 1, nameEnd - position - 1);
         return attribute.StartsWith(Xmlns) && attribute.Length > XmlnsLength ? attribute[XmlnsLength..].ToArray() : null;
-    }
-
-    /// <summary>Finds a name followed by a byte that ends names.</summary>
-    /// <param name="xmp">The packet.</param>
-    /// <param name="name">The name, with any leading <c>&lt;</c> or <c>&lt;/</c>.</param>
-    /// <param name="from">The index to search from.</param>
-    /// <returns>The index, or -1.</returns>
-    private static int FindName(byte[] xmp, byte[] name, int from)
-    {
-        while (from < xmp.Length)
-        {
-            var found = xmp.AsSpan(from).IndexOf(name);
-            if (found < 0)
-            {
-                return -1;
-            }
-
-            var at = from + found;
-            var after = at + name.Length;
-            if (after < xmp.Length && NameEnds.Contains(xmp[after]))
-            {
-                return at;
-            }
-
-            from = at + 1;
-        }
-
-        return -1;
     }
 
     /// <summary>Skips whitespace backwards.</summary>
@@ -490,21 +520,6 @@ internal static class XmpEditor
         }
 
         return position;
-    }
-
-    /// <summary>Replaces a range of bytes.</summary>
-    /// <param name="source">The bytes.</param>
-    /// <param name="start">The first index replaced.</param>
-    /// <param name="end">The index after the last replaced.</param>
-    /// <param name="insert">The new bytes.</param>
-    /// <returns>The new array.</returns>
-    private static byte[] Splice(byte[] source, int start, int end, ReadOnlySpan<byte> insert)
-    {
-        var result = new byte[source.Length - (end - start) + insert.Length];
-        source.AsSpan(0, start).CopyTo(result);
-        insert.CopyTo(result.AsSpan(start));
-        source.AsSpan(end).CopyTo(result.AsSpan(start + insert.Length));
-        return result;
     }
 
     /// <summary>Joins three byte runs.</summary>

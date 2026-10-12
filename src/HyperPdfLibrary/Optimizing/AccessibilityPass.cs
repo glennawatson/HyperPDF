@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Metadata;
@@ -79,7 +80,10 @@ internal static class AccessibilityPass
         return true;
     }
 
-    /// <summary>Copies the title between /Info and XMP when one of them lacks it.</summary>
+    /// <summary>
+    /// Copies the title between /Info and XMP when one of them lacks it. A PDF/A-4 document keeps its title in XMP only,
+    /// as its /Info may hold nothing but /ModDate (ISO 19005-4:2020 §6.1.3).
+    /// </summary>
     /// <param name="document">The working copy.</param>
     /// <param name="xmp">The document's XMP, or <see langword="null"/>.</param>
     /// <param name="report">Receives the change.</param>
@@ -91,16 +95,30 @@ internal static class AccessibilityPass
         var xmpTitle = xmp?.Title;
         var hasInfo = !string.IsNullOrWhiteSpace(infoTitle);
         var hasXmp = !string.IsNullOrWhiteSpace(xmpTitle);
-        if (!hasInfo && hasXmp)
+        if (hasInfo != hasXmp && xmp is not null)
         {
-            WriteInfoTitle(store, xmpTitle!, report);
-        }
-        else if (hasInfo && !hasXmp && xmp is not null)
-        {
-            WriteXmpTitle(document, infoTitle!, report);
+            CopyTitle(document, xmp, hasInfo ? infoTitle! : xmpTitle!, hasInfo, report);
         }
 
         return hasInfo || hasXmp;
+    }
+
+    /// <summary>Copies a title into the place that lacks it.</summary>
+    /// <param name="document">The working copy.</param>
+    /// <param name="xmp">The document's XMP.</param>
+    /// <param name="title">The title.</param>
+    /// <param name="toXmp">Whether the title goes from /Info to XMP; otherwise from XMP to /Info.</param>
+    /// <param name="report">Receives the change.</param>
+    private static void CopyTitle(PdfDocument document, XmpMetadata xmp, string title, bool toXmp, OptimizeReportBuilder report)
+    {
+        if (toXmp)
+        {
+            WriteXmpTitle(document, title, report);
+        }
+        else if (xmp.PdfAPart != PdfAClaim.Part4)
+        {
+            WriteInfoTitle(document.Objects, title, report);
+        }
     }
 
     /// <summary>Writes a title into /Info, creating it when missing.</summary>

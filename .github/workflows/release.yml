@@ -77,7 +77,7 @@ jobs:
           10.x
           11.x
     - name: Publish Native AOT
-      run: dotnet publish src/PdfViewerLite.App/PdfViewerLite.App.csproj -c Release -f net11.0 -r "$RID" -o "artifacts/$RID" "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
+      run: dotnet publish src/HyperPdf.App/HyperPdf.App.csproj -c Release -f net11.0 -r "$RID" -o "artifacts/$RID" "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
     - name: Upload the published app
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
@@ -117,39 +117,39 @@ jobs:
           10.x
           11.x
     - name: Publish Native AOT
-      run: dotnet publish src/PdfViewerLite.App/PdfViewerLite.App.csproj -c Release -f net11.0 -r "$RID" -o "artifacts/$RID" "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
+      run: dotnet publish src/HyperPdf.App/HyperPdf.App.csproj -c Release -f net11.0 -r "$RID" -o "artifacts/$RID" "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
     - name: Stage the installed tree
       run: |
-        mkdir -p artifacts/stage/usr/lib artifacts/stage/usr/bin artifacts/stage/usr/share/licenses/pdfviewerlite
-        cp -R "artifacts/$RID" artifacts/stage/usr/lib/pdfviewerlite
-        ln -s /usr/lib/pdfviewerlite/pdfviewerlite artifacts/stage/usr/bin/pdfviewerlite
-        cp LICENSE artifacts/stage/usr/share/licenses/pdfviewerlite/LICENSE
+        mkdir -p artifacts/stage/usr/lib artifacts/stage/usr/bin artifacts/stage/usr/share/licenses/hyperpdf
+        cp -R "artifacts/$RID" artifacts/stage/usr/lib/hyperpdf
+        ln -s /usr/lib/hyperpdf/hyperpdf artifacts/stage/usr/bin/hyperpdf
+        cp LICENSE artifacts/stage/usr/share/licenses/hyperpdf/LICENSE
     - name: Stage the desktop integration
       run: |
         mkdir -p artifacts/stage/usr/share/applications artifacts/stage/usr/share/metainfo artifacts/stage/usr/share/icons
-        cp packaging/linux/net.glennwatson.PdfViewerLite.desktop artifacts/stage/usr/share/applications/
-        cp packaging/linux/net.glennwatson.PdfViewerLite.metainfo.xml artifacts/stage/usr/share/metainfo/
+        cp packaging/linux/net.glennwatson.HyperPDF.desktop artifacts/stage/usr/share/applications/
+        cp packaging/linux/net.glennwatson.HyperPDF.metainfo.xml artifacts/stage/usr/share/metainfo/
         cp -R packaging/linux/icons/hicolor artifacts/stage/usr/share/icons/hicolor
     - name: Stage the AppDir
       run: |
         mkdir -p artifacts/appdir/usr/share/applications artifacts/appdir/usr/share/metainfo artifacts/appdir/usr/share/icons
         cp -R "artifacts/$RID" artifacts/appdir/usr/bin
-        ln -s usr/bin/pdfviewerlite artifacts/appdir/AppRun
+        ln -s usr/bin/hyperpdf artifacts/appdir/AppRun
         cp -R packaging/linux/icons/hicolor artifacts/appdir/usr/share/icons/hicolor
     - name: Stage the AppDir desktop entry and icon
       run: |
-        cp packaging/linux/net.glennwatson.PdfViewerLite.desktop artifacts/appdir/
-        cp packaging/linux/net.glennwatson.PdfViewerLite.desktop artifacts/appdir/usr/share/applications/
-        cp packaging/linux/icons/hicolor/256x256/apps/net.glennwatson.PdfViewerLite.png artifacts/appdir/
-        ln -s net.glennwatson.PdfViewerLite.png artifacts/appdir/.DirIcon
+        cp packaging/linux/net.glennwatson.HyperPDF.desktop artifacts/appdir/
+        cp packaging/linux/net.glennwatson.HyperPDF.desktop artifacts/appdir/usr/share/applications/
+        cp packaging/linux/icons/hicolor/256x256/apps/net.glennwatson.HyperPDF.png artifacts/appdir/
+        ln -s net.glennwatson.HyperPDF.png artifacts/appdir/.DirIcon
     - name: Stage the AppDir metadata
-      run: cp packaging/linux/net.glennwatson.PdfViewerLite.metainfo.xml artifacts/appdir/usr/share/metainfo/net.glennwatson.PdfViewerLite.appdata.xml
+      run: cp packaging/linux/net.glennwatson.HyperPDF.metainfo.xml artifacts/appdir/usr/share/metainfo/net.glennwatson.HyperPDF.appdata.xml
     - name: Build the RPM
       uses: glennawatson/actions-common/.github/actions/rpm-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         source: artifacts/stage
-        output: artifacts/pdfviewerlite-${{ needs.version.outputs.version }}-1.${{ matrix.rpm-architecture }}.rpm
-        name: pdfviewerlite
+        output: artifacts/hyperpdf-${{ needs.version.outputs.version }}-1.${{ matrix.rpm-architecture }}.rpm
+        name: hyperpdf
         version: ${{ needs.version.outputs.version }}
         architecture: ${{ matrix.rpm-architecture }}
         summary: Fast, tabbed PDF viewer
@@ -157,7 +157,7 @@ jobs:
           Renders with HyperPDF, follows the KDE colour scheme and opens documents launched
           from the file manager as tabs in the running window.
         license: MIT
-        url: https://github.com/glennawatson/PdfViewerLite
+        url: https://github.com/glennawatson/HyperPDF
         vendor: Glenn Watson
         requires: |
           fontconfig
@@ -171,14 +171,14 @@ jobs:
           cups-libs
           pulseaudio-libs
         owned-directories: |
-          /usr/lib/pdfviewerlite
-          /usr/share/licenses/pdfviewerlite
+          /usr/lib/hyperpdf
+          /usr/share/licenses/hyperpdf
     - name: Build the DEB
       uses: glennawatson/actions-common/.github/actions/deb-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         source: artifacts/stage
-        output: artifacts/pdfviewerlite_${{ needs.version.outputs.version }}_${{ matrix.deb-architecture }}.deb
-        name: pdfviewerlite
+        output: artifacts/hyperpdf_${{ needs.version.outputs.version }}_${{ matrix.deb-architecture }}.deb
+        name: hyperpdf
         version: ${{ needs.version.outputs.version }}
         architecture: ${{ matrix.deb-architecture }}
         maintainer: Glenn Watson
@@ -186,7 +186,7 @@ jobs:
         description: |
           Renders with HyperPDF, follows the KDE colour scheme and opens documents launched
           from the file manager as tabs in the running window.
-        homepage: https://github.com/glennawatson/PdfViewerLite
+        homepage: https://github.com/glennawatson/HyperPDF
         section: graphics
         depends: |
           libfontconfig1 | fontconfig
@@ -204,18 +204,18 @@ jobs:
       with:
         appdir: artifacts/appdir
         architecture: ${{ matrix.rpm-architecture }}
-        output: artifacts/PdfViewerLite-${{ needs.version.outputs.version }}-${{ matrix.rpm-architecture }}.AppImage
+        output: artifacts/HyperPDF-${{ needs.version.outputs.version }}-${{ matrix.rpm-architecture }}.AppImage
     - name: Build the tar.gz
-      run: tar -czf "artifacts/pdfviewerlite-$VERSION-$RID.tar.gz" -C artifacts "$RID"
+      run: tar -czf "artifacts/hyperpdf-$VERSION-$RID.tar.gz" -C artifacts "$RID"
     - name: Upload the Linux packages
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
         name: packages-${{ matrix.rid }}
         path: |
-          artifacts/PdfViewerLite-*.AppImage
-          artifacts/pdfviewerlite_*.deb
-          artifacts/pdfviewerlite-*.rpm
-          artifacts/pdfviewerlite-*.tar.gz
+          artifacts/HyperPDF-*.AppImage
+          artifacts/hyperpdf_*.deb
+          artifacts/hyperpdf-*.rpm
+          artifacts/hyperpdf-*.tar.gz
         if-no-files-found: error
 
   # Publishing and packaging share a job so the Unix file modes survive; artifacts drop them.
@@ -243,7 +243,7 @@ jobs:
           10.x
           11.x
     - name: Publish Native AOT
-      run: dotnet publish src/PdfViewerLite.App/PdfViewerLite.App.csproj -c Release -f net11.0 -r "$RID" -o "artifacts/$RID" "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
+      run: dotnet publish src/HyperPdf.App/HyperPdf.App.csproj -c Release -f net11.0 -r "$RID" -o "artifacts/$RID" "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
     # The .noindex folder stops Spotlight holding files open while the image is built.
     - name: Lay out the app bundle
       uses: glennawatson/actions-common/.github/actions/macos-app-bundle@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
@@ -251,10 +251,10 @@ jobs:
         source: artifacts/${{ matrix.rid }}
         output: artifacts/macos-${{ matrix.rid }}.noindex/Hyper PDF Viewer.app
         name: Hyper PDF Viewer
-        bundle-identifier: net.glennwatson.PdfViewerLite
+        bundle-identifier: net.glennwatson.HyperPDF
         version: ${{ needs.version.outputs.version }}
-        executable: pdfviewerlite
-        icon: packaging/macos/PdfViewerLite.icns
+        executable: hyperpdf
+        icon: packaging/macos/HyperPdf.icns
         minimum-system-version: '12.0'
         document-types: 'com.adobe.pdf: Viewer: PDF Document'
         category: public.app-category.productivity
@@ -269,16 +269,16 @@ jobs:
       with:
         source: artifacts/macos-${{ matrix.rid }}.noindex
         volume-name: Hyper PDF Viewer
-        output: artifacts/pdfviewerlite-${{ needs.version.outputs.version }}-${{ matrix.rid }}.dmg
+        output: artifacts/hyperpdf-${{ needs.version.outputs.version }}-${{ matrix.rid }}.dmg
     - name: Build the app zip
-      run: tar -a -cf "artifacts/pdfviewerlite-$VERSION-$RID.app.zip" -C "artifacts/macos-$RID.noindex" "Hyper PDF Viewer.app"
+      run: tar -a -cf "artifacts/hyperpdf-$VERSION-$RID.app.zip" -C "artifacts/macos-$RID.noindex" "Hyper PDF Viewer.app"
     - name: Upload the macOS packages
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
         name: packages-${{ matrix.rid }}
         path: |
-          artifacts/pdfviewerlite-*.dmg
-          artifacts/pdfviewerlite-*.app.zip
+          artifacts/hyperpdf-*.dmg
+          artifacts/hyperpdf-*.app.zip
         if-no-files-found: error
 
   # One Linux job signs in to the token once and signs everything. The Windows installers are built here so they
@@ -325,8 +325,8 @@ jobs:
     - name: Gather the executables
       run: |
         mkdir -p artifacts/exe
-        mv artifacts/win-x64/pdfviewerlite.exe artifacts/exe/pdfviewerlite-win-x64.exe
-        mv artifacts/win-arm64/pdfviewerlite.exe artifacts/exe/pdfviewerlite-win-arm64.exe
+        mv artifacts/win-x64/hyperpdf.exe artifacts/exe/hyperpdf-win-x64.exe
+        mv artifacts/win-arm64/hyperpdf.exe artifacts/exe/hyperpdf-win-arm64.exe
     - name: Sign the executables and RPMs
       uses: glennawatson/actions-common/.github/actions/certum-sign@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
@@ -334,8 +334,8 @@ jobs:
         rpm: 'release/*.rpm'
     - name: Return the executables
       run: |
-        mv artifacts/exe/pdfviewerlite-win-x64.exe artifacts/win-x64/pdfviewerlite.exe
-        mv artifacts/exe/pdfviewerlite-win-arm64.exe artifacts/win-arm64/pdfviewerlite.exe
+        mv artifacts/exe/hyperpdf-win-x64.exe artifacts/win-x64/hyperpdf.exe
+        mv artifacts/exe/hyperpdf-win-arm64.exe artifacts/win-arm64/hyperpdf.exe
     - name: Stage the MSIX payloads
       run: |
         cp -R artifacts/win-x64 artifacts/msix-win-x64
@@ -345,25 +345,25 @@ jobs:
     - name: Add the MSIX logos
       run: |
         mkdir -p artifacts/msix-win-x64/Assets
-        cp packaging/linux/icons/hicolor/48x48/apps/net.glennwatson.PdfViewerLite.png artifacts/msix-win-x64/Assets/Square44x44Logo.png
-        cp packaging/linux/icons/hicolor/256x256/apps/net.glennwatson.PdfViewerLite.png artifacts/msix-win-x64/Assets/Square150x150Logo.png
-        cp packaging/linux/icons/hicolor/48x48/apps/net.glennwatson.PdfViewerLite.png artifacts/msix-win-x64/Assets/StoreLogo.png
+        cp packaging/linux/icons/hicolor/48x48/apps/net.glennwatson.HyperPDF.png artifacts/msix-win-x64/Assets/Square44x44Logo.png
+        cp packaging/linux/icons/hicolor/256x256/apps/net.glennwatson.HyperPDF.png artifacts/msix-win-x64/Assets/Square150x150Logo.png
+        cp packaging/linux/icons/hicolor/48x48/apps/net.glennwatson.HyperPDF.png artifacts/msix-win-x64/Assets/StoreLogo.png
     - name: Add the ARM64 MSIX logos
       run: cp -R artifacts/msix-win-x64/Assets artifacts/msix-win-arm64/Assets
     - name: Build the x64 MSIX
       uses: glennawatson/actions-common/.github/actions/msix-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         source: artifacts/msix-win-x64
-        output: release/pdfviewerlite-${{ needs.version.outputs.version }}-win-x64.msix
-        identity-name: net.glennwatson.PdfViewerLite
+        output: release/hyperpdf-${{ needs.version.outputs.version }}-win-x64.msix
+        identity-name: net.glennwatson.HyperPDF
         publisher: 'CN=Glenn Andrew Watson, O=Glenn Andrew Watson, L=Mooroolbark, S=Victoria, C=AU'
         version: ${{ needs.version.outputs.version }}
         architecture: x64
         display-name: Hyper PDF Viewer
         publisher-display-name: Glenn Watson
         description: A calm PDF viewer
-        executable: pdfviewerlite.exe
-        application-id: PdfViewerLite
+        executable: hyperpdf.exe
+        application-id: HyperPDF
         square44-logo: Assets/Square44x44Logo.png
         square150-logo: Assets/Square150x150Logo.png
         store-logo: Assets/StoreLogo.png
@@ -374,16 +374,16 @@ jobs:
       uses: glennawatson/actions-common/.github/actions/msix-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         source: artifacts/msix-win-arm64
-        output: release/pdfviewerlite-${{ needs.version.outputs.version }}-win-arm64.msix
-        identity-name: net.glennwatson.PdfViewerLite
+        output: release/hyperpdf-${{ needs.version.outputs.version }}-win-arm64.msix
+        identity-name: net.glennwatson.HyperPDF
         publisher: 'CN=Glenn Andrew Watson, O=Glenn Andrew Watson, L=Mooroolbark, S=Victoria, C=AU'
         version: ${{ needs.version.outputs.version }}
         architecture: arm64
         display-name: Hyper PDF Viewer
         publisher-display-name: Glenn Watson
         description: A calm PDF viewer
-        executable: pdfviewerlite.exe
-        application-id: PdfViewerLite
+        executable: hyperpdf.exe
+        application-id: HyperPDF
         square44-logo: Assets/Square44x44Logo.png
         square150-logo: Assets/Square150x150Logo.png
         store-logo: Assets/StoreLogo.png
@@ -394,48 +394,48 @@ jobs:
       uses: glennawatson/actions-common/.github/actions/msi-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         source: artifacts/win-x64
-        output: release/pdfviewerlite-${{ needs.version.outputs.version }}-win-x64.msi
+        output: release/hyperpdf-${{ needs.version.outputs.version }}-win-x64.msi
         product-name: Hyper PDF Viewer
         manufacturer: Glenn Watson
         version: ${{ needs.version.outputs.version }}
         upgrade-code: '{0C547842-7023-455E-9807-E4C0CA332DA8}'
         architecture: x64
         install-folder: 'Glenn Watson\Hyper PDF Viewer'
-        executable: pdfviewerlite.exe
-        icon: packaging/windows/PdfViewerLite.ico
-        homepage: https://github.com/glennawatson/PdfViewerLite
+        executable: hyperpdf.exe
+        icon: packaging/windows/HyperPdf.ico
+        homepage: https://github.com/glennawatson/HyperPDF
     - name: Build the ARM64 MSI
       uses: glennawatson/actions-common/.github/actions/msi-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         source: artifacts/win-arm64
-        output: release/pdfviewerlite-${{ needs.version.outputs.version }}-win-arm64.msi
+        output: release/hyperpdf-${{ needs.version.outputs.version }}-win-arm64.msi
         product-name: Hyper PDF Viewer
         manufacturer: Glenn Watson
         version: ${{ needs.version.outputs.version }}
         upgrade-code: '{0C547842-7023-455E-9807-E4C0CA332DA8}'
         architecture: arm64
         install-folder: 'Glenn Watson\Hyper PDF Viewer'
-        executable: pdfviewerlite.exe
-        icon: packaging/windows/PdfViewerLite.ico
-        homepage: https://github.com/glennawatson/PdfViewerLite
+        executable: hyperpdf.exe
+        icon: packaging/windows/HyperPdf.ico
+        homepage: https://github.com/glennawatson/HyperPDF
     - name: Zip the x64 app
       uses: glennawatson/actions-common/.github/actions/zip-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         source: artifacts/win-x64
-        output: release/pdfviewerlite-${{ needs.version.outputs.version }}-win-x64.zip
+        output: release/hyperpdf-${{ needs.version.outputs.version }}-win-x64.zip
     - name: Zip the ARM64 app
       uses: glennawatson/actions-common/.github/actions/zip-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         source: artifacts/win-arm64
-        output: release/pdfviewerlite-${{ needs.version.outputs.version }}-win-arm64.zip
+        output: release/hyperpdf-${{ needs.version.outputs.version }}-win-arm64.zip
     - name: Write the AUR PKGBUILD and .SRCINFO
       uses: glennawatson/actions-common/.github/actions/aur-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         debs: release
-        name: pdfviewerlite-bin
+        name: hyperpdf-bin
         version: ${{ needs.version.outputs.version }}
         description: Fast, tabbed PDF viewer
-        url: https://github.com/glennawatson/PdfViewerLite
+        url: https://github.com/glennawatson/HyperPDF
         license: MIT
         depends: |
           fontconfig
@@ -451,14 +451,14 @@ jobs:
           libcups: print straight to a printer
           libpulse: Read Aloud sound through PulseAudio or PipeWire
         maintainer: Glenn Watson
-        source-url-template: https://github.com/glennawatson/PdfViewerLite/releases/download/${{ needs.version.outputs.tag }}/{file}
+        source-url-template: https://github.com/glennawatson/HyperPDF/releases/download/${{ needs.version.outputs.tag }}/{file}
         output: release
     - name: Sign the installers and the checksums
       uses: glennawatson/actions-common/.github/actions/certum-sign@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         authenticode: 'release/*.msi*'
         checksums: 'release/*'
-        certificate-from: release/pdfviewerlite-${{ needs.version.outputs.version }}-win-x64.msi
+        certificate-from: release/hyperpdf-${{ needs.version.outputs.version }}-win-x64.msi
     - name: Upload the release files
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
@@ -492,17 +492,17 @@ jobs:
     - name: Verify the DEB
       uses: glennawatson/actions-common/.github/actions/deb-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
-        package: packages/pdfviewerlite_${{ needs.version.outputs.version }}_${{ matrix.deb-architecture }}.deb
-        name: pdfviewerlite
+        package: packages/hyperpdf_${{ needs.version.outputs.version }}_${{ matrix.deb-architecture }}.deb
+        name: hyperpdf
         expect-files: |
-          /usr/bin/pdfviewerlite
-          /usr/lib/pdfviewerlite/pdfviewerlite
-          /usr/share/applications/net.glennwatson.PdfViewerLite.desktop
-          /usr/share/metainfo/net.glennwatson.PdfViewerLite.metainfo.xml
+          /usr/bin/hyperpdf
+          /usr/lib/hyperpdf/hyperpdf
+          /usr/share/applications/net.glennwatson.HyperPDF.desktop
+          /usr/share/metainfo/net.glennwatson.HyperPDF.metainfo.xml
     - name: Verify the AppImage
       uses: glennawatson/actions-common/.github/actions/appimage-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
-        package: packages/PdfViewerLite-${{ needs.version.outputs.version }}-${{ matrix.architecture }}.AppImage
+        package: packages/HyperPDF-${{ needs.version.outputs.version }}-${{ matrix.architecture }}.AppImage
 
   verify-rpm:
     name: Verify ${{ matrix.rid }} RPM
@@ -528,13 +528,13 @@ jobs:
     - name: Verify the RPM
       uses: glennawatson/actions-common/.github/actions/rpm-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
-        package: packages/pdfviewerlite-${{ needs.version.outputs.version }}-1.${{ matrix.architecture }}.rpm
-        name: pdfviewerlite
+        package: packages/hyperpdf-${{ needs.version.outputs.version }}-1.${{ matrix.architecture }}.rpm
+        name: hyperpdf
         expect-files: |
-          /usr/bin/pdfviewerlite
-          /usr/lib/pdfviewerlite/pdfviewerlite
-          /usr/share/applications/net.glennwatson.PdfViewerLite.desktop
-          /usr/share/metainfo/net.glennwatson.PdfViewerLite.metainfo.xml
+          /usr/bin/hyperpdf
+          /usr/lib/hyperpdf/hyperpdf
+          /usr/share/applications/net.glennwatson.HyperPDF.desktop
+          /usr/share/metainfo/net.glennwatson.HyperPDF.metainfo.xml
 
   verify-windows:
     name: Verify ${{ matrix.rid }} MSI and MSIX
@@ -558,15 +558,15 @@ jobs:
       uses: glennawatson/actions-common/.github/actions/msi-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         # msiexec reads a forward slash as an invalid path character (error 1324), so this path uses a backslash.
-        package: packages\pdfviewerlite-${{ needs.version.outputs.version }}-${{ matrix.rid }}.msi
+        package: packages\hyperpdf-${{ needs.version.outputs.version }}-${{ matrix.rid }}.msi
         expect-files: |
-          %ProgramFiles%\Glenn Watson\Hyper PDF Viewer\pdfviewerlite.exe
+          %ProgramFiles%\Glenn Watson\Hyper PDF Viewer\hyperpdf.exe
     - name: Verify the MSIX
       uses: glennawatson/actions-common/.github/actions/msix-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
-        package: packages/pdfviewerlite-${{ needs.version.outputs.version }}-${{ matrix.rid }}.msix
-        identity-name: net.glennwatson.PdfViewerLite
-        executable: pdfviewerlite.exe
+        package: packages/hyperpdf-${{ needs.version.outputs.version }}-${{ matrix.rid }}.msix
+        identity-name: net.glennwatson.HyperPDF
+        executable: hyperpdf.exe
 
   verify-macos:
     name: Verify ${{ matrix.rid }} DMG
@@ -585,7 +585,7 @@ jobs:
     - name: Verify the DMG
       uses: glennawatson/actions-common/.github/actions/dmg-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
-        package: packages/pdfviewerlite-${{ needs.version.outputs.version }}-${{ matrix.rid }}.dmg
+        package: packages/hyperpdf-${{ needs.version.outputs.version }}-${{ matrix.rid }}.dmg
         app: Hyper PDF Viewer.app
         signed: 'true'
 

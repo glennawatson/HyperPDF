@@ -6,7 +6,7 @@ A PDF viewer for Linux, Windows and macOS. Read, search, annotate, fill forms, s
 
 ## Get started
 
-Download a package from [GitHub releases](https://github.com/glennawatson/PdfViewerLite/releases). Packages support Linux AppImage, deb, rpm and AUR, Windows installers and portable archives, and macOS app bundles and disk images.
+Download a package from [GitHub releases](https://github.com/glennawatson/HyperPDF/releases). Packages support Linux AppImage, deb, rpm and AUR, Windows installers and portable archives, and macOS app bundles and disk images.
 
 1. Choose **Open**, or drop a PDF onto the window.
 2. Use the page box, thumbnails or bookmarks to move through it.
@@ -99,26 +99,13 @@ No single theme suits everyone. Choose the appearance that works for you.
 
 Arbitrary form JavaScript, XFA forms, multimedia, 3D and portfolio layouts are not supported; the app says when a document uses them. Certificate signing needs an unencrypted PDF.
 
-Spell checking uses the Windows and macOS spell checkers. On Linux it uses the installed word lists in `/usr/share/dict`, such as the `wbritish` or `wamerican` package, or a list of your own in `~/.local/share/pdfviewerlite/dictionaries`.
+Spell checking uses the Windows and macOS spell checkers. On Linux it uses the installed word lists in `/usr/share/dict`, such as the `wbritish` or `wamerican` package, or a list of your own in `~/.local/share/hyperpdf/dictionaries`.
 
 Linux uses X11 when available, then native Wayland. Native Wayland does not expose the required screen-reader tree. Use X11 for Linux screen-reader access. See [screen readers](docs/SCREEN-READERS.md) for navigation and other platform limits.
 
-## Build
-
-Use the SDK in [global.json](global.json). Everything builds for .NET 10 and .NET 11; releases are Native AOT builds from .NET 11. Native AOT needs a native compiler and zlib development files.
-
-```bash
-dotnet build PdfViewerLite.slnx
-dotnet test --solution PdfViewerLite.slnx
-dotnet run -f net11.0 --project src/PdfViewerLite.App -- some.pdf
-scripts/publish-linux.sh linux-x64
-```
-
-Install a Linux build with `packaging/linux/install.sh`. See [development rules](AGENTS.md).
-
 ## Report a problem
 
-Report a problem with the [bug form](https://github.com/glennawatson/PdfViewerLite/issues/new?template=bugs.yml). Suggest a change with the [feature form](https://github.com/glennawatson/PdfViewerLite/issues/new?template=features.yml).
+Report a problem with the [bug form](https://github.com/glennawatson/HyperPDF/issues/new?template=bugs.yml). Suggest a change with the [feature form](https://github.com/glennawatson/HyperPDF/issues/new?template=features.yml).
 
 ## Research
 

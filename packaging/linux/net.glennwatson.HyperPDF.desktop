@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Hyper PDF Viewer
+GenericName=PDF Viewer
+Comment=Fast, tabbed PDF viewer
+Exec=hyperpdf %U
+TryExec=hyperpdf
+Icon=net.glennwatson.HyperPDF
+Terminal=false
+StartupNotify=true
+StartupWMClass=hyperpdf
+SingleMainWindow=true
+Categories=Office;Viewer;Graphics;
+MimeType=application/pdf;application/x-pdf;application/x-bzpdf;application/x-gzpdf;
+Keywords=pdf;document;viewer;reader;tabs;
+Actions=new-instance;
+
+[Desktop Action new-instance]
+Name=New Window
+Exec=hyperpdf --new-instance

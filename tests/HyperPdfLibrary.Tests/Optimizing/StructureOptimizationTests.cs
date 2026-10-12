@@ -3,11 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Optimizing;
 using HyperPdfLibrary.Tests.Writing;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Optimizing;
 

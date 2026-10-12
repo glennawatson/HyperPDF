@@ -4,10 +4,10 @@
 
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
+using HyperPdf.Core.Signatures;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Signatures;
-using PdfViewerLite.Core.Signatures;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Signatures;
 

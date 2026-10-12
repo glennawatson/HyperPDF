@@ -1,6 +1,6 @@
 # Project rules
 
-PdfViewerLite is a local PDF viewer for Linux, Windows and macOS. Primary users are people with ADHD or autism. Improve low-vision access alongside those needs. Follow the [comfort rules](../docs/PdViewerLite/COMFORT.md). Use the [research](docs/research/README.md) to guide choices. Keep controls clear, stable and adjustable.
+HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are people with ADHD or autism. Improve low-vision access alongside those needs. Follow the [comfort rules](../docs/PdViewerLite/COMFORT.md). Use the [research](docs/research/README.md) to guide choices. Keep controls clear, stable and adjustable.
 
 ## Performance
 
@@ -36,7 +36,7 @@ PdfViewerLite is a local PDF viewer for Linux, Windows and macOS. Primary users 
 
 ## HyperPdfLibrary
 
-- `src/HyperPdfLibrary` is the managed PDF engine; `src/PdfViewerLite.HyperPdf` adapts it to the app's interfaces. Neither references PDFium; `EngineIndependenceTests` checks this. The app always opens documents with HyperPDF.
+- `src/HyperPdfLibrary` is the managed PDF engine; `src/HyperPdf.Engine` adapts it to the app's interfaces. Neither references PDFium; `EngineIndependenceTests` checks this. The app always opens documents with HyperPDF.
 - Match PDFium's behaviour where useful, and use pdf.js where PDFium is clearly wrong. Add parity tests comparing both engines through `EnginePair`.
 - Read leniently, write strictly. Open and recover malformed files where possible, but every file the library writes must conform to ISO 32000 (and to any PDF/A or PDF/UA level the file claims). Saving fixes what can be fixed in the parts it writes, such as wrong `/Length`, broken cross-reference data, missing required keys and invalid boxes. The viewer tells the user in plain words when a file was damaged and repaired on open, and what saving will fix. Never add a feature that needs non-conforming output.
 - Where PDFium blocks a standards feature (PDF 2.0, PDF/A, PDF/UA, PDF/R, XFDF, XMP), follow the standard. Keep a way to get PDFium-compatible output so parity tests still compare. PDFium remains a test and parity reference, not an app engine.
@@ -50,14 +50,33 @@ PdfViewerLite is a local PDF viewer for Linux, Windows and macOS. Primary users 
 
 ## Verification
 
+Native AOT publishing needs a native compiler and zlib development files. Run the app with `dotnet run -f net11.0 --project src/HyperPdf.App -- some.pdf`; install a Linux build with `packaging/linux/install.sh`. Keep `README.md` for end users only; build, test and contributor notes belong here.
+
 ```bash
-dotnet build PdfViewerLite.slnx
-dotnet test --solution PdfViewerLite.slnx
-dotnet run -c Release -f net11.0 --project benchmarks/PdfViewerLite.Benchmarks -- --filter '*RelevantBenchmark*'
+dotnet build HyperPdf.slnx
+dotnet test --solution HyperPdf.slnx
+dotnet run -c Release -f net11.0 --project benchmarks/HyperPdf.Benchmarks -- --filter '*RelevantBenchmark*'
 scripts/audit-allocations.sh '*RelevantBenchmark*'
 scripts/publish-linux.sh linux-x64
 ```
 
-Warnings are failures. Verify all affected frameworks, saved output and user-visible behaviour. TUnit uses Microsoft.Testing.Platform; runner arguments follow `--`. With SDK 11, use absolute paths for `--project`. UI tests and benchmarks run headless. Set `PDFVIEWERLITE_SCREENSHOTS` to save UI frames.
+### PDF/A output
+
+Every change to a writer, editor or the optimiser must keep PDF/A output valid. The `HyperPdfLibrary.Tests.Conformance.VeraPdf` tests check generated files and veraPDF's sample PDFs with veraPDF, which runs as a separate Java (11+) process and is never linked or shipped. They skip without veraPDF; CI's `PDF/A output validation (veraPDF)` job requires it.
+
+```bash
+dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/hyperpdf/verapdf
+dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/hyperpdf/pdfa-samples <the verapdf-pdfa* ids in the manifest>
+dotnet run --file scripts/FetchVeraPdfTestFiles.cs -- ~/.cache/hyperpdf/verapdf-test-files
+HYPERPDF_VERAPDF=~/.cache/hyperpdf/verapdf HYPERPDF_PDFA_SAMPLES=~/.cache/hyperpdf/pdfa-samples \
+  HYPERPDF_VERAPDF_TEST_FILES=~/.cache/hyperpdf/verapdf-test-files \
+  dotnet run --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*'
+```
+
+The installer reads the release from `verapdf.json`, which Renovate updates; the same file pins the commit of veraPDF's PDF/A test files. Set `HYPERPDF_PDFA_OUTPUT` to keep the files the tests write. CI lists the sample ids in `.github/workflows/ci.yml`.
+
+`PdfAValidator` must give veraPDF's pass or fail for every rule it checks on every one of veraPDF's PDF/A test files; `PdfAValidatorAgreementTests` compares it with `tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-results.tsv`. After a veraPDF update or a new test file commit, record that file again with `dotnet run --file scripts/RecordVeraPdfResults.cs -- <test files folder> <verapdf home> <that file>`. A rule joins a checker's `Rules` list only when it agrees on all of veraPDF's PDF/A test files.
+
+Warnings are failures. Verify all affected frameworks, saved output and user-visible behaviour. TUnit uses Microsoft.Testing.Platform; runner arguments follow `--`. With SDK 11, use absolute paths for `--project`. UI tests and benchmarks run headless. Set `HYPERPDF_SCREENSHOTS` to save UI frames.
 
 Continue authorised goal work through verification. Treat feedback as work to fix. Report concrete blockers and missing dependencies. Follow the user's current commit and publishing instructions.

@@ -167,6 +167,7 @@ public static class StoreTransactions
     /// <param name = "entry">The key and value; a null value removes the key.</param>
     internal static void SetTrailerLocked(PdfObjectStore self, in PdfTrailerEntry entry)
     {
+        self.TrailerEditedState = true;
         if (entry.Value.IsNull)
         {
             _ = self.Trailer.Remove(entry.Key);

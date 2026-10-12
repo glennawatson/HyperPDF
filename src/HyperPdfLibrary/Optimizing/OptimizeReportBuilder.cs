@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Conformance;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -40,6 +41,9 @@ internal sealed class OptimizeReportBuilder
 
     /// <summary>Gets or sets the PDF/A part claimed.</summary>
     internal int PdfAPart { get; set; }
+
+    /// <summary>Gets or sets the check of the written file's PDF/A claim.</summary>
+    internal PdfAClaimCheck? PdfAClaim { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the document was signed.</summary>
     internal bool WasSigned { get; set; }
@@ -111,6 +115,7 @@ internal sealed class OptimizeReportBuilder
             TagsInferred = TagsInferred,
             FiguresNeedingAltText = FiguresNeedingAltText,
             PdfAPart = PdfAPart,
+            PdfAClaim = PdfAClaim,
             WasSigned = WasSigned,
             IsEncrypted = IsEncrypted,
         };

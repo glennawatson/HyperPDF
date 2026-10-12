@@ -81,6 +81,9 @@ internal sealed partial class ContentUsageScanner
     /// <summary>Gets the object number of each font dictionary seen.</summary>
     internal Dictionary<PdfDictionary, int> FontNumbers { get; } = [with(ReferenceEqualityComparer.Instance)];
 
+    /// <summary>Gets a value indicating whether walked content sets a device colour or selects a device colour space.</summary>
+    internal bool UsesDeviceColor { get; private set; }
+
     /// <summary>Reads every page.</summary>
     /// <param name = "pageDone">Called after each page with the number of pages read.</param>
     /// <param name = "cancellationToken">Stops the scan.</param>
@@ -115,6 +118,25 @@ internal sealed partial class ContentUsageScanner
 
         ScanAnnotations(page);
     }
+
+    /// <summary>Determines whether an operator sets a device colour or selects a device colour space.</summary>
+    /// <param name="op">The operator.</param>
+    /// <param name="reader">The reader, for the colour space operand.</param>
+    /// <returns><see langword="true"/> when it does.</returns>
+    private static bool IsDeviceColor(ContentOperator op, ref ContentReader reader) => op switch
+    {
+        ContentOperator.SetFillGray or
+        ContentOperator.SetStrokeGray or
+        ContentOperator.SetFillRgb or
+        ContentOperator.SetStrokeRgb or
+        ContentOperator.SetFillCmyk or
+        ContentOperator.SetStrokeCmyk =>
+        true,
+
+        ContentOperator.SetFillColorSpace or ContentOperator.SetStrokeColorSpace =>
+            reader.Operand(0).Name.ToKnownName() is KnownName.DeviceGray or KnownName.DeviceRGB or KnownName.DeviceCMYK,
+        _ => false,
+    };
 
     /// <summary>Gets the operator's numbers as a matrix.</summary>
     /// <param name = "reader">The reader.</param>
@@ -171,6 +193,7 @@ internal sealed partial class ContentUsageScanner
         {
             while (reader.Next(out var op))
             {
+                UsesDeviceColor |= IsDeviceColor(op, ref reader);
                 if (!HandleState(op, ref reader, ref ctm, floor))
                 {
                     HandleResource(op, ref reader, resources, ctm, walk);

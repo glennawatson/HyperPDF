@@ -16,16 +16,25 @@ internal sealed class CodeRangeMapBuilder
     /// <summary>Gets the number of ranges added.</summary>
     internal int Count => _ranges.Count;
 
+    /// <summary>Gets the ranges in the order they were added, until <see cref="Build"/> sorts them.</summary>
+    internal IReadOnlyList<CodeRangeEntry> Entries => _ranges;
+
+    /// <summary>Gets the largest value any added range gives its last code, or zero when none was added.</summary>
+    internal long MaxValue { get; private set; }
+
     /// <summary>Adds a range.</summary>
     /// <param name="low">The first code.</param>
     /// <param name="high">The last code.</param>
     /// <param name="value">The value of the first code.</param>
     internal void Add(uint low, uint high, int value)
     {
-        if (high >= low)
+        if (high < low)
         {
-            _ranges.Add(new(low, high, value, _ranges.Count));
+            return;
         }
+
+        _ranges.Add(new(low, high, value, _ranges.Count));
+        MaxValue = Math.Max(MaxValue, value + (long)(high - low));
     }
 
     /// <summary>Builds the map.</summary>

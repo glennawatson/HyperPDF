@@ -93,7 +93,7 @@ public sealed class AccessibilityOptimizationTests
         await Assert.That(types).Contains(PdfSemanticRole.Paragraph);
         await Assert.That(types).Contains(PdfSemanticRole.Figure);
         await Assert.That(spoken.ToString()).StartsWith($"Heading:{OptimizerSamples.Heading}");
-        await Assert.That(PdfDocumentMetadata.GetXmp(document)!.GetValue(InferredTagsXmp.Namespace, InferredTagsXmp.Property)).IsEqualTo("true");
+        await Assert.That(PdfDocumentMetadata.GetXmp(document)!.GetValue(InferredTagsXmp.Namespace, InferredTagsXmp.Property)).IsEqualTo(InferredTagsXmp.Marked);
         await Assert.That(OptimizerTestKit.Text(result.Bytes)).IsEquivalentTo(OptimizerTestKit.Text(source));
         await Assert.That(OptimizerTestKit.MaxDifference(OptimizerTestKit.Render(source), OptimizerTestKit.Render(result.Bytes))).IsEqualTo(0);
     }

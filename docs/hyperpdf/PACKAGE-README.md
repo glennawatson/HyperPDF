@@ -2,7 +2,7 @@
 
 A managed PDF engine for .NET 10 and .NET 11. It reads, searches and annotates PDF files, and renders through a drawing backend you choose. It works on Linux, Windows and macOS and is trim and Native AOT safe. Reading and editing with the core package needs no native drawing library.
 
-HyperPdfLibrary is the engine behind [Hyper PDF Viewer](https://github.com/glennawatson/PdfViewerLite).
+HyperPdfLibrary is the engine behind [Hyper PDF Viewer](https://github.com/glennawatson/HyperPDF).
 
 ## Open a document and read its text
 
@@ -55,4 +55,4 @@ Identity CMaps and fonts embedded in the PDF need no substitute font downloads. 
 
 HyperPdfLibrary is MIT licensed. CJK mappings use the PDF.js binary CMap resource pack under Adobe's BSD licence. Substitute faces use the Google Fonts pack: Arimo, Tinos, Cousine and Noto symbols. Their Apache and SIL notices ship in this package and are copied alongside cached fonts.
 
-Report problems at [GitHub issues](https://github.com/glennawatson/PdfViewerLite/issues).
+Report problems at [GitHub issues](https://github.com/glennawatson/HyperPDF/issues).

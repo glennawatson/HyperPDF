@@ -5,12 +5,12 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.TextLayer;
 using HyperPdfLibrary.Writing;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.TextLayer;
 

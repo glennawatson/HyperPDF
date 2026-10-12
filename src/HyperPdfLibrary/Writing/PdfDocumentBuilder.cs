@@ -16,7 +16,7 @@ namespace HyperPdfLibrary.Writing;
 /// Builds a new, standalone PDF from objects added to it and writes it straight through <see cref="PdfObjectWriter"/>
 /// with a classic cross-reference table. Object 1 is the catalog and object 2 the page tree; both are written on save.
 /// </summary>
-/// <remarks>Not thread-safe. Unfiltered streams are Flate-compressed when that is smaller.</remarks>
+/// <remarks>Not thread-safe. Unfiltered streams other than metadata are Flate-compressed when that is smaller.</remarks>
 [DebuggerDisplay("PdfDocumentBuilder: {PageCount} pages, {ObjectCount} objects")]
 public sealed class PdfDocumentBuilder
 {
@@ -57,6 +57,9 @@ public sealed class PdfDocumentBuilder
 
     /// <summary>Gets or sets the catalog entries besides /Type and /Pages, such as /AcroForm, /Outlines and /PageLabels.</summary>
     internal PdfDictionary CatalogEntries { get; set; } = new(null);
+
+    /// <summary>Gets or sets the header version; new documents are PDF 2.0 unless a PDF/A level needs an earlier one.</summary>
+    internal PdfHeaderVersion Version { get; set; } = PdfHeaderVersion.Pdf20;
 
     /// <summary>Reserves an object number to fill in later with <see cref="Set"/>, so objects can refer to each other.</summary>
     /// <returns>The new object's id.</returns>
@@ -246,14 +249,17 @@ public sealed class PdfDocumentBuilder
         content.Write(" Do Q\n"u8);
     }
 
-    /// <summary>Writes one object under its own number.</summary>
+    /// <summary>
+    /// Writes one object under its own number. Metadata streams stay plain, as XMP readers expect them and PDF/A-1 forbids
+    /// a filtered metadata stream (ISO 19005-1 §6.7.2, Cor.2).
+    /// </summary>
     /// <param name="writer">The writer.</param>
     /// <param name="number">The object number.</param>
     private void WriteObject(ref PdfObjectWriter writer, int number)
     {
         var id = new PdfObjectId(number, 0);
         var value = _objects[number - 1];
-        if (value.AsStream() is { } stream && IsUnfiltered(stream.Dictionary))
+        if (value.AsStream() is { } stream && IsUnfiltered(stream.Dictionary) && !stream.Dictionary.IsName(KnownName.Type, KnownName.Metadata))
         {
             writer.WriteObjectHeader(id);
             WriteCompressed(ref writer, stream);
@@ -295,7 +301,12 @@ public sealed class PdfDocumentBuilder
     private void Write(ref PdfObjectWriter writer)
     {
         SetRoots();
-        writer.WriteRaw("%PDF-1.7\n"u8);
+        writer.WriteRaw(Version switch
+        {
+            PdfHeaderVersion.Pdf14 => "%PDF-1.4\n"u8,
+            PdfHeaderVersion.Pdf20 => "%PDF-2.0\n"u8,
+            _ => "%PDF-1.7\n"u8,
+        });
         writer.WriteRaw(PdfXrefWriter.BinaryMarker);
         var rows = new XrefRow[_objects.Count + 1];
         rows[0] = XrefRow.FreeHead;

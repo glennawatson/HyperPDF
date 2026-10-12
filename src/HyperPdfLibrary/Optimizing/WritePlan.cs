@@ -4,6 +4,8 @@
 
 using System.Buffers;
 using System.Diagnostics;
+using HyperPdfLibrary.Conformance;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
@@ -26,6 +28,9 @@ internal sealed class WritePlan
     /// <summary>The original file, when it is copied unchanged.</summary>
     private readonly PdfByteSource? _original;
 
+    /// <summary>Receives the check of the written file's PDF/A claim.</summary>
+    private readonly PdfSaveReport _save = new();
+
     /// <summary>Initializes a new instance of the <see cref="WritePlan"/> class.</summary>
     /// <param name="mode">How the file is written.</param>
     /// <param name="writer">The rewriting writer, or <see langword="null"/>.</param>
@@ -41,6 +46,9 @@ internal sealed class WritePlan
 
     /// <summary>Gets how the file is written.</summary>
     internal PdfOptimizeMode Mode { get; }
+
+    /// <summary>Gets the check of the written file's PDF/A claim, once written; <see langword="null"/> when it claims none.</summary>
+    internal PdfAClaimCheck? Claim => _save.Claim;
 
     /// <summary>Creates a plan that rewrites the file.</summary>
     /// <param name="writer">The writer.</param>
@@ -63,15 +71,23 @@ internal sealed class WritePlan
     /// <returns>The bytes written.</returns>
     internal long WriteTo(Stream destination, CancellationToken cancellationToken)
     {
-        if (_writer is not null)
+        if (_writer is not null && !PdfAClaimGuard.IsClaimed(_writer.Store))
         {
             return _writer.WriteTo(destination, cancellationToken);
         }
 
         using var counter = new CountingStream(destination);
+        if (_writer is not null)
+        {
+            using var rewritten = new MemoryStream();
+            _ = _writer.WriteTo(rewritten, cancellationToken);
+            counter.Write(CheckRewrite(rewritten.ToArray(), cancellationToken));
+            return counter.Written;
+        }
+
         if (_store is not null)
         {
-            PdfIncrementalWriter.Save(_store, counter);
+            PdfIncrementalWriter.Save(_store, counter, _save);
             return counter.Written;
         }
 
@@ -105,7 +121,7 @@ internal sealed class WritePlan
     /// <returns>The bytes written.</returns>
     internal async Task<long> WriteToAsync(Stream destination, CancellationToken cancellationToken)
     {
-        if (_writer is not null)
+        if (_writer is not null && !PdfAClaimGuard.IsClaimed(_writer.Store))
         {
             return await _writer.WriteToAsync(destination, cancellationToken).ConfigureAwait(false);
         }
@@ -113,15 +129,67 @@ internal sealed class WritePlan
         var counter = new CountingStream(destination);
         await using (counter.ConfigureAwait(false))
         {
+            if (_writer is not null)
+            {
+                var buffer = new MemoryStream();
+                await using (buffer.ConfigureAwait(false))
+                {
+                    _ = await _writer.WriteToAsync(buffer, cancellationToken).ConfigureAwait(false);
+                    await counter.WriteAsync(await CheckRewriteAsync(buffer.ToArray(), cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+                    return counter.Written;
+                }
+            }
+
             if (_store is not null)
             {
-                await PdfIncrementalWriter.SaveAsync(_store, counter, cancellationToken).ConfigureAwait(false);
+                await PdfIncrementalWriter.SaveAsync(_store, counter, _save, cancellationToken).ConfigureAwait(false);
                 return counter.Written;
             }
 
             await CopyAsync(counter, cancellationToken).ConfigureAwait(false);
             return counter.Written;
         }
+    }
+
+    /// <summary>
+    /// Checks a rewritten file against the PDF/A level it claims, with font data already on this computer. A file that
+    /// breaks a rule is replaced by its repaired copy; when it cannot be repaired, it gets an incremental update that
+    /// removes the claim, so the optimiser never writes a false claim and its layout is kept.
+    /// </summary>
+    /// <param name="file">The rewritten file.</param>
+    /// <param name="cancellationToken">Stops the check.</param>
+    /// <returns>The file to write.</returns>
+    private byte[] CheckRewrite(byte[] file, CancellationToken cancellationToken)
+    {
+        using var written = PdfDocumentReader.Open(file, null);
+        return Settle(written, file, PdfAClaimGuard.CheckOutput(written.Objects, file, cancellationToken));
+    }
+
+    /// <summary>Checks a rewritten file against the PDF/A level it claims, downloading font data a repair needs.</summary>
+    /// <param name="file">The rewritten file.</param>
+    /// <param name="cancellationToken">Stops the check and the downloads.</param>
+    /// <returns>The file to write.</returns>
+    private async Task<byte[]> CheckRewriteAsync(byte[] file, CancellationToken cancellationToken)
+    {
+        using var written = PdfDocumentReader.Open(file, null);
+        var outcome = await PdfAClaimGuard.CheckOutputAsync(written.Objects, file, cancellationToken).ConfigureAwait(false);
+        return Settle(written, file, outcome);
+    }
+
+    /// <summary>Records the claim check and picks the file to write.</summary>
+    /// <param name="written">The rewritten file, opened.</param>
+    /// <param name="file">The rewritten file.</param>
+    /// <param name="outcome">The check, or <see langword="null"/> when the file claims no level.</param>
+    /// <returns>The file to write.</returns>
+    private byte[] Settle(PdfDocument written, byte[] file, PdfAClaimOutcome? outcome)
+    {
+        _save.Claim = outcome?.Check;
+        return outcome switch
+        {
+            { Repaired: { } repaired } => repaired,
+            { Check.Removed: true } => PdfIncrementalWriter.Save(written.Objects),
+            _ => file,
+        };
     }
 
     /// <summary>Copies the original file asynchronously.</summary>

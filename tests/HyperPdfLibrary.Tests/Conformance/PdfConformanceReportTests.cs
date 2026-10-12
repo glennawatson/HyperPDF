@@ -33,6 +33,15 @@ public sealed class PdfConformanceReportTests
     /// <summary>The claimed part 4.</summary>
     private const int PartFour = 4;
 
+    /// <summary>Content that shows text in the font named <c>/F1</c>.</summary>
+    private const string ShowF1 = "BT /F1 12 Tf (a) Tj ET";
+
+    /// <summary>Content that draws the form named <c>/Fm</c>.</summary>
+    private const string DrawForm = "/Fm Do";
+
+    /// <summary>Content that sets the graphics state named <c>/GS</c> and fills.</summary>
+    private const string SetState = "/GS gs 0 0 10 10 re f";
+
     /// <summary>The XMP claims map to the labels people write.</summary>
     /// <param name="part">The part.</param>
     /// <param name="conformance">The level, or null.</param>
@@ -233,6 +242,7 @@ public sealed class PdfConformanceReportTests
     {
         var pdf = ClaimedPage(PartOne);
         pdf.Resources = "/Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >>";
+        pdf.Content = ShowF1;
 
         var report = Report(pdf);
 
@@ -256,6 +266,7 @@ public sealed class PdfConformanceReportTests
             CultureInfo.InvariantCulture,
             $"/Font << /F1 << /Type /Font /Subtype /TrueType /BaseFont /Embedded /FontDescriptor {descriptor} 0 R >> {Type3} "
             + $"/F3 << /Type /Font /Subtype /Type0 /BaseFont /Embedded /Encoding /Identity-H /DescendantFonts [{descendant} 0 R] >> >>");
+        pdf.Content = "BT /F1 12 Tf (a) Tj /F2 12 Tf (a) Tj /F3 12 Tf <0001> Tj ET";
 
         var report = Report(pdf);
 
@@ -268,8 +279,9 @@ public sealed class PdfConformanceReportTests
     public async Task FontInsideFormIsFound()
     {
         var pdf = ClaimedPage(PartTwo);
-        var form = pdf.AddStream("/Type /XObject /Subtype /Form /BBox [0 0 10 10] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Courier >> >> >>", string.Empty);
+        var form = pdf.AddStream("/Type /XObject /Subtype /Form /BBox [0 0 10 10] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Courier >> >> >>", ShowF1);
         pdf.Resources = string.Create(CultureInfo.InvariantCulture, $"/XObject << /Fm {form} 0 R >>");
+        pdf.Content = DrawForm;
 
         var report = Report(pdf);
 
@@ -289,9 +301,11 @@ public sealed class PdfConformanceReportTests
         var pdf = ClaimedPage(part);
         var state = pdf.AddObject($"<< /Type /ExtGState /ca {HalfAlpha} >>");
         pdf.Resources = string.Create(CultureInfo.InvariantCulture, $"/ExtGState << /GS {state} 0 R >>");
+        pdf.Content = SetState;
         var opaque = ClaimedPage(part);
         var one = opaque.AddObject("<< /Type /ExtGState /ca 1 /CA 1 /BM /Normal /SMask /None >>");
         opaque.Resources = string.Create(CultureInfo.InvariantCulture, $"/ExtGState << /GS {one} 0 R >>");
+        opaque.Content = SetState;
 
         var report = Report(pdf);
         var clean = Report(opaque);
@@ -310,6 +324,7 @@ public sealed class PdfConformanceReportTests
         var mask = pdf.AddObject("<< /S /Alpha /G 1 0 R >>");
         var state = pdf.AddObject(string.Create(CultureInfo.InvariantCulture, $"<< /Type /ExtGState /BM /Multiply /SMask {mask} 0 R >>"));
         pdf.Resources = string.Create(CultureInfo.InvariantCulture, $"/ExtGState << /GS {state} 0 R >>");
+        pdf.Content = SetState;
         pdf.PageEntries = "/Group << /S /Transparency /CS /DeviceRGB >>";
 
         var report = Report(pdf);
@@ -415,8 +430,10 @@ public sealed class PdfConformanceReportTests
     {
         var pdf = ConformancePdf.Page();
         pdf.Resources = "/Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >>";
+        pdf.Content = ShowF1;
         var claimed = ClaimedPage(PartOne);
         claimed.Resources = pdf.Resources;
+        claimed.Content = ShowF1;
 
         var unclaimed = Report(pdf);
         var withClaim = Report(claimed);

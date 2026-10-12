@@ -3,8 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Signatures;
 using HyperPdfLibrary.Structure;
 
 namespace HyperPdfLibrary.Writing;
@@ -18,7 +21,9 @@ namespace HyperPdfLibrary.Writing;
 /// An encrypted document stays encrypted with the same handler unless <see cref="PdfCompactOptions.RemoveEncryption"/>
 /// is set. The first part of /ID is kept, so the file key is unchanged, and every string and stream is encrypted again
 /// for its new object number, as RC4 and AES-128 keys depend on it. The header version is raised to 1.5 when object
-/// streams are written and kept otherwise.
+/// streams are written and kept otherwise. A document that claims PDF/A-1 always gets a classic table. A signed document
+/// is refused, as no signature covers the rewritten bytes; save it incrementally, or remove its signatures with
+/// <see cref="Document.PdfDocumentSignatureEditing.RemoveSignatures"/> to write an unsigned copy.
 /// </remarks>
 public static class PdfCompactWriter
 {
@@ -40,19 +45,22 @@ public static class PdfCompactWriter
     /// <summary>Gets the version written when object streams need a newer one.</summary>
     private static ReadOnlySpan<byte> ObjectStreamVersion => "1.5"u8;
 
+    /// <summary>Gets the line end and keyword that close an indirect object.</summary>
+    private static ReadOnlySpan<byte> EndObject => "\nendobj\n"u8;
+
     /// <summary>Saves the document into a new array.</summary>
     /// <param name="store">The document.</param>
     /// <param name="options">The layout.</param>
     /// <returns>The file bytes.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
-    /// <exception cref="PdfException">A value cannot be written.</exception>
+    /// <exception cref="PdfException">The document is signed, or a value cannot be written.</exception>
     public static byte[] Save(PdfObjectStore store, PdfCompactOptions options)
     {
         ArgumentNullException.ThrowIfNull(store);
         var writer = CreateWriter(store, options);
         try
         {
-            Write(store, options, ref writer, CancellationToken.None);
+            Write(store, options, ref writer, null, CancellationToken.None);
             return writer.ToArray();
         }
         finally
@@ -66,14 +74,14 @@ public static class PdfCompactWriter
     /// <param name="options">The layout.</param>
     /// <param name="output">The buffer receiving the file bytes.</param>
     /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
-    /// <exception cref="PdfException">A value cannot be written.</exception>
+    /// <exception cref="PdfException">The document is signed, or a value cannot be written.</exception>
     public static void Save(PdfObjectStore store, PdfCompactOptions options, ref PooledBuffer output)
     {
         ArgumentNullException.ThrowIfNull(store);
         var writer = CreateWriter(store, options);
         try
         {
-            Write(store, options, ref writer, CancellationToken.None);
+            Write(store, options, ref writer, null, CancellationToken.None);
             output.Write(writer.WrittenSpan);
         }
         finally
@@ -87,15 +95,25 @@ public static class PdfCompactWriter
     /// <param name="options">The layout.</param>
     /// <param name="destination">The stream.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    /// <exception cref="PdfException">A value cannot be written.</exception>
-    public static void Save(PdfObjectStore store, PdfCompactOptions options, Stream destination)
+    /// <exception cref="PdfException">The document is signed, or a value cannot be written.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Save(PdfObjectStore store, PdfCompactOptions options, Stream destination) => Save(store, options, destination, null);
+
+    /// <summary>Saves the document to a stream and reports what the user should know.</summary>
+    /// <param name="store">The document.</param>
+    /// <param name="options">The layout.</param>
+    /// <param name="destination">The stream.</param>
+    /// <param name="report">Receives the check of the document's PDF/A claim, or <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException">An argument other than <paramref name="report"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PdfException">The document is signed, or a value cannot be written.</exception>
+    public static void Save(PdfObjectStore store, PdfCompactOptions options, Stream destination, PdfSaveReport? report)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
         var writer = CreateWriter(store, options);
         try
         {
-            Write(store, options, ref writer, CancellationToken.None);
+            Write(store, options, ref writer, report, CancellationToken.None);
             destination.Write(writer.WrittenSpan);
         }
         finally
@@ -111,23 +129,73 @@ public static class PdfCompactWriter
     /// <param name="cancellationToken">Cancels the write.</param>
     /// <returns>A task that completes when the bytes are written.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    /// <exception cref="PdfException">A value cannot be written.</exception>
-    public static async Task SaveAsync(PdfObjectStore store, PdfCompactOptions options, Stream destination, CancellationToken cancellationToken)
+    /// <exception cref="PdfException">The document is signed, or a value cannot be written.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Task SaveAsync(PdfObjectStore store, PdfCompactOptions options, Stream destination, CancellationToken cancellationToken) =>
+        SaveAsync(store, options, destination, null, cancellationToken);
+
+    /// <summary>
+    /// Saves the document to a stream asynchronously and reports what the user should know. A file that breaks the PDF/A
+    /// level it claims is repaired, downloading font data the repair needs, and the repaired file is written instead.
+    /// </summary>
+    /// <param name="store">The document.</param>
+    /// <param name="options">The layout; a repaired file uses the layout its PDF/A level needs.</param>
+    /// <param name="destination">The stream.</param>
+    /// <param name="report">Receives the check of the document's PDF/A claim, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes when the bytes are written.</returns>
+    /// <exception cref="ArgumentNullException">An argument other than <paramref name="report"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PdfException">The document is signed, or a value cannot be written.</exception>
+    public static async Task SaveAsync(PdfObjectStore store, PdfCompactOptions options, Stream destination, PdfSaveReport? report, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
+        var claimed = PdfAClaimGuard.IsClaimed(store);
         var file = Build(store, options, out var length, cancellationToken);
-
         try
         {
+            var outcome = claimed ? await PdfAClaimGuard.CheckOutputAsync(store, file.AsSpan(0, length).ToArray(), cancellationToken).ConfigureAwait(false) : null;
+            report?.Claim = outcome?.Check;
+            if (outcome?.Repaired is { } repaired)
+            {
+                await destination.WriteAsync(repaired, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (outcome is { Check.Removed: true })
+            {
+                var rebuilt = Build(store, options, out length, cancellationToken);
+                ReturnBuffer(file);
+                file = rebuilt;
+            }
+
             await destination.WriteAsync(file.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            if (file is not null)
-            {
-                ArrayPool<byte>.Shared.Return(file);
-            }
+            ReturnBuffer(file);
+        }
+    }
+
+    /// <summary>
+    /// Saves the document into a new array without checking its PDF/A claim, for the PDF/A conversion, which validates
+    /// its own output and must not change the claim of the document it copies.
+    /// </summary>
+    /// <param name="store">The document.</param>
+    /// <param name="options">The layout.</param>
+    /// <returns>The file bytes.</returns>
+    /// <exception cref="PdfException">The document is signed, or a value cannot be written.</exception>
+    internal static byte[] SaveUnchecked(PdfObjectStore store, PdfCompactOptions options)
+    {
+        var writer = CreateWriter(store, options);
+        try
+        {
+            WriteFile(store, options, ref writer, CancellationToken.None);
+            return writer.ToArray();
+        }
+        finally
+        {
+            writer.Dispose();
         }
     }
 
@@ -160,7 +228,10 @@ public static class PdfCompactWriter
         writer.WriteRaw(PdfXrefWriter.BinaryMarker);
     }
 
-    /// <summary>Writes one object under its new number. Metadata streams stay uncompressed, as XMP readers expect them plain.</summary>
+    /// <summary>
+    /// Writes one object under its new number. Metadata streams are written without byte filters, as XMP readers expect
+    /// them plain and PDF/A-1 forbids a filtered metadata stream (ISO 19005-1 §6.7.2, Cor.2).
+    /// </summary>
     /// <param name="writer">The writer.</param>
     /// <param name="graph">The objects.</param>
     /// <param name="graphNumber">The object's number in the collected graph.</param>
@@ -171,9 +242,19 @@ public static class PdfCompactWriter
         var id = new PdfObjectId(outputNumber, 0);
         var encrypt = graph.GetOldNumber(graphNumber) != encryptNumber;
         var value = graph.GetValue(graphNumber);
-        if (value.AsStream() is not { } stream || stream.Dictionary.IsName(KnownName.Type, KnownName.Metadata))
+        if (value.AsStream() is not { } stream)
         {
             writer.WriteIndirectObject(id, value, encrypt);
+            return;
+        }
+
+        if (stream.Dictionary.IsName(KnownName.Type, KnownName.Metadata))
+        {
+            if (IsUnfiltered(stream.Dictionary) || !TryWritePlain(ref writer, stream, id, encrypt))
+            {
+                writer.WriteIndirectObject(id, value, encrypt);
+            }
+
             return;
         }
 
@@ -190,7 +271,7 @@ public static class PdfCompactWriter
 
         writer.WriteObjectHeader(id);
         WriteCompressed(ref writer, stream, encrypt ? id : default);
-        writer.WriteRaw("\nendobj\n"u8);
+        writer.WriteRaw(EndObject);
     }
 
     /// <summary>Creates the writer, with the document's security handler unless encryption is removed.</summary>
@@ -200,7 +281,7 @@ public static class PdfCompactWriter
     private static PdfObjectWriter CreateWriter(PdfObjectStore store, PdfCompactOptions options) =>
         new(store.Names, options.RemoveEncryption ? null : store.Security);
 
-    /// <summary>Writes the document into a pooled array, so it can be written across an await.</summary>
+    /// <summary>Writes the document once, without the PDF/A claim check, into a pooled array for an await.</summary>
     /// <param name="store">The document.</param>
     /// <param name="options">The layout.</param>
     /// <param name="length">The file length.</param>
@@ -211,7 +292,7 @@ public static class PdfCompactWriter
         var writer = CreateWriter(store, options);
         try
         {
-            Write(store, options, ref writer, cancellationToken);
+            WriteFile(store, options, ref writer, cancellationToken);
             return writer.Detach(out length);
         }
         finally
@@ -220,25 +301,75 @@ public static class PdfCompactWriter
         }
     }
 
-    /// <summary>Writes the whole document.</summary>
+    /// <summary>Returns a pooled array from <see cref="Build"/>.</summary>
+    /// <param name="file">The array, or <see langword="null"/>.</param>
+    private static void ReturnBuffer(byte[]? file)
+    {
+        if (file is not null)
+        {
+            ArrayPool<byte>.Shared.Return(file);
+        }
+    }
+
+    /// <summary>
+    /// Writes the whole document. A file that claims PDF/A is checked as written; when it breaks a rule, the repaired
+    /// file replaces it, or, when it cannot be repaired, the claim is removed from the document and the file is written
+    /// again.
+    /// </summary>
+    /// <param name="store">The document.</param>
+    /// <param name="options">The layout.</param>
+    /// <param name="writer">The writer, replaced when the file is repaired or written again.</param>
+    /// <param name="report">Receives the claim check, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    private static void Write(PdfObjectStore store, PdfCompactOptions options, ref PdfObjectWriter writer, PdfSaveReport? report, CancellationToken cancellationToken)
+    {
+        var claimed = PdfAClaimGuard.IsClaimed(store);
+        WriteFile(store, options, ref writer, cancellationToken);
+        if (!claimed || PdfAClaimGuard.CheckOutput(store, writer.WrittenSpan.ToArray(), cancellationToken) is not { } outcome)
+        {
+            return;
+        }
+
+        report?.Claim = outcome.Check;
+        if (outcome.Repaired is { } repaired)
+        {
+            writer.Dispose();
+            writer = new(store.Names, null);
+            writer.WriteRaw(repaired);
+            return;
+        }
+
+        if (!outcome.Check.Removed)
+        {
+            return;
+        }
+
+        writer.Dispose();
+        writer = CreateWriter(store, options);
+        WriteFile(store, options, ref writer, cancellationToken);
+    }
+
+    /// <summary>Writes the whole document once.</summary>
     /// <param name="store">The document.</param>
     /// <param name="options">The layout.</param>
     /// <param name="writer">The writer.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void Write(PdfObjectStore store, PdfCompactOptions options, ref PdfObjectWriter writer, CancellationToken cancellationToken)
+    private static void WriteFile(PdfObjectStore store, PdfCompactOptions options, ref PdfObjectWriter writer, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        SignaturePresence.ThrowIfSigned(store);
+        var objectStreams = UsesObjectStreams(store, options);
         var keepEncrypt = store.Security is not null && !options.RemoveEncryption;
         var graph = PdfObjectGraph.Collect(store, keepEncrypt, cancellationToken);
-        WriteHeader(ref writer, store.Version, options.UseObjectStreams);
+        WriteHeader(ref writer, store.Version, objectStreams);
         writer.SetRenumbering(graph.Map);
         var encryptNumber = keepEncrypt ? PdfXrefWriter.EncryptNumber(store.Trailer) : 0;
-        var streamCount = options.UseObjectStreams ? PackedStreamCount(graph, encryptNumber, cancellationToken) : 0;
+        var streamCount = objectStreams ? PackedStreamCount(graph, encryptNumber, cancellationToken) : 0;
 
         // Entry 0, the objects, the object streams and, with object streams, the cross-reference stream.
-        var rows = new XrefRow[graph.Count + streamCount + 1 + (options.UseObjectStreams ? 1 : 0)];
+        var rows = new XrefRow[graph.Count + streamCount + 1 + (objectStreams ? 1 : 0)];
         rows[0] = XrefRow.FreeHead;
-        if (options.UseObjectStreams)
+        if (objectStreams)
         {
             WritePacked(ref writer, graph, encryptNumber, rows, cancellationToken);
         }
@@ -251,7 +382,7 @@ public static class PdfCompactWriter
         var trailer = PdfXrefWriter.CreateTrailer(store.Trailer, size, -1, keepEncrypt);
         PdfXrefWriter.SetFileId(trailer, store.Trailer, writer.WrittenSpan, keepEncrypt);
         var sectionOffset = writer.Length;
-        if (options.UseObjectStreams)
+        if (objectStreams)
         {
             rows[^1] = new(size - 1, XrefEntryType.InFile, sectionOffset, 0);
             PdfXrefWriter.WriteStream(ref writer, rows, trailer, new(size - 1, 0), sectionOffset);
@@ -261,6 +392,16 @@ public static class PdfCompactWriter
         PdfXrefWriter.WriteTable(ref writer, rows);
         PdfXrefWriter.WriteTrailer(ref writer, trailer, sectionOffset);
     }
+
+    /// <summary>
+    /// Decides whether to write object streams and a cross-reference stream. A document that claims PDF/A-1 keeps a
+    /// classic table, as ISO 19005-1 §6.1.4 forbids cross-reference streams and PDF 1.4 has no object streams.
+    /// </summary>
+    /// <param name="store">The document.</param>
+    /// <param name="options">The layout.</param>
+    /// <returns><see langword="true"/> when they are written.</returns>
+    private static bool UsesObjectStreams(PdfObjectStore store, PdfCompactOptions options) =>
+        options.UseObjectStreams && PdfAClaimReading.ReadPart(store) != PdfAClaim.Part1;
 
     /// <summary>Determines whether a version is older than 1.5.</summary>
     /// <param name="version">The version, for example "1.4".</param>
@@ -403,12 +544,45 @@ public static class PdfCompactWriter
             var smaller = compressed.Length < decoded.Length;
             writer.WriteObjectHeader(id);
             writer.WriteStream(dictionary, smaller ? compressed.WrittenSpan : decoded.WrittenSpan, encrypt ? id : default, smaller);
-            writer.WriteRaw("\nendobj\n"u8);
+            writer.WriteRaw(EndObject);
             return true;
         }
         finally
         {
             compressed.Dispose();
+            decoded.Dispose();
+        }
+    }
+
+    /// <summary>Writes a stream filtered by byte filters as its decoded data, with no filter.</summary>
+    /// <param name="writer">The writer.</param>
+    /// <param name="stream">The stream.</param>
+    /// <param name="id">The stream's new object id.</param>
+    /// <param name="encrypt">Whether the stream is encrypted for its new number.</param>
+    /// <returns><see langword="true"/> when the stream was written; <see langword="false"/> when a filter is not a byte filter and nothing was written.</returns>
+    private static bool TryWritePlain(ref PdfObjectWriter writer, PdfStream stream, PdfObjectId id, bool encrypt)
+    {
+        if (!IsByteFilterChain(stream.Dictionary))
+        {
+            return false;
+        }
+
+        var decoded = default(PooledBuffer);
+        try
+        {
+            var context = new PdfOpenContext(null, new(new()), CancellationToken.None);
+            _ = PdfStreamDecoder.Decode(stream, context, ref decoded);
+            var dictionary = stream.Dictionary.Clone();
+            _ = dictionary.Remove(KnownName.Filter);
+            _ = dictionary.Remove(KnownName.DecodeParms);
+            _ = dictionary.Remove(KnownName.DL);
+            writer.WriteObjectHeader(id);
+            writer.WriteStream(dictionary, decoded.WrittenSpan, encrypt ? id : default, false);
+            writer.WriteRaw(EndObject);
+            return true;
+        }
+        finally
+        {
             decoded.Dispose();
         }
     }

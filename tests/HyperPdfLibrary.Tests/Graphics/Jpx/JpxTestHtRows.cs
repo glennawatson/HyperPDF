@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using PdfViewerLite.Scripts;
+using HyperPdf.Scripts;
 
 namespace HyperPdfLibrary.Tests.Graphics.Jpx;
 

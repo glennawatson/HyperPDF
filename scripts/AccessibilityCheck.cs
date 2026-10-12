@@ -15,9 +15,9 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
-return await PdfViewerLite.Scripts.AccessibilityCheck.RunAsync(args).ConfigureAwait(false);
+return await HyperPdf.Scripts.AccessibilityCheck.RunAsync(args).ConfigureAwait(false);
 
-namespace PdfViewerLite.Scripts
+namespace HyperPdf.Scripts
 {
     /// <summary>Writes a small PDF to open, and walks the app's AT-SPI tree checking every control a person uses has a spoken name.</summary>
     internal static class AccessibilityCheck

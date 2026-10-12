@@ -8,7 +8,7 @@
 // See the LICENSE file in the project root for full license information.
 
 // Reads the allocation traces the benchmarks write (alloc-{pid}.nettrace, traced from start-up so every allocation is
-// sampled with its stack) and reports what PdfViewerLite allocates per operation of each measured benchmark. Fails on
+// sampled with its stack) and reports what HyperPDF allocates per operation of each measured benchmark. Fails on
 // any allocation benchmarks/allocations-explained.json does not explain, and, given a baseline, on any growth at all:
 // allocations are deterministic, so memory gets no leeway. scripts/audit-allocations.sh and
 // scripts/compare-benchmarks.sh run it.
@@ -21,12 +21,12 @@ using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Etlx;
 using Microsoft.Diagnostics.Tracing.Parsers.Clr;
 
-return PdfViewerLite.Scripts.AllocationAudit.Run(args);
+return HyperPdf.Scripts.AllocationAudit.Run(args);
 
-namespace PdfViewerLite.Scripts
+namespace HyperPdf.Scripts
 {
     /// <summary>
-    /// Attributes the allocations in EventPipe traces to PdfViewerLite methods, per operation of the measured
+    /// Attributes the allocations in EventPipe traces to HyperPDF methods, per operation of the measured
     /// workload. Only allocations made while BenchmarkDotNet runs its actual workload iterations count; set-up, warm-up
     /// and the harness are left out, and the operations those iterations ran turn the totals into bytes per operation.
     /// </summary>
@@ -42,7 +42,7 @@ namespace PdfViewerLite.Scripts
         private const int Usage = 2;
 
         /// <summary>The namespace prefix of the app code under audit.</summary>
-        private const string LibraryPrefix = "PdfViewerLite.";
+        private const string LibraryPrefix = "HyperPdf.";
 
         /// <summary>The namespace prefix of the managed PDF engine under audit.</summary>
         private const string EnginePrefix = "HyperPdfLibrary.";
@@ -336,7 +336,7 @@ namespace PdfViewerLite.Scripts
         }
 
         /// <summary>
-        /// Gets the innermost PdfViewerLite method on a stack. A benchmark method counts too: library code inlined into it
+        /// Gets the innermost HyperPDF method on a stack. A benchmark method counts too: library code inlined into it
         /// allocates under its name, so leaving it out would hide that code's allocations.
         /// </summary>
         /// <param name="stack">The call stack, innermost first.</param>
@@ -494,9 +494,9 @@ namespace PdfViewerLite.Scripts
         [DebuggerDisplay("{Type}: {BytesPerOperation} B/op")]
         internal sealed record TypeAllocations(string Type, double ObjectsPerOperation, double BytesPerOperation, double ResolutionPerOperation, bool IsWhole);
 
-        /// <summary>Allocations of one type made by one PdfViewerLite method.</summary>
+        /// <summary>Allocations of one type made by one HyperPDF method.</summary>
         /// <param name="Type">The allocated type.</param>
-        /// <param name="Frame">The innermost PdfViewerLite method on the stack.</param>
+        /// <param name="Frame">The innermost HyperPDF method on the stack.</param>
         /// <param name="ObjectsPerOperation">The objects allocated per operation.</param>
         /// <param name="BytesPerOperation">The bytes allocated per operation.</param>
         /// <param name="IsWhole">Whether the site allocates a whole number of objects every operation.</param>
@@ -506,7 +506,7 @@ namespace PdfViewerLite.Scripts
 
         /// <summary>An allocation that is expected, with the reason it is acceptable.</summary>
         /// <param name="Type">The allocated type name, or a prefix of it.</param>
-        /// <param name="Frame">The PdfViewerLite method that allocates, or a prefix of it.</param>
+        /// <param name="Frame">The HyperPDF method that allocates, or a prefix of it.</param>
         /// <param name="Reason">Why the allocation is acceptable.</param>
         [DebuggerDisplay("{Type} in {Frame}")]
         internal sealed record ExplainedAllocation(string Type, string Frame, string Reason);

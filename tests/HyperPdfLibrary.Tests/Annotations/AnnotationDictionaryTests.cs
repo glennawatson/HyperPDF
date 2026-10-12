@@ -3,9 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Numerics;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Objects;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Annotations;
 

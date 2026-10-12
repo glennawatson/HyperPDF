@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+    <UsesTesseractNative>true</UsesTesseractNative>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.App\HyperPdf.App.csproj" />
+    <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\HyperPdf.Core.Tests\Fakes\FakeDocument.cs" Link="Fakes\FakeDocument.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" />
+  </ItemGroup>
+</Project>

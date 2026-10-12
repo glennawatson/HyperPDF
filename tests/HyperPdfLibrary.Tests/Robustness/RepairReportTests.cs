@@ -4,10 +4,10 @@
 
 using System.IO.Compression;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Objects;
-using PdfViewerLite.TestAssets;
 
 namespace HyperPdfLibrary.Tests.Robustness;
 
