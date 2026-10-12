@@ -4,6 +4,7 @@
 
 using System.Text;
 using System.Xml;
+using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
@@ -26,6 +27,9 @@ internal static class InferredTagsXmp
     /// <summary>The property's local name.</summary>
     internal const string Property = "InferredTags";
 
+    /// <summary>The property's value: an XMP Boolean, which is spelled True or False.</summary>
+    internal const string Marked = "True";
+
     /// <summary>The RDF namespace.</summary>
     private const string Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 
@@ -34,6 +38,15 @@ internal static class InferredTagsXmp
 
     /// <summary>The entries of a metadata stream dictionary.</summary>
     private const int MetadataEntries = 2;
+
+    /// <summary>Gets the PDF/A extension schema description of the property.</summary>
+    private static XmpExtensionProperty Extension => new(
+        "HyperPdf optimiser",
+        Namespace,
+        Prefix,
+        Property,
+        "Boolean",
+        "Whether the structure tree was inferred from the page content rather than authored.");
 
     /// <summary>Marks the document.</summary>
     /// <param name="document">The working copy.</param>
@@ -44,8 +57,8 @@ internal static class InferredTagsXmp
         var raw = document.Catalog.GetRaw(KnownName.Metadata);
         if (StoreReading.Resolve(store, raw).AsStream() is { } stream)
         {
-            var change = new XmpChange(new(Prefix, Namespace, Property, XmpShape.Simple), "true");
-            if (!raw.IsReference || XmpEditor.Apply(stream.DecodeToArray(), [change]) is not { } packet)
+            var change = new XmpChange(new(Prefix, Namespace, Property, XmpShape.Simple), Marked);
+            if (!raw.IsReference || XmpEditor.Apply(stream.DecodeToArray(), [change]) is not { } edited || Describe(store, edited) is not { } packet)
             {
                 report.Warn("The XMP packet could not be edited, so it does not say the tags were inferred.");
                 return;
@@ -69,6 +82,16 @@ internal static class InferredTagsXmp
         StoreEditing.Replace(store, catalogRef.AsReference(), PdfValue.FromDictionary(catalog));
     }
 
+    /// <summary>
+    /// Adds the property's extension schema description when the document claims PDF/A parts 1 to 3, which require one
+    /// for every custom property (ISO 19005-1 §6.7.8 as replaced by Cor.1).
+    /// </summary>
+    /// <param name="store">The working store.</param>
+    /// <param name="packet">The edited packet.</param>
+    /// <returns>The packet to write, or <see langword="null"/> when the claim needs a description that cannot be added.</returns>
+    private static byte[]? Describe(PdfObjectStore store, byte[] packet) =>
+        PdfAClaimReading.ReadPart(store) is >= PdfAClaim.Part1 and <= PdfAClaim.Part3 ? XmpExtensionSchemas.Describe(packet, Extension) : packet;
+
     /// <summary>Writes a minimal XMP packet holding only the inferred-tags property.</summary>
     /// <returns>The packet as UTF-8 bytes.</returns>
     private static byte[] NewPacket()
@@ -82,7 +105,7 @@ internal static class InferredTagsXmp
             writer.WriteStartElement("rdf", "RDF", Rdf);
             writer.WriteStartElement("rdf", "Description", Rdf);
             writer.WriteAttributeString("rdf", "about", Rdf, string.Empty);
-            writer.WriteElementString(Prefix, Property, Namespace, "true");
+            writer.WriteElementString(Prefix, Property, Namespace, Marked);
             writer.WriteEndElement();
             writer.WriteEndElement();
             writer.WriteEndElement();

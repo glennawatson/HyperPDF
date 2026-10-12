@@ -4,10 +4,14 @@
 
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Signatures;
 
 namespace HyperPdfLibrary.Writing;
 
-/// <summary>Rewrites a document with first-page and hint sections for linearized PDF readers.</summary>
+/// <summary>
+/// Rewrites a document with first-page and hint sections for linearized PDF readers. A signed document is refused, as no
+/// signature covers the rewritten bytes.
+/// </summary>
 public static class PdfLinearizedWriter
 {
     /// <summary>The maximum layout passes before refusing an unstable file.</summary>
@@ -16,10 +20,11 @@ public static class PdfLinearizedWriter
     /// <summary>Writes the document into a new linearized file array.</summary>
     /// <param name="document">The document to save.</param>
     /// <returns>The file bytes.</returns>
-    /// <exception cref="PdfException">The document cannot be written as a conforming linearized file.</exception>
+    /// <exception cref="PdfException">The document is signed, or cannot be written as a conforming linearized file.</exception>
     public static byte[] Save(PdfDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
+        SignaturePresence.ThrowIfSigned(document.Objects);
         var plan = PdfLinearizationPlan.Create(document, CancellationToken.None);
         return Build(document.Objects, plan, CancellationToken.None);
     }
@@ -29,12 +34,13 @@ public static class PdfLinearizedWriter
     /// <param name="destination">The writable stream.</param>
     /// <param name="cancellationToken">Cancels the save and stream write.</param>
     /// <returns>A task that completes after the output is written.</returns>
-    /// <exception cref="PdfException">The document cannot be written as a conforming linearized file.</exception>
+    /// <exception cref="PdfException">The document is signed, or cannot be written as a conforming linearized file.</exception>
     public static async Task SaveAsync(PdfDocument document, Stream destination, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(destination);
         cancellationToken.ThrowIfCancellationRequested();
+        SignaturePresence.ThrowIfSigned(document.Objects);
         var plan = PdfLinearizationPlan.Create(document, cancellationToken);
         var bytes = Build(document.Objects, plan, cancellationToken);
         await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);

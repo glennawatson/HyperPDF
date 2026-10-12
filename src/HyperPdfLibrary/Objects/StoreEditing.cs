@@ -166,6 +166,17 @@ public static class StoreEditing
         }
     }
 
+    /// <summary>Determines whether a save has anything to write: an object or trailer entry was changed, added or deleted.</summary>
+    /// <param name = "self">The owned object-store state.</param>
+    /// <returns>True when the store differs from its file.</returns>
+    internal static bool HasChanges(PdfObjectStore self)
+    {
+        lock (self.Gate)
+        {
+            return self.EditsState.Count > 0 || self.DeletedState.Count > 0 || self.TrailerEditedState;
+        }
+    }
+
     /// <summary>Forgets every change, after the document has been saved and reopened.</summary>
     /// <param name = "self">The owned object-store state.</param>
     internal static void ClearEdits(PdfObjectStore self)
@@ -175,6 +186,7 @@ public static class StoreEditing
             self.EditsState.Clear();
             self.DeletedState.Clear();
             self.FreedGenerationsState.Clear();
+            self.TrailerEditedState = false;
         }
     }
 

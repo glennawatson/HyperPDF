@@ -145,32 +145,27 @@ public static class PdfIncrementalWriter
         cancellationToken.ThrowIfCancellationRequested();
         StoreRedaction.ThrowIfCompactSaveRequired(store);
         var file = store.Source;
-        if (file.ByteAt(file.Length - 1) is not ('\n' or '\r'))
-        {
-            writer.WriteRaw("\n"u8);
-        }
 
         // A rebuilt table has no section to point /Prev at, so the update must describe every object.
         var standalone = store.WasRepaired || store.StartXref < 0;
 
+        // An unchanged document is saved as its original bytes, which keeps signatures and conformance claims as they were.
+        if (!standalone && !StoreEditing.HasChanges(store))
+        {
+            return;
+        }
+
         // One snapshot of the edits, so an edit made during the save cannot split the update.
         var edits = StoreEditing.GetEditedObjects(store, out var storeSize);
+
+        WriteSeparator(ref writer, file);
         var objects = standalone ? LiveObjects(store, cancellationToken) : edits;
         var rows = new XrefRow[objects.Length + ExtraRows];
         var count = WriteObjects(store, objects, standalone, ref writer, rows, cancellationToken);
         var size = Math.Max(Math.Max(store.Trailer.GetInt32(KnownName.Size), storeSize), objects.Length == 0 ? 0 : objects[^1].Number + 1);
         var trailer = PdfXrefWriter.CreateTrailer(store.Trailer, size, standalone ? -1 : store.StartXref, true);
         PdfXrefWriter.CopyExtraKeys(trailer, store.Trailer);
-
-        // With nothing written the second id part would be constant, so it hashes the original file instead.
-        if (objects.Length == 0)
-        {
-            PdfXrefWriter.SetFileId(trailer, store.Trailer, file, store.Security is not null);
-        }
-        else
-        {
-            PdfXrefWriter.SetFileId(trailer, store.Trailer, writer.WrittenSpan, store.Security is not null);
-        }
+        SetUpdateId(trailer, store, objects.Length > 0, writer.WrittenSpan);
 
         // Offsets count from the header, as viewers read them.
         var relativeOffset = file.Length + writer.Length - store.OffsetBase;
@@ -186,6 +181,37 @@ public static class PdfIncrementalWriter
         PdfXrefWriter.WriteTrailer(ref writer, trailer, relativeOffset);
     }
 
+    /// <summary>Starts the update on a new line when the original file does not end with one.</summary>
+    /// <param name="writer">The writer.</param>
+    /// <param name="file">The original file.</param>
+    private static void WriteSeparator(ref PdfObjectWriter writer, PdfByteSource file)
+    {
+        if (file.ByteAt(file.Length - 1) is not ('\n' or '\r'))
+        {
+            writer.WriteRaw("\n"u8);
+        }
+    }
+
+    /// <summary>
+    /// Sets the update's /ID. With no objects written the second part would be constant, so it hashes the original file
+    /// instead of the update.
+    /// </summary>
+    /// <param name="trailer">The new trailer.</param>
+    /// <param name="store">The document.</param>
+    /// <param name="wroteObjects">Whether the update holds objects.</param>
+    /// <param name="written">The update's bytes so far.</param>
+    private static void SetUpdateId(PdfDictionary trailer, PdfObjectStore store, bool wroteObjects, ReadOnlySpan<byte> written)
+    {
+        if (wroteObjects)
+        {
+            PdfXrefWriter.SetFileId(trailer, store.Trailer, written, store.Security is not null);
+        }
+        else
+        {
+            PdfXrefWriter.SetFileId(trailer, store.Trailer, store.Source, store.Security is not null);
+        }
+    }
+
     /// <summary>Writes the changed objects and fills their cross-reference rows, chaining the free entries of deleted ones.</summary>
     /// <param name="store">The document.</param>
     /// <param name="objects">The objects, ascending.</param>
@@ -194,11 +220,15 @@ public static class PdfIncrementalWriter
     /// <param name="rows">The rows, filled in.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The number of rows.</returns>
+    /// <remarks>
+    /// An update that only changes the trailer also starts with the free list head, as a classic section needs at least
+    /// one subsection (ISO 32000-2 §7.5.4).
+    /// </remarks>
     private static int WriteObjects(PdfObjectStore store, PdfEditedObject[] objects, bool standalone, ref PdfObjectWriter writer, XrefRow[] rows, CancellationToken cancellationToken)
     {
         var count = 0;
         var previousFree = -1;
-        if (standalone || HasDeleted(objects))
+        if (standalone || objects.Length == 0 || HasDeleted(objects))
         {
             rows[count] = XrefRow.FreeHead;
             previousFree = count;

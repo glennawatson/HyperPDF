@@ -69,6 +69,164 @@
         "large"
       ],
       "licence": "Public domain: 2023 US Topo map of West Virginia and Virginia; https://www.usgs.gov/faqs/are-usgs-topographic-maps-copyrighted"
+    },
+    {
+      "id": "verapdf-pdfa1a-unicode-cmap",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-1a/6.3%20Fonts/6.3.8%20Unicode%20character%20maps/veraPDF%20test%20suite%206-3-8-t01-pass-a.pdf",
+      "sha256": "42df79430e88e6ce0e8fbe8f5c81111502d3b28dcb4b3959e76ba6ee3ab4fdc1",
+      "bytes": 10433,
+      "tags": [
+        "pdfa",
+        "pdfa-1a"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa1b-info-title",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-1b/6.7%20Metadata/6.7.3%20Document%20information%20dictionary/veraPDF%20test%20suite%206-7-3-t02-pass-a.pdf",
+      "sha256": "c11a78aeb1e8489eb9f40a1d0948f8f5f6172398c930dbe50227cf68bec8e024",
+      "bytes": 9710,
+      "tags": [
+        "pdfa",
+        "pdfa-1b"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa1b-utf32le-xmp",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-1b/6.7%20Metadata/6.7.9%20Validation/veraPDF%20test%20suite%206-7-9-t04-pass-m.pdf",
+      "sha256": "4150fd739722a1fd85929308d0ed6dd3e96a507311ad88c7e1a7cf5160b3b285",
+      "bytes": 6004,
+      "tags": [
+        "pdfa",
+        "pdfa-1b"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa1b-utf32be-bom-xmp",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-1b/6.7%20Metadata/6.7.9%20Validation/veraPDF%20test%20suite%206-7-9-t04-pass-s.pdf",
+      "sha256": "9f3d4b2b795d583cc471e2d5a2c5479fb6a965709ab87aaf1efdbb04106c7631",
+      "bytes": 6044,
+      "tags": [
+        "pdfa",
+        "pdfa-1b"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa2a-language",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-2a/6.7%20Logical%20structure/6.7.4%20Natural%20language%20specification/veraPDF%20test%20suite%206-7-4-t01-pass-a.pdf",
+      "sha256": "083889b3bfb00f3b2e3224156211dfdd2b7caef3ffa0ade5b87a4cd85761dd7d",
+      "bytes": 18053,
+      "tags": [
+        "pdfa",
+        "pdfa-2a"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa2b-signed",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-2b/6.1%20File%20structure/6.1.12%20Permissions/veraPDF%20test%20suite%206-1-12-t02-pass-a.pdf",
+      "sha256": "072b4eb93c38ab1f50875b4163719ede16ee93def87ad32290a599ce52f92017",
+      "bytes": 11516,
+      "tags": [
+        "pdfa",
+        "pdfa-2b",
+        "signed"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa2b-extension-schemas",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-2b/6.1%20File%20structure/6.1.6%20String%20objects/veraPDF%20test%20suite%206-1-6-t01-pass-a.pdf",
+      "sha256": "93883407b0a18e769b727a93ebcb2da4a643fc637f2e626c4842677cd5627bb4",
+      "bytes": 49935,
+      "tags": [
+        "pdfa",
+        "pdfa-2b"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa2u-tounicode",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-2u/6.2%20Graphics/6.2.11%20Fonts/6.2.11.7%20Unicode%20character%20maps/6.2.11.7.2%20Level%20A%20and%20Level%20U%20conformance/veraPDF%20test%20suite%206-2-11-7-2-t01-pass-a.pdf",
+      "sha256": "312a49dc835643d312960983251df85f747a12d357013ee3426b30c4dd5aaed0",
+      "bytes": 10443,
+      "tags": [
+        "pdfa",
+        "pdfa-2u"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa3b-embedded-file",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-3b/6.8%20Embedded%20files/veraPDF%20test%20suite%206-8-t02-pass-a.pdf",
+      "sha256": "5b8fdee7090f0a0fb7266d10dd0f6f1f8a37d286e3c06b1aa82e01d6d4f0a8a4",
+      "bytes": 4976,
+      "tags": [
+        "pdfa",
+        "pdfa-3b"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa4-signed",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-4/6.1%20File%20structure/6.1.11%20Permissions/veraPDF%20test%20suite%206-1-11-t01-pass-a.pdf",
+      "sha256": "0f9d20855519c455802a8d85e6b5afac9ec65719421a02973977e3447cba3419",
+      "bytes": 7207,
+      "tags": [
+        "pdfa",
+        "pdfa-4",
+        "signed"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa4-pieceinfo",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-4/6.1%20File%20structure/6.1.3%20File%20trailer/veraPDF%20test%20suite%206-1-3-t04-pass-a.pdf",
+      "sha256": "2e029d374bc1f87b115926f095c1359b9c230423606a172dd97a249201f7834d",
+      "bytes": 3323,
+      "tags": [
+        "pdfa",
+        "pdfa-4"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa4e-embedded-file",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-4e/6.9%20Embedded%20files/veraPDF%20test%20suite%206-9-t01-pass-a.pdf",
+      "sha256": "04cfc2da39404fab74de6c2adbe0447de2e2c67b9845e5cabc6e66b246220459",
+      "bytes": 30162,
+      "tags": [
+        "pdfa",
+        "pdfa-4e"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-pdfa4f-embedded-file",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_A-4f/6.9%20Embedded%20files/veraPDF%20test%20suite%206-9-t01-pass-a.pdf",
+      "sha256": "841235d5c5b0c3f217a60fb54d620e42ee2f73779594f87d10a0d677f5037d8c",
+      "bytes": 6003,
+      "tags": [
+        "pdfa",
+        "pdfa-4f"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test corpus; see ATTRIBUTION.md"
     }
   ]
 }

@@ -5,15 +5,13 @@
 using HyperPdfLibrary;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Signatures;
 using HyperPdfLibrary.Writing;
 namespace HyperPdf.Engine;
 
 /// <summary>Performs HyperPdfAnnotationSaving annotation operations.</summary>
 internal static class HyperPdfAnnotationSaving
 {
-    /// <summary>How deep the form field tree is searched for signatures.</summary>
-    internal const int MaxFieldDepth = 32;
-
     /// <summary>
     /// Saves the document to a stream. Documents with digital signatures are saved incrementally so the signatures stay
     /// valid; others are saved compactly.
@@ -35,7 +33,7 @@ internal static class HyperPdfAnnotationSaving
             var hidden = HideRemoved(annotationState);
             try
             {
-                if (HasSignedFields(annotationState.Store.Catalog.GetDictionary(KnownName.AcroForm)?.GetArray(KnownName.Fields), 0))
+                if (SignaturePresence.HasSignature(annotationState.Store))
                 {
                     PdfIncrementalWriter.Save(annotationState.Store, destination);
                 }
@@ -84,7 +82,7 @@ internal static class HyperPdfAnnotationSaving
             try
             {
                 // Both writers build their detached output before their first await.
-                write = HasSignedFields(annotationState.Store.Catalog.GetDictionary(KnownName.AcroForm)?.GetArray(KnownName.Fields), 0)
+                write = SignaturePresence.HasSignature(annotationState.Store)
                     ? PdfIncrementalWriter.SaveAsync(annotationState.Store, destination, cancellationToken)
                     : PdfCompactWriter.SaveAsync(annotationState.Store, PdfCompactOptions.Default, destination, cancellationToken);
             }
@@ -95,33 +93,6 @@ internal static class HyperPdfAnnotationSaving
 
             return true;
         }
-    }
-
-    /// <summary>Determines whether a field list holds a signed signature field: <c>/FT /Sig</c> with a <c>/V</c>.</summary>
-    /// <param name="fields">The fields, or their kids.</param>
-    /// <param name="depth">How deep in the field tree the list is.</param>
-    /// <returns><see langword="true"/> when one is signed.</returns>
-    internal static bool HasSignedFields(PdfArray? fields, int depth)
-    {
-        if (fields is null || depth > MaxFieldDepth)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < fields.Count; i++)
-        {
-            if (fields.GetDictionary(i) is not { } field)
-            {
-                continue;
-            }
-
-            if ((field.IsName(KnownName.FT, KnownName.Sig) && !field.Get(KnownName.V).IsNull) || HasSignedFields(field.GetArray(KnownName.Kids), depth + 1))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Takes annotations removed but kept off their pages for saving.</summary>

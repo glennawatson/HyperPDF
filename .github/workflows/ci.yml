@@ -55,3 +55,40 @@ jobs:
             ${{ runner.temp }}/comparison-firefox/*.log
             ${{ runner.temp }}/comparison-firefox/source.txt
           if-no-files-found: warn
+  pdfa-validation:
+    name: PDF/A output validation (veraPDF)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Setup .NET
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@b824c637960b1886a6a30a2526856bbf017661cf
+        with:
+          src-folder: '.'
+          stamp-version: 'false'
+          dotnet-versions: '11.x'
+      - name: Setup Java for veraPDF
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install verified veraPDF
+        id: verapdf
+        run: dotnet run --file scripts/InstallVeraPdf.cs -- "${{ runner.temp }}/verapdf"
+      - name: Fetch verified veraPDF corpus files
+        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/pdfa-corpus" verapdf-pdfa1a-unicode-cmap verapdf-pdfa1b-info-title verapdf-pdfa1b-utf32le-xmp verapdf-pdfa1b-utf32be-bom-xmp verapdf-pdfa2a-language verapdf-pdfa2b-signed verapdf-pdfa2b-extension-schemas verapdf-pdfa2u-tounicode verapdf-pdfa3b-embedded-file verapdf-pdfa4-signed verapdf-pdfa4-pieceinfo verapdf-pdfa4e-embedded-file verapdf-pdfa4f-embedded-file
+      - name: Validate PDF/A output with veraPDF
+        env:
+          PDFVIEWERLITE_VERAPDF: ${{ steps.verapdf.outputs.verapdf-home }}
+          PDFVIEWERLITE_REQUIRE_VERAPDF: '1'
+          PDFVIEWERLITE_PDFA_CORPUS_DIR: ${{ runner.temp }}/pdfa-corpus
+          PDFVIEWERLITE_PDFA_OUTPUT: ${{ runner.temp }}/pdfa-output
+        run: dotnet run --project "${{ github.workspace }}/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*' --report-trx --results-directory "${{ runner.temp }}/pdfa-output"
+      - name: Upload PDF/A outputs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pdfa-validation
+          path: ${{ runner.temp }}/pdfa-output
+          if-no-files-found: warn

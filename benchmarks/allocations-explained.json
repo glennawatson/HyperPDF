@@ -482,6 +482,11 @@
     "reason": "The edit transaction's touched-object set grows while a page edit records the objects it will be able to undo."
   },
   {
+    "type": "Entry[System.Int32][]",
+    "frame": "HyperPdfLibrary.Objects.StoreEditing.Replace(",
+    "reason": "The edit transaction's touched-object set is a HashSet<int>; its entry array grows with its bucket array when an edit records a further object for undo, once per growth in a user edit."
+  },
+  {
     "type": "HyperPdfLibrary.Editing.PdfObjectState[]",
     "frame": "HyperPdfLibrary.Objects.StoreEditing.Replace(",
     "reason": "The edit transaction's before-state list grows to retain the original objects for undo."

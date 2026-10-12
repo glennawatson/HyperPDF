@@ -131,10 +131,10 @@ public sealed class WriterFixTests
         await Assert.That(plain.ContainsKey(KnownName.ID)).IsTrue();
     }
 
-    /// <summary>Saving without edits still gives each document its own second id part.</summary>
+    /// <summary>An update that only changes the trailer still gives each document its own second id part.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task ZeroEditSaveHashesTheOriginalFile()
+    public async Task TrailerOnlySaveHashesTheOriginalFile()
     {
         var first = SecondId(TestPdf.Create(1));
         var second = SecondId(TestPdf.Create(PageCount));
@@ -274,12 +274,15 @@ public sealed class WriterFixTests
         return PdfIncrementalWriter.Save(store);
     }
 
-    /// <summary>Saves a document without edits and reads the second id part.</summary>
+    /// <summary>Saves a document with only a trailer edit and reads the second id part.</summary>
     /// <param name="file">The file.</param>
     /// <returns>The second id part.</returns>
     private static byte[] SecondId(byte[] file)
     {
         using var store = StoreOpening.Open(file, null);
+        var transaction = StoreTransactions.BeginTransaction(store, "Trailer");
+        transaction.SetTrailerEntry(store.Names.Intern(TrailerKey), PdfValue.FromInteger(TrailerValue));
+        transaction.Commit();
         using var reopened = StoreOpening.Open(PdfIncrementalWriter.Save(store), null);
         return reopened.Trailer.GetArray(KnownName.ID)?.Get(1).AsStringBytes().ToArray() ?? [];
     }

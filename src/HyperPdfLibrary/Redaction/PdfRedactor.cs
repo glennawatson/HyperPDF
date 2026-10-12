@@ -8,6 +8,7 @@ using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.PageObjects;
+using HyperPdfLibrary.Signatures;
 using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Redaction;
@@ -17,6 +18,7 @@ namespace HyperPdfLibrary.Redaction;
 /// glyphs, image pixels, line art, links, widgets and other annotations under the areas go from the page, not just out of
 /// sight. Applying cannot be undone once the file is saved, and the document can only be saved compactly afterwards:
 /// <see cref = "StoreRedaction.RequiresCompactSave"/> stops an incremental update, which would keep the removed bytes.
+/// Applying also removes every signature, as no signature can cover the rewritten file.
 /// </summary>
 public static class PdfRedactor
 {
@@ -125,6 +127,9 @@ public static class PdfRedactor
         {
             MetadataScrubber.Scrub(state.Document.Objects, transaction);
         }
+
+        // The compact save rewrites every byte, so no signature can still cover the redacted file.
+        _ = SignatureRemoval.Remove(state.Document.Objects, transaction);
     }
 
     /// <summary>Applies the marks of one page.</summary>

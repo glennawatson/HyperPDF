@@ -88,6 +88,43 @@ public sealed class IncrementalWriterTests
         await Assert.That(update).DoesNotContain("incrementally");
     }
 
+    /// <summary>A save without edits gives back the original bytes from every overload, for classic and stream sections (#178).</summary>
+    /// <param name="compressed">Whether the document uses a cross-reference stream.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task UneditedSaveCopiesTheOriginalBytes(bool compressed)
+    {
+        var original = compressed ? TestPdf.CreateCompressed() : TestPdf.Create(PageCount);
+        using var store = StoreOpening.Open(original, null);
+        await using var synchronous = new MemoryStream();
+        PdfIncrementalWriter.Save(store, synchronous);
+        await using var asynchronous = new MemoryStream();
+        await PdfIncrementalWriter.SaveAsync(store, asynchronous, CancellationToken.None);
+        await Assert.That(PdfIncrementalWriter.Save(store)).IsEquivalentTo(original);
+        await Assert.That(synchronous.ToArray()).IsEquivalentTo(original);
+        await Assert.That(asynchronous.ToArray()).IsEquivalentTo(original);
+    }
+
+    /// <summary>An update that only changes the trailer writes a classic section with a subsection, which readers accept without repair.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TrailerOnlyUpdateWritesASubsection()
+    {
+        var original = TestPdf.Create(PageCount);
+        using var store = StoreOpening.Open(original, null);
+        var transaction = StoreTransactions.BeginTransaction(store, "Trailer");
+        transaction.SetTrailerEntry(store.Names.Intern(MarkerKey), PdfValue.FromInteger(PageCount));
+        transaction.Commit();
+        var saved = PdfIncrementalWriter.Save(store);
+        var update = Encoding.Latin1.GetString(saved, original.Length, saved.Length - original.Length);
+        using var reopened = StoreOpening.Open(saved, null);
+        await Assert.That(update).Contains("xref\n0 1\n0000000000 65535 f");
+        await Assert.That(reopened.WasRepaired).IsFalse();
+        await Assert.That(reopened.Trailer.Get(reopened.Names.Intern(MarkerKey)).AsInteger()).IsEqualTo(PageCount);
+    }
+
     /// <summary>Opens a document, adds the marker and saves incrementally.</summary>
     /// <param name="original">The original file.</param>
     /// <returns>The saved file.</returns>

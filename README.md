@@ -116,6 +116,33 @@ scripts/publish-linux.sh linux-x64
 
 Install a Linux build with `packaging/linux/install.sh`. See [development rules](AGENTS.md).
 
+### Check PDF/A output
+
+The PDF/A tests check every file the library writes with [veraPDF](https://verapdf.org/), the reference PDF/A validator. veraPDF runs as a separate Java program; it is not part of the library. Without it the tests skip. To run them:
+
+1. Install Java 11 or later.
+2. Install veraPDF into a folder of your choice:
+
+   ```bash
+   dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/pdfviewerlite/verapdf
+   ```
+
+3. Optionally fetch the veraPDF corpus files the tests also read:
+
+   ```bash
+   dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/pdfviewerlite/pdfa-corpus verapdf-pdfa1a-unicode-cmap verapdf-pdfa1b-info-title verapdf-pdfa1b-utf32le-xmp verapdf-pdfa1b-utf32be-bom-xmp verapdf-pdfa2a-language verapdf-pdfa2b-signed verapdf-pdfa2b-extension-schemas verapdf-pdfa2u-tounicode verapdf-pdfa3b-embedded-file verapdf-pdfa4-signed verapdf-pdfa4-pieceinfo verapdf-pdfa4e-embedded-file verapdf-pdfa4f-embedded-file
+   ```
+
+4. Run the tests with the folders set:
+
+   ```bash
+   export PDFVIEWERLITE_VERAPDF=~/.cache/pdfviewerlite/verapdf
+   export PDFVIEWERLITE_PDFA_CORPUS_DIR=~/.cache/pdfviewerlite/pdfa-corpus
+   dotnet run --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*'
+   ```
+
+Set `PDFVIEWERLITE_PDFA_OUTPUT` to a folder to keep the files the tests write.
+
 ## Report a problem
 
 Report a problem with the [bug form](https://github.com/glennawatson/HyperPDF/issues/new?template=bugs.yml). Suggest a change with the [feature form](https://github.com/glennawatson/HyperPDF/issues/new?template=features.yml).

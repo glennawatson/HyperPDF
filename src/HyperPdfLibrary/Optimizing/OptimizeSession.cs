@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Signatures;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -138,43 +139,8 @@ internal sealed partial class OptimizeSession : IObjectTransformer
     /// <summary>Determines whether a document has a signature: a filled signature field, or usage rights or modification detection permissions.</summary>
     /// <param name="document">The document.</param>
     /// <returns><see langword="true"/> when it is signed.</returns>
-    private static bool IsSigned(PdfDocument document)
-    {
-        if (document.Catalog.ContainsKey(KnownName.Perms) || PdfDocumentAttachments.GetSignatures(document).Count > 0)
-        {
-            return true;
-        }
-
-        var fields = document.Catalog.GetDictionary(KnownName.AcroForm)?.GetArray(KnownName.Fields);
-        return fields is not null && HasSignedField(fields, 0);
-    }
-
-    /// <summary>Looks through a field tree for a signature field with a value.</summary>
-    /// <param name="fields">The fields.</param>
-    /// <param name="depth">The nesting depth.</param>
-    /// <returns><see langword="true"/> when one is found.</returns>
-    private static bool HasSignedField(PdfArray fields, int depth)
-    {
-        if (depth > PdfLimits.MaxNesting)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < fields.Count; i++)
-        {
-            if (fields.GetDictionary(i) is not { } field)
-            {
-                continue;
-            }
-
-            if ((field.IsName(KnownName.FT, KnownName.Sig) && !field.GetRaw(KnownName.V).IsNull) || (field.GetArray(KnownName.Kids) is { } kids && HasSignedField(kids, depth + 1)))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    private static bool IsSigned(PdfDocument document) =>
+        PdfDocumentAttachments.GetSignatures(document).Count > 0 || SignaturePresence.HasSignature(document.Objects);
 
     /// <summary>Compares two PDF versions such as "1.4" and "2.0".</summary>
     /// <param name="version">The version.</param>
