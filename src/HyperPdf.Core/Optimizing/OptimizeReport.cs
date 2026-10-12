@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Core.Archiving;
 
 namespace HyperPdf.Core.Optimizing;
 
@@ -40,4 +41,10 @@ public sealed record OptimizeReport(
 
     /// <summary>Gets the PDF/A part the document claims, or zero when it claims none.</summary>
     public int PdfAPart { get; init; }
+
+    /// <summary>
+    /// Gets the PDF/A claim the copy lost because it no longer met the level, or <see langword="null"/> when the copy kept
+    /// its claim or had none.
+    /// </summary>
+    public ArchiveClaimRemoval? ClaimRemoved { get; init; }
 }

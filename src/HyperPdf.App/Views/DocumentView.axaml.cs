@@ -914,13 +914,29 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         context.SetOutput(RxVoid.Default);
     }
 
-    /// <summary>Binds the menu items that write a new copy: the optimised copy and the redacted copy, with their windows.</summary>
+    /// <summary>Shows the "Save PDF/A Copy" window.</summary>
+    /// <param name="context">The interaction context, holding the request.</param>
+    /// <returns>A task.</returns>
+    private async Task ShowArchiveAsync(IInteractionContext<ArchiveCopyViewModel, RxVoid> context)
+    {
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            await new ArchiveCopyWindow { ViewModel = context.Input }.ShowDialog(owner);
+        }
+
+        context.SetOutput(RxVoid.Default);
+    }
+
+    /// <summary>Binds the menu items that write a new copy: the optimised, PDF/A and redacted copies, with their windows.</summary>
     /// <param name="bindings">The bindings.</param>
     private void BindRedaction(MultipleDisposable bindings)
     {
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.OptimizeCopyCommand, static v => v.OptimizeCopyItem));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.OptimizeMenuText, static v => v.OptimizeCopyItem.Header));
         bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.OptimizeInteraction), ShowOptimizeAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.ArchiveCopyCommand, static v => v.ArchiveCopyItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ArchiveMenuText, static v => v.ArchiveCopyItem.Header));
+        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.ArchiveInteraction), ShowArchiveAsync));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.ApplyRedactionsCommand, static v => v.ApplyRedactionsItem));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.RedactMenuText, static v => v.ApplyRedactionsItem.Header));
         bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.RedactInteraction), ShowRedactionAsync));

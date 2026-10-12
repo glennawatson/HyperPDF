@@ -21,11 +21,12 @@ internal static class DocumentSave
         var temporary = $"{path}.saving";
         var serialized = false;
         var published = false;
+        var report = new DocumentSaveReport();
         try
         {
             using (var stream = File.Create(temporary))
             {
-                serialized = editor.Save(stream);
+                serialized = editor.Save(stream, report);
             }
 
             if (!serialized)
@@ -36,7 +37,7 @@ internal static class DocumentSave
             FileReplacement.Replace(temporary, path);
             published = true;
             source.MarkSavePublished();
-            return new(true, null);
+            return new(true, null, report.ClaimRemoved);
         }
         catch (IOException ex)
         {
@@ -63,12 +64,13 @@ internal static class DocumentSave
         var temporary = $"{path}.saving";
         var serialized = false;
         var published = false;
+        var report = new DocumentSaveReport();
         try
         {
             var options = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write, Share = FileShare.None, Options = FileOptions.Asynchronous };
             await using (var stream = new FileStream(temporary, options))
             {
-                serialized = await editor.SaveAsync(stream, cancellationToken).ConfigureAwait(true);
+                serialized = await editor.SaveAsync(stream, report, cancellationToken).ConfigureAwait(true);
             }
 
             if (!serialized)
@@ -79,7 +81,7 @@ internal static class DocumentSave
             FileReplacement.Replace(temporary, path);
             published = true;
             source.MarkSavePublished();
-            return new(true, null);
+            return new(true, null, report.ClaimRemoved);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

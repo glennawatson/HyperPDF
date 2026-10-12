@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Annotations;
+using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Attachments;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
@@ -78,6 +79,7 @@ internal static class HyperPdfFeatureRegistry
         _ when featureType == typeof(IDocumentRedactor) => FeatureSlot.Redactor,
         _ when featureType == typeof(IRepairReport) => FeatureSlot.RepairReport,
         _ when featureType == typeof(ITaggedStructureSource) => FeatureSlot.TaggedStructure,
+        _ when featureType == typeof(IArchiveCopyWriter) => FeatureSlot.ArchiveCopyWriter,
         _ when featureType == typeof(ITextLayoutSource) => FeatureSlot.TextLayout,
         _ => FeatureSlot.None,
     };
@@ -134,6 +136,7 @@ internal static class HyperPdfFeatureRegistry
         FeatureSlot.Redactor => new HyperPdfDocumentRedactorService(owner),
         FeatureSlot.RepairReport => new HyperPdfRepairReportService(owner),
         FeatureSlot.TaggedStructure => new HyperPdfTaggedStructureSourceService(owner),
+        FeatureSlot.ArchiveCopyWriter => new HyperPdfArchiveCopyWriterService(owner),
         _ => new HyperPdfTextLayoutSourceService(owner),
     };
 

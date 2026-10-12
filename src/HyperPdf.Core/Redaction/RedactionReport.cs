@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Core.Archiving;
 
 namespace HyperPdf.Core.Redaction;
 
@@ -18,4 +19,10 @@ public sealed record RedactionReport(int Areas, int Pages, int Characters, int P
 {
     /// <summary>Gets a value indicating whether nothing was marked.</summary>
     public bool NothingMarked => Areas == 0;
+
+    /// <summary>
+    /// Gets the PDF/A claim the redacted copy lost because it no longer met the level, or <see langword="null"/> when the
+    /// copy kept its claim or had none.
+    /// </summary>
+    public ArchiveClaimRemoval? ClaimRemoved { get; init; }
 }

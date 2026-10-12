@@ -159,6 +159,7 @@
                 <MenuItem x:Name="SaveItem" views:ControlHelp.Text="{x:Static views:Descriptions.Save}" Header="_Save" InputGesture="Ctrl+S" />
                 <MenuItem x:Name="SaveAsItem" views:ControlHelp.Text="{x:Static views:Descriptions.SaveAs}" Header="Save _As…" InputGesture="Ctrl+Shift+S" />
                 <MenuItem x:Name="OptimizeCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.OptimizeCopy}" Header="Save _Optimised Copy…" />
+                <MenuItem x:Name="ArchiveCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.ArchiveCopy}" Header="Save P_DF/A Copy…" />
                 <MenuItem x:Name="ApplyRedactionsItem" views:ControlHelp.Text="{x:Static views:Descriptions.ApplyRedactions}" Header="Apply _Redactions…" />
                 <MenuItem x:Name="SelectAllItem" views:ControlHelp.Text="{x:Static views:Descriptions.SelectAll}" Header="Select A_ll Text on Page" InputGesture="Ctrl+A" />
                 <MenuItem x:Name="ReloadItem" views:ControlHelp.Text="{x:Static views:Descriptions.Reload}" Header="Re_load" InputGesture="F5" />

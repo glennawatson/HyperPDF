@@ -4,8 +4,10 @@
 
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
+using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdfLibrary;
+using HyperPdfLibrary.Writing;
 using AnnotationKind = global::HyperPdf.Core.Annotations.AnnotationKind;
 
 namespace HyperPdf.Engine;
@@ -350,8 +352,9 @@ internal static class HyperPdfDocumentAnnotationEditing
     /// </summary>
     /// <param name="self">The owning document.</param>
     /// <param name="destination">The stream to write to.</param>
+    /// <param name="report">Receives what the save found, or <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when saved.</returns>
-    internal static bool Save(HyperPdfDocument self, Stream destination)
+    internal static bool Save(HyperPdfDocument self, Stream destination, DocumentSaveReport? report)
     {
         ArgumentNullException.ThrowIfNull(destination);
         lock (self.EditGate)
@@ -363,11 +366,13 @@ internal static class HyperPdfDocumentAnnotationEditing
             }
 
             var version = Volatile.Read(ref self.EditVersion);
-            if (!HyperPdfAnnotationSaving.Save(HyperPdfAnnotationStateAccess.GetAnnotations(self), destination))
+            var save = new PdfSaveReport();
+            if (!HyperPdfAnnotationSaving.Save(HyperPdfAnnotationStateAccess.GetAnnotations(self), destination, save))
             {
                 return false;
             }
 
+            report?.ClaimRemoved = ArchiveMapping.ToRemoval(save.Claim);
             Volatile.Write(ref self.SavedVersion, version);
             return true;
         }
@@ -376,15 +381,17 @@ internal static class HyperPdfDocumentAnnotationEditing
     /// <summary>Builds a stable annotation snapshot, then writes it without holding edit locks.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="destination">The output stream.</param>
+    /// <param name="report">Receives what the save found, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels building and writing.</param>
     /// <returns>Whether the snapshot was saved.</returns>
-    internal static ValueTask<bool> SaveAsync(HyperPdfDocument self, Stream destination, CancellationToken cancellationToken)
+    internal static ValueTask<bool> SaveAsync(HyperPdfDocument self, Stream destination, DocumentSaveReport? report, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(destination);
         cancellationToken.ThrowIfCancellationRequested();
         Task write;
         HyperPdfAnnotations state;
         long version;
+        var save = new PdfSaveReport();
         lock (self.EditGate)
         {
             using var access = HyperPdfNavigation.EnterPageWrite(self);
@@ -397,7 +404,7 @@ internal static class HyperPdfDocumentAnnotationEditing
             state = HyperPdfAnnotationStateAccess.GetAnnotations(self);
             try
             {
-                if (!HyperPdfAnnotationSaving.TryStartSaveAsync(state, destination, cancellationToken, out write))
+                if (!HyperPdfAnnotationSaving.TryStartSaveAsync(state, destination, save, cancellationToken, out write))
                 {
                     return ValueTask.FromResult(false);
                 }
@@ -408,7 +415,7 @@ internal static class HyperPdfDocumentAnnotationEditing
             }
         }
 
-        return FinishSaveAsync(self, state, version, write);
+        return FinishSaveAsync(self, state, version, write, new(save, report));
     }
 
     /// <summary>Marks a snapshot saved only when no later edit replaced it.</summary>
@@ -416,8 +423,9 @@ internal static class HyperPdfDocumentAnnotationEditing
     /// <param name="state">The annotation state captured for the write.</param>
     /// <param name="version">The captured edit version.</param>
     /// <param name="write">The pending output write.</param>
+    /// <param name="reports">The writer's report and the caller's, which receives what the save found.</param>
     /// <returns>Whether the write completed.</returns>
-    private static async ValueTask<bool> FinishSaveAsync(HyperPdfDocument self, HyperPdfAnnotations state, long version, Task write)
+    private static async ValueTask<bool> FinishSaveAsync(HyperPdfDocument self, HyperPdfAnnotations state, long version, Task write, SaveReports reports)
     {
         try
         {
@@ -427,6 +435,8 @@ internal static class HyperPdfDocumentAnnotationEditing
         {
             return false;
         }
+
+        reports.Caller?.ClaimRemoved = ArchiveMapping.ToRemoval(reports.Writer.Claim);
 
         lock (self.EditGate)
         {

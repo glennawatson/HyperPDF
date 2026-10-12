@@ -126,7 +126,7 @@ public sealed class HyperPdfPageManagerTests
         await Assert.That(await manager.RedoAsync(CancellationToken.None)).IsTrue();
         await Assert.That(Texts(document)).IsEqualTo(expected);
         await using var saved = new MemoryStream();
-        await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.Save(document, saved)).IsTrue();
+        await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.Save(document, saved, null)).IsTrue();
         using var reopened = new HyperPdfTestDocument(saved.ToArray());
         await Assert.That(reopened.Document.PageCount).IsEqualTo(document.PageCount);
         if (kind != PageEditKind.Rotate)
@@ -157,7 +157,7 @@ public sealed class HyperPdfPageManagerTests
             await Assert.That(document.PageCount).IsEqualTo(1);
             await Assert.That(await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).RedoAsync(CancellationToken.None)).IsTrue();
             await using var saved = new MemoryStream();
-            await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.Save(document, saved)).IsTrue();
+            await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.Save(document, saved, null)).IsTrue();
             using var reopened = new HyperPdfTestDocument(saved.ToArray());
             await AssertStructures(reopened.Document);
         }
@@ -271,7 +271,7 @@ public sealed class HyperPdfPageManagerTests
         await Assert.That(restored.Exists(static annotation => annotation.Contents == RemovedNote)).IsTrue();
         await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.SetRemoved(document, destination, removed, true)).IsTrue();
         await using var saved = new MemoryStream();
-        await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.Save(document, saved)).IsTrue();
+        await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.Save(document, saved, null)).IsTrue();
         using var reopened = new HyperPdfTestDocument(saved.ToArray());
         await AssertNotes(reopened.Document, expected);
     }

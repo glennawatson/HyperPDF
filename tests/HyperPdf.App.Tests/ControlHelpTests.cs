@@ -91,6 +91,7 @@ public sealed class ControlHelpTests
             new SignaturesWindow(),
             new CertificateSignWindow(),
             new OptimizeCopyWindow(),
+            new ArchiveCopyWindow(),
             new Window { Content = new LayerItemView() },
         ];
         foreach (var window in windows)

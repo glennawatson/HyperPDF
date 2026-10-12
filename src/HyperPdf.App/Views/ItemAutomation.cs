@@ -104,6 +104,7 @@ internal static class ItemAutomation
         OutlineItemViewModel entry => entry.Title,
         RememberedCertificate certificate => DescribeCertificate(certificate),
         OptimizePresetChoice preset => $"{preset.Name}. {preset.Description}",
+        ArchiveLevelChoice level => $"{level.Name}. {level.Description}",
         string text => text,
         _ => count > 0 ? string.Create(CultureInfo.CurrentCulture, $"Item {index + 1} of {count}") : null,
     };

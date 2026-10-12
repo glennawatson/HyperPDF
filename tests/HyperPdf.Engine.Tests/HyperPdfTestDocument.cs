@@ -77,7 +77,7 @@ internal sealed class HyperPdfTestDocument : IDisposable
     internal static byte[] Save(HyperPdfAnnotations editor)
     {
         using var stream = new MemoryStream();
-        _ = HyperPdfAnnotationSaving.Save(editor, stream);
+        _ = HyperPdfAnnotationSaving.Save(editor, stream, new());
         return stream.ToArray();
     }
 

@@ -34,39 +34,42 @@ internal enum FeatureSlot
     /// <summary>The tagged structure source.</summary>
     TaggedStructure = 7,
 
+    /// <summary>The PDF/A copy writer.</summary>
+    ArchiveCopyWriter = 8,
+
     /// <summary>The text layout source, the last document service.</summary>
-    TextLayout = 8,
+    TextLayout = 9,
 
     /// <summary>The page management source, the first editing service.</summary>
-    PageManagement = 9,
+    PageManagement = 10,
 
     /// <summary>The annotation editor.</summary>
-    AnnotationEditor = 10,
+    AnnotationEditor = 11,
 
     /// <summary>The text box editor.</summary>
-    TextBoxEditor = 11,
+    TextBoxEditor = 12,
 
     /// <summary>The image signature editor.</summary>
-    ImageSignatureEditor = 12,
+    ImageSignatureEditor = 13,
 
     /// <summary>The text layer writer.</summary>
-    TextLayerWriter = 13,
+    TextLayerWriter = 14,
 
     /// <summary>The page exporter, the last editing service.</summary>
-    PageExporter = 14,
+    PageExporter = 15,
 
     /// <summary>The form order, the first form service.</summary>
-    FormOrder = 15,
+    FormOrder = 16,
 
     /// <summary>The form actions.</summary>
-    FormActions = 16,
+    FormActions = 17,
 
     /// <summary>The form highlight.</summary>
-    FormHighlight = 17,
+    FormHighlight = 18,
 
     /// <summary>The form filler.</summary>
-    FormFiller = 18,
+    FormFiller = 19,
 
     /// <summary>The form script source, the last service.</summary>
-    FormScripts = 19,
+    FormScripts = 20,
 }

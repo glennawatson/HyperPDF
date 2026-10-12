@@ -805,6 +805,28 @@ public static class TestPdf
         return Serialize(objects, catalog, info);
     }
 
+    /// <summary>
+    /// Creates a one page file whose XMP claims PDF/A-2b but whose form asks viewers to redraw its fields
+    /// (<c>/NeedAppearances true</c>), which PDF/A forbids; saving it drops the claim.
+    /// </summary>
+    /// <returns>The PDF bytes.</returns>
+    public static byte[] CreateWithFalsePdfAClaim()
+    {
+        const string packet = "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\">"
+            + "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:pdfaid=\"http://www.aiim.org/pdfa/ns/id/\">"
+            + "<pdfaid:part>2</pdfaid:part><pdfaid:conformance>B</pdfaid:conformance></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end=\"w\"?>";
+        var objects = new List<string>();
+        var catalog = Reserve(objects);
+        var pages = Reserve(objects);
+        var page = Reserve(objects);
+        var metadata = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Type /Metadata /Subtype /XML /Length {packet.Length} >>\nstream\n{packet}\nendstream"));
+        objects[page - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {PortraitWidth} {PortraitHeight}] >>");
+        objects[pages - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{page} 0 R] /Count 1 >>");
+        objects[catalog - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Catalog /Pages {pages} 0 R /Metadata {metadata} 0 R /AcroForm << /Fields [] /NeedAppearances true >> >>");
+        var info = Add(objects, $"<< /Author ({Author}) >>");
+        return Serialize(objects, catalog, info);
+    }
+
     /// <summary>Writes a PDF to a new temporary file.</summary>
     /// <param name="pageCount">The number of pages.</param>
     /// <returns>The file path.</returns>

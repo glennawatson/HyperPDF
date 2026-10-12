@@ -138,6 +138,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         _canGoBack = this.WhenChanged(static vm => vm.CanGoBack);
         _canGoForward = this.WhenChanged(static vm => vm.CanGoForward);
         _canOptimize = this.WhenChanged(static vm => vm.CanOptimize);
+        _canArchive = this.WhenChanged(static vm => vm.CanArchive);
         _canRedact = this.WhenChanged(static vm => vm.CanRedact);
 
         NavigationRequests = new(_navigationRequests);
@@ -932,6 +933,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         {
             Notice = $"Could not save: {error}";
         }
+        else if (outcome.ClaimRemoved is { } removal)
+        {
+            Notice = ArchiveText.ClaimRemovedNotice(removal);
+        }
 
         HasUnsavedChanges = Source.HasUnsavedChanges;
         return outcome.Saved;
@@ -1011,6 +1016,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Attachments.Refresh();
         Layers.Refresh();
         RefreshOptimize(document);
+        RefreshArchive(document);
         RefreshRedaction(document);
         _pages?.Refresh();
         if (!IsSecondaryView)

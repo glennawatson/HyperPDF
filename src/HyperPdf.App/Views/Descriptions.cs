@@ -871,6 +871,25 @@ public static class Descriptions
     public static readonly string OptimizeCopy =
         "Save a smaller or more accessible copy of this document. Your open file is never changed.";
 
+    /// <summary>The Save PDF/A Copy menu item.</summary>
+    public static readonly string ArchiveCopy =
+        "Save a PDF/A copy of this document, made for keeping for many years. Your open file is never changed.";
+
+    /// <summary>The level choices of the PDF/A copy window.</summary>
+    public static readonly string ArchiveLevels = "Choose the PDF/A level the copy must meet. Use the arrow keys to move between the choices.";
+
+    /// <summary>The busy bar of the PDF/A copy window.</summary>
+    public static readonly string ArchiveProgress = "Moves while the copy is being made.";
+
+    /// <summary>The save button of the PDF/A copy window.</summary>
+    public static readonly string ArchiveSave = "Choose where to save the copy, then make it. The open file is never replaced.";
+
+    /// <summary>The cancel button of the PDF/A copy window.</summary>
+    public static readonly string ArchiveCancel = "Stop making the copy. No file is saved.";
+
+    /// <summary>The summary of the PDF/A copy window.</summary>
+    public static readonly string ArchiveResult = "What the copy changed to meet the level, or why it could not be made.";
+
     /// <summary>The size choices of the optimised copy window.</summary>
     public static readonly string OptimizePresets = "Choose how much picture detail may be traded for a smaller file. Use the arrow keys to move between the choices.";
 

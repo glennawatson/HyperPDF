@@ -183,6 +183,12 @@ public interface IAnnotationEditor : IDocumentFeature
     /// <returns><see langword="true"/> when saved.</returns>
     bool Save(Stream destination);
 
+    /// <summary>Saves the document to a stream and reports what the user should know, such as a removed PDF/A claim.</summary>
+    /// <param name="destination">The stream to write to.</param>
+    /// <param name="report">Receives what the save found.</param>
+    /// <returns><see langword="true"/> when saved.</returns>
+    bool Save(Stream destination, DocumentSaveReport report) => Save(destination);
+
     /// <summary>Saves the document to a stream with cancellable output I/O.</summary>
     /// <param name="destination">The stream receiving the document.</param>
     /// <param name="cancellationToken">Cancels preparation and writing.</param>
@@ -192,4 +198,11 @@ public interface IAnnotationEditor : IDocumentFeature
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.FromResult(Save(destination));
     }
+
+    /// <summary>Saves the document to a stream with cancellable output I/O and reports what the user should know.</summary>
+    /// <param name="destination">The stream receiving the document.</param>
+    /// <param name="report">Receives what the save found.</param>
+    /// <param name="cancellationToken">Cancels preparation and writing.</param>
+    /// <returns>Whether the document was saved.</returns>
+    ValueTask<bool> SaveAsync(Stream destination, DocumentSaveReport report, CancellationToken cancellationToken) => SaveAsync(destination, cancellationToken);
 }

@@ -136,7 +136,11 @@ internal static class OptimizeReportText
             lines.Add("The copy is encrypted in the same way as the original.");
         }
 
-        if (report.PdfAPart > 0)
+        if (report.ClaimRemoved is { } removal)
+        {
+            lines.Add(ArchiveText.ClaimRemovedNotice(removal));
+        }
+        else if (report.PdfAPart > 0)
         {
             lines.Add($"The document claims PDF/A part {report.PdfAPart}, so only changes that keep it valid were made.");
         }

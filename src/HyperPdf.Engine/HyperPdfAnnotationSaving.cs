@@ -18,9 +18,10 @@ internal static class HyperPdfAnnotationSaving
     /// </summary>
     /// <param name="annotationState">The annotation state.</param>
     /// <param name="destination">The stream to write to.</param>
+    /// <param name="report">Receives the check of the document's PDF/A claim.</param>
     /// <returns>
     /// <see langword="true" /> when saved.</returns>
-    internal static bool Save(HyperPdfAnnotations annotationState, Stream destination)
+    internal static bool Save(HyperPdfAnnotations annotationState, Stream destination, PdfSaveReport report)
     {
         ArgumentNullException.ThrowIfNull(destination);
         lock (annotationState.Gate)
@@ -35,11 +36,11 @@ internal static class HyperPdfAnnotationSaving
             {
                 if (SignaturePresence.HasSignature(annotationState.Store))
                 {
-                    PdfIncrementalWriter.Save(annotationState.Store, destination);
+                    PdfIncrementalWriter.Save(annotationState.Store, destination, report);
                 }
                 else
                 {
-                    PdfCompactWriter.Save(annotationState.Store, PdfCompactOptions.Default, destination);
+                    PdfCompactWriter.Save(annotationState.Store, PdfCompactOptions.Default, destination, report);
                 }
             }
             catch (IOException)
@@ -63,10 +64,11 @@ internal static class HyperPdfAnnotationSaving
     /// <summary>Builds a stable save under the annotation lock, then returns its pending output write.</summary>
     /// <param name="annotationState">The annotation state.</param>
     /// <param name="destination">The output stream.</param>
+    /// <param name="report">Receives the check of the document's PDF/A claim.</param>
     /// <param name="cancellationToken">Cancels building and writing.</param>
     /// <param name="write">The pending write when the document is open.</param>
     /// <returns>Whether a save was started.</returns>
-    internal static bool TryStartSaveAsync(HyperPdfAnnotations annotationState, Stream destination, CancellationToken cancellationToken, out Task write)
+    internal static bool TryStartSaveAsync(HyperPdfAnnotations annotationState, Stream destination, PdfSaveReport report, CancellationToken cancellationToken, out Task write)
     {
         ArgumentNullException.ThrowIfNull(destination);
         cancellationToken.ThrowIfCancellationRequested();
@@ -83,8 +85,8 @@ internal static class HyperPdfAnnotationSaving
             {
                 // Both writers build their detached output before their first await.
                 write = SignaturePresence.HasSignature(annotationState.Store)
-                    ? PdfIncrementalWriter.SaveAsync(annotationState.Store, destination, cancellationToken)
-                    : PdfCompactWriter.SaveAsync(annotationState.Store, PdfCompactOptions.Default, destination, cancellationToken);
+                    ? PdfIncrementalWriter.SaveAsync(annotationState.Store, destination, report, cancellationToken)
+                    : PdfCompactWriter.SaveAsync(annotationState.Store, PdfCompactOptions.Default, destination, report, cancellationToken);
             }
             finally
             {

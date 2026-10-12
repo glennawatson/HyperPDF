@@ -50,6 +50,7 @@ internal static class OptimizeMapping
             WasSigned = report.WasSigned,
             IsEncrypted = report.IsEncrypted,
             PdfAPart = report.PdfAPart,
+            ClaimRemoved = ArchiveMapping.ToRemoval(report.PdfAClaim),
         };
     }
 
