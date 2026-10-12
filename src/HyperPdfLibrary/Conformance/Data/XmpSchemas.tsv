@@ -1,0 +1,378 @@
+# The XMP properties PDF/A accepts without an extension schema, and the value types of their structures.
+# PDF/A-1: the schemas of the XMP Specification (Adobe, January 2004), ISO 19005-1:2005, 6.7.9 and 6.7.11.
+# PDF/A-2 and PDF/A-3: the schemas of the XMP Specification (Adobe, September 2005), ISO 19005-2:2011, 6.6.2.3.1 and 6.6.4.
+# The set matches the one veraPDF 1.30 checks, so both agree on which properties need an extension schema.
+# P	parts	namespace	property	value type
+# T	parts	value type	field namespace	field	field value type
+# parts: 1 = PDF/A-1; 2 = PDF/A-2 and PDF/A-3; 12 = both.
+P	12	http://www.aiim.org/pdfa/ns/id/	part	Integer
+P	12	http://www.aiim.org/pdfa/ns/id/	amd	Text
+P	12	http://www.aiim.org/pdfa/ns/id/	conformance	Text
+P	2	http://www.aiim.org/pdfa/ns/id/	corr	Text
+P	12	http://purl.org/dc/elements/1.1/	contributor	Bag ProperName
+P	12	http://purl.org/dc/elements/1.1/	coverage	Text
+P	12	http://purl.org/dc/elements/1.1/	creator	Seq ProperName
+P	12	http://purl.org/dc/elements/1.1/	date	Seq Date
+P	12	http://purl.org/dc/elements/1.1/	description	Lang Alt
+P	12	http://purl.org/dc/elements/1.1/	format	MIMEType
+P	12	http://purl.org/dc/elements/1.1/	identifier	Text
+P	12	http://purl.org/dc/elements/1.1/	language	Bag Locale
+P	12	http://purl.org/dc/elements/1.1/	publisher	Bag ProperName
+P	12	http://purl.org/dc/elements/1.1/	relation	Bag Text
+P	12	http://purl.org/dc/elements/1.1/	rights	Lang Alt
+P	12	http://purl.org/dc/elements/1.1/	source	Text
+P	12	http://purl.org/dc/elements/1.1/	subject	Bag Text
+P	12	http://purl.org/dc/elements/1.1/	title	Lang Alt
+P	12	http://purl.org/dc/elements/1.1/	type	Bag Text
+P	12	http://ns.adobe.com/xap/1.0/	Advisory	Bag Text
+P	12	http://ns.adobe.com/xap/1.0/	BaseURL	URL
+P	12	http://ns.adobe.com/xap/1.0/	CreateDate	Date
+P	12	http://ns.adobe.com/xap/1.0/	CreatorTool	AgentName
+P	12	http://ns.adobe.com/xap/1.0/	Identifier	Bag Text
+P	12	http://ns.adobe.com/xap/1.0/	MetadataDate	Date
+P	12	http://ns.adobe.com/xap/1.0/	ModifyDate	Date
+P	12	http://ns.adobe.com/xap/1.0/	Nickname	Text
+P	12	http://ns.adobe.com/xap/1.0/	Thumbnails	Alt Thumbnail
+P	2	http://ns.adobe.com/xap/1.0/	Label	Text
+P	2	http://ns.adobe.com/xap/1.0/	Rating	Real
+P	12	http://ns.adobe.com/xap/1.0/rights/	Certificate	URL
+P	12	http://ns.adobe.com/xap/1.0/rights/	Marked	Boolean
+P	12	http://ns.adobe.com/xap/1.0/rights/	Owner	Bag ProperName
+P	12	http://ns.adobe.com/xap/1.0/rights/	UsageTerms	Lang Alt
+P	12	http://ns.adobe.com/xap/1.0/rights/	WebStatement	URL
+P	12	http://ns.adobe.com/xap/1.0/mm/	DerivedFrom	ResourceRef
+P	12	http://ns.adobe.com/xap/1.0/mm/	DocumentID	URI
+P	12	http://ns.adobe.com/xap/1.0/mm/	History	Seq ResourceEvent
+P	12	http://ns.adobe.com/xap/1.0/mm/	InstanceID	URI
+P	12	http://ns.adobe.com/xap/1.0/mm/	ManagedFrom	ResourceRef
+P	12	http://ns.adobe.com/xap/1.0/mm/	Manager	AgentName
+P	12	http://ns.adobe.com/xap/1.0/mm/	ManageTo	URI
+P	12	http://ns.adobe.com/xap/1.0/mm/	ManageUI	URI
+P	12	http://ns.adobe.com/xap/1.0/mm/	ManagerVariant	Text
+P	12	http://ns.adobe.com/xap/1.0/mm/	RenditionClass	RenditionClass
+P	12	http://ns.adobe.com/xap/1.0/mm/	RenditionParams	Text
+P	12	http://ns.adobe.com/xap/1.0/mm/	VersionID	Text
+P	12	http://ns.adobe.com/xap/1.0/mm/	Versions	Seq Version
+P	12	http://ns.adobe.com/xap/1.0/mm/	LastURL	URL
+P	12	http://ns.adobe.com/xap/1.0/mm/	RenditionOf	ResourceRef
+P	12	http://ns.adobe.com/xap/1.0/mm/	SaveID	Integer
+P	12	http://ns.adobe.com/xap/1.0/bj/	JobRef	Bag Job
+P	12	http://ns.adobe.com/xap/1.0/t/pg/	MaxPageSize	Dimensions
+P	12	http://ns.adobe.com/xap/1.0/t/pg/	NPages	Integer
+P	2	http://ns.adobe.com/xap/1.0/t/pg/	Fonts	Bag Font
+P	2	http://ns.adobe.com/xap/1.0/t/pg/	Colorants	Seq Colorant
+P	2	http://ns.adobe.com/xap/1.0/t/pg/	PlateNames	Seq Text
+P	12	http://ns.adobe.com/pdf/1.3/	Keywords	Text
+P	12	http://ns.adobe.com/pdf/1.3/	PDFVersion	Text
+P	12	http://ns.adobe.com/pdf/1.3/	Producer	AgentName
+P	12	http://ns.adobe.com/photoshop/1.0/	AuthorsPosition	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	CaptionWriter	ProperName
+P	12	http://ns.adobe.com/photoshop/1.0/	Category	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	City	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	Country	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	Credit	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	DateCreated	Date
+P	12	http://ns.adobe.com/photoshop/1.0/	Headline	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	Instructions	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	Source	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	State	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	TransmissionReference	Text
+P	12	http://ns.adobe.com/photoshop/1.0/	Urgency	Integer
+P	1	http://ns.adobe.com/photoshop/1.0/	SupplementalCategories	Text
+P	2	http://ns.adobe.com/photoshop/1.0/	SupplementalCategories	Bag Text
+P	12	http://ns.adobe.com/tiff/1.0/	ImageWidth	Integer
+P	12	http://ns.adobe.com/tiff/1.0/	ImageLength	Integer
+P	12	http://ns.adobe.com/tiff/1.0/	BitsPerSample	Seq Integer
+P	12	http://ns.adobe.com/tiff/1.0/	SamplesPerPixel	Integer
+P	12	http://ns.adobe.com/tiff/1.0/	XResolution	Rational
+P	12	http://ns.adobe.com/tiff/1.0/	YResolution	Rational
+P	12	http://ns.adobe.com/tiff/1.0/	TransferFunction	Seq Integer
+P	12	http://ns.adobe.com/tiff/1.0/	WhitePoint	Seq Rational
+P	12	http://ns.adobe.com/tiff/1.0/	PrimaryChromaticities	Seq Rational
+P	12	http://ns.adobe.com/tiff/1.0/	YCbCrCoefficients	Seq Rational
+P	12	http://ns.adobe.com/tiff/1.0/	ReferenceBlackWhite	Seq Rational
+P	12	http://ns.adobe.com/tiff/1.0/	DateTime	Date
+P	12	http://ns.adobe.com/tiff/1.0/	ImageDescription	Lang Alt
+P	12	http://ns.adobe.com/tiff/1.0/	Make	ProperName
+P	12	http://ns.adobe.com/tiff/1.0/	Model	ProperName
+P	12	http://ns.adobe.com/tiff/1.0/	Software	AgentName
+P	12	http://ns.adobe.com/tiff/1.0/	Artist	ProperName
+P	12	http://ns.adobe.com/tiff/1.0/	Copyright	Lang Alt
+P	12	http://ns.adobe.com/tiff/1.0/	Compression	Integer
+P	12	http://ns.adobe.com/tiff/1.0/	PhotometricInterpretation	Integer
+P	12	http://ns.adobe.com/tiff/1.0/	Orientation	Integer
+P	12	http://ns.adobe.com/tiff/1.0/	PlanarConfiguration	Integer
+P	12	http://ns.adobe.com/tiff/1.0/	YCbCrPositioning	Integer
+P	12	http://ns.adobe.com/tiff/1.0/	ResolutionUnit	Integer
+P	12	http://ns.adobe.com/tiff/1.0/	YCbCrSubSampling	Seq Integer
+P	12	http://ns.adobe.com/exif/1.0/	CompressedBitsPerPixel	Rational
+P	12	http://ns.adobe.com/exif/1.0/	PixelXDimension	Integer
+P	12	http://ns.adobe.com/exif/1.0/	PixelYDimension	Integer
+P	12	http://ns.adobe.com/exif/1.0/	UserComment	Lang Alt
+P	12	http://ns.adobe.com/exif/1.0/	RelatedSoundFile	Text
+P	12	http://ns.adobe.com/exif/1.0/	DateTimeOriginal	Date
+P	12	http://ns.adobe.com/exif/1.0/	DateTimeDigitized	Date
+P	12	http://ns.adobe.com/exif/1.0/	ExposureTime	Rational
+P	12	http://ns.adobe.com/exif/1.0/	FNumber	Rational
+P	12	http://ns.adobe.com/exif/1.0/	SpectralSensitivity	Text
+P	12	http://ns.adobe.com/exif/1.0/	ISOSpeedRatings	Seq Integer
+P	12	http://ns.adobe.com/exif/1.0/	OECF	OECF/SFR
+P	12	http://ns.adobe.com/exif/1.0/	ShutterSpeedValue	Rational
+P	12	http://ns.adobe.com/exif/1.0/	ApertureValue	Rational
+P	12	http://ns.adobe.com/exif/1.0/	BrightnessValue	Rational
+P	12	http://ns.adobe.com/exif/1.0/	ExposureBiasValue	Rational
+P	12	http://ns.adobe.com/exif/1.0/	MaxApertureValue	Rational
+P	12	http://ns.adobe.com/exif/1.0/	SubjectDistance	Rational
+P	12	http://ns.adobe.com/exif/1.0/	Flash	Flash
+P	12	http://ns.adobe.com/exif/1.0/	FocalLength	Rational
+P	12	http://ns.adobe.com/exif/1.0/	SubjectArea	Seq Integer
+P	12	http://ns.adobe.com/exif/1.0/	FlashEnergy	Rational
+P	12	http://ns.adobe.com/exif/1.0/	SpatialFrequencyResponse	OECF/SFR
+P	12	http://ns.adobe.com/exif/1.0/	FocalPlaneXResolution	Rational
+P	12	http://ns.adobe.com/exif/1.0/	FocalPlaneYResolution	Rational
+P	12	http://ns.adobe.com/exif/1.0/	SubjectLocation	Seq Integer
+P	12	http://ns.adobe.com/exif/1.0/	ExposureIndex	Rational
+P	12	http://ns.adobe.com/exif/1.0/	CFAPattern	CFAPattern
+P	12	http://ns.adobe.com/exif/1.0/	DigitalZoomRatio	Rational
+P	12	http://ns.adobe.com/exif/1.0/	FocalLengthIn35mmFilm	Integer
+P	12	http://ns.adobe.com/exif/1.0/	DeviceSettingDescription	DeviceSettings
+P	12	http://ns.adobe.com/exif/1.0/	ImageUniqueID	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSVersionID	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSLatitude	GPSCoordinate
+P	12	http://ns.adobe.com/exif/1.0/	GPSLongitude	GPSCoordinate
+P	12	http://ns.adobe.com/exif/1.0/	GPSAltitude	Rational
+P	12	http://ns.adobe.com/exif/1.0/	GPSTimeStamp	Date
+P	12	http://ns.adobe.com/exif/1.0/	GPSSatellites	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSDOP	Rational
+P	12	http://ns.adobe.com/exif/1.0/	GPSSpeed	Rational
+P	12	http://ns.adobe.com/exif/1.0/	GPSTrack	Rational
+P	12	http://ns.adobe.com/exif/1.0/	GPSImgDirection	Rational
+P	12	http://ns.adobe.com/exif/1.0/	GPSMapDatum	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSDestLatitude	GPSCoordinate
+P	12	http://ns.adobe.com/exif/1.0/	GPSDestLongitude	GPSCoordinate
+P	12	http://ns.adobe.com/exif/1.0/	GPSDestBearing	Rational
+P	12	http://ns.adobe.com/exif/1.0/	GPSDestDistance	Rational
+P	12	http://ns.adobe.com/exif/1.0/	GPSProcessingMethod	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSAreaInformation	Text
+P	12	http://ns.adobe.com/exif/1.0/	ExposureProgram	Integer
+P	12	http://ns.adobe.com/exif/1.0/	MeteringMode	Integer
+P	12	http://ns.adobe.com/exif/1.0/	FocalPlaneResolutionUnit	Integer
+P	12	http://ns.adobe.com/exif/1.0/	SensingMethod	Integer
+P	12	http://ns.adobe.com/exif/1.0/	FileSource	Integer
+P	12	http://ns.adobe.com/exif/1.0/	SceneType	Integer
+P	12	http://ns.adobe.com/exif/1.0/	CustomRendered	Integer
+P	12	http://ns.adobe.com/exif/1.0/	ExposureMode	Integer
+P	12	http://ns.adobe.com/exif/1.0/	WhiteBalance	Integer
+P	12	http://ns.adobe.com/exif/1.0/	SceneCaptureType	Integer
+P	12	http://ns.adobe.com/exif/1.0/	GainControl	Integer
+P	12	http://ns.adobe.com/exif/1.0/	Contrast	Integer
+P	12	http://ns.adobe.com/exif/1.0/	Saturation	Integer
+P	12	http://ns.adobe.com/exif/1.0/	Sharpness	Integer
+P	12	http://ns.adobe.com/exif/1.0/	SubjectDistanceRange	Integer
+P	12	http://ns.adobe.com/exif/1.0/	GPSAltitudeRef	Integer
+P	12	http://ns.adobe.com/exif/1.0/	GPSStatus	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSSpeedRef	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSTrackRef	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSImgDirectionRef	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSDestBearingRef	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSDestDistanceRef	Text
+P	12	http://ns.adobe.com/exif/1.0/	GPSDifferential	Integer
+P	12	http://ns.adobe.com/exif/1.0/	ComponentsConfiguration	Seq Integer
+P	12	http://ns.adobe.com/exif/1.0/	ExifVersion	Text
+P	12	http://ns.adobe.com/exif/1.0/	FlashpixVersion	Text
+P	12	http://ns.adobe.com/exif/1.0/	ColorSpace	Integer
+P	12	http://ns.adobe.com/exif/1.0/	LightSource	Integer
+P	1	http://ns.adobe.com/exif/1.0/	MakerNote	Text
+P	1	http://ns.adobe.com/exif/1.0/	GPSMeasureMode	Integer
+P	2	http://ns.adobe.com/exif/1.0/	GPSMeasureMode	Text
+P	2	http://ns.adobe.com/exif/1.0/aux/	Lens	Text
+P	2	http://ns.adobe.com/exif/1.0/aux/	SerialNumber	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	projectRef	ProjectLink
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoFrameRate	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoFrameSize	Dimensions
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoPixelAspectRatio	Rational
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoAlphaUnityIsTransparent	Boolean
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoAlphaPremultipleColor	Colorant
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoCompressor	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	audioSampleRate	Integer
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	audioCompressor	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	speakerPlacement	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	fileDataRate	Rational
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	tapeName	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	altTapeName	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	startTimecode	Timecode
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	altTimecode	Timecode
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	duration	Time
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	scene	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	shotName	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	shotDate	Date
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	shotLocation	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	logComment	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	markers	Seq Marker
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	contributedMedia	Bag Media
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	absPeakAudioFilePath	URI
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	relativePeakAudioFilePath	URI
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoModDate	Date
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	audioModDate	Date
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	metadataModDate	Date
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	artist	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	album	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	trackNumber	Integer
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	genre	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	copyright	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	releaseDate	Date
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	composer	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	engineer	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	tempo	Real
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	instrument	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	introTime	Time
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	outCue	Time
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	relativeTimestamp	Time
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	loop	Boolean
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	numberOfBeats	Real
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	timeScaleParams	TimeScaleStretch
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	resampleParams	ResampleStretch
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	beatSpliceParams	BeatSpliceStretch
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoPixelDepth	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoColorSpace	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoAlphaMode	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	videoFieldOrder	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	pullDown	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	audioSampleType	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	audioChannelType	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	key	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	stretchMode	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	timeSignature	Text
+P	2	http://ns.adobe.com/xmp/1.0/DynamicMedia/	scaleType	Text
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	AutoBrightness	Boolean
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	AutoContrast	Boolean
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	AutoExposure	Boolean
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	AutoShadows	Boolean
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	BlueHue	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	BlueSaturation	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	Brightness	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	CameraProfile	Text
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	ChromaticAberrationB	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	ChromaticAberrationR	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	ColorNoiseReduction	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	Contrast	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	CropTop	Real
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	CropLeft	Real
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	CropBottom	Real
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	CropRight	Real
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	CropAngle	Real
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	CropWidth	Real
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	CropHeight	Real
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	CropUnits	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	Exposure	Real
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	GreenHue	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	GreenSaturation	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	HasCrop	Boolean
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	HasSettings	Boolean
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	LuminanceSmoothing	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	RawFileName	Text
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	RedHue	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	RedSaturation	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	Saturation	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	Shadows	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	ShadowTint	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	Sharpness	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	Temperature	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	Tint	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	ToneCurveName	Text
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	Version	Text
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	VignetteAmount	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	VignetteMidpoint	Integer
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	WhiteBalance	Text
+P	2	http://ns.adobe.com/camera-raw-settings/1.0/	ToneCurve	Seq Text
+T	12	Dimensions	http://ns.adobe.com/xap/1.0/sType/Dimensions#	w	Real
+T	12	Dimensions	http://ns.adobe.com/xap/1.0/sType/Dimensions#	h	Real
+T	12	Dimensions	http://ns.adobe.com/xap/1.0/sType/Dimensions#	unit	Text
+T	12	Thumbnail	http://ns.adobe.com/xap/1.0/g/img/	height	Integer
+T	12	Thumbnail	http://ns.adobe.com/xap/1.0/g/img/	width	Integer
+T	12	Thumbnail	http://ns.adobe.com/xap/1.0/g/img/	image	Text
+T	12	Thumbnail	http://ns.adobe.com/xap/1.0/g/img/	format	Text
+T	12	ResourceEvent	http://ns.adobe.com/xap/1.0/sType/ResourceEvent#	action	Text
+T	12	ResourceEvent	http://ns.adobe.com/xap/1.0/sType/ResourceEvent#	instanceID	URI
+T	12	ResourceEvent	http://ns.adobe.com/xap/1.0/sType/ResourceEvent#	parameters	Text
+T	12	ResourceEvent	http://ns.adobe.com/xap/1.0/sType/ResourceEvent#	softwareAgent	AgentName
+T	12	ResourceEvent	http://ns.adobe.com/xap/1.0/sType/ResourceEvent#	when	Date
+T	12	ResourceRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	instanceID	URI
+T	12	ResourceRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	documentID	URI
+T	12	ResourceRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	versionID	Text
+T	12	ResourceRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	renditionClass	RenditionClass
+T	12	ResourceRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	renditionParams	Text
+T	12	ResourceRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	manager	AgentName
+T	12	ResourceRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	managerVariant	Text
+T	12	ResourceRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	manageTo	URI
+T	12	ResourceRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	manageUI	URI
+T	12	Version	http://ns.adobe.com/xap/1.0/sType/Version#	comments	Text
+T	12	Version	http://ns.adobe.com/xap/1.0/sType/Version#	event	ResourceEvent
+T	12	Version	http://ns.adobe.com/xap/1.0/sType/Version#	modifyDate	Date
+T	12	Version	http://ns.adobe.com/xap/1.0/sType/Version#	modifier	ProperName
+T	12	Version	http://ns.adobe.com/xap/1.0/sType/Version#	version	Text
+T	12	Job	http://ns.adobe.com/xap/1.0/sType/Job#	name	Text
+T	12	Job	http://ns.adobe.com/xap/1.0/sType/Job#	id	Text
+T	12	Job	http://ns.adobe.com/xap/1.0/sType/Job#	url	URL
+T	12	Flash	http://ns.adobe.com/exif/1.0/	Fired	Boolean
+T	12	Flash	http://ns.adobe.com/exif/1.0/	Function	Boolean
+T	12	Flash	http://ns.adobe.com/exif/1.0/	RedEyeMode	Boolean
+T	12	Flash	http://ns.adobe.com/exif/1.0/	Return	Text
+T	12	Flash	http://ns.adobe.com/exif/1.0/	Mode	Text
+T	12	OECF/SFR	http://ns.adobe.com/exif/1.0/	Columns	Integer
+T	12	OECF/SFR	http://ns.adobe.com/exif/1.0/	Rows	Integer
+T	12	OECF/SFR	http://ns.adobe.com/exif/1.0/	Names	Seq Text
+T	12	OECF/SFR	http://ns.adobe.com/exif/1.0/	Values	Seq Rational
+T	12	CFAPattern	http://ns.adobe.com/exif/1.0/	Columns	Integer
+T	12	CFAPattern	http://ns.adobe.com/exif/1.0/	Rows	Integer
+T	12	CFAPattern	http://ns.adobe.com/exif/1.0/	Values	Seq Integer
+T	12	DeviceSettings	http://ns.adobe.com/exif/1.0/	Columns	Integer
+T	12	DeviceSettings	http://ns.adobe.com/exif/1.0/	Rows	Integer
+T	12	DeviceSettings	http://ns.adobe.com/exif/1.0/	Settings	Seq Text
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	swatchName	Text
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	mode	Text
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	type	Text
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	cyan	Real
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	magenta	Real
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	yellow	Real
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	black	Real
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	red	Integer
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	green	Integer
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	blue	Integer
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	L	Real
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	A	Integer
+T	2	Colorant	http://ns.adobe.com/xap/1.0/g/	B	Integer
+T	2	Font	http://ns.adobe.com/xap/1.0/sType/Font#	fontName	Text
+T	2	Font	http://ns.adobe.com/xap/1.0/sType/Font#	fontFamily	Text
+T	2	Font	http://ns.adobe.com/xap/1.0/sType/Font#	fontFace	Text
+T	2	Font	http://ns.adobe.com/xap/1.0/sType/Font#	fontType	Text
+T	2	Font	http://ns.adobe.com/xap/1.0/sType/Font#	versionString	Text
+T	2	Font	http://ns.adobe.com/xap/1.0/sType/Font#	composite	Boolean
+T	2	Font	http://ns.adobe.com/xap/1.0/sType/Font#	fontFileName	Text
+T	2	Font	http://ns.adobe.com/xap/1.0/sType/Font#	childFontFiles	Seq Text
+T	2	BeatSpliceStretch	http://ns.adobe.com/xmp/1.0/DynamicMedia/	useFileBeatsMarker	Boolean
+T	2	BeatSpliceStretch	http://ns.adobe.com/xmp/1.0/DynamicMedia/	riseInDecibel	Real
+T	2	BeatSpliceStretch	http://ns.adobe.com/xmp/1.0/DynamicMedia/	riseInTimeDuration	Time
+T	2	Marker	http://ns.adobe.com/xmp/1.0/DynamicMedia/	startTime	Any
+T	2	Marker	http://ns.adobe.com/xmp/1.0/DynamicMedia/	duration	Any
+T	2	Marker	http://ns.adobe.com/xmp/1.0/DynamicMedia/	comment	Text
+T	2	Marker	http://ns.adobe.com/xmp/1.0/DynamicMedia/	name	Text
+T	2	Marker	http://ns.adobe.com/xmp/1.0/DynamicMedia/	location	URI
+T	2	Marker	http://ns.adobe.com/xmp/1.0/DynamicMedia/	target	Text
+T	2	Marker	http://ns.adobe.com/xmp/1.0/DynamicMedia/	type	Text
+T	2	Media	http://ns.adobe.com/xmp/1.0/DynamicMedia/	path	URI
+T	2	Media	http://ns.adobe.com/xmp/1.0/DynamicMedia/	track	Text
+T	2	Media	http://ns.adobe.com/xmp/1.0/DynamicMedia/	startTime	Time
+T	2	Media	http://ns.adobe.com/xmp/1.0/DynamicMedia/	duration	Time
+T	2	Media	http://ns.adobe.com/xmp/1.0/DynamicMedia/	managed	Boolean
+T	2	Media	http://ns.adobe.com/xmp/1.0/DynamicMedia/	webStatement	URI
+T	2	ProjectLink	http://ns.adobe.com/xmp/1.0/DynamicMedia/	path	URI
+T	2	ProjectLink	http://ns.adobe.com/xmp/1.0/DynamicMedia/	type	Text
+T	2	ResampleStretch	http://ns.adobe.com/xmp/1.0/DynamicMedia/	quality	Text
+T	2	Time	http://ns.adobe.com/xmp/1.0/DynamicMedia/	value	Integer
+T	2	Time	http://ns.adobe.com/xmp/1.0/DynamicMedia/	scale	Rational
+T	2	Timecode	http://ns.adobe.com/xmp/1.0/DynamicMedia/	timeValue	Text
+T	2	Timecode	http://ns.adobe.com/xmp/1.0/DynamicMedia/	timeFormat	Text
+T	2	TimeScaleStretch	http://ns.adobe.com/xmp/1.0/DynamicMedia/	frameSize	Real
+T	2	TimeScaleStretch	http://ns.adobe.com/xmp/1.0/DynamicMedia/	frameOverlappingPercentage	Real
+T	2	TimeScaleStretch	http://ns.adobe.com/xmp/1.0/DynamicMedia/	quality	Text

@@ -60,6 +60,7 @@
     <EmbeddedResource Include="Fonts\Data\CMaps\LICENSE.txt" LogicalName="HyperPdfLibrary.CMaps.LICENSE.txt" />
     <EmbeddedResource Include="Fonts\Data\Faces\LICENSE.txt" LogicalName="HyperPdfLibrary.Faces.LICENSE.txt" />
     <EmbeddedResource Include="Conformance\Data\PdfARules.tsv" LogicalName="HyperPdfLibrary.Conformance.PdfARules.tsv" />
+    <EmbeddedResource Include="Conformance\Data\XmpSchemas.tsv" LogicalName="HyperPdfLibrary.Conformance.XmpSchemas.tsv" />
   </ItemGroup>
 
   <!-- The notices of what the library ships: its packages and the font and CMap resource packs. The nupkg carries them as THIRD-PARTY-NOTICES.md. -->

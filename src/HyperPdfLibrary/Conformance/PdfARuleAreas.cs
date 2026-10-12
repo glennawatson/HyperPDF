@@ -21,5 +21,6 @@ internal static class PdfARuleAreas
         new("optional content", PdfAOptionalContentRules.Rules, PdfAOptionalContentRules.Check),
         new("page transparency", PdfAPageRules.Rules, PdfAPageRules.Check),
         new("colour", PdfAColourRules.Rules, PdfAColourRules.Check),
+        new("metadata", PdfAMetadataRules.Rules, PdfAMetadataRules.Check),
     ];
 }
