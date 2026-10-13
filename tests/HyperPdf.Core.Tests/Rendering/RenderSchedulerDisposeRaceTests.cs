@@ -40,10 +40,13 @@ public sealed class RenderSchedulerDisposeRaceTests
             var scheduler = new RenderScheduler(new FakeSurfaceFactory());
             using var document = new FakeDocument(DocumentName, FakeEngine.A4);
             using var stop = new CancellationTokenSource();
+            var job = new RequestJob(scheduler, document, failures, stop.Token);
             var tasks = new List<Task>();
+
+            // The requesters spin until stopped, so they run on their own threads and never starve the thread pool.
             for (var requester = 0; requester < Requesters; requester++)
             {
-                tasks.Add(Task.Run(() => RequestUntilStopped(scheduler, document, failures, stop.Token), cancellationToken));
+                tasks.Add(DedicatedThread.Run(job, RequestUntilStopped, cancellationToken));
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(1), cancellationToken);
@@ -56,19 +59,17 @@ public sealed class RenderSchedulerDisposeRaceTests
     }
 
     /// <summary>Requests tiles until stopped. A request after the dispose is refused with the scheduler's own error; anything else is recorded.</summary>
-    /// <param name="scheduler">The scheduler.</param>
-    /// <param name="document">The document.</param>
-    /// <param name="failures">Receives the unexpected exceptions.</param>
-    /// <param name="stop">Stops the loop.</param>
-    private static void RequestUntilStopped(RenderScheduler scheduler, IDocument document, ConcurrentQueue<Exception> failures, CancellationToken stop)
+    /// <param name="job">The scheduler, the document, and what stops and reports the loop.</param>
+    private static void RequestUntilStopped(RequestJob job)
     {
         var client = new RenderClient();
         try
         {
-            for (var tile = 0; !stop.IsCancellationRequested; tile++)
+            for (var tile = 0; !job.Stop.IsCancellationRequested; tile++)
             {
                 var key = new TileKey(1, Page, 1, PageRotation.None, tile, 0, 0);
-                _ = scheduler.Request(new(key, document, new(Page, 1, PageRotation.None, 0, 0, RenderFlags.None), Edge, Edge, RenderPriority.Visible, client, client.Generation, PageTone.None));
+                var info = new PageRenderInfo(Page, 1, PageRotation.None, 0, 0, RenderFlags.None);
+                _ = job.Scheduler.Request(new(key, job.Document, info, Edge, Edge, RenderPriority.Visible, client, client.Generation, PageTone.None));
             }
         }
         catch (ObjectDisposedException ex) when (ex.ObjectName == typeof(RenderScheduler).FullName)
@@ -77,7 +78,14 @@ public sealed class RenderSchedulerDisposeRaceTests
         }
         catch (Exception ex)
         {
-            failures.Enqueue(ex);
+            job.Failures.Enqueue(ex);
         }
     }
+
+    /// <summary>What one requesting thread reads and reports to.</summary>
+    /// <param name="Scheduler">The scheduler.</param>
+    /// <param name="Document">The document.</param>
+    /// <param name="Failures">Receives the unexpected exceptions.</param>
+    /// <param name="Stop">Stops the loop.</param>
+    private sealed record RequestJob(RenderScheduler Scheduler, IDocument Document, ConcurrentQueue<Exception> Failures, CancellationToken Stop);
 }

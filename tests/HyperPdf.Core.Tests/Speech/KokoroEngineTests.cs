@@ -93,12 +93,12 @@ public sealed class KokoroEngineTests
             {
                 var engine = new KokoroEngine(directory);
                 _ = await engine.SynthesizeAsync(Greeting, Heart, 1F, cancellationToken);
-                var phonemize = Task.Run(() => PhonemizeIfOpen(engine, longText), cancellationToken);
+                var phonemize = DedicatedThread.Run(new PhonemizeJob(engine, longText), PhonemizeIfOpen, cancellationToken);
                 var synthesize = Task.Run(() => SynthesizeIfOpenAsync(engine, cancellationToken), cancellationToken);
 
                 // The long text keeps the gate held while the engine is disposed.
                 await Task.Delay(TimeSpan.FromMilliseconds(1), cancellationToken);
-                var dispose = Task.Run(engine.Dispose, cancellationToken);
+                var dispose = DedicatedThread.Run(engine, static engine => engine.Dispose(), cancellationToken);
                 await Task.WhenAll(phonemize, synthesize, dispose);
                 if (engine.IsSessionLoaded)
                 {
@@ -145,13 +145,12 @@ public sealed class KokoroEngineTests
     }
 
     /// <summary>Phonemizes, unless the engine was disposed first.</summary>
-    /// <param name="engine">The engine.</param>
-    /// <param name="text">The text.</param>
-    private static void PhonemizeIfOpen(KokoroEngine engine, string text)
+    /// <param name="job">The engine and the text.</param>
+    private static void PhonemizeIfOpen(PhonemizeJob job)
     {
         try
         {
-            _ = engine.Phonemize(text, Heart);
+            _ = job.Engine.Phonemize(job.Text, Heart);
         }
         catch (ObjectDisposedException)
         {
@@ -194,4 +193,9 @@ public sealed class KokoroEngineTests
             File.WriteAllText(Path.Combine(directory, files[1]), "{}");
         }
     }
+
+    /// <summary>The engine to phonemize with and the text to phonemize.</summary>
+    /// <param name="Engine">The engine.</param>
+    /// <param name="Text">The text.</param>
+    private sealed record PhonemizeJob(KokoroEngine Engine, string Text);
 }
