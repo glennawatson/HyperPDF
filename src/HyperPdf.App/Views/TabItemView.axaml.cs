@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using Avalonia.Controls;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -30,6 +32,12 @@ public sealed partial class TabItemView : ReactiveUI.Avalonia.ReactiveUserContro
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PreviewHeight, static v => v.PreviewPage.Height));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PreviewHeight, static v => v.PreviewPage.IsVisible, static height => height > 0));
             disposables.Add(this.WhenChanged(static v => v.ViewModel).BindTo(this, static v => v.PreviewPage.Tab));
+
+            // Closing a tab belongs to the window's view model, not the tab's, so the command comes from that source.
+            if (TopLevel.GetTopLevel(this) is MainWindow { ViewModel: { } main })
+            {
+                disposables.Add(CloseButton.Clicks.MarkHandled().InjectLatest(this.WhenChanged(static v => v.ViewModel)).InvokeCommand(main, static window => window.CloseTabCommand));
+            }
 
             // The unsaved dot is only seen, so the tab's spoken name says it too. The name is an attached property
             // on the tab strip's item, which a binding expression cannot reach.

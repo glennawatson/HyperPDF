@@ -11,7 +11,9 @@ using HyperPdfLibrary.Tests.Security;
 
 namespace HyperPdf.Benchmarks;
 
-/// <summary>Measures public-key PDF opening with a ready certificate and through the viewer's PKCS #12 file path.</summary>
+/// <summary>
+/// Measures public-key PDF opening with a ready RSA or ECDH recipient certificate and through the viewer's PKCS #12 file path.
+/// </summary>
 public class HyperPdfCertificateOpenBenchmarks
 {
     /// <summary>The permissions in the encrypted PDF.</summary>
@@ -35,6 +37,12 @@ public class HyperPdfCertificateOpenBenchmarks
     /// <summary>The PKCS #12 path.</summary>
     private string _certificatePath = string.Empty;
 
+    /// <summary>The ECDH recipient certificate kept ready.</summary>
+    private X509Certificate2 _ecdhCertificate = null!;
+
+    /// <summary>The PDF encrypted for the ECDH recipient.</summary>
+    private string _ecdhPdfPath = string.Empty;
+
     /// <summary>Creates the same PDF and certificate files for both benchmark methods.</summary>
     /// <returns>A task for file creation.</returns>
     [GlobalSetup]
@@ -47,6 +55,9 @@ public class HyperPdfCertificateOpenBenchmarks
         _certificate = PdfSigning.CreateCertificate("Benchmark Recipient", null, false, TimeProvider.System);
         await File.WriteAllBytesAsync(_pdfPath, PublicKeyPdf.Encrypted(PublicKeyCipher.Aes256, Permissions, true, _certificate));
         await File.WriteAllBytesAsync(_certificatePath, _certificate.Export(X509ContentType.Pkcs12, CertificatePassword));
+        _ecdhPdfPath = Path.Combine(_folder, "ecdh.pdf");
+        _ecdhCertificate = EcdhRecipients.P256();
+        await File.WriteAllBytesAsync(_ecdhPdfPath, PublicKeyPdf.FromEnvelopes(PublicKeyCipher.Aes256, true, EcdhRecipients.P256Default));
     }
 
     /// <summary>Releases the generated certificate and files.</summary>
@@ -54,6 +65,7 @@ public class HyperPdfCertificateOpenBenchmarks
     public void Cleanup()
     {
         _certificate.Dispose();
+        _ecdhCertificate.Dispose();
         Directory.Delete(_folder, true);
     }
 
@@ -63,6 +75,15 @@ public class HyperPdfCertificateOpenBenchmarks
     public int LibraryReadyCertificate()
     {
         using var document = PdfDocumentReader.OpenWith(_pdfPath, new PdfOpenOptions { Certificate = _certificate });
+        return document.PageCount;
+    }
+
+    /// <summary>Opens a file encrypted for an ECDH (P-256) recipient when its certificate is already imported.</summary>
+    /// <returns>The page count.</returns>
+    [Benchmark]
+    public int LibraryEcdhCertificate()
+    {
+        using var document = PdfDocumentReader.OpenWith(_ecdhPdfPath, new PdfOpenOptions { Certificate = _ecdhCertificate });
         return document.PageCount;
     }
 

@@ -117,21 +117,32 @@ public static class PdfFormEditing
         }
     }
 
-    /// <summary>Rebuilds the appearance of a text or choice field from its value, for every widget of the field.</summary>
+    /// <summary>Rebuilds the appearance of a text, choice or push button field from its value and appearance characteristics, for every widget of the field.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "pageIndex">The zero based page index.</param>
     /// <param name = "index">The widget's index in the page's annotations.</param>
-    /// <returns><see langword="true"/> when the widget is a text or choice field.</returns>
-    public static bool RegenerateAppearance(PdfForm form, int pageIndex, int index)
+    /// <returns><see langword="true"/> when the widget is a text, choice or push button field.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool RegenerateAppearance(PdfForm form, int pageIndex, int index) =>PdfFormEditing.RegenerateAppearance(form, pageIndex, index, CancellationToken.None);
+
+    /// <summary>Rebuilds the appearance of a text, choice or push button field from its value and appearance characteristics, for every widget of the field.</summary>
+    /// <param name = "form">The shared form state.</param>
+    /// <param name = "pageIndex">The zero based page index.</param>
+    /// <param name = "index">The widget's index in the page's annotations.</param>
+    /// <param name = "cancellationToken">A token that cancels the drawing; it is checked for every widget, line and row.</param>
+    /// <returns><see langword="true"/> when the widget is a text, choice or push button field.</returns>
+    /// <exception cref = "OperationCanceledException">The token was cancelled.</exception>
+    public static bool RegenerateAppearance(PdfForm form, int pageIndex, int index, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         lock (form.Gate)
         {
-            if (!PdfFormReading.HasForm(form) || PdfFormReading.Resolve(form, pageIndex, index) is not { } widget || !(widget.IsChoice || widget.Type == PdfFieldType.Text))
+            if (!PdfFormReading.HasForm(form) || PdfFormReading.Resolve(form, pageIndex, index) is not { } widget || !(widget.IsChoice || widget.Type is PdfFieldType.Text or PdfFieldType.PushButton))
             {
                 return false;
             }
 
-            PdfFormEditing.RegenerateAppearances(form, widget);
+            PdfFormEditing.RegenerateAppearances(form, widget, cancellationToken);
             return true;
         }
     }
@@ -156,8 +167,13 @@ public static class PdfFormEditing
     /// <summary>Draws the appearance of a text or choice widget.</summary>
     /// <param name = "context">The widget.</param>
     /// <returns>The Form XObject.</returns>
-    internal static PdfStream CreateAppearance(AppearanceContext context)
+    internal static PdfStream CreateAppearance(in AppearanceContext context)
     {
+        if (context.Type == PdfFieldType.PushButton)
+        {
+            return FormPushButtonAppearance.Create(context);
+        }
+
         if (context.Type == PdfFieldType.ListBox)
         {
             return FormTextAppearance.CreateList(context);
@@ -271,8 +287,9 @@ public static class PdfFormEditing
             return;
         }
 
+        // The rich value is XHTML in the field's default style, not the plain text (ISO 32000-2 12.7.4.3).
         var rv = form.Document.Objects.Names.Intern("RV");
-        field.Set(rv, PdfFormEditing.ToPdfString(form, field, rv, text));
+        field.Set(rv, PdfFormEditing.ToPdfString(form, field, rv, RichTextWriter.Write(text, FormRichText.GetDefaultStyleText(field))));
     }
 
     /// <summary>Selects an option on a copy of the field: sets <c>/V</c> and <c>/I</c>.</summary>
@@ -324,7 +341,14 @@ public static class PdfFormEditing
     /// <summary>Rebuilds the appearance of every widget of a field from its stored value.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "widget">One widget of the field, as resolved before the change.</param>
-    internal static void RegenerateAppearances(PdfForm form, ResolvedWidget widget)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void RegenerateAppearances(PdfForm form, ResolvedWidget widget) =>PdfFormEditing.RegenerateAppearances(form, widget, CancellationToken.None);
+
+    /// <summary>Rebuilds the appearance of every widget of a field from its stored value, and puts the fonts they use in the form's <c>/DR</c>.</summary>
+    /// <param name = "form">The shared form state.</param>
+    /// <param name = "widget">One widget of the field, as resolved before the change.</param>
+    /// <param name = "cancellationToken">A token that cancels the drawing.</param>
+    internal static void RegenerateAppearances(PdfForm form, ResolvedWidget widget, CancellationToken cancellationToken)
     {
         if (StoreReading.GetDictionary(form.Document.Objects, widget.FieldId) is not { } field)
         {
@@ -333,17 +357,23 @@ public static class PdfFormEditing
 
         var resources = HyperPdfLibrary.Document.PdfDocumentPages.GetPage(form.Document, widget.PageIndex).Resources;
         var edit = new FormEdit(form.Document.Objects);
+        var fonts = HyperPdfLibrary.Document.PdfDocumentRendering.GetRenderCache(form.Document).Fonts;
         foreach (var control in FormControl.GetControls(field, widget.FieldId))
         {
-            var fonts = HyperPdfLibrary.Document.PdfDocumentRendering.GetRenderCache(form.Document).Fonts;
+            cancellationToken.ThrowIfCancellationRequested();
             var context = new AppearanceContext(form.Document.Objects, control.Dictionary, field, widget.Type, widget.Flags, form.Document.Catalog.GetDictionary(KnownName.AcroForm), resources)
             {
                 Fonts = fonts,
+                CancellationToken = cancellationToken,
             };
-            if (control.Id.IsValid)
+            if (!control.Id.IsValid)
             {
-                PdfFormEditing.StoreAppearance(form, edit, control, PdfFormEditing.CreateAppearance(context));
+                continue;
             }
+
+            var appearance = PdfFormEditing.CreateAppearance(context);
+            PdfFormEditing.StoreAppearance(form, edit, control, appearance);
+            FormDefaultResources.AddFonts(form.Document.Objects, appearance);
         }
 
         edit.Commit();

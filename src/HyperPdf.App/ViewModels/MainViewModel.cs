@@ -47,6 +47,12 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     /// <summary>Subscriptions following the theme, open requests and applied settings.</summary>
     private readonly MultipleDisposable _subscriptions;
 
+    /// <summary>Cancels downloads that are still running when the window's view model is disposed.</summary>
+    private readonly CancellationTokenSource _lifetime = new();
+
+    /// <summary>Whether the view model was disposed: 1 once it was.</summary>
+    private int _disposed;
+
     /// <summary>The tab whose cancellable work currently owns selection.</summary>
     private DocumentTabViewModel? _activeTab;
 
@@ -63,7 +69,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         [
             services.Theme.SubscribeSafe(OnTheme, OnError),
             services.OpenRequests.SubscribeSafe(path => Open([path]), OnError),
-            services.SettingsApplied.SubscribeSafe(_ => PageToneEnabled = services.Settings.PageToneEnabled, OnError),
+            services.SettingsApplied.SubscribeSafe(_ => OnSettingsApplied(), OnError),
             this.WhenChanged(static x => x.TabQuery).Skip(1).SubscribeSafe(_ => RefreshFoundTabs(), OnError),
             this.WhenChanged(static x => x.SelectedTab).Skip(1).SubscribeSafe(OnSelectedTabChanged, OnError),
             this.WhenChanged(static x => x.PageToneEnabled).Skip(1).SubscribeSafe(ApplyPageTone, OnError),
@@ -390,6 +396,16 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         CloseTabWithoutAsking(tab);
     }
 
+    /// <summary>Shows a failure no command handled as a notice on the selected tab, so the app goes on running.</summary>
+    /// <param name="text">What went wrong, in plain words.</param>
+    public void ReportFailure(string text)
+    {
+        if (SelectedTab is { } tab)
+        {
+            tab.Notice = text;
+        }
+    }
+
     /// <summary>Reloads the recent documents list.</summary>
     public void RefreshRecentDocuments()
     {
@@ -418,12 +434,22 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        _lifetime.Cancel();
+        _lifetime.Dispose();
         _subscriptions.Dispose();
         _tabFinderRequests.Dispose();
         SplitTab?.Dispose();
         foreach (var tab in Tabs)
         {
             tab.Dispose();
+
+            // Like closing the tab: the pool drops the source, which closes its document and forgets its passwords.
+            _services.Pool.Remove(tab.Source);
         }
 
         Tabs.Clear();
@@ -599,11 +625,19 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     private async Task OpenRemoteAsync(Uri uri)
     {
         StatusMessage = $"Downloading {uri.Host}…";
+        var token = _lifetime.Token;
         try
         {
-            var path = await _services.Downloader.DownloadAsync(uri, CancellationToken.None).ConfigureAwait(true);
+            var path = await _services.Downloader.DownloadAsync(uri, token).ConfigureAwait(true);
+
+            // A download that finished just as the window closed must not open a tab in a disposed view model.
+            token.ThrowIfCancellationRequested();
             StatusMessage = null;
             Open([path]);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // The window closed while the file was coming, so there is no one left to show it to.
         }
         catch (HttpRequestException ex)
         {
@@ -880,6 +914,17 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
 
         _services.Settings.PageToneEnabled = enabled;
         _services.ApplySettings();
+    }
+
+    /// <summary>Takes the settings that change what is open: the page colour switch and the tint over fillable form fields.</summary>
+    private void OnSettingsApplied()
+    {
+        PageToneEnabled = _services.Settings.PageToneEnabled;
+        var highlight = _services.FormHighlight;
+        foreach (var tab in Tabs)
+        {
+            tab.ApplyFormHighlight(highlight);
+        }
     }
 
     /// <summary>Applies a new theme's page tone to every tab.</summary>

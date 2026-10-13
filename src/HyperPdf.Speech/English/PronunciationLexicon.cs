@@ -22,9 +22,16 @@ internal sealed class PronunciationLexicon
     /// <summary>The pronunciations.</summary>
     private readonly FrozenDictionary<string, string> _words;
 
+    /// <summary>Looks words up from a span of characters, so no string is made to ask.</summary>
+    private readonly FrozenDictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> _lookup;
+
     /// <summary>Initializes a new instance of the <see cref="PronunciationLexicon"/> class.</summary>
     /// <param name="words">The pronunciations.</param>
-    private PronunciationLexicon(FrozenDictionary<string, string> words) => _words = words;
+    private PronunciationLexicon(FrozenDictionary<string, string> words)
+    {
+        _words = words;
+        _lookup = words.GetAlternateLookup<ReadOnlySpan<char>>();
+    }
 
     /// <summary>Gets the number of words.</summary>
     internal int Count => _words.Count;
@@ -49,13 +56,7 @@ internal sealed class PronunciationLexicon
     /// <param name="phonemes">The phonemes.</param>
     /// <returns><see langword="true"/> when found.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool TryGet(string word, out string phonemes) => _words.TryGetValue(word, out phonemes!);
-
-    /// <summary>Determines whether a word is listed.</summary>
-    /// <param name="word">The word.</param>
-    /// <returns><see langword="true"/> when listed.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool Contains(string word) => _words.ContainsKey(word);
+    internal bool TryGet(scoped ReadOnlySpan<char> word, out string phonemes) => _lookup.TryGetValue(word, out phonemes!);
 
     /// <summary>Reads one dictionary: an object of words to a pronunciation, or to pronunciations by part of speech.</summary>
     /// <param name="json">The UTF-8 JSON.</param>

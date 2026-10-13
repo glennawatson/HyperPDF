@@ -46,8 +46,14 @@ internal static class FormTextAppearance
     /// <param name="context">The widget.</param>
     /// <param name="display">The text to show.</param>
     /// <returns>The Form XObject.</returns>
-    internal static PdfStream CreateText(AppearanceContext context, string display)
+    internal static PdfStream CreateText(in AppearanceContext context, string display)
     {
+        context.CancellationToken.ThrowIfCancellationRequested();
+        if (FormRichText.Read(context) is { } paragraphs)
+        {
+            return FormRichTextAppearance.Create(context, paragraphs);
+        }
+
         var frame = FormFrame.Create(context);
         var da = context.DefaultAppearance;
         var font = FormFont.Find(context.Store, da.FontName, context.Widget, context.Form, context.PageResources, context.Fonts);
@@ -67,7 +73,7 @@ internal static class FormTextAppearance
     /// <summary>Creates the appearance of a list box.</summary>
     /// <param name="context">The widget.</param>
     /// <returns>The Form XObject.</returns>
-    internal static PdfStream CreateList(AppearanceContext context)
+    internal static PdfStream CreateList(in AppearanceContext context)
     {
         var frame = FormFrame.Create(context);
         var da = context.DefaultAppearance;
@@ -85,6 +91,24 @@ internal static class FormTextAppearance
         }
     }
 
+    /// <summary>Starts the marked content that holds a field's text, clipped to the inside of the border.</summary>
+    /// <param name="builder">The content.</param>
+    /// <param name="frame">The frame.</param>
+    internal static void BeginTextBlock(ref PdfContentBuilder builder, in FormFrame frame)
+    {
+        builder.BeginMarkedContent("Tx"u8);
+        builder.SaveState();
+        Clip(ref builder, frame);
+    }
+
+    /// <summary>Ends the marked content that holds a field's text.</summary>
+    /// <param name="builder">The content.</param>
+    internal static void EndTextBlock(ref PdfContentBuilder builder)
+    {
+        builder.RestoreState();
+        builder.EndMarkedContent();
+    }
+
     /// <summary>Writes a text field's or combo box's content.</summary>
     /// <param name="builder">The content.</param>
     /// <param name="context">The widget.</param>
@@ -92,7 +116,7 @@ internal static class FormTextAppearance
     /// <param name="da">The default appearance.</param>
     /// <param name="font">The font.</param>
     /// <param name="display">The text to show.</param>
-    private static void WriteText(ref PdfContentBuilder builder, AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, string display)
+    private static void WriteText(ref PdfContentBuilder builder, in AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, string display)
     {
         if (display.Length == 0)
         {
@@ -123,7 +147,7 @@ internal static class FormTextAppearance
     /// <param name="frame">The frame.</param>
     /// <param name="da">The default appearance.</param>
     /// <param name="font">The font.</param>
-    private static void WriteList(ref PdfContentBuilder builder, AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font)
+    private static void WriteList(ref PdfContentBuilder builder, in AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font)
     {
         var field = context.Field;
         var count = FormChoices.Count(field);
@@ -137,6 +161,7 @@ internal static class FormTextAppearance
         var y = frame.Height - frame.Border.Width;
         for (var i = Math.Max(0, top); i < count && y > 0; i++)
         {
+            context.CancellationToken.ThrowIfCancellationRequested();
             var rowBottom = y - rowHeight;
             if (FormChoices.IsSelected(field, i, useIndices))
             {
@@ -178,31 +203,13 @@ internal static class FormTextAppearance
     {
         builder.BeginText();
         builder.WriteRaw(Encoding.ASCII.GetBytes($"{da.Color}\n"));
-        builder.SetFont(Encoding.UTF8.GetBytes(font.Name), size);
+        builder.SetFont(font.NameBytes, size);
     }
 
     /// <summary>Ends the text object.</summary>
     /// <param name="builder">The content.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void EndText(ref PdfContentBuilder builder) => builder.EndText();
-
-    /// <summary>Starts the marked content that holds a field's text, clipped to the inside of the border.</summary>
-    /// <param name="builder">The content.</param>
-    /// <param name="frame">The frame.</param>
-    private static void BeginTextBlock(ref PdfContentBuilder builder, in FormFrame frame)
-    {
-        builder.BeginMarkedContent("Tx"u8);
-        builder.SaveState();
-        Clip(ref builder, frame);
-    }
-
-    /// <summary>Ends the marked content that holds a field's text.</summary>
-    /// <param name="builder">The content.</param>
-    private static void EndTextBlock(ref PdfContentBuilder builder)
-    {
-        builder.RestoreState();
-        builder.EndMarkedContent();
-    }
 
     /// <summary>Clips drawing to the area inside the border.</summary>
     /// <param name="builder">The content.</param>
@@ -240,14 +247,15 @@ internal static class FormTextAppearance
     /// <param name="frame">The frame.</param>
     /// <param name="requested">The size the default appearance sets; 0 to fit.</param>
     /// <param name="lines">Receives the lines.</param>
+    /// <param name="cancellationToken">A token that cancels the layout.</param>
     /// <returns>The size.</returns>
-    private static float LayOutMultiline(FormFont font, FormCodes codes, in FormFrame frame, float requested, List<TextLine> lines)
+    private static float LayOutMultiline(FormFont font, FormCodes codes, in FormFrame frame, float requested, List<TextLine> lines, CancellationToken cancellationToken)
     {
         var size = requested > 0 ? requested : MaximumFitSize;
         while (true)
         {
             lines.Clear();
-            TextLayout.Wrap(codes, size, frame.PaddedWidth, lines);
+            TextLayout.Wrap(codes, size, frame.PaddedWidth, lines, cancellationToken);
             var tooTall = lines.Count * font.LineHeight * size / GlyphUnits > frame.PaddedHeight;
             if (requested > 0 || !tooTall || size <= MinimumFitSize)
             {
@@ -263,7 +271,7 @@ internal static class FormTextAppearance
     /// <param name="frame">The frame.</param>
     /// <param name="width">The line's width.</param>
     /// <returns>The x position.</returns>
-    private static float AlignedX(AppearanceContext context, in FormFrame frame, float width) => context.Alignment switch
+    private static float AlignedX(in AppearanceContext context, in FormFrame frame, float width) => context.Alignment switch
     {
         CenterAlignment => (frame.Width - width) * Half,
         RightAlignment => frame.Width - frame.Padding - width,
@@ -285,7 +293,7 @@ internal static class FormTextAppearance
     /// <param name="da">The default appearance.</param>
     /// <param name="font">The font.</param>
     /// <param name="codes">The text's codes.</param>
-    private static void WriteSingleLine(ref PdfContentBuilder builder, AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, FormCodes codes)
+    private static void WriteSingleLine(ref PdfContentBuilder builder, in AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, FormCodes codes)
     {
         var size = ChooseSingleLineSize(font, codes, frame, da.FontSize, false);
         var line = TextLayout.FirstLine(codes, size);
@@ -304,10 +312,10 @@ internal static class FormTextAppearance
     /// <param name="da">The default appearance.</param>
     /// <param name="font">The font.</param>
     /// <param name="codes">The text's codes.</param>
-    private static void WriteMultiline(ref PdfContentBuilder builder, AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, FormCodes codes)
+    private static void WriteMultiline(ref PdfContentBuilder builder, in AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, FormCodes codes)
     {
         var lines = new List<TextLine>();
-        var size = LayOutMultiline(font, codes, frame, da.FontSize, lines);
+        var size = LayOutMultiline(font, codes, frame, da.FontSize, lines, context.CancellationToken);
         var leading = font.LineHeight * size / GlyphUnits;
         var x = 0F;
         var y = 0F;
@@ -315,6 +323,7 @@ internal static class FormTextAppearance
         BeginText(ref builder, da, font, size);
         for (var i = 0; i < lines.Count; i++)
         {
+            context.CancellationToken.ThrowIfCancellationRequested();
             var nextX = AlignedX(context, frame, lines[i].Width);
             var nextY = i == 0 ? frame.Height - frame.Padding - (font.Ascent * size / GlyphUnits) : y - leading;
             builder.MoveText(nextX - x, nextY - y);
@@ -334,7 +343,7 @@ internal static class FormTextAppearance
     /// <param name="da">The default appearance.</param>
     /// <param name="font">The font.</param>
     /// <param name="codes">The text's codes.</param>
-    private static void WriteComb(ref PdfContentBuilder builder, AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, FormCodes codes)
+    private static void WriteComb(ref PdfContentBuilder builder, in AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, FormCodes codes)
     {
         var boxes = context.MaxLength;
         var cell = frame.InnerWidth / boxes;
@@ -351,6 +360,7 @@ internal static class FormTextAppearance
         BeginText(ref builder, da, font, size);
         for (var i = 0; i < count; i++)
         {
+            context.CancellationToken.ThrowIfCancellationRequested();
             var width = codes.GetWidth(i) * size / GlyphUnits;
             var x = frame.Border.Width + ((first + i) * cell) + ((cell - width) * Half);
             builder.SetTextMatrix(1, 0, 0, 1, x, CenteredBaseline(font, frame, size));
@@ -367,7 +377,7 @@ internal static class FormTextAppearance
     /// <param name="frame">The frame.</param>
     /// <param name="boxes">The number of boxes.</param>
     /// <param name="cell">The width of a box.</param>
-    private static void WriteCombDividers(ref PdfContentBuilder builder, AppearanceContext context, in FormFrame frame, int boxes, float cell)
+    private static void WriteCombDividers(ref PdfContentBuilder builder, in AppearanceContext context, in FormFrame frame, int boxes, float cell)
     {
         if (frame.Border.Width <= 0 || context.Characteristics?.GetArray(KnownName.BC) is not { } color)
         {

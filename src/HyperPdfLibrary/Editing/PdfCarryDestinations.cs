@@ -18,6 +18,9 @@ namespace HyperPdfLibrary.Editing;
 [DebuggerDisplay("PdfCarryDestinations: {_added.Count} named")]
 internal sealed class PdfCarryDestinations
 {
+    /// <summary>The most actions read in one chain, so a looping or branching <c>/Next</c> chain ends.</summary>
+    private const int MaxChainedActions = 256;
+
     /// <summary>The context.</summary>
     private readonly PdfCarryContext _context;
 
@@ -76,25 +79,16 @@ internal sealed class PdfCarryDestinations
         };
     }
 
-    /// <summary>Retargets an action: a go-to action follows its destination, any other action is kept.</summary>
+    /// <summary>
+    /// Retargets an action and the actions that follow it in its <c>/Next</c> chain (ISO 32000-2 12.6.2): a go-to action
+    /// follows its destination, any other action is kept, and a chained go-to action that leads nowhere is removed.
+    /// </summary>
     /// <param name="raw">The action as stored in the source.</param>
     /// <returns>The value to copy, or null for a go-to action that does not lead to a copied page.</returns>
     internal PdfValue RewriteAction(PdfValue raw)
     {
-        if (StoreReading.Resolve(_context.Source, raw).AsDictionary() is not { } action || !action.IsName(KnownName.S, KnownName.GoTo))
-        {
-            return raw;
-        }
-
-        var destination = Rewrite(action.GetRaw(KnownName.D));
-        if (destination.IsNull)
-        {
-            return default;
-        }
-
-        var copy = action.Clone();
-        copy.Set(KnownName.D, destination);
-        return PdfValue.FromDictionary(copy);
+        var budget = MaxChainedActions;
+        return RewriteAction(raw, ref budget);
     }
 
     /// <summary>Adds the carried named destinations to the target's name tree.</summary>
@@ -108,6 +102,94 @@ internal sealed class PdfCarryDestinations
         var names = _context.Names;
         var merged = PdfNameTreeMerge.Merge(_context.TargetStore, names.GetDictionary(KnownName.Dests), _added);
         _context.SetEntry(names, KnownName.Dests, merged);
+    }
+
+    /// <summary>Uses one unit of a chain's budget.</summary>
+    /// <param name="budget">The chained actions still allowed.</param>
+    /// <returns><see langword="false"/> when none was left.</returns>
+    private static bool TakeBudget(ref int budget)
+    {
+        if (budget <= 0)
+        {
+            return false;
+        }
+
+        budget--;
+        return true;
+    }
+
+    /// <summary>Retargets an action and its chain.</summary>
+    /// <param name="raw">The action as stored in the source.</param>
+    /// <param name="budget">The chained actions still allowed; a chain that exceeds it loses the rest.</param>
+    /// <returns>The value to copy, or null for a go-to action that does not lead to a copied page.</returns>
+    private PdfValue RewriteAction(PdfValue raw, ref int budget)
+    {
+        if (StoreReading.Resolve(_context.Source, raw).AsDictionary() is not { } action)
+        {
+            return raw;
+        }
+
+        PdfDictionary? copy = null;
+        if (action.IsName(KnownName.S, KnownName.GoTo))
+        {
+            var destination = Rewrite(action.GetRaw(KnownName.D));
+            if (destination.IsNull)
+            {
+                return default;
+            }
+
+            copy = action.Clone();
+            copy.Set(KnownName.D, destination);
+        }
+
+        if (action.ContainsKey(KnownName.Next))
+        {
+            var next = action.GetRaw(KnownName.Next);
+            var rewritten = TakeBudget(ref budget) ? RewriteChain(next, ref budget) : default;
+            if (rewritten != next)
+            {
+                copy ??= action.Clone();
+                _ = copy.Remove(KnownName.Next);
+                if (!rewritten.IsNull)
+                {
+                    copy.Set(KnownName.Next, rewritten);
+                }
+            }
+        }
+
+        return copy is null ? raw : PdfValue.FromDictionary(copy);
+    }
+
+    /// <summary>Retargets what an action's <c>/Next</c> names: one action or an array of them.</summary>
+    /// <param name="next">The entry as stored in the source.</param>
+    /// <param name="budget">The chained actions still allowed.</param>
+    /// <returns>The entry itself when nothing changed, the value to copy otherwise, or null when no action is left.</returns>
+    private PdfValue RewriteChain(PdfValue next, ref int budget)
+    {
+        if (StoreReading.Resolve(_context.Source, next).AsArray() is not { } list)
+        {
+            return RewriteAction(next, ref budget);
+        }
+
+        var kept = new PdfArray(list.Owner, list.Count);
+        var changed = false;
+        for (var i = 0; i < list.Count; i++)
+        {
+            var entry = list.GetRaw(i);
+            var rewritten = TakeBudget(ref budget) ? RewriteAction(entry, ref budget) : default;
+            changed |= rewritten != entry;
+            if (!rewritten.IsNull)
+            {
+                kept.Add(rewritten);
+            }
+        }
+
+        if (!changed)
+        {
+            return next;
+        }
+
+        return kept.Count == 0 ? default : PdfValue.FromArray(kept);
     }
 
     /// <summary>Determines whether a destination array names a page that is being copied.</summary>

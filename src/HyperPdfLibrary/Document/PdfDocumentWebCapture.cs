@@ -29,8 +29,9 @@ public static class PdfDocumentWebCapture
             return null;
         }
 
-        var seen = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
-        var sets = new List<PdfWebCaptureContentSet>();
+        var named = PdfDocumentWebCapture.CountContentSets(ids) + PdfDocumentWebCapture.CountContentSets(urls);
+        var seen = new HashSet<PdfDictionary>(named, ReferenceEqualityComparer.Instance);
+        var sets = new List<PdfWebCaptureContentSet>(named);
         PdfDocumentWebCapture.AddContentSets(document, sets, seen, ids);
         PdfDocumentWebCapture.AddContentSets(document, sets, seen, urls);
         return new(spider?.Num("V", 0) ?? 0, [.. sets], ids.Count, urls.Count);
@@ -74,6 +75,20 @@ public static class PdfDocumentWebCapture
         return page.Dictionary.Dict("DPart") is { } node ? PdfDocumentWebCapture.ReadPartNode(document, node, 0, [with(ReferenceEqualityComparer.Instance)]) : null;
     }
 
+    /// <summary>Counts the content sets a name tree's entries name, before any repeated sets are dropped.</summary>
+    /// <param name="entries">The name tree entries.</param>
+    /// <returns>The count.</returns>
+    private static int CountContentSets(List<NameTreeEntry> entries)
+    {
+        var count = 0;
+        foreach (var entry in entries)
+        {
+            count += entry.Value.AsArray()?.Count ?? 1;
+        }
+
+        return Math.Min(count, PdfDocumentWebCapture.MaxContentSets);
+    }
+
     /// <summary>Adds the content sets of a name tree.</summary>
     /// <param name="document">The document.</param>
     /// <param name="sets">The result list.</param>
@@ -83,18 +98,39 @@ public static class PdfDocumentWebCapture
     {
         foreach (var entry in entries)
         {
-            if (sets.Count < PdfDocumentWebCapture.MaxContentSets && entry.Value.AsDictionary() is { } set && seen.Add(set))
+            // ISO 32000-2 14.10.3.1: an entry names one content set or an array of them.
+            if (entry.Value.AsArray() is { } array)
             {
-                sets.Add(new(
-        set.NameText("S") ?? string.Empty,
-        set.GetStringBytes(set.Key("ID")).ToArray(),
-        set.Text("CT"),
-        PdfDocumentWebCapture.ReadSources(
-        document,
-        set.Value("SI")),
-        set.Array("O")?.Count ?? 0));
+                for (var i = 0; i < array.Count; i++)
+                {
+                    PdfDocumentWebCapture.AddContentSet(document, sets, seen, array.GetDictionary(i));
+                }
+            }
+            else
+            {
+                PdfDocumentWebCapture.AddContentSet(document, sets, seen, entry.Value.AsDictionary());
             }
         }
+    }
+
+    /// <summary>Adds one content set unless it was added already or the limit is reached.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="sets">The result list.</param>
+    /// <param name="seen">The content set dictionaries already added.</param>
+    /// <param name="set">The content set dictionary, or null.</param>
+    private static void AddContentSet(PdfDocument document, List<PdfWebCaptureContentSet> sets, HashSet<PdfDictionary> seen, PdfDictionary? set)
+    {
+        if (set is null || sets.Count >= PdfDocumentWebCapture.MaxContentSets || !seen.Add(set))
+        {
+            return;
+        }
+
+        sets.Add(new(
+            set.NameText("S") ?? string.Empty,
+            set.GetStringBytes(set.Key("ID")).ToArray(),
+            set.Text("CT"),
+            PdfDocumentWebCapture.ReadSources(document, set.Value("SI")),
+            set.Array("O")?.Count ?? 0));
     }
 
     /// <summary>Reads source information: one dictionary or an array of them.</summary>
@@ -103,41 +139,32 @@ public static class PdfDocumentWebCapture
     /// <returns>The sources.</returns>
     private static PdfWebCaptureSource[] ReadSources(PdfDocument document, PdfValue info)
     {
-        var sources = new List<PdfWebCaptureSource>();
-        if (info.AsArray() is { } array)
+        if (info.AsArray() is not { } array)
         {
-            for (var i = 0; i < array.Count; i++)
-            {
-                PdfDocumentWebCapture.AddSource(document, sources, array.GetDictionary(i));
-            }
+            return info.AsDictionary() is { } single ? [PdfDocumentWebCapture.ReadSource(document, single)] : [];
         }
-        else
+
+        var sources = new List<PdfWebCaptureSource>(array.Count);
+        for (var i = 0; i < array.Count; i++)
         {
-            PdfDocumentWebCapture.AddSource(document, sources, info.AsDictionary());
+            if (array.GetDictionary(i) is { } source)
+            {
+                sources.Add(PdfDocumentWebCapture.ReadSource(document, source));
+            }
         }
 
         return [.. sources];
     }
 
-    /// <summary>Adds one source information dictionary.</summary>
+    /// <summary>Reads one source information dictionary.</summary>
     /// <param name="document">The document.</param>
-    /// <param name="sources">The result list.</param>
-    /// <param name="source">The dictionary, or null.</param>
-    private static void AddSource(PdfDocument document, List<PdfWebCaptureSource> sources, PdfDictionary? source)
-    {
-        if (source is not null)
-        {
-            sources.Add(new(
-        PdfDocumentFileSpecs.ReadFileSpec(
-        document,
-        source.Value("AU")),
+    /// <param name="source">The dictionary.</param>
+    /// <returns>The source.</returns>
+    private static PdfWebCaptureSource ReadSource(PdfDocument document, PdfDictionary source) => new(
+        PdfDocumentFileSpecs.ReadFileSpec(document, source.Value("AU")),
         PdfDate.Parse(source.Value("TS").AsStringBytes()),
         PdfDate.Parse(source.Value("E").AsStringBytes()),
-        source.Int(
-        "S",
-        0)));
-        }
-    }
+        source.Int("S", 0));
 
     /// <summary>Reads a document part node and the nodes below it.</summary>
     /// <param name="document">The document.</param>
@@ -148,15 +175,27 @@ public static class PdfDocumentWebCapture
     private static PdfDocumentPartNode ReadPartNode(PdfDocument document, PdfDictionary node, int depth, HashSet<PdfDictionary> visited)
     {
         _ = visited.Add(node);
-        var children = new List<PdfDocumentPartNode>();
         var groups = node.Array("DParts");
+
+        // ISO 32000-2 Table 409: each element of /DParts is a non-empty array of children, so the count is the fewest children.
+        var children = new List<PdfDocumentPartNode>(groups?.Count ?? 0);
         for (var i = 0; groups is not null && depth < PdfLimits.MaxNesting && i < groups.Count; i++)
         {
             PdfDocumentWebCapture.AddPartChildren(document, children, groups.Get(i), depth, visited);
         }
 
-        var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
-        var dpm = node.Dict("DPM");
+        // ISO 32000-2 Table 409: a leaf whose range is one page has a Start key but no End key.
+        var start = PdfDocumentWebCapture.PartPage(document, node, "Start");
+        return new(PdfDocumentWebCapture.ReadPartMetadata(document, node.Dict("DPM")), [.. children], start, PdfDocumentWebCapture.PartPage(document, node, "End") ?? start, node);
+    }
+
+    /// <summary>Reads a document part's metadata dictionary (<c>/DPM</c>) as text by key; entries without a text form are skipped.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="dpm">The metadata dictionary, or null.</param>
+    /// <returns>The metadata.</returns>
+    private static Dictionary<string, string> ReadPartMetadata(PdfDocument document, PdfDictionary? dpm)
+    {
+        var metadata = new Dictionary<string, string>(dpm?.Count ?? 0, StringComparer.Ordinal);
         for (var i = 0; dpm is not null && i < dpm.Count; i++)
         {
             if (StoreReading.Resolve(document.Objects, dpm.GetValueAt(i)).ScalarText(document.Objects) is { } text)
@@ -165,7 +204,7 @@ public static class PdfDocumentWebCapture
             }
         }
 
-        return new(metadata, [.. children], PdfDocumentWebCapture.PartPage(document, node, "Start"), PdfDocumentWebCapture.PartPage(document, node, "End"), node);
+        return metadata;
     }
 
     /// <summary>Adds the children held in one element of <c>/DParts</c>: a node or an array of nodes.</summary>

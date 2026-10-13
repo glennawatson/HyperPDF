@@ -22,7 +22,7 @@ internal static class Jbig2Dictionaries
     /// <summary>The symbol dictionary flag that keeps the contexts for a later dictionary.</summary>
     internal const int RetainContextsFlag = 0x0200;
 
-    /// <summary>Determines whether a dictionary retained contexts of the sizes a reusing dictionary needs, as PDFium checks.</summary>
+    /// <summary>Determines whether a dictionary retained contexts of the sizes a reusing dictionary needs (T.88 section 7.4.2.2, the bitmap coding context used flag).</summary>
     /// <param name="last">The last referred dictionary.</param>
     /// <param name="genericLength">The generic contexts needed, or zero.</param>
     /// <param name="refinementLength">The refinement contexts needed, or zero.</param>

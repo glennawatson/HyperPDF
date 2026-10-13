@@ -10,7 +10,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 /// <param name="Height">The height in pixels.</param>
 internal readonly record struct Jbig2Symbol(int Offset, int Width, int Height)
 {
-    /// <summary>Gets a symbol that has no bitmap, as PDFium's null symbol images.</summary>
+    /// <summary>Gets a symbol that has no bitmap, which stands for an empty (zero-size) symbol.</summary>
     internal static Jbig2Symbol Absent { get; } = new(0, -1, 0);
 
     /// <summary>Gets a value indicating whether the symbol has a bitmap, which may still be empty.</summary>

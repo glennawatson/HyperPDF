@@ -16,7 +16,7 @@ namespace HyperPdf.Platform.Linux.Spelling;
 /// built only the first time a correction is asked for. No word list ships with the app.
 /// </summary>
 [DebuggerDisplay("WordListSpellChecker: {Language}")]
-public sealed class WordListSpellChecker : ISpellChecker
+public sealed class WordListSpellChecker : ISpellChecker, IDisposable
 {
     /// <summary>The longest word whose apostrophes are straightened on the stack.</summary>
     private const int MaxStackWord = 64;
@@ -27,11 +27,11 @@ public sealed class WordListSpellChecker : ISpellChecker
     /// <summary>The capital letters, to tell a word written all in capitals.</summary>
     private static readonly System.Buffers.SearchValues<char> UpperCase = System.Buffers.SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ");
 
-    /// <summary>The words, compared without case.</summary>
-    private readonly HashSet<string> _words = [with(comparer: StringComparer.OrdinalIgnoreCase)];
-
     /// <summary>Guards building and using the correction index.</summary>
     private readonly Lock _gate = new();
+
+    /// <summary>The words, compared without case; <see langword="null"/> when there is no list or after disposal.</summary>
+    private WordPool? _words;
 
     /// <summary>The correction index, built on first use.</summary>
     private CorrectionIndex? _index;
@@ -47,19 +47,16 @@ public sealed class WordListSpellChecker : ISpellChecker
 
         try
         {
-            foreach (var line in File.ReadLines(wordListPath))
-            {
-                var word = line.Trim();
-                if (word.Length > 0 && !word.StartsWith('#'))
-                {
-                    _ = _words.Add(word);
-                }
-            }
-
+            Volatile.Write(ref _words, WordPool.Read(wordListPath));
             Language = Path.GetFileNameWithoutExtension(wordListPath);
         }
         catch (IOException ex)
         {
+            Trace.TraceWarning($"Could not read the word list {wordListPath}: {ex.Message}");
+        }
+        catch (NotSupportedException ex)
+        {
+            // A word list that is not a plain file has no length to read.
             Trace.TraceWarning($"Could not read the word list {wordListPath}: {ex.Message}");
         }
         catch (UnauthorizedAccessException ex)
@@ -75,7 +72,7 @@ public sealed class WordListSpellChecker : ISpellChecker
     public string Language { get; } = string.Empty;
 
     /// <inheritdoc/>
-    public bool IsAvailable => _words.Count > 0;
+    public bool IsAvailable => Volatile.Read(ref _words) is { Count: > 0 };
 
     /// <summary>Finds the word list for a language, trying the names Linux packages use, and then the reader's own list.</summary>
     /// <param name="culture">The language.</param>
@@ -103,13 +100,13 @@ public sealed class WordListSpellChecker : ISpellChecker
     /// <inheritdoc/>
     public bool IsCorrect(ReadOnlySpan<char> word)
     {
-        if (_words.Count == 0)
+        var words = Volatile.Read(ref _words);
+        if (words is not { Count: > 0 })
         {
             return true;
         }
 
-        var lookup = _words.GetAlternateLookup<ReadOnlySpan<char>>();
-        if (lookup.Contains(word))
+        if (words.Contains(word))
         {
             return true;
         }
@@ -122,14 +119,26 @@ public sealed class WordListSpellChecker : ISpellChecker
         // Typed curly apostrophes match the straight ones word lists use.
         Span<char> straight = stackalloc char[MaxStackWord];
         word.Replace(straight[..word.Length], '’', '\'');
-        return lookup.Contains(straight[..word.Length]);
+        return words.Contains(straight[..word.Length]);
+    }
+
+    /// <summary>Returns the pooled word storage and correction index. A check running on another thread finishes first.</summary>
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            _index?.Dispose();
+            _index = null;
+            _words?.Dispose();
+            Volatile.Write(ref _words, null);
+        }
     }
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Suggest(string word)
     {
         ArgumentNullException.ThrowIfNull(word);
-        if (_words.Count == 0)
+        if (Volatile.Read(ref _words) is not { Count: > 0 })
         {
             return [];
         }
@@ -144,7 +153,12 @@ public sealed class WordListSpellChecker : ISpellChecker
         List<string> suggestions = [with(MaxSuggestions)];
         lock (_gate)
         {
-            Index().Lookup(lower, suggestions, MaxSuggestions);
+            if (Volatile.Read(ref _words) is not { } words)
+            {
+                return [];
+            }
+
+            Index(words).Lookup(lower, suggestions, MaxSuggestions);
         }
 
         var corrections = CollectionsMarshal.AsSpan(suggestions);
@@ -171,7 +185,8 @@ public sealed class WordListSpellChecker : ISpellChecker
     }
 
     /// <summary>Gets the correction index, building it from the words the first time. Callers hold the gate.</summary>
+    /// <param name="words">The words.</param>
     /// <returns>The index.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private CorrectionIndex Index() => _index ??= new(_words);
+    private CorrectionIndex Index(WordPool words) => _index ??= new(words);
 }

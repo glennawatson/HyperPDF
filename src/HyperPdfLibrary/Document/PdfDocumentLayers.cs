@@ -19,22 +19,52 @@ public static class PdfDocumentLayers
             return existing;
         }
 
+        var revision = PdfDocumentCaches.Revision(document);
         var created = new PdfOptionalContent(document.Objects);
         created.StartAt(Volatile.Read(ref document.State.LayerVersionFloor));
-        _ = Interlocked.CompareExchange(ref document.State.OptionalContent, created, null);
-        return Volatile.Read(ref document.State.OptionalContent)!;
+        var published = Interlocked.CompareExchange(ref document.State.OptionalContent, created, null) ?? created;
+        if (Volatile.Read(ref document.State.ObjectsRevision) != revision)
+        {
+            // An edit ran while the layers were read; keep them only if none of the layer objects changed.
+            PdfDocumentLayers.RefreshOptionalContent(document);
+        }
+
+        return published;
     }
 
-    /// <summary>Drops the layer set so it is read again, raising the version floor past every version it handed out.</summary>
+    /// <summary>
+    /// Drops the layer set after an edit unless the edit left every layer object alone, so a reader's choice of shown layers
+    /// survives edits to pages, metadata and the like.
+    /// </summary>
     /// <param name="document">The document.</param>
-    internal static void DropOptionalContent(PdfDocument document)
+    internal static void RefreshOptionalContent(PdfDocument document)
     {
-        if (Interlocked.Exchange(ref document.State.OptionalContent, null) is not { } dropped)
+        if (Volatile.Read(ref document.State.OptionalContent) is not { } current)
         {
             return;
         }
 
-        var next = dropped.Version + 1;
+        if (current.IsCurrent())
+        {
+            // The layers are the same, but renderers redraw after any edit, as they do when the set is read again.
+            current.InvalidatePages();
+            return;
+        }
+
+        PdfDocumentLayers.DropOptionalContent(document, current);
+    }
+
+    /// <summary>Drops a layer set so it is read again, raising the version floor past every version it handed out.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="expected">The set to drop; a newer one a reader already published is left.</param>
+    private static void DropOptionalContent(PdfDocument document, PdfOptionalContent expected)
+    {
+        if (Interlocked.CompareExchange(ref document.State.OptionalContent, null, expected) != expected)
+        {
+            return;
+        }
+
+        var next = expected.Version + 1;
         var floor = Volatile.Read(ref document.State.LayerVersionFloor);
         while (next > floor)
         {

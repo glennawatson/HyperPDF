@@ -6,14 +6,16 @@ using System.Formats.Asn1;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
+using HyperPdf.Cms;
 using HyperPdfLibrary.IO;
 
 namespace HyperPdfLibrary.Signatures;
 
 /// <summary>
-/// Checks a signature's CMS container with <see cref="SignedCms"/>: the message digest over the byte ranges, the signer's
-/// signature, its signed signing time and timestamp, and the signer's chain. Never throws on damaged input; a container
-/// that cannot be read gives a <see cref="PdfCmsStatus.Malformed"/> result.
+/// Checks a signature's CMS container with <see cref="SignedCms"/>, or <see cref="CmsShakeSignatures"/> for SHAKE256: the
+/// message digest over the byte ranges, the signer's signature, its signed signing time and timestamp, and the signer's
+/// chain. Never throws on damaged input; a container that cannot be read gives a <see cref="PdfCmsStatus.Malformed"/>
+/// result, and a digest this computer cannot compute gives <see cref="PdfCmsStatus.Unsupported"/>, never a valid result.
 /// </summary>
 internal static class PdfCmsVerifier
 {
@@ -128,11 +130,23 @@ internal static class PdfCmsVerifier
         }
 
         var signer = cms.SignerInfos[0];
-        var certificate = signer.Certificate ?? Find(signer.SignerIdentifier, context.StoreCertificates);
-        var signatureValid = CheckSignature(signer, context.StoreCertificates);
-        var digestValid = detached ? DigestMatches(signer, signed, signatureValid) : EnvelopedDigestMatches(cms, signed) && signatureValid;
-        var timestamp = ReadTimestamp(signer, context);
+        var certificate = signer.Certificate ?? CmsSignerChecks.Find(signer.SignerIdentifier, context.StoreCertificates);
+        var check = CheckSigner(der, signer, signed, detached, certificate, context);
         var algorithm = signer.DigestAlgorithm.Value ?? string.Empty;
+        if (Refused(check, certificate, signer) is { } refused)
+        {
+            return refused;
+        }
+
+        var signatureValid = check.Signature == CmsSignatureStatus.Valid;
+        var digestValid = detached ? DigestMatches(signer, check.Digest, signed, signatureValid) : EnvelopedDigestMatches(cms, signed) && signatureValid;
+        var timestamp = ReadTimestamp(signer, context);
+        if (check.Signature == CmsSignatureStatus.Unsupported)
+        {
+            var detail = CmsCheckText.UnsupportedSignature(check.Digest);
+            return new(PdfCmsStatus.Unsupported, digestValid, false, certificate, algorithm, SigningTime(signer), timestamp, null, detail);
+        }
+
         if (certificate is null)
         {
             const string Missing = "The signer's certificate is not in the signature or the security store.";
@@ -142,6 +156,19 @@ internal static class PdfCmsVerifier
         var chain = PdfChainBuilder.Build(certificate, cms.Certificates, context, CheckTime(context, timestamp));
         return new(PdfCmsStatus.Checked, digestValid, signatureValid, certificate, algorithm, SigningTime(signer), timestamp, chain, string.Empty);
     }
+
+    /// <summary>Checks the first signer's signature over detached or encapsulated content.</summary>
+    /// <param name="der">The CMS container.</param>
+    /// <param name="signer">The first signer.</param>
+    /// <param name="signed">The signed bytes.</param>
+    /// <param name="detached">Whether the content is detached.</param>
+    /// <param name="certificate">The signer's certificate, or <see langword="null"/>.</param>
+    /// <param name="context">The store and options.</param>
+    /// <returns>The check.</returns>
+    private static CmsSignerCheck CheckSigner(ReadOnlySpan<byte> der, SignerInfo signer, byte[] signed, bool detached, X509Certificate2? certificate, CmsContext context) =>
+        detached
+            ? CmsSignerChecks.CheckDetached(der, signer, signed, certificate, context.StoreCertificates)
+            : CmsSignerChecks.CheckEnveloped(der, signer, certificate, context.StoreCertificates);
 
     /// <summary>Gets the time to check a signer's chain at: the option, a valid timestamp's time, or now.</summary>
     /// <param name="context">The store and options.</param>
@@ -170,48 +197,79 @@ internal static class PdfCmsVerifier
         }
 
         var info = stamp.TokenInfo;
-        var oid = info.HashAlgorithmId.Value;
-        Span<byte> actual = stackalloc byte[PdfAlgorithms.MaxHashLength];
-        var length = PdfAlgorithms.Hash(oid, signed, actual);
-        var digestValid = length > 0 && CryptographicOperations.FixedTimeEquals(actual[..length], info.GetMessageHash().Span);
-        var signatureValid = stamp.VerifySignatureForData(signed, out var authority, context.StoreCertificates);
+        var oid = info.HashAlgorithmId.Value ?? string.Empty;
+        var check = CmsTimestamps.Verify(stamp, signed, context.StoreCertificates, out var authority);
+        var status = StatusOf(check.DigestStatus);
+        if (status != PdfCmsStatus.Checked)
+        {
+            var notChecked = new PdfTimestampResult(info.Timestamp, false, authority, null) { Status = status };
+            var detail = CmsCheckText.Describe(check.Digest, check.DigestStatus, oid);
+            return new(status, false, false, authority, oid, info.Timestamp, notChecked, null, detail);
+        }
+
         var at = context.Options.VerificationTime ?? info.Timestamp;
         var chain = authority is null ? null : PdfChainBuilder.Build(authority, stamp.AsSignedCms().Certificates, context, at);
-        var result = new PdfTimestampResult(info.Timestamp, signatureValid, authority, chain);
-        return new(PdfCmsStatus.Checked, digestValid, signatureValid, authority, oid ?? string.Empty, info.Timestamp, result, chain, string.Empty);
+        var result = new PdfTimestampResult(info.Timestamp, check.IsValid, authority, chain);
+        return new(PdfCmsStatus.Checked, check.ImprintMatches, check.IsValid, authority, oid, info.Timestamp, result, chain, string.Empty);
     }
 
-    /// <summary>Checks the signer's signature without judging the certificate.</summary>
-    /// <param name="signer">The signer.</param>
-    /// <param name="extra">Extra certificates to find the signer's in.</param>
-    /// <returns><see langword="true"/> when the signature is good.</returns>
-    private static bool CheckSignature(SignerInfo signer, X509Certificate2Collection extra)
+    /// <summary>Maps a digest status to the container status it gives.</summary>
+    /// <param name="status">The digest status.</param>
+    /// <returns><see cref="PdfCmsStatus.Checked"/> for an available digest.</returns>
+    private static PdfCmsStatus StatusOf(CmsDigestStatus status) => status switch
     {
-        try
+        CmsDigestStatus.Available => PdfCmsStatus.Checked,
+        CmsDigestStatus.NotAllowed => PdfCmsStatus.DigestNotAllowed,
+        _ => PdfCmsStatus.Unsupported,
+    };
+
+    /// <summary>
+    /// Gives the result for a signer that is not checked because its digest is unavailable or not allowed, or that
+    /// breaks an ISO/TS 32002 rule; neither is ever a valid signature.
+    /// </summary>
+    /// <param name="check">The signer check.</param>
+    /// <param name="certificate">The signer's certificate, or <see langword="null"/>.</param>
+    /// <param name="signer">The signer.</param>
+    /// <returns>The result, or <see langword="null"/> when the signature was checked.</returns>
+    private static PdfCmsResult? Refused(in CmsSignerCheck check, X509Certificate2? certificate, SignerInfo signer)
+    {
+        var algorithm = signer.DigestAlgorithm.Value ?? string.Empty;
+        if (check.DigestStatus != CmsDigestStatus.Available)
         {
-            signer.CheckSignature(extra, true);
-            return true;
+            var detail = CmsCheckText.Describe(check.Digest, check.DigestStatus, algorithm);
+            return new(StatusOf(check.DigestStatus), false, false, certificate, algorithm, SigningTime(signer), null, null, detail);
         }
-        catch (CryptographicException)
-        {
-            return false;
-        }
+
+        return CmsCheckText.IsRuleViolation(check.Signature)
+            ? new(RuleStatus(check.Signature), false, false, certificate, algorithm, SigningTime(signer), null, null, CmsCheckText.Rule(check.Signature, check.Digest))
+            : null;
     }
+
+    /// <summary>Maps a broken ISO/TS 32002 rule to the container status it gives.</summary>
+    /// <param name="status">The signer check's signature status, one of the rule violations.</param>
+    /// <returns>The container status.</returns>
+    private static PdfCmsStatus RuleStatus(CmsSignatureStatus status) => status switch
+    {
+        CmsSignatureStatus.UnnamedCurve => PdfCmsStatus.UnnamedCurve,
+        CmsSignatureStatus.DigestMismatch => PdfCmsStatus.DigestMismatch,
+        _ => PdfCmsStatus.CurveDigestNotAllowed,
+    };
 
     /// <summary>Compares the signed messageDigest attribute with the hash of the signed bytes.</summary>
     /// <param name="signer">The signer.</param>
+    /// <param name="digest">The signer's digest algorithm, already checked as available.</param>
     /// <param name="signed">The signed bytes.</param>
     /// <param name="signatureValid">The signature result, used when there are no signed attributes and the signature covers the content directly.</param>
     /// <returns><see langword="true"/> when they match.</returns>
-    private static bool DigestMatches(SignerInfo signer, byte[] signed, bool signatureValid)
+    private static bool DigestMatches(SignerInfo signer, CmsDigestAlgorithm digest, byte[] signed, bool signatureValid)
     {
         if (FindMessageDigest(signer) is not { } expected)
         {
             return signer.SignedAttributes.Count == 0 && signatureValid;
         }
 
-        Span<byte> actual = stackalloc byte[PdfAlgorithms.MaxHashLength];
-        var length = PdfAlgorithms.Hash(signer.DigestAlgorithm.Value, signed, actual);
+        Span<byte> actual = stackalloc byte[CmsDigests.MaxLength];
+        var length = CmsDigests.Hash(digest, signed, actual);
         return length > 0 && CryptographicOperations.FixedTimeEquals(actual[..length], expected);
     }
 
@@ -266,10 +324,17 @@ internal static class PdfCmsVerifier
                 return new(DateTimeOffset.MinValue, false, null, null);
             }
 
-            var valid = stamp.VerifySignatureForSignerInfo(signer, out var authority, context.StoreCertificates);
+            // The token stamps the signer's signature value.
+            var check = CmsTimestamps.Verify(stamp, signer.GetSignature(), context.StoreCertificates, out var authority);
             var time = stamp.TokenInfo.Timestamp;
+            var status = StatusOf(check.DigestStatus);
+            if (status != PdfCmsStatus.Checked)
+            {
+                return new(time, false, authority, null) { Status = status };
+            }
+
             var chain = authority is null ? null : PdfChainBuilder.Build(authority, stamp.AsSignedCms().Certificates, context, context.Options.VerificationTime ?? time);
-            return new(time, valid, authority, chain);
+            return new(time, check.IsValid, authority, chain);
         }
 
         return null;
@@ -288,23 +353,6 @@ internal static class PdfCmsVerifier
                 {
                     return new DateTimeOffset(time.SigningTime.ToUniversalTime(), TimeSpan.Zero);
                 }
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Finds a signer's certificate among extra certificates.</summary>
-    /// <param name="identifier">The signer's identifier.</param>
-    /// <param name="candidates">The candidates.</param>
-    /// <returns>The certificate, or <see langword="null"/>.</returns>
-    private static X509Certificate2? Find(SubjectIdentifier identifier, X509Certificate2Collection candidates)
-    {
-        foreach (var candidate in candidates)
-        {
-            if (identifier.MatchesCertificate(candidate))
-            {
-                return candidate;
             }
         }
 

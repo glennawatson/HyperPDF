@@ -86,6 +86,7 @@ public static class PdfDocumentLabels
     /// <returns>The ranges, sorted by start page.</returns>
     internal static PageLabelRange[] GetLabelRanges(PdfDocument document)
     {
+        var revision = PdfDocumentCaches.Revision(document);
         var ranges = Volatile.Read(ref document.State.LabelRanges);
         if (ranges is not null)
         {
@@ -105,7 +106,6 @@ public static class PdfDocumentLabels
 
         list.Sort(static (a, b) => a.Start.CompareTo(b.Start));
         ranges = [.. list];
-        Volatile.Write(ref document.State.LabelRanges, ranges);
-        return ranges;
+        return PdfDocumentCaches.Publish(document, ref document.State.LabelRanges, ranges, revision);
     }
 }

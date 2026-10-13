@@ -190,7 +190,7 @@ public class HyperPdfFontTableBenchmarks
         var total = 0;
         foreach (var value in TextCharacters)
         {
-            total += (int)TextUnicode.GetDirection(value);
+            total += (int)TextUnicode.GetClass(value);
             total += TextUnicode.GetMirror(value);
             var length = TextUnicode.Decompose(value, decomposition);
             total += length;

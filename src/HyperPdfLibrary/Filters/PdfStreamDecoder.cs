@@ -32,12 +32,12 @@ internal static class PdfStreamDecoder
         var dictionary = stream.Dictionary;
         using var raw = stream.LeaseRawData();
         var data = raw.Span;
-        if (stream.IsEncrypted && dictionary.Owner?.Security is { } security && Decrypt(stream, data, security) is { } plain)
+        if (stream.IsEncrypted && dictionary.Owner?.Security is { } security && Decrypt(stream, data, security, context) is { } plain)
         {
             data = plain;
         }
 
-        return Apply(data, dictionary.Get(KnownName.Filter), dictionary.Get(KnownName.DecodeParms), new(context, stream.Id.Number, dictionary.Owner?.FlateDecoders, cancellationToken), ref output);
+        return Apply(data, dictionary.Get(KnownName.Filter), dictionary.Get(KnownName.DecodeParms), new(context, stream.Id.Number, cancellationToken), ref output);
     }
 
     /// <summary>Applies a filter chain to data.</summary>
@@ -49,19 +49,7 @@ internal static class PdfStreamDecoder
     /// <returns>The image codec still to apply, if any.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, ref PooledBuffer output, CancellationToken cancellationToken = default) =>
-        Apply(data, filters, parameters, new(null, 0, null, cancellationToken), ref output);
-
-    /// <summary>Applies a filter chain with independently leased decoders owned by a store.</summary>
-    /// <param name="data">The encoded bytes.</param>
-    /// <param name="filters">The stream filters.</param>
-    /// <param name="parameters">The filter parameters.</param>
-    /// <param name="owner">The decoder owner, or null for a standalone decode.</param>
-    /// <param name="output">Receives the decoded bytes.</param>
-    /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The image codec still to apply, if any.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, PdfObjectStore? owner, ref PooledBuffer output, CancellationToken cancellationToken) =>
-        Apply(data, filters, parameters, new(null, 0, owner?.FlateDecoders, cancellationToken), ref output);
+        Apply(data, filters, parameters, new(null, 0, cancellationToken), ref output);
 
     /// <summary>Applies a filter chain to data, checking for cancellation and reporting diagnostics.</summary>
     /// <param name="data">The encoded data.</param>
@@ -259,51 +247,36 @@ internal static class PdfStreamDecoder
     private static FilterResult ApplyDictionaryCoder(KnownName known, ReadOnlySpan<byte> input, PdfDictionary? parms, ref PooledBuffer output, in DecodeSource source)
     {
         var clean = known is KnownName.FlateDecode or KnownName.Fl
-            ? FlateFilter.TryDecode(input, ref output, source.Decoders, source.CancellationToken)
+            ? FlateFilter.TryDecode(input, ref output, source.CancellationToken)
             : LzwFilter.TryDecode(input, parms?.GetInt32(KnownName.EarlyChange, 1) ?? 1, ref output, source.CancellationToken);
         PredictorFilter.Apply(parms, ref output);
         return clean ? FilterResult.Applied : FilterResult.Damaged;
     }
 
-    /// <summary>
-    /// Decrypts a stream. Cross-reference streams, Identity crypt filters and (when metadata is not encrypted) metadata
-    /// streams are exempt; a /Crypt filter with a /Name uses that crypt filter's method.
-    /// </summary>
+    /// <summary>Decrypts a stream with the crypt filter <see cref="StreamCrypt.Choose"/> picks. AES-GCM data that fails authentication decodes as empty.</summary>
     /// <param name="stream">The stream.</param>
     /// <param name="raw">The stream's encoded data.</param>
     /// <param name="security">The security handler.</param>
+    /// <param name="context">The context that receives diagnostics, or <see langword="null"/>.</param>
     /// <returns>The plain bytes, or <see langword="null"/> when the stream is not encrypted.</returns>
-    private static byte[]? Decrypt(PdfStream stream, ReadOnlySpan<byte> raw, PdfSecurityHandler security)
+    private static byte[]? Decrypt(PdfStream stream, ReadOnlySpan<byte> raw, PdfSecurityHandler security, PdfOpenContext? context)
     {
-        var dictionary = stream.Dictionary;
-        var filters = dictionary.Get(KnownName.Filter);
-        var first = filters.AsArray()?.GetName(0) ?? filters.AsName();
-        if (first.Is(KnownName.Crypt))
+        var choice = StreamCrypt.Choose(stream.Dictionary, security);
+        if (choice.Clear)
         {
-            return DecryptNamed(stream, raw, security);
+            return null;
         }
 
-        return IsExempt(dictionary, security) ? null : security.DecryptStream(stream.Id, raw);
-    }
+        var decrypted = choice.Filter.IsNone
+            ? security.TryDecryptStream(stream.Id, raw, out var plain)
+            : security.TryDecryptStream(stream.Id, raw, choice.Filter, out plain);
+        if (decrypted)
+        {
+            return plain;
+        }
 
-    /// <summary>Decrypts a stream whose first filter is /Crypt, with the crypt filter named in its parameters.</summary>
-    /// <param name="stream">The stream.</param>
-    /// <param name="raw">The stream's encoded data.</param>
-    /// <param name="security">The security handler.</param>
-    /// <returns>The plain bytes, or <see langword="null"/> for the Identity filter.</returns>
-    private static byte[]? DecryptNamed(PdfStream stream, ReadOnlySpan<byte> raw, PdfSecurityHandler security)
-    {
-        var parms = stream.Dictionary.Get(KnownName.DecodeParms);
-        var crypt = parms.AsArray()?.GetDictionary(0) ?? parms.AsDictionary();
-        var name = crypt?.GetName(KnownName.Name) ?? default;
-        return name.IsNone || name.Is(KnownName.Identity) ? null : security.DecryptStream(stream.Id, raw, name);
+        // Data that fails authentication is never returned.
+        PdfOpenContext.Report(context, PdfDiagnosticCode.AuthenticationFailed, "An encrypted stream failed authentication and was left out.", stream.Id.Number, -1);
+        return [];
     }
-
-    /// <summary>Determines whether a stream without a crypt filter is stored in the clear.</summary>
-    /// <param name="dictionary">The stream dictionary.</param>
-    /// <param name="security">The security handler.</param>
-    /// <returns><see langword="true"/> for cross-reference streams, and metadata streams when metadata is not encrypted.</returns>
-    private static bool IsExempt(PdfDictionary dictionary, PdfSecurityHandler security) =>
-        dictionary.IsName(KnownName.Type, KnownName.XRef)
-        || (!security.EncryptMetadata && dictionary.IsName(KnownName.Type, KnownName.Metadata));
 }

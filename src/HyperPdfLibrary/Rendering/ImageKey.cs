@@ -2,11 +2,32 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Rendering;
 
-/// <summary>Identifies one decoded resolution of an image stream.</summary>
+/// <summary>Identifies one decoded resolution, ICC rendering and transfer function of an image stream.</summary>
 /// <param name="Stream">The source image.</param>
 /// <param name="ReductionLevels">The finest wavelet levels omitted, or zero for full size.</param>
-internal readonly record struct ImageKey(PdfStream Stream, int ReductionLevels);
+/// <param name="Rendering">The rendering intent and black point choice the image's ICC colours convert with.</param>
+/// <param name="TransferId">The number of the transfer function applied to the decoded pixels, or zero for none.</param>
+internal readonly record struct ImageKey(PdfStream Stream, int ReductionLevels, IccRendering Rendering, int TransferId)
+{
+    /// <summary>Initializes a new instance of the <see cref="ImageKey"/> struct for the initial graphics state's rendering.</summary>
+    /// <param name="stream">The source image.</param>
+    /// <param name="reductionLevels">The finest wavelet levels omitted, or zero for full size.</param>
+    internal ImageKey(PdfStream stream, int reductionLevels)
+        : this(stream, reductionLevels, IccRendering.Default, 0)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="ImageKey"/> struct without a transfer function.</summary>
+    /// <param name="stream">The source image.</param>
+    /// <param name="reductionLevels">The finest wavelet levels omitted, or zero for full size.</param>
+    /// <param name="rendering">The rendering intent and black point choice.</param>
+    internal ImageKey(PdfStream stream, int reductionLevels, IccRendering rendering)
+        : this(stream, reductionLevels, rendering, 0)
+    {
+    }
+}

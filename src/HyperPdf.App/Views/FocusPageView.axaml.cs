@@ -4,12 +4,16 @@
 
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.VisualTree;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.ObservableEvents;
 
 namespace HyperPdf.App.Views;
 
@@ -27,7 +31,14 @@ public sealed partial class FocusPageView : ReactiveUI.Avalonia.ReactiveUserCont
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Label, static v => v.PageLabel.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Blocks, static v => v.BlockList.ItemsSource));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsEmpty, static v => v.EmptyText.IsVisible));
-            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(static page => _ = page?.LoadAsync(), static error => Trace.TraceError(error.ToString())));
+
+            // A page above the view that loads and grows pushes the place down; the scroll viewer keeps it still when the
+            // pages are anchor candidates.
+            disposables.Add(Scope.Create(this, static page => page.FindAncestorOfType<ScrollViewer>()?.UnregisterAnchorCandidate(page)));
+            this.FindAncestorOfType<ScrollViewer>()?.RegisterAnchorCandidate(this);
+
+            // The page is a plain, fully realised list item, so its text loads only once it is near the view.
+            disposables.Add(this.Events().EffectiveViewportChanged.Nearing(this).SubscribeSafe(change => _ = ViewModel?.LoadAsync(), static error => Trace.TraceError(error.ToString())));
         });
     }
 

@@ -160,7 +160,13 @@
                 <MenuItem x:Name="SaveAsItem" views:ControlHelp.Text="{x:Static views:Descriptions.SaveAs}" Header="Save _As…" InputGesture="Ctrl+Shift+S" />
                 <MenuItem x:Name="OptimizeCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.OptimizeCopy}" Header="Save _Optimised Copy…" />
                 <MenuItem x:Name="ArchiveCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.ArchiveCopy}" Header="Save P_DF/A Copy…" />
+                <MenuItem x:Name="Pdf20CopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.Pdf20Copy}" Header="Save as PDF 2.0 _Copy…" />
+                <MenuItem x:Name="FlattenCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenCopy}" Header="Save Flat_tened Copy…" />
+                <MenuItem x:Name="ProtectItem" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectCopy}" Header="Protect with _Password…" />
+                <MenuItem x:Name="RemoveProtectionItem" views:ControlHelp.Text="{x:Static views:Descriptions.RemoveProtectionCopy}" Header="Remove Pro_tection…" />
                 <MenuItem x:Name="ApplyRedactionsItem" views:ControlHelp.Text="{x:Static views:Descriptions.ApplyRedactions}" Header="Apply _Redactions…" />
+                <MenuItem x:Name="ValidationDataItem" views:ControlHelp.Text="{x:Static views:Descriptions.ValidationData}" Header="Add _Validation Data or Timestamp…" />
+                <MenuItem x:Name="ExternalSignItem" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalSign}" Header="Sign with E_xternal Signer…" />
                 <MenuItem x:Name="SelectAllItem" views:ControlHelp.Text="{x:Static views:Descriptions.SelectAll}" Header="Select A_ll Text on Page" InputGesture="Ctrl+A" />
                 <MenuItem x:Name="ReloadItem" views:ControlHelp.Text="{x:Static views:Descriptions.Reload}" Header="Re_load" InputGesture="F5" />
                 <MenuItem x:Name="ShowInFolderItem" views:ControlHelp.Text="{x:Static views:Descriptions.ShowInFolder}" Header="Show in _Folder" />
@@ -598,6 +604,16 @@
       </Grid>
     </Border>
 
+    <!-- Shown on every page of a preseparated file, so nothing moves: which colourant the page is and which printed page it is part of. -->
+    <Border x:Name="SeparationBar" DockPanel.Dock="Top" Classes="toolbar" AutomationProperties.Name="Colour separation">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <TextBlock x:Name="SeparationText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
+        <TextBlock Grid.Column="1" x:Name="SeparationChoiceLabel" Text="Show separation" VerticalAlignment="Center" Margin="8,0,4,0" />
+        <ComboBox Grid.Column="2" x:Name="SeparationBox" AutomationProperties.Name="Show separation" Width="200" VerticalAlignment="Center" Margin="0,0,6,0"
+                  views:ControlHelp.Text="{x:Static views:Descriptions.ShowSeparation}" />
+      </Grid>
+    </Border>
+
     <!-- Steady progress while scanned pages are recognised; nothing moves except the bar, one step per page. -->
     <Border x:Name="RecognitionBar" DockPanel.Dock="Top" Classes="toolbar">
       <Grid ColumnDefinitions="*,Auto,Auto">
@@ -675,6 +691,14 @@
       </Grid>
     </Border>
 
+    <!-- Says plainly when an encrypted document's integrity protection (PDF MAC) failed, is missing or could not be checked. -->
+    <Border x:Name="IntegrityNoticeBar" DockPanel.Dock="Top" Classes="toolbar">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock x:Name="IntegrityNoticeText" AutomationProperties.LiveSetting="Assertive" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
+        <Button Grid.Column="1" x:Name="DismissIntegrityNoticeButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissIntegrityNotice}" Content="Dismiss" />
+      </Grid>
+    </Border>
+
     <!-- Says once, calmly, that the file was damaged and repaired to show it; the list of repairs is shown on request. -->
     <Border x:Name="RepairNoticeBar" DockPanel.Dock="Top" Classes="toolbar">
       <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto">
@@ -682,6 +706,16 @@
         <Button Grid.Column="1" x:Name="ToggleRepairDetailsButton" views:ControlHelp.Text="{x:Static views:Descriptions.ToggleRepairDetails}" Content="Details" />
         <Button Grid.Column="2" x:Name="DismissRepairNoticeButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissRepairNotice}" Content="Dismiss" />
         <TextBlock Grid.Row="1" Grid.ColumnSpan="3" x:Name="RepairDetailsText" VerticalAlignment="Center" Margin="6,4" TextWrapping="Wrap" />
+      </Grid>
+    </Border>
+
+    <!-- Says once, calmly, which features the file declares it needs that HyperPDF cannot provide; the list is shown on request. -->
+    <Border x:Name="RequirementNoticeBar" DockPanel.Dock="Top" Classes="toolbar">
+      <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto">
+        <TextBlock x:Name="RequirementNoticeText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
+        <Button Grid.Column="1" x:Name="ToggleRequirementDetailsButton" views:ControlHelp.Text="{x:Static views:Descriptions.ToggleRequirementDetails}" Content="Details" />
+        <Button Grid.Column="2" x:Name="DismissRequirementNoticeButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissRequirementNotice}" Content="Dismiss" />
+        <TextBlock Grid.Row="1" Grid.ColumnSpan="3" x:Name="RequirementDetailsText" VerticalAlignment="Center" Margin="6,4" TextWrapping="Wrap" />
       </Grid>
     </Border>
 
@@ -823,8 +857,12 @@
             </DockPanel>
             <ListBox x:Name="SearchResultList" AutomationProperties.Name="Search results" Background="Transparent" />
             <DockPanel x:Name="LayersPanel">
-              <TextBlock DockPanel.Dock="Top" Classes="secondary" Margin="12,4,12,8" TextWrapping="Wrap" Text="Tick a layer to show it. Only the view changes, not the file." />
-              <ListBox x:Name="LayerList" AutomationProperties.Name="Layers" Background="Transparent" />
+              <TextBlock DockPanel.Dock="Top" Classes="secondary" Margin="12,4,12,8" TextWrapping="Wrap" Text="Tick a layer to show it. Layers marked Locked cannot be changed. Only the view changes, not the file." />
+              <StackPanel DockPanel.Dock="Bottom" Margin="8" Spacing="6">
+                <ComboBox x:Name="ConfigurationBox" AutomationProperties.Name="Layer configuration" views:ControlHelp.Text="{x:Static views:Descriptions.LayerConfiguration}" HorizontalAlignment="Stretch" />
+                <Button x:Name="ResetLayersButton" views:ControlHelp.Text="{x:Static views:Descriptions.ResetLayers}" HorizontalAlignment="Stretch" Content="Reset Layers" />
+              </StackPanel>
+              <TreeView x:Name="LayerTree" AutomationProperties.Name="Layers" Background="Transparent" />
             </DockPanel>
             <Grid x:Name="AttachmentsPanel" RowDefinitions="*,Auto">
               <ListBox x:Name="AttachmentList" AutomationProperties.Name="Attachments" Background="Transparent" />

@@ -5,35 +5,13 @@
 using System.Diagnostics;
 using System.Numerics;
 using HyperPdfLibrary.Fonts;
-using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Text;
 
-/// <summary>Owns the reusable buffers and current values of a text page build.</summary>
+/// <summary>Owns the reusable buffers and the running values of a text page build.</summary>
 [DebuggerDisplay("TextPageBuildState: {Chars.Count} chars")]
-internal sealed record TextPageBuildState
+internal sealed class TextPageBuildState
 {
-    /// <summary>Stores the current Display value.</summary>
-    private Matrix3x2 _display;
-
-    /// <summary>Stores the current PageWidth value.</summary>
-    private float _pageWidth;
-
-    /// <summary>Stores the current PageHeight value.</summary>
-    private float _pageHeight;
-
-    /// <summary>Stores the current RightToLeft value.</summary>
-    private bool _rightToLeft;
-
-    /// <summary>Stores the current Previous value.</summary>
-    private int _previous = -1;
-
-    /// <summary>Stores the current LineDirection value.</summary>
-    private TextOrientation _lineDirection;
-
-    /// <summary>Stores the current LineRect value.</summary>
-    private PdfRectangle _lineRect;
-
     /// <summary>Initializes a new instance of the <see cref="TextPageBuildState"/> class.</summary>
     internal TextPageBuildState()
     {
@@ -42,26 +20,41 @@ internal sealed record TextPageBuildState
         Unicode = Device.Unicode;
     }
 
-    /// <summary>Gets the characters of the page, in order.</summary>
+    /// <summary>Gets the characters of the page, in reading order.</summary>
     internal List<TextBuildChar> Chars { get; } = [];
 
-    /// <summary>Gets the characters of the line being built.</summary>
-    internal List<TextBuildChar> Temp { get; } = [];
+    /// <summary>Gets the characters of the line being built, in the order they sit on the page.</summary>
+    internal List<TextBuildChar> LineChars { get; } = [];
 
-    /// <summary>Gets the page text.</summary>
-    internal List<char> Text { get; } = [];
+    /// <summary>Gets the characters of the line being built, in logical order after bidirectional reordering.</summary>
+    internal List<TextBuildChar> LineLogical { get; } = [];
 
-    /// <summary>Gets the text of the line being built, one character per entry of <see cref="Temp"/>.</summary>
-    internal List<char> TempText { get; } = [];
+    /// <summary>Gets the runs of the line being built, in the order they sit on the page.</summary>
+    internal List<int> Order { get; } = [];
 
-    /// <summary>Gets the runs of the line being gathered, sorted by x.</summary>
-    internal List<int> Line { get; } = [];
+    /// <summary>Gets the glyphs most recently added to the line, for finding glyphs drawn twice.</summary>
+    internal List<RecentGlyph> Recent { get; } = [];
 
-    /// <summary>Gets the bidi segments of the line being closed.</summary>
-    internal List<TextSegment> Segments { get; } = [];
+    /// <summary>Gets the frame of each run.</summary>
+    internal List<TextRunFrame> Frames { get; } = [];
 
-    /// <summary>Gets the code each font shows a space with, or -1.</summary>
-    internal Dictionary<PdfFont, int> SpaceCodes { get; } = [];
+    /// <summary>Gets the index in <see cref="LineChars"/> where each glyph group starts, and a final end index.</summary>
+    internal List<int> GroupStarts { get; } = [];
+
+    /// <summary>Gets the bidirectional class of each glyph group.</summary>
+    internal List<TextBidiClass> GroupTypes { get; } = [];
+
+    /// <summary>Gets the embedding level of each glyph group.</summary>
+    internal List<byte> GroupLevels { get; } = [];
+
+    /// <summary>Gets the display order of the glyph groups.</summary>
+    internal List<int> GroupOrder { get; } = [];
+
+    /// <summary>Gets the share of the font size each font's space is wide, cached by font.</summary>
+    internal Dictionary<PdfFont, float> SpaceWidths { get; } = [];
+
+    /// <summary>Gets the replacement-text sequences already placed on the page.</summary>
+    internal HashSet<int> PlacedSequences { get; } = [];
 
     /// <summary>Gets the runs collected by <see cref="Device"/>.</summary>
     internal List<TextRun> Runs { get; }
@@ -72,27 +65,56 @@ internal sealed record TextPageBuildState
     /// <summary>Gets the Unicode characters collected by <see cref="Device"/>.</summary>
     internal List<char> Unicode { get; }
 
-    /// <summary>Gets or sets the page's user-to-viewer matrix.</summary>
-    internal ref Matrix3x2 Display => ref _display;
-
-    /// <summary>Gets or sets the page width after rotation.</summary>
-    internal ref float PageWidth => ref _pageWidth;
-
-    /// <summary>Gets or sets the page height after rotation.</summary>
-    internal ref float PageHeight => ref _pageHeight;
-
-    /// <summary>Gets or sets whether the document asks for right-to-left reading order.</summary>
-    internal ref bool RightToLeft => ref _rightToLeft;
-
-    /// <summary>Gets or sets the run whose characters were added last, or -1.</summary>
-    internal ref int Previous => ref _previous;
-
-    /// <summary>Gets or sets the direction most lines on the page flow in.</summary>
-    internal ref TextOrientation LineDirection => ref _lineDirection;
-
-    /// <summary>Gets or sets the bounds of the current line's runs.</summary>
-    internal ref PdfRectangle LineRect => ref _lineRect;
-
-    /// <summary>Gets the device that collects the page's text runs.</summary>
+    /// <summary>Gets the device that collects the page's glyphs.</summary>
     internal TextDevice Device { get; } = new();
+
+    /// <summary>Gets or sets a value indicating whether the document asks for right-to-left reading order.</summary>
+    internal bool RightToLeft { get; set; }
+
+    /// <summary>Gets or sets the advance direction of the line being built.</summary>
+    internal Vector2 LineAxis { get; set; } = Vector2.UnitX;
+
+    /// <summary>Gets or sets the index of the line being built.</summary>
+    internal int LineIndex { get; set; }
+
+    /// <summary>Gets or sets the number of glyph groups started in the line being built.</summary>
+    internal int GroupCount { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the line being built has a glyph whose end can be measured from.</summary>
+    internal bool HasPrevious { get; set; }
+
+    /// <summary>Gets or sets the pen position after the last glyph of the line being built.</summary>
+    internal Vector2 PreviousEnd { get; set; }
+
+    /// <summary>Gets or sets the font size in user space of the last glyph of the line being built.</summary>
+    internal float PreviousEm { get; set; }
+
+    /// <summary>Gets or sets the font of the last glyph of the line being built.</summary>
+    internal PdfFont? PreviousFont { get; set; }
+
+    /// <summary>Resets the values and buffers of a build.</summary>
+    internal void Clear()
+    {
+        Chars.Clear();
+        LineChars.Clear();
+        LineLogical.Clear();
+        Order.Clear();
+        Recent.Clear();
+        Frames.Clear();
+        GroupStarts.Clear();
+        GroupTypes.Clear();
+        GroupLevels.Clear();
+        GroupOrder.Clear();
+        SpaceWidths.Clear();
+        PlacedSequences.Clear();
+        Device.Clear();
+        RightToLeft = false;
+        LineAxis = Vector2.UnitX;
+        LineIndex = 0;
+        GroupCount = 0;
+        HasPrevious = false;
+        PreviousEnd = default;
+        PreviousEm = 0;
+        PreviousFont = null;
+    }
 }

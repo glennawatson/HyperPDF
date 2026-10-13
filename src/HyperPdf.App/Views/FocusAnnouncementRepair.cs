@@ -7,9 +7,10 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Threading;
 using HyperPdf.Core.Platform;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Views;
 
@@ -36,6 +37,9 @@ internal sealed class FocusAnnouncementRepair : IDisposable
     /// <summary>The control focus was last repeated on, so a repeat that is still unheard is not repeated again.</summary>
     private IInputElement? _repeated;
 
+    /// <summary>Stops the check for the latest focus change.</summary>
+    private CancellationTokenSource? _checking;
+
     /// <summary>Initializes a new instance of the <see cref="FocusAnnouncementRepair"/> class.</summary>
     /// <param name="check">The check that sees the announcements.</param>
     /// <param name="windows">Lists the app's windows.</param>
@@ -56,11 +60,11 @@ internal sealed class FocusAnnouncementRepair : IDisposable
     internal static bool IsRepeating { get; private set; }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose()
     {
         _subscription.Dispose();
         _activations.Dispose();
+        _ = Interlocked.Exchange(ref _checking, null)?.CancelAsync();
     }
 
     /// <summary>Moves focus away and back, keeping a text box's caret and selection.</summary>
@@ -121,7 +125,7 @@ internal sealed class FocusAnnouncementRepair : IDisposable
     /// could see the bridge, or before the screen reader started.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void OnActivated() => Dispatcher.UIThread.Post(static state => ((FocusAnnouncementRepair)state!).CheckFocused(), this);
+    internal void OnActivated() => _ = Signal.Return(this, AvaloniaScheduler.Instance).SubscribeSafe(static repair => repair.CheckFocused(), OnError);
 
     /// <summary>Reports a failure in the subscription.</summary>
     /// <param name="error">The error.</param>
@@ -158,12 +162,24 @@ internal sealed class FocusAnnouncementRepair : IDisposable
     /// <returns>A task that completes once checked.</returns>
     private async Task CheckAsync(FocusChange change, long announcementsBefore)
     {
+        // Focus has moved on, so the walk for the previous change is no longer needed. The source is only cancelled,
+        // never disposed: it holds no timer or handle, and a walk that is ending must not race a dispose.
+        var checking = new CancellationTokenSource();
+        if (Interlocked.Exchange(ref _checking, checking) is { } older)
+        {
+            await older.CancelAsync().ConfigureAwait(false);
+        }
+
         try
         {
-            if (await _check.PrepareRepeatAsync(announcementsBefore, CancellationToken.None).ConfigureAwait(false))
+            if (await _check.PrepareRepeatAsync(announcementsBefore, checking.Token).ConfigureAwait(false) && !checking.IsCancellationRequested)
             {
-                Dispatcher.UIThread.Post(static state => ((FocusChange)state!).Repeat(), change);
+                _ = Signal.Return(change, AvaloniaScheduler.Instance).SubscribeSafe(static pending => pending.Repeat(), OnError);
             }
+        }
+        catch (OperationCanceledException) when (checking.IsCancellationRequested)
+        {
+            // A newer focus change replaced this check.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

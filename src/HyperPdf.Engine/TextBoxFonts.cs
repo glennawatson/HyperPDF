@@ -9,7 +9,7 @@ using HyperPdf.Core.Text.Fonts;
 namespace HyperPdf.Engine;
 
 /// <summary>
-/// Chooses the font a text box is written in, as the PDFium engine chooses it: the chosen installed family when it has
+/// Chooses the font a text box is written in: the chosen installed family when it has
 /// every character; else the closest built in family when that has every character; else the first installed font
 /// that has them all; else whatever was found, showing missing characters as boxes.
 /// </summary>

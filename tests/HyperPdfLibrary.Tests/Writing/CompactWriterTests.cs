@@ -150,7 +150,7 @@ public sealed class CompactWriterTests
     /// <param name="file">The file.</param>
     /// <param name="options">The layout.</param>
     /// <returns>The compacted file.</returns>
-    private static byte[] Compact(byte[] file, PdfCompactOptions options)
+    private static byte[] Compact(byte[] file, in PdfCompactOptions options)
     {
         using var store = StoreOpening.Open(file, null);
         return PdfCompactWriter.Save(store, options);

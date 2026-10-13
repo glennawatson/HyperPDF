@@ -25,10 +25,18 @@ internal static class JpxTestWavelet
     /// <param name="tile">The tile, which holds the resolution areas.</param>
     /// <param name="component">The tile-component.</param>
     /// <param name="buffer">The samples, replaced by the sub-bands.</param>
-    internal static void Forward(JpxTile tile, in JpxTileComponent component, int[] buffer)
+    internal static void Forward(JpxTile tile, in JpxTileComponent component, int[] buffer) =>
+        Forward(tile, component, buffer, component.Levels);
+
+    /// <summary>Transforms a tile-component in place, running only the finest decomposition levels.</summary>
+    /// <param name="tile">The tile, which holds the resolution areas.</param>
+    /// <param name="component">The tile-component.</param>
+    /// <param name="buffer">The samples, replaced by the sub-bands.</param>
+    /// <param name="decompositions">The levels to run, starting from the full resolution; the low-pass band of the last one is the image at a reduced resolution.</param>
+    internal static void Forward(JpxTile tile, in JpxTileComponent component, int[] buffer, int decompositions)
     {
         var stride = component.Area.Width;
-        for (var r = component.Levels; r >= 1; r--)
+        for (var r = component.Levels; r > component.Levels - decompositions; r--)
         {
             var area = tile.Resolutions[component.FirstResolution + r].Area;
             var low = tile.Resolutions[component.FirstResolution + r - 1].Area;

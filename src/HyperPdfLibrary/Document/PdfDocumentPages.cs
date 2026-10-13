@@ -60,9 +60,9 @@ public static class PdfDocumentPages
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is not a page.</exception>
     public static PdfPage GetPage(PdfDocument document, int index)
     {
-        var pages = PdfDocumentPages.GetPageSet(document).Pages;
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)pages.Length, nameof(index));
-        return pages[index];
+        var pages = PdfDocumentPages.GetPageSet(document);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)pages.Count, nameof(index));
+        return pages.GetPage(index);
     }
 
     /// <summary>Gets the index of a page object.</summary>

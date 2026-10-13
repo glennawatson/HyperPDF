@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Structure;
@@ -22,13 +23,13 @@ internal sealed class XrefTable
     private const int GrowthFactor = 2;
 
     /// <summary>The entry types.</summary>
-    private XrefEntryType[] _types = new XrefEntryType[InitialCapacity];
+    private byte[] _types = [];
 
     /// <summary>The file offsets, or the containing object stream numbers.</summary>
-    private long[] _locations = new long[InitialCapacity];
+    private long[] _locations = [];
 
     /// <summary>The generations, or the indexes within object streams.</summary>
-    private int[] _details = new int[InitialCapacity];
+    private int[] _details = [];
 
     /// <summary>The objects a newer section freed, with the generation a reused number takes.</summary>
     private Dictionary<int, int>? _freed;
@@ -36,8 +37,11 @@ internal sealed class XrefTable
     /// <summary>The free entries of the section being read, which count only once the section is known not to be a hybrid.</summary>
     private List<FreeEntry>? _pendingFree;
 
+    /// <summary>The file offsets of the object streams found while rebuilding; made with the first one.</summary>
+    private List<long>? _objectStreams;
+
     /// <summary>Gets the file offsets of the object streams found while rebuilding, in file order.</summary>
-    public List<long> ObjectStreams { get; } = [];
+    public ReadOnlySpan<long> ObjectStreams => CollectionsMarshal.AsSpan(_objectStreams);
 
     /// <summary>Gets one more than the highest object number with an entry.</summary>
     public int Size { get; private set; }
@@ -60,7 +64,7 @@ internal sealed class XrefTable
     /// <summary>Gets an entry's type.</summary>
     /// <param name="number">The object number.</param>
     /// <returns>The type; free when out of range.</returns>
-    internal XrefEntryType GetType(int number) => (uint)number < (uint)Size ? _types[number] : XrefEntryType.Free;
+    internal XrefEntryType GetType(int number) => (uint)number < (uint)Size ? (XrefEntryType)_types[number] : XrefEntryType.Free;
 
     /// <summary>Gets an entry's file offset or containing object stream.</summary>
     /// <param name="number">The object number.</param>
@@ -87,15 +91,20 @@ internal sealed class XrefTable
         }
 
         EnsureSize(number + 1);
-        if (_types[number] != XrefEntryType.Free || _freed?.ContainsKey(number) == true)
+        if ((XrefEntryType)_types[number] != XrefEntryType.Free || _freed?.ContainsKey(number) == true)
         {
             return;
         }
 
-        _types[number] = type;
+        _types[number] = (byte)type;
         _locations[number] = location;
         _details[number] = detail;
     }
+
+    /// <summary>Notes the file offset of an object stream found while rebuilding.</summary>
+    /// <param name="offset">The offset.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void AddObjectStream(long offset) => (_objectStreams ??= []).Add(offset);
 
     /// <summary>Notes a free entry of the section being read.</summary>
     /// <param name="number">The object number.</param>
@@ -119,7 +128,7 @@ internal sealed class XrefTable
         foreach (var (number, generation) in _pendingFree)
         {
             EnsureSize(number + 1);
-            if (_types[number] == XrefEntryType.Free)
+            if ((XrefEntryType)_types[number] == XrefEntryType.Free)
             {
                 _ = (_freed ??= []).TryAdd(number, generation);
             }
@@ -150,7 +159,7 @@ internal sealed class XrefTable
         }
 
         EnsureSize(number + 1);
-        _types[number] = type;
+        _types[number] = (byte)type;
         _locations[number] = location;
         _details[number] = detail;
     }
@@ -161,7 +170,7 @@ internal sealed class XrefTable
     {
         if (size > _types.Length)
         {
-            var capacity = Math.Max(size, _types.Length * GrowthFactor);
+            var capacity = Math.Max(Math.Max(size, _types.Length * GrowthFactor), InitialCapacity);
             Array.Resize(ref _types, capacity);
             Array.Resize(ref _locations, capacity);
             Array.Resize(ref _details, capacity);

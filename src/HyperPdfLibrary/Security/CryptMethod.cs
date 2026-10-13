@@ -18,4 +18,7 @@ internal enum CryptMethod
 
     /// <summary>AES-256 in CBC mode with the file key.</summary>
     Aes256 = 3,
+
+    /// <summary>AES-256 in GCM mode with the file key: 12-byte IV, cipher text, then a 16-byte tag (ISO/TS 32003).</summary>
+    AesGcm = 4,
 }

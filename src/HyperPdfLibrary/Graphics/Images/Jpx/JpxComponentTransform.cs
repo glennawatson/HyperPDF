@@ -9,7 +9,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
 /// The inverse multiple component transforms (ISO 15444-1 annex G) and the DC level shift that ends decoding: the
-/// reversible RCT on integers, the irreversible ICT on floats with PDFium's coefficients, and rounding to the
+/// reversible RCT on integers, the irreversible ICT on floats with the coefficients of equation G-10, and rounding to the
 /// component's integer range.
 /// </summary>
 internal static class JpxComponentTransform

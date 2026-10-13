@@ -7,8 +7,8 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Graphics.Colors;
 
 /// <summary>
-/// The CalRGB colour space, converted as PDFium's CPDF_CalRGB does: each component is raised to its /Gamma, the /Matrix
-/// turns the result into XYZ, and XYZ converts to sRGB using the /WhitePoint. A row converts through a cache of earlier
+/// The CalRGB colour space (ISO 32000-2 8.6.5.3): each component is raised to its /Gamma, the /Matrix turns the result
+/// into XYZ, and XYZ converts to sRGB using the /WhitePoint. The /BlackPoint is not used. A row converts through a cache of earlier
 /// conversions, because the maths needs powers.
 /// </summary>
 internal sealed class CalRgbColorSpace : PdfColorSpace

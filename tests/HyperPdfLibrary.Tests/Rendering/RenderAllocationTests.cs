@@ -63,6 +63,20 @@ public sealed class RenderAllocationTests
         }
     }
 
+    /// <summary>
+    /// A page whose annotations have no appearance streams renders a tile with no allocation once warm: the appearances are
+    /// generated once, when the page's annotations are recorded, and the cached picture replays them.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task GeneratedAnnotationTileRenderDoesNotAllocate()
+    {
+        using var page = new RenderTestPage(CreateGeneratedAnnotationPage());
+
+        await Assert.That(MeasureTile(page, PdfRenderFlags.Annotations)).IsEqualTo(0L);
+        await Assert.That(MeasureTile(page, PdfRenderFlags.Annotations | PdfRenderFlags.Printing)).IsEqualTo(0L);
+    }
+
     /// <summary>A page of text in an embedded TrueType font, filled, stroked and clipped, renders a tile with no allocation once warm.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -112,6 +126,28 @@ public sealed class RenderAllocationTests
     /// <returns><see langword="true"/> when the tile rendered.</returns>
     private static bool Render(PdfPageRenderer renderer, in PdfTileRequest request, byte[] pixels) =>
         renderer.Render(request, new(pixels, TileSize, TileSize, TileSize * RenderedImage.BytesPerPixel));
+
+    /// <summary>Creates a page whose annotations all have their appearances generated: shapes, markup, a note, a link border, a caret and a redaction mark.</summary>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] CreateGeneratedAnnotationPage()
+    {
+        string[] annotations =
+        [
+            "/Subtype /Square /Rect [10 10 60 60] /C [0 0 1] /IC [1 0 0] /BS << /W 4 >> /F 4",
+            "/Subtype /Circle /Rect [70 10 120 60] /IC [0 1 0] /F 4",
+            "/Subtype /Highlight /Rect [10 70 120 90] /QuadPoints [10 90 120 90 10 70 120 70] /F 4",
+            "/Subtype /Underline /Rect [10 100 120 120] /QuadPoints [10 120 120 120 10 100 120 100] /F 4",
+            "/Subtype /Ink /Rect [130 10 190 60] /InkList [[130 10 160 60 190 10]] /C [1 0 1] /F 4",
+            "/Subtype /Text /Rect [130 70 160 100] /F 4",
+            "/Subtype /Link /Rect [10 130 60 180] /C [1 0 0] /Border [0 0 2] /F 4",
+            "/Subtype /Caret /Rect [70 130 120 180] /C [0 0 1] /F 4",
+            "/Subtype /Redact /Rect [130 130 190 180] /OverlayText (X) /F 4",
+        ];
+        var pdf = new RenderTestPdf(Size, Size) { Content = "0.9 g 0 0 200 200 re f" };
+        var references = string.Concat(annotations.Select(entries => $"{pdf.AddObject($"<< /Type /Annot {entries} >>")} 0 R "));
+        pdf.PageEntries = $"/Annots [{references}]";
+        return pdf.ToBytes();
+    }
 
     /// <summary>Creates a page that uses most of the drawing features.</summary>
     /// <returns>The PDF bytes.</returns>

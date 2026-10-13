@@ -10,9 +10,10 @@ namespace HyperPdfLibrary.Graphics.Images;
 /// <summary>
 /// Unpacks rows of 1, 2, 4, 8 or 16-bit image samples into the 8-bit samples <see cref="PdfColorSpace.ConvertRow"/>
 /// takes. The image's /Decode array is folded into one 256-entry table per component, built once per image; 16-bit
-/// samples are rounded to 8 bits first. Colour-key masking compares the raw samples.
+/// samples are rounded to 8 bits first. Colour-key masking compares the raw samples. An 8-bit image that /Decode leaves
+/// unchanged shares one static table, so it builds nothing.
 /// </summary>
-internal sealed class SampleUnpacker
+internal readonly record struct SampleUnpacker
 {
     /// <summary>The bits in a byte.</summary>
     private const int ByteBits = 8;
@@ -52,8 +53,16 @@ internal sealed class SampleUnpacker
         _bits = bits;
         _components = components;
         _colorKey = colorKey;
+        var target = space.ByteDecode;
+        if (bits == ByteBits && components <= SampleLookup.SharedComponents && SampleLookup.IsIdentity(decode, target, components))
+        {
+            _lookup = SampleLookup.Identity;
+            IsIdentity = true;
+            return;
+        }
+
         _lookup = new byte[components * PixelConverter.LookupSize];
-        IsIdentity = BuildLookup(decode, space.GetDefaultDecode(ByteBits));
+        IsIdentity = SampleLookup.Build(_lookup, bits, components, decode, target);
     }
 
     /// <summary>Gets a value indicating whether 8-bit rows need no unpacking and no colour-key test.</summary>
@@ -179,31 +188,5 @@ internal sealed class SampleUnpacker
 
             alpha[p] = keyed ? (byte)0 : (byte)PixelConverter.MaxByte;
         }
-    }
-
-    /// <summary>Builds the per-component tables.</summary>
-    /// <param name="decode">The image's decode ranges.</param>
-    /// <param name="target">The colour space's 8-bit decode ranges.</param>
-    /// <returns><see langword="true"/> when every table maps each byte to itself.</returns>
-    private bool BuildLookup(float[] decode, float[] target)
-    {
-        var levels = _bits >= ByteBits ? PixelConverter.LookupSize : 1 << _bits;
-        var identity = _bits == ByteBits;
-        for (var c = 0; c < _components; c++)
-        {
-            var low = decode[PdfColorSpace.PairSize * c];
-            var high = decode[(PdfColorSpace.PairSize * c) + 1];
-            var targetLow = target[PdfColorSpace.PairSize * c];
-            var targetSpan = target[(PdfColorSpace.PairSize * c) + 1] - targetLow;
-            for (var raw = 0; raw < levels; raw++)
-            {
-                var value = low + (raw * (high - low) / (levels - 1));
-                var mapped = targetSpan is 0 ? (byte)0 : PixelConverter.ToByte((value - targetLow) / targetSpan);
-                _lookup[(c * PixelConverter.LookupSize) + raw] = mapped;
-                identity &= mapped == raw;
-            }
-        }
-
-        return identity;
     }
 }

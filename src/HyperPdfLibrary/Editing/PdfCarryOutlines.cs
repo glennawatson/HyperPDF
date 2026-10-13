@@ -115,7 +115,7 @@ internal sealed class PdfCarryOutlines
             var kids = ReadLevel(entry.GetDictionary(KnownName.First), depth + 1, visited, ref budget);
             var destination = _destinations.Rewrite(entry.GetRaw(KnownName.Dest));
             var action = destination.IsNull ? RewriteGoTo(entry.GetRaw(KnownName.A)) : default;
-            if (!destination.IsNull || !action.IsNull || kids.Count > 0)
+            if (!destination.IsNull || !action.IsNull || kids.Count > 0 || IsElementCopied(entry))
             {
                 items.Add(new(entry, destination, action, kids, entry.GetInteger(KnownName.Count) > 0));
             }
@@ -220,7 +220,29 @@ internal sealed class PdfCarryOutlines
 
         copy.Set(KnownName.Dest, sink.Import(item.Destination));
         copy.Set(KnownName.A, sink.Import(item.Action));
+        SetStructureElement(copy, item.Source);
         return copy;
+    }
+
+    /// <summary>Links an entry to the copy of its structure element (ISO 32000-2 12.3.3, Table 151), when that element was copied.</summary>
+    /// <param name="copy">The entry's copy, changed in place.</param>
+    /// <param name="source">The entry in the source.</param>
+    private void SetStructureElement(PdfDictionary copy, PdfDictionary source)
+    {
+        var element = source.GetRaw(KnownName.SE).AsReference();
+        if (element.IsValid && _context.Sink.GetMapped(element.Number) is var mapped and > 0)
+        {
+            copy.Set(KnownName.SE, PdfValue.FromReference(new(mapped, 0)));
+        }
+    }
+
+    /// <summary>Determines whether an entry's structure element was copied, which keeps the entry.</summary>
+    /// <param name="entry">The entry in the source.</param>
+    /// <returns><see langword="true"/> when the element has a copy.</returns>
+    private bool IsElementCopied(PdfDictionary entry)
+    {
+        var element = entry.GetRaw(KnownName.SE).AsReference();
+        return element.IsValid && _context.Sink.GetMapped(element.Number) > 0;
     }
 
     /// <summary>Appends the carried entries to the root's list and writes the root.</summary>

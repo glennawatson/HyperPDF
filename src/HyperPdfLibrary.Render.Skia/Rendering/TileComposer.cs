@@ -11,7 +11,7 @@ namespace HyperPdfLibrary.Rendering;
 /// <summary>
 /// Turns a tiling pattern's recorded cell into one period of the pattern. Copies of the cell, each clipped to /BBox, are
 /// placed at every multiple of the steps that reaches the period, so a cell larger than its step overlaps its neighbours
-/// and a smaller one leaves gaps, as PDFium's tiling does. Small periods are rasterised at a bounded resolution, so the
+/// and a smaller one leaves gaps (ISO 32000-2 8.7.3.1). Small periods are rasterised at a bounded resolution, so the
 /// result does not depend on how Skia's picture shader picks its tile resolution; large ones stay a picture.
 /// </summary>
 internal static class TileComposer
@@ -22,7 +22,7 @@ internal static class TileComposer
     /// <summary>The most pixels along each side of a rasterised period.</summary>
     private const int MaxPixels = 1024;
 
-    /// <summary>The fewest pixels along each side, as PDFium draws tiny cells at 8 by 8 and scales them down.</summary>
+    /// <summary>The fewest pixels along each side: two device pixels at the oversampling, so a tiny period still holds its detail before it is scaled down.</summary>
     private const int MinPixels = 8;
 
     /// <summary>The most cell copies along each direction that can reach one period.</summary>

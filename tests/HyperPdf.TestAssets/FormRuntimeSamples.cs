@@ -40,8 +40,15 @@ public static class FormRuntimeSamples
     /// <summary>Creates the form.</summary>
     /// <param name="pageEntries">Extra entries of the page dictionary, such as <c>/Tabs /C</c>.</param>
     /// <returns>The PDF bytes.</returns>
-    public static byte[] Create(string pageEntries) => MiniPdf.Build(
-        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R] /CO [6 0 R 5 0 R] /DA (/Helv 12 Tf 0 g) /DR << /Font << /Helv 4 0 R >> >> >> "
+    public static byte[] Create(string pageEntries) => Create(pageEntries, string.Empty);
+
+    /// <summary>Creates the form with extra catalog entries.</summary>
+    /// <param name="pageEntries">Extra entries of the page dictionary, such as <c>/Tabs /C</c>.</param>
+    /// <param name="catalogEntries">Extra entries of the catalog, such as <c>/Requirements [...]</c>.</param>
+    /// <returns>The PDF bytes.</returns>
+    public static byte[] Create(string pageEntries, string catalogEntries) => MiniPdf.Build(
+        $"<< /Type /Catalog /Pages 2 0 R {catalogEntries} "
+        + "/AcroForm << /Fields [5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R] /CO [6 0 R 5 0 R] /DA (/Helv 12 Tf 0 g) /DR << /Font << /Helv 4 0 R >> >> >> "
         + "/OCProperties << /OCGs [13 0 R] /D << /Order [13 0 R] >> >> /AA << /WC << /S /Named /N /Close >> >> >>",
         "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
         "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /Helv 4 0 R >> >> /Annots [5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R] "

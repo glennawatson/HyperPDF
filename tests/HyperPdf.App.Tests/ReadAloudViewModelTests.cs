@@ -50,6 +50,9 @@ public sealed class ReadAloudViewModelTests
     /// <summary>The bytes in 95 MB.</summary>
     private const long NinetyFiveMegabytes = 95L << 20;
 
+    /// <summary>The rounds the dispatcher runs so a released load has finished.</summary>
+    private const int SettleRounds = 25;
+
     /// <summary>The status once the document has been read.</summary>
     private const string Finished = "Finished reading.";
 
@@ -171,6 +174,37 @@ public sealed class ReadAloudViewModelTests
 
         await Assert.That(await UiWait.UntilAsync(() => !first.IsPlaying && second.IsPlaying)).IsTrue();
         second.IsOpen = false;
+    }
+
+    /// <summary>A page load that was already running when a newer read started leaves the newer read's sentence and start alone.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LateLoadOfAnOlderReadDoesNotMoveTheNewerRead()
+    {
+        var engine = new PausingEngine();
+        var speech = new FakeSpeech(true, true);
+        using var test = new TestServices(engine, speech);
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("late.pdf", 1)]);
+        var tab = main.SelectedTab!;
+        var document = tab.TryGetDocument()!;
+        var pageText = document.GetText(0, 0, document.GetCharacterCount(0));
+        var reader = tab.ReadAloud;
+        var older = engine.ArmText();
+        reader.IsOpen = true;
+        _ = await UiWait.UntilAsync(() => older.Reached.Task.IsCompleted, static () => "The first read did not reach its page text.");
+        engine.Disarm();
+
+        reader.StartAt(0, pageText.IndexOf("quick", StringComparison.Ordinal));
+        _ = await UiWait.UntilAsync(() => !reader.SpokenRange.IsEmpty, static () => "The newer read did not mark a sentence.");
+        var startedAt = reader.SpokenRange;
+        older.Release();
+        await UiWait.PumpAsync(SettleRounds);
+        speech.Release();
+        _ = await UiWait.UntilAsync(() => reader.SpokenRange != startedAt, () => $"The read stayed on {reader.SpokenRange}.");
+
+        await Assert.That(reader.SpokenRange.Start).IsGreaterThan(startedAt.Start);
+        reader.IsOpen = false;
     }
 
     /// <summary>Reading resumes at the sentence it stopped on, the next time Read Aloud opens on that page.</summary>

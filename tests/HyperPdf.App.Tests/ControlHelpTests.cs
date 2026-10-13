@@ -90,8 +90,14 @@ public sealed class ControlHelpTests
             new LicencesWindow { ViewModel = new(HyperPdf.App.Services.LicenceNotices.Load()) },
             new SignaturesWindow(),
             new CertificateSignWindow(),
+            new ValidationDataWindow(),
+            new ExternalSignWindow(),
             new OptimizeCopyWindow(),
             new ArchiveCopyWindow(),
+            new Pdf20CopyWindow(),
+            new FlattenCopyWindow(),
+            new ProtectWindow(),
+            new RemoveProtectionWindow(),
             new Window { Content = new LayerItemView() },
         ];
         foreach (var window in windows)

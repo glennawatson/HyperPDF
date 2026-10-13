@@ -60,6 +60,9 @@ internal readonly record struct ImageHeader(
     /// <summary>Gets the supported bits per component.</summary>
     private static ReadOnlySpan<byte> ValidBits => [0x01, 0x02, 0x04, 0x08, 0x10];
 
+    /// <summary>Gets the decode range of a stencil mask or an image with no colour space: 0 to 1.</summary>
+    private static float[] StencilDecode { get; } = [0, 1];
+
     /// <summary>Reads the header of an image XObject.</summary>
     /// <param name="dictionary">The image dictionary.</param>
     /// <returns>The header, or <see langword="null"/> when the size or depth is invalid.</returns>
@@ -111,7 +114,7 @@ internal readonly record struct ImageHeader(
     }
 
     /// <summary>Gets the decode range of each component: the /Decode array or the colour space's default.</summary>
-    /// <returns>Min/max pairs, one per component.</returns>
+    /// <returns>Min/max pairs, one per component. The array may be shared, so callers must not change it.</returns>
     internal float[] GetDecode()
     {
         if (Decode is not null)
@@ -119,7 +122,12 @@ internal readonly record struct ImageHeader(
             return Decode;
         }
 
-        return IsStencil || ColorSpace is null ? [0, 1] : ColorSpace.GetDefaultDecode(BitsPerComponent);
+        if (IsStencil || ColorSpace is null)
+        {
+            return StencilDecode;
+        }
+
+        return BitsPerComponent == DefaultBits ? ColorSpace.ByteDecode : ColorSpace.GetDefaultDecode(BitsPerComponent);
     }
 
     /// <summary>Reads and checks an image dictionary.</summary>

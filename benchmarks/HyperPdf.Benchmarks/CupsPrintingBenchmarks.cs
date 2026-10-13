@@ -21,11 +21,12 @@ public class CupsPrintingBenchmarks
     public DuplexBinding Binding { get; set; }
 
     /// <summary>Builds the options sent with a print job.</summary>
-    /// <returns>The CUPS option names and values.</returns>
+    /// <returns>The characters in the CUPS option values, so every value is used.</returns>
     [Benchmark]
-    public (string Name, string Value)[] BuildJobOptions()
+    public int BuildJobOptions()
     {
         var job = new PrintJobOptions("printer", 1, true, TwoSided, PaperSize.A4) { Binding = Binding };
-        return CupsPrinting.BuildOptions(job);
+        var options = CupsPrinting.BuildOptions(job);
+        return options.Copies.Length + options.Media.Length + options.Sides.Length + options.ColorMode.Length + options.Scaling.Length;
     }
 }

@@ -29,10 +29,9 @@ public static class NativeLibraries
     {
         ArgumentNullException.ThrowIfNull(assembly);
         ArgumentNullException.ThrowIfNull(candidates);
-        bool install;
         lock (Gate)
         {
-            install = !Registered.TryGetValue(assembly, out var libraries);
+            var install = !Registered.TryGetValue(assembly, out var libraries);
             if (install)
             {
                 libraries = [];
@@ -40,20 +39,12 @@ public static class NativeLibraries
             }
 
             libraries![library] = candidates;
-        }
 
-        if (!install)
-        {
-            return;
-        }
-
-        try
-        {
-            NativeLibrary.SetDllImportResolver(assembly, Resolve);
-        }
-        catch (InvalidOperationException)
-        {
-            // The assembly installed its own resolver.
+            // A second caller waits for the lock, so it returns only after the resolver is installed and its first import resolves.
+            if (install)
+            {
+                InstallResolver(assembly);
+            }
         }
     }
 
@@ -63,6 +54,20 @@ public static class NativeLibraries
     /// <returns><see langword="true"/> when one of its candidates loaded.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryLoad(Assembly assembly, string library) => Load(assembly, library) != 0;
+
+    /// <summary>Installs the single resolver for an assembly.</summary>
+    /// <param name="assembly">The importing assembly.</param>
+    private static void InstallResolver(Assembly assembly)
+    {
+        try
+        {
+            NativeLibrary.SetDllImportResolver(assembly, Resolve);
+        }
+        catch (InvalidOperationException)
+        {
+            // The assembly installed its own resolver.
+        }
+    }
 
     /// <summary>Resolves a library for an assembly.</summary>
     /// <param name="library">The requested library.</param>

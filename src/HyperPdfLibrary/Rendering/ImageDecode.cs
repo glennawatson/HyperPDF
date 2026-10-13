@@ -22,6 +22,9 @@ internal sealed class ImageDecode
     /// <summary>Whether the decode has finished, whether it produced an image, failed or threw.</summary>
     private bool _finished;
 
+    /// <summary>The threads asleep in <see cref="Wait"/>; changed only under the lock.</summary>
+    private int _sleepers;
+
     /// <summary>Gets the managed id of the thread running the decode.</summary>
     internal int Owner { get; } = Environment.CurrentManagedThreadId;
 
@@ -36,7 +39,7 @@ internal sealed class ImageDecode
         {
             _finished = true;
             completion = _completion;
-            Monitor.PulseAll(_sync);
+            WakeLocked();
         }
 
         _ = completion?.TrySetResult();
@@ -53,10 +56,18 @@ internal sealed class ImageDecode
             : default;
         lock (_sync)
         {
-            while (!_finished)
+            _sleepers++;
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                _ = Monitor.Wait(_sync);
+                while (!_finished)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _ = Monitor.Wait(_sync);
+                }
+            }
+            finally
+            {
+                _sleepers--;
             }
         }
     }
@@ -85,6 +96,15 @@ internal sealed class ImageDecode
     private void WakeAll()
     {
         lock (_sync)
+        {
+            WakeLocked();
+        }
+    }
+
+    /// <summary>Wakes the sleeping threads, if any. The caller holds the lock; with none asleep there is nothing to pulse, which saves the runtime making its wait queue.</summary>
+    private void WakeLocked()
+    {
+        if (_sleepers > 0)
         {
             Monitor.PulseAll(_sync);
         }

@@ -9,7 +9,7 @@
   <StackPanel Margin="20" Spacing="16">
     <TextBlock Classes="secondary" TextWrapping="Wrap"
                Text="Changes apply straight away and are kept for next time." />
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
       <TextBlock x:Name="SchemeLabel" Grid.Row="0" VerticalAlignment="Center" Text="Colour scheme" />
       <ComboBox AutomationProperties.Name="Colour scheme" x:Name="SchemeBox" views:ControlHelp.Text="{x:Static views:Descriptions.ColourScheme}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="PageToneLabel" Grid.Row="1" VerticalAlignment="Center" Text="PDF page colour" />
@@ -28,6 +28,10 @@
       <ComboBox AutomationProperties.Name="Opening zoom" x:Name="OpeningZoomBox" views:ControlHelp.Text="{x:Static views:Descriptions.OpeningZoom}" Grid.Row="7" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="CommentAuthorLabel" Grid.Row="8" VerticalAlignment="Center" Text="Author name for comments" />
       <TextBox AutomationProperties.Name="Author name for comments" x:Name="CommentAuthorBox" views:ControlHelp.Text="{x:Static views:Descriptions.CommentAuthor}" Grid.Row="8" Grid.Column="1" PlaceholderText="Leave empty to use your user name" />
+      <TextBlock x:Name="FormHighlightColorLabel" Grid.Row="9" VerticalAlignment="Center" Text="Form field colour" />
+      <ComboBox AutomationProperties.Name="Form field colour" x:Name="FormHighlightColorBox" views:ControlHelp.Text="{x:Static views:Descriptions.FormHighlightColor}" Grid.Row="9" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="FormHighlightOpacityLabel" Grid.Row="10" VerticalAlignment="Center" Text="Form field colour strength" />
+      <ComboBox AutomationProperties.Name="Form field colour strength" x:Name="FormHighlightOpacityBox" views:ControlHelp.Text="{x:Static views:Descriptions.FormHighlightOpacity}" Grid.Row="10" Grid.Column="1" HorizontalAlignment="Stretch" />
     </Grid>
     <StackPanel Spacing="6">
       <CheckBox AutomationProperties.Name="Open documents at the last page read" x:Name="ReopenAtLastPageBox" views:ControlHelp.Text="{x:Static views:Descriptions.ReopenAtLastPage}" Content="Open documents at the last page read" />

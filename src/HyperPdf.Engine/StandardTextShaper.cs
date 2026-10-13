@@ -12,8 +12,8 @@ namespace HyperPdf.Engine;
 
 /// <summary>
 /// Lays text out in one of the built in fonts from their standard metrics. Each glyph is the character's WinAnsi code,
-/// which is also the byte written; characters the fonts lack get code 0 and no width. The vertical metrics match the
-/// PDFium engine's, so both lay text out alike.
+/// which is also the byte written; characters the fonts lack get code 0 and no width. The vertical metrics
+/// follow the fonts' standard ascent and descent.
 /// </summary>
 [DebuggerDisplay("StandardTextShaper: {Font}")]
 internal sealed class StandardTextShaper : ITextShaper
@@ -21,7 +21,7 @@ internal sealed class StandardTextShaper : ITextShaper
     /// <summary>The number of built in fonts.</summary>
     internal const int FontCount = 12;
 
-    /// <summary>Where the underline sits in all three families, as the PDFium engine places it.</summary>
+    /// <summary>Where the underline sits in all three families, a tenth of an em below the baseline.</summary>
     private const float Underline = -0.1F;
 
     /// <summary>The underline thickness in all three families.</summary>

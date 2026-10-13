@@ -12,13 +12,16 @@ namespace HyperPdf.Core.Forms;
 [DebuggerDisplay("FormHighlight: #{Color:X6} alpha {Alpha}")]
 public readonly record struct FormHighlight(uint Color, byte Alpha)
 {
-    /// <summary>The colour PDFium draws by default.</summary>
-    private const uint DefaultColor = 0xB4CCDCU;
+    /// <summary>A calm mid blue, which stays distinct for most colour-vision types and is not a warning colour.</summary>
+    private const uint DefaultColor = 0x7FB2E5U;
 
-    /// <summary>The opacity PDFium draws by default.</summary>
-    private const byte DefaultAlpha = 72;
+    /// <summary>
+    /// A quarter opacity. Over white the tint becomes about RGB 223, 236, 248, so black text keeps a contrast ratio near
+    /// 17 to 1 (WCAG 2.2 asks for 4.5 to 1) while the field still stands out from the page.
+    /// </summary>
+    private const byte DefaultAlpha = 64;
 
-    /// <summary>Gets the default tint, the one PDFium draws.</summary>
+    /// <summary>Gets the default tint: a light blue wash over each fillable field.</summary>
     public static FormHighlight Default => new(DefaultColor, DefaultAlpha);
 
     /// <summary>Gets a value indicating whether the tint is drawn at all.</summary>

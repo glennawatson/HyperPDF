@@ -146,7 +146,7 @@ public sealed class FontRenderParityTests
 
         using var input = new HyperPdfTestDocument(CjkParityPdf.Build(encoding, ordering, content, string.Empty));
         await input.Document.PreparePageAsync(0, CancellationToken.None);
-        var info = new PageRenderInfo(0, 1, PageRotation.None, 0, 0, RenderFlags.FixedDeviceColors);
+        var info = new PageRenderInfo(0, 1, PageRotation.None, 0, 0, RenderFlags.None);
         var reference = PdfiumReferenceRendering.Render(input.Pdf, info);
         var actual = new byte[reference.Pixels.Length];
         await Assert.That(input.Document.Render(info, new(actual, reference.Width, reference.Height, reference.Width * BytesPerPixel))).IsTrue();
@@ -199,7 +199,7 @@ public sealed class FontRenderParityTests
     {
         using var input = new HyperPdfTestDocument(pdf);
         await input.Document.PreparePageAsync(0, CancellationToken.None);
-        var difference = Compare(input, new(0, 1, PageRotation.None, 0, 0, RenderFlags.FixedDeviceColors), out var images);
+        var difference = Compare(input, new(0, 1, PageRotation.None, 0, 0, RenderFlags.None), out var images);
         TestContext.Current?.Output.WriteLine($"{name}: mean difference {difference:F3}");
         if (difference >= threshold)
         {

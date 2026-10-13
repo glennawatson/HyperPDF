@@ -184,7 +184,7 @@ internal static class JpxBlockPasses
             return;
         }
 
-        // The symbol should be 1010; as PDFium does, a wrong symbol is not treated as an error.
+        // The segmentation symbol should be 1010 (annex D.5). Checking it is optional error detection, and we read the symbol without failing so damaged blocks still show what decoded.
         for (var i = 0; i < SegmentationSymbols; i++)
         {
             _ = coder.Decode(ref state.Contexts[JpxContexts.Uniform]);

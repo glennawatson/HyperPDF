@@ -69,4 +69,7 @@ public enum PdfDiagnosticCode
 
     /// <summary>A linearization header or hint table is inconsistent with the file (found by a check).</summary>
     BadLinearization = 20,
+
+    /// <summary>An AES-GCM string or stream was too short or failed authentication, so it was changed or damaged; its content was left out.</summary>
+    AuthenticationFailed = 21,
 }

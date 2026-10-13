@@ -30,6 +30,9 @@ public static class TestFont
     /// <summary>The descender, in font units.</summary>
     public static readonly int Descender = -0xC8;
 
+    /// <summary>The gap between a glyph's vertical origin and the top of its outline in the vertical font, in font units.</summary>
+    public static readonly int TopSideBearing = 0x50;
+
     /// <summary>The characters given glyphs after .notdef, in glyph order. 'é' (the last Latin character) is composite.</summary>
     public static readonly string Characters =
         " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~" + "´" + "αβЖאב中" + "é";
@@ -73,7 +76,15 @@ public static class TestFont
     /// <param name="family">The family name, or <see langword="null"/> for <see cref="Family"/>.</param>
     /// <param name="bold">Whether the face says it is bold.</param>
     /// <returns>The font file.</returns>
-    public static byte[] Create(int embeddingFlags, string? family, bool bold)
+    public static byte[] Create(int embeddingFlags, string? family, bool bold) => Create(embeddingFlags, family, bold, false);
+
+    /// <summary>Writes the font.</summary>
+    /// <param name="embeddingFlags">The licence flags.</param>
+    /// <param name="family">The family name, or <see langword="null"/> for <see cref="Family"/>.</param>
+    /// <param name="bold">Whether the face says it is bold.</param>
+    /// <param name="vertical">Whether to add vertical metrics ('vhea' and 'vmtx').</param>
+    /// <returns>The font file.</returns>
+    public static byte[] Create(int embeddingFlags, string? family, bool bold, bool vertical)
     {
         var glyphCount = Characters.Length + 1;
         var (glyf, loca) = Glyphs();
@@ -91,13 +102,98 @@ public static class TestFont
             [Tag("OS/2")] = Os2(embeddingFlags, bold),
             [Tag("post")] = Post(),
         };
+        if (vertical)
+        {
+            tables[Tag("vhea")] = Vhea(glyphCount);
+            tables[Tag("vmtx")] = Vmtx();
+        }
+
         return Assemble(tables);
     }
+
+    /// <summary>Writes the regular face with vertical metrics ('vhea' and 'vmtx') for vertical writing.</summary>
+    /// <returns>The font file.</returns>
+    public static byte[] CreateVertical() => Create(0, null, false, true);
+
+    /// <summary>Gets a glyph's vertical advance, in font units.</summary>
+    /// <param name="c">The character.</param>
+    /// <returns>The advance.</returns>
+    public static int VerticalAdvanceOf(char c) => c switch
+    {
+        'i' or 'l' or '.' or ',' or '!' or '\'' => 0x258,
+        ' ' => 0x1F4,
+        _ => 0x3E8,
+    };
+
+    /// <summary>Gets the top of a glyph's outline, in font units.</summary>
+    /// <param name="c">The character.</param>
+    /// <returns>The top edge; zero for a space.</returns>
+    public static int TopOf(char c) => c switch
+    {
+        ' ' => 0,
+        '´' => 0x2F8,
+        _ => 0x1F4 + (c % 0xC8),
+    };
 
     /// <summary>Gets the glyph index of a character.</summary>
     /// <param name="c">The character.</param>
     /// <returns>The glyph, or 0.</returns>
     public static ushort GlyphOf(char c) => (ushort)(Characters.IndexOf(c, StringComparison.Ordinal) + 1);
+
+    /// <summary>Writes an OpenType font with CFF outlines from the tables this font shares with it: character map, header, metrics, names, licence and PostScript table.</summary>
+    /// <param name="cffTables">The tables that differ: the outlines, the maximum profile and any extra tables, by tag.</param>
+    /// <param name="embeddingFlags">The licence flags.</param>
+    /// <param name="family">The family name.</param>
+    /// <returns>The font file.</returns>
+    internal static byte[] CreateOpenType(IReadOnlyDictionary<string, byte[]> cffTables, int embeddingFlags, string family)
+    {
+        var glyphCount = Characters.Length + 1;
+        var tables = new SortedDictionary<uint, byte[]>
+        {
+            [Tag("cmap")] = Cmap(),
+            [Tag("head")] = Head(false),
+            [Tag("hhea")] = Hhea(glyphCount),
+            [Tag("hmtx")] = Hmtx(),
+            [Tag("name")] = Name(family, "Regular"),
+            [Tag("OS/2")] = Os2(embeddingFlags, false),
+            [Tag("post")] = Post(),
+        };
+        foreach (var (name, table) in cffTables)
+        {
+            tables[Tag(name)] = table;
+        }
+
+        return Assemble(0x4F54544F, tables);
+    }
+
+    /// <summary>Writes the vertical header with one long metric for every glyph.</summary>
+    /// <param name="glyphs">The glyph count.</param>
+    /// <returns>The table.</returns>
+    private static byte[] Vhea(int glyphs)
+    {
+        var table = new byte[0x24];
+        BinaryPrimitives.WriteInt32BigEndian(table, 0x00011000);
+        BinaryPrimitives.WriteInt16BigEndian(table.AsSpan(0x4), 0x1F4);
+        BinaryPrimitives.WriteInt16BigEndian(table.AsSpan(0x6), -0x1F4);
+        BinaryPrimitives.WriteUInt16BigEndian(table.AsSpan(0x22), (ushort)glyphs);
+        return table;
+    }
+
+    /// <summary>Writes the vertical metrics: an advance and a top side bearing for .notdef and every character.</summary>
+    /// <returns>The table.</returns>
+    private static byte[] Vmtx()
+    {
+        var table = new byte[(Characters.Length + 1) * 0x4];
+        BinaryPrimitives.WriteUInt16BigEndian(table, 0x3E8);
+        BinaryPrimitives.WriteInt16BigEndian(table.AsSpan(0x2), (short)TopSideBearing);
+        for (var i = 0; i < Characters.Length; i++)
+        {
+            BinaryPrimitives.WriteUInt16BigEndian(table.AsSpan((i + 1) * 0x4), (ushort)VerticalAdvanceOf(Characters[i]));
+            BinaryPrimitives.WriteInt16BigEndian(table.AsSpan(((i + 1) * 0x4) + 0x2), (short)TopSideBearing);
+        }
+
+        return table;
+    }
 
     /// <summary>Writes the catalog's fonts to a folder beside the tests, one per process, and scans it.</summary>
     /// <returns>The catalog.</returns>
@@ -389,13 +485,19 @@ public static class TestFont
     /// <summary>Lays the tables out after the directory.</summary>
     /// <param name="tables">The tables by tag.</param>
     /// <returns>The font file.</returns>
-    private static byte[] Assemble(SortedDictionary<uint, byte[]> tables)
+    private static byte[] Assemble(SortedDictionary<uint, byte[]> tables) => Assemble(0x00010000, tables);
+
+    /// <summary>Lays the tables out after the directory.</summary>
+    /// <param name="version">The sfnt version: 0x00010000 for TrueType outlines, 0x4F54544F ("OTTO") for CFF outlines.</param>
+    /// <param name="tables">The tables by tag.</param>
+    /// <returns>The font file.</returns>
+    private static byte[] Assemble(uint version, SortedDictionary<uint, byte[]> tables)
     {
         var count = tables.Count;
         var offset = 0xC + (count * 0x10);
         var total = offset + tables.Values.Sum(static t => (t.Length + 0x3) / 0x4 * 0x4);
         var file = new byte[total];
-        BinaryPrimitives.WriteUInt32BigEndian(file, 0x00010000);
+        BinaryPrimitives.WriteUInt32BigEndian(file, version);
         BinaryPrimitives.WriteUInt16BigEndian(file.AsSpan(0x4), (ushort)count);
         var log = (int)Math.Floor(Math.Log2(count));
         BinaryPrimitives.WriteUInt16BigEndian(file.AsSpan(0x6), (ushort)((1 << log) * 0x10));

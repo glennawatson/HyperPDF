@@ -109,7 +109,7 @@
   {
     "type": "",
     "frame": "HyperPdf.Platform.Cups.CupsPrinting.BuildOptions(",
-    "reason": "Each submitted print job builds its CUPS option array and formats its copy count. These options carry paper, colour and duplex binding to the printer."
+    "reason": "Each submitted print job formats its copy count as text for CUPS. The runtime caches the text of numbers below 300, so only a larger copy count allocates."
   },
   {
     "type": "",
@@ -214,7 +214,7 @@
   {
     "type": "",
     "frame": "HyperPdf.Speech.English.EnglishPhonemizer.",
-    "reason": "Phonemizing runs once per sentence read aloud, while the previous sentence plays. Each word is cut out as a string to look it up in the pronunciation dictionary (and lower-cased when it is not listed as written), and the phonemes are the returned string. The token list and output builder are reused between sentences; a trace can still show the reused builder growing its chunks."
+    "reason": "Phonemizing runs once per sentence read aloud, while the previous sentence plays. The phonemes are the returned string, one per sentence. Words are looked up from spans of the text, so a listed word makes no string; a word that needs an ending, a compound or spelling out makes the strings of its derived pronunciation. The token list and the output buffer are reused between sentences and grow only for a longer sentence."
   },
   {
     "type": "",
@@ -224,7 +224,12 @@
   {
     "type": "System.",
     "frame": "HyperPdf.Core.Speech.SentenceSplitter.ToSpeech(",
-    "reason": "Preparing a sentence for the voice returns it as a new string with line breaks joined; one per sentence read aloud, built in a StringBuilder sized to the sentence."
+    "reason": "Preparing a sentence for the voice returns it as a new string with line breaks joined; one per sentence read aloud, built in a stack buffer so the result is the only allocation."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.SpeechBenchmarks.",
+    "reason": "Library code inlined into the speech benchmarks, which the entries for the sentence preparer, the phonemizer, the SSML builder and the PCM converter explain: the returned sentence, phonemes, SSML document or sample array, one per sentence read aloud."
   },
   {
     "type": "System.String",
@@ -334,27 +339,32 @@
   {
     "type": "",
     "frame": "HyperPdf.Platform.Linux.Spelling.WordListSpellChecker..ctor(",
-    "reason": "Loading a word list reads each word into a set, once per spell checker, when spell checking first starts."
+    "reason": "Opening the word list file creates its file handle. It happens once per spell checker, when spell checking first starts."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Platform.Linux.Spelling.WordPool.",
+    "reason": "Loading a word list opens its file handle and rents the character, start and hash table arrays from ArrayPool.Shared. The pool allocates them the first time a list is loaded, or after it trims idle buffers on a gen 2 GC; disposing a checker returns them, so a later load reuses them. No string is made per word."
   },
   {
     "type": "",
     "frame": "HyperPdf.Platform.Linux.Spelling.CorrectionIndex..ctor(",
-    "reason": "The correction index is built once per word list, the first time a correction is asked for: the lower-case words, the per-word lookup marks and the hash directory."
+    "reason": "The correction index rents its entry, directory and mark arrays from ArrayPool.Shared the first time a correction is asked for. The pool allocates them the first time (or after it trims idle buffers on a gen 2 GC); disposing the checker returns them, so a later build reuses them."
   },
   {
     "type": "",
-    "frame": "HyperPdf.Platform.Linux.Spelling.CorrectionIndex.SortedEntries(",
-    "reason": "Building the correction index makes one packed entry per word delete and a count per hash bucket, once per word list; the entries are dropped once grouped."
+    "frame": "HyperPdf.Platform.Linux.Spelling.CorrectionIndex.TermString(",
+    "reason": "A correction's string and its cache entry are made the first time that word is offered; offering it again finds it and allocates nothing. Corrections are looked up only when the reader opens the menu on a misspelled word."
   },
   {
     "type": "",
-    "frame": "HyperPdf.Platform.Linux.Spelling.CorrectionIndex.Group(",
-    "reason": "Building the correction index makes the key, start and posting arrays it keeps for the life of the spell checker, once per word list."
+    "frame": "HyperPdf.Platform.Linux.Spelling.CorrectionIndex.Lookup(",
+    "reason": "A correction's string and its cache entry are made the first time that word is offered; offering it again finds it and allocates nothing. Corrections are looked up only when the reader opens the menu on a misspelled word."
   },
   {
     "type": "",
     "frame": "HyperPdf.Core.Text.Fonts.FontSubsetter.",
-    "reason": "Subsetting builds the new font program PDFium embeds: the renumbered glyph, metric and cmap tables and the assembled file. It runs when a text box in an installed font is written, once per 128-character block of new letters, never while typing or drawing. SubsetFont measures about 1 ms for a paragraph."
+    "reason": "Subsetting builds the new font program the file embeds: the renumbered glyph, metric and cmap tables and the assembled file. It runs when a text box in an installed font is written, once per 128-character block of new letters, never while typing or drawing. SubsetFont measures about 1 ms for a paragraph."
   },
   {
     "type": "",
@@ -369,7 +379,7 @@
   {
     "type": "",
     "frame": "HyperPdf.Core.Text.FreeTextStyle.",
-    "reason": "Writing a text box makes its /DA, /DS and /RC values once per commit; PDFium copies them into the annotation. Reading a foreign FreeText makes its format once."
+    "reason": "Writing a text box makes its /DA, /DS and /RC values once per commit; they are copied into the annotation. Reading a foreign FreeText makes its format once."
   },
   {
     "type": "",
@@ -402,6 +412,36 @@
     "reason": "PdfSigner.Sign is inlined into the signing benchmark methods, so its allocations carry their names: the signed copy of the file and its incremental update as strings and bytes, and the CMS signature's ASN.1 reader and writer state. They are the same work the PdfSigner and PdfUpdateWriter entries explain, once per signature, which is a user action."
   },
   {
+    "type": "HyperPdfLibrary.Objects.PdfOpenContext",
+    "frame": "HyperPdf.Benchmarks.CertificateSigningBenchmarks.",
+    "reason": "The benchmark methods open the document inside the measured operation, and the open is inlined into them. The open context holds the open's token, sink and repair log, so each open has its own; it makes its lock and drawing services only when a repair is reported or a page is drawn."
+  },
+  {
+    "type": "HyperPdfLibrary.IO.MemoryPdfByteSource",
+    "frame": "HyperPdf.Benchmarks.CertificateSigningBenchmarks.",
+    "reason": "The benchmark methods open the document from a byte array inside the measured operation, and the open is inlined into them. The byte source is the document's handle on those bytes, kept until the document is disposed, one per open."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdfLibrary.Objects.StoreOpening.ResetCache(",
+    "reason": "The object-slot array of a document: one slot for each object number in the cross-reference table, holding the parsed object after its first use. It is made once per open, and again only when authentication or a rebuilt table changes the object count."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Structure.ObjectStreamCache.",
+    "reason": "The cache of decoded object streams makes its slot arrays when the first stream is cached and doubles them up to the stream limit (128), so a document keeps room for only the streams it has read. Once per document that has object streams."
+  },
+  {
+    "type": "HyperPdfLibrary.IO.MemoryPdfByteSource",
+    "frame": "HyperPdfLibrary.Objects.StoreOpening.OpenFdf(",
+    "reason": "Opening an FDF file from a byte array wraps the array in the document's byte source, which the object store keeps until it is disposed. One per file read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.FormCodeCollector.",
+    "reason": "A font's code map is made once per font per document: the characters and codes the font shows, in two exact arrays that the form font keeps. The working lists are rented from the array pool."
+  },
+  {
     "type": "",
     "frame": "HyperPdf.Benchmarks.HyperPdfInterchangeBenchmarks.OpenOnly",
     "reason": "Opening a document reads its cross-reference table and page tree into an object store, a name table and dictionaries. The import benchmarks include this cost, so it is the baseline to subtract from them. Opening a file is a user action."
@@ -414,7 +454,7 @@
   {
     "type": "",
     "frame": "HyperPdf.Benchmarks.HyperPdfInterchangeBenchmarks.Export",
-    "reason": "Exporting reads each annotation dictionary into the data model and writes it out. XFDF is written through XmlWriter, which formats attribute values as strings and keeps its own element, namespace and buffer state. FDF is written as PDF syntax into a pooled buffer and copied into the result array, with annotation dictionaries built as free objects. Exporting is a user action, not a render path."
+    "reason": "Exporting reads each annotation dictionary into the data model and writes it out. XFDF is written through XmlWriter, which formats attribute values as strings and keeps its own element, namespace and buffer state. FDF is written as PDF syntax straight into a pooled buffer and copied into the result array. Exporting is a user action, not a render path."
   },
   {
     "type": "",
@@ -424,7 +464,7 @@
   {
     "type": "",
     "frame": "HyperPdf.Benchmarks.HyperPdfCarryBenchmarks.InsertPlain",
-    "reason": "Inserting pages is an edit transaction: the transaction and its undo record, the page set and page tree read again after the edit, the copied page dictionaries and the rewritten page tree. The carrier objects and their lists are created once per insertion and find nothing to carry in a plain document. Inserting pages is a user action, not a render path."
+    "reason": "Inserting pages is an edit transaction: the transaction and its undo record, the new page set, the copied page dictionaries and the page tree nodes the insertion changes. The carrier objects and their lists are created once per insertion and find nothing to carry in a plain document. Inserting pages is a user action, not a render path."
   },
   {
     "type": "",
@@ -439,7 +479,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Editing.PdfCarry",
-    "reason": "The carriers (forms, outlines, destinations, layers, files, text, context) build their working lists, dictionaries, arrays and reserved objects once per page copy, sized by what the copied pages reference. Copying pages is a user action, not a render path."
+    "reason": "The carriers (forms, outlines, destinations, layers, files, text, context, separations) build their working lists, dictionaries, arrays and reserved objects once per page copy, sized by what the copied pages reference. The separation plan holds one link array per printed page and per-page slots, and is made only when a copied page has a separation dictionary. Copying pages is a user action, not a render path."
   },
   {
     "type": "",
@@ -469,7 +509,17 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Editing.PdfPageTreeWriter.",
-    "reason": "Rewriting the page tree after an insertion builds the list of old nodes and the new kids array, once per edit."
+    "reason": "Writing the whole page tree again, for a delete, a reorder, a direct page edit or an insertion the tree cannot take in place, builds the list of old nodes and the new kids arrays, once per edit."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Editing.PdfPageTreeEditor.",
+    "reason": "An in-place insertion or move copies the dictionary and /Kids array of each node on the way down to the position, and of each node a split adds, because stored objects are never changed; that is a few small copies per edit."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Editing.PageTreeVerifier.",
+    "reason": "Before the first in-place edit of a page set, the check of the tree keeps the set of nodes it has reached, one entry per node, once per page set read."
   },
   {
     "type": "",
@@ -477,24 +527,14 @@
     "reason": "Committing an edit builds the undo record and the lists of changed objects and trailer entries, once per edit."
   },
   {
-    "type": "System.Int32[]",
-    "frame": "HyperPdfLibrary.Objects.StoreEditing.Replace(",
-    "reason": "The edit transaction's touched-object set grows while a page edit records the objects it will be able to undo."
-  },
-  {
-    "type": "Entry[System.Int32][]",
-    "frame": "HyperPdfLibrary.Objects.StoreEditing.Replace(",
-    "reason": "The edit transaction's touched-object set is a HashSet<int>; its entry array grows with its bucket array when an edit records a further object for undo, once per growth in a user edit."
-  },
-  {
-    "type": "HyperPdfLibrary.Editing.PdfObjectState[]",
-    "frame": "HyperPdfLibrary.Objects.StoreEditing.Replace(",
-    "reason": "The edit transaction's before-state list grows to retain the original objects for undo."
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.PdfImagePages.",
+    "reason": "Making a page from an image builds the edit's state, the image's pixel buffers and streams, and the page's dictionaries once per image, sized by the image. Making a page is a user action, not a render path."
   },
   {
     "type": "",
     "frame": "HyperPdfLibrary.Document.PdfDocumentPageOperations.InsertCore",
-    "reason": "Inserting pages allocates the carrier, the importer's queue, the reserved ids, the prepared annotation arrays and the page slots, once per insertion. Page editing is a user action, not a render path."
+    "reason": "Inserting pages allocates the carrier, the importer's queue, the reserved ids, the prepared annotation arrays, the page copies and the new page set's entry array, once per insertion. Page editing is a user action, not a render path."
   },
   {
     "type": "",
@@ -523,8 +563,43 @@
   },
   {
     "type": "",
+    "frame": "HyperPdfLibrary.Document.SeparationReader.Read(",
+    "reason": "An uncached separation read makes its working state (entry list, page dictionary, listed-page set and scratch list, findings list) once, and only when a page has a separation dictionary; a document of ordinary pages allocates nothing (ReadOrdinary measures 0 B). The result is cached until an edit (Cached measures 0 B)."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.SeparationReader.ReadEntry(",
+    "reason": "Each separation page gets the entry that holds it while grouping, its PdfSeparationPage result record and its colourant name as a string; the page dictionary and entry list grow with the number of separation pages. Once per uncached read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.SeparationReader.ReadMembers(",
+    "reason": "Each separation page's /Pages array becomes one int array of the page indexes it lists, compared with its group's; the listed-page set grows to the longest array. Once per uncached read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.SeparationReader.ReadSpace",
+    "reason": "A Separation or DeviceN colour space gives the result record its colourant names: one string array and one string per colourant. Once per uncached read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.SeparationReader.ReadNames(",
+    "reason": "A DeviceN colour space's colourant names become a string array and one string per name for the result record. Once per uncached read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.SeparationReader.Group(",
+    "reason": "Grouping makes one build object and member list per printed page, and the list of builds. Once per uncached read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.SeparationReader.Finish(",
+    "reason": "The result: one PdfSeparationGroup and separation array per printed page, the group array, the findings array and the PdfSeparationInfo record that is cached. Once per uncached read."
+  },
+  {
+    "type": "",
     "frame": "HyperPdfLibrary.Document.PdfDocumentPageOperations.CurrentSlots",
-    "reason": "The page slots list is built once per page edit."
+    "reason": "The page slots list is built when an edit writes the whole page tree again or recomputes page labels, once per such edit."
   },
   {
     "type": "",
@@ -534,17 +609,17 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Document.PageTreeReader.",
-    "reason": "The page tree is read again after an edit drops the cached pages, building the page list and the traversal stack."
+    "reason": "Reading the page tree makes one small entry for each leaf page, in an array sized from the root /Count and handed over without a copy; the walk's visited set and ancestor stack are rented. A page that is not encrypted, has plain boxes and no /Kids is recognised from its bytes and parsed only when it is first used. The PdfPage is made on first use. It runs on open, and again after an edit that cannot hand over its pages."
   },
   {
     "type": "",
     "frame": "HyperPdfLibrary.Document.PdfPageSet.",
-    "reason": "The page set is rebuilt after an edit drops the cached pages."
+    "reason": "The page set is a snapshot that readers on other threads use, so each page edit that changes the tree in place makes a new set with a copy of the entry array. Its made-page table, link slots and object-number lookup are made only when first asked for, once per page set."
   },
   {
     "type": "",
     "frame": "HyperPdfLibrary.Document.NameTree.",
-    "reason": "Reading the entries of a name tree for a merge builds the entry list once per tree."
+    "reason": "Reading the entries of a name tree builds the entry list once per tree: for a merge, or for the web capture IDS and URLS trees whose content sets the reader returns."
   },
   {
     "type": "",
@@ -584,7 +659,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Objects.PdfText.Decode",
-    "reason": "A name tree key or field name is decoded to a string to compare names, once per name checked in a page copy."
+    "reason": "A PDF text string is decoded to a .NET string: a name tree key or field name compared once per name checked in a page copy, a colourant given as a string once per uncached separation page, or a thread title, URL or content type that a catalog structure read returns to the caller."
   },
   {
     "type": "",
@@ -614,7 +689,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Objects.PdfNameTable.",
-    "reason": "Each document has one name table. The first spelling of a name not in the static known-name table is interned once and reused for every later use in that document."
+    "reason": "Each document has one name table. It makes its lookup and lock when the first name that is not in the static known-name table is seen, and stores that name's bytes once for every later use in the document."
   },
   {
     "type": "",
@@ -637,19 +712,59 @@
     "reason": "Decode returns a text string as a .NET string and Encode returns the encoded bytes as a new array; both results belong to the caller (titles, outline entries, metadata, annotation text). They run when the caller asks for text, not when a tile is drawn."
   },
   {
-    "type": "",
-    "frame": "HyperPdfLibrary.Document.PageTreeReader.",
-    "reason": "Reading the page tree builds one page entry per page and the inherited attribute chain once per document, or again after an edit replaces the tree. It runs on open or first page access."
-  },
-  {
-    "type": "",
-    "frame": "HyperPdfLibrary.Document.PdfPageSet..ctor",
-    "reason": "The page set holds the page array and the reverse lookup from object number to page index. It is built once per document and again after a page edit."
-  },
-  {
     "type": "System.Runtime.CompilerServices.ConditionalWeakTable`2[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Document.PdfPrefetchMark]",
     "frame": "HyperPdfLibrary.Document.PdfDocumentReader.OpenWithAsync(",
     "reason": "The first prefetch of a stream-backed document creates one weak table owned by its object store to remember each dictionary's cache generation. Inlining attributes the table creation to async open."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentCatalog.",
+    "reason": "Catalog reads return records the caller keeps: one thread record and bead array per article thread, one bead per rectangle on the ring, one piece record with its producer name per data dictionary, and the output intent and permission records. A thread read also makes the visited set that stops a broken bead ring. They run when a caller asks for the structure, not when a page renders."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.EmbeddedGoToReader.",
+    "reason": "An embedded go-to action read returns records the caller keeps: the action, one target record per step of its path with the step's file name, and the step array. A path with a second step also makes the visited set that stops a looping path. It runs when a caller reads a link or action, not when a page renders."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentActions.",
+    "reason": "Action and trigger reads return records the caller keeps: one node per action in a /Next chain with its next array, the typed action record, one trigger with its event name per /AA entry, and the visited set that stops a looping chain. They run when a caller asks for actions, not when a page renders."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Requirements.PdfRequirementReader.",
+    "reason": "Reading /Requirements returns records the caller keeps: one requirement per dictionary with its type spelling, version, penalty and handler list, and the list that holds them. A document with no /Requirements entry returns a shared empty list and allocates nothing; the read runs once when a document opens, not when a page renders."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Requirements.PdfRequirementEvaluator.",
+    "reason": "Checking requirements returns a result record for each requirement, their array and the assessment the caller keeps, with the plain-language messages. A document with no requirements returns a shared empty assessment and allocates nothing; the check runs once when a document opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Requirements.PdfRequirementText.",
+    "reason": "The messages for the user are built once for each unmet requirement and once for the summary, with a builder for the feature list. They are shown in the notice when a document opens and kept in the assessment."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentMeasure.",
+    "reason": "Viewport and measure reads return records the caller keeps: one viewport with its box numbers per /VP entry, one measure with its number format arrays, and for a geospatial measure its point arrays, coordinate system records and names. They run when a caller asks for a page's measures, not when a page renders."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.WellKnownTextNames.",
+    "reason": "A coordinate system's name is cut from its well-known text as a string the caller keeps, once per coordinate system dictionary read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.PdfGeoReferencing.",
+    "reason": "Fitting a viewport's world mapping returns one transform record that the caller keeps for the viewport. Converting a point and checking it against the neatline allocate nothing."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentWebCapture.",
+    "reason": "Document part and web capture reads return records the caller keeps: one node with its metadata dictionary and child array per document part, one content set with its identifier bytes and sources per web capture set, and the visited sets that stop cyclic part trees and repeated content sets. They run when a caller asks for the structure, not when a page renders."
   },
   {
     "type": "",
@@ -659,17 +774,12 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Document.PdfDictionaryExtensions.",
-    "reason": "Spells PDF names out as strings for the accessibility report, which returns them to the caller. The report is a user action."
+    "reason": "Spells PDF names and scalar values out as strings that a caller keeps: for the accessibility report, or for the level names and metadata a document part read returns. Both are user actions."
   },
   {
     "type": "",
     "frame": "HyperPdfLibrary.Layers.",
-    "reason": "The optional content configuration is read once per document: the group list, the radio button groups, the referenced group numbers and the hidden set. Toggling a layer copies the hidden set under the lock and publishes the new set, so render threads read a stable snapshot without locking; a toggle is a user action and costs one small set."
-  },
-  {
-    "type": "",
-    "frame": "HyperPdfLibrary.Content.ContentInterpreter.",
-    "reason": "Recording a page or building its text page runs the content stream once: the interpreter, its path builders and stacks; one Skia path object per painted path, clip or shading (SkiaSharp wraps each detached path in a managed object and registers its handle); a font and colour space the first time a resource is used; the soft mask and transparency group state; and the marked-content stack. The recording is cached as a picture, so warm tiles replay it without managed allocation. When the device is the marked-content recorder, ShowCode, OpFill and the marked-content operators also grow the recorder's glyph list, text buffer and bounds table, which are the recording's result."
+    "reason": "The optional content configuration is read once per document and again when a user chooses another configuration: the group list, the radio button groups, the referenced group numbers, the hidden sets for viewing, printing and exporting, the locked groups, the zoom ranges and limits, the layer order tree and the configuration list. Checking visibility, including at a magnification, reads this snapshot and allocates nothing. Toggling a layer copies the hidden set under the lock and publishes the new set, so render threads read a stable snapshot without locking; a toggle is a user action and costs one small set."
   },
   {
     "type": "",
@@ -679,17 +789,12 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Rendering.ImageCache..ctor",
-    "reason": "The image cache's dictionary and recency list are created with each cache for a document's active image and drawing settings."
+    "reason": "The image cache's dictionaries are created with each cache for a document's active image and drawing settings."
   },
   {
     "type": "",
     "frame": "HyperPdfLibrary.Rendering.ObjectCache",
     "reason": "The colour space, shading, pattern and soft mask caches, created once per document on the first render."
-  },
-  {
-    "type": "",
-    "frame": "HyperPdfLibrary.Rendering.PageRecorder.",
-    "reason": "Recording a page into a picture, once per page while it stays in the renderer's picture cache (bounded by the memory the pictures hold, 128 MiB by default, and 32 pages): the picture recorder, the content device and the annotation pass. Warm tiles replay the picture and allocate nothing."
   },
   {
     "type": "",
@@ -708,18 +813,68 @@
   },
   {
     "type": "",
-    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.",
-    "reason": "The recording device's soft masks, transparency group stack and Skia paints, created while a page is recorded and released with the device. SkiaSharp registers each native handle in its handle table, which grows under this frame. Recording runs once per page."
-  },
-  {
-    "type": "",
     "frame": "HyperPdfLibrary.Graphics.Images.PdfImageDecoder.",
-    "reason": "Decoding an image returns its pixels (one gray byte, BGRA or alpha coverage) as a new array the size of the image. Arrays of 64 KiB or more are zeroed arrays on the pinned object heap that Skia then uses as its own pixel memory, so nothing is copied; smaller ones are copied into Skia. The gray table (256 bytes) and the unpacker tables are built once per image. Each image is decoded once while it stays in the cache. Small scratch rows use ArrayPool<T>.Shared; rows of at least 256 KiB use a document-owned or explicitly shared ScratchPools cache with a default 48 MiB retention limit. A first rent of an array size may allocate under this frame."
+    "reason": "Decoding an image returns its pixels (one gray byte, BGRA or alpha coverage) as a new array the size of the image: the pixels are the result, so there is nothing to pool. Arrays of 64 KiB or more are zeroed arrays on the pinned object heap that Skia then uses as its own pixel memory, so nothing is copied; smaller ones are copied into Skia. A gray image is already kept as one byte per pixel and is not copied again, so a 1536 by 1536 gray image costs 2.3 MiB once, and a scanned page that text recognition renders strip by strip decodes its scan once (8 MiB at 300 dpi) and every strip draws from it. A smaller decode would change the pixels the page shows or recognises, so only the JPEG 2000 and JBIG2 resolution levels are skipped, and only when the page is drawn smaller than the scan. The sample tables of an 8-bit image that /Decode leaves alone are shared; other images build theirs once. Each image is decoded once while it stays in the cache. Small scratch rows use ArrayPool<T>.Shared; arrays of 64 KiB or more use a document-owned or explicitly shared ScratchPools cache with a default 48 MiB retention limit. A first rent of an array size may allocate under this frame."
   },
   {
     "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.JpxCodestream.",
+    "reason": "Reading a JPEG 2000 codestream's main header builds its model: the codestream, image geometry, component list, coding styles, quantization steps and the tile-part list. It is the parsed file, made once per decode, which runs once per image while it stays in the image cache."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.JpxQuantization.",
+    "reason": "A quantization marker is parsed into its step sizes, once for the main header and once for each tile that overrides it. It is part of the parsed header model of one decode."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.JpxDecoder.OpenRow(",
+    "reason": "Opening the tiles of a tile row reads each tile's header into a header state, coding parameters and tables, which are the parsed model of that tile. Tile streams and row sets come from the cache's idle objects, so only the first decode of a cache builds them. It happens once per tile of a decode."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.JpxBlockWorkers.",
+    "reason": "The working objects of JPEG 2000 decodes (the lock, the list of idle code-block decoders, the stack of idle tile streams, and the decoder with its tile row sets) are made when a scratch cache has no idle set. A cache makes as many sets as it has decodes running at the same time, and keeps them for later decodes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.JpxDecoder..ctor",
+    "reason": "A JPEG 2000 decoder object keeps its list of open tile row sets and its stack of idle ones between decodes; they are made with the decoder, on the first decode of a scratch cache."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.JpxDecoder.Initialize(",
+    "reason": "A JPEG 2000 decoder keeps its per-component arrays (areas, tile rows, row buffers) between decodes; they are made on the first decode of a scratch cache and again only when a decode has a different number of components."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.JpxDecoder.Open(",
+    "reason": "Opening a decode makes the decoder with its working objects when the scratch cache has none idle; see JpxBlockWorkers."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.Images.Jpx.",
     "frame": "HyperPdfLibrary.Graphics.Images.Jpx.",
-    "reason": "Each JPEG 2000 decode builds its header model (coding style, quantization, tiles and tile parts), one block decoder per worker and the component planes' work items, and runs the code blocks and components with Parallel.For, whose task replicas and ranges are allocated per call. A decode runs once per image while it stays in the image cache. Plane buffers are pooled."
+    "reason": "Each JPEG 2000 decode parses its header model (image geometry, coding styles, quantization, tile parts and tile coding parameters), which is the parsed file and is made once per decode. The decoder, tile streams, component streams, row sources and code-block decoders belong to the scratch cache and are built only when the cache has none idle, so a cache makes as many as it has decodes running at once (and a tiled image uses one stream for each tile column). Arrays of the tile layout rent from the document's scratch pool."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpeg.JpegState.",
+    "reason": "A JPEG decode takes its tables and components (eight Huffman tables, four quantization tables, four components and their arrays) from idle slots and hands them back when it ends. A decode that finds none idle makes a set, so a set is made once for each decode that runs at the same time."
+  },
+  {
+    "type": "System.",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.JpxBlockState.",
+    "reason": "A worker thread's code-block decoder is made when no finished decoder is idle: the first tile of the first decode on a scratch cache makes one for each worker, and later tiles and decodes on that cache reuse them."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.",
+    "reason": "The working rows of each tile-component (a strip of code-blocks for every sub-band and a window of rows for every wavelet level) rent as one array from the document's scratch pool. Its size depends on the image width and the code-block height, not on the height of the image. The first decode of a pool, or a decode of an image so wide that the arrays pass the retention limit (48 MiB unless the document sets another), allocates them; every other decode reuses them."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.",
+    "reason": "The joined tile data and a decoder's code-block buffers rent from the document's scratch pool; the first rent of a size allocates, and a page larger than the pool's retention limit (48 MiB unless the document sets another) allocates again for the next page."
   },
   {
     "type": "",
@@ -754,7 +909,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Structure.",
-    "reason": "Structure reads return their results: the structure tree's elements and kids, the role map chain, the marked-content recording of a page (glyphs, text and bounds per MCID), tagged nodes, and the inferred layout's lines, columns and paragraphs. They run when a reader asks for structure, once per page or document, not when a tile is drawn."
+    "reason": "Structure reads return their results: the structure tree's elements and kids, the role map chain, the marked-content recording of a page (glyphs, text and bounds per MCID), tagged nodes, and the inferred layout's paragraph and heading nodes with their text and item indexes. They run when a reader asks for structure, once per page or document, not when a tile is drawn."
   },
   {
     "type": "",
@@ -794,7 +949,52 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Interchange.",
-    "reason": "XFDF and FDF import and export build the annotation data model and the written file; see the interchange benchmark entries. These are user actions, not a render path."
+    "reason": "The annotation data model is what a read returns and a write takes: one annotation object per annotation with its text as strings and its numbers as arrays. A read keeps the XML or object tree it parses only while parsing; the FDF write goes straight into a pooled buffer and the XFDF write into a rented stream, so only the result array is new. These are user actions, not a render path."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Annotations.PdfTrapNetworkPages.",
+    "reason": "Each save walks the page tree once to find trap network annotations: the walk's state, its stack of /Kids cursors and the set of page tree nodes seen, which ends a looped tree. Pages are not added to the set, so a flat tree keeps it to the root. A page with a trap network adds one page record and the list that holds it."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Annotations.PdfPageDescriptionReader.",
+    "reason": "Checking a trap network collects the object numbers of its page's content streams, resources and form resources into two sets, once per page that has a network. Pages without one are not walked."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Annotations.PdfTrapNetworkValidator.",
+    "reason": "Checking a /Version network builds the set of object numbers its array lists, sized to the array, once per page with a network. A /LastModified network compares its page's appearance states in two lists only when an edit touched the page's annotations."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Annotations.PdfTrapNetworkReader.",
+    "reason": "Removing or moving a trap network builds the page's new /Annots array, once per changed page."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Annotations.PdfTrapNetworkFix.",
+    "reason": "Removing or fixing a trap network records the page's or array's previous state in the open edit so the change can be undone, and copies the page when its /Annots is direct; once per changed page."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Annotations.PdfTrapNetworkEdits",
+    "reason": "A save that finds a trap network takes the set of edited object numbers once, to tell which networks an edit touched."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Objects.StoreEditing.GetEditedNumbers(",
+    "reason": "Taking the edited object numbers copies them into one sorted array per call. A save calls it once, and only when it finds a trap network."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Writing.PdfTrapNetworkGuard.",
+    "reason": "A save that finds a trap network keeps one check result per network and the set of edited object numbers, inlined from its callees. When a network must change, it opens one undoable edit and returns one change record per page in the save report."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.HyperPdfTrapNetworkBenchmarks.",
+    "reason": "Each operation creates the save report it passes to the check; ValidateNetwork and RemoveStaleNetwork also hold the page description, its sets and the edit set inlined from the library. These are the allocations the trap network entries above explain."
   },
   {
     "type": "",
@@ -868,13 +1068,158 @@
   },
   {
     "type": "",
-    "frame": "HyperPdf.Engine.HyperPdfAnnotations.HideRemoved",
-    "reason": "Taking the snapshot lists the pages that hold annotations removed but kept, so they can be left out of the copy and put back. Once per run, only when such annotations exist."
+    "frame": "HyperPdf.Engine.HyperPdfAnnotationSaving.HideRemoved",
+    "reason": "Taking the snapshot lists the pages that hold annotations removed but kept, so they can be left out of the copy and put back. Once per run, only when such annotations exist; a document without them allocates nothing."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfAnnotationSaving.TryHide",
+    "reason": "A page whose annotation array still holds a removed annotation gets a copy of the array without it for the length of the save, which the writer then writes. Once per such page per save; a page without a removed annotation in its array is skipped after a scan and allocates nothing."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentPageExport.ExportPages",
+    "reason": "Exporting or printing pages composes a new document: the builder with its object tables and name table, and the importers that copy each page. The new document is the result. It is built once per export, which the user asks for."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfPageExport.",
+    "reason": "Laying pages on sheets adds each sheet's page dictionary, content and resources to the new document being exported, once per sheet, when the user prints or exports pages."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager.ApplyCoreAsync",
+    "reason": "A page edit opens an undo transaction in the document's history, with the lists of object states and trailer entries it records so the edit can be undone, and the set of pages it touches. Once per page edit, which the user asks for."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfNavigation.PagesEdited",
+    "reason": "After a page edit the published page sizes are replaced by a new array when a size changed; published arrays are never written to, so readers see one whole array. Once per page edit that changes a size."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfNavigation.ReadPageSizes",
+    "reason": "The page size array is the document's published state: readers hold it without a lock, so an edit that changes the page count or a size publishes a new array and never writes into an old one. Once per such page edit; an edit that changes nothing keeps the array."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfTagged.GetTaggedBlocksNative",
+    "reason": "Reading a tagged page builds the structure reader's node tree (a node, its child list and its glyph index array per structure element and marked content id), the reader's builder, object resolver and used-id set, and the blocks returned with their character index arrays. The text of a node is only read when asked, so the walk reads none. The block walker and its index buffers are reused by the thread. Once per page, which the reading order keeps."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfText.GetCharactersNative",
+    "reason": "A page's characters are the result, copied once into the caller's list; the reading order keeps them, so this runs once per page."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentTextLayers.AddTextLayer",
+    "reason": "Writing the first text layer on a document creates its annotation editor state: the font and shaper caches and the layout and name tables it picks fonts with. The layer's fonts and the font list are made for each page written. Text recognition runs when the user asks, once per page."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Core.Ocr.OcrRunner.WriteWords",
+    "reason": "Writing a recognised page's text layer creates the document's annotation editor state the first time, and the layer's font list for each page written; see HyperPdfDocumentTextLayers.AddTextLayer. Text recognition runs when the user asks, once per page."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfAnnotationTextLayer+",
+    "reason": "The text layer's font list holds the built in font's dictionaries and the list of fonts handed to the writer. Made for each page a text layer is written to."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfAnnotationTextLayer.AddTextLayer(",
+    "reason": "Writing a text layer puts the built in font's wrapper and its font dictionary into the page's new resources. They are objects of the edited page, made once for each page written. A list of one font, the word names and the use flags stay on the stack."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfAnnotationStateAccess.GetAnnotations(",
+    "reason": "The document's annotation editor object and its lock are made the first time an annotation edit or a text layer asks for them. The page caches, name index, text layout and font state are made only when an edit first needs each one."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfFeatureRegistry.",
+    "reason": "A document creates the service for a feature the first time it is asked for it, and keeps the table of services; later asks return the same one."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Core.Documents.DocumentFeature",
+    "reason": "The first request for any feature of a document creates the document's table of feature services; later requests find it."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Http.VerifiedDownload.DownloadAsync",
+    "reason": "Starting a download builds the request, its response and the part file's stream inside System.Net.Http and System.IO, and the part file's path. It happens once per downloaded file, when the person asks for a language or voice."
   },
   {
     "type": "",
     "frame": "HyperPdf.Benchmarks.HyperPdfOptimizeCopyBenchmarks.",
     "reason": "Benchmark harness code: the output stream that stops the run at its first write, and the mapping calls the benchmark makes on purpose. Not shipped."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.OcrWriteBenchmarks.",
+    "reason": "Library code inlined into the recognise-and-write benchmark: the renderer state that draws the scanned page for recognition, and the text layer writer's state, which the page rendering and text layer entries explain. One page per operation."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.OcrLanguagePackBenchmarks.CheckLanguages(",
+    "reason": "Library code inlined into the language check: the codes parsed from the setting, each pack's file size read through FileInfo, and the list of missing packs, as the OCR language entries explain. It runs when Recognise Text is pressed."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.MeasureBenchmarks.Describe(",
+    "reason": "The measurement's description is the result shown in the Measure bar and beside the shape; one string per pointer move while measuring."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.DataRecordBenchmarks.",
+    "reason": "The records the benchmarks build on purpose: a remembered tab, and the signature image made from imported pixels (see the signature image entries)."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.SignatureMarkBenchmarks.MakeDrawnMark(",
+    "reason": "The drawn mark is the result: its coordinate and stroke length arrays, made once per stroke drawn on the signature pad."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.GradientBenchmarks.ArrayStops(",
+    "reason": "The baseline that uses SkiaSharp's array API on purpose: arrays of colours and offsets, and the shader object, which SpanStops is measured against."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.ReadOnlySignalBenchmarks.",
+    "reason": "Subscribing allocates the subscription and its wrappers inside ReactiveUI.Primitives, and creating the read-only view allocates the view; both are what the benchmark compares."
+  },
+  {
+    "type": "HyperPdf.Platform.Linux.Spelling.WordListSpellChecker",
+    "frame": "HyperPdf.Benchmarks.WordListSpellCheckerBenchmarks.FirstSuggestion(",
+    "reason": "The benchmark creates a spell checker for every operation to measure loading a word list; the checker object is created once per word list."
+  },
+  {
+    "type": "System.Collections.Immutable.ImmutableArray`1[System.String]",
+    "frame": "HyperPdf.Benchmarks.RenderWorkloadBenchmarks.",
+    "reason": "ColdOpenAndRender and FirstRecordOnOpenDocument create a renderer for every operation, which turns its render options' list of hidden colorants, an ImmutableArray, into the key of its cache."
+  },
+  {
+    "type": "Entry[HyperPdfLibrary.Rendering.PdfRenderCacheKey,HyperPdfLibrary.Rendering.PdfRenderCacheEntry][]",
+    "frame": "HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(",
+    "reason": "ColdOpenAndRender opens a new document on every operation, and a document makes its table of renderer caches, one per set of render options, when its first renderer is made."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.PdfRenderCacheKey,HyperPdfLibrary.Rendering.PdfRenderCacheEntry]",
+    "frame": "HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(",
+    "reason": "ColdOpenAndRender opens a new document on every operation, and a document makes its table of renderer caches, one per set of render options, when its first renderer is made."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(",
+    "reason": "ColdOpenAndRender opens a new document on every operation, and a document makes its table of renderer caches, one per set of render options, when its first renderer is made."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.TestAssets.ThrottledStream.ReadAsync(",
+    "reason": "Each asynchronous read waits with Task.Delay, which creates a timer, its promise and the cancellation registration. That wait is the simulated slow device the benchmark is run against. Not shipped."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfOpenContext",
@@ -899,22 +1244,17 @@
   {
     "type": "",
     "frame": "HyperPdf.Core.Licences.NoticeDocument.Parse(",
-    "reason": "Reading the notices decodes the UTF-8 file to a string, then builds the data model: one entry per component with its licence text as a string, a field dictionary per component, and the group lists. It runs once, when the user opens the Licences window, and is not a render path."
-  },
-  {
-    "type": "",
-    "frame": "HyperPdf.Benchmarks.LicenceNoticesBenchmarks.ParseUtf8",
-    "reason": "Decoding the UTF-8 notices file to one string, which the compiler inlines into the caller; the string holds the whole file (about 800 KB for 70 components). It happens once, when the user opens the Licences window, and is not a render path."
+    "reason": "The parsed notices are the result the Licences window keeps: for each of the 70 or so components, its licence text as one string, its name and field strings, its entry, and the group lists. The file is decoded into a rented buffer, not a string, and lines are read from that buffer. It runs once, when the user opens the Licences window, and is not a render path."
   },
   {
     "type": "",
     "frame": "HyperPdf.Core.Licences.NoticeReader.",
-    "reason": "The reader keeps a string builder for the licence text and a field dictionary for each component, and fills the entry and group lists. It runs once, when the user opens the Licences window, and is not a render path."
+    "reason": "The reader fills the entry and group lists the document keeps, one list for each licence group. Licence text is collected in a rented buffer, so each text becomes one string. It runs once, when the user opens the Licences window, and is not a render path."
   },
   {
     "type": "",
     "frame": "HyperPdfLibrary.Fonts.BundledFaces.Read(",
-    "reason": "Reads one bundled Foxit face the first time a document needs it: the resource stream and its name, a byte array of the face's CFF data (about 15 to 30 KB, kept by the parsed program for its lifetime), the CffProgram, the glyph source and the face object. The face is cached for the process, so this happens at most once per face and never while rendering."
+    "reason": "Reads one bundled substitute face the first time a document needs it: the resource stream and its name, a byte array of the face's CFF data (about 15 to 30 KB, kept by the parsed program for its lifetime), the CffProgram, the glyph source and the face object. The face is cached for the process, so this happens at most once per face and never while rendering."
   },
   {
     "type": "",
@@ -1064,7 +1404,7 @@
   {
     "type": "",
     "frame": "HyperPdfLibrary.Rendering.ImageCache.Publish(",
-    "reason": "Caching a freshly decoded image, once per image while it stays in the 64 MiB image cache: its map entry, recency node and the growth of the map. Never runs when a recorded tile is drawn."
+    "reason": "Caching a freshly decoded image, once per image while it stays in the 64 MiB image cache: its map entry and the growth of the map. Never runs when a recorded tile is drawn."
   },
   {
     "type": "",
@@ -1103,17 +1443,17 @@
   },
   {
     "type": "",
-    "frame": "HyperPdfLibrary.Rendering.AnnotationShapeAppearance",
+    "frame": "HyperPdfLibrary.Rendering.ShapePlan",
     "reason": "Generates an appearance stream for an annotation that has none (square, circle, ink, markup, polygon, line, note): its content bytes, form dictionary and resources. This runs once per annotation when the page is recorded; the result is drawn into the cached picture."
   },
   {
     "type": "",
-    "frame": "HyperPdfLibrary.Rendering.AnnotationMarkupAppearance",
+    "frame": "HyperPdfLibrary.Rendering.MarkupPlan",
     "reason": "Generates an appearance stream for an annotation that has none (square, circle, ink, markup, polygon, line, note): its content bytes, form dictionary and resources. This runs once per annotation when the page is recorded; the result is drawn into the cached picture."
   },
   {
     "type": "",
-    "frame": "HyperPdfLibrary.Rendering.AnnotationTextAppearance",
+    "frame": "HyperPdfLibrary.Rendering.NotePlan",
     "reason": "Generates an appearance stream for an annotation that has none (square, circle, ink, markup, polygon, line, note): its content bytes, form dictionary and resources. This runs once per annotation when the page is recorded; the result is drawn into the cached picture."
   },
   {
@@ -1123,8 +1463,128 @@
   },
   {
     "type": "",
+    "frame": "HyperPdfLibrary.Rendering.LinkPlan",
+    "reason": "Generates the border of a link annotation that has no appearance and names a border: its content bytes, form dictionary and resources. This runs once per such link when the page's annotations are recorded; the result is drawn into the cached picture."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Rendering.CaretPlan",
+    "reason": "Generates the caret symbol of a caret annotation that has no appearance: its content bytes, form dictionary and resources. This runs once per caret when the page's annotations are recorded; the result is drawn into the cached picture."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Rendering.RedactPlan",
+    "reason": "Generates the outline preview of a redaction annotation that has no appearance: its content bytes, form dictionary and resources. This runs once per annotation when the page's annotations are recorded; the result is drawn into the cached picture."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.PdfFormImport.ImportValue(",
+    "reason": "Importing a field value is an edit: it creates the edit scope that holds the field's copy before it changes. This runs once per imported field, never while rendering."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.PdfFormEditing.StoreAppearance(",
+    "reason": "Importing a field value redraws the field's appearance stream, which allocates its dictionaries, arrays and edit-layer entries. This runs once per imported field; warm rendering draws the stored appearance."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.PdfFormEditing.WriteText(",
+    "reason": "Writing a text value encodes the string and the arrays that hold it. This runs once per imported field."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.FormCodeMap.",
+    "reason": "Redrawing a field's appearance reads the field's font once to map characters to codes. This runs when a field is edited or imported, never while rendering."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.PdfFormReading.",
+    "reason": "Reading a field for an edit describes its widget and font size. This runs once per edited or imported field."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Objects.StoreEditing.Add(",
+    "reason": "Adding a new object to the store, such as a redrawn appearance stream, grows the store's tables. This runs once per edit."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfFormDataImporter.",
+    "reason": "Importing form data opens one undoable edit that records each object's previous state so Undo can put it back. This runs once per user-approved import."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Content.ContentPaths.OpCloseFillStroke(",
+    "reason": "Painting a path creates the Skia path and the objects SkiaSharp registers for its handle. This happens once per painted path while a page or its annotations are recorded; warm tiles replay the picture."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Content.ContentPaths.OpFillStrokeEvenOdd(",
+    "reason": "Painting a path creates the Skia path and the objects SkiaSharp registers for its handle. This happens once per painted path while a page or its annotations are recorded; warm tiles replay the picture."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Content.ContentPainting.Stroke(",
+    "reason": "Stroking a path creates the Skia path and the objects SkiaSharp registers for its handle. This happens once per stroked path while a page or its annotations are recorded; warm tiles replay the picture."
+  },
+  {
+    "type": "",
     "frame": "HyperPdfLibrary.Forms.FormAppearanceResources.",
     "reason": "Regenerating a form appearance writes its retained content bytes, form stream, bounding box, matrix and resource dictionaries. Compression creates encoder state. This is an edit operation; warm rendering draws the recorded appearance."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.FormCodeMap.",
+    "reason": "The first edit of a field in a multi-byte font reads every code its CMap defines, one-byte and two-byte, and turns them around into a table from character to code. That table is built once per font per document and cached with the document's fonts; later edits of any field in that font only look characters up. It is dropped when the fonts are cleared. Warm rendering never builds it."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.PdfFormEditing.StoreAppearance",
+    "reason": "Storing a regenerated appearance records the widget's edit copy and adds the new appearance object to the document's edit table, which grows its arrays and buckets now and then. This is an edit operation."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.FormPushButtonAppearance.",
+    "reason": "Regenerating a push button resolves its caption font, encodes the caption, lays out the icon and caption and writes the new appearance: font and icon lists, caption bytes and operand strings. This is an edit operation; warm rendering draws the recorded appearance."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.FormBorderAppearance.",
+    "reason": "Drawing a beveled or inset border builds the corner lists of the lit and shaded sides as small arrays while the appearance is generated. This is an edit operation; warm rendering draws the recorded appearance."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.FormRichText",
+    "reason": "Regenerating a rich text field reads its XHTML value with a forward-only XmlReader, which allocates its reader, name table, node and namespace state, and then lays out each paragraph: encoded codes, unit arrays, line lists and the colour and content bytes of the new appearance. This is an edit operation; warm rendering draws the recorded appearance."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.RichText",
+    "reason": "Reading rich text builds its paragraphs: styles for each element, runs, collapsed text and the stack of open styles. Writing a rich value builds the XHTML with a forward-only XmlWriter. These run when a rich field is edited or its appearance is regenerated, never when a warmed tile is drawn."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.RichStyleReader.",
+    "reason": "Reading a CSS style attribute creates the style records for each declaration it applies. This runs while rich text is read for an edit, never when a warmed tile is drawn."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.RichFlow.",
+    "reason": "Laying out a rich text paragraph flattens its runs into unit arrays and breaks them into lines. These arrays and line lists support the new appearance and are dropped afterwards. This is an edit operation."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.FormRichFonts.",
+    "reason": "Choosing the font of a rich text run adds the font to the list of fonts the appearance uses. This is an edit operation."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Forms.AppearanceContext.",
+    "reason": "Reading a widget's default appearance parses its /DA string into a font name, size and colour record. This runs while an appearance is generated for an edit or a regenerated widget, never when a warmed tile is drawn."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Objects.StoreEditing.Add(",
+    "reason": "Storing a regenerated appearance adds an object to the document's edit table, which grows its bucket array now and then. This is an edit operation."
   },
   {
     "type": "",
@@ -1277,11 +1737,6 @@
     "reason": "Runtime async reports the page action directly on .NET 11. The action freezes selected indexes, starts an undoable edit transaction and its guard, records original objects and trailer entries, and validates or rebuilds page selections using integer arrays and visited sets. These allocations belong to an explicit page edit and never run during warmed reading or rendering."
   },
   {
-    "type": "Entry[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Graphics.Shadings.PdfShading][]",
-    "frame": "HyperPdfLibrary.Content.ContentColors.GetShading(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Objects.PdfValue)",
-    "reason": "The first shading cache insertion allocates the dictionary\u0027s entry storage, keyed by the PDF shading dictionary. This storage belongs to the document\u0027s render cache."
-  },
-  {
     "type": "HyperPdfLibrary.Graphics.Shadings.PdfShading",
     "frame": "HyperPdfLibrary.Content.ContentColors.GetShading(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Objects.PdfValue)",
     "reason": "The first shading lookup parses its dictionary and creates the PdfShading retained by the document\u0027s shading cache. Later recorded-page replay uses the completed recording."
@@ -1305,21 +1760,6 @@
     "type": "HyperPdfLibrary.Rendering.SkiaRenderPicture",
     "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
     "reason": "Finishing the native soft-mask recording creates a managed backend owner for the SKPicture. The mask retains this disposable owner so native picture lifetime stays behind the drawing abstraction."
-  },
-  {
-    "type": "HyperPdfLibrary.Content.ContentInterpreter",
-    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
-    "reason": "A cache miss records the soft-mask form with an owned child content interpreter. This isolates its parsing and graphics state from the outer page interpreter, and the completed mask recording is retained."
-  },
-  {
-    "type": "HyperPdfLibrary.Drawing.PdfPathBuilder",
-    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
-    "reason": "The child interpreter recording an uncached soft-mask form creates path and text-clip builders. The completed mask recording is cached, so warm replay does not create them."
-  },
-  {
-    "type": "System.Collections.Generic.List\u00601[HyperPdfLibrary.Drawing.PdfPathCommand]",
-    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
-    "reason": "The child interpreter's path and text-clip builders each own a command list. These lists are created during first soft-mask recording, not warm replay."
   },
   {
     "type": "Node[System.IntPtr,SkiaSharp.SKObject]",
@@ -1347,11 +1787,6 @@
     "reason": "Starting the soft-mask picture recorder creates its native recording canvas wrapper. The recorder owns the canvas during recording and the cached mask owns the completed picture."
   },
   {
-    "type": "SkiaSharp.SKPaint",
-    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
-    "reason": "Recording the uncached soft-mask form creates the native drawing device\u0027s fill and stroke paints. The device owns and disposes these wrappers after recording."
-  },
-  {
     "type": "System.Object[]",
     "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
     "reason": "The trace reports an object array while the uncached soft-mask form is resolved and recorded. This encloses lazy PDF object loading and native-wrapper setup; the stack does not identify the nested array constructor."
@@ -1367,11 +1802,6 @@
     "reason": "The trace reports System.Object allocations while the uncached soft-mask form is resolved and recorded. This encloses lazy resource parsing and native-wrapper creation; the resolved stack does not identify the nested constructor of each System.Object."
   },
   {
-    "type": "HyperPdfLibrary.Drawing.PdfPath",
-    "frame": "HyperPdfLibrary.Content.ContentPaths.OpFill(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Content.ContentReader\u0026)",
-    "reason": "Interpreting a fill detaches an immutable managed path containing an independent command snapshot. This owned contour replaces sharing native path state across the engine and backend; it is created during recording, not warm replay."
-  },
-  {
     "type": "SkiaSharp.SKPath",
     "frame": "HyperPdfLibrary.Content.ContentPaths.OpFill(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Content.ContentReader\u0026)",
     "reason": "Interpreting a fill detaches the path builder into an owned Skia path wrapper before painting it into the page recording. The wrapper is disposed after the fill; warm picture replay does not detach paths."
@@ -1380,21 +1810,6 @@
     "type": "System.Object",
     "frame": "HyperPdfLibrary.Content.ContentPaths.OpFill(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Content.ContentReader\u0026)",
     "reason": "The trace reports System.Object allocations under the fill operation that detaches, paints and disposes a native path. The resolved stack does not identify the nested System.Object constructor, so no particular native-wrapper bookkeeping object is claimed. This belongs to interpreting the uncached page."
-  },
-  {
-    "type": "HyperPdfLibrary.Drawing.PdfPathCommand[]",
-    "frame": "HyperPdfLibrary.Content.ContentXObjects.ClipToBox(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
-    "reason": "Recording a form\u0027s bounding-box clip grows the managed command list and detaches an exact-sized command snapshot. The immutable clip owns its commands independently of the interpreter\u0027s reusable builder."
-  },
-  {
-    "type": "SkiaSharp.SKPath",
-    "frame": "HyperPdfLibrary.Content.ContentXObjects.ClipToBox(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
-    "reason": "The backend converts the form\u0027s managed bounding-box contour to a temporary native path for clipping, then disposes the wrapper. The completed page recording retains the clip operation."
-  },
-  {
-    "type": "System.Object",
-    "frame": "HyperPdfLibrary.Content.ContentXObjects.ClipToBox(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
-    "reason": "The trace reports System.Object allocations while recording a form\u0027s bounding-box clip and converting it to a native path. The resolved enclosing frame does not identify the nested object constructor."
   },
   {
     "type": "HyperPdfLibrary.Drawing.PdfPathCommand[]",
@@ -1408,23 +1823,13 @@
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfObjectStore",
-    "frame": "HyperPdfLibrary.Objects.StoreOpening.Open(class HyperPdfLibrary.IO.PdfByteSource,bool,value class HyperPdfLibrary.Objects.OpenCredentials)",
-    "reason": "Opening creates the owned object store for the new document. ColdOpenAndRender opens and disposes a fresh store on every operation; recorded-page replay does not open a store."
+    "frame": "HyperPdfLibrary.Objects.StoreOpening.Open(",
+    "reason": "Opening creates the owned object store for the new document, once per open; a document cannot be read without one."
   },
   {
     "type": "HyperPdfLibrary.Structure.XrefTable",
-    "frame": "HyperPdfLibrary.Objects.StoreOpening.Open(class HyperPdfLibrary.IO.PdfByteSource,bool,value class HyperPdfLibrary.Objects.OpenCredentials)",
-    "reason": "Opening creates an initial cross-reference table and the table populated while reading the file. The source creates both during each fresh document open; recorded-page replay does not construct cross-reference tables."
-  },
-  {
-    "type": "System.String",
-    "frame": "HyperPdfLibrary.Objects.StoreOpening.ReadHeader(class HyperPdfLibrary.Objects.PdfObjectStore)",
-    "reason": "Opening reads the PDF version digits and Encoding.UTF8.GetString creates the stored version string. The version is read once for each new document."
-  },
-  {
-    "type": "System.Object[]",
-    "frame": "HyperPdfLibrary.Objects.StoreOpening.ReadStructure(class HyperPdfLibrary.Objects.PdfObjectStore)",
-    "reason": "Reading the cross-reference structure creates the document\u0027s object-slot array, sized to the final table. It replaces the temporary catalog-validation slots and retains parsed objects for this open document."
+    "frame": "HyperPdfLibrary.Objects.StoreOpening.Open(",
+    "reason": "Opening creates the cross-reference table that the file's sections are read into, which the document keeps, once per open."
   },
   {
     "type": "System.Int32[]",
@@ -1434,27 +1839,12 @@
   {
     "type": "System.Object[]",
     "frame": "HyperPdfLibrary.Objects.StoreOpening.RootResolves(class HyperPdfLibrary.Objects.PdfObjectStore,class HyperPdfLibrary.Structure.XrefTable)",
-    "reason": "Checking the trailer\u0027s Root reference creates an object-slot array sized to the cross-reference table before loading the catalog. This temporary opening cache is replaced by ReadStructure\u0027s final cache."
+    "reason": "Checking the trailer's Root reference makes the object-slot array, sized to the cross-reference table, before the catalog is loaded. The document keeps this array: the reset after the check only clears it when the object count is unchanged."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfStream",
     "frame": "HyperPdfLibrary.Objects.StoreParsing.ReadStream(class HyperPdfLibrary.Objects.PdfObjectStore,class HyperPdfLibrary.Objects.PdfDictionary,int64,value class HyperPdfLibrary.Objects.PdfObjectId)",
     "reason": "Parsing a stream object creates its PdfStream wrapper with the dictionary, source range, object identity and a nullable ICC result slot. The object store retains the wrapper after first loading the stream; the fixture\u0027s bytes are not copied here."
-  },
-  {
-    "type": "System.Collections.Generic.List\u00601[HyperPdfLibrary.Drawing.PdfPathCommand]",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
-    "reason": "Content-interpreter path builders own command-list wrappers created during the first page recording. The recorded page is replayed without rebuilding these lists."
-  },
-  {
-    "type": "System.Collections.Generic.List\u00601[HyperPdfLibrary.Graphics.GraphicsState]",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
-    "reason": "A new content interpreter owns the graphics-state stack list used for save and restore during recording. Its list allocation is inlined into the cold render frame."
-  },
-  {
-    "type": "System.Collections.Generic.List\u00601[HyperPdfLibrary.Objects.PdfDictionary]",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
-    "reason": "A new content interpreter owns the resource-stack list used while entering page and form content during recording. Warm replay does not instantiate this parsing state."
   },
   {
     "type": "VolatileNode[System.IntPtr,SkiaSharp.SKObject][]",
@@ -1467,24 +1857,9 @@
     "reason": "Cold recording traverses native-wrapper handle dictionaries during their setup and cleanup. The trace identifies the dictionary enumerator under Render; it does not resolve the inlined nested caller."
   },
   {
-    "type": "HyperPdfLibrary.Graphics.GraphicsState[]",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
-    "reason": "The first render of this newly opened document records its uncached page and creates the interpreters\u0027 graphics-state stack storage. Warm recorded-picture replay does not create interpreters or their stacks."
-  },
-  {
     "type": "Tables[System.IntPtr,SkiaSharp.SKObject]",
     "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
     "reason": "Cold recording creates native wrappers with SkiaSharp handle dictionaries. The observed table object belongs to that native-wrapper lookup storage and is attributed to the enclosing Render frame."
-  },
-  {
-    "type": "HyperPdfLibrary.Objects.PdfDictionary[]",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
-    "reason": "Recording the uncached page grows the interpreter\u0027s resource-stack backing array when page and form resources are entered. Replay uses the recorded result."
-  },
-  {
-    "type": "HyperPdfLibrary.Drawing.PdfPathBuilder",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
-    "reason": "The first render creates content-interpreter path builders while recording the uncached page. These builders own the managed command construction state; cached picture replay does not create them."
   },
   {
     "type": "System.WeakReference",
@@ -1502,11 +1877,6 @@
     "reason": "The trace reports System.Object allocations under the first render\u0027s page recording and native-wrapper setup. The enclosing frame does not resolve the nested object constructor; warm replay separately measured zero library allocations."
   },
   {
-    "type": "System.Collections.Generic.List\u00601[HyperPdfLibrary.Rendering.ImageWeight]",
-    "frame": "HyperPdfLibrary.Rendering.PictureWeight..ctor()",
-    "reason": "A new picture recording owns an image-weight list used to account for its retained images. The list wrapper is created even when this transparency fixture records no images; replay reuses the completed picture."
-  },
-  {
     "type": "SkiaSharp.SKColor[]",
     "frame": "HyperPdfLibrary.Rendering.SkiaConversions.ToSkColors(value class HyperPdfLibrary.Drawing.PdfColor[])",
     "reason": "Constructing the shading\u0027s native shader converts its managed color stops into a temporary Skia color array. The completed shader is cached; warm replay does not repeat this conversion."
@@ -1520,11 +1890,6 @@
     "type": "System.Threading.Lock",
     "frame": "HyperPdfLibrary.Content.ContentColors.GetShading(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Objects.PdfValue)",
     "reason": "The parsed shading owns a synchronization gate for first-use shader and mesh construction. The lock is created when the shading cache first parses this resource."
-  },
-  {
-    "type": "System.Collections.Generic.List\u00601[System.Boolean]",
-    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)",
-    "reason": "The child interpreter recording the uncached soft-mask form owns its marked-content visibility stack. The list wrapper belongs to that first recording, not cached mask replay."
   },
   {
     "type": "VolatileNode[System.IntPtr,SkiaSharp.SKObject][]",
@@ -1567,43 +1932,19 @@
     "reason": "The trace reports System.Object allocations while the backend creates and registers the linear-gradient shader. The resolved enclosing frame does not identify each nested object constructor."
   },
   {
-    "type": "System.Collections.Generic.List\u00601[System.Boolean]",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
-    "reason": "A new content interpreter owns the marked-content visibility stack. Its list wrapper is created while recording the uncached page; warm replay does not reconstruct it."
-  },
-  {
-    "type": "HyperPdfLibrary.Content.ContentInterpreter",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
-    "reason": "A newly opened document\u0027s first render creates the content interpreter used to record its uncached page and form content. Cached picture replay does not create this parsing state."
-  },
-  {
     "type": "System.Object",
     "frame": "HyperPdfLibrary.Rendering.SkiaPathConversion.Create(class SkiaSharp.SKPathBuilder,class HyperPdfLibrary.Drawing.PdfPath,bool)",
     "reason": "The trace reports System.Object allocation during native path detachment and registration for recording. The enclosing conversion frame does not resolve the nested object constructor; warm replay uses the completed picture."
   },
-  {"type":"HyperPdfLibrary.Objects.PdfDictionary[]","frame":"HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)","reason":"The first page recording creates the soft-mask child drawing device, path builder and resource-stack storage. Its completed mask is retained for warm picture replay."},
-  {"type":"HyperPdfLibrary.Rendering.SkiaContentDevice","frame":"HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)","reason":"The first page recording creates the soft-mask child drawing device, path builder and resource-stack storage. Its completed mask is retained for warm picture replay."},
-  {"type":"SkiaSharp.SKPathBuilder","frame":"HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)","reason":"The first page recording creates the soft-mask child drawing device, path builder and resource-stack storage. Its completed mask is retained for warm picture replay."},
-  {"type":"HyperPdfLibrary.Drawing.PdfPath","frame":"HyperPdfLibrary.Content.ContentPaths.OpFillStroke(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Content.ContentReader\u0026)","reason":"First recording detaches an owned fill-and-stroke path with its command array. The resulting picture is reused by warm tiles."},
-  {"type":"HyperPdfLibrary.Drawing.PdfPathCommand[]","frame":"HyperPdfLibrary.Content.ContentPaths.OpFillStroke(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Content.ContentReader\u0026)","reason":"First recording detaches an owned fill-and-stroke path with its command array. The resulting picture is reused by warm tiles."},
   {"type":"Entry[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Fonts.PdfFont][]","frame":"HyperPdfLibrary.Content.ContentText.OpSetFont(class HyperPdfLibrary.Content.ContentInterpreter,value class HyperPdfLibrary.Content.ContentReader\u0026)","reason":"First text recording grows the document font-cache table when resolving the page font. Warm picture replay does not resolve the font again."},
   {"type":"SkiaSharp.SKPath","frame":"HyperPdfLibrary.Content.ContentText.ShowCode(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Fonts.PdfFont,int32,int32)","reason":"The first text recording creates Skia glyph-outline paths and native-handle bookkeeping. Warm picture replay uses the recorded drawing."},
   {"type":"System.Object","frame":"HyperPdfLibrary.Content.ContentText.ShowCode(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Fonts.PdfFont,int32,int32)","reason":"The first text recording creates Skia glyph-outline paths and native-handle bookkeeping. Warm picture replay uses the recorded drawing."},
-  {"type":"HyperPdfLibrary.Drawing.PdfPath","frame":"HyperPdfLibrary.Content.ContentXObjects.ClipToBox(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfDictionary)","reason":"Recording a form clip constructs the owned clipping path for its bounding box. Cached replay does not reconstruct it."},
-  {"type":"System.Boolean[]","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawForm(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The child interpreter recording a form grows its marked-content visibility stack. The completed form picture is replayed without that interpreter."},
   {"type":"Entry[HyperPdfLibrary.Objects.PdfStream,HyperPdfLibrary.Rendering.ImageDecode][]","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
   {"type":"Entry[HyperPdfLibrary.Objects.PdfStream,HyperPdfLibrary.Rendering.ImageEntry][]","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
-  {"type":"Entry[System.UInt32][]","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
   {"type":"HyperPdfLibrary.Rendering.ImageDecode","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
-  {"type":"HyperPdfLibrary.Rendering.ImageWeight[]","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
-  {"type":"System.Collections.Generic.LinkedListNode\u00601[HyperPdfLibrary.Rendering.ImageEntry]","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
   {"type":"System.Int32[]","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
   {"type":"System.Object","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
-  {"type":"System.Threading.Condition","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
   {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(class HyperPdfLibrary.Content.ContentInterpreter,class HyperPdfLibrary.Objects.PdfStream)","reason":"The first image use populates decoded-image cache entries, image-weight tracking and synchronization state. Warm replay retains the backend image and avoids this setup."},
-  {"type":"System.Action[]","frame":"HyperPdfLibrary.Filters.ScratchPools.Trim()","reason":"Cold document disposal trims registered scratch pools and copies the trim callbacks to a temporary array. The warm renderer does not close a document per operation."},
-  {"type":"HyperPdfLibrary.Structure.XrefEntryType[]","frame":"HyperPdfLibrary.Objects.StoreOpening.ReadStructure(class HyperPdfLibrary.Objects.PdfObjectStore)","reason":"Opening a fresh document builds its cross-reference table, entry array and linked-section traversal list. These remain owned by the open document."},
-  {"type":"HyperPdfLibrary.Structure.XrefTable","frame":"HyperPdfLibrary.Objects.StoreOpening.ReadStructure(class HyperPdfLibrary.Objects.PdfObjectStore)","reason":"Opening a fresh document builds its cross-reference table, entry array and linked-section traversal list. These remain owned by the open document."},
   {"type":"System.Collections.Generic.List\u00601[System.Int64]","frame":"HyperPdfLibrary.Objects.StoreOpening.ReadStructure(class HyperPdfLibrary.Objects.PdfObjectStore)","reason":"Opening a fresh document builds its cross-reference table, entry array and linked-section traversal list. These remain owned by the open document."},
   {"type":"\u003C\u003Ec__DisplayClass20_0","frame":"HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateImage(class HyperPdfLibrary.Graphics.Images.PdfImageData)","reason":"The first decoded PDF image is wrapped in a Skia raster image with a release callback and native-handle bookkeeping. The picture/cache retains the backend image for replay."},
   {"type":"HyperPdfLibrary.Rendering.SkiaRenderImage","frame":"HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateImage(class HyperPdfLibrary.Graphics.Images.PdfImageData)","reason":"The first decoded PDF image is wrapped in a Skia raster image with a release callback and native-handle bookkeeping. The picture/cache retains the backend image for replay."},
@@ -1615,7 +1956,6 @@
   {"type":"HyperPdfLibrary.Rendering.ImageWeight[]","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)","reason":"The first Render call records a page and creates its picture, image weights and native picture wrapper. The trace resolves the enclosing Render frame because nested construction was inlined; warm replay keeps the picture."},
   {"type":"HyperPdfLibrary.Rendering.SkiaRenderPicture","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)","reason":"The first Render call records a page and creates its picture, image weights and native picture wrapper. The trace resolves the enclosing Render frame because nested construction was inlined; warm replay keeps the picture."},
   {"type":"SkiaSharp.SKPicture","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)","reason":"The first Render call records a page and creates its picture, image weights and native picture wrapper. The trace resolves the enclosing Render frame because nested construction was inlined; warm replay keeps the picture."},
-  {"type":"System.Collections.Generic.HashSet\u00601[System.UInt32]","frame":"HyperPdfLibrary.Rendering.PictureWeight..ctor()","reason":"A new page recording creates an image-id set for picture memory accounting. The set lives with the recording and is not rebuilt for warm tiles."},
   {"type":"HyperPdfLibrary.Fonts.PdfFontCache","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
   {"type":"HyperPdfLibrary.IO.MemoryPdfByteSource","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
   {"type":"HyperPdfLibrary.Objects.PdfOpenContext","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender()","reason":"ColdOpenAndRender creates a new document, object store, caches, renderer and recorded page on every operation. The JIT inlined this construction into the benchmark method; warm replay does not repeat it."},
@@ -1679,8 +2019,12 @@
   {"type":"","frame":"HyperPdf.Engine.HyperPdfEngine.ReadCertificate(","reason":"A certificate open reads the PKCS #12 file into one owned byte array and creates file-path and file-handle state. The bytes are cleared after the key is imported. This runs once per requested open, not during page rendering."},
   {"type":"","frame":"HyperPdf.Engine.HyperPdfEngine.LoadCertificate(","reason":"Importing a PKCS #12 recipient creates cryptography, ASN.1, key and native-handle objects in the .NET runtime. The imported key is ephemeral and disposed after the document key is derived. The trace resolves these allocations at the import call."},
   {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.ReadRecipients(","reason":"Opening a public-key PDF copies the bounded recipient entries from its encryption dictionary so each envelope can be checked. The arrays live only for authentication."},
-  {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.DecryptEnvelope(","reason":"Certificate authentication decodes and checks the CMS recipient envelopes. The temporary arrays and cryptography wrappers belong to one document open."},
-  {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.TryDecrypt(","reason":"The .NET CMS and RSA APIs parse the recipient envelope, match the certificate and decrypt its seed. ASN.1 records, keys, byte arrays and crypto handles are per-open work; the resulting file key is retained by the document security handler."},
+  {"type":"","frame":"HyperPdfLibrary.Security.CmsRecipientOpening.Open(","reason":"Certificate authentication reads the certificate's issuer name and serial number once per open into one identity record, through the .NET X509 wrappers, so every CMS recipient can be matched against it. The CMS lists themselves are read in place without copies."},
+  {"type":"","frame":"HyperPdfLibrary.Security.CmsRecipientMatching.SubjectKeyIdentifier(","reason":"A recipient named by subject key identifier reads the certificate's extensions, which .NET decodes into extension objects on first use, or hashes the public key when there is no extension. It runs only when a recipient uses that identifier, once per open."},
+  {"type":"","frame":"HyperPdfLibrary.Security.CmsKeyTransport.","reason":"An RSA recipient for the certificate is decrypted with the .NET CMS and RSA APIs: they decode the envelope, fetch the private key and decrypt its seed. ASN.1 records, keys, byte arrays and crypto handles are per-open work; the resulting file key is retained by the document security handler."},
+  {"type":"","frame":"HyperPdfLibrary.Security.CmsKeyAgreement.","reason":"An ECDH recipient for the certificate fetches the private key, exports its public curve parameters, imports the originator's ephemeral key, encodes the KDF SharedInfo and derives the key-encryption key with ECDiffieHellman.DeriveKeyFromHash, which keeps the shared secret in the provider. These .NET key, handle, hash and byte-array objects belong to one open; the derived keys live on the stack and are cleared."},
+  {"type":"","frame":"HyperPdfLibrary.Security.CmsContentDecryption.Decrypt(","reason":"Decrypting an ECDH recipient's enveloped content creates one AES instance and returns the decrypted seed and permissions as one small array, once per open."},
+  {"type":"","frame":"HyperPdfLibrary.Compat.AesKeyWrapping.TryUnwrap(","reason":"Unwrapping an ECDH recipient's content key runs AES through the .NET cipher, which creates its native cipher context. It runs once per open; the unwrapped key is written to a stack buffer."},
   {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.DerivePublicKey(","reason":"The public-key handler hashes the decrypted seed and recipient bytes to derive the document key. Its temporary hash input and digest buffers are created once per open."},
   {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.TryCreatePublicKey(","reason":"Selecting the public-key security handler builds its crypt-filter and recipient state once when the document opens."},
   {"type":"","frame":"HyperPdfLibrary.Objects.StoreOpening.Authenticate(","reason":"Authentication creates the public-key handler and refreshes object caches after the file key becomes available. This happens once per open."},
@@ -1711,12 +2055,9 @@
   {"type":"System.Byte[]","frame":"HyperPdfLibrary.Graphics.Images.GrayImages.CreateTable(","reason":"A 256-byte sample-to-gray lookup table is built once per gray image the first time it is decoded. The decoded image is cached."},
   {"type":"System.Byte[]","frame":"HyperPdfLibrary.Content.ContentExecution.RunStreamBody(","reason":"A content stream's decoded bytes are copied into an owned array before the interpreter reads them. This happens once per content stream while the page is recorded; warm tiles replay the recorded picture."},
   {"type":"HyperPdfLibrary.Objects.PdfStream","frame":"HyperPdfLibrary.Objects.StoreParsing.TryParseInWindows(","reason":"While the first page is rendered, the object store parses the objects it has not read yet, and every stream object becomes one PdfStream value. This happens once per stream object per document."},
-  {"type":"System.String","frame":"HyperPdfLibrary.Metadata.XmpMetadata.Key(","reason":"Building the XMP property lookup key joins the namespace and local name into one string. This runs for each property read while the document opens cold, not on the tile path of a warm document."},
+  {"type":"System.String","frame":"HyperPdfLibrary.Metadata.XmpMetadata.Key(","reason":"Building an XMP property key joins the namespace and local name into one string. Property reads on a parsed packet look the key up from a stack buffer instead, so this runs only to fill the PDF/A conversion's list of properties it replaces, once per process."},
   {"type":"System.Byte[]","frame":"HyperPdf.Core.Rendering.RenderScheduler.Execute(","reason":"Execute asks the surface factory for a tile surface. The benchmark's CPU surface owns one BGRA byte array per tile (width x height x 4). The app uses GPU or Avalonia surfaces instead. This is the tile pixel storage, allocated once per delivered tile."},
   {"type":"System.Byte[]","frame":"HyperPdf.Benchmarks.ScrollTileDeliveryBenchmarks+PixelSurface..ctor(","reason":"The benchmark's CPU surface owns one BGRA byte array per tile (width x height x 4). This is the tile pixel storage, allocated once per delivered tile. The app uses GPU or Avalonia surfaces instead."},
-  {"type":"Entry[HyperPdf.Core.Rendering.TileKey,HyperPdf.Core.Rendering.RenderScheduler+PendingTile][]","frame":"HyperPdf.Core.Rendering.RenderScheduler.EnqueueRequest(","reason":"The pending-tile dictionary allocates its first entry array on the first request. Each iteration of this benchmark creates a new scheduler, so it happens once per iteration."},
-  {"type":"System.ValueTuple`2[HyperPdf.Core.Rendering.RenderRequest,System.Int64][]","frame":"HyperPdf.Core.Rendering.RenderScheduler.EnqueueRequest(","reason":"The scheduler's priority queue allocates its first backing array on the first request. Each iteration of this benchmark creates a new scheduler, so it happens once per iteration."},
-  {"type":"System.Int32[]","frame":"HyperPdf.Core.Rendering.RenderScheduler.EnqueueRequest(","reason":"The pending-tile dictionary allocates its hash bucket array when it first grows. Each iteration of this benchmark creates a new scheduler, so this is repeated set-up, not per-frame work. It is amortised across the measured operations."},
   {"type":"System.Object[]","frame":"HyperPdf.Core.Rendering.RenderScheduler.Run(","reason":"The render thread's first semaphore wait touches thread-static state, so the runtime allocates that thread's static storage array. Each iteration of this benchmark creates a new scheduler and render thread, so it happens once per iteration; the app's render thread pays it once."},
   {"type":"System.Threading.Condition","frame":"HyperPdf.Core.Rendering.RenderScheduler.Run(","reason":"The first semaphore wait on the new render thread creates the monitor condition the semaphore uses. Each iteration of this benchmark creates a new scheduler, so it happens once per iteration."},
   {"type":"System.Threading.Lock","frame":"HyperPdf.Core.Rendering.RenderScheduler.Run(","reason":"The render thread's first semaphore wait and page preparation create small locks. Each iteration of this benchmark creates a new scheduler and render thread, so it happens once per iteration."},
@@ -1728,33 +2069,263 @@
   {"type":"System.Threading.TimerQueueTimer","frame":"HyperPdf.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The PeriodicTimer registers one runtime timer. It is created once per measured operation, not per frame."},
   {"type":"State","frame":"HyperPdf.Benchmarks.ScrollTileDeliveryBenchmarks.FramesUntilTileArrives(","reason":"The measured method awaits the timer, so the runtime allocates one state box for the async method. It is allocated once per measured operation."},
   {"type":"HyperPdfLibrary.Rendering.AnnotationPass","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.Render(","reason":"Recording the first page creates one annotation pass object. This happens once per page recording; warm tiles replay the recorded picture."},
-  {"type":"HyperPdfLibrary.Rendering.SkiaContentDevice","frame":"HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreatePictureDevice(","reason":"The page recording creates one content device that draws into the picture. This happens once per page recording; warm tiles replay the picture."},
+  {"type":"System.String","frame":"HyperPdfLibrary.Signing.PdfSignerCertificate.CommonName(","reason":"The signer's common name is decoded from the certificate into the text the signing plan keeps. It becomes the signature's /Name and the visible \"Digitally signed by\" line. Once per signature."},
   {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer..ctor(","reason":"A new renderer creates the lock guarding its picture and image caches. It happens once per renderer, which is once per document in this benchmark."},
   {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Rendering.PagePictures..ctor(","reason":"The picture store for a page creates its lock when the page is first rendered. It happens once per page store, which is once per document in this benchmark."},
   {"type":"System.Object[]","frame":"HyperPdf.Engine.HyperPdfRendering.PreparePageAsync(","reason":"Page preparation is the first code on a new render thread to touch some thread-static state, so the runtime allocates that thread's static storage array. This benchmark starts a new render thread in every iteration; the app's render thread pays it once."},
   {"type":"System.Object[]","frame":"HyperPdf.Engine.HyperPdfPageAccess..ctor(","reason":"Taking page access enters the reader-writer lock, whose per-thread lock records live in thread-static storage; the first use on a thread makes the runtime allocate that storage array. The render thread and the document are new in every iteration of this benchmark; the app's render thread pays it once."},
   {"type":"System.Object","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"Creating the render surface wraps Skia handles. SkiaSharp creates lock and bookkeeping objects for each handle it registers. The surface is created once per renderer, which is once per document in this benchmark."},
   {"type":"SkiaSharp.SKPixmap","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The render surface holds one reusable pixel description, created with the surface. It is created once per renderer, which is once per document in this benchmark."},
-  {"type":"SkiaSharp.SKPaint","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The render surface creates its grayscale paint once. It is created once per renderer, which is once per document in this benchmark."},
-  {"type":"SkiaSharp.SKColorFilter","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The grayscale paint carries one colour-matrix filter. It is created once per renderer, which is once per document in this benchmark."},
-  {"type":"System.Single[]","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The grayscale colour matrix is 20 floats, built once when the paint is created. It is created once per renderer, which is once per document in this benchmark."},
-  {"type":"System.WeakReference","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"SkiaSharp tracks each native handle it wraps with a weak reference. The surface wraps a few handles when it is created, once per renderer."},
-  {"type":"Entry[HyperPdfLibrary.Rendering.SkiaContentDevice+GlyphOutlineKey,SkiaSharp.SKPath][]","frame":"HyperPdfLibrary.Content.ContentText.ShowCode(","reason":"The glyph outline cache grows its entry array while the first page's text is recorded. The cache is per device and is created in the cold recording only."},
-  {"type":"System.Int32[]","frame":"HyperPdfLibrary.Content.ContentText.ShowCode(","reason":"The glyph outline cache and font tables size their hash buckets while the first page's text is recorded. This happens once per page recording."},
-  {"type":"HyperPdfLibrary.Graphics.GraphicsState[]","frame":"HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(","reason":"Recording a soft mask makes a child interpreter with its own graphics-state stack. This happens once per soft mask while the page is recorded; warm tiles replay the picture."},
-  {"type":"System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.SkiaContentDevice+GlyphOutlineKey,SkiaSharp.SKPath]","frame":"HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(","reason":"The soft mask's child device has its own glyph outline cache. It is created once per soft mask while the page is recorded."},
-  {"type":"System.Collections.Generic.List`1[HyperPdfLibrary.Graphics.GraphicsState]","frame":"HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(","reason":"The soft mask's child interpreter has its own graphics-state list. It is created once per soft mask while the page is recorded."},
-  {"type":"System.Collections.Generic.List`1[HyperPdfLibrary.Objects.PdfDictionary]","frame":"HyperPdfLibrary.Content.ContentExtendedGraphics.GetSoftMask(","reason":"The soft mask's child interpreter has its own resource stack. It is created once per soft mask while the page is recorded."},
+  {"type":"SkiaSharp.SKBitmap","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The render surface holds one reusable empty bitmap that borrows each target's pixels, created with the surface. It is created once per graphics thread and backend."},
+  {"type":"HyperPdfLibrary.Rendering.BorrowedPixelCanvas","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The render surface holds one reusable canvas wrapper that is pointed at each target in turn, created with the surface. It is created once per graphics thread and backend."},
+  {"type":"SkiaSharp.SKPaint","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The grayscale paint is made the first time a grayscale page is drawn on a graphics thread; colour pages never make it. It is made once per graphics thread and backend."},
+  {"type":"SkiaSharp.SKColorFilter","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"The grayscale paint carries one colour-matrix filter, made with the paint the first time a grayscale page is drawn on a graphics thread."},
+  {"type":"System.WeakReference","frame":"HyperPdfLibrary.Rendering.RenderSurface.","reason":"SkiaSharp tracks each native handle it wraps with a weak reference. The surface wraps a few handles when it is created, once per graphics thread and backend."},
+  {"type":"System.Object","frame":"HyperPdfLibrary.Rendering.BorrowedPixelCanvas..ctor(","reason":"SkiaSharp creates a lock object for the canvas wrapper it registers. The wrapper is made once with the render surface, per graphics thread and backend, and then reused for every target."},
+  {"type":"SkiaSharp.SKBitmap","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPage(","reason":"The first page drawn on a graphics thread creates that thread's render surface, whose constructor the JIT inlined into DrawPage: one reusable empty bitmap that borrows each target's pixels. It is made once per graphics thread and backend; later pages reuse it."},
+  {"type":"SkiaSharp.SKPixmap","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPage(","reason":"The first page drawn on a graphics thread creates that thread's render surface, whose constructor the JIT inlined into DrawPage: one reusable pixel description. It is made once per graphics thread and backend; later pages reuse it."},
+  {"type":"HyperPdfLibrary.Rendering.BorrowedPixelCanvas","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPage(","reason":"The first page drawn on a graphics thread creates that thread's render surface, whose constructor the JIT inlined into DrawPage: one reusable canvas wrapper. It is made once per graphics thread and backend; later pages reuse it."},
+  {"type":"System.Object","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPage(","reason":"SkiaSharp creates a lock object for each native wrapper it registers. The first page drawn on a graphics thread makes the render surface's wrappers, whose constructor the JIT inlined into DrawPage; later pages reuse them."},
+  {"type":"System.WeakReference","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPage(","reason":"SkiaSharp tracks each native handle it wraps with a weak reference. The first page drawn on a graphics thread makes the render surface's wrappers, whose constructor the JIT inlined into DrawPage; later pages reuse them."},
+  {"type":"SkiaSharp.SKPaint","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPage(","reason":"The grayscale paint is made the first time a grayscale page is drawn on a graphics thread; colour pages never make it."},
+  {"type":"SkiaSharp.SKColorFilter","frame":"HyperPdfLibrary.Rendering.SkiaDrawingSession.DrawPage(","reason":"The grayscale paint carries one colour-matrix filter, made with the paint the first time a grayscale page is drawn on a graphics thread."},
+  {"type":"System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.PatternPaintKey,","frame":"HyperPdfLibrary.Content.ContentColors.","reason":"A document makes its pattern paint cache (the cache object, its lock and its map) when a page first selects a pattern. The map is the cache's result, so it is made once per document and render settings."},
+  {"type":"Entry[HyperPdfLibrary.Rendering.PatternPaintKey,","frame":"HyperPdfLibrary.Content.ContentColors.","reason":"The pattern paint cache's map grows as paints for new placements of a pattern are added. A page that selects the same pattern at the same place again allocates nothing."},
+  {"type":"System.Int32[]","frame":"HyperPdfLibrary.Content.ContentColors.","reason":"The pattern paint cache's map makes its bucket array when the first paint is added and grows it with the paints. A page that selects the same pattern at the same place again allocates nothing."},
+  {"type":"HyperPdfLibrary.Rendering.ObjectCache","frame":"HyperPdfLibrary.Content.ContentColors.","reason":"A document makes its pattern paint cache when a page first selects a pattern; it is shared by every later page of the document and render settings."},
+  {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Content.ContentColors.","reason":"The pattern paint cache makes its lock when a document first selects a pattern; it is shared by every later page of the document and render settings."},
+  {"type":"Entry[HyperPdfLibrary.Rendering.ImageKey,","frame":"HyperPdfLibrary.Rendering.ImageCache.Lead(","reason":"The first decode of a document adds its stream to the in-progress table, and publishing the image adds it to the image map, which is the cache's result. The first insertion into each makes its entry array, and the map grows with the images cached."},
+  {"type":"System.Int32[]","frame":"HyperPdfLibrary.Rendering.ImageCache.Lead(","reason":"The first decode of a document adds its stream to the in-progress table, and publishing the image adds it to the image map, which is the cache's result. The first insertion into each makes its bucket array, and the map grows with the images cached."},
+  {"type":"SkiaSharp.SKPath","frame":"HyperPdfLibrary.Rendering.PagePictures.GetContent(","reason":"Recording a page's content is inlined into GetContent. Filling or clipping a path that is not a rectangle, or stroking one of more than one segment, detaches a native path: SkiaSharp 4 only makes an SKPath by detaching a builder, so each one is a new wrapper. Once per such path while a page is recorded; the picture keeps the result."},
+  {"type":"SkiaSharp.SKPath","frame":"HyperPdfLibrary.Rendering.PagePictures.StepLocked(","reason":"Recording a page's content step by step is inlined into StepLocked. Filling or clipping a path that is not a rectangle, or stroking one of more than one segment, detaches a native path: SkiaSharp 4 only makes an SKPath by detaching a builder, so each one is a new wrapper. Once per such path while a page is recorded; the picture keeps the result."},
+  {"type":"WaitableObject","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.TrimIfRecorded(","reason":"A thread that waits for a lock another thread holds makes its wait handle the first time it does. Once per thread that ever waits."},
+  {"type":"System.Threading.AutoResetEvent","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.TrimIfRecorded(","reason":"A thread that waits for a lock another thread holds makes its wait handle the first time it does. Once per thread that ever waits."},
+  {"type":"Microsoft.Win32.SafeHandles.SafeWaitHandle","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer.TrimIfRecorded(","reason":"A thread that waits for a lock another thread holds makes its wait handle the first time it does. Once per thread that ever waits."},
+  {"type":"SkiaSharp.SKPoint[]","frame":"HyperPdfLibrary.Rendering.SkiaConversions.ToSkPoints(","reason":"SkiaSharp's SKVertices.CreateCopy takes only exact-length managed arrays and copies them into native memory, so a mesh shading makes a position array, and a texture array for a textured mesh, that cannot come from a pool. Once per mesh while a page is recorded."},
+  {"type":"System.Object[]","frame":"HyperPdfLibrary.Filters.PooledBuffer.Grow(","reason":"ArrayPool<byte>.Shared makes the table of idle arrays for a size class the first time that class is rented, once per process and size class."},
   {"type":"System.Int32[]","frame":"HyperPdfLibrary.Content.ContentXObjects.OpPaintShading(","reason":"The first shading paint builds its colour function tables and resource caches. This happens once per page recording; warm tiles replay the picture."},
   {"type":"Entry[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageEntry][]","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(","reason":"The first image use grows the image cache's entry array. This happens once per page recording; warm tiles replay the picture."},
   {"type":"HyperPdfLibrary.Drawing.PdfPathCommand[]","frame":"HyperPdfLibrary.Drawing.PdfPathBuilder.","reason":"A path builder grows its command array as the content stream adds segments. This happens once per path built while the page is recorded; warm tiles replay the picture."},
   {"type":"System.Collections.Generic.List`1[HyperPdfLibrary.Drawing.PdfPathCommand]","frame":"HyperPdfLibrary.Drawing.PdfPathBuilder..ctor(","reason":"Each path builder owns a command list. Builders are created while the page is recorded; warm tiles replay the picture."},
   {"type":"HyperPdfLibrary.Graphics.Shadings.PdfShading","frame":"HyperPdfLibrary.Content.ContentXObjects.OpPaintShading(","reason":"ColdOpenAndRender opens a new document on every operation, so the page's first sh operator parses the shading once and adds it to that document's shading cache. The JIT inlined the cache insert into OpPaintShading. WarmReplay replays the recorded picture and does not repeat it."},
-  {"type":"Entry[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Graphics.Shadings.PdfShading][]","frame":"HyperPdfLibrary.Content.ContentXObjects.OpPaintShading(","reason":"ColdOpenAndRender opens a new document on every operation, so the page's first sh operator parses the shading once and adds it to that document's shading cache. The JIT inlined the cache insert into OpPaintShading. WarmReplay replays the recorded picture and does not repeat it."},
   {"type":"Entry[System.Int32][]","frame":"HyperPdfLibrary.Content.ContentText.ShowCode(","reason":"Saving as PDF/A runs the content once to learn which codes each non-embedded font shows; the set of codes per font grows as text is shown. The JIT inlined the device's set insert into ShowCode. Conversion is a user action."},
   {"type":"Entry[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Conformance.PdfAConversionTextCodes][]","frame":"HyperPdfLibrary.Content.ContentText.ShowCode(","reason":"Saving as PDF/A records the codes shown by font; the map from font to codes grows once per font. The JIT inlined the device's map insert into ShowCode. Conversion is a user action."},
   {"type":"HyperPdfLibrary.Conformance.PdfAConversionTextCodes","frame":"HyperPdfLibrary.Content.ContentText.ShowCode(","reason":"Saving as PDF/A creates one code record for each font its content shows. The JIT inlined the device's insert into ShowCode. Conversion is a user action."},
   {"type":"Entry[System.Int32,HyperPdfLibrary.Objects.PdfValue][]","frame":"HyperPdfLibrary.Objects.StoreEditing.Add(","reason":"Saving as PDF/A edits a private copy of the document: adding the metadata stream, output intent profile and embedded font objects grows the copy's edit table. The copy is discarded after the save."},
   {"type":"Entry[System.Int32,HyperPdfLibrary.Objects.PdfValue][]","frame":"HyperPdfLibrary.Objects.StoreEditing.Replace(","reason":"Saving as PDF/A edits a private copy of the document: replacing the catalog and fixed objects grows the copy's edit table. The copy is discarded after the save."},
-  {"type":"System.String","frame":"HyperPdfLibrary.Metadata.XmpMetadata.GetDate(","reason":"Saving as PDF/A reads the old XMP dates to carry them into the new packet; each date read returns its text before it is parsed. Conversion is a user action."}
+  {"type":"System.String","frame":"HyperPdfLibrary.Metadata.XmpMetadata.GetDate(","reason":"Saving as PDF/A reads the old XMP dates to carry them into the new packet; each date read returns its text before it is parsed. Conversion is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Signatures.PdfSignatureValidator.","reason":"Validating a document's signatures builds one report, byte range check and change list per signature. It runs once when a caller asks for the signatures to be checked, never while rendering."},
+  {"type":"","frame":"HyperPdfLibrary.Signatures.CmsContext.","reason":"Validation loads the document security store's certificates into one collection, shared by every signature of the document; once per validation."},
+  {"type":"","frame":"HyperPdfLibrary.Signatures.PdfCmsVerifier.","reason":"Checking a signature reads its signed bytes into one array, because SignedCms takes detached content as an array, and decodes the container with SignedCms, whose ASN.1 model, certificates, OIDs and attribute objects (read for the message digest, signing time and timestamp) are allocated by System.Security.Cryptography.Pkcs. Measured at about 20 KB per SHA-256, SHA3-256 or SHAKE256 signature including the chain; it runs once per signature when a caller validates."},
+  {"type":"","frame":"HyperPdfLibrary.Signatures.PdfChainBuilder.","reason":"Building the signer's chain uses X509Chain, which allocates its policy, stores, native handles and chain elements. Once per signature or timestamp when a caller validates."},
+  {"type":"","frame":"HyperPdf.Cms.CmsSignerChecks.","reason":"SHA-1, SHA-2 and SHA-3 signers are checked with SignerInfo.CheckSignature, which re-encodes the signed attributes and creates a hash provider and the certificate's public key. Once per signature when signatures are validated."},
+  {"type":"","frame":"HyperPdf.Cms.CmsShakeSignatures.","reason":"A SHAKE256 signer is checked by hashing with stack and pooled buffers; the allocations are the certificate's public key object (its ECDsa or RSA wrapper, native key handle, parsed extensions and PublicKey), which .NET creates on each GetECDsaPublicKey or GetRSAPublicKey call. Once per signature when signatures are validated."},
+  {"type":"System.Byte[]","frame":"HyperPdfLibrary.Security.AesGcmCipher.TryDecrypt(","reason":"Decrypting an AES-GCM string or stream returns one array sized to the plain text, which the caller owns. The array is cleared by the platform when authentication fails. It runs when a string is parsed or a stream is decoded, not during rendering of decoded data."},
+  {"type":"System.Byte[]","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.Encrypt(","reason":"Saving an encrypted document returns one array per encrypted string or stream holding the IV, cipher text and tag. Saving is a user action."},
+  {"type":"System.Security.Cryptography.AesGcm","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.Gcm(","reason":"The AES-GCM instance is created once per security handler, on the first AES-GCM string or stream, and reused for every object."},
+  {"type":"System.Security.Cryptography.AesGcm","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.DecryptGcm(","reason":"The AES-GCM instance is created once per security handler, on the first AES-GCM string or stream, and reused for every object. The trace attributes it here when the creation is inlined."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.IsPermsValid(","reason":"Opening a revision 7 file checks /Perms once with a short-lived AES instance, which the .NET cipher backs with a native cipher context."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfPasswordAlgorithms.HardenedHash(","reason":"The revision 6 and 7 password hash (ISO 32000-2 algorithm 2.B) runs its AES-128 rounds on the CPU's AES instructions and allocates nothing. Only a CPU without them uses the .NET cipher, which backs each new key with a native cipher context and key box. It runs once per open or save that checks a password."},
+  {"type":"","frame":"HyperPdfLibrary.Security.StandardEncryptionWriter.","reason":"Writing a new standard security handler dictionary returns the values it stores: the file key, the owner and user strings, the wrapped keys and the permissions block. The saved file's encryption keeps these arrays. It runs once per save that encrypts, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfEncryptionDictionaries.","reason":"The /Encrypt dictionary and its crypt filter dictionaries are new objects made at their final size. The save keeps them to write the file. It runs once per save that encrypts, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfEncryptionPlan.","reason":"A save that encrypts makes one plan: the security handler that encrypts every object, the encryption dictionary and the file id dictionary. It runs once per save that encrypts, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfProtectionAuthority.Describe(","reason":"Describing a document's protection returns one record to the caller. It runs when a protection check or change asks, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PublicKeyFileKey.Derive(","reason":"Deriving the file key returns the key as a new array that the security handler keeps. The hash input is gathered in a pooled buffer and hashed in one call. It runs once per open or save of a public-key file."},
+  {"type":"RuntimeTypeCache","frame":"HyperPdfLibrary.Security.","reason":"The first time the program creates a cipher or hash type, the runtime builds that type's activator cache once for the life of the process."},
+  {"type":"ActivatorCache","frame":"HyperPdfLibrary.Security.","reason":"The first time the program creates a cipher or hash type, the runtime builds that type's activator cache once for the life of the process."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfDocumentSigning.","reason":"Signing writes one update per signature. It opens an edit that records the objects it changes (the transaction and its sets and lists of changed object numbers and states) and returns the signed file. It runs once per signature, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSigningPlanner.","reason":"Planning a signature makes the plan and plan result records and reads the signer's name from the certificate. The message arrays exist only when there is a reason or note to report. It runs once per signature, and the signature keeps the plan until the file is finished."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSigningEngine.","reason":"Building a signature makes the prepared file record, the digest of the signed bytes and the result record that holds the signed file. It runs once per signature, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSigningFile.","reason":"The prepared file is one object that remembers where the signature value goes. It runs once per signature, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSignatureObjects.","reason":"A signature adds its objects to the document: the signature field and widget, the appearance, and copies of the catalog, interactive form and annotation list that the update changes. These objects are the content of the update. It runs once per signature, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSignatureDictionaryBuilder.","reason":"The signature dictionary is a new document object. It holds the byte range array and the name, date, reason and location strings, and a reference dictionary only for a certification or a lock. It runs once per signature, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSignatureAppearances.Describe(","reason":"The description of the signature for screen readers is encoded into the one byte array the field stores. It runs once per visible or new signature field, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfCertificateSigner.Sign(","reason":"The .NET returns a new private key object each time a key is asked for, so the caller can dispose it, and the signer cannot keep one without becoming disposable. Each signature creates and disposes one."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSigningDigests.Hash(","reason":"A hash object holds a native context. It is created the first time a digest is used and the next signature reuses it through a one-slot pool, so this runs once per digest for the life of the process."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSigningVerification.","reason":"Reading the finished file back to check it opens the file as a document, with its object store, caches and locks, and validates the new signature. It runs once per signature unless the options turn VerifyOutput off."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfCmsAttributes.","reason":"The signed attributes are returned as one array that the caller signs and keeps. They are written with a pooled DER writer. It runs once per signature."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfCmsBuilder.","reason":"The signature container is returned as one array that is written into the reserved room. It is written with a pooled DER writer. It runs once per signature."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSecurityStoreWriter.","reason":"Adding validation data builds the update: its edit, the result record and the notes. It runs once per call, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSecurityStoreBuilder.","reason":"Adding validation data creates one stream for each new certificate, response or list, and the arrays and dictionaries of the document security store. These objects are the content of the update. It runs once per call, which is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Signing.PdfSigningFields.","reason":"A document with an interactive form has its fields walked to find a free field name or the field to sign. The walk makes each field's name and a record for each signature field. It runs once per signature, and only when the document has a form."},
+  {"type":"RuntimeTypeCache","frame":"HyperPdfLibrary.Signing.","reason":"The first time the program creates a key, certificate or hash type, the runtime builds that type's activator cache once for the life of the process."},
+  {"type":"ActivatorCache","frame":"HyperPdfLibrary.Signing.","reason":"The first time the program creates a key, certificate or hash type, the runtime builds that type's activator cache once for the life of the process."},
+  {"type":"","frame":"HyperPdfLibrary.Signatures.PdfSignatureDetailsReader.","reason":"The details of a document's signature fields are read once and cached on the document: one record per field with the signer name, location and contact text, and the array that holds them."},
+  {"type":"","frame":"HyperPdfLibrary.Signatures.PdfFieldNames.","reason":"A field's full name is written straight into the one string it returns. The signature details and the field walks keep it. It runs once per signature field read."},
+  {"type":"System.Byte[]","frame":"HyperPdfLibrary.Security.PdfPasswordAlgorithms.ComputeKey(","reason":"The file key of an RC4 or AES-128 file is 5 to 16 bytes, returned as an array because the encryption writer keeps it for the file. Hashing its input uses the stack. Once per file written with these handlers."},
+  {"type":"System.Byte[]","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.Authenticate128(","reason":"The file key (5 to 16 bytes) that a correct password gives is copied out of the stack buffer into an array, because the handler keeps it for the life of the document. Once per open of an RC4 or AES-128 file."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.Authenticate256(","reason":"Unwrapping the file key from /UE or /OE creates one AES instance once per open."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler..ctor(","reason":"Each security handler owns one AES instance and one lock, created when the document opens and reused for every object."},
+  {"type":"System.String","frame":"HyperPdfLibrary.Metadata.XmpInfoResolver.Resolve(","reason":"Combining /Info with the XMP packet joins several creators into one author string and holds the chosen title, subject and keyword strings for the returned information record. The properties dialog reads this once per document."},
+  {"type":"HyperPdfLibrary.Document.PdfDocumentInfo","frame":"HyperPdfLibrary.Metadata.XmpInfoResolver.Resolve(","reason":"The combined information is a new record built with a copy of the /Info record, which the caller keeps. The properties dialog reads it once per document."},
+  {"type":"","frame":"HyperPdfLibrary.Portfolio.PortfolioReader.","reason":"Reading a portfolio builds the records the caller keeps: schema fields, sort keys, the folder tree with its free ranges, and each file's collection values as strings. This runs once when a portfolio is opened, not while pages render."},
+  {"type":"","frame":"HyperPdfLibrary.Document.DeveloperExtensionMerge.","reason":"A declaration that is not in the catalog yet copies the catalog and its /Extensions dictionary and builds the new extension dictionary and its array, which the catalog keeps. A declaration the catalog already holds is found by comparing, and allocates nothing."},  {"type":"System.Byte[]","frame":"HyperPdfLibrary.Document.PdfObjectTreeJson.","reason":"The JSON writer grows its buffer as the debug view is written to the stream, and a stream's Base64 text is built once. The view is a debugging aid, not a render path."},
+  {"type":"System.Byte[]","frame":"HyperPdfLibrary.Objects.StoreEditing.Add(","reason":"Content normalisation adds one image per moved inline image and one stream per changed page. The bytes are the new object's data, which the document keeps in its edit layer until it is saved."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreRevisions.OpenRevision(","reason":"Saving as PDF 2.0 opens one private working copy of the file, so the fixes never touch the open document. The copy reads the cross-reference data again into its own object slot arrays, name table and caches. It runs once per copy, a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreEditing.GetEditedObjects(","reason":"The working copy replays the open document's unsaved edits, so the copy lists the edited objects once. It runs once per copy, a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20Converter.","reason":"A PDF 2.0 copy creates its session with the note lists, the result and the note arrays it returns, the bytes of the written file, and one extra read of that file to check its header, page count and document information. It runs once per copy, a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionInfo.","reason":"Moving the document information into XMP builds one plan: the XMP changes, the names of the moved entries, the sentences for values left out, and the copy of the information dictionary. The notes are strings the user reads. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20InfoMapping+","reason":"Comparing the XMP value an information entry maps to joins the creators and keywords into one string per entry that the XMP holds. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionInfoDates.","reason":"Matching the two dates to the XMP formats a PDF date and a note sentence when they differ. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20InfoText.","reason":"Reading a document information value as text creates its string once per entry. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionXmp.","reason":"Writing the XMP creates the packet bytes, the metadata stream dictionary and the copy of the catalog that points at them. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionContent.","reason":"Writing the F operator as f collects the content stream objects into one set, then decodes each stream that is rewritten, copies it, and compresses it again. A stream with no F operator is not copied. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionDictionaries.","reason":"The dictionary pass collects the reachable objects once and holds its counts in one tally. A dictionary is copied only when a deprecated entry is removed. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionDictionaryReport.","reason":"The summary builds one note, with its sentence, for each kind of change or refusal found. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionFileFixes.","reason":"Removing operating system file names copies the file specification dictionary, as the open document's dictionary is never changed. A dictionary with none of those entries is not copied. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionCatalog.","reason":"Removing deprecated catalog entries copies the catalog, and each nested dictionary it changes, once. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionVersion.","reason":"Setting the version removes the catalog's /Version through a copy of the catalog, and records one note for the header and one for the file identifier. It runs once per copy."},
+  {"type":"","frame":"HyperPdfLibrary.Pdf20.Pdf20ConversionForms.","reason":"Drawing form field appearances reads the form's widgets into lists, and records one note per kind of change. It runs once per copy, and only for a form."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.DecryptAes(","reason":"Decrypting an AES-CBC string or stream sets the key on the handler's AES instance, which .NET copies into a native key box, and runs the cipher through native contexts. It runs when an encrypted string is parsed or a stream is decoded, not while a decoded page is drawn."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfSecurityHandler.Encrypt(","reason":"Saving an encrypted document encrypts each string and stream with AES-CBC: the handler sets the key on its AES instance, which .NET copies into a native key box, and runs the cipher through native contexts. Saving is a user action."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreEditing.GetEditedObjects(","reason":"A save takes one snapshot of the edited objects, a sorted array and its object numbers. It runs once per save."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfMacTokenReader.","reason":"Checking a PDF MAC token (ISO/TS 32004) keys an AES cipher to unwrap the MAC key and an HMAC to check the attributes, and .NET backs both with native contexts, key boxes and provider objects; the OID read from the token for the digest is a string. It runs once per revision when the document is checked, not while rendering."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfMacStandalone.","reason":"Checking a standalone PDF MAC reads the four byte range numbers and the token into small arrays the check keeps for its length, hashes the covered bytes with an incremental hash that .NET backs with native contexts, and returns one result record. It runs once per revision when the document is checked."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfMacAttached.","reason":"Checking a PDF MAC attached to a signature reads the byte range numbers into an array, hashes the covered bytes and the signature value with an incremental hash that .NET backs with native contexts, and returns one result record. It runs once per signed revision when the document is checked."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfMacValidator.","reason":"Checking a document's PDF MAC opens each revision's structure without decrypting it (a prefix view of the file, an object store with its name table, cross-reference table and caches), reads that revision's own trailer, and returns one result per revision and one report. It runs once per document, when the report is first asked for, and the report is cached."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfMacRequirement.","reason":"Reading the permissions the encrypted /Perms entry protects uses a short-lived AES instance, which .NET backs with a native cipher context. It runs once per document when the report is first asked for."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfMacKeys.","reason":"Deriving the key-encryption key runs HKDF with HMAC-SHA-256, which .NET backs with native hash contexts. It runs once per token."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfMacDigest.","reason":"Hashing the covered bytes of a PDF MAC uses an incremental hash that .NET backs with native contexts. It runs once per token."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreRevisions.","reason":"Listing a file's revisions follows the cross-reference chain once, building the list of section offsets and the revision array, and the document caches the result. It runs when signatures or the PDF MAC are checked."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfMacTokenWriter.","reason":"Writing a PDF MAC token builds its DER with ASN.1 writers, derives and wraps the MAC key with .NET cryptography objects, and returns the token array. It runs once per saved revision of an encrypted document that requires a PDF MAC."},
+  {"type":"","frame":"HyperPdfLibrary.Security.PdfMacSignatureAttachment.","reason":"Attaching a PDF MAC token to a signature copies the signature container through ASN.1 reader and writer objects and returns the new container. It runs once per signed revision that is written."},
+  {"type":"","frame":"HyperPdfLibrary.Writing.PdfMacSeal.","reason":"Sealing a saved revision with a PDF MAC builds the /AuthCode dictionary and its byte range array, writes the trailer section more than once while the byte range settles, and hashes the covered bytes with an incremental hash that .NET backs with native contexts. It runs once per saved revision of an encrypted document that requires a PDF MAC."},
+  {"type":"SkiaSharp.SKCanvas","frame":"HyperPdfLibrary.Rendering.PagePictures.","reason":"Starting a page recording makes the managed wrapper for the recorder\u0027s native canvas. SkiaSharp creates a new wrapper for every BeginRecording, so this happens once per recorded page; the recorder itself is reused."},
+  {"type":"SkiaSharp.SKCanvas","frame":"HyperPdfLibrary.Rendering.ProgressiveRecording.","reason":"Starting a page recording makes the managed wrapper for the recorder\u0027s native canvas. SkiaSharp creates a new wrapper for every BeginRecording, so this happens once per recorded page; the recorder itself is reused."},
+  {"type":"SkiaSharp.SKCanvas","frame":"HyperPdfLibrary.Rendering.PageRecorder.","reason":"Starting a page recording makes the managed wrapper for the recorder\u0027s native canvas. SkiaSharp creates a new wrapper for every BeginRecording, so this happens once per recorded page; the recorder itself is reused."},
+  {"type":"SkiaSharp.SKCanvas","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"Starting a page recording makes the managed wrapper for the recorder\u0027s native canvas. SkiaSharp creates a new wrapper for every BeginRecording, so this happens once per recorded page; the recorder itself is reused."},
+  {"type":"SkiaSharp.SKPicture","frame":"HyperPdfLibrary.Rendering.PagePictures.","reason":"Ending a page recording returns the picture that the page cache keeps and replays, and the owner object that disposes it. They are the result of the recording: one pair per recorded page."},
+  {"type":"HyperPdfLibrary.Rendering.SkiaRenderPicture","frame":"HyperPdfLibrary.Rendering.PagePictures.","reason":"Ending a page recording returns the picture that the page cache keeps and replays, and the owner object that disposes it. They are the result of the recording: one pair per recorded page."},
+  {"type":"SkiaSharp.SKPicture","frame":"HyperPdfLibrary.Rendering.ProgressiveRecording.","reason":"Ending a page recording returns the picture that the page cache keeps and replays, and the owner object that disposes it. They are the result of the recording: one pair per recorded page."},
+  {"type":"HyperPdfLibrary.Rendering.SkiaRenderPicture","frame":"HyperPdfLibrary.Rendering.ProgressiveRecording.","reason":"Ending a page recording returns the picture that the page cache keeps and replays, and the owner object that disposes it. They are the result of the recording: one pair per recorded page."},
+  {"type":"SkiaSharp.SKPicture","frame":"HyperPdfLibrary.Rendering.PageRecorder.","reason":"Ending a page recording returns the picture that the page cache keeps and replays, and the owner object that disposes it. They are the result of the recording: one pair per recorded page."},
+  {"type":"HyperPdfLibrary.Rendering.SkiaRenderPicture","frame":"HyperPdfLibrary.Rendering.PageRecorder.","reason":"Ending a page recording returns the picture that the page cache keeps and replays, and the owner object that disposes it. They are the result of the recording: one pair per recorded page."},
+  {"type":"SkiaSharp.SKPicture","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"Ending a page recording returns the picture that the page cache keeps and replays, and the owner object that disposes it. They are the result of the recording: one pair per recorded page."},
+  {"type":"HyperPdfLibrary.Rendering.SkiaRenderPicture","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"Ending a page recording returns the picture that the page cache keeps and replays, and the owner object that disposes it. They are the result of the recording: one pair per recorded page."},
+  {"type":"System.WeakReference","frame":"HyperPdfLibrary.Rendering.PagePictures.","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"System.Object","frame":"HyperPdfLibrary.Rendering.PagePictures.","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"Node[System.IntPtr,SkiaSharp.SKObject]","frame":"HyperPdfLibrary.Rendering.PagePictures.","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"System.WeakReference","frame":"HyperPdfLibrary.Rendering.ProgressiveRecording.","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"System.Object","frame":"HyperPdfLibrary.Rendering.ProgressiveRecording.","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"Node[System.IntPtr,SkiaSharp.SKObject]","frame":"HyperPdfLibrary.Rendering.ProgressiveRecording.","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"System.WeakReference","frame":"HyperPdfLibrary.Rendering.PageRecorder.","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"System.Object","frame":"HyperPdfLibrary.Rendering.PageRecorder.","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"Node[System.IntPtr,SkiaSharp.SKObject]","frame":"HyperPdfLibrary.Rendering.PageRecorder.","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"System.WeakReference","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"System.Object","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"Node[System.IntPtr,SkiaSharp.SKObject]","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"HyperPdfLibrary.Rendering.ImageWeight[]","frame":"HyperPdfLibrary.Rendering.PagePictures.","reason":"Finishing a recording copies the images it drew into an array that the page entry keeps for cache accounting. Only pages that draw images make it; once per recorded picture."},
+  {"type":"HyperPdfLibrary.Rendering.ImageWeight[]","frame":"HyperPdfLibrary.Rendering.ProgressiveRecording.","reason":"Finishing a recording copies the images it drew into an array that the page entry keeps for cache accounting. Only pages that draw images make it; once per recorded picture."},
+  {"type":"HyperPdfLibrary.Rendering.ImageWeight[]","frame":"HyperPdfLibrary.Rendering.PageRecorder.","reason":"Finishing a recording copies the images it drew into an array that the page entry keeps for cache accounting. Only pages that draw images make it; once per recorded picture."},
+  {"type":"HyperPdfLibrary.Rendering.ImageWeight[]","frame":"HyperPdf.Core.Rendering.RenderScheduler.RenderInto(","reason":"Finishing a recording copies the images it drew into an array that the page entry keeps for cache accounting. Only pages that draw images make it; once per recorded picture."},
+  {"type":"SkiaSharp.SKCanvas","frame":"HyperPdfLibrary.Content.ContentColors.RecordCell(","reason":"Recording a tiling pattern cell starts a picture recording, which makes the managed canvas wrapper. Once per pattern cell; the composed period is cached per pattern and zoom bucket."},
+  {"type":"SkiaSharp.SKPicture","frame":"HyperPdfLibrary.Content.ContentColors.RecordCell(","reason":"Ending the cell recording returns the picture that the composer draws from and then disposes. Once per pattern cell; the composed period is cached per pattern and zoom bucket."},
+  {"type":"HyperPdfLibrary.Rendering.SkiaRenderPicture","frame":"HyperPdfLibrary.Content.ContentColors.RecordCell(","reason":"Ending the cell recording returns the picture that the composer draws from and then disposes. Once per pattern cell; the composed period is cached per pattern and zoom bucket."},
+  {"type":"System.WeakReference","frame":"HyperPdfLibrary.Content.ContentColors.RecordCell(","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"System.Object","frame":"HyperPdfLibrary.Content.ContentColors.RecordCell(","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"Node[System.IntPtr,SkiaSharp.SKObject]","frame":"HyperPdfLibrary.Content.ContentColors.RecordCell(","reason":"SkiaSharp registers every native wrapper it creates in its handle table, with a weak reference, a lock object and a dictionary node, so each wrapper above brings these three small objects."},
+  {"type":"HyperPdfLibrary.Graphics.PdfPatternPaint","frame":"HyperPdfLibrary.Content.ContentColors.","reason":"A pattern paint holds the matrix that places a cell or shading. It is made the first time a pattern is selected at a given placement and then shared through the render cache, so a page that selects the same pattern again allocates nothing."},
+  {"type":"SkiaSharp.","frame":"HyperPdfLibrary.Rendering.TileComposer.Compose(","reason":"Composing a pattern period draws into a temporary raster surface and canvas, then keeps the snapshot image (or a recorded picture for a large period), each with its managed Skia wrapper. Once per pattern cell and zoom bucket, because the result is cached."},
+  {"type":"HyperPdfLibrary.Rendering.","frame":"HyperPdfLibrary.Rendering.TileComposer.Compose(","reason":"The composed period is a PatternCell holding the image or picture and the owners that dispose them. It is the cached result of the composition: once per pattern cell and zoom bucket."},
+  {"type":"System.","frame":"HyperPdfLibrary.Rendering.TileComposer.Compose(","reason":"SkiaSharp\u0027s handle table and wrapper bookkeeping for the surface, canvas, image and picture made while composing a period. Once per pattern cell and zoom bucket."},
+  {"type":"Node[","frame":"HyperPdfLibrary.Rendering.TileComposer.Compose(","reason":"SkiaSharp\u0027s handle table and wrapper bookkeeping for the surface, canvas, image and picture made while composing a period. Once per pattern cell and zoom bucket."},
+  {"type":"Tables[","frame":"HyperPdfLibrary.Rendering.TileComposer.Compose(","reason":"SkiaSharp\u0027s handle table and wrapper bookkeeping for the surface, canvas, image and picture made while composing a period. Once per pattern cell and zoom bucket."},
+  {"type":"VolatileNode[","frame":"HyperPdfLibrary.Rendering.TileComposer.Compose(","reason":"SkiaSharp\u0027s handle table and wrapper bookkeeping for the surface, canvas, image and picture made while composing a period. Once per pattern cell and zoom bucket."},
+  {"type":"Enumerator[","frame":"HyperPdfLibrary.Rendering.TileComposer.Compose(","reason":"SkiaSharp\u0027s handle table and wrapper bookkeeping for the surface, canvas, image and picture made while composing a period. Once per pattern cell and zoom bucket."},
+  {"type":"System.OperationCanceledException","frame":"HyperPdfLibrary.Content.ContentExecution.Execute(","reason":"Cancelling a recording throws OperationCanceledException, which allocates the exception and its captured stack trace. It happens only when the caller cancels, once per cancelled operation."},
+  {"type":"System.SByte[]","frame":"HyperPdfLibrary.Content.ContentExecution.Execute(","reason":"Cancelling a recording throws OperationCanceledException, which allocates the exception and its captured stack trace. It happens only when the caller cancels, once per cancelled operation."},
+  {"type":"HyperPdfLibrary.Drawing.PdfPath[]","frame":"HyperPdfLibrary.Content.ContentText.ShowCode(","reason":"The first glyph outline used from a block of 256 slots of a font makes that block\u0027s cache page. Every later page and document using the font reuses it, so it happens once per font per block."},
+  {"type":"HyperPdfLibrary.Structure.Tagged.PdfMarkedGlyph[]","frame":"HyperPdfLibrary.Structure.Tagged.MarkedContentRecorder.Record(","reason":"Recording a page\u0027s marked content returns its glyph array, text string and graphics bounds table, which the page object keeps. They are the result: once per recorded page. The recorder\u0027s working lists and text buffer are reused."},
+  {"type":"System.String","frame":"HyperPdfLibrary.Structure.Tagged.MarkedContentRecorder.Record(","reason":"Recording a page\u0027s marked content returns its glyph array, text string and graphics bounds table, which the page object keeps. They are the result: once per recorded page. The recorder\u0027s working lists and text buffer are reused."},
+  {"type":"System.Collections.Generic.Dictionary\u00602[System.Int32,HyperPdfLibrary.Structure.Tagged.PdfViewerRect]","frame":"HyperPdfLibrary.Structure.Tagged.MarkedContentRecorder.Record(","reason":"Recording a page\u0027s marked content returns its glyph array, text string and graphics bounds table, which the page object keeps. They are the result: once per recorded page. The recorder\u0027s working lists and text buffer are reused."},
+  {"type":"Entry[System.Int32,HyperPdfLibrary.Structure.Tagged.PdfViewerRect][]","frame":"HyperPdfLibrary.Content.ContentPaths.","reason":"The marked content recorder adds the bounds of each painted path to a table keyed by marked content id. The table is part of the recorded page, so its storage grows once per page with paths in tagged content."},
+  {"type":"","frame":"HyperPdfLibrary.Structure.Tagged.MarkedContentRecorder.","reason":"A marked content recorder is made only when none is idle, with its working lists and text buffer; it is then reused for every page. The page result it returns is allocated once per recorded page."},
+  {"type":"SkiaSharp.SKPath","frame":"HyperPdfLibrary.Content.ContentPaths.","reason":"Filling, clipping or stroking a path of more than one segment, or stroking one in a pattern, detaches a native path. A stroke of one straight segment in a plain colour is drawn as a line and a clip to a rectangle as a rectangle, so neither makes one. SkiaSharp 4 only makes an SKPath by detaching a builder (the mutating members are obsolete), so each one is a new wrapper with its handle-table lock object. Once per such path while a page is recorded; the picture keeps the result. Drawing a rectangle fill with DrawRect gives different pixels from the path, so fills keep the path."},
+  {"type":"System.Object","frame":"HyperPdfLibrary.Content.ContentPaths.","reason":"Filling, clipping or stroking a path of more than one segment, or stroking one in a pattern, detaches a native path. A stroke of one straight segment in a plain colour is drawn as a line and a clip to a rectangle as a rectangle, so neither makes one. SkiaSharp 4 only makes an SKPath by detaching a builder (the mutating members are obsolete), so each one is a new wrapper with its handle-table lock object. Once per such path while a page is recorded; the picture keeps the result. Drawing a rectangle fill with DrawRect gives different pixels from the path, so fills keep the path."},
+  {"type":"System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.Structure.Tagged.PdfViewerRect]","frame":"HyperPdfLibrary.Content.ContentPaths.","reason":"The marked content recorder adds the bounds of each painted path to a table keyed by marked content id. The table is part of the recorded page, so it is made once per page with paths in tagged content."},
+  {"type":"SkiaSharp.SKPath","frame":"HyperPdfLibrary.Content.ContentGraphicsState.","reason":"Painting, clipping a path, or flushing a batch of glyphs detaches a native path. SkiaSharp 4 only makes an SKPath by detaching a builder (the mutating members are obsolete), so each one is a new wrapper with its handle-table lock object. Once per painted path while a page is recorded; the picture keeps the result."},
+  {"type":"System.Object","frame":"HyperPdfLibrary.Content.ContentGraphicsState.","reason":"Painting, clipping a path, or flushing a batch of glyphs detaches a native path. SkiaSharp 4 only makes an SKPath by detaching a builder (the mutating members are obsolete), so each one is a new wrapper with its handle-table lock object. Once per painted path while a page is recorded; the picture keeps the result."},
+  {"type":"HyperPdfLibrary.Drawing.PdfPath","frame":"HyperPdfLibrary.Content.ContentPaths.","reason":"A device that may keep paths (the default for a device written by a caller) gets an independent copy of each path, because the device contract takes an immutable path. The built-in devices keep none and are lent one reused path, so this does not happen when they record."},
+  {"type":"HyperPdfLibrary.Drawing.PdfPathCommand[]","frame":"HyperPdfLibrary.Content.ContentPaths.","reason":"A device that may keep paths (the default for a device written by a caller) gets an independent copy of each path, because the device contract takes an immutable path. The built-in devices keep none and are lent one reused path, so this does not happen when they record."},
+  {"type":"HyperPdfLibrary.Drawing.PdfPath","frame":"HyperPdfLibrary.Content.ContentXObjects.ClipToBox(","reason":"A device that may keep paths (the default for a device written by a caller) gets an independent copy of each path, because the device contract takes an immutable path. The built-in devices keep none and are lent one reused path, so this does not happen when they record."},
+  {"type":"HyperPdfLibrary.Drawing.PdfPathCommand[]","frame":"HyperPdfLibrary.Content.ContentXObjects.ClipToBox(","reason":"A device that may keep paths (the default for a device written by a caller) gets an independent copy of each path, because the device contract takes an immutable path. The built-in devices keep none and are lent one reused path, so this does not happen when they record."},
+  {"type":"HyperPdfLibrary.Drawing.PdfPath","frame":"HyperPdfLibrary.Content.ContentText.OpEndText(","reason":"A device that may keep paths (the default for a device written by a caller) gets an independent copy of each path, because the device contract takes an immutable path. The built-in devices keep none and are lent one reused path, so this does not happen when they record."},
+  {"type":"HyperPdfLibrary.Drawing.PdfPathCommand[]","frame":"HyperPdfLibrary.Content.ContentText.OpEndText(","reason":"A device that may keep paths (the default for a device written by a caller) gets an independent copy of each path, because the device contract takes an immutable path. The built-in devices keep none and are lent one reused path, so this does not happen when they record."},
+  {"type":"Entry[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageDecode][]","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(","reason":"The table of image decodes in progress makes its entry array when the first decode of a document starts. Once per document."},
+  {"type":"System.Threading.AutoResetEvent","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(","reason":"A thread that waits for another thread\u0027s decode of the same image blocks on a monitor, and the runtime makes that thread\u0027s wait handle the first time it does. Once per thread that ever waits."},
+  {"type":"Microsoft.Win32.SafeHandles.SafeWaitHandle","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(","reason":"A thread that waits for another thread\u0027s decode of the same image blocks on a monitor, and the runtime makes that thread\u0027s wait handle the first time it does. Once per thread that ever waits."},
+  {"type":"WaitableObject","frame":"HyperPdfLibrary.Content.ContentXObjects.DrawImageXObject(","reason":"A thread that waits for another thread\u0027s decode of the same image blocks on a monitor, and the runtime makes that thread\u0027s wait handle the first time it does. Once per thread that ever waits."},
+  {"type":"","frame":"HyperPdfLibrary.Filters.ScratchPool\u00601[","reason":"A pool makes its table of 12 kept-array slots when the first large array is returned to it. Once per element type for each scratch owner."},
+  {"type":"HyperPdfLibrary.Filters.ScratchPool\u00601[","frame":"HyperPdfLibrary.Filters.ScratchPools.","reason":"A scratch owner makes its lock and one small pool object for each element type it rents, on first use. A document owns one owner; a standalone decode that is given none makes its own. Once per owner."},
+  {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Filters.ScratchPools.","reason":"A scratch owner makes its lock and one small pool object for each element type it rents, on first use. A document owns one owner; a standalone decode that is given none makes its own. Once per owner."},
+  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Document.PdfDiagnostic]","frame":"HyperPdfLibrary.Objects.StoreOpening.ReadStructure(","reason":"A document with a damaged structure logs the repair, such as a rebuilt cross-reference table, in the open context\u0027s log. The viewer tells the user what was repaired. Once per damaged document; a clean document logs nothing."},
+  {"type":"HyperPdfLibrary.Document.PdfDiagnostic[]","frame":"HyperPdfLibrary.Objects.StoreOpening.ReadStructure(","reason":"A document with a damaged structure logs the repair, such as a rebuilt cross-reference table, in the open context\u0027s log. The viewer tells the user what was repaired. Once per damaged document; a clean document logs nothing."},
+  {"type":"System.Object[]","frame":"HyperPdfLibrary.Objects.StoreOpening.ReadStructure(","reason":"The object-slot array of a document is made once per open, sized to the cross-reference table. It is cleared and reused after the /Root check and after authentication when the size is unchanged."},
+  {"type":"HyperPdfLibrary.IO.MemoryPdfByteSource","frame":"HyperPdfLibrary.Objects.StoreOpening.OpenWith(","reason":"Opening a document from a byte array wraps the array in the document\u0027s byte source. One per opened document."},
+  {"type":"HyperPdfLibrary.Editing.PdfEditTransaction","frame":"HyperPdfLibrary.Objects.StoreTransactions.BeginTransaction(","reason":"The transaction object is the handle callers use to commit or roll back an edit. One per edit."},
+  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Objects.PdfDictionary,","frame":"HyperPdfLibrary.Rendering.GeneratedAppearanceCache.","reason":"The cache of generated annotation appearances is made when a document first draws an annotation that has no appearance: the cache object, its lock and its map. Once per document and render settings; documents without such annotations never make it."},
+  {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Rendering.GeneratedAppearanceCache.","reason":"The cache of generated annotation appearances is made when a document first draws an annotation that has no appearance: the cache object, its lock and its map. Once per document and render settings; documents without such annotations never make it."},
+  {"type":"HyperPdfLibrary.Rendering.GeneratedAppearanceCache","frame":"HyperPdfLibrary.Rendering.GeneratedAppearanceCache.","reason":"The cache of generated annotation appearances is made when a document first draws an annotation that has no appearance: the cache object, its lock and its map. Once per document and render settings; documents without such annotations never make it."},
+  {"type":"System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Objects.PdfDictionary,","frame":"HyperPdfLibrary.Rendering.PdfRenderCache.get_Appearances","reason":"The cache of generated annotation appearances is made when a document first draws an annotation that has no appearance: the cache object, its lock and its map. Once per document and render settings; documents without such annotations never make it."},
+  {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Rendering.PdfRenderCache.get_Appearances","reason":"The cache of generated annotation appearances is made when a document first draws an annotation that has no appearance: the cache object, its lock and its map. Once per document and render settings; documents without such annotations never make it."},
+  {"type":"HyperPdfLibrary.Rendering.GeneratedAppearanceCache","frame":"HyperPdfLibrary.Rendering.PdfRenderCache.get_Appearances","reason":"The cache of generated annotation appearances is made when a document first draws an annotation that has no appearance: the cache object, its lock and its map. Once per document and render settings; documents without such annotations never make it."},
+  {"type":"System.Collections.Generic.List\u00601[HyperPdfLibrary.Rendering.PagePictures]","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer..ctor","reason":"A renderer makes the list that holds its recent page pictures, sized for its 32 page limit. Once per renderer."},
+  {"type":"HyperPdfLibrary.Rendering.PagePictures[]","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer..ctor","reason":"A renderer makes the list that holds its recent page pictures, sized for its 32 page limit. Once per renderer."},
+  {"type":"","frame":"HyperPdfLibrary.Rendering.PdfPageRenderer..ctor(","reason":"A renderer finds the document's shared render cache for its image and drawing settings. The first renderer of a document with a given set of settings creates the cache, its entry and the table that holds them; later renderers with the same settings find them."},
+  {"type":"","frame":"HyperPdfLibrary.Content.ContentInterpreter.","reason":"An interpreter is made only when none is idle, once for each thread that records at the same time, and is then reused with its state stacks and path builders for every page, pattern cell and soft mask."},
+  {"type":"","frame":"HyperPdfLibrary.Rendering.SkiaContentDevice.","reason":"A recording device is made only when none is idle, once for each thread that records at the same time, with its picture recorder, builders, paints, lists and glyph cache; it is then reused. A knockout group inside a recording makes its own picture recorder for the group."},
+  {"type":"","frame":"HyperPdfLibrary.Rendering.PictureWeight.","reason":"A recording device makes its image counter once and reuses it for every recording."},
+  {"type":"","frame":"HyperPdfLibrary.Rendering.ProgressiveRecording.","reason":"The object that tracks a paused page recording is made only when none is idle and is then reused."},
+  {"type":"","frame":"HyperPdfLibrary.Rendering.ReusableSlots\u00601","reason":"The slots that keep each kind of idle object (interpreters, devices, recordings, decoders) are made once per process on first use."},
+  {"type":"","frame":"HyperPdfLibrary.Rendering.PageClips.","reason":"The clip path of a page size is made the first time that size is recorded and then shared by every page of the same size."},
+  {"type":"","frame":"HyperPdfLibrary.Compat.FlateDecoderPool.","reason":"A zlib or deflate decoder is made only when none is idle and is returned after each decode; at most four of each are kept for all documents."},
+  {"type":"","frame":"HyperPdfLibrary.Rendering.PageRecorder.","reason":"Recording annotation appearances makes the annotation pass object that holds the page being drawn. Once per annotation recording; the picture is cached with the page."},
+  {"type":"","frame":"HyperPdfLibrary.Rendering.PagePictures.GetAnnotations(","reason":"Records a page\u0027s annotation appearances into a picture the first time a zoom band or print mode needs them: the annotation pass, the appearance forms and the native wrappers of the result. The picture is cached with the page, so warm tiles replay it."},
+  {"type":"","frame":"HyperPdf.Core.Annotations.SignatureMark.Drawn(","reason":"A drawn mark is the result the signature pad keeps: the record, its point array and its stroke length array. The smoothed points it is made from are on the stack or in a pooled array. Once per finished stroke."},
+  {"type":"HyperPdfLibrary.Document.PdfPageEntry[]","frame":"HyperPdfLibrary.Document.PdfPageBuffer.","reason":"The page entries are the result of reading the page tree, in one array sized from the root /Count and kept by the page set, once per read of the page tree."},
+  {"type":"HyperPdfLibrary.Document.InheritedAttributes[]","frame":"HyperPdfLibrary.Document.PdfPageBuffer.","reason":"The table of distinct attributes that pages inherit is kept by the page set, with four entries to start. Once per read of the page tree."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreOpening.OpenWith(","reason":"Opening with options makes the open context that carries the token, the recovery switches and the repair log, once per open."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreOpening.ReadStructure(","reason":"Reading the cross-reference structure makes the lock that guards loading object streams, once per open."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreObjectStreams.TryLoadFromObjectStream(","reason":"The first object read from an object stream makes the cache of decoded streams and its lock, once per document that has object streams."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreReading.GetObjectLocked(","reason":"The first object read from an object stream makes the cache of decoded streams, once per document that has object streams."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreReading.Resolve(","reason":"A thread that waits on the store's lock while another thread parses makes the runtime's wait object once; the runtime owns it."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreEditing.Replace(","reason":"The first edit of a document makes the table of edited objects and its key array, once per document that is edited."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.PdfOpenContext.CreateDrawingServices(","reason":"A document opened without drawing services makes empty ones the first time it needs them, once per document."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.PdfNameTable+UnknownNames.","reason":"The first name that the library does not know makes the document's lookup of added names, its lock and its tables, once per document; known names never reach it."},
+  {"type":"","frame":"HyperPdfLibrary.Objects.StoreRepairs.GetRepairs(","reason":"The repairs are returned as a copy, so the caller can keep them while the document goes on reporting. One array per call."},
+  {"type":"System.Byte[]","frame":"HyperPdfLibrary.Document.PdfLinearizationHints.DecodeStreamAsync(","reason":"The decoded hint table is the bytes the hint reader parses, once per hint stream read."},
+  {"type":"HyperPdfLibrary.Document.PdfPageSet","frame":"HyperPdfLibrary.Document.PdfPageBuffer.","reason":"The page set is the result of reading the page tree: it keeps the entry array and the attribute table that the reader built, and every reader of the document shares it. Once per read of the page tree."},
+  {"type":"HyperPdfLibrary.Document.PdfPage[]","frame":"HyperPdf.Benchmarks.RenderWorkloadBenchmarks.ColdOpenAndRender(","reason":"ColdOpenAndRender opens a new document on every operation, and the document's page set makes its table of made pages (inlined into the benchmark method) with the first page it hands out, once per open."},
+  {"type":"HyperPdfLibrary.Graphics.PdfPatternPaint","frame":"HyperPdfLibrary.Content.ContentColors+<>c.<GetPaint>b__","reason":"The cache factory in GetPaint makes the paint for a pattern at a placement the first time it is selected; the render cache then shares it, so a page that selects the same pattern again allocates nothing. The cold benchmark opens a new document, with a new cache, on every operation."},
+  {"type":"Slot[System.Object][]","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBandRows.LoadStrip(","reason":"Queuing helper work to the thread pool (inlined into LoadStrip) makes the runtime grow its own queue segments now and then; the pool owns them and a strip makes none when the pool already has room."},
+  {"type":"System.Object[]","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBandRows.LoadStrip(","reason":"Queuing helper work to the thread pool makes the runtime grow the local work queue of a thread, and a new pool thread makes its thread-static storage; the runtime owns both and they happen once per thread."},
+  {"type":"System.Collections.Concurrent.ConcurrentQueueSegment","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBandRows.LoadStrip(","reason":"Queuing helper work to the thread pool makes the runtime add a segment to its global queue when the current one is full; the pool owns it and reuses the queue."},
+  {"type":"WaitableObject","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxParallelJob.","reason":"A thread that blocks on a monitor for the first time makes the runtime's wait object for itself. The caller blocks only when a helper is still inside the loop after the caller has done its share, so this happens once per thread that ever waits."},
+  {"type":"Microsoft.Win32.SafeHandles.SafeWaitHandle","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxParallelJob.","reason":"The runtime makes the wait handle behind a monitor the first time a thread blocks on it, once per thread that ever waits for a helper."},
+  {"type":"System.Threading.AutoResetEvent","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxParallelJob.","reason":"The runtime makes the event behind a monitor the first time a thread blocks on it, once per thread that ever waits for a helper."},
+  {"type":"HyperPdfLibrary.Graphics.Images.PdfImageData","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxImageDecoder.Convert(","reason":"The decoded image is the result of the decode; its pixels are rented and the record that carries them to the caller is made once per decoded image."},
+  {"type":"System.Buffers.SharedArrayPoolThreadLocalArray[]","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBlockDecoder.Prepare(","reason":"The first rent of a type on a thread makes that thread's table in the shared array pool; the runtime owns it and a thread makes it once."},
+  {"type":"System.Byte[]","frame":"HyperPdf.Cms.CmsEcRules.Check(","reason":"The first read of a certificate's DER bytes makes the certificate export them (inlined into Check). SignedCms makes a new certificate object for each signature it decodes, so the export happens once per validated signature; the bytes are then parsed in place."},
+  {"type":"System.Byte[]","frame":"HyperPdfLibrary.Content.ContentExecution.RunPage(","reason":"The shared array pool makes a content buffer when its bucket is empty, as on a new render thread or after it trimmed itself under memory pressure; a warm thread reuses its buffer."},
+  {"type":"System.Object[]","frame":"HyperPdfLibrary.Content.ContentExecution.RunPage(","reason":"The first code on a new render thread to touch some thread-static state makes that thread's static storage array; the runtime owns it and a thread makes it once."},
+  {"type":"HyperPdfLibrary.Rendering.PdfPageRenderer","frame":"HyperPdf.Engine.HyperPdfRendering.GetRenderer(","reason":"A document makes its renderer with its first render and keeps it until an edit replaces it, so its caches and recorded pages are reused. Once per document."},
+  {"type":"HyperPdfLibrary.Rendering.PdfRenderOptions","frame":"HyperPdf.Engine.HyperPdfFormRuntime.CreateRenderOptions(","reason":"The options record carries the form highlight colour into the document's renderer, which keeps it; it is made with that renderer, once per document."},
+  {"type":"System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Fonts.PdfFont]","frame":"HyperPdfLibrary.Content.ContentText.OpSetFont(","reason":"A document's font cache keeps its first font in inline fields and makes its map only when a second distinct font is used, so later lookups are by key. Once per document that uses two or more fonts."},
+  {"type":"System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell]","frame":"HyperPdfLibrary.Content.ContentColors.SetColor(","reason":"A document's pattern-cell cache keeps its first cell in inline fields and makes its map only when a second distinct pattern is used. Once per document that uses two or more patterns."},
+  {"type":"Entry[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell][]","frame":"HyperPdfLibrary.Content.ContentColors.SetColor(","reason":"The entry array of that pattern-cell map, sized for its first keys. Once per document that uses two or more patterns."},
+  {"type":"System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.ResourcedKey`1[HyperPdfLibrary.Objects.PdfDictionary],HyperPdfLibrary.Graphics.Shadings.PdfShading]","frame":"HyperPdfLibrary.Content.ContentColors.GetShading(","reason":"A document's shading cache keeps its first shading in inline fields and makes its map only when a second distinct shading is used. Once per document that uses two or more shadings."},
+  {"type":"Entry[HyperPdfLibrary.Rendering.ResourcedKey`1[HyperPdfLibrary.Objects.PdfDictionary],HyperPdfLibrary.Graphics.Shadings.PdfShading][]","frame":"HyperPdfLibrary.Content.ContentColors.GetShading(","reason":"The entry array of that shading map, sized for its first keys. Once per document that uses two or more shadings."},
+  {"type":"HyperPdfLibrary.Rendering.ImageDecode","frame":"HyperPdfLibrary.Rendering.ImageCache.Begin(","reason":"The record of one image decode in progress, made by the thread that decodes an image that is not cached, so a second thread waits for it instead of decoding again. Once per decoded image, next to the decode itself; never for a cached image or when a recorded tile is drawn."},
+  {"type":"Entry[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageDecode][]","frame":"HyperPdfLibrary.Rendering.ImageCache.Begin(","reason":"The table of decodes in progress makes its entry array when the first decode of a document starts. Once per document."},
+  {"type":"System.Byte[]","frame":"HyperPdfLibrary.Graphics.Images.PixelMemory.Allocate(","reason":"The pixel array of a decoded image is the decode result: the image cache keeps it (up to 64 MiB) and the recorded page draws from it, so it cannot be pooled. It is zeroed because a truncated image keeps the rows it did not receive as transparent black. Once per image while it stays cached; never when a recorded tile is drawn."},
+  {"type":"HyperPdfLibrary.Filters.ScratchPools","frame":"HyperPdfLibrary.Objects.PdfOpenContext.CreateScratchPools(","reason":"A document whose drawing services do not share decoder buffers makes its own scratch owner the first time one of its streams is decoded. The owner keeps the document reusable decoder buffers and is released with the document. Once per document."},
+  {"type":"System.IO.ReadOnlyMemoryStream","frame":"HyperPdfLibrary.Compat.MemoryStreams.OpenRead(","reason":"XmlReader reads from a Stream, so each XMP packet is wrapped in a 56-byte read-only view of its bytes without copying them. Once per XMP packet parsed, which is once per document for its metadata."},
+  {"type":"HyperPdfLibrary.Structure.ObjectStreamCache","frame":"HyperPdfLibrary.Objects.StoreOpening.RootResolves(","reason":"The first read of a compressed object, the trailer Root, makes the document cache of decoded object streams. Once per document that has object streams."},
+  {"type":"System.Threading.Lock","frame":"HyperPdfLibrary.Objects.StoreOpening.RootResolves(","reason":"The lock of the document cache of decoded object streams, made with the cache when the first compressed object is read. Once per document that has object streams."},
+  {"type":"System.Buffers.SharedArrayPoolThreadLocalArray[]","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBlockLayout.Return(","reason":"The first time a thread returns an array to the runtime's shared array pool, the pool makes that thread's own bucket table. The runtime owns it and each decode worker thread makes it once."},
+  {"type":"Entry[System.Buffers.SharedArrayPoolThreadLocalArray[],System.Object][]","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBlockLayout.Return(","reason":"The runtime's per-thread table of the shared array pool is registered in a conditional table, which grows once per new decode worker thread."},
+  {"type":"Container[System.Buffers.SharedArrayPoolThreadLocalArray[],System.Object]","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBlockLayout.Return(","reason":"The container of that conditional table is replaced once per new decode worker thread."},
+  {"type":"Entry[System.Buffers.SharedArrayPoolThreadLocalArray[],System.Object][]","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBlockDecoder.Prepare(","reason":"The runtime's per-thread table of the shared array pool is registered in a conditional table, which grows once per new decode worker thread."},
+  {"type":"Container[System.Buffers.SharedArrayPoolThreadLocalArray[],System.Object]","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBlockDecoder.Prepare(","reason":"The container of that conditional table is replaced once per new decode worker thread."},
+  {"type":"System.Object[]","frame":"HyperPdfLibrary.Graphics.Images.Jpx.JpxBlockDecoder.Prepare(","reason":"The runtime's per-thread table of the shared array pool keeps its entries in an object array that is made once per new decode worker thread."}
 ]

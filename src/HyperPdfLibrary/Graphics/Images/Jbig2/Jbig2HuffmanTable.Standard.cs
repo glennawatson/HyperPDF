@@ -25,7 +25,7 @@ internal sealed partial class Jbig2HuffmanTable
 
     /// <summary>
     /// Gets the prefix length of every standard table line. Each table lists its ordinary lines, then the lower range
-    /// line, the upper range line and, when present, the out-of-band line, as PDFium does.
+    /// line, the upper range line and, when present, the out-of-band line, in the order of T.88 annex B tables B.1 to B.15.
     /// </summary>
     private static ReadOnlySpan<byte> StandardPrefixLengths =>
     [

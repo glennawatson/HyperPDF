@@ -220,6 +220,15 @@ internal static class ContentPaths
         self.PathPoints++;
     }
 
+    /// <summary>
+    /// Empties a path builder and hands its commands over. A device that keeps no paths gets the interpreter's reused
+    /// path, which shows the commands until the next one is added; any other device gets an independent copy.
+    /// </summary>
+    /// <param name = "self">The owned interpreter state.</param>
+    /// <param name = "builder">The builder.</param>
+    /// <returns>The path.</returns>
+    internal static PdfPath TakePath(ContentInterpreter self, PdfPathBuilder builder) => self.LendsPaths ? builder.Lend(self.ScratchPath) : builder.Detach();
+
     /// <summary>Paints the current path, applies a pending clip, and starts a new path.</summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "fill">Whether to fill.</param>
@@ -239,7 +248,15 @@ internal static class ContentPaths
             self.Path.Close();
         }
 
-        var path = self.Path.Detach();
+        if (!self.PendingClip && (self.Hidden != 0 || (!fill && !stroke)))
+        {
+            // A path that is neither painted nor clipped to has nothing to draw, so it is dropped without making a copy.
+            self.Path.Reset();
+            self.PathPoints = 0;
+            return;
+        }
+
+        var path = ContentPaths.TakePath(self, self.Path);
         self.PathPoints = 0;
         if (self.Hidden == 0)
         {
@@ -270,12 +287,12 @@ internal static class ContentPaths
 
         if (fill && !self.State.Fill.PaintsNothing)
         {
-            self.Device.Fill(path, evenOdd, ref self.State);
+            ContentPainting.Fill(self, path, evenOdd, ref self.State);
         }
 
         if (stroke && !self.State.Stroke.PaintsNothing)
         {
-            self.Device.Stroke(path, ref self.State);
+            ContentPainting.Stroke(self, path, ref self.State);
         }
     }
 
@@ -285,7 +302,7 @@ internal static class ContentPaths
     internal static bool NeedsStrokeKnockout(ContentInterpreter self) => self.State.StrokeAlpha < 1 && self.State.FillAlpha > 0 && !self.State.Fill.PaintsNothing && !self.State.Stroke.PaintsNothing;
 
     /// <summary>
-    /// Fills and strokes a path whose stroke is translucent. As in PDFium, the pair is one knockout group: the stroke
+    /// Fills and strokes a path whose stroke is translucent. ISO 32000-2 11.7.4.4 makes the pair one knockout group: the stroke
     /// replaces the fill under it instead of showing it through, and the group takes the state's blend mode and soft mask.
     /// </summary>
     /// <param name = "self">The owned interpreter state.</param>
@@ -297,13 +314,13 @@ internal static class ContentPaths
         var local = path.Bounds;
         local = local.Inflate(reach, reach);
         var bounds = self.State.Ctm.MapRect(local);
-        var group = new GroupInfo(true, true, 1, self.State.BlendMode, self.State.SoftMask, bounds);
+        var group = new GroupInfo(true, true, 1, self.State.BlendMode, self.State.SoftMask, bounds, self.BlendSpace);
         var inner = self.State;
         inner.BlendMode = PdfBlendMode.Normal;
         inner.SoftMask = null;
         self.Device.BeginGroup(group);
-        self.Device.Fill(path, evenOdd, ref inner);
-        self.Device.Stroke(path, ref inner);
+        ContentPainting.Fill(self, path, evenOdd, ref inner);
+        ContentPainting.Stroke(self, path, ref inner);
         self.Device.EndGroup(group);
     }
 }

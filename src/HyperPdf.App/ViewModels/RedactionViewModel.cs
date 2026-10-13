@@ -20,7 +20,7 @@ namespace HyperPdf.App.ViewModels;
 /// overwritten and keeps its marks, so a cancel or a failure loses nothing.
 /// </summary>
 [DebuggerDisplay("RedactionViewModel: {FileName}, {AreaCount} areas")]
-public sealed partial class RedactionViewModel : ReactiveObject, IDisposable
+public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequest
 {
     /// <summary>The ending of the temporary file the copy is written to.</summary>
     private const string TemporarySuffix = ".redacting";
@@ -247,9 +247,9 @@ public sealed partial class RedactionViewModel : ReactiveObject, IDisposable
         {
             StatusText = "Cancelled. No file was saved.";
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (CopyFailure.IsExpected(ex))
         {
-            Error = $"Could not save the redacted copy: {ex.Message}";
+            Error = $"Could not save the redacted copy: {CopyFailure.Describe(ex)}";
             StatusText = "The redacted copy was not saved.";
         }
         finally
@@ -273,7 +273,8 @@ public sealed partial class RedactionViewModel : ReactiveObject, IDisposable
             RedactionReport report;
             await using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 1, FileOptions.Asynchronous))
             {
-                report = await _redactor.ApplyAsync(stream, settings, cancellationToken).ConfigureAwait(true);
+                // Redaction rewrites the pages before its first await, so the app starts it on the pool to keep Cancel alive.
+                report = await Task.Run(() => _redactor.ApplyAsync(stream, settings, cancellationToken), cancellationToken).ConfigureAwait(true);
             }
 
             FileReplacement.Replace(temporary, path);

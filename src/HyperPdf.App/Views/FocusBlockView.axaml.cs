@@ -6,14 +6,13 @@ using System.Diagnostics;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
-using Avalonia.Input;
 using Avalonia.Media;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Reading;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.ObservableEvents;
 
 namespace HyperPdf.App.Views;
@@ -28,9 +27,6 @@ public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserCon
     /// <summary>The style classes for each kind of block.</summary>
     private static readonly string[] KindClasses = ["paragraph", "heading", "item", "caption", "footnote", "cell", "figure"];
 
-    /// <summary>The theme bindings for the current spoken sentence.</summary>
-    private MultipleDisposable? _marks;
-
     /// <summary>Initializes a new instance of the <see cref="FocusBlockView"/> class.</summary>
     public FocusBlockView()
     {
@@ -38,10 +34,20 @@ public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserCon
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(ShowBlock, OnError));
-            disposables.Add(this.WhenChanged(static v => v.ViewModel!.Spoken, static v => v.ViewModel!.Word, static (_, _) => RxVoid.Default).SubscribeSafe(_ => ShowMarks(), OnError));
+
+            // The sentence being read is marked with a theme brush, so the marks follow a change of resources.
+            disposables.Add(this.WhenChanged(static v => v.ViewModel!.Spoken, static v => v.ViewModel!.Word, static (_, _) => RxVoid.Default)
+                .Merge(this.Events().ResourcesChanged.AsVoid)
+                .SubscribeSafe(_ => ShowMarks(), OnError));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsDimmed, static v => v.Opacity, static dimmed => dimmed ? DimmedOpacity : 1));
-            disposables.Add(this.Events().ContextRequested.SubscribeSafe(OnContextRequested, OnError));
-            disposables.Add(EmptyDisposable.Instance.DisposeWith(ReleaseMarks));
+            disposables.Add(this.ContextRequests
+                .Where(_ => FocusMode is not null)
+                .MarkHandled()
+                .InjectLatest(this.WhenChanged(static v => v.ViewModel))
+                .SubscribeSafe(
+                    block => new ContextMenu { ItemsSource = new[] { new MenuItem { Header = "_Read Aloud from Here", Command = FocusMode?.ReadFromHereCommand, CommandParameter = block } } }
+                        .Open(this),
+                    OnError));
         });
     }
 
@@ -56,7 +62,7 @@ public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserCon
     /// <param name="spoken">The sentence, relative to the block.</param>
     /// <param name="word">The word, relative to the block.</param>
     /// <returns>Each run's start, length and whether it is the sentence or the word.</returns>
-    internal static List<(int Start, int Length, bool Spoken, bool Word)> Split(int length, TextRange spoken, TextRange word)
+    internal static List<BlockRun> Split(int length, TextRange spoken, TextRange word)
     {
         var cuts = new SortedSet<int> { 0, length };
         foreach (var range in (ReadOnlySpan<TextRange>)[spoken, word])
@@ -70,13 +76,13 @@ public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserCon
             _ = cuts.Add(Math.Clamp(range.End, 0, length));
         }
 
-        var runs = new List<(int, int, bool, bool)>(cuts.Count);
+        var runs = new List<BlockRun>(cuts.Count);
         var previous = -1;
         foreach (var cut in cuts)
         {
             if (previous >= 0 && cut > previous)
             {
-                runs.Add((previous, cut - previous, Inside(spoken, previous), Inside(word, previous)));
+                runs.Add(new(previous, cut - previous, Inside(spoken, previous), Inside(word, previous)));
             }
 
             previous = cut;
@@ -118,7 +124,6 @@ public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserCon
     /// <summary>Shows the text, marking the sentence and word being read aloud.</summary>
     private void ShowMarks()
     {
-        ReleaseMarks();
         var block = ViewModel;
         Body.Inlines?.Clear();
         if (block is null)
@@ -134,14 +139,13 @@ public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserCon
         }
 
         Body.Text = null;
-        _marks = [];
         var inlines = Body.Inlines ??= [];
         foreach (var (start, length, spoken, word) in Split(block.Text.Length, block.Spoken, block.Word))
         {
             var run = new Run(block.Text.Substring(start, length));
             if (spoken)
             {
-                _marks.Add(run.Bind(TextElement.BackgroundProperty, this.GetResourceObservable("AppSpokenBrush")));
+                run.Background = this.FindResource("AppSpokenBrush") as IBrush;
             }
 
             if (word)
@@ -151,26 +155,5 @@ public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserCon
 
             inlines.Add(run);
         }
-    }
-
-    /// <summary>Releases the theme bindings of the spoken sentence.</summary>
-    private void ReleaseMarks()
-    {
-        _marks?.Dispose();
-        _marks = null;
-    }
-
-    /// <summary>Offers Read Aloud from Here for the block.</summary>
-    /// <param name="e">The request.</param>
-    private void OnContextRequested(ContextRequestedEventArgs e)
-    {
-        if (FocusMode is not { } focus || ViewModel is not { } block)
-        {
-            return;
-        }
-
-        var item = new MenuItem { Header = "_Read Aloud from Here", Command = focus.ReadFromHereCommand, CommandParameter = block };
-        new ContextMenu { ItemsSource = new[] { item } }.Open(this);
-        e.Handled = true;
     }
 }

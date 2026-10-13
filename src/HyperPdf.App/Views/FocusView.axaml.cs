@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -58,6 +59,12 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
     /// <summary>The space kept above the place scrolled to.</summary>
     private const double ScrollMargin = 12;
 
+    /// <summary>How many times a scroll aligns the place again after the layout changes under it.</summary>
+    private const int MaxAlignAttempts = 6;
+
+    /// <summary>How far the scroll position may move, in pixels, and still count as settled.</summary>
+    private const double AlignTolerance = 0.5;
+
     /// <summary>The luminance above which text on the page is dark.</summary>
     private const double LightPage = 0.55;
 
@@ -68,18 +75,22 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
     private static readonly FontFamily SerifFamily = new("Noto Serif, Source Serif 4, DejaVu Serif, Georgia, Cambria, Times New Roman, serif");
 
     /// <summary>The page and text colours of each page colour choice after the first, which follows the pages.</summary>
-    private static readonly (Color Page, Color Text)[] PageColours =
+    private static readonly FocusColours[] PageColours =
     [
-        (Color.FromRgb(0xF4, 0xEC, 0xD8), Color.FromRgb(0x3B, 0x3A, 0x36)),
-        (Color.FromRgb(0xE3, 0xEB, 0xDD), Color.FromRgb(0x2F, 0x3A, 0x2F)),
-        (Color.FromRgb(0x2A, 0x28, 0x26), Color.FromRgb(0xD8, 0xD2, 0xC8)),
-        (Colors.White, Color.FromRgb(0x1A, 0x1A, 0x1A)),
+        new(Color.FromRgb(0xF4, 0xEC, 0xD8), Color.FromRgb(0x3B, 0x3A, 0x36)),
+        new(Color.FromRgb(0xE3, 0xEB, 0xDD), Color.FromRgb(0x2F, 0x3A, 0x2F)),
+        new(Color.FromRgb(0x2A, 0x28, 0x26), Color.FromRgb(0xD8, 0xD2, 0xC8)),
+        new(Colors.White, Color.FromRgb(0x1A, 0x1A, 0x1A)),
     ];
+
+    /// <summary>The Focus Mode the view shows. Events read it from here, not from a field.</summary>
+    private readonly IObservable<FocusModeViewModel?> _focus;
 
     /// <summary>Initializes a new instance of the <see cref="FocusView"/> class.</summary>
     public FocusView()
     {
         InitializeComponent();
+        _focus = this.WhenChanged(static v => v.ViewModel);
         ColourBox.ItemsSource = FocusModeViewModel.PageColourOptions;
         FontBox.ItemsSource = FocusModeViewModel.FontOptions;
         ColourBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
@@ -107,10 +118,17 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
                     static v => v.ViewModel!.PageColour,
                     static v => v.ViewModel!.Font,
                     static (_, _, _, _, _, _) => RxVoid.Default)
-                .SubscribeSafe(_ => ApplySettings(), OnError));
-            disposables.Add(this.GetResourceObservable("AppPaperBrush").SubscribeSafe(_ => ApplySettings(), OnError));
-            disposables.Add(this.WhenChanged(static v => v.ViewModel!.ScrollRequests).SwitchMap(static stream => stream).SubscribeSafe(request => _ = ScrollToAsync(request), OnError));
-            disposables.Add(this.WhenChanged(static v => v.FocusScroller.Offset).SubscribeSafe(_ => ReportTop(), OnError));
+                .Merge(this.Events().ResourcesChanged.AsVoid)
+                .InjectLatest(_focus)
+                .SubscribeSafe(ApplySettings, OnError));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel!.ScrollRequests)
+                .SwitchMap(static stream => stream)
+                .Inject(_focus)
+
+                // A newer request cancels the older scroll, which may still be waiting for its page to load.
+                .SwitchAsync(ScrollToAsync)
+                .SubscribeSafe(static _ => { }, OnError));
+            disposables.Add(this.WhenChanged(static v => v.FocusScroller.Offset).InjectLatest(_focus).SubscribeSafe(ReportTop, OnError));
         });
     }
 
@@ -149,13 +167,9 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
     /// Turns the settings into the resources the styles use. They are set on the inner panel, not this control, so
     /// changing them does not re-trigger this control's own resource observable.
     /// </summary>
-    private void ApplySettings()
+    /// <param name="focus">The Focus Mode whose settings are applied.</param>
+    private void ApplySettings(FocusModeViewModel focus)
     {
-        if (ViewModel is not { } focus)
-        {
-            return;
-        }
-
         var size = focus.FontSize;
         var paragraph = size * focus.ParagraphSpacing;
         Root.Resources["FocusFontSize"] = size;
@@ -170,6 +184,7 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
         PageList.MaxWidth = focus.TextWidth * size * CharacterWidth;
 
         var (page, text) = PageColour(focus.PageColour);
+
         Root.Resources["FocusBackground"] = new SolidColorBrush(page);
         Root.Resources["FocusForeground"] = new SolidColorBrush(text);
         Root.Resources["FocusMutedForeground"] = new SolidColorBrush(Color.FromArgb(MutedAlpha, text.R, text.G, text.B));
@@ -178,7 +193,7 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
     /// <summary>Gets the page and text colours of a choice; the first follows the app's page colour.</summary>
     /// <param name="choice">The choice.</param>
     /// <returns>The colours.</returns>
-    private (Color Page, Color Text) PageColour(int choice)
+    private FocusColours PageColour(int choice)
     {
         if (choice > 0 && choice <= PageColours.Length)
         {
@@ -186,25 +201,44 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
         }
 
         var paper = this.TryFindResource("AppPaperBrush", out var found) && found is ISolidColorBrush brush ? brush.Color : Colors.White;
-        return (paper, Luminance(paper) > LightPage ? Color.FromRgb(0x22, 0x22, 0x22) : Color.FromRgb(0xE4, 0xE0, 0xD8));
+        return new(paper, Luminance(paper) > LightPage ? Color.FromRgb(0x22, 0x22, 0x22) : Color.FromRgb(0xE4, 0xE0, 0xD8));
     }
 
     /// <summary>Brings a place into view: the page, then the block nearest the place, at the top.</summary>
-    /// <param name="request">The place.</param>
+    /// <param name="scroll">The place and the Focus Mode that has it.</param>
+    /// <param name="token">Cancelled when a newer request replaces this one.</param>
     /// <returns>A task.</returns>
-    private async Task ScrollToAsync(FocusScrollRequest request)
+    private async Task<RxVoid> ScrollToAsync(Injected<FocusScrollRequest, FocusModeViewModel> scroll, CancellationToken token)
     {
-        if (ViewModel is not { } focus || request.PageIndex < 0 || request.PageIndex >= focus.Pages.Count)
+        var (request, focus) = scroll;
+        if (request.PageIndex < 0 || request.PageIndex >= focus.Pages.Count)
         {
-            return;
+            return RxVoid.Default;
         }
 
-        PageList.ScrollIntoView(request.PageIndex);
         await focus.Pages[request.PageIndex].LoadAsync().ConfigureAwait(true);
-        await NextLayout().ToTask().ConfigureAwait(true);
+
+        // Pages near the view load as they come into range and change height, so the place is aligned again after each
+        // layout pass, a bounded number of times, until it stops moving. A newer request owns the position once it arrives.
+        var moved = true;
+        for (var attempt = 0; attempt < MaxAlignAttempts && moved; attempt++)
+        {
+            await NextLayout().ToTask(token).ConfigureAwait(true);
+            moved = !token.IsCancellationRequested && AlignTo(request, focus);
+        }
+
+        return RxVoid.Default;
+    }
+
+    /// <summary>Scrolls so the block nearest a place is at the top of the view.</summary>
+    /// <param name="request">The place.</param>
+    /// <param name="focus">The Focus Mode that has it.</param>
+    /// <returns>Whether the scroll position changed, so the place may have moved again.</returns>
+    private bool AlignTo(FocusScrollRequest request, FocusModeViewModel focus)
+    {
         if (FindPageView(request.PageIndex) is not { } pageView || FocusScroller.Content is not Visual content)
         {
-            return;
+            return false;
         }
 
         Control target = pageView;
@@ -216,10 +250,14 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
             }
         }
 
-        if (target.TranslatePoint(default, content) is { } point)
+        if (target.TranslatePoint(default, content) is not { } point)
         {
-            FocusScroller.Offset = new(FocusScroller.Offset.X, Math.Max(0, point.Y - ScrollMargin));
+            return false;
         }
+
+        var before = FocusScroller.Offset;
+        FocusScroller.Offset = new(before.X, Math.Max(0, point.Y - ScrollMargin));
+        return Math.Abs(FocusScroller.Offset.Y - before.Y) > AlignTolerance;
     }
 
     /// <summary>Creates a signal that fires once when the next layout pass ends.</summary>
@@ -248,13 +286,9 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
     }
 
     /// <summary>Reports the block at the top of the view, so switching back to the pages keeps the place.</summary>
-    private void ReportTop()
+    /// <param name="focus">The Focus Mode to tell.</param>
+    private void ReportTop(FocusModeViewModel focus)
     {
-        if (ViewModel is not { } focus)
-        {
-            return;
-        }
-
         foreach (var page in PageViews())
         {
             if (page.TranslatePoint(default, FocusScroller) is not { } pageTop || pageTop.Y + page.Bounds.Height <= 0 || page.ViewModel is not { } pageModel)

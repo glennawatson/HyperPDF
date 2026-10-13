@@ -16,6 +16,27 @@ public sealed class WordListSpellCheckerTests
     /// <summary>The words in each list.</summary>
     private const string Words = "hello\nworld\nreceive\nrelieve\nform\nBritain\n";
 
+    /// <summary>A word in the list, with a capital.</summary>
+    private const string Capitalised = "Receive";
+
+    /// <summary>A word that is not in the list.</summary>
+    private const string Misspelt = "recieve";
+
+    /// <summary>The checkers made and disposed while words are checked.</summary>
+    private const int DisposeRounds = 200;
+
+    /// <summary>The threads that check words.</summary>
+    private const int CheckingThreads = 4;
+
+    /// <summary>The size of the pool arrays a small word list uses.</summary>
+    private const int SmallArray = 16;
+
+    /// <summary>The arrays rented after the dispose, enough to cover both the table and the word starts.</summary>
+    private const int PoisonedArrays = 4;
+
+    /// <summary>The length of the word whose hash takes long enough to overlap the dispose.</summary>
+    private const int LongWordLength = 2_000_000;
+
     /// <summary>Verifies words are checked without case, and corrections keep the typed capitals.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -24,14 +45,14 @@ public sealed class WordListSpellCheckerTests
         var folder = CreateWordLists(British);
         try
         {
-            var checker = new WordListSpellChecker(Path.Combine(folder, British));
+            using var checker = new WordListSpellChecker(Path.Combine(folder, British));
 
             await Assert.That(checker.IsAvailable).IsTrue();
             await Assert.That(checker.Language).IsEqualTo(British);
-            await Assert.That(checker.IsCorrect("Receive")).IsTrue();
+            await Assert.That(checker.IsCorrect(Capitalised)).IsTrue();
             await Assert.That(checker.IsCorrect("britain")).IsTrue();
-            await Assert.That(checker.IsCorrect("recieve")).IsFalse();
-            await Assert.That(checker.Suggest("recieve")).Contains("receive");
+            await Assert.That(checker.IsCorrect(Misspelt)).IsFalse();
+            await Assert.That(checker.Suggest(Misspelt)).Contains("receive");
             await Assert.That(checker.Suggest("Recieve")).Contains("Receive");
             await Assert.That(checker.Suggest("RECIEVE")).Contains("RECEIVE");
         }
@@ -61,6 +82,87 @@ public sealed class WordListSpellCheckerTests
         finally
         {
             Directory.Delete(folder, true);
+        }
+    }
+
+    /// <summary>
+    /// Checks words on several threads while the checker is disposed and other threads fill returned pool arrays with bad
+    /// values: a check never reads an array that went back to the pool.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the test.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DisposeWhileChecksRunNeverReadsReturnedArrays(CancellationToken cancellationToken)
+    {
+        var folder = CreateWordLists(British);
+        try
+        {
+            var failures = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
+            for (var round = 0; round < DisposeRounds; round++)
+            {
+                var checker = new WordListSpellChecker(Path.Combine(folder, British));
+                using var stop = new CancellationTokenSource();
+                var tasks = new List<Task>();
+                for (var reader = 0; reader < CheckingThreads; reader++)
+                {
+                    tasks.Add(Task.Run(() => CheckUntilStopped(checker, failures, stop.Token), cancellationToken));
+                }
+
+                // Hashing the long word takes long enough that a check is still running when the checker is disposed.
+                await Task.Delay(TimeSpan.FromMilliseconds(1), cancellationToken);
+                tasks.Add(Task.Run(() => DisposeAndPoison(checker), cancellationToken));
+                await tasks[^1];
+                await stop.CancelAsync();
+                await Task.WhenAll(tasks);
+            }
+
+            await Assert.That(failures.Count).IsEqualTo(0);
+        }
+        finally
+        {
+            Directory.Delete(folder, true);
+        }
+    }
+
+    /// <summary>Checks words until stopped, recording any exception.</summary>
+    /// <param name="checker">The checker.</param>
+    /// <param name="failures">Receives the exceptions.</param>
+    /// <param name="stop">Stops the loop.</param>
+    private static void CheckUntilStopped(WordListSpellChecker checker, System.Collections.Concurrent.ConcurrentQueue<Exception> failures, CancellationToken stop)
+    {
+        try
+        {
+            var longWord = new string('a', LongWordLength);
+            while (!stop.IsCancellationRequested)
+            {
+                _ = checker.IsCorrect(Capitalised);
+                _ = checker.IsCorrect(longWord);
+            }
+        }
+        catch (Exception ex)
+        {
+            failures.Enqueue(ex);
+        }
+    }
+
+    /// <summary>
+    /// Disposes the checker, then rents the small int arrays the pool just returned and fills them with a value no word
+    /// table holds, on the same thread so the pool hands them back, so a check still reading them fails loudly.
+    /// </summary>
+    /// <param name="checker">The checker.</param>
+    private static void DisposeAndPoison(WordListSpellChecker checker)
+    {
+        checker.Dispose();
+        var rented = new int[PoisonedArrays][];
+        for (var i = 0; i < rented.Length; i++)
+        {
+            rented[i] = System.Buffers.ArrayPool<int>.Shared.Rent(SmallArray);
+            rented[i].AsSpan().Fill(int.MaxValue);
+        }
+
+        foreach (var array in rented)
+        {
+            System.Buffers.ArrayPool<int>.Shared.Return(array);
         }
     }
 

@@ -137,25 +137,25 @@ public static class PdfDocumentActions
     private static PdfActionNode[] ReadNext(PdfDocument document, PdfDictionary action, HashSet<PdfDictionary> visited, int depth, ref int budget)
     {
         var next = action.Get(KnownName.Next);
-        var nodes = new List<PdfActionNode>();
-        if (depth + 1 >= PdfLimits.MaxNesting)
+        if (depth + 1 >= PdfLimits.MaxNesting || next.IsNull)
         {
             return [];
         }
 
         if (next.AsArray() is { } array)
         {
+            var nodes = new List<PdfActionNode>(Math.Min(array.Count, budget));
             for (var i = 0; i < array.Count && budget > 0; i++)
             {
                 PdfDocumentActions.AddNext(document, nodes, array.GetDictionary(i), visited, depth, ref budget);
             }
-        }
-        else if (budget > 0)
-        {
-            PdfDocumentActions.AddNext(document, nodes, next.AsDictionary(), visited, depth, ref budget);
+
+            return [.. nodes];
         }
 
-        return [.. nodes];
+        return budget > 0 && next.AsDictionary() is { } single && !visited.Contains(single)
+            ? [PdfDocumentActions.ReadActionNode(document, single, visited, depth + 1, ref budget)]
+            : [];
     }
 
     /// <summary>Adds a next action unless it was read already.</summary>

@@ -197,8 +197,8 @@ public sealed class FunctionTests
     {
         await Assert.That(Run(PostScript("{ pop pop }", 1), Half)[0]).IsEqualTo(RangeLow).Within(Tolerance);
 
-        // Like PDFium, a division by zero pushes zero instead of failing.
-        await Assert.That(Run(PostScript("{ 0 div }", 1), Half)[0]).IsEqualTo(0).Within(Tolerance);
+        // A division by zero is an undefinedresult error (ISO 32000-2 7.10.5), so the function fails.
+        await Assert.That(Run(PostScript("{ 0 div }", 1), Half)[0]).IsEqualTo(RangeLow).Within(Tolerance);
         await Assert.That(PdfFunction.Parse(PostScriptValue("{ frobnicate }", 1))).IsNull();
         await Assert.That(PdfFunction.Parse(PostScriptValue("{ { 1 } }", 1))).IsNull();
     }

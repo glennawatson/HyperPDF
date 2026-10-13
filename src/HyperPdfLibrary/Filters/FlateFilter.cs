@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Compat;
+using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Filters;
 
@@ -42,17 +43,7 @@ internal static class FlateFilter
     /// <param name="output">The buffer receiving the decoded bytes.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see langword="true"/> when the data ended cleanly; <see langword="false"/> when it was truncated or damaged and the part before the fault was kept.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken = default) =>
-        TryDecode(input, ref output, null, cancellationToken);
-
-    /// <summary>Decodes Flate data with independently leased decoders owned by a document.</summary>
-    /// <param name="input">The compressed bytes.</param>
-    /// <param name="output">The buffer receiving the decoded bytes.</param>
-    /// <param name="decoders">The document's decoder state, or null for a standalone decode.</param>
-    /// <param name="cancellationToken">Cancels this operation.</param>
-    /// <returns>Whether the compressed data ended cleanly.</returns>
-    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output, FlateDecoderState? decoders, CancellationToken cancellationToken)
+    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken = default)
     {
         if (input.IsEmpty)
         {
@@ -63,13 +54,13 @@ internal static class FlateFilter
         if (HasZLibHeader(input))
         {
             // A missing or wrong Adler-32 checksum is harmless: the deflate data itself ended properly, which the raw decoder sees.
-            return ZLibCodec.Decompress(input, raw: false, ref output, decoders, cancellationToken) || PreferLongerSkippingHeader(input, start, false, ref output, decoders, cancellationToken);
+            return ZLibCodec.Decompress(input, raw: false, ref output, cancellationToken) || PreferLongerSkippingHeader(input, start, false, ref output, cancellationToken);
         }
 
-        var clean = ZLibCodec.Decompress(input, raw: true, ref output, decoders, cancellationToken);
+        var clean = ZLibCodec.Decompress(input, raw: true, ref output, cancellationToken);
         if (input.Length > ZLibHeaderLength && (input[0] & MethodMask) == DeflateMethod)
         {
-            clean = PreferLongerSkippingHeader(input, start, clean, ref output, decoders, cancellationToken);
+            clean = PreferLongerSkippingHeader(input, start, clean, ref output, cancellationToken);
         }
 
         return clean;
@@ -81,6 +72,13 @@ internal static class FlateFilter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Encode(ReadOnlySpan<byte> input, ref PooledBuffer output) => ZLibCodec.Compress(input, ref output);
 
+    /// <summary>Encodes data as zlib at a level.</summary>
+    /// <param name="input">The bytes.</param>
+    /// <param name="level">The level.</param>
+    /// <param name="output">The buffer receiving the compressed bytes.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Encode(ReadOnlySpan<byte> input, PdfCompressionLevel level, ref PooledBuffer output) => ZLibCodec.Compress(input, level, ref output);
+
     /// <summary>
     /// A damaged zlib header (a bad check value) still leaves a deflate body after two bytes. Decodes from there and keeps
     /// whichever of the two attempts produced more.
@@ -89,15 +87,14 @@ internal static class FlateFilter
     /// <param name="start">Where this decode began in the output.</param>
     /// <param name="firstClean">Whether the first attempt ended cleanly.</param>
     /// <param name="output">The output, holding the first attempt.</param>
-    /// <param name="decoders">The document's decoder state, or null for a standalone decode.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>Whether the attempt kept ended cleanly.</returns>
-    private static bool PreferLongerSkippingHeader(ReadOnlySpan<byte> input, int start, bool firstClean, ref PooledBuffer output, FlateDecoderState? decoders, CancellationToken cancellationToken)
+    private static bool PreferLongerSkippingHeader(ReadOnlySpan<byte> input, int start, bool firstClean, ref PooledBuffer output, CancellationToken cancellationToken)
     {
         var second = default(PooledBuffer);
         try
         {
-            var secondClean = ZLibCodec.Decompress(input[ZLibHeaderLength..], raw: true, ref second, decoders, cancellationToken);
+            var secondClean = ZLibCodec.Decompress(input[ZLibHeaderLength..], raw: true, ref second, cancellationToken);
             if (second.Length > output.Length - start || (secondClean && second.Length == output.Length - start))
             {
                 output.Length = start;

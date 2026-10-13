@@ -131,6 +131,32 @@ public sealed class FocusRecoveryTests
         }
     }
 
+    /// <summary>A check still walking for one focus change is cancelled when focus moves on to another control.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task NewFocusCancelsTheCheckStillRunning()
+    {
+        using var check = new FakeFocusAnnouncementCheck(true) { Hold = new(TaskCreationOptions.RunContinuationsAsynchronously) };
+        var (window, box) = ShowTextBox();
+        using var repair = new FocusAnnouncementRepair(check, () => [window]);
+        try
+        {
+            _ = box.Focus();
+            _ = await UiWait.UntilAsync(() => check.Checks == 1, static () => "The first check did not start.");
+            var other = ((Panel)window.Content!).Children.OfType<Button>().Single();
+
+            _ = other.Focus();
+
+            // The second check starts only after the first one's token is cancelled, so waiting for both signals is enough.
+            _ = await UiWait.UntilAsync(() => check.Cancelled == 1 && check.Checks == ArrivalAndRepeat, () => $"{check.Checks} checks, {check.Cancelled} cancelled.");
+            await Assert.That(string.Join("; ", check.Events)).IsEqualTo("entered 1; entered 2, previous cancelled: True");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     /// <summary>
     /// Repeating focus on a form field's editor keeps the field open. The editor commits when it loses focus, and the
     /// repeat moves focus away for a moment.
@@ -259,13 +285,15 @@ public sealed class FocusRecoveryTests
                 repair.OnGotFocus(focus);
             }
 
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            for (var i = 0; i < repetitions; i++)
+            var allocated = AllocationProbe.Minimum(() =>
             {
-                repair.OnGotFocus(focus);
-            }
+                for (var i = 0; i < repetitions; i++)
+                {
+                    repair.OnGotFocus(focus);
+                }
+            });
 
-            await Assert.That(GC.GetAllocatedBytesForCurrentThread() - before).IsEqualTo(0);
+            await Assert.That(allocated).IsEqualTo(0);
         }
         finally
         {

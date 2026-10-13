@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Rendering;
+using HyperPdf.Engine.Tests.PdfiumReference;
 
 namespace HyperPdf.Engine.Tests.RenderingComparison;
 
@@ -18,19 +19,13 @@ internal static unsafe partial class PdfiumReferenceRendering
     /// <summary>The bytes in one BGRA pixel.</summary>
     private const int BytesPerPixel = 4;
 
-    /// <summary>Serializes calls because PDFium's document and rendering APIs are not thread safe.</summary>
-    private static readonly Lock Sync = new();
-
-    /// <summary>Initializes the native reference renderer once for the test process.</summary>
-    static PdfiumReferenceRendering() => NativeMethods.FPDF_InitLibrary();
-
     /// <summary>Gets the number of pages from the native PDFium document.</summary>
     /// <param name="pdf">The PDF bytes.</param>
     /// <returns>The page count.</returns>
     /// <exception cref="InvalidDataException">PDFium cannot open the PDF.</exception>
     internal static int PageCount(byte[] pdf)
     {
-        lock (Sync)
+        using (PdfiumReferenceLibrary.EnterScope())
         {
             fixed (byte* data = pdf)
             {
@@ -70,7 +65,7 @@ internal static unsafe partial class PdfiumReferenceRendering
     /// <exception cref="InvalidDataException">PDFium cannot open, size or render the page.</exception>
     internal static ComparisonRaster Render(byte[] pdf, in PageRenderInfo request, int tileWidth = 0, int tileHeight = 0)
     {
-        lock (Sync)
+        using (PdfiumReferenceLibrary.EnterScope())
         {
             return RenderLocked(pdf, request, tileWidth, tileHeight);
         }
@@ -191,11 +186,6 @@ internal static unsafe partial class PdfiumReferenceRendering
     /// <summary>The native functions needed by the rendering comparisons.</summary>
     private static unsafe partial class NativeMethods
     {
-        /// <summary>Initializes PDFium.</summary>
-        [LibraryImport("pdfium")]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
-        internal static partial void FPDF_InitLibrary();
-
         /// <summary>Opens PDF bytes while the pinned buffer remains alive.</summary>
         /// <param name="data">The pinned bytes.</param>
         /// <param name="size">The byte count.</param>

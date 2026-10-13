@@ -12,4 +12,8 @@ namespace HyperPdf.Core.Signatures;
 /// <param name="IsValid">Whether the timestamp matches what it stamps and its own signature checks out.</param>
 /// <param name="IsTrusted">Whether the authority's certificate chains to a certificate this computer trusts.</param>
 [DebuggerDisplay("SignatureTimestamp: {Authority} at {Time}: valid {IsValid}, trusted {IsTrusted}")]
-public sealed record SignatureTimestamp(DateTimeOffset Time, string Authority, bool IsValid, bool IsTrusted);
+public sealed record SignatureTimestamp(DateTimeOffset Time, string Authority, bool IsValid, bool IsTrusted)
+{
+    /// <summary>Gets a value indicating whether this computer could check the timestamp; false when its digest, such as SHA-3, is not available here.</summary>
+    public bool IsSupported { get; init; } = true;
+}

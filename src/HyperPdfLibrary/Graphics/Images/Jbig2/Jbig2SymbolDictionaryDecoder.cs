@@ -7,7 +7,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 /// <summary>
 /// The symbol dictionary decoding procedure (T.88 section 6.5): height classes of symbols decoded with the generic
 /// region procedure, by refinement or aggregation of earlier symbols, or, with Huffman coding, as collective bitmaps;
-/// then the export flags pick the symbols the dictionary offers. Checks follow PDFium.
+/// then the export flags pick the symbols the dictionary offers. Sizes and counts are checked against <see cref="Jbig2Limits"/>.
 /// </summary>
 internal static partial class Jbig2SymbolDictionaryDecoder
 {

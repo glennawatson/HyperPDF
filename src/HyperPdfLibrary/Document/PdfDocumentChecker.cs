@@ -95,7 +95,8 @@ internal sealed class PdfDocumentChecker
     internal void CheckStructure()
     {
         _context.ThrowIfCancelled();
-        new PageTreeChecker(_document.Objects, _faults).Check();
+        var pageTree = new PageTreeChecker(_document.Objects, _faults);
+        pageTree.Check();
         CheckLinearization();
     }
 

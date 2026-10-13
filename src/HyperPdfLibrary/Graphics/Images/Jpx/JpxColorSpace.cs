@@ -4,7 +4,7 @@
 
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
-/// <summary>The colour space a JPEG 2000 file declares, as PDFium reports it.</summary>
+/// <summary>The colour space a JPEG 2000 file declares in its colour specification box (T.800 I.5.3.3).</summary>
 internal enum JpxColorSpace
 {
     /// <summary>A raw codestream, which declares none.</summary>

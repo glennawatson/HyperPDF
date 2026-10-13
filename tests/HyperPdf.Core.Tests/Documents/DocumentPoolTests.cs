@@ -4,12 +4,16 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Tests.Fakes;
+using HyperPdf.TestAssets;
 
 namespace HyperPdf.Core.Tests.Documents;
 
 /// <summary>Tests for <see cref="DocumentPool"/>.</summary>
 public sealed class DocumentPoolTests
 {
+    /// <summary>The longest a test waits for the clock to move.</summary>
+    private static readonly TimeSpan ClockLimit = TimeSpan.FromSeconds(30);
+
     /// <summary>Verifies documents are opened lazily and the least recently used are closed beyond capacity.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -27,9 +31,9 @@ public sealed class DocumentPoolTests
 
         await Assert.That(engine.Opened.Count).IsEqualTo(0);
         _ = sources[0].Acquire();
-        await Task.Delay(1);
+        await WaitForClockToPassAsync(sources[0].LastUsed);
         _ = sources[1].Acquire();
-        await Task.Delay(1);
+        await WaitForClockToPassAsync(sources[1].LastUsed);
         _ = sources[2].Acquire();
 
         await Assert.That(pool.OpenCount).IsEqualTo(capacity);
@@ -68,17 +72,23 @@ public sealed class DocumentPoolTests
         var source = pool.Create("warm.pdf", null);
         var first = await source.AcquireAsync(CancellationToken.None);
         _ = await source.AcquireAsync(CancellationToken.None);
-        var before = GC.GetAllocatedBytesForCurrentThread();
         const int repetitions = 1000;
         var completed = true;
-        for (var index = 0; index < repetitions; index++)
+        var attempts = new AllocationAttempts();
+        while (attempts.Next())
         {
-            var opening = source.AcquireAsync(CancellationToken.None);
-            completed &= opening.IsCompletedSuccessfully;
-            _ = await opening;
+            for (var index = 0; index < repetitions; index++)
+            {
+                var opening = source.AcquireAsync(CancellationToken.None);
+                completed &= opening.IsCompletedSuccessfully;
+                _ = await opening;
+            }
+
+            attempts.Stop();
         }
 
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = attempts.Smallest;
+
         await Assert.That(completed).IsTrue();
         await Assert.That(allocated).IsEqualTo(0);
         await Assert.That(first).IsSameReferenceAs(source.Acquire());
@@ -123,6 +133,22 @@ public sealed class DocumentPoolTests
         await Assert.That(engine.LastCertificatePath).IsEqualTo("recipient.pfx");
         await Assert.That(engine.LastPassword).IsEqualTo("secret");
         await Assert.That(engine.NormalOpens).IsEqualTo(0);
+    }
+
+    /// <summary>
+    /// Waits until the clock the pool stamps use has moved past a stamp, so the next acquire is stamped later. The clock
+    /// can tick as slowly as every 16 milliseconds, so a fixed short delay does not always separate two stamps.
+    /// </summary>
+    /// <param name="stamp">The stamp to get past.</param>
+    /// <returns>A task.</returns>
+    private static async Task WaitForClockToPassAsync(long stamp)
+    {
+        using var timeout = new CancellationTokenSource(ClockLimit);
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(1));
+        while (Environment.TickCount64 <= stamp)
+        {
+            _ = await timer.WaitForNextTickAsync(timeout.Token);
+        }
     }
 
     /// <summary>Holds one async open until the test publishes a result.</summary>

@@ -9,7 +9,8 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
 /// The decoded components of a codestream: one plane of integer samples per component at its own resolution, already
-/// level-shifted and clamped to the component's range. The planes are pooled; dispose to return them.
+/// level-shifted and clamped to the component's range. The planes are pooled; dispose to return them. They hold the whole
+/// image, so the PDF image path does not use them: it reads rows from <see cref="JpxDecoder"/> as it converts them.
 /// </summary>
 [DebuggerDisplay("JpxDecodedImage: {Geometry.Image.Width}x{Geometry.Image.Height}")]
 internal sealed class JpxDecodedImage : IDisposable
@@ -37,6 +38,16 @@ internal sealed class JpxDecodedImage : IDisposable
     /// <param name="reductionLevels">The omitted finest levels.</param>
     /// <param name="scratchPools">The bounded cache.</param>
     internal JpxDecodedImage(JpxGeometry geometry, int reductionLevels, ScratchPools scratchPools)
+        : this(geometry, reductionLevels, scratchPools, JpxComponentMask.All)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="JpxDecodedImage"/> class with planes only for the components the output reads.</summary>
+    /// <param name="geometry">The codestream geometry.</param>
+    /// <param name="reductionLevels">The omitted finest levels.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="wanted">The components to keep planes for; the others have an empty plane but still have an area.</param>
+    internal JpxDecodedImage(JpxGeometry geometry, int reductionLevels, ScratchPools scratchPools, uint wanted)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(reductionLevels);
         _scratchPools = scratchPools;
@@ -49,6 +60,12 @@ internal sealed class JpxDecodedImage : IDisposable
             var area = geometry.ToComponent(geometry.Image, c).Reduce(reductionLevels);
             var length = area.Width * area.Height;
             Areas[c] = area;
+            if (!JpxComponentMask.Contains(wanted, c))
+            {
+                Planes[c] = [];
+                continue;
+            }
+
             Planes[c] = scratchPools.Get<int>().Rent(length);
             Planes[c].AsSpan(0, length).Clear();
         }

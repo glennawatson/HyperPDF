@@ -25,6 +25,9 @@ internal sealed class NullPictureDevice(PdfRect cull) : IPictureDevice
     public HyperPdfLibrary.Rendering.PictureWeight Weight { get; } = new();
 
     /// <inheritdoc/>
+    public bool RetainsPaths => false;
+
+    /// <inheritdoc/>
     public void Save()
     {
     }

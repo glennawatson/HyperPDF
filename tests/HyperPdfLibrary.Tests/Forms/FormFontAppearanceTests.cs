@@ -84,7 +84,7 @@ public sealed class FormFontAppearanceTests
         await Assert.That(Encoding.Latin1.GetString(Appearance(document))).Contains("(\\000\\007\\000\\b) Tj");
     }
 
-    /// <summary>A beveled border is drawn as a lit and a shaded L inside a ring, shaded with half the background.</summary>
+    /// <summary>A beveled border is drawn as a lit and a shaded L; the tones are the border colour halfway to white and to black.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task BeveledBorderIsShaded()
@@ -97,15 +97,14 @@ public sealed class FormFontAppearanceTests
         _ = HyperPdfLibrary.Forms.PdfFormEditing.SetText(PdfDocumentForms.GetForm(document), 0, Widget, "x");
         var text = Encoding.Latin1.GetString(Appearance(document));
 
-        await Assert.That(text).Contains("1 g");
-        await Assert.That(text).Contains("0.4 0.4 0.4 rg");
-        await Assert.That(text).Contains("f*");
+        await Assert.That(text).Contains("0.5 0.5 0.5 rg");
+        await Assert.That(text).Contains("0 0 0 rg");
     }
 
-    /// <summary>An inset border uses the fixed greys.</summary>
+    /// <summary>An inset border reverses the tones of a beveled one.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task InsetBorderUsesGreys()
+    public async Task InsetBorderUsesReversedTones()
     {
         using var document = Open(
             "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
@@ -115,8 +114,7 @@ public sealed class FormFontAppearanceTests
         _ = HyperPdfLibrary.Forms.PdfFormEditing.SetText(PdfDocumentForms.GetForm(document), 0, Widget, "x");
         var text = Encoding.Latin1.GetString(Appearance(document));
 
-        await Assert.That(text).Contains("0.5 g");
-        await Assert.That(text).Contains("0.75 g");
+        await Assert.That(text.IndexOf("0 0 0 rg", StringComparison.Ordinal)).IsLessThan(text.IndexOf("0.5 0.5 0.5 rg", StringComparison.Ordinal));
     }
 
     /// <summary>Opens a one-field form whose /Helv font is the given dictionary.</summary>

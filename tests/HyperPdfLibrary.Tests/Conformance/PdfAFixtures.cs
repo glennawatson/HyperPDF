@@ -5,6 +5,7 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -12,7 +13,7 @@ namespace HyperPdfLibrary.Tests.Conformance;
 
 /// <summary>
 /// Builds PDF/A files with <see cref="PdfDocumentBuilder"/>: a vector page in DeviceRGB, an sRGB-like monitor output
-/// intent and an XMP packet that claims the level. The files hold no text, so they need no fonts.
+/// intent and an XMP packet that claims the level. A fixture holds no text unless it is given an embedded font.
 /// </summary>
 internal static class PdfAFixtures
 {
@@ -27,6 +28,15 @@ internal static class PdfAFixtures
 
     /// <summary>The page size in points.</summary>
     internal const int PageSize = 200;
+
+    /// <summary>The size of the text in points.</summary>
+    private const float TextSize = 14F;
+
+    /// <summary>The left edge of the text.</summary>
+    private const float TextLeft = 24F;
+
+    /// <summary>The baseline of the text.</summary>
+    private const float TextBottom = 190F;
 
     /// <summary>The PDF/A part based on PDF 1.4.</summary>
     private const int Part1 = 1;
@@ -115,7 +125,14 @@ internal static class PdfAFixtures
     /// <summary>Builds a fixture that claims a PDF/A level.</summary>
     /// <param name="level">The level.</param>
     /// <returns>The file bytes.</returns>
-    internal static byte[] Create(PdfAFixtureLevel level)
+    internal static byte[] Create(PdfAFixtureLevel level) => Create(level, null, string.Empty);
+
+    /// <summary>Builds a fixture that claims a PDF/A level and shows a line of text in an embedded font.</summary>
+    /// <param name="level">The level.</param>
+    /// <param name="source">The font to embed, or <see langword="null"/> for a page without text.</param>
+    /// <param name="text">The text shown in the font.</param>
+    /// <returns>The file bytes.</returns>
+    internal static byte[] Create(PdfAFixtureLevel level, PdfFontSource? source, string text)
     {
         var builder = new PdfDocumentBuilder { Version = HeaderVersion(level.Part) };
         var names = builder.Names;
@@ -134,13 +151,50 @@ internal static class PdfAFixtures
         var metadataId = builder.Add(PdfValue.FromStream(new(metadata, Packet(level))));
         builder.CatalogEntries.Set(KnownName.Metadata, PdfValue.FromReference(metadataId));
         builder.CatalogEntries.Set(names.Intern("OutputIntents"u8), PdfValue.FromArray(new(null, [PdfValue.FromDictionary(intent)])));
-        var contentId = builder.Add(PdfValue.FromStream(new(new PdfDictionary(null), "0.2 0.4 0.6 rg 20 20 160 160 re f\n0 0 0 RG 2 w 20 20 m 180 180 l S\n"u8.ToArray())));
+        var resources = new PdfDictionary(null);
+        var content = "0.2 0.4 0.6 rg 20 20 160 160 re f\n0 0 0 RG 2 w 20 20 m 180 180 l S\n"u8.ToArray();
+        if (source is not null)
+        {
+            content = AddText(builder, resources, source, text, content);
+        }
+
+        var contentId = builder.Add(PdfValue.FromStream(new(new PdfDictionary(null), content)));
         var page = new PdfDictionary(null);
         page.Set(KnownName.MediaBox, PdfValue.FromArray(new(null, [PdfValue.FromInteger(0), PdfValue.FromInteger(0), PdfValue.FromInteger(PageSize), PdfValue.FromInteger(PageSize)])));
-        page.Set(KnownName.Resources, PdfValue.FromDictionary(new(null)));
+        page.Set(KnownName.Resources, PdfValue.FromDictionary(resources));
         page.Set(KnownName.Contents, PdfValue.FromReference(contentId));
         _ = builder.AddPage(page);
         return builder.ToArray();
+    }
+
+    /// <summary>Embeds a font, finishes it and appends a line of text in it, drawn with a fill colour in the device colour space the fixture's output intent covers.</summary>
+    /// <param name="builder">The document.</param>
+    /// <param name="resources">The page resources, which receive the font.</param>
+    /// <param name="source">The font.</param>
+    /// <param name="text">The text.</param>
+    /// <param name="existing">The content so far.</param>
+    /// <returns>The content with the text added.</returns>
+    private static byte[] AddText(PdfDocumentBuilder builder, PdfDictionary resources, PdfFontSource source, string text, byte[] existing)
+    {
+        var font = PdfEmbeddedFont.Create(builder, source);
+        var content = default(PdfContentBuilder);
+        try
+        {
+            content.BeginText();
+            content.SetFont("F1"u8, TextSize);
+            content.MoveText(TextLeft, TextBottom);
+            font.ShowText(ref content, text, TextSize);
+            content.EndText();
+            font.Finish();
+            var fonts = new PdfDictionary(null);
+            fonts.Set(builder.Names.Intern("F1"u8), font.Resource);
+            resources.Set(KnownName.Font, PdfValue.FromDictionary(fonts));
+            return [.. existing, .. "0 0 0 rg\n"u8, .. content.ToArray()];
+        }
+        finally
+        {
+            content.Dispose();
+        }
     }
 
     /// <summary>Gets the header version a part is based on.</summary>

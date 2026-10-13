@@ -10,7 +10,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 /// <summary>
 /// What a codestream declares about the parts of JPEG 2000 it uses: the SIZ capabilities Rsiz and the CAP marker
 /// (ISO 15444-1 A.5.2), with the Part 15 (high-throughput) capabilities Ccap15 of T.814. Decoding does not
-/// depend on them; each tile-component's coding style says which block coder it uses, as in PDFium.
+/// depend on them; each tile-component's coding style says which block coder it uses (T.814 table A.1).
 /// </summary>
 /// <param name="Rsiz">The Rsiz field of SIZ.</param>
 /// <param name="Parts">The Pcap field of CAP: bit 32 - i set when Part i is used; zero without CAP.</param>

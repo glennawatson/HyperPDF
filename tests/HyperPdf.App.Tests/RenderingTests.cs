@@ -100,6 +100,15 @@ public sealed class RenderingTests
     /// <summary>The length of the "Page 1" heading, before the next line starts.</summary>
     private const int HeadingLength = 6;
 
+    /// <summary>The name of the parent layer in the nested layers test document.</summary>
+    private const string ParentLayer = "Parent";
+
+    /// <summary>The name of the locked layer in the nested layers test document.</summary>
+    private const string LockedLayer = "Locked child";
+
+    /// <summary>The top-level entries in the nested layers test document.</summary>
+    private const int NestedRoots = 2;
+
     /// <summary>The layers in the layered test document.</summary>
     private const int LayerCount = 2;
 
@@ -651,6 +660,84 @@ public sealed class RenderingTests
             window.Close();
         }
     }
+
+    /// <summary>
+    /// Verifies the layers panel shows the file's order as a tree with a label, marks a locked layer in words and refuses to
+    /// change it, resets to the file's states, and offers the alternate configuration.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LayersPanelShowsTheOrderLockedLayersAndConfigurations()
+    {
+        using var test = new TestServices();
+        var path = Path.Combine(test.Directory, "nested-layers.pdf");
+        await File.WriteAllBytesAsync(path, NestedLayersPdf());
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [path]);
+        var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
+        window.Show();
+        try
+        {
+            var tab = main.SelectedTab!;
+            var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
+            var layers = tab.Layers;
+            _ = await UiWait.UntilAsync(() => layers.HasLayers);
+            tab.IsLayersMode = true;
+            var tree = Find<TreeView>(view, "LayerTree");
+            var source = DocumentFeature<ILayerSource>.Cast(tab.TryGetDocument()!)!;
+            var parent = layers.Items[0];
+            var locked = parent.Children[0];
+            var label = layers.Items[1];
+
+            await Assert.That(tree.IsVisible).IsTrue();
+            await Assert.That(layers.Items.Count).IsEqualTo(NestedRoots);
+            await Assert.That(parent.Name).IsEqualTo(ParentLayer);
+            await Assert.That(locked.Name).IsEqualTo(LockedLayer);
+            await Assert.That(locked.IsLocked).IsTrue();
+            await Assert.That(locked.Note).IsEqualTo("Locked");
+            await Assert.That(locked.SpokenName).IsEqualTo("Locked child, Locked");
+            await Assert.That(label.IsLabel).IsTrue();
+            await Assert.That(label.SpokenName).IsEqualTo("Extras group, 1 sublayers");
+            await Assert.That(label.Children[0].Name).IsEqualTo("Extra");
+
+            locked.IsVisible = false;
+            await Assert.That(locked.IsVisible).IsTrue();
+            await Assert.That(IsLayerVisible(source, LockedLayer)).IsTrue();
+
+            parent.IsVisible = false;
+            await Assert.That(IsLayerVisible(source, ParentLayer)).IsFalse();
+            _ = await layers.ResetCommand.Execute().ToTask();
+            await Assert.That(parent.IsVisible).IsTrue();
+            await Assert.That(IsLayerVisible(source, ParentLayer)).IsTrue();
+
+            await Assert.That(layers.HasConfigurations).IsTrue();
+            await Assert.That(layers.ConfigurationNames).IsEquivalentTo(["Default", "Alternate"]);
+            layers.SelectedConfigurationIndex = 1;
+            await Assert.That(layers.Items[0].IsVisible).IsFalse();
+            await Assert.That(IsLayerVisible(source, ParentLayer)).IsFalse();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>Reads whether the document shows a named layer.</summary>
+    /// <param name="source">The document's layers.</param>
+    /// <param name="name">The layer's name.</param>
+    /// <returns><see langword="true"/> when shown.</returns>
+    private static bool IsLayerVisible(ILayerSource source, string name) => source.GetLayers().Single(layer => layer.Name == name).IsVisible;
+
+    /// <summary>Builds a document with a nested layer order, a locked layer and an alternate configuration.</summary>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] NestedLayersPdf() => MiniPdf.Build(
+        "<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [4 0 R 5 0 R 6 0 R] "
+        + "/D << /Order [4 0 R [5 0 R] [(Extras) 6 0 R]] /Locked [5 0 R] >> /Configs [<< /Name (Alternate) /OFF [4 0 R] /Order [4 0 R [5 0 R] [(Extras) 6 0 R]] >>] >> >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>",
+        "<< /Type /OCG /Name (Parent) >>",
+        "<< /Type /OCG /Name (Locked child) >>",
+        "<< /Type /OCG /Name (Extra) >>");
 
     /// <summary>Finds a named control.</summary>
     /// <typeparam name="T">The control type.</typeparam>

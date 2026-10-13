@@ -49,6 +49,22 @@ internal sealed class TestServices : IDisposable
     {
     }
 
+    /// <summary>Initializes a new instance of the <see cref="TestServices"/> class with a desktop integration that opens documents with an injected engine.</summary>
+    /// <param name="platform">The desktop integration.</param>
+    /// <param name="engine">The engine every document opens with.</param>
+    internal TestServices(HyperPdf.Core.Platform.IDesktopPlatform platform, IDocumentEngine engine)
+        : this(platform, new FakeSpeech(true, false), null, engine)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="TestServices"/> class that opens documents with an injected engine and reads with a fake voice.</summary>
+    /// <param name="engine">The engine every document opens with.</param>
+    /// <param name="speech">The fake voice and sound output.</param>
+    internal TestServices(IDocumentEngine engine, FakeSpeech speech)
+        : this(new FallbackPlatform(), speech, null, engine)
+    {
+    }
+
     /// <summary>Initializes a new instance of the <see cref="TestServices"/> class.</summary>
     /// <param name="platform">The desktop integration.</param>
     /// <param name="speech">The fake voice and sound output.</param>

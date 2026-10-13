@@ -8,8 +8,8 @@ using HyperPdfLibrary.Fonts.Programs;
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
-/// How a composite font with an embedded program turns a CID into a glyph id, as PDFium's
-/// CPDF_CIDFont::GlyphFromCharCode does for embedded fonts.
+/// How a composite font with an embedded program turns a CID into a glyph id: through /CIDToGIDMap for TrueType
+/// programs and through the charset of a CID-keyed CFF program (ISO 32000-2, 9.7.4.2).
 /// </summary>
 /// <param name="CidToGid">The /CIDToGIDMap stream bytes, two per CID, or <see langword="null"/>.</param>
 /// <param name="CidKeyed">The CID-keyed CFF program that maps CIDs through its charset, or <see langword="null"/>.</param>

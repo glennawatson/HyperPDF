@@ -366,16 +366,27 @@ internal static class HyperPdfDocumentAnnotationEditing
             }
 
             var version = Volatile.Read(ref self.EditVersion);
-            var save = new PdfSaveReport();
-            if (!HyperPdfAnnotationSaving.Save(HyperPdfAnnotationStateAccess.GetAnnotations(self), destination, save))
+            var save = SaveReportPool.Rent();
+            try
             {
-                return false;
-            }
+                if (!HyperPdfAnnotationSaving.Save(HyperPdfAnnotationStateAccess.GetAnnotations(self), destination, save))
+                {
+                    SaveFailureMapping.Copy(save, report);
+                    return false;
+                }
 
-            report?.ClaimRemoved = ArchiveMapping.ToRemoval(save.Claim);
-            report?.ClaimRepaired = ArchiveMapping.ToRepair(save.Claim);
-            Volatile.Write(ref self.SavedVersion, version);
-            return true;
+                report?.ClaimRemoved = ArchiveMapping.ToRemoval(save.Claim);
+                report?.ClaimRepaired = ArchiveMapping.ToRepair(save.Claim);
+                TrapNetworkMapping.AddWarnings(save, report);
+                RequirementMapping.AddWarnings(save, report);
+                ForgetMovedAnnotations(self, save);
+                Volatile.Write(ref self.SavedVersion, version);
+                return true;
+            }
+            finally
+            {
+                SaveReportPool.Return(save);
+            }
         }
     }
 
@@ -389,34 +400,93 @@ internal static class HyperPdfDocumentAnnotationEditing
     {
         ArgumentNullException.ThrowIfNull(destination);
         cancellationToken.ThrowIfCancellationRequested();
-        Task write;
-        HyperPdfAnnotations state;
-        long version;
-        var save = new PdfSaveReport();
+        var save = SaveReportPool.Rent();
+        if (!TryStartSave(self, destination, new(save, report), cancellationToken, out var state, out var version, out var write))
+        {
+            SaveReportPool.Return(save);
+            return ValueTask.FromResult(false);
+        }
+
+        return FinishSaveAsync(self, state, version, write, new(save, report));
+    }
+
+    /// <summary>Builds the snapshot under the edit lock and starts its write.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="destination">The output stream.</param>
+    /// <param name="reports">The writer's report and the caller's.</param>
+    /// <param name="cancellationToken">Cancels building and writing.</param>
+    /// <param name="state">Receives the annotation state captured for the write.</param>
+    /// <param name="version">Receives the captured edit version.</param>
+    /// <param name="write">Receives the pending output write.</param>
+    /// <returns><see langword="false"/> when the document is disposed or the save could not start.</returns>
+    private static bool TryStartSave(
+        HyperPdfDocument self,
+        Stream destination,
+        in SaveReports reports,
+        CancellationToken cancellationToken,
+        out HyperPdfAnnotations state,
+        out long version,
+        out Task write)
+    {
+        state = null!;
+        version = 0;
+        write = Task.CompletedTask;
         lock (self.EditGate)
         {
             using var access = HyperPdfNavigation.EnterPageWrite(self);
             if (self.IsDisposed)
             {
-                return ValueTask.FromResult(false);
+                return false;
             }
 
             version = Volatile.Read(ref self.EditVersion);
             state = HyperPdfAnnotationStateAccess.GetAnnotations(self);
             try
             {
-                if (!HyperPdfAnnotationSaving.TryStartSaveAsync(state, destination, save, cancellationToken, out write))
+                if (!HyperPdfAnnotationSaving.TryStartSaveAsync(state, destination, reports.Writer, cancellationToken, out write))
                 {
-                    return ValueTask.FromResult(false);
+                    return false;
                 }
             }
             catch (Exception exception) when (exception is IOException or PdfException)
             {
-                return ValueTask.FromResult(false);
+                NoteFailure(reports.Writer, reports.Caller, exception);
+                return false;
             }
+
+            // The writer checks trap networks before its first await, so any it moved or removed are known here.
+            ForgetMovedAnnotations(self, reports.Writer);
+            return true;
+        }
+    }
+
+    /// <summary>Tells the app's report why a save stopped, when a security requirement stopped it.</summary>
+    /// <param name="save">The writer's report.</param>
+    /// <param name="report">The app's report, or <see langword="null"/>.</param>
+    /// <param name="exception">The exception that stopped the save.</param>
+    private static void NoteFailure(PdfSaveReport save, DocumentSaveReport? report, Exception exception)
+    {
+        if (exception is not PdfException pdf)
+        {
+            return;
         }
 
-        return FinishSaveAsync(self, state, version, write, new(save, report));
+        SaveFailureMapping.Note(save, pdf);
+        SaveFailureMapping.Copy(save, report);
+    }
+
+    /// <summary>
+    /// Forgets the listed annotations of every page when the save removed or moved a trap network, as an annotation's
+    /// index is its place in the page's array and later entries may have shifted.
+    /// </summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="save">The writer's report.</param>
+    private static void ForgetMovedAnnotations(HyperPdfDocument self, PdfSaveReport save)
+    {
+        if (save.TrapNetworks.Count > 0)
+        {
+            HyperPdfAnnotationReading.InvalidatePages(HyperPdfAnnotationStateAccess.GetAnnotations(self));
+        }
     }
 
     /// <summary>Marks a snapshot saved only when no later edit replaced it.</summary>
@@ -430,25 +500,35 @@ internal static class HyperPdfDocumentAnnotationEditing
     {
         try
         {
-            await write.ConfigureAwait(false);
-        }
-        catch (Exception exception) when (exception is IOException or PdfException or ObjectDisposedException)
-        {
-            return false;
-        }
-
-        reports.Caller?.ClaimRemoved = ArchiveMapping.ToRemoval(reports.Writer.Claim);
-        reports.Caller?.ClaimRepaired = ArchiveMapping.ToRepair(reports.Writer.Claim);
-
-        lock (self.EditGate)
-        {
-            if (!self.IsDisposed && Volatile.Read(ref self.EditVersion) == version)
+            try
             {
-                Volatile.Write(ref state.UnsavedChanges, 0);
-                Volatile.Write(ref self.SavedVersion, version);
+                await write.ConfigureAwait(false);
             }
-        }
+            catch (Exception exception) when (exception is IOException or PdfException or ObjectDisposedException)
+            {
+                NoteFailure(reports.Writer, reports.Caller, exception);
+                return false;
+            }
 
-        return true;
+            reports.Caller?.ClaimRemoved = ArchiveMapping.ToRemoval(reports.Writer.Claim);
+            reports.Caller?.ClaimRepaired = ArchiveMapping.ToRepair(reports.Writer.Claim);
+            TrapNetworkMapping.AddWarnings(reports.Writer, reports.Caller);
+            RequirementMapping.AddWarnings(reports.Writer, reports.Caller);
+
+            lock (self.EditGate)
+            {
+                if (!self.IsDisposed && Volatile.Read(ref self.EditVersion) == version)
+                {
+                    Volatile.Write(ref state.UnsavedChanges, 0);
+                    Volatile.Write(ref self.SavedVersion, version);
+                }
+            }
+
+            return true;
+        }
+        finally
+        {
+            SaveReportPool.Return(reports.Writer);
+        }
     }
 }

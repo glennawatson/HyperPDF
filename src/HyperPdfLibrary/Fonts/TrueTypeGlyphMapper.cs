@@ -9,14 +9,17 @@ using HyperPdfLibrary.Fonts.Programs;
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
-/// Maps the codes of a TrueType font with an embedded program to glyphs, following PDFium's
-/// CPDF_TrueTypeFont::LoadGlyphMap: non-symbolic fonts look glyph names up through the (3,1) Unicode cmap, then the
+/// Maps the codes of a TrueType font with an embedded program to glyphs (ISO 32000-2,
+/// 9.6.5.4): non-symbolic fonts look glyph names up through the (3,1) Unicode cmap, then the
 /// (1,0) Macintosh cmap, then the (3,0) symbol cmap; symbolic fonts use the (3,0) cmap with the F000 page, then (1,0),
 /// then the Unicode cmap, then the code as the glyph id.
 /// </summary>
 internal static class TrueTypeGlyphMapper
 {
-    /// <summary>The first glyph PDFium assigns when a font has glyph names but no cmap.</summary>
+    /// <summary>
+    /// The first glyph assigned when a font has glyph names but no cmap: glyphs 0 to 2 are .notdef, .null and CR in
+    /// the standard TrueType glyph order, so glyph 3 is the first character.
+    /// </summary>
     private const int FirstCharGlyphBase = 3;
 
     /// <summary>The cmap a non-symbolic lookup goes through.</summary>
@@ -65,7 +68,7 @@ internal static class TrueTypeGlyphMapper
         return map;
     }
 
-    /// <summary>Gives each code from /FirstChar a glyph counting from 3, as PDFium does for fonts with names but no cmap.</summary>
+    /// <summary>Gives each code from /FirstChar a glyph counting from 3, for fonts with names but no cmap.</summary>
     /// <param name="map">The map.</param>
     /// <param name="firstChar">The first code.</param>
     private static void MapFromFirstChar(SimpleGlyphMap map, int firstChar)

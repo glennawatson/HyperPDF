@@ -395,6 +395,9 @@ public static class Descriptions
     /// <summary>The Check Signatures button.</summary>
     public static readonly string CheckSignatures = "Check who signed this document and whether it changed after signing. This may go online.";
 
+    /// <summary>The list of colourants on a colour separation page.</summary>
+    public static readonly string ShowSeparation = "Show another colour separation of the same printed page. Each separation is a page of its own in this file.";
+
     /// <summary>The button that stops text recognition.</summary>
     public static readonly string StopRecognition = "Stop finding the words in scanned pages.";
 
@@ -434,11 +437,20 @@ public static class Descriptions
     /// <summary>A button that hides a message.</summary>
     public static readonly string DismissMessage = "Hide this message.";
 
+    /// <summary>The Dismiss button on the message about a document whose integrity protection failed or could not be checked.</summary>
+    public static readonly string DismissIntegrityNotice = "Hide this message about the document's integrity protection. It comes back next time the document opens.";
+
     /// <summary>The Dismiss button on the message about content that cannot be shown.</summary>
     public static readonly string DismissContentWarning = "Hide this message about parts of the document HyperPDF cannot show. It comes back next time the document opens.";
 
     /// <summary>The Dismiss button on the message about a repaired file.</summary>
     public static readonly string DismissRepairNotice = "Hide this message about the repaired file. It comes back next time the document opens.";
+
+    /// <summary>The Dismiss button on the message about features the file needs.</summary>
+    public static readonly string DismissRequirementNotice = "Hide this message about features the file needs. It comes back next time the document opens.";
+
+    /// <summary>The Details button on the message about features the file needs.</summary>
+    public static readonly string ToggleRequirementDetails = "Show or hide which features the file needs that HyperPDF does not fully provide.";
 
     /// <summary>The Details button on the message about a repaired file.</summary>
     public static readonly string ToggleRepairDetails = "Show or hide what was wrong with the file and how it was repaired.";
@@ -494,8 +506,14 @@ public static class Descriptions
     /// <summary>The splitter beside the sidebar.</summary>
     public static readonly string SidebarSplitter = "Drag to make the sidebar wider or narrower.";
 
+    /// <summary>The Reset Layers button.</summary>
+    public static readonly string ResetLayers = "Put every layer back to how the file sets it. The file does not change.";
+
+    /// <summary>The layer configuration list.</summary>
+    public static readonly string LayerConfiguration = "Choose one of the layer arrangements the file offers. This sets every layer to that arrangement.";
+
     /// <summary>A layer's check box.</summary>
-    public static readonly string Layer = "Show or hide this layer on screen. The file does not change.";
+    public static readonly string Layer ="Show or hide this layer on screen. The file does not change.";
 
     /// <summary>The form field editor.</summary>
     public static readonly string FormField = "Type into this form field. Press Tab for the next field or Esc to cancel.";
@@ -607,6 +625,12 @@ public static class Descriptions
 
     /// <summary>The interface text size list.</summary>
     public static readonly string InterfaceTextSize = "Choose the size of the text in the app's buttons, menus and lists.";
+
+    /// <summary>The form field colour list.</summary>
+    public static readonly string FormHighlightColor = "Choose the colour that marks the form fields you can fill in. It shows on top of each field.";
+
+    /// <summary>The form field colour strength list.</summary>
+    public static readonly string FormHighlightOpacity = "Choose how strong the form field colour is. Off removes it, and a higher number makes it stronger.";
 
     /// <summary>The opening zoom list.</summary>
     public static readonly string OpeningZoom = "Choose the zoom for new documents. Fit page shows the whole page. Fit width fills the width.";
@@ -767,6 +791,12 @@ public static class Descriptions
     /// <summary>The signing location box.</summary>
     public static readonly string SigningLocation = "Optional. Type where you are signing.";
 
+    /// <summary>The signature kind box.</summary>
+    public static readonly string SignatureKind = "Choose a plain approval, or certify the document and say which later changes are allowed.";
+
+    /// <summary>The visible signature box.</summary>
+    public static readonly string VisibleSignature = "Draws the signer, reason, location and date on the page, so people can see the signature.";
+
     /// <summary>The Sign button.</summary>
     public static readonly string Sign = "Choose where to save the signed copy, then sign it.";
 
@@ -874,6 +904,172 @@ public static class Descriptions
     /// <summary>The Save PDF/A Copy menu item.</summary>
     public static readonly string ArchiveCopy =
         "Save a PDF/A copy of this document, made for keeping for many years. Your open file is never changed.";
+
+    /// <summary>The Save as PDF 2.0 Copy menu item.</summary>
+    public static readonly string Pdf20Copy =
+        "Save a copy of this document as a PDF 2.0 file. Details in features PDF 2.0 retired are moved when they can be. "
+        + "The copy is refused with a reason when something cannot be kept. Your open file is never changed.";
+
+    /// <summary>The busy bar of the PDF 2.0 copy window.</summary>
+    public static readonly string Pdf20Progress = "Moves while the copy is being made.";
+
+    /// <summary>The save button of the PDF 2.0 copy window.</summary>
+    public static readonly string Pdf20Save = "Choose where to save the copy, then make it. The open file is never replaced.";
+
+    /// <summary>The cancel button of the PDF 2.0 copy window.</summary>
+    public static readonly string Pdf20Cancel = "Stop making the copy. No file is saved.";
+
+    /// <summary>The summary of the PDF 2.0 copy window.</summary>
+    public static readonly string Pdf20Result = "What the copy changed or moved to become a PDF 2.0 file, or why it could not be made.";
+
+    /// <summary>The Protect with Password menu item.</summary>
+    public static readonly string ProtectCopy =
+        "Save a copy of this document that needs a password to open, or that limits printing, copying and editing. "
+        + "Your open file is never changed. A signed or PDF/A document is refused with the reason.";
+
+    /// <summary>The Remove Protection menu item.</summary>
+    public static readonly string RemoveProtectionCopy =
+        "Save a copy of this document without passwords or limits. A document opened with only its reading password needs the owner password. Your open file is never changed.";
+
+    /// <summary>The encryption choices of the protect window.</summary>
+    public static readonly string ProtectFormats = "Choose how strongly the copy is locked. Use the arrow keys to move between the choices.";
+
+    /// <summary>The current owner password of the protect and remove protection windows.</summary>
+    public static readonly string CurrentOwnerPassword =
+        "The owner password of the protection this document has now. It is needed because you opened the document with its reading password. It is never saved.";
+
+    /// <summary>The reading password of the protect window.</summary>
+    public static readonly string ReadingPassword = "People type this password to open the copy. Leave it empty to let anyone open it. It is never saved or shown.";
+
+    /// <summary>The repeat reading password of the protect window.</summary>
+    public static readonly string ReadingPasswordRepeat = "Type the reading password again, so a typing mistake does not lock you out.";
+
+    /// <summary>The owner password of the protect window.</summary>
+    public static readonly string OwnerPasswordField =
+        "This password gives every permission and can change or remove the protection. "
+        + "It must differ from the reading password when you limit what people can do. It is never saved or shown.";
+
+    /// <summary>The repeat owner password of the protect window.</summary>
+    public static readonly string OwnerPasswordRepeat = "Type the owner password again, so a typing mistake does not lock you out.";
+
+    /// <summary>The print permission of the protect window.</summary>
+    public static readonly string AllowPrint = "Let people with the reading password print the document.";
+
+    /// <summary>The copy permission of the protect window.</summary>
+    public static readonly string AllowCopy = "Let people with the reading password copy text and pictures out of the document.";
+
+    /// <summary>The edit permission of the protect window.</summary>
+    public static readonly string AllowEdit = "Let people with the reading password change, add or remove pages.";
+
+    /// <summary>The forms permission of the protect window.</summary>
+    public static readonly string AllowForms = "Let people with the reading password fill in forms and add comments.";
+
+    /// <summary>The accessibility permission of the protect window.</summary>
+    public static readonly string AllowAccessibility = "Let screen readers and other assistive tools read the text. Leave this on unless you are sure no one needs it.";
+
+    /// <summary>The metadata choice of the protect window.</summary>
+    public static readonly string HideProperties = "Also hide the document properties, such as title and author, until the password is typed.";
+
+    /// <summary>The warning of the protect window.</summary>
+    public static readonly string ProtectWarning = "Explains what happens to screen readers with the choices made.";
+
+    /// <summary>The progress bar of the protect and remove protection windows.</summary>
+    public static readonly string ProtectProgress = "Moves while the copy is being made.";
+
+    /// <summary>The save button of the protect window.</summary>
+    public static readonly string ProtectSave = "Check the choices, choose where to save, then make the protected copy. The open file is never replaced.";
+
+    /// <summary>The save button of the remove protection window.</summary>
+    public static readonly string RemoveProtectionSave = "Choose where to save, then make the copy without protection. The open file is never replaced.";
+
+    /// <summary>The cancel button of the protect and remove protection windows.</summary>
+    public static readonly string ProtectCancel = "Stop making the copy. No file is saved.";
+
+    /// <summary>The summary of the protect and remove protection windows.</summary>
+    public static readonly string ProtectResult = "What the copy holds, or why it could not be made.";
+
+    /// <summary>The Add Validation Data or Timestamp menu item.</summary>
+    public static readonly string ValidationData =
+        "Save a copy of this signed document with the data its signatures need to be checked years later, or with a trusted timestamp. Your open file is never changed.";
+
+    /// <summary>The choices of the validation data window.</summary>
+    public static readonly string ValidationActions = "Choose to add validation data or a document timestamp. Use the arrow keys to move between the choices.";
+
+    /// <summary>The record box of the validation data window.</summary>
+    public static readonly string ValidationRecords = "Also add a separate record for each signature, so a checker can find the data that belongs to it.";
+
+    /// <summary>The busy bar of the validation data window.</summary>
+    public static readonly string ValidationProgress = "Moves while the copy is being made.";
+
+    /// <summary>The save button of the validation data window.</summary>
+    public static readonly string ValidationSave = "Choose where to save the copy, then make it. The open file is never replaced.";
+
+    /// <summary>The cancel button of the validation data window.</summary>
+    public static readonly string ValidationCancel = "Stop making the copy. No file is saved.";
+
+    /// <summary>The summary of the validation data window.</summary>
+    public static readonly string ValidationResult = "Where the copy is saved and everything you should know about how it was made.";
+
+    /// <summary>The Sign with External Signer menu item.</summary>
+    public static readonly string ExternalSign =
+        "Sign a copy of this document with a key that stays on a hardware token or with a signing service. Your open file is never changed.";
+
+    /// <summary>The certificate box of the external signing window.</summary>
+    public static readonly string ExternalCertificates = "The signer's certificates that were read. The signing certificate comes first.";
+
+    /// <summary>The choose certificates button of the external signing window.</summary>
+    public static readonly string ExternalChooseCertificates = "Choose the files that hold the signer's certificate and the certificates that lead to a trusted root.";
+
+    /// <summary>The key kind box of the external signing window.</summary>
+    public static readonly string ExternalKey = "Choose the kind of signature the signer's key makes. It is chosen for you from the certificate.";
+
+    /// <summary>The prepare button of the external signing window.</summary>
+    public static readonly string ExternalPrepare = "Build the file with room for the signature and work out the bytes your signer must sign.";
+
+    /// <summary>The save bytes button of the external signing window.</summary>
+    public static readonly string ExternalSaveToSign = "Save the bytes your signer must sign to a file you can give to the signer.";
+
+    /// <summary>The answer kind box of the external signing window.</summary>
+    public static readonly string ExternalResultKind = "Choose what your signer gave back: a signature value, or a whole signature container.";
+
+    /// <summary>The finish button of the external signing window.</summary>
+    public static readonly string ExternalFinish = "Choose the file your signer gave back, then choose where to save the signed copy.";
+
+    /// <summary>The progress bar of the external signing window.</summary>
+    public static readonly string ExternalProgress = "Moves while a step is running.";
+
+    /// <summary>The cancel button of the external signing window.</summary>
+    public static readonly string ExternalCancel = "Stop the step that is running. No file is saved.";
+
+    /// <summary>The summary of the external signing window.</summary>
+    public static readonly string ExternalResult = "Where the signed copy is saved and everything you should know about how it was made.";
+
+    /// <summary>The Save Flattened Copy menu item.</summary>
+    public static readonly string FlattenCopy =
+        "Save a copy in which form fields, comments and other marks become part of the page and can no longer be changed. "
+        + "A signed document is refused with a reason. Your open file is never changed.";
+
+    /// <summary>The scope choices of the flattened copy window.</summary>
+    public static readonly string FlattenScopes = "Choose what becomes part of the page. Use the arrow keys to move between the choices.";
+
+    /// <summary>The look choices of the flattened copy window.</summary>
+    public static readonly string FlattenLooks = "Choose whether the copy keeps the screen look or the print look. Use the arrow keys to move between the choices.";
+
+    /// <summary>The upright box of the flattened copy window.</summary>
+    public static readonly string FlattenUpright =
+        "Save pages that are shown turned the right way up, with the turn built into the page. Links and bookmarks on turned pages may land in a different place.";
+
+    /// <summary>The busy bar of the flattened copy window.</summary>
+    public static readonly string FlattenProgress = "Moves while the copy is being made.";
+
+    /// <summary>The save button of the flattened copy window.</summary>
+    public static readonly string FlattenSave = "Choose where to save the copy, then make it. The open file is never replaced.";
+
+    /// <summary>The cancel button of the flattened copy window.</summary>
+    public static readonly string FlattenCancel = "Stop making the copy. No file is saved.";
+
+    /// <summary>The summary of the flattened copy window.</summary>
+    public static readonly string FlattenResult = "What became part of the page, what was left alone and why, or why the copy could not be made.";
 
     /// <summary>The level choices of the PDF/A copy window.</summary>
     public static readonly string ArchiveLevels = "Choose the PDF/A level the copy must meet. Use the arrow keys to move between the choices.";

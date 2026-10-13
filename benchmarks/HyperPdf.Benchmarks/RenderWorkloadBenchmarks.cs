@@ -58,6 +58,8 @@ public class RenderWorkloadBenchmarks
                 yield return "Text";
                 yield return "Scan";
                 yield return "Transparency";
+                yield return "NestedGroups";
+                yield return "Patterns";
             }
 
             foreach (var workload in ExternalWorkloads())
@@ -82,6 +84,8 @@ public class RenderWorkloadBenchmarks
             "Text" => RenderSamplePages.CreateTextPage(),
             "Scan" => RenderSamplePages.CreateScanPage(),
             "Transparency" => RenderSamplePages.CreateTransparencyPage(),
+            "NestedGroups" => RenderSamplePages.CreateNestedGroupsPage(),
+            "Patterns" => RenderSamplePages.CreatePatternPage(),
             "LocalChart" => await File.ReadAllBytesAsync(Environment.GetEnvironmentVariable("HYPERPDF_BENCHMARK_CHART")!),
             "USGSRaster" => await File.ReadAllBytesAsync(Environment.GetEnvironmentVariable("HYPERPDF_BENCHMARK_USGS_RASTER")!),
             "USGSLayered" => await File.ReadAllBytesAsync(Environment.GetEnvironmentVariable("HYPERPDF_BENCHMARK_USGS_LAYERED")!),

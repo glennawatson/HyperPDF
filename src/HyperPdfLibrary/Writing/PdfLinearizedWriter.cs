@@ -12,7 +12,8 @@ namespace HyperPdfLibrary.Writing;
 
 /// <summary>
 /// Rewrites a document with first-page and hint sections for linearized PDF readers. A signed document is refused, as no
-/// signature covers the rewritten bytes.
+/// signature covers the rewritten bytes. Before writing, every trap network that no longer matches its page is removed
+/// from the document, and one with the wrong flags or position is fixed (see <see cref="PdfSaveReport.TrapNetworks"/>).
 /// </summary>
 public static class PdfLinearizedWriter
 {
@@ -27,6 +28,9 @@ public static class PdfLinearizedWriter
     {
         ArgumentNullException.ThrowIfNull(document);
         SignaturePresence.ThrowIfSigned(document.Objects);
+        PdfMacSeal.ThrowIfNeeded(document.Objects, "Linearizing");
+        PdfTrapNetworkGuard.Apply(document.Objects, true, null, CancellationToken.None);
+        PdfRequirementsGuard.Apply(document.Objects, null, CancellationToken.None);
         return BuildChecked(document, null, CancellationToken.None);
     }
 
@@ -57,6 +61,9 @@ public static class PdfLinearizedWriter
         ArgumentNullException.ThrowIfNull(destination);
         cancellationToken.ThrowIfCancellationRequested();
         SignaturePresence.ThrowIfSigned(document.Objects);
+        PdfMacSeal.ThrowIfNeeded(document.Objects, "Linearizing");
+        PdfTrapNetworkGuard.Apply(document.Objects, true, report, cancellationToken);
+        PdfRequirementsGuard.Apply(document.Objects, report, cancellationToken);
         var claimed = PdfAClaimGuard.IsClaimed(document.Objects);
         var bytes = Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken);
         if (claimed)

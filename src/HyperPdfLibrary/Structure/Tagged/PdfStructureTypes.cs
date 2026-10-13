@@ -156,7 +156,7 @@ public static class PdfStructureTypes
     public static PdfSemanticRole GetRole(PdfStructureType type) =>
         (uint)type < (uint)Roles.Length ? (PdfSemanticRole)Roles[(int)type] : PdfSemanticRole.Unknown;
 
-    /// <summary>Gets a heading type's level, 1 to 6; <c>H</c> and <c>Title</c> count as level 1, as PDFium reads them.</summary>
+    /// <summary>Gets a heading type's level, 1 to 6; <c>H</c> and <c>Title</c> count as level 1, the top heading.</summary>
     /// <param name="type">The type.</param>
     /// <returns>The level, or zero for a type that is not a heading.</returns>
     public static int GetHeadingLevel(PdfStructureType type) => type switch
@@ -166,7 +166,7 @@ public static class PdfStructureTypes
         _ => 0,
     };
 
-    /// <summary>Determines whether a type only groups other elements, as PDFium's reading treats it.</summary>
+    /// <summary>Determines whether a type only groups other elements and carries no content meaning of its own.</summary>
     /// <param name="type">The type.</param>
     /// <returns><see langword="true"/> for a grouping type.</returns>
     public static bool IsGrouping(PdfStructureType type) => (GetFlags(type) & GroupingFlag) != 0;

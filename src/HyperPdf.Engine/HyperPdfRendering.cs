@@ -145,11 +145,6 @@ internal static class HyperPdfRendering
             result |= PdfRenderFlags.Printing;
         }
 
-        if ((flags & RenderFlags.FixedDeviceColors) != 0)
-        {
-            result |= PdfRenderFlags.FixedDeviceColors;
-        }
-
         return result;
     }
 

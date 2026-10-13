@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Forms;
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Rendering;
 namespace HyperPdf.Engine;
@@ -36,7 +37,7 @@ internal static class HyperPdfFormRuntime
     /// <param name="self">The owning document.</param>
     /// <param name="host">The application's host.</param>
     /// <returns>The runner.</returns>
-    internal static PdfActionRunner CreateRunner(HyperPdfDocument self, IFormActionHost host) => new(self.Document, new FormActionHostAdapter(self.Document, host));
+    internal static PdfActionRunner CreateRunner(HyperPdfDocument self, IFormActionHost host) => new(self.Document, new FormActionHostAdapter(self, host));
 
     /// <summary>Records what actions changed, so pages draw again and the document is marked unsaved.</summary>
     /// <param name="self">The owning document.</param>
@@ -51,7 +52,8 @@ internal static class HyperPdfFormRuntime
                 using var access = HyperPdfNavigation.EnterPageWrite(self);
                 if (!self.IsDisposed)
                 {
-                    HyperPdfEditing.Edited(self);
+                    // Actions reset, hide or fill fields and run imports of form data: no page content or structure changes.
+                    HyperPdfEditing.Edited(self, PdfCacheScopes.None);
                 }
             }
         }

@@ -329,7 +329,20 @@ internal static class FontFaceReader
         var head = ReadTable(file, directory, SfntTag.Head, HeadStyleBytes);
         var post = ReadTable(file, directory, SfntTag.Post, PostBytes);
         var face = Describe(name, os2, head, post, (path, faceIndex));
-        return face is null ? null : face with { HasTrueTypeOutlines = directory.TryFind(SfntTag.Glyf, out _, out _) && directory.TryFind(SfntTag.Loca, out _, out _) };
+        return face is null ? null : face with { HasEmbeddableOutlines = HasEmbeddableOutlines(directory) };
+    }
+
+    /// <summary>Determines whether a face has static TrueType or CFF outlines; variable fonts and CFF2 outlines cannot be embedded.</summary>
+    /// <param name="directory">The face's directory.</param>
+    /// <returns><see langword="true"/> when PDF can embed the outlines.</returns>
+    private static bool HasEmbeddableOutlines(SfntDirectory directory)
+    {
+        if (directory.TryFind(SfntTag.Fvar, out _, out _) || directory.TryFind(SfntTag.Cff2, out _, out _))
+        {
+            return false;
+        }
+
+        return (directory.TryFind(SfntTag.Glyf, out _, out _) && directory.TryFind(SfntTag.Loca, out _, out _)) || directory.TryFind(SfntTag.Cff, out _, out _);
     }
 
     /// <summary>Reads the start of a table.</summary>

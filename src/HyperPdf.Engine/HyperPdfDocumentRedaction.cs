@@ -31,16 +31,23 @@ internal static class HyperPdfDocumentRedaction
         var options = HyperPdfRedaction.ToOptions(settings);
         try
         {
-            // The copy carries the marks and every unsaved edit; the open document keeps its marks and stays as it is.
-            var copy = PdfDocumentOptimizing.OpenWorkingCopy(self.Document);
+            // The copy carries the marks and every unsaved edit, taken while no edit runs; the open document keeps its marks and stays as it is.
+            using var copy =HyperPdfOptimization.TakeSnapshot(self);
             var report = await Task.Run(() => PdfRedactor.Apply(copy, options, cancellationToken), cancellationToken).ConfigureAwait(false);
-            var save = new PdfSaveReport();
-            await PdfCompactWriter.SaveAsync(copy.Objects, options.Layout, destination, save, cancellationToken).ConfigureAwait(false);
-            return new(report.Regions, report.Pages, report.GlyphsRemoved, report.ImagesRemoved + report.ImagesBlanked, report.PathsRemoved, report.AnnotationsRemoved)
+            var save = SaveReportPool.Rent();
+            try
             {
-                ClaimRemoved = ArchiveMapping.ToRemoval(save.Claim),
-                ClaimRepaired = ArchiveMapping.ToRepair(save.Claim),
-            };
+                await PdfCompactWriter.SaveAsync(copy.Objects, options.Layout, destination, save, cancellationToken).ConfigureAwait(false);
+                return new(report.Regions, report.Pages, report.GlyphsRemoved, report.ImagesRemoved + report.ImagesBlanked, report.PathsRemoved, report.AnnotationsRemoved)
+                {
+                    ClaimRemoved = ArchiveMapping.ToRemoval(save.Claim),
+                    ClaimRepaired = ArchiveMapping.ToRepair(save.Claim),
+                };
+            }
+            finally
+            {
+                SaveReportPool.Return(save);
+            }
         }
         catch (PdfException ex)
         {

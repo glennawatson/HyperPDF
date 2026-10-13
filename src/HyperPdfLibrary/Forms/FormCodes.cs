@@ -29,6 +29,9 @@ internal sealed class FormCodes
     /// <summary>The bytes in one unit's code.</summary>
     private readonly int _unitBytes;
 
+    /// <summary>Where each unit starts, for codes of different lengths; <see langword="null"/> when every unit takes <c>_unitBytes</c>.</summary>
+    private readonly int[]? _offsets;
+
     /// <summary>The width of each unit in thousandths of an em.</summary>
     private readonly float[] _widths;
 
@@ -44,6 +47,19 @@ internal sealed class FormCodes
     {
         _bytes = bytes;
         _unitBytes = unitBytes;
+        _widths = widths;
+        _kinds = kinds;
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="FormCodes"/> class for codes of different lengths.</summary>
+    /// <param name="bytes">The encoded bytes.</param>
+    /// <param name="offsets">Where each unit starts in <paramref name="bytes"/>, with the end of the last unit after them.</param>
+    /// <param name="widths">The width of each unit in thousandths of an em.</param>
+    /// <param name="kinds">The kind of each unit.</param>
+    internal FormCodes(byte[] bytes, int[] offsets, float[] widths, byte[] kinds)
+    {
+        _bytes = bytes;
+        _offsets = offsets;
         _widths = widths;
         _kinds = kinds;
     }
@@ -68,7 +84,9 @@ internal sealed class FormCodes
     /// <param name="length">The number of units.</param>
     /// <returns>The bytes to show.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ReadOnlySpan<byte> Slice(int start, int length) => _bytes.AsSpan(start * _unitBytes, length * _unitBytes);
+    internal ReadOnlySpan<byte> Slice(int start, int length) => _offsets is null
+        ? _bytes.AsSpan(start * _unitBytes, length * _unitBytes)
+        : _bytes.AsSpan(_offsets[start], _offsets[start + length] - _offsets[start]);
 
     /// <summary>Measures a run of units.</summary>
     /// <param name="start">The first unit.</param>

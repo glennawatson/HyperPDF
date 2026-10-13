@@ -59,7 +59,7 @@ public ref struct PooledBuffer
 
     /// <summary>Appends bytes.</summary>
     /// <param name="bytes">The bytes.</param>
-    public void Write(ReadOnlySpan<byte> bytes)
+    public void Write(scoped ReadOnlySpan<byte> bytes)
     {
         bytes.CopyTo(GetSpan(bytes.Length));
         Length += bytes.Length;

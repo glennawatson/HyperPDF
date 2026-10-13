@@ -17,7 +17,7 @@ namespace HyperPdfLibrary.Forms;
 /// <param name="Form">The AcroForm dictionary, or <see langword="null"/>.</param>
 /// <param name="PageResources">The resources of the widget's page, or <see langword="null"/>.</param>
 [DebuggerDisplay("AppearanceContext: {Type}")]
-internal sealed record AppearanceContext(
+internal readonly record struct AppearanceContext(
     PdfObjectStore Store,
     PdfDictionary Widget,
     PdfDictionary Field,
@@ -28,6 +28,9 @@ internal sealed record AppearanceContext(
 {
     /// <summary>Gets the document's loaded fonts, which encode and measure text in the field's own font; <see langword="null"/> measures with the font's widths and WinAnsi.</summary>
     internal PdfFontCache? Fonts { get; init; }
+
+    /// <summary>Gets the token that cancels drawing; drawing loops check it for every row, line and word.</summary>
+    internal CancellationToken CancellationToken { get; init; }
 
     /// <summary>Gets the widget's <c>/Rect</c>.</summary>
     internal PdfRectangle Rect => Widget.TryGetRectangle(KnownName.Rect, out var rect) ? rect : default;

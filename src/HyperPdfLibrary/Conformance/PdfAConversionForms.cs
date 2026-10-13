@@ -46,7 +46,7 @@ internal static class PdfAConversionForms
                     continue;
                 }
 
-                drawn += PdfFormEditing.RegenerateAppearance(pdfForm, page, widget.Index) ? 1 : 0;
+                drawn += PdfFormEditing.RegenerateAppearance(pdfForm, page, widget.Index, session.CancellationToken) ? 1 : 0;
             }
         }
 

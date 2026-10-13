@@ -149,7 +149,7 @@ public static class Jbig2Decoder
         return Jbig2Segments.DecodeSequential(context, data) == Jbig2Status.Success || context.PageSeen;
     }
 
-    /// <summary>Drops a JBIG2 file header, which PDF forbids but some writers leave in, as pdf.js does.</summary>
+    /// <summary>Drops a JBIG2 file header, which PDF forbids (ISO 32000-1 section 7.4.7) but some writers leave in; reading leniently, we skip it.</summary>
     /// <param name="data">The data.</param>
     /// <returns>The data after any file header.</returns>
     private static ReadOnlySpan<byte> StripFileHeader(ReadOnlySpan<byte> data)

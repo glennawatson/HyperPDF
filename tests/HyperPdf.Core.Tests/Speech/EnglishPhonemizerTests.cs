@@ -34,6 +34,9 @@ public sealed class EnglishPhonemizerTests
     [Arguments("42.5%", "fˈɔɹɾi tˈu pˈYnt fˈIv pəɹsˈɛnt")]
     [Arguments("the apple, the book; a cat", "ði ˈæpᵊl, ðə bˈʊk; ɐ kˈæt")]
     [Arguments("read", "ɹˈid")]
+    [Arguments("I walk", "ˌI wˈɔk")]
+    [Arguments("walk’s cat's", "wˈɔks kˈæts")]
+    [Arguments("‘hello’ in", "\" həlˈO\" ˈɪn")]
     public async Task Phonemizes(string text, string expected) => await Assert.That(Phonemizer.Phonemize(text)).IsEqualTo(expected);
 
     /// <summary>Verifies phonemes become Kokoro token ids, dropping characters it does not know.</summary>

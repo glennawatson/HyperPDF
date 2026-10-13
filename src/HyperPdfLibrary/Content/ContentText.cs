@@ -57,7 +57,7 @@ internal static class ContentText
             return;
         }
 
-        var clip = self.TextClip.Detach();
+        var clip = ContentPaths.TakePath(self, self.TextClip);
         self.TextClipGlyphs = 0;
         self.Device.Clip(clip, false, self.State.Ctm);
     }
@@ -252,7 +252,7 @@ internal static class ContentText
             return null;
         }
 
-        var group = new GroupInfo(true, true, self.State.FillAlpha, self.State.BlendMode, self.State.SoftMask, PdfRect.Empty);
+        var group = new GroupInfo(true, true, self.State.FillAlpha, self.State.BlendMode, self.State.SoftMask, PdfRect.Empty, self.BlendSpace);
         self.Device.BeginGroup(group);
         self.State.FillAlpha = 1;
         self.State.BlendMode = PdfBlendMode.Normal;
@@ -391,7 +391,7 @@ internal static class ContentText
             Span<char> unicode = stackalloc char[PdfFont.MaxUnicodeLength];
             var count = font.GetUnicode(code, unicode);
             var glyph = new GlyphEvent(font, code, unicode[..Math.Clamp(count, 0, unicode.Length)], new(glyphMatrix, self.Tm, move), fontSize, isSpace);
-            self.Device.DrawGlyph(glyph, ref self.State);
+            ContentPainting.DrawGlyph(self, in glyph, ref self.State);
             ContentText.DrawGlyphContent(self, font, code, glyphMatrix);
         }
         else

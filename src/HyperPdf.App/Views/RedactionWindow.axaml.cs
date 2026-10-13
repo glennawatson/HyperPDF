@@ -3,11 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using Avalonia.Layout;
-using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -23,18 +21,12 @@ namespace HyperPdf.App.Views;
 [DebuggerDisplay("RedactionWindow: {Title}")]
 public sealed partial class RedactionWindow : ReactiveUI.Avalonia.ReactiveWindow<RedactionViewModel>
 {
-    /// <summary>The vertical space between a choice's name and its description.</summary>
-    private const double ChoiceGap = 2;
-
-    /// <summary>The vertical space around a choice.</summary>
-    private const double ChoicePadding = 4;
-
     /// <summary>Initializes a new instance of the <see cref="RedactionWindow"/> class.</summary>
     public RedactionWindow()
     {
         InitializeComponent();
-        ImageList.ItemTemplate = new FuncDataTemplate<RedactionImageOption>(static (choice, _) => CreateChoice(choice?.Name, choice?.Description));
-        LineArtList.ItemTemplate = new FuncDataTemplate<RedactionLineArtOption>(static (choice, _) => CreateChoice(choice?.Name, choice?.Description));
+        ImageList.ItemTemplate = new FuncDataTemplate<RedactionImageOption>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
+        LineArtList.ItemTemplate = new FuncDataTemplate<RedactionLineArtOption>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(ItemAutomation.NameItems(ImageList));
@@ -46,18 +38,6 @@ public sealed partial class RedactionWindow : ReactiveUI.Avalonia.ReactiveWindow
                 .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
             _ = UnderstandBox.Focus();
         });
-    }
-
-    /// <summary>Creates the view of one choice: its name, and under it what it does.</summary>
-    /// <param name="name">The name.</param>
-    /// <param name="description">The description.</param>
-    /// <returns>The view.</returns>
-    private static StackPanel CreateChoice(string? name, string? description)
-    {
-        var title = new TextBlock { Text = name, FontWeight = FontWeight.SemiBold };
-        var detail = new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap };
-        detail.Classes.Add("secondary");
-        return new StackPanel { Spacing = ChoiceGap, Margin = new(0, ChoicePadding), HorizontalAlignment = HorizontalAlignment.Stretch, Children = { title, detail } };
     }
 
     /// <summary>Binds the heading, the warning and the settings.</summary>

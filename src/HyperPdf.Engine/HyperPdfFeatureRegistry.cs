@@ -6,21 +6,24 @@ using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Attachments;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Flattening;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Forms.Scripting;
 using HyperPdf.Core.Ocr;
 using HyperPdf.Core.Optimizing;
 using HyperPdf.Core.Printing;
+using HyperPdf.Core.Protection;
 using HyperPdf.Core.Reading;
 using HyperPdf.Core.Redaction;
 using HyperPdf.Core.Signatures;
+using HyperPdf.Core.Signatures.Signing;
 namespace HyperPdf.Engine;
 
 /// <summary>Resolves supported services without reflection, activation or stored tables.</summary>
 internal static class HyperPdfFeatureRegistry
 {
     /// <summary>The number of feature slots a document holds.</summary>
-    private const int SlotCount = (int)FeatureSlot.FormScripts + 1;
+    private const int SlotCount = (int)FeatureSlot.Signer + 1;
 
     /// <summary>Gets a stable service while leaving feature resources lazy.</summary>
     /// <param name="owner">The owning document.</param>
@@ -80,7 +83,13 @@ internal static class HyperPdfFeatureRegistry
         _ when featureType == typeof(IRepairReport) => FeatureSlot.RepairReport,
         _ when featureType == typeof(ITaggedStructureSource) => FeatureSlot.TaggedStructure,
         _ when featureType == typeof(IArchiveCopyWriter) => FeatureSlot.ArchiveCopyWriter,
+        _ when featureType == typeof(IPdf20CopyWriter) => FeatureSlot.Pdf20CopyWriter,
+        _ when featureType == typeof(ISeparationSource) => FeatureSlot.Separations,
         _ when featureType == typeof(ITextLayoutSource) => FeatureSlot.TextLayout,
+        _ when featureType == typeof(IDocumentRequirements) => FeatureSlot.Requirements,
+        _ when featureType == typeof(IDocumentProtector) => FeatureSlot.Protector,
+        _ when featureType == typeof(IFlattenCopyWriter) => FeatureSlot.FlattenCopyWriter,
+        _ when featureType == typeof(IDocumentSigner) => FeatureSlot.Signer,
         _ => FeatureSlot.None,
     };
 
@@ -95,6 +104,8 @@ internal static class HyperPdfFeatureRegistry
         _ when featureType == typeof(IImageSignatureEditor) => FeatureSlot.ImageSignatureEditor,
         _ when featureType == typeof(ITextLayerWriter) => FeatureSlot.TextLayerWriter,
         _ when featureType == typeof(IPageExporter) => FeatureSlot.PageExporter,
+        _ when featureType == typeof(IOutlineEditor) => FeatureSlot.OutlineEditor,
+        _ when featureType == typeof(IAttachmentEditor) => FeatureSlot.AttachmentEditor,
         _ => FeatureSlot.None,
     };
 
@@ -108,6 +119,7 @@ internal static class HyperPdfFeatureRegistry
         _ when featureType == typeof(IFormHighlight) => FeatureSlot.FormHighlight,
         _ when featureType == typeof(IFormFiller) => FeatureSlot.FormFiller,
         _ when featureType == typeof(IFormScriptSource) => FeatureSlot.FormScripts,
+        _ when featureType == typeof(IFormDesigner) => FeatureSlot.FormDesigner,
         _ => FeatureSlot.None,
     };
 
@@ -117,6 +129,13 @@ internal static class HyperPdfFeatureRegistry
     /// <returns>The service.</returns>
     private static IDocumentFeature Create(HyperPdfDocument owner, FeatureSlot slot) => slot switch
     {
+        FeatureSlot.Requirements => new HyperPdfRequirementsService(owner),
+        FeatureSlot.Protector => new HyperPdfDocumentProtectorService(owner),
+        FeatureSlot.OutlineEditor => new HyperPdfOutlineEditorService(owner),
+        FeatureSlot.AttachmentEditor => new HyperPdfAttachmentEditorService(owner),
+        FeatureSlot.FormDesigner => new HyperPdfFormDesignerService(owner),
+        FeatureSlot.FlattenCopyWriter => new HyperPdfFlattenCopyWriterService(owner),
+        FeatureSlot.Signer => new HyperPdfSignerService(owner),
         <= FeatureSlot.TextLayout => HyperPdfFeatureRegistry.CreateDocumentService(owner, slot),
         <= FeatureSlot.PageExporter => HyperPdfFeatureRegistry.CreateEditingService(owner, slot),
         _ => HyperPdfFeatureRegistry.CreateFormService(owner, slot),
@@ -137,6 +156,9 @@ internal static class HyperPdfFeatureRegistry
         FeatureSlot.RepairReport => new HyperPdfRepairReportService(owner),
         FeatureSlot.TaggedStructure => new HyperPdfTaggedStructureSourceService(owner),
         FeatureSlot.ArchiveCopyWriter => new HyperPdfArchiveCopyWriterService(owner),
+        FeatureSlot.Pdf20CopyWriter => new HyperPdfPdf20CopyWriterService(owner),
+        FeatureSlot.FlattenCopyWriter => new HyperPdfFlattenCopyWriterService(owner),
+        FeatureSlot.Separations => new HyperPdfSeparationSourceService(owner),
         _ => new HyperPdfTextLayoutSourceService(owner),
     };
 

@@ -59,7 +59,7 @@ internal readonly record struct Matrix3(float A, float B, float C, float D, floa
         (G * other.B) + (H * other.E) + (I * other.H),
         (G * other.C) + (H * other.F) + (I * other.I));
 
-    /// <summary>Gets the inverse; a singular matrix gives the zero matrix, as in PDFium.</summary>
+    /// <summary>Gets the inverse; a singular matrix has none, so it gives the zero matrix, which turns a colour black instead of failing.</summary>
     /// <returns>The inverse.</returns>
     internal Matrix3 Inverse()
     {

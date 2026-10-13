@@ -10,7 +10,7 @@ internal static class HyperPdfOptimization
 {
     /// <summary>Copies the open document with its unsaved edits while no edit or save runs, so the optimiser works without holding the edit gate.</summary>
     /// <param name="self">The owning document.</param>
-    /// <returns>The snapshot.</returns>
+    /// <returns>The snapshot, which the caller disposes. It borrows the open document's security handler and file, so disposing it leaves the document readable.</returns>
     /// <exception cref="ObjectDisposedException">The document was closed.</exception>
     internal static PdfDocument TakeSnapshot(HyperPdfDocument self)
     {

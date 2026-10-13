@@ -19,10 +19,4 @@ public enum RenderFlags
 
     /// <summary>Optimise for printing.</summary>
     Printing = 1 << 3,
-
-    /// <summary>
-    /// Use the fixed device colour conversions even when the document claims PDF/A. The HyperPdf engine otherwise converts
-    /// device colours through a PDF/A output intent, as ISO 19005 asks; PDFium never does, so parity tests set this flag.
-    /// </summary>
-    FixedDeviceColors = 1 << 4,
 }

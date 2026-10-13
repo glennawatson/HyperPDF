@@ -18,7 +18,7 @@ namespace HyperPdfLibrary.Writing;
 /// </summary>
 /// <remarks>Not thread-safe. Unfiltered streams other than metadata are Flate-compressed when that is smaller.</remarks>
 [DebuggerDisplay("PdfDocumentBuilder: {PageCount} pages, {ObjectCount} objects")]
-public sealed class PdfDocumentBuilder
+public sealed class PdfDocumentBuilder : IPdfObjectSink
 {
     /// <summary>The catalog's object number.</summary>
     private const int CatalogNumber = 1;
@@ -28,6 +28,9 @@ public sealed class PdfDocumentBuilder
 
     /// <summary>The prefix of the names a sheet gives the forms it draws.</summary>
     private const string FormNamePrefix = "X";
+
+    /// <summary>How far a user unit may differ from 1 before it is written.</summary>
+    private const float UnitTolerance = 1e-6F;
 
     /// <summary>The objects, where index <c>n - 1</c> holds object <c>n</c>.</summary>
     private readonly List<PdfValue> _objects = [];
@@ -49,6 +52,9 @@ public sealed class PdfDocumentBuilder
     /// <summary>Gets the name table the document's names come from.</summary>
     public PdfNameTable Names { get; }
 
+    /// <summary>Gets the open document the objects belong to, which is always <see langword="null"/> because a built document owns its own objects.</summary>
+    public PdfObjectStore? Owner => null;
+
     /// <summary>Gets the number of pages added.</summary>
     public int PageCount => _pages.Count;
 
@@ -57,6 +63,9 @@ public sealed class PdfDocumentBuilder
 
     /// <summary>Gets or sets the catalog entries besides /Type and /Pages, such as /AcroForm, /Outlines and /PageLabels.</summary>
     internal PdfDictionary CatalogEntries { get; set; } = new(null);
+
+    /// <summary>Gets or sets the document information dictionary the trailer's <c>/Info</c> refers to, or an invalid id for none.</summary>
+    internal PdfObjectId InfoId { get; set; }
 
     /// <summary>Gets or sets the header version; new documents are PDF 2.0 unless a PDF/A level needs an earlier one.</summary>
     internal PdfHeaderVersion Version { get; set; } = PdfHeaderVersion.Pdf20;
@@ -127,8 +136,26 @@ public sealed class PdfDocumentBuilder
     /// <param name="rotate">The page's /Rotate: 0, 90, 180 or 270.</param>
     /// <param name="placements">The forms, drawn in order.</param>
     /// <returns>The page's id.</returns>
-    public PdfObjectId AddSheet(float width, float height, int rotate, ReadOnlySpan<PdfFormPlacement> placements)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public PdfObjectId AddSheet(float width, float height, int rotate, ReadOnlySpan<PdfFormPlacement> placements) =>
+        AddSheet(width, height, rotate, 1, placements);
+
+    /// <summary>Adds a page that draws forms through a transform each, with a user unit (ISO 32000-2 7.7.3.3).</summary>
+    /// <param name="width">The media box width in user space units.</param>
+    /// <param name="height">The media box height in user space units.</param>
+    /// <param name="rotate">The page's /Rotate: 0, 90, 180 or 270.</param>
+    /// <param name="userUnit">The size of a user space unit in points; written as /UserUnit only when it is not 1.</param>
+    /// <param name="placements">The forms, drawn in order.</param>
+    /// <returns>The page's id.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="userUnit"/> is not a positive, finite number.</exception>
+    public PdfObjectId AddSheet(float width, float height, int rotate, float userUnit, ReadOnlySpan<PdfFormPlacement> placements)
     {
+        if (!float.IsFinite(userUnit))
+        {
+            throw new ArgumentOutOfRangeException(nameof(userUnit), userUnit, "The user unit must be finite.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(userUnit);
         var forms = new PdfDictionary(null);
         var content = default(PooledBuffer);
         try
@@ -147,6 +174,11 @@ public sealed class PdfDocumentBuilder
             if (rotate != 0)
             {
                 page.Set(KnownName.Rotate, PdfValue.FromInteger(rotate));
+            }
+
+            if (MathF.Abs(userUnit - 1) > UnitTolerance)
+            {
+                page.Set(KnownName.UserUnit, PdfValue.FromReal(userUnit));
             }
 
             page.Set(KnownName.Resources, PdfValue.FromDictionary(resources));
@@ -177,6 +209,20 @@ public sealed class PdfDocumentBuilder
         {
             writer.Dispose();
         }
+    }
+
+    /// <summary>Writes the document to a stream, writing to the stream asynchronously.</summary>
+    /// <param name="destination">The stream.</param>
+    /// <param name="cancellationToken">Cancels the write to the stream.</param>
+    /// <returns>A task that completes when the file has been written.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="destination"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PdfException">A value cannot be written.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public ValueTask SaveAsync(Stream destination, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        cancellationToken.ThrowIfCancellationRequested();
+        return destination.WriteAsync(ToArray(), cancellationToken);
     }
 
     /// <summary>Writes the document into a new array.</summary>
@@ -319,6 +365,11 @@ public sealed class PdfDocumentBuilder
         var trailer = new PdfDictionary(null);
         trailer.Set(KnownName.Size, PdfValue.FromInteger(rows.Length));
         trailer.Set(KnownName.Root, PdfValue.FromReference(new(CatalogNumber, 0)));
+        if (InfoId.IsValid)
+        {
+            trailer.Set(KnownName.Info, PdfValue.FromReference(InfoId));
+        }
+
         PdfXrefWriter.SetFileId(trailer, new(null), writer.WrittenSpan, false);
         var tableOffset = writer.Length;
         PdfXrefWriter.WriteTable(ref writer, rows);

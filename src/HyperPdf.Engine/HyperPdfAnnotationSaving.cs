@@ -47,8 +47,9 @@ internal static class HyperPdfAnnotationSaving
             {
                 return false;
             }
-            catch (PdfException)
+            catch (PdfException exception)
             {
+                SaveFailureMapping.Note(report, exception);
                 return false;
             }
             finally
@@ -100,42 +101,87 @@ internal static class HyperPdfAnnotationSaving
     /// <summary>Takes annotations removed but kept off their pages for saving.</summary>
     /// <param name="annotationState">The annotation state.</param>
     /// <returns>The pages changed and their full annotation arrays, to put back.</returns>
-    internal static List<RemovedAnnotationPage> HideRemoved(HyperPdfAnnotations annotationState)
+    internal static RemovedAnnotationPage[] HideRemoved(HyperPdfAnnotations annotationState)
     {
-        var hidden = new List<RemovedAnnotationPage>(annotationState.PagesWithRemoved.Count);
+        // Most documents have none removed, so nothing is allocated for them.
+        if (annotationState.RemovedPageCount == 0)
+        {
+            return [];
+        }
+
+        var hidden = new RemovedAnnotationPage[annotationState.RemovedPageCount];
+        var count = 0;
         foreach (var pageIndex in annotationState.PagesWithRemoved)
         {
-            if (HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is not { } page || PdfPageAnnotations.GetArray(annotationState.Store, page) is not { } annotations)
+            if (!TryHide(annotationState, pageIndex, out var page))
             {
                 continue;
             }
 
-            var kept = new PdfArray(annotationState.Store, annotations.Count);
-            for (var i = 0; i < annotations.Count; i++)
-            {
-                if (annotations.GetDictionary(i) is not { } annotation || !HyperPdfAnnotationKinds.IsRemoved(annotationState, annotation))
-                {
-                    kept.Add(annotations.GetRaw(i));
-                }
-            }
-
-            if (kept.Count != annotations.Count && PdfPageAnnotations.SetArray(annotationState.Store, page, kept))
-            {
-                hidden.Add(new(page, annotations));
-            }
+            hidden[count] = page;
+            count++;
         }
 
-        return hidden;
+        return count == hidden.Length ? hidden : hidden[..count];
     }
 
     /// <summary>Puts back the annotations taken off for saving.</summary>
     /// <param name="annotationState">The annotation state.</param>
     /// <param name="hidden">The pages and their full arrays.</param>
-    internal static void Restore(HyperPdfAnnotations annotationState, List<RemovedAnnotationPage> hidden)
+    internal static void Restore(HyperPdfAnnotations annotationState, RemovedAnnotationPage[] hidden)
     {
         foreach (var (page, annotations) in hidden)
         {
             _ = PdfPageAnnotations.SetArray(annotationState.Store, page, annotations);
         }
+    }
+
+    /// <summary>Takes the removed annotations off one page, leaving the rest.</summary>
+    /// <param name="annotationState">The annotation state.</param>
+    /// <param name="pageIndex">The page.</param>
+    /// <param name="hidden">The page and its full annotation array, to put back.</param>
+    /// <returns><see langword="true"/> when the page's annotations were changed.</returns>
+    private static bool TryHide(HyperPdfAnnotations annotationState, int pageIndex, out RemovedAnnotationPage hidden)
+    {
+        hidden = default;
+        if (HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is not { } page || PdfPageAnnotations.GetArray(annotationState.Store, page) is not { } annotations)
+        {
+            return false;
+        }
+
+        // A page whose removed annotations are no longer in its array needs no copy.
+        if (!HasRemoved(annotationState, annotations))
+        {
+            return false;
+        }
+
+        var kept = new PdfArray(annotationState.Store, annotations.Count);
+        for (var i = 0; i < annotations.Count; i++)
+        {
+            if (annotations.GetDictionary(i) is not { } annotation || !HyperPdfAnnotationKinds.IsRemoved(annotationState, annotation))
+            {
+                kept.Add(annotations.GetRaw(i));
+            }
+        }
+
+        hidden = new(page, annotations);
+        return PdfPageAnnotations.SetArray(annotationState.Store, page, kept);
+    }
+
+    /// <summary>Determines whether a page's annotation array holds an annotation that was removed but kept.</summary>
+    /// <param name="annotationState">The annotation state.</param>
+    /// <param name="annotations">The page's annotation array.</param>
+    /// <returns><see langword="true"/> when one is in the array.</returns>
+    private static bool HasRemoved(HyperPdfAnnotations annotationState, PdfArray annotations)
+    {
+        for (var i = 0; i < annotations.Count; i++)
+        {
+            if (annotations.GetDictionary(i) is { } annotation && HyperPdfAnnotationKinds.IsRemoved(annotationState, annotation))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

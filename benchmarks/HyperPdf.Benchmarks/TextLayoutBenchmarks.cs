@@ -53,9 +53,6 @@ public class TextLayoutBenchmarks
     /// <summary>The shaper.</summary>
     private FontProgramShaper _shaper = null!;
 
-    /// <summary>The glyphs of the paragraph, subset before embedding.</summary>
-    private ushort[] _glyphs = [];
-
     /// <summary>How much of the paragraph has been typed.</summary>
     private int _typed;
 
@@ -63,18 +60,11 @@ public class TextLayoutBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        var face = new FontFace(TestFont.Family, "Regular", "test.ttf", 0) { HasTrueTypeOutlines = true };
+        var face = new FontFace(TestFont.Family, "Regular", "test.ttf", 0) { HasEmbeddableOutlines = true };
         _font = FontProgram.FromBytes(face, TestFont.Create())!;
         _shaper = new(_font);
         _comb = _format with { CombCells = CombCells };
         _layout.Layout(Paragraph, _format, _shaper, WrapWidth);
-        var glyphs = new HashSet<ushort>();
-        foreach (var glyph in _layout.Glyphs)
-        {
-            _ = glyphs.Add(glyph.Glyph);
-        }
-
-        _glyphs = [.. glyphs];
     }
 
     /// <summary>Lays out one line.</summary>
@@ -113,9 +103,4 @@ public class TextLayoutBenchmarks
         _layout.Layout(Paragraph.AsSpan(0, _typed), _format, _shaper, WrapWidth);
         return _layout.Height;
     }
-
-    /// <summary>Cuts the font down to the paragraph's glyphs, as embedding does.</summary>
-    /// <returns>The subset's glyph count.</returns>
-    [Benchmark]
-    public int SubsetFont() => FontSubsetter.Create(_font, _glyphs)?.GlyphCount ?? 0;
 }

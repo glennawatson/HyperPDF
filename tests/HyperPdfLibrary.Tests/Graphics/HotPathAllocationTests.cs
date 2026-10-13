@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Graphics.Functions;
 using HyperPdfLibrary.Objects;
@@ -74,10 +75,11 @@ public sealed class HotPathAllocationTests
             space.ToRgb(components, rgb);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        space.ConvertRow(samples, bgra, Pixels);
-        space.ToRgb(components, rgb);
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        return AllocationProbe.Minimum(() =>
+        {
+            space.ConvertRow(samples, bgra, Pixels);
+            space.ToRgb(components, rgb);
+        });
     }
 
     /// <summary>Measures the bytes allocated by evaluating a function.</summary>
@@ -92,9 +94,7 @@ public sealed class HotPathAllocationTests
             function.Evaluate(input, output);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        function.Evaluate(input, output);
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        return AllocationProbe.Minimum(() => function.Evaluate(input, output));
     }
 
     /// <summary>Creates an array value.</summary>

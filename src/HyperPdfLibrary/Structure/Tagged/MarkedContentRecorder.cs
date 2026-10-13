@@ -12,6 +12,7 @@ using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Graphics.Shadings;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Rendering;
 
 namespace HyperPdfLibrary.Structure.Tagged;
 
@@ -28,11 +29,17 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <summary>How far ahead the scanned operators are searched for the one the interpreter just ran.</summary>
     private const int MaxLookahead = 64;
 
-    /// <summary>The document's name table.</summary>
-    private readonly PdfNameTable _names;
+    /// <summary>The most glyphs or characters an idle recorder keeps room for.</summary>
+    private const int MaxKeptCapacity = 1 << 16;
+
+    /// <summary>Idle recorders, kept with the lists and text buffer they grew so recording another page does not grow them again.</summary>
+    private static readonly ReusableSlots<MarkedContentRecorder> Idle = new();
+
+    /// <summary>Stands in for the graphics of a page that paints no path or image; shared because pages only read it.</summary>
+    private static readonly Dictionary<int, PdfViewerRect> NoGraphics = [];
 
     /// <summary>The page's marked content operators in running order.</summary>
-    private readonly List<ScannedMark> _scanned;
+    private readonly List<ScannedMark> _scanned = [];
 
     /// <summary>The open marked content levels, outermost first.</summary>
     private readonly List<MarkFrame> _frames = [];
@@ -43,13 +50,16 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <summary>The glyphs' text, back to back.</summary>
     private readonly StringBuilder _text = new();
 
-    /// <summary>The bounds of each marked content id's paths and images.</summary>
-    private readonly Dictionary<int, PdfViewerRect> _graphics = [];
+    /// <summary>The document's name table; null while the recorder sits idle.</summary>
+    private PdfNameTable _names = null!;
+
+    /// <summary>The bounds of each marked content id's paths and images; made with the first one, then handed to the page.</summary>
+    private Dictionary<int, PdfViewerRect>? _graphics;
 
     /// <summary>The next scanned operator to match.</summary>
     private int _next;
 
-    /// <summary>The marked content id in force: the outermost open level with one, as PDFium reads it.</summary>
+    /// <summary>The marked content id in force: the innermost open level with one, because content belongs to its closest marked-content sequence (ISO 32000-2 14.7.4.2).</summary>
     private int _mcid = -1;
 
     /// <summary>Whether an open level is an artifact.</summary>
@@ -58,14 +68,8 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <summary>Whether the page draws an image.</summary>
     private bool _hasImages;
 
-    /// <summary>Initializes a new instance of the <see cref = "MarkedContentRecorder"/> class.</summary>
-    /// <param name = "names">The document's name table.</param>
-    /// <param name = "scanned">The page's marked content operators in running order.</param>
-    private MarkedContentRecorder(PdfNameTable names, List<ScannedMark> scanned)
-    {
-        _names = names;
-        _scanned = scanned;
-    }
+    /// <inheritdoc/>
+    public bool RetainsPaths => false;
 
     /// <inheritdoc/>
     public void Save()
@@ -156,16 +160,23 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <returns>The page's marked content.</returns>
     internal static PdfMarkedContentPage Record(PdfDocument document, PdfPage page)
     {
-        var scanned = new List<ScannedMark>();
-        var images = MarkedContentScanner.Scan(document, page, scanned);
-        var device = new MarkedContentRecorder(document.Objects.Names, scanned);
-        using (var interpreter = new ContentInterpreter(PdfDocumentRendering.GetRenderCache(document), device, 0))
+        var device = Idle.Take() ?? new();
+        device._names = document.Objects.Names;
+        try
         {
-            ContentExecution.RunPage(interpreter, page);
-        }
+            var images = MarkedContentScanner.Scan(document, page, device._scanned);
+            using (var interpreter = ContentInterpreter.Rent(PdfDocumentRendering.GetRenderCache(document), device, 0))
+            {
+                ContentExecution.RunPage(interpreter, page);
+            }
 
-        // The scan sees images the interpreter cannot decode, such as JBIG2 or JPEG 2000 scans.
-        return new(page.Index, device._text.ToString(), [.. device._glyphs], device._graphics, images || device._hasImages);
+            // The scan sees images the interpreter cannot decode, such as JBIG2 or JPEG 2000 scans.
+            return new(page.Index, device._text.ToString(), device._glyphs.ToArray(), device._graphics ?? NoGraphics, images || device._hasImages);
+        }
+        finally
+        {
+            device.Release();
+        }
     }
 
     /// <summary>Determines whether a marked content tag is <c>/Artifact</c>.</summary>
@@ -202,7 +213,7 @@ internal sealed class MarkedContentRecorder : IContentDevice
         foreach (var frame in CollectionsMarshal.AsSpan(_frames))
         {
             _artifact |= frame.IsArtifact;
-            if (_mcid < 0)
+            if (frame.Mcid >= 0)
             {
                 _mcid = frame.Mcid;
             }
@@ -219,7 +230,29 @@ internal sealed class MarkedContentRecorder : IContentDevice
             return;
         }
 
+        _graphics ??= [];
         ref var covered = ref CollectionsMarshal.GetValueRefOrAddDefault(_graphics, _mcid, out _);
         covered = covered.Union(PdfViewerRect.Transform(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom, ctm));
+    }
+
+    /// <summary>Forgets the page just recorded and keeps the recorder, with its grown buffers, for the next one.</summary>
+    private void Release()
+    {
+        _scanned.Clear();
+        _frames.Clear();
+        _glyphs.Clear();
+        _ = _text.Clear();
+        _graphics = null;
+        _names = null!;
+        _next = 0;
+        _mcid = -1;
+        _artifact = false;
+        _hasImages = false;
+
+        // A recorder that grew for an enormous page is dropped instead of pinning that memory.
+        if (_text.Capacity <= MaxKeptCapacity && _glyphs.Capacity <= MaxKeptCapacity)
+        {
+            _ = Idle.Offer(this);
+        }
     }
 }

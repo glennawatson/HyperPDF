@@ -7,6 +7,7 @@ using Avalonia.Media;
 using HyperPdf.Skia;
 using HyperPdf.Skia.Fonts;
 using HyperPdf.Skia.Rendering;
+using HyperPdf.TestAssets;
 using SkiaSharp;
 
 namespace HyperPdf.App.Tests;
@@ -37,13 +38,13 @@ public sealed class DrawingContextImplTests
             context.DrawRectangle(brush, null, bounds);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < repetitions; i++)
+        var allocated = AllocationProbe.Minimum(() =>
         {
-            context.DrawRectangle(brush, null, bounds);
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            for (var i = 0; i < repetitions; i++)
+            {
+                context.DrawRectangle(brush, null, bounds);
+            }
+        });
         await Assert.That(allocated).IsEqualTo(0);
     }
 
@@ -66,13 +67,13 @@ public sealed class DrawingContextImplTests
             context.DrawGlyphRun(Brushes.Black, run);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < repetitions; i++)
+        var allocated = AllocationProbe.Minimum(() =>
         {
-            context.DrawGlyphRun(Brushes.Black, run);
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            for (var i = 0; i < repetitions; i++)
+            {
+                context.DrawGlyphRun(Brushes.Black, run);
+            }
+        });
         await Assert.That(allocated).IsEqualTo(0);
     }
 }

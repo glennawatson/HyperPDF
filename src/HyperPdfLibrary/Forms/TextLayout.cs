@@ -28,11 +28,13 @@ internal static class TextLayout
     /// <param name="size">The font size.</param>
     /// <param name="maxWidth">The widest a line may be, in points.</param>
     /// <param name="lines">Receives the lines.</param>
-    internal static void Wrap(FormCodes text, float size, float maxWidth, List<TextLine> lines)
+    /// <param name="cancellationToken">A token that cancels the layout; it is checked for every paragraph.</param>
+    internal static void Wrap(FormCodes text, float size, float maxWidth, List<TextLine> lines, CancellationToken cancellationToken)
     {
         var start = 0;
         while (start <= text.Length)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var feed = text.IndexOfLineFeed(start);
             var end = feed < 0 ? text.Length : feed;
             WrapParagraph(text, start, end, size, maxWidth, lines);

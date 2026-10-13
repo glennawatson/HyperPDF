@@ -8,24 +8,22 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Text;
 
-/// <summary>One glyph of a text run, in the run's own space as PDFium's text object items are.</summary>
+/// <summary>One shown glyph, in the space of its <see cref="TextRun"/>. Lengths are text space units, already scaled by the font size.</summary>
 /// <param name="Code">The character code.</param>
-/// <param name="UnicodeStart">The start of the glyph's Unicode text in the device's character buffer.</param>
-/// <param name="UnicodeLength">The length of the glyph's Unicode text; 0 when the font gives none.</param>
-/// <param name="Along">The glyph's position along the writing direction, in text space units scaled by the font size.</param>
-/// <param name="Kerning">The adjustment after the glyph, in thousandths of the font size, as a TJ number gives it.</param>
-/// <param name="WidthUnits">The glyph's advance in thousandths of the font size, falling back to its box width.</param>
-/// <param name="CharWidth">The glyph's advance scaled by the font size; negative for vertical writing.</param>
-/// <param name="Box">The glyph's outline bounds in thousandths of the font size.</param>
-/// <param name="VerticalOrigin">The vertical writing origin in thousandths of the font size; zero for horizontal text.</param>
-[DebuggerDisplay("TextGlyph: {Code} at {Along}")]
+/// <param name="UnicodeStart">The start of the glyph's text in the device's character buffer.</param>
+/// <param name="UnicodeLength">The length of the glyph's text; 0 when the font gives none.</param>
+/// <param name="Pen">The text position where the glyph is shown, along the writing direction (the x axis, or the y axis for vertical writing).</param>
+/// <param name="Advance">How far the text position moved after the glyph, including character and word spacing; negative for vertical writing.</param>
+/// <param name="Origin">The glyph origin: the pen, or for vertical writing the pen moved by the glyph's vertical origin.</param>
+/// <param name="Outline">The outline bounds, or an empty rectangle for a blank glyph.</param>
+/// <param name="Cell">The glyph's em cell: its advance by the font's descent to ascent, or for vertical writing one em wide centred on the pen.</param>
+[DebuggerDisplay("TextGlyph: {Code} at {Pen}")]
 internal readonly record struct TextGlyph(
     int Code,
     int UnicodeStart,
     int UnicodeLength,
-    float Along,
-    float Kerning,
-    int WidthUnits,
-    float CharWidth,
-    PdfRectangle Box,
-    Vector2 VerticalOrigin);
+    float Pen,
+    float Advance,
+    Vector2 Origin,
+    PdfRectangle Outline,
+    PdfRectangle Cell);

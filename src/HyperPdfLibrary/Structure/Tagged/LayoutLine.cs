@@ -6,21 +6,9 @@ using System.Diagnostics;
 
 namespace HyperPdfLibrary.Structure.Tagged;
 
-/// <summary>A run of items on one line, left to right, with no column gap inside it.</summary>
-[DebuggerDisplay("LayoutLine: {Items.Count} items")]
-internal sealed class LayoutLine
-{
-    /// <summary>Gets the items, left to right once the line is finished.</summary>
-    internal List<LayoutItem> Items { get; } = [];
-
-    /// <summary>Gets the box around the items.</summary>
-    internal PdfViewerRect Bounds { get; private set; }
-
-    /// <summary>Adds an item.</summary>
-    /// <param name="item">The item.</param>
-    internal void Add(in LayoutItem item)
-    {
-        Items.Add(item);
-        Bounds = Bounds.Union(item.Bounds);
-    }
-}
+/// <summary>A line, or the piece of a line between two column gaps: a run of items in the builder's array.</summary>
+/// <param name="Start">The position of the first item.</param>
+/// <param name="Count">The number of items, left to right once the line is finished.</param>
+/// <param name="Bounds">The box around the items.</param>
+[DebuggerDisplay("LayoutLine: {Count} items from {Start}")]
+internal readonly record struct LayoutLine(int Start, int Count, PdfViewerRect Bounds);

@@ -267,8 +267,8 @@ public sealed class OptimizeCopyViewModelTests
 
         using (Assert.Multiple())
         {
-            await Assert.That(nativeTab.Optimize.CanRun).IsTrue();
-            await Assert.That(nativeTab.Optimize.MenuText).IsEqualTo("Save _Optimised Copy…");
+            await Assert.That(nativeTab.Copies.Optimize.CanRun).IsTrue();
+            await Assert.That(nativeTab.Copies.Optimize.MenuText).IsEqualTo("Save _Optimised Copy…");
         }
     }
 
@@ -284,7 +284,7 @@ public sealed class OptimizeCopyViewModelTests
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var destination = Path.Combine(test.Directory, "real.pdf");
         OptimizeReport? report = null;
-        using var handler = tab.Optimize.Interaction.RegisterHandler(async context =>
+        using var handler = tab.Copies.Optimize.Interaction.RegisterHandler(async context =>
         {
             using var picker = context.Input.SaveInteraction.RegisterHandler(pick => pick.SetOutput(destination));
             _ = await context.Input.SaveCommand.Execute().ToTask();
@@ -292,7 +292,7 @@ public sealed class OptimizeCopyViewModelTests
             context.SetOutput(RxVoid.Default);
         });
 
-        _ = await tab.Optimize.RunCommand.Execute().ToTask();
+        _ = await tab.Copies.Optimize.RunCommand.Execute().ToTask();
 
         await TestServices.OpenAndWaitAsync(main, [destination]);
         await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.IsLoaded)).IsTrue();

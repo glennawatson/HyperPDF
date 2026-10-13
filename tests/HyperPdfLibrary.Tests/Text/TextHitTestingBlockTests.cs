@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Numerics;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Text;
 
@@ -39,10 +40,7 @@ public sealed class TextHitTestingBlockTests
     /// <summary>The reach of tolerant queries.</summary>
     private const float Tolerance = 4F;
 
-    /// <summary>The original initial distance on each axis.</summary>
-    private const double FarAway = 5000;
-
-    /// <summary>Half, for the midpoint and splitting a tolerance.</summary>
+    /// <summary>Half, for the midpoint.</summary>
     private const float Half = 0.5F;
 
     /// <summary>The divisor used to select a middle index.</summary>
@@ -225,16 +223,16 @@ public sealed class TextHitTestingBlockTests
             _ = page.GetIndexAtPosition(point, Tolerance, Tolerance);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < IndexedSize; i++)
+        var allocated = AllocationProbe.Minimum(() =>
         {
-            foreach (var point in points)
+            for (var i = 0; i < IndexedSize; i++)
             {
-                _ = page.GetIndexAtPosition(point, Tolerance, Tolerance);
+                foreach (var point in points)
+                {
+                    _ = page.GetIndexAtPosition(point, Tolerance, Tolerance);
+                }
             }
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        });
         await Assert.That(allocated).IsEqualTo(0);
     }
 
@@ -289,36 +287,46 @@ public sealed class TextHitTestingBlockTests
     /// <returns>The matching index, or -1.</returns>
     private static int Scalar(ReadOnlySpan<PdfTextChar> chars, Vector2 point, float toleranceX, float toleranceY)
     {
-        var nearest = -1;
-        var bestX = FarAway;
-        var bestY = FarAway;
-        var useTolerance = toleranceX > 0 || toleranceY > 0;
+        if (!float.IsFinite(point.X) || !float.IsFinite(point.Y))
+        {
+            return -1;
+        }
+
         for (var i = 0; i < chars.Length; i++)
         {
-            var box = chars[i].Box;
-            if (TextGeometry.Contains(box, point))
+            if (chars[i].Kind != PdfTextCharKind.Generated && TextGeometry.Contains(chars[i].Box, point))
             {
                 return i;
             }
+        }
 
-            box = TextGeometry.Normalize(box);
-            var halfX = toleranceX * Half;
-            var halfY = toleranceY * Half;
-            var expanded = new PdfRectangle(box.Left - halfX, box.Bottom - halfY, box.Right + halfX, box.Top + halfY);
-            if (!useTolerance || !TextGeometry.Contains(expanded, point))
+        var reachX = Math.Max(toleranceX, 0);
+        var reachY = Math.Max(toleranceY, 0);
+        return reachX > 0 || reachY > 0 ? ScalarNearest(chars, point, reachX, reachY) : -1;
+    }
+
+    /// <summary>Finds the character whose box is nearest a point, within the reach on both axes; the first wins ties.</summary>
+    /// <param name="chars">The original characters.</param>
+    /// <param name="point">The query point.</param>
+    /// <param name="reachX">The horizontal reach.</param>
+    /// <param name="reachY">The vertical reach.</param>
+    /// <returns>The matching index, or -1.</returns>
+    private static int ScalarNearest(ReadOnlySpan<PdfTextChar> chars, Vector2 point, float reachX, float reachY)
+    {
+        var nearest = -1;
+        var best = double.PositiveInfinity;
+        for (var i = 0; i < chars.Length; i++)
+        {
+            var box = TextGeometry.Normalize(chars[i].Box);
+            double dx = Math.Max(Math.Max(box.Left - point.X, point.X - box.Right), 0);
+            double dy = Math.Max(Math.Max(box.Bottom - point.Y, point.Y - box.Top), 0);
+            var squared = (dx * dx) + (dy * dy);
+            if (!(dx <= reachX && dy <= reachY) || squared >= best)
             {
                 continue;
             }
 
-            double dx = MathF.Min(MathF.Abs(point.X - box.Left), MathF.Abs(point.X - box.Right));
-            double dy = MathF.Min(MathF.Abs(point.Y - box.Bottom), MathF.Abs(point.Y - box.Top));
-            if (dx + dy >= bestX + bestY)
-            {
-                continue;
-            }
-
-            bestX = dx;
-            bestY = dy;
+            best = squared;
             nearest = i;
         }
 

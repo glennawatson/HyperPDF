@@ -43,7 +43,15 @@ internal ref struct ObjectStreamPacker
     /// <param name="body">The body writer, emptied.</param>
     /// <param name="writer">The document writer.</param>
     /// <param name="id">The object stream's id, which it is encrypted for when the writer encrypts.</param>
-    internal void Flush(ref PdfObjectWriter body, ref PdfObjectWriter writer, PdfObjectId id)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Flush(ref PdfObjectWriter body, ref PdfObjectWriter writer, PdfObjectId id) => Flush(ref body, ref writer, id, StreamPolicy.Default);
+
+    /// <summary>Writes the collected objects as an object stream, Flate-compressed unless the policy asks for plain streams, and starts a new one.</summary>
+    /// <param name="body">The body writer, emptied.</param>
+    /// <param name="writer">The document writer.</param>
+    /// <param name="id">The object stream's id, which it is encrypted for when the writer encrypts.</param>
+    /// <param name="policy">How the stream is compressed.</param>
+    internal void Flush(ref PdfObjectWriter body, ref PdfObjectWriter writer, PdfObjectId id, StreamPolicy policy)
     {
         _header.WriteByte((byte)'\n');
         var first = _header.Length;
@@ -51,13 +59,18 @@ internal ref struct ObjectStreamPacker
         var compressed = default(PooledBuffer);
         try
         {
-            FlateFilter.Encode(_header.WrittenSpan, ref compressed);
+            var plain = policy.Mode == PdfStreamMode.Uncompressed;
+            if (!plain)
+            {
+                FlateFilter.Encode(_header.WrittenSpan, policy.Level, ref compressed);
+            }
+
             var dictionary = new PdfDictionary(null);
             dictionary.Set(KnownName.Type, PdfValue.FromName(KnownName.ObjStm));
             dictionary.Set(KnownName.N, PdfValue.FromInteger(Count));
             dictionary.Set(KnownName.First, PdfValue.FromInteger(first));
             writer.WriteObjectHeader(id);
-            writer.WriteStream(dictionary, compressed.WrittenSpan, id, true);
+            writer.WriteStream(dictionary, plain ? _header.WrittenSpan : compressed.WrittenSpan, id, !plain);
             writer.WriteRaw("\nendobj\n"u8);
         }
         finally

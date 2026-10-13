@@ -42,6 +42,8 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
         MotionBox.ItemsSource = PreferencesViewModel.MotionOptions;
         CaretBox.ItemsSource = PreferencesViewModel.CaretOptions;
         FontSizeBox.ItemsSource = PreferencesViewModel.FontSizeOptions;
+        FormHighlightColorBox.ItemsSource = PreferencesViewModel.FormHighlightColorOptions;
+        FormHighlightOpacityBox.ItemsSource = PreferencesViewModel.FormHighlightOpacityOptions;
         SpeechEngineBox.ItemsSource = PreferencesViewModel.SpeechEngineOptions;
 
         OcrLanguageList.ItemTemplate = new FuncDataTemplate<OcrLanguageItemViewModel>(static (_, _) => new OcrLanguageItemView());
@@ -55,6 +57,8 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
             (FontSizeBox, FontSizeLabel),
             (OpeningZoomBox, OpeningZoomLabel),
             (CommentAuthorBox, CommentAuthorLabel),
+            (FormHighlightColorBox, FormHighlightColorLabel),
+            (FormHighlightOpacityBox, FormHighlightOpacityLabel),
             (SpeechEngineBox, SpeechEngineLabel),
             (AzureKeyBox, AzureKeyLabel),
             (AzureRegionBox, AzureRegionLabel),
@@ -79,6 +83,8 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
         disposables.Add(this.Bind(ViewModel, static vm => vm.Motion, static v => v.MotionBox.SelectedIndex));
         disposables.Add(this.Bind(ViewModel, static vm => vm.Caret, static v => v.CaretBox.SelectedIndex));
         disposables.Add(this.Bind(ViewModel, static vm => vm.FontSize, static v => v.FontSizeBox.SelectedIndex));
+        disposables.Add(this.Bind(ViewModel, static vm => vm.FormHighlightColor, static v => v.FormHighlightColorBox.SelectedIndex));
+        disposables.Add(this.Bind(ViewModel, static vm => vm.FormHighlightOpacity, static v => v.FormHighlightOpacityBox.SelectedIndex));
         disposables.Add(this.Bind(ViewModel, static vm => vm.SpeechEngine, static v => v.SpeechEngineBox.SelectedIndex));
         disposables.Add(this.Bind(ViewModel, static vm => vm.AzureKey, static v => v.AzureKeyBox.Text));
         disposables.Add(this.Bind(ViewModel, static vm => vm.AzureRegion, static v => v.AzureRegionBox.Text));

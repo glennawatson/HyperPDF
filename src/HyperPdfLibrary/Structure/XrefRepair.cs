@@ -120,7 +120,7 @@ internal static class XrefRepair
             table.Set(number, XrefEntryType.InFile, start, generation);
             if (PdfByteSearch.IndexOf(file, "ObjStm"u8, start, start + HeaderWindow) >= 0)
             {
-                table.ObjectStreams.Add(start);
+                table.AddObjectStream(start);
             }
 
             position = SkipStreamBody(file, position);

@@ -2,15 +2,12 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Text;
+using System.Buffers;
 
 namespace HyperPdf.Core.Licences;
 
-/// <summary>Reads the third-party notices file line by line.</summary>
-[DebuggerDisplay("NoticeReader: {_licence}")]
-internal sealed class NoticeReader
+/// <summary>Reads the third-party notices file line by line, collecting each licence text in a pooled buffer.</summary>
+internal ref struct NoticeReader
 {
     /// <summary>The line that opens a licence text.</summary>
     private const string FenceOpen = "````text";
@@ -30,23 +27,41 @@ internal sealed class NoticeReader
     /// <summary>The text between a field's name and its value.</summary>
     private const string FieldSeparator = ": ";
 
-    /// <summary>The finished groups.</summary>
-    private readonly List<NoticeGroup> _groups = [];
+    /// <summary>The characters the text buffer holds when it is first rented.</summary>
+    private const int InitialTextLength = 4096;
 
-    /// <summary>The licence text being read.</summary>
-    private readonly StringBuilder _text = new();
+    /// <summary>The factor by which the text buffer grows.</summary>
+    private const int GrowthFactor = 2;
 
-    /// <summary>The entries of the current group.</summary>
-    private List<NoticeEntry> _entries = [];
+    /// <summary>The finished groups; made with the first one.</summary>
+    private List<NoticeGroup>? _groups;
+
+    /// <summary>The entries of the current group; made with the first one.</summary>
+    private List<NoticeEntry>? _entries;
+
+    /// <summary>The licence text being read, in a rented array.</summary>
+    private char[]? _text;
+
+    /// <summary>The characters of the licence text read so far.</summary>
+    private int _textLength;
 
     /// <summary>The current group's licence.</summary>
-    private string _licence = string.Empty;
+    private string? _licence;
 
     /// <summary>The current component's name, or <see langword="null"/> before the first component.</summary>
     private string? _name;
 
-    /// <summary>The current component's fields by name.</summary>
-    private Dictionary<string, string> _fields = [with(StringComparer.Ordinal)];
+    /// <summary>The current component's version field.</summary>
+    private string? _version;
+
+    /// <summary>The current component's origin field.</summary>
+    private string? _origin;
+
+    /// <summary>The current component's copyright field.</summary>
+    private string? _copyright;
+
+    /// <summary>The current component's link field.</summary>
+    private string? _link;
 
     /// <summary>Whether the reader is inside a licence text.</summary>
     private bool _inText;
@@ -62,7 +77,7 @@ internal sealed class NoticeReader
         else if (line.SequenceEqual(FenceOpen))
         {
             _inText = true;
-            _ = _text.Clear();
+            _textLength = 0;
         }
         else if (line.StartsWith(GroupPrefix, StringComparison.Ordinal))
         {
@@ -72,7 +87,7 @@ internal sealed class NoticeReader
         else if (line.StartsWith(EntryPrefix, StringComparison.Ordinal))
         {
             _name = line[EntryPrefix.Length..].Trim().ToString();
-            _fields = [with(StringComparer.Ordinal)];
+            ClearFields();
         }
         else if (line.StartsWith(FieldPrefix, StringComparison.Ordinal))
         {
@@ -80,12 +95,18 @@ internal sealed class NoticeReader
         }
     }
 
-    /// <summary>Finishes the last group.</summary>
+    /// <summary>Finishes the last group and gives the text buffer back.</summary>
     /// <returns>The groups.</returns>
     internal List<NoticeGroup> Finish()
     {
         CloseGroup();
-        return _groups;
+        if (_text is not null)
+        {
+            ArrayPool<char>.Shared.Return(_text);
+            _text = null;
+        }
+
+        return _groups ?? [];
     }
 
     /// <summary>Handles a line of licence text; the closing fence ends the component.</summary>
@@ -94,52 +115,96 @@ internal sealed class NoticeReader
     {
         if (!line.SequenceEqual(FenceClose))
         {
-            _ = _text.Append(line).Append('\n');
+            AppendText(line);
             return;
         }
 
         _inText = false;
         if (_name is not null)
         {
-            _entries.Add(new(
+            (_entries ??= []).Add(new(
                 _name,
-                _licence,
-                Field(nameof(NoticeEntry.Version)),
-                Field(nameof(NoticeEntry.Origin)),
-                Field(nameof(NoticeEntry.Copyright)),
-                Field(nameof(NoticeEntry.Link)),
-                _text.ToString().TrimEnd()));
+                _licence ?? string.Empty,
+                _version ?? string.Empty,
+                _origin ?? string.Empty,
+                _copyright ?? string.Empty,
+                _link ?? string.Empty,
+                _text.AsSpan(0, _textLength).TrimEnd().ToString()));
         }
 
         _name = null;
-        _fields = [with(StringComparer.Ordinal)];
+        ClearFields();
     }
 
-    /// <summary>Records a <c>Name: value</c> line.</summary>
+    /// <summary>Adds a line and a line feed to the licence text.</summary>
+    /// <param name="line">The line.</param>
+    private void AppendText(ReadOnlySpan<char> line)
+    {
+        var needed = _textLength + line.Length + 1;
+        if (_text is null || needed > _text.Length)
+        {
+            var larger = ArrayPool<char>.Shared.Rent(Math.Max(Math.Max(InitialTextLength, needed), (_text?.Length ?? 0) * GrowthFactor));
+            _text.AsSpan(0, _textLength).CopyTo(larger);
+            if (_text is not null)
+            {
+                ArrayPool<char>.Shared.Return(_text);
+            }
+
+            _text = larger;
+        }
+
+        line.CopyTo(_text.AsSpan(_textLength));
+        _text[_textLength + line.Length] = '\n';
+        _textLength = needed;
+    }
+
+    /// <summary>Records a <c>Name: value</c> line; a name that is not one of the fields is ignored.</summary>
     /// <param name="field">The line without its prefix.</param>
     private void AddField(ReadOnlySpan<char> field)
     {
         var split = field.IndexOf(FieldSeparator, StringComparison.Ordinal);
-        if (split > 0)
+        if (split <= 0)
         {
-            _fields[field[..split].ToString()] = field[(split + FieldSeparator.Length)..].Trim().ToString();
+            return;
+        }
+
+        var name = field[..split];
+        var value = field[(split + FieldSeparator.Length)..].Trim();
+        if (name.SequenceEqual(nameof(NoticeEntry.Version)))
+        {
+            _version = value.ToString();
+        }
+        else if (name.SequenceEqual(nameof(NoticeEntry.Origin)))
+        {
+            _origin = value.ToString();
+        }
+        else if (name.SequenceEqual(nameof(NoticeEntry.Copyright)))
+        {
+            _copyright = value.ToString();
+        }
+        else if (name.SequenceEqual(nameof(NoticeEntry.Link)))
+        {
+            _link = value.ToString();
         }
     }
 
-    /// <summary>Gets a field of the current component.</summary>
-    /// <param name="name">The field name.</param>
-    /// <returns>The value, or empty.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private string Field(string name) => _fields.GetValueOrDefault(name, string.Empty);
+    /// <summary>Forgets the current component's fields.</summary>
+    private void ClearFields()
+    {
+        _version = null;
+        _origin = null;
+        _copyright = null;
+        _link = null;
+    }
 
     /// <summary>Adds the current group to the result when it has components.</summary>
     private void CloseGroup()
     {
-        if (_entries.Count > 0)
+        if (_entries is { Count: > 0 })
         {
-            _groups.Add(new(_licence, _entries));
+            (_groups ??= []).Add(new(_licence ?? string.Empty, _entries));
         }
 
-        _entries = [];
+        _entries = null;
     }
 }

@@ -10,7 +10,8 @@ namespace HyperPdf.Benchmarks;
 
 /// <summary>
 /// Converts a 4 megapixel CMYK image, row by row, through an ICC look-up table profile and through DeviceCMYK. The profile
-/// is a 9-point 'mft1' table whose inks darken and tint the Lab output.
+/// is a 9-point 'mft1' table whose inks darken and tint the Lab output. The fixture profiles of the colour parity tests, a
+/// 17-point 'mft2' and a 9-point v4 'mAB ', are converted the same way.
 /// </summary>
 public class HyperPdfColorBenchmarks
 {
@@ -110,6 +111,12 @@ public class HyperPdfColorBenchmarks
     /// <summary>The profile conversion.</summary>
     private IccTransform _icc = null!;
 
+    /// <summary>The conversion through the 'mft2' fixture profile.</summary>
+    private IccTransform _mft2 = null!;
+
+    /// <summary>The conversion through the 'mAB ' fixture profile.</summary>
+    private IccTransform _mab = null!;
+
     /// <summary>The kinds of image content.</summary>
     public enum ImageContent
     {
@@ -132,13 +139,17 @@ public class HyperPdfColorBenchmarks
         _icc = IccProfile.Create(BuildProfile()) ?? throw new InvalidOperationException("The benchmark profile was not accepted.");
         _samples = new byte[Side * Side * CmykComponents];
         _bgra = new byte[Side * Side * BytesPerPixel];
+        _mft2 = IccProfile.Create(HyperPdfLibrary.Tests.Graphics.IccCmykFixture.BuildMft2()) ?? throw new InvalidOperationException("The 'mft2' fixture profile was not accepted.");
+        _mab = IccProfile.Create(HyperPdfLibrary.Tests.Graphics.IccCmykFixture.BuildMab()) ?? throw new InvalidOperationException("The 'mAB ' fixture profile was not accepted.");
         Fill();
 
         // The first conversion builds the transform's table; keep it out of the measurement.
         ConvertAll(_icc);
+        ConvertAll(_mft2);
+        ConvertAll(_mab);
     }
 
-    /// <summary>Converts the image with DeviceCMYK, which PDFium's table interpolation defines.</summary>
+    /// <summary>Converts the image with DeviceCMYK on the widest accelerated vectors.</summary>
     /// <returns>The first output byte.</returns>
     [Benchmark(Baseline = true)]
     public byte DeviceCmyk()
@@ -151,12 +162,50 @@ public class HyperPdfColorBenchmarks
         return _bgra[0];
     }
 
+    /// <summary>Converts the image with the DeviceCMYK polynomial one pixel at a time.</summary>
+    /// <returns>The first output byte.</returns>
+    [Benchmark]
+    public byte DeviceCmykScalar() => ConvertCmyk(CmykLaneWidth.Scalar);
+
+    /// <summary>Converts the image with the DeviceCMYK polynomial on 128-bit vectors.</summary>
+    /// <returns>The first output byte.</returns>
+    [Benchmark]
+    public byte DeviceCmykVector128() => ConvertCmyk(CmykLaneWidth.Vector128);
+
+    /// <summary>Converts the image with the DeviceCMYK polynomial on 256-bit vectors.</summary>
+    /// <returns>The first output byte.</returns>
+    [Benchmark]
+    public byte DeviceCmykVector256() => ConvertCmyk(CmykLaneWidth.Vector256);
+
+    /// <summary>Converts the image with the DeviceCMYK polynomial on 512-bit vectors.</summary>
+    /// <returns>The first output byte.</returns>
+    [Benchmark]
+    public byte DeviceCmykVector512() => ConvertCmyk(CmykLaneWidth.Vector512);
+
     /// <summary>Converts the image through the ICC look-up table profile.</summary>
     /// <returns>The first output byte.</returns>
     [Benchmark]
     public byte IccLookUp()
     {
         ConvertAll(_icc);
+        return _bgra[0];
+    }
+
+    /// <summary>Converts the image through the 17-point 'mft2' fixture profile.</summary>
+    /// <returns>The first output byte.</returns>
+    [Benchmark]
+    public byte IccLookUpMft2()
+    {
+        ConvertAll(_mft2);
+        return _bgra[0];
+    }
+
+    /// <summary>Converts the image through the 9-point v4 'mAB ' fixture profile.</summary>
+    /// <returns>The first output byte.</returns>
+    [Benchmark]
+    public byte IccLookUpMab()
+    {
+        ConvertAll(_mab);
         return _bgra[0];
     }
 
@@ -270,6 +319,19 @@ public class HyperPdfColorBenchmarks
         }
 
         return sum;
+    }
+
+    /// <summary>Converts the image row by row with one lane width.</summary>
+    /// <param name="width">The lane width.</param>
+    /// <returns>The first output byte.</returns>
+    private byte ConvertCmyk(CmykLaneWidth width)
+    {
+        for (var y = 0; y < Side; y++)
+        {
+            CmykConverter.ToBgraRow(_samples.AsSpan(y * Side * CmykComponents, Side * CmykComponents), _bgra.AsSpan(y * Side * BytesPerPixel, Side * BytesPerPixel), Side, width);
+        }
+
+        return _bgra[0];
     }
 
     /// <summary>Converts every row.</summary>

@@ -104,7 +104,7 @@ internal static class PdfAClaimGuard
 
         // A view over the writer's objects; it is not disposed, as disposing it would close them.
         PdfDocument view = new(store, null);
-        PdfDocumentEditing.RunEdit(view, RemoveLabel, PdfChangeKinds.Metadata, view, static (transaction, state) => RemoveClaim(state, transaction));
+        PdfDocumentEditing.RunEdit(view, RemoveLabel, PdfChangeKinds.Metadata, PdfCacheScopes.None, view, static (transaction, state) => RemoveClaim(state, transaction));
         return new(new(report.Level, true, report.Failed) { Problems = repair.Problems }, null);
     }
 

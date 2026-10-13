@@ -173,12 +173,7 @@ internal static partial class Jbig2TextRegion
                 return PlaceRefinedHuffman(ref reader, store, index, instance.T);
             }
 
-            // PDFium skips an instance whose symbol has no bitmap without counting it.
-            if (!store.IsPresent(index))
-            {
-                return true;
-            }
-
+            // A symbol without a bitmap is an empty bitmap (T.88 section 6.4.5): it is counted and draws nothing.
             _instances++;
             return Place(store.Get(index), instance.T);
         }

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -12,10 +13,12 @@ namespace HyperPdf.Platform.Linux.Spelling;
 /// <summary>
 /// Finds the closest words to a misspelling with the symmetric delete method: every word is indexed under the hashes of
 /// its first letters with up to two of them deleted, and a misspelling's own deletes find the words to compare.
-/// Lookups reuse the index's buffers, so one caller at a time; they allocate nothing beyond the results.
+/// The index lives in arrays rented from <see cref="ArrayPool{T}.Shared"/> and handed back on dispose, so building it
+/// again allocates nothing once the pool holds them. Lookups reuse the index's buffers, so one caller at a time; they
+/// allocate nothing beyond the results.
 /// </summary>
-[DebuggerDisplay("CorrectionIndex: {_terms.Length} words")]
-internal sealed class CorrectionIndex
+[DebuggerDisplay("CorrectionIndex: {_indexed} words")]
+internal sealed class CorrectionIndex : IDisposable
 {
     /// <summary>The most letters changed between a misspelling and a correction.</summary>
     internal const int MaxEditDistance = 2;
@@ -44,93 +47,131 @@ internal sealed class CorrectionIndex
     /// <summary>The most words indexed, far more than any word list holds.</summary>
     private const int MaxWords = 1 << NumberBits;
 
-    /// <summary>The bits a packed entry shifts its hash by, above the word number; also the bits in a hash.</summary>
-    private const int HashShift = 32;
+    /// <summary>The bits in a hash.</summary>
+    private const int HashBits = 32;
 
-    /// <summary>The keys aimed for in each directory bucket, as a power of two: sixteen, one cache line.</summary>
-    private const int KeysPerBucketBits = 4;
+    /// <summary>The entries aimed for in each directory bucket, as a power of two: sixteen, one cache line.</summary>
+    private const int EntriesPerBucketBits = 4;
 
     /// <summary>The most directory bits, which keeps the directory to a few megabytes.</summary>
     private const int MaxDirectoryBits = 20;
 
-    /// <summary>The top hash bits entries are placed by while the index is built.</summary>
-    private const int BuildBucketBits = 16;
-
-    /// <summary>How far a hash shifts right to give its build bucket.</summary>
-    private const int BuildBucketShift = HashShift - BuildBucketBits;
-
     /// <summary>Flips a hash's sign bit so signed order becomes unsigned order.</summary>
     private const uint SignBit = 0x8000_0000;
 
-    /// <summary>The words in lower case, by number.</summary>
-    private readonly string[] _terms;
+    /// <summary>The bits in a word of the lower-case marks.</summary>
+    private const int MarkBits = 64;
 
-    /// <summary>The distinct delete hashes, in ascending order.</summary>
-    private readonly int[] _keys;
+    /// <summary>The matches room starts with.</summary>
+    private const int FirstMatchRoom = 64;
 
-    /// <summary>Where each key's words start in <see cref="_postings"/>; one longer than the keys.</summary>
-    private readonly int[] _starts;
+    /// <summary>How many times larger the matches grow when full.</summary>
+    private const int MatchGrowth = 2;
 
-    /// <summary>Where the keys whose hashes start with each run of top bits begin; one longer than the buckets.</summary>
+    /// <summary>The words, as the list wrote them.</summary>
+    private readonly WordPool _pool;
+
+    /// <summary>The words that are already lower case, one bit each, so those need no copy to compare.</summary>
+    private readonly ulong[] _lowerMarks;
+
+    /// <summary>The delete hashes, grouped by directory bucket in the order words were added.</summary>
+    private readonly int[] _hashes;
+
+    /// <summary>The word under each entry of <see cref="_hashes"/>: its number with its length above it.</summary>
+    private readonly int[] _postings;
+
+    /// <summary>Where the entries of each top-bits run begin; one longer than the buckets.</summary>
     private readonly int[] _directory;
 
     /// <summary>How far a hash shifts right to give its directory bucket.</summary>
     private readonly int _directoryShift;
 
-    /// <summary>The words under each key, key by key, each a word number with the word's length above it.</summary>
-    private readonly int[] _postings;
-
     /// <summary>The lookup that last compared each word, so a word found under several keys is compared once.</summary>
     private readonly int[] _seen;
 
-    /// <summary>The closest words found by the current lookup.</summary>
-    private readonly List<int> _matches = [];
-
     /// <summary>The misspelling's ASCII letter positions, all zero between lookups.</summary>
-    private readonly ulong[] _asciiMasks = new ulong[LetterMasks.AsciiLetters];
+    private readonly ulong[] _asciiMasks;
 
     /// <summary>The misspelling's other letters.</summary>
-    private readonly char[] _otherLetters = new char[MaxWordLength];
+    private readonly char[] _otherLetters;
 
     /// <summary>The positions of the misspelling's other letters.</summary>
-    private readonly ulong[] _otherMasks = new ulong[MaxWordLength];
+    private readonly ulong[] _otherMasks;
 
-    /// <summary>The length of the shortest word.</summary>
+    /// <summary>The number of words the pool holds that are indexed or skipped.</summary>
+    private readonly int _wordCount;
+
+    /// <summary>The number of words indexed.</summary>
+    private readonly int _indexed;
+
+    /// <summary>The length of the shortest indexed word.</summary>
     private readonly int _shortest;
 
-    /// <summary>The length of the longest word.</summary>
+    /// <summary>The length of the longest indexed word.</summary>
     private readonly int _longest;
+
+    /// <summary>The correction strings made so far, by word number, so a correction offered again makes none.</summary>
+    private Dictionary<int, string>? _strings;
+
+    /// <summary>The closest words found by the current lookup.</summary>
+    private int[] _matches;
+
+    /// <summary>The number of words in <see cref="_matches"/>.</summary>
+    private int _matchCount;
 
     /// <summary>The current lookup's number, matched against <see cref="_seen"/>.</summary>
     private int _lookup;
 
     /// <summary>Initializes a new instance of the <see cref="CorrectionIndex"/> class.</summary>
-    /// <param name="words">The words; words longer than <see cref="MaxWordLength"/> are left out.</param>
-    internal CorrectionIndex(IReadOnlyCollection<string> words)
+    /// <param name="pool">The words; words longer than <see cref="MaxWordLength"/> are left out. The pool must outlive the index.</param>
+    internal CorrectionIndex(WordPool pool)
     {
-        ArgumentNullException.ThrowIfNull(words);
-        List<string> terms = [with(Math.Min(words.Count, MaxWords))];
-        foreach (var word in words)
-        {
-            if (word.Length <= MaxWordLength && terms.Count < MaxWords)
-            {
-                // Returns the same string when it is already lower case, as most word list entries are.
-                terms.Add(word.ToLowerInvariant());
-            }
-        }
-
-        _terms = [.. terms];
-        _seen = new int[_terms.Length];
+        ArgumentNullException.ThrowIfNull(pool);
+        _pool = pool;
+        _wordCount = Math.Min(pool.Count, MaxWords);
+        _lowerMarks = Rent<ulong>((_wordCount + MarkBits - 1) / MarkBits);
+        _seen = Rent<int>(_wordCount);
+        _asciiMasks = Rent<ulong>(LetterMasks.AsciiLetters);
+        _otherLetters = ArrayPool<char>.Shared.Rent(MaxWordLength);
+        _otherMasks = Rent<ulong>(MaxWordLength);
+        _matches = ArrayPool<int>.Shared.Rent(FirstMatchRoom);
         _shortest = int.MaxValue;
-        foreach (var term in _terms)
+        var estimate = 0L;
+        for (var number = 0; number < _wordCount; number++)
         {
-            _shortest = Math.Min(_shortest, term.Length);
-            _longest = Math.Max(_longest, term.Length);
+            var length = pool.Word(number).Length;
+            if (length > MaxWordLength)
+            {
+                continue;
+            }
+
+            _indexed++;
+            _shortest = Math.Min(_shortest, length);
+            _longest = Math.Max(_longest, length);
+            estimate += DeletesOf(length);
         }
 
-        var entries = SortedEntries(_terms);
-        (_keys, _starts, _postings) = Group(entries);
-        (_directory, _directoryShift) = Directory(_keys);
+        var bits = Math.Clamp(BitOperations.Log2((ulong)Math.Max(estimate, 1)) - EntriesPerBucketBits, 1, MaxDirectoryBits);
+        _directoryShift = HashBits - bits;
+        _directory = Rent<int>((1 << bits) + 1);
+        var total = CountEntries(_directory);
+        _hashes = ArrayPool<int>.Shared.Rent(Math.Max(total, 1));
+        _postings = ArrayPool<int>.Shared.Rent(Math.Max(total, 1));
+        FillEntries();
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        ArrayPool<ulong>.Shared.Return(_lowerMarks);
+        ArrayPool<int>.Shared.Return(_hashes);
+        ArrayPool<int>.Shared.Return(_postings);
+        ArrayPool<int>.Shared.Return(_directory);
+        ArrayPool<int>.Shared.Return(_seen);
+        ArrayPool<ulong>.Shared.Return(_asciiMasks);
+        ArrayPool<char>.Shared.Return(_otherLetters);
+        ArrayPool<ulong>.Shared.Return(_otherMasks);
+        ArrayPool<int>.Shared.Return(_matches);
     }
 
     /// <summary>Counts the changes between two words: letters added, removed, replaced, or two neighbours swapped.</summary>
@@ -152,51 +193,45 @@ internal sealed class CorrectionIndex
         ArgumentOutOfRangeException.ThrowIfGreaterThan(word.Length, MaxWordLength);
 
         // Every word is more changes away than allowed when the index is empty or holds only longer or shorter words.
-        if (_terms.Length == 0 || word.Length > _longest + MaxEditDistance || word.Length + MaxEditDistance < _shortest)
+        if (_indexed == 0 || word.Length > _longest + MaxEditDistance || word.Length + MaxEditDistance < _shortest)
         {
             return;
         }
 
-        var prefix = word[..Math.Min(word.Length, PrefixLength)];
-        Span<int> hashes = stackalloc int[MaxDeletes];
-
-        // The misspelling's letter positions are worked out once and compared with every candidate. The tables are kept
-        // between lookups, and only the entries this word set are cleared afterwards.
-        var masks = new LetterMasks(word, _asciiMasks, _otherLetters, _otherMasks);
-        var lookup = NextLookup();
-        var best = MaxEditDistance;
-        _matches.Clear();
-        try
-        {
-            // A word d changes away shares a delete with the misspelling's own deletes of at most d letters, so once a
-            // word is found the deletes of more letters than its distance cannot find a closer or equal one, and are
-            // never made.
-            for (var level = 0; level < Levels; level++)
-            {
-                if (level > best)
-                {
-                    break;
-                }
-
-                var count = LevelHashes(prefix, level, hashes);
-                best = Search(masks, hashes[..count], prefix.Length - level, lookup, best);
-            }
-        }
-        finally
-        {
-            masks.Release();
-        }
+        Span<char> scratch = stackalloc char[MaxWordLength];
+        FindMatches(word, scratch);
 
         // Word numbers follow the word list, which is in alphabetical order on Linux desktops.
-        if (_matches.Count > 1)
+        var matches = _matches.AsSpan(0, _matchCount);
+        if (matches.Length > 1)
         {
-            _matches.Sort();
+            matches.Sort();
         }
 
-        foreach (var number in CollectionsMarshal.AsSpan(_matches)[..Math.Min(limit, _matches.Count)])
+        foreach (var number in matches[..Math.Min(limit, matches.Length)])
         {
-            found.Add(_terms[number]);
+            found.Add(TermString(number, scratch));
         }
+    }
+
+    /// <summary>Rents a zeroed array.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <param name="length">The elements needed.</param>
+    /// <returns>An array at least that long, with its first elements zero.</returns>
+    private static T[] Rent<T>(int length)
+    {
+        var array = ArrayPool<T>.Shared.Rent(Math.Max(length, 1));
+        array.AsSpan(0, length).Clear();
+        return array;
+    }
+
+    /// <summary>Gets the most delete hashes a word makes, before repeated ones are dropped.</summary>
+    /// <param name="length">The word's length.</param>
+    /// <returns>The hashes.</returns>
+    private static int DeletesOf(int length)
+    {
+        var prefix = Math.Min(length, PrefixLength);
+        return 1 + prefix + (prefix * (prefix - 1) / PairDeleted);
     }
 
     /// <summary>Writes the distinct hashes of a word's first letters with none, one and two of them deleted.</summary>
@@ -246,138 +281,155 @@ internal sealed class CorrectionIndex
         return distinct;
     }
 
-    /// <summary>Splits sorted packed entries into the distinct hashes, where each starts, and the word numbers.</summary>
-    /// <param name="entries">The entries, sorted.</param>
-    /// <returns>The keys, starts and postings.</returns>
-    private static (int[] Keys, int[] Starts, int[] Postings) Group(ReadOnlySpan<long> entries)
-    {
-        var keyCount = 0;
-        for (var i = 0; i < entries.Length; i++)
-        {
-            if (i > 0 && HashOf(entries[i]) == HashOf(entries[i - 1]))
-            {
-                continue;
-            }
-
-            keyCount++;
-        }
-
-        var keys = GC.AllocateUninitializedArray<int>(keyCount);
-        var starts = GC.AllocateUninitializedArray<int>(keyCount + 1);
-        var postings = GC.AllocateUninitializedArray<int>(entries.Length);
-        var key = -1;
-        for (var i = 0; i < entries.Length; i++)
-        {
-            var hash = HashOf(entries[i]);
-            if (key < 0 || keys[key] != hash)
-            {
-                key++;
-                keys[key] = hash;
-                starts[key] = i;
-            }
-
-            postings[i] = (int)entries[i];
-        }
-
-        starts[keyCount] = entries.Length;
-        return (keys, starts, postings);
-    }
-
-    /// <summary>
-    /// Makes every word's delete entries, each a hash packed above the word's length and number, in ascending order.
-    /// The entries are counted and placed by the top bits of their hash first, so only small runs need sorting.
-    /// </summary>
-    /// <param name="terms">The words.</param>
-    /// <returns>The entries.</returns>
-    private static long[] SortedEntries(string[] terms)
-    {
-        Span<int> hashes = stackalloc int[MaxDeletes];
-        var starts = new int[(1 << BuildBucketBits) + 1];
-        var total = 0;
-        foreach (var term in terms)
-        {
-            var count = DeleteHashes(term, hashes);
-            total += count;
-            foreach (var hash in hashes[..count])
-            {
-                starts[(Ordered(hash) >> BuildBucketShift) + 1]++;
-            }
-        }
-
-        for (var bucket = 1; bucket < starts.Length; bucket++)
-        {
-            starts[bucket] += starts[bucket - 1];
-        }
-
-        var entries = GC.AllocateUninitializedArray<long>(total);
-        var next = starts.AsSpan(0, starts.Length - 1).ToArray();
-        for (var number = 0; number < terms.Length; number++)
-        {
-            var count = DeleteHashes(terms[number], hashes);
-            var posting = (uint)(terms[number].Length << NumberBits) | (uint)number;
-            foreach (var hash in hashes[..count])
-            {
-                var bucket = Ordered(hash) >> BuildBucketShift;
-                entries[next[bucket]] = ((long)hash << HashShift) | posting;
-                next[bucket]++;
-            }
-        }
-
-        for (var bucket = 0; bucket < starts.Length - 1; bucket++)
-        {
-            entries.AsSpan(starts[bucket]..starts[bucket + 1]).Sort();
-        }
-
-        return entries;
-    }
-
-    /// <summary>Builds the directory from each hash's top bits to the first key with them, with about a cache line of keys each.</summary>
-    /// <param name="keys">The keys, in ascending order.</param>
-    /// <returns>The directory, one longer than its buckets, and how far a hash shifts to give its bucket.</returns>
-    private static (int[] Directory, int Shift) Directory(ReadOnlySpan<int> keys)
-    {
-        var bits = Math.Clamp(BitOperations.Log2((uint)Math.Max(keys.Length, 1)) - KeysPerBucketBits, 1, MaxDirectoryBits);
-        var shift = HashShift - bits;
-        var directory = GC.AllocateUninitializedArray<int>((1 << bits) + 1);
-        var key = 0;
-        for (var bucket = 0; bucket < directory.Length - 1; bucket++)
-        {
-            while (key < keys.Length && (int)(Ordered(keys[key]) >> shift) < bucket)
-            {
-                key++;
-            }
-
-            directory[bucket] = key;
-        }
-
-        directory[^1] = keys.Length;
-        return (directory, shift);
-    }
-
     /// <summary>Maps a hash to an unsigned number in the same order, so its top bits pick its bucket.</summary>
     /// <param name="hash">The hash.</param>
     /// <returns>The number.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint Ordered(int hash) => (uint)hash ^ SignBit;
 
-    /// <summary>Gets the hash packed into an entry.</summary>
-    /// <param name="entry">The entry.</param>
-    /// <returns>The hash.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int HashOf(long entry) => (int)(entry >> HashShift);
-
-    /// <summary>Finds a hash among the keys through the directory of its top bits.</summary>
+    /// <summary>Finds the next entry in a bucket with the same hash.</summary>
+    /// <param name="run">The bucket's hashes.</param>
     /// <param name="hash">The hash.</param>
-    /// <returns>The key's position, or -1 when no word has the hash.</returns>
+    /// <param name="after">The position of the entry just handled.</param>
+    /// <returns>The next position, or -1.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private int FindKey(int hash)
+    private static int NextEqual(ReadOnlySpan<int> run, int hash, int after)
     {
-        var bucket = (int)(Ordered(hash) >> _directoryShift);
-        var start = _directory[bucket];
+        var next = after + 1;
+        var found = run[next..].IndexOf(hash);
+        return found < 0 ? -1 : next + found;
+    }
 
-        // A bucket holds a handful of keys, so a vectorised scan beats a binary search.
-        var found = _keys.AsSpan(start.._directory[bucket + 1]).IndexOf(hash);
-        return found < 0 ? -1 : start + found;
+    /// <summary>Counts the entries each directory bucket will hold and turns the counts into start positions, marking lower-case words on the way.</summary>
+    /// <param name="directory">The zeroed directory; ends up holding where each bucket's entries start.</param>
+    /// <returns>The number of entries.</returns>
+    private int CountEntries(int[] directory)
+    {
+        Span<int> hashes = stackalloc int[MaxDeletes];
+        Span<char> scratch = stackalloc char[MaxWordLength];
+        for (var number = 0; number < _wordCount; number++)
+        {
+            var word = _pool.Word(number);
+            if (word.Length > MaxWordLength)
+            {
+                continue;
+            }
+
+            var term = scratch[..word.ToLowerInvariant(scratch)];
+            if (term.SequenceEqual(word))
+            {
+                _lowerMarks[number / MarkBits] |= 1UL << (number % MarkBits);
+            }
+
+            foreach (var hash in hashes[..DeleteHashes(term, hashes)])
+            {
+                directory[(int)(Ordered(hash) >> _directoryShift)]++;
+            }
+        }
+
+        var buckets = (int)(uint.MaxValue >> _directoryShift) + 1;
+        var total = 0;
+        for (var bucket = 0; bucket < buckets; bucket++)
+        {
+            var count = directory[bucket];
+            directory[bucket] = total;
+            total += count;
+        }
+
+        directory[buckets] = total;
+        return total;
+    }
+
+    /// <summary>Places every word's delete entries in their directory buckets, then shifts the directory so each bucket starts where it should.</summary>
+    private void FillEntries()
+    {
+        Span<int> hashes = stackalloc int[MaxDeletes];
+        Span<char> scratch = stackalloc char[MaxWordLength];
+        for (var number = 0; number < _wordCount; number++)
+        {
+            var word = _pool.Word(number);
+            if (word.Length > MaxWordLength)
+            {
+                continue;
+            }
+
+            var term = Term(number, scratch);
+            var posting = (int)((uint)(term.Length << NumberBits) | (uint)number);
+            foreach (var hash in hashes[..DeleteHashes(term, hashes)])
+            {
+                var at = _directory[(int)(Ordered(hash) >> _directoryShift)]++;
+                _hashes[at] = hash;
+                _postings[at] = posting;
+            }
+        }
+
+        // Each bucket's cursor ended at the start of the next, so moving them up one gives the starts.
+        var buckets = (int)(uint.MaxValue >> _directoryShift) + 1;
+        _directory.AsSpan(0, buckets).CopyTo(_directory.AsSpan(1));
+        _directory[0] = 0;
+    }
+
+    /// <summary>Gets a word in lower case, without copying it when it is already.</summary>
+    /// <param name="number">The word's number.</param>
+    /// <param name="scratch">Room for the lower-case copy of a word that needs one.</param>
+    /// <returns>The word in lower case.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ReadOnlySpan<char> Term(int number, Span<char> scratch)
+    {
+        var word = _pool.Word(number);
+        return (_lowerMarks[number / MarkBits] & (1UL << (number % MarkBits))) != 0 ? word : scratch[..word.ToLowerInvariant(scratch)];
+    }
+
+    /// <summary>Gets the lower-case string for a correction, making it the first time it is offered.</summary>
+    /// <param name="number">The word's number.</param>
+    /// <param name="scratch">Room for the lower-case copy of a word that needs one.</param>
+    /// <returns>The word.</returns>
+    private string TermString(int number, Span<char> scratch)
+    {
+        var strings = _strings ??= [];
+        ref var text = ref CollectionsMarshal.GetValueRefOrAddDefault(strings, number, out var exists);
+        if (!exists)
+        {
+            text = new(Term(number, scratch));
+        }
+
+        return text!;
+    }
+
+    /// <summary>Finds the words closest to a misspelling and leaves their numbers in <see cref="_matches"/>.</summary>
+    /// <param name="word">The misspelling in lower case.</param>
+    /// <param name="scratch">Room for the lower-case copy of a word that needs one.</param>
+    private void FindMatches(ReadOnlySpan<char> word, Span<char> scratch)
+    {
+        var prefix = word[..Math.Min(word.Length, PrefixLength)];
+        Span<int> hashes = stackalloc int[MaxDeletes];
+
+        // The misspelling's letter positions are worked out once and compared with every candidate. The tables are kept
+        // between lookups, and only the entries this word set are cleared afterwards.
+        var masks = new LetterMasks(word, _asciiMasks, _otherLetters, _otherMasks);
+        var lookup = NextLookup();
+        var best = MaxEditDistance;
+        _matchCount = 0;
+        try
+        {
+            // A word d changes away shares a delete with the misspelling's own deletes of at most d letters, so once a
+            // word is found the deletes of more letters than its distance cannot find a closer or equal one, and are
+            // never made.
+            for (var level = 0; level < Levels; level++)
+            {
+                if (level > best)
+                {
+                    break;
+                }
+
+                var count = LevelHashes(prefix, level, hashes);
+                best = Search(masks, hashes[..count], prefix.Length - level, lookup, best, scratch);
+            }
+        }
+        finally
+        {
+            masks.Release();
+        }
     }
 
     /// <summary>Compares a misspelling with the words under each of its delete hashes.</summary>
@@ -386,65 +438,82 @@ internal sealed class CorrectionIndex
     /// <param name="keyLength">The length of the deleted prefix the hashes stand for.</param>
     /// <param name="lookup">The lookup's number.</param>
     /// <param name="best">The closest distance so far.</param>
+    /// <param name="scratch">Room for the lower-case copy of a word that needs one.</param>
     /// <returns>The closest distance after these words.</returns>
-    private int Search(scoped in LetterMasks word, ReadOnlySpan<int> hashes, int keyLength, int lookup, int best)
+    private int Search(scoped in LetterMasks word, ReadOnlySpan<int> hashes, int keyLength, int lookup, int best, Span<char> scratch)
     {
         foreach (var hash in hashes)
         {
-            var key = FindKey(hash);
-            if (key >= 0)
+            // A bucket holds a handful of entries, so a vectorised scan beats a binary search; equal hashes sit together.
+            var bucket = (int)(Ordered(hash) >> _directoryShift);
+            var start = _directory[bucket];
+            var run = _hashes.AsSpan(start, _directory[bucket + 1] - start);
+            for (var at = run.IndexOf(hash); at >= 0; at = NextEqual(run, hash, at))
             {
-                best = Compare(word, _postings.AsSpan(_starts[key].._starts[key + 1]), keyLength, lookup, best);
+                best = Compare(word, _postings[start + at], keyLength, lookup, best, scratch);
             }
         }
 
         return best;
     }
 
-    /// <summary>Compares a misspelling with the words under one key, keeping the closest in <see cref="_matches"/>.</summary>
+    /// <summary>Compares a misspelling with one word, keeping the closest in <see cref="_matches"/>.</summary>
     /// <param name="word">The misspelling's letter positions.</param>
-    /// <param name="postings">The words under the key.</param>
+    /// <param name="posting">The word's number with its length above it.</param>
     /// <param name="keyLength">The length of the deleted prefix the key stands for.</param>
     /// <param name="lookup">The lookup's number.</param>
     /// <param name="best">The closest distance so far.</param>
-    /// <returns>The closest distance after these words.</returns>
-    private int Compare(scoped in LetterMasks word, ReadOnlySpan<int> postings, int keyLength, int lookup, int best)
+    /// <param name="scratch">Room for the lower-case copy of a word that needs one.</param>
+    /// <returns>The closest distance after this word.</returns>
+    private int Compare(scoped in LetterMasks word, int posting, int keyLength, int lookup, int best, Span<char> scratch)
     {
-        foreach (var posting in postings)
+        var termLength = posting >>> NumberBits;
+
+        // Each letter of length difference is a change. A word that needed more deletes than the closest distance
+        // to reach this key is found under another key if it is close enough; it is not marked as seen for that.
+        if (Math.Abs(termLength - word.Length) > best || Math.Min(termLength, PrefixLength) - keyLength > best)
         {
-            var termLength = posting >>> NumberBits;
-
-            // Each letter of length difference is a change. A word that needed more deletes than the closest distance
-            // to reach this key is found under another key if it is close enough; it is not marked as seen for that.
-            if (Math.Abs(termLength - word.Length) > best || Math.Min(termLength, PrefixLength) - keyLength > best)
-            {
-                continue;
-            }
-
-            var number = posting & NumberMask;
-            if (_seen[number] == lookup)
-            {
-                continue;
-            }
-
-            _seen[number] = lookup;
-            var distance = word.Distance(_terms[number], best);
-            if (distance > best)
-            {
-                continue;
-            }
-
-            if (distance < best)
-            {
-                // A closer word replaces the ones found so far, and later words must be at least as close.
-                best = distance;
-                _matches.Clear();
-            }
-
-            _matches.Add(number);
+            return best;
         }
 
+        var number = posting & NumberMask;
+        if (_seen[number] == lookup)
+        {
+            return best;
+        }
+
+        _seen[number] = lookup;
+        var distance = word.Distance(Term(number, scratch), best);
+        if (distance > best)
+        {
+            return best;
+        }
+
+        if (distance < best)
+        {
+            // A closer word replaces the ones found so far, and later words must be at least as close.
+            best = distance;
+            _matchCount = 0;
+        }
+
+        AddMatch(number);
         return best;
+    }
+
+    /// <summary>Adds a word number to the matches, renting more room when they are full.</summary>
+    /// <param name="number">The word's number.</param>
+    private void AddMatch(int number)
+    {
+        if (_matchCount == _matches.Length)
+        {
+            var bigger = ArrayPool<int>.Shared.Rent(_matches.Length * MatchGrowth);
+            _matches.AsSpan(0, _matchCount).CopyTo(bigger);
+            ArrayPool<int>.Shared.Return(_matches);
+            _matches = bigger;
+        }
+
+        _matches[_matchCount] = number;
+        _matchCount++;
     }
 
     /// <summary>Starts a lookup, clearing the compared marks once the lookup numbers wrap.</summary>
@@ -454,7 +523,7 @@ internal sealed class CorrectionIndex
         _lookup++;
         if (_lookup == int.MaxValue)
         {
-            Array.Clear(_seen);
+            _seen.AsSpan(0, _wordCount).Clear();
             _lookup = 1;
         }
 

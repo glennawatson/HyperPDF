@@ -51,12 +51,14 @@ internal sealed class PdfDocumentCarrier
     /// <summary>
     /// Lists the annotations of a copied page for copying: widgets keep their field, and destinations that lead to pages
     /// that are not copied are removed. The first copy of a page shares annotation objects with the source's field tree;
-    /// later copies of the same page get direct annotations, which keep their look but join no field.
+    /// later copies of the same page get direct annotations, which keep their look but join no field. A trap network that
+    /// no longer matches the page is left out (see <see cref="PdfTrapNetworkCopy"/>).
     /// </summary>
     /// <param name="page">The source page.</param>
     /// <param name="filter">The annotations kept.</param>
+    /// <param name="report">Receives what was done with the page's trap network, or <see langword="null"/>.</param>
     /// <returns>The values to copy as the page's <c>/Annots</c>, or <see langword="null"/> when there are none.</returns>
-    internal PdfArray? PrepareAnnotations(PdfPage page, PdfAnnotationFilter filter)
+    internal PdfArray? PrepareAnnotations(PdfPage page, PdfAnnotationFilter filter, PdfPageEditReport? report)
     {
         var source = filter == PdfAnnotationFilter.None ? null : page.Dictionary.GetArray(KnownName.Annots);
         if (source is null)
@@ -74,7 +76,7 @@ internal sealed class PdfDocumentCarrier
             }
         }
 
-        return result;
+        return PdfTrapNetworkCopy.Prepare(_context.Sink, page, source, result, report);
     }
 
     /// <summary>Sets the target's page labels.</summary>
@@ -86,13 +88,14 @@ internal sealed class PdfDocumentCarrier
     }
 
     /// <summary>Copies the structures the pages need into the target.</summary>
-    internal void Finish()
+    /// <param name="report">Receives what the copy changed in the target's form, or <see langword="null"/>.</param>
+    internal void Finish(PdfPageEditReport? report)
     {
         new PdfCarryOutlines(_context, _destinations).Finish();
         _destinations.Finish();
         new PdfCarryFiles(_context).Finish();
         new PdfCarryLayers(_context).Finish();
-        _forms.Finish();
+        _forms.Finish(report);
         _context.Flush();
     }
 

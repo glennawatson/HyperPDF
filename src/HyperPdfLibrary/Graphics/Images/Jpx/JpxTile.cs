@@ -122,6 +122,31 @@ internal sealed class JpxTile : IDisposable
         return true;
     }
 
+    /// <summary>Finds where the code-blocks of each sub-band start. The blocks of a band are consecutive and the bands follow in order.</summary>
+    /// <param name="starts">Receives, for each band, the index of its first code-block, and the block count last; one more than the bands.</param>
+    internal void FindBandBlocks(Span<int> starts)
+    {
+        var bands = Bands.Count;
+        starts[..(bands + 1)].Fill(-1);
+        for (var i = 0; i < Blocks.Count; i++)
+        {
+            var band = Blocks[i].Band;
+            if (starts[band] < 0)
+            {
+                starts[band] = i;
+            }
+        }
+
+        starts[bands] = Blocks.Count;
+        for (var b = bands - 1; b >= 0; b--)
+        {
+            if (starts[b] < 0)
+            {
+                starts[b] = starts[b + 1];
+            }
+        }
+    }
+
     /// <summary>Divides a value by a power of two, rounding up, for values that may be negative.</summary>
     /// <param name="value">The value.</param>
     /// <param name="shift">The power of two.</param>
@@ -159,8 +184,9 @@ internal sealed class JpxTile : IDisposable
         var step = context.Quantization.GetStep(index);
         var exponent = step >> JpxQuantization.MantissaBits;
 
-        // The irreversible path uses no sub-band gain: the inverse 9/7 transform scales high-pass samples by 2/K instead,
-        // to match PDFium's output.
+        // Step = 2^(Rb - exponent) * (1 + mantissa / 2^11) (T.800 equation E-3) with Rb = precision + log2 gain of the
+        // sub-band (E-4). The gain is 1 for LL, 2 for HL and LH, and 4 for HH, which is one factor of two per high-pass
+        // direction. The inverse 9/7 transform applies those factors in its high-pass scale (JpxWavelet), so Rb is the precision alone here.
         var size = context.Style.Reversible ? 1F : HalfStep * (float)((1.0 + ((step & JpxQuantization.MantissaMask) / MantissaScale)) * Math.ScaleB(1.0, context.Precision - exponent));
         return band with { Magnitude = exponent + context.Quantization.GuardBits - 1, StepSize = size };
     }

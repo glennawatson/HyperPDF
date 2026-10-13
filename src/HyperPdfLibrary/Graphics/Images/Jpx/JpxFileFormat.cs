@@ -185,7 +185,7 @@ internal static class JpxFileFormat
             {
                 case ColourBox:
                 {
-                    builder.ColorSpace ??= ReadColour(body);
+                    builder.OfferColour(body.Length >= ColourHeaderBytes ? ReadColour(body) : new(JpxColorSpace.Unknown, 0, 0));
                     break;
                 }
 
@@ -210,15 +210,22 @@ internal static class JpxFileFormat
         }
     }
 
-    /// <summary>Reads a colour specification box; only the first one counts, as in PDFium.</summary>
-    /// <param name="body">The box contents.</param>
-    /// <returns>The colour space.</returns>
-    private static JpxColorSpace ReadColour(ReadOnlySpan<byte> body) =>
-        body.Length < ColourHeaderBytes + TypeBytes || body[0] != EnumeratedMethod
-            ? JpxColorSpace.Unknown
-            : FromEnumerated(BinaryPrimitives.ReadUInt32BigEndian(body[ColourHeaderBytes..]));
+    /// <summary>
+    /// Reads a colour specification box (T.800 I.5.3.3): the method, the precedence, the approximation and, for the
+    /// enumerated method, the colour space. An ICC profile or a vendor method gives an unknown space, so the channel
+    /// count decides (ISO 32000-1 section 7.4.9).
+    /// </summary>
+    /// <param name="body">The box contents, at least <see cref="ColourHeaderBytes"/> long.</param>
+    /// <returns>The candidate colour space.</returns>
+    private static ColourCandidate ReadColour(ReadOnlySpan<byte> body)
+    {
+        var space = body.Length >= ColourHeaderBytes + TypeBytes && body[0] == EnumeratedMethod
+            ? FromEnumerated(BinaryPrimitives.ReadUInt32BigEndian(body[ColourHeaderBytes..]))
+            : JpxColorSpace.Unknown;
+        return new(space, (sbyte)body[1], body[2]);
+    }
 
-    /// <summary>Maps an enumerated colour space (table I.10) as PDFium does.</summary>
+    /// <summary>Maps an enumerated colour space (T.800 table I.10, and I.5.3.3 for e-sYCC and CMYK).</summary>
     /// <param name="enumerated">The enumerated colour space.</param>
     /// <returns>The colour space.</returns>
     private static JpxColorSpace FromEnumerated(uint enumerated) => enumerated switch
@@ -327,11 +334,47 @@ internal static class JpxFileFormat
         return definitions;
     }
 
+    /// <summary>One colour specification box and how it ranks against the others.</summary>
+    /// <param name="Space">The colour space; unknown for an ICC profile or a vendor method.</param>
+    /// <param name="Precedence">The precedence, a signed byte; higher wins.</param>
+    /// <param name="Approximation">The approximation; 1 is the best, 0 means unknown.</param>
+    private readonly record struct ColourCandidate(JpxColorSpace Space, int Precedence, int Approximation)
+    {
+        /// <summary>The rank of an unknown approximation, worse than any stated one.</summary>
+        private const int UnknownApproximation = 256;
+
+        /// <summary>The shift that puts "space is known" above the precedence in the ranking key.</summary>
+        private const int KnownShift = 20;
+
+        /// <summary>The shift that puts the precedence above the approximation in the ranking key.</summary>
+        private const int PrecedenceShift = 10;
+
+        /// <summary>The amount that makes a signed precedence positive.</summary>
+        private const int PrecedenceBias = 128;
+
+        /// <summary>The ranking key's ceiling for the approximation part, above any rank.</summary>
+        private const int ApproximationCeiling = 1_023;
+
+        /// <summary>
+        /// Gets the ranking key: a known space first, then the higher precedence, then the better approximation (1 is
+        /// best; 0, unknown, ranks last).
+        /// </summary>
+        private int Key =>
+            ((Space == JpxColorSpace.Unknown ? 0 : 1) << KnownShift)
+            + ((Precedence + PrecedenceBias) << PrecedenceShift)
+            + (ApproximationCeiling - (Approximation == 0 ? UnknownApproximation : Approximation));
+
+        /// <summary>Determines whether this candidate ranks above another.</summary>
+        /// <param name="other">The other candidate.</param>
+        /// <returns><see langword="true"/> when this one is better.</returns>
+        internal bool Beats(in ColourCandidate other) => Key > other.Key;
+    }
+
     /// <summary>Collects the header boxes while they are read.</summary>
     private sealed class Builder
     {
-        /// <summary>Gets or sets the colour space from the first colour box.</summary>
-        internal JpxColorSpace? ColorSpace { get; set; }
+        /// <summary>The colour specification chosen so far.</summary>
+        private ColourCandidate? _colour;
 
         /// <summary>Gets or sets the palette.</summary>
         internal JpxPalette? Palette { get; set; }
@@ -342,10 +385,23 @@ internal static class JpxFileFormat
         /// <summary>Gets or sets the channel definitions.</summary>
         internal JpxChannelDefinition[]? Definitions { get; set; }
 
+        /// <summary>
+        /// Considers a colour specification box. A box naming a space we know beats one we do not; among known spaces the
+        /// higher precedence wins, then the better approximation; the earlier box wins a tie.
+        /// </summary>
+        /// <param name="candidate">The candidate.</param>
+        internal void OfferColour(in ColourCandidate candidate)
+        {
+            if (_colour is not { } best || candidate.Beats(best))
+            {
+                _colour = candidate;
+            }
+        }
+
         /// <summary>Builds the file information.</summary>
         /// <param name="codestream">Where the codestream is.</param>
         /// <returns>The file information.</returns>
         internal JpxFileInfo Finish(in JpxDataRange codestream) =>
-            new(codestream, ColorSpace ?? JpxColorSpace.Unknown, Palette, Mappings, Definitions);
+            new(codestream, _colour?.Space ?? JpxColorSpace.Unknown, Palette, Mappings, Definitions);
     }
 }

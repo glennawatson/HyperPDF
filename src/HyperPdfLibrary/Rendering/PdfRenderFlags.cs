@@ -26,10 +26,4 @@ public enum PdfRenderFlags
     /// do this without the flag, as ISO 19005 asks of a reader; the flag adds it for PDF/X and other documents.
     /// </summary>
     OutputIntent = 1 << 3,
-
-    /// <summary>
-    /// Use the fixed device colour conversions, as PDFium does, even when the document claims PDF/A or <see cref="OutputIntent"/>
-    /// is set. Parity tests against PDFium use this.
-    /// </summary>
-    FixedDeviceColors = 1 << 4,
 }

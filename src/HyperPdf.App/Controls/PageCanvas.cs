@@ -36,10 +36,13 @@ namespace HyperPdf.App.Controls;
 /// away is dropped by the scheduler before it reaches the renderer.
 /// </summary>
 [DebuggerDisplay("PageCanvas: {Tab}")]
-public sealed partial class PageCanvas : Control
+public sealed partial class PageCanvas : Control, IActivatableView
 {
     /// <summary>Defines the <see cref="Tab"/> property.</summary>
     public static readonly StyledProperty<DocumentTabViewModel?> TabProperty = AvaloniaProperty.Register<PageCanvas, DocumentTabViewModel?>(nameof(Tab));
+
+    /// <summary>Defines the <see cref="PageScale"/> property.</summary>
+    public static readonly DirectProperty<PageCanvas, double> PageScaleProperty = AvaloniaProperty.RegisterDirect<PageCanvas, double>(nameof(PageScale), static canvas => canvas.PageScale);
 
     /// <summary>Defines the <see cref="HitBrush"/> property.</summary>
     public static readonly StyledProperty<IBrush?> HitBrushProperty = AvaloniaProperty.Register<PageCanvas, IBrush?>(nameof(HitBrush));
@@ -144,12 +147,6 @@ public sealed partial class PageCanvas : Control
     /// <summary>Subscriptions to the wired tab.</summary>
     private MultipleDisposable? _tabSubscriptions;
 
-    /// <summary>Subscriptions to the hosting scroll viewer.</summary>
-    private MultipleDisposable? _scrollerSubscriptions;
-
-    /// <summary>Property and input subscriptions while attached.</summary>
-    private MultipleDisposable? _controlSubscriptions;
-
     /// <summary>A position to restore once the layout has been measured.</summary>
     private Action? _pendingScroll;
 
@@ -209,9 +206,52 @@ public sealed partial class PageCanvas : Control
     /// <summary>Initializes a new instance of the <see cref="PageCanvas"/> class.</summary>
     public PageCanvas()
     {
-        // These live as long as the control and only reference it, so they need no owner.
-        _ = this.Events().AttachedToVisualTree.SubscribeSafe(_ => Attach(), OnError);
-        _ = this.Events().DetachedFromVisualTree.SubscribeSafe(_ => Detach(), OnError);
+        _ = this.WhenActivated(disposables =>
+        {
+            // Deactivating releases what the canvas holds once its subscriptions have ended.
+            disposables.Add(Scope.Create(
+                this,
+                static canvas =>
+                {
+                    canvas.StopAutoScrollFrames();
+                    canvas._markPainter?.Dispose();
+                    canvas._markPainter = null;
+                    canvas._scroller = null;
+                    canvas.Wire(null);
+                }));
+            _scroller = this.FindAncestorOfType<ScrollViewer>();
+            if (_scroller is { } scroller)
+            {
+                disposables.Add(scroller.WhenChanged(static x => x.Offset).Skip(1).SubscribeSafe(_ => OnScrolled(), OnError));
+                disposables.Add(scroller.WhenChanged(static x => x.Bounds).Select(static bounds => bounds.Size).DistinctUntilChanged().Skip(1).SubscribeSafe(_ => OnViewportResized(), OnError));
+
+                // The extent changes after a layout pass; apply any pending scroll once the dispatcher is idle again.
+                disposables.Add(scroller.WhenChanged(static x => x.Extent).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => ApplyPendingScroll(), OnError));
+
+                // Ctrl and the wheel always zoom, wherever in the scroller the pointer is. The canvas draws nothing between
+                // its pages, so a notch there never reaches it. The scroll viewer and its scroll bars handle the wheel
+                // themselves, so only a tunnelling handler on the scroll viewer sees the notch first.
+                disposables.Add(scroller.TunnelWheels.SubscribeSafe(e => Guard(HandleCtrlWheel, e), OnError));
+            }
+
+            disposables.Add(this.WhenChanged(static x => x.Tab).SubscribeSafe(Wire, OnError));
+            disposables.Add(this.WhenChanged(static x => x.CurrentHitOutline)
+                .SubscribeSafe(outline => _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null, OnError));
+
+            // One failing gesture must not end the subscription, or the page would stop answering input.
+            disposables.Add(this.Events().PointerWheelChanged.SubscribeSafe(e => Guard(HandlePointerWheel, e), OnError));
+            disposables.Add(this.Events().PointerPressed.SubscribeSafe(e => Guard(HandlePointerPressed, e), OnError));
+            disposables.Add(this.Events().PointerMoved.SubscribeSafe(e => Guard(HandlePointerMoved, e), OnError));
+            disposables.Add(this.Events().PointerReleased.SubscribeSafe(e => Guard(HandlePointerReleased, e), OnError));
+            disposables.Add(this.Events().KeyDown.SubscribeSafe(e => Guard(HandleKeyDown, e), OnError));
+
+            // Moving around: pinch zoom, and Space held to move the pages (PageCanvas.Pinch.cs, PageCanvas.Hand.cs).
+            disposables.Add(this.Events().Pinch.SubscribeSafe(e => Guard(HandlePinch, e), OnError));
+            disposables.Add(this.Events().PinchEnded.SubscribeSafe(e => Guard(HandlePinchEnded, e), OnError));
+            disposables.Add(this.Events().PointerTouchPadGestureMagnify.SubscribeSafe(e => Guard(HandleMagnify, e), OnError));
+            disposables.Add(this.Events().KeyUp.SubscribeSafe(e => Guard(HandleKeyUp, e), OnError));
+            disposables.Add(this.Events().LostFocus.SubscribeSafe(_ => ReleaseSpace(), OnError));
+        });
 
         // Two fingers on a touch screen zoom the pages (PageCanvas.Pinch.cs).
         GestureRecognizers.Add(new PinchGestureRecognizer());
@@ -376,7 +416,7 @@ public sealed partial class PageCanvas : Control
     private void DrawPreview(DrawingContext context, in FrameContext frame, int page, in Rect rect, bool visible, bool draw)
     {
         var tab = frame.Tab;
-        var key = TileKey.Preview(tab.Source.Id, page, tab.Rotation, tab.PageTone.Id);
+        var key = TileKey.Preview(tab.TileId, page, tab.Rotation, tab.PageTone.Id);
         if (frame.Hub.Cache.TryGet(key, out var surface))
         {
             if (draw)
@@ -405,7 +445,7 @@ public sealed partial class PageCanvas : Control
     {
         var tab = frame.Tab;
         var tileSize = TileGrid.TileSize;
-        var key = new TileKey(tab.Source.Id, grid.Page, grid.ScaleKey, tab.Rotation, tab.PageTone.Id, (short)column, (short)row);
+        var key = new TileKey(tab.TileId, grid.Page, grid.ScaleKey, tab.Rotation, tab.PageTone.Id, (short)column, (short)row);
         TileGrid.GetTileSize(grid.PixelWidth, grid.PixelHeight, column, row, out var tileWidth, out var tileHeight);
         if (!frame.Hub.Cache.TryGet(key, out var surface))
         {
@@ -426,48 +466,6 @@ public sealed partial class PageCanvas : Control
         }
 
         TilePresentation.Draw(context, surface, destination, smooth: false);
-    }
-
-    /// <summary>Finds the hosting scroll viewer and subscribes to it, to the tab and to input.</summary>
-    private void Attach()
-    {
-        _scroller = this.FindAncestorOfType<ScrollViewer>();
-        if (_scroller is { } scroller)
-        {
-            _scrollerSubscriptions =
-            [
-                scroller.WhenChanged(static x => x.Offset).Skip(1).SubscribeSafe(_ => OnScrolled(), OnError),
-                scroller.WhenChanged(static x => x.Bounds).Select(static bounds => bounds.Size).DistinctUntilChanged().Skip(1).SubscribeSafe(_ => OnViewportResized(), OnError),
-
-                // The extent changes after a layout pass; apply any pending scroll once the dispatcher is idle again.
-                scroller.WhenChanged(static x => x.Extent).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => ApplyPendingScroll(), OnError),
-
-                // Ctrl and the wheel always zoom, wherever in the scroller the pointer is. The canvas draws nothing between
-                // its pages, so a notch there never reaches it and the scroll viewer would scroll instead.
-                scroller.ObserveRouted(PointerWheelChangedEvent, RoutingStrategies.Tunnel).SubscribeSafe(e => Guard(HandleCtrlWheel, e), OnError),
-            ];
-        }
-
-        _controlSubscriptions =
-        [
-            this.WhenChanged(static x => x.Tab).SubscribeSafe(Wire, OnError),
-            this.WhenChanged(static x => x.CurrentHitOutline)
-                .SubscribeSafe(outline => _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null, OnError),
-
-            // One failing gesture must not end the subscription, or the page would stop answering input.
-            this.Events().PointerWheelChanged.SubscribeSafe(e => Guard(HandlePointerWheel, e), OnError),
-            this.Events().PointerPressed.SubscribeSafe(e => Guard(HandlePointerPressed, e), OnError),
-            this.Events().PointerMoved.SubscribeSafe(e => Guard(HandlePointerMoved, e), OnError),
-            this.ObserveRouted(PointerReleasedEvent, handledEventsToo: true).SubscribeSafe(e => Guard(HandlePointerReleased, e), OnError),
-            this.Events().KeyDown.SubscribeSafe(e => Guard(HandleKeyDown, e), OnError),
-
-            // Moving around: pinch zoom, and Space held to move the pages (PageCanvas.Pinch.cs, PageCanvas.Hand.cs).
-            this.Events().Pinch.SubscribeSafe(e => Guard(HandlePinch, e), OnError),
-            this.Events().PinchEnded.SubscribeSafe(e => Guard(HandlePinchEnded, e), OnError),
-            this.Events().PointerTouchPadGestureMagnify.SubscribeSafe(e => Guard(HandleMagnify, e), OnError),
-            this.Events().KeyUp.SubscribeSafe(e => Guard(HandleKeyUp, e), OnError),
-            this.Events().LostFocus.SubscribeSafe(_ => ReleaseSpace(), OnError),
-        ];
     }
 
     /// <summary>Runs an input handler, reporting a failure instead of letting it end the input subscription.</summary>
@@ -492,20 +490,6 @@ public sealed partial class PageCanvas : Control
             StopAutoScrollFrames();
             InvalidateVisual();
         }
-    }
-
-    /// <summary>Releases the scroll viewer, tab and input subscriptions.</summary>
-    private void Detach()
-    {
-        _controlSubscriptions?.Dispose();
-        _controlSubscriptions = null;
-        StopAutoScrollFrames();
-        _markPainter?.Dispose();
-        _markPainter = null;
-        _scrollerSubscriptions?.Dispose();
-        _scrollerSubscriptions = null;
-        _scroller = null;
-        Wire(null);
     }
 
     /// <summary>Handles page stepping.</summary>
@@ -711,7 +695,7 @@ public sealed partial class PageCanvas : Control
 
         var tiled = TryGetTileWindow(frame, page, rect, visible, out var grid, out var window);
         var tab = frame.Tab;
-        var covered = tiled && visible && frame.Hub.Cache.Covers(new(tab.Source.Id, page, grid.ScaleKey, tab.Rotation, tab.PageTone.Id, 0, 0), window);
+        var covered = tiled && visible && frame.Hub.Cache.Covers(new(tab.TileId, page, grid.ScaleKey, tab.Rotation, tab.PageTone.Id, 0, 0), window);
         DrawPreview(context, frame, page, rect, visible, visible && !covered);
         if (visible && tiled && !covered)
         {
@@ -857,7 +841,7 @@ public sealed partial class PageCanvas : Control
         {
             for (var column = firstColumn; column <= lastColumn; column++)
             {
-                var key = new TileKey(tab.Source.Id, page, fallbackKey, tab.Rotation, tab.PageTone.Id, (short)column, (short)row);
+                var key = new TileKey(tab.TileId, page, fallbackKey, tab.Rotation, tab.PageTone.Id, (short)column, (short)row);
                 if (!frame.Hub.Cache.TryGet(key, out var surface))
                 {
                     continue;
@@ -1130,6 +1114,7 @@ public sealed partial class PageCanvas : Control
     /// <summary>Recomputes the layout from the tab's settings and the viewport.</summary>
     private void RebuildLayout()
     {
+        var scaleBefore = PageScale;
         var tab = Tab;
         _sizes = tab?.Source.PageSizes ?? [];
         if (tab is null || _sizes.Length == 0 || _scroller is null)
@@ -1152,6 +1137,7 @@ public sealed partial class PageCanvas : Control
             new(tab.Rotation, tab.LayoutMode, zoom * ZoomCalculator.PixelsPerPoint, PageSpacing, ContentMargin, viewport.Width) { PageByPage = tab.IsPageByPage, ViewportHeight = viewport.Height });
         InvalidateMeasure();
         InvalidateVisual();
+        RaisePropertyChanged(PageScaleProperty, scaleBefore, PageScale);
     }
 
     /// <summary>Scrolls to a remembered position once laid out.</summary>

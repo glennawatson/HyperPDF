@@ -15,10 +15,10 @@ namespace HyperPdfLibrary.Objects;
 /// context: it keeps each distinct report (up to a cap) so the document can say whether it was repaired.
 /// </summary>
 /// <param name="sink">The diagnostics callback, or <see langword="null"/>.</param>
-/// <param name="drawingServices">The drawing services selected for this document.</param>
+/// <param name="drawingServices">The drawing services selected for this document, or <see langword="null"/> to make empty ones when first used.</param>
 /// <param name="token">The cancellation token.</param>
 [DebuggerDisplay("PdfOpenContext: {HasRepairs} repairs")]
-internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServices drawingServices, CancellationToken token)
+internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServices? drawingServices, CancellationToken token)
 {
     /// <summary>The most distinct reports kept; later ones still reach the sink.</summary>
     private const int MaxLogged = 1024;
@@ -26,14 +26,14 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <summary>The diagnostics callback.</summary>
     private readonly Action<PdfDiagnostic>? _sink = sink;
 
-    /// <summary>Guards the log.</summary>
-    private readonly Lock _gate = new();
+    /// <summary>Guards the log; made with the first report, so a document that reports nothing never allocates it.</summary>
+    private Lock? _gate;
+
+    /// <summary>The drawing services; made on first use when none was selected.</summary>
+    private PdfDrawingServices? _drawingServices = drawingServices;
 
     /// <summary>The distinct reports, in the order they were first made.</summary>
     private List<PdfDiagnostic>? _log;
-
-    /// <summary>The reports already kept, so a stream decoded again does not repeat itself.</summary>
-    private HashSet<PdfDiagnostic>? _seen;
 
     /// <summary>1 once a report of damage has been logged.</summary>
     private int _hasRepairs;
@@ -57,16 +57,24 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     internal CancellationToken CancellationToken => token;
 
     /// <summary>Gets the drawing services selected for this open.</summary>
-    internal PdfDrawingServices DrawingServices => drawingServices;
+    internal PdfDrawingServices DrawingServices => Volatile.Read(ref _drawingServices) ?? CreateDrawingServices();
 
     /// <summary>Gets this document's scratch buffers or the cache explicitly shared by its drawing services.</summary>
-    internal ScratchPools ScratchPools => drawingServices.SharedScratchPools ?? (Volatile.Read(ref _scratchPools) ?? CreateScratchPools());
+    internal ScratchPools ScratchPools => Volatile.Read(ref _drawingServices)?.SharedScratchPools ?? Volatile.Read(ref _scratchPools) ?? CreateScratchPools();
 
     /// <summary>Creates a context for options.</summary>
     /// <param name="options">The options.</param>
     /// <returns>The context.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PdfOpenContext Create(PdfOpenOptions options) =>
-        new(options.Diagnostics, options.DrawingServices ?? new(new()), options.CancellationToken) { Recovery = options.Recovery, IgnoreXrefStreams = options.IgnoreXrefStreams };
+        PdfOpenContext.Create(options, options.CancellationToken);
+
+    /// <summary>Creates a context for options with a token that replaces the options' token.</summary>
+    /// <param name="options">The options.</param>
+    /// <param name="cancellationToken">The token.</param>
+    /// <returns>The context.</returns>
+    internal static PdfOpenContext Create(PdfOpenOptions options, CancellationToken cancellationToken) =>
+        new(options.Diagnostics, options.DrawingServices, cancellationToken) { Recovery = options.Recovery, IgnoreXrefStreams = options.IgnoreXrefStreams };
 
     /// <summary>Throws when the open was cancelled.</summary>
     /// <param name="context">The context, or <see langword="null"/>.</param>
@@ -87,12 +95,14 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <summary>Releases this document's idle scratch buffers, leaving an explicitly shared cache alone.</summary>
     internal void CloseScratchPools()
     {
-        if (drawingServices.SharedScratchPools is not null)
+        if (Volatile.Read(ref _drawingServices)?.SharedScratchPools is not null)
         {
             return;
         }
 
-        Volatile.Write(ref _scratchClosed, 1);
+        // A full fence, not a volatile write: this thread's read of the pools must not move before the flag is visible, or
+        // it and a thread creating the pools can each miss the other, leaving a pool nothing closes.
+        _ = Interlocked.Exchange(ref _scratchClosed, 1);
         Volatile.Read(ref _scratchPools)?.Close();
     }
 
@@ -100,7 +110,12 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <returns>The reports.</returns>
     internal PdfDiagnostic[] Snapshot()
     {
-        lock (_gate)
+        if (Volatile.Read(ref _gate) is not { } gate)
+        {
+            return [];
+        }
+
+        lock (gate)
         {
             return _log is null ? [] : [.. _log];
         }
@@ -115,11 +130,13 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <param name="diagnostic">The diagnostic.</param>
     private void Add(PdfDiagnostic diagnostic)
     {
-        lock (_gate)
+        var gate = Volatile.Read(ref _gate) ?? CreateGate();
+        lock (gate)
         {
+            // A document that reports damage reports a handful of distinct problems, so a scan of the log finds repeats
+            // without a second table; the cap keeps the scan short for a file that reports more.
             _log ??= [];
-            _seen ??= [];
-            if (_log.Count < MaxLogged && _seen.Add(diagnostic))
+            if (_log.Count < MaxLogged && !_log.Contains(diagnostic))
             {
                 _log.Add(diagnostic);
             }
@@ -131,6 +148,22 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
         }
 
         _sink?.Invoke(diagnostic);
+    }
+
+    /// <summary>Creates the log's lock once.</summary>
+    /// <returns>The lock.</returns>
+    private Lock CreateGate()
+    {
+        var created = new Lock();
+        return Interlocked.CompareExchange(ref _gate, created, null) ?? created;
+    }
+
+    /// <summary>Creates empty drawing services once, for a document opened without any.</summary>
+    /// <returns>The services.</returns>
+    private PdfDrawingServices CreateDrawingServices()
+    {
+        var created = new PdfDrawingServices(new());
+        return Interlocked.CompareExchange(ref _drawingServices, created, null) ?? created;
     }
 
     /// <summary>Creates the document's cache once, closing it if disposal won the race.</summary>

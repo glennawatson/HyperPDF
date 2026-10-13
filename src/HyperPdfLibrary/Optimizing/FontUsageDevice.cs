@@ -12,6 +12,7 @@ using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Graphics.Shadings;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Rendering;
 using HyperPdfLibrary.Structure.Tagged;
 
 namespace HyperPdfLibrary.Optimizing;
@@ -21,17 +22,67 @@ namespace HyperPdfLibrary.Optimizing;
 /// runs like text extraction: images are never decoded and every layer is read.
 /// </summary>
 [DebuggerDisplay("FontUsageDevice: {Codes.Count} fonts")]
-internal sealed class FontUsageDevice : ITextObjectDevice
+internal sealed class FontUsageDevice : ITextObjectDevice, IDisposable
 {
-    /// <summary>Gets the codes each font shows.</summary>
-    internal Dictionary<PdfFont, HashSet<int>> Codes { get; } = [with(ReferenceEqualityComparer.Instance)];
+    /// <summary>The devices waiting for the next run, with the map and bit sets they grew.</summary>
+    private static readonly ReusableSlots<FontUsageDevice> Idle = new();
+
+    /// <summary>The emptied bit sets of earlier runs, kept so a font that first shows a code takes one instead of making one.</summary>
+    private readonly Stack<CodeBitSet> _spareSets = [];
+
+    /// <summary>The font that showed the latest glyph; text mostly stays in one font, so most glyphs skip the map.</summary>
+    private PdfFont? _lastFont;
+
+    /// <summary>The codes of <see cref="_lastFont"/>.</summary>
+    private CodeBitSet? _lastCodes;
+
+    /// <summary>Whether the device has been given back, so a second dispose does not offer it twice.</summary>
+    private int _returned;
+
+    /// <summary>Initializes a new instance of the <see cref="FontUsageDevice"/> class.</summary>
+    private FontUsageDevice()
+    {
+    }
+
+    /// <summary>Gets the codes each font shows, as pooled bit sets that the device disposes.</summary>
+    internal Dictionary<PdfFont, CodeBitSet> Codes { get; } = [with(ReferenceEqualityComparer.Instance)];
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _returned, 1) != 0)
+        {
+            return;
+        }
+
+        // The last codes are one of the sets in the map, which is emptied below.
+        _lastCodes?.Dispose();
+        foreach (var codes in Codes.Values)
+        {
+            codes.Dispose();
+            _spareSets.Push(codes);
+        }
+
+        Codes.Clear();
+        _lastFont = null;
+        _lastCodes = null;
+        _ = Idle.Offer(this);
+    }
 
     /// <inheritdoc/>
     public void DrawGlyph(in GlyphEvent glyph, ref GraphicsState state)
     {
+        if (ReferenceEquals(glyph.Font, _lastFont))
+        {
+            _ = _lastCodes!.Add(glyph.Code);
+            return;
+        }
+
         ref var codes = ref CollectionsMarshal.GetValueRefOrAddDefault(Codes, glyph.Font, out _);
-        codes ??= [];
+        codes ??= _spareSets.TryPop(out var spare) ? spare : new(true);
         _ = codes.Add(glyph.Code);
+        _lastFont = glyph.Font;
+        _lastCodes = codes;
     }
 
     /// <inheritdoc/>
@@ -97,4 +148,13 @@ internal sealed class FontUsageDevice : ITextObjectDevice
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IPictureDevice CreatePictureDevice(PdfRect cull) => new NullPictureDevice(cull);
+
+    /// <summary>Takes an idle device, or makes one when none is idle.</summary>
+    /// <returns>An empty device, which the caller disposes to hand it back.</returns>
+    internal static FontUsageDevice Rent()
+    {
+        var device = Idle.Take() ?? new();
+        _ = Interlocked.Exchange(ref device._returned, 0);
+        return device;
+    }
 }

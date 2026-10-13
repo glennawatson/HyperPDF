@@ -24,12 +24,12 @@ internal static class AnnotationTintAppearance
     private const float ChannelMaximum = 255;
 
     /// <summary>
-    /// Determines whether the form field tint covers a widget, as PDFium's form fill environment decides: the field has a
-    /// type, is not read-only, is not a push button, and the document's permissions allow filling or editing.
+    /// Determines whether the form field tint covers a widget: the field has a
+    /// type, is not read-only, is not a push button, and the document's permissions (ISO 32000-2 table 22) allow filling or editing.
     /// </summary>
     /// <param name="context">The widget.</param>
     /// <returns><see langword="true"/> when the widget is tinted.</returns>
-    internal static bool IsTinted(AnnotationContext context)
+    internal static bool IsTinted(in AnnotationContext context)
     {
         var widget = context.Annotation;
         var field = !widget.ContainsKey(KnownName.T) && widget.GetDictionary(KnownName.Parent) is { } parent ? parent : widget;
@@ -46,7 +46,7 @@ internal static class AnnotationTintAppearance
     /// <param name="rect">The widget's rectangle.</param>
     /// <param name="tint">The tint.</param>
     /// <returns>The Form XObject.</returns>
-    internal static PdfStream CreateTint(AnnotationContext context, PdfRectangle rect, PdfFormHighlight tint)
+    internal static PdfStream CreateTint(in AnnotationContext context, PdfRectangle rect, PdfFormHighlight tint)
     {
         var store = context.Store;
         var state = new PdfDictionary(store);
@@ -59,14 +59,14 @@ internal static class AnnotationTintAppearance
         var builder = default(PdfContentBuilder);
         try
         {
-            AnnotationAppearanceContent.Begin(ref builder);
+            builder.SetGraphicsState("GS"u8);
             builder.SetFillRgb(
                 ((tint.Rgb >> RedShift) & byte.MaxValue) / ChannelMaximum,
                 ((tint.Rgb >> GreenShift) & byte.MaxValue) / ChannelMaximum,
                 (tint.Rgb & byte.MaxValue) / ChannelMaximum);
             builder.Rectangle(rect.Left, rect.Bottom, rect.Width, rect.Height);
             builder.Fill();
-            return AnnotationAppearanceResources.CreateForm(builder.ToArray(), context, rect, resources);
+            return AnnotationAppearances.CreateForm(builder.ToArray(), context, rect, resources);
         }
         finally
         {

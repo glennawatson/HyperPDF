@@ -19,7 +19,7 @@ internal static class HyperPdfDocumentPageExport
     internal static bool ExportPages(HyperPdfDocument self, ReadOnlySpan<int> pages, in SheetLayout layout, Stream destination)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        if (self.IsDisposed || pages.IsEmpty || !HyperPdfPageExport.AllExist(self, pages))
+        if (self.IsDisposed || pages.IsEmpty)
         {
             return false;
         }
@@ -27,7 +27,7 @@ internal static class HyperPdfDocumentPageExport
         try
         {
             var builder = new PdfDocumentBuilder();
-            if (HyperPdfPageExport.Compose(self, builder, new(builder, self.Document), pages, layout) == 0)
+            if (!Compose(self, builder, pages, layout))
             {
                 return false;
             }
@@ -39,5 +39,19 @@ internal static class HyperPdfDocumentPageExport
         {
             return false;
         }
+    }
+
+    /// <summary>Copies the pages into the new document while no edit runs, so the pages checked are the pages copied.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="builder">The new document.</param>
+    /// <param name="pages">Zero based page indices.</param>
+    /// <param name="layout">The layout.</param>
+    /// <returns><see langword="true"/> when at least one sheet was made.</returns>
+    private static bool Compose(HyperPdfDocument self, PdfDocumentBuilder builder, ReadOnlySpan<int> pages, in SheetLayout layout)
+    {
+        using var access = HyperPdfNavigation.EnterPageRead(self);
+        return !self.IsDisposed
+            && HyperPdfPageExport.AllExist(self, pages)
+            && HyperPdfPageExport.Compose(self, builder, new(builder, self.Document), pages, layout) != 0;
     }
 }

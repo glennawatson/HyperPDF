@@ -7,7 +7,7 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts;
 
-/// <summary>Reads the items of a /W or /W2 array one at a time, following PDFium's state machine.</summary>
+/// <summary>Reads the items of a /W or /W2 array one at a time with a three-state grammar: first CID, then an array or a last CID, then the values (ISO 32000-2, 9.7.4.3).</summary>
 [DebuggerDisplay("CidMetricReader: state {_state}")]
 internal sealed class CidMetricReader
 {

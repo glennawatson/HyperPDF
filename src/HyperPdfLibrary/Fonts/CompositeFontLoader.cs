@@ -10,7 +10,7 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts;
 
-/// <summary>Loads /Type0 fonts as PDFium's CPDF_CIDFont::Load does.</summary>
+/// <summary>Loads /Type0 fonts and their single descendant CIDFont (ISO 32000-2, 9.7).</summary>
 internal static class CompositeFontLoader
 {
     /// <summary>The default /DW.</summary>
@@ -28,7 +28,7 @@ internal static class CompositeFontLoader
     /// <summary>Loads a composite font.</summary>
     /// <param name="font">The /Type0 font dictionary.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    /// <returns>The font, or <see langword="null"/> when it has no single descendant or no /Encoding, as PDFium refuses it.</returns>
+    /// <returns>The font, or <see langword="null"/> when it has no single descendant or no /Encoding, both of which Table 121 requires.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PdfCompositeFont? Load(PdfDictionary font, CancellationToken cancellationToken = default) =>
         Load(font, PdfFontResources.For(font), cancellationToken);
@@ -106,7 +106,7 @@ internal static class CompositeFontLoader
 
         try
         {
-            // PDFium gives embedded CMaps no coding, so their codes have no text without /ToUnicode.
+            // An embedded CMap does not say what its codes mean, so they have no text without /ToUnicode.
             var map = CMap.ParseWithResources(stream.DecodeToArray(cancellationToken), resources);
             return new(map, CidCoding.Unknown, CjkScript.None);
         }
@@ -135,11 +135,11 @@ internal static class CompositeFontLoader
             }
         }
 
-        // PDFium uses the CID as the glyph id of an embedded TrueType program, whatever the CMap.
+        // Without /CIDToGIDMap the CID is the glyph id of a TrueType program (ISO 32000-2, 9.7.4.2, Identity default).
         return program is CffProgram { IsCidKeyed: true } cff ? new(null, cff) : CidGlyphRoute.Identity;
     }
 
-    /// <summary>Finds the font's character collection as PDFium's charset_: the predefined CMap's, else /CIDSystemInfo /Ordering.</summary>
+    /// <summary>Finds the font's character collection (ISO 32000-2, 9.7.3): the predefined CMap's, else /CIDSystemInfo /Ordering.</summary>
     /// <param name="cmap">The CMap.</param>
     /// <param name="cidFont">The descendant font.</param>
     /// <returns>The collection.</returns>

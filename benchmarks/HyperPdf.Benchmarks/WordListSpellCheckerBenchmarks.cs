@@ -115,7 +115,11 @@ public class WordListSpellCheckerBenchmarks
 
     /// <summary>Deletes the word list.</summary>
     [GlobalCleanup]
-    public void Cleanup() => File.Delete(_path);
+    public void Cleanup()
+    {
+        _checker.Dispose();
+        File.Delete(_path);
+    }
 
     /// <summary>Checks a word, as is done for each word typed.</summary>
     /// <returns>Whether it is spelled correctly.</returns>
@@ -144,7 +148,12 @@ public class WordListSpellCheckerBenchmarks
     /// <summary>Loads the word list and finds the first corrections, which builds the correction index.</summary>
     /// <returns>How many were found.</returns>
     [Benchmark]
-    public int FirstSuggestion() => new WordListSpellChecker(_path).Suggest(_misspelled).Count;
+    public int FirstSuggestion()
+    {
+        // Disposing hands the index's arrays back to the pool, which is what lets the next load reuse them.
+        using var checker = new WordListSpellChecker(_path);
+        return checker.Suggest(_misspelled).Count;
+    }
 
     /// <summary>Finds corrections by scanning every word, the baseline the correction index is chosen over.</summary>
     /// <returns>How many were found.</returns>

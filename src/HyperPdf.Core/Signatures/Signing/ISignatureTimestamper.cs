@@ -10,9 +10,13 @@ namespace HyperPdf.Core.Signatures.Signing;
 /// </summary>
 public interface ISignatureTimestamper
 {
-    /// <summary>Gets a timestamp token over some data; the authority signs a SHA-256 hash of it with the time.</summary>
-    /// <param name="data">The data to stamp.</param>
+    /// <summary>Gets the usual size of a token in bytes, which sizes the room reserved for it in the file, or zero when it is not known.</summary>
+    int EstimatedTokenSize { get; }
+
+    /// <summary>Gets a timestamp token over a hash. Only the hash is sent to the authority, never the document.</summary>
+    /// <param name="hash">The hash to stamp.</param>
+    /// <param name="digest">The digest that made the hash.</param>
     /// <param name="cancellationToken">Stops waiting for the authority.</param>
     /// <returns>The DER-encoded timestamp token.</returns>
-    ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken);
+    ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, SigningDigest digest, CancellationToken cancellationToken);
 }

@@ -11,7 +11,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
@@ -23,7 +22,6 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.ObservableEvents;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Views;
@@ -47,23 +45,31 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     /// <summary>The misspelled words in the field being edited, reused between checks.</summary>
     private readonly List<Core.Reading.TextRange> _misspelled = [];
 
+    /// <summary>The tab the view shows. The view is reused across tabs, so events read the tab from here, not from a field.</summary>
+    private readonly IObservable<DocumentTabViewModel?> _tabs;
+
     /// <summary>Initializes a new instance of the <see cref="DocumentView"/> class.</summary>
     public DocumentView()
     {
         InitializeComponent();
+        _tabs = this.WhenChanged(static v => v.ViewModel);
         FieldLabels.Link((OpenCertificatePathBox, OpenCertificateLabel), (OpenCertificatePasswordBox, OpenCertificatePasswordLabel));
         FieldSpelling.Editor = FieldEditor;
         PageTextUnderline.Editor = PageTextEditor;
+        PageTextEditor.KeyBindings.Add(CommitTextKey);
         ThumbnailList.ItemTemplate = new FuncDataTemplate<ThumbnailItemViewModel>((_, _) => new ThumbnailItemView { Tab = ViewModel });
         OutlineTree.ItemTemplate = new FuncTreeDataTemplate<OutlineItemViewModel>(static (_, _) => new OutlineItemView(), static item => item.Children);
         SearchResultList.ItemTemplate = new FuncDataTemplate<SearchResultItemViewModel>(static (_, _) => new SearchResultView());
         AnnotationList.ItemTemplate = new FuncDataTemplate<AnnotationItemViewModel>(static (_, _) => new AnnotationItemView());
         AttachmentList.ItemTemplate = new FuncDataTemplate<DocumentAttachment>(static (_, _) => new AttachmentItemView());
-        LayerList.ItemTemplate = new FuncDataTemplate<LayerItemViewModel>(static (_, _) => new LayerItemView());
+        LayerTree.ItemTemplate = new FuncTreeDataTemplate<LayerItemViewModel>(static (_, _) => new LayerItemView(), static item => item.Children);
+        ConfigurationBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
         VoiceBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
         SpeedBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
         LanguageBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
         LanguageBox.ItemsSource = TextRecognitionViewModel.LanguageNames;
+        SeparationBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
+        FieldLabels.Link((SeparationBox, SeparationChoiceLabel));
         SingleLayoutItem.CommandParameter = "Single";
         DualLayoutItem.CommandParameter = "Dual";
         CoverLayoutItem.CommandParameter = "DualCover";
@@ -83,7 +89,7 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
             BindFieldEditor(disposables);
             BindTextFormat(disposables);
             BindPageTextEditor(disposables);
-            disposables.Add(OnMainThread().SubscribeSafe(_ => FocusCanvas(), OnError));
+            disposables.Add(Signal.Return(RxVoid.Default).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => FocusCanvas(), OnError));
         });
     }
 
@@ -116,98 +122,6 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
-    /// <summary>
-    /// Keeps a handler registered on the interaction of whichever tab the view shows. This view is reused across tabs,
-    /// and <c>BindInteraction</c> stays on the view model it was given rather than following <c>ViewModel</c>.
-    /// </summary>
-    /// <typeparam name="TInput">The interaction input.</typeparam>
-    /// <typeparam name="TOutput">The interaction output.</typeparam>
-    /// <param name="interactions">The shown tab's interaction, from <c>WhenChanged</c>.</param>
-    /// <param name="handler">The handler.</param>
-    /// <returns>The registration.</returns>
-    private static MultipleDisposable HandleInteraction<TInput, TOutput>(
-        IObservable<IInteraction<TInput, TOutput>?> interactions,
-        Func<IInteractionContext<TInput, TOutput>, Task> handler)
-    {
-        var registration = new SwapDisposable();
-        var follow = interactions.SubscribeSafe(interaction => registration.Disposable = interaction?.RegisterHandler(handler), OnError);
-        return new(follow, registration);
-    }
-
-    /// <summary>Creates a signal that fires once, later on the main thread, after the current UI work.</summary>
-    /// <returns>The signal.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<RxVoid> OnMainThread() => Signal.Return(RxVoid.Default).ObserveOn(RxSchedulers.MainThreadScheduler);
-
-    /// <summary>Creates a fixed command parameter for a menu item or button.</summary>
-    /// <typeparam name="T">The parameter type.</typeparam>
-    /// <param name="value">The parameter.</param>
-    /// <returns>A signal that gives the parameter and stays open.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<T> Parameter<T>(T value)
-    {
-        // The command binder keeps CommandParameter only while this signal is open; after a plain Signal.Return
-        // completes, the control passes null to the command.
-        return Signal.Concat(Signal.Return(value), Signal.Never<T>());
-    }
-
-    /// <summary>Converts a nullable toggle state to a plain flag.</summary>
-    /// <param name="value">The toggle state.</param>
-    /// <returns><see langword="true"/> only when checked.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsOn(bool? value) => value == true;
-
-    /// <summary>Gets the scroll bar visibility: hidden while presenting, so only the page shows.</summary>
-    /// <param name="presenting">Whether the tab is presenting.</param>
-    /// <returns>The visibility.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ScrollBarVisibility ScrollBars(bool presenting) => presenting ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
-
-    /// <summary>Describes how many signatures a document has.</summary>
-    /// <param name="count">The number of signatures.</param>
-    /// <returns>The sentence.</returns>
-    private static string DescribeSignatures(int count) =>
-        count == 1 ? "This document is digitally signed." : string.Create(CultureInfo.CurrentCulture, $"This document has {count} digital signatures.");
-
-    /// <summary>Creates a stream of Enter presses, with no modifier, in a control.</summary>
-    /// <param name="control">The control.</param>
-    /// <returns>The presses.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<RxVoid> EnterPresses(Control control) =>
-        control.Events().KeyDown.Where(static args => args.Key == Key.Enter && args.KeyModifiers == KeyModifiers.None).Select(static _ => RxVoid.Default);
-
-    /// <summary>Creates a stream of Shift+Enter presses in a control.</summary>
-    /// <param name="control">The control.</param>
-    /// <returns>The presses.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<RxVoid> ShiftEnterPresses(Control control) =>
-        control.Events().KeyDown.Where(static args => args.Key == Key.Enter && args.KeyModifiers == KeyModifiers.Shift).Select(static _ => RxVoid.Default);
-
-    /// <summary>Creates a stream of Escape presses, with no modifier, in a control.</summary>
-    /// <param name="control">The control.</param>
-    /// <returns>The presses.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<RxVoid> EscapePresses(Control control) =>
-        control.Events().KeyDown.Where(static args => args.Key == Key.Escape && args.KeyModifiers == KeyModifiers.None).Select(static _ => RxVoid.Default);
-
-    /// <summary>Creates a stream of the selections made in a list box.</summary>
-    /// <param name="list">The list box.</param>
-    /// <returns>The selection changes; the event source is the list box.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<SelectionChangedEventArgs> Selections(ListBox list) => list.Events().SelectionChanged;
-
-    /// <summary>Creates a stream of the context menu requests in a control.</summary>
-    /// <param name="control">The control.</param>
-    /// <returns>The requests.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<ContextRequestedEventArgs> ContextRequests(Control control) => control.Events().ContextRequested;
-
-    /// <summary>Creates a stream that fires when a control loses focus.</summary>
-    /// <param name="control">The control.</param>
-    /// <returns>The events.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<RoutedEventArgs> FocusLosses(Control control) => control.Events().LostFocus;
-
     /// <summary>Describes a field and the possible spelling mistakes in it, for screen readers.</summary>
     /// <param name="text">The field's text.</param>
     /// <param name="misspelled">The misspelled words.</param>
@@ -227,6 +141,21 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
 
         var count = misspelled.Count == 1 ? "1 possible spelling mistake" : string.Create(CultureInfo.CurrentCulture, $"{misspelled.Count} possible spelling mistakes");
         return string.Create(CultureInfo.CurrentCulture, $"{count}: {string.Join(", ", words)}. Open the menu on a word for corrections. {Descriptions.FormField}");
+    }
+
+    /// <summary>Opens the menu of the annotation under the pointer in the sidebar: edit its note or delete it.</summary>
+    /// <param name="request">The request and the tab whose annotations are listed.</param>
+    private static void ShowAnnotationMenu(Injected<ItemContextRequest<AnnotationItemViewModel>, DocumentTabViewModel> request)
+    {
+        var (menu, tab) = request;
+        new ContextMenu
+        {
+            ItemsSource = new Control[]
+            {
+                new MenuItem { Header = "_Edit Note…", Command = tab.Annotations.EditNoteCommand, CommandParameter = menu.Item },
+                new MenuItem { Header = "_Delete", Command = tab.Annotations.DeleteCommand, CommandParameter = menu.Item },
+            },
+        }.Open(menu.Source);
     }
 
     /// <summary>Determines whether a word is one of the marked words.</summary>
@@ -279,31 +208,29 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     {
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveButton));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.HasUnsavedChanges, static v => v.SaveButton.IsVisible));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsAnnotating, static v => v.AnnotateToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsAnnotating, static v => v.AnnotateToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.FillAndSign.IsActive, static v => v.FillSignToggle.IsChecked, static on => on));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.FillAndSign.ToggleCommand, static v => v.FillSignToggle));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.CanAnnotate, static v => v.AnnotateToggle.IsEnabled));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.CanAnnotate, static v => v.FillSignToggle.IsEnabled));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Search.IsOpen, static v => v.FindToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Search.IsOpen, static v => v.FindToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.RotateLeftCommand, static v => v.RotateLeftItem));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.RotateRightCommand, static v => v.RotateRightItem));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetLayoutCommand, static v => v.SingleLayoutItem, Parameter("Single")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetLayoutCommand, static v => v.DualLayoutItem, Parameter("Dual")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetLayoutCommand, static v => v.CoverLayoutItem, Parameter("DualCover")));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetLayoutCommand, static v => v.SingleLayoutItem, "Single".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetLayoutCommand, static v => v.DualLayoutItem, "Dual".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetLayoutCommand, static v => v.CoverLayoutItem, "DualCover".AsCommandParameter));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.LayoutMode, static v => v.SingleLayoutItem.IsChecked, static mode => mode == PageLayoutMode.Single));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.LayoutMode, static v => v.DualLayoutItem.IsChecked, static mode => mode == PageLayoutMode.Dual));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.LayoutMode, static v => v.CoverLayoutItem.IsChecked, static mode => mode == PageLayoutMode.DualCover));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveItem));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Printing.PrintCommand, static v => v.PrintItem));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Printing.PrintPreviewInteraction), ShowPrintPreviewAsync));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Printing.PrintPreviewInteraction).HandleWith(ShowPrintPreviewAsync));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.PresentCommand, static v => v.PresentItem));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ShowsChrome, static v => v.Chrome.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsReading, static v => v.ReadModeBar.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.ReadModeTitle.Text));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.ReadModeCommand, static v => v.LeaveReadModeButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.ReadModeCommand, static v => v.ReadModeItem));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsPresenting, static v => v.Scroller.VerticalScrollBarVisibility, ScrollBars));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsPresenting, static v => v.Scroller.HorizontalScrollBarVisibility, ScrollBars));
         bindings.Add(this.Bind(ViewModel, static vm => vm.IsCaretMode, static v => v.CaretModeItem.IsChecked, static on => on, static on => on));
         bindings.Add(this.Bind(ViewModel, static vm => vm.IsPageByPage, static v => v.PageByPageItem.IsChecked, static on => on, static on => on));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsSplitView, static v => v.SplitViewItem.IsChecked));
@@ -312,35 +239,46 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.SaveAsCommand, static v => v.SaveAsItem));
         BindRedaction(bindings);
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.ReloadCommand, static v => v.ReloadItem));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.SidebarVisible, static v => v.SidebarToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.SidebarVisible, static v => v.SidebarToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.GoBackCommand, static v => v.BackButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.GoForwardCommand, static v => v.ForwardButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.PreviousPageCommand, static v => v.PreviousPageButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.NextPageCommand, static v => v.NextPageButton));
         bindings.Add(this.Bind(ViewModel, static vm => vm.PageEntry, static v => v.PageBox.Text, static entry => entry, static text => text ?? string.Empty));
-        bindings.Add(EnterPresses(PageBox).InvokeCommand(this, static v => v.ViewModel!.GoToPageEntryCommand));
+        bindings.Add(PageBox.KeyDowns.Enter.AsVoid.InvokeCommand(this, static v => v.ViewModel!.GoToPageEntryCommand));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.PageCount, static v => v.PageCountText.Text, static count => string.Create(CultureInfo.CurrentCulture, $"of {count}")));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.ZoomOutCommand, static v => v.ZoomOutButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.ZoomInCommand, static v => v.ZoomInButton));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ZoomText, static v => v.ZoomButton.Content));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.FitWidthCommand, static v => v.FitWidthItem));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.FitPageCommand, static v => v.FitPageItem));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom50Item, Parameter("50")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom75Item, Parameter("75")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom100Item, Parameter("100")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom125Item, Parameter("125")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom150Item, Parameter("150")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom200Item, Parameter("200")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom400Item, Parameter("400")));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom50Item, "50".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom75Item, "75".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom100Item, "100".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom125Item, "125".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom150Item, "150".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom200Item, "200".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.SetZoomCommand, static v => v.Zoom400Item, "400".AsCommandParameter));
     }
 
     /// <summary>Binds moving around and grabbing content: the drag tools, auto-scroll, the first and last page and select all.</summary>
     /// <param name="bindings">The bindings.</param>
     private void BindPageTools(MultipleDisposable bindings)
     {
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SetPageToolCommand, static v => v.SelectTextToolItem, Parameter(PageTool.SelectText)));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SetPageToolCommand, static v => v.HandToolItem, Parameter(PageTool.Hand)));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SetPageToolCommand, static v => v.ZoomAreaToolItem, Parameter(PageTool.ZoomArea)));
+        // Presenting hides the scroll bars, so only the page shows.
+        bindings.Add(this.OneWayBind(
+            ViewModel,
+            static vm => vm.IsPresenting,
+            static v => v.Scroller.VerticalScrollBarVisibility,
+            static presenting => presenting ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto));
+        bindings.Add(this.OneWayBind(
+            ViewModel,
+            static vm => vm.IsPresenting,
+            static v => v.Scroller.HorizontalScrollBarVisibility,
+            static presenting => presenting ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SetPageToolCommand, static v => v.SelectTextToolItem, PageTool.SelectText.AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SetPageToolCommand, static v => v.HandToolItem, PageTool.Hand.AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SetPageToolCommand, static v => v.ZoomAreaToolItem, PageTool.ZoomArea.AsCommandParameter));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.ToggleSnapshotToolCommand, static v => v.SnapshotToolItem));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.PageTools.IsSelectTextTool, static v => v.SelectTextToolItem.IsChecked));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.PageTools.IsHandTool, static v => v.HandToolItem.IsChecked));
@@ -355,7 +293,7 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.FirstPageCommand, static v => v.FirstPageItem));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.LastPageCommand, static v => v.LastPageItem));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.PageTools.SelectAllCommand, static v => v.SelectAllItem));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.PageTools.SaveImageInteraction), SaveImageAsync));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.PageTools.SaveImageInteraction).HandleWith(SaveImageAsync));
     }
 
     /// <summary>Binds the Annotate and Fill &amp; Sign tool rows.</summary>
@@ -369,41 +307,41 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Measure.CanKeep, static v => v.MeasureKeepButton.IsEnabled));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Measure.ClearCommand, static v => v.MeasureClearButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Measure.DoneCommand, static v => v.MeasureDoneButton));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Measure.IsDistance, static v => v.DistanceTool.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Measure.IsPerimeter, static v => v.PerimeterTool.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Measure.IsArea, static v => v.AreaTool.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Measure.IsDistance, static v => v.DistanceTool.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Measure.IsPerimeter, static v => v.PerimeterTool.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Measure.IsArea, static v => v.AreaTool.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.Bind(ViewModel, static vm => vm.Measure.ScaleText, static v => v.ScaleBox.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Measure.Result, static v => v.MeasureResult.Text));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.UndoCommand, static v => v.UndoButton));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.CanUndo, static v => v.UndoButton.IsEnabled));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.DoneCommand, static v => v.AnnotateDoneButton));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsSelectTool, static v => v.SelectTool.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsHighlightTool, static v => v.HighlightTool.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsUnderlineTool, static v => v.UnderlineTool.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsStrikeOutTool, static v => v.StrikeOutTool.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsDrawTool, static v => v.DrawTool.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsNoteTool, static v => v.NoteTool.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsTextTool, static v => v.TextTool.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsSelectTool, static v => v.SelectTool.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsHighlightTool, static v => v.HighlightTool.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsUnderlineTool, static v => v.UnderlineTool.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsStrikeOutTool, static v => v.StrikeOutTool.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsDrawTool, static v => v.DrawTool.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsNoteTool, static v => v.NoteTool.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsTextTool, static v => v.TextTool.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.ShapeLabel, static v => v.ShapeText.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.StampButtonLabel, static v => v.StampText.Text));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.RectangleItem, Parameter(AnnotationTool.Rectangle)));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.EllipseItem, Parameter(AnnotationTool.Ellipse)));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.ArrowItem, Parameter(AnnotationTool.Arrow)));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.LineItem, Parameter(AnnotationTool.Line)));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.ApprovedItem, Parameter("APPROVED")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.ReviewedItem, Parameter("REVIEWED")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.DraftItem, Parameter("DRAFT")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.ConfidentialItem, Parameter("CONFIDENTIAL")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.FinalItem, Parameter("FINAL")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.NotApprovedItem, Parameter("NOT APPROVED")));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.RectangleItem, AnnotationTool.Rectangle.AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.EllipseItem, AnnotationTool.Ellipse.AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.ArrowItem, AnnotationTool.Arrow.AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetToolCommand, static v => v.LineItem, AnnotationTool.Line.AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.ApprovedItem, "APPROVED".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.ReviewedItem, "REVIEWED".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.DraftItem, "DRAFT".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.ConfidentialItem, "CONFIDENTIAL".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.FinalItem, "FINAL".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetStampCommand, static v => v.NotApprovedItem, "NOT APPROVED".AsCommandParameter));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.ColorName, static v => v.ColourText.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.Color, static v => v.ColourSwatch.Background, static color => new SolidColorBrush(Color.FromUInt32(OpaqueAlpha | color))));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetColorCommand, static v => v.YellowItem, Parameter("Yellow")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetColorCommand, static v => v.GreenItem, Parameter("Green")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetColorCommand, static v => v.BlueItem, Parameter("Blue")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetColorCommand, static v => v.RedItem, Parameter("Red")));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Annotations.PromptInteraction), PromptAsync));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.SaveAsInteraction), SaveAsAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetColorCommand, static v => v.YellowItem, "Yellow".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetColorCommand, static v => v.GreenItem, "Green".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetColorCommand, static v => v.BlueItem, "Blue".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetColorCommand, static v => v.RedItem, "Red".AsCommandParameter));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Annotations.PromptInteraction).HandleWith(PromptAsync));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.SaveAsInteraction).HandleWith(SaveAsAsync));
         BindFillAndSign(bindings);
     }
 
@@ -424,10 +362,10 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.FillAndSign.Placement, static v => v.PlacingTools.IsVisible, static placement => placement is not null));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.FillAndSign.HasPlacedMark, static v => v.PlacedTools.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.FillAndSign.Hint, static v => v.FillSignHint.Text));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.FillAndSign.MarkInteraction), ShowSignatureMarkAsync));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.FillAndSign.MarkInteraction).HandleWith(ShowSignatureMarkAsync));
 
         // Escape cancels placing wherever the keyboard is, for example on the Place button.
-        bindings.Add(EscapePresses(this).InvokeCommand(this, static v => v.ViewModel!.FillAndSign.CancelPlacementCommand));
+        bindings.Add(this.KeyDowns.Escape.AsVoid.InvokeCommand(this, static v => v.ViewModel!.FillAndSign.CancelPlacementCommand));
 
         // Arrow keys move the mark being placed, so the pages take the keyboard as soon as placing starts.
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.FillAndSign.Placement)
@@ -439,7 +377,7 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SubscribeSafe(_ => FocusCanvas(), OnError));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Signatures.SignWithCertificateCommand, static v => v.CertificateSignButton));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Signatures.CertificateSignInteraction), ShowCertificateSignAsync));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Signatures.CertificateSignInteraction).HandleWith(ShowCertificateSignAsync));
     }
 
     /// <summary>Binds the signed, notice and reload bars.</summary>
@@ -447,10 +385,19 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     private void BindBars(MultipleDisposable bindings)
     {
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Signatures.SignatureCount, static v => v.SignedBar.IsVisible, static count => count > 0));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Signatures.SignatureCount, static v => v.SignedText.Text, DescribeSignatures));
+        bindings.Add(this.OneWayBind(
+            ViewModel,
+            static vm => vm.Signatures.SignatureCount,
+            static v => v.SignedText.Text,
+            static count => count == 1 ? "This document is digitally signed." : string.Create(CultureInfo.CurrentCulture, $"This document has {count} digital signatures.")));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Signatures.CheckCommand, static v => v.CheckSignaturesButton));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Signatures.IsChecking, static v => v.CheckSignaturesButton.Content, static checking => checking ? "Checking…" : "Check Signatures"));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Signatures.ShowInteraction), ShowSignaturesAsync));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Signatures.ShowInteraction).HandleWith(ShowSignaturesAsync));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Separations.HasSeparations, static v => v.SeparationBar.IsVisible));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Separations.Description, static v => v.SeparationText.Text));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Separations.Colorants, static v => v.SeparationBox.ItemsSource));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Separations.Colorants, static v => v.SeparationBox.IsEnabled, static colorants => colorants.Count > 0));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Separations.SelectedIndex, static v => v.SeparationBox.SelectedIndex));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notice, static v => v.NoticeText.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notice, static v => v.NoticeBar.IsVisible, static notice => notice is not null));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.DismissNoticeCommand, static v => v.DismissNoticeButton));
@@ -478,11 +425,11 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     /// <param name="bindings">The bindings.</param>
     private void BindReadAloud(MultipleDisposable bindings)
     {
-        bindings.Add(this.Bind(ViewModel, static vm => vm.FocusMode.IsOn, static v => v.FocusToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.FocusMode.IsOn, static v => v.FocusToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.FocusMode, static v => v.FocusPane.ViewModel));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.FocusMode.IsOn, static v => v.FocusPane.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.FocusMode.IsOn, static v => v.Scroller.IsVisible, static on => !on));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.ReadAloud.IsOpen, static v => v.ReadAloudToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.ReadAloud.IsOpen, static v => v.ReadAloudToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ReadAloud.IsOpen, static v => v.ReadAloudBar.IsVisible));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.ReadAloud.CloseCommand, static v => v.CloseReadAloudButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.ReadAloud.PlayPauseCommand, static v => v.PlayButton));
@@ -500,8 +447,8 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ReadAloud.IsDownloading, static v => v.VoiceDownloadProgress.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ReadAloud.DownloadProgress, static v => v.VoiceDownloadProgress.Value));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ReadAloud.StatusText, static v => v.ReadAloudText.Text));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.FocusMode.WordHighlight, static v => v.WordMarkCheck.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.FocusMode.FocusBand, static v => v.FocusBandCheck.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.FocusMode.WordHighlight, static v => v.WordMarkCheck.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.FocusMode.FocusBand, static v => v.FocusBandCheck.IsChecked, static on => on, static on => on == true));
     }
 
     /// <summary>Binds the find bar.</summary>
@@ -512,18 +459,18 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.Search.IsOpen).Where(static open => !open).SubscribeSafe(_ => KeepFocus(FindBar), OnError));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Search.IsOpen, static v => v.FindBar.IsVisible));
         bindings.Add(this.Bind(ViewModel, static vm => vm.Search.Query, static v => v.SearchBox.Text, static query => query, static text => text ?? string.Empty));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Search.MatchCase, static v => v.MatchCaseToggle.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Search.WholeWord, static v => v.WholeWordToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Search.MatchCase, static v => v.MatchCaseToggle.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Search.WholeWord, static v => v.WholeWordToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Search.PreviousCommand, static v => v.PreviousResultButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Search.NextCommand, static v => v.NextResultButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Search.CloseCommand, static v => v.CloseFindButton));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Search.Status, static v => v.SearchStatusText.Text));
-        bindings.Add(EnterPresses(SearchBox).InvokeCommand(this, static v => v.ViewModel!.Search.NextCommand));
-        bindings.Add(ShiftEnterPresses(SearchBox).InvokeCommand(this, static v => v.ViewModel!.Search.PreviousCommand));
-        bindings.Add(EscapePresses(SearchBox).InvokeCommand(this, static v => v.ViewModel!.Search.CloseCommand));
+        bindings.Add(SearchBox.KeyDowns.Enter.AsVoid.InvokeCommand(this, static v => v.ViewModel!.Search.NextCommand));
+        bindings.Add(SearchBox.KeyDowns.ShiftEnter.AsVoid.InvokeCommand(this, static v => v.ViewModel!.Search.PreviousCommand));
+        bindings.Add(SearchBox.KeyDowns.Escape.AsVoid.InvokeCommand(this, static v => v.ViewModel!.Search.CloseCommand));
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.Search.IsOpen)
             .Where(static open => open)
-            .SelectMany(static _ => OnMainThread())
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SubscribeSafe(_ => FocusSearchBox(), OnError));
     }
 
@@ -536,19 +483,19 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(ItemAutomation.NameItems(SearchResultList));
         bindings.Add(ItemAutomation.NameItems(AnnotationList));
         bindings.Add(ItemAutomation.NameItems(AttachmentList));
-        bindings.Add(ItemAutomation.NameItems(LayerList));
+        bindings.Add(ItemAutomation.NameItems(LayerTree));
 
         // Registered before the sidebar's visibility binding, so the focus is checked before the sidebar hides.
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.SidebarVisible).Where(static visible => !visible).SubscribeSafe(_ => KeepFocus(Sidebar), OnError));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.SidebarVisible, static v => v.Sidebar.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.SidebarVisible, static v => v.SidebarSplitter.IsVisible));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.IsThumbnailsMode, static v => v.ThumbnailsToggle.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.IsOutlineMode, static v => v.OutlineToggle.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.IsSearchMode, static v => v.SearchResultsToggle.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.IsAnnotationsMode, static v => v.AnnotationsToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.IsThumbnailsMode, static v => v.ThumbnailsToggle.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.IsOutlineMode, static v => v.OutlineToggle.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.IsSearchMode, static v => v.SearchResultsToggle.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.IsAnnotationsMode, static v => v.AnnotationsToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsThumbnailsMode, static v => v.ThumbnailPanel.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Pages, static v => v.PageTools.ViewModel));
-        bindings.Add(new ThumbnailPageInteraction(this, ThumbnailList));
+        bindings.Add(new ThumbnailPageInteraction(_tabs, ThumbnailList));
         bindings.Add(this.Bind(ViewModel, static vm => vm.Pages.SelectedThumbnails, static v => v.ThumbnailList.SelectedItems));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Thumbnails, static v => v.ThumbnailList.ItemsSource));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ReduceMotion, static v => v.ThumbnailList.ReduceMotion));
@@ -560,31 +507,57 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.VisibleItems, static v => v.AnnotationList.ItemsSource));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.Items.Count, static v => v.NoAnnotationsText.IsVisible, static count => count == 0));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Layers.HasLayers, static v => v.LayersToggle.IsVisible));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.IsLayersMode, static v => v.LayersToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.IsLayersMode, static v => v.LayersToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsLayersMode, static v => v.LayersPanel.IsVisible));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Layers.Items, static v => v.LayerList.ItemsSource));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Layers.Items, static v => v.LayerTree.ItemsSource));
+
+        // The tree item holds the focus, not its check box, so Space switches the focused layer.
+        bindings.Add(LayerTree.KeyDowns.Space
+            .Pick(press => LayerTree.SelectedItem is LayerItemViewModel { CanToggle: true } layer
+                ? new Injected<KeyEventArgs, LayerItemViewModel>(press, layer)
+                : default(Injected<KeyEventArgs, LayerItemViewModel>?))
+            .Do(static toggle => toggle.Value.Handled = true)
+            .SubscribeSafe(static toggle => toggle.State.IsVisible = !toggle.State.IsVisible, OnError));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Layers.ConfigurationNames, static v => v.ConfigurationBox.ItemsSource));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Layers.HasConfigurations, static v => v.ConfigurationBox.IsVisible));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Layers.SelectedConfigurationIndex, static v => v.ConfigurationBox.SelectedIndex));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Layers.ResetCommand, static v => v.ResetLayersButton));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Attachments.HasAttachments, static v => v.AttachmentsToggle.IsVisible));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.IsAttachmentsMode, static v => v.AttachmentsToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.IsAttachmentsMode, static v => v.AttachmentsToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsAttachmentsMode, static v => v.AttachmentsPanel.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Attachments.Items, static v => v.AttachmentList.ItemsSource));
         bindings.Add(this.Bind(ViewModel, static vm => vm.Attachments.Selected, static v => v.AttachmentList.SelectedItem, static item => item, static item => item as DocumentAttachment));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Attachments.SaveCommand, static v => v.SaveAttachmentButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Attachments.OpenSelectedCommand, static v => v.OpenAttachmentButton));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Attachments.SaveInteraction), SaveAttachmentAsync));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Attachments.SaveInteraction).HandleWith(SaveAttachmentAsync));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsSearchMode, static v => v.SearchResultList.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Search.Results, static v => v.SearchResultList.ItemsSource));
         bindings.Add(this.Bind(ViewModel, static vm => vm.Search.SelectedResult, static v => v.SearchResultList.SelectedItem, static item => item, static item => item as SearchResultItemViewModel));
 
-        // Events() cannot see the controls the XAML name generator declares, so the streams come from typed parameters.
-        bindings.Add(Selections(AnnotationList)
+        bindings.Add(AnnotationList.SelectionChanges
             .Select(static args => (args.Source as ListBox)?.SelectedItem as AnnotationItemViewModel)
             .Where(static item => item is not null)
             .InvokeCommand(this, static v => v.ViewModel!.Annotations.GoToCommand));
 
-        bindings.Add(ContextRequests(AnnotationList).SubscribeSafe(OnAnnotationContextRequested, OnError));
-        bindings.Add(ThumbnailList.ObserveRouted(ScrollViewer.ScrollChangedEvent, RoutingStrategies.Bubble, handledEventsToo: true)
-            .Where(static args => args.OffsetDelta.Y != 0)
-            .SubscribeSafe(_ => OnThumbnailsScrolled(), OnError));
+        bindings.Add(AnnotationList.ItemContextRequests<AnnotationItemViewModel>().Inject(_tabs).SubscribeSafe(ShowAnnotationMenu, OnError));
+        bindings.Add(ThumbnailList.TemplateScrolls.Where(static args => args.OffsetDelta.Y != 0).InjectLatest(_tabs).SubscribeSafe(OnThumbnailsScrolled, OnError));
+    }
+
+    /// <summary>Binds the notice about requirements the document declares and the viewer cannot meet.</summary>
+    /// <param name="bindings">The bindings.</param>
+    private void BindRequirementNotice(MultipleDisposable bindings)
+    {
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RequirementNotice, static v => v.RequirementNoticeText.Text));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RequirementNotice, static v => v.RequirementNoticeBar.IsVisible, static notice => notice is not null));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RequirementDetails, static v => v.RequirementDetailsText.Text));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RequirementDetails, static v => v.RequirementDetailsText.IsVisible, static details => details is not null));
+        bindings.Add(this.OneWayBind(
+            ViewModel,
+            static vm => vm.Notices.RequirementDetails,
+            static v => v.ToggleRequirementDetailsButton.Content,
+            static details => details is null ? "Details" : "Hide details"));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Notices.ToggleRequirementDetailsCommand, static v => v.ToggleRequirementDetailsButton));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Notices.DismissRequirementNoticeCommand, static v => v.DismissRequirementNoticeButton));
     }
 
     /// <summary>Binds the page area, the error panel and the password panel.</summary>
@@ -592,11 +565,20 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     private void BindPages(MultipleDisposable bindings)
     {
         bindings.Add(this.WhenChanged(static v => v.ViewModel).BindTo(this, static v => v.Canvas.Tab));
-        bindings.Add(PageArea.ObserveRouted(InputElement.PointerPressedEvent, RoutingStrategies.Tunnel).SubscribeSafe(StopAutoScrollOnPagePress, OnError));
+        bindings.Add(PageArea.PointerPresses
+            .Inject(_tabs)
+            .Where(static press => press.State.PageTools.IsAutoScrolling)
+            .SubscribeSafe(StopAutoScrollOnPagePress, OnError));
+
+        // The scroll bars handle their own presses, so their scrolls stop auto-scroll too.
+        bindings.Add(Scroller.TemplateBarScrolls.InjectLatest(_tabs).Where(static tab => tab.PageTools.IsAutoScrolling).SubscribeSafe(static tab => tab.PageTools.IsAutoScrolling = false, OnError));
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.UriRequests).SwitchTo().SubscribeSafe(OpenUri, OnError));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.ContentWarning, static v => v.ContentWarningText.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.ContentWarning, static v => v.ContentWarningBar.IsVisible, static warning => warning is not null));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Notices.DismissContentWarningCommand, static v => v.DismissContentWarningButton));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.IntegrityNotice, static v => v.IntegrityNoticeText.Text));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.IntegrityNotice, static v => v.IntegrityNoticeBar.IsVisible, static notice => notice is not null));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Notices.DismissIntegrityNoticeCommand, static v => v.DismissIntegrityNoticeButton));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RepairNotice, static v => v.RepairNoticeText.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RepairNotice, static v => v.RepairNoticeBar.IsVisible, static notice => notice is not null));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RepairDetails, static v => v.RepairDetailsText.Text));
@@ -608,14 +590,16 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
             static details => details is null ? "Details" : "Hide details"));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Notices.ToggleRepairDetailsCommand, static v => v.ToggleRepairDetailsButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Notices.DismissRepairNoticeCommand, static v => v.DismissRepairNoticeButton));
+        BindRequirementNotice(bindings);
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.Links.FileLaunchRequests).SwitchMap(static requests => requests).SubscribeSafe(LaunchFile, OnError));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Links.ConfirmOpenFileInteraction), ConfirmOpenFileAsync));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Links.ConfirmOpenFileInteraction).HandleWith(ConfirmOpenFileAsync));
+        BindFormDataImport(bindings);
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ErrorMessage, static v => v.ErrorText.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ErrorMessage, static v => v.ErrorPanel.IsVisible, static message => message is not null));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.NeedsPassword, static v => v.PasswordPanel.IsVisible));
         bindings.Add(this.Bind(ViewModel, static vm => vm.PasswordEntry, static v => v.PasswordBox.Text, static entry => entry, static text => text ?? string.Empty));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.SubmitPasswordCommand, static v => v.UnlockButton));
-        bindings.Add(EnterPresses(PasswordBox).InvokeCommand(this, static v => v.ViewModel!.SubmitPasswordCommand));
+        bindings.Add(PasswordBox.KeyDowns.Enter.AsVoid.InvokeCommand(this, static v => v.ViewModel!.SubmitPasswordCommand));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.NeedsCertificate, static v => v.CertificatePanel.IsVisible));
         bindings.Add(this.Bind(ViewModel, static vm => vm.CertificatePathEntry, static v => v.OpenCertificatePathBox.Text, static entry => entry, static text => text ?? string.Empty));
         bindings.Add(this.Bind(ViewModel, static vm => vm.CertificatePasswordEntry, static v => v.OpenCertificatePasswordBox.Text, static entry => entry, static text => text ?? string.Empty));
@@ -623,22 +607,18 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.CertificateError, static v => v.OpenCertificateErrorText.IsVisible, static error => error is not null));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.BrowseCertificateCommand, static v => v.BrowseOpenCertificateButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.SubmitCertificateCommand, static v => v.UnlockCertificateButton));
-        bindings.Add(EnterPresses(OpenCertificatePasswordBox).InvokeCommand(this, static v => v.ViewModel!.SubmitCertificateCommand));
+        bindings.Add(OpenCertificatePasswordBox.KeyDowns.Enter.AsVoid.InvokeCommand(this, static v => v.ViewModel!.SubmitCertificateCommand));
         bindings.Add(this.BindInteraction(ViewModel, static vm => vm.CertificateBrowseInteraction, BrowseCertificateAsync));
     }
 
     /// <summary>Stops auto-scroll when any part of the page area is clicked.</summary>
-    /// <param name="e">The pointer press.</param>
-    private void StopAutoScrollOnPagePress(PointerPressedEventArgs e)
+    /// <param name="press">The pointer press and the tab that was auto-scrolling.</param>
+    private void StopAutoScrollOnPagePress(Injected<PointerPressedEventArgs, DocumentTabViewModel> press)
     {
-        if (ViewModel is not { PageTools.IsAutoScrolling: true } tab)
-        {
-            return;
-        }
-
+        var (args, tab) = press;
         tab.PageTools.IsAutoScrolling = false;
         _ = Canvas.Focus();
-        e.Handled = true;
+        args.Handled = true;
     }
 
     /// <summary>Asks the desktop for a local PKCS #12 certificate file.</summary>
@@ -684,19 +664,22 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.Forms.Focused).SubscribeSafe(_ => Canvas.InvalidateVisual(), OnError));
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.Annotations.RegionsVersion, static v => v.ViewModel!.Annotations.Tool, static (version, _) => version)
             .SubscribeSafe(_ => Canvas.InvalidateVisual(), OnError));
-        bindings.Add(EscapePresses(FieldEditor).SubscribeSafe(_ => ViewModel?.Forms.Cancel(), OnError));
-        bindings.Add(FieldEditor.ObserveRouted(InputElement.KeyDownEvent, RoutingStrategies.Tunnel).Where(static args => args.Key == Key.Tab).SubscribeSafe(OnFieldTab, OnError));
+        bindings.Add(FieldEditor.KeyDowns.Escape.InjectLatest(_tabs).SubscribeSafe(static tab => tab.Forms.Cancel(), OnError));
+        bindings.Add(FieldEditor.KeyDowns.Tab.MarkHandled().Inject(_tabs).SubscribeSafe(OnFieldTab, OnError));
 
         // ShowFieldEditor sets AcceptsReturn from the field, so a single-line field commits on Enter.
-        bindings.Add(FieldEditor.Events().KeyDown
-            .Where(static args => args.Key == Key.Enter && args.KeyModifiers == KeyModifiers.None && args.Source is TextBox { AcceptsReturn: false })
-            .SubscribeSafe(_ => ViewModel?.Forms.Commit(), OnError));
-        bindings.Add(FocusLosses(FieldEditor).Where(static _ => !FocusAnnouncementRepair.IsRepeating).SubscribeSafe(_ => ViewModel?.Forms.Commit(), OnError));
+        bindings.Add(FieldEditor.KeyDowns.Enter
+            .Where(static args => args.Source is TextBox { AcceptsReturn: false })
+            .InjectLatest(_tabs)
+            .SubscribeSafe(static tab => tab.Forms.Commit(), OnError));
+        bindings.Add(FieldEditor.LostFocuses
+            .Where(static _ => !FocusAnnouncementRepair.IsRepeating)
+            .InjectLatest(_tabs)
+            .SubscribeSafe(static tab => tab.Forms.Commit(), OnError));
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.Forms.EditText, static v => v.ViewModel!.Forms.KeptWordsVersion, static (text, _) => text)
             .SubscribeSafe(UpdateSpelling, OnError));
-        bindings.Add(FieldEditor.ObserveRouted(ScrollViewer.ScrollChangedEvent, RoutingStrategies.Bubble, handledEventsToo: true)
-            .SubscribeSafe(_ => FieldSpelling.InvalidateVisual(), OnError));
-        bindings.Add(FieldEditor.ObserveRouted(ContextRequestedEvent, RoutingStrategies.Tunnel).SubscribeSafe(OnFieldContextRequested, OnError));
+        bindings.Add(FieldEditor.TemplateScrolls.SubscribeSafe(_ => FieldSpelling.InvalidateVisual(), OnError));
+        bindings.Add(FieldEditor.ContextRequests.Inject(_tabs).SubscribeSafe(OnFieldContextRequested, OnError));
     }
 
     /// <summary>Marks the misspelled words in the field being edited, and says how many there are to screen readers.</summary>
@@ -715,10 +698,11 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     }
 
     /// <summary>Offers corrections for a misspelled word when the editor's menu is asked for, keeping the normal menu otherwise.</summary>
-    /// <param name="e">The request.</param>
-    private void OnFieldContextRequested(ContextRequestedEventArgs e)
+    /// <param name="request">The request and the tab being edited.</param>
+    private void OnFieldContextRequested(Injected<ContextRequestedEventArgs, DocumentTabViewModel> request)
     {
-        if (ViewModel is not { } tab || FieldEditor.Text is not { Length: > 0 })
+        var (e, tab) = request;
+        if (FieldEditor.Text is not { Length: > 0 })
         {
             return;
         }
@@ -781,7 +765,7 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         FieldSpelling.Width = rect.Width;
         FieldSpelling.Height = rect.Height;
         FieldSpelling.IsVisible = true;
-        _ = OnMainThread().SubscribeSafe(_ => FocusFieldEditor(), OnError);
+        _ = Signal.Return(RxVoid.Default).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => FocusFieldEditor(), OnError);
     }
 
     /// <summary>Spreads a comb field's letters one to a box, in a fixed width font; other fields type normally.</summary>
@@ -806,17 +790,17 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     }
 
     /// <summary>Moves to the next field on Tab, or the previous one on Shift+Tab.</summary>
-    /// <param name="e">The key press.</param>
-    private void OnFieldTab(KeyEventArgs e)
+    /// <param name="press">The key press and the tab being edited.</param>
+    private void OnFieldTab(Injected<KeyEventArgs, DocumentTabViewModel> press)
     {
-        e.Handled = true;
-        if (ViewModel?.Forms.CommitAndMove((e.KeyModifiers & KeyModifiers.Shift) != 0) is not { } next || next.Kind == Core.Forms.FormFieldKind.Text)
+        var (args, tab) = press;
+        if (tab.Forms.CommitAndMove((args.KeyModifiers & KeyModifiers.Shift) != 0) is not { } next || next.Kind == Core.Forms.FormFieldKind.Text)
         {
             return;
         }
 
         // The editor closes for a box or list, so the pages take the keys that fill it in.
-        ViewModel.NavigateTo(new(next.PageIndex, next.Bounds, 0));
+        tab.NavigateTo(new(next.PageIndex, next.Bounds, 0));
         Canvas.InvalidateVisual();
     }
 
@@ -931,19 +915,115 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         context.SetOutput(RxVoid.Default);
     }
 
-    /// <summary>Binds the menu items that write a new copy: the optimised, PDF/A and redacted copies, with their windows.</summary>
+    /// <summary>Shows the "Save as PDF 2.0 Copy" window.</summary>
+    /// <param name="context">The interaction context, holding the request.</param>
+    /// <returns>A task.</returns>
+    private async Task ShowPdf20Async(IInteractionContext<Pdf20CopyViewModel, RxVoid> context)
+    {
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            await new Pdf20CopyWindow { ViewModel = context.Input }.ShowDialog(owner);
+        }
+
+        context.SetOutput(RxVoid.Default);
+    }
+
+    /// <summary>Shows the "Save Flattened Copy" window.</summary>
+    /// <param name="context">The interaction context, holding the request.</param>
+    /// <returns>A task.</returns>
+    private async Task ShowFlattenAsync(IInteractionContext<FlattenCopyViewModel, RxVoid> context)
+    {
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            await new FlattenCopyWindow { ViewModel = context.Input }.ShowDialog(owner);
+        }
+
+        context.SetOutput(RxVoid.Default);
+    }
+
+    /// <summary>Shows the "Protect with Password" window.</summary>
+    /// <param name="context">The interaction context, holding the request.</param>
+    /// <returns>A task.</returns>
+    private async Task ShowProtectAsync(IInteractionContext<ProtectViewModel, RxVoid> context)
+    {
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            await new ProtectWindow { ViewModel = context.Input }.ShowDialog(owner);
+        }
+
+        context.SetOutput(RxVoid.Default);
+    }
+
+    /// <summary>Shows the "Remove Protection" window.</summary>
+    /// <param name="context">The interaction context, holding the request.</param>
+    /// <returns>A task.</returns>
+    private async Task ShowRemoveProtectionAsync(IInteractionContext<RemoveProtectionViewModel, RxVoid> context)
+    {
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            await new RemoveProtectionWindow { ViewModel = context.Input }.ShowDialog(owner);
+        }
+
+        context.SetOutput(RxVoid.Default);
+    }
+
+    /// <summary>Binds the menu items that write a new copy: the optimised, PDF/A, PDF 2.0, flattened, protected and redacted copies, with their windows.</summary>
     /// <param name="bindings">The bindings.</param>
     private void BindRedaction(MultipleDisposable bindings)
     {
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Optimize.RunCommand, static v => v.OptimizeCopyItem));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Optimize.MenuText, static v => v.OptimizeCopyItem.Header));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Optimize.Interaction), ShowOptimizeAsync));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Archive.RunCommand, static v => v.ArchiveCopyItem));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Archive.MenuText, static v => v.ArchiveCopyItem.Header));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Archive.Interaction), ShowArchiveAsync));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Redact.RunCommand, static v => v.ApplyRedactionsItem));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Redact.MenuText, static v => v.ApplyRedactionsItem.Header));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Redact.Interaction), ShowRedactionAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Optimize.RunCommand, static v => v.OptimizeCopyItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Optimize.MenuText, static v => v.OptimizeCopyItem.Header));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Optimize.Interaction).HandleWith(ShowOptimizeAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Archive.RunCommand, static v => v.ArchiveCopyItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Archive.MenuText, static v => v.ArchiveCopyItem.Header));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Archive.Interaction).HandleWith(ShowArchiveAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Pdf20.RunCommand, static v => v.Pdf20CopyItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Pdf20.MenuText, static v => v.Pdf20CopyItem.Header));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Pdf20.Interaction).HandleWith(ShowPdf20Async));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Flatten.RunCommand, static v => v.FlattenCopyItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Flatten.MenuText, static v => v.FlattenCopyItem.Header));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Flatten.Interaction).HandleWith(ShowFlattenAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Protect.RunCommand, static v => v.ProtectItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Protect.MenuText, static v => v.ProtectItem.Header));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Protect.Interaction).HandleWith(ShowProtectAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Unprotect.RunCommand, static v => v.RemoveProtectionItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Unprotect.MenuText, static v => v.RemoveProtectionItem.Header));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Unprotect.Interaction).HandleWith(ShowRemoveProtectionAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Redact.RunCommand, static v => v.ApplyRedactionsItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Redact.MenuText, static v => v.ApplyRedactionsItem.Header));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Redact.Interaction).HandleWith(ShowRedactionAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Validation.RunCommand, static v => v.ValidationDataItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Validation.MenuText, static v => v.ValidationDataItem.Header));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Validation.Interaction).HandleWith(ShowValidationAsync));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Copies.ExternalSign.RunCommand, static v => v.ExternalSignItem));
+        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.ExternalSign.MenuText, static v => v.ExternalSignItem.Header));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Copies.ExternalSign.Interaction).HandleWith(ShowExternalSignAsync));
+    }
+
+    /// <summary>Shows the "Add Validation Data or Timestamp" window.</summary>
+    /// <param name="context">The interaction context, holding the request.</param>
+    /// <returns>A task.</returns>
+    private async Task ShowValidationAsync(IInteractionContext<ValidationDataViewModel, RxVoid> context)
+    {
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            await new ValidationDataWindow { ViewModel = context.Input }.ShowDialog(owner);
+        }
+
+        context.SetOutput(RxVoid.Default);
+    }
+
+    /// <summary>Shows the "Sign with External Signer" window.</summary>
+    /// <param name="context">The interaction context, holding the request.</param>
+    /// <returns>A task.</returns>
+    private async Task ShowExternalSignAsync(IInteractionContext<ExternalSignViewModel, RxVoid> context)
+    {
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            await new ExternalSignWindow { ViewModel = context.Input }.ShowDialog(owner);
+        }
+
+        context.SetOutput(RxVoid.Default);
     }
 
     /// <summary>Shows the "Apply Redactions" window.</summary>
@@ -988,27 +1068,6 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         context.SetOutput(file?.TryGetLocalPath());
     }
 
-    /// <summary>Opens the menu of the annotation under the pointer in the sidebar: edit its note or delete it.</summary>
-    /// <param name="e">The event.</param>
-    private void OnAnnotationContextRequested(ContextRequestedEventArgs e)
-    {
-        if ((e.Source as Control)?.DataContext is not AnnotationItemViewModel item || ViewModel is not { } tab || e.Source is not Control source)
-        {
-            return;
-        }
-
-        var menu = new ContextMenu
-        {
-            ItemsSource = new Control[]
-            {
-                new MenuItem { Header = "_Edit Note…", Command = tab.Annotations.EditNoteCommand, CommandParameter = item },
-                new MenuItem { Header = "_Delete", Command = tab.Annotations.DeleteCommand, CommandParameter = item },
-            },
-        };
-        menu.Open(source);
-        e.Handled = true;
-    }
-
     /// <summary>Asks before a linked or attached file opens in another app.</summary>
     /// <param name="context">The file's name in; <see langword="true"/> out to open it.</param>
     /// <returns>A task.</returns>
@@ -1045,13 +1104,9 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
     }
 
     /// <summary>Drops thumbnail requests for items scrolled out of view and re-requests the visible ones.</summary>
-    private void OnThumbnailsScrolled()
+    /// <param name="tab">The tab whose thumbnails are listed.</param>
+    private void OnThumbnailsScrolled(DocumentTabViewModel tab)
     {
-        if (ViewModel is not { } tab)
-        {
-            return;
-        }
-
         _ = tab.ThumbnailClient.Advance();
         foreach (var visual in ThumbnailList.GetVisualDescendants())
         {

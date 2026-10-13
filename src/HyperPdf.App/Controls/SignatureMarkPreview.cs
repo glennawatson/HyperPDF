@@ -3,20 +3,19 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using HyperPdf.Core.Annotations;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.ObservableEvents;
+using ReactiveUI;
+using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.Controls;
 
 /// <summary>Shows a signature or initials mark as it will look on the page, scaled to fit.</summary>
 [DebuggerDisplay("SignatureMarkPreview: {Mark}")]
-public sealed class SignatureMarkPreview : Control
+public sealed class SignatureMarkPreview : Control, IActivatableView
 {
     /// <summary>The mark shown, or <see langword="null"/> for an empty preview.</summary>
     public static readonly StyledProperty<SignatureMark?> MarkProperty = AvaloniaProperty.Register<SignatureMarkPreview, SignatureMark?>(nameof(Mark));
@@ -40,7 +39,8 @@ public sealed class SignatureMarkPreview : Control
     static SignatureMarkPreview() => AffectsRender<SignatureMarkPreview>(MarkProperty);
 
     /// <summary>Initializes a new instance of the <see cref="SignatureMarkPreview"/> class.</summary>
-    public SignatureMarkPreview() => _ = this.Events().DetachedFromVisualTree.SubscribeSafe(_ => Release(), OnError);
+    public SignatureMarkPreview() =>
+        _ = this.WhenActivated(disposables => disposables.Add(Scope.Create(this, static preview => preview.Release())));
 
     /// <summary>Gets or sets the mark shown.</summary>
     public SignatureMark? Mark
@@ -61,11 +61,6 @@ public sealed class SignatureMarkPreview : Control
         var area = new Rect(Bounds.Size).Deflate(Inset);
         (_painter ??= new()).Draw(context, mark, SignaturePad.Fit(mark, area), InkBrush, InkPen);
     }
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Frees the cached picture once the preview is no longer shown.</summary>
     private void Release()

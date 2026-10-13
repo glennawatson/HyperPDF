@@ -15,7 +15,7 @@ public static class PdfFormImport
     /// <param name = "values">The values; a multiple-choice list takes all of them, any other field the first.</param>
     /// <returns>
     /// <see langword="true"/> when the value was set; <see langword="false"/> for a missing or wrong kind of widget, or a
-    /// value the field cannot take. The read-only flag is ignored, as in PDFium: it guards typing, not imported data.
+    /// value the field cannot take. The read-only flag is ignored: it guards typing (ISO 32000-2 Table 227), not imported data.
     /// </returns>
     /// <exception cref = "ArgumentNullException"><paramref name = "values"/> is <see langword="null"/>.</exception>
     public static bool ImportValue(PdfForm form, int pageIndex, int index, string[] values)
@@ -80,6 +80,11 @@ public static class PdfFormImport
         }
 
         var options = PdfFormImport.FindOptions(widget.Field, values);
+        if (options.Count == 0 && PdfFormImport.IsEmpty(values) && FormChoices.FirstSelected(widget.Field) < 0)
+        {
+            // A choice field with nothing selected exports an empty value; importing it leaves the field as it is.
+            return true;
+        }
 
         // An editable combo box takes text that is none of its options.
         return options.Count == 0
@@ -87,7 +92,23 @@ public static class PdfFormImport
             : PdfFormImport.ReplaceSelection(form, widget, options);
     }
 
-    /// <summary>Sets a text value. As in PDFium, importing data ignores the read-only flag, which only guards typing.</summary>
+    /// <summary>Determines whether every value is an empty string.</summary>
+    /// <param name = "values">The values.</param>
+    /// <returns><see langword="true"/> when none holds text.</returns>
+    internal static bool IsEmpty(string[] values)
+    {
+        foreach (var value in values)
+        {
+            if (value.Length > 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Sets a text value. Importing data ignores the read-only flag, which only guards typing.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "widget">The widget.</param>
     /// <param name = "text">The text.</param>

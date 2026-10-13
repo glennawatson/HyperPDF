@@ -14,7 +14,7 @@ namespace HyperPdf.Benchmarks;
 /// <summary>
 /// Measures HyperPDF's accessibility structure: reading the structure tree, recording a page's marked content, building
 /// the tagged reading nodes, inferring an untagged page's order, and producing the reading view's tagged blocks.
-/// <see cref="ReadingOrderBenchmarks.ReadTags"/> measures PDFium's tagged blocks on the same document. Allocations come
+/// <see cref="ReadingOrderBenchmarks.ReadTags"/> measures the tagged blocks on the same document. Allocations come
 /// from the EventPipe trace.
 /// </summary>
 public class HyperPdfStructureBenchmarks

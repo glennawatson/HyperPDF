@@ -12,6 +12,9 @@ namespace HyperPdf.Benchmarks;
 /// <summary>Opens benchmark documents with an owned drawing service instance.</summary>
 internal static class BenchmarkDrawing
 {
+    /// <summary>The open options without a password, one per service instance, so opening a document in a measured method does not build them.</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PdfDrawingServices, PdfOpenOptions> PlainOptions = new();
+
     /// <summary>Creates services for one document.</summary>
     /// <returns>The services.</returns>
     internal static PdfDrawingServices CreateServices() => new(new PdfRenderBackendRegistration().UseSkia());
@@ -29,7 +32,7 @@ internal static class BenchmarkDrawing
     /// <param name="drawingServices">The drawing services reused by this benchmark.</param>
     /// <returns>The document.</returns>
     internal static PdfDocument Open(byte[] bytes, string? password, PdfDrawingServices drawingServices) =>
-        PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { Password = password, DrawingServices = drawingServices });
+        PdfDocumentReader.OpenWith(bytes, OptionsFor(password, drawingServices));
 
     /// <summary>Opens a PDF path for drawing.</summary>
     /// <param name="path">The file path.</param>
@@ -51,7 +54,7 @@ internal static class BenchmarkDrawing
     /// <param name="drawingServices">The drawing services reused by this benchmark.</param>
     /// <returns>The document.</returns>
     internal static PdfDocument Open(Stream stream, string? password, PdfDrawingServices drawingServices) =>
-        PdfDocumentReader.OpenWith(stream, new PdfOpenOptions { Password = password, DrawingServices = drawingServices });
+        PdfDocumentReader.OpenWith(stream, OptionsFor(password, drawingServices));
 
     /// <summary>Opens PDF bytes asynchronously for drawing.</summary>
     /// <param name="bytes">The PDF bytes.</param>
@@ -68,7 +71,7 @@ internal static class BenchmarkDrawing
     /// <param name="cancellationToken">Cancels the open.</param>
     /// <returns>The document.</returns>
     internal static ValueTask<PdfDocument> OpenAsync(byte[] bytes, string? password, PdfDrawingServices drawingServices, CancellationToken cancellationToken) =>
-        PdfDocumentReader.OpenWithAsync(new MemoryPdfByteSource(bytes), true, new PdfOpenOptions { Password = password, DrawingServices = drawingServices }, cancellationToken);
+        PdfDocumentReader.OpenWithAsync(new MemoryPdfByteSource(bytes), true, OptionsFor(password, drawingServices), cancellationToken);
 
     /// <summary>Opens a PDF stream asynchronously for drawing.</summary>
     /// <param name="stream">The stream.</param>
@@ -85,5 +88,14 @@ internal static class BenchmarkDrawing
     /// <param name="cancellationToken">Cancels the open.</param>
     /// <returns>The document.</returns>
     internal static ValueTask<PdfDocument> OpenAsync(Stream stream, string? password, PdfDrawingServices drawingServices, CancellationToken cancellationToken) =>
-        PdfDocumentReader.OpenWithAsync(stream, new PdfOpenOptions { Password = password, DrawingServices = drawingServices }, cancellationToken);
+        PdfDocumentReader.OpenWithAsync(stream, OptionsFor(password, drawingServices), cancellationToken);
+
+    /// <summary>Gets the open options for a service instance, made once per instance when there is no password.</summary>
+    /// <param name="password">The password, or null.</param>
+    /// <param name="drawingServices">The drawing services.</param>
+    /// <returns>The options.</returns>
+    private static PdfOpenOptions OptionsFor(string? password, PdfDrawingServices drawingServices) =>
+        password is null
+            ? PlainOptions.GetValue(drawingServices, static services => new() { DrawingServices = services })
+            : new() { Password = password, DrawingServices = drawingServices };
 }

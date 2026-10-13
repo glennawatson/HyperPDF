@@ -48,35 +48,29 @@ internal sealed class IccProfileCache
     /// <returns>The transform, or null when the profile is unusable.</returns>
     private static IccTransform? Get(PdfStream stream, int components, IccProfileCache? cache)
     {
-        var entry = stream.CachedIccProfile;
-        if (entry is null)
-        {
-            var loaded = LoadEntry(stream, cache);
-            entry = stream.PublishIccProfileEntry(loaded);
-        }
-
-        return entry.Transform?.Components == components ? entry.Transform : null;
+        var transform = stream.CachedIccProfile ?? stream.PublishIccProfile(Load(stream, cache) ?? Unsupported.Instance);
+        return transform.Components == components ? transform : null;
     }
 
     /// <summary>Loads a stream's profile before publishing the result on that stream.</summary>
     /// <param name="stream">The profile stream.</param>
     /// <param name="cache">The owning services' recent-profile cache, or null for a detached stream.</param>
-    /// <returns>The cached transform, including an unsupported result.</returns>
-    private static Entry LoadEntry(PdfStream stream, IccProfileCache? cache)
+    /// <returns>The transform, or null when the profile is unusable.</returns>
+    private static IccTransform? Load(PdfStream stream, IccProfileCache? cache)
     {
         try
         {
             var data = stream.DecodeToArray();
             if (data.Length > MaxProfileSize)
             {
-                return new(null);
+                return null;
             }
 
-            return new(cache is null ? IccProfile.Create(data) : cache.Shared(data));
+            return cache is null ? IccProfile.Create(data) : cache.Shared(data);
         }
         catch (InvalidDataException)
         {
-            return new(null);
+            return null;
         }
     }
 
@@ -114,9 +108,26 @@ internal sealed class IccProfileCache
     /// <param name="Length">The profile length.</param>
     private readonly record struct ProfileKey(UInt128 Hash, int Length);
 
-    /// <summary>A cached stream result.</summary>
-    /// <param name="Transform">The transform, or null.</param>
-    internal sealed record Entry(IccTransform? Transform);
+    /// <summary>The result remembered on a stream whose profile cannot be used. It matches no component count.</summary>
+    private sealed class Unsupported : IccTransform
+    {
+        /// <summary>The component count of the unsupported result: no caller asks for a negative count.</summary>
+        private const int NoComponents = -1;
+
+        /// <summary>Gets the shared instance.</summary>
+        internal static Unsupported Instance { get; } = new();
+
+        /// <inheritdoc/>
+        internal override int Components => NoComponents;
+
+        /// <inheritdoc/>
+        internal override void ToRgb(ReadOnlySpan<float> components, Span<float> rgb) =>
+            throw new InvalidOperationException("An unusable profile cannot convert colours.");
+
+        /// <inheritdoc/>
+        internal override void ConvertRow(ReadOnlySpan<byte> samples, Span<byte> bgra, int pixelCount) =>
+            throw new InvalidOperationException("An unusable profile cannot convert colours.");
+    }
 
     /// <summary>A recent parsed profile shared across streams.</summary>
     /// <param name="Key">The profile identity.</param>

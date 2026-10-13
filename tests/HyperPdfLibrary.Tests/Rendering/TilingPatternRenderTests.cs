@@ -30,6 +30,15 @@ public sealed class TilingPatternRenderTests
     /// <summary>The middle of the page.</summary>
     private const int Middle = 50;
 
+    /// <summary>Cell content that paints the whole 10 point cell red.</summary>
+    private const string RedSquare = "1 0 0 rg 0 0 10 10 re f";
+
+    /// <summary>The green and blue channel of red covering half the area over white.</summary>
+    private const int TinyGreen = 128;
+
+    /// <summary>The channel difference accepted for the averaged tiny cell.</summary>
+    private const int TinyTolerance = 48;
+
     /// <summary>The zoom of the high resolution test.</summary>
     private const float Zoom = 4;
 
@@ -58,7 +67,7 @@ public sealed class TilingPatternRenderTests
     [Test]
     public async Task LargeStepsLeaveGaps()
     {
-        var image = RenderPattern("/BBox [0 0 10 10] /XStep 20 /YStep 20", "1 0 0 rg 0 0 10 10 re f", 1);
+        var image = RenderPattern("/BBox [0 0 10 10] /XStep 20 /YStep 20", RedSquare, 1);
 
         await RenderCheck.Near(image, FirstStep, BottomRow, Rgb.Red255, Tolerance, nameof(LargeStepsLeaveGaps));
         await RenderCheck.Near(image, SecondStep, BottomRow, Rgb.White, Tolerance, nameof(LargeStepsLeaveGaps));
@@ -80,7 +89,7 @@ public sealed class TilingPatternRenderTests
     [Test]
     public async Task ZeroStepDrawsNothing()
     {
-        var image = RenderPattern("/BBox [0 0 10 10] /XStep 0 /YStep 10", "1 0 0 rg 0 0 10 10 re f", 1);
+        var image = RenderPattern("/BBox [0 0 10 10] /XStep 0 /YStep 10", RedSquare, 1);
 
         await RenderCheck.Near(image, FirstStep, BottomRow, Rgb.White, Tolerance, nameof(ZeroStepDrawsNothing));
     }
@@ -94,6 +103,54 @@ public sealed class TilingPatternRenderTests
 
         await RenderCheck.Near(image, PaintedColumn, ZoomedRow, Rgb.Red255, Tolerance, nameof(SmallCellsStaySharpWhenZoomed));
         await RenderCheck.Near(image, EmptyColumn, ZoomedRow, Rgb.White, Tolerance, nameof(SmallCellsStaySharpWhenZoomed));
+    }
+
+    /// <summary>Negative steps (allowed by ISO 32000-2 8.7.3.2) lay the cells on the same lattice as positive ones.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task NegativeStepsTileLikePositiveOnes()
+    {
+        const string Cell = "1 0 0 rg 0 0 6 6 re f 0 0 1 rg 6 6 4 4 re f";
+        var positive = RenderPattern("/BBox [0 0 10 10] /XStep 10 /YStep 10", Cell, 1);
+        var negative = RenderPattern("/BBox [0 0 10 10] /XStep -10 /YStep -10", Cell, 1);
+
+        await RenderCheck.Near(negative, FirstStep, BottomRow, Rgb.Red255, Tolerance, nameof(NegativeStepsTileLikePositiveOnes));
+        await Assert.That(negative.Pixels.AsSpan().SequenceEqual(positive.Pixels)).IsTrue();
+    }
+
+    /// <summary>Cells that overlap in both directions cover the page when their painted part reaches their neighbours.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CellsOverlapInBothDirections()
+    {
+        var image = RenderPattern("/BBox [0 0 20 20] /XStep 10 /YStep 10", "1 0 0 rg 10 10 10 10 re f", 1);
+
+        await RenderCheck.Near(image, FirstStep, BottomRow, Rgb.Red255, Tolerance, nameof(CellsOverlapInBothDirections));
+        await RenderCheck.Near(image, SecondStep, SecondRow, Rgb.Red255, Tolerance, nameof(CellsOverlapInBothDirections));
+        await RenderCheck.Near(image, Middle, Middle, Rgb.Red255, Tolerance, nameof(CellsOverlapInBothDirections));
+    }
+
+    /// <summary>A cell far smaller than a pixel averages its painted share rather than vanishing or aliasing.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TinyCellsAverageTheirCoverage()
+    {
+        var image = RenderPattern("/BBox [0 0 0.5 0.5] /XStep 0.5 /YStep 0.5", "1 0 0 rg 0 0 0.25 0.5 re f", 1);
+
+        await RenderCheck.Near(image, Middle, Middle, new(Rgb.Red255.Red, TinyGreen, TinyGreen), TinyTolerance, nameof(TinyCellsAverageTheirCoverage));
+    }
+
+    /// <summary>A step far larger than the page shows only the cell at the pattern origin.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task HugeStepsShowOneCell()
+    {
+        var image = RenderPattern("/BBox [0 0 10 10] /XStep 1000000 /YStep 1000000", RedSquare, 1);
+
+        await RenderCheck.Near(image, FirstStep, BottomRow, Rgb.Red255, Tolerance, nameof(HugeStepsShowOneCell));
+        await RenderCheck.Near(image, SecondStep, BottomRow, Rgb.White, Tolerance, nameof(HugeStepsShowOneCell));
+        await RenderCheck.Near(image, FirstStep, SecondRow, Rgb.White, Tolerance, nameof(HugeStepsShowOneCell));
+        await RenderCheck.Near(image, Middle, Middle, Rgb.White, Tolerance, nameof(HugeStepsShowOneCell));
     }
 
     /// <summary>Fills the page with a coloured tiling pattern.</summary>

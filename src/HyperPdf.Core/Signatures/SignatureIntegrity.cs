@@ -18,4 +18,22 @@ public enum SignatureIntegrity
 
     /// <summary>The signature does not match: the signed content was altered or the signature is damaged.</summary>
     Invalid = 3,
+
+    /// <summary>
+    /// The signature uses a digest or signature algorithm this computer cannot check, such as SHA-3 where the system's
+    /// cryptography library lacks it; it is neither confirmed nor rejected.
+    /// </summary>
+    Unsupported = 4,
+
+    /// <summary>The signature uses a digest PDF does not allow, such as SHAKE128, so it is not valid.</summary>
+    DigestNotAllowed = 5,
+
+    /// <summary>The signature pairs an elliptic curve with a digest ISO/TS 32002 does not permit, so it is not valid.</summary>
+    CurveDigestNotAllowed = 6,
+
+    /// <summary>The signer's certificate gives its elliptic curve as explicit parameters, not a named curve, so the signature is not valid.</summary>
+    UnnamedCurve = 7,
+
+    /// <summary>The signature algorithm hashes the signed attributes with a different digest from the content's, so the signature is not valid.</summary>
+    DigestMismatch = 8,
 }

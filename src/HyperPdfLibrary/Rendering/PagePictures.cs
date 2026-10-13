@@ -16,8 +16,11 @@ namespace HyperPdfLibrary.Rendering;
 [DebuggerDisplay("PagePictures: page {PageIndex} version {Version}")]
 internal sealed class PagePictures
 {
-    /// <summary>Guards recording and the reference count.</summary>
+    /// <summary>Guards recording and the recorded pictures. It is held for a whole slice of recording.</summary>
     private readonly Lock _gate = new();
+
+    /// <summary>Guards the use count and the retired flag only, so counting never waits for a recording.</summary>
+    private readonly Lock _usage = new();
 
     /// <summary>The page content.</summary>
     private IPdfRenderPicture? _content;
@@ -73,13 +76,29 @@ internal sealed class PagePictures
     /// <param name="scaleBand">The logarithmic zoom band.</param>
     /// <param name="upperScale">The highest scale served by the band.</param>
     internal PagePictures(int pageIndex, int version, bool usesIntent, int scaleBand, float upperScale)
+        : this(pageIndex, version, usesIntent, scaleBand, upperScale, 0)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PagePictures"/> class for one display zoom band and layer zoom class.</summary>
+    /// <param name="pageIndex">The page index.</param>
+    /// <param name="version">The layer version.</param>
+    /// <param name="usesIntent">Whether output intent colours are used.</param>
+    /// <param name="scaleBand">The logarithmic zoom band.</param>
+    /// <param name="upperScale">The highest scale served by the band.</param>
+    /// <param name="zoomClass">The layer zoom class, which decides layers with zoom limits.</param>
+    internal PagePictures(int pageIndex, int version, bool usesIntent, int scaleBand, float upperScale, int zoomClass)
     {
         PageIndex = pageIndex;
         Version = version;
         UsesIntent = usesIntent;
         ScaleBand = scaleBand;
         UpperScale = upperScale;
+        ZoomClass = zoomClass;
     }
+
+    /// <summary>Gets the layer zoom class the pictures were recorded for.</summary>
+    internal int ZoomClass { get; }
 
     /// <summary>Gets the zoom band this picture was recorded for.</summary>
     internal int ScaleBand { get; }
@@ -111,7 +130,7 @@ internal sealed class PagePictures
     /// <summary>Marks the entry as in use.</summary>
     internal void Acquire()
     {
-        lock (_gate)
+        lock (_usage)
         {
             _users++;
         }
@@ -120,20 +139,33 @@ internal sealed class PagePictures
     /// <summary>Marks the end of a use, disposing the pictures if the entry has left the cache.</summary>
     internal void Release()
     {
-        lock (_gate)
+        bool dispose;
+        lock (_usage)
         {
             _users--;
-            DisposeIfUnused();
+            dispose = _retired && _users == 0;
+        }
+
+        if (dispose)
+        {
+            DisposePictures();
         }
     }
 
     /// <summary>Marks the entry as removed from the cache.</summary>
     internal void Retire()
     {
-        lock (_gate)
+        bool dispose;
+        lock (_usage)
         {
+            // A recording holds a use, so an entry that is recording is disposed by the Release that ends the use.
+            dispose = !_retired && _users == 0;
             _retired = true;
-            DisposeIfUnused();
+        }
+
+        if (dispose)
+        {
+            DisposePictures();
         }
     }
 
@@ -153,11 +185,11 @@ internal sealed class PagePictures
 
             if (_recording is { } partial && partial.Printing == printing)
             {
-                _ = ContinueLocked(cache, page, printing, null, CancellationToken.None);
+                _ = ContinueLocked(cache, page, printing, CancellationToken.None);
                 return (printing ? _printContent : _content)!;
             }
 
-            var recorded = PageRecorder.RecordContent(cache, page, printing, UpperScale, out var bytes, out var images);
+            var recorded = PageRecorder.RecordContent(cache, page, printing, new(UpperScale, ZoomClass), out var bytes, out var images);
             AddHeld(bytes, images);
             if (printing)
             {
@@ -181,11 +213,21 @@ internal sealed class PagePictures
     /// <returns>The status; <see cref="PdfRenderStatus.Done"/> once the content is recorded.</returns>
     internal PdfRenderStatus ContinueContent(PdfRenderCache cache, PdfPage page, bool printing, Func<bool>? shouldPause, CancellationToken cancellationToken)
     {
-        lock (_gate)
+        while (true)
         {
-            return (printing ? _printContent : _content) is not null
-                ? PdfRenderStatus.Done
-                : ContinueLocked(cache, page, printing, shouldPause, cancellationToken);
+            PdfRenderStatus status;
+            lock (_gate)
+            {
+                status = (printing ? _printContent : _content) is not null
+                    ? PdfRenderStatus.Done
+                    : StepLocked(cache, page, printing, cancellationToken);
+            }
+
+            // The callback runs between slices with no lock held, so it may call back into the renderer.
+            if (status != PdfRenderStatus.Paused || shouldPause?.Invoke() == true)
+            {
+                return status;
+            }
         }
     }
 
@@ -204,7 +246,7 @@ internal sealed class PagePictures
                 return existing;
             }
 
-            var recorded = PageRecorder.RecordAnnotations(cache, page, printing, UpperScale, out var bytes, out var images, cancellationToken);
+            var recorded = PageRecorder.RecordAnnotations(cache, page, printing, new(UpperScale, ZoomClass), out var bytes, out var images, cancellationToken);
             AddHeld(bytes, images);
             if (printing)
             {
@@ -234,14 +276,31 @@ internal sealed class PagePictures
         _ = Interlocked.Increment(ref _recordings);
     }
 
-    /// <summary>Continues or starts the progressive recording. The caller holds the lock.</summary>
+    /// <summary>Runs the progressive recording to its end. The caller holds the lock.</summary>
     /// <param name="cache">The document's caches.</param>
     /// <param name="page">The page.</param>
     /// <param name="printing">Whether optional content follows print usage.</param>
-    /// <param name="shouldPause">Asked between slices, or null to run to the end.</param>
     /// <param name="cancellationToken">Cancels the recording between slices.</param>
     /// <returns>The status.</returns>
-    private PdfRenderStatus ContinueLocked(PdfRenderCache cache, PdfPage page, bool printing, Func<bool>? shouldPause, CancellationToken cancellationToken)
+    private PdfRenderStatus ContinueLocked(PdfRenderCache cache, PdfPage page, bool printing, CancellationToken cancellationToken)
+    {
+        PdfRenderStatus status;
+        do
+        {
+            status = StepLocked(cache, page, printing, cancellationToken);
+        }
+        while (status == PdfRenderStatus.Paused);
+
+        return status;
+    }
+
+    /// <summary>Starts the progressive recording or runs one slice of it. The caller holds the lock.</summary>
+    /// <param name="cache">The document's caches.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="printing">Whether optional content follows print usage.</param>
+    /// <param name="cancellationToken">Cancels the recording between slices.</param>
+    /// <returns><see cref="PdfRenderStatus.Paused"/> while operators remain.</returns>
+    private PdfRenderStatus StepLocked(PdfRenderCache cache, PdfPage page, bool printing, CancellationToken cancellationToken)
     {
         if (_recording is { } stale && stale.Printing != printing)
         {
@@ -249,12 +308,12 @@ internal sealed class PagePictures
             _recording = null;
         }
 
-        _recording ??= new(cache, page, printing, UpperScale, cancellationToken);
+        _recording ??= ProgressiveRecording.Start(cache, page, printing, UpperScale, ZoomClass, cancellationToken);
         PdfRenderStatus status;
         IPdfRenderPicture? picture;
         try
         {
-            status = _recording.Continue(shouldPause, cancellationToken, out picture);
+            status = _recording.Step(cancellationToken, out picture);
         }
         catch (OperationCanceledException)
         {
@@ -266,6 +325,14 @@ internal sealed class PagePictures
 
         if (status == PdfRenderStatus.Paused)
         {
+            return status;
+        }
+
+        if (status != PdfRenderStatus.Done)
+        {
+            // A cancelled recording is discarded and counts as nothing recorded.
+            _recording.Dispose();
+            _recording = null;
             return status;
         }
 
@@ -284,25 +351,23 @@ internal sealed class PagePictures
         return status;
     }
 
-    /// <summary>Disposes the pictures when the entry is retired and idle. The caller holds the lock.</summary>
-    private void DisposeIfUnused()
+    /// <summary>Disposes the pictures of an entry that is retired and idle.</summary>
+    private void DisposePictures()
     {
-        if (!_retired || _users > 0)
+        lock (_gate)
         {
-            return;
+            _content?.Dispose();
+            _printContent?.Dispose();
+            _annotations?.Dispose();
+            _printAnnotations?.Dispose();
+            _recording?.Dispose();
+            _content = null;
+            _printContent = null;
+            _annotations = null;
+            _printAnnotations = null;
+            _recording = null;
+            Volatile.Write(ref _heldBytes, 0);
+            Volatile.Write(ref _images, []);
         }
-
-        _content?.Dispose();
-        _printContent?.Dispose();
-        _annotations?.Dispose();
-        _printAnnotations?.Dispose();
-        _recording?.Dispose();
-        _content = null;
-        _printContent = null;
-        _annotations = null;
-        _printAnnotations = null;
-        _recording = null;
-        Volatile.Write(ref _heldBytes, 0);
-        Volatile.Write(ref _images, []);
     }
 }

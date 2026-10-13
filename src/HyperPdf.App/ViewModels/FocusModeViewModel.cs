@@ -58,6 +58,9 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     /// <summary>The page last marked as being read.</summary>
     private int _markedPage = -1;
 
+    /// <summary>The <see cref="TabReading.Version"/> the pages were made for.</summary>
+    private long _builtFor = -1;
+
     /// <summary>Initializes a new instance of the <see cref="FocusModeViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
     /// <param name="services">The application services.</param>
@@ -82,6 +85,12 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
 
         _subscriptions.Add(owner.ReadAloud.MarksChanged.SubscribeSafe(_ => MarkSpoken(), OnError));
         _subscriptions.Add(this.WhenChanged(static x => x.IsOn).Skip(1).SubscribeSafe(OnIsOnChanged, OnError));
+
+        // Text that changes while Focus Mode is open (a reload, recognised text, moved pages) is shown at once.
+        _subscriptions.Add(owner.Reading.Changes.Merge(owner.DocumentChanges)
+            .WithLatestFrom(this.WhenChanged(static x => x.IsOn), static (_, on) => on)
+            .Where(static on => on)
+            .SubscribeSafe(_ => Open(), OnError));
         _subscriptions.Add(this.WhenChanged(static x => x.FontSize).Skip(1).SubscribeSafe(OnFontSizeChanged, OnError));
         _subscriptions.Add(this.WhenChanged(static x => x.LineSpacing).Skip(1).SubscribeSafe(
             value => Apply(() => _services.Settings.FocusLineSpacing = value),
@@ -156,6 +165,12 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
         _topFraction = Math.Clamp(fraction, 0, 1);
     }
 
+    /// <summary>Asks the view to bring a place into view; a newer request replaces one that has not finished.</summary>
+    /// <param name="pageIndex">The page.</param>
+    /// <param name="fraction">How far down the page, from 0 to 1.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void ScrollTo(int pageIndex, double fraction) => _scrollRequests.EmitIfOpen(new(pageIndex, fraction));
+
     /// <summary>Starts reading aloud at a block.</summary>
     /// <param name="block">The block.</param>
     [ReactiveCommand]
@@ -190,7 +205,10 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     /// <summary>Creates the pages if needed and brings the place being viewed into view.</summary>
     private void Open()
     {
-        if (Pages.Count != _owner.PageCount)
+        // Pages keep what they loaded, so they are made again whenever the text may differ: after a reload, a change of
+        // pages or text recognition, as well as when the page count changes.
+        var version = _owner.Reading.Version;
+        if (Pages.Count != _owner.PageCount || _builtFor != version)
         {
             var pages = new FocusPageViewModel[_owner.PageCount];
             for (var i = 0; i < pages.Length; i++)
@@ -198,12 +216,13 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
                 pages[i] = new(i, $"Page {i + 1}", _owner.GetReadingDocument);
             }
 
+            _builtFor = version;
             Pages = pages;
         }
 
         var position = _owner.Position;
         ReportTop(position.PageIndex, position.OffsetFraction);
-        _scrollRequests.OnNext(new(position.PageIndex, position.OffsetFraction));
+        ScrollTo(position.PageIndex, position.OffsetFraction);
     }
 
     /// <summary>Marks what is being read aloud, and follows it to a new page.</summary>
@@ -225,7 +244,7 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
         page.Mark(reader.SpokenRange, reader.SpokenWord, FocusBand);
         if (IsOn && reader.IsPlaying && _markedPage != _topPage)
         {
-            _scrollRequests.OnNext(new(_markedPage, 0));
+            ScrollTo(_markedPage, 0);
         }
     }
 

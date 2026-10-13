@@ -62,6 +62,15 @@ public static class RefitClients
         return RestService.ForGenerated<ITimestampAuthorityApi>(httpClient, HttpJsonContext.Default);
     }
 
+    /// <summary>Creates a client for a certificate authority's revocation endpoints.</summary>
+    /// <param name="httpClient">The HTTP client with its base address set to the authority's host.</param>
+    /// <returns>The client.</returns>
+    public static IRevocationApi CreateRevocationApi(HttpClient httpClient)
+    {
+        ArgumentNullException.ThrowIfNull(httpClient);
+        return RestService.ForGenerated<IRevocationApi>(httpClient, HttpJsonContext.Default);
+    }
+
     /// <summary>Starts downloading a file, sharing one client per host.</summary>
     /// <param name="uri">The absolute address.</param>
     /// <param name="cancellationToken">Cancels the request.</param>

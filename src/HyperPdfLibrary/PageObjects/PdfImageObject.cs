@@ -90,7 +90,7 @@ public sealed class PdfImageObject : PdfPageObject
         {
             var filters = ImageHeader.Get(Dictionary, KnownName.Filter, KnownName.F, true);
             var parameters = ImageHeader.Get(Dictionary, KnownName.DecodeParms, KnownName.DP, true);
-            _ = PdfStreamDecoder.Apply(InlineData, filters, parameters, Dictionary.Owner, ref output, CancellationToken.None);
+            _ = PdfStreamDecoder.Apply(InlineData, filters, parameters, ref output, CancellationToken.None);
             return output.ToArray();
         }
         finally
@@ -157,6 +157,15 @@ public sealed class PdfImageObject : PdfPageObject
 
         _replacement = ImageStreams.CreateStencil(Dictionary.Owner, width, height, bits, null);
     }
+
+    /// <summary>
+    /// Decodes the image to pixels, keeping a gray image as one byte per pixel instead of BGRA. The caller owns the
+    /// pixels, since every call decodes the stream again.
+    /// </summary>
+    /// <param name="resources">The resources a named colour space is looked up in, or <see langword="null"/>.</param>
+    /// <returns>The image, or <see langword="null"/> when it cannot be decoded.</returns>
+    internal PdfImageData? DecodeCompactPixels(PdfDictionary? resources) =>
+        Stream is { } stream ? PdfImageDecoder.DecodeCompact(stream, resources) : PdfImageDecoder.DecodeInline(Dictionary, InlineData, resources);
 
     /// <summary>Sets a ready-made replacement stream.</summary>
     /// <param name="stream">The image stream, or null to keep the original.</param>

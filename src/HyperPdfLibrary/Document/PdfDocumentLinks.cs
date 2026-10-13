@@ -24,7 +24,7 @@ public static class PdfDocumentLinks
         return load.IsCompletedSuccessfully ? PdfDocumentLinks.LinksReady(document, pageIndex, cancellationToken) : PdfDocumentLinks.LinksAfterAsync(document, load, pageIndex, cancellationToken);
     }
 
-    /// <summary>Gets a page's link annotations. A link's action wins over its /Dest, as in PDFium.</summary>
+    /// <summary>Gets a page's link annotations. A link's action wins over its /Dest, because the standard does not permit both (ISO 32000-2 12.5.6.5).</summary>
     /// <param name="document">The document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>The links that lead somewhere.</returns>
@@ -43,15 +43,15 @@ public static class PdfDocumentLinks
 
         // Read the page set once: the pages and the link cache come from the same snapshot, so a concurrent edit cannot mix them.
         var set = PdfDocumentPages.GetPageSet(document);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)pageIndex, (uint)set.Pages.Length, nameof(pageIndex));
-        var links = Volatile.Read(ref set.Links[pageIndex]);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)pageIndex, (uint)set.Count, nameof(pageIndex));
+        var links = Volatile.Read(ref set.LinkSlot(pageIndex));
         if (links is not null)
         {
             return links;
         }
 
-        links = PdfDocumentLinks.ReadLinks(document, set.Pages[pageIndex], cancellationToken);
-        Volatile.Write(ref set.Links[pageIndex], links);
+        links = PdfDocumentLinks.ReadLinks(document, set.GetPage(pageIndex), cancellationToken);
+        Volatile.Write(ref set.LinkSlot(pageIndex), links);
         return links;
     }
 

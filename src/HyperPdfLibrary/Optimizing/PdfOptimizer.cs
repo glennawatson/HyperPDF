@@ -47,7 +47,7 @@ public static class PdfOptimizer
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(options);
-        var session = new OptimizeSession(source, options, progress, cancellationToken);
+        using var session = new OptimizeSession(source, options, progress, cancellationToken);
         var plan = session.Prepare();
         return session.Finish(plan.WriteTo(destination, cancellationToken), plan);
     }
@@ -102,6 +102,7 @@ public static class PdfOptimizer
     /// <returns>What was done.</returns>
     private static async Task<PdfOptimizeReport> RunAsync(OptimizeSession session, Stream destination, CancellationToken cancellationToken)
     {
+        using var owned = session;
         var plan = session.Prepare();
         var written = await plan.WriteToAsync(destination, cancellationToken).ConfigureAwait(false);
         return session.Finish(written, plan);

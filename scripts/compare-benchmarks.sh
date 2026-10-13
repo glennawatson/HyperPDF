@@ -24,8 +24,9 @@ run() {
   (cd "$1" && dotnet run -c Release -f "$FRAMEWORK" --project "$1/benchmarks/HyperPdf.Benchmarks" -- --filter "${FILTERS[@]}" --artifacts "$2" "${@:3}")
 }
 
-# Allocations: long iterations measure many operations, so the runtime's batched samples blur the totals very little.
-ALLOC_JOB=(--iterationTime 1000 --iterationCount 10 --warmupCount 3)
+# Allocations are deterministic, so one launch with one warmup and one long iteration is enough: a long iteration measures
+# many operations, so the runtime's batched samples blur the totals very little. The CPU runs below keep their repeats.
+ALLOC_JOB=(--launchCount 1 --iterationTime 1000 --iterationCount 1 --warmupCount 1)
 run "$BASE" "$OUT/baseline-alloc" "${ALLOC_JOB[@]}"
 run "$ROOT" "$OUT/change-alloc" "${ALLOC_JOB[@]}"
 # CPU: baseline, change, change, baseline, so a machine that speeds up or slows down over the runs evens out.

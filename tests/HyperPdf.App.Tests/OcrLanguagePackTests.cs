@@ -52,6 +52,25 @@ public sealed class OcrLanguagePackTests
         await Assert.That(tab.Notice).IsEqualTo(TextRecognitionViewModel.Describe(1, 0, 1, false));
     }
 
+    /// <summary>Closing the tab while a page is being recognised ends the run quietly instead of crashing.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ClosingTheTabDuringRecognitionEndsTheRunQuietly()
+    {
+        var ocr = new FakeOcr(true) { Gate = new(TaskCreationOptions.RunContinuationsAsynchronously) };
+        using var test = new TestServices(ocr);
+        using var main = await OpenScanAsync(test);
+        var tab = main.SelectedTab!;
+        var run = tab.TextRecognition.RecognizeCommand.Execute().ToTask();
+        _ = await UiWait.UntilAsync(() => ocr.Reached.Task.IsCompleted, static () => "Recognition did not start.");
+
+        main.CloseTabWithoutAsking(tab);
+        _ = ocr.Gate.TrySetResult();
+        _ = await run;
+
+        await Assert.That(tab.TextRecognition.IsRunning).IsFalse();
+    }
+
     /// <summary>A first page that reads poorly is not written; the language bar asks, and one click downloads the language and recognises.</summary>
     /// <returns>A task.</returns>
     [Test]

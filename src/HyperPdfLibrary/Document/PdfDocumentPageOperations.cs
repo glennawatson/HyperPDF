@@ -12,7 +12,7 @@ namespace HyperPdfLibrary.Document;
 /// <summary>Adds, removes, and reorders document pages.</summary>
 public static class PdfDocumentPageOperations
 {
-    /// <summary>Sets a page's rotation, normalised to 0, 90, 180 or 270 degrees clockwise as PDFium does.</summary>
+    /// <summary>Sets a page's rotation, normalised to 0, 90, 180 or 270 degrees clockwise (ISO 32000-2 Table 31 /Rotate).</summary>
     /// <param name="document">The document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="degrees">The rotation in degrees.</param>
@@ -49,18 +49,30 @@ static (transaction, edit) => PdfDocumentPageOperations.RotateCore(edit.Document
     /// <param name="pages">The zero based page indexes; duplicates are ignored.</param>
     /// <exception cref="ArgumentOutOfRangeException">An index is not a page.</exception>
     /// <exception cref="ArgumentException">Every page would be deleted.</exception>
-    public static void DeletePages(PdfDocument document, ReadOnlySpan<int> pages)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void DeletePages(PdfDocument document, ReadOnlySpan<int> pages) => DeletePages(document, pages, null);
+
+    /// <summary>
+    /// Deletes pages. At least one page must remain. The remaining separation pages of a printed page that lost some of
+    /// its separations are linked to each other again, and the report says which printed pages these are.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pages">The zero based page indexes; duplicates are ignored.</param>
+    /// <param name="report">Receives what the deletion changed, or <see langword="null"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">An index is not a page.</exception>
+    /// <exception cref="ArgumentException">Every page would be deleted.</exception>
+    public static void DeletePages(PdfDocument document, ReadOnlySpan<int> pages, PdfPageEditReport? report)
     {
         PdfDocumentPageOperations.ValidatePages(document, pages);
         PdfDocumentEditing.RunEdit(
 document,
 "Delete pages",
 PdfChangeKinds.PageChanges,
-new PageEdit(document, pages, 0, null),
-static (transaction, edit) => PdfDocumentPageOperations.DeleteCore(edit.Document, transaction, edit.Pages));
+new PageEdit(document, pages, 0, null) { Report = report },
+static (transaction, edit) => PdfDocumentPageOperations.DeleteCore(edit.Document, transaction, edit.Pages, edit.Report));
     }
 
-    /// <summary>Moves pages, in the order given, so the first lands at <paramref name="destination"/> in the result, as <c>FPDF_MovePages</c> does.</summary>
+    /// <summary>Moves pages, in the order given, so the first lands at <paramref name="destination"/> in the result.</summary>
     /// <param name="document">The document.</param>
     /// <param name="pages">The zero based page indexes; each at most once.</param>
     /// <param name="destination">The index of the first moved page afterwards, from 0 to page count minus moved count.</param>
@@ -117,7 +129,23 @@ static (transaction, edit) => PdfDocumentPageOperations.ReorderCore(edit.Documen
     /// <param name="source">The source document.</param>
     /// <param name="sourcePages">The source page indexes.</param>
     /// <param name="cancellationToken">Cancels copying.</param>
-    public static void InsertPages(PdfDocument document, int index, PdfDocument source, ReadOnlySpan<int> sourcePages, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void InsertPages(PdfDocument document, int index, PdfDocument source, ReadOnlySpan<int> sourcePages, CancellationToken cancellationToken) =>
+        InsertPages(document, index, source, sourcePages, null, cancellationToken);
+
+    /// <summary>
+    /// Inserts pages while passing cancellation to the object importer. Copied separation pages stay linked to the other
+    /// copied separations of their printed page; the report says which printed pages were not copied whole.
+    /// </summary>
+    /// <param name="document">The destination.</param>
+    /// <param name="index">The insertion index.</param>
+    /// <param name="source">The source document.</param>
+    /// <param name="sourcePages">The source page indexes.</param>
+    /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels copying.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">An index is out of range.</exception>
+    public static void InsertPages(PdfDocument document, int index, PdfDocument source, ReadOnlySpan<int> sourcePages, PdfPageEditReport? report, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(source);
@@ -128,8 +156,8 @@ static (transaction, edit) => PdfDocumentPageOperations.ReorderCore(edit.Documen
 document,
 "Insert pages",
 PdfChangeKinds.PageChanges,
-new PageEdit(document, sourcePages, index, source, cancellationToken),
-static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document, transaction, edit.Value, edit.Source!, edit.Pages, edit.CancellationToken));
+new PageEdit(document, sourcePages, index, source, cancellationToken) { Report = report },
+static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document, transaction, edit.Value, edit.Source!, edit.Pages, edit.Report, edit.CancellationToken));
     }
 
     /// <summary>Writes some pages as a new document, keeping their content, resources, boxes, rotation and annotations.</summary>
@@ -146,7 +174,21 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     /// <param name="pages">The selected page indexes.</param>
     /// <param name="cancellationToken">Cancels copying.</param>
     /// <returns>The new PDF bytes.</returns>
-    public static byte[] ExtractPages(PdfDocument document, ReadOnlySpan<int> pages, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static byte[] ExtractPages(PdfDocument document, ReadOnlySpan<int> pages, CancellationToken cancellationToken) =>
+        ExtractPages(document, pages, null, cancellationToken);
+
+    /// <summary>
+    /// Writes selected pages as a new document. Copied separation pages stay linked to the other copied separations of
+    /// their printed page; the report says which printed pages were not copied whole.
+    /// </summary>
+    /// <param name="document">The source document.</param>
+    /// <param name="pages">The selected page indexes.</param>
+    /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels copying.</param>
+    /// <returns>The new PDF bytes.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">An index is not a page.</exception>
+    public static byte[] ExtractPages(PdfDocument document, ReadOnlySpan<int> pages, PdfPageEditReport? report, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         PdfDocumentPageOperations.ValidatePages(document, pages);
@@ -159,8 +201,59 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
             selected[i] = PdfDocumentPages.GetPage(document, pages[i]);
         }
 
-        importer.ImportPages(selected);
+        importer.ImportPages(selected, report);
         return builder.ToArray();
+    }
+
+    /// <summary>Copies a page's dictionary so it can be changed and stored back with <see cref="StoreEdited"/>.</summary>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>The copy.</returns>
+    internal static PdfDictionary CloneForEdit(PdfEditTransaction transaction, PdfPage page) =>
+        page.Id.IsValid ? transaction.CloneDictionary(page.Id) ?? page.Dictionary.Clone() : page.Dictionary.Clone();
+
+    /// <summary>Stores an edited copy of a page's dictionary; a direct page is kept for <see cref="FinishEdited"/>.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="page">The page that was copied.</param>
+    /// <param name="copy">The edited dictionary.</param>
+    /// <param name="direct">The page slots of a direct page edit, created on first use.</param>
+    internal static void StoreEdited(PdfDocument document, PdfEditTransaction transaction, PdfPage page, PdfDictionary copy, ref List<PdfPageSlot>? direct)
+    {
+        if (page.Id.IsValid)
+        {
+            transaction.Replace(page.Id, PdfValue.FromDictionary(copy));
+            return;
+        }
+
+        // A direct page lives in its parent's /Kids, so the tree is written again around it.
+        direct ??= PdfDocumentPageOperations.CurrentSlots(document);
+        direct[page.Index] = new(PdfValue.FromDictionary(copy), page.Index);
+    }
+
+    /// <summary>Writes the page tree again when direct pages were edited.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="direct">The slots kept by <see cref="StoreEdited"/>, or <see langword="null"/>.</param>
+    internal static void FinishEdited(PdfDocument document, PdfEditTransaction transaction, List<PdfPageSlot>? direct)
+    {
+        if (direct is not null)
+        {
+            PdfDocumentPageOperations.WritePages(document, transaction, direct);
+        }
+    }
+
+    /// <summary>Adds a new page object to the document and puts it in the page tree.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="index">The index the page takes, from 0 to the page count.</param>
+    /// <param name="page">The page dictionary, without a <c>/Parent</c>.</param>
+    internal static void InsertNewPage(PdfDocument document, PdfEditTransaction transaction, int index, PdfDictionary page)
+    {
+        var id = transaction.Add(PdfValue.FromDictionary(page));
+        var slots = PdfDocumentPageOperations.CurrentSlots(document);
+        slots.Insert(index, new(PdfValue.FromReference(id), -1));
+        PdfDocumentPageOperations.WritePages(document, transaction, slots);
     }
 
     /// <summary>Collects indexes into a set.</summary>
@@ -185,7 +278,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     /// <summary>Determines whether any inserted page brings a label.</summary>
     /// <param name="slots">The pages in their new order.</param>
     /// <returns><see langword="true"/> when one does.</returns>
-    private static bool HasInsertedLabels(List<PdfPageSlot> slots)
+    private static bool HasInsertedLabels(ReadOnlySpan<PdfPageSlot> slots)
     {
         foreach (var slot in slots)
         {
@@ -225,11 +318,11 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     /// <returns>The slots, in page order.</returns>
     private static List<PdfPageSlot> CurrentSlots(PdfDocument document)
     {
-        var pages = PdfDocumentPages.GetPageSet(document).Pages;
-        var slots = new List<PdfPageSlot>(pages.Length);
-        foreach (var page in pages)
+        var entries = PdfDocumentPages.GetPageSet(document).Entries;
+        var slots = new List<PdfPageSlot>(entries.Length);
+        for (var i = 0; i < entries.Length; i++)
         {
-            slots.Add(new(page.Id.IsValid ? PdfValue.FromReference(page.Id) : PdfValue.FromDictionary(page.Dictionary), page.Index));
+            slots.Add(new(entries[i].Id.IsValid ? PdfValue.FromReference(entries[i].Id) : PdfValue.FromDictionary(entries[i].Direct!), i));
         }
 
         return slots;
@@ -248,31 +341,21 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         {
             var page = PdfDocumentPages.GetPage(document, index);
             var rotation = PdfPage.NormaliseRotation(relative ? page.Rotation + PdfPage.NormaliseRotation(degrees) : degrees);
-            var copy = page.Id.IsValid ? transaction.CloneDictionary(page.Id) ?? page.Dictionary.Clone() : page.Dictionary.Clone();
+            var copy = PdfDocumentPageOperations.CloneForEdit(transaction, page);
             copy.Set(KnownName.Rotate, PdfValue.FromInteger(rotation));
-            if (page.Id.IsValid)
-            {
-                transaction.Replace(page.Id, PdfValue.FromDictionary(copy));
-                continue;
-            }
-
-            // A direct page lives in its parent's /Kids, so the tree is written again around it.
-            direct ??= PdfDocumentPageOperations.CurrentSlots(document);
-            direct[index] = new(PdfValue.FromDictionary(copy), index);
+            PdfDocumentPageOperations.StoreEdited(document, transaction, page, copy, ref direct);
         }
 
-        if (direct is not null)
-        {
-            PdfDocumentPageOperations.WritePages(document, transaction, direct);
-        }
+        PdfDocumentPageOperations.FinishEdited(document, transaction, direct);
     }
 
     /// <summary>Deletes pages.</summary>
     /// <param name="document">The document.</param>
     /// <param name="transaction">The transaction.</param>
     /// <param name="pages">The page indexes.</param>
+    /// <param name="report">Receives what the deletion changed, or <see langword="null"/>.</param>
     /// <exception cref="ArgumentException">Every page would be deleted.</exception>
-    private static void DeleteCore(PdfDocument document, PdfEditTransaction transaction, ReadOnlySpan<int> pages)
+    private static void DeleteCore(PdfDocument document, PdfEditTransaction transaction, ReadOnlySpan<int> pages, PdfPageEditReport? report)
     {
         var removed = PdfDocumentPageOperations.UniquePages(pages, false);
         if (removed.Count >= document.PageCount)
@@ -302,6 +385,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         }
 
         PdfDocumentPruning.PruneDestinations(document, transaction, deleted);
+        PdfCarrySeparations.RelinkAfterDelete(document, transaction, removed, report);
         PdfDocumentPageOperations.WritePages(document, transaction, kept);
     }
 
@@ -313,6 +397,11 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     private static void MoveCore(PdfDocument document, PdfEditTransaction transaction, ReadOnlySpan<int> pages, int destination)
     {
         var moved = PdfDocumentPageOperations.UniquePages(pages, true);
+        if (PdfDocumentPageOperations.TryMoveInPlace(document, transaction, pages, destination))
+        {
+            return;
+        }
+
         var slots = PdfDocumentPageOperations.CurrentSlots(document);
         var result = new List<PdfPageSlot>(slots.Count);
         foreach (var slot in slots)
@@ -331,6 +420,60 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
 
         result.InsertRange(destination, insert);
         PdfDocumentPageOperations.WritePages(document, transaction, result);
+    }
+
+    /// <summary>
+    /// Moves pages by taking each out of its node and putting them all in the node at the destination, changing only those
+    /// nodes and the page counts above them. It does not apply when the document has page labels, a page is direct, or a
+    /// node passes attributes down to its kids; the tree is then written again whole.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="pages">The page indexes, each once.</param>
+    /// <param name="destination">The first moved page's index afterwards.</param>
+    /// <returns><see langword="true"/> when the pages were moved.</returns>
+    private static bool TryMoveInPlace(PdfDocument document, PdfEditTransaction transaction, ReadOnlySpan<int> pages, int destination)
+    {
+        var store = document.Objects;
+        var set = PdfDocumentPages.GetPageSet(document);
+        if (document.Catalog.GetDictionary(KnownName.PageLabels) is not null || !PdfPageTreeEditor.CanMove(store, set))
+        {
+            return false;
+        }
+
+        var kids = new PdfValue[pages.Length];
+        for (var i = 0; i < kids.Length; i++)
+        {
+            var id = set.Entries[pages[i]].Id;
+            if (!id.IsValid)
+            {
+                return false;
+            }
+
+            kids[i] = PdfValue.FromReference(id);
+        }
+
+        // Taking the highest page first keeps the lower indexes where the tree has them.
+        var order = pages.ToArray();
+        Array.Sort(order);
+        for (var i = order.Length - 1; i >= 0; i--)
+        {
+            if (!PdfPageTreeEditor.Remove(transaction, store, order[i]))
+            {
+                return false;
+            }
+        }
+
+        // The pages are all still in the set, so a tree that cannot take them in place is written again from the set.
+        using var located = PdfPageTreeEditor.Locate(store, set, destination, kids.Length);
+        if (located is null)
+        {
+            return false;
+        }
+
+        PdfPageTreeEditor.Insert(transaction, store, located, kids);
+        Volatile.Write(ref document.State.NextPageSet, set.WithMoved(pages, destination));
+        return true;
     }
 
     /// <summary>Puts every page in a new order.</summary>
@@ -355,8 +498,16 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     /// <param name="index">The index of the first copy.</param>
     /// <param name="source">The document copied from.</param>
     /// <param name="sourcePages">The source page indexes.</param>
+    /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void InsertCore(PdfDocument document, PdfEditTransaction transaction, int index, PdfDocument source, ReadOnlySpan<int> sourcePages, CancellationToken cancellationToken)
+    private static void InsertCore(
+        PdfDocument document,
+        PdfEditTransaction transaction,
+        int index,
+        PdfDocument source,
+        ReadOnlySpan<int> sourcePages,
+        PdfPageEditReport? report,
+        CancellationToken cancellationToken)
     {
         var importer = new PdfStoreImporter(transaction, document.Objects, source.Objects, cancellationToken);
         var carrier = new PdfDocumentCarrier(importer);
@@ -364,9 +515,16 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         var pages = new PdfPage[ids.Length];
         for (var i = 0; i < ids.Length; i++)
         {
+            pages[i] = PdfDocumentPages.GetPage(source, sourcePages[i]);
+        }
+
+        // Planned before any object is added, while the source's separation groups still describe its pages.
+        var separations = PdfCarrySeparations.Plan(source, pages, report);
+        var separationKey = SeparationReader.InfoKey(source.Objects.Names);
+        for (var i = 0; i < ids.Length; i++)
+        {
             cancellationToken.ThrowIfCancellationRequested();
             ids[i] = transaction.Add(default);
-            pages[i] = PdfDocumentPages.GetPage(source, sourcePages[i]);
 
             // Links and annotations that name a copied page now name its copy.
             carrier.AddPage(pages[i].Id, ids[i]);
@@ -376,29 +534,131 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         for (var i = 0; i < ids.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            annotations[i] = carrier.PrepareAnnotations(pages[i], PdfAnnotationFilter.All);
+            annotations[i] = carrier.PrepareAnnotations(pages[i], PdfAnnotationFilter.All, report);
         }
 
         var structParents = PdfDocumentPageOperations.ImportStructure(document, transaction, importer, source, sourcePages, ids);
         var labels = PdfDocumentLabels.CollectSourceLabels(source, pages) is { } sourceLabels ? PdfPageLabelWriter.Retarget(sourceLabels, importer) : null;
         var inserted = new PdfPageSlot[ids.Length];
+        var copies = new PdfDictionary[ids.Length];
         for (var i = 0; i < ids.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var copy = PdfDocumentPageOperations.ImportPage(document, importer, pages[i], annotations[i]);
-            if (structParents[i] >= 0)
-            {
-                copy.Set(KnownName.StructParents, PdfValue.FromInteger(structParents[i]));
-            }
-
-            transaction.Replace(ids[i], PdfValue.FromDictionary(copy));
+            copies[i] = PdfDocumentPageOperations.CopyPage(document, importer, pages[i], annotations[i], separationKey, new(separations, i, ids, structParents[i]));
             inserted[i] = new(PdfValue.FromReference(ids[i]), -1) { Label = labels?[i] };
         }
 
-        carrier.Finish();
+        var set = PdfDocumentPages.GetPageSet(document);
+        using var place = PdfDocumentPageOperations.StoreCopies(document, transaction, set, index, ids, copies);
+        carrier.Finish(report);
+        PdfDocumentPageOperations.PlaceInserted(document, transaction, set, place, index, inserted);
+    }
+
+    /// <summary>Copies a page and gives the copy its separation entry and its structure parent key.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="importer">The importer.</param>
+    /// <param name="page">The source page.</param>
+    /// <param name="annotations">The annotations the carrier prepared, or <see langword="null"/>.</param>
+    /// <param name="separationKey">The source's <c>/SeparationInfo</c> name.</param>
+    /// <param name="plan">What the copy takes from the separation plan and the structure import.</param>
+    /// <returns>The copy.</returns>
+    private static PdfDictionary CopyPage(PdfDocument document, PdfStoreImporter importer, PdfPage page, PdfArray? annotations, PdfName separationKey, in CopyPlan plan)
+    {
+        var copy = PdfDocumentPageOperations.ImportPage(document, importer, page, annotations, separationKey);
+        if (PdfCarrySeparations.Build(plan.Separations, plan.Position, importer, plan.Ids) is { IsNull: false } separation)
+        {
+            copy.Set(SeparationReader.InfoKey(document.Objects.Names), separation);
+        }
+
+        if (plan.StructParent >= 0)
+        {
+            copy.Set(KnownName.StructParents, PdfValue.FromInteger(plan.StructParent));
+        }
+
+        return copy;
+    }
+
+    /// <summary>Stores the copied pages and puts them in the page tree: in place when the copies hold what the nodes above them would otherwise pass down.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="set">The document's pages before the insertion.</param>
+    /// <param name="index">The index the first copy takes.</param>
+    /// <param name="ids">The objects reserved for the copies.</param>
+    /// <param name="copies">The copies.</param>
+    /// <returns>The path to the node that takes the copies, which the caller disposes, or <see langword="null"/> when the tree has to be written again.</returns>
+    private static PageTreePath? StoreCopies(PdfDocument document, PdfEditTransaction transaction, PdfPageSet set, int index, PdfObjectId[] ids, PdfDictionary[] copies)
+    {
+        var located = PdfPageTreeEditor.Locate(document.Objects, set, index, ids.Length);
+        var place = located is not null && PdfPageTreeEditor.KeepsAttributes(located, copies) ? located : null;
+        if (place is null)
+        {
+            located?.Dispose();
+        }
+
+        for (var i = 0; i < ids.Length; i++)
+        {
+            if (place is not null)
+            {
+                copies[i].Set(KnownName.Parent, PdfValue.FromReference(place.Deepest.Id));
+            }
+
+            transaction.Replace(ids[i], PdfValue.FromDictionary(copies[i]));
+        }
+
+        return place;
+    }
+
+    /// <summary>Puts inserted pages in the page tree: in place when a path to them was found, otherwise by writing the tree again.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="set">The document's pages before the insertion.</param>
+    /// <param name="place">The path to the node that takes the pages, or <see langword="null"/> to write the tree again.</param>
+    /// <param name="index">The index the first inserted page takes.</param>
+    /// <param name="inserted">The inserted pages, whose objects already hold their dictionaries.</param>
+    private static void PlaceInserted(PdfDocument document, PdfEditTransaction transaction, PdfPageSet set, PageTreePath? place, int index, PdfPageSlot[] inserted)
+    {
+        if (place is null)
+        {
+            var slots = PdfDocumentPageOperations.CurrentSlots(document);
+            slots.InsertRange(index, inserted);
+            PdfDocumentPageOperations.WritePages(document, transaction, slots);
+            return;
+        }
+
+        var labels = PdfDocumentPageOperations.LabelsAfterInsert(document, index, inserted);
+        var kids = new PdfValue[inserted.Length];
+        var entries = new PdfPageEntry[inserted.Length];
+        for (var i = 0; i < inserted.Length; i++)
+        {
+            kids[i] = inserted[i].Kid;
+            entries[i] = new(inserted[i].Kid.AsReference(), null, 0);
+        }
+
+        PdfPageTreeEditor.Insert(transaction, document.Objects, place, kids);
+        if (labels is not null)
+        {
+            PdfPageLabelWriter.Write(transaction, document.Objects, labels);
+        }
+
+        // The edit's invalidation takes these pages instead of reading the tree again.
+        Volatile.Write(ref document.State.NextPageSet, set.WithInserted(index, entries));
+    }
+
+    /// <summary>Gets the page labels after an insertion, or <see langword="null"/> when the document has none and the pages bring none.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="index">The index the first inserted page takes.</param>
+    /// <param name="inserted">The inserted pages.</param>
+    /// <returns>The label of every page afterwards, or <see langword="null"/>.</returns>
+    private static PdfPageLabel[]? LabelsAfterInsert(PdfDocument document, int index, PdfPageSlot[] inserted)
+    {
+        if (document.Catalog.GetDictionary(KnownName.PageLabels) is null && !PdfDocumentPageOperations.HasInsertedLabels(inserted))
+        {
+            return null;
+        }
+
         var slots = PdfDocumentPageOperations.CurrentSlots(document);
         slots.InsertRange(index, inserted);
-        PdfDocumentPageOperations.WritePages(document, transaction, slots);
+        return PdfDocumentPageOperations.CollectLabels(document, slots);
     }
 
     /// <summary>Copies the structure elements of the inserted pages when both documents are tagged.</summary>
@@ -434,21 +694,23 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
 
     /// <summary>
     /// Copies a page dictionary. Boxes, rotation and resources are written on the page itself, so nothing the target's
-    /// page tree carries can be inherited by mistake.
+    /// page tree carries can be inherited by mistake. The separation dictionary is left out: the caller writes one from
+    /// the copy's plan, so it never names a page that was not copied.
     /// </summary>
     /// <param name="document">The document.</param>
     /// <param name="importer">The importer.</param>
     /// <param name="page">The source page.</param>
     /// <param name="annotations">The annotations the carrier prepared, or <see langword="null"/> when the page has none.</param>
+    /// <param name="separationKey">The source's <c>/SeparationInfo</c> name.</param>
     /// <returns>The copy.</returns>
-    private static PdfDictionary ImportPage(PdfDocument document, PdfStoreImporter importer, PdfPage page, PdfArray? annotations)
+    private static PdfDictionary ImportPage(PdfDocument document, PdfStoreImporter importer, PdfPage page, PdfArray? annotations, PdfName separationKey)
     {
         var copy = new PdfDictionary(document.Objects, page.Dictionary.Count + 1);
         var source = page.Dictionary;
         for (var i = 0; i < source.Count; i++)
         {
             var key = source.GetKeyAt(i);
-            if (key.Is(KnownName.Type) || key.Is(KnownName.Parent) || key.Is(KnownName.StructParents))
+            if (PdfDocumentPageOperations.IsLeftOutOfCopy(key, separationKey))
             {
                 continue;
             }
@@ -472,16 +734,23 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         return copy;
     }
 
+    /// <summary>Determines whether a page dictionary key is left out of a copied page because the copy writes its own.</summary>
+    /// <param name="key">The source key.</param>
+    /// <param name="separationKey">The source's <c>/SeparationInfo</c> name.</param>
+    /// <returns><see langword="true"/> for /Type, /Parent, /StructParents and /SeparationInfo.</returns>
+    private static bool IsLeftOutOfCopy(PdfName key, PdfName separationKey) =>
+        key.Is(KnownName.Type) || key.Is(KnownName.Parent) || key.Is(KnownName.StructParents) || key == separationKey;
+
     /// <summary>Writes the page tree and, when the document has labels, the labels that follow the pages.</summary>
     /// <param name="document">The document.</param>
     /// <param name="transaction">The transaction.</param>
     /// <param name="slots">The pages in their new order.</param>
     private static void WritePages(PdfDocument document, PdfEditTransaction transaction, List<PdfPageSlot> slots)
     {
-        var labels = document.Catalog.GetDictionary(KnownName.PageLabels) is null && !PdfDocumentPageOperations.HasInsertedLabels(slots) ? null : PdfDocumentPageOperations.CollectLabels(
-document,
-slots);
-        PdfPageTreeWriter.Write(transaction, document.Objects, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(slots));
+        var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(slots);
+        var labelled = document.Catalog.GetDictionary(KnownName.PageLabels) is not null || PdfDocumentPageOperations.HasInsertedLabels(span);
+        var labels = labelled ? PdfDocumentPageOperations.CollectLabels(document, slots) : null;
+        PdfPageTreeWriter.Write(transaction, document.Objects, span);
         if (labels is not null)
         {
             PdfPageLabelWriter.Write(transaction, document.Objects, labels);
@@ -515,6 +784,13 @@ slots);
         return labels;
     }
 
+    /// <summary>What one copied page takes from the separation plan and the structure import.</summary>
+    /// <param name="Separations">The plan, or <see langword="null"/>.</param>
+    /// <param name="Position">The page's position among the copied pages.</param>
+    /// <param name="Ids">The objects reserved for the copies.</param>
+    /// <param name="StructParent">The page's new <c>/StructParents</c> key, or -1 for none.</param>
+    private readonly record struct CopyPlan(SeparationCopyPlan? Separations, int Position, PdfObjectId[] Ids, int StructParent);
+
     /// <summary>The arguments of a page operation.</summary>
     /// <param name="document">The document.</param>
     /// <param name="pages">The page indexes.</param>
@@ -537,5 +813,8 @@ slots);
 
         /// <summary>Gets the token for this edit.</summary>
         internal CancellationToken CancellationToken { get; } = cancellationToken;
+
+        /// <summary>Gets the report receiving what the edit changed, or <see langword="null"/>.</summary>
+        internal PdfPageEditReport? Report { get; init; }
     }
 }

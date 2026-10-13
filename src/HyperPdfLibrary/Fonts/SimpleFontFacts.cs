@@ -30,7 +30,7 @@ internal sealed record SimpleFontFacts(
     /// <summary>Gets a value indicating whether the descriptor flags say symbolic.</summary>
     internal bool IsSymbolic => (Flags & FontFlags.Symbolic) != 0;
 
-    /// <summary>Gets a value indicating whether glyphs come from a TrueType face, as PDFium's IsTTFont asks.</summary>
+    /// <summary>Gets a value indicating whether glyphs come from a TrueType face, which decides whether the TrueType cmap rules of ISO 32000-2, 9.6.5.4 apply.</summary>
     internal bool HasTrueTypeFace => Program is not null
         ? Program is TrueTypeProgram { HasCffOutlines: false }
         : IsTrueTypeSubtype || Standard == StandardFont.None;

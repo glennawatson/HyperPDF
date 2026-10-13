@@ -24,10 +24,10 @@ internal abstract class IccTransform
     /// <summary>Gets the component ranges as min/max pairs when the profile's colour space needs other than 0 to 1, or <see langword="null"/>.</summary>
     internal virtual float[]? DefaultRange => null;
 
-    /// <summary>Gets the transform for a rendering intent.</summary>
-    /// <param name="intent">The rendering intent.</param>
-    /// <returns>The transform; this one when the profile has no separate conversion for the intent.</returns>
-    internal virtual IccTransform ForIntent(IccIntent intent) => this;
+    /// <summary>Gets the transform for a rendering intent and black point choice.</summary>
+    /// <param name="rendering">The rendering.</param>
+    /// <returns>The transform; this one when the profile converts the same way for that rendering.</returns>
+    internal virtual IccTransform ForRendering(IccRendering rendering) => this;
 
     /// <summary>Converts a colour to sRGB.</summary>
     /// <param name="components">The components, each from 0 to 1.</param>

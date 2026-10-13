@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Numerics;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
@@ -42,7 +43,7 @@ internal static class ImageRedactor
     /// <returns>What happened to the image.</returns>
     internal static BlankResult Blank(PdfImageObject image, ReadOnlySpan<PdfRectangle> regions, PdfDictionary? resources, CancellationToken cancellationToken)
     {
-        var data = image.DecodePixels(resources);
+        var data = image.DecodeCompactPixels(resources);
         if (data is null || data.UnsupportedCodec != PdfImageCodec.None || data.Width < 1 || data.Height < 1 || !Matrix3x2.Invert(image.Matrix, out var inverse))
         {
             // An image that cannot be read pixel by pixel cannot be blanked, so it goes whole.
@@ -50,22 +51,26 @@ internal static class ImageRedactor
         }
 
         var plan = new PixelPlan(data.Width, data.Height, image.Matrix, inverse, cancellationToken);
-        return data.IsStencilMask ? BlankStencil(image, data, regions, plan) : BlankColor(image, data, regions, plan);
+        if (data.IsStencilMask)
+        {
+            return BlankStencil(image, data, regions, plan);
+        }
+
+        return data.IsGray ? BlankGray(image, data, regions, plan) : BlankColor(image, data, regions, plan);
     }
 
     /// <summary>Blanks a stencil mask: covered pixels stop painting.</summary>
     /// <param name="image">The image object.</param>
-    /// <param name="data">The decoded mask.</param>
+    /// <param name="data">The decoded mask, which this call owns and changes in place.</param>
     /// <param name="regions">The areas.</param>
     /// <param name="plan">Where pixels fall on the page.</param>
     /// <returns>The result.</returns>
     private static BlankResult BlankStencil(PdfImageObject image, PdfImageData data, ReadOnlySpan<PdfRectangle> regions, in PixelPlan plan)
     {
-        var coverage = data.Pixels.AsSpan().ToArray();
         var blanked = 0;
         foreach (var region in regions)
         {
-            blanked += plan.Blank(region, coverage, 1, []);
+            blanked += plan.Blank(region, data.Pixels, 1, []);
         }
 
         if (blanked == 0)
@@ -73,7 +78,30 @@ internal static class ImageRedactor
             return BlankResult.Unchanged;
         }
 
-        image.SetStencilCoverage(data.Width, data.Height, coverage);
+        image.SetStencilCoverage(data.Width, data.Height, data.Pixels);
+        return BlankResult.Blanked;
+    }
+
+    /// <summary>Blanks an opaque grey image, which decodes to one byte per pixel. Pixels become black.</summary>
+    /// <param name="image">The image object.</param>
+    /// <param name="data">The decoded image, which this call owns and changes in place.</param>
+    /// <param name="regions">The areas.</param>
+    /// <param name="plan">Where pixels fall on the page.</param>
+    /// <returns>The result.</returns>
+    private static BlankResult BlankGray(PdfImageObject image, PdfImageData data, ReadOnlySpan<PdfRectangle> regions, in PixelPlan plan)
+    {
+        var blanked = 0;
+        foreach (var region in regions)
+        {
+            blanked += plan.Blank(region, data.Pixels, 1, []);
+        }
+
+        if (blanked == 0)
+        {
+            return BlankResult.Unchanged;
+        }
+
+        image.SetPixels(data.Width, data.Height, PdfImagePixelFormat.Gray8, data.Pixels);
         return BlankResult.Blanked;
     }
 
@@ -88,22 +116,35 @@ internal static class ImageRedactor
         var traits = Inspect(data.Pixels);
         var channels = traits.Gray ? 1 : RgbChannels;
         var count = data.Width * data.Height;
-        var samples = new byte[count * channels];
-        var alpha = traits.Alpha ? new byte[count] : [];
-        Unpack(data.Pixels, samples, alpha, channels);
-        var blanked = 0;
-        foreach (var region in regions)
+        var pool = ArrayPool<byte>.Shared;
+        var samples = pool.Rent(count * channels);
+        var alpha = traits.Alpha ? pool.Rent(count) : null;
+        try
         {
-            blanked += plan.Blank(region, samples, channels, alpha);
-        }
+            var alphaSpan = alpha is null ? [] : alpha.AsSpan(0, count);
+            Unpack(data.Pixels, samples, alphaSpan, channels);
+            var blanked = 0;
+            foreach (var region in regions)
+            {
+                blanked += plan.Blank(region, samples, channels, alphaSpan);
+            }
 
-        if (blanked == 0)
+            if (blanked == 0)
+            {
+                return BlankResult.Unchanged;
+            }
+
+            image.SetPixels(data.Width, data.Height, traits.Gray ? PdfImagePixelFormat.Gray8 : PdfImagePixelFormat.Rgb24, samples.AsSpan(0, count * channels), alphaSpan);
+            return BlankResult.Blanked;
+        }
+        finally
         {
-            return BlankResult.Unchanged;
+            pool.Return(samples);
+            if (alpha is not null)
+            {
+                pool.Return(alpha);
+            }
         }
-
-        image.SetPixels(data.Width, data.Height, traits.Gray ? PdfImagePixelFormat.Gray8 : PdfImagePixelFormat.Rgb24, samples, alpha);
-        return BlankResult.Blanked;
     }
 
     /// <summary>Finds out whether every pixel is grey and whether any pixel is not opaque.</summary>
@@ -127,7 +168,7 @@ internal static class ImageRedactor
     /// <param name="samples">Receives grey or RGB samples.</param>
     /// <param name="alpha">Receives alpha when it has room.</param>
     /// <param name="channels">1 for grey, 3 for RGB.</param>
-    private static void Unpack(byte[] bgra, byte[] samples, byte[] alpha, int channels)
+    private static void Unpack(byte[] bgra, byte[] samples, Span<byte> alpha, int channels)
     {
         var pixel = 0;
         for (var i = 0; i + BgraBytes <= bgra.Length; i += BgraBytes)
@@ -140,7 +181,7 @@ internal static class ImageRedactor
                 samples[(pixel * channels) + BlueOffset] = Straighten(bgra[i], a);
             }
 
-            if (alpha.Length > 0)
+            if (!alpha.IsEmpty)
             {
                 alpha[pixel] = a;
             }
@@ -177,7 +218,7 @@ internal static class ImageRedactor
         /// <param name="channels">The samples per pixel.</param>
         /// <param name="alpha">The alpha plane, or an empty array.</param>
         /// <returns>The number of pixels blanked.</returns>
-        internal int Blank(in PdfRectangle region, byte[] samples, int channels, byte[] alpha)
+        internal int Blank(in PdfRectangle region, Span<byte> samples, int channels, Span<byte> alpha)
         {
             var blanked = 0;
             GetPixelRange(region, out var firstX, out var lastX, out var firstY, out var lastY);
@@ -192,8 +233,8 @@ internal static class ImageRedactor
                     }
 
                     var pixel = (y * Width) + x;
-                    samples.AsSpan(pixel * channels, channels).Clear();
-                    if (alpha.Length > 0)
+                    samples.Slice(pixel * channels, channels).Clear();
+                    if (!alpha.IsEmpty)
                     {
                         alpha[pixel] = 0;
                     }

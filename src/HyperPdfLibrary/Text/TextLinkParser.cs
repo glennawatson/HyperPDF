@@ -3,318 +3,223 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Text;
 
 namespace HyperPdfLibrary.Text;
 
-/// <summary>Finds web and email addresses in page text, as PDFium's CPDF_LinkExtract does.</summary>
+/// <summary>
+/// Finds web and email addresses written as plain text. White space ends a candidate word. Inside a word:
+/// <list type="bullet">
+/// <item><description>
+/// A web address starts with <c>http://</c>, <c>https://</c>, <c>ftp://</c>, <c>mailto:</c> or <c>www.</c> (any case),
+/// at the start of the word or after a character that is not a letter or digit. It runs over the characters RFC 3986
+/// allows in a URI and stops at the first other character.
+/// </description></item>
+/// <item><description>
+/// Trailing sentence punctuation (<c>. , ; : ! ? ' "</c>) is not part of the address, and neither is a closing bracket
+/// that has no opening bracket inside the address.
+/// </description></item>
+/// <item><description>
+/// A <c>www.</c> address needs a host with a dot after the prefix; the other schemes need a host character after the prefix.
+/// </description></item>
+/// <item><description>
+/// An email address is a local part of RFC 5322 atom characters and dots, an <c>@</c>, and a domain of at least two dot
+/// separated labels whose last label is two or more letters.
+/// </description></item>
+/// </list>
+/// </summary>
 internal static class TextLinkParser
 {
-    /// <summary>The length a word must exceed to be checked.</summary>
-    private const int MinLinkLength = 5;
+    /// <summary>The prefix of a web address that has no scheme.</summary>
+    private const string WebPrefix = "www.";
 
-    /// <summary>The length of <c>http</c>.</summary>
-    private const int HttpLength = 4;
+    /// <summary>The scheme added to an address that has none.</summary>
+    private const string DefaultScheme = "http://";
 
-    /// <summary>The length of <c>www.</c>.</summary>
-    private const int WwwLength = 4;
+    /// <summary>The scheme of an email address.</summary>
+    private const string MailScheme = "mailto:";
 
-    /// <summary>The length of <c>://</c>.</summary>
-    private const int SchemeSeparatorLength = 3;
+    /// <summary>The punctuation that ends a sentence and so is not part of an address ending in it.</summary>
+    private const string TrailingPunctuation = ".,;:!?'\"";
 
-    /// <summary>The fewest characters a domain name needs after the at sign.</summary>
-    private const int MinDomainLength = 3;
+    /// <summary>The characters other than letters and digits that RFC 3986 allows in a URI.</summary>
+    private const string UriSymbols = "-._~:/?#[]@!$&'()*+,;=%";
 
-    /// <summary>The copies of a word the scratch buffer holds: as written and in lower case.</summary>
-    private const int ScratchCopies = 2;
+    /// <summary>The characters other than letters and digits that RFC 5322 allows in an email local part atom, plus the dot.</summary>
+    private const string LocalSymbols = "!#$%&'*+/=?^_`{|}~-.";
 
-    /// <summary>The stride of the pairs in <see cref="Brackets"/>.</summary>
-    private const int PairStride = 2;
+    /// <summary>The characters that end the host of a web address.</summary>
+    private const string HostEnd = "/?#:";
 
-    /// <summary>The fewest characters a port takes after the closing bracket: the colon and one digit.</summary>
-    private const int MinPortLength = 2;
+    /// <summary>Two dots in a row, which no local part or domain may contain.</summary>
+    private const string DoubleDot = "..";
 
-    /// <summary>The step back from a doubled dot to the end of the host before it.</summary>
-    private const int DoubledDotStep = 2;
+    /// <summary>The smallest length of the last label of an email domain.</summary>
+    private const int MinTopLabel = 2;
 
-    /// <summary>The character the page text holds for a joining hyphen.</summary>
-    private const char JoiningHyphenText = (char)0xFFFE;
+    /// <summary>The schemes that start a web address.</summary>
+    private static readonly string[] Schemes = ["http://", "https://", "ftp://", MailScheme];
 
-    /// <summary>The prefix added to bare <c>www.</c> hosts.</summary>
-    private const string HttpPrefix = "http://";
+    /// <summary>The characters RFC 3986 allows in a URI: ASCII letters, digits and the URI symbols.</summary>
+    private static readonly SearchValues<char> UriChars = SearchValues.Create($"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789{UriSymbols}");
 
-    /// <summary>The prefix added to email addresses.</summary>
-    private const string MailtoPrefix = "mailto:";
+    /// <summary>The characters that separate words: every character that is white space.</summary>
+    private static readonly SearchValues<char> WhiteSpace = SearchValues.Create(CollectWhiteSpace());
 
-    /// <summary>Gets the opening brackets and quotes that cut a link at their partner, paired with that partner.</summary>
-    private static ReadOnlySpan<char> Brackets => ['(', ')', '[', ']', '{', '}', '<', '>', '"', '"', '\'', '\''];
-
-    /// <summary>Finds the links of a page.</summary>
+    /// <summary>Finds the addresses in a page's text.</summary>
     /// <param name="page">The text page.</param>
-    /// <returns>The links.</returns>
+    /// <returns>The addresses in page order.</returns>
     internal static PdfWebLink[] Extract(PdfTextPage page)
     {
         var text = page.Text;
-        if (text.Length == 0)
+        var links = new List<PdfWebLink>();
+        var index = 0;
+        while (index < text.Length)
         {
-            return [];
+            var skip = text.AsSpan(index).IndexOfAnyExcept(WhiteSpace);
+            if (skip < 0)
+            {
+                break;
+            }
+
+            index += skip;
+            var length = text.AsSpan(index).IndexOfAny(WhiteSpace);
+            var end = length < 0 ? text.Length : index + length;
+            AddWordLinks(page, text, index, end, links);
+            index = end;
         }
 
-        var buffer = ArrayPool<char>.Shared.Rent(text.Length * ScratchCopies);
-        try
-        {
-            return Scan(page, text, buffer);
-        }
-        finally
-        {
-            ArrayPool<char>.Shared.Return(buffer);
-        }
+        return [.. links];
     }
 
-    /// <summary>Walks the characters and checks each word.</summary>
+    /// <summary>Lists the white space characters of the Basic Multilingual Plane.</summary>
+    /// <returns>The characters.</returns>
+    private static string CollectWhiteSpace()
+    {
+        var builder = new StringBuilder();
+        for (var value = 0; value <= char.MaxValue; value++)
+        {
+            if (char.IsWhiteSpace((char)value))
+            {
+                _ = builder.Append((char)value);
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>Finds the addresses inside one word.</summary>
     /// <param name="page">The text page.</param>
     /// <param name="text">The page text.</param>
-    /// <param name="buffer">Scratch space for two copies of the text.</param>
-    /// <returns>The links.</returns>
-    private static PdfWebLink[] Scan(PdfTextPage page, string text, char[] buffer)
+    /// <param name="start">The word start.</param>
+    /// <param name="end">The position after the word.</param>
+    /// <param name="links">Receives the addresses.</param>
+    private static void AddWordLinks(PdfTextPage page, string text, int start, int end, List<PdfWebLink> links)
     {
-        List<PdfWebLink>? links = null;
-        var chars = page.Chars;
-        var start = 0;
-        var afterHyphen = false;
-        var lineBreak = false;
-        for (var position = 0; position < chars.Length; position++)
+        var position = start;
+        while (position < end)
         {
-            var info = chars[position];
-            var last = position == chars.Length - 1;
-            if (!last && IsWordChar(info))
+            var link = FindWeb(text, position, end) ?? FindMail(text, position, end);
+            if (link is not { } found)
             {
-                afterHyphen = IsHyphenChar(info);
-                continue;
+                return;
             }
 
-            if (!last && afterHyphen && IsLineBreak(info))
-            {
-                lineBreak = true;
-                continue;
-            }
-
-            links = Add(links, CheckWord(text, start, position - start + (last ? 1 : 0), lineBreak, buffer));
-            lineBreak = false;
-            start = position + 1;
+            var first = page.CharIndexFromTextIndex(found.Start);
+            var last = page.CharIndexFromTextIndex(found.End - 1);
+            links.Add(new(found.Url, first, last - first + 1));
+            position = found.End;
         }
-
-        return links is null ? [] : [.. links];
     }
 
-    /// <summary>Adds a link to the list when there is one, making the list on first use.</summary>
-    /// <param name="links">The list, or <see langword="null"/> before the first link.</param>
-    /// <param name="link">The link, or <see langword="null"/>.</param>
-    /// <returns>The list.</returns>
-    private static List<PdfWebLink>? Add(List<PdfWebLink>? links, PdfWebLink? link)
-    {
-        if (link is null)
-        {
-            return links;
-        }
-
-        links ??= [];
-        links.Add(link);
-        return links;
-    }
-
-    /// <summary>Determines whether a character is a hyphen, so a line break after it may continue a link.</summary>
-    /// <param name="info">The character.</param>
-    /// <returns><see langword="true"/> for joining hyphens and hyphen-minus glyphs.</returns>
-    private static bool IsHyphenChar(in PdfTextChar info) =>
-        info.Kind == PdfTextCharKind.Hyphen || (info.Kind == PdfTextCharKind.Normal && info.Unicode == '-');
-
-    /// <summary>Determines whether a character is part of a line break.</summary>
-    /// <param name="info">The character.</param>
-    /// <returns><see langword="true"/> for CR and LF.</returns>
-    private static bool IsLineBreak(in PdfTextChar info) => info.Unicode is '\n' or '\r';
-
-    /// <summary>Determines whether a character continues a word.</summary>
-    /// <param name="info">The character.</param>
-    /// <returns><see langword="true"/> for shown characters other than spaces.</returns>
-    private static bool IsWordChar(in PdfTextChar info) => info.Kind != PdfTextCharKind.Generated && info.Unicode != ' ';
-
-    /// <summary>Checks one word for a link.</summary>
+    /// <summary>Finds the first web address in a word.</summary>
     /// <param name="text">The page text.</param>
-    /// <param name="start">The word's first index, used as a text index as PDFium does.</param>
-    /// <param name="count">The word's length.</param>
-    /// <param name="lineBreak">Whether the word continues across a hyphenated line break.</param>
-    /// <param name="buffer">Scratch space.</param>
-    /// <returns>The link, or <see langword="null"/>.</returns>
-    private static PdfWebLink? CheckWord(string text, int start, int count, bool lineBreak, char[] buffer)
+    /// <param name="from">Where to start looking.</param>
+    /// <param name="wordEnd">The position after the word.</param>
+    /// <returns>The address, or <see langword="null"/>.</returns>
+    private static Found? FindWeb(string text, int from, int wordEnd)
     {
-        var length = CopyWord(text, start, count, lineBreak, buffer);
-        if (length <= MinLinkLength)
+        for (var start = from; start < wordEnd; start++)
         {
-            return null;
-        }
-
-        while (length > 0 && buffer[length - 1] is ')' or ',' or '>' or '.')
-        {
-            length--;
-            count--;
-        }
-
-        if (count <= MinLinkLength)
-        {
-            return null;
-        }
-
-        var word = buffer.AsSpan(0, length);
-        var lower = buffer.AsSpan(length, length);
-        _ = word.ToLowerInvariant(lower);
-        if (FindWebLink(word, lower) is { } web)
-        {
-            return web with { Start = web.Start + start };
-        }
-
-        return FindMailLink(word) is { } mail ? new(mail, start, count) : null;
-    }
-
-    /// <summary>Copies a word of the page text, dropping line breaks after a hyphen and turning joining hyphens back into hyphens.</summary>
-    /// <param name="text">The page text.</param>
-    /// <param name="start">The first index.</param>
-    /// <param name="count">The length.</param>
-    /// <param name="lineBreak">Whether to drop line breaks.</param>
-    /// <param name="buffer">The destination.</param>
-    /// <returns>The copied length.</returns>
-    private static int CopyWord(string text, int start, int count, bool lineBreak, char[] buffer)
-    {
-        if (start >= text.Length || count <= 0)
-        {
-            return 0;
-        }
-
-        var length = 0;
-        foreach (var value in text.AsSpan(start, Math.Min(count, text.Length - start)))
-        {
-            if (lineBreak && value is '\n' or '\r')
+            if (start > from && char.IsLetterOrDigit(text[start - 1]))
             {
                 continue;
             }
 
-            buffer[length] = value == JoiningHyphenText ? '-' : value;
-            length++;
-        }
-
-        return length;
-    }
-
-    /// <summary>Finds an <c>http</c>, <c>https</c> or <c>www.</c> address in a word, as PDFium's CheckWebLink does.</summary>
-    /// <param name="word">The word.</param>
-    /// <param name="lower">The word in lower case.</param>
-    /// <returns>The link with its start in the word, or <see langword="null"/>.</returns>
-    private static PdfWebLink? FindWebLink(ReadOnlySpan<char> word, ReadOnlySpan<char> lower)
-    {
-        var start = lower.IndexOf("http".AsSpan());
-        if (start >= 0 && FindSchemeEnd(lower, start) is var offset and > 0)
-        {
-            var end = FindLinkEnd(lower, offset, TrimBrackets(lower, start, lower.Length - 1));
-            if (end > offset)
+            var prefix = PrefixAt(text.AsSpan(start, wordEnd - start));
+            if (prefix >= 0 && ExtendWeb(text, start, wordEnd, prefix) is { } found)
             {
-                return new(word.Slice(start, end - start + 1).ToString(), start, end - start + 1);
+                return found;
             }
         }
 
-        start = lower.IndexOf("www.".AsSpan());
-        if (start < 0 || lower.Length <= start + WwwLength)
+        return null;
+    }
+
+    /// <summary>Gets the length of the scheme or <c>www.</c> prefix a word piece starts with.</summary>
+    /// <param name="rest">The word from the position to test.</param>
+    /// <returns>The prefix length, or -1 for none.</returns>
+    private static int PrefixAt(ReadOnlySpan<char> rest)
+    {
+        foreach (var scheme in Schemes)
+        {
+            if (rest.StartsWith(scheme, StringComparison.OrdinalIgnoreCase))
+            {
+                return scheme.Length;
+            }
+        }
+
+        return rest.StartsWith(WebPrefix, StringComparison.OrdinalIgnoreCase) ? WebPrefix.Length : -1;
+    }
+
+    /// <summary>Extends a prefix over the address it starts and checks the result.</summary>
+    /// <param name="text">The page text.</param>
+    /// <param name="start">The address start.</param>
+    /// <param name="wordEnd">The position after the word.</param>
+    /// <param name="prefix">The prefix length.</param>
+    /// <returns>The address, or <see langword="null"/> when it is not valid.</returns>
+    private static Found? ExtendWeb(string text, int start, int wordEnd, int prefix)
+    {
+        var tail = text.AsSpan(start + prefix, wordEnd - start - prefix);
+        var length = tail.IndexOfAnyExcept(UriChars);
+        var end = TrimEnd(text, start, start + prefix + (length < 0 ? tail.Length : length));
+        var address = text.AsSpan(start, end - start);
+        if (end - start < prefix || !IsValidAddress(address, prefix))
         {
             return null;
         }
 
-        var hostEnd = FindLinkEnd(lower, start, TrimBrackets(lower, start, lower.Length - 1));
-        if (hostEnd <= start + WwwLength)
-        {
-            return null;
-        }
-
-        var count = hostEnd - start + 1;
-        return new(string.Concat(HttpPrefix, word.Slice(start, count)), start, count);
+        var bare = address.StartsWith(WebPrefix, StringComparison.OrdinalIgnoreCase);
+        return new(bare ? DefaultScheme + address.ToString() : address.ToString(), start, end);
     }
 
-    /// <summary>Finds the end of <c>http://</c> or <c>https://</c> at a position.</summary>
-    /// <param name="lower">The word in lower case.</param>
-    /// <param name="start">Where <c>http</c> starts.</param>
-    /// <returns>The index after the scheme, or 0 when there is no full scheme.</returns>
-    private static int FindSchemeEnd(ReadOnlySpan<char> lower, int start)
+    /// <summary>Checks the part of an address after its prefix.</summary>
+    /// <param name="address">The address including its prefix.</param>
+    /// <param name="prefix">The prefix length.</param>
+    /// <returns><see langword="true"/> when the address has a usable host or mailbox.</returns>
+    private static bool IsValidAddress(ReadOnlySpan<char> address, int prefix)
     {
-        var offset = start + HttpLength;
-        if (lower.Length <= offset + HttpLength)
+        var body = address[prefix..];
+        if (address.StartsWith(MailScheme, StringComparison.OrdinalIgnoreCase))
         {
-            return 0;
+            return IsEmail(body);
         }
 
-        if (lower[offset] == 's')
-        {
-            offset++;
-        }
-
-        return lower[offset..].StartsWith("://".AsSpan()) ? offset + SchemeSeparatorLength : 0;
+        return address.StartsWith(WebPrefix, StringComparison.OrdinalIgnoreCase) ? HasDottedHost(body) : HasHost(body);
     }
 
-    /// <summary>Cuts a link at the partner of each opening bracket or quote before it, as PDFium's TrimExternalBracketsFromWebLink does.</summary>
-    /// <param name="lower">The word in lower case.</param>
-    /// <param name="start">The link start.</param>
-    /// <param name="end">The link end.</param>
+    /// <summary>Removes trailing punctuation and unbalanced closing brackets from an address.</summary>
+    /// <param name="text">The page text.</param>
+    /// <param name="start">The address start.</param>
+    /// <param name="end">The position after the address.</param>
     /// <returns>The new end.</returns>
-    private static int TrimBrackets(ReadOnlySpan<char> lower, int start, int end)
+    private static int TrimEnd(string text, int start, int end)
     {
-        var brackets = Brackets;
-        for (var position = 0; position < start; position++)
+        while (end > start)
         {
-            var pair = brackets.IndexOf(lower[position]);
-            if (pair >= 0 && pair % PairStride == 0)
-            {
-                end = TrimBackTo(lower, brackets[pair + 1], start, end);
-            }
-        }
-
-        return end;
-    }
-
-    /// <summary>Moves a link end before the last occurrence of a character at or after the link start.</summary>
-    /// <param name="lower">The word.</param>
-    /// <param name="value">The character.</param>
-    /// <param name="start">The link start.</param>
-    /// <param name="end">The link end.</param>
-    /// <returns>The new end.</returns>
-    private static int TrimBackTo(ReadOnlySpan<char> lower, char value, int start, int end)
-    {
-        for (var position = end; position >= start; position--)
-        {
-            if (lower[position] == value)
-            {
-                return position - 1;
-            }
-        }
-
-        return end;
-    }
-
-    /// <summary>Finds where a link's host ends, as PDFium's FindWebLinkEnding does.</summary>
-    /// <param name="lower">The word in lower case.</param>
-    /// <param name="start">The host start.</param>
-    /// <param name="end">The last candidate index.</param>
-    /// <returns>The last index of the link.</returns>
-    private static int FindLinkEnd(ReadOnlySpan<char> lower, int start, int end)
-    {
-        if (lower[start..].Contains('/'))
-        {
-            return end;
-        }
-
-        if (lower[start] == '[')
-        {
-            return FindIpv6End(lower, start, end);
-        }
-
-        while (end > start && lower[end] < '\u0080')
-        {
-            if (char.IsAsciiDigit(lower[end]) || char.IsAsciiLetterLower(lower[end]) || lower[end] == '.')
+            var last = text[end - 1];
+            var drop = TrailingPunctuation.Contains(last, StringComparison.Ordinal) || (IsCloser(last) && !IsBalanced(text.AsSpan(start, end - start), last));
+            if (!drop)
             {
                 break;
             }
@@ -325,129 +230,148 @@ internal static class TextLinkParser
         return end;
     }
 
-    /// <summary>Finds the end of a bracketed IPv6 host and its port.</summary>
-    /// <param name="lower">The word in lower case.</param>
-    /// <param name="start">The opening bracket.</param>
-    /// <param name="end">The last candidate index.</param>
-    /// <returns>The last index of the link.</returns>
-    private static int FindIpv6End(ReadOnlySpan<char> lower, int start, int end)
+    /// <summary>Determines whether a character closes a bracket.</summary>
+    /// <param name="value">The character.</param>
+    /// <returns><see langword="true"/> for <c>)</c>, <c>]</c> and <c>}</c>.</returns>
+    private static bool IsCloser(char value) => value is ')' or ']' or '}';
+
+    /// <summary>Determines whether a closing bracket at the end of an address has an opening bracket inside it.</summary>
+    /// <param name="address">The address including the closing bracket.</param>
+    /// <param name="closer">The closing bracket.</param>
+    /// <returns><see langword="true"/> when the opening bracket count covers the closing bracket count.</returns>
+    private static bool IsBalanced(ReadOnlySpan<char> address, char closer)
     {
-        var close = lower[(start + 1)..].IndexOf(']');
-        if (close < 0)
+        var opener = closer switch
         {
-            return end;
-        }
+            ')' => '(',
+            ']' => '[',
+            _ => '{',
+        };
 
-        end = start + 1 + close;
-        if (end <= start + 1)
-        {
-            return end;
-        }
-
-        var offset = end + 1;
-        if (offset >= lower.Length || lower[offset] != ':')
-        {
-            return end;
-        }
-
-        offset++;
-        while (offset < lower.Length && char.IsAsciiDigit(lower[offset]))
-        {
-            offset++;
-        }
-
-        return offset > end + MinPortLength ? offset - 1 : end;
+        return address.Count(opener) >= address.Count(closer);
     }
 
-    /// <summary>Finds an email address in a word, as PDFium's CheckMailLink does.</summary>
-    /// <param name="word">The word.</param>
-    /// <returns>The <c>mailto:</c> address, or <see langword="null"/>.</returns>
-    private static string? FindMailLink(ReadOnlySpan<char> word)
+    /// <summary>Determines whether the text after a scheme starts with a host character.</summary>
+    /// <param name="body">The text after the scheme.</param>
+    /// <returns><see langword="true"/> when the host starts with a letter or digit.</returns>
+    private static bool HasHost(ReadOnlySpan<char> body) => !body.IsEmpty && char.IsAsciiLetterOrDigit(body[0]);
+
+    /// <summary>Determines whether the text after <c>www.</c> is a host with at least one more dot.</summary>
+    /// <param name="body">The text after the prefix.</param>
+    /// <returns><see langword="true"/> when it starts with a label and contains a dot after it.</returns>
+    private static bool HasDottedHost(ReadOnlySpan<char> body)
     {
-        var at = word.IndexOf('@');
-        if (at <= 0 || at == word.Length - 1 || !TrimLocalPart(ref word, at))
-        {
-            return null;
-        }
-
-        at = word.IndexOf('@');
-        if (at <= 0)
-        {
-            return null;
-        }
-
-        word = word.TrimEnd('.');
-        var dot = word[(at + 1)..].IndexOf('.');
-        if (dot <= 0 || !TrimDomain(ref word, at))
-        {
-            return null;
-        }
-
-        return word.Contains(MailtoPrefix.AsSpan(), StringComparison.Ordinal) ? word.ToString() : string.Concat(MailtoPrefix, word);
+        var stop = body.IndexOfAny(HostEnd);
+        var host = stop >= 0 ? body[..stop] : body;
+        var dot = host.IndexOf('.');
+        return dot > 0 && dot < host.Length - 1 && char.IsAsciiLetterOrDigit(host[0]);
     }
 
-    /// <summary>Cuts the address start back to the first character that cannot be in the local part.</summary>
-    /// <param name="word">The word; trimmed in place.</param>
-    /// <param name="at">The at sign.</param>
-    /// <returns><see langword="false"/> when the local part is invalid.</returns>
-    private static bool TrimLocalPart(ref ReadOnlySpan<char> word, int at)
+    /// <summary>Finds the first email address in a word.</summary>
+    /// <param name="text">The page text.</param>
+    /// <param name="from">Where to start looking.</param>
+    /// <param name="wordEnd">The position after the word.</param>
+    /// <returns>The address, or <see langword="null"/>.</returns>
+    private static Found? FindMail(string text, int from, int wordEnd)
     {
-        var dot = at;
-        for (var i = at; i > 0; i--)
+        for (var sign = from; sign < wordEnd; sign++)
         {
-            var value = word[i - 1];
-            if (value is '_' or '-' || char.IsLetterOrDigit(value))
+            if (text[sign] == '@' && MailAround(text, sign, from, wordEnd) is { } found)
             {
-                continue;
+                return found;
             }
-
-            if (value != '.' || i == dot || i == 1)
-            {
-                if (i == at)
-                {
-                    return false;
-                }
-
-                word = word[(i == dot ? i + 1 : i)..];
-                return true;
-            }
-
-            dot = i - 1;
         }
 
-        return true;
+        return null;
     }
 
-    /// <summary>Cuts the domain at the first character that cannot be in it.</summary>
-    /// <param name="word">The word; trimmed in place.</param>
-    /// <param name="at">The at sign.</param>
-    /// <returns><see langword="false"/> when the domain is invalid.</returns>
-    private static bool TrimDomain(ref ReadOnlySpan<char> word, int at)
+    /// <summary>Grows an email address around an at sign and checks it.</summary>
+    /// <param name="text">The page text.</param>
+    /// <param name="sign">The position of the at sign.</param>
+    /// <param name="from">The earliest position the address may start.</param>
+    /// <param name="wordEnd">The position after the word.</param>
+    /// <returns>The address, or <see langword="null"/>.</returns>
+    private static Found? MailAround(string text, int sign, int from, int wordEnd)
     {
-        var dot = 0;
-        for (var i = at + 1; i < word.Length; i++)
+        var start = sign;
+        while (start > from && IsLocalChar(text[start - 1]))
         {
-            var value = word[i];
-            if (value == '-' || char.IsLetterOrDigit(value))
-            {
-                continue;
-            }
+            start--;
+        }
 
-            if (value != '.' || i == dot + 1)
-            {
-                var hostEnd = i == dot + 1 ? i - DoubledDotStep : i - 1;
-                if (dot > 0 && hostEnd - at >= MinDomainLength)
-                {
-                    word = word[..(hostEnd + 1)];
-                    return true;
-                }
+        var end = DomainEnd(text, sign, wordEnd);
+        var address = text.AsSpan(start, end - start);
+        return IsEmail(address) ? new(MailScheme + address.ToString(), start, end) : null;
+    }
 
+    /// <summary>Finds where the domain after an at sign ends, leaving out trailing dots and hyphens.</summary>
+    /// <param name="text">The page text.</param>
+    /// <param name="sign">The position of the at sign.</param>
+    /// <param name="wordEnd">The position after the word.</param>
+    /// <returns>The position after the domain.</returns>
+    private static int DomainEnd(string text, int sign, int wordEnd)
+    {
+        var end = sign + 1;
+        while (end < wordEnd && (char.IsAsciiLetterOrDigit(text[end]) || text[end] is '-' or '.'))
+        {
+            end++;
+        }
+
+        while (end > sign + 1 && text[end - 1] is '.' or '-')
+        {
+            end--;
+        }
+
+        return end;
+    }
+
+    /// <summary>Determines whether a character can be part of an email local part.</summary>
+    /// <param name="value">The character.</param>
+    /// <returns><see langword="true"/> for atom characters and dots.</returns>
+    private static bool IsLocalChar(char value) => char.IsAsciiLetterOrDigit(value) || LocalSymbols.Contains(value, StringComparison.Ordinal);
+
+    /// <summary>Validates an email address.</summary>
+    /// <param name="address">The address.</param>
+    /// <returns><see langword="true"/> for a valid local part and domain.</returns>
+    private static bool IsEmail(ReadOnlySpan<char> address)
+    {
+        var at = address.IndexOf('@');
+        return at > 0 && IsLocalPart(address[..at]) && IsDomain(address[(at + 1)..]);
+    }
+
+    /// <summary>Validates an email local part.</summary>
+    /// <param name="local">The text before the at sign.</param>
+    /// <returns><see langword="true"/> when it has no leading, trailing or doubled dot.</returns>
+    private static bool IsLocalPart(ReadOnlySpan<char> local) => local[0] != '.' && local[^1] != '.' && local.IndexOf(DoubleDot) < 0;
+
+    /// <summary>Validates an email domain.</summary>
+    /// <param name="domain">The text after the at sign.</param>
+    /// <returns><see langword="true"/> for dot separated labels ending in a label of letters.</returns>
+    private static bool IsDomain(ReadOnlySpan<char> domain)
+    {
+        var dot = domain.LastIndexOf('.');
+        return dot > 0 && domain[0] != '-' && domain.IndexOf(DoubleDot) < 0 && IsTopLabel(domain[(dot + 1)..]);
+    }
+
+    /// <summary>Validates the last label of an email domain.</summary>
+    /// <param name="label">The label.</param>
+    /// <returns><see langword="true"/> for two or more ASCII letters.</returns>
+    private static bool IsTopLabel(ReadOnlySpan<char> label)
+    {
+        foreach (var value in label)
+        {
+            if (!char.IsAsciiLetter(value))
+            {
                 return false;
             }
-
-            dot = i;
         }
 
-        return true;
+        return label.Length >= MinTopLabel;
     }
+
+    /// <summary>An address found in the text.</summary>
+    /// <param name="Url">The address as a URI.</param>
+    /// <param name="Start">The text index of its first character.</param>
+    /// <param name="End">The text index after its last character.</param>
+    private readonly record struct Found(string Url, int Start, int End);
 }

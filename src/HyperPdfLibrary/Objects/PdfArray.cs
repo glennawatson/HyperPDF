@@ -157,6 +157,23 @@ public sealed class PdfArray
         Count++;
     }
 
+    /// <summary>Inserts an item, moving the items after it up by one.</summary>
+    /// <param name="index">The position of the new item; the count appends.</param>
+    /// <param name="value">The item.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is negative or above the count.</exception>
+    public void Insert(int index, PdfValue value)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)index, (uint)Count, nameof(index));
+        if (Count == _items.Length)
+        {
+            Array.Resize(ref _items, Math.Max(DefaultCapacity, Count * GrowthFactor));
+        }
+
+        Array.Copy(_items, index, _items, index + 1, Count - index);
+        _items[index] = value;
+        Count++;
+    }
+
     /// <summary>Replaces an item.</summary>
     /// <param name="index">The item index.</param>
     /// <param name="value">The item.</param>
@@ -182,4 +199,15 @@ public sealed class PdfArray
     /// <returns>The copy.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PdfArray Clone() => new(Owner, Items);
+
+    /// <summary>Copies the array with room for more items, so adding them does not grow the copy again.</summary>
+    /// <param name="extra">The items the caller is about to add.</param>
+    /// <returns>The copy.</returns>
+    internal PdfArray CloneWithRoom(int extra)
+    {
+        var copy = new PdfArray(Owner, Count + extra);
+        Items.CopyTo(copy._items);
+        copy.Count = Count;
+        return copy;
+    }
 }

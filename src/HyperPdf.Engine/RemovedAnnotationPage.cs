@@ -10,4 +10,4 @@ namespace HyperPdf.Engine;
 /// <summary>A page whose removed annotations were hidden for saving.</summary>
 /// <param name="Page">The page.</param>
 /// <param name="Annotations">The full annotation array.</param>
-internal sealed record RemovedAnnotationPage(PdfPage Page, PdfArray Annotations);
+internal readonly record struct RemovedAnnotationPage(PdfPage Page, PdfArray Annotations);

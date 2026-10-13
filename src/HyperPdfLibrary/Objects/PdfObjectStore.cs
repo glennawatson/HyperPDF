@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Filters;
@@ -34,10 +33,7 @@ public sealed class PdfObjectStore : IDisposable
     private readonly Lock _gate = new();
 
     /// <summary>The most recently used decoded object streams, by object number; others are decoded again when needed.</summary>
-    private readonly ObjectStreamCache _objectStreams = new();
-
-    /// <summary>The idle Flate decoders owned by this store.</summary>
-    private readonly FlateDecoderState? _flateDecoders = FlateDecoderState.Create();
+    private ObjectStreamCache? _objectStreams;
 
     /// <summary>Scratch buffers used if this store has no document-open context.</summary>
     private ScratchPools? _scratchPools;
@@ -72,14 +68,23 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>1 once redactions were applied.</summary>
     private int _requiresCompactSave;
 
-    /// <summary>The open transaction, guarded by the lock.</summary>
-    private PdfOpenTransaction? _transaction;
+    /// <summary>The changed and added objects by number, guarded by the lock; made on first use.</summary>
+    private Dictionary<int, PdfValue>? _edits;
+
+    /// <summary>The deleted object numbers, guarded by the lock; made on first use.</summary>
+    private HashSet<int>? _deleted;
+
+    /// <summary>The generations of freed objects, guarded by the lock; made on first use.</summary>
+    private Dictionary<int, int>? _freedGenerations;
+
+    /// <summary>The open transaction, guarded by the lock. The caller owns and disposes it, not the store.</summary>
+    private PdfEditTransaction? _transaction;
 
     /// <summary>The undo and redo stacks, created on first use.</summary>
     private PdfEditHistory? _history;
 
     /// <summary>Called after a transaction ends or an edit is undone or redone, so readers drop cached pages.</summary>
-    private Action? _changed;
+    private IObjectsChangedListener? _changed;
 
     /// <summary>Initializes a new instance of the <see cref="PdfObjectStore"/> class.</summary>
     /// <param name="source">The file.</param>
@@ -91,7 +96,7 @@ public sealed class PdfObjectStore : IDisposable
         _array = source.WholeArray;
         _ownsSource = ownsSource;
         _xref = xref;
-        _cache = new object?[xref.Size];
+        _cache = xref.Size == 0 ? [] : new object?[xref.Size];
     }
 
     /// <summary>Gets the document's name table.</summary>
@@ -130,6 +135,12 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Gets a value indicating whether the store has been disposed.</summary>
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the security handler belongs to another store, such as the document a working
+    /// copy was made from. A borrowed handler is shared, so disposing this store leaves it open.
+    /// </summary>
+    internal bool SecurityBorrowed { get; set; }
+
     /// <summary>Gets or sets whether the first file window names a linearization dictionary.</summary>
     internal bool MightBeLinearized { get; set; }
 
@@ -140,10 +151,10 @@ public sealed class PdfObjectStore : IDisposable
     internal bool OwnsSourceState => _ownsSource;
 
     /// <summary>Gets the owned objectStreams state to store operations.</summary>
-    internal ObjectStreamCache ObjectStreamsState => _objectStreams;
+    internal ObjectStreamCache ObjectStreamsState => Volatile.Read(ref _objectStreams) ?? CreateObjectStreams();
 
-    /// <summary>Gets this store's independently leased Flate decoders.</summary>
-    internal FlateDecoderState? FlateDecoders => _flateDecoders;
+    /// <summary>Gets the object stream cache, or <see langword="null"/> when no object stream was read yet.</summary>
+    internal ObjectStreamCache? ObjectStreamsIfCreated => Volatile.Read(ref _objectStreams);
 
     /// <summary>Gets the document's decoder scratch cache, or this store's fallback cache.</summary>
     internal ScratchPools ScratchPools => Context?.ScratchPools ?? (Volatile.Read(ref _scratchPools) ?? CreateScratchPools());
@@ -163,14 +174,23 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Gets the amount added to an offset written in the file to find its position: the header offset, or zero.</summary>
     internal int OffsetBase => _xref.OffsetBase;
 
-    /// <summary>Gets the owned edits state to store operations.</summary>
-    internal Dictionary<int, PdfValue> EditsState { get; } = [];
+    /// <summary>Gets the changed and added objects by number, made on first use; read or changed only while holding the lock.</summary>
+    internal Dictionary<int, PdfValue> EditsState => _edits ??= [];
 
-    /// <summary>Gets the owned deleted state to store operations.</summary>
-    internal HashSet<int> DeletedState { get; } = [];
+    /// <summary>Gets the changed and added objects, or <see langword="null"/> when the store has none; read only while holding the lock.</summary>
+    internal Dictionary<int, PdfValue>? EditsIfCreated => _edits;
 
-    /// <summary>Gets the owned freedGenerations state to store operations.</summary>
-    internal Dictionary<int, int> FreedGenerationsState { get; } = [];
+    /// <summary>Gets the deleted object numbers, made on first use; read or changed only while holding the lock.</summary>
+    internal HashSet<int> DeletedState => _deleted ??= [];
+
+    /// <summary>Gets the deleted object numbers, or <see langword="null"/> when none was deleted; read only while holding the lock.</summary>
+    internal HashSet<int>? DeletedIfCreated => _deleted;
+
+    /// <summary>Gets the generations of freed objects, made on first use; read or changed only while holding the lock.</summary>
+    internal Dictionary<int, int> FreedGenerationsState => _freedGenerations ??= [];
+
+    /// <summary>Gets the generations of freed objects, or <see langword="null"/> when none was freed; read only while holding the lock.</summary>
+    internal Dictionary<int, int>? FreedGenerationsIfCreated => _freedGenerations;
 
     /// <summary>Gets or sets a value indicating whether a transaction changed a trailer entry, guarded by the lock.</summary>
     internal bool TrailerEditedState { get; set; }
@@ -191,10 +211,10 @@ public sealed class PdfObjectStore : IDisposable
     internal ConditionalWeakTable<PdfDictionary, Dictionary<byte[], PdfValue>> NameTreeTables => LazyInitializer.EnsureInitialized(ref _nameTreeTables);
 
     /// <summary>Gets the number of decoded object streams held.</summary>
-    internal int CachedObjectStreams => _objectStreams.Count;
+    internal int CachedObjectStreams => Volatile.Read(ref _objectStreams)?.Count ?? 0;
 
     /// <summary>Gets the decoded bytes the cached object streams hold.</summary>
-    internal long CachedObjectStreamBytes => _objectStreams.Bytes;
+    internal long CachedObjectStreamBytes => Volatile.Read(ref _objectStreams)?.Bytes ?? 0;
 
     /// <summary>Gets a reference to the mutable requiresCompactSave state to store operations.</summary>
     internal ref int RequiresCompactSaveState => ref _requiresCompactSave;
@@ -203,13 +223,13 @@ public sealed class PdfObjectStore : IDisposable
     internal int XrefSize => _xref.Size;
 
     /// <summary>Gets a reference to the mutable transaction state to store operations.</summary>
-    internal ref PdfOpenTransaction? TransactionState => ref _transaction;
+    internal ref PdfEditTransaction? TransactionState => ref _transaction;
 
     /// <summary>Gets a reference to the mutable history state to store operations.</summary>
     internal ref PdfEditHistory? HistoryState => ref _history;
 
     /// <summary>Gets a reference to the mutable changed state to store operations.</summary>
-    internal ref Action? ChangedState => ref _changed;
+    internal ref IObjectsChangedListener? ChangedState => ref _changed;
 
     /// <summary>Gets the lock that guards the objects and their edits.</summary>
     internal Lock Gate => _gate;
@@ -225,11 +245,10 @@ public sealed class PdfObjectStore : IDisposable
             return;
         }
 
-        _flateDecoders?.Dispose();
         lock (_gate)
         {
             // A parse in progress finishes first. Readers that already hold the old array use it until they are done.
-            _objectStreams.Clear();
+            Volatile.Read(ref _objectStreams)?.Clear();
             Volatile.Write(ref _cache, []);
         }
 
@@ -239,11 +258,23 @@ public sealed class PdfObjectStore : IDisposable
         Context?.CloseScratchPools();
         Volatile.Read(ref _scratchPools)?.Close();
 
-        Security?.Dispose();
+        if (!SecurityBorrowed)
+        {
+            Security?.Dispose();
+        }
+
         if (_ownsSource)
         {
             _source.Dispose();
         }
+    }
+
+    /// <summary>Creates the object stream cache once, when the first object stream is read.</summary>
+    /// <returns>The cache.</returns>
+    private ObjectStreamCache CreateObjectStreams()
+    {
+        var created = new ObjectStreamCache();
+        return Interlocked.CompareExchange(ref _objectStreams, created, null) ?? created;
     }
 
     /// <summary>Creates the fallback scratch cache once for a store without an open context.</summary>

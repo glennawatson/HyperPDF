@@ -5,11 +5,14 @@
 namespace HyperPdfLibrary.Content;
 
 /// <summary>
-/// A device that only collects text. The interpreter tells it where each text-showing operator starts, so glyphs group
-/// into the same text objects PDFium makes; it has no use for images.
+/// A device that only collects text. The interpreter tells it where each text-showing operator starts, so glyphs
+/// group into one run per operator; it has no use for images.
 /// </summary>
 internal interface ITextObjectDevice : IContentDevice
 {
+    /// <summary>Gets a value indicating whether the device keeps paths; text collectors never look at them.</summary>
+    bool IContentDevice.RetainsPaths => false;
+
     /// <summary>Marks the start of a text-showing operator (<c>Tj</c>, <c>TJ</c>, <c>'</c> or <c>"</c>).</summary>
     void BeginTextObject();
 }

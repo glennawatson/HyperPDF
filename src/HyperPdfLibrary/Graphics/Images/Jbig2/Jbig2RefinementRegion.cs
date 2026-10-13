@@ -8,7 +8,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
 /// <summary>
 /// The generic refinement region decoding procedure (T.88 section 6.3): templates 0 and 1 with typical prediction. The
-/// context is kept in rolling registers of the region row above and three reference rows, as in PDFium.
+/// context is kept in rolling registers of the region row above and three reference rows, so each pixel shifts in only its new neighbours.
 /// </summary>
 internal static class Jbig2RefinementRegion
 {
@@ -141,8 +141,9 @@ internal static class Jbig2RefinementRegion
     }
 
     /// <summary>
-    /// Determines whether typical prediction gives a pixel: the reference pixel and its eight neighbours all match. As
-    /// PDFium does, the neighbourhood is read without the reference offsets, which are zero wherever TPGRON is set.
+    /// Determines whether typical prediction gives a pixel: the reference pixel and its eight neighbours all match. The
+    /// neighbourhood is read without the reference offsets because both offsets are zero wherever TPGRON can be set: a
+    /// refinement region segment has none (T.88 section 7.4.7.4) and a text region instance turns TPGRON off (table 12).
     /// </summary>
     /// <param name="reference">The reference bitmap.</param>
     /// <param name="x">The column.</param>

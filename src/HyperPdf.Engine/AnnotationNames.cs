@@ -9,7 +9,7 @@ namespace HyperPdf.Engine;
 
 /// <summary>
 /// The names annotation editing uses that the library does not know, interned once in a document's name table. The
-/// <c>PVL</c> keys are the ones the PDFium engine writes, so either engine reads what the other wrote.
+/// <c>PVL</c> keys are private to this viewer, so files it saved earlier keep their edits when reopened.
 /// </summary>
 /// <param name="Subject">The <c>/Subj</c> key.</param>
 /// <param name="Text">The key holding the text of a text box or callout written here.</param>
@@ -17,7 +17,7 @@ namespace HyperPdf.Engine;
 /// <param name="Format">The key holding a formatted text box's format record.</param>
 /// <param name="Removed">The key marking an annotation removed but kept; its value is the flags to restore.</param>
 /// <param name="Anchor">The key holding a callout's text corner.</param>
-/// <param name="PendingReply">The key under which the PDFium engine names a reply's comment until saving.</param>
+/// <param name="PendingReply">The key under which a reply names its comment until saving.</param>
 /// <param name="Callout">The <c>/FreeTextCallout</c> intent.</param>
 /// <param name="TypeWriter">The <c>/FreeTextTypeWriter</c> intent.</param>
 /// <param name="PolygonCloud">The <c>/PolygonCloud</c> intent.</param>

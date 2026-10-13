@@ -9,7 +9,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
 /// Walks a tile's packets in its progression order (ISO 15444-1 B.12), or in the volumes of its POC markers, and hands
-/// each to the packet decoder. The position orders step over the reference grid as PDFium does. A packet seen in an
+/// each to the packet decoder. The position orders step over the reference grid as B.12.1.3 to B.12.1.5 define. A packet seen in an
 /// earlier volume is skipped.
 /// </summary>
 [DebuggerDisplay("JpxProgression: {_layers} layers")]
@@ -27,14 +27,14 @@ internal sealed class JpxProgression
     /// <summary>The result of <see cref="Locate"/> for a precinct outside the grid, which ends the volume.</summary>
     private const int Outside = -2;
 
-    /// <summary>The image geometry.</summary>
-    private readonly JpxGeometry _geometry;
-
     /// <summary>The packet decoder.</summary>
     private readonly JpxPacketDecoder _packets;
 
     /// <summary>The cache this progression walker uses for packet marks.</summary>
     private readonly ScratchPools _scratchPools;
+
+    /// <summary>The image geometry.</summary>
+    private JpxGeometry _geometry;
 
     /// <summary>The tile.</summary>
     private JpxTile _tile = null!;
@@ -68,6 +68,14 @@ internal sealed class JpxProgression
         _geometry = geometry;
         _packets = packets;
         _scratchPools = scratchPools;
+    }
+
+    /// <summary>Points the walker at the image of the next decode.</summary>
+    /// <param name="geometry">The image geometry.</param>
+    internal void Bind(JpxGeometry geometry)
+    {
+        _geometry = geometry;
+        _tile = null!;
     }
 
     /// <summary>Reads every packet of a tile.</summary>

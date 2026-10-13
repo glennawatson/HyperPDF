@@ -23,6 +23,9 @@ public static class StoreOpening
     /// <summary>Gets the header signature.</summary>
     private static ReadOnlySpan<byte> HeaderSignature => "%PDF-"u8;
 
+    /// <summary>Gets the header signature of an FDF file.</summary>
+    private static ReadOnlySpan<byte> FdfSignature => "%FDF-"u8;
+
     /// <summary>Opens a file's objects.</summary>
     /// <param name = "file">The file's bytes; kept, not copied.</param>
     /// <param name = "password">The password, or <see langword="null"/>.</param>
@@ -58,6 +61,21 @@ public static class StoreOpening
         return StoreOpening.Open(source, ownsSource, new(options.Password, options.Certificate, PdfOpenContext.Create(options)));
     }
 
+    /// <summary>Opens the objects of a file read from a source, with a token that replaces the options' token.</summary>
+    /// <param name = "source">The file.</param>
+    /// <param name = "ownsSource">Whether the store disposes the source, including when opening fails.</param>
+    /// <param name = "options">The options.</param>
+    /// <param name = "cancellationToken">The token for the open and later decoding of the document's streams.</param>
+    /// <returns>The objects.</returns>
+    /// <exception cref = "PdfException">The file is not a readable PDF, or neither the password nor the certificate opens it.</exception>
+    /// <exception cref = "OperationCanceledException">The token was cancelled.</exception>
+    internal static PdfObjectStore OpenWith(PdfByteSource source, bool ownsSource, PdfOpenOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(options);
+        return StoreOpening.Open(source, ownsSource, new(options.Password, options.Certificate, PdfOpenContext.Create(options, cancellationToken)));
+    }
+
     /// <summary>Opens a file's objects.</summary>
     /// <param name = "file">The file's bytes; kept, not copied.</param>
     /// <param name = "password">The password for the standard security handler, or <see langword="null"/>.</param>
@@ -77,13 +95,13 @@ public static class StoreOpening
     /// <param name = "credentials">The password, certificate and context.</param>
     /// <returns>The objects.</returns>
     /// <exception cref = "PdfException">The file is not a readable PDF, or neither the password nor the certificate opens it.</exception>
-    internal static PdfObjectStore Open(PdfByteSource source, bool ownsSource, OpenCredentials credentials)
+    internal static PdfObjectStore Open(PdfByteSource source, bool ownsSource, in OpenCredentials credentials)
     {
         var store = new PdfObjectStore(source, ownsSource, new XrefTable());
         try
         {
             store.Context = credentials.Context;
-            StoreOpening.ReadHeader(store);
+            StoreOpening.ReadHeader(store, credentials.IsFdf);
             StoreOpening.ReadStructure(store);
             StoreOpening.Authenticate(store, credentials.Password, credentials.Certificate);
             store.Catalog = StoreRepairs.FindCatalog(store) ?? throw new PdfException(PdfError.Format, "The document has no catalog.");
@@ -96,6 +114,14 @@ public static class StoreOpening
         }
     }
 
+    /// <summary>Opens the objects of an FDF file, which are written as a PDF file's are but start with <c>%FDF-</c>.</summary>
+    /// <param name = "file">The file's bytes; kept, not copied.</param>
+    /// <returns>The objects.</returns>
+    /// <exception cref = "PdfException">The file is not a readable FDF file.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfObjectStore OpenFdf(byte[] file) =>
+        StoreOpening.Open(new MemoryPdfByteSource(file), true, new(null, null, PdfOpenContext.Create(PdfOpenOptions.Default), true));
+
     /// <summary>Reads the version digits after the header signature.</summary>
     /// <param name = "bytes">The bytes after "%PDF-".</param>
     /// <returns>The version, for example "1.7".</returns>
@@ -107,7 +133,20 @@ public static class StoreOpening
             length++;
         }
 
-        return Encoding.UTF8.GetString(bytes[..length]);
+        // Every version the standards define is a shared constant; only an unusual header allocates.
+        return bytes[..length] switch
+        {
+            [(byte)'1', (byte)'.', (byte)'0'] => "1.0",
+            [(byte)'1', (byte)'.', (byte)'1'] => "1.1",
+            [(byte)'1', (byte)'.', (byte)'2'] => "1.2",
+            [(byte)'1', (byte)'.', (byte)'3'] => "1.3",
+            [(byte)'1', (byte)'.', (byte)'4'] => "1.4",
+            [(byte)'1', (byte)'.', (byte)'5'] => "1.5",
+            [(byte)'1', (byte)'.', (byte)'6'] => "1.6",
+            [(byte)'1', (byte)'.', (byte)'7'] => "1.7",
+            [(byte)'2', (byte)'.', (byte)'0'] => "2.0",
+            _ => Encoding.UTF8.GetString(bytes[..length]),
+        };
     }
 
     /// <summary>Throws the exception for a failed authentication.</summary>
@@ -120,6 +159,11 @@ public static class StoreOpening
             case PdfSecurityResult.UnsupportedHandler:
                 {
                     throw new PdfException(PdfError.Security, "The document uses an unsupported security handler.");
+                }
+
+            case PdfSecurityResult.UnsupportedCipher:
+                {
+                    throw new PdfException(PdfError.Security, "The document uses AES-GCM encryption (ISO/TS 32003), which this computer's cryptography library does not support.");
                 }
 
             case PdfSecurityResult.WrongPassword:
@@ -137,6 +181,21 @@ public static class StoreOpening
                     throw new PdfException(PdfError.Format, "The document's encryption dictionary is damaged.");
                 }
 
+            case PdfSecurityResult.PrivateKeyRequired:
+                {
+                    throw new PdfException(PdfError.Certificate, "This certificate can open the document, but its private key is missing. Choose a certificate file that includes the private key.");
+                }
+
+            case PdfSecurityResult.UnsupportedRecipient:
+                {
+                    throw new PdfException(PdfError.Certificate, "This certificate can open the document, but the document locks it with a key type or encryption method that is not supported.");
+                }
+
+            case PdfSecurityResult.RecipientDamaged:
+                {
+                    throw new PdfException(PdfError.Certificate, "The document's certificate encryption data is damaged, or it does not match this certificate's private key.");
+                }
+
             default:
                 {
                     return;
@@ -146,12 +205,14 @@ public static class StoreOpening
 
     /// <summary>Finds the <c>%PDF-</c> header near the start of the file and reads the version after it.</summary>
     /// <param name = "self">The owned object-store state.</param>
+    /// <param name = "isFdf">Whether to look for the FDF header <c>%FDF-</c>, which has the length of the PDF one.</param>
     /// <exception cref = "PdfException">There is no header.</exception>
-    internal static void ReadHeader(PdfObjectStore self)
+    internal static void ReadHeader(PdfObjectStore self, bool isFdf)
     {
         using var start = self.Source.Lease(0, (int)Math.Min(self.Source.Length, StoreParsing.InitialWindow));
         var span = start.Span;
-        var header = span[..Math.Min(span.Length, StoreOpening.HeaderSearchLength)].IndexOf(StoreOpening.HeaderSignature);
+        var signature = isFdf ? StoreOpening.FdfSignature : StoreOpening.HeaderSignature;
+        var header = span[..Math.Min(span.Length, StoreOpening.HeaderSearchLength)].IndexOf(signature);
         if (header < 0)
         {
             throw new PdfException(PdfError.Format, "The file is not a PDF document.");
@@ -164,7 +225,7 @@ public static class StoreOpening
             PdfOpenContext.Report(self.Context, PdfDiagnosticCode.HeaderOffset, "The PDF header is not at the start of the file.", 0, header);
         }
 
-        self.Version = StoreOpening.ReadVersion(span[(header + StoreOpening.HeaderSignature.Length)..]);
+        self.Version = StoreOpening.ReadVersion(span[(header + signature.Length)..]);
     }
 
     /// <summary>Reads the cross-reference sections, rebuilding them by scanning when they are damaged.</summary>
@@ -172,8 +233,8 @@ public static class StoreOpening
     /// <exception cref = "PdfException">No trailer could be found.</exception>
     internal static void ReadStructure(PdfObjectStore self)
     {
-        var table = new XrefTable();
-        self.XrefState = table;
+        // The store is new and its table is still empty, so the sections are read into it.
+        var table = self.XrefState;
         if (!XrefReader.TryRead(self.Source, self, table) || !StoreOpening.RootResolves(self, table))
         {
             if (self.Context is { Recovery: false })
@@ -193,7 +254,8 @@ public static class StoreOpening
             throw new PdfException(PdfError.Format, "The document is too damaged to read.");
         }
 
-        self.CacheState = new object?[self.XrefState.Size];
+        // The check of /Root may have sized the cache already; it is emptied rather than replaced when the size matches.
+        StoreOpening.ResetCache(self, self.XrefState.Size);
         self.NextNumberState = self.XrefState.Size;
     }
 
@@ -216,8 +278,22 @@ public static class StoreOpening
             return true;
         }
 
-        self.CacheState = new object?[table.Size];
+        StoreOpening.ResetCache(self, table.Size);
         return StoreReading.Load(self, number).Kind == PdfKind.Dictionary;
+    }
+
+    /// <summary>Empties the parsed object cache, or replaces it when the table has a different size.</summary>
+    /// <param name = "self">The owned object-store state.</param>
+    /// <param name = "size">The number of object slots wanted.</param>
+    internal static void ResetCache(PdfObjectStore self, int size)
+    {
+        if (self.CacheState.Length == size)
+        {
+            Array.Clear(self.CacheState);
+            return;
+        }
+
+        self.CacheState = new object?[size];
     }
 
     /// <summary>Creates the security handler when the document is encrypted.</summary>
@@ -236,11 +312,20 @@ public static class StoreOpening
         var firstId = self.Trailer.GetArray(KnownName.ID) is { } ids ? ids.Get(0).AsStringBytes() : [];
         var result = PdfSecurityHandler.TryCreate(encrypt, firstId, password, certificate, out var handler);
         StoreOpening.ThrowIfFailed(result);
+        StoreOpening.Adopt(self, handler, encrypt);
+    }
+
+    /// <summary>Starts decrypting a store that read its structure without a key, and parses again what it parsed before.</summary>
+    /// <param name = "self">The owned object-store state.</param>
+    /// <param name = "handler">The security handler with the key.</param>
+    /// <param name = "encrypt">The /Encrypt dictionary parsed without a key.</param>
+    internal static void Adopt(PdfObjectStore self, PdfSecurityHandler? handler, PdfDictionary encrypt)
+    {
         self.Security = handler;
 
         // Objects parsed before the key was known hold encrypted strings; parse them again.
-        self.CacheState = new object?[self.CacheState.Length];
-        self.ObjectStreamsState.Clear();
+        StoreOpening.ResetCache(self, self.CacheState.Length);
+        self.ObjectStreamsIfCreated?.Clear();
         StoreRepairs.IndexCompressedAfterAuthentication(self);
         if (!self.Trailer.GetRaw(KnownName.Encrypt).IsReference)
         {

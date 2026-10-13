@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Fonts.Data;
@@ -52,6 +53,7 @@ internal sealed class FormFont
     private FormFont(string name, PdfValue resource, float[] widths, FormFontMetrics metrics, PdfFont? font, FormCodeMap? codeMap)
     {
         Name = name;
+        NameBytes = Encoding.UTF8.GetBytes(name);
         Resource = resource;
         _widths = widths;
         Ascent = metrics.Ascent;
@@ -63,6 +65,12 @@ internal sealed class FormFont
 
     /// <summary>Gets the name in the resources' <c>/Font</c> dictionary.</summary>
     internal string Name { get; }
+
+    /// <summary>Gets the UTF-8 bytes of <see cref="Name"/>, to show the font in content.</summary>
+    internal byte[] NameBytes { get; }
+
+    /// <summary>Gets a value indicating whether this is the built-in Helvetica standing in for a font the document does not have.</summary>
+    internal bool IsFallback { get; init; }
 
     /// <summary>Gets the value to store under <see cref="Name"/>.</summary>
     internal PdfValue Resource { get; }
@@ -104,16 +112,16 @@ internal sealed class FormFont
     /// <summary>Creates the built-in Helvetica font.</summary>
     /// <param name="store">The document's objects.</param>
     /// <returns>The font.</returns>
-    internal static FormFont CreateFallback(PdfObjectStore store)
-    {
-        var dictionary = new PdfDictionary(store);
-        dictionary.Set(KnownName.Type, PdfValue.FromName(KnownName.Font));
-        dictionary.Set(KnownName.Subtype, PdfValue.FromName(KnownName.Type1));
-        dictionary.Set(KnownName.BaseFont, PdfValue.FromName(store.Names.Intern("Helvetica"u8)));
-        dictionary.Set(KnownName.Encoding, PdfValue.FromName(KnownName.WinAnsiEncoding));
-        var metrics = StandardFonts.Get(StandardFont.Helvetica);
-        return new(FallbackName, PdfValue.FromDictionary(dictionary), BuildStandardWidths(metrics), new(metrics.Ascent, metrics.Descent, LineHeightOf(metrics)), null, null);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormFont CreateFallback(PdfObjectStore store) =>CreateStandard(store, StandardFont.Helvetica, FallbackName, true);
+
+    /// <summary>Creates one of the standard 14 fonts, written in WinAnsi.</summary>
+    /// <param name="store">The document's objects.</param>
+    /// <param name="font">The standard font.</param>
+    /// <param name="name">The name to give it in the resources' <c>/Font</c> dictionary.</param>
+    /// <returns>The font.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormFont CreateStandard(PdfObjectStore store, StandardFont font, string name) =>CreateStandard(store, font, name, false);
 
     /// <summary>Encodes field text for the font; line breaks are kept as single line feeds.</summary>
     /// <param name="text">The text.</param>
@@ -121,20 +129,46 @@ internal sealed class FormFont
     internal FormCodes Encode(string text)
     {
         var unitBytes = _codeMap?.UnitBytes ?? 1;
+        var variable = unitBytes == 0;
+        var feed = new FormCode(FormEncoding.LineFeed, variable ? 1 : unitBytes);
         var runes = SplitRunes(text);
-        var bytes = new byte[runes.Count * unitBytes];
         var widths = new float[runes.Count];
         var kinds = new byte[runes.Count];
+        var codes = new FormCode[runes.Count];
+        var offsets = new int[runes.Count + 1];
         for (var i = 0; i < runes.Count; i++)
         {
             var kind = KindOf(runes[i]);
-            var code = kind == FormCodes.LineFeed ? FormEncoding.LineFeed : GetCode(kind == FormCodes.Space ? new Rune(' ') : runes[i]);
-            WriteUnit(bytes, i * unitBytes, unitBytes, code);
-            widths[i] = kind == FormCodes.LineFeed ? 0 : GetCodeWidth(code);
+            codes[i] = kind == FormCodes.LineFeed ? feed : GetCode(kind == FormCodes.Space ? new Rune(' ') : runes[i]);
+            widths[i] = kind == FormCodes.LineFeed ? 0 : GetCodeWidth(codes[i].Value);
             kinds[i] = kind;
+            offsets[i + 1] = offsets[i] + codes[i].Length;
         }
 
-        return new(bytes, unitBytes, widths, kinds);
+        var bytes = new byte[offsets[runes.Count]];
+        for (var i = 0; i < codes.Length; i++)
+        {
+            WriteUnit(bytes, offsets[i], codes[i]);
+        }
+
+        return variable ? new(bytes, offsets, widths, kinds) : new(bytes, unitBytes, widths, kinds);
+    }
+
+    /// <summary>Creates a standard 14 font.</summary>
+    /// <param name="store">The document's objects.</param>
+    /// <param name="font">The standard font.</param>
+    /// <param name="name">The name in the resources' <c>/Font</c> dictionary.</param>
+    /// <param name="isFallback">Whether the font stands in for one the document does not have.</param>
+    /// <returns>The font.</returns>
+    private static FormFont CreateStandard(PdfObjectStore store, StandardFont font, string name, bool isFallback)
+    {
+        var metrics = StandardFonts.Get(font);
+        var dictionary = new PdfDictionary(store);
+        dictionary.Set(KnownName.Type, PdfValue.FromName(KnownName.Font));
+        dictionary.Set(KnownName.Subtype, PdfValue.FromName(KnownName.Type1));
+        dictionary.Set(KnownName.BaseFont, PdfValue.FromName(store.Names.Intern(metrics.Name)));
+        dictionary.Set(KnownName.Encoding, PdfValue.FromName(KnownName.WinAnsiEncoding));
+        return new(name, PdfValue.FromDictionary(dictionary), BuildStandardWidths(metrics), new(metrics.Ascent, metrics.Descent, LineHeightOf(metrics)), null, null) { IsFallback = isFallback };
     }
 
     /// <summary>Finds a font in a resources dictionary's <c>/Font</c> entry.</summary>
@@ -278,24 +312,23 @@ internal sealed class FormFont
     /// <summary>Writes one code, high byte first.</summary>
     /// <param name="bytes">The encoded bytes.</param>
     /// <param name="offset">Where the code goes.</param>
-    /// <param name="unitBytes">The bytes in a code.</param>
-    /// <param name="code">The code.</param>
-    private static void WriteUnit(byte[] bytes, int offset, int unitBytes, int code)
+    /// <param name="code">The code and its length.</param>
+    private static void WriteUnit(byte[] bytes, int offset, FormCode code)
     {
-        for (var i = 0; i < unitBytes; i++)
+        for (var i = 0; i < code.Length; i++)
         {
-            bytes[offset + unitBytes - 1 - i] = (byte)(code >> (i * BitsPerByte));
+            bytes[offset + code.Length - 1 - i] = (byte)(code.Value >> (i * BitsPerByte));
         }
     }
 
     /// <summary>Finds the code a character is shown with.</summary>
     /// <param name="rune">The character.</param>
     /// <returns>The code; a question mark, or the font's first code, when the font has no such character.</returns>
-    private int GetCode(Rune rune)
+    private FormCode GetCode(Rune rune)
     {
         if (_codeMap is null)
         {
-            return rune.IsBmp ? FormEncoding.EncodeCharacter((char)rune.Value) : '?';
+            return new(rune.IsBmp ? FormEncoding.EncodeCharacter((char)rune.Value) : '?', 1);
         }
 
         if (_codeMap.TryGetCode(rune, out var code))
@@ -303,7 +336,7 @@ internal sealed class FormFont
             return code;
         }
 
-        return _codeMap.TryGetCode(new('?'), out var question) ? question : 0;
+        return _codeMap.TryGetCode(new('?'), out var question) ? question : new(0, Math.Max(1, _codeMap.UnitBytes));
     }
 
     /// <summary>Gets the width of a code.</summary>

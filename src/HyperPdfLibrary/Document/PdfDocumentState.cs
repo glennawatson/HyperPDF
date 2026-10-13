@@ -6,11 +6,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Features;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Layers;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Rendering;
+using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Signatures;
 using HyperPdfLibrary.Structure.Tagged;
 using HyperPdfLibrary.Text;
@@ -23,6 +25,9 @@ internal record struct PdfDocumentState
     /// <summary>The pages and their indexes by object number; read again after an edit transaction ends.</summary>
     private PdfPageSet? _pageSet;
 
+    /// <summary>The pages an edit that changed the page tree in place leaves, taken by the next invalidation instead of reading the tree again.</summary>
+    private PdfPageSet? _nextPageSet;
+
     /// <summary>The attachment snapshot until structural invalidation.</summary>
     private PdfAttachment[]? _attachments;
 
@@ -34,6 +39,9 @@ internal record struct PdfDocumentState
 
     /// <summary>Parsed page label ranges until structural invalidation.</summary>
     private PageLabelRange[]? _labelRanges;
+
+    /// <summary>The separation groups until structural invalidation.</summary>
+    private PdfSeparationInfo? _separations;
 
     /// <summary>Optional content state until structural invalidation.</summary>
     private PdfOptionalContent? _optionalContent;
@@ -55,6 +63,9 @@ internal record struct PdfDocumentState
 
     /// <summary>Page content edit count used in renderer cache keys.</summary>
     private int _pageContentEdits;
+
+    /// <summary>Counts the times the objects were reported changed; caches of values made from objects compare it to know they are stale.</summary>
+    private int _objectsRevision;
 
     /// <summary>The document-owned cache for content operations outside page renderers.</summary>
     private PdfRenderCache? _renderCache;
@@ -80,6 +91,9 @@ internal record struct PdfDocumentState
     /// <summary>The lazily read document revisions.</summary>
     private PdfRevision[]? _revisions;
 
+    /// <summary>The PDF MAC check of the opened bytes, read on first use.</summary>
+    private PdfMacReport? _macReport;
+
     /// <summary>The structure tree read, or <see langword="null"/> before it is read.</summary>
     private StructureTreeRead? _structureTree;
 
@@ -95,10 +109,14 @@ internal record struct PdfDocumentState
     /// <summary>1 once the owning document is disposed.</summary>
     private int _disposed;
 
-    /// <summary>Initializes a new instance of the <see cref="PdfDocumentState"/> struct.</summary>
-    public PdfDocumentState()
-    {
-    }
+    /// <summary>The lock that synchronizes tracked page renderers, made on first use.</summary>
+    private Lock? _renderersGate;
+
+    /// <summary>The weakly tracked page renderers, made with the first one.</summary>
+    private List<WeakReference<PdfPageRenderer>>? _renderers;
+
+    /// <summary>The lock that synchronizes structure tree initialization, made on first use.</summary>
+    private Lock? _structureGate;
 
     /// <summary>Gets the owning document's disposal flag.</summary>
     [UnscopedRef]
@@ -107,6 +125,10 @@ internal record struct PdfDocumentState
     /// <summary>Gets the cached page set storage for publication and invalidation.</summary>
     [UnscopedRef]
     internal ref PdfPageSet? PageSet => ref _pageSet;
+
+    /// <summary>Gets the storage for the pages an in-place page tree edit hands to the next invalidation.</summary>
+    [UnscopedRef]
+    internal ref PdfPageSet? NextPageSet => ref _nextPageSet;
 
     /// <summary>Gets storage for the attachment snapshot until structural invalidation.</summary>
     [UnscopedRef]
@@ -123,6 +145,10 @@ internal record struct PdfDocumentState
     /// <summary>Gets storage for parsed page label ranges until structural invalidation.</summary>
     [UnscopedRef]
     internal ref PageLabelRange[]? LabelRanges => ref _labelRanges;
+
+    /// <summary>Gets storage for the separation groups until structural invalidation.</summary>
+    [UnscopedRef]
+    internal ref PdfSeparationInfo? Separations => ref _separations;
 
     /// <summary>Gets storage for optional content state until structural invalidation.</summary>
     [UnscopedRef]
@@ -152,11 +178,18 @@ internal record struct PdfDocumentState
     [UnscopedRef]
     internal ref int PageContentEdits => ref _pageContentEdits;
 
-    /// <summary>Gets the lock that synchronizes tracked page renderers.</summary>
-    internal Lock RenderersGate { get; } = new();
+    /// <summary>Gets storage for the count of reported object changes, which <see cref="PdfDocumentEditing"/> raises with every invalidation.</summary>
+    [UnscopedRef]
+    internal ref int ObjectsRevision => ref _objectsRevision;
 
-    /// <summary>Gets the weakly tracked page renderers for disposal.</summary>
-    internal List<WeakReference<PdfPageRenderer>> Renderers { get; } = [];
+    /// <summary>Gets the lock that synchronizes tracked page renderers; made on first use.</summary>
+    internal Lock RenderersGate => Volatile.Read(ref _renderersGate) ?? CreateGate(ref _renderersGate);
+
+    /// <summary>Gets the lock that synchronizes tracked page renderers, or <see langword="null"/> when nothing has used it yet.</summary>
+    internal Lock? RenderersGateIfCreated => Volatile.Read(ref _renderersGate);
+
+    /// <summary>Gets the weakly tracked page renderers for disposal; made on first use, and read or changed only while holding <see cref="RenderersGate"/>.</summary>
+    internal List<WeakReference<PdfPageRenderer>> Renderers => _renderers ??= [];
 
     /// <summary>Gets storage for normal render caches indexed by their immutable options.</summary>
     [UnscopedRef]
@@ -190,8 +223,12 @@ internal record struct PdfDocumentState
     [UnscopedRef]
     internal ref PdfRevision[]? Revisions => ref _revisions;
 
-    /// <summary>Gets the lock that synchronizes structure tree initialization.</summary>
-    internal Lock StructureGate { get; } = new();
+    /// <summary>Gets storage for the PDF MAC check of the opened bytes.</summary>
+    [UnscopedRef]
+    internal ref PdfMacReport? MacReport => ref _macReport;
+
+    /// <summary>Gets the lock that synchronizes structure tree initialization; made on first use.</summary>
+    internal Lock StructureGate => Volatile.Read(ref _structureGate) ?? CreateGate(ref _structureGate);
 
     /// <summary>Gets storage for the structure tree read, which stays <see langword="null"/> until the tree is read.</summary>
     [UnscopedRef]
@@ -208,4 +245,13 @@ internal record struct PdfDocumentState
     /// <summary>Gets storage for one reusable text build state.</summary>
     [UnscopedRef]
     internal ref TextPageBuildState? TextBuild => ref _textBuild;
+
+    /// <summary>Makes a lock once and publishes it.</summary>
+    /// <param name="slot">The field that holds the lock.</param>
+    /// <returns>The lock in the field.</returns>
+    private static Lock CreateGate(ref Lock? slot)
+    {
+        var created = new Lock();
+        return Interlocked.CompareExchange(ref slot, created, null) ?? created;
+    }
 }

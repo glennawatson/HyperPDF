@@ -8,7 +8,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
 /// <summary>
 /// The text region decoding procedure (T.88 section 6.4): symbol instances placed in strips, arithmetic or Huffman
-/// coded, optionally refined. Coordinates and overflow checks follow PDFium.
+/// coded, optionally refined. Coordinates are 64-bit and must fit a 32-bit integer when placed.
 /// </summary>
 internal static partial class Jbig2TextRegion
 {
@@ -50,8 +50,8 @@ internal static partial class Jbig2TextRegion
 
     /// <summary>
     /// Gets the S advance before an instance is placed: its width less one when right corners are used across, or its
-    /// height less one when bottom corners are used down. The arithmetic is unsigned, as in PDFium, so an empty
-    /// instance pushes the position out of range.
+    /// height less one when bottom corners are used down (T.88 section 6.4.5 steps 3 c vi to viii). The arithmetic is
+    /// signed, so an empty instance moves the position back by one.
     /// </summary>
     /// <param name="settings">The region parameters.</param>
     /// <param name="width">The instance width.</param>
@@ -63,10 +63,10 @@ internal static partial class Jbig2TextRegion
         var bottom = settings.Corner is Jbig2Corner.BottomLeft or Jbig2Corner.BottomRight;
         if (!settings.Transposed && right)
         {
-            return (uint)(width - 1);
+            return width - 1L;
         }
 
-        return settings.Transposed && bottom ? (uint)(height - 1) : 0;
+        return settings.Transposed && bottom ? height - 1L : 0;
     }
 
     /// <summary>Gets where an instance goes and how far the S coordinate moves after it (T.88 6.4.5 step 3 c).</summary>
@@ -78,8 +78,8 @@ internal static partial class Jbig2TextRegion
     /// <returns>The origin and the advance along the strip.</returns>
     private static Origin GetOrigin(Jbig2TextRegionSettings settings, long s, long t, int width, int height)
     {
-        long across = (uint)(width - 1);
-        long down = (uint)(height - 1);
+        var across = width - 1L;
+        var down = height - 1L;
         return !settings.Transposed
             ? settings.Corner switch
             {
@@ -97,7 +97,7 @@ internal static partial class Jbig2TextRegion
         };
     }
 
-    /// <summary>Checks that a coordinate fits a 32-bit integer, as PDFium's checked arithmetic does.</summary>
+    /// <summary>Checks that a coordinate fits a 32-bit integer, the range of the standard's coordinates.</summary>
     /// <param name="value">The value.</param>
     /// <param name="result">The value as an integer.</param>
     /// <returns><see langword="false"/> when it does not fit.</returns>
@@ -140,7 +140,7 @@ internal static partial class Jbig2TextRegion
         /// <param name="settings">The region parameters.</param>
         /// <param name="size">The refined size; zero when it is not a valid size.</param>
         /// <param name="parameters">The refinement parameters.</param>
-        /// <returns><see langword="false"/> when a size or offset overflows, as PDFium checks.</returns>
+        /// <returns><see langword="false"/> when a size or offset overflows.</returns>
         internal bool TryGetParameters(Jbig2BitmapView reference, Jbig2TextRegionSettings settings, out Size size, out Jbig2RefinementParameters parameters)
         {
             var width = (long)reference.Width + DeltaWidth;

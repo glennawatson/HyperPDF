@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Ocr;
+using HyperPdf.Core.Tests.Fakes;
 
 namespace HyperPdf.Core.Tests.Ocr;
 
@@ -75,6 +76,22 @@ public sealed class OcrRunnerTests
         await Assert.That(grey[^1]).IsEqualTo(byte.MaxValue);
     }
 
+    /// <summary>A cancelled token stops the recognition before the page is rendered or the recogniser runs.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CancelledTokenStopsRecognition()
+    {
+        using var document = new FakeDocument("scan.pdf", FakeEngine.A4) { PageText = string.Empty };
+        using var engine = new CountingEngine();
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        List<OcrWord> words = [];
+
+        await Assert.That(() => OcrRunner.RecognizeWords(document, engine, 0, words, cancelled.Token)).Throws<OperationCanceledException>();
+        await Assert.That(document.RenderCount).IsEqualTo(0);
+        await Assert.That(engine.Calls).IsEqualTo(0);
+    }
+
     /// <summary>Verifies the mean word confidence, which decides whether to ask for the document's language.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -87,5 +104,26 @@ public sealed class OcrRunnerTests
 
         await Assert.That(OcrRunner.AverageConfidence(words)).IsEqualTo(mean);
         await Assert.That(OcrRunner.AverageConfidence([])).IsEqualTo(0F);
+    }
+
+    /// <summary>A recogniser that counts the images it is given.</summary>
+    private sealed class CountingEngine : IOcrEngine
+    {
+        /// <inheritdoc/>
+        public bool IsAvailable => true;
+
+        /// <inheritdoc/>
+        public OcrEngineStatus Status => OcrEngineStatus.Ready;
+
+        /// <summary>Gets the images recognised.</summary>
+        internal int Calls { get; private set; }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void Recognize(ReadOnlySpan<byte> image, int width, int height, float pixelsPerPoint, List<OcrWord> output) => Calls++;
     }
 }

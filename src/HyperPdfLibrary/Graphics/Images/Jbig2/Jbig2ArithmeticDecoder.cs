@@ -9,7 +9,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 /// <summary>
 /// The MQ arithmetic decoder of T.88 annex E. Each context is one byte: the probability state index in the low bits and
 /// the more probable symbol in the top bit, so a zeroed buffer is a set of fresh contexts. Past the end of the data it
-/// reads 0xFF bytes and sets <see cref="IsComplete"/>, as PDFium does, so callers can stop instead of decoding noise.
+/// reads 0xFF bytes (as at a marker, annex E.3.4) and sets <see cref="IsComplete"/>, so callers can stop instead of decoding noise.
 /// </summary>
 internal ref struct Jbig2ArithmeticDecoder
 {

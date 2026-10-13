@@ -9,7 +9,7 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Annotations;
 
 /// <summary>
-/// Reads and edits a page's <c>/Annots</c> array. An annotation's index is its position in the array, as in PDFium.
+/// Reads and edits a page's <c>/Annots</c> array. An annotation's index is its position in the array.
 /// Edits are copy-on-write: the array, or the page holding it, is copied, changed and put back into the document's
 /// objects, so readers never see a half-changed array. Callers serialise edits to one document.
 /// </summary>

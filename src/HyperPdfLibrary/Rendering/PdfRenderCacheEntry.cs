@@ -11,7 +11,7 @@ internal sealed class PdfRenderCacheEntry
     /// <param name="key">The settings that identify the cache.</param>
     /// <param name="cache">The cache owned by the document while renderers use it.</param>
     /// <param name="usesOutputIntent">Whether its content uses the document's output intent.</param>
-    internal PdfRenderCacheEntry(PdfRenderCacheKey key, PdfRenderCache cache, bool usesOutputIntent)
+    internal PdfRenderCacheEntry(in PdfRenderCacheKey key, PdfRenderCache cache, bool usesOutputIntent)
     {
         Key = key;
         Cache = cache;

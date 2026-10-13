@@ -5,11 +5,11 @@
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Threading;
 using HyperPdf.Core.Rendering;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
+using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Rendering;
@@ -81,7 +81,7 @@ public sealed class RenderHub : IDisposable
             return;
         }
 
-        Dispatcher.UIThread.Post(RecoverSoftwareOnUi, DispatcherPriority.Background);
+        _ = Signal.Return(RxVoid.Default).ObserveOn(AvaloniaScheduler.Instance).SubscribeSafe(_ => RecoverSoftwareOnUi(), static ex => Trace.TraceError(ex.ToString()));
     }
 
     /// <summary>Releases a document's tiles and starts a frame so its GPU images retire on the owning context.</summary>

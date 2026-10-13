@@ -20,7 +20,7 @@ internal static class HyperPdfDocumentContentInspection
         }
 
         var content = PdfDocumentContent.HasXfaForm(self.Document) ? UnsupportedContent.XfaForm : UnsupportedContent.None;
-        return PdfDocumentContent.GetJavaScriptActionCount(self.Document) > 0 ? content | UnsupportedContent.JavaScript : content;
+        return PdfDocumentContent.HasJavaScriptActions(self.Document) ? content | UnsupportedContent.JavaScript : content;
     }
 
     /// <summary>Checks one page's annotations and field scripts.</summary>
@@ -29,6 +29,7 @@ internal static class HyperPdfDocumentContentInspection
     /// <returns>What on the page cannot be shown or run.</returns>
     internal static UnsupportedContent CheckPage(HyperPdfDocument self, int pageIndex)
     {
+        using var access = HyperPdfNavigation.EnterPageRead(self);
         if (self.IsDisposed || (uint)pageIndex >= (uint)self.PageCount)
         {
             return UnsupportedContent.None;

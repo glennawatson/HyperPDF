@@ -6,10 +6,10 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
+using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.ObservableEvents;
 
 namespace HyperPdf.App.Controls;
 
@@ -18,7 +18,7 @@ namespace HyperPdf.App.Controls;
 /// ease. Long jumps cover most of the distance at once, so only the last stretch moves.
 /// </summary>
 [DebuggerDisplay("ThumbnailListBox: Selected thumbnail: {SelectedIndex}")]
-public sealed class ThumbnailListBox : ListBox
+public sealed class ThumbnailListBox : ListBox, IActivatableView
 {
     /// <summary>Defines the <see cref="ReduceMotion"/> property.</summary>
     public static readonly StyledProperty<bool> ReduceMotionProperty = AvaloniaProperty.Register<ThumbnailListBox, bool>(nameof(ReduceMotion));
@@ -34,9 +34,6 @@ public sealed class ThumbnailListBox : ListBox
 
     /// <summary>The offset before an unrealized selection is brought into view.</summary>
     private double? _pendingOffset;
-
-    /// <summary>Selection subscriptions while attached.</summary>
-    private MultipleDisposable? _subscriptions;
 
     /// <summary>The offset the current ease started from.</summary>
     private double _easeFrom;
@@ -54,10 +51,11 @@ public sealed class ThumbnailListBox : ListBox
     public ThumbnailListBox()
     {
         AutoScrollToSelectedItem = false;
-
-        // These live as long as the control and only reference it, so they need no owner.
-        _ = this.Events().AttachedToVisualTree.SubscribeSafe(_ => Attach(), OnError);
-        _ = this.Events().DetachedFromVisualTree.SubscribeSafe(_ => Detach(), OnError);
+        _ = this.WhenActivated(disposables =>
+        {
+            disposables.Add(this.WhenChanged(static x => x.SelectedIndex).Skip(1).SubscribeSafe(_ => OnSelectionChanged(), OnError));
+            disposables.Add(Scope.Create(this, static list => list.StopFollowing()));
+        });
     }
 
     /// <summary>Gets or sets a value indicating whether the list jumps to the selection instead of easing.</summary>
@@ -87,18 +85,9 @@ public sealed class ThumbnailListBox : ListBox
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
-    /// <summary>Follows selection changes while attached.</summary>
-    private void Attach() =>
-        _subscriptions =
-        [
-            this.WhenChanged(static x => x.SelectedIndex).Skip(1).SubscribeSafe(_ => OnSelectionChanged(), OnError),
-        ];
-
     /// <summary>Stops following the selection.</summary>
-    private void Detach()
+    private void StopFollowing()
     {
-        _subscriptions?.Dispose();
-        _subscriptions = null;
         _pendingOffset = null;
         _ = Interlocked.Exchange(ref _easing, 0);
     }

@@ -97,12 +97,12 @@ internal sealed class Jbig2Segment : IDisposable
         Bitmap?.Dispose();
     }
 
-    /// <summary>Parses a segment header (T.88 section 7.2), with PDFium's checks.</summary>
+    /// <summary>Parses a segment header (T.88 section 7.2).</summary>
     /// <param name="reader">The reader, at the header.</param>
     /// <returns>The segment, or <see langword="null"/> when the header is damaged.</returns>
     internal static Jbig2Segment? Parse(ref Jbig2Reader reader)
     {
-        if (!reader.TryReadUInt32(out var number) || !reader.TryReadByte(out var flags) || !TryReadReferredCount(ref reader, out var count)
+        if (!reader.TryReadUInt32(out var number) || !reader.TryReadByte(out var flags) || !TryReadReferredCount(ref reader, number, out var count)
             || TryReadReferred(ref reader, number, count) is not { } referred)
         {
             return null;
@@ -152,25 +152,37 @@ internal sealed class Jbig2Segment : IDisposable
 
     /// <summary>Reads the referred-to segment count and skips the retention flags.</summary>
     /// <param name="reader">The reader.</param>
+    /// <param name="number">The segment's own number.</param>
     /// <param name="count">The count.</param>
-    /// <returns><see langword="false"/> when the data ends or the count passes <see cref="Jbig2Limits.MaxReferredSegments"/>.</returns>
-    private static bool TryReadReferredCount(ref Jbig2Reader reader, out int count)
+    /// <returns>
+    /// <see langword="false"/> when the data ends or the count is impossible. A segment refers only to lower-numbered
+    /// segments (T.88 section 7.2.5), so the count cannot pass its own number, and the numbers it lists must fit in the
+    /// data that is left (7.2.4), which together bound the count without a fixed limit.
+    /// </returns>
+    private static bool TryReadReferredCount(ref Jbig2Reader reader, uint number, out int count)
     {
         count = 0;
         if (reader.PeekByte() >> CountShift != LongCount)
         {
             var read = reader.TryReadByte(out var value);
             count = value >> CountShift;
-            return read;
+            return read && count <= number;
         }
 
-        if (!reader.TryReadUInt32(out var longCount) || (longCount & LongCountMask) > Jbig2Limits.MaxReferredSegments)
+        if (!reader.TryReadUInt32(out var longCount))
         {
             return false;
         }
 
-        count = (int)(longCount & LongCountMask);
-        reader.Skip((count + ByteBits) / ByteBits);
+        var declared = longCount & LongCountMask;
+        var retentionBytes = ((long)declared + ByteBits) / ByteBits;
+        if (declared > number || retentionBytes + (declared * ReferenceSize(number)) > reader.BytesLeft)
+        {
+            return false;
+        }
+
+        count = (int)declared;
+        reader.Skip((int)retentionBytes);
         return true;
     }
 

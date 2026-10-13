@@ -4,13 +4,13 @@
 
 using System.Buffers;
 using System.Numerics;
-using System.Security.Cryptography;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Text;
 using HyperPdf.Core.Text.Fonts;
 using HyperPdf.Core.Text.Layout;
 using HyperPdfLibrary.Annotations;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 namespace HyperPdf.Engine;
@@ -42,17 +42,8 @@ internal static class HyperPdfAnnotationTextBoxes
     /// <summary>Thousandths of an em.</summary>
     internal const float Thousand = 1000;
 
-    /// <summary>The bits a byte is shifted by to make the high byte of a two-byte code.</summary>
-    internal const int HighByteShift = 8;
-
-    /// <summary>The bytes of a two-byte code.</summary>
+    /// <summary>The bytes of a built in font's code.</summary>
     internal const int CodeBytes = 2;
-
-    /// <summary>The letters of a subset tag.</summary>
-    internal const int SubsetTagLength = 6;
-
-    /// <summary>The letters a subset tag is made of.</summary>
-    internal const int Letters = 26;
 
     /// <summary>Writes a text box.</summary>
     /// <param name="annotationState">The annotation state.</param>
@@ -85,6 +76,9 @@ internal static class HyperPdfAnnotationTextBoxes
                 return -1;
             }
 
+            // The caller's size and wrap width are physical points; the box is laid out and written in user space units.
+            clamped = clamped with { FontSize = clamped.FontSize / page.UserUnit };
+            wrap /= page.UserUnit;
             annotationState.Layout.Layout(text, clamped, font.Shaper, wrap);
             var writer = CreateGlyphWriter(annotationState, font, text);
             if (writer is null)
@@ -120,12 +114,21 @@ internal static class HyperPdfAnnotationTextBoxes
             var text = PdfAnnotations.GetText(annotation, annotationState.Names.Text);
             if (TextFormatCodec.TryRead(PdfAnnotations.GetText(annotation, annotationState.Names.Format), out var format, out var wrap))
             {
-                return new(text, format, bounds, wrap);
+                return ToPhysical(new(text, format, bounds, wrap), page.UserUnit);
             }
 
-            return annotation.IsName(KnownName.Subtype, KnownName.Stamp) ? OlderTextBox(annotationState, annotation, text, bounds) : ForeignTextBox(annotation, bounds);
+            return ToPhysical(
+                annotation.IsName(KnownName.Subtype, KnownName.Stamp) ? OlderTextBox(annotationState, annotation, text, bounds) : ForeignTextBox(annotation, bounds),
+                page.UserUnit);
         }
     }
+
+    /// <summary>Scales a text box's font size and wrap width, stored in user space units, to physical points.</summary>
+    /// <param name="content">The content, or <see langword="null"/>.</param>
+    /// <param name="userUnit">The page's user unit.</param>
+    /// <returns>The content in physical points.</returns>
+    internal static TextBoxContent? ToPhysical(TextBoxContent? content, float userUnit) =>
+        content is null ? null : content with { Format = content.Format with { FontSize = content.Format.FontSize * userUnit }, WrapWidth = content.WrapWidth * userUnit };
 
     /// <summary>
     /// Gets how far below a text box's top its first baseline is written, in points, in the font the text would be
@@ -160,14 +163,13 @@ internal static class HyperPdfAnnotationTextBoxes
         return new(text, format, bounds, bounds.Width);
     }
 
-    /// <summary>Finds where a glyph's characters end: the nearest later cluster, or the end of the text, stopping at a line break.</summary>
+    /// <summary>Finds where a cluster's characters end: the nearest later cluster, or the end of the text, stopping at a line break.</summary>
     /// <param name="text">The text.</param>
-    /// <param name="glyphs">The glyphs.</param>
-    /// <param name="index">The glyph.</param>
+    /// <param name="glyphs">Every laid out glyph.</param>
+    /// <param name="cluster">The index of the cluster's first character.</param>
     /// <returns>The index after its last character.</returns>
-    internal static int ClusterEnd(string text, ReadOnlySpan<LaidGlyph> glyphs, int index)
+    internal static int ClusterEnd(string text, ReadOnlySpan<LaidGlyph> glyphs, int cluster)
     {
-        var cluster = glyphs[index].Cluster;
         var end = text.Length;
         foreach (var other in glyphs)
         {
@@ -179,20 +181,6 @@ internal static class HyperPdfAnnotationTextBoxes
 
         var newline = text.AsSpan(cluster, end - cluster).IndexOfAny('\r', '\n');
         return newline < 0 ? end : cluster + newline;
-    }
-
-    /// <summary>Makes a subset tag of six capital letters.</summary>
-    /// <returns>The tag and its plus sign.</returns>
-    internal static string SubsetTag()
-    {
-        Span<char> letters = stackalloc char[SubsetTagLength + 1];
-        for (var i = 0; i < SubsetTagLength; i++)
-        {
-            letters[i] = (char)('A' + RandomNumberGenerator.GetInt32(Letters));
-        }
-
-        letters[SubsetTagLength] = '+';
-        return new(letters);
     }
 
     /// <summary>Writes each line's glyph runs and underline.</summary>
@@ -216,7 +204,7 @@ internal static class HyperPdfAnnotationTextBoxes
                     continue;
                 }
 
-                WriteRun(ref builder, writer, format, glyphs[runStart..i], origin);
+                WriteRun(ref builder, writer, format, glyphs, glyphs[runStart..i], origin);
                 runStart = i;
             }
 
@@ -247,9 +235,10 @@ internal static class HyperPdfAnnotationTextBoxes
     /// <param name="builder">The content.</param>
     /// <param name="writer">How glyphs are written.</param>
     /// <param name="format">The format.</param>
+    /// <param name="all">Every laid out glyph.</param>
     /// <param name="run">The glyphs.</param>
     /// <param name="origin">The box's top-left corner.</param>
-    internal static void WriteRun(ref PdfContentBuilder builder, GlyphWriter writer, TextFormat format, ReadOnlySpan<LaidGlyph> run, Vector2 origin)
+    internal static void WriteRun(ref PdfContentBuilder builder, GlyphWriter writer, TextFormat format, ReadOnlySpan<LaidGlyph> all, ReadOnlySpan<LaidGlyph> run, Vector2 origin)
     {
         if (run.IsEmpty)
         {
@@ -266,6 +255,52 @@ internal static class HyperPdfAnnotationTextBoxes
         }
 
         builder.SetTextMatrix(1, 0, writer.Font.FakeItalic ? ItalicSlant : 0, 1, origin.X + run[0].X, origin.Y - run[0].Y);
+        if (writer.Embedded is { } embedded)
+        {
+            WriteEmbeddedGlyphs(ref builder, embedded, writer.Text, size, all, run);
+        }
+        else
+        {
+            WriteStandardGlyphs(ref builder, writer, size, run);
+        }
+
+        builder.EndText();
+    }
+
+    /// <summary>Writes a run in an embedded font through the library, which gives each glyph its code, records its text and marks clusters that need <c>/ActualText</c>.</summary>
+    /// <param name="builder">The content, inside a text object.</param>
+    /// <param name="embedded">The embedded font.</param>
+    /// <param name="text">The whole text that was laid out.</param>
+    /// <param name="size">The font size.</param>
+    /// <param name="all">Every laid out glyph, which tells where each cluster ends.</param>
+    /// <param name="run">The glyphs.</param>
+    internal static void WriteEmbeddedGlyphs(ref PdfContentBuilder builder, PdfEmbeddedFont embedded, string text, float size, ReadOnlySpan<LaidGlyph> all, ReadOnlySpan<LaidGlyph> run)
+    {
+        var first = text.Length;
+        var last = 0;
+        foreach (var glyph in run)
+        {
+            first = Math.Min(first, glyph.Cluster);
+            last = Math.Max(last, ClusterEnd(text, all, glyph.Cluster));
+        }
+
+        var shaped = new PdfShapedGlyph[run.Length];
+        for (var i = 0; i < run.Length; i++)
+        {
+            var advance = i + 1 < run.Length ? (run[i + 1].X - run[i].X) / size : embedded.Source.GetAdvance(run[i].Glyph) / Thousand;
+            shaped[i] = new(run[i].Glyph, run[i].Cluster - first, advance, 0, 0);
+        }
+
+        embedded.ShowGlyphs(ref builder, text.AsSpan(first, Math.Max(last - first, 0)), shaped, size);
+    }
+
+    /// <summary>Writes a run in a built in font, each glyph placed exactly with <c>TJ</c> adjustments.</summary>
+    /// <param name="builder">The content, inside a text object.</param>
+    /// <param name="writer">How glyphs are written.</param>
+    /// <param name="size">The font size.</param>
+    /// <param name="run">The glyphs.</param>
+    internal static void WriteStandardGlyphs(ref PdfContentBuilder builder, GlyphWriter writer, float size, ReadOnlySpan<LaidGlyph> run)
+    {
         builder.BeginTextArray();
 
         // The code goes to the content builder, which may keep a span it is given, so it lives in a pooled array.
@@ -274,7 +309,7 @@ internal static class HyperPdfAnnotationTextBoxes
         {
             for (var i = 0; i < run.Length; i++)
             {
-                builder.AddTextArrayString(code.AsSpan(0, writer.Encode(run[i].Glyph, code)));
+                builder.AddTextArrayString(code.AsSpan(0, GlyphWriter.Encode(run[i].Glyph, code)));
                 var adjustment = i + 1 < run.Length ? writer.Width(run[i].Glyph) - ((run[i + 1].X - run[i].X) * Thousand / size) : 0;
                 if (Math.Abs(adjustment) < MinAdjustment)
                 {
@@ -290,7 +325,6 @@ internal static class HyperPdfAnnotationTextBoxes
         }
 
         builder.EndTextArray();
-        builder.EndText();
     }
 
     /// <summary>Reads a text box written by an older version of this viewer: Helvetica at a recorded size.</summary>
@@ -345,49 +379,16 @@ internal static class HyperPdfAnnotationTextBoxes
         if (font.Program is not { } program)
         {
             var standard = font.Standard!.Font;
-            return new(PdfValue.FromDictionary(AppearanceFontMetrics.CreateFontDictionary(annotationState.Store, standard)), null, null, standard, font);
+            return new(PdfValue.FromDictionary(AppearanceFontMetrics.CreateFontDictionary(annotationState.Store, standard)), null, text, standard, font);
         }
 
-        var glyphs = annotationState.Layout.Glyphs;
-        var used = new HashSet<ushort>(glyphs.Length + 1) { 0 };
-        foreach (var glyph in glyphs)
-        {
-            _ = used.Add(glyph.Glyph);
-        }
-
-        if (FontSubsetter.Create(program, used) is not { } subset)
+        if (annotationState.FontState.GetSource(program).Source is not { } source)
         {
             return null;
         }
 
-        var widths = new float[subset.GlyphCount];
-        var texts = new string?[subset.GlyphCount];
-        for (var code = 0; code < widths.Length; code++)
-        {
-            widths[code] = program.Advance(subset.Original[code]) * Thousand / program.UnitsPerEm;
-        }
-
-        for (var i = 0; i < glyphs.Length; i++)
-        {
-            var code = subset.Map(glyphs[i].Glyph);
-            if (texts[code] is not null || (i > 0 && glyphs[i - 1].Cluster == glyphs[i].Cluster))
-            {
-                continue;
-            }
-
-            var end = ClusterEnd(text, glyphs, i);
-            texts[code] = end > glyphs[i].Cluster ? text[glyphs[i].Cluster..end] : null;
-        }
-
-        var name = SubsetTag() + program.Face.Family.Replace(" ", string.Empty, StringComparison.Ordinal);
-        var box = new PdfRectangle(0, program.Descent * Thousand, Thousand, program.Ascent * Thousand);
-        var info = new PdfTrueTypeFontInfo(name, subset.Data, widths, PdfToUnicodeMaps.Write(texts), box)
-        {
-            Ascent = program.Ascent * Thousand,
-            Descent = program.Descent * Thousand,
-            CapHeight = program.Ascent * Thousand,
-        };
-        return new(PdfValue.FromReference(PdfEmbeddedFonts.AddTrueTypeFont(annotationState.Store, info)), subset, widths, AppearanceFont.Helvetica, font);
+        var embedded = PdfEmbeddedFont.Create(annotationState.Store, source);
+        return new(embedded.Resource, embedded, text, AppearanceFont.Helvetica, font);
     }
 
     /// <summary>Draws a text box's glyph runs and underlines into its appearance.</summary>
@@ -421,6 +422,7 @@ internal static class HyperPdfAnnotationTextBoxes
         finally
         {
             builder.Dispose();
+            writer.Finish();
         }
     }
 }

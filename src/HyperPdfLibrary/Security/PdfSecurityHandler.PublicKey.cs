@@ -3,10 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
-using System.Security.Cryptography;
-using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using HyperPdfLibrary.Objects;
+using static HyperPdfLibrary.Security.PdfPasswordAlgorithms;
 
 namespace HyperPdfLibrary.Security;
 
@@ -16,20 +15,14 @@ namespace HyperPdfLibrary.Security;
 /// </content>
 public sealed partial class PdfSecurityHandler
 {
-    /// <summary>The length of the seed at the start of the enveloped content.</summary>
-    private const int SeedLength = 20;
-
-    /// <summary>The length of the permission flags after the seed.</summary>
-    private const int PermissionsLength = 4;
-
     /// <summary>The most recipients read.</summary>
     private const int MaxRecipients = 256;
 
     /// <summary>The longest recipient (CMS EnvelopedData) accepted, in bytes.</summary>
     private const int MaxRecipientLength = 1 << 20;
 
-    /// <summary>The marker appended to the key input when metadata is not encrypted.</summary>
-    private const uint MetadataNotEncrypted = 0xFFFFFFFF;
+    /// <summary>Bit 2 of the public-key permission word: permits change of encryption (ISO 32000-2 Table 24).</summary>
+    private const int ChangeEncryptionBit = 2;
 
     /// <summary>
     /// Creates the handler for any supported security handler: the standard handler with a password, or the public-key
@@ -67,13 +60,19 @@ public sealed partial class PdfSecurityHandler
         return encrypt.ContainsKey(KnownName.Recipients) || filter?.ContainsKey(KnownName.Recipients) == true;
     }
 
-    /// <summary>Creates the public-key handler (sub-filters <c>adbe.pkcs7.s3</c>, <c>s4</c> and <c>s5</c>).</summary>
+    /// <summary>
+    /// Creates the public-key handler (sub-filters <c>adbe.pkcs7.s3</c>, <c>s4</c> and <c>s5</c>). Recipients may use RSA
+    /// key transport or ephemeral-static ECDH key agreement; the first recipient list that opens gives the permissions.
+    /// </summary>
     /// <param name="encrypt">The /Encrypt dictionary.</param>
-    /// <param name="certificate">A recipient's certificate with its RSA private key, or <see langword="null"/>.</param>
+    /// <param name="certificate">A recipient's certificate with its RSA or elliptic curve private key, or <see langword="null"/>.</param>
     /// <param name="handler">The handler.</param>
     /// <returns>
     /// Success; <see cref="PdfSecurityResult.CertificateRequired"/> when no certificate is given or none of the recipients is
-    /// for it; <see cref="PdfSecurityResult.Damaged"/> when /Recipients is missing or too large.
+    /// for it; <see cref="PdfSecurityResult.PrivateKeyRequired"/> when a recipient is for a certificate without its private
+    /// key; <see cref="PdfSecurityResult.UnsupportedRecipient"/> when the recipient's key type or algorithms are not
+    /// supported; <see cref="PdfSecurityResult.RecipientDamaged"/> when the recipient does not decrypt or no recipient list
+    /// can be read; <see cref="PdfSecurityResult.Damaged"/> when /Recipients is missing or too large.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="encrypt"/> is <see langword="null"/>.</exception>
     public static PdfSecurityResult TryCreatePublicKey(PdfDictionary encrypt, X509Certificate2? certificate, out PdfSecurityHandler? handler)
@@ -94,18 +93,29 @@ public sealed partial class PdfSecurityHandler
             return PdfSecurityResult.Damaged;
         }
 
-        var envelope = certificate is null ? null : DecryptEnvelope(recipients, certificate);
-        if (envelope is not { Length: >= SeedLength + PermissionsLength })
+        var opened = certificate is null ? CmsRecipientResult.NotForCertificate : CmsRecipientOpening.Open(recipients, certificate);
+        if (opened.Content is not { Length: >= PublicKeyFileKey.SeedLength + PublicKeyFileKey.PermissionsLength } envelope)
         {
-            return PdfSecurityResult.CertificateRequired;
+            return RecipientFailure(opened.Outcome);
         }
 
         var encryptMetadata = (filter ?? encrypt).GetBoolean(KnownName.EncryptMetadata, true);
-        var key = DerivePublicKey(envelope.AsSpan(0, SeedLength), recipients, encryptMetadata || version < Revision4, keyLength);
-        var permissions = BinaryPrimitives.ReadInt32BigEndian(envelope.AsSpan(SeedLength));
-        handler = new(key, encrypt.GetInt32(KnownName.R, version), methods, permissions, encryptMetadata) { CryptFilters = version >= Revision4 ? encrypt.GetDictionary(KnownName.CF) : null };
+        var key = PublicKeyFileKey.Derive(envelope.AsSpan(0, PublicKeyFileKey.SeedLength), recipients, encryptMetadata || version < Revision4, keyLength);
+        var permissions = BinaryPrimitives.ReadInt32BigEndian(envelope.AsSpan(PublicKeyFileKey.SeedLength));
+        handler = new(key, encrypt.GetInt32(KnownName.R, version), methods, permissions, encryptMetadata)
+        {
+            CryptFilters = version >= Revision4 ? encrypt.GetDictionary(KnownName.CF) : null,
+
+            Role = RoleOf(permissions),
+        };
         return PdfSecurityResult.Success;
     }
+
+    /// <summary>Gets who a recipient is: Table 24 bit 2 permits change of encryption and enables all other permissions, which makes the owner.</summary>
+    /// <param name="permissions">The recipient list's permission word.</param>
+    /// <returns>The role.</returns>
+    private static PdfSecurityRole RoleOf(int permissions) =>
+        (permissions & ChangeEncryptionBit) != 0 ? PdfSecurityRole.Owner : PdfSecurityRole.User;
 
     /// <summary>Gets the file key length in bytes: 32 for AES-256, else from /Length, checked against the ciphers.</summary>
     /// <param name="encrypt">The /Encrypt dictionary.</param>
@@ -181,86 +191,16 @@ public sealed partial class PdfSecurityHandler
     private static bool IsRecipient(PdfValue value) =>
         value.Kind == PdfKind.String && value.AsStringBytes().Length is > 0 and <= MaxRecipientLength;
 
-    /// <summary>Decrypts the enveloped content of the first recipient addressed to a certificate.</summary>
-    /// <param name="recipients">The recipients.</param>
-    /// <param name="certificate">The certificate with its private key.</param>
-    /// <returns>The content (the seed and permissions), or <see langword="null"/> when no recipient can be opened.</returns>
-    private static byte[]? DecryptEnvelope(byte[][] recipients, X509Certificate2 certificate)
+    /// <summary>Maps a recipient list outcome that gave no usable seed to the handler result.</summary>
+    /// <param name="outcome">The outcome.</param>
+    /// <returns>The result.</returns>
+    private static PdfSecurityResult RecipientFailure(CmsRecipientOutcome outcome) => outcome switch
     {
-        using var key = certificate.GetRSAPrivateKey();
-        if (key is null)
-        {
-            return null;
-        }
+        CmsRecipientOutcome.NotForCertificate => PdfSecurityResult.CertificateRequired,
+        CmsRecipientOutcome.PrivateKeyMissing => PdfSecurityResult.PrivateKeyRequired,
+        CmsRecipientOutcome.Unsupported => PdfSecurityResult.UnsupportedRecipient,
 
-        foreach (var recipient in recipients)
-        {
-            if (TryDecrypt(recipient, certificate, key) is { } content)
-            {
-                return content;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Decrypts one recipient's EnvelopedData when one of its recipient infos names the certificate.</summary>
-    /// <param name="recipient">The EnvelopedData DER.</param>
-    /// <param name="certificate">The certificate.</param>
-    /// <param name="key">The certificate's private key.</param>
-    /// <returns>The content, or <see langword="null"/>.</returns>
-    private static byte[]? TryDecrypt(byte[] recipient, X509Certificate2 certificate, RSA key)
-    {
-        try
-        {
-            var envelope = new EnvelopedCms();
-            envelope.Decode(recipient);
-            foreach (var info in envelope.RecipientInfos)
-            {
-                if (!info.RecipientIdentifier.MatchesCertificate(certificate))
-                {
-                    continue;
-                }
-
-                envelope.Decrypt(info, key);
-                return envelope.ContentInfo.Content;
-            }
-        }
-        catch (CryptographicException)
-        {
-            // A damaged recipient, or one this key cannot open, is skipped like a recipient for someone else.
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Derives the file key: SHA-1 (SHA-256 for AES-256) over the seed, every recipient's bytes in order, and four 0xFF bytes
-    /// when metadata is not encrypted, cut to the key length.
-    /// </summary>
-    /// <param name="seed">The 20-byte seed.</param>
-    /// <param name="recipients">The recipients.</param>
-    /// <param name="encryptMetadata">Whether metadata is encrypted.</param>
-    /// <param name="keyLength">The key length in bytes; 32 means AES-256.</param>
-    /// <returns>The file key.</returns>
-    private static byte[] DerivePublicKey(ReadOnlySpan<byte> seed, byte[][] recipients, bool encryptMetadata, int keyLength)
-    {
-        using var hasher = IncrementalHash.CreateHash(keyLength == Sha256Length ? HashAlgorithmName.SHA256 : HashAlgorithmName.SHA1);
-        hasher.AppendData(seed);
-        foreach (var recipient in recipients)
-        {
-            hasher.AppendData(recipient);
-        }
-
-        if (!encryptMetadata)
-        {
-            Span<byte> marker = stackalloc byte[PermissionsLength];
-            BinaryPrimitives.WriteUInt32BigEndian(marker, MetadataNotEncrypted);
-            hasher.AppendData(marker);
-        }
-
-        Span<byte> digest = stackalloc byte[Sha256Length];
-        var written = hasher.GetHashAndReset(digest);
-        return digest[..Math.Min(keyLength, written)].ToArray();
-    }
+        // A decrypted envelope too short for the seed and permissions is damaged too.
+        _ => PdfSecurityResult.RecipientDamaged,
+    };
 }

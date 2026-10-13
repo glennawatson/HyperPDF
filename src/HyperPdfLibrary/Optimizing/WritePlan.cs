@@ -79,7 +79,7 @@ internal sealed class WritePlan
         using var counter = new CountingStream(destination);
         if (_writer is not null)
         {
-            using var rewritten = new MemoryStream();
+            using var rewritten = new PooledWriteStream();
             _ = _writer.WriteTo(rewritten, cancellationToken);
             counter.Write(CheckRewrite(rewritten.ToArray(), cancellationToken));
             return counter.Written;
@@ -131,7 +131,7 @@ internal sealed class WritePlan
         {
             if (_writer is not null)
             {
-                var buffer = new MemoryStream();
+                var buffer = new PooledWriteStream();
                 await using (buffer.ConfigureAwait(false))
                 {
                     _ = await _writer.WriteToAsync(buffer, cancellationToken).ConfigureAwait(false);

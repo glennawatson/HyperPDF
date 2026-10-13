@@ -34,6 +34,7 @@ public sealed partial class PropertiesViewModel : ReactiveObject
             new("File size", info.Exists ? FormatSize(info.Length) : string.Empty),
             new("Pages", tab.PageCount.ToString(CultureInfo.CurrentCulture)),
         };
+        Add(entries, "Colour separations", tab.Separations.Summary);
         if (metadata is not null)
         {
             Add(entries, nameof(Title), metadata.Title);
@@ -46,6 +47,7 @@ public sealed partial class PropertiesViewModel : ReactiveObject
             Add(entries, "Modified", metadata.Modified?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
             Add(entries, "PDF version", metadata.FormatVersion);
             entries.Add(new(metadata.WrappedFileName is null ? "Encrypted" : "Wrapper encrypted", metadata.IsEncrypted ? "Yes" : "No"));
+            Add(entries, "Integrity protection (PDF MAC)", metadata.Integrity?.Summary);
             entries.Add(new("Linearized", metadata.IsLinearized ? "Yes" : "No"));
             Add(entries, "Encrypted file inside", metadata.WrappedFileName);
             Add(entries, "Cryptographic filter", metadata.WrappedCryptographicFilter);

@@ -30,14 +30,8 @@ public sealed class ReadingDocument
     /// <summary>The page sizes.</summary>
     private readonly PageSize[] _sizes;
 
-    /// <summary>The pages worked out so far.</summary>
-    private readonly Dictionary<int, ReadingPage> _pages = [];
-
-    /// <summary>Guards the caches.</summary>
-    private readonly Lock _gate = new();
-
-    /// <summary>The repeated margin signatures, once sampled.</summary>
-    private HashSet<string>? _repeatedMargins;
+    /// <summary>The pages worked out so far and the sampled margins; <see cref="Clear"/> swaps in an empty one.</summary>
+    private ReadingState _state;
 
     /// <summary>Initializes a new instance of the <see cref="ReadingDocument"/> class.</summary>
     /// <param name="source">The document's characters.</param>
@@ -48,6 +42,7 @@ public sealed class ReadingDocument
         ArgumentNullException.ThrowIfNull(source);
         _source = () => new ReadingSources(source, source as ITaggedStructureSource);
         _sizes = sizes;
+        _state = new(sizes.Length);
     }
 
     /// <summary>Initializes a new instance of the <see cref="ReadingDocument"/> class for a document that may be reopened.</summary>
@@ -59,6 +54,7 @@ public sealed class ReadingDocument
         ArgumentNullException.ThrowIfNull(sizes);
         _source = () => source() is { } layout ? new ReadingSources(layout, layout as ITaggedStructureSource) : null;
         _sizes = sizes;
+        _state = new(sizes.Length);
     }
 
     /// <summary>Initializes a new instance of the <see cref="ReadingDocument"/> class with features from one opened document.</summary>
@@ -70,6 +66,7 @@ public sealed class ReadingDocument
         ArgumentNullException.ThrowIfNull(sizes);
         _source = source;
         _sizes = sizes;
+        _state = new(sizes.Length);
     }
 
     /// <summary>Gets the number of pages.</summary>
@@ -155,9 +152,18 @@ public sealed class ReadingDocument
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, _sizes.Length);
-        lock (_gate)
+
+        // Each page has its own lock, so different pages are worked out at the same time and one page only once.
+        var state = Volatile.Read(ref _state);
+        var cell = state.GetCell(pageIndex);
+        if (cell.Page is { } ready)
         {
-            if (_pages.TryGetValue(pageIndex, out var cached))
+            return ready;
+        }
+
+        lock (cell.Gate)
+        {
+            if (cell.Page is { } cached)
             {
                 return cached;
             }
@@ -172,41 +178,43 @@ public sealed class ReadingDocument
             var tagged = new List<TaggedBlock>();
             var page = sources.Structure is { } structure && structure.GetTaggedBlocks(pageIndex, tagged)
                 ? ReadingOrder.FromStructure(pageIndex, characters, tagged)
-                : AnalyzePage(pageIndex, source, characters);
-            _pages[pageIndex] = page;
+                : AnalyzePage(state, pageIndex, source, characters);
+            cell.Publish(page);
             return page;
         }
     }
 
     /// <summary>Forgets the worked out pages, for example after text is recognised or the file changes.</summary>
-    public void Clear()
-    {
-        lock (_gate)
-        {
-            _pages.Clear();
-            _repeatedMargins = null;
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Clear() => Volatile.Write(ref _state, new(_sizes.Length));
 
     /// <summary>Builds a page when it has no usable tagged structure.</summary>
+    /// <param name="state">The cache the page belongs to.</param>
     /// <param name="pageIndex">The page.</param>
     /// <param name="source">The character source.</param>
     /// <param name="characters">The page characters.</param>
     /// <returns>The analyzed page.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private ReadingPage AnalyzePage(int pageIndex, ITextLayoutSource source, List<PageCharacter> characters) =>
-        ReadingOrder.Analyze(pageIndex, _sizes[pageIndex], characters, GetRepeatedMargins(source));
+    private ReadingPage AnalyzePage(ReadingState state, int pageIndex, ITextLayoutSource source, List<PageCharacter> characters) =>
+        ReadingOrder.Analyze(pageIndex, _sizes[pageIndex], characters, GetRepeatedMargins(state, source));
 
-    /// <summary>Samples pages spread across the document for repeated header and footer lines. Callers hold the gate.</summary>
+    /// <summary>Samples pages spread across the document for repeated header and footer lines, once per cache.</summary>
+    /// <param name="state">The cache that keeps the signatures.</param>
     /// <param name="source">The character source.</param>
     /// <returns>The repeated signatures.</returns>
-    private HashSet<string> GetRepeatedMargins(ITextLayoutSource source)
+    private HashSet<string> GetRepeatedMargins(ReadingState state, ITextLayoutSource source)
     {
-        if (_repeatedMargins is not null)
+        lock (state.MarginsGate)
         {
-            return _repeatedMargins;
+            return state.RepeatedMargins ??= SampleRepeatedMargins(source);
         }
+    }
 
+    /// <summary>Samples pages spread across the document for repeated header and footer lines.</summary>
+    /// <param name="source">The character source.</param>
+    /// <returns>The repeated signatures.</returns>
+    private HashSet<string> SampleRepeatedMargins(ITextLayoutSource source)
+    {
         var samples = Math.Min(MaxSamples, _sizes.Length);
         var pages = new List<List<string>>(samples);
         var characters = new List<PageCharacter>();
@@ -220,7 +228,52 @@ public sealed class ReadingDocument
             pages.Add(signatures);
         }
 
-        _repeatedMargins = ReadingOrder.FindRepeatedMargins(pages);
-        return _repeatedMargins;
+        return ReadingOrder.FindRepeatedMargins(pages);
+    }
+
+    /// <summary>The worked out pages and sampled margins of one generation of the cache.</summary>
+    /// <param name="pageCount">The number of pages.</param>
+    private sealed class ReadingState(int pageCount)
+    {
+        /// <summary>The cell of each page, made when the page is first asked for.</summary>
+        private readonly PageCell?[] _cells = new PageCell?[pageCount];
+
+        /// <summary>Gets the lock that guards sampling the margins.</summary>
+        internal Lock MarginsGate { get; } = new();
+
+        /// <summary>Gets or sets the repeated margin signatures, once sampled; guarded by <see cref="MarginsGate"/>.</summary>
+        internal HashSet<string>? RepeatedMargins { get; set; }
+
+        /// <summary>Gets the cell of a page, making it when it is the first request.</summary>
+        /// <param name="pageIndex">The page.</param>
+        /// <returns>The cell.</returns>
+        internal PageCell GetCell(int pageIndex)
+        {
+            if (Volatile.Read(ref _cells[pageIndex]) is { } existing)
+            {
+                return existing;
+            }
+
+            var created = new PageCell();
+            return Interlocked.CompareExchange(ref _cells[pageIndex], created, null) ?? created;
+        }
+    }
+
+    /// <summary>One page's lock and result.</summary>
+    private sealed class PageCell
+    {
+        /// <summary>The page once worked out, or <see langword="null"/>.</summary>
+        private ReadingPage? _page;
+
+        /// <summary>Gets the lock held while the page is worked out.</summary>
+        internal Lock Gate { get; } = new();
+
+        /// <summary>Gets the page once worked out, or <see langword="null"/>.</summary>
+        internal ReadingPage? Page => Volatile.Read(ref _page);
+
+        /// <summary>Publishes the worked out page.</summary>
+        /// <param name="page">The page.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void Publish(ReadingPage page) => Volatile.Write(ref _page, page);
     }
 }

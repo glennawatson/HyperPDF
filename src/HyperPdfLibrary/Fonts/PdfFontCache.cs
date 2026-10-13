@@ -33,7 +33,7 @@ internal sealed class PdfFontCache
     /// <summary>Gets the writable character codes of a loaded form font.</summary>
     /// <param name="font">The loaded font.</param>
     /// <param name="names">The document's names.</param>
-    /// <returns>The map, or null for an unsupported multi-byte encoding.</returns>
+    /// <returns>The map, or <see langword="null"/> when the cache cannot make one.</returns>
     internal FormCodeMap? GetCodeMap(PdfFont font, PdfNameTable names)
     {
         var maps = Volatile.Read(ref _formCodeMaps);

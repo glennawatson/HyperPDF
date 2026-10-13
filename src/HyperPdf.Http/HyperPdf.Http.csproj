@@ -10,4 +10,8 @@
   <ItemGroup>
     <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Core.Tests" />
+  </ItemGroup>
 </Project>

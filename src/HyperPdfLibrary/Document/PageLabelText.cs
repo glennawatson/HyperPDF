@@ -14,11 +14,17 @@ internal static class PageLabelText
     /// <summary>The letters in the alphabet styles.</summary>
     private const int LetterCount = 26;
 
-    /// <summary>The largest number written in Roman numerals before wrapping, as PDFium does.</summary>
-    private const int MaxRoman = 1_000_000;
+    /// <summary>
+    /// The largest number written in Roman numerals (ISO 32000-2 12.4.2 /S /R and /r). Roman numerals have no symbol above
+    /// M, so larger numbers repeat it; this cap keeps a label to about a hundred letters. Larger numbers fall back to digits.
+    /// </summary>
+    private const int MaxRoman = 100_000;
 
-    /// <summary>The longest run of letters written, as PDFium limits it.</summary>
-    private const int MaxLetters = 1000;
+    /// <summary>
+    /// The longest run of one letter written for /S /A and /a (a to z, then aa to zz, and so on). A longer run is no
+    /// use to a reader, so larger numbers fall back to digits.
+    /// </summary>
+    private const int MaxLetters = 100;
 
     /// <summary>The bytes each Roman symbol takes in <see cref="RomanSymbols"/>.</summary>
     private const int SymbolWidth = 2;
@@ -63,10 +69,41 @@ internal static class PageLabelText
     private static int GetNumberLength(int number, byte style) => style switch
     {
         (byte)'D' => PageLabelText.GetDecimalLength(number),
-        (byte)'R' or (byte)'r' => PageLabelText.GetRomanLength(number % PageLabelText.MaxRoman),
-        (byte)'A' or (byte)'a' => PageLabelText.GetLetterLength(number),
+        (byte)'R' or (byte)'r' => PageLabelText.GetRomanOrDigitsLength(number),
+        (byte)'A' or (byte)'a' => PageLabelText.GetLettersOrDigitsLength(number),
         _ => 0,
     };
+
+    /// <summary>Counts the characters of a Roman numeral, or of digits above the cap; non-positive numbers write nothing.</summary>
+    /// <param name="number">The number.</param>
+    /// <returns>The character count.</returns>
+    private static int GetRomanOrDigitsLength(int number)
+    {
+        if (number <= 0)
+        {
+            return 0;
+        }
+
+        return number <= PageLabelText.MaxRoman ? PageLabelText.GetRomanLength(number) : PageLabelText.GetDecimalLength(number);
+    }
+
+    /// <summary>Counts the characters of a run of letters, or of digits above the cap; non-positive numbers write nothing.</summary>
+    /// <param name="number">The number.</param>
+    /// <returns>The character count.</returns>
+    private static int GetLettersOrDigitsLength(int number)
+    {
+        if (number <= 0)
+        {
+            return 0;
+        }
+
+        return PageLabelText.FitsLetters(number) ? PageLabelText.GetLetterLength(number) : PageLabelText.GetDecimalLength(number);
+    }
+
+    /// <summary>Determines whether a positive number is written as a run of letters rather than digits.</summary>
+    /// <param name="number">The number.</param>
+    /// <returns><see langword="true"/> when the run is no longer than the cap.</returns>
+    private static bool FitsLetters(int number) => ((number - 1) / PageLabelText.LetterCount) + 1 <= PageLabelText.MaxLetters;
 
     /// <summary>Writes a number in a style into a span sized by <see cref="GetNumberLength"/>.</summary>
     /// <param name="destination">The characters to fill.</param>
@@ -82,9 +119,16 @@ internal static class PageLabelText
                 break;
             }
 
+            case (byte)'R' or (byte)'r' when number > PageLabelText.MaxRoman:
+            case (byte)'A' or (byte)'a' when number > 0 && !PageLabelText.FitsLetters(number):
+            {
+                _ = number.TryFormat(destination, out _, default, CultureInfo.InvariantCulture);
+                break;
+            }
+
             case (byte)'R' or (byte)'r':
             {
-                PageLabelText.WriteRoman(destination, number % PageLabelText.MaxRoman, style == (byte)'R');
+                PageLabelText.WriteRoman(destination, number, style == (byte)'R');
                 break;
             }
 
@@ -163,7 +207,7 @@ internal static class PageLabelText
     /// <param name="number">The number; zero and negative numbers write nothing.</param>
     /// <returns>The letter count.</returns>
     private static int GetLetterLength(int number) =>
-        number <= 0 ? 0 : (((number - 1) / PageLabelText.LetterCount) + 1) % PageLabelText.MaxLetters;
+        number <= 0 ? 0 : ((number - 1) / PageLabelText.LetterCount) + 1;
 
     /// <summary>Writes a number in the alphabet styles.</summary>
     /// <param name="destination">The characters to fill, sized by <see cref="GetLetterLength"/>.</param>

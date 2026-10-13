@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Rendering;
@@ -13,9 +14,12 @@ namespace HyperPdfLibrary.Rendering;
 /// costs re-decoding when a page is recorded again.
 /// </param>
 /// <param name="SimulateOverprint">
-/// Whether to simulate overprint the way PDFium's source describes it: an opaque, unmasked DeviceCMYK, Separation or
-/// DeviceN image drawn with fill overprint on, overprint mode 0, the Normal blend and both alphas at 1 is darkened into
-/// the page. Off by default, because the PDFium build the app ships draws such images without darkening.
+/// Whether to preview overprint (ISO 32000-2 8.6.7 and 11.7.4). Fills, strokes, text, stencil masks and opaque images
+/// that leave some backdrop colorants alone (a Separation, a DeviceN space that is not all four process colorants, or
+/// DeviceCMYK in overprint mode 1 with a zero component) are painted with the Multiply blend, which keeps the backdrop's
+/// share of the colorants they do not specify. A screen shows the page as RGB, so this is an approximation of the
+/// separations a press would print; it is off by default. Objects that specify every colorant replace the backdrop with
+/// or without the preview.
 /// </param>
 [DebuggerDisplay("PdfRenderOptions: images {ImageCacheBytes} bytes, pictures {PictureCacheBytes} bytes, overprint {SimulateOverprint}")]
 public sealed record PdfRenderOptions(long ImageCacheBytes, bool SimulateOverprint)
@@ -42,4 +46,13 @@ public sealed record PdfRenderOptions(long ImageCacheBytes, bool SimulateOverpri
     /// over the limit. The default is 128 MiB; a smaller limit costs re-recording pages that scroll back into view.
     /// </summary>
     public long PictureCacheBytes { get; init; } = PictureBytes;
+
+    /// <summary>
+    /// Gets the colorants pages leave out, for a separation view. A name is a Separation or DeviceN colorant, or a process
+    /// colorant: Cyan, Magenta, Yellow or Black (DeviceGray and one-component ICC colours paint Black). Objects painted
+    /// only in a hidden Separation colorant, and images in such a space, disappear; a hidden process or DeviceN colorant is
+    /// cleared from each fill, stroke and glyph colour. An image or shading in a space that still paints another colorant
+    /// is drawn whole, because its pixels are not split by colorant. None by default.
+    /// </summary>
+    public ImmutableArray<string> HiddenColorants { get; init; } = [];
 }

@@ -14,7 +14,7 @@ internal static class HyperPdfAnnotationStateAccess
     {
         ObjectDisposedException.ThrowIf(self.IsDisposed, self);
         return Volatile.Read(ref self.AnnotationState)
-            ?? Interlocked.CompareExchange(ref self.AnnotationState, new(self.Document, self.AnnotationClock, self.FontState), null)
+            ?? Interlocked.CompareExchange(ref self.AnnotationState, new(self.Document, self.AnnotationClock, self.LazyFontState), null)
             ?? Volatile.Read(ref self.AnnotationState)!;
     }
 }

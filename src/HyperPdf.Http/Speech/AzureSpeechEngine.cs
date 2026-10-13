@@ -2,10 +2,13 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Globalization;
-using System.Security;
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using HyperPdf.Core.Speech;
 
@@ -32,6 +35,12 @@ public sealed class AzureSpeechEngine : ISpeechEngine
 
     /// <summary>The longest region name accepted.</summary>
     private const int MaxRegionLength = 40;
+
+    /// <summary>The characters of SSML built on the stack before a longer document spills to the pool.</summary>
+    private const int SsmlStackChars = 512;
+
+    /// <summary>The characters XML text and attribute values escape.</summary>
+    private static readonly SearchValues<char> XmlSpecials = SearchValues.Create("<>&\"'");
 
     /// <summary>The settings.</summary>
     private readonly AzureSpeechSettings _settings;
@@ -129,10 +138,20 @@ public sealed class AzureSpeechEngine : ISpeechEngine
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(voiceId);
-        var rate = ((speed - 1F) * Percent).ToString("+0;-0;+0", CultureInfo.InvariantCulture);
-        var language = voiceId.Length > LanguageLength ? voiceId[..LanguageLength] : "en-US";
-        return $"<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"{SecurityElement.Escape(language)}\">"
-            + $"<voice name=\"{SecurityElement.Escape(voiceId)}\"><prosody rate=\"{rate}%\">{SecurityElement.Escape(text)}</prosody></voice></speak>";
+        var language = voiceId.Length > LanguageLength ? voiceId.AsSpan(0, LanguageLength) : "en-US".AsSpan();
+
+        // The document is built in a stack buffer, so the result string is the only allocation unless the text is long.
+        var handler = new DefaultInterpolatedStringHandler(0, 0, CultureInfo.InvariantCulture, stackalloc char[SsmlStackChars]);
+        handler.AppendLiteral("<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"");
+        AppendEscaped(ref handler, language);
+        handler.AppendLiteral("\"><voice name=\"");
+        AppendEscaped(ref handler, voiceId);
+        handler.AppendLiteral("\"><prosody rate=\"");
+        handler.AppendFormatted((speed - 1F) * Percent, "+0;-0;+0");
+        handler.AppendLiteral("%\">");
+        AppendEscaped(ref handler, text);
+        handler.AppendLiteral("</prosody></voice></speak>");
+        return handler.ToStringAndClear();
     }
 
     /// <summary>Converts 16 bit little endian PCM into samples.</summary>
@@ -140,12 +159,8 @@ public sealed class AzureSpeechEngine : ISpeechEngine
     /// <returns>The samples.</returns>
     public static float[] ToSamples(ReadOnlySpan<byte> pcm)
     {
-        var samples = new float[pcm.Length / sizeof(short)];
-        for (var i = 0; i < samples.Length; i++)
-        {
-            samples[i] = BinaryPrimitives.ReadInt16LittleEndian(pcm[(i * sizeof(short))..]) * SampleScale;
-        }
-
+        var samples = GC.AllocateUninitializedArray<float>(pcm.Length / sizeof(short));
+        ConvertSamples(pcm, samples);
         return samples;
     }
 
@@ -174,5 +189,56 @@ public sealed class AzureSpeechEngine : ISpeechEngine
         _ = response.EnsureSuccessStatusCode();
         var pcm = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
         return new(ToSamples(pcm), Hertz);
+    }
+
+    /// <summary>Converts 16 bit little endian PCM into samples, a vector of them at a time where the machine allows.</summary>
+    /// <param name="pcm">The PCM bytes; a trailing odd byte is ignored.</param>
+    /// <param name="samples">Receives one sample for each pair of bytes.</param>
+    internal static void ConvertSamples(ReadOnlySpan<byte> pcm, Span<float> samples)
+    {
+        var done = 0;
+        if (BitConverter.IsLittleEndian && Vector.IsHardwareAccelerated)
+        {
+            var shorts = MemoryMarshal.Cast<byte, short>(pcm[..(samples.Length * sizeof(short))]);
+            var width = Vector<short>.Count;
+            for (; done <= samples.Length - width; done += width)
+            {
+                Vector.Widen(new Vector<short>(shorts[done..]), out var low, out var high);
+                (Vector.ConvertToSingle(low) * SampleScale).CopyTo(samples[done..]);
+                (Vector.ConvertToSingle(high) * SampleScale).CopyTo(samples[(done + Vector<float>.Count)..]);
+            }
+        }
+
+        for (; done < samples.Length; done++)
+        {
+            samples[done] = BinaryPrimitives.ReadInt16LittleEndian(pcm[(done * sizeof(short))..]) * SampleScale;
+        }
+    }
+
+    /// <summary>Appends text with the five XML special characters escaped.</summary>
+    /// <param name="handler">The document being built.</param>
+    /// <param name="text">The text.</param>
+    private static void AppendEscaped(ref DefaultInterpolatedStringHandler handler, ReadOnlySpan<char> text)
+    {
+        while (!text.IsEmpty)
+        {
+            var special = text.IndexOfAny(XmlSpecials);
+            if (special < 0)
+            {
+                handler.AppendFormatted(text);
+                return;
+            }
+
+            handler.AppendFormatted(text[..special]);
+            handler.AppendLiteral(text[special] switch
+            {
+                '<' => "&lt;",
+                '>' => "&gt;",
+                '&' => "&amp;",
+                '"' => "&quot;",
+                _ => "&apos;",
+            });
+            text = text[(special + 1)..];
+        }
     }
 }

@@ -11,7 +11,7 @@ namespace HyperPdfLibrary.Features;
 /// <param name="Metadata">The part's metadata (<c>/DPM</c>) as text by key.</param>
 /// <param name="Children">The child parts, in order.</param>
 /// <param name="StartPage">For a leaf, the zero based first page of its range, or null.</param>
-/// <param name="EndPage">For a leaf, the zero based last page of its range, or null.</param>
+/// <param name="EndPage">For a leaf, the zero based last page of its range (its start page when it has no <c>/End</c>), or null.</param>
 /// <param name="Dictionary">The node dictionary.</param>
 [DebuggerDisplay("PdfDocumentPartNode: {Children.Length} children")]
 public sealed record PdfDocumentPartNode(IReadOnlyDictionary<string, string> Metadata, PdfDocumentPartNode[] Children, int? StartPage, int? EndPage, PdfDictionary Dictionary);

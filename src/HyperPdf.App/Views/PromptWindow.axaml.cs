@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Avalonia.Media;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
@@ -35,10 +34,10 @@ public sealed partial class PromptWindow : ReactiveUI.Avalonia.ReactiveWindow<Pr
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Label, static v => v.LabelText.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Text, static v => v.InputBox.Text, static text => text, static text => text ?? string.Empty));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Multiline, static v => v.InputBox.AcceptsReturn));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Multiline, static v => v.InputBox.TextWrapping, Wrapping));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Multiline, static v => v.InputBox.MinHeight, BoxHeight));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Multiline, static v => v.InputBox.TextWrapping, static multiline => multiline ? TextWrapping.Wrap : TextWrapping.NoWrap));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Multiline, static v => v.InputBox.MinHeight, static multiline => multiline ? MultilineHeight : SingleLineHeight));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.AcceptText, static v => v.ConfirmButton.Content));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Multiline, static v => v.ConfirmButton.IsDefault, IsSingleLine));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Multiline, static v => v.ConfirmButton.IsDefault, static multiline => !multiline));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.AcceptCommand, static v => v.ConfirmButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Answered)
@@ -49,22 +48,4 @@ public sealed partial class PromptWindow : ReactiveUI.Avalonia.ReactiveWindow<Pr
             InputBox.SelectAll();
         });
     }
-
-    /// <summary>Gets the text wrapping for a text box.</summary>
-    /// <param name="multiline">Whether line breaks are allowed.</param>
-    /// <returns>Wrapping for multi-line boxes, none otherwise.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static TextWrapping Wrapping(bool multiline) => multiline ? TextWrapping.Wrap : TextWrapping.NoWrap;
-
-    /// <summary>Gets the minimum height of the text box.</summary>
-    /// <param name="multiline">Whether line breaks are allowed.</param>
-    /// <returns>The height.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static double BoxHeight(bool multiline) => multiline ? MultilineHeight : SingleLineHeight;
-
-    /// <summary>Inverts the multi-line flag.</summary>
-    /// <param name="multiline">Whether line breaks are allowed.</param>
-    /// <returns><see langword="true"/> when the box is single line.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsSingleLine(bool multiline) => !multiline;
 }

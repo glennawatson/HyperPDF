@@ -9,50 +9,65 @@ using HyperPdfLibrary.Structure.Tagged;
 namespace HyperPdf.Engine;
 
 /// <summary>
-/// Turns a page's tagged reading nodes into <see cref="TaggedBlock"/> values the way the PDFium engine does: grouping
+/// Turns a page's tagged reading nodes into <see cref="TaggedBlock"/> values: grouping
 /// elements are walked into, every other element becomes one block of the characters of its content and its
 /// descendants', and an element with no characters and no replacement text is dropped.
 /// </summary>
 [DebuggerDisplay("TaggedBlockWalker: {Blocks.Count} blocks")]
 internal sealed class TaggedBlockWalker
 {
-    /// <summary>The code of a grouping type in <see cref="Kinds"/>.</summary>
+    /// <summary>The code of a grouping type in <see cref="Codes"/>.</summary>
     private const byte Grouping = 0xFF;
 
-    /// <summary>The code of a type that is not in PDFium's table, read as a paragraph unless it has child elements.</summary>
+    /// <summary>The code of a type with no reading kind of its own, read as a paragraph unless it has child elements.</summary>
     private const byte Unlisted = 0xFE;
 
-    /// <summary>Each glyph's characters.</summary>
-    private readonly GlyphCharacters[] _map;
+    /// <summary>The number of structure types.</summary>
+    private const int TypeCount = (int)PdfStructureType.Artifact + 1;
+
+    /// <summary>
+    /// How each structure type reads (ISO 32000-2, 14.8.4), indexed by <see cref="PdfStructureType"/>: grouping elements
+    /// (document parts, sections, lists, tables, forms) are walked into, <see cref="Unlisted"/> elements have no reading
+    /// kind of their own, and every other element is a block of one <see cref="ReadingBlockKind"/>.
+    /// </summary>
+    private static readonly byte[] Codes = BuildCodes();
+
+    /// <summary>The blocks list a walker holds between walks; nothing is ever added to it.</summary>
+    private static readonly List<TaggedBlock> NoBlocks = [];
 
     /// <summary>The glyph indices of the block being built.</summary>
     private readonly List<int> _glyphs = [];
 
-    /// <summary>Initializes a new instance of the <see cref="TaggedBlockWalker"/> class.</summary>
-    /// <param name="map">Each glyph's characters.</param>
-    internal TaggedBlockWalker(GlyphCharacters[] map) => _map = map;
+    /// <summary>The character indices of the block being built.</summary>
+    private readonly List<int> _characters = [];
+
+    /// <summary>Each glyph's characters.</summary>
+    private GlyphCharacters[] _map = [];
 
     /// <summary>Gets the blocks, in logical order.</summary>
-    internal List<TaggedBlock> Blocks { get; } = [];
+    internal List<TaggedBlock> Blocks { get; private set; } = NoBlocks;
 
     /// <summary>Gets how many characters the blocks cover.</summary>
     internal int Covered { get; private set; }
 
-    /// <summary>
-    /// Gets each structure type's reading kind, indexed by <see cref="PdfStructureType"/>, as PDFium's structure roles
-    /// map them: <see cref="Grouping"/>, <see cref="Unlisted"/>, or a <see cref="ReadingBlockKind"/> value.
-    /// </summary>
-    private static ReadOnlySpan<byte> Kinds =>
-    [
-        0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-        0xFF, 0xFF, 0x00, 0x03, 0xFF, 0x00, 0xFF, 0x00,
-        0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-        0xFF, 0x02, 0x02, 0x02, 0xFF, 0xFF, 0x05, 0x05,
-        0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x04, 0x04, 0x00,
-        0xFE, 0x00, 0x00, 0x00, 0xFE, 0xFE, 0xFE, 0xFE,
-        0xFE, 0xFE, 0xFE, 0x06, 0x06, 0xFF, 0x00, 0x00,
-        0x00, 0xFE,
-    ];
+    /// <summary>Starts a walk, so one walker and its index buffers serve every page a thread reads.</summary>
+    /// <param name="map">Each glyph's characters.</param>
+    /// <param name="blocks">Receives the blocks, in logical order.</param>
+    internal void Begin(GlyphCharacters[] map, List<TaggedBlock> blocks)
+    {
+        _map = map;
+        Blocks = blocks;
+        Covered = 0;
+    }
+
+    /// <summary>Ends a walk, letting go of the page's map and the output list.</summary>
+    internal void End()
+    {
+        _map = [];
+        Blocks = NoBlocks;
+        _glyphs.Clear();
+        _characters.Clear();
+    }
 
     /// <summary>Visits a node: a grouping one is walked into, any other becomes a block.</summary>
     /// <param name="node">The node.</param>
@@ -63,13 +78,15 @@ internal sealed class TaggedBlockWalker
             return;
         }
 
-        var type = node.Element?.Type ?? PdfStructureType.Unknown;
-        var code = (uint)type < (uint)Kinds.Length ? Kinds[(int)type] : Unlisted;
+        var type = (int)(node.Element?.Type ?? PdfStructureType.Unknown);
+        var code = (uint)type < (uint)Codes.Length ? Codes[type] : Unlisted;
         if (code == Grouping || (code == Unlisted && HasElementChildren(node)))
         {
-            foreach (var child in node.Children)
+            // An indexed walk reads the children without making an enumerator for each node.
+            var children = node.Children;
+            for (var i = 0; i < children.Count; i++)
             {
-                Visit(child);
+                Visit(children[i]);
             }
 
             return;
@@ -79,14 +96,51 @@ internal sealed class TaggedBlockWalker
         AddBlock(node, kind);
     }
 
+    /// <summary>Builds the reading code of every structure type.</summary>
+    /// <returns>The codes.</returns>
+    private static byte[] BuildCodes()
+    {
+        var codes = new byte[TypeCount];
+        Array.Fill(codes, Unlisted);
+        Assign(codes, Grouping, PdfStructureType.Document, PdfStructureType.DocumentFragment, PdfStructureType.Part, PdfStructureType.Article, PdfStructureType.Section);
+        Assign(codes, Grouping, PdfStructureType.Division, PdfStructureType.Aside, PdfStructureType.NonStructural, PdfStructureType.Private, PdfStructureType.Form);
+        Assign(codes, Grouping, PdfStructureType.TableOfContents, PdfStructureType.Index, PdfStructureType.List, PdfStructureType.Table);
+        Assign(codes, Grouping, PdfStructureType.TableRow, PdfStructureType.TableHead, PdfStructureType.TableBody, PdfStructureType.TableFoot);
+        Assign(codes, (byte)ReadingBlockKind.Heading, PdfStructureType.Heading, PdfStructureType.Heading1, PdfStructureType.Heading2, PdfStructureType.Heading3);
+        Assign(codes, (byte)ReadingBlockKind.Heading, PdfStructureType.Heading4, PdfStructureType.Heading5, PdfStructureType.Heading6, PdfStructureType.Title);
+        Assign(codes, (byte)ReadingBlockKind.ListItem, PdfStructureType.ListItem, PdfStructureType.Label, PdfStructureType.ListBody);
+        Assign(codes, (byte)ReadingBlockKind.Caption, PdfStructureType.Caption);
+        Assign(codes, (byte)ReadingBlockKind.TableCell, PdfStructureType.TableHeaderCell, PdfStructureType.TableDataCell);
+        Assign(codes, (byte)ReadingBlockKind.Footnote, PdfStructureType.Note, PdfStructureType.FootnoteOrEndnote);
+        Assign(codes, (byte)ReadingBlockKind.Figure, PdfStructureType.Figure, PdfStructureType.Formula);
+        Assign(codes, (byte)ReadingBlockKind.Paragraph, PdfStructureType.BlockQuote, PdfStructureType.TableOfContentsItem, PdfStructureType.Paragraph);
+        Assign(codes, (byte)ReadingBlockKind.Paragraph, PdfStructureType.Span, PdfStructureType.Quote, PdfStructureType.Reference, PdfStructureType.Code);
+        Assign(codes, (byte)ReadingBlockKind.Paragraph, PdfStructureType.Link, PdfStructureType.Annotation, PdfStructureType.Emphasis, PdfStructureType.Strong);
+        Assign(codes, (byte)ReadingBlockKind.Paragraph, PdfStructureType.Subdivision);
+        return codes;
+    }
+
+    /// <summary>Gives several structure types one code.</summary>
+    /// <param name="codes">The codes.</param>
+    /// <param name="code">The code.</param>
+    /// <param name="types">The structure types.</param>
+    private static void Assign(byte[] codes, byte code, params ReadOnlySpan<PdfStructureType> types)
+    {
+        foreach (var type in types)
+        {
+            codes[(int)type] = code;
+        }
+    }
+
     /// <summary>Determines whether a node has child elements rather than only content.</summary>
     /// <param name="node">The node.</param>
     /// <returns><see langword="true"/> when it has.</returns>
     private static bool HasElementChildren(PdfSemanticNode node)
     {
-        foreach (var child in node.Children)
+        var children = node.Children;
+        for (var i = 0; i < children.Count; i++)
         {
-            if (child.Role != PdfSemanticRole.Content)
+            if (children[i].Role != PdfSemanticRole.Content)
             {
                 return true;
             }
@@ -102,7 +156,8 @@ internal sealed class TaggedBlockWalker
     {
         _glyphs.Clear();
         node.CollectItems(_glyphs);
-        var characters = new List<int>(_glyphs.Count);
+        var characters = _characters;
+        characters.Clear();
         foreach (var glyph in _glyphs)
         {
             TaggedCharacterMap.Append(_map, glyph, characters);

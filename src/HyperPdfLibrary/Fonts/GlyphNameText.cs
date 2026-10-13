@@ -39,7 +39,7 @@ internal static class GlyphNameText
         return written == 1 ? SingleCharacter(resources.GlyphNames, text[0]) : new string(text[..written]);
     }
 
-    /// <summary>Gets the first code point of a glyph name's text, as PDFium's single-character lookups use it.</summary>
+    /// <summary>Gets the first code point of a glyph name's text, for fallback lookups that take one character.</summary>
     /// <param name="text">The text, or <see langword="null"/>.</param>
     /// <returns>The code point, or zero.</returns>
     internal static int FirstCodePoint(string? text) =>

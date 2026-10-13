@@ -52,11 +52,38 @@ public sealed class RenderParityTests
     /// <summary>The quality given to the PNG encoder; PNG ignores it.</summary>
     private const int PngQuality = 100;
 
+    /// <summary>The offset of the red channel in a BGRA pixel.</summary>
+    private const int RedChannel = 2;
+
+    /// <summary>The pixel column at the middle of the blue square.</summary>
+    private const int BlueCentreX = 50;
+
+    /// <summary>The pixel row at the middle of the blue square at one pixel per point.</summary>
+    private const int BlueCentreY = 150;
+
+    /// <summary>A scale inside the zoom layer's range.</summary>
+    private const float ZoomInside = 2;
+
+    /// <summary>The pixel, in x and y, at the middle of the zoom layer's square at one pixel per point.</summary>
+    private const int ZoomCentre = 100;
+
     /// <summary>The page index of the only page.</summary>
     private const int FirstPage = 0;
 
     /// <summary>The largest mean difference accepted for transparency groups, soft masks and knockout (measured 0.13 to 0.45).</summary>
     private const double TransparencyThreshold = 1;
+
+    /// <summary>
+    /// The largest mean difference accepted for a DeviceCMYK group with Multiply (measured 3.80 per channel, 46 percent of
+    /// pixels off). The two engines convert solid DeviceCMYK inks to different sRGB colours, mostly in the red of cyan.
+    /// </summary>
+    private const double CmykGroupThreshold = 4;
+
+    /// <summary>
+    /// The largest mean difference accepted for a page of solid DeviceCMYK fills (measured 7.89 per channel, every pixel
+    /// off). The two engines convert solid cyan, magenta and yellow inks to different sRGB colours.
+    /// </summary>
+    private const double CmykFillThreshold = 8;
 
     /// <summary>
     /// The largest mean difference accepted for a non-isolated group with a Multiply object (measured 11.79). PDFium blends
@@ -65,8 +92,26 @@ public sealed class RenderParityTests
     /// </summary>
     private const double NonIsolatedThreshold = 12.5;
 
+    /// <summary>The largest mean difference accepted where PDFium ignores the page /Group and HyperPDF applies its /K (measured 1.49).</summary>
+    private const double PageKnockoutThreshold = 2;
+
+    /// <summary>The largest mean difference accepted for a group inside a knockout group (measured 23.04).</summary>
+    private const double GroupInKnockoutThreshold = 25;
+
+    /// <summary>Two overlapping squares for an inner group, drawn at half alpha.</summary>
+    private const string NestedSquares = "/Half gs 1 1 0 rg 20 20 100 100 re f 0 0 1 rg 80 80 100 100 re f";
+
+    /// <summary>The group attributes of an isolated group.</summary>
+    private const string Isolated = "/I true";
+
+    /// <summary>One blue square for an inner group.</summary>
+    private const string NestedKnockoutContent = "0 0 1 rg 40 40 120 120 re f";
+
     /// <summary>The largest mean difference accepted for gradients, where the engines sample colours differently (measured 0.94).</summary>
     private const double ShadingThreshold = 1.5;
+
+    /// <summary>The largest mean difference accepted where PDFium clips a shading background to the box and ISO 32000-2 does not (measured 40.96).</summary>
+    private const double BackgroundBoxThreshold = 45;
 
     /// <summary>The largest mean difference accepted for tiling patterns (measured 0).</summary>
     private const double PatternThreshold = 0.5;
@@ -77,11 +122,23 @@ public sealed class RenderParityTests
     /// <summary>The largest mean difference accepted for generated annotation appearances (measured 0.01 to 0.23).</summary>
     private const double AnnotationThreshold = 0.5;
 
+    /// <summary>The largest mean difference accepted for pages whose image alternates and form references are ignored, as PDFium ignores them.</summary>
+    private const double ReferenceKeyThreshold = 1;
+
+    /// <summary>The entries of the one-pixel RGB test image.</summary>
+    private const string AlternateImageEntries = "/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode";
+
     /// <summary>The half alpha graphics state.</summary>
     private const string HalfState = "/Half << /Type /ExtGState /ca 0.5 /CA 0.5 >>";
 
     /// <summary>A soft mask transfer function that inverts coverage.</summary>
     private const string InvertTransfer = "/TR << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>";
+
+    /// <summary>A function that inverts a channel.</summary>
+    private const string InvertFunction = "<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>";
+
+    /// <summary>The graphics state with a /TR2 function that inverts colours.</summary>
+    private const string InvertState = $"/Inv << /TR2 {InvertFunction} >>";
 
     /// <summary>The red-to-blue axial function.</summary>
     private const string RedToBlue = "/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>";
@@ -124,6 +181,65 @@ public sealed class RenderParityTests
     public Task LayersMatchPdfium() =>
         AssertParity(nameof(LayersMatchPdfium), TestPdf.CreateWithLayers(), new(FirstPage, 1, PageRotation.None, 0, 0, RenderFlags.None), ShapeThreshold);
 
+    /// <summary>Layers shown or hidden by their own View and the configuration's /OFF list match PDFium on screen.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task LayerViewUsageMatchesPdfium() =>
+        AssertParity(nameof(LayerViewUsageMatchesPdfium), CreateUsageLayers(), PageInfo(RenderFlags.None), ShapeThreshold);
+
+    /// <summary>Layers shown or hidden by their Print usage match PDFium when printing.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task LayerPrintUsageMatchesPdfium() =>
+        AssertParity(nameof(LayerPrintUsageMatchesPdfium), CreateUsageLayers(), PageInfo(RenderFlags.Printing), ShapeThreshold);
+
+    /// <summary>
+    /// A usage application dictionary turns a layer on from the layer's own View usage (ISO 32000-2, 8.11.4.4), even when the
+    /// configuration's base state is off.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LayerAutoStateTurnsOnAHiddenLayer()
+    {
+        var pdf = CreateUsageLayers("/D << /BaseState /OFF /ON [5 0 R] /AS [<< /Event /View /Category [/View] /OCGs [7 0 R] >>] >>", "<< /View << /ViewState /ON >> >>");
+        var info = PageInfo(RenderFlags.None);
+        using var input = new HyperPdfTestDocument(pdf);
+        var actual = Render(input.Document, info, ShapesSize, ShapesSize);
+        const int offset = ((BlueCentreY * ShapesSize) + BlueCentreX) * BytesPerPixel;
+
+        await Assert.That(actual[offset]).IsEqualTo(byte.MaxValue);
+        await Assert.That(actual[offset + RedChannel]).IsEqualTo((byte)0);
+    }
+
+    /// <summary>
+    /// A layer limited to a zoom range by /AS is hidden below the range, which PDFium ignores (it has no zoom state); inside
+    /// the range both engines draw it.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ZoomLimitedLayerMatchesPdfiumInsideTheRange()
+    {
+        var pdf = CreateZoomLayer();
+        await AssertParity(nameof(ZoomLimitedLayerMatchesPdfiumInsideTheRange), pdf, new(FirstPage, ZoomInside, PageRotation.None, 0, 0, RenderFlags.None), ShapeThreshold);
+    }
+
+    /// <summary>Below its zoom range a layer is hidden by HyperPDF and drawn by PDFium, which does not apply /Zoom.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ZoomLimitedLayerIsHiddenBelowTheRangeUnlikePdfium()
+    {
+        var pdf = CreateZoomLayer();
+        var info = PageInfo(RenderFlags.None);
+        using var input = new HyperPdfTestDocument(pdf);
+        var reference = PdfiumReferenceRendering.Render(pdf, info);
+        var actual = Render(input.Document, info, reference.Width, reference.Height);
+        var offset = ((ZoomCentre * reference.Width) + ZoomCentre) * BytesPerPixel;
+
+        await Assert.That(reference.Pixels.Span[offset + RedChannel]).IsEqualTo((byte)0);
+        await Assert.That(actual[offset + RedChannel]).IsEqualTo(byte.MaxValue);
+        await Assert.That(actual[offset]).IsEqualTo(byte.MaxValue);
+    }
+
     /// <summary>A tile cut from the middle of a page matches PDFium's.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -158,6 +274,56 @@ public sealed class RenderParityTests
     public Task IsolatedGroupMatchesPdfium() =>
         AssertParity(nameof(IsolatedGroupMatchesPdfium), GroupPage("/I true"), PageInfo(RenderFlags.None), TransparencyThreshold);
 
+    /// <summary>An isolated knockout group inside a plain group matches PDFium.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task NestedKnockoutGroupMatchesPdfium() =>
+        AssertParity(nameof(NestedKnockoutGroupMatchesPdfium), NestedGroupPage(Isolated, $"{Isolated} /K true", NestedSquares), PageInfo(RenderFlags.None), TransparencyThreshold);
+
+    /// <summary>
+    /// A group inside a knockout group replaces the parent's earlier objects only where the group painted (ISO 32000-2
+    /// 11.6.6; unit test GroupInsideAKnockoutGroupReplacesEarlierObjects). PDFium's page differs (measured 23.04), so
+    /// this records the known difference rather than a match.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task GroupInsideKnockoutGroupDiffersFromPdfiumByDesign() =>
+        AssertParity(
+            nameof(GroupInsideKnockoutGroupDiffersFromPdfiumByDesign),
+            NestedGroupPage($"{Isolated} /K true", Isolated, NestedKnockoutContent),
+            PageInfo(RenderFlags.None),
+            GroupInKnockoutThreshold);
+
+    /// <summary>
+    /// A page /Group with /K true knocks out the page's top-level objects (ISO 32000-2 11.4.7). PDFium ignores the page
+    /// /Group, so its overlapping squares composite normally and the engines differ by design in the overlap.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task KnockoutPageGroupDiffersFromPdfiumByDesign()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize)
+        {
+            Content = "/Half gs 1 0 0 rg 20 20 100 100 re f 0 0 1 rg 80 80 100 100 re f",
+            Resources = $"/ExtGState << {HalfState} >>",
+            PageEntries = "/Group << /S /Transparency /K true >>",
+        };
+        return AssertParity(nameof(KnockoutPageGroupDiffersFromPdfiumByDesign), pdf.ToBytes(), PageInfo(RenderFlags.None), PageKnockoutThreshold);
+    }
+
+    /// <summary>A DeviceCMYK group with a Multiply object matches PDFium, which blends in RGB: the complement rule makes the two agree for separable modes.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task CmykGroupMultiplyMatchesPdfium()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "/Fm Do" };
+        var form = pdf.AddStream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 200 200] /Group << /S /Transparency /I true /CS /DeviceCMYK >>",
+            "/Mul gs 1 0 0 0 k 20 20 100 100 re f 0 1 0 0 k 80 80 100 100 re f");
+        pdf.Resources = $"/ExtGState << /Mul << /Type /ExtGState /BM /Multiply >> >> /XObject << /Fm {form} 0 R >>";
+        return AssertParity(nameof(CmykGroupMultiplyMatchesPdfium), pdf.ToBytes(), PageInfo(RenderFlags.None), CmykGroupThreshold);
+    }
+
     /// <summary>A luminosity soft mask with a backdrop colour and a transfer function matches PDFium.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -181,6 +347,61 @@ public sealed class RenderParityTests
         return AssertParity(nameof(CmykImageOverprintMatchesPdfium), pdf.ToBytes(), PageInfo(RenderFlags.None), ImageThreshold);
     }
 
+    /// <summary>A /TR2 function that inverts colours maps gray, RGB and stroke colours as PDFium does.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task Tr2InvertsFillsAndStrokesLikePdfium() =>
+        AssertParity(
+            nameof(Tr2InvertsFillsAndStrokesLikePdfium),
+            Page("/Inv gs 0.25 g 20 20 80 80 re f 1 0.5 0 rg 100 100 80 80 re f 0 0 1 RG 12 w 10 190 m 190 10 l S", $"/ExtGState << {InvertState} >>"),
+            PageInfo(RenderFlags.None),
+            ShapeThreshold);
+
+    /// <summary>The older /TR key does the same when /TR2 is absent, and /TR2 /Default turns it off, as in PDFium.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task Tr2WinsOverTrLikePdfium() =>
+        AssertParity(
+            nameof(Tr2WinsOverTrLikePdfium),
+            Page("/Old gs 1 0 0 rg 20 20 80 80 re f /Off gs 0 0 1 rg 100 100 80 80 re f", $"/ExtGState << /Old << /TR {InvertFunction} >> /Off << /TR {InvertFunction} /TR2 /Default >> >>"),
+            PageInfo(RenderFlags.None),
+            ShapeThreshold);
+
+    /// <summary>A transfer function maps the pixels of an image as it does in PDFium.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task Tr2InvertsImagesLikePdfium()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "/Inv gs q 160 0 0 160 20 20 cm /Im Do Q" };
+        var image = pdf.AddStream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode", "FF0000 00FF00 0000FF 808080>");
+        pdf.Resources = $"/XObject << /Im {image} 0 R >> /ExtGState << {InvertState} >>";
+        return AssertParity(nameof(Tr2InvertsImagesLikePdfium), pdf.ToBytes(), PageInfo(RenderFlags.None), ImageThreshold);
+    }
+
+    /// <summary>
+    /// Fills overprint in neither engine by default: PDFium never overprints paths, and HyperPDF previews overprint only
+    /// when its option is on. The preview itself is covered by the library's overprint tests.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task OverprintingFillsCoverTheBackdropLikePdfium() =>
+        AssertParity(
+            nameof(OverprintingFillsCoverTheBackdropLikePdfium),
+            Page("1 0 0 0 k 0 0 200 200 re f /Op gs 0 1 0 0 k 40 40 120 120 re f 0 0 1 0 K 10 w 20 180 m 180 20 l S", "/ExtGState << /Op << /OP true /op true /OPM 1 >> >>"),
+            PageInfo(RenderFlags.None),
+            CmykFillThreshold);
+
+    /// <summary>A named DeviceRGB colour space is replaced by /DefaultRGB in both engines.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task NamedDefaultColorSpaceMatchesPdfium()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "/DeviceRGB cs 1 0 0 sc 20 20 160 160 re f" };
+        var green = pdf.AddStream("/FunctionType 4 /Domain [0 1 0 1 0 1] /Range [0 1 0 1 0 1]", "{ pop pop pop 0 1 0 }");
+        pdf.Resources = $"/ColorSpace << /DefaultRGB [/DeviceN [/X /Y /Z] /DeviceRGB {green} 0 R] >>";
+        return AssertParity(nameof(NamedDefaultColorSpaceMatchesPdfium), pdf.ToBytes(), PageInfo(RenderFlags.None), ShapeThreshold);
+    }
+
     /// <summary>Axial shadings extended at one end only match PDFium.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -193,6 +414,83 @@ public sealed class RenderParityTests
                 + $"/S2 << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [50 0 150 0] {RedToBlue} /Extend [false true] >> >>"),
             PageInfo(RenderFlags.None),
             ShadingThreshold);
+
+    /// <summary>Axial and radial shadings painted with sh and clipped by /BBox match PDFium.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task ShadingBoxWithShOperatorMatchesPdfium() =>
+        AssertParity(
+            nameof(ShadingBoxWithShOperatorMatchesPdfium),
+            Page(
+                "q 0 0 200 100 re W n /S1 sh Q q 0 100 200 100 re W n /S2 sh Q",
+                $"/Shading << /S1 << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [20 0 180 0] {RedToBlue} /Extend [true true] /BBox [40 20 160 80] >> "
+                + $"/S2 << /ShadingType 3 /ColorSpace /DeviceRGB /Coords [100 150 0 100 150 80] {RedToBlue} /Extend [true true] /BBox [40 120 160 180] >> >>"),
+            PageInfo(RenderFlags.None),
+            ShadingThreshold);
+
+    /// <summary>Axial shading patterns clipped by /BBox, with a /Background that stays unclipped, match PDFium.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task ShadingBoxWithPatternFillMatchesPdfium() =>
+        AssertParity(
+            nameof(ShadingBoxWithPatternFillMatchesPdfium),
+            Page(
+                "/Pattern cs /P1 scn 0 0 200 100 re f",
+                $"/Pattern << /P1 {AxialPattern("/BBox [40 20 160 80]")} >>"),
+            PageInfo(RenderFlags.None),
+            ShadingThreshold);
+
+    /// <summary>
+    /// An axial shading pattern with /Background and /BBox differs from PDFium by design (measured 40.96). PDFium paints
+    /// the background only inside the box (cpdf_rendershading.cpp DrawShading); ISO 32000-2 Table 77 fills the whole area
+    /// with the background first and then paints the shading inside the box, which HyperPDF follows.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task ShadingBackgroundOutsideBoxDiffersFromPdfiumByDesign() =>
+        AssertParity(
+            nameof(ShadingBackgroundOutsideBoxDiffersFromPdfiumByDesign),
+            Page(
+                "/Pattern cs /P2 scn 0 100 200 100 re f",
+                $"/Pattern << /P2 {AxialPattern("/BBox [40 120 160 180] /Background [0 1 0]")} >>"),
+            PageInfo(RenderFlags.None),
+            BackgroundBoxThreshold);
+
+    /// <summary>/AntiAlias true is ignored by PDFium and only dithers in HyperPDF, so the pages stay within the gradient threshold.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task ShadingAntiAliasStaysCloseToPdfium() =>
+        AssertParity(
+            nameof(ShadingAntiAliasStaysCloseToPdfium),
+            Page(
+                "/S1 sh",
+                $"/Shading << /S1 << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [20 0 180 0] {RedToBlue} /Extend [true true] /AntiAlias true >> >>"),
+            PageInfo(RenderFlags.None),
+            ShadingThreshold);
+
+    /// <summary>Tiling patterns with negative steps match PDFium.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task NegativeTilingStepsMatchPdfium()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "/Pattern cs /P1 scn 0 0 200 200 re f" };
+        var negative = pdf.AddStream(
+            "/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 20 20] /XStep -25 /YStep -25 /Resources << >>",
+            "1 0 0 rg 0 0 15 15 re f 0 0 1 rg 10 10 10 10 re f");
+        pdf.Resources = $"/Pattern << /P1 {negative} 0 R >>";
+        return AssertParity(nameof(NegativeTilingStepsMatchPdfium), pdf.ToBytes(), PageInfo(RenderFlags.None), PatternThreshold);
+    }
+
+    /// <summary>A tiling step far larger than the page shows one cell, as in PDFium.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task HugeTilingStepShowsOneCellLikePdfium()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "/Pattern cs /P1 scn 0 0 200 200 re f" };
+        var huge = pdf.AddStream("/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 50 50] /XStep 1000000 /YStep 1000000 /Resources << >>", "1 0 0 rg 0 0 50 50 re f");
+        pdf.Resources = $"/Pattern << /P1 {huge} 0 R >>";
+        return AssertParity(nameof(HugeTilingStepShowsOneCellLikePdfium), pdf.ToBytes(), PageInfo(RenderFlags.None), PatternThreshold);
+    }
 
     /// <summary>Tiling patterns whose cells overlap and whose steps leave gaps match PDFium.</summary>
     /// <returns>A task.</returns>
@@ -226,7 +524,7 @@ public sealed class RenderParityTests
                 "/Subtype /Square /Rect [10 10 90 90] /C [0 0 1] /IC [1 0 0] /BS << /W 4 >> /F 4",
                 "/Subtype /Circle /Rect [110 10 190 90] /C [0 0.5 0] /IC [1 1 0] /F 4",
                 "/Subtype /Ink /Rect [10 110 90 190] /InkList [[20 120 80 180 80 120]] /C [1 0 1] /BS << /W 3 >> /F 4",
-                "/Subtype /Text /Rect [120 120 180 180] /F 4"),
+                "/Subtype /Text /Rect [120 120 140 140] /F 4"),
             PageInfo(RenderFlags.Annotations),
             AnnotationThreshold);
 
@@ -237,10 +535,10 @@ public sealed class RenderParityTests
         AssertParity(
             nameof(GeneratedMarkupAnnotationsMatchPdfium),
             AnnotationPage(
-                "/Subtype /Highlight /Rect [10 170 190 190] /QuadPoints [10 190 190 190 10 170 190 170] /C [0 1 1] /F 4",
-                "/Subtype /Underline /Rect [10 120 190 140] /QuadPoints [10 140 190 140 10 120 190 120] /F 4",
-                "/Subtype /StrikeOut /Rect [10 70 190 90] /QuadPoints [10 90 190 90 10 70 190 70] /C [1 0 0] /F 4",
-                "/Subtype /Squiggly /Rect [10 20 190 40] /QuadPoints [10 40 190 40 10 20 190 20] /C [0 0 1] /F 4"),
+                "/Subtype /Highlight /Rect [10 178 190 190] /QuadPoints [10 190 190 190 10 178 190 178] /C [0 1 1] /F 4",
+                "/Subtype /Underline /Rect [10 128 190 140] /QuadPoints [10 140 190 140 10 128 190 128] /F 4",
+                "/Subtype /StrikeOut /Rect [10 78 190 90] /QuadPoints [10 90 190 90 10 78 190 78] /C [1 0 0] /F 4",
+                "/Subtype /Squiggly /Rect [10 28 190 40] /QuadPoints [10 40 190 40 10 28 190 28] /C [0 0 1] /F 4"),
             PageInfo(RenderFlags.Annotations),
             AnnotationThreshold);
 
@@ -257,6 +555,49 @@ public sealed class RenderParityTests
                 "/Subtype /Square /Rect [110 110 190 190] /IC [1 1 0] /F 4"),
             PageInfo(RenderFlags.Annotations | RenderFlags.Printing),
             AnnotationThreshold);
+
+    /// <summary>An image with <c>/Alternates</c>, one marked as the printing default, draws the main image as PDFium does.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task ImageAlternatesMatchPdfium()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "q 200 0 0 200 0 0 cm /Im Do Q" };
+        var alternate = pdf.AddStream(AlternateImageEntries, "FF00FF>");
+        var image = pdf.AddStream(
+            $"{AlternateImageEntries.Replace("/Width 1 /Height 1", "/Width 2 /Height 2", StringComparison.Ordinal)} /Alternates [<< /Image {alternate} 0 R /DefaultForPrinting true >>]",
+            "FF0000 00FF00 0000FF FFFF00>");
+        pdf.Resources = $"/XObject << /Im {image} 0 R >>";
+        return AssertParity(nameof(ImageAlternatesMatchPdfium), pdf.ToBytes(), PageInfo(RenderFlags.None), ReferenceKeyThreshold);
+    }
+
+    /// <summary>A form XObject with a <c>/Ref</c> to a missing file draws its proxy content as PDFium does.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task ReferenceFormProxyMatchesPdfium()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "1 1 0 rg 0 0 200 200 re f /Fm Do" };
+        var form = pdf.AddStream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 200 200] /Ref << /F (no-such-target.pdf) /Page 2 /ID [(AAAA) (BBBB)] >>",
+            "0 0 1 rg 20 20 160 160 re f 1 0 0 rg 60 60 80 80 re f");
+        pdf.Resources = $"/XObject << /Fm {form} 0 R >>";
+        return AssertParity(nameof(ReferenceFormProxyMatchesPdfium), pdf.ToBytes(), PageInfo(RenderFlags.None), ReferenceKeyThreshold);
+    }
+
+    /// <summary>A proxy form that draws itself, and alternates that name each other, stop and match PDFium.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public Task CyclicAlternatesAndReferencesMatchPdfium()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "q 100 0 0 100 0 0 cm /Im Do Q /Fm Do" };
+        var image = pdf.NextNumber;
+        _ = pdf.AddStream($"{AlternateImageEntries} /Alternates [<< /Image {image} 0 R >>]", "00FF00>");
+        var form = pdf.NextNumber;
+        _ = pdf.AddStream(
+            $"/Type /XObject /Subtype /Form /BBox [100 100 200 200] /Ref << /F (self.pdf) >> /Resources << /XObject << /Fm {form} 0 R >> >>",
+            "0 0 1 rg 100 100 100 100 re f /Fm Do");
+        pdf.Resources = $"/XObject << /Im {image} 0 R /Fm {form} 0 R >>";
+        return AssertParity(nameof(CyclicAlternatesAndReferencesMatchPdfium), pdf.ToBytes(), PageInfo(RenderFlags.None), ReferenceKeyThreshold);
+    }
 
     /// <summary>Builds a page with content and resources.</summary>
     /// <param name="content">The content.</param>
@@ -281,6 +622,28 @@ public sealed class RenderParityTests
         return pdf.ToBytes();
     }
 
+    /// <summary>Gets a shading pattern dictionary with an axial red-to-blue shading across the page.</summary>
+    /// <param name="shadingEntries">Extra entries of the shading dictionary.</param>
+    /// <returns>The dictionary text.</returns>
+    private static string AxialPattern(string shadingEntries) =>
+        $"<< /PatternType 2 /Shading << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [20 0 180 0] {RedToBlue} /Extend [true true] {shadingEntries} >> >>";
+
+    /// <summary>Builds a page that draws an outer group holding an inner group, both at half alpha squares.</summary>
+    /// <param name="outer">The outer group's attributes.</param>
+    /// <param name="inner">The inner group's attributes.</param>
+    /// <param name="content">The inner group's content.</param>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] NestedGroupPage(string outer, string inner, string content)
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "/Outer Do" };
+        var innerForm = pdf.AddStream($"/Type /XObject /Subtype /Form /BBox [0 0 200 200] /Group << /S /Transparency {inner} >>", content);
+        var outerForm = pdf.AddStream(
+            $"/Type /XObject /Subtype /Form /BBox [0 0 200 200] /Group << /S /Transparency {outer} >> /Resources << /ExtGState << {HalfState} >> /XObject << /Inner {innerForm} 0 R >> >>",
+            "1 0 0 rg 0 0 200 200 re f /Half gs /Inner Do");
+        pdf.Resources = $"/ExtGState << {HalfState} >> /XObject << /Outer {outerForm} 0 R >>";
+        return pdf.ToBytes();
+    }
+
     /// <summary>Builds a page with annotations that have no appearance streams.</summary>
     /// <param name="annotations">Each annotation's entries other than /Type.</param>
     /// <returns>The PDF bytes.</returns>
@@ -300,6 +663,47 @@ public sealed class RenderParityTests
     /// <summary>Creates the shapes page.</summary>
     /// <returns>The PDF bytes.</returns>
     private static byte[] CreateShapes() => new RenderTestPdf(ShapesSize, ShapesSize) { Content = ShapesContent, Resources = ShapesResources }.ToBytes();
+
+    /// <summary>
+    /// Builds a page with four layered squares: red (on), green (off by /OFF), blue (View on, Print off) and yellow (View off,
+    /// Print on). A test can replace the default configuration and the blue layer's usage.
+    /// </summary>
+    /// <param name="configuration">The /D configuration; empty for the one that turns green off.</param>
+    /// <param name="blueUsage">The blue layer's /Usage; empty for Print off.</param>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] CreateUsageLayers(string configuration, string blueUsage)
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize)
+        {
+            Content = "/OC /Red BDC 1 0 0 rg 10 110 80 80 re f EMC /OC /Green BDC 0 1 0 rg 110 110 80 80 re f EMC "
+                + "/OC /Blue BDC 0 0 1 rg 10 10 80 80 re f EMC /OC /Yellow BDC 1 1 0 rg 110 10 80 80 re f EMC",
+            Resources = "/Properties << /Red 5 0 R /Green 6 0 R /Blue 7 0 R /Yellow 8 0 R >>",
+        };
+        _ = pdf.AddObject("<< /Type /OCG /Name (Red) >>");
+        _ = pdf.AddObject("<< /Type /OCG /Name (Green) >>");
+        var usage = blueUsage.Length == 0 ? "<< /Print << /PrintState /OFF >> >>" : blueUsage;
+        _ = pdf.AddObject($"<< /Type /OCG /Name (Blue) /Usage {usage} >>");
+        _ = pdf.AddObject("<< /Type /OCG /Name (Yellow) /Usage << /View << /ViewState /OFF >> /Print << /PrintState /ON >> >> >>");
+        var defaults = configuration.Length == 0
+            ? "/D << /OFF [6 0 R] /AS [<< /Event /View /Category [/View] /OCGs [7 0 R 8 0 R] >> << /Event /Print /Category [/Print] /OCGs [7 0 R 8 0 R] >>] >>"
+            : configuration;
+        pdf.CatalogEntries = $"/OCProperties << /OCGs [5 0 R 6 0 R 7 0 R 8 0 R] {defaults} >>";
+        return pdf.ToBytes();
+    }
+
+    /// <summary>Builds the four-square page with the default configuration and usage.</summary>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] CreateUsageLayers() => CreateUsageLayers(string.Empty, string.Empty);
+
+    /// <summary>Builds a page with a cyan square on a layer that /AS shows only from double magnification.</summary>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] CreateZoomLayer()
+    {
+        var pdf = new RenderTestPdf(ShapesSize, ShapesSize) { Content = "/OC /Cyan BDC 0 1 1 rg 60 60 80 80 re f EMC", Resources = "/Properties << /Cyan 5 0 R >>" };
+        _ = pdf.AddObject("<< /Type /OCG /Name (Cyan) /Usage << /Zoom << /min 2 >> >> >>");
+        pdf.CatalogEntries = "/OCProperties << /OCGs [5 0 R] /D << /AS [<< /Event /View /Category [/Zoom] /OCGs [5 0 R] >>] >> >>";
+        return pdf.ToBytes();
+    }
 
     /// <summary>Renders a page tile.</summary>
     /// <param name="document">The document.</param>

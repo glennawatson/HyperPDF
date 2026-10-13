@@ -18,11 +18,17 @@ internal static class PdfSignatureDictionaries
     /// <summary>The DocMDP permission when /P is missing.</summary>
     private const int DefaultPermission = 2;
 
+    /// <summary>The seed value /Ff flag, bit position 7, that makes /DigestMethod a required constraint.</summary>
+    private const int DigestMethodRequiredFlag = 0x40;
+
     /// <summary>Gets the /Type of a document timestamp's dictionary.</summary>
     internal static ReadOnlySpan<byte> DocTimeStamp => "DocTimeStamp"u8;
 
     /// <summary>Gets the sub-filter of a document timestamp.</summary>
     internal static ReadOnlySpan<byte> Rfc3161 => "ETSI.RFC3161"u8;
+
+    /// <summary>Gets the /DigestMethod key of seed values and signature references.</summary>
+    internal static ReadOnlySpan<byte> DigestMethodKey => "DigestMethod"u8;
 
     /// <summary>Gets the FieldMDP transform method.</summary>
     private static ReadOnlySpan<byte> FieldMdpMethod => "FieldMDP"u8;
@@ -71,10 +77,15 @@ internal static class PdfSignatureDictionaries
     /// <returns>The DocMDP permission, FieldMDP lock and usage rights found.</returns>
     internal static SignatureReferences ReadReferences(PdfArray? references, PdfNameTable names)
     {
-        var result = new SignatureReferences(PdfMdpPermission.None, null, null);
-        for (var i = 0; references is not null && i < references.Count; i++)
+        var count = references?.Count ?? 0;
+        var result = new SignatureReferences(PdfMdpPermission.None, null, null, count == 0 ? [] : new PdfDigestMethod[count]);
+        var digestMethod = names.Intern(DigestMethodKey);
+        for (var i = 0; i < count; i++)
         {
-            var reference = references.GetDictionary(i);
+            var reference = references!.GetDictionary(i);
+
+            // ISO/TS 32001 errata (issue 236) removed its SHA-3 names for references, but they are still read leniently.
+            result.DigestMethods[i] = reference is null ? PdfDigestMethod.Unknown : PdfDigestMethods.FromName(reference.GetName(digestMethod), names);
             var parameters = reference?.GetDictionary(KnownName.TransformParams);
             if (parameters is null)
             {
@@ -85,6 +96,35 @@ internal static class PdfSignatureDictionaries
         }
 
         return result;
+    }
+
+    /// <summary>Reads the /DigestMethod of a seed value dictionary (ISO 32000-2, Table 237; ISO/TS 32001:2022, 5.1.2).</summary>
+    /// <param name="seed">The field's /SV dictionary, or <see langword="null"/>.</param>
+    /// <param name="names">The name table.</param>
+    /// <returns>The accepted digests, or <see langword="null"/> when the seed value names none.</returns>
+    internal static PdfSeedValueDigest? ReadSeedDigest(PdfDictionary? seed, PdfNameTable names)
+    {
+        if (seed is null)
+        {
+            return null;
+        }
+
+        var key = names.Intern(DigestMethodKey);
+        var required = (seed.GetInt32(KnownName.Ff, 0) & DigestMethodRequiredFlag) != 0;
+        if (seed.GetArray(key) is not { } array)
+        {
+            // A bare name where the array belongs is read as a one-name list.
+            var single = seed.GetName(key);
+            return single.IsNone ? null : new([PdfDigestMethods.FromName(single, names)], required);
+        }
+
+        var methods = new PdfDigestMethod[array.Count];
+        for (var i = 0; i < methods.Length; i++)
+        {
+            methods[i] = PdfDigestMethods.FromName(array.GetName(i), names);
+        }
+
+        return new(methods, required);
     }
 
     /// <summary>Reads a /Lock dictionary or FieldMDP transform parameters.</summary>
@@ -109,13 +149,13 @@ internal static class PdfSignatureDictionaries
         return new(ReadAction(dictionary.GetName(names.Intern(ActionKey)), names), list, permission);
     }
 
-    /// <summary>Adds one transform to the transforms read so far; the first DocMDP transform wins, as in PDFium.</summary>
+    /// <summary>Adds one transform to the transforms read so far; the first DocMDP transform wins, because a signature has at most one (ISO 32000-2 12.8.2.2).</summary>
     /// <param name="result">The transforms so far.</param>
     /// <param name="method">The /TransformMethod.</param>
     /// <param name="parameters">The /TransformParams.</param>
     /// <param name="names">The name table.</param>
     /// <returns>The transforms.</returns>
-    private static SignatureReferences Apply(SignatureReferences result, PdfName method, PdfDictionary parameters, PdfNameTable names)
+    private static SignatureReferences Apply(in SignatureReferences result, PdfName method, PdfDictionary parameters, PdfNameTable names)
     {
         if (method.Is(KnownName.DocMDP))
         {
@@ -135,7 +175,7 @@ internal static class PdfSignatureDictionaries
         return names.NameEquals(method, Ur3Method) ? result with { UsageRights = PdfUsageRightsReader.Read(parameters, names) } : result;
     }
 
-    /// <summary>Reads a DocMDP permission, treating values other than 1 to 3 as none, as PDFium does.</summary>
+    /// <summary>Reads a DocMDP permission, treating values other than 1 to 3, the only ones the standard defines, as none.</summary>
     /// <param name="dictionary">The dictionary holding /P.</param>
     /// <param name="fallback">The value when /P is missing.</param>
     /// <returns>The permission.</returns>

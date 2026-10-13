@@ -70,7 +70,7 @@ internal static class PredictorFilter
             : UndoTiff(buffer, layout.RowBytes, layout.Colors, layout.Bits);
     }
 
-    /// <summary>Reads the row layout from the parameters, as PDFium's CheckFlateDecodeParams does.</summary>
+    /// <summary>Reads the row layout from /Colors, /BitsPerComponent and /Columns (ISO 32000-1 table 8).</summary>
     /// <param name="parms">The /DecodeParms dictionary.</param>
     /// <param name="layout">The layout.</param>
     /// <returns><see langword="false"/> when the bits per component or row size are not usable.</returns>

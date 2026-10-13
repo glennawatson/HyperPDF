@@ -44,14 +44,14 @@ public sealed record FontFace(string Family, string Style, string Path, int Face
     /// <summary>Gets the licence's embedding flags (OS/2 <c>fsType</c>).</summary>
     public int EmbeddingFlags { get; init; }
 
-    /// <summary>Gets a value indicating whether the face has TrueType outlines, which PDF can embed as a CID font.</summary>
-    public bool HasTrueTypeOutlines { get; init; }
+    /// <summary>Gets a value indicating whether the face has static TrueType or CFF outlines, which PDF can embed as a CID font.</summary>
+    public bool HasEmbeddableOutlines { get; init; }
 
     /// <summary>Gets a value indicating whether the face is bold.</summary>
     public bool IsBold => Weight >= BoldWeight;
 
     /// <summary>Gets a value indicating whether text in this face can be embedded in a PDF, by its outlines and licence.</summary>
-    public bool CanEmbed => HasTrueTypeOutlines && (EmbeddingFlags & LevelMask) != Restricted && (EmbeddingFlags & BitmapOnly) == 0;
+    public bool CanEmbed => HasEmbeddableOutlines && (EmbeddingFlags & LevelMask) != Restricted && (EmbeddingFlags & BitmapOnly) == 0;
 
     /// <summary>Gets a value indicating whether the licence lets the embedded font keep only the glyphs used.</summary>
     public bool CanSubset => (EmbeddingFlags & NoSubsetting) == 0;

@@ -215,10 +215,13 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     /// <param name="pageIndex">The page.</param>
     /// <param name="words">A reusable list for the words.</param>
     /// <param name="check">Whether to check how well the page reads before writing.</param>
+    /// <param name="cancellationToken">Stops the work between the strips rendered.</param>
     /// <returns>What happened.</returns>
-    private static OcrPageResult RecognizeOne(IDocument document, ITextLayerWriter writer, IOcrEngine engine, int pageIndex, List<OcrWord> words, bool check)
+    private static OcrPageResult RecognizeOne(IDocument document, ITextLayerWriter writer, IOcrEngine engine, int pageIndex, List<OcrWord> words, bool check, CancellationToken cancellationToken)
     {
-        var status = OcrRunner.RecognizeWords(document, engine, pageIndex, words);
+        // The words go back to the page they were read from, even if pages are inserted, deleted or moved meanwhile.
+        var pageToken = writer.GetPageToken(pageIndex);
+        var status = OcrRunner.RecognizeWords(document, engine, pageIndex, words, cancellationToken);
         if (status != OcrPageStatus.Recognized)
         {
             return new(pageIndex, status, 0);
@@ -226,7 +229,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
 
         return check && OcrRunner.AverageConfidence(words) < UnsureConfidence
             ? new(pageIndex, OcrPageStatus.Unsure, 0)
-            : OcrRunner.WriteWords(writer, pageIndex, words);
+            : OcrRunner.WriteWords(writer, pageIndex, pageToken, words);
     }
 
     /// <summary>Recognises the pages in the chosen languages, asking first only if the first page reads poorly.</summary>
@@ -387,6 +390,11 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         {
             _owner.Notice = "Text recognition stopped.";
         }
+        catch (InvalidOperationException)
+        {
+            // The engine throws ObjectDisposedException, a kind of InvalidOperationException, once its document is closed.
+            _owner.Notice = "Text recognition stopped because the document was closed.";
+        }
         finally
         {
             _cancellation = null;
@@ -480,7 +488,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
             await document.PreparePageAsync(page, cancellation).ConfigureAwait(true);
             var index = page;
             var check = checkFirst;
-            var result = await Task.Run(() => RecognizeOne(document, writer, engine, index, words, check), CancellationToken.None).ConfigureAwait(true);
+            var result = await Task.Run(() => RecognizeOne(document, writer, engine, index, words, check, cancellation), cancellation).ConfigureAwait(true);
             switch (result.Status)
             {
                 case OcrPageStatus.Recognized:

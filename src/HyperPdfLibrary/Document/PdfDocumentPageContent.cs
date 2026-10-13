@@ -24,7 +24,10 @@ public static class PdfDocumentPageContent
     internal static void InvalidatePageContent(PdfDocument document)
     {
         Volatile.Write(ref document.State.TextPages, null);
-        PdfDocumentLayers.GetOptionalContent(document).InvalidatePages();
+
+        // A layer set that was dropped is read again at the version floor, which is already past every version handed out,
+        // so there is nothing to invalidate and no need to read it just to do so.
+        Volatile.Read(ref document.State.OptionalContent)?.InvalidatePages();
     }
 
     /// <summary>Writes a page's changed content in a transaction.</summary>
@@ -32,7 +35,7 @@ public static class PdfDocumentPageContent
     /// <param name="content">The page content.</param>
     internal static void ApplyPageContent(PdfDocument document, PdfPageContent content)
     {
-        PdfDocumentEditing.RunEdit(document, "Edit page content", PdfChangeKinds.Other, content, static (_, state) => PdfPageContentApplication.CommitToPage(state));
+        PdfDocumentEditing.RunEdit(document, "Edit page content", PdfChangeKinds.Other, PdfCacheScopes.PageContent, content, static (_, state) => PdfPageContentApplication.CommitToPage(state));
         _ = Interlocked.Increment(ref document.State.PageContentEdits);
         PdfDocumentPageContent.InvalidatePageContent(document);
     }

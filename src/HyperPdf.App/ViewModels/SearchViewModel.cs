@@ -42,6 +42,9 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     /// <summary>Cancels the running search.</summary>
     private CancellationTokenSource? _search;
 
+    /// <summary>Whether a tab switch stopped a search before it finished.</summary>
+    private bool _interrupted;
+
     /// <summary>Initializes a new instance of the <see cref="SearchViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
     public SearchViewModel(DocumentTabViewModel owner)
@@ -116,6 +119,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     {
         IsOpen = false;
         Query = string.Empty;
+        _interrupted = false;
         Cancel();
         Clear();
     }
@@ -153,9 +157,24 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Refresh() => StartSearch();
 
-    /// <summary>Stops page-search I/O and CPU work when its tab loses selection.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void CancelForTabSwitch() => Cancel();
+    /// <summary>Stops page-search I/O and CPU work when its tab loses selection; a search that was not finished starts again when the tab is selected.</summary>
+    internal void CancelForTabSwitch()
+    {
+        _interrupted = _search is not null && IsSearching;
+        Cancel();
+    }
+
+    /// <summary>Starts again a search the tab switch interrupted, once the document is open.</summary>
+    internal void ResumeAfterTabSwitch()
+    {
+        if (!_interrupted || _owner.TryGetDocument() is null)
+        {
+            return;
+        }
+
+        _interrupted = false;
+        StartSearch();
+    }
 
     /// <summary>Reports a failure in the query pipeline.</summary>
     /// <param name="error">The error.</param>
@@ -194,7 +213,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
         UpdateStatus();
         var bounds = item.Hit.Bounds;
         _owner.NavigateTo(new(item.PageIndex, bounds.Length > 0 ? bounds[0] : null, 0));
-        _highlightChanges.OnNext(RxVoid.Default);
+        _highlightChanges.EmitIfOpen(RxVoid.Default);
     }
 
     /// <summary>Cancels the running search.</summary>
@@ -214,12 +233,13 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
         CurrentIndex = -1;
         SelectedResult = null;
         Status = string.Empty;
-        _highlightChanges.OnNext(RxVoid.Default);
+        _highlightChanges.EmitIfOpen(RxVoid.Default);
     }
 
     /// <summary>Starts a new search for the current query.</summary>
     private void StartSearch()
     {
+        _interrupted = false;
         Cancel();
         Clear();
         var document = _owner.TryGetDocument();
@@ -268,10 +288,16 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
                 }
 
                 UpdateStatus();
-                _highlightChanges.OnNext(RxVoid.Default);
+                _highlightChanges.EmitIfOpen(RxVoid.Default);
             }
         }
         catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        // The last page can finish just as a newer search starts; the busy flag and status now belong to the newer one.
+        if (cancellationToken.IsCancellationRequested)
         {
             return;
         }

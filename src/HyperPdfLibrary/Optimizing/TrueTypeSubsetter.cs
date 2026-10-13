@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Optimizing;
@@ -108,7 +110,7 @@ internal static class TrueTypeSubsetter
     /// <param name="names">The optimiser's names.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The subset program stream, or <see langword="null"/> when the font cannot be subset or nothing is gained.</returns>
-    internal static PdfStream? Subset(PdfStream program, HashSet<int> glyphs, OptimizerNames names, CancellationToken cancellationToken)
+    internal static PdfStream? Subset(PdfStream program, CodeBitSet glyphs, OptimizerNames names, CancellationToken cancellationToken)
     {
         var font = program.DecodeToArray(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
@@ -145,7 +147,7 @@ internal static class TrueTypeSubsetter
     /// <param name="glyphs">The glyphs to keep.</param>
     /// <param name="cmap">The cmap table to write in place of the font's own.</param>
     /// <returns>The new font, or <see langword="null"/> when the font is not a whole TrueType-outline font.</returns>
-    internal static byte[]? SubsetWithCmap(byte[] font, HashSet<int> glyphs, byte[] cmap)
+    internal static byte[]? SubsetWithCmap(byte[] font, CodeBitSet glyphs, byte[] cmap)
     {
         if (!TryReadTables(font, out var tables))
         {
@@ -237,29 +239,9 @@ internal static class TrueTypeSubsetter
     /// <param name="longLoca">Whether entries are 32-bit offsets rather than 16-bit halves.</param>
     /// <param name="offsets">The count plus one offsets into /glyf.</param>
     /// <returns><see langword="true"/> when the table is whole and consistent.</returns>
-    private static bool TryReadLoca(byte[] font, SfntTable loca, SfntTable glyf, int count, bool longLoca, out int[] offsets)
-    {
-        offsets = new int[count + 1];
-        var entry = longLoca ? LongEntry : ShortEntry;
-        if (count == 0 || loca.Length < (count + 1) * entry)
-        {
-            return false;
-        }
-
-        for (var i = 0; i <= count; i++)
-        {
-            var at = font.AsSpan(loca.Offset + (i * entry));
-            var offset = longLoca ? BinaryPrimitives.ReadUInt32BigEndian(at) : BinaryPrimitives.ReadUInt16BigEndian(at) * (long)ShortEntry;
-            if (offset > glyf.Length || (i > 0 && offset < offsets[i - 1]))
-            {
-                return false;
-            }
-
-            offsets[i] = (int)offset;
-        }
-
-        return true;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool TryReadLoca(byte[] font, SfntTable loca, SfntTable glyf, int count, bool longLoca, out int[] offsets) =>
+        TrueTypeLocations.TryRead(font.AsSpan(loca.Offset, loca.Length), glyf.Length, count, longLoca, out offsets);
 
     /// <summary>Writes the font again with only the kept glyphs' outlines and a long /loca.</summary>
     /// <param name="font">The font.</param>

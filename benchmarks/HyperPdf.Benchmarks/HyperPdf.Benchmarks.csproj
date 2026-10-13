@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
   </ItemGroup>
 
   <ItemGroup>
@@ -37,9 +38,34 @@
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Rendering\RenderTestPdf.cs" Link="RenderTestPdf.cs" />
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyPdf.cs" Link="Security\PublicKeyPdf.cs" />
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyCipher.cs" Link="Security\PublicKeyCipher.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\EcdhRecipients.cs" Link="Security\EcdhRecipients.cs" />
+    <!-- The AES-GCM test file builder, written from ISO/TS 32003 without library code. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\AesGcmPdf.cs" Link="Security\AesGcmPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\AesGcmLayout.cs" Link="Security\AesGcmLayout.cs" />
+    <!-- The PDF MAC (ISO/TS 32004) test file builder, written from the standard without library code. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\MacPdf.cs" Link="Security\MacPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\MacToken.cs" Link="Security\MacToken.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\MacDer.cs" Link="Security\MacDer.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\MacProtection.cs" Link="Security\MacProtection.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PdfBytes.cs" Link="Security\PdfBytes.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Syntax\RawPdf.cs" Link="Syntax\RawPdf.cs" />
+    <EmbeddedResource Include="..\..\tests\HyperPdfLibrary.Tests\Security\Data\*" LogicalName="HyperPdfLibrary.Tests.Security.Ecdh.%(Filename)%(Extension)" />
+    <!-- OpenSSL's SHA-3 and SHAKE256 signatures, which the signature validation benchmarks check. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Signatures\Sha3Signatures.cs" Link="Signatures\Sha3Signatures.cs" />
+    <EmbeddedResource Include="..\..\tests\HyperPdfLibrary.Tests\Signatures\Data\*" LogicalName="HyperPdfLibrary.Tests.Signatures.Sha3.%(Filename)%(Extension)" />
+    <!-- OpenSSL's elliptic-curve and EdDSA signatures, which the elliptic-curve validation benchmarks check. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Signatures\EcSignatures.cs" Link="Signatures\EcSignatures.cs" />
+    <EmbeddedResource Include="..\..\tests\HyperPdfLibrary.Tests\Signatures\EcData\*" LogicalName="HyperPdfLibrary.Tests.Signatures.Ec.%(Filename)%(Extension)" />
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
     <!-- Valid PDF/A files, so the conformant save benchmarks measure a claim that is kept rather than repaired. -->
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtures.cs" Link="Conformance\PdfAFixtures.cs" />
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtureLevel.cs" Link="Conformance\PdfAFixtureLevel.cs" />
+    <!-- The 1.x samples the PDF 2.0 copy benchmark converts. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Pdf20\Pdf20TestPdf.cs" Link="Pdf20\Pdf20TestPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\ConformancePdf.cs" Link="Conformance\ConformancePdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\IccTestProfileBuilder.cs" Link="Graphics\IccTestProfileBuilder.cs" />
+    <!-- The documented CMYK ink-model profiles ('mft2' and 'mAB ') that the colour benchmarks convert through. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\IccCmykFixture.cs" Link="Graphics\IccCmykFixture.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\IccReference.cs" Link="Graphics\IccReference.cs" />
   </ItemGroup>
 </Project>

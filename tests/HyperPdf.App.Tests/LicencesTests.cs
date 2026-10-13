@@ -251,30 +251,14 @@ public sealed class LicencesTests
         await Assert.That(document.Groups[0].Entries[0].Name).IsEqualTo("HyperPdfLibrary");
     }
 
-    /// <summary>The app lists the copied PDFium CMYK table licence but not the test-only PDFium binary licences.</summary>
+    /// <summary>The shipped notices list nothing from the test-only PDFium binaries, and the app has no copied colour table.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task AppListsCopiedCmykTableButNotPdfiumBinary()
+    public async Task AppListsNoTestOnlyPdfiumComponents()
     {
         var entries = LicenceNotices.Load().AllEntries();
-        using var components = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(LicencesFolder(), "components.json")));
-        foreach (var component in components.RootElement.EnumerateArray())
-        {
-            if (!component.TryGetProperty("bundle", out var bundle) || bundle.GetString() != "pdfium-bundled")
-            {
-                continue;
-            }
-
-            var name = component.GetProperty("name").GetString()!;
-            await Assert.That(entries.Exists(entry => entry.Name == name)).IsFalse();
-        }
-
-        var table = components.RootElement.EnumerateArray().Single(static component => component.GetProperty("id").GetString() == "pdfium-cmyk-table");
-        var tableName = table.GetProperty("name").GetString()!;
-        var tableEntry = entries.Single(entry => entry.Name == tableName);
-        var upstreamText = (await File.ReadAllTextAsync(Path.Combine(LicencesFolder(), table.GetProperty("textFile").GetString()!))).Trim();
-        await Assert.That(tableEntry.Text).IsEqualTo(DisplayText(upstreamText));
-        await Assert.That(tableEntry.Licence).IsEqualTo("BSD-3-Clause");
+        await Assert.That(entries.Exists(static entry => entry.Name.Contains("PDFium", StringComparison.OrdinalIgnoreCase))).IsFalse();
+        await Assert.That(entries.Exists(static entry => entry.Name.Contains("CMYK conversion table", StringComparison.OrdinalIgnoreCase))).IsFalse();
     }
 
     /// <summary>The window opens, lists the components, shows the chosen text, narrows by search and copies the text.</summary>
@@ -347,11 +331,6 @@ public sealed class LicencesTests
     private static bool HasVerifiedBundledPermission(NoticeEntry entry) => entry.Name switch
     {
         "CMU Pronouncing Dictionary (used with MeloTTS)" => entry.Licence == "LicenseRef-CMU-0.6 AND BSD-2-Clause",
-        "Anti-Grain Geometry 2.3 (inside PDFium)" => entry.Licence == "LicenseRef-AGG-2.3",
-        "FreeType (inside PDFium)" => entry.Licence == "FTL",
-        "libjpeg-turbo / Independent JPEG Group (inside PDFium)" => entry.Licence == "BSD-3-Clause AND IJG AND Zlib",
-        "libpng (inside PDFium)" => entry.Licence == "libpng-2.0",
-        "LLVM libc (inside PDFium)" => entry.Licence == "Apache-2.0 WITH LLVM-exception",
         _ => false,
     };
 

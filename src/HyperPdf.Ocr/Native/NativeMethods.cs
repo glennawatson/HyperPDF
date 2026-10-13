@@ -8,7 +8,7 @@ namespace HyperPdf.Ocr.Native;
 
 /// <summary>
 /// Source generated entry points of Tesseract's C API (<c>tesseract/capi.h</c>). <see cref="TesseractLibraryResolver"/>
-/// binds <see cref="Library"/> by absolute path to the copy shipped with the app, as PDFium and Skia are bound.
+/// binds <see cref="Library"/> by absolute path to the copy shipped with the app, as Skia is bound.
 /// </summary>
 internal static unsafe partial class NativeMethods
 {

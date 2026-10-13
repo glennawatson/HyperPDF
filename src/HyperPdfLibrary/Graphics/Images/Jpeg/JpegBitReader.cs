@@ -172,7 +172,7 @@ internal ref struct JpegBitReader
 
             _bitCount -= length;
             var index = table.ValueOffset[length] + code;
-            if ((uint)index < (uint)table.Values.Length)
+            if ((uint)index < (uint)table.Count)
             {
                 return table.Values[index];
             }

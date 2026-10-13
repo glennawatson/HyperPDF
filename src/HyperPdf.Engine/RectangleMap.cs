@@ -8,7 +8,7 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdf.Engine;
 
-/// <summary>A move from one user space rectangle to another, scaling each axis, as the PDFium engine moves annotations.</summary>
+/// <summary>A move from one user space rectangle to another, scaling each axis, which is how annotations are moved and resized.</summary>
 /// <param name="Source">The rectangle before.</param>
 /// <param name="Target">The rectangle after.</param>
 [DebuggerDisplay("RectangleMap: {Source} -> {Target}")]

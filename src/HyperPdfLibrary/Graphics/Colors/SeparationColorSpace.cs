@@ -16,13 +16,18 @@ internal sealed class SeparationColorSpace : PdfColorSpace
     /// <summary>The BGRA word for every 8-bit tint.</summary>
     private readonly uint[] _lookup;
 
+    /// <summary>The spaces made for each rendering that converts the alternate differently, or <see langword="null"/> before the first.</summary>
+    private PdfColorSpace?[]? _renderings;
+
     /// <summary>Initializes a new instance of the <see cref="SeparationColorSpace"/> class.</summary>
     /// <param name="transform">The tint conversion.</param>
     /// <param name="isNone">Whether the colorant is /None.</param>
-    internal SeparationColorSpace(TintTransform transform, bool isNone)
+    /// <param name="colorant">The colorant's name.</param>
+    internal SeparationColorSpace(TintTransform transform, bool isNone, string colorant)
     {
         _transform = transform;
         PaintsNothing = isNone;
+        ColorantNames = [colorant];
         _lookup = BuildLookup(this);
     }
 
@@ -35,11 +40,28 @@ internal sealed class SeparationColorSpace : PdfColorSpace
     /// <inheritdoc/>
     public override bool PaintsNothing { get; }
 
+    /// <inheritdoc/>
+    public override IReadOnlyList<string> ColorantNames { get; }
+
     /// <summary>Gets the alternate colour space.</summary>
     internal PdfColorSpace Alternate => _transform.Alternate;
 
     /// <inheritdoc/>
     public override void GetInitialColor(Span<float> components) => components[0] = 1;
+
+    /// <inheritdoc/>
+    internal override PdfColorSpace ForRendering(IccRendering rendering)
+    {
+        var alternate = _transform.Alternate.ForRendering(rendering);
+        return ReferenceEquals(alternate, _transform.Alternate)
+            ? this
+            : ColorSpaceRenderings.GetOrCreate(
+                ref _renderings,
+                rendering,
+                this,
+                alternate,
+                static (owner, converting) => new SeparationColorSpace(owner._transform with { Alternate = converting }, owner.PaintsNothing, owner.ColorantNames[0]));
+    }
 
     /// <inheritdoc/>
     private protected override void ToRgbCore(ReadOnlySpan<float> components, Span<float> rgb) => _transform.ToRgb(components[..1], rgb);

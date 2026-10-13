@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -21,7 +20,7 @@ public sealed partial class OcrLanguageItemView : ReactiveUI.Avalonia.ReactiveUs
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Name, static v => v.UseLanguageBox.Content));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.IsSelected, static v => v.UseLanguageBox.IsChecked, static on => on, IsOn));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsSelected, static v => v.UseLanguageBox.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusText, static v => v.LanguageStatusText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsDownloaded, static v => v.DownloadLanguageButton.IsVisible, static downloaded => !downloaded));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsDownloaded, static v => v.RemoveLanguageButton.IsVisible));
@@ -29,10 +28,4 @@ public sealed partial class OcrLanguageItemView : ReactiveUI.Avalonia.ReactiveUs
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.RemoveCommand, static v => v.RemoveLanguageButton));
         });
     }
-
-    /// <summary>Converts a nullable toggle state to a plain flag.</summary>
-    /// <param name="value">The toggle state.</param>
-    /// <returns><see langword="true"/> only when checked.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsOn(bool? value) => value == true;
 }

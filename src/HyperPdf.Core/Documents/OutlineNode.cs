@@ -12,4 +12,8 @@ namespace HyperPdf.Core.Documents;
 /// <param name="Children">The child entries.</param>
 /// <param name="IsOpen">Whether the document requests the entry be expanded.</param>
 [DebuggerDisplay("OutlineNode: {Title}")]
-public sealed record OutlineNode(string Title, LinkTarget Target, IReadOnlyList<OutlineNode> Children, bool IsOpen);
+public sealed record OutlineNode(string Title, LinkTarget Target, IReadOnlyList<OutlineNode> Children, bool IsOpen)
+{
+    /// <summary>Gets the entry's object number in the file, which <see cref="IOutlineEditor"/> takes to name the entry; 0 when the entry cannot be edited.</summary>
+    public int Id { get; init; }
+}

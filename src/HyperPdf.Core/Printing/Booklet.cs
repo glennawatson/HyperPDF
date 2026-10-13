@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
+
 namespace HyperPdf.Core.Printing;
 
 /// <summary>
@@ -29,14 +31,26 @@ public static class Booklet
     {
         ArgumentNullException.ThrowIfNull(output);
         output.Clear();
+        CollectionsMarshal.SetCount(output, SheetCount(pageCount) * PagesPerSheet);
+        Arrange(pageCount, CollectionsMarshal.AsSpan(output));
+    }
+
+    /// <summary>Lists the pages in printing order into a caller-supplied span.</summary>
+    /// <param name="pageCount">The pages.</param>
+    /// <param name="output">Receives the page positions in the original order, or -1 for a blank page; it must hold <see cref="SheetCount"/> times four positions.</param>
+    public static void Arrange(int pageCount, Span<int> output)
+    {
         var total = SheetCount(pageCount) * PagesPerSheet;
+        ArgumentOutOfRangeException.ThrowIfLessThan(output.Length, total);
+        var at = 0;
         for (var sheet = 0; sheet < total / PagesPerSheet; sheet++)
         {
             var outer = PagesPerSide * sheet;
-            output.Add(Page(total - 1 - outer, pageCount));
-            output.Add(Page(outer, pageCount));
-            output.Add(Page(outer + 1, pageCount));
-            output.Add(Page(total - PagesPerSide - outer, pageCount));
+            output[at] = Page(total - 1 - outer, pageCount);
+            output[at + 1] = Page(outer, pageCount);
+            output[at + PagesPerSide] = Page(outer + 1, pageCount);
+            output[at + PagesPerSheet - 1] = Page(total - PagesPerSide - outer, pageCount);
+            at += PagesPerSheet;
         }
     }
 

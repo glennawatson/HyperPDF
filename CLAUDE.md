@@ -6,7 +6,8 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 
 - Low allocations and low execution time are core requirements. Back every code change with relevant BenchmarkDotNet measurements. Compare baseline and change under the same conditions. Prefer the lowest measured cost that preserves correctness and access.
 - Do not judge performance from source code or subjective impressions. Overlapping timing error bars are inconclusive. Every feature needs a benchmark.
-- Measure allocations with EventPipe and `scripts/AllocationAudit.cs`. Never use `MemoryDiagnoser`. Explain every measured allocation in `benchmarks/allocations-explained.json`. The render hot path must not allocate.
+- Measure allocations with EventPipe and `scripts/AllocationAudit.cs`. Never use `MemoryDiagnoser`. Remove every measured allocation. Explain one in `benchmarks/allocations-explained.json` only after removing it has been exhausted or removing it shows a dramatic time penalty. The render hot path must not allocate. The UI and ReactiveUI work is the exception: this app is a ReactiveUI technology demo, so the small allocations that ReactiveUI.Primitives observables, operators and the generated `Events()` streams make when wiring and raising UI events are allowed. Do not remove them by dropping back to `+=`, Avalonia observable helpers or hand-written handlers. Explain them in `benchmarks/allocations-explained.json` as ReactiveUI event wiring, name the chain, and still remove any allocation in that code that is not part of the Primitives or `Events()` machinery itself (for example boxing, closures that a `static` lambda avoids, or per-event collections).
+- Look for fast paths that avoid the computation in the first place (early exits, caches, skipping unchanged work) before optimising the computation itself. Then consider SIMD and the GPU.
 
 ## Implementation
 
@@ -19,7 +20,17 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 - XAML is layout and styling only. Views implement `IViewFor<T>`. Use theme resources and visible action labels.
 - Views bind in the constructor inside `this.WhenActivated(disposables => ...)`. Use `OneWayBind` and `Bind` for view model to view, `BindCommand` for commands and `BindInteraction` or `RegisterHandler` for interactions. Use `WhenChanged` only to react to a change, not to copy a value into a control. Bind through the view's `ViewModel` path, never a view model captured at activation. Rx operators use `static` lambdas that read from the value they receive, not captured state. A capturing lambda is a last resort when no static form exists; comment why at the lambda. Exception: a terminal `SubscribeSafe` callback may capture `this` to call an instance member (`SubscribeSafe(_ => Close(), OnError)`), because Primitives has no state-passing `SubscribeSafe` yet; do not use `DoWith` plus an empty subscriber to avoid it.
 - View models derive from `ReactiveObject`. Use ReactiveUI.SourceGenerators: `[Reactive]` partial properties, `[ReactiveCommand]` methods, and ReactiveUI.Binding's `[ObservableAsProperty]` with `ToProperty` for derived values. Put side effects in `WhenChanged` subscriptions, not setters.
-- Notifications use ReactiveUI.Primitives observables and `SubscribeSafe`. Own subscriptions with `MultipleDisposable`. Observe events with ReactiveUI.Primitives.ObservableEvents `Events()`; never subscribe with `+=`. Do not block on async.
+- Notifications use ReactiveUI.Primitives observables and `SubscribeSafe`. Own subscriptions with `MultipleDisposable`. Observe events with the ReactiveUI.Primitives.ObservableEvents source generator's `Events()`; never subscribe with `+=`. Do not block on async.
+- Build event and binding chains from ReactiveUI.Primitives operators (see its README.md and Skill.md). Do not use Avalonia's own observable helpers (`GetObservable`, routed-event observers such as `ObserveRouted`). A chain shape that repeats goes into one extension block on `IObservable<T>` that holds the shared operators; do not add static or local helper methods on views.
+- This is a ReactiveUI-first UI. Attach from the view's constructor with `this.WhenActivated`, owning subscriptions in a `MultipleDisposable`. Inject the state a chain needs at the source, where you call the event or selection observable on the control (`Select(_ => strip)` inside the extension block), not by reading a field or property on the control inside a handler, and not with an outer operator or extra parameters. Use `Where` and `Select` instead of `OnXyz` methods that only wrap an `if`.
+- UI rules that follow from that, for every view, control, code-behind file and view model in `src/HyperPdf.App`:
+  - Subscriptions are made in the constructor inside `this.WhenActivated` and owned by a `MultipleDisposable`. Controls that need attach and detach logic implement `IActivatableView` and use `WhenActivated`; do not write `Attach` and `Detach` methods or handlers on `AttachedToVisualTree` and `DetachedFromVisualTree`.
+  - Events come from the generated `Events()` streams. Where `Events()` cannot see a member (for example controls the XAML name generator creates), read it once from a typed receiver in an extension block; do not fall back to `AddHandler`, `+=`, `GetObservable`, `AddClassHandler` or `Raised`. If a case truly has no documented ReactiveUI way, keep the workaround in one place, comment why at the statement, and list it in the pull request.
+  - Marshal to the UI thread with `ObserveOn` and the ReactiveUI schedulers, not `Dispatcher.UIThread`.
+  - Shared chain shapes (key chords, press and release, focus, drag and drop, injecting state) live in the extension blocks in `src/HyperPdf.App/Controls`. Read them first and add to them instead of writing a new chain in a view.
+  - State travels as the value in the chain, in a small record, not as a captured field. Name each shape with a positional record, never a tuple.
+  - Keep behaviour, keyboard access, screen-reader names and the comfort rules unchanged by a rework, and cover new chains with headless App tests, including drag, reorder, wheel and middle-click paths.
+  - When ReactiveUI.Primitives or the `Events()` generator lacks something a view needs, say so in the pull request and the ReactiveUI findings notes instead of working around it silently.
 - HTTP goes through Refit clients with generated JSON contexts.
 - Write byte-first and span-based code on hot paths: UTF-8 bytes, pooled buffers, SIMD where measured to help, and early exits. Shared caches are thread-safe; publish them with `Volatile` or `Interlocked`, or guard them with a `Lock`.
 - Use the newest .NET 11 APIs, such as span `ZLibDecoder`/`ZLibEncoder` and `ReadOnlyMemoryStream`. Keep every `#if NET11_0_OR_GREATER` branch in a small static helper in the project's `Compat/` folder, with the .NET 10 fallback behind the same signature. Feature code calls the helper.
@@ -32,15 +43,14 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
   - Use overloads, not optional parameters.
   - Braced switch sections.
   - Run `dotnet format analyzers --diagnostics <ids>` for mechanical fixes.
-- Hold `PdfiumLibrary.EnterScope()` for every PDFium call. Keep native resources owned and disposed.
+- Keep native resources owned and disposed.
 
 ## HyperPdfLibrary
 
-- `src/HyperPdfLibrary` is the managed PDF engine; `src/HyperPdf.Engine` adapts it to the app's interfaces. Neither references PDFium; `EngineIndependenceTests` checks this. The app always opens documents with HyperPDF.
-- Match PDFium's behaviour where useful, and use pdf.js where PDFium is clearly wrong. Add parity tests comparing both engines through `EnginePair`.
+- `src/HyperPdfLibrary` is the managed PDF engine; `src/HyperPdf.Engine` adapts it to the app's interfaces. The app always opens documents with HyperPDF.
 - Read leniently, write strictly. Open and recover malformed files where possible, but every file the library writes must conform to ISO 32000 (and to any PDF/A or PDF/UA level the file claims). Saving fixes what can be fixed in the parts it writes, such as wrong `/Length`, broken cross-reference data, missing required keys and invalid boxes. The viewer tells the user in plain words when a file was damaged and repaired on open, and what saving will fix. Never add a feature that needs non-conforming output.
-- Where PDFium blocks a standards feature (PDF 2.0, PDF/A, PDF/UA, PDF/R, XFDF, XMP), follow the standard. Keep a way to get PDFium-compatible output so parity tests still compare. PDFium remains a test and parity reference, not an app engine.
-- Read references in `~/source/pdf` (pdfium, pdf.js, pdfbox, qpdf, pdfpig) for behaviour only. MuPDF, Poppler and FreeType are copyleft: read them, never copy them. PdfPig is not a model for .NET code.
+- Never copy from a PDF engine.
+- Tests, committed scripts and docs never contain paths or assumptions specific to one machine (home folders, installed fonts, tools or profiles, local clones). Optional inputs come from an environment variable or PATH and skip with a reason when absent.
 - The engine parses UTF-8 bytes directly and its types are thread-safe: documents are used from many render threads at once.
 - The public API is async-first: every public operation has an async form taking a `CancellationToken` (`ValueTask` where results are often ready, `IAsyncEnumerable` for long walks). Async methods prefetch the bytes they need with real async I/O, then run the synchronous core inline. Pass the token explicitly through parsing, decoding, rendering and writing, including JPX, JBIG2, JPEG, Flate and font paths; spans and `ref struct`s never cross an `await`, and the library never uses `Task.Run`. Long loops check the token cheaply (per chunk, segment or operator batch, never per byte, never allocating). The sync API stays the fast path for warm calls. Callers that may wait on I/O or need to cancel (open, first page, search, save, tab switches) use the async forms. The NuGet package builds without runtime async so Mono hosts can load it; the app builds with it.
 - Text is UTF-8 by default: byte constants use `u8` literals, and parsing, XML and exports work in UTF-8. Use UTF-16 only where the PDF spec requires it (UTF-16BE text strings before PDF 2.0, ToUnicode CMap values, font name and cmap tables). Write new PDF text strings as PDFDocEncoding when they fit; otherwise UTF-8 with its prefix in PDF 2.0 files, UTF-16BE in earlier versions. Saving preserves existing encodings: unchanged strings and packets keep their bytes, and an edited value keeps the encoding of the value it replaces (UTF-16BE stays UTF-16BE).
@@ -55,6 +65,8 @@ Native AOT publishing needs a native compiler and zlib development files. Run th
 ```bash
 dotnet build HyperPdf.slnx
 dotnet test --solution HyperPdf.slnx
+# one test project, from the src folder; runner flags go after --; never --no-build
+dotnet test --project "$PWD/../tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0
 dotnet run -c Release -f net11.0 --project benchmarks/HyperPdf.Benchmarks -- --filter '*RelevantBenchmark*'
 scripts/audit-allocations.sh '*RelevantBenchmark*'
 scripts/publish-linux.sh linux-x64
@@ -70,7 +82,7 @@ dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest
 dotnet run --file scripts/FetchVeraPdfTestFiles.cs -- ~/.cache/hyperpdf/verapdf-test-files
 HYPERPDF_VERAPDF=~/.cache/hyperpdf/verapdf HYPERPDF_PDFA_SAMPLES=~/.cache/hyperpdf/pdfa-samples \
   HYPERPDF_VERAPDF_TEST_FILES=~/.cache/hyperpdf/verapdf-test-files \
-  dotnet run --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*'
+  dotnet test --project "$PWD/../tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*'
 ```
 
 The installer reads the release from `verapdf.json`, which Renovate updates; the same file pins the commit of veraPDF's PDF/A test files. Set `HYPERPDF_PDFA_OUTPUT` to keep the files the tests write. CI lists the sample ids in `.github/workflows/ci.yml`.

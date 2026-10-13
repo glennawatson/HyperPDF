@@ -84,7 +84,6 @@ namespace HyperPdf.Scripts
         private static void AddPackages(Options options, Overrides overrides, List<Component> components, List<string> problems)
         {
             var packages = new SortedDictionary<string, PackageRef>(StringComparer.OrdinalIgnoreCase);
-            var includesPdfium = false;
             foreach (var assets in options.Assets)
             {
                 foreach (var package in AssetsFile.ShippedPackages(assets))
@@ -95,7 +94,6 @@ namespace HyperPdf.Scripts
 
             foreach (var package in packages.Values)
             {
-                includesPdfium |= package.Id.StartsWith("bblanchon.PDFium.", StringComparison.OrdinalIgnoreCase);
                 if (PackageReader.Read(package, overrides) is { } component)
                 {
                     components.Add(component);
@@ -104,11 +102,6 @@ namespace HyperPdf.Scripts
                 {
                     problems.Add($"error: {package.Id} {package.Version} has no licence the tool can read; add it to licenses/packages.json.");
                 }
-            }
-
-            if (includesPdfium)
-            {
-                components.AddRange(ComponentFile.Load(Path.Combine(options.Licences, "components.json"), ["pdfium-bundled"]));
             }
         }
 

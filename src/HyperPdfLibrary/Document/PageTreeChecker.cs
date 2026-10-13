@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 
@@ -10,12 +11,18 @@ namespace HyperPdfLibrary.Document;
 /// <summary>Checks the page tree against the rules of ISO 32000: node types, /Kids, /Count, /Parent and the page boxes.</summary>
 /// <param name="objects">The document's objects.</param>
 /// <param name="faults">The list receiving each fault.</param>
-internal sealed class PageTreeChecker(PdfObjectStore objects, List<PdfDiagnostic> faults)
+internal ref struct PageTreeChecker(PdfObjectStore objects, List<PdfDiagnostic> faults)
 {
-    /// <summary>The page tree nodes already visited, so a loop is checked once.</summary>
-    private readonly HashSet<int> _seen = [];
+    /// <summary>The bits in a word of the visited set.</summary>
+    private const int WordBits = 64;
 
-    /// <summary>Checks the tree from the catalog.</summary>
+    /// <summary>The page tree nodes already visited, one bit per object number, so a loop is checked once; a pooled array.</summary>
+    private ulong[]? _seen;
+
+    /// <summary>The number of object numbers the visited set holds.</summary>
+    private int _seenLimit;
+
+    /// <summary>Checks the tree from the catalog, then gives back the pooled visited set.</summary>
     internal void Check()
     {
         var root = objects.Catalog.GetRaw(KnownName.Pages);
@@ -25,7 +32,41 @@ internal sealed class PageTreeChecker(PdfObjectStore objects, List<PdfDiagnostic
             return;
         }
 
-        _ = CheckNode(root, 0, false, 0);
+        var words = (objects.Size / WordBits) + 1;
+        _seen = ArrayPool<ulong>.Shared.Rent(words);
+        _seen.AsSpan(0, words).Clear();
+        _seenLimit = words * WordBits;
+        try
+        {
+            _ = CheckNode(root, 0, false, 0);
+        }
+        finally
+        {
+            ArrayPool<ulong>.Shared.Return(_seen);
+            _seen = null;
+        }
+    }
+
+    /// <summary>Marks a node as visited.</summary>
+    /// <param name="number">The node's object number.</param>
+    /// <returns><see langword="true"/> when the node was not visited before.</returns>
+    private readonly bool TryMarkSeen(int number)
+    {
+        if ((uint)number >= (uint)_seenLimit)
+        {
+            // A number beyond the table cannot name a stored node; the depth limit still bounds a loop.
+            return true;
+        }
+
+        ref var word = ref _seen![number / WordBits];
+        var bit = 1UL << (number % WordBits);
+        if ((word & bit) != 0)
+        {
+            return false;
+        }
+
+        word |= bit;
+        return true;
     }
 
     /// <summary>Checks a node and the nodes below it.</summary>
@@ -43,7 +84,7 @@ internal sealed class PageTreeChecker(PdfObjectStore objects, List<PdfDiagnostic
             return 0;
         }
 
-        if (depth > PdfLimits.MaxPageTreeDepth || (id.IsValid && !_seen.Add(id.Number)))
+        if (depth > PdfLimits.MaxPageTreeDepth || (id.IsValid && !TryMarkSeen(id.Number)))
         {
             return 0;
         }

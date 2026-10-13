@@ -122,6 +122,10 @@ internal ref partial struct Type2Interpreter
         _localSubrs = widths.Subrs;
         _stack = scratch[..CharstringLimits.StackDepth];
         _transient = scratch.Slice(CharstringLimits.StackDepth, CharstringLimits.TransientSize);
+
+        // The scratch comes from a shared pool, and the get operator can read a slot no put wrote: that reads zero, not
+        // whatever an earlier glyph or thread left.
+        _transient.Clear();
         _nominalWidth = widths.NominalWidth;
         _defaultWidth = widths.DefaultWidth;
         _widthOnly = widthOnly;

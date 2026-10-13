@@ -14,6 +14,9 @@ public sealed class FocusModeViewModelTests
     /// <summary>The article's pages.</summary>
     private const int Pages = 2;
 
+    /// <summary>The name of the generated article.</summary>
+    private const string ArticleName = "article.pdf";
+
     /// <summary>Reading aloud marks the sentence on the block in Focus Mode.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -21,7 +24,7 @@ public sealed class FocusModeViewModelTests
     {
         var speech = new FakeSpeech(true, true);
         using var test = new TestServices(new Services.FallbackPlatform(), speech);
-        var path = Path.Combine(test.Directory, "article.pdf");
+        var path = Path.Combine(test.Directory, ArticleName);
         await File.WriteAllBytesAsync(path, TestPdf.CreateArticle(Pages));
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [path]);
@@ -38,5 +41,59 @@ public sealed class FocusModeViewModelTests
         await Assert.That(changes).IsGreaterThan(0);
         await Assert.That(tab.FocusMode.Pages[0].Blocks[0].Spoken.IsEmpty).IsFalse();
         tab.ReadAloud.IsOpen = false;
+    }
+
+    /// <summary>A page asked for while the document is closed is not marked empty for good; it loads once the document is back.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PageAskedForWhileTheDocumentIsClosedLoadsLater()
+    {
+        using var test = new TestServices();
+        var path = Path.Combine(test.Directory, ArticleName);
+        await File.WriteAllBytesAsync(path, TestPdf.CreateArticle(Pages));
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [path]);
+        var tab = main.SelectedTab!;
+        var available = false;
+        var page = new FocusPageViewModel(0, "Page 1", () => available ? tab.GetReadingDocument() : null);
+
+        await page.LoadAsync();
+        var emptyWhileClosed = page.IsEmpty;
+        available = true;
+        await page.LoadAsync();
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(emptyWhileClosed).IsFalse();
+            await Assert.That(page.IsEmpty).IsFalse();
+            await Assert.That(page.Blocks.Count).IsGreaterThan(0);
+        }
+    }
+
+    /// <summary>Recognised or changed page text makes Focus Mode load its pages again instead of keeping the old blocks.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ChangedPageTextMakesFocusModeLoadAgain()
+    {
+        using var test = new TestServices();
+        var path = Path.Combine(test.Directory, ArticleName);
+        await File.WriteAllBytesAsync(path, TestPdf.CreateArticle(Pages));
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [path]);
+        var tab = main.SelectedTab!;
+        tab.FocusMode.IsOn = true;
+        var before = tab.FocusMode.Pages[0];
+        await before.LoadAsync();
+
+        tab.InvalidateReading();
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(tab.FocusMode.Pages[0]).IsNotSameReferenceAs(before);
+            await Assert.That(tab.FocusMode.Pages.Count).IsEqualTo(Pages);
+        }
+
+        await tab.FocusMode.Pages[0].LoadAsync();
+        await Assert.That(tab.FocusMode.Pages[0].Blocks.Count).IsGreaterThan(0);
     }
 }

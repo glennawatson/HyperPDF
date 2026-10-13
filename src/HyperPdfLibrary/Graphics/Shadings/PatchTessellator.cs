@@ -64,7 +64,7 @@ internal static class PatchTessellator
     ];
 
     /// <summary>
-    /// Adds the triangles of one patch. The grid is adaptive, as PDFium subdivides patches until they are small: each
+    /// Adds the triangles of one patch. The grid is adaptive, so small patches cost few triangles: each
     /// direction gets enough cells that no cell edge spans more than <see cref="TargetCellSize"/> device units and no
     /// cell spans a large colour change, bounded between <see cref="MinCells"/> and <see cref="MaxCells"/>.
     /// </summary>

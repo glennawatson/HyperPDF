@@ -23,8 +23,8 @@ internal sealed class PdfSimpleFont : PdfFont
     /// <summary>Half, used to centre a narrow substituted glyph.</summary>
     private const float Half = 0.5F;
 
-    /// <summary>The slack PDFium allows before widening a substituted glyph's spacing, in glyph units.</summary>
-    private const float SpacingSlack = 1;
+    /// <summary>The share of the PDF width a narrow substituted glyph may leave empty before it is centred.</summary>
+    private const float CentreThreshold = 0.02F;
 
     /// <summary>The font's loaded data.</summary>
     private readonly SimpleFontData _data;
@@ -95,7 +95,10 @@ internal sealed class PdfSimpleFont : PdfFont
     /// <returns>The glyph id, or -1 when the code has none.</returns>
     internal int GetGlyph(int code) => (uint)code < FontEncodings.CodeCount ? _data.Glyphs[code] : SimpleGlyphMap.NoGlyph;
 
-    /// <summary>Centres a substituted glyph narrower than its PDF width, or narrows one that is wider, as PDFium does.</summary>
+    /// <summary>
+    /// Fits a substituted glyph to the advance the PDF gives it: a wider glyph is compressed horizontally and a
+    /// noticeably narrower one is centred, so text keeps the spacing its author laid out (ISO 32000-2, 9.2.4).
+    /// </summary>
     /// <param name="path">The outline.</param>
     /// <param name="fontWidth">The glyph's own advance in glyph units.</param>
     /// <param name="pdfWidth">The PDF width in glyph units.</param>
@@ -103,8 +106,8 @@ internal sealed class PdfSimpleFont : PdfFont
     private static PdfPath FitToWidth(PdfPath path, float fontWidth, float pdfWidth) => pdfWidth switch
     {
         _ when fontWidth <= 0 || pdfWidth <= 0 => path,
-        _ when pdfWidth > fontWidth + SpacingSlack => path.Transform(Matrix3x2.CreateTranslation((pdfWidth - fontWidth) * Half, 0)),
         _ when pdfWidth < fontWidth => path.Transform(Matrix3x2.CreateScale(pdfWidth / fontWidth, 1)),
+        _ when pdfWidth - fontWidth > pdfWidth * CentreThreshold => path.Transform(Matrix3x2.CreateTranslation((pdfWidth - fontWidth) * Half, 0)),
         _ => path,
     };
 

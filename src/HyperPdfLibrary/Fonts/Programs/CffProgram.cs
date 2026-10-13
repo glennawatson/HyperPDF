@@ -209,6 +209,12 @@ public sealed class CffProgram : FontProgram
     /// <returns>The lowest glyph id, or -1.</returns>
     internal int GetGlyphBySid(int sid) => (uint)sid <= ushort.MaxValue ? Array.IndexOf(_charset, (ushort)sid) : NotFound;
 
+    /// <summary>Finds the glyph a StandardEncoding code names, as the accented-character form of endchar uses.</summary>
+    /// <param name="code">The StandardEncoding code.</param>
+    /// <returns>The glyph id, or -1.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal int GetStandardGlyph(int code) => GetGlyphByName(FontEncodings.GetGlyphName(FontEncoding.Standard, code));
+
     /// <inheritdoc/>
     private protected override int GlyphOfCid(int cid) => GetGlyphByCid(cid);
 
@@ -240,12 +246,6 @@ public sealed class CffProgram : FontProgram
         var dict = _fontDictSelect is not null && (uint)glyph < (uint)_fontDictSelect.Length ? _fontDictSelect[glyph] : 0;
         return dict < _privates.Length ? _privates[dict] : _privates[0];
     }
-
-    /// <summary>Finds the glyph a StandardEncoding code names, as the accented-character form of endchar uses.</summary>
-    /// <param name="code">The StandardEncoding code.</param>
-    /// <returns>The glyph id, or -1.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private int GetStandardGlyph(int code) => GetGlyphByName(FontEncodings.GetGlyphName(FontEncoding.Standard, code));
 
     /// <summary>Runs a glyph's charstring.</summary>
     /// <typeparam name="TSink">The sink type.</typeparam>

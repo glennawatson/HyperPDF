@@ -8,8 +8,8 @@ using System.Runtime.CompilerServices;
 namespace HyperPdfLibrary.Graphics.Colors;
 
 /// <summary>
-/// A look-up table ICC profile: its AToB tags and the transforms made from them, one per rendering intent. Transforms are
-/// created on request and shared; the profile bytes stay alive for that.
+/// A look-up table ICC profile: its AToB tags and the transforms made from them, one per intent table and black point
+/// choice. Transforms are created on request and shared; the profile bytes stay alive for that.
 /// </summary>
 [DebuggerDisplay("IccLutProfile: {_components} components, version {_version}")]
 internal sealed class IccLutProfile
@@ -29,8 +29,14 @@ internal sealed class IccLutProfile
     /// <summary>The highest L* the darkest colorant may have for black point detection.</summary>
     private const float MaxBlackLightness = 50F;
 
-    /// <summary>The number of intents with a transform of their own: perceptual, relative colorimetric and saturation.</summary>
+    /// <summary>The number of intents with a table of their own: perceptual, relative colorimetric and saturation.</summary>
     private const int IntentSlots = 3;
+
+    /// <summary>The black point choices of each table: without and with compensation.</summary>
+    private const int CompensationChoices = 2;
+
+    /// <summary>The number of transforms: each intent table with and without black point compensation.</summary>
+    private const int TransformSlots = IntentSlots * CompensationChoices;
 
     /// <summary>The slot of the relative colorimetric transform.</summary>
     private const int RelativeSlot = 1;
@@ -56,8 +62,8 @@ internal sealed class IccLutProfile
     /// <summary>The device values of the darkest colour, or <see langword="null"/> for a space with no known darkest colour.</summary>
     private readonly float[]? _darkest;
 
-    /// <summary>The transform of each intent slot; a slot is filled on first request.</summary>
-    private readonly IccLutTransform?[] _transforms = new IccLutTransform?[IntentSlots];
+    /// <summary>The transform of each intent table and compensation choice; a slot is filled on first request.</summary>
+    private readonly IccLutTransform?[] _transforms = new IccLutTransform?[TransformSlots];
 
     /// <summary>Guards filling the transform slots.</summary>
     private readonly Lock _gate = new();
@@ -88,15 +94,30 @@ internal sealed class IccLutProfile
         return created.Parse(PerceptualTag) is null ? null : created;
     }
 
-    /// <summary>Gets the transform for an intent.</summary>
-    /// <param name="intent">The rendering intent.</param>
-    /// <returns>The transform; the perceptual one for a table the profile lacks.</returns>
-    internal IccLutTransform Get(IccIntent intent)
+    /// <summary>Gets the transform for a rendering intent and black point choice.</summary>
+    /// <param name="rendering">The rendering; absolute colorimetric never compensates (ISO 32000-2 8.6.5.9).</param>
+    /// <returns>The transform; it uses the perceptual table when the profile lacks the intent's table.</returns>
+    internal IccLutTransform Get(IccRendering rendering)
     {
-        var slot = SlotOf(intent);
+        var table = SlotOf(rendering.Intent);
+        var compensate = rendering.Compensate && rendering.Intent != IccIntent.AbsoluteColorimetric;
+        var slot = (table * CompensationChoices) + (compensate ? 1 : 0);
+        var existing = Volatile.Read(ref _transforms[slot]);
+        if (existing is not null)
+        {
+            return existing;
+        }
+
         lock (_gate)
         {
-            return _transforms[slot] ??= CreateTransform(intent, slot);
+            if (_transforms[slot] is { } made)
+            {
+                return made;
+            }
+
+            var created = CreateTransform(rendering, table, compensate);
+            Volatile.Write(ref _transforms[slot], created);
+            return created;
         }
     }
 
@@ -126,25 +147,29 @@ internal sealed class IccLutProfile
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IccPipeline? Parse(uint tag) => IccLutParser.Parse(IccProfile.FindTag(_profile, tag), _components, _labPcs);
 
-    /// <summary>Creates the transform of an intent.</summary>
-    /// <param name="intent">The intent.</param>
-    /// <param name="slot">The intent's slot.</param>
+    /// <summary>Creates the transform of an intent table and compensation choice.</summary>
+    /// <param name="rendering">The rendering the transform serves.</param>
+    /// <param name="table">The intent table's slot.</param>
+    /// <param name="compensate">Whether the transform compensates for black points.</param>
     /// <returns>The transform.</returns>
-    private IccLutTransform CreateTransform(IccIntent intent, int slot)
+    private IccLutTransform CreateTransform(IccRendering rendering, int table, bool compensate)
     {
-        var pipeline = Parse(TagOf(slot)) ?? Parse(PerceptualTag)!;
-
-        // The sRGB output profile is v4, which makes perceptual and saturation conversions compensate for the black point.
-        var compensation = slot == RelativeSlot ? null : Compensation(pipeline);
-        return new(this, pipeline, compensation, intent);
+        var pipeline = Parse(TagOf(table)) ?? Parse(PerceptualTag)!;
+        var compensation = compensate ? Compensation(pipeline, table) : null;
+        return new(this, pipeline, compensation, rendering);
     }
 
-    /// <summary>Works out the map from the profile's black point to the output black point.</summary>
-    /// <param name="pipeline">The profile's pipeline.</param>
+    /// <summary>
+    /// Works out the map from the profile's black point to the output black point, detecting the source black point as
+    /// ISO 18619 does: the fixed perceptual black of a v4 profile's perceptual and saturation tables, otherwise the
+    /// lightness of the darkest colour the table gives.
+    /// </summary>
+    /// <param name="pipeline">The pipeline of the intent's table.</param>
+    /// <param name="table">The intent table's slot.</param>
     /// <returns>The map, or <see langword="null"/> when the black points agree.</returns>
-    private BlackPointCompensation? Compensation(IccPipeline pipeline)
+    private BlackPointCompensation? Compensation(IccPipeline pipeline, int table)
     {
-        var source = _version >= FirstVersion4 ? PerceptualBlack : DarkestColorant(pipeline);
+        var source = _version >= FirstVersion4 && table != RelativeSlot ? PerceptualBlack : DarkestColorant(pipeline);
 
         // The output is a matrix/shaper profile, whose black is the darkest colorant: XYZ zero.
         return BlackPointCompensation.Between(source, default);

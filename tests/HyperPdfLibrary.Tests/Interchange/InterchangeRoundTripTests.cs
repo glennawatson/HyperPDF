@@ -25,8 +25,23 @@ public sealed class InterchangeRoundTripTests
     /// <summary>A small rectangle.</summary>
     private const string Corner = "0,0,10,10";
 
+    /// <summary>The fields of the unknown-names file that the rich form has.</summary>
+    private const int KnownFields = 2;
+
+    /// <summary>The fields of the unknown-names file that the rich form does not have.</summary>
+    private const int UnknownFields = 2;
+
+    /// <summary>The rectangle of every sample annotation, as <see cref="InterchangeSamples"/> writes it.</summary>
+    private const string SampleBox = "72,600,172,650";
+
     /// <summary>The option of the list box selected in the sample.</summary>
     private const int ListOption = 3;
+
+    /// <summary>The reference PDFs with form fields.</summary>
+    private static readonly string[] ReferenceForms = ["pdfjs-textfields", "pypdf-latex-forms", "pypdf-libreoffice-form"];
+
+    /// <summary>The annotation names the tests read back and the text each one holds.</summary>
+    private static readonly string[] KeptAnnotations = [InterchangeSamples.HighlightName, "note-1"];
 
     /// <summary>Every kind of annotation survives XFDF: the copy exports the same file, and the entries are in the document.</summary>
     /// <returns>A task.</returns>
@@ -45,6 +60,52 @@ public sealed class InterchangeRoundTripTests
         await Assert.That(Subtypes(copy, 0)).Contains("Highlight");
         await Assert.That(Subtypes(copy, 0).Count(static name => name == "Popup")).IsEqualTo(Popups);
         await Assert.That(Subtypes(copy, 1)).Contains("FileAttachment");
+    }
+
+    /// <summary>The highlight and the text note keep their page, rectangle and contents through XFDF and FDF.</summary>
+    /// <param name="useFdf">Whether to go through FDF instead of XFDF.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task HighlightAndTextKeepPageRectangleAndContents(bool useFdf)
+    {
+        using var original = Annotated();
+        using var copy = PdfDocumentReader.Open(TestPdf.Create(SamplePages), null);
+        _ = useFdf ? PdfInterchange.ImportFdf(copy, PdfInterchange.ExportFdf(original)) : PdfInterchange.ImportXfdf(copy, PdfInterchange.ExportXfdf(original));
+
+        foreach (var name in KeptAnnotations)
+        {
+            var annotation = Annotations(copy, 0).Single(annotation => annotation.GetText(KnownName.NM) == name);
+            var expected = InterchangeSamples.Rect(SampleBox);
+
+            await Assert.That(annotation.GetText(KnownName.Contents)).IsEqualTo($"Contents of {name}\nsecond line");
+            await Assert.That(annotation.TryGetRectangle(KnownName.Rect, out var rect)).IsTrue();
+            await Assert.That(PdfRectangle.FromCorners(rect.Left, rect.Bottom, rect.Right, rect.Top)).IsEqualTo(expected);
+            await Assert.That(Annotations(copy, 1).Exists(other => other.GetText(KnownName.NM) == name)).IsFalse();
+        }
+    }
+
+    /// <summary>XFDF names that are not in the form are ignored, including a missing child of a field that exists.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task XfdfIgnoresUnknownFieldNames()
+    {
+        var xfdf = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <xfdf xmlns="http://ns.adobe.com/xfdf/"><fields>
+              <field name="Notes"><value>hello</value></field>
+              <field name="NoSuchField"><value>x</value></field>
+              <field name="Address"><field name="Street"><value>Elm Street</value></field><field name="Missing"><value>y</value></field></field>
+            </fields></xfdf>
+            """u8.ToArray();
+        using var document = PdfDocumentReader.Open(FormSamples.CreateRichForm(), null);
+
+        var result = PdfInterchange.ImportXfdf(document, xfdf);
+
+        await Assert.That(result.FieldsApplied).IsEqualTo(KnownFields);
+        await Assert.That(result.FieldsSkipped).IsEqualTo(UnknownFields);
+        await Assert.That(Describe(document)).Contains("Notes=hello").And.Contains("Address.Street=Elm Street");
     }
 
     /// <summary>The same annotations survive FDF, and FDF and XFDF carry the same data.</summary>
@@ -213,36 +274,91 @@ public sealed class InterchangeRoundTripTests
         await Assert.That(Encoding.UTF8.GetString(XfdfWriter.Write(read))).IsEqualTo(Encoding.UTF8.GetString(first));
     }
 
-    /// <summary>Forms in the pdf.js reference files export and import again without change, when available.</summary>
+    /// <summary>
+    /// The form files of the reference PDFs (<c>pdfjs-textfields</c>, <c>pypdf-latex-forms</c> and <c>pypdf-libreoffice-form</c>)
+    /// export, import again and export the same file in both formats, with every field keeping its value. Skips when a file is
+    /// not fetched, and fails when <c>HYPERPDF_REQUIRE_REFERENCE_PDFS</c> is <c>1</c>; it never passes with no files.
+    /// </summary>
+    /// <param name="useFdf">Whether to go through FDF instead of XFDF.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task PdfJsFormsRoundTrip()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ReferencePdfFormsRoundTrip(bool useFdf)
     {
-        foreach (var path in PdfJsFormSamples())
+        var filledFields = 0;
+        foreach (var path in ReferencePdfFiles.RequirePaths(ReferenceForms))
         {
-            using var original = PdfDocumentReader.Open(path, null);
-            var xfdf = PdfInterchange.ExportXfdf(original);
-            using var copy = PdfDocumentReader.Open(path, null);
-            _ = PdfInterchange.ImportXfdf(copy, xfdf);
+            var name = Path.GetFileName(path);
 
-            await Assert.That(Encoding.UTF8.GetString(PdfInterchange.ExportXfdf(copy))).IsEqualTo(Encoding.UTF8.GetString(xfdf));
-            await Assert.That(Describe(copy)).IsEqualTo(Describe(original));
+            // As shipped: whatever the form exports imports into a fresh copy without changing it.
+            using var shipped = PdfDocumentReader.Open(path, null);
+            using var shippedCopy = PdfDocumentReader.Open(path, null);
+            var shippedResult = RoundTrip(shipped, shippedCopy, useFdf);
+            await Assert.That(shippedResult.FieldsSkipped).IsEqualTo(0).Because($"{name} exports only fields it can import");
+            await Assert.That(ExportedFields(shippedCopy)).IsEqualTo(ExportedFields(shipped)).Because(name);
+            await Assert.That(Describe(shippedCopy)).IsEqualTo(Describe(shipped)).Because(name);
+
+            // With every text field and check box set: the values travel through the file.
+            using var filled = PdfDocumentReader.Open(path, null);
+            var set = Fill(filled);
+            using var filledCopy = PdfDocumentReader.Open(path, null);
+            var filledResult = RoundTrip(filled, filledCopy, useFdf);
+            filledFields += set;
+            await Assert.That(set).IsGreaterThan(0).Because($"{name} has a text field or check box to fill");
+            await Assert.That(filledResult.FieldsApplied).IsGreaterThanOrEqualTo(set).Because(name);
+            await Assert.That(filledResult.FieldsSkipped).IsEqualTo(0).Because(name);
+            await Assert.That(ExportedFields(filledCopy)).IsEqualTo(ExportedFields(filled)).Because(name);
+            await Assert.That(Describe(filledCopy)).IsEqualTo(Describe(filled)).Because(name);
         }
+
+        await Assert.That(filledFields).IsGreaterThan(0);
     }
 
-    /// <summary>Finds pdf.js form files on this machine.</summary>
-    /// <returns>The paths that exist.</returns>
-    private static IEnumerable<string> PdfJsFormSamples()
+    /// <summary>Exports a document's fields and imports the file into another copy.</summary>
+    /// <param name="source">The document that is exported.</param>
+    /// <param name="target">The document that receives the file.</param>
+    /// <param name="useFdf">Whether to go through FDF instead of XFDF.</param>
+    /// <returns>What the import did.</returns>
+    private static PdfInterchangeImportResult RoundTrip(PdfDocument source, PdfDocument target, bool useFdf) => useFdf
+        ? PdfInterchange.ImportFdf(target, PdfInterchange.ExportFdf(source, PdfInterchangeContent.Fields))
+        : PdfInterchange.ImportXfdf(target, PdfInterchange.ExportXfdf(source, PdfInterchangeContent.Fields));
+
+    /// <summary>Exports a document's fields as XFDF without the file identifiers.</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>The XFDF text.</returns>
+    private static string ExportedFields(PdfDocument document)
     {
-        var root = Environment.GetEnvironmentVariable("HYPERPDF_PDFJS_PDF_DIR");
-        string[] candidates =
-        [
-            "/home/glennwatson/source/pdf/pdf.js/test/pdfs/textfields.pdf",
-            root is null ? string.Empty : Path.Combine(root, "textfields.pdf"),
-            root is null ? string.Empty : Path.Combine(root, "pdflatex-forms.pdf"),
-            root is null ? string.Empty : Path.Combine(root, "libreoffice-form.pdf"),
-        ];
-        return candidates.Where(static path => path.Length > 0 && File.Exists(path));
+        var data = PdfInterchange.Export(document, PdfInterchangeContent.Fields);
+        data.OriginalId = null;
+        data.ModifiedId = null;
+        return Encoding.UTF8.GetString(XfdfWriter.Write(data));
+    }
+
+    /// <summary>Sets every editable text field and check box on every page.</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>The number of fields set.</returns>
+    private static int Fill(PdfDocument document)
+    {
+        var form = PdfDocumentForms.GetForm(document);
+        var set = 0;
+        for (var page = 0; page < document.PageCount; page++)
+        {
+            var widgets = new List<PdfFormWidget>();
+            HyperPdfLibrary.Forms.PdfFormReading.GetWidgets(form, page, widgets);
+            foreach (var widget in widgets.Where(static widget => !widget.IsReadOnly))
+            {
+                var changed = widget.Type switch
+                {
+                    PdfFieldType.Text => HyperPdfLibrary.Forms.PdfFormEditing.SetText(form, page, widget.Index, $"value {set} é"),
+                    PdfFieldType.CheckBox => HyperPdfLibrary.Forms.PdfFormEditing.SetChecked(form, page, widget.Index, true),
+                    _ => false,
+                };
+                set += changed ? 1 : 0;
+            }
+        }
+
+        return set;
     }
 
     /// <summary>Exports a document's annotations as XFDF without the file identifiers.</summary>

@@ -19,8 +19,11 @@ public sealed partial class FocusPageViewModel : ReactiveObject
     /// <summary>Gets the page's reading order.</summary>
     private readonly Func<ReadingDocument?> _reading;
 
-    /// <summary>Loads the blocks once.</summary>
-    private readonly Lazy<Task> _load;
+    /// <summary>The load that is running or finished, or <see langword="null"/> while there is no text to load.</summary>
+    private Task? _load;
+
+    /// <summary>Whether the last load found the document closed, so the next request must load again.</summary>
+    private bool _unread;
 
     /// <summary>Initializes a new instance of the <see cref="FocusPageViewModel"/> class.</summary>
     /// <param name="pageIndex">The page.</param>
@@ -31,7 +34,6 @@ public sealed partial class FocusPageViewModel : ReactiveObject
         PageIndex = pageIndex;
         Label = label;
         _reading = reading;
-        _load = new(LoadCoreAsync);
     }
 
     /// <summary>Gets the page.</summary>
@@ -48,10 +50,26 @@ public sealed partial class FocusPageViewModel : ReactiveObject
     [Reactive]
     public partial bool IsEmpty { get; private set; }
 
-    /// <summary>Works out the page's blocks once, off the UI thread; later calls wait for the same work.</summary>
+    /// <summary>
+    /// Works out the page's blocks off the UI thread; later calls wait for the same work. A page asked for while the
+    /// document is closed or reloading has nothing to read yet, so nothing is kept and it is asked again later.
+    /// </summary>
     /// <returns>A task completing once the blocks are shown.</returns>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public Task LoadAsync() => _load.Value;
+    public Task LoadAsync()
+    {
+        if (_load is { } running && !Volatile.Read(ref _unread))
+        {
+            return running;
+        }
+
+        if (_reading() is not { } reading)
+        {
+            return Task.CompletedTask;
+        }
+
+        Volatile.Write(ref _unread, false);
+        return _load = LoadCoreAsync(reading);
+    }
 
     /// <summary>Marks what is being read aloud on this page, or clears the marks.</summary>
     /// <param name="spoken">The sentence in the page's reading text, or none.</param>
@@ -81,12 +99,19 @@ public sealed partial class FocusPageViewModel : ReactiveObject
     }
 
     /// <summary>Works out the page's blocks off the UI thread.</summary>
+    /// <param name="reading">The document's reading order.</param>
     /// <returns>A task.</returns>
-    private async Task LoadCoreAsync()
+    private async Task LoadCoreAsync(ReadingDocument reading)
     {
-        var reading = _reading();
-        var page = reading is null ? null : await Task.Run(() => reading.GetPage(PageIndex)).ConfigureAwait(true);
-        Blocks = page is null ? [] : Build(page);
+        var page = await Task.Run(() => reading.GetPage(PageIndex)).ConfigureAwait(true);
+        if (page is null)
+        {
+            // The document closed while the page was read; the page is not empty, it is not readable yet.
+            Volatile.Write(ref _unread, true);
+            return;
+        }
+
+        Blocks = Build(page);
         IsEmpty = Blocks.Count == 0;
     }
 

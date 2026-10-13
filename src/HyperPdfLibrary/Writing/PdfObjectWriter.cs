@@ -54,6 +54,9 @@ public ref struct PdfObjectWriter
     /// <summary>Gets the bytes written.</summary>
     public readonly ReadOnlySpan<byte> WrittenSpan => _buffer.WrittenSpan;
 
+    /// <summary>Gets the names whose spellings are written.</summary>
+    internal readonly PdfNameTable Names => _names;
+
     /// <summary>Gets the output buffer.</summary>
     [UnscopedRef]
     internal ref PooledBuffer Buffer => ref _buffer;
@@ -122,10 +125,7 @@ public ref struct PdfObjectWriter
     /// <param name="security">The security handler.</param>
     /// <returns><see langword="true"/> when the stream is stored in the clear.</returns>
     internal static bool IsCryptExempt(PdfDictionary dictionary, PdfSecurityHandler security) =>
-        dictionary.IsName(KnownName.Type, KnownName.XRef)
-        || (TryGetCryptFilter(dictionary, out var name)
-            ? name.IsNone || name.Is(KnownName.Identity)
-            : !security.EncryptMetadata && dictionary.IsName(KnownName.Type, KnownName.Metadata));
+        dictionary.IsName(KnownName.Type, KnownName.XRef) || StreamCrypt.Choose(dictionary, security).Clear;
 
     /// <summary>Gets a stream's encoded data with any encryption removed.</summary>
     /// <param name="stream">The stream.</param>
@@ -139,9 +139,8 @@ public ref struct PdfObjectWriter
             return raw;
         }
 
-        return TryGetCryptFilter(stream.Dictionary, out var name)
-            ? source.DecryptStream(stream.Id, raw, name)
-            : source.DecryptStream(stream.Id, raw);
+        var filter = StreamCrypt.Choose(stream.Dictionary, source).Filter;
+        return filter.IsNone ? source.DecryptStream(stream.Id, raw) : source.DecryptStream(stream.Id, raw, filter);
     }
 
     /// <summary>Renumbers references as they are written.</summary>
@@ -191,11 +190,17 @@ public ref struct PdfObjectWriter
     /// <param name="addFlate">Whether to add /Filter /FlateDecode, for data this writer compressed.</param>
     internal void WriteStream(PdfDictionary dictionary, ReadOnlySpan<byte> data, PdfObjectId encryptionId, bool addFlate)
     {
-        if (encryptionId.IsValid && _security is not null && !IsCryptExempt(dictionary, _security))
+        if (encryptionId.IsValid && _security is not null)
         {
-            data = TryGetCryptFilter(dictionary, out var name)
-                ? _security.EncryptStream(encryptionId, data, name)
-                : _security.EncryptStream(encryptionId, data);
+            if (IsCryptExempt(dictionary, _security))
+            {
+                dictionary = MarkMetadataClear(dictionary, addFlate);
+            }
+            else
+            {
+                var filter = StreamCrypt.Choose(dictionary, _security).Filter;
+                data = filter.IsNone ? _security.EncryptStream(encryptionId, data) : _security.EncryptStream(encryptionId, data, filter);
+            }
         }
 
         WriteStreamDictionary(dictionary, data.Length, addFlate, encryptionId);
@@ -213,30 +218,20 @@ public ref struct PdfObjectWriter
         return taken.Array;
     }
 
-    /// <summary>Finds the crypt filter a stream names: its first filter is /Crypt, and /DecodeParms may give a /Name.</summary>
-    /// <param name="dictionary">The stream dictionary.</param>
-    /// <param name="name">The crypt filter's name; none when the stream names no filter, which means Identity.</param>
-    /// <returns><see langword="true"/> when the stream's first filter is /Crypt.</returns>
-    private static bool TryGetCryptFilter(PdfDictionary dictionary, out PdfName name)
-    {
-        var filters = dictionary.Get(KnownName.Filter);
-        name = default;
-        if (!(filters.AsArray()?.GetName(0) ?? filters.AsName()).Is(KnownName.Crypt))
-        {
-            return false;
-        }
-
-        var parameters = dictionary.Get(KnownName.DecodeParms);
-        name = (parameters.AsArray()?.GetDictionary(0) ?? parameters.AsDictionary())?.GetName(KnownName.Name) ?? default;
-        return true;
-    }
-
-    /// <summary>Gets the method that encrypts a stream: its named crypt filter's, or the document's stream method.</summary>
+    /// <summary>Gets the method that encrypts a stream: its crypt filter's, or the document's stream method.</summary>
     /// <param name="dictionary">The stream dictionary.</param>
     /// <param name="security">The security handler.</param>
     /// <returns>The method.</returns>
-    private static CryptMethod MethodOf(PdfDictionary dictionary, PdfSecurityHandler security) =>
-        TryGetCryptFilter(dictionary, out var name) ? security.MethodOf(name) : security.StreamMethod;
+    private static CryptMethod MethodOf(PdfDictionary dictionary, PdfSecurityHandler security)
+    {
+        var choice = StreamCrypt.Choose(dictionary, security);
+        if (choice.Clear)
+        {
+            return CryptMethod.None;
+        }
+
+        return choice.Filter.IsNone ? security.StreamMethod : security.MethodOf(choice.Filter);
+    }
 
     /// <summary>Throws when values nest deeper than the parser accepts.</summary>
     /// <param name="depth">The nesting depth.</param>
@@ -247,6 +242,31 @@ public ref struct PdfObjectWriter
         {
             throw new PdfException(PdfError.Format, "The value nests too deeply to write; it may contain itself.");
         }
+    }
+
+    /// <summary>
+    /// Gives a document metadata stream that is left unencrypted the Identity crypt filter (ISO 32000-2 7.6.6 example), so
+    /// readers that do not know /EncryptMetadata still leave it unencrypted. Other streams, and metadata that has filters
+    /// of its own, are written as they are.
+    /// </summary>
+    /// <param name="dictionary">The stream dictionary.</param>
+    /// <param name="addFlate">Whether the writer adds its own /Filter.</param>
+    /// <returns>The dictionary to write.</returns>
+    private PdfDictionary MarkMetadataClear(PdfDictionary dictionary, bool addFlate)
+    {
+        if (addFlate || _security is not { EncryptMetadata: false } || !dictionary.IsName(KnownName.Type, KnownName.Metadata)
+            || !dictionary.GetRaw(KnownName.Filter).IsNull || !dictionary.GetRaw(KnownName.DecodeParms).IsNull)
+        {
+            return dictionary;
+        }
+
+        var parameters = new PdfDictionary(null);
+        parameters.Set(KnownName.Type, PdfValue.FromName(_names.Intern("CryptFilterDecodeParms"u8)));
+        parameters.Set(KnownName.Name, PdfValue.FromName(KnownName.Identity));
+        var copy = dictionary.Clone();
+        copy.Set(KnownName.Filter, PdfValue.FromArray(new(null, [PdfValue.FromName(KnownName.Crypt)])));
+        copy.Set(KnownName.DecodeParms, PdfValue.FromArray(new(null, [PdfValue.FromDictionary(parameters)])));
+        return copy;
     }
 
     /// <summary>Writes a BrotliDecode stream with conforming filters instead, since BrotliDecode is not part of ISO 32000-2.</summary>
@@ -459,6 +479,9 @@ public ref struct PdfObjectWriter
     private int WriteEntries(PdfDictionary dictionary, PdfObjectId encryptionId, int depth, KnownName skip)
     {
         var written = 0;
+
+        // The /Contents of a signature dictionary (one with a /ByteRange) is never encrypted (ISO 32000-2, 7.6.2).
+        var clearContents = encryptionId.IsValid && dictionary.ContainsKey(KnownName.ByteRange);
         for (var i = 0; i < dictionary.Count; i++)
         {
             var key = dictionary.GetKeyAt(i);
@@ -477,19 +500,23 @@ public ref struct PdfObjectWriter
 
             PdfSyntax.WriteName(ref _buffer, _names.GetSpelling(key));
             _buffer.WriteByte((byte)' ');
-            WriteValue(value, encryptionId, depth);
+            WriteValue(value, clearContents && key.Is(KnownName.Contents) ? default : encryptionId, depth);
             written++;
         }
 
         return written;
     }
 
-    /// <summary>Determines whether a stream's raw bytes are already encrypted for the id it is written as.</summary>
+    /// <summary>
+    /// Determines whether a stream's raw bytes are already encrypted for the id it is written as. AES-GCM data is never
+    /// copied: it is decrypted, which authenticates it, and encrypted again under a new IV.
+    /// </summary>
     /// <param name="stream">The stream.</param>
     /// <param name="encryptionId">The id it is written as.</param>
     /// <returns><see langword="true"/> when the raw bytes can be copied.</returns>
     private readonly bool CanCopyEncrypted(PdfStream stream, PdfObjectId encryptionId) =>
         stream.IsEncrypted && _security is not null && encryptionId.IsValid
         && ReferenceEquals(stream.Dictionary.Owner?.Security, _security)
-        && (encryptionId == stream.Id || MethodOf(stream.Dictionary, _security) == CryptMethod.Aes256);
+        && MethodOf(stream.Dictionary, _security) is var method and not CryptMethod.AesGcm
+        && (encryptionId == stream.Id || method == CryptMethod.Aes256);
 }

@@ -29,6 +29,7 @@ internal static class InterchangeAnnotationImporter
         }
 
         var store = document.Objects;
+        var streams = new StoreStreams(store);
         var existing = IndexNames(document, annotations);
         var batches = new Dictionary<int, PageBatch>();
         var placed = new List<PlacedAnnotation>(annotations.Count);
@@ -43,7 +44,7 @@ internal static class InterchangeAnnotationImporter
             }
 
             var page = PdfDocumentPages.GetPage(document, source.Page);
-            var dictionary = Build(source, store, page);
+            var dictionary = Build(source, store, page, streams);
             var id = Place(source, page, dictionary, existing, batches, out var wasReplaced);
             replaced += wasReplaced ? 1 : 0;
             placed.Add(new(source, page, id));
@@ -58,10 +59,11 @@ internal static class InterchangeAnnotationImporter
     /// <param name="source">The annotation.</param>
     /// <param name="store">The document's objects.</param>
     /// <param name="page">The page.</param>
+    /// <param name="streams">Stores the annotation's streams in the document.</param>
     /// <returns>The dictionary.</returns>
-    private static PdfDictionary Build(PdfInterchangeAnnotation source, PdfObjectStore store, PdfPage page)
+    private static PdfDictionary Build(PdfInterchangeAnnotation source, PdfObjectStore store, PdfPage page, StoreStreams streams)
     {
-        var dictionary = InterchangeAnnotationBuilder.Build(source, store, store.Names, new StoreStreams(store));
+        var dictionary = InterchangeAnnotationBuilder.Build(source, store, store.Names, streams);
         if (page.Id.IsValid)
         {
             dictionary.Set(KnownName.P, PdfValue.FromReference(page.Id));
@@ -239,6 +241,12 @@ internal static class InterchangeAnnotationImporter
     /// <param name="Name">The annotation's name.</param>
     private readonly record struct NameKey(int Page, string Name);
 
+    /// <summary>An annotation as it was placed in the document.</summary>
+    /// <param name="Source">The imported annotation.</param>
+    /// <param name="Page">The page it is on.</param>
+    /// <param name="Id">Its object id.</param>
+    private readonly record struct PlacedAnnotation(PdfInterchangeAnnotation Source, PdfPage Page, PdfObjectId Id);
+
     /// <summary>Stores a stream as an object of the document.</summary>
     /// <param name="store">The document's objects.</param>
     private sealed class StoreStreams(PdfObjectStore store) : IInterchangeObjects
@@ -247,12 +255,6 @@ internal static class InterchangeAnnotationImporter
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PdfValue Add(PdfStream stream) => PdfValue.FromReference(StoreEditing.Add(store, PdfValue.FromStream(stream)));
     }
-
-    /// <summary>An annotation as it was placed in the document.</summary>
-    /// <param name="Source">The imported annotation.</param>
-    /// <param name="Page">The page it is on.</param>
-    /// <param name="Id">Its object id.</param>
-    private sealed record PlacedAnnotation(PdfInterchangeAnnotation Source, PdfPage Page, PdfObjectId Id);
 
     /// <summary>The annotations queued for one page.</summary>
     /// <param name="Page">The page.</param>

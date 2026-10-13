@@ -24,6 +24,9 @@ internal sealed class OutputIntentColors
     /// <summary>The profile components of a gray profile.</summary>
     private const int GrayComponents = 1;
 
+    /// <summary>The shared result for documents whose intents give no substitute; the instance is immutable.</summary>
+    private static readonly OutputIntentColors None = new(null, null, null);
+
     /// <summary>The substitute for DeviceGray, or <see langword="null"/>.</summary>
     private readonly PdfColorSpace? _gray;
 
@@ -75,7 +78,7 @@ internal sealed class OutputIntentColors
             };
         }
 
-        return new(null, null, null);
+        return None;
     }
 
     /// <summary>Gets the space a colour set in a device space converts through.</summary>

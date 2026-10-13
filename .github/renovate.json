@@ -45,7 +45,7 @@
     {
       "matchManagers": ["nuget"],
       "matchPackageNames": ["/^bblanchon\\.PDFium\\./"],
-      "groupName": "PDFium"
+      "groupName": "Test-only reference renderer"
     },
     {
       "matchManagers": ["nuget"],

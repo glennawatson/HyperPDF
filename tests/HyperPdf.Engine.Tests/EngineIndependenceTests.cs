@@ -19,6 +19,12 @@ public sealed class EngineIndependenceTests
     /// <summary>The name that marks the SkiaSharp assembly or native library.</summary>
     private const string SkiaSharpName = "SkiaSharp";
 
+    /// <summary>The namespace of the test-only PDFium reference helpers, with its trailing dot.</summary>
+    private const string ReferenceNamespace = "HyperPdf.Engine.Tests.PdfiumReference.";
+
+    /// <summary>The rendering comparison's PDFium helper and its nested native methods.</summary>
+    private const string RenderingReferencePrefix = "HyperPdf.Engine.Tests.RenderingComparison.PdfiumReferenceRendering";
+
     /// <summary>The adapter assembly references no PDFium assembly and imports no PDFium library.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -47,6 +53,95 @@ public sealed class EngineIndependenceTests
         var references = ReferencesContaining(typeof(EngineIndependenceTests).Assembly.Location, PdfiumName);
         await Assert.That(references).Contains("pdfium");
         await Assert.That(references).DoesNotContain("HyperPdf.Pdfium");
+    }
+
+    /// <summary>
+    /// Only the test-only reference helpers declare native PDFium imports: the <c>PdfiumReference</c> folder and the
+    /// rendering comparison's <c>PdfiumReferenceRendering</c>. Parity tests reach PDFium through them.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task OnlyReferenceHelpersImportPdfium()
+    {
+        var importers = TypesImporting(typeof(EngineIndependenceTests).Assembly.Location, PdfiumName);
+
+        await Assert.That(importers).IsNotEmpty();
+        await Assert.That(importers.Where(static name => !IsReferenceHelper(name))).IsEmpty();
+    }
+
+    /// <summary>No HyperPDF assembly beside the tests, product or shared test helper, references PDFium.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task NoOtherHyperPdfAssemblyReferencesPdfium()
+    {
+        var self = Path.GetFileName(typeof(EngineIndependenceTests).Assembly.Location);
+        var checkedAssemblies = 0;
+        foreach (var path in Directory.EnumerateFiles(AppContext.BaseDirectory, "HyperPdf*.dll"))
+        {
+            if (string.Equals(Path.GetFileName(path), self, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            checkedAssemblies++;
+            await Assert.That(ReferencesContaining(path, PdfiumName)).IsEmpty().Because(Path.GetFileName(path));
+        }
+
+        await Assert.That(checkedAssemblies).IsGreaterThan(0);
+    }
+
+    /// <summary>Gets whether a type is one of the reference helpers allowed to import PDFium.</summary>
+    /// <param name="name">The type's full metadata name, with <c>+</c> before nested type names.</param>
+    /// <returns>True for a reference helper.</returns>
+    private static bool IsReferenceHelper(string name) =>
+        name.StartsWith(ReferenceNamespace, StringComparison.Ordinal)
+        || name.StartsWith(RenderingReferencePrefix, StringComparison.Ordinal);
+
+    /// <summary>Lists the types that declare a method imported from a native module whose name contains a fragment.</summary>
+    /// <param name="path">The assembly file.</param>
+    /// <param name="fragment">The module name fragment.</param>
+    /// <returns>The declaring types' full names.</returns>
+    private static HashSet<string> TypesImporting(string path, string fragment)
+    {
+        using var stream = File.OpenRead(path);
+        using var reader = new PEReader(stream);
+        var metadata = reader.GetMetadataReader();
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var handle in metadata.MethodDefinitions)
+        {
+            var method = metadata.GetMethodDefinition(handle);
+            var import = method.GetImport();
+            if (import.Module.IsNil)
+            {
+                continue;
+            }
+
+            var module = metadata.GetString(metadata.GetModuleReference(import.Module).Name);
+            if (module.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+            {
+                _ = found.Add(TypeName(metadata, method.GetDeclaringType()));
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>Gets a type's full metadata name, with <c>+</c> before nested type names.</summary>
+    /// <param name="metadata">The metadata.</param>
+    /// <param name="handle">The type.</param>
+    /// <returns>The name.</returns>
+    private static string TypeName(MetadataReader metadata, TypeDefinitionHandle handle)
+    {
+        var type = metadata.GetTypeDefinition(handle);
+        var name = metadata.GetString(type.Name);
+        var outer = type.GetDeclaringType();
+        if (!outer.IsNil)
+        {
+            return $"{TypeName(metadata, outer)}+{name}";
+        }
+
+        var space = metadata.GetString(type.Namespace);
+        return space.Length == 0 ? name : $"{space}.{name}";
     }
 
     /// <summary>Lists assembly references and module imports that contain a name fragment.</summary>

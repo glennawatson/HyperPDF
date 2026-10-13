@@ -4,19 +4,30 @@
 
 using System.Text;
 using System.Xml;
+using HyperPdfLibrary.IO;
 
 namespace HyperPdfLibrary.Interchange;
 
 /// <summary>Writes XFDF (ISO 19444-1) files with a forward-only <see cref="XmlWriter"/>.</summary>
 public static class XfdfWriter
 {
+    /// <summary>The writer settings, shared because the writer only reads them; XML readers normalize line endings, including indentation inside rich-text fragments.</summary>
+    private static readonly XmlWriterSettings WriterSettings = new()
+    {
+        Encoding = new UTF8Encoding(false),
+        Indent = true,
+        NewLineHandling = NewLineHandling.Entitize,
+        NewLineChars = "\n",
+        CloseOutput = false,
+    };
+
     /// <summary>Writes the data as an XFDF file.</summary>
     /// <param name="data">The data.</param>
     /// <returns>The file's UTF-8 bytes.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
     public static byte[] Write(PdfInterchangeData data)
     {
-        using MemoryStream stream = new();
+        using PooledWriteStream stream = new();
         Write(data, stream);
         return stream.ToArray();
     }
@@ -30,9 +41,7 @@ public static class XfdfWriter
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(destination);
 
-        // XML readers normalize line endings, including indentation inside rich-text fragments.
-        var settings = new XmlWriterSettings { Encoding = new UTF8Encoding(false), Indent = true, NewLineHandling = NewLineHandling.Entitize, NewLineChars = "\n", CloseOutput = false, };
-        using var writer = XmlWriter.Create(destination, settings);
+        using var writer = XmlWriter.Create(destination, WriterSettings);
         writer.WriteStartDocument();
         writer.WriteStartElement(XfdfNames.Root, XfdfNames.Namespace);
         writer.WriteAttributeString("xml", "space", null, "preserve");

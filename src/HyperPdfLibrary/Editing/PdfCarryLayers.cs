@@ -17,8 +17,17 @@ namespace HyperPdfLibrary.Editing;
 [DebuggerDisplay("PdfCarryLayers")]
 internal sealed class PdfCarryLayers
 {
+    /// <summary>The fewest members that make a radio-button group worth carrying.</summary>
+    private const int MinRadioMembers = 2;
+
     /// <summary>The context.</summary>
     private readonly PdfCarryContext _context;
+
+    /// <summary>The source object numbers of the copied groups.</summary>
+    private readonly HashSet<int> _copied = [];
+
+    /// <summary>The source configuration whose radio-button groups and automatic states are carried; made by <see cref="Finish"/>.</summary>
+    private PdfDictionary? _sourceConfiguration;
 
     /// <summary>Initializes a new instance of the <see cref="PdfCarryLayers"/> class.</summary>
     /// <param name="context">The context.</param>
@@ -33,10 +42,19 @@ internal sealed class PdfCarryLayers
             return;
         }
 
+        foreach (var group in groups)
+        {
+            _ = _copied.Add(group.Number);
+        }
+
+        if (_context.Source.Catalog.GetDictionary(KnownName.OCProperties) is { } sourceProperties)
+        {
+            _sourceConfiguration = sourceProperties.GetDictionary(KnownName.D);
+        }
+
         var catalog = _context.Catalog;
         var properties = catalog.GetDictionary(KnownName.OCProperties)?.Clone() ?? _context.NewDictionary();
         properties.Set(KnownName.OCGs, PdfValue.FromArray(ListGroups(properties.GetArray(KnownName.OCGs), groups)));
-        ConfigureChosen(properties, groups);
         properties.Set(KnownName.D, PdfValue.FromDictionary(Configure(properties.GetDictionary(KnownName.D), groups)));
         _context.SetEntry(catalog, KnownName.OCProperties, properties);
         _context.CatalogChanged = true;
@@ -134,37 +152,122 @@ internal sealed class PdfCarryLayers
         SetIfAny(copy, KnownName.ON, on);
         SetIfAny(copy, KnownName.OFF, off);
         SetIfAny(copy, KnownName.Order, order);
+        AddRadioGroups(copy);
+        AddAutomaticStates(copy);
         return copy;
+    }
+
+    /// <summary>
+    /// Adds the source's radio-button groups (<c>/RBGroups</c>, ISO 32000-2 8.11.4.3, Table 100) to a configuration, cut to
+    /// the copied groups. A group left with fewer than two copied members no longer limits anything and is left out.
+    /// </summary>
+    /// <param name="configuration">A copy of the target's configuration, changed in place.</param>
+    private void AddRadioGroups(PdfDictionary configuration)
+    {
+        if (_sourceConfiguration?.GetArray(KnownName.RBGroups) is not { } sets)
+        {
+            return;
+        }
+
+        var added = new List<PdfValue>();
+        for (var i = 0; i < sets.Count; i++)
+        {
+            if (sets.GetArray(i) is { } members && KeepCopied(members, MinRadioMembers) is { } kept)
+            {
+                added.Add(PdfValue.FromArray(kept));
+            }
+        }
+
+        Append(configuration, KnownName.RBGroups, added);
+    }
+
+    /// <summary>Adds values to the end of a configuration's array, creating the array when the configuration has none.</summary>
+    /// <param name="configuration">A copy of the target's configuration, changed in place.</param>
+    /// <param name="key">The array's key.</param>
+    /// <param name="added">The values to add; nothing changes when there are none.</param>
+    private void Append(PdfDictionary configuration, KnownName key, List<PdfValue> added)
+    {
+        if (added.Count == 0)
+        {
+            return;
+        }
+
+        var merged = Extend(configuration.GetArray(key));
+        foreach (var value in added)
+        {
+            merged.Add(value);
+        }
+
+        configuration.Set(key, PdfValue.FromArray(merged));
+    }
+
+    /// <summary>
+    /// Adds the source's automatic state changes (<c>/AS</c>, ISO 32000-2 8.11.4.3, Table 100) to a configuration, cut to the
+    /// copied groups. An entry with no copied group is left out.
+    /// </summary>
+    /// <param name="configuration">A copy of the target's configuration, changed in place.</param>
+    private void AddAutomaticStates(PdfDictionary configuration)
+    {
+        if (_sourceConfiguration?.GetArray(KnownName.AS) is not { } states)
+        {
+            return;
+        }
+
+        var added = new List<PdfValue>();
+        for (var i = 0; i < states.Count; i++)
+        {
+            if (states.GetDictionary(i) is { } state && CopyState(state) is { } entry)
+            {
+                added.Add(PdfValue.FromDictionary(entry));
+            }
+        }
+
+        Append(configuration, KnownName.AS, added);
+    }
+
+    /// <summary>Copies one automatic state entry, cut to the copied groups.</summary>
+    /// <param name="state">The entry in the source.</param>
+    /// <returns>The copy, or <see langword="null"/> when none of its groups were copied.</returns>
+    private PdfDictionary? CopyState(PdfDictionary state)
+    {
+        if (state.GetArray(KnownName.OCGs) is not { } members || KeepCopied(members, 1) is not { } kept)
+        {
+            return null;
+        }
+
+        var entry = _context.NewDictionary();
+        entry.Set(KnownName.Event, _context.Sink.Import(state.GetRaw(KnownName.Event)));
+        entry.Set(KnownName.Category, _context.Sink.Import(state.GetRaw(KnownName.Category)));
+        entry.Set(KnownName.OCGs, PdfValue.FromArray(kept));
+        return entry;
+    }
+
+    /// <summary>Lists the copies of the copied groups among some references.</summary>
+    /// <param name="members">The source array of group references.</param>
+    /// <param name="minimum">The fewest copied groups the result needs.</param>
+    /// <returns>References to the copies, or <see langword="null"/> when fewer than <paramref name="minimum"/> were copied.</returns>
+    private PdfArray? KeepCopied(PdfArray members, int minimum)
+    {
+        PdfArray? kept = null;
+        for (var i = 0; i < members.Count; i++)
+        {
+            var group = members.GetRaw(i).AsReference();
+            if (!group.IsValid || !_copied.Contains(group.Number))
+            {
+                continue;
+            }
+
+            kept ??= new PdfArray(_context.TargetStore);
+            kept.Add(PdfValue.FromReference(new(_context.Sink.GetMapped(group.Number), 0)));
+        }
+
+        return kept is not null && kept.Count >= minimum ? kept : null;
     }
 
     /// <summary>Copies an array so groups can be added, or creates an empty one.</summary>
     /// <param name="array">The target's array, or <see langword="null"/>.</param>
     /// <returns>The array to add to.</returns>
     private PdfArray Extend(PdfArray? array) => array?.Clone() ?? new PdfArray(_context.TargetStore);
-
-    /// <summary>Applies the same change to the configuration that readers use when it is not the default one.</summary>
-    /// <param name="properties">The optional content properties, changed in place.</param>
-    /// <param name="groups">The copied groups.</param>
-    private void ConfigureChosen(PdfDictionary properties, List<CopiedGroup> groups)
-    {
-        var chosen = OptionalContentReader.PickConfiguration(properties);
-        var configs = properties.GetArray(KnownName.Configs);
-        if (chosen is null || configs is null)
-        {
-            return;
-        }
-
-        var changed = configs.Clone();
-        for (var i = 0; i < changed.Count; i++)
-        {
-            if (ReferenceEquals(changed.GetDictionary(i), chosen))
-            {
-                changed.SetAt(i, PdfValue.FromDictionary(Configure(chosen, groups)));
-            }
-        }
-
-        properties.Set(KnownName.Configs, PdfValue.FromArray(changed));
-    }
 
     /// <summary>An optional content group that was copied.</summary>
     /// <param name="Number">The group's object number in the source.</param>

@@ -20,6 +20,9 @@ public sealed partial class TabNoticesViewModel : ReactiveObject
     /// <summary>The tab's document source.</summary>
     private readonly DocumentSource _source;
 
+    /// <summary>What the document's requirements mean for the viewer.</summary>
+    private RequirementReport _requirements = RequirementReport.None;
+
     /// <summary>Initializes a new instance of the <see cref="TabNoticesViewModel"/> class.</summary>
     /// <param name="source">The tab's document source.</param>
     internal TabNoticesViewModel(DocumentSource source) => _source = source;
@@ -40,8 +43,51 @@ public sealed partial class TabNoticesViewModel : ReactiveObject
     [Reactive]
     public partial string? RepairDetails { get; private set; }
 
+    /// <summary>Gets the calm message about requirements the document declares and the viewer cannot meet, until dismissed.</summary>
+    [Reactive]
+    public partial string? RequirementNotice { get; private set; }
+
+    /// <summary>Gets the unmet requirements, one line each, while the reader has asked to see them.</summary>
+    [Reactive]
+    public partial string? RequirementDetails { get; private set; }
+
+    /// <summary>
+    /// Gets a value indicating whether the document's requirements stop its processing (ISO 32000-2 §12.11.6): the pages
+    /// are shown as a static copy, and form filling, buttons and actions stay off for the whole time the tab is open.
+    /// Dismissing the notice does not turn them back on.
+    /// </summary>
+    public bool InteractionBlocked => _requirements.StopsProcessing;
+
+    /// <summary>Gets the message about an encrypted document whose integrity protection (PDF MAC) failed or could not be checked, until dismissed.</summary>
+    [Reactive]
+    public partial string? IntegrityNotice { get; private set; }
+
     /// <summary>Gets a value indicating whether the repair notice has been shown for this open, so it is never shown twice.</summary>
     internal bool RepairNoticeShown { get; private set; }
+
+    /// <summary>
+    /// Checks the requirements the document declares, before any of its actions run. No script is run: the check reads
+    /// the requirement list and compares it with what the viewer provides.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    internal void CheckRequirements(IDocument document)
+    {
+        if (DocumentFeature<IDocumentRequirements>.Get(document) is not { } requirements)
+        {
+            return;
+        }
+
+        _requirements = requirements.Check();
+        RequirementNotice = RequirementNotices.Describe(_requirements);
+        RequirementDetails = null;
+    }
+
+    /// <summary>
+    /// Shows a notice when the document's integrity protection does not hold, is missing, or cannot be checked here. A
+    /// document whose protection was not checked is never described as intact.
+    /// </summary>
+    /// <param name="metadata">The document's metadata, or <see langword="null"/>.</param>
+    internal void CheckIntegrity(DocumentMetadata? metadata) => IntegrityNotice = IntegrityWarnings.Describe(metadata?.Integrity);
 
     /// <summary>Checks the whole document on a background thread, a page at a time so pages keep drawing meanwhile.</summary>
     /// <param name="document">The document.</param>
@@ -100,6 +146,11 @@ public sealed partial class TabNoticesViewModel : ReactiveObject
         return content;
     }
 
+    /// <summary>Puts the integrity notice away.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void DismissIntegrityNotice() => IntegrityNotice = null;
+
     /// <summary>Puts the content warning away.</summary>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -116,6 +167,18 @@ public sealed partial class TabNoticesViewModel : ReactiveObject
         }
 
         RepairDetails = DocumentFeature<IRepairReport>.Get(_source.Acquire()) is { } report ? RepairWarnings.Describe(report.GetRepairs()) : null;
+    }
+
+    /// <summary>Shows or hides the list of unmet requirements.</summary>
+    [ReactiveCommand]
+    private void ToggleRequirementDetails() => RequirementDetails = RequirementDetails is null ? RequirementNotices.DescribeDetails(_requirements) : null;
+
+    /// <summary>Puts the requirements notice away. A document that stops processing keeps its forms and actions off.</summary>
+    [ReactiveCommand]
+    private void DismissRequirementNotice()
+    {
+        RequirementNotice = null;
+        RequirementDetails = null;
     }
 
     /// <summary>Puts the repair notice away.</summary>

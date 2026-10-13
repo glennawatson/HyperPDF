@@ -18,7 +18,7 @@ public sealed class TextSpaceCleanupTests
     private const int FinalLetter = 3;
 
     /// <summary>Unicode lookups allowed before an interruption.</summary>
-    private const int LookupsBeforeInterruption = 4;
+    private const int LookupsBeforeInterruption = 10;
 
     /// <summary>Cancellation and a font failure clear the leased state before a successful retry.</summary>
     /// <param name="cancel">Whether to interrupt with cancellation or a font failure.</param>
@@ -31,13 +31,13 @@ public sealed class TextSpaceCleanupTests
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var probe = new InterruptionProbe(cancellation, cancel);
-        using var document = PdfDocumentReader.OpenWith(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td [(  A) -20 (   B  )] TJ ET").ToBytes(), new PdfOpenOptions
+        using var document = PdfDocumentReader.OpenWith(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td [(  A) -600 (   B  )] TJ ET").ToBytes(), new PdfOpenOptions
         {
             FontFactory = dictionary => new InterruptingFont(dictionary, probe),
         });
         await PdfDocumentPages.PrefetchPageAsync(document, 0, cancellationToken);
 
-        // The TJ adjustment resolves the font's space code after the first string populates both buffers.
+        // The interpreter reads each glyph's text first; the wide TJ adjustment then makes the line assembly look up the font's space.
         Exception? failure = null;
         try
         {
@@ -49,8 +49,8 @@ public sealed class TextSpaceCleanupTests
         }
 
         var state = document.State.TextBuild;
-        var textCountAfterFailure = state?.TempText.Count ?? -1;
-        var charCountAfterFailure = state?.Temp.Count ?? -1;
+        var textCountAfterFailure = state?.Chars.Count ?? -1;
+        var charCountAfterFailure = state?.LineChars.Count ?? -1;
         var callsBeforeFailure = probe.UnicodeCalls;
         probe.Armed = false;
         var recovered = await PdfDocumentText.GetTextPageAsync(document, 0, cancellationToken);
@@ -66,8 +66,8 @@ public sealed class TextSpaceCleanupTests
         await Assert.That(recovered.GetChar(FinalLetter).Unicode).IsEqualTo('B');
         await Assert.That(recovered.GetChar(FinalLetter).Kind).IsEqualTo(PdfTextCharKind.Normal);
         await Assert.That(recovered.GetChar(FinalLetter).Box.Left).IsGreaterThan(recovered.GetChar(1).Box.Left);
-        await Assert.That(state!.Temp.Count).IsEqualTo(0);
-        await Assert.That(state.TempText.Count).IsEqualTo(0);
+        await Assert.That(state!.LineChars.Count).IsEqualTo(0);
+        await Assert.That(state.Chars.Count).IsEqualTo(0);
     }
 
     /// <summary>Records the real build state at the font callback.</summary>

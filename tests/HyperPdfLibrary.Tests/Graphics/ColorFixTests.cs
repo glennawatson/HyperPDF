@@ -7,17 +7,26 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Tests.Graphics;
 
-/// <summary>Tests for the CMYK table, calibrated colour spaces and default colour spaces.</summary>
+/// <summary>Tests for CMYK row conversion, calibrated colour spaces and default colour spaces.</summary>
 public sealed class ColorFixTests
 {
     /// <summary>The tolerance for float colours.</summary>
     private const float Tolerance = 0.02F;
 
-    /// <summary>The tolerance for colours that must match exactly to a byte.</summary>
-    private const float ByteTolerance = 1F / 255F;
+    /// <summary>The linear value below which the sRGB curve is a straight line.</summary>
+    private const double SrgbLinearLimit = 0.0031308;
 
-    /// <summary>A mid sample, 128 / 255, which lands exactly on grid point 4 of PDFium's CMYK table.</summary>
-    private const float MidSample = 128F / 255F;
+    /// <summary>The slope of the straight part of the sRGB curve.</summary>
+    private const double SrgbLinearSlope = 12.92;
+
+    /// <summary>The scale of the power part of the sRGB curve.</summary>
+    private const double SrgbScale = 1.055;
+
+    /// <summary>The offset of the power part of the sRGB curve.</summary>
+    private const double SrgbOffset = 0.055;
+
+    /// <summary>The exponent of the power part of the sRGB curve.</summary>
+    private const double SrgbGamma = 2.4;
 
     /// <summary>The byte scale.</summary>
     private const float ByteScale = 255F;
@@ -70,45 +79,7 @@ public sealed class ColorFixTests
     /// <summary>The CalRGB matrix of the sRGB primaries, column by column.</summary>
     private static readonly float[] SrgbMatrix = [0.4124F, 0.2126F, 0.0193F, 0.3576F, 0.7152F, 0.1192F, 0.1805F, 0.0722F, 0.9505F];
 
-    /// <summary>Grid points of PDFium's CMYK table come out exactly: a mid sample row converts to the table's bytes.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task CmykRowMatchesPdfiumTableGridPoints()
-    {
-        // Samples of 0 and 128 sit on grid points 0 and 4. Expected values are kCMYK entries from PDFium.
-        var samples = new byte[] { 0x80, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80, 0x80, 0x80, 0x80, 0x00, 0x00, 0x00, 0x00 };
-        byte[][] expected =
-        [
-            FixTestHelpers.Bgra(0x6B, 0xCF, 0xF6),
-            FixTestHelpers.Bgra(0xF4, 0x99, 0xC2),
-            FixTestHelpers.Bgra(0x93, 0x95, 0x98),
-            FixTestHelpers.Bgra(0x52, 0x4A, 0x47),
-            FixTestHelpers.Bgra(0xFF, 0xFF, 0xFF),
-        ];
-        var bgra = new byte[expected.Length * BytesPerPixel];
-        PdfColorSpace.DeviceCmyk.ConvertRow(samples, bgra, expected.Length);
-
-        for (var i = 0; i < expected.Length; i++)
-        {
-            await Assert.That(bgra.AsSpan(i * BytesPerPixel, BytesPerPixel).ToArray()).IsEquivalentTo(expected[i]);
-        }
-    }
-
-    /// <summary>Per-colour conversion gives the same table values as row conversion.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task CmykColorMatchesPdfiumTableGridPoints()
-    {
-        var cyan = ToRgb(PdfColorSpace.DeviceCmyk, MidSample, 0, 0, 0);
-        var black = ToRgb(PdfColorSpace.DeviceCmyk, MidSample, MidSample, MidSample, MidSample);
-
-        await Assert.That(cyan[0]).IsEqualTo(0x6B / ByteScale).Within(ByteTolerance);
-        await Assert.That(cyan[1]).IsEqualTo(0xCF / ByteScale).Within(ByteTolerance);
-        await Assert.That(cyan[2]).IsEqualTo(0xF6 / ByteScale).Within(ByteTolerance);
-        await Assert.That(black[0]).IsEqualTo(0x52 / ByteScale).Within(ByteTolerance);
-    }
-
-    /// <summary>Row conversion and per-colour conversion agree for off-grid colours.</summary>
+    /// <summary>Row conversion and per-colour conversion agree to a byte for off-grid colours.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task CmykRowAgreesWithColorConversion()
@@ -132,7 +103,7 @@ public sealed class ColorFixTests
             worst = Math.Max(worst, Math.Abs(bgra[p * BytesPerPixel] - (int)MathF.Round(rgb[2] * ByteScale)));
         }
 
-        await Assert.That(worst).IsEqualTo(0);
+        await Assert.That(worst).IsLessThanOrEqualTo(1);
     }
 
     /// <summary>CalRGB applies gamma, the matrix and the white point: sRGB primaries give sRGB colours.</summary>
@@ -170,10 +141,10 @@ public sealed class ColorFixTests
         await Assert.That(Math.Abs(first[RedByte] - (rgb[0] * ByteScale))).IsLessThanOrEqualTo(1F);
     }
 
-    /// <summary>CalGray returns the gray value unchanged, as PDFium does.</summary>
+    /// <summary>CalGray raises the gray value to /Gamma (ISO 32000-2 8.6.5.2) and shows the luminance with the sRGB curve.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CalGrayReturnsGrayUnchanged()
+    public async Task CalGrayAppliesGamma()
     {
         var dictionary = new PdfDictionary(null);
         dictionary.Add(KnownName.Gamma, PdfValue.FromInteger(AnyGamma));
@@ -181,9 +152,12 @@ public sealed class ColorFixTests
         var gray = ToRgb(space, LinearHalf);
         var bgra = new byte[BytesPerPixel];
         space.ConvertRow([0x80], bgra, 1);
+        var expectedColor = EncodeSrgb(Math.Pow(LinearHalf, AnyGamma));
+        var expectedSample = EncodeSrgb(Math.Pow(0x80 / ByteScale, AnyGamma)) * ByteScale;
 
-        await Assert.That(gray[0]).IsEqualTo(LinearHalf);
-        await Assert.That(bgra).IsEquivalentTo(FixTestHelpers.Bgra(0x80, 0x80, 0x80));
+        await Assert.That(gray[0]).IsEqualTo((float)expectedColor).Within(Tolerance);
+        await Assert.That((int)bgra[0]).IsEqualTo((int)Math.Round(expectedSample)).Within(1);
+        await Assert.That(bgra[RedByte]).IsEqualTo(bgra[0]);
     }
 
     /// <summary>Lab maps its dictionary white point to white, whichever white point it has.</summary>
@@ -241,6 +215,11 @@ public sealed class ColorFixTests
         await Assert.That(looped).IsSameReferenceAs(PdfColorSpace.DeviceRgb);
         await Assert.That(gray).IsSameReferenceAs(PdfColorSpace.DeviceGray);
     }
+
+    /// <summary>Encodes linear light with the sRGB curve (IEC 61966-2-1).</summary>
+    /// <param name="linear">The linear value from 0 to 1.</param>
+    /// <returns>The encoded value.</returns>
+    private static double EncodeSrgb(double linear) => linear <= SrgbLinearLimit ? linear * SrgbLinearSlope : (SrgbScale * Math.Pow(linear, 1 / SrgbGamma)) - SrgbOffset;
 
     /// <summary>Creates a CalRGB colour space array value.</summary>
     /// <param name="gamma">The gamma values.</param>

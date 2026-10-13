@@ -22,4 +22,10 @@ internal readonly record struct DocumentSaveOutcome(bool Saved, string? Error, A
 
     /// <summary>Gets the fixes the save made so the file still meets its PDF/A level, or <see langword="null"/>.</summary>
     internal ArchiveClaimRepair? ClaimRepaired { get; init; }
+
+    /// <summary>Gets the warnings about trap networks the save removed; empty when it removed none.</summary>
+    internal IReadOnlyList<string> TrapNetworkWarnings { get; init; } = [];
+
+    /// <summary>Gets the warnings about document requirements the save removed; empty when it removed none.</summary>
+    internal IReadOnlyList<string> RequirementWarnings { get; init; } = [];
 }

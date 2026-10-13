@@ -11,8 +11,8 @@ public static class PdfDocumentOptimizing
 {
     /// <summary>
     /// Opens a private copy of the document over the same file, with the unsaved edits copied in, so the optimiser can
-    /// change pages without touching the document the caller shows. The copy shares this document's security handler and
-    /// file, so it must not be disposed; it is collected when no longer used.
+    /// change pages without touching the document the caller shows. The copy borrows this document's security handler and
+    /// file, so disposing it leaves the document readable.
     /// </summary>
     /// <param name="document">The document.</param>
     /// <returns>The copy.</returns>
@@ -27,7 +27,7 @@ public static class PdfDocumentOptimizing
         }
 
         var copy = new PdfDocument(store, document.FontFactory);
-        StoreTransactions.SetChangeCallback(store, copy.OnObjectsChanged);
+        StoreTransactions.SetChangeListener(store, copy);
         return copy;
     }
 

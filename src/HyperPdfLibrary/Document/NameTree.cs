@@ -53,6 +53,12 @@ internal static class NameTree
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void EnumerateNumbers(PdfDictionary? root, List<NameTreeEntry> output) => EnumerateCore(root, KnownName.Nums, false, output);
 
+    /// <summary>Visits every entry of a number tree, in order, leaving each value as stored so a reference stays a reference.</summary>
+    /// <param name="root">The tree's root node.</param>
+    /// <param name="output">The list receiving each key and value.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void EnumerateNumbersRaw(PdfDictionary? root, List<NameTreeEntry> output) => EnumerateCore(root, KnownName.Nums, true, output);
+
     /// <summary>Finds a value by integer key in a number tree.</summary>
     /// <param name="root">The tree's root node.</param>
     /// <param name="key">The key.</param>

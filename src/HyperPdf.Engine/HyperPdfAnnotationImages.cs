@@ -120,7 +120,7 @@ internal static class HyperPdfAnnotationImages
             builder.Dispose();
         }
 
-        // A picture keeps its own colours, so it records none; readers show the kind's default colour, as with PDFium.
+        // A picture keeps its own colours, so it records none; readers show the kind's default colour.
         return HyperPdfAnnotationReading.Add(annotationState, pageIndex, page, stamp, null, string.Empty, subject);
     }
 }

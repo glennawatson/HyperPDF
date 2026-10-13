@@ -23,6 +23,31 @@ internal static class DocumentExerciser
         AppendNavigation(document, text);
         AppendLayers(document, text);
         AppendStreams(document, text);
+        _ = text.Append(ReadMediaData(document, false));
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// Reads the data of every multimedia, 3D and rich media annotation, the XFA packets and the document scripts, and describes them
+    /// as text with a hash of each stream's decoded bytes. Nothing runs.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="includeRawBytes">Whether to also hash each stream's stored bytes, which only a save that keeps streams as they are preserves.</param>
+    /// <returns>A text description of what was read.</returns>
+    internal static string ReadMediaData(PdfDocument document, bool includeRawBytes)
+    {
+        var text = new StringBuilder();
+        foreach (var annotation in PdfDocumentMedia.GetMultimediaAnnotations(document))
+        {
+            MediaDataDescription.Append(text, annotation, includeRawBytes);
+        }
+
+        MediaDataDescription.Append(text, PdfDocumentXfa.GetXfa(document));
+        foreach (var script in PdfDocumentActions.GetDocumentScripts(document))
+        {
+            _ = text.Append(CultureInfo.InvariantCulture, $"js={script.Name}:{script.Script.Length}:{MediaDataDescription.Hash(Encoding.UTF8.GetBytes(script.Script))};");
+        }
+
         return text.ToString();
     }
 

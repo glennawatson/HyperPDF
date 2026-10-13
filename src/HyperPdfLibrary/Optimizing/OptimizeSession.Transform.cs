@@ -71,7 +71,7 @@ internal sealed partial class OptimizeSession
     /// <param name="program">The font program stream.</param>
     /// <param name="glyphs">The glyphs to keep.</param>
     /// <returns>The subset program, or <see langword="null"/> when nothing was gained.</returns>
-    private PdfStream? TransformFont(int oldNumber, PdfStream program, HashSet<int> glyphs)
+    private PdfStream? TransformFont(int oldNumber, PdfStream program, CodeBitSet glyphs)
     {
         if (TrueTypeSubsetter.Subset(program, glyphs, Names, _cancellationToken) is not { } subset)
         {

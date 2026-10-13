@@ -15,4 +15,7 @@ internal enum PdfPrefetchKind
 
     /// <summary>The outline: /First and /Next of each entry.</summary>
     Outline = 2,
+
+    /// <summary>A page's separation dictionary: its <c>/Pages</c> array, colourant and colour space.</summary>
+    Separation = 3,
 }

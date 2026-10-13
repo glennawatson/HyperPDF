@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
 using HyperPdfLibrary.Graphics.Images.Jpeg;
 using SkiaSharp;
@@ -35,6 +36,9 @@ public class HyperPdfJpegBenchmarks
 
     /// <summary>The shift that takes the high bits of the scrambled position.</summary>
     private const int NoiseShift = 24;
+
+    /// <summary>The scratch cache a document owns, shared by every decode as the image decoder shares it in a document.</summary>
+    private readonly ScratchPools _scratch = new();
 
     /// <summary>The JPEG bytes.</summary>
     private byte[] _jpeg = [];
@@ -91,5 +95,5 @@ public class HyperPdfJpegBenchmarks
     /// <summary>Decodes with the managed decoder, converting YCbCr to RGB, into a reused buffer.</summary>
     /// <returns><see langword="true"/> when the JPEG decoded.</returns>
     [Benchmark]
-    public bool Managed() => JpegDecoder.TryDecode(_jpeg, true, _samples);
+    public bool Managed() => JpegDecoder.TryDecode(_jpeg, true, _samples, _scratch, default);
 }

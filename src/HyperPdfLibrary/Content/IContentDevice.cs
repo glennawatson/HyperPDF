@@ -16,6 +16,14 @@ namespace HyperPdfLibrary.Content;
 /// </summary>
 public interface IContentDevice
 {
+    /// <summary>
+    /// Gets a value indicating whether the device may keep a path after the call that received it returns. The default is
+    /// <see langword="true"/>, and the interpreter then gives each call its own copy. A device that only reads the path
+    /// during the call returns <see langword="false"/>, and the interpreter then passes one reused path that is valid
+    /// only until the call returns.
+    /// </summary>
+    bool RetainsPaths => true;
+
     /// <summary>Saves the clip, as <c>q</c> does.</summary>
     void Save();
 

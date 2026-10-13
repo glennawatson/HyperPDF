@@ -9,7 +9,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
 /// The MQ arithmetic decoder (ISO 15444-1 annex C) and the raw bit reader used by the bypass mode. Reading past the end
-/// of a segment sees 0xFF bytes, as if a marker followed, which is how PDFium pads code-block data.
+/// of a segment sees 0xFF bytes, as if a marker followed: BYTEIN (annex C.3.4) feeds ones at a marker, so truncated code-block data decodes as the standard defines.
 /// </summary>
 internal record struct JpxMqDecoder
 {

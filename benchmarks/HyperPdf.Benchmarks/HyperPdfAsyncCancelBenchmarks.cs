@@ -164,7 +164,7 @@ public class HyperPdfAsyncCancelBenchmarks
     [Benchmark]
     public async Task<int> TabSwapSync()
     {
-        var first = Task.Run(RenderFirstTabSync, CancellationToken.None);
+        var first = Task.Run(RenderHeavyUncancellable, CancellationToken.None);
         await Task.Delay(CancelAfterMilliseconds).ConfigureAwait(false);
         using var second = BenchmarkDrawing.Open(_small, null, _drawingServices);
         var characters = PdfDocumentText.GetTextPage(second, 0).CharCount;
@@ -218,16 +218,6 @@ public class HyperPdfAsyncCancelBenchmarks
         return document.PageCount;
     }
 
-    /// <summary>The first tab done synchronously: open and render a heavy page.</summary>
-    /// <returns>Whether the page was drawn.</returns>
-    private bool RenderFirstTabSync()
-    {
-        using var document = BenchmarkDrawing.Open(_heavy, null, _drawingServices);
-        using var renderer = new PdfPageRenderer(document);
-        var pixels = new byte[PageWidth * PageHeight * BytesPerPixel];
-        return renderer.Render(new(0, 1F, 0, 0, 0, PdfRenderFlags.None), new(pixels, PageWidth, PageHeight, PageWidth * BytesPerPixel));
-    }
-
     /// <summary>The first tab done with async calls: open and render a heavy page until cancelled.</summary>
     /// <param name="cancellationToken">Cancels the work.</param>
     /// <returns>1 when cancelled, else 0.</returns>
@@ -239,8 +229,7 @@ public class HyperPdfAsyncCancelBenchmarks
         {
             using var document = await BenchmarkDrawing.OpenAsync(_heavy, null, _drawingServices, cancellationToken).ConfigureAwait(false);
             using var renderer = new PdfPageRenderer(document);
-            var pixels = new byte[PageWidth * PageHeight * BytesPerPixel];
-            _ = await renderer.RenderAsync(new(0, 1F, 0, 0, 0, PdfRenderFlags.None), pixels, PageWidth, PageHeight, PageWidth * BytesPerPixel, cancellationToken).ConfigureAwait(false);
+            _ = await renderer.RenderAsync(new(0, 1F, 0, 0, 0, PdfRenderFlags.None), _pixels, PageWidth, PageHeight, PageWidth * BytesPerPixel, cancellationToken).ConfigureAwait(false);
             return 0;
         }
         catch (OperationCanceledException)

@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Core.Settings;
+using HyperPdf.Core.Signatures.Signing;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -24,6 +25,18 @@ namespace HyperPdf.App.ViewModels;
 [DebuggerDisplay("CertificateSignViewModel: {CertificatePath}")]
 public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposable
 {
+    /// <summary>The distance of a visible signature from the page's edges, in points.</summary>
+    private const double VisibleMargin = 36;
+
+    /// <summary>The width of a visible signature, in points.</summary>
+    private const double VisibleWidth = 200;
+
+    /// <summary>The height of a visible signature, in points.</summary>
+    private const double VisibleHeight = 72;
+
+    /// <summary>The bottom left corner of the page, where a visible signature goes.</summary>
+    private static readonly SigningArea VisibleArea = new(VisibleMargin, VisibleMargin, VisibleMargin + VisibleWidth, VisibleMargin + VisibleHeight);
+
     /// <summary>Raises <see cref="Answered"/> with <see langword="true"/>.</summary>
     private readonly Signal<RxVoid> _confirmed = new();
 
@@ -36,14 +49,39 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <summary>The subscriptions this window's state owns.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
+    /// <summary>Works out what signing would do for a request, or returns <see langword="null"/> when the document cannot say.</summary>
+    private readonly Func<SigningRequest, SigningPreview?>? _previewer;
+
+    /// <summary>The page a new signature field goes on.</summary>
+    private readonly int _pageIndex;
+
+    /// <summary>The address of the timestamp server from Preferences; empty for none.</summary>
+    private readonly string _timestampServer;
+
     /// <summary>The loaded certificate, once the password was right.</summary>
     private X509Certificate2? _certificate;
+
+    /// <summary>The last preview, kept so signing can be refused with its reasons.</summary>
+    private SigningPreview? _preview;
 
     /// <summary>Initializes a new instance of the <see cref="CertificateSignViewModel"/> class.</summary>
     /// <param name="remembered">The certificates the user chose to remember, most recently used first.</param>
     public CertificateSignViewModel(IReadOnlyList<RememberedCertificate> remembered)
+        : this(remembered, 0, null, string.Empty)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="CertificateSignViewModel"/> class.</summary>
+    /// <param name="remembered">The certificates the user chose to remember, most recently used first.</param>
+    /// <param name="pageIndex">The page a new signature field goes on.</param>
+    /// <param name="previewer">Works out what signing would do for a request, or <see langword="null"/> for no preview.</param>
+    /// <param name="timestampServer">The address of the timestamp server from Preferences; empty for none.</param>
+    public CertificateSignViewModel(IReadOnlyList<RememberedCertificate> remembered, int pageIndex, Func<SigningRequest, SigningPreview?>? previewer, string timestampServer)
     {
         ArgumentNullException.ThrowIfNull(remembered);
+        _pageIndex = pageIndex;
+        _previewer = previewer;
+        _timestampServer = timestampServer;
         Remembered = [.. remembered];
         HasRemembered = Remembered.Count > 0;
         _canSign = this.WhenChanged(static vm => vm.CertificatePath).Select(static path => !string.IsNullOrWhiteSpace(path));
@@ -55,7 +93,31 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
         _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedCertificate).SubscribeSafe(UseRemembered, OnError));
         _subscriptions.Add(this.WhenChanged(static vm => vm.CertificatePath).SubscribeSafe(path => Remember = IsRemembered(path), OnError));
         SelectedCertificate = Remembered.Count > 0 ? Remembered[0] : null;
+
+        // What will be signed is described again whenever a choice that changes it changes.
+        _subscriptions.Add(this.WhenChanged(static vm => vm.Reason).SubscribeSafe(_ => UpdatePreview(), OnError));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.Location).SubscribeSafe(_ => UpdatePreview(), OnError));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.CertificationIndex).SubscribeSafe(_ => UpdatePreview(), OnError));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.IsVisibleSignature).SubscribeSafe(_ => UpdatePreview(), OnError));
     }
+
+    /// <summary>Gets the kinds of signature the user can choose between.</summary>
+    public IReadOnlyList<string> CertificationChoices => SigningPreviewText.CertificationChoices;
+
+    /// <summary>Gets or sets the index of the chosen kind of signature, in the order of <see cref="CertificationLevel"/>.</summary>
+    [Reactive]
+    public partial int CertificationIndex { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the signature is drawn on the page.</summary>
+    [Reactive]
+    public partial bool IsVisibleSignature { get; set; }
+
+    /// <summary>Gets what signing would do, in plain words, one sentence per line.</summary>
+    [Reactive]
+    public partial string PreviewText { get; private set; } = string.Empty;
+
+    /// <summary>Gets a value indicating whether a preview is available.</summary>
+    public bool HasPreview => _previewer is not null;
 
     /// <summary>Gets the certificates the user chose to remember.</summary>
     public ObservableCollection<RememberedCertificate> Remembered { get; }
@@ -98,6 +160,15 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <summary>Gets the answer, which closes the window: <see langword="true"/> to sign.</summary>
     public IObservable<bool> Answered { get; }
 
+    /// <summary>Builds the request for what is chosen.</summary>
+    /// <param name="time">The signing time.</param>
+    /// <returns>The request.</returns>
+    public SigningRequest BuildRequest(DateTimeOffset time) => new(_pageIndex, Reason, Location, time)
+    {
+        Certification = (CertificationLevel)Math.Clamp(CertificationIndex, 0, SigningPreviewText.CertificationChoices.Length - 1),
+        Area = IsVisibleSignature ? VisibleArea : default,
+    };
+
     /// <summary>Hands over the loaded certificate; the caller disposes it.</summary>
     /// <returns>The certificate, or <see langword="null"/> when none was loaded.</returns>
     public X509Certificate2? TakeCertificate()
@@ -125,6 +196,29 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <param name="error">The error.</param>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private static void OnError(Exception error) => Trace.TraceError(error.ToString());
+
+    /// <summary>Describes what signing would do for what is chosen now.</summary>
+    private void UpdatePreview()
+    {
+        if (_previewer is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _preview = _previewer(BuildRequest(TimeProvider.System.GetUtcNow()));
+        }
+        catch (InvalidOperationException)
+        {
+            // The document was closed or reloaded under the window, so there is nothing to describe.
+            _preview = null;
+            PreviewText = CopyFailure.DocumentClosedText;
+            return;
+        }
+
+        PreviewText = SigningPreviewText.Describe(_preview, _timestampServer);
+    }
 
     /// <summary>Fills in a chosen remembered certificate.</summary>
     /// <param name="chosen">The certificate, or <see langword="null"/>.</param>
@@ -156,6 +250,13 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     [ReactiveCommand(CanExecute = nameof(_canSign))]
     private void Sign()
     {
+        UpdatePreview();
+        if (_preview is { CanSign: false } refused)
+        {
+            Error = string.Join(' ', refused.Problems);
+            return;
+        }
+
         try
         {
             var certificate = X509CertificateLoader.LoadPkcs12FromFile(CertificatePath, Password);

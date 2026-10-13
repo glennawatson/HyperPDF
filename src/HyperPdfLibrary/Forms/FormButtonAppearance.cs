@@ -78,7 +78,7 @@ internal static class FormButtonAppearance
     /// <param name="context">The widget.</param>
     /// <param name="isOn">Whether to draw the mark.</param>
     /// <returns>The Form XObject.</returns>
-    internal static PdfStream CreateButton(AppearanceContext context, bool isOn)
+    internal static PdfStream CreateButton(in AppearanceContext context, bool isOn)
     {
         var frame = FormFrame.Create(context);
         var radio = context.Type == PdfFieldType.RadioButton;

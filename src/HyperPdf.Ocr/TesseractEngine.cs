@@ -166,8 +166,14 @@ public sealed unsafe class TesseractEngine : IOcrEngine
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _handle?.Dispose();
+    public void Dispose()
+    {
+        // A recognition in progress holds the gate and reads native memory the handle owns, so it finishes first.
+        lock (_gate)
+        {
+            _handle?.Dispose();
+        }
+    }
 
     /// <inheritdoc/>
     public void Recognize(ReadOnlySpan<byte> image, int width, int height, float pixelsPerPoint, List<OcrWord> output)
@@ -184,6 +190,11 @@ public sealed unsafe class TesseractEngine : IOcrEngine
 
         lock (_gate)
         {
+            if (_handle.IsClosed)
+            {
+                return;
+            }
+
             fixed (byte* pixels = image)
             {
                 NativeMethods.TessBaseAPISetImage(_handle, pixels, width, height, 1, width);

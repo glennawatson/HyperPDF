@@ -9,7 +9,7 @@ using HyperPdfLibrary.Rendering;
 
 namespace HyperPdfLibrary.Tests.Rendering;
 
-/// <summary>Renders simulated overprint, which PDFium's source applies only to opaque DeviceCMYK, Separation and DeviceN images.</summary>
+/// <summary>Renders the overprint preview for images: only opaque Separation and DeviceN images leave backdrop colorants alone.</summary>
 public sealed class OverprintRenderTests
 {
     /// <summary>The page size in points.</summary>
@@ -30,29 +30,31 @@ public sealed class OverprintRenderTests
     /// <summary>One cyan DeviceCMYK pixel in hexadecimal.</summary>
     private const string CyanPixel = "FF000000>";
 
+    /// <summary>A Separation space that tints from white to blue.</summary>
+    private const string SpotSpace = "[/Separation /Spot /DeviceRGB << /FunctionType 2 /Domain [0 1] /C0 [1 1 1] /C1 [0 0 1] /N 1 >>]";
+
     /// <summary>The overprinting graphics state.</summary>
     private const string Overprint = "/OP true /op true /OPM 0";
 
-    /// <summary>A cyan DeviceCMYK image over yellow darkens to green when it overprints.</summary>
+    /// <summary>A DeviceCMYK image specifies all four process colorants, so it covers the backdrop even with overprint on (ISO 32000-2 8.6.7).</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CmykImageOverprintDarkensTheBackdrop()
+    public async Task CmykImageCoversEvenWithOverprint()
     {
         var cyan = Cyan();
         var image = Render(Cmyk, CyanPixel, Overprint);
 
-        await RenderCheck.Near(image, Middle, Middle, new(cyan.Red, cyan.Green, 0), Tolerance, nameof(CmykImageOverprintDarkensTheBackdrop));
+        await RenderCheck.Near(image, Middle, Middle, new(cyan.Red, cyan.Green, cyan.Blue), Tolerance, nameof(CmykImageCoversEvenWithOverprint));
     }
 
-    /// <summary>Without the option, overprint is not simulated, matching the PDFium build the app ships.</summary>
+    /// <summary>Without the option, overprint is not previewed and a spot colour image covers the backdrop.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task OverprintIsOffByDefault()
     {
-        var cyan = Cyan();
-        var image = Render(Cmyk, CyanPixel, Overprint, false);
+        var image = Render(SpotSpace, "FF>", Overprint, false);
 
-        await RenderCheck.Near(image, Middle, Middle, new(cyan.Red, cyan.Green, cyan.Blue), Tolerance, nameof(OverprintIsOffByDefault));
+        await RenderCheck.Near(image, Middle, Middle, Rgb.Blue255, Tolerance, nameof(OverprintIsOffByDefault));
     }
 
     /// <summary>Each renderer keeps its own overprint setting when another renderer uses the same document.</summary>
@@ -60,26 +62,23 @@ public sealed class OverprintRenderTests
     [Test]
     public async Task ConflictingRenderersKeepTheirOverprintSettings()
     {
-        using var document = SkiaTestRegistration.Open(CreateImagePdf(Cmyk, CyanPixel, Overprint), null);
+        using var document = SkiaTestRegistration.Open(CreateImagePdf(SpotSpace, "FF>", Overprint), null);
         using var overprinting = new PdfPageRenderer(document, PdfRenderOptions.Default with { SimulateOverprint = true });
         using var covering = new PdfPageRenderer(document, PdfRenderOptions.Default with { SimulateOverprint = false });
-        var cyan = Cyan();
-        var green = new Rgb(cyan.Red, cyan.Green, 0);
-        var blue = new Rgb(cyan.Red, cyan.Green, cyan.Blue);
 
         for (var i = 0; i < InterleavedPasses; i++)
         {
-            await RenderCheck.Near(RenderConfigured(overprinting), Middle, Middle, green, Tolerance, nameof(ConflictingRenderersKeepTheirOverprintSettings));
-            await RenderCheck.Near(RenderConfigured(covering), Middle, Middle, blue, Tolerance, nameof(ConflictingRenderersKeepTheirOverprintSettings));
+            await RenderCheck.Near(RenderConfigured(overprinting), Middle, Middle, Rgb.Black, Tolerance, nameof(ConflictingRenderersKeepTheirOverprintSettings));
+            await RenderCheck.Near(RenderConfigured(covering), Middle, Middle, Rgb.Blue255, Tolerance, nameof(ConflictingRenderersKeepTheirOverprintSettings));
         }
     }
 
-    /// <summary>A Separation image overprints too.</summary>
+    /// <summary>A Separation image keeps the backdrop colorants it does not name, which the preview approximates with Multiply.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task SeparationImageOverprints()
     {
-        var image = Render("[/Separation /Spot /DeviceRGB << /FunctionType 2 /Domain [0 1] /C0 [1 1 1] /C1 [0 0 1] /N 1 >>]", "FF>", Overprint);
+        var image = Render(SpotSpace, "FF>", Overprint);
 
         await RenderCheck.Near(image, Middle, Middle, Rgb.Black, Tolerance, nameof(SeparationImageOverprints));
     }
@@ -95,7 +94,7 @@ public sealed class OverprintRenderTests
         await RenderCheck.Near(image, Middle, Middle, new(cyan.Red, cyan.Green, cyan.Blue), Tolerance, nameof(CmykImageWithoutOverprintCovers));
     }
 
-    /// <summary>Overprint mode 1 turns the simulation off, as in PDFium.</summary>
+    /// <summary>A DeviceCMYK image in overprint mode 1 still covers the backdrop.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task OverprintModeOneDoesNotDarken()
@@ -116,7 +115,7 @@ public sealed class OverprintRenderTests
         await RenderCheck.Near(image, Middle, Middle, new(0, Rgb.Green255.Green, Rgb.Blue255.Blue), Tolerance, nameof(RgbImageDoesNotOverprint));
     }
 
-    /// <summary>Paths never overprint in PDFium, so a CMYK fill covers the backdrop.</summary>
+    /// <summary>In overprint mode 0 a CMYK fill paints all four components, so it covers the backdrop even in the preview.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task CmykFillDoesNotOverprint()

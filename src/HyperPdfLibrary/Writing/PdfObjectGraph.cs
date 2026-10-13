@@ -64,7 +64,24 @@ internal sealed class PdfObjectGraph
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The graph.</returns>
     /// <exception cref="PdfException">The trailer's /Root does not resolve to a dictionary.</exception>
-    internal static PdfObjectGraph Collect(PdfObjectStore store, bool keepEncrypt, CancellationToken cancellationToken = default)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfObjectGraph Collect(PdfObjectStore store, bool keepEncrypt, CancellationToken cancellationToken = default) =>
+        Collect(store, keepEncrypt, false, cancellationToken);
+
+    /// <summary>
+    /// Walks the objects reachable from a trailer's /Root and /Info, and /Encrypt when kept, and optionally every other
+    /// object in use after them, in object number order.
+    /// </summary>
+    /// <param name="store">The objects.</param>
+    /// <param name="keepEncrypt">Whether /Encrypt is kept.</param>
+    /// <param name="keepUnreferenced">
+    /// Whether to also number objects no reference reaches. Object streams, cross-reference streams, a linearization
+    /// dictionary and an /Encrypt dictionary that is not kept are structure of the source file, not content, and are skipped.
+    /// </param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    /// <returns>The graph.</returns>
+    /// <exception cref="PdfException">The trailer's /Root does not resolve to a dictionary.</exception>
+    internal static PdfObjectGraph Collect(PdfObjectStore store, bool keepEncrypt, bool keepUnreferenced, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var graph = new PdfObjectGraph(store, cancellationToken);
@@ -82,9 +99,10 @@ internal sealed class PdfObjectGraph
         }
 
         // The list grows while it is walked: a breadth-first queue.
-        for (var i = 0; i < graph._values.Count; i++)
+        var walked = graph.Drain(0);
+        if (keepUnreferenced)
         {
-            graph.Scan(graph._values[i], 0);
+            graph.AddUnreferenced(keepEncrypt ? 0 : PdfXrefWriter.EncryptNumber(trailer), walked);
         }
 
         return graph;
@@ -101,6 +119,44 @@ internal sealed class PdfObjectGraph
     /// <returns>The value.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal PdfValue GetValue(int newNumber) => _values[newNumber - 1];
+
+    /// <summary>Determines whether an object is structure of the file it was read from rather than content: an object stream, a cross-reference stream or a linearization dictionary.</summary>
+    /// <param name="value">The object.</param>
+    /// <returns><see langword="true"/> when it is.</returns>
+    private bool IsFileStructure(PdfValue value) =>
+        value.AsDictionary() is { } dictionary
+        && (dictionary.IsName(KnownName.Type, KnownName.ObjStm) || dictionary.IsName(KnownName.Type, KnownName.XRef) || dictionary.ContainsKey(_store.Names.Intern("Linearized"u8)));
+
+    /// <summary>Scans the numbered objects from a position to the end of the list, numbering what they reach.</summary>
+    /// <param name="next">The first object to scan, as an index into the list.</param>
+    /// <returns>The index after the last object scanned.</returns>
+    private int Drain(int next)
+    {
+        for (; next < _values.Count; next++)
+        {
+            Scan(_values[next], 0);
+        }
+
+        return next;
+    }
+
+    /// <summary>Numbers the objects in use that no reference reached, with everything each of them reaches.</summary>
+    /// <param name="skippedEncrypt">The number of an /Encrypt dictionary that is not kept, or zero.</param>
+    /// <param name="walked">The index after the last object already scanned.</param>
+    private void AddUnreferenced(int skippedEncrypt, int walked)
+    {
+        for (var number = 1; number < _store.Size; number++)
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+            if (Map[number] != 0 || number == skippedEncrypt || IsFileStructure(StoreReading.GetObject(_store, new(number, 0))))
+            {
+                continue;
+            }
+
+            Visit(number);
+            walked = Drain(walked);
+        }
+    }
 
     /// <summary>Finds the references in a value and numbers the objects they reach.</summary>
     /// <param name="value">The value.</param>

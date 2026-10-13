@@ -9,6 +9,7 @@ using HyperPdf.App.Rendering;
 using HyperPdf.App.Services;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Navigation;
@@ -61,6 +62,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Follows changes other programs make to the open file.</summary>
     private readonly TabFileWatch _fileWatch = new();
 
+    /// <summary>Cancels work that belongs to the tab itself, such as text recognition and form actions, when the tab is disposed.</summary>
+    private readonly CancellationTokenSource _lifetime = new();
+
     /// <summary>Owns the subscriptions that react to this tab's own property changes.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
@@ -70,17 +74,14 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Whether Forward has somewhere to go.</summary>
     private readonly IObservable<bool> _canGoForward;
 
+    /// <summary>Whether the tab was disposed: 1 once it was.</summary>
+    private int _disposed;
+
     /// <summary>Whether the sidebar was shown before read mode put it away.</summary>
     private bool _sidebarBeforeReading;
 
-    /// <summary>Saving an optimised copy, once used.</summary>
-    private TabCopyAction<OptimizeCopyViewModel>? _optimize;
-
-    /// <summary>Saving a PDF/A copy, once used.</summary>
-    private TabCopyAction<ArchiveCopyViewModel>? _archive;
-
-    /// <summary>Applying redactions, once used.</summary>
-    private TabCopyAction<RedactionViewModel>? _redact;
+    /// <summary>The commands that save a changed copy, once used.</summary>
+    private TabCopyActionSet? _copies;
 
     /// <summary>Links to other files, once used.</summary>
     private TabFileLinks? _links;
@@ -97,6 +98,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>The layers panel, once used.</summary>
     private LayersViewModel? _layers;
 
+    /// <summary>The colour separation bar, once used.</summary>
+    private PageSeparationViewModel? _separations;
+
     /// <summary>The measuring tool, once used.</summary>
     private MeasureViewModel? _measure;
 
@@ -106,14 +110,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>The page management state, created on first use.</summary>
     private PageManagementViewModel? _pages;
 
-    /// <summary>The document's pages in reading order, once asked for.</summary>
-    private ReadingDocument? _reading;
-
-    /// <summary>The source version the reading order was worked out for.</summary>
-    private long _readingFor = -1;
-
-    /// <summary>The open document the reading order reads from, captured on the UI thread.</summary>
-    private IDocument? _readingSource;
+    /// <summary>The document's text in reading order, created on first use.</summary>
+    private TabReading? _reading;
 
     /// <summary>The search panel, created only when first used.</summary>
     private SearchViewModel? _search;
@@ -148,6 +146,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         DocumentChanges = new(_documentChanges);
         PageEdits = new(_pageEdits);
         CopyRequests = new(_copyRequests);
+        LifetimeToken = _lifetime.Token;
 
         // The first value of each property is its current state, which needs no reaction.
         _subscriptions.Add(this.WhenChanged(static x => x.CurrentPageIndex)
@@ -192,11 +191,17 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets a value indicating whether the reader asked for movement to be reduced, so views jump instead of easing.</summary>
     public bool ReduceMotion => _services.CurrentTheme.ReduceMotion;
 
+    /// <summary>Gets the identity this view's tiles carry; the second view of a split document keeps its tiles apart from the first.</summary>
+    public int TileId => TabTiles.IdFor(Source.Id, IsSecondaryView);
+
     /// <summary>Gets the render client used by the page canvas.</summary>
     public RenderClient CanvasClient { get; } = new();
 
     /// <summary>Gets the render client used by sidebar thumbnails.</summary>
     public RenderClient ThumbnailClient { get; } = new();
+
+    /// <summary>Gets the token that is cancelled when the tab is disposed; work on the tab's document that is not tied to selection uses it.</summary>
+    public CancellationToken LifetimeToken { get; }
 
     /// <summary>Gets the token for work requested while this tab is selected.</summary>
     public CancellationToken SelectedWorkToken => _selectedWork?.Token ?? CancellationToken.None;
@@ -394,6 +399,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets the document's layers.</summary>
     public LayersViewModel Layers => _layers ??= new(this);
 
+    /// <summary>Gets the colour separation details of the current page, for a preseparated document.</summary>
+    public PageSeparationViewModel Separations => _separations ??= new(this);
+
     /// <summary>Gets the files embedded in the document.</summary>
     public AttachmentsViewModel Attachments => field ??= new(this);
 
@@ -430,14 +438,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets the Fill &amp; Sign state.</summary>
     public FillAndSignViewModel FillAndSign => field ??= new(this, _services);
 
-    /// <summary>Gets saving an optimised copy, for engines that can write one.</summary>
-    public TabCopyAction<OptimizeCopyViewModel> Optimize => _optimize ??= new(this, TabCopyActions.Optimize);
-
-    /// <summary>Gets saving a PDF/A copy, for engines that can write one.</summary>
-    public TabCopyAction<ArchiveCopyViewModel> Archive => _archive ??= new(this, TabCopyActions.Archive);
-
-    /// <summary>Gets applying redactions, for engines that can remove marked content for good.</summary>
-    public TabCopyAction<RedactionViewModel> Redact => _redact ??= new(this, TabCopyActions.Redact);
+    /// <summary>Gets the commands that save a changed copy, such as an optimised, PDF/A, flattened or protected one.</summary>
+    public TabCopyActionSet Copies => _copies ??= new(this);
 
     /// <summary>Gets the links to other files: PDFs open in a tab, other files with the desktop's app after asking.</summary>
     public TabFileLinks Links => _links ??= new(this);
@@ -507,6 +509,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets the application services, for the parts of the tab that need settings or desktop services.</summary>
     internal AppServices Services => _services;
 
+    /// <summary>Gets the document's text in reading order, which Read Aloud and Focus Mode share.</summary>
+    internal TabReading Reading => _reading ??= new(this);
+
     /// <summary>Opens the document with cancellable I/O and loads its structure on the UI thread.</summary>
     /// <param name="cancellationToken">Cancels the open and first-page work.</param>
     /// <returns>A task that completes inline when the document is ready.</returns>
@@ -526,6 +531,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
         var work = CancellationTokenSource.CreateLinkedTokenSource(RenderHub.Scheduler.ShutdownToken);
         _selectedWork = work;
+        _search?.ResumeAfterTabSwitch();
         _ = LoadSelectedAsync(work.Token);
     }
 
@@ -539,9 +545,22 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             return;
         }
 
-        _ = CancelAndDisposeAsync(work);
+        _ = CancellationSources.CancelAndDisposeAsync(work);
         _search?.CancelForTabSwitch();
-        RenderHub.Scheduler.Invalidate(Source.Id);
+        RenderHub.Scheduler.Invalidate(TileId);
+    }
+
+    /// <summary>Applies a new tint over fillable form fields to the open document and draws its pages again.</summary>
+    /// <param name="highlight">The tint.</param>
+    public void ApplyFormHighlight(FormHighlight highlight)
+    {
+        if (!IsLoaded || TryGetDocument() is not { } document || DocumentFeature<IFormHighlight>.Get(document) is not { } tinted || tinted.Highlight == highlight)
+        {
+            return;
+        }
+
+        tinted.Highlight = highlight;
+        TabTiles.InvalidateBoth(RenderHub, Source.Id);
     }
 
     /// <summary>Gets the open document, opening it if needed.</summary>
@@ -565,29 +584,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the document's pages in reading order, for reading aloud and Focus Mode.</summary>
     /// <returns>The reading order, or <see langword="null"/> when the document cannot describe its layout.</returns>
-    public ReadingDocument? GetReadingDocument()
-    {
-        var document = TryGetDocument();
-        var layout = DocumentFeature<ITextLayoutSource>.Get(document);
-        if (document is null || layout is null)
-        {
-            return null;
-        }
-
-        // Worker threads use this captured document, never the UI-owned document pool.
-        Volatile.Write(ref _readingSource, document);
-        if (_reading is null || _readingFor != Source.Id)
-        {
-            _reading = ReadingDocument.Create(ReadingSource, Source.PageSizes);
-            _readingFor = Source.Id;
-        }
-
-        return _reading;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ReadingDocument? GetReadingDocument() => Reading.Get();
 
     /// <summary>Forgets the worked out reading order after the page text changed, for example once text is recognised.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void InvalidateReading() => _reading?.Clear();
+    public void InvalidateReading() => _reading?.Invalidate();
 
     /// <summary>Scrolls to a page.</summary>
     /// <param name="pageIndex">The zero based page.</param>
@@ -616,7 +618,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
             case LinkTargetKind.Uri when Uri.TryCreate(target.Uri, UriKind.Absolute, out var uri):
                 {
-                    _uriRequests.OnNext(uri);
+                    _uriRequests.EmitIfOpen(uri);
                     break;
                 }
 
@@ -640,7 +642,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         ArgumentNullException.ThrowIfNull(request);
         History.Push(Position);
         UpdateHistoryState();
-        _navigationRequests.OnNext(request);
+        _navigationRequests.EmitIfOpen(request);
     }
 
     /// <summary>Shows a page as a step through the document, such as the next page, without adding it to Back history.</summary>
@@ -652,7 +654,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             return;
         }
 
-        _navigationRequests.OnNext(new(Math.Clamp(pageIndex, 0, PageCount - 1), null, 0));
+        _navigationRequests.EmitIfOpen(new(Math.Clamp(pageIndex, 0, PageCount - 1), null, 0));
     }
 
     /// <summary>Scrolls an area of a page into view without adding it to Back history, for example a mark being placed.</summary>
@@ -662,7 +664,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     {
         if ((uint)pageIndex < (uint)PageCount)
         {
-            _navigationRequests.OnNext(new(pageIndex, area, 0));
+            _navigationRequests.EmitIfOpen(new(pageIndex, area, 0));
         }
     }
 
@@ -743,9 +745,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Drops every tile after layers were shown or hidden, so all pages redraw.</summary>
     public void OnLayersChanged()
     {
-        RenderHub.Scheduler.Invalidate(Source.Id);
-        RenderHub.RemoveDocumentTiles(Source.Id);
-        _pageEdits.OnNext(-1);
+        TabTiles.DropBoth(RenderHub, Source.Id);
+        _pageEdits.EmitIfOpen(-1);
     }
 
     /// <summary>Drops an edited page's tiles so it redraws, and tells views about it.</summary>
@@ -753,20 +754,19 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public void OnPageEdited(int pageIndex)
     {
         // Tiles rendered before the edit may still be on their way; the scheduler drops them so they cannot be cached.
-        RenderHub.Scheduler.Invalidate(Source.Id);
+        TabTiles.InvalidateBoth(RenderHub, Source.Id);
         RenderHub.Cache.RemovePage(Source.Id, pageIndex);
+        RenderHub.Cache.RemovePage(~Source.Id, pageIndex);
         HasUnsavedChanges = Source.HasUnsavedChanges;
-        _pageEdits.OnNext(pageIndex);
+        _pageEdits.EmitIfOpen(pageIndex);
     }
 
     /// <summary>Refreshes layout, thumbnails and navigation after changing page order or geometry.</summary>
     public void OnPageStructureChanged()
     {
-        RenderHub.Scheduler.Invalidate(Source.Id);
-        RenderHub.RemoveDocumentTiles(Source.Id);
+        TabTiles.DropBoth(RenderHub, Source.Id);
         Source.RefreshStructure();
-        _reading = null;
-        _readingFor = -1;
+        _reading?.Reset();
         History.Clear();
         ReadPageStructure(Source.Acquire());
         CurrentPageIndex = Math.Clamp(CurrentPageIndex, 0, Math.Max(0, PageCount - 1));
@@ -777,8 +777,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Attachments.Refresh();
         Layers.Refresh();
         Search.Refresh();
-        _pageEdits.OnNext(-1);
-        _documentChanges.OnNext(RxVoid.Default);
+        _pageEdits.EmitIfOpen(-1);
+        _documentChanges.EmitIfOpen(RxVoid.Default);
     }
 
     /// <summary>
@@ -886,7 +886,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
     /// <summary>Closes the native document while the tab is in the background; it reopens on demand.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Unload() => RenderHub.RemoveDocumentTiles(Source.Id);
+    public void Unload() => RenderHub.RemoveDocumentTiles(TileId);
 
     /// <summary>Reloads the document from disk, keeping the current page.</summary>
     /// <returns>A task for the selected tab's reload.</returns>
@@ -896,11 +896,16 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         HasPendingReload = false;
         var page = CurrentPageIndex;
         var token = SelectedWorkToken;
-        RenderHub.Scheduler.Invalidate(Source.Id);
-        RenderHub.RemoveDocumentTiles(Source.Id);
+        if (_copies?.CloseWindows() == true)
+        {
+            Notice = "The file changed on disk and was reloaded, so the window for saving a copy was closed.";
+        }
+
+        TabTiles.DropBoth(RenderHub, Source.Id);
         Source.Reload();
+        _reading?.Reset();
         IsLoaded = false;
-        _documentChanges.OnNext(RxVoid.Default);
+        _documentChanges.EmitIfOpen(RxVoid.Default);
         if (_selectedWork is null)
         {
             return;
@@ -927,15 +932,17 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        _ = _copies?.CloseWindows();
+        _lifetime.Cancel();
+        _lifetime.Dispose();
         StopSelectedWork();
         _subscriptions.Dispose();
-        _focusMode?.Dispose();
-        _readAloud?.Dispose();
-        _textRecognition?.Dispose();
-        _layers?.Dispose();
-        _measure?.Dispose();
-        _annotations?.Dispose();
-        _pages?.Dispose();
+        DisposeParts();
         DisposeFeatures();
         Search.Dispose();
         _navigationRequests.Dispose();
@@ -943,8 +950,16 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         _documentChanges.Dispose();
         _pageEdits.Dispose();
         _copyRequests.Dispose();
-        RenderHub.Scheduler.Invalidate(Source.Id);
-        RenderHub.RemoveDocumentTiles(Source.Id);
+        _reading?.Dispose();
+
+        // Putting the second view away leaves the first view's tiles alone; closing the document drops both views'.
+        RenderHub.Scheduler.Invalidate(TileId);
+        RenderHub.RemoveDocumentTiles(TileId);
+        if (!IsSecondaryView)
+        {
+            TabTiles.DropBoth(RenderHub, Source.Id);
+        }
+
         _ = CanvasClient.Advance();
         _ = ThumbnailClient.Advance();
     }
@@ -968,21 +983,6 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
-    /// <summary>Cancels callbacks without blocking the UI thread, then releases the token source.</summary>
-    /// <param name="work">The old selected-tab token source.</param>
-    /// <returns>A task.</returns>
-    private static async Task CancelAndDisposeAsync(CancellationTokenSource work)
-    {
-        try
-        {
-            await work.CancelAsync().ConfigureAwait(false);
-        }
-        finally
-        {
-            work.Dispose();
-        }
-    }
-
     /// <summary>Reflects the publication result in the tab and its file watcher.</summary>
     /// <param name="outcome">The write and replacement result.</param>
     /// <returns>Whether the destination was saved.</returns>
@@ -997,13 +997,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         {
             Notice = $"Could not save: {error}";
         }
-        else if (outcome.ClaimRemoved is { } removal)
+        else if (SaveText.Notice(outcome) is { } notice)
         {
-            Notice = ArchiveText.ClaimRemovedNotice(removal);
-        }
-        else if (outcome.ClaimRepaired is { } repair)
-        {
-            Notice = ArchiveText.ClaimRepairedNotice(repair);
+            Notice = notice;
         }
 
         HasUnsavedChanges = Source.HasUnsavedChanges;
@@ -1018,6 +1014,13 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         try
         {
             var document = await Source.AcquireAsync(cancellationToken);
+
+            // Reads the separation details with async I/O, so the page structure read that follows finds them loaded.
+            if (DocumentFeature<ISeparationSource>.Get(document) is { } separations)
+            {
+                _ = await separations.GetSeparationsAsync(cancellationToken);
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             CompleteLoad(document);
         }
@@ -1059,39 +1062,43 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         if (!IsLoaded)
         {
             OnFirstLoad(document);
+            return;
         }
+
+        OnReopened(document);
     }
 
-    /// <summary>Gets layout and optional tagged structure from the captured document, from any thread.</summary>
-    /// <returns>Both reading capabilities, or <see langword="null"/> when the document is closed or has no layout.</returns>
-    private ReadingSources? ReadingSource()
+    /// <summary>
+    /// Takes up a document the pool closed while the tab was in the background and opened again. Tiles prepared from the
+    /// closed document can never draw, so they are dropped, and views draw the page again.
+    /// </summary>
+    /// <param name="document">The reopened document.</param>
+    private void OnReopened(IDocument document)
     {
-        var document = Volatile.Read(ref _readingSource);
-        return document is null || document.IsDisposed
-            || DocumentFeature<ITextLayoutSource>.Get(document) is not { } characters
-            ? null
-            : new ReadingSources(
-            characters,
-            DocumentFeature<ITaggedStructureSource>.Get(document));
+        TabTiles.DropBoth(RenderHub, Source.Id);
+        Copies.Refresh(document);
+        _search?.ResumeAfterTabSwitch();
+        _pageEdits.EmitIfOpen(-1);
     }
 
     /// <summary>Reads document structure after the first successful open.</summary>
     /// <param name="document">The newly opened document.</param>
     private void OnFirstLoad(IDocument document)
     {
+        // Requirements are checked before any action can run (ISO 32000-2 §12.11.1).
+        Notices.CheckRequirements(document);
         ReadPageStructure(document);
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
-        Optimize.Refresh(document);
-        Archive.Refresh(document);
-        Redact.Refresh(document);
+        Copies.Refresh(document);
         _pages?.Refresh();
         if (!IsSecondaryView)
         {
             _services.RecentDocuments.Add(FilePath);
             _ = Notices.CheckContentAsync(document, Attachments.Items.Count);
             Notices.CheckRepairs(document);
+            Notices.CheckIntegrity(Source.Metadata);
             _fileWatch.Start(FilePath, OnFileChanged);
         }
 
@@ -1101,7 +1108,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         }
 
         IsLoaded = true;
-        _documentChanges.OnNext(RxVoid.Default);
+        _documentChanges.EmitIfOpen(RxVoid.Default);
     }
 
     /// <summary>Reads page geometry and navigation without reopening the document or replacing its edits.</summary>
@@ -1113,13 +1120,15 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Title = string.IsNullOrWhiteSpace(title) ? FileName : title;
         Outline = OutlineItemViewModel.Create(Source.Outline);
 
+        // A separation page's thumbnail names its colourant, so it is not mistaken for a page of its own.
+        Separations.Load(DocumentFeature<ISeparationSource>.Get(document)?.GetSeparations() ?? DocumentSeparations.Empty, CurrentPageIndex);
         var thumbnails = new ThumbnailItemViewModel[sizes.Length];
         for (var i = 0; i < sizes.Length; i++)
         {
             var size = sizes[i];
             var label = document.GetPageLabel(i) ?? (i + 1).ToString(CultureInfo.CurrentCulture);
             var height = size.Width > 0 ? ThumbnailWidth * size.Height / size.Width : ThumbnailWidth;
-            thumbnails[i] = new(i, label, ThumbnailWidth, height);
+            thumbnails[i] = new(i, label, ThumbnailWidth, height) { Colorant = Separations.ColorantOf(i) };
         }
 
         Thumbnails = thumbnails;
@@ -1144,7 +1153,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <param name="text">The text.</param>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void CopyText(string text) => _copyRequests.OnNext(text);
+    private void CopyText(string text) => _copyRequests.EmitIfOpen(text);
 
     /// <summary>Zooms in one step.</summary>
     [ReactiveCommand]
@@ -1259,6 +1268,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         }
 
         Forms.OnPageShown(pageIndex);
+        Separations.ShowPage(pageIndex);
+        _layers?.OnPageChanged();
         CheckRepairsOfOpenDocument();
     }
 
@@ -1298,7 +1309,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     {
         if (History.TryGoBack(Position, out var target))
         {
-            _navigationRequests.OnNext(new(target.PageIndex, null, target.OffsetFraction));
+            _navigationRequests.EmitIfOpen(new(target.PageIndex, null, target.OffsetFraction));
         }
 
         UpdateHistoryState();
@@ -1310,7 +1321,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     {
         if (History.TryGoForward(Position, out var target))
         {
-            _navigationRequests.OnNext(new(target.PageIndex, null, target.OffsetFraction));
+            _navigationRequests.EmitIfOpen(new(target.PageIndex, null, target.OffsetFraction));
         }
 
         UpdateHistoryState();
@@ -1445,12 +1456,23 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         }
     }
 
+    /// <summary>Disposes the parts of the tab that were created on first use.</summary>
+    private void DisposeParts()
+    {
+        _focusMode?.Dispose();
+        _readAloud?.Dispose();
+        _textRecognition?.Dispose();
+        _layers?.Dispose();
+        _separations?.Dispose();
+        _measure?.Dispose();
+        _annotations?.Dispose();
+        _pages?.Dispose();
+    }
+
     /// <summary>Releases the copy commands, links, page tools and file watch.</summary>
     private void DisposeFeatures()
     {
-        _optimize?.Dispose();
-        _archive?.Dispose();
-        _redact?.Dispose();
+        _copies?.Dispose();
         _links?.Dispose();
         PageTools.Dispose();
         _fileWatch.Dispose();

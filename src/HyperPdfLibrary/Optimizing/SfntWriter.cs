@@ -65,7 +65,7 @@ internal static class SfntWriter
             var (tag, content) = tables[i];
             var record = font.AsSpan(HeaderSize + (i * RecordSize));
             BinaryPrimitives.WriteUInt32BigEndian(record, tag);
-            BinaryPrimitives.WriteUInt32BigEndian(record[RecordChecksum..], Checksum(content.Span));
+            BinaryPrimitives.WriteUInt32BigEndian(record[RecordChecksum..], SfntChecksum.Compute(content.Span));
             BinaryPrimitives.WriteUInt32BigEndian(record[RecordOffset..], (uint)offset);
             BinaryPrimitives.WriteUInt32BigEndian(record[RecordLength..], (uint)content.Length);
             content.Span.CopyTo(font.AsSpan(offset));
@@ -75,7 +75,7 @@ internal static class SfntWriter
 
         if (headOffset >= 0)
         {
-            BinaryPrimitives.WriteUInt32BigEndian(font.AsSpan(headOffset + adjustmentOffset), magic - Checksum(font));
+            BinaryPrimitives.WriteUInt32BigEndian(font.AsSpan(headOffset + adjustmentOffset), magic - SfntChecksum.Compute(font));
         }
 
         return font;
@@ -100,27 +100,4 @@ internal static class SfntWriter
     /// <param name="length">The length.</param>
     /// <returns>The aligned length.</returns>
     private static int Align(int length) => (length + Alignment - 1) & -Alignment;
-
-    /// <summary>Adds up big-endian 32-bit words, the last one padded with zeros.</summary>
-    /// <param name="data">The bytes.</param>
-    /// <returns>The checksum.</returns>
-    private static uint Checksum(ReadOnlySpan<byte> data)
-    {
-        uint sum = 0;
-        var whole = data.Length & -Alignment;
-        for (var i = 0; i < whole; i += Alignment)
-        {
-            sum += BinaryPrimitives.ReadUInt32BigEndian(data[i..]);
-        }
-
-        if (whole < data.Length)
-        {
-            Span<byte> last = stackalloc byte[Alignment];
-            last.Clear();
-            data[whole..].CopyTo(last);
-            sum += BinaryPrimitives.ReadUInt32BigEndian(last);
-        }
-
-        return sum;
-    }
 }

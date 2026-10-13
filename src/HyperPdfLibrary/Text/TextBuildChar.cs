@@ -8,16 +8,17 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Text;
 
-/// <summary>A character while a text page is built, the counterpart of PDFium's CharInfo.</summary>
+/// <summary>A character while a text page is built.</summary>
 /// <param name="Kind">Where the character came from.</param>
 /// <param name="Code">The character code, or -1.</param>
 /// <param name="Unicode">The character.</param>
 /// <param name="Origin">The origin in user space.</param>
 /// <param name="Box">The outline box in user space.</param>
-/// <param name="LooseBox">The ascent-to-descent box in user space.</param>
-/// <param name="Matrix">The run matrix, or the identity for generated characters.</param>
-/// <param name="Run">The run the character belongs to, or -1.</param>
-/// <param name="WidthUnits">The glyph's advance in thousandths of the font size; 0 without a glyph.</param>
+/// <param name="LooseBox">The em-cell box in user space.</param>
+/// <param name="Run">The run the character belongs to, which gives its font size, render mode and weight.</param>
+/// <param name="Group">Numbers the glyph, generated space or replacement text the character came from; its characters stay together when a line is reordered.</param>
+/// <param name="Line">The line the character is on, or -1 for line breaks.</param>
+/// <param name="InText">Whether the character is part of the page text.</param>
 [DebuggerDisplay("TextBuildChar: {Unicode} {Kind}")]
 internal readonly record struct TextBuildChar(
     PdfTextCharKind Kind,
@@ -26,6 +27,7 @@ internal readonly record struct TextBuildChar(
     Vector2 Origin,
     PdfRectangle Box,
     PdfRectangle LooseBox,
-    Matrix3x2 Matrix,
     int Run,
-    int WidthUnits);
+    int Group,
+    int Line,
+    bool InText);

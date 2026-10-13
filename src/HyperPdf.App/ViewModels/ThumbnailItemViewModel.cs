@@ -12,4 +12,11 @@ namespace HyperPdf.App.ViewModels;
 /// <param name="Width">The thumbnail width in device independent pixels.</param>
 /// <param name="Height">The thumbnail height in device independent pixels.</param>
 [DebuggerDisplay("ThumbnailItemViewModel: Page {Label}")]
-public sealed record ThumbnailItemViewModel(int PageIndex, string Label, double Width, double Height);
+public sealed record ThumbnailItemViewModel(int PageIndex, string Label, double Width, double Height)
+{
+    /// <summary>Gets the colourant the page paints when it is a colour separation of a preseparated file; null for an ordinary page.</summary>
+    public string? Colorant { get; init; }
+
+    /// <summary>Gets the text shown under the thumbnail: the label, and the colourant of a separation page, for example "3 (Cyan)".</summary>
+    public string Caption => Colorant is { } colorant ? $"{Label} ({colorant})" : Label;
+}

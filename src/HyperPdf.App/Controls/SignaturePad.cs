@@ -12,10 +12,10 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
+using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.ObservableEvents;
 
 namespace HyperPdf.App.Controls;
 
@@ -25,7 +25,7 @@ namespace HyperPdf.App.Controls;
 /// drawing.
 /// </summary>
 [DebuggerDisplay("SignaturePad: {_drawn.Count} strokes")]
-public sealed class SignaturePad : Control
+public sealed class SignaturePad : Control, IActivatableView
 {
     /// <summary>The mark shown when nothing has been drawn here; setting it to <see langword="null"/> clears the pad.</summary>
     public static readonly StyledProperty<SignatureMark?> MarkProperty = AvaloniaProperty.Register<SignaturePad, SignatureMark?>(nameof(Mark));
@@ -60,9 +60,6 @@ public sealed class SignaturePad : Control
     /// <summary>Draws a remembered mark, while shown.</summary>
     private SignatureMarkPainter? _painter;
 
-    /// <summary>The subscriptions held while the pad is shown.</summary>
-    private MultipleDisposable? _subscriptions;
-
     /// <summary>Initializes static members of the <see cref="SignaturePad"/> class.</summary>
     static SignaturePad() => AffectsRender<SignaturePad>(MarkProperty);
 
@@ -70,8 +67,50 @@ public sealed class SignaturePad : Control
     public SignaturePad()
     {
         Cursor = new(StandardCursorType.Cross);
-        _ = this.Events().AttachedToVisualTree.SubscribeSafe(_ => Attach(), OnError);
-        _ = this.Events().DetachedFromVisualTree.SubscribeSafe(_ => Detach(), OnError);
+        _ = this.WhenActivated(disposables =>
+        {
+            // A press starts a stroke and keeps the pointer until it is released.
+            disposables.Add(this.PointerPresses.MarkHandled().SubscribeSafe(
+                press =>
+                {
+                    var point = press.GetPosition(this);
+                    _stroke.Clear();
+                    _stroke.Add(new((float)point.X, (float)point.Y));
+                    press.Pointer.Capture(this);
+                    InvalidateVisual();
+                },
+                OnError));
+            disposables.Add(this.PointerMoves.Where(_ => _stroke.Count is > 0 and < MaxStrokePoints).SubscribeSafe(
+                move =>
+                {
+                    var point = move.GetPosition(this);
+                    _stroke.Add(new((float)Math.Clamp(point.X, 0, Bounds.Width), (float)Math.Clamp(point.Y, 0, Bounds.Height)));
+                    InvalidateVisual();
+                },
+                OnError));
+
+            // A release finishes the stroke and passes it to the stroke command.
+            disposables.Add(this.PointerReleases.Where(_ => _stroke.Count > 0).SubscribeSafe(
+                release =>
+                {
+                    release.Pointer.Capture(null);
+                    PagePoint[] stroke = [.. _stroke];
+                    _stroke.Clear();
+                    _drawn.Add(stroke);
+                    InvalidateVisual();
+                    if (StrokeCommand is { } command && command.CanExecute(stroke))
+                    {
+                        command.Execute(stroke);
+                    }
+                },
+                OnError));
+
+            // Clearing the mark clears what was drawn here too, so Clear Drawing starts again.
+            disposables.Add(this.WhenChanged(static pad => pad.Mark).Where(static mark => mark is null).SubscribeSafe(_ => Clear(), OnError));
+
+            // The cached picture is freed once the pad is no longer shown.
+            disposables.Add(Scope.Create(this, static pad => pad.FreePainter()));
+        });
     }
 
     /// <summary>Gets or sets the mark shown when nothing has been drawn here.</summary>
@@ -142,22 +181,9 @@ public sealed class SignaturePad : Control
         }
     }
 
-    /// <summary>Listens to the pointer and to the mark while shown.</summary>
-    private void Attach() => _subscriptions =
-    [
-        this.Events().PointerPressed.SubscribeSafe(OnPressed, OnError),
-        this.Events().PointerMoved.SubscribeSafe(OnMoved, OnError),
-        this.Events().PointerReleased.SubscribeSafe(OnReleased, OnError),
-
-        // Clearing the mark clears what was drawn here too, so Clear Drawing starts again.
-        this.WhenChanged(static pad => pad.Mark).Where(static mark => mark is null).SubscribeSafe(_ => Clear(), OnError),
-    ];
-
-    /// <summary>Stops listening and frees the cached picture.</summary>
-    private void Detach()
+    /// <summary>Frees the cached picture.</summary>
+    private void FreePainter()
     {
-        _subscriptions?.Dispose();
-        _subscriptions = null;
         _painter?.Dispose();
         _painter = null;
     }
@@ -168,51 +194,5 @@ public sealed class SignaturePad : Control
         _drawn.Clear();
         _stroke.Clear();
         InvalidateVisual();
-    }
-
-    /// <summary>Starts a stroke.</summary>
-    /// <param name="e">The press.</param>
-    private void OnPressed(PointerPressedEventArgs e)
-    {
-        var point = e.GetPosition(this);
-        _stroke.Clear();
-        _stroke.Add(new((float)point.X, (float)point.Y));
-        e.Pointer.Capture(this);
-        e.Handled = true;
-        InvalidateVisual();
-    }
-
-    /// <summary>Extends the stroke being drawn.</summary>
-    /// <param name="e">The move.</param>
-    private void OnMoved(PointerEventArgs e)
-    {
-        if (_stroke.Count == 0 || _stroke.Count >= MaxStrokePoints)
-        {
-            return;
-        }
-
-        var point = e.GetPosition(this);
-        _stroke.Add(new((float)Math.Clamp(point.X, 0, Bounds.Width), (float)Math.Clamp(point.Y, 0, Bounds.Height)));
-        InvalidateVisual();
-    }
-
-    /// <summary>Finishes the stroke and passes it on.</summary>
-    /// <param name="e">The release.</param>
-    private void OnReleased(PointerReleasedEventArgs e)
-    {
-        if (_stroke.Count == 0)
-        {
-            return;
-        }
-
-        e.Pointer.Capture(null);
-        PagePoint[] stroke = [.. _stroke];
-        _stroke.Clear();
-        _drawn.Add(stroke);
-        InvalidateVisual();
-        if (StrokeCommand is { } command && command.CanExecute(stroke))
-        {
-            command.Execute(stroke);
-        }
     }
 }

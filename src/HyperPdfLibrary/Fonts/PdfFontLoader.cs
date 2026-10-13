@@ -8,7 +8,7 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
-/// The library's font factory: picks the font kind by /Subtype as PDFium's CPDF_Font::Create does. /Type0 is
+/// The library's font factory: picks the font kind by /Subtype (ISO 32000-2, 9.6.1). /Type0 is
 /// composite, /Type3 draws content streams, /TrueType is TrueType, and every other subtype (/Type1, /MMType1 or a
 /// missing one) loads as Type 1.
 /// </summary>

@@ -92,6 +92,7 @@ internal sealed class PdfSaveRepairs
         {
             SetName(source, ref copy, KnownName.Type, KnownName.Catalog, number);
             FixCatalogPages(source, ref copy, number);
+            DeclareExtensions(source, ref copy, number);
         }
 
         if (_nodes.TryGetValue(number, out var node))
@@ -477,6 +478,32 @@ internal sealed class PdfSaveRepairs
     {
         PdfOpenContext.Report(_store.Context, PdfDiagnosticCode.FixedOnSave, message, number, -1);
         return copy ??= source.Clone();
+    }
+
+    /// <summary>
+    /// Adds the ISO/TS 32003 extension to the catalog of an AES-GCM document that does not declare it, and the ISO/TS 32004
+    /// extension to the catalog of a document that needs a PDF MAC and does not declare it.
+    /// </summary>
+    /// <param name="source">The catalog.</param>
+    /// <param name="copy">The copy, made when the first fix is needed.</param>
+    /// <param name="number">The object number.</param>
+    private void DeclareExtensions(PdfDictionary source, ref PdfDictionary? copy, int number)
+    {
+        var current = copy ?? source;
+        if (AesGcmExtension.IsRequired(_store) && !AesGcmExtension.IsDeclared(current, _store.Names))
+        {
+            PdfOpenContext.Report(_store.Context, PdfDiagnosticCode.FixedOnSave, "The catalog did not declare the AES-GCM extension (ISO/TS 32003), so it was added.", number, -1);
+            copy = AesGcmExtension.Declare(current, _store);
+            current = copy;
+        }
+
+        if (!PdfMacExtension.IsRequired(_store) || PdfMacExtension.IsDeclared(current, _store.Names))
+        {
+            return;
+        }
+
+        PdfOpenContext.Report(_store.Context, PdfDiagnosticCode.FixedOnSave, "The catalog did not declare the PDF MAC extension (ISO/TS 32004), so it was added.", number, -1);
+        copy = PdfMacExtension.Declare(current, _store);
     }
 
     /// <summary>What the walk found about a page tree node or page.</summary>

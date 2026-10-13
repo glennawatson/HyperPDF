@@ -73,7 +73,7 @@ internal sealed record JpxQuantization(int Style, int GuardBits, ushort[] Steps)
     {
         if (Style != ScalarDerived)
         {
-            // Sub-bands the marker leaves out read as zero, as in PDFium.
+            // Our rule: a sub-band the marker leaves out (damaged data; T.800 A.6.4 requires one entry per sub-band) has step zero, so it decodes as silence.
             return band < Steps.Length ? Steps[band] : 0;
         }
 

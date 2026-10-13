@@ -45,6 +45,12 @@ public sealed class PdfShading
     /// <summary>The built meshes by scale bucket.</summary>
     private ShadingMesh?[]? _meshes;
 
+    /// <summary>The shadings made for each rendering that converts the colour space differently, or <see langword="null"/> before the first.</summary>
+    private PdfShading?[]? _renderings;
+
+    /// <summary>The shadings made for each transfer function, or <see langword="null"/> before the first.</summary>
+    private ConditionalWeakTable<PdfTransfer, PdfShading>? _transfers;
+
     /// <summary>Initializes a new instance of the <see cref="PdfShading"/> class.</summary>
     /// <param name="kind">The shading type.</param>
     /// <param name="dictionary">The shading dictionary.</param>
@@ -60,6 +66,7 @@ public sealed class PdfShading
         Function = function;
         BBox = dictionary.TryGetRectangle(KnownName.BBox, out var box) ? box : null;
         Background = ReadBackground(dictionary, colorSpace);
+        AntiAlias = dictionary.GetBoolean(KnownName.AntiAlias);
     }
 
     /// <summary>Gets the shading type.</summary>
@@ -82,6 +89,12 @@ public sealed class PdfShading
 
     /// <summary>Gets the background colour as 0xRRGGBB, or null.</summary>
     public uint? Background { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the shading dictionary asks for its function to be filtered against aliasing
+    /// (ISO 32000-2 Table 77 /AntiAlias; default false). Devices may treat it as a quality hint.
+    /// </summary>
+    public bool AntiAlias { get; }
 
     /// <summary>Gets a value indicating whether the shading is drawn as triangles.</summary>
     public bool IsMesh => Kind >= PdfShadingKind.FreeForm;
@@ -167,6 +180,45 @@ public sealed class PdfShading
         var kind = (PdfShadingKind)type;
         var stream = value.AsStream();
         return kind >= PdfShadingKind.FreeForm && stream is null ? null : new(kind, dictionary, stream, space, function);
+    }
+
+    /// <summary>Gets the shading as it paints with a rendering intent and black point choice.</summary>
+    /// <param name="rendering">The rendering in the graphics state at the <c>sh</c> or pattern selection.</param>
+    /// <returns>This shading, or one whose colour space converts with the rendering; the same instance on every call.</returns>
+    internal PdfShading ForRendering(IccRendering rendering)
+    {
+        var space = ColorSpace.ForRendering(rendering);
+        return ReferenceEquals(space, ColorSpace)
+            ? this
+            : ColorSpaceRenderings.GetOrCreate(
+                ref _renderings,
+                rendering,
+                this,
+                space,
+                static (owner, converting) => new PdfShading(owner.Kind, owner.Dictionary, owner.Stream, converting, owner.Function));
+    }
+
+    /// <summary>Gets the shading as it paints through a transfer function, which maps every colour it computes.</summary>
+    /// <param name="transfer">The transfer function, or <see langword="null"/> for none.</param>
+    /// <returns>This shading when there is no function, otherwise one whose colour space applies it; the same instance on every call.</returns>
+    internal PdfShading ForTransfer(PdfTransfer? transfer)
+    {
+        if (transfer is null)
+        {
+            return this;
+        }
+
+        lock (_gate)
+        {
+            _transfers ??= new();
+            if (!_transfers.TryGetValue(transfer, out var variant))
+            {
+                variant = new(Kind, Dictionary, Stream, new TransferColorSpace(ColorSpace, transfer), Function);
+                _transfers.Add(transfer, variant);
+            }
+
+            return variant;
+        }
     }
 
     /// <summary>Gets the bucket of a scale: the power of two at or above it, clamped to the kept range.</summary>

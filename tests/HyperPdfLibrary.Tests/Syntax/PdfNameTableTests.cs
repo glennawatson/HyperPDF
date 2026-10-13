@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Tests.Syntax;
@@ -158,14 +159,14 @@ public sealed class PdfNameTableTests
             _ = LookupBatch(table, unknown, name);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
         var total = 0;
-        for (var i = 0; i < MeasuredCalls; i++)
+        var allocated = AllocationProbe.Minimum(() =>
         {
-            total += LookupBatch(table, unknown, name);
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            for (var i = 0; i < MeasuredCalls; i++)
+            {
+                total += LookupBatch(table, unknown, name);
+            }
+        });
         await Assert.That(total).IsGreaterThan(0);
         await Assert.That(allocated).IsEqualTo(0);
     }

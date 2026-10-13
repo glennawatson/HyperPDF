@@ -20,13 +20,18 @@ internal sealed class DeviceNColorSpace : PdfColorSpace
     /// <summary>The cache of earlier row conversions, or <see langword="null"/> for spaces too wide to key.</summary>
     private readonly ColorCache? _cache;
 
+    /// <summary>The spaces made for each rendering that converts the alternate differently, or <see langword="null"/> before the first.</summary>
+    private PdfColorSpace?[]? _renderings;
+
     /// <summary>Initializes a new instance of the <see cref="DeviceNColorSpace"/> class.</summary>
     /// <param name="components">The number of tints.</param>
     /// <param name="transform">The tint conversion.</param>
     /// <param name="isNone">Whether every colorant is /None.</param>
-    internal DeviceNColorSpace(int components, TintTransform transform, bool isNone)
+    /// <param name="colorants">The colorants' names, one per tint.</param>
+    internal DeviceNColorSpace(int components, TintTransform transform, bool isNone, string[] colorants)
     {
         Components = components;
+        ColorantNames = colorants;
         _transform = transform;
         PaintsNothing = isNone;
         _lookup = components == 1 ? BuildLookup(this) : null;
@@ -42,11 +47,28 @@ internal sealed class DeviceNColorSpace : PdfColorSpace
     /// <inheritdoc/>
     public override bool PaintsNothing { get; }
 
+    /// <inheritdoc/>
+    public override IReadOnlyList<string> ColorantNames { get; }
+
     /// <summary>Gets the alternate colour space.</summary>
     internal PdfColorSpace Alternate => _transform.Alternate;
 
     /// <inheritdoc/>
     public override void GetInitialColor(Span<float> components) => components[..Components].Fill(1);
+
+    /// <inheritdoc/>
+    internal override PdfColorSpace ForRendering(IccRendering rendering)
+    {
+        var alternate = _transform.Alternate.ForRendering(rendering);
+        return ReferenceEquals(alternate, _transform.Alternate)
+            ? this
+            : ColorSpaceRenderings.GetOrCreate(
+                ref _renderings,
+                rendering,
+                this,
+                alternate,
+                static (owner, converting) => new DeviceNColorSpace(owner.Components, owner._transform with { Alternate = converting }, owner.PaintsNothing, [.. owner.ColorantNames]));
+    }
 
     /// <inheritdoc/>
     private protected override void ToRgbCore(ReadOnlySpan<float> components, Span<float> rgb) => _transform.ToRgb(components[..Components], rgb);

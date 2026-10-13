@@ -104,7 +104,7 @@ internal sealed partial class ContentUsageScanner
     /// <param name = "page">The page.</param>
     internal void ScanPage(PdfPage page)
     {
-        var userUnit = (float)page.Dictionary.GetNumber(KnownName.UserUnit, 1);
+        var userUnit = page.UserUnit;
         var content = default(PooledBuffer);
         try
         {

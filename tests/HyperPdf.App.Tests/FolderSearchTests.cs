@@ -80,6 +80,37 @@ public sealed class FolderSearchTests
         await Assert.That(search.Status).IsEqualTo("There are no PDF files in this folder.");
     }
 
+    /// <summary>A search replaced by a newer one adds nothing and changes no status when it ends late.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ReplacedSearchLeavesTheNewerSearchAlone()
+    {
+        var engine = new PausingEngine();
+        using var test = new TestServices(engine);
+        _ = test.CreateDocument("late.pdf", Pages);
+        using var main = new MainViewModel(test.Services);
+        var search = main.FolderSearch;
+        search.Folder = test.Directory;
+        search.Query = Words;
+        var gate = engine.Arm();
+        var older = search.SearchAsync();
+        await gate.Reached.Task;
+        engine.Disarm();
+        search.Query = "zebra";
+
+        await search.SearchAsync();
+        var newerStatus = search.Status;
+        gate.Release();
+        await older;
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(search.Results.Count).IsEqualTo(0);
+            await Assert.That(search.Status).IsEqualTo(newerStatus);
+            await Assert.That(search.IsSearching).IsFalse();
+        }
+    }
+
     /// <summary>Every control of the window has a name a screen reader can say.</summary>
     /// <returns>A task.</returns>
     [Test]

@@ -18,6 +18,12 @@ public sealed class ScratchPoolTests
     /// <summary>A length that uses the shared array pool.</summary>
     private const int Small = 1024;
 
+    /// <summary>A length the shared pool serves with an array of exactly 64 KiB.</summary>
+    private const int SharedRequest = 40_000;
+
+    /// <summary>A length just over what the shared pool serves.</summary>
+    private const int BoundedRequest = 70_000;
+
     /// <summary>How many times over the budget the test returns buffers.</summary>
     private const int Overfill = 2;
 
@@ -100,6 +106,39 @@ public sealed class ScratchPoolTests
         // The shared pool hands out power of two sizes; the bounded pool rounds to eighth steps instead.
         await Assert.That(System.Numerics.BitOperations.IsPow2(buffer.Length)).IsTrue();
         await Assert.That(buffer.Length).IsGreaterThan(Small);
+    }
+
+    /// <summary>A request just under the shared pool's limit goes back to the shared pool, which hands the same array out again, and is not kept by the bounded pool.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ARequestUnderTheLimitReturnsToTheSharedPool()
+    {
+        var owner = new ScratchPools();
+        var pool = owner.Get<byte>();
+        var first = pool.Rent(SharedRequest);
+        pool.Return(first);
+        var second = pool.Rent(SharedRequest);
+        pool.Return(second);
+
+        await Assert.That(second).IsSameReferenceAs(first);
+        await Assert.That(owner.RetainedBytes).IsEqualTo(0);
+    }
+
+    /// <summary>A request just over the shared pool's limit is kept by the bounded pool and handed out again.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ARequestOverTheLimitIsKeptByTheBoundedPool()
+    {
+        var owner = new ScratchPools();
+        var pool = owner.Get<byte>();
+        var first = pool.Rent(BoundedRequest);
+        pool.Return(first);
+        var second = pool.Rent(BoundedRequest);
+        pool.Return(second);
+
+        await Assert.That(second).IsSameReferenceAs(first);
+        await Assert.That(owner.RetainedBytes).IsGreaterThan(0);
+        owner.Trim();
     }
 
     /// <summary>Closing one document releases its own large arrays without trimming another document's cache.</summary>

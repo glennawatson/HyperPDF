@@ -9,7 +9,7 @@ namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
 /// Maps the codes of a non-embedded simple font to glyphs of the system font standing in for it. Glyph names go
-/// through Unicode, as PDFium does for substitute faces. The Symbol and ZapfDingbats fonts look each name up by its
+/// through Unicode (the Adobe Glyph List, ISO 32000-2, 9.10.2). The Symbol and ZapfDingbats fonts look each name up by its
 /// code in the font's own encoding, which the URW stand-ins and Microsoft symbol fonts both map directly.
 /// </summary>
 internal static class SubstituteGlyphMapper

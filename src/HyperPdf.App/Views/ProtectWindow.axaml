@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:HyperPdf.App.Views"
+        x:Class="HyperPdf.App.Views.ProtectWindow"
+        Title="Protect with Password" Width="680" Height="860" MinWidth="520" MinHeight="560" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppWindowBackground}">
+  <!-- Layout only: bindings are made in code (ProtectWindow.axaml.cs). The choices scroll; the progress and summary stay on screen so nothing moves during a run. -->
+  <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="20">
+    <StackPanel Spacing="8">
+      <TextBlock x:Name="HeadingText" FontSize="16" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1" />
+      <TextBlock TextWrapping="Wrap" Classes="secondary" Text="Saves a protected copy. Passwords are never saved, logged or shown. If you forget them, no one can open the copy." />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" Margin="0,8,0,0" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="10" Margin="0,0,12,0">
+        <StackPanel x:Name="CurrentOwnerRow" Spacing="4">
+          <TextBlock x:Name="CurrentOwnerLabel" Text="Current owner password" />
+          <TextBox x:Name="CurrentOwnerBox" views:ControlHelp.Text="{x:Static views:Descriptions.CurrentOwnerPassword}" PasswordChar="●" AutomationProperties.Name="Current owner password" />
+        </StackPanel>
+
+        <TextBlock Text="Passwords" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
+          <TextBlock x:Name="UserLabel" Text="Reading password" VerticalAlignment="Center" />
+          <TextBox x:Name="UserBox" Grid.Column="1" views:ControlHelp.Text="{x:Static views:Descriptions.ReadingPassword}" PasswordChar="●" AutomationProperties.Name="Reading password" />
+          <TextBlock x:Name="UserRepeatLabel" Grid.Row="1" Text="Reading password again" VerticalAlignment="Center" />
+          <TextBox x:Name="UserRepeatBox" Grid.Row="1" Grid.Column="1" views:ControlHelp.Text="{x:Static views:Descriptions.ReadingPasswordRepeat}" PasswordChar="●" AutomationProperties.Name="Reading password again" />
+          <TextBlock x:Name="OwnerLabel" Grid.Row="2" Text="Owner password" VerticalAlignment="Center" />
+          <TextBox x:Name="OwnerBox" Grid.Row="2" Grid.Column="1" views:ControlHelp.Text="{x:Static views:Descriptions.OwnerPasswordField}" PasswordChar="●" AutomationProperties.Name="Owner password" />
+          <TextBlock x:Name="OwnerRepeatLabel" Grid.Row="3" Text="Owner password again" VerticalAlignment="Center" />
+          <TextBox x:Name="OwnerRepeatBox" Grid.Row="3" Grid.Column="1" views:ControlHelp.Text="{x:Static views:Descriptions.OwnerPasswordRepeat}" PasswordChar="●" AutomationProperties.Name="Owner password again" />
+        </Grid>
+
+        <TextBlock Text="What people with the reading password may do" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <CheckBox x:Name="PrintCheck" views:ControlHelp.Text="{x:Static views:Descriptions.AllowPrint}" Content="Print the document" />
+        <CheckBox x:Name="CopyCheck" views:ControlHelp.Text="{x:Static views:Descriptions.AllowCopy}" Content="Copy text and pictures" />
+        <CheckBox x:Name="EditCheck" views:ControlHelp.Text="{x:Static views:Descriptions.AllowEdit}" Content="Change the pages" />
+        <CheckBox x:Name="FormsCheck" views:ControlHelp.Text="{x:Static views:Descriptions.AllowForms}" Content="Fill in forms and add comments" />
+        <CheckBox x:Name="AccessibilityCheck" views:ControlHelp.Text="{x:Static views:Descriptions.AllowAccessibility}" Content="Let screen readers read the text" />
+        <TextBlock x:Name="AccessibilityWarningText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectWarning}" AutomationProperties.Name="Screen reader warning" />
+        <CheckBox x:Name="MetadataCheck" views:ControlHelp.Text="{x:Static views:Descriptions.HideProperties}" Content="Also hide the title and author" />
+
+        <TextBlock Text="Encryption" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <ListBox x:Name="FormatList" Height="200" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectFormats}" AutomationProperties.Name="Encryption of the copy" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="2" Spacing="4" Margin="0,12,0,0">
+      <TextBlock Text="Progress and summary" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <!-- The busy bar and the result bar share one cell, so the layout stays still; only one is visible at a time. -->
+      <Grid>
+        <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectProgress}" AutomationProperties.Name="Progress of the copy" />
+        <ProgressBar x:Name="BusyProgress" IsIndeterminate="True" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectProgress}" AutomationProperties.Name="Making the copy" />
+      </Grid>
+      <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+      <TextBlock x:Name="ErrorText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
+      <Border BorderThickness="1" Padding="10" Height="110" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectResult}" AutomationProperties.Name="Summary of the copy" />
+        </ScrollViewer>
+      </Border>
+    </StackPanel>
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectCancel}" Content="_Cancel" />
+      <Button x:Name="SaveButton" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectSave}" Content="_Save Protected Copy…" IsDefault="True" />
+      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
+    </StackPanel>
+  </Grid>
+</Window>

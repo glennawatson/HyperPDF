@@ -80,7 +80,8 @@ internal sealed class ObjectStreamIndex
             read++;
         }
 
-        return new(data, numbers.AsSpan(0, read).ToArray(), offsets.AsSpan(0, read).ToArray(), first);
+        // A header that holds every declared entry, as a well-formed one does, keeps its arrays as read; only a short one is copied.
+        return read == count ? new(data, numbers, offsets, first) : new(data, numbers.AsSpan(0, read).ToArray(), offsets.AsSpan(0, read).ToArray(), first);
     }
 
     /// <summary>Parses an object.</summary>

@@ -136,7 +136,7 @@ internal static class HyperPdfAnnotationReplies
         return PdfAnnotations.TextEquals(reply, KnownName.State, "Completed"u8) ? ReviewState.Completed : ReviewState.None;
     }
 
-    /// <summary>Determines whether an annotation replies to a comment: by reference, or by name before the PDFium engine saved it.</summary>
+    /// <summary>Determines whether an annotation replies to a comment: by reference, or by name before the document is saved.</summary>
     /// <param name="annotationState">The annotation state.</param>
     /// <param name="reply">The annotation.</param>
     /// <param name="parent">The comment.</param>

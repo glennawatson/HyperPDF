@@ -57,7 +57,7 @@
   <!-- The Licences window shows these notices: the packages in this project's assets, the font and CMap resource packs, and the data the app downloads. -->
   <PropertyGroup>
     <NoticesResourceName>HyperPdf.ThirdPartyNotices.md</NoticesResourceName>
-    <NoticesComponents>open-font-pack;adobe-cmaps;tessdata-fast;kokoro;misaki;melotts;bert-base-uncased;g2p-en;cmudict;pdfium-cmyk-table;verapdf-profile-text</NoticesComponents>
+    <NoticesComponents>unicode-ucd;open-font-pack;adobe-cmaps;tessdata-fast;kokoro;misaki;melotts;bert-base-uncased;g2p-en;cmudict;verapdf-profile-text</NoticesComponents>
   </PropertyGroup>
   <Import Project="..\..\licenses\ThirdPartyNotices.targets" />
 

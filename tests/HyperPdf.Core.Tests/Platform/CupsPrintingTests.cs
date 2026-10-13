@@ -14,9 +14,6 @@ public sealed class CupsPrintingTests
     /// <summary>The printer queue used by the option tests.</summary>
     private const string PrinterQueue = "office";
 
-    /// <summary>The CUPS option for single-sided or duplex printing.</summary>
-    private const string SidesOption = "sides";
-
     /// <summary>The copies asked for.</summary>
     private const int Copies = 2;
 
@@ -28,13 +25,13 @@ public sealed class CupsPrintingTests
     [Test]
     public async Task BuildsJobOptions()
     {
-        var options = CupsPrinting.BuildOptions(new(PrinterQueue, Copies, false, true, PaperSize.Letter)).ToDictionary(static o => o.Name, static o => o.Value);
+        var options = CupsPrinting.BuildOptions(new(PrinterQueue, Copies, false, true, PaperSize.Letter));
 
-        await Assert.That(options["copies"]).IsEqualTo("2");
-        await Assert.That(options["media"]).IsEqualTo("na_letter_8.5x11in");
-        await Assert.That(options[SidesOption]).IsEqualTo("two-sided-long-edge");
-        await Assert.That(options["print-color-mode"]).IsEqualTo("monochrome");
-        await Assert.That(options["print-scaling"]).IsEqualTo("none");
+        await Assert.That(options.Copies).IsEqualTo("2");
+        await Assert.That(options.Media).IsEqualTo("na_letter_8.5x11in");
+        await Assert.That(options.Sides).IsEqualTo("two-sided-long-edge");
+        await Assert.That(options.ColorMode).IsEqualTo("monochrome");
+        await Assert.That(options.Scaling).IsEqualTo("none");
     }
 
     /// <summary>Verifies copies are kept to a sensible number and one-sided colour A4 is the plain case.</summary>
@@ -42,12 +39,12 @@ public sealed class CupsPrintingTests
     [Test]
     public async Task KeepsCopiesSensible()
     {
-        var options = CupsPrinting.BuildOptions(new(PrinterQueue, TooMany, true, false, PaperSize.A4)).ToDictionary(static o => o.Name, static o => o.Value);
+        var options = CupsPrinting.BuildOptions(new(PrinterQueue, TooMany, true, false, PaperSize.A4));
 
-        await Assert.That(options["copies"]).IsEqualTo("999");
-        await Assert.That(options["media"]).IsEqualTo("iso_a4_210x297mm");
-        await Assert.That(options[SidesOption]).IsEqualTo("one-sided");
-        await Assert.That(options["print-color-mode"]).IsEqualTo("color");
+        await Assert.That(options.Copies).IsEqualTo("999");
+        await Assert.That(options.Media).IsEqualTo("iso_a4_210x297mm");
+        await Assert.That(options.Sides).IsEqualTo("one-sided");
+        await Assert.That(options.ColorMode).IsEqualTo("color");
     }
 
     /// <summary>Verifies that short-edge binding reaches CUPS only when two-sided printing is enabled.</summary>
@@ -60,9 +57,7 @@ public sealed class CupsPrintingTests
     public async Task AppliesShortEdgeBinding(bool twoSided, string expected)
     {
         var job = new PrintJobOptions(PrinterQueue, Copies, true, twoSided, PaperSize.A4) { Binding = DuplexBinding.ShortEdge };
-        var options = CupsPrinting.BuildOptions(job).ToDictionary(static option => option.Name, static option => option.Value);
-
-        await Assert.That(options[SidesOption]).IsEqualTo(expected);
+        await Assert.That(CupsPrinting.BuildOptions(job).Sides).IsEqualTo(expected);
     }
 
     /// <summary>Verifies every paper size reaches CUPS as its PWG media name.</summary>

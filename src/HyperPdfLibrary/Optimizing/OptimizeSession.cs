@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Signatures;
+using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -17,7 +18,7 @@ namespace HyperPdfLibrary.Optimizing;
 /// each image, font and stream as it is written. Used by one thread.
 /// </summary>
 [DebuggerDisplay("OptimizeSession")]
-internal sealed partial class OptimizeSession : IObjectTransformer
+internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
 {
     /// <summary>The version written when the document has none.</summary>
     private const string DefaultVersion = "1.4";
@@ -53,10 +54,13 @@ internal sealed partial class OptimizeSession : IObjectTransformer
     private readonly HashSet<int> _masks = [];
 
     /// <summary>The glyphs to keep in each embedded font program, by the program's old number.</summary>
-    private readonly Dictionary<int, HashSet<int>> _fontGlyphs = [];
+    private readonly Dictionary<int, CodeBitSet> _fontGlyphs = [];
 
     /// <summary>The private working copy, or <see langword="null"/> before it is opened.</summary>
     private PdfDocument? _working;
+
+    /// <summary>1 once the session is disposed.</summary>
+    private int _disposed;
 
     /// <summary>The names the optimiser uses, interned in the working copy.</summary>
     private OptimizerNames? _names;
@@ -104,6 +108,18 @@ internal sealed partial class OptimizeSession : IObjectTransformer
 
     /// <summary>Gets the optimiser's names.</summary>
     private OptimizerNames Names => _names!;
+
+    /// <summary>
+    /// Disposes the working copy the session opened, once. A copy the caller supplied is the caller's to dispose, and the
+    /// copy borrows the source's security handler and file, so the source stays usable.
+    /// </summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0 && !_ownsSource)
+        {
+            _working?.Dispose();
+        }
+    }
 
     /// <summary>Decides what may change, makes the changes that are not made while writing, and plans the write.</summary>
     /// <returns>The plan.</returns>
@@ -238,6 +254,12 @@ internal sealed partial class OptimizeSession : IObjectTransformer
     {
         var store = Working.Objects;
         var keepEncryption = store.Security is not null && !_options.RemoveEncryption;
+        if (keepEncryption)
+        {
+            // The optimizer writes the file in pieces and has no way to place a PDF MAC over the whole of it.
+            PdfMacSeal.ThrowIfNeeded(store, "Optimizing");
+        }
+
         _report.IsEncrypted = keepEncryption;
         if (store.Security is not null && _options.RemoveEncryption)
         {

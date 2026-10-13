@@ -49,7 +49,7 @@ internal static class JpxHtBlockDecoder
     {
         var passes = Math.Min(cleanup.Passes + refinement.Passes, FullHtSet);
 
-        // Refinement passes with no bytes, or with no bit-plane left below the cleanup pass, are dropped, as PDFium does.
+        // Our rule: refinement passes (T.814 clause 7.3.5 to 7.3.7) with no bytes, or with no bit-plane left below the cleanup pass, have nothing to refine and are dropped.
         return refinement.Length == 0 || planes < RefinablePlanes ? Math.Min(passes, 1) : passes;
     }
 
@@ -138,7 +138,7 @@ internal static class JpxHtBlockDecoder
         // Two lines of exponents, used in turn: the row above each row of quads, and that row's own lower samples.
         Span<byte> lines = stackalloc byte[LineBytes * SuffixLengthBytes];
 
-        // A quad's exponent bound may not pass the missing bit-planes plus two, as PDFium checks.
+        // A quad's exponent bound U must stay within the bit-planes the block carries (T.814 clause 7.3.4); a larger one means damaged data and is rejected, with the margin of two our own.
         var depth = new JpxHtDepth(planes, magnitude + SuffixLengthBytes - planes);
         var current = 0;
         for (var y = 0; y < state.Height; y += JpxBlockLayout.QuadWidth)

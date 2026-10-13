@@ -42,8 +42,8 @@ internal static class Jbig2Regions
     }
 
     /// <summary>
-    /// Decodes an arithmetic generic region. A region whose data runs out keeps the rows decoded, as PDFium's
-    /// progressive decoder does.
+    /// Decodes an arithmetic generic region. A region whose data runs out keeps the rows decoded, so a
+    /// damaged stream still shows its readable top part.
     /// </summary>
     /// <param name="reader">The reader.</param>
     /// <param name="region">The white region bitmap.</param>
@@ -128,7 +128,7 @@ internal static class Jbig2Regions
     /// <summary>Copies the page area under a region, as the reference for a refinement with no referred region.</summary>
     /// <param name="page">The page.</param>
     /// <param name="info">The region information.</param>
-    /// <returns>The copy; white when the region's corner is off the page, as in PDFium.</returns>
+    /// <returns>The copy; white when the region's corner is off the page (our rule: nothing exists there to copy).</returns>
     internal static Jbig2Bitmap? CopyPageArea(Jbig2Bitmap page, in Jbig2RegionInfo info)
     {
         var area = Jbig2Bitmap.Create(info.Width, info.Height, page.ScratchPools);

@@ -6,8 +6,11 @@ using System.Globalization;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Flattening;
 using HyperPdf.Core.Optimizing;
+using HyperPdf.Core.Protection;
 using HyperPdf.Core.Redaction;
+using HyperPdf.Core.Signatures.Signing;
 
 namespace HyperPdf.App.ViewModels;
 
@@ -30,12 +33,56 @@ internal static class TabCopyActions
         static document => DocumentFeature<IArchiveCopyWriter>.Get(document) is not null,
         static tab => DocumentFeature<IArchiveCopyWriter>.Get(tab.TryGetDocument()) is { } writer ? new(writer, tab.FilePath) : null);
 
+    /// <summary>Gets saving a PDF 2.0 copy, for engines that can write one.</summary>
+    internal static TabCopyActionSpec<Pdf20CopyViewModel> Pdf20 { get; } = new(
+        "Save as PDF 2.0 _Copy…",
+        "Save as PDF 2.0 Copy… (needs the HyperPDF engine)",
+        static document => DocumentFeature<IPdf20CopyWriter>.Get(document) is not null,
+        static tab => DocumentFeature<IPdf20CopyWriter>.Get(tab.TryGetDocument()) is { } writer ? new(writer, tab.FilePath) : null);
+
+    /// <summary>Gets saving a flattened copy, for engines that can write one.</summary>
+    internal static TabCopyActionSpec<FlattenCopyViewModel> Flatten { get; } = new(
+        "Save Flat_tened Copy…",
+        "Save Flattened Copy… (needs the HyperPDF engine)",
+        static document => DocumentFeature<IFlattenCopyWriter>.Get(document) is not null,
+        static tab => DocumentFeature<IFlattenCopyWriter>.Get(tab.TryGetDocument()) is { } writer ? new(writer, tab.FilePath) : null);
+
+    /// <summary>Gets saving a copy with a password and permissions, for engines that can write one.</summary>
+    internal static TabCopyActionSpec<ProtectViewModel> Protect { get; } = new(
+        "Protect with _Password…",
+        "Protect with Password… (needs the HyperPDF engine)",
+        static document => DocumentFeature<IDocumentProtector>.Get(document) is not null,
+        static tab => DocumentFeature<IDocumentProtector>.Get(tab.TryGetDocument()) is { } protector ? new(protector, tab.FilePath) : null);
+
+    /// <summary>Gets saving a copy without protection, for protected documents in engines that can write one.</summary>
+    internal static TabCopyActionSpec<RemoveProtectionViewModel> Unprotect { get; } = new(
+        "Remove Pro_tection…",
+        "Remove Protection… (needs a protected document and the HyperPDF engine)",
+        static document => DocumentFeature<IDocumentProtector>.Get(document) is { } protector && protector.GetStatus().IsProtected,
+        static tab => DocumentFeature<IDocumentProtector>.Get(tab.TryGetDocument()) is { } protector ? new(protector, tab.FilePath) : null);
+
     /// <summary>Gets applying redactions, for engines that can remove marked content for good.</summary>
     internal static TabCopyActionSpec<RedactionViewModel> Redact { get; } = new(
         "Apply _Redactions…",
         "Apply Redactions… (needs the HyperPDF engine)",
         static document => DocumentFeature<IDocumentRedactor>.Get(document) is not null && DocumentFeature<IAnnotationEditor>.Get(document) is not null,
         static tab => DocumentFeature<IDocumentRedactor>.Get(tab.TryGetDocument()) is { } redactor ? CreateRedaction(tab, redactor) : null);
+
+    /// <summary>Gets adding validation data or a document timestamp, for engines that can sign.</summary>
+    internal static TabCopyActionSpec<ValidationDataViewModel> Validation { get; } = new(
+        "Add _Validation Data or Timestamp…",
+        "Add Validation Data or Timestamp… (needs the HyperPDF engine)",
+        static document => DocumentFeature<IDocumentSigner>.Get(document) is not null,
+        static tab => DocumentFeature<IDocumentSigner>.Get(tab.TryGetDocument()) is { } signer ? new(signer, tab.FilePath, TimestampServers.Create(tab.Services.Settings.TimestampServer)) : null);
+
+    /// <summary>Gets signing with an external signer, for engines that can sign.</summary>
+    internal static TabCopyActionSpec<ExternalSignViewModel> ExternalSign { get; } = new(
+        "Sign with E_xternal Signer…",
+        "Sign with External Signer… (needs the HyperPDF engine)",
+        static document => DocumentFeature<IDocumentSigner>.Get(document) is not null,
+        static tab => DocumentFeature<IDocumentSigner>.Get(tab.TryGetDocument()) is { } signer
+            ? new(signer, tab.FilePath, Math.Max(0, tab.CurrentPageIndex), TimestampServers.Create(tab.Services.Settings.TimestampServer), tab.Services.RequestOpen)
+            : null);
 
     /// <summary>Counts the areas marked for redaction in a tab's document and the pages they are on.</summary>
     /// <param name="tab">The tab.</param>

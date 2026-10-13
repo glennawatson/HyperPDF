@@ -7,7 +7,7 @@ using HyperPdfLibrary.Text;
 
 namespace HyperPdfLibrary.Tests.Text;
 
-/// <summary>Checks the characters a text page extracts and the ones it generates, against PDFium's rules.</summary>
+/// <summary>Checks the characters a text page extracts and the ones it generates, against the extraction rules.</summary>
 [NotInParallel]
 public sealed class TextExtractionTests
 {
@@ -74,11 +74,8 @@ public sealed class TextExtractionTests
     /// <summary>The index of the joining hyphen in "hyphen-ated".</summary>
     private const int HyphenIndex = 6;
 
-    /// <summary>The character PDFium gives a joining hyphen.</summary>
-    private const char JoiningHyphen = (char)2;
-
-    /// <summary>The page text PDFium gives a joining hyphen.</summary>
-    private const char JoiningHyphenText = (char)0xFFFE;
+    /// <summary>The character a joining hyphen keeps.</summary>
+    private const char JoiningHyphen = '-';
 
     /// <summary>The y of the second line after a 20 point move down.</summary>
     private const float SecondBaseline = 80;
@@ -164,7 +161,7 @@ public sealed class TextExtractionTests
         await Assert.That(narrow.Text).IsEqualTo(Hello);
     }
 
-    /// <summary>A hyphen ending a line joins the word to the next line, as PDFium marks it.</summary>
+    /// <summary>A hyphen ending a line joins the word to the next line: the hyphen keeps its slot but leaves the page text.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task LineEndHyphenJoinsWord()
@@ -172,7 +169,7 @@ public sealed class TextExtractionTests
         var page = TextTestDocument.Extract("BT /F1 10 Tf 10 100 Td (hyphen-) Tj 0 -20 Td (ated) Tj ET");
         var hyphen = page.GetChar(HyphenIndex);
 
-        await Assert.That(page.Text).IsEqualTo($"hyphen{JoiningHyphenText}ated");
+        await Assert.That(page.Text).IsEqualTo("hyphenated");
         await Assert.That(hyphen.Kind).IsEqualTo(PdfTextCharKind.Hyphen);
         await Assert.That(hyphen.Unicode).IsEqualTo(JoiningHyphen);
     }
@@ -214,7 +211,7 @@ public sealed class TextExtractionTests
         await Assert.That(single.GetChar(0).Kind).IsEqualTo(PdfTextCharKind.Piece);
     }
 
-    /// <summary>A glyph without Unicode keeps its character slot but adds no text, so indexes map as PDFium maps them.</summary>
+    /// <summary>A glyph without Unicode keeps its character slot but adds no text, so character and text indexes differ.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task UnmappedGlyphKeepsIndexWithoutText()
@@ -287,7 +284,7 @@ public sealed class TextExtractionTests
         var page = TextTestDocument.Extract("BT /F1 10 Tf 10 100 Td (\\240\\241\\242) Tj ET");
 
         await Assert.That(page.Text).IsEqualTo(LogicalHebrew);
-        await Assert.That(page.GetChar(0).Kind).IsEqualTo(PdfTextCharKind.Piece);
+        await Assert.That(page.GetChar(0).Kind).IsEqualTo(PdfTextCharKind.Normal);
     }
 
     /// <summary>A right-to-left word after left-to-right text keeps the line order and reverses only itself.</summary>
@@ -352,13 +349,13 @@ public sealed class TextExtractionTests
         using var document = TextTestDocument.Open(TextTestDocument.Create(HelloContent).ToBytes());
         var first = PdfDocumentText.ExtractText(document, 0);
         var state = document.State.TextBuild ?? throw new InvalidOperationException("The first extraction did not return its state.");
-        var retainedItems = state.Chars.Count + state.Temp.Count + state.Text.Count + state.TempText.Count
-            + state.Line.Count + state.Segments.Count + state.SpaceCodes.Count + state.Runs.Count
-            + state.Glyphs.Count + state.Unicode.Count;
+        var retainedItems = state.Chars.Count + state.LineChars.Count + state.LineLogical.Count + state.Order.Count
+            + state.Recent.Count + state.Frames.Count + state.GroupStarts.Count + state.SpaceWidths.Count
+            + state.PlacedSequences.Count + state.Runs.Count + state.Glyphs.Count + state.Unicode.Count;
 
         var second = PdfDocumentText.ExtractText(document, 0);
         var reusedAfterSecond = ReferenceEquals(state, document.State.TextBuild);
-        var clearAfterSecond = state.Chars.Count + state.Temp.Count + state.Runs.Count == 0;
+        var clearAfterSecond = state.Chars.Count + state.LineChars.Count + state.Runs.Count == 0;
 
         await Assert.That(first.Text).IsEqualTo(Hello);
         await Assert.That(second.Text).IsEqualTo(Hello);

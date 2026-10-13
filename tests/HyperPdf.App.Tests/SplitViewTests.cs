@@ -4,8 +4,11 @@
 
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using HyperPdf.App.Rendering;
 using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
+using HyperPdf.Core.Geometry;
+using HyperPdf.Core.Rendering;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
@@ -24,6 +27,9 @@ public sealed class SplitViewTests
 
     /// <summary>The window height.</summary>
     private const double WindowHeight = 800;
+
+    /// <summary>The side of a marker tile.</summary>
+    private const int TileSide = 8;
 
     /// <summary>The two views once split.</summary>
     private const int TwoViews = 2;
@@ -59,6 +65,42 @@ public sealed class SplitViewTests
         _ = await tab.SplitViewCommand.Execute().ToTask();
         main.CloseTabWithoutAsking(tab);
         await Assert.That(main.SplitTab).IsNull();
+    }
+
+    /// <summary>Verifies the two views keep their tiles apart, an edit drops both, and putting the second view away keeps the first view's tiles.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ViewsKeepTheirTilesApart()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("split-tiles.pdf", Pages)]);
+        var tab = main.SelectedTab!;
+        _ = await tab.SplitViewCommand.Execute().ToTask();
+        var split = main.SplitTab!;
+        var cache = test.Services.RenderHub.Cache;
+        var first = TileKey.Preview(tab.TileId, 0, PageRotation.None, PageTone.None.Id);
+        var second = TileKey.Preview(split.TileId, 0, PageRotation.None, PageTone.None.Id);
+        cache.Add(first, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability()));
+        cache.Add(second, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability()));
+
+        _ = await split.SplitViewCommand.Execute().ToTask();
+        var firstKeptWhenSecondClosed = cache.Contains(first);
+        var secondDroppedWhenClosed = !cache.Contains(second);
+        _ = await tab.SplitViewCommand.Execute().ToTask();
+        var splitAgain = main.SplitTab!;
+        var secondAgain = TileKey.Preview(splitAgain.TileId, 0, PageRotation.None, PageTone.None.Id);
+        cache.Add(secondAgain, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability()));
+        tab.OnPageEdited(0);
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(split.TileId).IsNotEqualTo(tab.TileId);
+            await Assert.That(firstKeptWhenSecondClosed).IsTrue();
+            await Assert.That(secondDroppedWhenClosed).IsTrue();
+            await Assert.That(cache.Contains(first)).IsFalse();
+            await Assert.That(cache.Contains(secondAgain)).IsFalse();
+        }
     }
 
     /// <summary>Verifies the window shows both views side by side while split, then only the first.</summary>

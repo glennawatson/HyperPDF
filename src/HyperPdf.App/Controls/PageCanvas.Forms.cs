@@ -22,7 +22,7 @@ public sealed partial class PageCanvas
     private const double FocusRingGap = 3;
 
     /// <summary>Gets the canvas units per point at the current zoom, for sizing an editor placed on a page.</summary>
-    internal double PageScale => _layout.Options.Scale;
+    public double PageScale => _layout.Options.Scale;
 
     /// <summary>Converts a rectangle on a page to canvas coordinates, for placing an editor over a field.</summary>
     /// <param name="page">The page.</param>

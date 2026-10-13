@@ -79,7 +79,7 @@ public static class Program
             .UseDesktopPlatform(isLinux, x11Display, waylandDisplay)
             .With(new X11PlatformOptions { WmClass = AppIdentity.WindowClass, RenderingMode = [X11RenderingMode.Vulkan, X11RenderingMode.Egl, X11RenderingMode.Glx, X11RenderingMode.Software] })
             .LogToTrace()
-            .UseReactiveUI(static _ => { });
+            .UseReactiveUI(static builder => builder.WithExceptionHandler(CommandFailureObserver.Instance));
 
     /// <summary>Forwards startup documents to a running viewer, or claims its single-instance endpoint.</summary>
     /// <returns>Whether this process should show its own window.</returns>

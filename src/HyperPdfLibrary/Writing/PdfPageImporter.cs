@@ -3,12 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
-using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Writing;
@@ -21,18 +20,6 @@ namespace HyperPdfLibrary.Writing;
 [DebuggerDisplay("PdfPageImporter: {Objects}")]
 public sealed class PdfPageImporter
 {
-    /// <summary>The annotation flag that hides an annotation.</summary>
-    private const int HiddenFlag = 1 << 1;
-
-    /// <summary>The annotation flag that prints an annotation.</summary>
-    private const int PrintFlag = 1 << 2;
-
-    /// <summary>The prefix of the names given to flattened annotation forms.</summary>
-    private const string AnnotationFormPrefix = "PdfFlat";
-
-    /// <summary>The number of values in a transformation matrix.</summary>
-    private const int MatrixValues = 6;
-
     /// <summary>A quarter turn in degrees.</summary>
     private const int QuarterTurn = 90;
 
@@ -110,7 +97,10 @@ public sealed class PdfPageImporter
         height = sideways ? box.Width : box.Height;
     }
 
-    /// <summary>Copies a page as a page of the new document, keeping its content, resources, boxes, rotation and chosen annotations.</summary>
+    /// <summary>
+    /// Copies a page as a page of the new document, keeping its content, resources, boxes, rotation and chosen annotations.
+    /// Its separation dictionary is left out, because it names other pages that this copy does not carry.
+    /// </summary>
     /// <param name="page">The source page.</param>
     /// <param name="annotations">The annotations kept.</param>
     /// <returns>The new page's id.</returns>
@@ -126,7 +116,7 @@ public sealed class PdfPageImporter
             _objects.MapObject(page.Id, id);
         }
 
-        return ImportPageCore(page, id, null, annotations);
+        return ImportPageCore(page, id, null, annotations, default);
     }
 
     /// <summary>
@@ -143,30 +133,7 @@ public sealed class PdfPageImporter
     public PdfObjectId ImportForm(PdfPage page, in PdfRectangle box, PdfAnnotationFilter annotations, bool applyRotation)
     {
         ArgumentNullException.ThrowIfNull(page);
-        var appearances = new List<FlattenedAnnotation>();
-        CollectFlattened(page, annotations, appearances);
-        var form = new PdfDictionary(null);
-        form.Set(KnownName.Type, PdfValue.FromName(KnownName.XObject));
-        form.Set(KnownName.Subtype, PdfValue.FromName(KnownName.Form));
-        form.Set(KnownName.BBox, PdfValue.FromArray(PdfArray.FromNumbers(null, [box.Left, box.Bottom, box.Right, box.Top])));
-        if (applyRotation)
-        {
-            var matrix = GetPageMatrix(box, page.Rotation);
-            form.Set(KnownName.Matrix, PdfValue.FromArray(PdfArray.FromNumbers(null, [matrix.M11, matrix.M12, matrix.M21, matrix.M22, matrix.M31, matrix.M32])));
-        }
-
-        form.Set(KnownName.Resources, BuildResources(page, appearances));
-        var content = default(PooledBuffer);
-        try
-        {
-            AppendContents(page, appearances.Count > 0, ref content);
-            AppendAnnotations(appearances, ref content);
-            return _target.Add(PdfValue.FromStream(new(form, content.ToArray())));
-        }
-        finally
-        {
-            content.Dispose();
-        }
+        return new PdfFormImporter(_objects).ImportForm(page, box, annotations, applyRotation, default);
     }
 
     /// <summary>Determines whether an annotation passes a filter.</summary>
@@ -186,10 +153,12 @@ public sealed class PdfPageImporter
     /// optional content groups and the names of their embedded files. Links to pages that are not copied are removed.
     /// </summary>
     /// <param name="pages">The source pages, in order.</param>
+    /// <param name="report">Receives the printed pages of a preseparated document that were not copied whole, or <see langword="null"/>.</param>
     /// <exception cref="InvalidOperationException">The importer was not created to keep structures.</exception>
-    internal void ImportPages(ReadOnlySpan<PdfPage> pages)
+    internal void ImportPages(ReadOnlySpan<PdfPage> pages, PdfPageEditReport? report)
     {
         var carrier = _carrier ?? throw new InvalidOperationException("The importer does not keep document structures.");
+        var separations = PdfCarrySeparations.Plan(_source, pages, report);
         var ids = new PdfObjectId[pages.Length];
         var prepared = new PdfArray?[pages.Length];
         for (var i = 0; i < ids.Length; i++)
@@ -202,13 +171,13 @@ public sealed class PdfPageImporter
         for (var i = 0; i < ids.Length; i++)
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            prepared[i] = carrier.PrepareAnnotations(pages[i], PdfAnnotationFilter.All);
+            prepared[i] = carrier.PrepareAnnotations(pages[i], PdfAnnotationFilter.All, report);
         }
 
         for (var i = 0; i < ids.Length; i++)
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            _ = ImportPageCore(pages[i], ids[i], prepared[i], PdfAnnotationFilter.All);
+            _ = ImportPageCore(pages[i], ids[i], prepared[i], PdfAnnotationFilter.All, PdfCarrySeparations.Build(separations, i, _objects, ids));
         }
 
         if (PdfDocumentLabels.CollectSourceLabels(_source, pages) is { } labels)
@@ -216,147 +185,25 @@ public sealed class PdfPageImporter
             carrier.SetPageLabels(PdfPageLabelWriter.CreateTree(null, PdfPageLabelWriter.Retarget(labels, _objects)));
         }
 
-        carrier.Finish();
+        carrier.Finish(report);
     }
 
-    /// <summary>Determines whether an annotation is drawn when printing.</summary>
-    /// <param name="annotation">The annotation.</param>
-    /// <returns><see langword="true"/> for a visible, printable annotation that is not a popup.</returns>
-    private static bool IsPrintable(PdfDictionary annotation)
+    /// <summary>Lists the entries of an annotation array a filter keeps, as written.</summary>
+    /// <param name="source">The array.</param>
+    /// <param name="filter">The filter.</param>
+    /// <returns>The entries.</returns>
+    private static PdfArray Kept(PdfArray source, PdfAnnotationFilter filter)
     {
-        var flags = annotation.GetInt32(KnownName.F);
-        return !annotation.IsName(KnownName.Subtype, KnownName.Popup) && (flags & HiddenFlag) == 0 && (flags & PrintFlag) != 0;
-    }
-
-    /// <summary>Gets the normal appearance stream an annotation shows.</summary>
-    /// <param name="annotation">The annotation.</param>
-    /// <param name="raw">The appearance as stored, so a shared one can be copied by reference.</param>
-    /// <returns>The stream, or <see langword="null"/> when the annotation has none.</returns>
-    private static PdfStream? GetAppearance(PdfDictionary annotation, out PdfValue raw)
-    {
-        raw = default;
-        if (annotation.GetDictionary(KnownName.AP) is not { } ap)
+        var kept = new PdfArray(null, source.Count);
+        for (var i = 0; i < source.Count; i++)
         {
-            return null;
-        }
-
-        var resolved = ap.Get(KnownName.N);
-        if (resolved.AsStream() is { } direct)
-        {
-            raw = ap.GetRaw(KnownName.N);
-            return direct;
-        }
-
-        return resolved.AsDictionary() is { } states ? PickState(annotation, states, out raw) : null;
-    }
-
-    /// <summary>Picks the appearance for the annotation's current state, or the first when it has none.</summary>
-    /// <param name="annotation">The annotation.</param>
-    /// <param name="states">The /N dictionary of states.</param>
-    /// <param name="raw">The chosen appearance as stored.</param>
-    /// <returns>The stream, or <see langword="null"/>.</returns>
-    private static PdfStream? PickState(PdfDictionary annotation, PdfDictionary states, out PdfValue raw)
-    {
-        raw = default;
-        var state = annotation.GetName(KnownName.AS);
-        if (state.IsNone)
-        {
-            if (states.Count == 0)
+            if (source.GetDictionary(i) is { } annotation && Passes(annotation, filter))
             {
-                return null;
-            }
-
-            raw = states.GetValueAt(0);
-            return states.Get(states.GetKeyAt(0)).AsStream();
-        }
-
-        raw = states.GetRaw(state);
-        return states.GetStream(state);
-    }
-
-    /// <summary>Gets the bounds an appearance covers once its matrix is applied.</summary>
-    /// <param name="stream">The appearance stream.</param>
-    /// <param name="bounds">The transformed box, normalised.</param>
-    /// <returns><see langword="true"/> when the box has an area.</returns>
-    private static bool TryGetAppearanceBounds(PdfStream stream, out PdfRectangle bounds)
-    {
-        var dictionary = stream.Dictionary;
-        bounds = default;
-        if (!dictionary.TryGetRectangle(KnownName.Rect, out var box) && !dictionary.TryGetRectangle(KnownName.BBox, out box))
-        {
-            return false;
-        }
-
-        var matrix = Matrix3x2.Identity;
-        Span<float> values = stackalloc float[MatrixValues];
-        if (dictionary.GetArray(KnownName.Matrix) is { } array && array.ReadNumbers(values) == MatrixValues)
-        {
-            matrix = new(values[0], values[1], values[2], values[3], values[4], values[5]);
-        }
-
-        var a = Vector2.Transform(new(box.Left, box.Bottom), matrix);
-        var b = Vector2.Transform(new(box.Right, box.Bottom), matrix);
-        var c = Vector2.Transform(new(box.Right, box.Top), matrix);
-        var d = Vector2.Transform(new(box.Left, box.Top), matrix);
-        bounds = new(
-            Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)),
-            Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)),
-            Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)),
-            Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)));
-        return !bounds.IsEmpty;
-    }
-
-    /// <summary>Appends the decoded content of a page, with a newline after each stream.</summary>
-    /// <param name="page">The page.</param>
-    /// <param name="wrap">Whether to wrap the content in a saved graphics state, so what is drawn after it starts clean.</param>
-    /// <param name="output">The content being built.</param>
-    private static void AppendContents(PdfPage page, bool wrap, ref PooledBuffer output)
-    {
-        if (wrap)
-        {
-            output.Write("q\n"u8);
-        }
-
-        var contents = page.Dictionary.Get(KnownName.Contents);
-        var piece = default(PooledBuffer);
-        try
-        {
-            if (contents.AsStream() is { } single)
-            {
-                AppendStream(single, ref piece, ref output);
-            }
-            else if (contents.AsArray() is { } array)
-            {
-                for (var i = 0; i < array.Count; i++)
-                {
-                    if (array.Get(i).AsStream() is { } stream)
-                    {
-                        AppendStream(stream, ref piece, ref output);
-                    }
-                }
+                kept.Add(source.GetRaw(i));
             }
         }
-        finally
-        {
-            piece.Dispose();
-        }
 
-        if (wrap)
-        {
-            output.Write("Q\n"u8);
-        }
-    }
-
-    /// <summary>Decodes a content stream and appends it.</summary>
-    /// <param name="stream">The stream.</param>
-    /// <param name="piece">Scratch space for the decoded bytes.</param>
-    /// <param name="output">The content being built.</param>
-    private static void AppendStream(PdfStream stream, ref PooledBuffer piece, ref PooledBuffer output)
-    {
-        piece.Length = 0;
-        _ = stream.Decode(ref piece);
-        output.Write(piece.WrittenSpan);
-        output.WriteByte((byte)'\n');
+        return kept;
     }
 
     /// <summary>Copies a page into the object reserved for it.</summary>
@@ -364,18 +211,27 @@ public sealed class PdfPageImporter
     /// <param name="id">The reserved object.</param>
     /// <param name="prepared">The annotations prepared by the carrier, or <see langword="null"/> to copy the filtered ones.</param>
     /// <param name="annotations">The annotations kept when none are prepared.</param>
+    /// <param name="separation">The page's new separation dictionary, or null for none.</param>
     /// <returns>The new page's id.</returns>
-    private PdfObjectId ImportPageCore(PdfPage page, PdfObjectId id, PdfArray? prepared, PdfAnnotationFilter annotations)
+    private PdfObjectId ImportPageCore(PdfPage page, PdfObjectId id, PdfArray? prepared, PdfAnnotationFilter annotations, PdfValue separation)
     {
         var copy = new PdfDictionary(null);
         var source = page.Dictionary;
+
+        // The source separation dictionary names pages of the source; only a dictionary planned for the copy is written.
+        var separationKey = SeparationReader.InfoKey(_source.Objects.Names);
         for (var i = 0; i < source.Count; i++)
         {
             var key = source.GetKeyAt(i);
-            if (!key.Is(KnownName.Type) && !key.Is(KnownName.Parent) && !key.Is(KnownName.Annots))
+            if (!key.Is(KnownName.Type) && !key.Is(KnownName.Parent) && !key.Is(KnownName.Annots) && key != separationKey)
             {
                 copy.Add(CopyKey(key), _objects.Import(source.GetValueAt(i)));
             }
+        }
+
+        if (!separation.IsNull)
+        {
+            copy.Set(SeparationReader.InfoKey(_target.Names), separation);
         }
 
         SetInheritedAttributes(copy, page);
@@ -386,27 +242,6 @@ public sealed class PdfPageImporter
         }
 
         return _target.AddPage(id, copy);
-    }
-
-    /// <summary>Appends the drawing of each flattened annotation.</summary>
-    /// <param name="appearances">The annotations.</param>
-    /// <param name="output">The content being built.</param>
-    private void AppendAnnotations(List<FlattenedAnnotation> appearances, ref PooledBuffer output)
-    {
-        foreach (var appearance in appearances)
-        {
-            output.Write("q "u8);
-            var m = appearance.Transform;
-            foreach (var number in (ReadOnlySpan<float>)[m.M11, m.M12, m.M21, m.M22, m.M31, m.M32])
-            {
-                PdfSyntax.WriteNumber(ref output, number);
-                output.WriteByte((byte)' ');
-            }
-
-            output.Write("cm "u8);
-            PdfSyntax.WriteName(ref output, _target.Names.GetSpelling(appearance.Name));
-            output.Write(" Do Q\n"u8);
-        }
     }
 
     /// <summary>Moves a dictionary key to the new document's name table.</summary>
@@ -437,7 +272,10 @@ public sealed class PdfPageImporter
         }
     }
 
-    /// <summary>Copies the annotations a filter keeps; each becomes an object of its own.</summary>
+    /// <summary>
+    /// Copies the annotations a filter keeps; each becomes an object of its own. On a page with a trap network, the
+    /// network is checked first and left out when it no longer matches the page (see <see cref="PdfTrapNetworkCopy"/>).
+    /// </summary>
     /// <param name="page">The source page.</param>
     /// <param name="filter">The filter.</param>
     /// <returns>The references to the copies.</returns>
@@ -445,6 +283,11 @@ public sealed class PdfPageImporter
     {
         var annots = new PdfArray(null);
         var source = filter == PdfAnnotationFilter.None ? null : page.Dictionary.GetArray(KnownName.Annots);
+        if (source is not null && PdfTrapNetworkReader.Find(_source.Objects, source, out _) > 0)
+        {
+            return ImportPrepared(PdfTrapNetworkCopy.Prepare(_objects, page, source, Kept(source, filter), null));
+        }
+
         for (var i = 0; source is not null && i < source.Count; i++)
         {
             if (source.GetDictionary(i) is { } annotation && Passes(annotation, filter))
@@ -473,98 +316,4 @@ public sealed class PdfPageImporter
 
         return annots;
     }
-
-    /// <summary>Finds the annotations that print, with where each one lands on the page.</summary>
-    /// <param name="page">The source page.</param>
-    /// <param name="filter">The filter.</param>
-    /// <param name="output">Receives each annotation's appearance, name and transform.</param>
-    private void CollectFlattened(PdfPage page, PdfAnnotationFilter filter, List<FlattenedAnnotation> output)
-    {
-        var source = filter == PdfAnnotationFilter.None ? null : page.Dictionary.GetArray(KnownName.Annots);
-        for (var i = 0; source is not null && i < source.Count; i++)
-        {
-            if (source.GetDictionary(i) is { } annotation && Passes(annotation, filter) && IsPrintable(annotation)
-                && TryFlatten(annotation, output.Count, out var flattened))
-            {
-                output.Add(flattened);
-            }
-        }
-    }
-
-    /// <summary>Works out how an annotation's appearance is drawn into its rectangle.</summary>
-    /// <param name="annotation">The annotation.</param>
-    /// <param name="index">The annotation's position among those flattened, for its resource name.</param>
-    /// <param name="flattened">The appearance, name and transform.</param>
-    /// <returns><see langword="true"/> when the annotation has a usable appearance.</returns>
-    private bool TryFlatten(PdfDictionary annotation, int index, out FlattenedAnnotation flattened)
-    {
-        flattened = default;
-        if (GetAppearance(annotation, out var raw) is not { } stream
-            || !TryGetAppearanceBounds(stream, out var bounds)
-            || !annotation.TryGetRectangle(KnownName.Rect, out var rect)
-            || rect.IsEmpty)
-        {
-            return false;
-        }
-
-        var form = _objects.Import(raw);
-        if (!form.IsReference)
-        {
-            return false;
-        }
-
-        var scaleX = rect.Width / bounds.Width;
-        var scaleY = rect.Height / bounds.Height;
-        var transform = new Matrix3x2(scaleX, 0, 0, scaleY, rect.Left - (bounds.Left * scaleX), rect.Bottom - (bounds.Bottom * scaleY));
-        var name = _target.Names.Intern(string.Create(CultureInfo.InvariantCulture, $"{AnnotationFormPrefix}{index}"));
-        flattened = new(name, form, transform);
-        return true;
-    }
-
-    /// <summary>Builds a page's resources for its form, with the flattened annotations added to its XObjects.</summary>
-    /// <param name="page">The source page.</param>
-    /// <param name="appearances">The annotations drawn into the form.</param>
-    /// <returns>The resources.</returns>
-    private PdfValue BuildResources(PdfPage page, List<FlattenedAnnotation> appearances)
-    {
-        var resources = page.Resources ?? new PdfDictionary(null);
-        if (appearances.Count == 0)
-        {
-            return _objects.Import(PdfValue.FromDictionary(resources));
-        }
-
-        var copy = new PdfDictionary(null, resources.Count + 1);
-        for (var i = 0; i < resources.Count; i++)
-        {
-            var key = resources.GetKeyAt(i);
-            if (!key.Is(KnownName.XObject))
-            {
-                copy.Add(CopyKey(key), _objects.Import(resources.GetValueAt(i)));
-            }
-        }
-
-        var xobjects = new PdfDictionary(null);
-        if (resources.GetDictionary(KnownName.XObject) is { } existing)
-        {
-            for (var i = 0; i < existing.Count; i++)
-            {
-                xobjects.Add(CopyKey(existing.GetKeyAt(i)), _objects.Import(existing.GetValueAt(i)));
-            }
-        }
-
-        foreach (var appearance in appearances)
-        {
-            xobjects.Set(appearance.Name, appearance.Form);
-        }
-
-        copy.Set(KnownName.XObject, PdfValue.FromDictionary(xobjects));
-        return PdfValue.FromDictionary(copy);
-    }
-
-    /// <summary>An annotation appearance drawn into a form.</summary>
-    /// <param name="Name">The resource name the form is drawn by.</param>
-    /// <param name="Form">A reference to the appearance in the new document.</param>
-    /// <param name="Transform">Maps the appearance onto the annotation's rectangle.</param>
-    [DebuggerDisplay("FlattenedAnnotation: {Name}")]
-    private readonly record struct FlattenedAnnotation(PdfName Name, PdfValue Form, Matrix3x2 Transform);
 }

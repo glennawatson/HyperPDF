@@ -98,7 +98,9 @@ internal static class Jbig2Composer
     private static long Compose<TOperation>(Jbig2Bitmap target, Jbig2BitmapView source, long x, long y)
         where TOperation : struct, IComposeOperation
     {
-        if (source.IsEmpty || Math.Abs(x) > Jbig2Limits.MaxComposeOffset || Math.Abs(y) > Jbig2Limits.MaxComposeOffset)
+        // Offsets are signed 32-bit values (T.88 section 7.4.1). A source that lies wholly outside the target changes nothing,
+        // and testing that in 64-bit arithmetic keeps the clipping below within int range.
+        if (source.IsEmpty || x >= target.Width || y >= target.Height || x + source.Width <= 0 || y + source.Height <= 0)
         {
             return 0;
         }
@@ -107,11 +109,6 @@ internal static class Jbig2Composer
         var top = y < 0 ? (int)-y : 0;
         var right = (int)Math.Min(source.Width, target.Width - x);
         var bottom = (int)Math.Min(source.Height, target.Height - y);
-        if (left >= right || top >= bottom)
-        {
-            return 0;
-        }
-
         var targetX = (int)Math.Max(x, 0);
         var targetY = (int)Math.Max(y, 0) - top;
         var width = right - left;

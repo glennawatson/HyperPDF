@@ -20,7 +20,8 @@ namespace HyperPdfLibrary.Writing;
 /// The new section is a cross-reference stream when the original's newest section was one, otherwise a classic table.
 /// When the original table had to be rebuilt from a damaged file there is no section to chain to, so every live object
 /// is written again and the new section stands alone without /Prev. /ID keeps its first part and gets a new second part,
-/// the MD5 of the update.
+/// the MD5 of the update. Before writing, a trap network on an edited page that no longer matches the page is removed
+/// from the document, and one with the wrong flags or position is fixed (see <see cref="PdfSaveReport.TrapNetworks"/>).
 /// </remarks>
 public static class PdfIncrementalWriter
 {
@@ -57,6 +58,8 @@ public static class PdfIncrementalWriter
     public static void Save(PdfObjectStore store, ref PooledBuffer output)
     {
         ArgumentNullException.ThrowIfNull(store);
+        PdfTrapNetworkGuard.Apply(store, IsStandalone(store), null, CancellationToken.None);
+        PdfRequirementsGuard.Apply(store, null, CancellationToken.None);
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
@@ -96,6 +99,8 @@ public static class PdfIncrementalWriter
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
+        PdfTrapNetworkGuard.Apply(store, IsStandalone(store), report, CancellationToken.None);
+        PdfRequirementsGuard.Apply(store, report, CancellationToken.None);
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
@@ -141,15 +146,20 @@ public static class PdfIncrementalWriter
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
+        PdfTrapNetworkGuard.Apply(store, IsStandalone(store), report, cancellationToken);
+        PdfRequirementsGuard.Apply(store, report, cancellationToken);
         var update = BuildUpdate(store, out var length, cancellationToken);
         try
         {
+            report?.PdfMacWritten = length > 0 && PdfMacSeal.IsNeeded(store);
             var outcome = length > 0 && PdfAClaimGuard.IsClaimed(store)
                 ? await PdfAClaimGuard.CheckOutputAsync(store, SavedFile(store.Source, update.AsSpan(0, length)), cancellationToken).ConfigureAwait(false)
                 : null;
             report?.Claim = Rewritten(outcome);
             if (outcome?.Repaired is { } repaired)
             {
+                // A repaired file is written in full by another pipeline, which cannot make the PDF MAC.
+                PdfMacSeal.ThrowIfNeeded(store, "Repairing the PDF/A claim");
                 await destination.WriteAsync(repaired, cancellationToken).ConfigureAwait(false);
                 return;
             }
@@ -170,6 +180,52 @@ public static class PdfIncrementalWriter
         }
     }
 
+    /// <summary>
+    /// Builds the whole signed-file candidate: the original bytes followed by the update, for a signing operation that
+    /// then patches the byte range and the signature into it. The update is the plain one; no PDF/A repair rewrites it, as
+    /// a rewrite would break the signatures already in the file.
+    /// </summary>
+    /// <param name="store">The document, with the signature objects already added.</param>
+    /// <param name="attachedAuthCode">
+    /// The trailer's <c>/AuthCode</c> entry for a PDF MAC attached to the signature (ISO/TS 32004:2024 6.5.2), or
+    /// <see langword="null"/> to seal the revision with a standalone PDF MAC as an ordinary save does.
+    /// </param>
+    /// <param name="updateStart">Receives where the update starts, which is the length of the original file.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    /// <returns>The file bytes.</returns>
+    /// <exception cref="PdfException">The file is too large to hold in memory, or an edited value cannot be written.</exception>
+    internal static byte[] BuildSigningFile(PdfObjectStore store, PdfDictionary? attachedAuthCode, out int updateStart, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        PdfTrapNetworkGuard.Apply(store, IsStandalone(store), null, cancellationToken);
+        PdfRequirementsGuard.Apply(store, null, cancellationToken);
+        var writer = new PdfObjectWriter(store.Names, store.Security);
+        try
+        {
+            WriteUpdateOnce(store, ref writer, attachedAuthCode, cancellationToken);
+            if (store.Source.Length + writer.Length > Array.MaxLength)
+            {
+                throw new PdfException(PdfError.File, "The file is too large to sign in memory.");
+            }
+
+            updateStart = (int)store.Source.Length;
+            var file = new byte[updateStart + writer.Length];
+            for (var position = 0; position < updateStart; position += CopyChunk)
+            {
+                var count = Math.Min(CopyChunk, updateStart - position);
+                using var window = store.Source.Lease(position, count);
+                window.Span.CopyTo(file.AsSpan(position, count));
+            }
+
+            writer.WrittenSpan.CopyTo(file.AsSpan(updateStart));
+            return file;
+        }
+        finally
+        {
+            writer.Dispose();
+        }
+    }
+
     /// <summary>Writes the update once, without the PDF/A claim check, into a pooled array for an await.</summary>
     /// <param name="store">The document.</param>
     /// <param name="length">The update's length.</param>
@@ -180,7 +236,7 @@ public static class PdfIncrementalWriter
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
-            WriteUpdateOnce(store, ref writer, cancellationToken);
+            WriteUpdateOnce(store, ref writer, null, cancellationToken);
             return writer.Detach(out length);
         }
         finally
@@ -217,7 +273,8 @@ public static class PdfIncrementalWriter
     /// <returns>The repaired file to write instead of the original and the update, or <see langword="null"/>.</returns>
     private static byte[]? WriteUpdate(PdfObjectStore store, ref PdfObjectWriter writer, PdfSaveReport? report, CancellationToken cancellationToken)
     {
-        WriteUpdateOnce(store, ref writer, cancellationToken);
+        WriteUpdateOnce(store, ref writer, null, cancellationToken);
+        report?.PdfMacWritten = writer.Length > 0 && PdfMacSeal.IsNeeded(store);
         if (writer.Length == 0 || !PdfAClaimGuard.IsClaimed(store)
             || PdfAClaimGuard.CheckOutput(store, SavedFile(store.Source, writer.WrittenSpan), cancellationToken) is not { } outcome)
         {
@@ -227,12 +284,18 @@ public static class PdfIncrementalWriter
         report?.Claim = Rewritten(outcome);
         if (outcome.Repaired is not null || !outcome.Check.Removed)
         {
+            // A repaired file is written in full by another pipeline, which cannot make the PDF MAC.
+            if (outcome.Repaired is not null)
+            {
+                PdfMacSeal.ThrowIfNeeded(store, "Repairing the PDF/A claim");
+            }
+
             return outcome.Repaired;
         }
 
         writer.Dispose();
         writer = new(store.Names, store.Security);
-        WriteUpdateOnce(store, ref writer, cancellationToken);
+        WriteUpdateOnce(store, ref writer, null, cancellationToken);
         return null;
     }
 
@@ -258,15 +321,18 @@ public static class PdfIncrementalWriter
     /// <summary>Writes the update once: the objects, the cross-reference section and the trailer.</summary>
     /// <param name="store">The document.</param>
     /// <param name="writer">The writer; its first byte follows the original file.</param>
+    /// <param name="attachedAuthCode">
+    /// The trailer's <c>/AuthCode</c> value for a PDF MAC attached to a signature (ISO/TS 32004:2024 6.5.2), or
+    /// <see langword="null"/> to seal the revision with a standalone PDF MAC.
+    /// </param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void WriteUpdateOnce(PdfObjectStore store, ref PdfObjectWriter writer, CancellationToken cancellationToken)
+    private static void WriteUpdateOnce(PdfObjectStore store, ref PdfObjectWriter writer, PdfDictionary? attachedAuthCode, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         StoreRedaction.ThrowIfCompactSaveRequired(store);
         var file = store.Source;
 
-        // A rebuilt table has no section to point /Prev at, so the update must describe every object.
-        var standalone = store.WasRepaired || store.StartXref < 0;
+        var standalone = IsStandalone(store);
 
         // An unchanged document is saved as its original bytes, which keeps signatures and conformance claims as they were.
         if (!standalone && !StoreEditing.HasChanges(store))
@@ -275,8 +341,10 @@ public static class PdfIncrementalWriter
         }
 
         // One snapshot of the edits, so an edit made during the save cannot split the update.
-        var edits = StoreEditing.GetEditedObjects(store, out var storeSize);
+        var edits = WithExtensionCatalog(store, StoreEditing.GetEditedObjects(store, out var storeSize));
 
+        // A document that needs a PDF MAC gets a fresh one for this revision, or the save stops here, before anything is written.
+        var seal = attachedAuthCode is null ? PdfMacSeal.Create(store) : null;
         WriteSeparator(ref writer, file);
         var objects = standalone ? LiveObjects(store, cancellationToken) : edits;
         var rows = new XrefRow[objects.Length + ExtraRows];
@@ -284,6 +352,15 @@ public static class PdfIncrementalWriter
         var size = Math.Max(Math.Max(store.Trailer.GetInt32(KnownName.Size), storeSize), objects.Length == 0 ? 0 : objects[^1].Number + 1);
         var trailer = PdfXrefWriter.CreateTrailer(store.Trailer, size, standalone ? -1 : store.StartXref, true);
         PdfXrefWriter.CopyExtraKeys(trailer, store.Trailer);
+
+        // The copied /AuthCode belongs to the previous revision and does not cover this one.
+        _ = trailer.Remove(store.Names.Intern("AuthCode"u8));
+        seal?.AddTo(trailer);
+        if (attachedAuthCode is not null)
+        {
+            trailer.Set(store.Names.Intern("AuthCode"u8), PdfValue.FromDictionary(attachedAuthCode));
+        }
+
         SetUpdateId(trailer, store, objects.Length > 0, writer.WrittenSpan);
 
         // Offsets count from the header, as viewers read them.
@@ -292,12 +369,53 @@ public static class PdfIncrementalWriter
         {
             rows[count] = new(size, XrefEntryType.InFile, relativeOffset, 0);
             trailer.Set(KnownName.Size, PdfValue.FromInteger(size + 1));
-            PdfXrefWriter.WriteStream(ref writer, rows.AsSpan(0, count + 1), trailer, new(size, 0), relativeOffset);
+            PdfXrefWriter.WriteStream(ref writer, rows.AsSpan(0, count + 1), trailer, new(size, 0), relativeOffset, new(seal, file, cancellationToken));
             return;
         }
 
-        PdfXrefWriter.WriteTable(ref writer, rows.AsSpan(0, count));
-        PdfXrefWriter.WriteTrailer(ref writer, trailer, relativeOffset);
+        PdfXrefWriter.WriteTable(ref writer, rows.AsSpan(0, count), trailer, relativeOffset, new(seal, file, cancellationToken));
+    }
+
+    /// <summary>Determines whether the update must describe every object: a rebuilt table has no section to point <c>/Prev</c> at.</summary>
+    /// <param name="store">The document.</param>
+    /// <returns><see langword="true"/> when it must.</returns>
+    private static bool IsStandalone(PdfObjectStore store) => store.WasRepaired || store.StartXref < 0;
+
+    /// <summary>
+    /// Adds the catalog to the changed objects when an AES-GCM document does not declare the ISO/TS 32003 extension, or a
+    /// document that needs a PDF MAC does not declare the ISO/TS 32004 extension, so the update writes the declaration. The
+    /// save repairs add the entries as the catalog is written.
+    /// </summary>
+    /// <param name="store">The document.</param>
+    /// <param name="edits">The changed objects, ascending.</param>
+    /// <returns>The changed objects, with the catalog included when it needs a declaration.</returns>
+    private static PdfEditedObject[] WithExtensionCatalog(PdfObjectStore store, PdfEditedObject[] edits)
+    {
+        var root = store.Trailer.GetRaw(KnownName.Root);
+        var undeclared = (AesGcmExtension.IsRequired(store) && !AesGcmExtension.IsDeclared(store.Catalog, store.Names))
+            || (PdfMacExtension.IsRequired(store) && !PdfMacExtension.IsDeclared(store.Catalog, store.Names));
+        if (!undeclared || !root.IsReference)
+        {
+            return edits;
+        }
+
+        var number = root.AsReference().Number;
+        var at = 0;
+        while (at < edits.Length && edits[at].Number < number)
+        {
+            at++;
+        }
+
+        if (at < edits.Length && edits[at].Number == number)
+        {
+            return edits;
+        }
+
+        var result = new PdfEditedObject[edits.Length + 1];
+        edits.AsSpan(0, at).CopyTo(result);
+        result[at] = new(number, PdfValue.FromDictionary(store.Catalog), false, StoreEditing.GetGeneration(store, number));
+        edits.AsSpan(at).CopyTo(result.AsSpan(at + 1));
+        return result;
     }
 
     /// <summary>Starts the update on a new line when the original file does not end with one.</summary>

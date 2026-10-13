@@ -25,9 +25,9 @@ public sealed partial class SignatureMarkWindow : ReactiveUI.Avalonia.ReactiveWi
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Title, static v => v.Title));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.IsTyped, static v => v.TypeOption.IsChecked, static on => on, IsOn));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.IsDrawn, static v => v.DrawOption.IsChecked, static on => on, IsOn));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.IsImage, static v => v.ImageOption.IsChecked, static on => on, IsOn));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsTyped, static v => v.TypeOption.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsDrawn, static v => v.DrawOption.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsImage, static v => v.ImageOption.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Style, static v => v.TypePanel.IsVisible, static style => style == SignatureMarkStyle.Typed));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Style, static v => v.DrawPanel.IsVisible, static style => style == SignatureMarkStyle.Drawn));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Style, static v => v.ImagePanel.IsVisible, static style => style == SignatureMarkStyle.Image));
@@ -40,11 +40,11 @@ public sealed partial class SignatureMarkWindow : ReactiveUI.Avalonia.ReactiveWi
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ChooseImageCommand, static v => v.ChooseImageButton));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.BrowseImageInteraction, BrowseAsync));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SourceImage, static v => v.ImageNameText.Text, static image => image?.Name ?? "No picture chosen yet."));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.RemovePaper, static v => v.RemovePaperCheck.IsChecked, static on => on, IsOn));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.RemovePaper, static v => v.RemovePaperCheck.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ImageError, static v => v.ImageErrorText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ImageError, static v => v.ImageErrorText.IsVisible, static error => error is not null));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Preview, static v => v.Preview.Mark));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.Remember, static v => v.RememberCheck.IsChecked, static on => on, IsOn));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Remember, static v => v.RememberCheck.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasSaved, static v => v.ForgetButton.IsVisible));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ForgetCommand, static v => v.ForgetButton));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UseText, static v => v.UseButton.Content));
@@ -60,12 +60,6 @@ public sealed partial class SignatureMarkWindow : ReactiveUI.Avalonia.ReactiveWi
                 .SubscribeSafe(style => FocusStart(this, style), OnError));
         });
     }
-
-    /// <summary>Converts a nullable check state to a plain flag.</summary>
-    /// <param name="value">The check state.</param>
-    /// <returns><see langword="true"/> only when checked.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsOn(bool? value) => value == true;
 
     /// <summary>Focuses where the user starts for a way of making the mark.</summary>
     /// <param name="window">The window.</param>

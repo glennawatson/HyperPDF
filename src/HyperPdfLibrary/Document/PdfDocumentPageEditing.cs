@@ -2,6 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Editing;
+
 namespace HyperPdfLibrary.Document;
 
 /// <summary>Loads page resources asynchronously before applying cancellable page edits.</summary>
@@ -25,11 +28,22 @@ public static class PdfDocumentPageEditing
     /// <param name="pages">Zero-based page indexes.</param>
     /// <param name="cancellationToken">Cancels resource reads and editing.</param>
     /// <returns>A task completing after the edit.</returns>
-    public static async ValueTask DeletePagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ValueTask DeletePagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, CancellationToken cancellationToken) =>
+        DeletePagesAsync(document, pages, null, cancellationToken);
+
+    /// <summary>Deletes selected pages, keeping at least one page, and relinks the separation pages that remain.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pages">Zero-based page indexes.</param>
+    /// <param name="report">Receives what the deletion changed, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels resource reads and editing.</param>
+    /// <returns>A task completing after the edit.</returns>
+    public static async ValueTask DeletePagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, PdfPageEditReport? report, CancellationToken cancellationToken)
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
+        _ = await PdfDocumentSeparations.GetSeparationsAsync(document, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        PdfDocumentPageOperations.DeletePages(document, pages.Span);
+        PdfDocumentPageOperations.DeletePages(document, pages.Span, report);
     }
 
     /// <summary>Moves selected pages to an index in the resulting document.</summary>
@@ -52,10 +66,23 @@ public static class PdfDocumentPageEditing
     /// <param name="pages">Source page indexes in insertion order.</param>
     /// <param name="cancellationToken">Cancels resource reads and editing.</param>
     /// <returns>A task completing after the edit.</returns>
-    public static async ValueTask InsertPagesAsync(PdfDocument document, int index, PdfDocument source, ReadOnlyMemory<int> pages, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ValueTask InsertPagesAsync(PdfDocument document, int index, PdfDocument source, ReadOnlyMemory<int> pages, CancellationToken cancellationToken) =>
+        InsertPagesAsync(document, index, source, pages, null, cancellationToken);
+
+    /// <summary>Copies selected pages into a document, retaining their structure and the links between their separation pages.</summary>
+    /// <param name="document">The destination document.</param>
+    /// <param name="index">The first inserted page's index.</param>
+    /// <param name="source">The source, kept open until the destination is saved.</param>
+    /// <param name="pages">Source page indexes in insertion order.</param>
+    /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels resource reads and editing.</param>
+    /// <returns>A task completing after the edit.</returns>
+    public static async ValueTask InsertPagesAsync(PdfDocument document, int index, PdfDocument source, ReadOnlyMemory<int> pages, PdfPageEditReport? report, CancellationToken cancellationToken)
     {
         await PrefetchAsync(source, pages, cancellationToken).ConfigureAwait(false);
-        PdfDocumentPageOperations.InsertPages(document, index, source, pages.Span, cancellationToken);
+        _ = await PdfDocumentSeparations.GetSeparationsAsync(source, cancellationToken).ConfigureAwait(false);
+        PdfDocumentPageOperations.InsertPages(document, index, source, pages.Span, report, cancellationToken);
     }
 
     /// <summary>Writes selected pages to a new PDF, retaining their structure.</summary>
@@ -63,10 +90,21 @@ public static class PdfDocumentPageEditing
     /// <param name="pages">Zero-based indexes in output order.</param>
     /// <param name="cancellationToken">Cancels resource reads and writing.</param>
     /// <returns>The new PDF bytes.</returns>
-    public static async ValueTask<byte[]> ExtractPagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ValueTask<byte[]> ExtractPagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, CancellationToken cancellationToken) =>
+        ExtractPagesAsync(document, pages, null, cancellationToken);
+
+    /// <summary>Writes selected pages to a new PDF, retaining their structure and the links between their separation pages.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pages">Zero-based indexes in output order.</param>
+    /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels resource reads and writing.</param>
+    /// <returns>The new PDF bytes.</returns>
+    public static async ValueTask<byte[]> ExtractPagesAsync(PdfDocument document, ReadOnlyMemory<int> pages, PdfPageEditReport? report, CancellationToken cancellationToken)
     {
         await PrefetchAsync(document, pages, cancellationToken).ConfigureAwait(false);
-        return PdfDocumentPageOperations.ExtractPages(document, pages.Span, cancellationToken);
+        _ = await PdfDocumentSeparations.GetSeparationsAsync(document, cancellationToken).ConfigureAwait(false);
+        return PdfDocumentPageOperations.ExtractPages(document, pages.Span, report, cancellationToken);
     }
 
     /// <summary>Loads selected pages before entering the synchronous editing scope.</summary>

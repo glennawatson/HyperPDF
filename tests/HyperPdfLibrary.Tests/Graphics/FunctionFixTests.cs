@@ -8,7 +8,7 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Tests.Graphics;
 
-/// <summary>Tests for lenient PostScript functions and for stitching, sampled and exponential function validation.</summary>
+/// <summary>Tests for PostScript function errors and for stitching, sampled and exponential function validation.</summary>
 public sealed class FunctionFixTests
 {
     /// <summary>The tolerance for float results.</summary>
@@ -44,34 +44,37 @@ public sealed class FunctionFixTests
     /// <summary>The number of ones pushed by the overflow program: more than the stack holds.</summary>
     private const int PostScriptLimitPlus = 150;
 
-    /// <summary>The result of adding one to the input.</summary>
-    private const float InputPlusOne = 1.5F;
-
-    /// <summary>The PostScript calculator functions of various broken programs give numbers instead of failing.</summary>
+    /// <summary>A PostScript program that raises an error of ISO 32000-2 7.10.5 fails, and a failed function gives the low end of its range.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task PostScriptIsLenient()
+    public async Task PostScriptErrorsFailTheFunction()
     {
-        // Popping an empty stack gives zero.
-        await Assert.That(Evaluate("{ pop pop pop 3 add }")).IsEqualTo(Three).Within(Tolerance);
+        // Popping an empty stack is a stackunderflow error.
+        await Assert.That(Evaluate("{ pop pop pop 3 add }")).IsEqualTo(RangeLow).Within(Tolerance);
 
-        // Division by zero pushes zero; idiv and mod push zero for a zero divisor.
-        await Assert.That(Evaluate("{ pop 5 0 div }")).IsEqualTo(0).Within(Tolerance);
-        await Assert.That(Evaluate("{ pop 5 0 idiv }")).IsEqualTo(0).Within(Tolerance);
-        await Assert.That(Evaluate("{ pop 5 0 mod }")).IsEqualTo(0).Within(Tolerance);
+        // Division by zero is an undefinedresult error, for div, idiv and mod.
+        await Assert.That(Evaluate("{ pop 5 0 div }")).IsEqualTo(RangeLow).Within(Tolerance);
+        await Assert.That(Evaluate("{ pop 5 0 idiv }")).IsEqualTo(RangeLow).Within(Tolerance);
+        await Assert.That(Evaluate("{ pop 5 0 mod }")).IsEqualTo(RangeLow).Within(Tolerance);
+
+        // So are a logarithm of zero, a negative square root and atan of two zeros.
+        await Assert.That(Evaluate("{ pop 0 ln }")).IsEqualTo(RangeLow).Within(Tolerance);
+        await Assert.That(Evaluate("{ pop -4 sqrt }")).IsEqualTo(RangeLow).Within(Tolerance);
+        await Assert.That(Evaluate("{ pop 0 0 atan }")).IsEqualTo(RangeLow).Within(Tolerance);
 
         // idiv and mod accept reals, truncating them.
         await Assert.That(Evaluate("{ pop 7.9 2.2 idiv }")).IsEqualTo(Three).Within(Tolerance);
         await Assert.That(Evaluate("{ pop 7.9 2.2 mod }")).IsEqualTo(1).Within(Tolerance);
 
-        // Operators with bad counts do nothing.
-        await Assert.That(Evaluate("{ 99 copy 1 add }")).IsEqualTo(InputPlusOne).Within(Tolerance);
+        // A copy count deeper than the stack and an index outside it are range errors.
+        await Assert.That(Evaluate("{ 99 copy 1 add }")).IsEqualTo(RangeLow).Within(Tolerance);
+        await Assert.That(Evaluate("{ 5 index }")).IsEqualTo(RangeLow).Within(Tolerance);
     }
 
-    /// <summary>Pushing past the 100-operand limit is ignored instead of failing the program.</summary>
+    /// <summary>Pushing past the 100-operand limit is a stackoverflow error, so the function fails.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task PostScriptIgnoresPushesPastTheLimit()
+    public async Task PostScriptFailsPastTheLimit()
     {
         var builder = new StringBuilder("{ pop ");
         for (var i = 0; i < PostScriptLimitPlus; i++)
@@ -81,8 +84,7 @@ public sealed class FunctionFixTests
 
         _ = builder.Append('}');
 
-        // The stack holds 100 ones; the result is the top one rather than the low end of the range.
-        await Assert.That(Evaluate(builder.ToString())).IsEqualTo(1).Within(Tolerance);
+        await Assert.That(Evaluate(builder.ToString())).IsEqualTo(RangeLow).Within(Tolerance);
     }
 
     /// <summary>A stitching function with more bounds than functions minus one is rejected, not left to crash.</summary>

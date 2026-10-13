@@ -13,7 +13,7 @@ namespace HyperPdfLibrary.Rendering;
 /// <param name="Page">The page the annotation is on.</param>
 /// <param name="Annotation">The annotation dictionary.</param>
 [DebuggerDisplay("AnnotationContext: page {Page.Index}")]
-internal sealed record AnnotationContext(PdfRenderCache Cache, PdfPage Page, PdfDictionary Annotation)
+internal readonly record struct AnnotationContext(PdfRenderCache Cache, PdfPage Page, PdfDictionary Annotation)
 {
     /// <summary>Gets the document's objects.</summary>
     internal PdfObjectStore Store => Cache.Document.Objects;

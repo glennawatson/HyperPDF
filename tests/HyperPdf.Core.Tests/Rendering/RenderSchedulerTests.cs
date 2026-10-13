@@ -159,6 +159,41 @@ public sealed class RenderSchedulerTests
         tile.Surface.Dispose();
     }
 
+    /// <summary>A render that throws a damaged-file or read exception loses only its tile.</summary>
+    /// <param name="failureKind">Which exception the render throws.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(nameof(InvalidDataException))]
+    [Arguments(nameof(IOException))]
+    [Arguments(nameof(FormatException))]
+    [Arguments(nameof(OverflowException))]
+    public async Task RenderFailureDoesNotStopRendering(string failureKind)
+    {
+        using var completed = new SemaphoreSlim(0);
+        using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
+        using var completions = scheduler.Completed.SubscribeSafe(_ => completed.Release(), static _ => { });
+        var failed = new FakeDocument(DocumentName, FakeEngine.A4)
+        {
+            RenderFailure = failureKind switch
+            {
+                nameof(InvalidDataException) => new InvalidDataException("The decoded data is larger than the supported limit."),
+                nameof(IOException) => new IOException("The read failed."),
+                nameof(FormatException) => new FormatException("The number is malformed."),
+                _ => new OverflowException("The value is too large."),
+            },
+        };
+        var ready = new FakeDocument(DocumentName, FakeEngine.A4, FakeEngine.A4);
+        var client = new RenderClient();
+        _ = scheduler.Request(Request(Key(0), failed, client, RenderPriority.Visible));
+        _ = scheduler.Request(Request(Key(1), ready, client, RenderPriority.Visible));
+
+        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        await Assert.That(scheduler.TryTakeCompleted(out var tile)).IsTrue();
+        await Assert.That(tile.Key).IsEqualTo(Key(1));
+        await Assert.That(scheduler.IsPending(Key(0))).IsFalse();
+        tile.Surface.Dispose();
+    }
+
     /// <summary>Verifies duplicate requests are coalesced.</summary>
     /// <returns>A task.</returns>
     [Test]

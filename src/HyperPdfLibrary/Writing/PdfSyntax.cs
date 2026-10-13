@@ -62,7 +62,7 @@ internal static class PdfSyntax
     /// <summary>Writes a name with its slash, escaping bytes that are not regular characters as <c>#xx</c>.</summary>
     /// <param name="output">The buffer.</param>
     /// <param name="spelling">The name's bytes, unescaped.</param>
-    internal static void WriteName(ref PooledBuffer output, ReadOnlySpan<byte> spelling)
+    internal static void WriteName(ref PooledBuffer output, scoped ReadOnlySpan<byte> spelling)
     {
         output.WriteByte((byte)'/');
         while (!spelling.IsEmpty)

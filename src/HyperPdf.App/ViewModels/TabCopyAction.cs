@@ -19,7 +19,7 @@ namespace HyperPdf.App.ViewModels;
 /// <typeparam name="TRequest">The view model of the window the command opens.</typeparam>
 [DebuggerDisplay("TabCopyAction: {MenuText}")]
 public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposable
-    where TRequest : class, IDisposable
+    where TRequest : class, ICopyWindowRequest
 {
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
@@ -29,6 +29,9 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
 
     /// <summary>Whether the command can run; a signal, as generated bindings cannot observe a generic type's properties.</summary>
     private readonly BehaviorSignal<bool> _canRun = new(false);
+
+    /// <summary>The window's view model while the window is open, so the tab can close it when its document goes away.</summary>
+    private TRequest? _open;
 
     /// <summary>Initializes a new instance of the <see cref="TabCopyAction{TRequest}"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
@@ -55,6 +58,19 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _canRun.Dispose();
 
+    /// <summary>Stops the run in the command's window and closes it, because the document it works on is going away.</summary>
+    /// <returns><see langword="true"/> when a window was open.</returns>
+    internal bool CloseWindow()
+    {
+        if (Volatile.Read(ref _open) is not { } request)
+        {
+            return false;
+        }
+
+        _ = request.CloseCommand.Execute().SubscribeSafe(static _ => { }, static error => Trace.TraceError(error.ToString()));
+        return true;
+    }
+
     /// <summary>Works out whether the open document's engine can make this copy.</summary>
     /// <param name="document">The open document.</param>
     internal void Refresh(IDocument document)
@@ -77,7 +93,15 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
 
         using (request)
         {
-            _ = await Interaction.Handle(request).ToTask().ConfigureAwait(true);
+            Volatile.Write(ref _open, request);
+            try
+            {
+                _ = await Interaction.Handle(request).ToTask().ConfigureAwait(true);
+            }
+            finally
+            {
+                Volatile.Write(ref _open, null);
+            }
         }
     }
 }

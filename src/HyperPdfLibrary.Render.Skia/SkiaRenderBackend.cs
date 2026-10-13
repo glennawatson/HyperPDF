@@ -29,7 +29,7 @@ public sealed class SkiaRenderBackend : IPdfRenderBackend
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPictureDevice CreatePictureDevice(PdfRect bounds) => new SkiaContentDevice(SkiaConversions.ToSkRect(bounds));
+    public IPictureDevice CreatePictureDevice(PdfRect bounds) => SkiaContentDevice.Rent(SkiaConversions.ToSkRect(bounds), null, true);
 
     /// <inheritdoc/>
     public IPdfRenderImage? CreateImage(PdfImageData data)

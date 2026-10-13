@@ -35,7 +35,7 @@ internal static class HyperPdfDocumentFormFilling
         PdfFormReading.GetWidgets(PdfDocumentForms.GetForm(self.Document), pageIndex, widgets);
         foreach (var widget in widgets)
         {
-            output.Add(HyperPdfForms.ToField(widget, page.ToViewerRectangle(widget.Bounds)));
+            output.Add(HyperPdfForms.ToField(widget, page));
         }
     }
 

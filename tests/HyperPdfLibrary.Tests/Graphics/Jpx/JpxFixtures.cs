@@ -77,9 +77,6 @@ internal static class JpxFixtures
     /// <summary>The height of <see cref="Irreversible"/>.</summary>
     internal const int IrreversibleHeight = 999;
 
-    /// <summary>The SHA-256 of PDFium's BGRA rendering of <see cref="Irreversible"/>.</summary>
-    internal const string IrreversiblePixels = "B61EA2891738D012B5974334AC9DE813519412BA1C7EDECAE66D9DDBF4BC0491";
-
     /// <summary>The JP2 file ia-us-reports-341-p1-0.jpx from the corpus, base64.</summary>
     internal const string Irreversible =
         "AAAADGpQICANCocKAAAAGGZ0eXBqcHggAAAAAGpweCBqcDIgAAAAEnJyZXEBgIAAAQAtgAAAAAAALWpwMmgAAAAWaWhkcgAAA+cAAAJiAAMHBwAAAAAAD2Nv"

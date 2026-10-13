@@ -4,7 +4,7 @@
 
 namespace HyperPdfLibrary.Rendering;
 
-/// <summary>The outcome of a progressive render step, like PDFium's FPDF_RENDER_* status codes.</summary>
+/// <summary>The outcome of a progressive render step, for a page drawn in slices.</summary>
 public enum PdfRenderStatus
 {
     /// <summary>The page is fully recorded and the tile was drawn.</summary>

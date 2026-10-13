@@ -28,7 +28,7 @@ public sealed partial class PdfPageRenderer
         height = Math.Min(height, maxEdge);
     }
 
-    /// <summary>Decodes a page's embedded thumbnail image (<c>/Thumb</c>), as FPDFPage_GetThumbnailAsBitmap does; most files have none.</summary>
+    /// <summary>Decodes a page's embedded thumbnail image (<c>/Thumb</c>), (ISO 32000-2 12.3.4); most files have none.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>The thumbnail as premultiplied BGRA, which the caller owns; <see langword="null"/> when the page has none or it is damaged.</returns>
     /// <exception cref="ObjectDisposedException">The renderer has been disposed.</exception>
@@ -79,5 +79,5 @@ public sealed partial class PdfPageRenderer
     /// <param name="page">The page.</param>
     /// <param name="maxEdge">The square's side in pixels.</param>
     /// <returns>Device pixels per point.</returns>
-    private static float ThumbnailScale(PdfPage page, int maxEdge) => maxEdge / Math.Max(1, Math.Max(page.Width, page.Height));
+    private static float ThumbnailScale(PdfPage page, int maxEdge) => maxEdge / Math.Max(1, Math.Max(page.PhysicalWidth, page.PhysicalHeight));
 }

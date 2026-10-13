@@ -9,7 +9,9 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 /// <content>
 /// The four generic templates (T.88 figures 3 to 6). Each builds a context from the decoded pixels before the current one
 /// (<c>current</c>, the pixel just left in bit 0) and 8-pixel windows of the rows one and two above (<c>above</c> and
-/// <c>above2</c>, covering columns x - 4 to x + 3 with x + 3 in bit 0). Context bit layouts follow PDFium.
+/// <c>above2</c>, covering columns x - 4 to x + 3 with x + 3 in bit 0). T.88 section 6.2.5.3 forms the context from the template pixels but any one-to-one
+/// numbering of them decodes identically, so the numbering below is our choice: the current row in the low bits, then the
+/// row above, then the row two above. The typical-prediction contexts are the same pixel patterns (figures 8 to 11) in that numbering.
 /// </content>
 internal static partial class Jbig2GenericRegion
 {

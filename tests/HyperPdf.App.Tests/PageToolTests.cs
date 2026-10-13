@@ -58,6 +58,12 @@ public sealed class PageToolTests
     /// <summary>The pinch that doubles the zoom.</summary>
     private const double PinchScale = 2;
 
+    /// <summary>The count once the first snapshot has been asked for or has started.</summary>
+    private const int FirstSnapshot = 1;
+
+    /// <summary>The count once the second snapshot has been asked for or has finished.</summary>
+    private const int SecondSnapshot = 2;
+
     /// <summary>How many times sharper than the screen a snapshot is at least, at 100% on a plain screen.</summary>
     private const double SnapshotSharpness = 2;
 
@@ -293,6 +299,47 @@ public sealed class PageToolTests
 
             // At 100% on a plain screen the picture is rendered at 200 dots per inch, sharper than the screen.
             await Assert.That((double)image!.PixelSize.Width).IsGreaterThan(AreaWidth * SnapshotSharpness);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>Verifies a second snapshot waits for the first to finish instead of replacing the picture it is still copying.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SecondSnapshotWaitsForTheFirst()
+    {
+        var engine = new PausingEngine();
+        using var test = new TestServices(engine);
+        using var main = new MainViewModel(test.Services);
+        var window = await OpenAsync(test, main, "snapshots.pdf");
+        try
+        {
+            var (tab, canvas, scroller, _) = Parts(window, main);
+            _ = await tab.SetZoomCommand.Execute("100").ToTask();
+            _ = await tab.PageTools.ToggleSnapshotToolCommand.Execute().ToTask();
+            var start = Start(scroller, window);
+            var gate = engine.Arm();
+            Drag(window, start, start + new Vector(AreaWidth, AreaHeight), MouseButton.Left, RawInputModifiers.None);
+            _ = await UiWait.UntilAsync(() => canvas.SnapshotsStarted == FirstSnapshot && gate.Reached.Task.IsCompleted, () => $"The first snapshot did not start: {canvas.SnapshotsStarted} started.");
+
+            // The first snapshot is held, so a second that has been asked for is queued behind it and has not started.
+            Drag(window, start, start + new Vector(AreaWidth, AreaHeight), MouseButton.Left, RawInputModifiers.None);
+            _ = await UiWait.UntilAsync(() => canvas.SnapshotsRequested == SecondSnapshot, () => $"The second snapshot was not asked for: {canvas.SnapshotsRequested} requested.");
+            var startedWhileFirstHeld = canvas.SnapshotsStarted;
+            var finishedWhileFirstHeld = canvas.SnapshotsFinished;
+
+            engine.Disarm();
+            gate.Release();
+            _ = await UiWait.UntilAsync(
+                () => canvas.SnapshotsFinished == SecondSnapshot,
+                () => $"{canvas.SnapshotsStarted} started, {canvas.SnapshotsFinished} finished, notice: {tab.Notice ?? "none"}");
+
+            await Assert.That(startedWhileFirstHeld).IsEqualTo(FirstSnapshot);
+            await Assert.That(finishedWhileFirstHeld).IsEqualTo(0);
+            await Assert.That(tab.Notice).StartsWith("Copied");
         }
         finally
         {

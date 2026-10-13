@@ -52,8 +52,8 @@ internal sealed class CompositeCMap
     internal int ToCid(int code) => Map.ToCid(code);
 
     /// <summary>
-    /// Gets the Unicode value of a code without /ToUnicode, as PDFium's CPDF_CIDFont::GetUnicodeFromCharCode does:
-    /// the code itself for the Unicode CMaps, the CID-to-Unicode value of the code for Identity CMaps, and that of
+    /// Gets the Unicode value of a code without /ToUnicode, from what the CMap's name says its codes are
+    /// (ISO 32000-2, 9.7.5.2): the code itself for the Unicode CMaps, the CID-to-Unicode value of the code for Identity CMaps, and that of
     /// the code's CID for national encodings.
     /// </summary>
     /// <param name="code">The code.</param>

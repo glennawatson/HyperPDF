@@ -49,7 +49,7 @@ internal static class BrotliRewriter
         var decoded = default(PooledBuffer);
         try
         {
-            var codec = PdfStreamDecoder.Apply(plain, filters, parameters, dictionary.Owner, ref decoded, CancellationToken.None);
+            var codec = PdfStreamDecoder.Apply(plain, filters, parameters, ref decoded, CancellationToken.None);
             var copy = dictionary.Clone();
             _ = copy.Remove(KnownName.Length);
             if (codec == PdfImageCodec.None)

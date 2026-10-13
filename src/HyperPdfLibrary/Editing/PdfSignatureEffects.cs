@@ -12,7 +12,7 @@ namespace HyperPdfLibrary.Editing;
 /// Reports how saving pending edits affects each signature field, as Acrobat judges modifications: an incremental save
 /// keeps signed bytes intact; DocMDP level 1 allows no change, level 2 allows form filling and signing, level 3 also
 /// annotations; FieldMDP (a signature's /Reference or its field's /Lock) locks named fields, and /Lock /P adds a level.
-/// PDFium does not check permissions, so this follows ISO 32000-2 12.8.2 and Acrobat's categories.
+/// This follows ISO 32000-2 12.8.2 and Acrobat's categories.
 /// </summary>
 internal static class PdfSignatureEffects
 {

@@ -4,6 +4,7 @@
 
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Tests.Media;
 using HyperPdfLibrary.Tests.Writing;
 using HyperPdfLibrary.Writing;
 
@@ -51,6 +52,9 @@ internal static class RobustnessSeeds
         new(
         "mini",
         CreateMini()),
+        new(
+        "media",
+        MediaDataDocuments.Create()),
         new(
         "encrypted",
         WritingTestDocuments.Encrypt(plain)),

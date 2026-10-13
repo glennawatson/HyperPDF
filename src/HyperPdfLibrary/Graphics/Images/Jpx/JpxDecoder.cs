@@ -9,72 +9,106 @@ using HyperPdfLibrary.Filters;
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
-/// Decodes a JPEG 2000 codestream (ISO 15444-1) to component planes: for each tile, the tile-part headers, the packets
+/// Decodes a JPEG 2000 codestream (ISO 15444-1) to component rows: for each tile, the tile-part headers, the packets
 /// (tier 2), the code-blocks (tier 1), the inverse wavelet transform, the inverse component transform and the DC level
-/// shift. Code-blocks may use the high-throughput coder (T.814), chosen per tile-component by its coding style.
-/// Damaged tiles keep what decoded before the damage; missing tiles stay zero.
+/// shift. The rows are asked for in order, and the work for a block of rows is done when the first of them is asked for,
+/// so the memory in use depends on the width of the image and the size of its code-blocks, not on its height. A
+/// codestream with more than one tile column keeps the tiles of the current tile row open together. Code-blocks may use the
+/// high-throughput coder (T.814), chosen per tile-component by its coding style. Damaged tiles keep what decoded before
+/// the damage; missing tiles are zero.
 /// </summary>
-[DebuggerDisplay("JpxDecoder: {_codestream.TileParts.Count} tile-parts")]
+[DebuggerDisplay("JpxDecoder: {Codestream.TileParts.Count} tile-parts")]
 internal sealed class JpxDecoder : IDisposable
 {
-    /// <summary>The codestream structure.</summary>
-    private readonly JpxCodestream _codestream;
+    /// <summary>The tile rows kept open at once before extra ones are made in a new list slot; two cover subsampled components whose tile rows start a row apart.</summary>
+    private const int ExpectedOpenRows = 2;
 
-    /// <summary>The cache used by this codestream decode.</summary>
-    private readonly ScratchPools _scratchPools;
+    /// <summary>The cache, decoders and token of this decode.</summary>
+    private readonly JpxBlockWorkers _workers;
 
-    /// <summary>The tile layout, reused for every tile.</summary>
-    private readonly JpxTile _tile;
+    /// <summary>The tile rows with open tiles.</summary>
+    private readonly List<TileRowSet> _open = [with(ExpectedOpenRows)];
 
-    /// <summary>The packet reader.</summary>
-    private readonly JpxPacketDecoder _packets = new();
+    /// <summary>Row sets that are free to use for the next tile row.</summary>
+    private readonly Stack<TileRowSet> _spareSets = [];
 
-    /// <summary>The progression walker.</summary>
-    private readonly JpxProgression _progression;
+    /// <summary>Gets each wanted component's current tile row, or -1 before the first row.</summary>
+    private int[] _tileRow = [];
 
-    /// <summary>The tile rebuild: code-blocks, transforms and output.</summary>
-    private readonly JpxTileWork _work;
+    /// <summary>The first row of each component in its current tile row.</summary>
+    private int[] _rowStart = [];
 
-    /// <summary>The code-block decoder used on the calling thread.</summary>
-    private readonly JpxBlockState _blocks;
+    /// <summary>The row after the last of each component in its current tile row.</summary>
+    private int[] _rowEnd = [];
 
-    /// <summary>The finest wavelet levels omitted from output.</summary>
-    private readonly int _reductionLevels;
+    /// <summary>Whether each component counts among the readers of its current tile row.</summary>
+    private bool[] _holds = [];
 
-    /// <summary>The token for this codestream decode.</summary>
-    private readonly CancellationToken _cancellationToken;
+    /// <summary>The row each component's assembled row buffer holds, or -1.</summary>
+    private int[] _assembled = [];
 
-    /// <summary>The current tile's packet data.</summary>
-    private byte[] _tileData = [];
+    /// <summary>The row buffers of components that span several tile columns, or that are zero.</summary>
+    private int[][] _rows = [];
 
-    /// <summary>The current tile's packed packet headers.</summary>
-    private byte[] _packed = [];
+    /// <summary>Whether the decoder is open for a codestream, so a second dispose does nothing.</summary>
+    private bool _active;
 
-    /// <summary>Initializes a new instance of the <see cref="JpxDecoder"/> class.</summary>
-    /// <param name="codestream">The codestream structure.</param>
-    /// <param name="reductionLevels">The finest levels to omit.</param>
-    /// <param name="scratchPools">The bounded cache.</param>
-    /// <param name="cancellationToken">Cancels this operation.</param>
-    private JpxDecoder(JpxCodestream codestream, int reductionLevels, ScratchPools scratchPools, CancellationToken cancellationToken)
-    {
-        _codestream = codestream;
-        _scratchPools = scratchPools;
-        _reductionLevels = reductionLevels;
-        _cancellationToken = cancellationToken;
-        _tile = new(codestream.Geometry.Components.Length, scratchPools);
-        _progression = new(codestream.Geometry, _packets, scratchPools);
-        _work = new(codestream.Geometry, scratchPools);
-        _blocks = new(scratchPools);
-    }
+    /// <summary>The tile-parts grouped by tile: where each tile's tile-parts start in <see cref="_order"/>, with the end last.</summary>
+    private int[] _starts = [];
 
-    /// <inheritdoc/>
+    /// <summary>The tile-part indices, tile after tile.</summary>
+    private int[] _order = [];
+
+    /// <summary>Initializes a new instance of the <see cref="JpxDecoder"/> class, which <see cref="Initialize"/> opens for a codestream.</summary>
+    /// <param name="workers">The cache, decoders and token of the decodes this decoder serves.</param>
+    private JpxDecoder(JpxBlockWorkers workers) => _workers = workers;
+
+    /// <summary>Gets the codestream structure.</summary>
+    internal JpxCodestream Codestream { get; private set; } = null!;
+
+    /// <summary>Gets the packet reader.</summary>
+    internal JpxPacketDecoder Packets { get; } = new();
+
+    /// <summary>Gets the progression walker.</summary>
+    internal JpxProgression Progression { get; private set; } = null!;
+
+    /// <summary>Gets the finest wavelet levels left out.</summary>
+    internal int ReductionLevels { get; private set; }
+
+    /// <summary>Gets the components the caller reads.</summary>
+    internal uint Wanted { get; private set; }
+
+    /// <summary>Gets each component's area in its own sample grid at the decoded resolution.</summary>
+    internal JpxRectangle[] Areas { get; private set; } = [];
+
+    /// <summary>Gets the geometry of the image.</summary>
+    internal JpxGeometry Geometry => Codestream.Geometry;
+
+    /// <summary>Closes the decoder and hands it, with the tile streams and code-block decoders it used, back to the cache for the next decode.</summary>
     public void Dispose()
     {
-        _tile.Dispose();
-        _work.Release();
-        _blocks.Dispose();
-        ReturnArray(ref _tileData);
-        ReturnArray(ref _packed);
+        if (!_active)
+        {
+            return;
+        }
+
+        _active = false;
+        foreach (var set in _open)
+        {
+            set.Close(_workers.SpareStreams);
+        }
+
+        _open.Clear();
+        for (var c = 0; c < _rows.Length; c++)
+        {
+            ReturnArray(ref _rows[c]);
+        }
+
+        ReturnArray(ref _starts);
+        ReturnArray(ref _order);
+        Packets.Clear();
+        Codestream = null!;
+        _workers.Return();
     }
 
     /// <summary>Decodes a codestream.</summary>
@@ -102,28 +136,158 @@ internal sealed class JpxDecoder : IDisposable
     /// <param name="scratchPools">The bounded cache.</param>
     /// <param name="cancellationToken">Cancels decoding.</param>
     /// <returns>The decoded component planes.</returns>
-    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data, int reductionLevels, ScratchPools scratchPools, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data, int reductionLevels, ScratchPools scratchPools, CancellationToken cancellationToken) =>
+        Decode(codestream, data, reductionLevels, scratchPools, JpxComponentMask.All, cancellationToken);
+
+    /// <summary>
+    /// Decodes only the components the output reads, into whole planes. Callers that can use rows as they come should use
+    /// <see cref="Open"/> instead, which never holds a whole plane.
+    /// </summary>
+    /// <param name="codestream">The parsed codestream.</param>
+    /// <param name="data">The codestream bytes.</param>
+    /// <param name="reductionLevels">The omitted finest levels.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="wanted">The components to decode.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The decoded planes; a component that was not wanted has an empty plane.</returns>
+    internal static JpxDecodedImage Decode(JpxCodestream codestream, ReadOnlySpan<byte> data, int reductionLevels, ScratchPools scratchPools, uint wanted, CancellationToken cancellationToken)
     {
-        var image = new JpxDecodedImage(codestream.Geometry, reductionLevels, scratchPools);
-        using var decoder = new JpxDecoder(codestream, reductionLevels, scratchPools, cancellationToken);
-        decoder.DecodeTiles(data, image);
-        return image;
+        var image = new JpxDecodedImage(codestream.Geometry, reductionLevels, scratchPools, wanted);
+        try
+        {
+            using var decoder = Open(codestream, reductionLevels, scratchPools, wanted, cancellationToken);
+            decoder.FillPlanes(data, image);
+            return image;
+        }
+        catch
+        {
+            image.Dispose();
+            throw;
+        }
     }
 
-    /// <summary>Determines whether a tile mixes HT and regular code-blocks within a component, which is not decoded.</summary>
-    /// <param name="parameters">The tile's coding parameters.</param>
-    /// <returns><see langword="true"/> when any component does.</returns>
-    private static bool HasMixedBlocks(JpxTileParameters parameters)
+    /// <summary>Opens a codestream to be read row by row.</summary>
+    /// <param name="codestream">The parsed codestream.</param>
+    /// <param name="reductionLevels">The omitted finest levels.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="wanted">The components to decode.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The decoder; the caller disposes it.</returns>
+    internal static JpxDecoder Open(JpxCodestream codestream, int reductionLevels, ScratchPools scratchPools, uint wanted, CancellationToken cancellationToken)
     {
-        foreach (var style in parameters.Styles)
+        ArgumentOutOfRangeException.ThrowIfNegative(reductionLevels);
+        var workers = JpxBlockWorkers.Rent(scratchPools, cancellationToken);
+        var decoder = workers.Decoder ??= new(workers);
+        try
         {
-            if ((style.BlockStyle & JpxBlockStyle.HighThroughputMixed) != 0)
-            {
-                return true;
-            }
+            decoder.Initialize(codestream, reductionLevels, wanted);
+        }
+        catch
+        {
+            decoder.Dispose();
+            throw;
         }
 
-        return false;
+        return decoder;
+    }
+
+    /// <summary>Gets one row of a component.</summary>
+    /// <param name="component">The component, which must be among those the decoder was opened for.</param>
+    /// <param name="row">
+    /// The row in the component's area. Rows of a component are read in order, each at least once; rows of different
+    /// components follow the picture, so a component with fewer rows is read less often.
+    /// </param>
+    /// <param name="data">The codestream, as given to the decoder's caller; every call must pass the same data.</param>
+    /// <returns>The level-shifted samples, valid until the next row of the component is read.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The row is outside the component.</exception>
+    internal ReadOnlySpan<int> GetRow(int component, int row, ReadOnlySpan<byte> data)
+    {
+        var area = Areas[component];
+        if ((uint)row >= (uint)area.Height)
+        {
+            throw new ArgumentOutOfRangeException(nameof(row));
+        }
+
+        while (row >= _rowEnd[component])
+        {
+            NextTileRow(component);
+        }
+
+        var tileRow = _tileRow[component];
+        var set = FindOpen(tileRow) ?? OpenRow(tileRow, data);
+        var local = row - _rowStart[component];
+        if (Codestream.Geometry.TilesAcross == 1)
+        {
+            return set.Streams[0] is { } only ? only.ReadRow(component, local) : ZeroRow(component, area.Width);
+        }
+
+        return Assemble(set, component, tileRow, local, row);
+    }
+
+    /// <summary>Opens the decoder for a codestream, keeping the arrays of an earlier decode with as many components.</summary>
+    /// <param name="codestream">The codestream structure.</param>
+    /// <param name="reductionLevels">The finest levels to omit.</param>
+    /// <param name="wanted">The components the caller reads.</param>
+    private void Initialize(JpxCodestream codestream, int reductionLevels, uint wanted)
+    {
+        _active = true;
+        Codestream = codestream;
+        ReductionLevels = reductionLevels;
+        Wanted = wanted;
+        var geometry = codestream.Geometry;
+        if (Progression is null)
+        {
+            Progression = new(geometry, Packets, _workers.Pools);
+        }
+        else
+        {
+            Progression.Bind(geometry);
+        }
+
+        var components = geometry.Components.Length;
+        if (_tileRow.Length != components)
+        {
+            Areas = new JpxRectangle[components];
+            _tileRow = new int[components];
+            _rowStart = new int[components];
+            _rowEnd = new int[components];
+            _holds = new bool[components];
+            _assembled = new int[components];
+            _rows = new int[components][];
+        }
+
+        for (var c = 0; c < components; c++)
+        {
+            Areas[c] = geometry.ToComponent(geometry.Image, c).Reduce(reductionLevels);
+            _tileRow[c] = -1;
+            _rowStart[c] = 0;
+            _rowEnd[c] = 0;
+            _holds[c] = false;
+            _assembled[c] = -1;
+            _rows[c] ??= [];
+        }
+
+        GroupByTile();
+    }
+
+    /// <summary>Takes a tile stream for the next tile: an idle one built for this many components, or a new one.</summary>
+    /// <returns>The stream.</returns>
+    private JpxTileStream TakeStream()
+    {
+        var geometry = Codestream.Geometry;
+        while (_workers.SpareStreams.TryPop(out var idle))
+        {
+            if (idle.ComponentCount == geometry.Components.Length)
+            {
+                idle.Bind(geometry);
+                return idle;
+            }
+
+            idle.Dispose();
+        }
+
+        return new(geometry, _workers);
     }
 
     /// <summary>Returns a rented array.</summary>
@@ -133,190 +297,320 @@ internal sealed class JpxDecoder : IDisposable
     {
         if (array.Length > 0)
         {
-            _scratchPools.Get<T>().Return(array);
+            _workers.Pools.Get<T>().Return(array);
         }
 
         array = [];
     }
 
-    /// <summary>Makes sure a rented array holds enough elements, keeping none of its contents.</summary>
-    /// <typeparam name="T">The element type.</typeparam>
-    /// <param name="array">The array, replaced when too small.</param>
-    /// <param name="length">The elements needed.</param>
-    private void EnsureArray<T>(ref T[] array, int length)
-    {
-        if (array.Length >= length)
-        {
-            return;
-        }
-
-        ReturnArray(ref array);
-        array = _scratchPools.Get<T>().Rent(length);
-    }
-
     /// <summary>Sorts the tile-part indices by tile, keeping codestream order within a tile.</summary>
-    /// <param name="parts">The tile-parts.</param>
-    /// <param name="tiles">The number of tiles.</param>
-    /// <param name="starts">Receives where each tile's tile-parts start in <paramref name="order"/>, plus the end.</param>
-    /// <param name="order">Receives the tile-part indices.</param>
-    private void GroupByTile(List<JpxTilePart> parts, int tiles, int[] starts, int[] order)
+    private void GroupByTile()
     {
-        starts.AsSpan(0, tiles + 1).Clear();
+        var parts = Codestream.TileParts;
+        var tiles = Codestream.Geometry.TilesAcross * Codestream.Geometry.TilesDown;
+        var pool = _workers.Pools.Get<int>();
+        _starts = pool.Rent(tiles + 1);
+        _order = pool.Rent(Math.Max(parts.Count, 1));
+        _starts.AsSpan(0, tiles + 1).Clear();
         foreach (var part in parts)
         {
-            starts[part.Tile + 1]++;
+            _starts[part.Tile + 1]++;
         }
 
         for (var t = 0; t < tiles; t++)
         {
-            starts[t + 1] += starts[t];
+            _starts[t + 1] += _starts[t];
         }
 
         // Each tile's next free slot starts at its start and moves one along per tile-part placed.
-        var pool = _scratchPools.Get<int>();
         var next = pool.Rent(tiles);
-        starts.AsSpan(0, tiles).CopyTo(next);
+        _starts.AsSpan(0, tiles).CopyTo(next);
         for (var i = 0; i < parts.Count; i++)
         {
             var tile = parts[i].Tile;
-            order[next[tile]] = i;
+            _order[next[tile]] = i;
             next[tile]++;
         }
 
         pool.Return(next);
     }
 
-    /// <summary>Decodes every tile that has data, in tile order.</summary>
-    /// <param name="data">The codestream.</param>
-    /// <param name="image">The output planes.</param>
-    private void DecodeTiles(ReadOnlySpan<byte> data, JpxDecodedImage image)
+    /// <summary>Gets the rows a component has in a tile row.</summary>
+    /// <param name="component">The component.</param>
+    /// <param name="tileRow">The tile row.</param>
+    /// <returns>The first row and the row after the last, in the component's area.</returns>
+    private TileRowRange RowRange(int component, int tileRow)
     {
-        var parts = _codestream.TileParts;
-        var tiles = _codestream.Geometry.TilesAcross * _codestream.Geometry.TilesDown;
-        var pool = _scratchPools.Get<int>();
-        var starts = pool.Rent(tiles + 1);
-        var order = pool.Rent(Math.Max(parts.Count, 1));
-        try
-        {
-            GroupByTile(parts, tiles, starts, order);
-            for (var t = 0; t < tiles; t++)
-            {
-                _cancellationToken.ThrowIfCancellationRequested();
-                if (starts[t + 1] > starts[t])
-                {
-                    DecodeTile(data, t, order.AsSpan(starts[t], starts[t + 1] - starts[t]), image);
-                }
-            }
-        }
-        finally
-        {
-            pool.Return(starts);
-            pool.Return(order);
-        }
+        var geometry = Codestream.Geometry;
+        var area = geometry.ToComponent(geometry.GetTile(tileRow * geometry.TilesAcross), component).Reduce(ReductionLevels);
+        return new(area.Y0 - Areas[component].Y0, area.Y1 - Areas[component].Y0);
     }
 
-    /// <summary>Decodes one tile into the output planes.</summary>
-    /// <param name="data">The codestream.</param>
-    /// <param name="tile">The tile index.</param>
-    /// <param name="parts">The indices of the tile's tile-parts.</param>
-    /// <param name="image">The output planes.</param>
-    private void DecodeTile(ReadOnlySpan<byte> data, int tile, ReadOnlySpan<int> parts, JpxDecodedImage image)
+    /// <summary>Moves a component to its next tile row that has rows, letting go of the tile row it leaves.</summary>
+    /// <param name="component">The component.</param>
+    /// <exception cref="InvalidOperationException">The component has no tile rows left.</exception>
+    private void NextTileRow(int component)
     {
-        var state = new JpxHeaderState(_codestream.Geometry.Components.Length);
-        foreach (var part in parts)
+        if (_holds[component])
         {
-            if (!JpxCodestream.ReadTileHeader(data, _codestream.TileParts[part].Header, state))
+            Leave(_tileRow[component]);
+            _holds[component] = false;
+        }
+
+        var tileRow = _tileRow[component] + 1;
+        if (tileRow >= Codestream.Geometry.TilesDown)
+        {
+            throw new InvalidOperationException("The component has no more rows.");
+        }
+
+        var range = RowRange(component, tileRow);
+        _tileRow[component] = tileRow;
+        _rowStart[component] = range.Start;
+        _rowEnd[component] = range.End;
+        _holds[component] = range.End > range.Start;
+    }
+
+    /// <summary>Finds the open tiles of a tile row.</summary>
+    /// <param name="tileRow">The tile row.</param>
+    /// <returns>The set, or <see langword="null"/> when the row is not open.</returns>
+    private TileRowSet? FindOpen(int tileRow)
+    {
+        foreach (var set in _open)
+        {
+            if (set.Row == tileRow)
             {
-                return;
+                return set;
             }
         }
 
-        var parameters = JpxTileParameters.Resolve(_codestream.Main, state);
-        if (HasMixedBlocks(parameters) || !_tile.Build(_codestream.Geometry, tile, parameters))
+        return null;
+    }
+
+    /// <summary>Opens the tiles of a tile row.</summary>
+    /// <param name="tileRow">The tile row.</param>
+    /// <param name="data">The codestream.</param>
+    /// <returns>The set of open tiles.</returns>
+    private TileRowSet OpenRow(int tileRow, ReadOnlySpan<byte> data)
+    {
+        var across = Codestream.Geometry.TilesAcross;
+        var set = _spareSets.TryPop(out var spare) ? spare : new();
+        set.Begin(tileRow, across, CountReaders(tileRow));
+        for (var column = 0; column < across; column++)
+        {
+            var tile = (tileRow * across) + column;
+            var from = _starts[tile];
+            var count = _starts[tile + 1] - from;
+            if (count == 0)
+            {
+                continue;
+            }
+
+            _workers.Token.ThrowIfCancellationRequested();
+            var stream = TakeStream();
+            if (stream.Start(this, tile, _order.AsSpan(from, count), data))
+            {
+                set.Streams[column] = stream;
+            }
+            else
+            {
+                stream.Release();
+                _workers.SpareStreams.Push(stream);
+            }
+        }
+
+        _open.Add(set);
+        return set;
+    }
+
+    /// <summary>Counts the wanted components that have rows in a tile row.</summary>
+    /// <param name="tileRow">The tile row.</param>
+    /// <returns>The number of readers.</returns>
+    private int CountReaders(int tileRow)
+    {
+        var readers = 0;
+        for (var c = 0; c < Areas.Length; c++)
+        {
+            var range = RowRange(c, tileRow);
+            if (JpxComponentMask.Contains(Wanted, c) && range.End > range.Start)
+            {
+                readers++;
+            }
+        }
+
+        return readers;
+    }
+
+    /// <summary>Lets a component go from a tile row; the row closes when its last reader leaves.</summary>
+    /// <param name="tileRow">The tile row.</param>
+    private void Leave(int tileRow)
+    {
+        var set = FindOpen(tileRow);
+        if (set is null || set.Leave() > 0)
         {
             return;
         }
 
-        var length = CopyTileData(data, parts);
-        var packedLength = CopyPackedHeaders(data, parts, state);
-        _packets.Start(_tile, parameters.Coding, _tileData, length, packedLength >= 0 ? _packed : null, Math.Max(packedLength, 0));
-        _progression.Run(_tile, parameters);
-        _work.Run(_tile, _tileData, parameters.Coding.ComponentTransform, image, _blocks, _reductionLevels, _cancellationToken);
+        _ = _open.Remove(set);
+        set.Close(_workers.SpareStreams);
+        _spareSets.Push(set);
     }
 
-    /// <summary>Joins the tile's packet data from all its tile-parts.</summary>
-    /// <param name="data">The codestream.</param>
-    /// <param name="parts">The indices of the tile's tile-parts.</param>
-    /// <returns>The bytes of packet data.</returns>
-    private int CopyTileData(ReadOnlySpan<byte> data, ReadOnlySpan<int> parts)
+    /// <summary>Gets a row of zeros, for a tile that has no data.</summary>
+    /// <param name="component">The component.</param>
+    /// <param name="width">The row width.</param>
+    /// <returns>The zeros.</returns>
+    private ReadOnlySpan<int> ZeroRow(int component, int width)
     {
-        var total = 0;
-        foreach (var part in parts)
-        {
-            total += _codestream.TileParts[part].Data.Length;
-        }
-
-        EnsureArray(ref _tileData, total);
-        var written = 0;
-        foreach (var part in parts)
-        {
-            var range = _codestream.TileParts[part].Data;
-            data.Slice(range.Offset, range.Length).CopyTo(_tileData.AsSpan(written));
-            written += range.Length;
-        }
-
-        return total;
+        EnsureRow(component, width);
+        var zeros = _rows[component].AsSpan(0, width);
+        zeros.Clear();
+        _assembled[component] = -1;
+        return zeros;
     }
 
-    /// <summary>Joins the tile's packed packet headers from PPM or PPT markers.</summary>
-    /// <param name="data">The codestream.</param>
-    /// <param name="parts">The indices of the tile's tile-parts.</param>
-    /// <param name="state">The tile's header parameters, which hold any PPT pieces.</param>
-    /// <returns>The bytes of packed headers, or -1 when the headers are in the packet data.</returns>
-    private int CopyPackedHeaders(ReadOnlySpan<byte> data, ReadOnlySpan<int> parts, JpxHeaderState state)
+    /// <summary>Makes sure a component has a row buffer.</summary>
+    /// <param name="component">The component.</param>
+    /// <param name="width">The row width.</param>
+    private void EnsureRow(int component, int width)
     {
-        if (_codestream.PackedMain is { } main && _codestream.PackedRanges is { } ranges)
+        if (_rows[component].Length >= width)
         {
-            var total = 0;
-            foreach (var part in parts)
+            return;
+        }
+
+        ReturnArray(ref _rows[component]);
+        _rows[component] = _workers.Pools.Get<int>().Rent(Math.Max(width, 1));
+    }
+
+    /// <summary>Joins the rows of the tiles across a tile row into one row of the component.</summary>
+    /// <param name="set">The open tiles of the tile row.</param>
+    /// <param name="component">The component.</param>
+    /// <param name="tileRow">The tile row.</param>
+    /// <param name="local">The row within the tile row.</param>
+    /// <param name="row">The row within the component.</param>
+    /// <returns>The row.</returns>
+    private ReadOnlySpan<int> Assemble(TileRowSet set, int component, int tileRow, int local, int row)
+    {
+        var width = Areas[component].Width;
+        EnsureRow(component, width);
+        var joined = _rows[component].AsSpan(0, width);
+        if (_assembled[component] == row)
+        {
+            return joined;
+        }
+
+        var geometry = Codestream.Geometry;
+        for (var column = 0; column < geometry.TilesAcross; column++)
+        {
+            var area = geometry.ToComponent(geometry.GetTile((tileRow * geometry.TilesAcross) + column), component).Reduce(ReductionLevels);
+            if (area.Width == 0)
             {
-                total += ranges[part].Length;
+                continue;
             }
 
-            EnsureArray(ref _packed, total);
-            var written = 0;
-            foreach (var part in parts)
+            var destination = joined.Slice(area.X0 - Areas[component].X0, area.Width);
+            if (set.Streams[column] is { } stream)
             {
-                main.AsSpan(ranges[part].Offset, ranges[part].Length).CopyTo(_packed.AsSpan(written));
-                written += ranges[part].Length;
+                stream.ReadRow(component, local).CopyTo(destination);
             }
-
-            return total;
+            else
+            {
+                destination.Clear();
+            }
         }
 
-        return state.PackedHeaders is { } pieces ? CopyPieces(data, pieces) : -1;
+        _assembled[component] = row;
+        return joined;
     }
 
-    /// <summary>Joins PPT pieces of the codestream.</summary>
+    /// <summary>Reads every row of every wanted component into planes, following the picture so that components of different sizes advance together.</summary>
     /// <param name="data">The codestream.</param>
-    /// <param name="pieces">The pieces.</param>
-    /// <returns>The bytes joined.</returns>
-    private int CopyPieces(ReadOnlySpan<byte> data, List<JpxDataRange> pieces)
+    /// <param name="image">The planes.</param>
+    private void FillPlanes(ReadOnlySpan<byte> data, JpxDecodedImage image)
     {
-        var total = 0;
-        foreach (var piece in pieces)
+        var rows = 0;
+        for (var c = 0; c < Areas.Length; c++)
         {
-            total += piece.Length;
+            rows = Math.Max(rows, Areas[c].Height);
         }
 
-        EnsureArray(ref _packed, total);
-        var written = 0;
-        foreach (var piece in pieces)
+        Span<int> last = Areas.Length <= 32 ? stackalloc int[Areas.Length] : new int[Areas.Length];
+        last.Fill(-1);
+        for (var y = 0; y < rows; y++)
         {
-            data.Slice(piece.Offset, piece.Length).CopyTo(_packed.AsSpan(written));
-            written += piece.Length;
+            for (var c = 0; c < Areas.Length; c++)
+            {
+                var area = Areas[c];
+                var row = (int)((long)y * area.Height / rows);
+                if (!JpxComponentMask.Contains(Wanted, c) || area.IsEmpty || row == last[c])
+                {
+                    continue;
+                }
+
+                last[c] = row;
+                GetRow(c, row, data).CopyTo(image.Planes[c].AsSpan(row * area.Width, area.Width));
+            }
+        }
+    }
+
+    /// <summary>A component's rows in a tile row.</summary>
+    /// <param name="Start">The first row.</param>
+    /// <param name="End">The row after the last.</param>
+    private readonly record struct TileRowRange(int Start, int End);
+
+    /// <summary>The open tiles of one tile row, and how many components still read them.</summary>
+    private sealed class TileRowSet
+    {
+        /// <summary>Gets the tile row.</summary>
+        internal int Row { get; private set; }
+
+        /// <summary>Gets the tile streams, by tile column; null for a tile with no data.</summary>
+        internal JpxTileStream?[] Streams { get; private set; } = [];
+
+        /// <summary>Gets or sets the components that have not yet left the tile row.</summary>
+        private int Readers { get; set; }
+
+        /// <summary>Starts the set for a tile row.</summary>
+        /// <param name="row">The tile row.</param>
+        /// <param name="columns">The tile columns.</param>
+        /// <param name="readers">The components that read the tile row.</param>
+        internal void Begin(int row, int columns, int readers)
+        {
+            Row = row;
+            Readers = readers;
+            if (Streams.Length != columns)
+            {
+                Streams = new JpxTileStream?[columns];
+            }
+            else
+            {
+                Array.Clear(Streams);
+            }
         }
 
-        return total;
+        /// <summary>Records that a component has left the tile row.</summary>
+        /// <returns>The components still reading.</returns>
+        internal int Leave()
+        {
+            Readers--;
+            return Readers;
+        }
+
+        /// <summary>Releases the tile streams for the next tile row.</summary>
+        /// <param name="spare">Receives the streams.</param>
+        internal void Close(Stack<JpxTileStream> spare)
+        {
+            for (var i = 0; i < Streams.Length; i++)
+            {
+                if (Streams[i] is not { } stream)
+                {
+                    continue;
+                }
+
+                stream.Release();
+                spare.Push(stream);
+                Streams[i] = null;
+            }
+        }
     }
 }

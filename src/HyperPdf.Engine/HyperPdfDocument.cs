@@ -102,7 +102,7 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
         for (var i = 0; i < _pageSizes.Length; i++)
         {
             var page = PdfDocumentPages.GetPage(document, i);
-            _pageSizes[i] = new(page.Width, page.Height);
+            _pageSizes[i] = new(page.PhysicalWidth, page.PhysicalHeight);
         }
     }
 
@@ -150,6 +150,9 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <summary>Gets the annotation font cache selected by the engine.</summary>
     internal TextBoxFontState FontState => _fontState.Value;
+
+    /// <summary>Gets the annotation font cache selected by the engine, which is built when a caller first reads its value.</summary>
+    internal Lazy<TextBoxFontState> LazyFontState => _fontState;
 
     /// <summary>Gets the owned EditGate state.</summary>
     internal Lock EditGate => _editGate;

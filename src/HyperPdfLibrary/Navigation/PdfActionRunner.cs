@@ -142,7 +142,7 @@ public sealed class PdfActionRunner
             ModeOff => false,
             _ => !visible.Value,
         };
-        return wanted != visible.Value && content.SetVisible(id, wanted);
+        return wanted != visible.Value && content.SetVisibleByAction(id, wanted);
     }
 
     /// <summary>Finds whether a layer is shown now.</summary>
@@ -229,7 +229,10 @@ public sealed class PdfActionRunner
 
             case ImportDataAction import:
                 {
-                    return Asked(await _host.ImportDataAsync(import, cancellationToken).ConfigureAwait(false));
+                    // A host that says it imported the data has changed the form, so pages draw again and the document has unsaved edits.
+                    return await _host.ImportDataAsync(import, cancellationToken).ConfigureAwait(false)
+                        ? PdfActionResult.Ran | PdfActionResult.Changed
+                        : PdfActionResult.Declined;
                 }
 
             case GoToAction or UriAction or RemoteGoToAction or LaunchAction or EmbeddedGoToAction:

@@ -41,9 +41,9 @@ public sealed partial class TextPropertiesWindow : ReactiveUI.Avalonia.ReactiveW
             disposables.Add(this.Bind(ViewModel, static vm => vm.FontFamily, static v => v.FamilyInput.SelectedItem, static family => family, static item => item as string ?? string.Empty));
             disposables.Add(this.Bind(ViewModel, static vm => vm.FontSize, static v => v.SizeInput.Value, static size => size, Number));
             disposables.Add(this.Bind(ViewModel, static vm => vm.ColorIndex, static v => v.ColourInput.SelectedIndex));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.IsBold, static v => v.BoldInput.IsChecked, static on => on, IsOn));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.IsItalic, static v => v.ItalicInput.IsChecked, static on => on, IsOn));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.IsUnderline, static v => v.UnderlineInput.IsChecked, static on => on, IsOn));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsBold, static v => v.BoldInput.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsItalic, static v => v.ItalicInput.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsUnderline, static v => v.UnderlineInput.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.Bind(ViewModel, static vm => vm.AlignmentIndex, static v => v.AlignmentInput.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.WrapWidth, static v => v.WrapInput.Value, static width => width, Number));
             disposables.Add(this.Bind(ViewModel, static vm => vm.LineSpacing, static v => v.LineSpacingInput.Value, static spacing => spacing, Number));
@@ -63,10 +63,4 @@ public sealed partial class TextPropertiesWindow : ReactiveUI.Avalonia.ReactiveW
     /// <returns>The number.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static decimal Number(decimal? value) => value ?? 0;
-
-    /// <summary>Reads a check box.</summary>
-    /// <param name="value">The box's state.</param>
-    /// <returns><see langword="true"/> when ticked.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsOn(bool? value) => value == true;
 }

@@ -9,22 +9,67 @@ namespace HyperPdfLibrary.Document;
 
 /// <summary>
 /// Remembers the cache generation at which the objects behind a dictionary were last loaded ahead, so a repeat call can
-/// skip the walk while nothing has been dropped from the cache since.
+/// skip the walk while nothing has been dropped from the cache since. Each kind of walk is remembered apart, because a walk
+/// for one kind does not load what another kind follows.
 /// </summary>
-[DebuggerDisplay("PdfPrefetchMark: generation {_generation}")]
+[DebuggerDisplay("PdfPrefetchMark")]
 internal sealed class PdfPrefetchMark
 {
-    /// <summary>The generation the objects were loaded at, or -1 before the first load.</summary>
-    private long _generation = -1;
+    /// <summary>The value of a generation before its first load.</summary>
+    private const long NotLoaded = -1L;
 
-    /// <summary>Determines whether the objects were loaded at a generation.</summary>
+    /// <summary>The generation a <see cref="PdfPrefetchKind.Page"/> walk loaded at.</summary>
+    private long _page = NotLoaded;
+
+    /// <summary>The generation a <see cref="PdfPrefetchKind.PageTree"/> walk loaded at.</summary>
+    private long _pageTree = NotLoaded;
+
+    /// <summary>The generation a <see cref="PdfPrefetchKind.Outline"/> walk loaded at.</summary>
+    private long _outline = NotLoaded;
+
+    /// <summary>The generation a <see cref="PdfPrefetchKind.Separation"/> walk loaded at.</summary>
+    private long _separation = NotLoaded;
+
+    /// <summary>Determines whether the objects a kind of walk follows were loaded at a generation.</summary>
+    /// <param name="kind">The kind of walk.</param>
     /// <param name="generation">The cache generation now.</param>
     /// <returns><see langword="true"/> when they were loaded at exactly this generation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool IsLoadedAt(long generation) => Volatile.Read(ref _generation) == generation;
+    internal bool IsLoadedAt(PdfPrefetchKind kind, long generation) => Volatile.Read(ref Slot(kind)) == generation;
 
-    /// <summary>Records that the objects were loaded at a generation.</summary>
+    /// <summary>Records that the objects a kind of walk follows were loaded at a generation.</summary>
+    /// <param name="kind">The kind of walk.</param>
     /// <param name="generation">The generation the load started at.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void SetLoadedAt(long generation) => Volatile.Write(ref _generation, generation);
+    internal void SetLoadedAt(PdfPrefetchKind kind, long generation) => Volatile.Write(ref Slot(kind), generation);
+
+    /// <summary>Finds the field that remembers a kind of walk.</summary>
+    /// <param name="kind">The kind of walk.</param>
+    /// <returns>A reference to the field.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ref long Slot(PdfPrefetchKind kind)
+    {
+        switch (kind)
+        {
+            case PdfPrefetchKind.Page:
+                {
+                    return ref _page;
+                }
+
+            case PdfPrefetchKind.PageTree:
+                {
+                    return ref _pageTree;
+                }
+
+            case PdfPrefetchKind.Outline:
+                {
+                    return ref _outline;
+                }
+
+            default:
+                {
+                    return ref _separation;
+                }
+        }
+    }
 }

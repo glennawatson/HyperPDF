@@ -4,9 +4,11 @@
 
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using HyperPdfLibrary.Objects;
+using static HyperPdfLibrary.Security.PdfPasswordAlgorithms;
 
 namespace HyperPdfLibrary.Security;
 
@@ -20,9 +22,6 @@ public sealed partial class PdfSecurityHandler : IDisposable
 {
     /// <summary>The AES block size.</summary>
     internal const int AesBlock = 16;
-
-    /// <summary>The length of a SHA-256 hash and an AES-256 key.</summary>
-    private const int Sha256Length = 32;
 
     /// <summary>The bytes of the object number and generation mixed into an object key.</summary>
     private const int ObjectSaltLength = 5;
@@ -42,9 +41,6 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <summary>The position of the generation in the object salt.</summary>
     private const int GenerationOffset = 3;
 
-    /// <summary>The length of the padded password.</summary>
-    private const int PaddedLength = 32;
-
     /// <summary>Revision 2.</summary>
     private const int Revision2 = 2;
 
@@ -63,14 +59,26 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <summary>Revision 6.</summary>
     private const int Revision6 = 6;
 
+    /// <summary>Revision 7 (ISO/TS 32003), which uses the revision 6 password algorithms with AES-GCM.</summary>
+    private const int Revision7 = 7;
+
+    /// <summary>Version 6 (ISO/TS 32003), the version that goes with revision 7.</summary>
+    private const int Version6 = 6;
+
     /// <summary>The file key.</summary>
     private readonly byte[] _fileKey;
 
     /// <summary>The AES instance reused for every object; guarded by <see cref="_gate"/> as it is not thread safe.</summary>
     private readonly Aes _aes = Aes.Create();
 
-    /// <summary>Guards <see cref="_aes"/>.</summary>
+    /// <summary>Guards <see cref="_aes"/> and <see cref="_gcm"/>.</summary>
     private readonly Lock _gate = new();
+
+    /// <summary>The AES-GCM instance, created on first use; guarded by <see cref="_gate"/>.</summary>
+    private AesGcm? _gcm;
+
+    /// <summary>The AES-GCM encryptions done with the file key by this handler; counted with <see cref="Interlocked"/>.</summary>
+    private long _gcmEncryptions;
 
     /// <summary>1 once disposed; written under <see cref="_gate"/>.</summary>
     private int _disposed;
@@ -100,6 +108,23 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <summary>Gets a value indicating whether metadata streams are encrypted.</summary>
     public bool EncryptMetadata { get; }
 
+    /// <summary>
+    /// Gets who the password or certificate that opened the document is: the owner, who may change or remove the protection,
+    /// or a user bound by <see cref="Permissions"/>.
+    /// </summary>
+    public PdfSecurityRole Role { get; init; }
+
+    /// <summary>Gets the file encryption key, the input key material of the PDF MAC key derivation (ISO/TS 32004:2024 6.4).</summary>
+    internal ReadOnlySpan<byte> FileKey
+    {
+        get
+        {
+            // A disposed handler has zeroed its key, which must not be used as if it were the key.
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+            return _fileKey;
+        }
+    }
+
     /// <summary>Gets how strings are encrypted.</summary>
     internal CryptMethod StringMethod { get; }
 
@@ -109,12 +134,14 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <summary>Gets the /CF dictionary of named crypt filters, or <see langword="null"/> before revision 4.</summary>
     internal PdfDictionary? CryptFilters { get; init; }
 
-    /// <summary>Gets the padding mixed into passwords before revision 5.</summary>
-    private static ReadOnlySpan<byte> Padding =>
-    [
-        0x28, 0xBF, 0x4E, 0x5E, 0x4E, 0x75, 0x8A, 0x41, 0x64, 0x00, 0x4E, 0x56, 0xFF, 0xFA, 0x01, 0x08,
-        0x2E, 0x2E, 0x00, 0xB6, 0xD0, 0x68, 0x3E, 0x80, 0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A,
-    ];
+    /// <summary>Gets the name of the crypt filter for embedded file streams (/EFF), or none when the stream filter applies.</summary>
+    internal PdfName EmbeddedFileFilter { get; init; }
+
+    /// <summary>Gets a value indicating whether a crypt filter uses AES-GCM, so a saved document shall declare the ISO/TS 32003 extension.</summary>
+    internal bool UsesAesGcm { get; init; }
+
+    /// <summary>Gets a value indicating whether writing encrypts with AES, which picks a random initialisation vector each time.</summary>
+    internal bool UsesRandomIv => UsesAesGcm || StringMethod >= CryptMethod.Aes128 || StreamMethod >= CryptMethod.Aes128;
 
     /// <summary>Gets the suffix of AES-128 object key input.</summary>
     private static ReadOnlySpan<byte> AesSalt => "sAlT"u8;
@@ -137,32 +164,52 @@ public sealed partial class PdfSecurityHandler : IDisposable
 
         var version = encrypt.GetInt32(KnownName.V);
         var revision = encrypt.GetInt32(KnownName.R);
-        if (revision is < Revision2 or > Revision6)
-        {
-            return PdfSecurityResult.UnsupportedHandler;
-        }
-
         var methods = ReadMethods(encrypt, version);
         var keyLength = revision >= Revision5 ? Sha256Length : ReadKeyLength(encrypt, revision, version);
-        if (!IsValidKeyLength(methods, keyLength, revision))
+        var supported = CheckSupport(encrypt, version, revision, methods, keyLength);
+        if (supported != PdfSecurityResult.Success)
         {
-            return PdfSecurityResult.UnsupportedHandler;
+            return supported;
         }
 
-        var key = revision >= Revision5
-            ? Authenticate256(encrypt, revision, password)
-            : Authenticate128(encrypt, revision, version, keyLength, firstId, password);
+        var key = Authenticate(encrypt, new(revision, version, keyLength), firstId, password, out var role);
         if (key is null)
         {
             return PdfSecurityResult.WrongPassword;
         }
 
+        if (revision == Revision7 && !IsPermsValid(encrypt.GetStringBytes(KnownName.Perms), key))
+        {
+            return PdfSecurityResult.Damaged;
+        }
+
         handler = new(key, revision, methods, ReadPermissions(encrypt), encrypt.GetBoolean(KnownName.EncryptMetadata, true))
         {
             CryptFilters = version >= Revision4 ? encrypt.GetDictionary(KnownName.CF) : null,
+            EmbeddedFileFilter = version >= Revision4 ? encrypt.GetName(KnownName.EFF) : default,
+            UsesAesGcm = DeclaresGcm(encrypt.GetDictionary(KnownName.CF)),
+            Role = role,
         };
         return PdfSecurityResult.Success;
     }
+
+    /// <summary>Decrypts a string, authenticating AES-GCM data first. Nothing is returned for a value that fails authentication.</summary>
+    /// <param name="id">The object holding the string.</param>
+    /// <param name="data">The encrypted bytes.</param>
+    /// <param name="plain">The plain bytes when decryption succeeded.</param>
+    /// <returns><see langword="false"/> when AES-GCM data is too short or fails authentication.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryDecryptString(PdfObjectId id, ReadOnlySpan<byte> data, [NotNullWhen(true)] out byte[]? plain) =>
+        TryDecrypt(StringMethod, id, data, out plain);
+
+    /// <summary>Decrypts a stream's data, authenticating AES-GCM data first. Nothing is returned for data that fails authentication.</summary>
+    /// <param name="id">The stream object.</param>
+    /// <param name="data">The encrypted bytes.</param>
+    /// <param name="plain">The plain bytes when decryption succeeded.</param>
+    /// <returns><see langword="false"/> when AES-GCM data is too short or fails authentication.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryDecryptStream(PdfObjectId id, ReadOnlySpan<byte> data, [NotNullWhen(true)] out byte[]? plain) =>
+        TryDecrypt(StreamMethod, id, data, out plain);
 
     /// <summary>Decrypts a string.</summary>
     /// <param name="id">The object holding the string.</param>
@@ -204,7 +251,47 @@ public sealed partial class PdfSecurityHandler : IDisposable
 
             Volatile.Write(ref _disposed, 1);
             _aes.Dispose();
+            _gcm?.Dispose();
+
+            // Every user of the key checks the flag under this lock, or after reading the key, so none keeps a zeroed key.
+            CryptographicOperations.ZeroMemory(_fileKey);
         }
+    }
+
+    /// <summary>Creates the handler of a file about to be written. Its key was just made, so it holds the owner's rights.</summary>
+    /// <param name="fileKey">The file key.</param>
+    /// <param name="revision">The revision.</param>
+    /// <param name="methods">How strings and streams are encrypted.</param>
+    /// <param name="permissions">The permission word.</param>
+    /// <param name="encryptMetadata">Whether metadata streams are encrypted.</param>
+    /// <param name="filters">The /CF dictionary written to the file.</param>
+    /// <returns>The handler.</returns>
+    internal static PdfSecurityHandler CreateNew(byte[] fileKey, int revision, CryptMethods methods, int permissions, bool encryptMetadata, PdfDictionary filters) =>
+        new(fileKey, revision, methods, permissions, encryptMetadata)
+        {
+            CryptFilters = filters,
+            UsesAesGcm = methods.Streams == CryptMethod.AesGcm || methods.Strings == CryptMethod.AesGcm,
+            Role = PdfSecurityRole.Owner,
+        };
+
+    /// <summary>Decrypts a stream's data with a named crypt filter, authenticating AES-GCM data first.</summary>
+    /// <param name="id">The stream object.</param>
+    /// <param name="data">The encrypted bytes.</param>
+    /// <param name="filterName">The crypt filter's name in /CF.</param>
+    /// <param name="plain">The plain bytes when decryption succeeded.</param>
+    /// <returns><see langword="false"/> when AES-GCM data is too short or fails authentication.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryDecryptStream(PdfObjectId id, ReadOnlySpan<byte> data, PdfName filterName, [NotNullWhen(true)] out byte[]? plain) =>
+        TryDecrypt(FilterMethod(CryptFilters, filterName), id, data, out plain);
+
+    /// <summary>Finds the crypt filter an embedded file stream uses when it names none itself: the /EFF filter.</summary>
+    /// <param name="dictionary">The stream dictionary.</param>
+    /// <param name="name">The filter name when the stream is an embedded file and /EFF is present.</param>
+    /// <returns><see langword="true"/> when /EFF applies to the stream.</returns>
+    internal bool TryGetEmbeddedFileFilter(PdfDictionary dictionary, out PdfName name)
+    {
+        name = EmbeddedFileFilter;
+        return !name.IsNone && dictionary.IsName(KnownName.Type, KnownName.EmbeddedFile);
     }
 
     /// <summary>Decrypts a stream's data with the method of a named crypt filter (a stream's /Crypt filter with a /Name).</summary>
@@ -246,7 +333,7 @@ public sealed partial class PdfSecurityHandler : IDisposable
         return new(FilterMethod(filters, encrypt.GetName(KnownName.StrF)), FilterMethod(filters, encrypt.GetName(KnownName.StmF)));
     }
 
-    /// <summary>Drops the last bytes of data when the final byte is a pad length from 1 to 16, as PDFium does.</summary>
+    /// <summary>Drops the last bytes of data when the final byte is a pad length from 1 to 16 (PKCS#5 padding, ISO 32000-2 7.6.3.2); otherwise the data was padded wrongly and is kept whole.</summary>
     /// <param name="raw">The decrypted bytes with their padding.</param>
     /// <returns>The bytes without the pad.</returns>
     private static byte[] StripPlausiblePad(byte[] raw)
@@ -265,7 +352,7 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <returns>The permission flags.</returns>
     private static int ReadPermissions(PdfDictionary encrypt) => unchecked((int)encrypt.GetInteger(KnownName.P));
 
-    /// <summary>Reads the file key length in bytes for revisions 2 to 4, as PDFium does.</summary>
+    /// <summary>Reads the file key length in bytes for revisions 2 to 4 from /Length, which is in bits (ISO 32000-2 7.6.2, Table 20).</summary>
     /// <param name="encrypt">The /Encrypt dictionary.</param>
     /// <param name="revision">The revision.</param>
     /// <param name="version">The /V value.</param>
@@ -283,7 +370,7 @@ public sealed partial class PdfSecurityHandler : IDisposable
             return 0;
         }
 
-        // A value under 40 is a length in bytes.
+        // Some writers store /Length in bytes; a value under 40 cannot be a valid bit length, so read it as bytes.
         return (bits < DefaultKeyBits ? bits * ByteBits : bits) / ByteBits;
     }
 
@@ -302,19 +389,73 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <param name="keyLength">The key length in bytes.</param>
     /// <param name="revision">The revision.</param>
     /// <returns><see langword="true"/> when the combination can be used.</returns>
-    private static bool IsValidKeyLength(CryptMethods methods, int keyLength, int revision) =>
-        revision >= Revision5
-            ? IsAes256OrNone(methods.Strings) && IsAes256OrNone(methods.Streams)
-            : IsValidKeyLength(methods.Strings, keyLength) && IsValidKeyLength(methods.Streams, keyLength);
+    private static bool IsValidKeyLength(CryptMethods methods, int keyLength, int revision) => revision switch
+    {
+        >= Revision7 => IsAes256Family(methods.Strings) && IsAes256Family(methods.Streams),
+        >= Revision5 => IsAes256OrNone(methods.Strings) && IsAes256OrNone(methods.Streams),
+        _ => SupportsKeyLength(methods.Strings, keyLength) && SupportsKeyLength(methods.Streams, keyLength),
+    };
+
+    /// <summary>Checks that a method is allowed with revision 7, which uses AES-256 in either mode.</summary>
+    /// <param name="method">The method.</param>
+    /// <returns><see langword="true"/> for AES-256 CBC, AES-GCM and no encryption.</returns>
+    private static bool IsAes256Family(CryptMethod method) => method is CryptMethod.Aes256 or CryptMethod.AesGcm or CryptMethod.None;
+
+    /// <summary>
+    /// Checks the parts of an /Encrypt dictionary this handler supports before the password is tried: the version and
+    /// revision pair (revision 7 goes with version 6), the ciphers, and for AES-GCM the AESV4 crypt filter that revision 7
+    /// shall declare (ISO/TS 32003 5.1) and the platform support it needs.
+    /// </summary>
+    /// <param name="encrypt">The /Encrypt dictionary.</param>
+    /// <param name="version">The /V value.</param>
+    /// <param name="revision">The /R value.</param>
+    /// <param name="methods">The string and stream methods.</param>
+    /// <param name="keyLength">The key length in bytes.</param>
+    /// <returns>
+    /// Success, <see cref="PdfSecurityResult.UnsupportedHandler"/>, <see cref="PdfSecurityResult.Damaged"/> or
+    /// <see cref="PdfSecurityResult.UnsupportedCipher"/>.
+    /// </returns>
+    private static PdfSecurityResult CheckSupport(PdfDictionary encrypt, int version, int revision, CryptMethods methods, int keyLength)
+    {
+        if (revision is < Revision2 or > Revision7 || (revision == Revision7) != (version == Version6) || !IsValidKeyLength(methods, keyLength, revision))
+        {
+            return PdfSecurityResult.UnsupportedHandler;
+        }
+
+        var declared = DeclaresGcm(encrypt.GetDictionary(KnownName.CF));
+        if (revision == Revision7 && !declared)
+        {
+            return PdfSecurityResult.Damaged;
+        }
+
+        return declared && !AesGcmCipher.IsSupported ? PdfSecurityResult.UnsupportedCipher : PdfSecurityResult.Success;
+    }
+
+    /// <summary>Determines whether any crypt filter in /CF uses the AESV4 method.</summary>
+    /// <param name="filters">The /CF dictionary, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when one does.</returns>
+    private static bool DeclaresGcm(PdfDictionary? filters)
+    {
+        for (var i = 0; filters is not null && i < filters.Count; i++)
+        {
+            if (filters.GetDictionary(filters.GetKeyAt(i))?.GetName(KnownName.CFM).Is(KnownName.AESV4) == true)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Checks one cipher against a key length from revisions 2 to 4, whose key comes from a 16-byte MD5 hash.</summary>
     /// <param name="method">The method.</param>
     /// <param name="keyLength">The key length in bytes.</param>
     /// <returns><see langword="true"/> when the cipher supports the length.</returns>
-    private static bool IsValidKeyLength(CryptMethod method, int keyLength) => method switch
+    private static bool SupportsKeyLength(CryptMethod method, int keyLength) => method switch
     {
         CryptMethod.Rc4 => keyLength is >= Revision2KeyLength and <= Md5.HashLength,
         CryptMethod.Aes128 or CryptMethod.Aes256 => keyLength == AesBlock,
+        CryptMethod.AesGcm => false,
         _ => true,
     };
 
@@ -340,18 +481,9 @@ public sealed partial class PdfSecurityHandler : IDisposable
             KnownName.V2 => CryptMethod.Rc4,
             KnownName.AESV2 => CryptMethod.Aes128,
             KnownName.AESV3 => CryptMethod.Aes256,
+            KnownName.AESV4 => CryptMethod.AesGcm,
             _ => CryptMethod.None,
         };
-    }
-
-    /// <summary>Pads or truncates a password to 32 bytes.</summary>
-    /// <param name="password">The password.</param>
-    /// <param name="destination">The 32-byte buffer.</param>
-    private static void PadPassword(ReadOnlySpan<byte> password, Span<byte> destination)
-    {
-        var length = Math.Min(password.Length, destination.Length);
-        password[..length].CopyTo(destination);
-        Padding[..(destination.Length - length)].CopyTo(destination[length..]);
     }
 
     /// <summary>Decrypts data.</summary>
@@ -359,6 +491,7 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <param name="id">The object.</param>
     /// <param name="data">The encrypted bytes.</param>
     /// <returns>The plain bytes.</returns>
+    /// <exception cref="PdfException">The method is AES-GCM and the data is too short or fails authentication.</exception>
     private byte[] Decrypt(CryptMethod method, PdfObjectId id, ReadOnlySpan<byte> data)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
@@ -368,10 +501,20 @@ public sealed partial class PdfSecurityHandler : IDisposable
             return data.ToArray();
         }
 
+        if (method == CryptMethod.AesGcm)
+        {
+            return DecryptGcm(data, out var authenticated)
+                ? authenticated!
+                : throw new PdfException(PdfError.Format, "AES-GCM data is too short or failed authentication, so it was not decrypted.");
+        }
+
         if (method == CryptMethod.Rc4)
         {
             var plain = data.ToArray();
             Rc4.Apply(ObjectKey(id, false, keyBuffer), plain);
+
+            // Dispose zeroes the file key, so a call that overlapped it must not return what it made from the zeroed key.
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
             return plain;
         }
 
@@ -383,6 +526,7 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <param name="id">The object.</param>
     /// <param name="data">The plain bytes.</param>
     /// <returns>The encrypted bytes.</returns>
+    /// <exception cref="PdfException">The method is AES-GCM and the data is over the size limit or the key has reached its encryption limit.</exception>
     private byte[] Encrypt(CryptMethod method, PdfObjectId id, ReadOnlySpan<byte> data)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
@@ -392,15 +536,81 @@ public sealed partial class PdfSecurityHandler : IDisposable
             return data.ToArray();
         }
 
+        if (method == CryptMethod.AesGcm)
+        {
+            return EncryptGcm(data);
+        }
+
         if (method == CryptMethod.Rc4)
         {
             var cipher = data.ToArray();
             Rc4.Apply(ObjectKey(id, false, keyBuffer), cipher);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
             return cipher;
         }
 
         return EncryptAes(method == CryptMethod.Aes256 ? _fileKey : ObjectKey(id, true, keyBuffer), data);
     }
+
+    /// <summary>Decrypts data, reporting AES-GCM data that fails authentication instead of throwing.</summary>
+    /// <param name="method">The method.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="data">The encrypted bytes.</param>
+    /// <param name="plain">The plain bytes when decryption succeeded.</param>
+    /// <returns><see langword="false"/> when AES-GCM data is too short or fails authentication.</returns>
+    private bool TryDecrypt(CryptMethod method, PdfObjectId id, ReadOnlySpan<byte> data, [NotNullWhen(true)] out byte[]? plain)
+    {
+        if (method != CryptMethod.AesGcm)
+        {
+            plain = Decrypt(method, id, data);
+            return true;
+        }
+
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        return DecryptGcm(data, out plain);
+    }
+
+    /// <summary>Authenticates and decrypts AES-GCM data with the file key.</summary>
+    /// <param name="data">The IV, cipher text and tag.</param>
+    /// <param name="plain">The plain bytes when authentication succeeded.</param>
+    /// <returns><see langword="false"/> when the data is too short or fails authentication.</returns>
+    private bool DecryptGcm(ReadOnlySpan<byte> data, [NotNullWhen(true)] out byte[]? plain)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed != 0, this);
+            return AesGcmCipher.TryDecrypt(Gcm(), data, out plain);
+        }
+    }
+
+    /// <summary>Encrypts with AES-GCM under a random 12-byte IV, counting the encryption against the key's limit.</summary>
+    /// <param name="data">The plain bytes.</param>
+    /// <returns>The IV, cipher text and tag.</returns>
+    /// <exception cref="PdfException">The data is over the size limit, or the key has reached its encryption limit.</exception>
+    private byte[] EncryptGcm(ReadOnlySpan<byte> data)
+    {
+        if (!AesGcmCipher.IsWithinSizeLimit(data.Length))
+        {
+            throw new PdfException(PdfError.Security, "A string or stream is too large to encrypt with AES-GCM; it must be split into smaller objects.");
+        }
+
+        if (!AesGcmCipher.TryCountEncryption(ref _gcmEncryptions))
+        {
+            throw new PdfException(PdfError.Security, "The AES-GCM key has encrypted as many objects as the standard allows; save the document with a new key.");
+        }
+
+        Span<byte> iv = stackalloc byte[AesGcmCipher.IvLength];
+        RandomNumberGenerator.Fill(iv);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed != 0, this);
+            return AesGcmCipher.Encrypt(Gcm(), data, iv);
+        }
+    }
+
+    /// <summary>Gets the AES-GCM instance keyed with the file key, creating it on first use. The caller holds <see cref="_gate"/>.</summary>
+    /// <returns>The cipher.</returns>
+    private AesGcm Gcm() => _gcm ??= new(_fileKey, AesGcmCipher.TagLength);
 
     /// <summary>Decrypts AES-CBC data whose first block is the IV, tolerating bad padding.</summary>
     /// <param name="key">The key.</param>
@@ -418,7 +628,7 @@ public sealed partial class PdfSecurityHandler : IDisposable
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed != 0, this);
-            _aes.Key = key.ToArray();
+            _aes.SetKey(key);
             try
             {
                 return _aes.DecryptCbc(body, data[..AesBlock]);
@@ -443,7 +653,7 @@ public sealed partial class PdfSecurityHandler : IDisposable
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed != 0, this);
-            _aes.Key = key.ToArray();
+            _aes.SetKey(key);
             var cipher = _aes.EncryptCbc(data, iv);
             var result = new byte[AesBlock + cipher.Length];
             iv.CopyTo(result);
@@ -474,6 +684,9 @@ public sealed partial class PdfSecurityHandler : IDisposable
         }
 
         _ = Md5.HashData(input[..length], destination);
+
+        // The input starts with the file key.
+        CryptographicOperations.ZeroMemory(input);
         return destination[..Math.Min(_fileKey.Length + ObjectSaltLength, Md5.HashLength)];
     }
 }

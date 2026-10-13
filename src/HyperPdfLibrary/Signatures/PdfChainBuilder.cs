@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
+using HyperPdf.Cms;
 
 namespace HyperPdfLibrary.Signatures;
 
@@ -22,6 +23,12 @@ internal static class PdfChainBuilder
     /// <returns>The chain result.</returns>
     internal static PdfChainResult Build(X509Certificate2 certificate, X509Certificate2Collection included, CmsContext context, DateTimeOffset at)
     {
+        if (!CmsChainSupport.CanBuild(certificate))
+        {
+            // This platform's chain engine cannot build a chain for the certificate, so it cannot be trusted here.
+            return new(false, X509ChainStatusFlags.PartialChain, [X509CertificateLoader.LoadCertificate(certificate.RawData)], PdfRevocationStatus.Unknown, at);
+        }
+
         using var chain = new X509Chain();
         Configure(chain.ChainPolicy, included, context, at);
         var trusted = chain.Build(certificate);

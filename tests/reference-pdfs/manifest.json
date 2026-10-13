@@ -251,6 +251,153 @@
         "pdfa-4f"
       ],
       "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-ua-headings",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_UA-1/7.4%20Headings/7.4.2%20Numbered%20headings/7.4.2-t01-pass-a.pdf",
+      "sha256": "9a1aac50a3e4a7add225665db9fcafbdc74dc5d8ec70884ce214fabdde306f10",
+      "bytes": 33080,
+      "tags": [
+        "tagged",
+        "pdfua",
+        "headings"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-ua-tables",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_UA-1/7.5%20Tables/7.5-t01-pass-a.pdf",
+      "sha256": "d91d6aeb4203b6852a20aebbb2d1399f72ad5527e7056a2577168a2fde60eb4f",
+      "bytes": 37174,
+      "tags": [
+        "tagged",
+        "pdfua",
+        "tables"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "verapdf-ua-notes",
+      "source": "veraPDF/veraPDF-corpus",
+      "url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/bb75f4f0073d9350dfd058c0162a367e6fadf25e/PDF_UA-1/7.9%20Notes%20and%20references/7.9-t01-pass-a.pdf",
+      "sha256": "0dc997836f20ee7069f95002b1b38a186d88d7d86eb5c8e8512ecc8d90e98a65",
+      "bytes": 44478,
+      "tags": [
+        "tagged",
+        "pdfua",
+        "footnotes"
+      ],
+      "licence": "CC BY 4.0: veraPDF Consortium test files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfjs-textfields",
+      "source": "mozilla/pdf.js",
+      "url": "https://raw.githubusercontent.com/mozilla/pdf.js/87a106c03447d05ab8d759d5f9fa888310a7299e/test/pdfs/textfields.pdf",
+      "sha256": "f05e613732fbd3013578322e84a83925e98ffe522d2868a1f41485deb5855788",
+      "bytes": 8854,
+      "tags": [
+        "forms",
+        "javascript"
+      ],
+      "licence": "Apache-2.0: pdf.js test file made by a pdf.js maintainer; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfjs-js-buttons",
+      "source": "mozilla/pdf.js",
+      "url": "https://raw.githubusercontent.com/mozilla/pdf.js/87a106c03447d05ab8d759d5f9fa888310a7299e/test/pdfs/js-buttons.pdf",
+      "sha256": "4679ee03ee84b48d8b67ba39975e946de49216ba744a729fa30ef8f32c3ea9ba",
+      "bytes": 29410,
+      "tags": [
+        "forms",
+        "javascript"
+      ],
+      "licence": "Apache-2.0: pdf.js test file made by a pdf.js maintainer, with embedded Minion Pro subsets; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfjs-annotation-attachment",
+      "source": "mozilla/pdf.js",
+      "url": "https://raw.githubusercontent.com/mozilla/pdf.js/87a106c03447d05ab8d759d5f9fa888310a7299e/test/pdfs/annotation-fileattachment.pdf",
+      "sha256": "b2f3751cd63e2402d95673f763e52fb105e6ce8e0b41406ca6d9965f5c894d43",
+      "bytes": 93322,
+      "tags": [
+        "annotations",
+        "attachments"
+      ],
+      "licence": "Apache-2.0: pdf.js test file made by a pdf.js maintainer, with an embedded Calibri subset; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pypdf-latex-forms",
+      "source": "py-pdf/sample-files",
+      "url": "https://raw.githubusercontent.com/py-pdf/sample-files/02b8203bf416db3dbdb03438bc8278dfcb0555f3/010-pdflatex-forms/pdflatex-forms.pdf",
+      "sha256": "fc6265298caafffeee9dd2d7f3ae2e53ab9f61ec0561369429d442f731d339da",
+      "bytes": 27712,
+      "tags": [
+        "latex",
+        "forms"
+      ],
+      "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pypdf-libreoffice-form",
+      "source": "py-pdf/sample-files",
+      "url": "https://raw.githubusercontent.com/py-pdf/sample-files/02b8203bf416db3dbdb03438bc8278dfcb0555f3/012-libreoffice-form/libreoffice-form.pdf",
+      "sha256": "9105eeef8c8cafdb141b7edd768a5e08adffe320d1d4f89e1a7112a2b37d1c57",
+      "bytes": 34186,
+      "tags": [
+        "office",
+        "libreoffice",
+        "forms"
+      ],
+      "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pypdf-outline",
+      "source": "py-pdf/sample-files",
+      "url": "https://raw.githubusercontent.com/py-pdf/sample-files/02b8203bf416db3dbdb03438bc8278dfcb0555f3/006-pdflatex-outline/pdflatex-outline.pdf",
+      "sha256": "17b5a4dac75613b82749c7538fc93991a385a5d419cc9832fdba24c1726a031a",
+      "bytes": 48722,
+      "tags": [
+        "latex",
+        "outline",
+        "links"
+      ],
+      "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pypdf-arabic",
+      "source": "py-pdf/sample-files",
+      "url": "https://raw.githubusercontent.com/py-pdf/sample-files/02b8203bf416db3dbdb03438bc8278dfcb0555f3/015-arabic/habibi.pdf",
+      "sha256": "1017c4559eb7d0ccf7d151a3f051c8c1da27a7c1dc8050b2b687e3d3228e1b6f",
+      "bytes": 14957,
+      "tags": [
+        "rtl",
+        "weasyprint"
+      ],
+      "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pypdf-annotations",
+      "source": "py-pdf/sample-files",
+      "url": "https://raw.githubusercontent.com/py-pdf/sample-files/02b8203bf416db3dbdb03438bc8278dfcb0555f3/024-annotations/annotated_pdf.pdf",
+      "sha256": "c327f921abfba23a5c42d5c429ba99ded1cf5511521003aba6d2aff9c940d9cc",
+      "bytes": 1833,
+      "tags": [
+        "annotations"
+      ],
+      "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pypdf-attachment",
+      "source": "py-pdf/sample-files",
+      "url": "https://raw.githubusercontent.com/py-pdf/sample-files/02b8203bf416db3dbdb03438bc8278dfcb0555f3/025-attachment/with-attachment.pdf",
+      "sha256": "1c7e5f3bb3bbf9a2424cac84f46b17e5b62af0719d63b445c280c76634b316ba",
+      "bytes": 24296,
+      "tags": [
+        "attachments"
+      ],
+      "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
     }
   ]
 }

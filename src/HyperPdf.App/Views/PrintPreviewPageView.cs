@@ -94,6 +94,18 @@ public sealed class PrintPreviewPageView : ReactiveUI.Avalonia.ReactiveUserContr
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
+    /// <summary>Draws a sheet into a bitmap.</summary>
+    /// <param name="bitmap">The bitmap.</param>
+    /// <param name="sheet">The sheet.</param>
+    /// <param name="pixels">The bitmap's size.</param>
+    private static unsafe void RenderSheet(WriteableBitmap bitmap, PrintPreviewPage sheet, PixelSize pixels)
+    {
+        using var buffer = bitmap.Lock();
+        var span = new Span<byte>((void*)buffer.Address, buffer.RowBytes * buffer.Size.Height);
+        var info = new PageRenderInfo(sheet.PageIndex, pixels.Width / sheet.Size.Width, PageRotation.None, 0, 0, RenderFlags.Annotations | RenderFlags.Printing);
+        _ = sheet.Document.Render(info, new(span, pixels.Width, pixels.Height, buffer.RowBytes));
+    }
+
     /// <summary>Prepares only the sheet this view currently displays.</summary>
     /// <param name="sheet">The visible sheet.</param>
     private void PrepareAndShow(PrintPreviewPage? sheet)
@@ -122,7 +134,7 @@ public sealed class PrintPreviewPageView : ReactiveUI.Avalonia.ReactiveUserContr
             await sheet.Document.PreparePageAsync(sheet.PageIndex, source.Token).ConfigureAwait(true);
             if (ReferenceEquals(_preparation, source) && ReferenceEquals(ViewModel, sheet))
             {
-                Show(sheet);
+                await ShowAsync(sheet, source).ConfigureAwait(true);
             }
         }
         catch (OperationCanceledException) when (source.IsCancellationRequested)
@@ -150,30 +162,49 @@ public sealed class PrintPreviewPageView : ReactiveUI.Avalonia.ReactiveUserContr
         _preparation = null;
     }
 
-    /// <summary>Renders a sheet as it will print: white paper, annotations included.</summary>
-    /// <param name="sheet">The sheet.</param>
-    private unsafe void Show(PrintPreviewPage? sheet)
+    /// <summary>Clears the sheet and its caption, ready for the next one.</summary>
+    /// <param name="sheet">The sheet being shown next, or <see langword="null"/>.</param>
+    private void Show(PrintPreviewPage? sheet)
     {
         ReleaseBitmap();
         _caption.Text = sheet?.Caption;
-        if (sheet is null || sheet.Document.IsDisposed || sheet.Size.Width <= 0 || sheet.Size.Height <= 0)
+    }
+
+    /// <summary>Renders a sheet as it will print, off the UI thread: white paper, annotations included.</summary>
+    /// <param name="sheet">The sheet.</param>
+    /// <param name="source">Cancels the rendering when the view changes or deactivates.</param>
+    /// <returns>A task completing once the sheet is shown or dropped.</returns>
+    private async Task ShowAsync(PrintPreviewPage sheet, CancellationTokenSource source)
+    {
+        Show(sheet);
+        if (sheet.Document.IsDisposed || sheet.Size.Width <= 0 || sheet.Size.Height <= 0)
         {
             return;
         }
 
-        var width = _image.Width;
-        var height = _image.Height;
         var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
-        var pixels = new PixelSize(Math.Max(1, (int)Math.Round(width * scaling)), Math.Max(1, (int)Math.Round(height * scaling)));
-        _bitmap = new(pixels, new(ScreenDpi * scaling, ScreenDpi * scaling), PixelFormat.Bgra8888, AlphaFormat.Premul);
-        using (var buffer = _bitmap.Lock())
+        var pixels = new PixelSize(Math.Max(1, (int)Math.Round(_image.Width * scaling)), Math.Max(1, (int)Math.Round(_image.Height * scaling)));
+
+        // The bitmap belongs to this call until it is shown, so a sheet change while it renders cannot dispose it mid-draw.
+        var bitmap = new WriteableBitmap(pixels, new(ScreenDpi * scaling, ScreenDpi * scaling), PixelFormat.Bgra8888, AlphaFormat.Premul);
+        try
         {
-            var span = new Span<byte>((void*)buffer.Address, buffer.RowBytes * buffer.Size.Height);
-            var info = new PageRenderInfo(sheet.PageIndex, pixels.Width / sheet.Size.Width, PageRotation.None, 0, 0, RenderFlags.Annotations | RenderFlags.Printing);
-            _ = sheet.Document.Render(info, new(span, pixels.Width, pixels.Height, buffer.RowBytes));
+            await Task.Run(() => RenderSheet(bitmap, sheet, pixels), source.Token).ConfigureAwait(true);
+        }
+        catch
+        {
+            bitmap.Dispose();
+            throw;
         }
 
-        _image.Source = _bitmap;
+        if (!ReferenceEquals(_preparation, source) || !ReferenceEquals(ViewModel, sheet))
+        {
+            bitmap.Dispose();
+            return;
+        }
+
+        _bitmap = bitmap;
+        _image.Source = bitmap;
     }
 
     /// <summary>Reserves the paper's size before the virtualising panel measures a recycled sheet.</summary>

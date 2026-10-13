@@ -19,7 +19,7 @@ namespace HyperPdf.App.ViewModels;
 /// is written to a temporary file and moved into place only once it is complete and meets the level.
 /// </summary>
 [DebuggerDisplay("ArchiveCopyViewModel: {FileName}")]
-public sealed partial class ArchiveCopyViewModel : ReactiveObject, IDisposable
+public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRequest
 {
     /// <summary>The ending of the temporary file the copy is written to.</summary>
     private const string TemporarySuffix = ".archiving";
@@ -202,9 +202,9 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, IDisposable
         {
             StatusText = "Cancelled. No file was saved.";
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (CopyFailure.IsExpected(ex))
         {
-            Error = $"Could not save the copy: {ex.Message}";
+            Error = $"Could not save the copy: {CopyFailure.Describe(ex)}";
             StatusText = "The copy was not saved.";
         }
         finally

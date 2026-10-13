@@ -179,7 +179,10 @@ public sealed class PrintPreviewWindowTests
                 _ = await UiWait.UntilAsync(() => list.GetVisualDescendants().OfType<PrintPreviewPageView>().Any(v => v.ViewModel == preview.Sheets[^1]));
                 await Assert.That(string.Join(", ", list.GetVisualDescendants().OfType<PrintPreviewPageView>().Select(static v => v.ViewModel?.Caption))).Contains(preview.Sheets[^1].Caption);
                 var last = list.GetVisualDescendants().OfType<PrintPreviewPageView>().Single(v => v.ViewModel == preview.Sheets[^1]);
-                await Assert.That(last.GetVisualDescendants().OfType<Image>().Single().Source).IsNotNull();
+                var lastImage = last.GetVisualDescendants().OfType<Image>().Single();
+
+                // The sheet is drawn off the UI thread, so its picture arrives a moment after the sheet is shown.
+                await Assert.That(await UiWait.UntilAsync(() => lastImage.Source is not null)).IsTrue();
                 extent ??= scroll.Extent.Height;
                 await Assert.That(scroll.Extent.Height).IsEqualTo(extent.Value);
             }

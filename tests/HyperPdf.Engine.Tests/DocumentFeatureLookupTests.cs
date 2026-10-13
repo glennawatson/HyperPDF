@@ -37,16 +37,16 @@ public sealed class DocumentFeatureLookupTests
         }
 
         var mismatches = 0;
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var index = 0; index < Measured; index++)
+        var allocated = AllocationProbe.Minimum(() =>
         {
-            if (!ReferenceEquals(first, DocumentFeature<IAnnotationEditor>.Get(pair.Document)))
+            for (var index = 0; index < Measured; index++)
             {
-                mismatches++;
+                if (!ReferenceEquals(first, DocumentFeature<IAnnotationEditor>.Get(pair.Document)))
+                {
+                    mismatches++;
+                }
             }
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        });
         await Assert.That(first).IsNotNull();
         await Assert.That(mismatches).IsEqualTo(0);
         await Assert.That(allocated).IsEqualTo(0L);

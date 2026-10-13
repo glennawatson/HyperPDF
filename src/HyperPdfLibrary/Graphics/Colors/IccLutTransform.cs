@@ -14,7 +14,7 @@ namespace HyperPdfLibrary.Graphics.Colors;
 /// profile's pipeline runs once per grid node to build a table of sRGB values; pixels then interpolate in that table, with
 /// no allocation. The table is built on first use and shared by every thread.
 /// </summary>
-[DebuggerDisplay("IccLutTransform: {Components} components, {_intent}")]
+[DebuggerDisplay("IccLutTransform: {Components} components, {_rendering}")]
 internal sealed class IccLutTransform : IccTransform
 {
     /// <summary>The channels of an RGB grid.</summary>
@@ -62,8 +62,8 @@ internal sealed class IccLutTransform : IccTransform
     /// <summary>The map that moves the profile's black point to the sRGB black point, or <see langword="null"/>.</summary>
     private readonly BlackPointCompensation? _compensation;
 
-    /// <summary>The intent this transform serves.</summary>
-    private readonly IccIntent _intent;
+    /// <summary>The rendering this transform serves.</summary>
+    private readonly IccRendering _rendering;
 
     /// <summary>Guards building the grid.</summary>
     private readonly Lock _gate = new();
@@ -75,13 +75,13 @@ internal sealed class IccLutTransform : IccTransform
     /// <param name="profile">The profile.</param>
     /// <param name="pipeline">The pipeline of the intent's tag.</param>
     /// <param name="compensation">The black point compensation, or <see langword="null"/>.</param>
-    /// <param name="intent">The rendering intent.</param>
-    internal IccLutTransform(IccLutProfile profile, IccPipeline pipeline, BlackPointCompensation? compensation, IccIntent intent)
+    /// <param name="rendering">The rendering intent and black point choice.</param>
+    internal IccLutTransform(IccLutProfile profile, IccPipeline pipeline, BlackPointCompensation? compensation, IccRendering rendering)
     {
         _profile = profile;
         _pipeline = pipeline;
         _compensation = compensation;
-        _intent = intent;
+        _rendering = rendering;
     }
 
     /// <inheritdoc/>
@@ -96,7 +96,7 @@ internal sealed class IccLutTransform : IccTransform
         : null;
 
     /// <inheritdoc/>
-    internal override IccTransform ForIntent(IccIntent intent) => intent == _intent ? this : _profile.Get(intent);
+    internal override IccTransform ForRendering(IccRendering rendering) => rendering == _rendering ? this : _profile.Get(rendering);
 
     /// <inheritdoc/>
     internal override void ToRgb(ReadOnlySpan<float> components, Span<float> rgb)

@@ -1598,4 +1598,13 @@ public enum KnownName
 
     /// <summary>The <c>/BrotliDecode</c> name.</summary>
     BrotliDecode = 529,
+
+    /// <summary>The <c>/LastModified</c> name.</summary>
+    LastModified = 530,
+
+    /// <summary>The <c>/AnnotStates</c> name.</summary>
+    AnnotStates = 531,
+
+    /// <summary>The <c>/AESV4</c> name.</summary>
+    AESV4 = 532,
 }

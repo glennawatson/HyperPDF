@@ -4,7 +4,7 @@
 
 namespace HyperPdfLibrary.Text;
 
-/// <summary>Where a character of a text page came from, matching PDFium's character types.</summary>
+/// <summary>Where a character of a text page came from.</summary>
 public enum PdfTextCharKind
 {
     /// <summary>A glyph shown by the content with a known Unicode value.</summary>
@@ -13,15 +13,15 @@ public enum PdfTextCharKind
     /// <summary>A space or line break the extractor inserted between glyphs.</summary>
     Generated = 1,
 
-    /// <summary>A glyph whose font gives no Unicode value; the character code stands in for it.</summary>
+    /// <summary>A glyph whose font gives no Unicode value; the character code stands in for it and the page text leaves it out.</summary>
     NotUnicode = 2,
 
-    /// <summary>A hyphen at the end of a line that joins a word broken across lines.</summary>
+    /// <summary>A hyphen at the end of a line that splits a word; the page text leaves it out, so the word reads whole.</summary>
     Hyphen = 3,
 
-    /// <summary>One character of a glyph's decomposed text, such as a ligature or right-to-left presentation form.</summary>
+    /// <summary>One character of a glyph's decomposed text, such as a ligature or an Arabic contextual form.</summary>
     Piece = 4,
 
-    /// <summary>A character of a marked content span's /ActualText, which replaces the span's glyphs.</summary>
+    /// <summary>A character of a marked content span's /ActualText, which replaces the span's glyphs (ISO 32000-2, 14.9.4).</summary>
     ActualText = 5,
 }
