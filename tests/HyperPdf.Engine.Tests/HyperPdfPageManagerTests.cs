@@ -292,7 +292,9 @@ public sealed class HyperPdfPageManagerTests
         var readers = new Task[ReaderCount];
         for (var index = 0; index < readers.Length; index++)
         {
-            readers[index] = Task.Run(() => ReadWhileEditing(document, progress, failures, () => Volatile.Read(ref running) != 0, timeout.Token), timeout.Token);
+            // The readers loop until the writer finishes, so they run on their own threads and never starve the writer's continuations.
+            var job = new ReadJob(document, progress, failures, () => Volatile.Read(ref running) != 0, timeout.Token);
+            readers[index] = DedicatedThread.Run(job, ReadWhileEditing, timeout.Token);
         }
 
         try
@@ -320,13 +322,10 @@ public sealed class HyperPdfPageManagerTests
     }
 
     /// <summary>Reads text, links, annotations and pixels until the writer completes, recording the first failure.</summary>
-    /// <param name="document">The shared adapter.</param>
-    /// <param name="progress">Signals a completed read round.</param>
-    /// <param name="failures">Receives actual exceptions.</param>
-    /// <param name="keepReading">Whether the edit loop is still running.</param>
-    /// <param name="cancellationToken">Bounds the loop.</param>
-    private static void ReadWhileEditing(HyperPdfDocument document, SemaphoreSlim progress, ConcurrentQueue<string> failures, Func<bool> keepReading, CancellationToken cancellationToken)
+    /// <param name="job">The shared adapter and what signals, reports and bounds the loop.</param>
+    private static void ReadWhileEditing(ReadJob job)
     {
+        var (document, progress, failures, keepReading, cancellationToken) = job;
         var pixels = new byte[RenderEdge * RenderEdge * PixelBytes];
         var annotations = new List<PageAnnotation>();
         var info = new PageRenderInfo(LastPage, 1, PageRotation.None, 0, 0, RenderFlags.None);
@@ -402,4 +401,12 @@ public sealed class HyperPdfPageManagerTests
     /// <param name="document">The edited adapter.</param>
     /// <returns>The comma-separated page text.</returns>
     private static string Texts(HyperPdfDocument document) => string.Join(',', EditingTestDocuments.PageTexts(document.Document));
+
+    /// <summary>What one reading thread reads and reports to.</summary>
+    /// <param name="Document">The shared adapter.</param>
+    /// <param name="Progress">Signals a completed read round.</param>
+    /// <param name="Failures">Receives actual exceptions.</param>
+    /// <param name="KeepReading">Whether the edit loop is still running.</param>
+    /// <param name="CancellationToken">Bounds the loop.</param>
+    private sealed record ReadJob(HyperPdfDocument Document, SemaphoreSlim Progress, ConcurrentQueue<string> Failures, Func<bool> KeepReading, CancellationToken CancellationToken);
 }
