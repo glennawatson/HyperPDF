@@ -265,8 +265,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
-### System.Formats.Asn1
-- Version: 11.0.0-rc.1.26425.128
+### System.Security.Cryptography.Pkcs
+- Version: 10.0.13
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -296,7 +296,7 @@ SOFTWARE.
 ````
 
 ### System.Security.Cryptography.Pkcs
-- Version: 11.0.0-rc.1.26425.128
+- Version: 11.0.0-rc.2.26504.105
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
