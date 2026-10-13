@@ -10,6 +10,8 @@ using HyperPdf.Core.Ocr;
 using HyperPdf.Core.Text;
 using HyperPdf.Core.Text.Fonts;
 using HyperPdfLibrary.Annotations;
+using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.TextLayer;
 namespace HyperPdf.Engine;
@@ -34,7 +36,7 @@ internal static class HyperPdfAnnotationTextLayer
                 return 0;
             }
 
-            var fonts = new TextLayerFonts(annotationState.Store, annotationState.Catalog ?? FontCatalog.System, annotationState.FontState);
+            var fonts = new TextLayerFonts(annotationState.Store, annotationState.Catalog ?? FontCatalog.System, annotationState.LazyFontState);
             var layer = ArrayPool<PdfTextLayerWord>.Shared.Rent(words.Length);
             try
             {
@@ -44,7 +46,7 @@ internal static class HyperPdfAnnotationTextLayer
                     return 0;
                 }
 
-                var written = PdfTextLayer.Append(annotationState.Store, page, layer.AsSpan(0, count), fonts.Build());
+                var written = fonts.Append(page, layer.AsSpan(0, count));
                 _ = HyperPdfAnnotationReading.Changed(annotationState, pageIndex, written > 0);
                 return written;
             }
@@ -58,12 +60,12 @@ internal static class HyperPdfAnnotationTextLayer
     /// <summary>The fonts one text layer is written in: the built in font, and a subset of each installed font its other words need.</summary>
     /// <param name="store">The document.</param>
     /// <param name="catalog">The installed fonts.</param>
-    /// <param name="fontState">The viewer engine's reusable font state.</param>
-    [DebuggerDisplay("TextLayerFonts: {_groups.Count} embedded")]
-    private sealed class TextLayerFonts(PdfObjectStore store, FontCatalog catalog, TextBoxFontState fontState)
+    /// <param name="fontState">The viewer engine's reusable font state, built only when an installed font is needed.</param>
+    [DebuggerDisplay("TextLayerFonts: {_groups} embedded")]
+    private struct TextLayerFonts(PdfObjectStore store, FontCatalog catalog, Lazy<TextBoxFontState> fontState)
     {
-        /// <summary>The installed fonts needed, by font program.</summary>
-        private readonly Dictionary<FontProgram, Group> _groups = [];
+        /// <summary>The installed fonts needed, by font program; made when the first word needs one, since most text only needs the built in font.</summary>
+        private Dictionary<FontProgram, Group>? _groups;
 
         /// <summary>Converts the words to the writer's form, choosing each word's font.</summary>
         /// <param name="words">The recognised words.</param>
@@ -94,19 +96,29 @@ internal static class HyperPdfAnnotationTextLayer
             return count;
         }
 
-        /// <summary>Embeds the installed fonts needed and lists every font by index.</summary>
-        /// <returns>The fonts; a font that cannot be embedded is replaced by the built in one, which skips its words.</returns>
-        internal IPdfTextLayerFont[] Build()
+        /// <summary>Embeds the installed fonts needed and writes the words with every font listed by index.</summary>
+        /// <param name="page">The page.</param>
+        /// <param name="words">The words to place.</param>
+        /// <returns>The number of words written. A font that cannot be embedded is replaced by the built in one, which skips its words.</returns>
+        internal readonly int Append(PdfPage page, ReadOnlySpan<PdfTextLayerWord> words)
         {
             var standard = new PdfStandardTextLayerFont(store, AppearanceFont.Helvetica);
-            var fonts = new IPdfTextLayerFont[_groups.Count + 1];
-            fonts[HyperPdfAnnotationTextLayer.StandardFont] = standard;
-            foreach (var group in _groups.Values)
+            if (_groups is null)
             {
-                fonts[group.Index + 1] = (IPdfTextLayerFont?)group.Embed(store) ?? standard;
+                // Words in the built in font alone need a list of one font, which stays on the stack.
+                return PdfTextLayer.Append(store, page, words, [standard]);
             }
 
-            return fonts;
+            var fonts = new IPdfTextLayerFont[_groups.Count + 1];
+            fonts[HyperPdfAnnotationTextLayer.StandardFont] = standard;
+
+            // Pairs rather than the values collection, so no collection object is made to walk them.
+            foreach (var (_, group) in _groups)
+            {
+                fonts[group.Index + 1] = (IPdfTextLayerFont?)group.Embed(store, fontState.Value) ?? standard;
+            }
+
+            return PdfTextLayer.Append(store, page, words, fonts);
         }
 
         /// <summary>Chooses the font for a word, noting the characters an installed font must hold.</summary>
@@ -119,15 +131,16 @@ internal static class HyperPdfAnnotationTextLayer
                 return HyperPdfAnnotationTextLayer.StandardFont;
             }
 
-            if (TextBoxFonts.Resolve(fontState, catalog, TextFormat.Default, text) is not { Program: { } program })
+            if (TextBoxFonts.Resolve(fontState.Value, catalog, TextFormat.Default, text) is not { Program: { } program })
             {
                 return -1;
             }
 
-            ref var slot = ref CollectionsMarshal.GetValueRefOrAddDefault(_groups, program, out var exists);
+            var groups = _groups ??= [];
+            ref var slot = ref CollectionsMarshal.GetValueRefOrAddDefault(groups, program, out var exists);
             if (!exists)
             {
-                slot = new(program, _groups.Count - 1);
+                slot = new(program, groups.Count - 1);
             }
 
             var group = slot!;
@@ -139,7 +152,6 @@ internal static class HyperPdfAnnotationTextLayer
                     continue;
                 }
 
-                _ = group.Glyphs.Add(glyph);
                 group.GlyphByRune[rune.Value] = glyph;
             }
 
@@ -150,50 +162,45 @@ internal static class HyperPdfAnnotationTextLayer
     /// <summary>The characters one installed font must show.</summary>
     /// <param name="Program">The font.</param>
     /// <param name="Index">Its place among the embedded fonts, from zero.</param>
-    [DebuggerDisplay("Group: {Program.Face.Family} ({Glyphs.Count} glyphs)")]
+    [DebuggerDisplay("Group: {Program.Face.Family} ({GlyphByRune.Count} characters)")]
     private sealed record Group(FontProgram Program, int Index)
     {
-        /// <summary>Gets the glyphs used, always with the missing-glyph slot.</summary>
-        internal HashSet<ushort> Glyphs { get; } = [0];
-
         /// <summary>Gets the glyph of each character.</summary>
         internal Dictionary<int, ushort> GlyphByRune { get; } = [];
 
         /// <summary>Embeds a subset of the font holding the characters, with a text map.</summary>
         /// <param name="documentStore">The document.</param>
+        /// <param name="fontState">The viewer engine's reusable font state.</param>
         /// <returns>The font, or <see langword="null"/> when the font cannot be embedded.</returns>
-        internal PdfCodedTextLayerFont? Embed(PdfObjectStore documentStore)
+        internal PdfCodedTextLayerFont? Embed(PdfObjectStore documentStore, TextBoxFontState fontState)
         {
-            if (FontSubsetter.Create(Program, Glyphs) is not { } subset)
+            if (fontState.GetSource(Program).Source is not { } source)
             {
                 return null;
             }
 
-            var widths = new float[subset.GlyphCount];
-            var texts = new string?[subset.GlyphCount];
-            for (var code = 0; code < widths.Length; code++)
-            {
-                widths[code] = Program.Advance(subset.Original[code]) * HyperPdfAnnotationTextBoxes.Thousand / Program.UnitsPerEm;
-            }
-
+            var embedded = PdfEmbeddedFont.Create(documentStore, source);
             var codes = new Dictionary<int, ushort>(GlyphByRune.Count);
             foreach (var (rune, glyph) in GlyphByRune)
             {
-                var code = subset.Map(glyph);
-                codes[rune] = code;
-                texts[code] ??= char.ConvertFromUtf32(rune);
+                embedded.Register(char.ConvertFromUtf32(rune), [new PdfShapedGlyph(glyph, 0, 0, 0, 0)]);
+                codes[rune] = (ushort)embedded.GetCode(glyph);
             }
 
-            var name = HyperPdfAnnotationTextBoxes.SubsetTag() + Program.Face.Family.Replace(" ", string.Empty, StringComparison.Ordinal);
-            var box = new PdfRectangle(0, Program.Descent * HyperPdfAnnotationTextBoxes.Thousand, HyperPdfAnnotationTextBoxes.Thousand, Program.Ascent * HyperPdfAnnotationTextBoxes.Thousand);
-            var info = new PdfTrueTypeFontInfo(name, subset.Data, widths, PdfToUnicodeMaps.Write(texts), box)
+            embedded.Finish();
+            var last = 0;
+            foreach (var code in codes.Values)
             {
-                Ascent = Program.Ascent * HyperPdfAnnotationTextBoxes.Thousand,
-                Descent = Program.Descent * HyperPdfAnnotationTextBoxes.Thousand,
-                CapHeight = Program.Ascent * HyperPdfAnnotationTextBoxes.Thousand,
-            };
-            var resource = PdfValue.FromReference(PdfEmbeddedFonts.AddTrueTypeFont(documentStore, info));
-            return new(resource, codes, widths, Program.Ascent, Math.Abs(Program.Descent));
+                last = Math.Max(last, code);
+            }
+
+            var widths = new float[last + 1];
+            foreach (var (rune, glyph) in GlyphByRune)
+            {
+                widths[codes[rune]] = MathF.Round(source.GetAdvance(glyph));
+            }
+
+            return new(embedded.Resource, codes, widths, Program.Ascent, Math.Abs(Program.Descent));
         }
     }
 }

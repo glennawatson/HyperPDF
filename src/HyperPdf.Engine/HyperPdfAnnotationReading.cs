@@ -166,8 +166,7 @@ internal static class HyperPdfAnnotationReading
     {
         lock (annotationState.Gate)
         {
-            annotationState.Cache.Clear();
-            annotationState.PagesWithRemoved.Clear();
+            annotationState.ForgetPages();
             for (var pageIndex = 0; pageIndex < annotationState.Document.PageCount; pageIndex++)
             {
                 if (GetPage(annotationState, pageIndex) is not { } page || PdfPageAnnotations.GetArray(annotationState.Store, page) is not { } annotations)
@@ -194,14 +193,14 @@ internal static class HyperPdfAnnotationReading
     /// <param name="point">The point in page space.</param>
     /// <returns>The point in user space.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Vector2 ToUser(PdfPage page, PagePoint point) => page.ToUser(new(point.X, point.Y));
+    internal static Vector2 ToUser(PdfPage page, PagePoint point) => page.FromPhysical(new(point.X, point.Y));
 
     /// <summary>Converts a user space rectangle to page space.</summary>
     /// <param name="page">The page.</param>
     /// <param name="rectangle">The rectangle.</param>
-    /// <returns>The page rectangle.</returns>
+    /// <returns>The page rectangle, in physical points.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static PageRect ToPageRect(PdfPage page, PdfRectangle rectangle) => LinkTargets.ToPageRect(page.ToViewerRectangle(rectangle));
+    internal static PageRect ToPageRect(PdfPage page, PdfRectangle rectangle) => LinkTargets.ToPageRect(page.ToPhysicalRectangle(rectangle));
 
     /// <summary>Converts a page rectangle to user space.</summary>
     /// <param name="page">The page.</param>
@@ -256,8 +255,8 @@ internal static class HyperPdfAnnotationReading
                 PdfAnnotations.GetText(annotation, KnownName.Contents),
                 PdfAnnotations.GetText(annotation, KnownName.T))
             {
-                LineWidth = PdfAnnotations.GetBorderWidth(annotation),
-                FontSize = PdfAnnotations.GetNumberText(annotation, annotationState.Names.FontSize),
+                LineWidth = PdfAnnotations.GetBorderWidth(annotation) * page.UserUnit,
+                FontSize = PdfAnnotations.GetNumberText(annotation, annotationState.Names.FontSize) * page.UserUnit,
                 Modified = PdfAnnotations.GetDate(annotation, KnownName.M),
             });
         }
@@ -351,7 +350,7 @@ internal static class HyperPdfAnnotationReading
     {
         if (changed)
         {
-            _ = annotationState.Cache.Remove(pageIndex);
+            annotationState.ForgetPage(pageIndex);
             _ = Interlocked.Increment(ref annotationState.UnsavedChanges);
         }
 

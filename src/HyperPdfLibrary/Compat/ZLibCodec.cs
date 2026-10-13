@@ -6,13 +6,14 @@ using System.Buffers;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Compat;
 
 /// <summary>
 /// Compresses and decompresses zlib and raw deflate data through the best API each runtime has. On .NET 11 the span-based <c>ZLibDecoder</c>,
-/// <c>DeflateDecoder</c> and <c>ZLibEncoder</c> run straight over the input with no stream objects. Each decode owns its
-/// decoder until it finishes. On .NET 10 the same calls use <see cref="ZLibStream"/> and <see cref="DeflateStream"/>.
+/// <c>DeflateDecoder</c> and <c>ZLibEncoder</c> run straight over the input with no stream objects. Each decode leases an
+/// idle decoder from a shared pool until it finishes. On .NET 10 the same calls use <see cref="ZLibStream"/> and <see cref="DeflateStream"/>.
 /// </summary>
 internal static class ZLibCodec
 {
@@ -20,8 +21,14 @@ internal static class ZLibCodec
     private const int ExpectedRatio = 4;
 
 #if NET11_0_OR_GREATER
-    /// <summary>The compression level used when writing: zlib's default balance of size and speed.</summary>
-    private const int WriteQuality = 6;
+    /// <summary>The zlib level of <see cref="PdfCompressionLevel.Balanced"/>: zlib's default balance of size and speed.</summary>
+    private const int BalancedQuality = 6;
+
+    /// <summary>The zlib level of <see cref="PdfCompressionLevel.Fastest"/>.</summary>
+    private const int FastestQuality = 1;
+
+    /// <summary>The zlib level of <see cref="PdfCompressionLevel.Smallest"/>.</summary>
+    private const int SmallestQuality = 9;
 
     /// <summary>The window size used when writing, as a power of two.</summary>
     private const int WriteWindowLog2 = 15;
@@ -33,24 +40,13 @@ internal static class ZLibCodec
     /// <param name="output">The buffer receiving the decoded bytes.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see langword="true"/> when the data ended cleanly; <see langword="false"/> when it was truncated or damaged and the part before the fault was kept.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool Decompress(ReadOnlySpan<byte> input, bool raw, ref PooledBuffer output, CancellationToken cancellationToken = default) =>
-        Decompress(input, raw, ref output, null, cancellationToken);
-
-    /// <summary>Decompresses with a decoder exclusively leased from its owner, if one was supplied.</summary>
-    /// <param name="input">The compressed bytes.</param>
-    /// <param name="raw">Whether the data is raw deflate.</param>
-    /// <param name="output">The decoded bytes.</param>
-    /// <param name="decoders">The document-owned decoder state, or null for a standalone decode.</param>
-    /// <param name="cancellationToken">Cancels this operation.</param>
-    /// <returns>Whether the data ended cleanly.</returns>
-    internal static bool Decompress(ReadOnlySpan<byte> input, bool raw, ref PooledBuffer output, FlateDecoderState? decoders, CancellationToken cancellationToken)
+    internal static bool Decompress(ReadOnlySpan<byte> input, bool raw, ref PooledBuffer output, CancellationToken cancellationToken = default)
     {
         var hint = (int)Math.Min(PdfLimits.MaxDecodedLength, (long)input.Length * ExpectedRatio);
 #if NET11_0_OR_GREATER
         if (raw)
         {
-            var deflate = decoders?.RentDeflate() ?? new DeflateDecoder();
+            var deflate = FlateDecoderPool.RentDeflate();
             try
             {
                 deflate.Reset();
@@ -58,18 +54,11 @@ internal static class ZLibCodec
             }
             finally
             {
-                if (decoders is null)
-                {
-                    deflate.Dispose();
-                }
-                else
-                {
-                    decoders.Return(deflate);
-                }
+                FlateDecoderPool.Return(deflate);
             }
         }
 
-        var zlib = decoders?.RentZlib() ?? new ZLibDecoder();
+        var zlib = FlateDecoderPool.RentZlib();
         try
         {
             zlib.Reset();
@@ -77,14 +66,7 @@ internal static class ZLibCodec
         }
         finally
         {
-            if (decoders is null)
-            {
-                zlib.Dispose();
-            }
-            else
-            {
-                decoders.Return(zlib);
-            }
+            FlateDecoderPool.Return(zlib);
         }
 #else
         return DecompressStream(input, raw, hint, ref output, cancellationToken);
@@ -94,16 +76,23 @@ internal static class ZLibCodec
     /// <summary>Compresses data as zlib.</summary>
     /// <param name="input">The bytes.</param>
     /// <param name="output">The buffer receiving the compressed bytes.</param>
-    internal static void Compress(ReadOnlySpan<byte> input, ref PooledBuffer output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Compress(ReadOnlySpan<byte> input, ref PooledBuffer output) => Compress(input, PdfCompressionLevel.Balanced, ref output);
+
+    /// <summary>Compresses data as zlib at a level.</summary>
+    /// <param name="input">The bytes.</param>
+    /// <param name="level">The level.</param>
+    /// <param name="output">The buffer receiving the compressed bytes.</param>
+    internal static void Compress(ReadOnlySpan<byte> input, PdfCompressionLevel level, ref PooledBuffer output)
     {
 #if NET11_0_OR_GREATER
-        using var encoder = new ZLibEncoder(WriteQuality, WriteWindowLog2);
+        using var encoder = new ZLibEncoder(Quality(level), WriteWindowLog2);
         var max = (int)Math.Min(int.MaxValue, ZLibEncoder.GetMaxCompressedLength(input.Length));
         _ = encoder.Compress(input, output.GetSpan(max), out _, out var written, isFinalBlock: true);
         output.Advance(written);
 #else
         using var stream = new MemoryStream();
-        using (var zlib = new ZLibStream(stream, CompressionLevel.Optimal, leaveOpen: true))
+        using (var zlib = new ZLibStream(stream, StreamLevel(level), leaveOpen: true))
         {
             zlib.Write(input);
         }
@@ -113,6 +102,16 @@ internal static class ZLibCodec
     }
 
 #if NET11_0_OR_GREATER
+    /// <summary>Gets the zlib level of a compression level.</summary>
+    /// <param name="level">The level.</param>
+    /// <returns>The zlib level, 1 to 9.</returns>
+    private static int Quality(PdfCompressionLevel level) => level switch
+    {
+        PdfCompressionLevel.Fastest => FastestQuality,
+        PdfCompressionLevel.Smallest => SmallestQuality,
+        _ => BalancedQuality,
+    };
+
     /// <summary>Decompresses raw deflate with one exclusively leased decoder.</summary>
     /// <param name="input">The compressed bytes.</param>
     /// <param name="output">The decoded bytes.</param>
@@ -177,6 +176,16 @@ internal static class ZLibCodec
         return status;
     }
 #else
+    /// <summary>Gets the stream level of a compression level.</summary>
+    /// <param name="level">The level.</param>
+    /// <returns>The level <see cref="ZLibStream"/> takes.</returns>
+    private static CompressionLevel StreamLevel(PdfCompressionLevel level) => level switch
+    {
+        PdfCompressionLevel.Fastest => CompressionLevel.Fastest,
+        PdfCompressionLevel.Smallest => CompressionLevel.SmallestSize,
+        _ => CompressionLevel.Optimal,
+    };
+
     /// <summary>Decompresses with <see cref="ZLibStream"/> or <see cref="DeflateStream"/>.</summary>
     /// <param name="input">The compressed bytes.</param>
     /// <param name="raw">Whether the data is raw deflate.</param>

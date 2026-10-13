@@ -45,11 +45,14 @@ public sealed class AnnotationRenderTests
     /// <summary>The last device row, at two times scale, searched for the squiggle.</summary>
     private const int SquiggleBottom = 122;
 
-    /// <summary>The device column inside the note icon's body and clear of its lines.</summary>
-    private const int NoteColumn = 11;
+    /// <summary>Content that paints a green square.</summary>
+    private const string GreenSquare = "0 1 0 rg 0 0 10 10 re f";
 
-    /// <summary>The device row inside the note icon's body.</summary>
-    private const int NoteRow = 80;
+    /// <summary>The device column inside the note icon's body and clear of its lines.</summary>
+    private const int NoteColumn = 20;
+
+    /// <summary>The device row inside the note icon's body, above its first line; the icon sits at the upper left of /Rect.</summary>
+    private const int NoteRow = 42;
 
     /// <summary>The device row inside the polygon.</summary>
     private const int PolygonRow = 60;
@@ -189,7 +192,7 @@ public sealed class AnnotationRenderTests
         await RenderCheck.Near(image, Middle, Middle, Rgb.Red255, Tolerance, nameof(InkStrokesItsPaths));
     }
 
-    /// <summary>A Text annotation draws PDFium's yellow note icon at the bottom-left of its rectangle.</summary>
+    /// <summary>A Text annotation draws a yellow note icon at the upper-left of its rectangle (ISO 32000-2 12.5.3, 12.5.6.4).</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task TextAnnotationDrawsANoteIcon()
@@ -274,7 +277,7 @@ public sealed class AnnotationRenderTests
         var pdf = new RenderTestPdf(Size, Size) { Content = "/OC /L1 BDC 1 0 0 rg 0 0 100 100 re f EMC" };
         var layer = pdf.AddObject("<< /Type /OCG /Name (Screen only) /Usage << /Print << /PrintState /OFF >> >> >>");
         pdf.Resources = $"/Properties << /L1 {layer} 0 R >>";
-        pdf.CatalogEntries = $"/OCProperties << /OCGs [{layer} 0 R] /D << >> >>";
+        pdf.CatalogEntries = $"/OCProperties << /OCGs [{layer} 0 R] /D << /AS [<< /Event /Print /Category [/Print] /OCGs [{layer} 0 R] >>] >> >>";
         using var page = new RenderTestPage(pdf.ToBytes());
 
         var screen = page.RenderPage(1, 0, PdfRenderFlags.None);
@@ -290,7 +293,7 @@ public sealed class AnnotationRenderTests
     public async Task MissingAppearanceStateFallsBackToTheValue()
     {
         var pdf = new RenderTestPdf(Size, Size);
-        var on = pdf.AddStream(SmallForm, "0 1 0 rg 0 0 10 10 re f");
+        var on = pdf.AddStream(SmallForm, GreenSquare);
         var off = pdf.AddStream(SmallForm, "1 0 0 rg 0 0 10 10 re f");
         var annotation = pdf.AddObject($"<< /Type /Annot /Subtype /Widget /FT /Btn /T (c) /V /Yes /Rect [20 20 80 80] /AP << /N << /Yes {on} 0 R /Off {off} 0 R >> >> >>");
         pdf.PageEntries = $"/Annots [{annotation} 0 R]";
@@ -340,21 +343,29 @@ public sealed class AnnotationRenderTests
         }
     }
 
-    /// <summary>Widgets are drawn after the other annotations, whatever their order in /Annots, as PDFium draws them.</summary>
+    /// <summary>Annotations are drawn in /Annots order, widgets included, so the last one listed is on top (ISO 32000-2 11.2).</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task WidgetsAreDrawnLast()
+    public async Task AnnotationsAreDrawnInAnnotsOrder()
     {
         var pdf = new RenderTestPdf(Size, Size);
-        var green = pdf.AddStream(SmallForm, "0 1 0 rg 0 0 10 10 re f");
+        var green = pdf.AddStream(SmallForm, GreenSquare);
         var widget = pdf.AddObject($"<< /Type /Annot /Subtype /Widget /Rect [20 20 80 80] /AP << /N {green} 0 R >> >>");
         var square = pdf.AddObject($"<< /Type /Annot {Square} >>");
         pdf.PageEntries = $"/Annots [{widget} 0 R {square} 0 R]";
         using var page = new RenderTestPage(pdf.ToBytes());
+        var squareOnTop = page.RenderPage(1, 0, PdfRenderFlags.Annotations);
 
-        var image = page.RenderPage(1, 0, PdfRenderFlags.Annotations);
+        var reversed = new RenderTestPdf(Size, Size);
+        var greenAgain = reversed.AddStream(SmallForm, GreenSquare);
+        var widgetAgain = reversed.AddObject($"<< /Type /Annot /Subtype /Widget /Rect [20 20 80 80] /AP << /N {greenAgain} 0 R >> >>");
+        var squareAgain = reversed.AddObject($"<< /Type /Annot {Square} >>");
+        reversed.PageEntries = $"/Annots [{squareAgain} 0 R {widgetAgain} 0 R]";
+        using var reversedPage = new RenderTestPage(reversed.ToBytes());
+        var widgetOnTop = reversedPage.RenderPage(1, 0, PdfRenderFlags.Annotations);
 
-        await RenderCheck.Near(image, Middle, Middle, Rgb.Green255, Tolerance, nameof(WidgetsAreDrawnLast));
+        await RenderCheck.Near(squareOnTop, Middle, Middle, Rgb.Red255, Tolerance, nameof(AnnotationsAreDrawnInAnnotsOrder));
+        await RenderCheck.Near(widgetOnTop, Middle, Middle, Rgb.Green255, Tolerance, nameof(AnnotationsAreDrawnInAnnotsOrder));
     }
 
     /// <summary>Renders a page with one annotation.</summary>

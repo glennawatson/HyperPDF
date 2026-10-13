@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 using HyperPdfLibrary.IO;
+using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Signatures;
 using HyperPdfLibrary.Structure;
 using HyperPdfLibrary.Syntax;
@@ -41,8 +42,8 @@ public static class StoreRevisions
     }
 
     /// <summary>
-    /// Opens the objects of an earlier revision: the file cut at <paramref name = "length"/>. The copy shares this store's
-    /// security handler, so it must not be disposed; it owns nothing else.
+    /// Opens the objects of an earlier revision: the file cut at <paramref name = "length"/>. The copy borrows this store's
+    /// security handler, so disposing the copy leaves the handler open; it owns nothing else.
     /// </summary>
     /// <param name = "self">The owned object-store state.</param>
     /// <param name = "length">The length of the earlier revision.</param>
@@ -53,18 +54,44 @@ public static class StoreRevisions
         ArgumentOutOfRangeException.ThrowIfNegative(length);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(length, self.Source.Length);
 
-        // A view of the file's start, read through this store's source, so the revision is not copied.
-        var store = new PdfObjectStore(new PrefixPdfByteSource(self.Source, length), true, new XrefTable())
-        {
-            HeaderOffset = self.HeaderOffset,
-            Version = self.Version,
-            Context = self.Context is { } context ? new PdfOpenContext(null, context.DrawingServices, CancellationToken.None) : null,
-
-            // The key is known already; setting it first makes every object parse decrypted.
-            Security = self.Security,
-        };
+        // The trailer and the /Encrypt dictionary are never encrypted, so the structure is read without the key; the key,
+        // which is known already, is applied afterwards.
+        var store = CreateRevision(self, length, null);
         StoreOpening.ReadStructure(store);
+        if (self.Security is { } security && store.Trailer.GetDictionary(KnownName.Encrypt) is { } encrypt)
+        {
+            store.SecurityBorrowed = true;
+            StoreOpening.Adopt(store, security, encrypt);
+        }
+
         store.Catalog = store.Trailer.GetDictionary(KnownName.Root) ?? throw new PdfException(PdfError.Format, "The earlier revision has no catalog.");
+        return store;
+    }
+
+    /// <summary>
+    /// Opens the structure of an earlier revision without the security handler, so nothing in it is decrypted. The trailer,
+    /// the /Encrypt dictionary and signature contents are never encrypted, and a PDF MAC check reads exactly those. Objects
+    /// that are encrypted read as encrypted bytes, and the copy has no catalog.
+    /// </summary>
+    /// <param name = "self">The owned object-store state.</param>
+    /// <param name = "length">The length of the earlier revision.</param>
+    /// <returns>The earlier revision's raw structure.</returns>
+    /// <exception cref = "PdfException">The earlier revision's cross-reference data cannot be read.</exception>
+    internal static PdfObjectStore OpenRawRevision(PdfObjectStore self, long length)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(length, self.Source.Length);
+        var store = CreateRevision(self, length, null);
+        try
+        {
+            StoreOpening.ReadStructure(store);
+        }
+        catch
+        {
+            store.Dispose();
+            throw;
+        }
+
         return store;
     }
 
@@ -199,4 +226,19 @@ public static class StoreRevisions
 
         return kind == PdfTokenKind.Number && StoreParsing.TryParseObjectAt(self, position, out _, out var value) ? value.AsDictionary() : null;
     }
+
+    /// <summary>Makes an unread store over the start of the file.</summary>
+    /// <param name = "self">The owned object-store state.</param>
+    /// <param name = "length">The length of the revision.</param>
+    /// <param name = "security">The handler to decrypt with, or <see langword="null"/>.</param>
+    /// <returns>The store.</returns>
+    private static PdfObjectStore CreateRevision(PdfObjectStore self, long length, PdfSecurityHandler? security) =>
+        // A view of the file's start, read through this store's source, so the revision is not copied.
+        new(new PrefixPdfByteSource(self.Source, length), true, new XrefTable())
+        {
+            HeaderOffset = self.HeaderOffset,
+            Version = self.Version,
+            Context = self.Context is { } context ? new PdfOpenContext(null, context.DrawingServices, CancellationToken.None) : null,
+            Security = security,
+        };
 }

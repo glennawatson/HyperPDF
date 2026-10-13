@@ -19,7 +19,7 @@ internal static class ContentChecker
     {
         Span<ContentOperand> operands = stackalloc ContentOperand[ContentReader.OperandSlots];
         var reader = new ContentReader(content, names, operands);
-        var state = new ScanState();
+        var state = default(ScanState);
         var more = true;
         while (more)
         {
@@ -38,7 +38,7 @@ internal static class ContentChecker
     }
 
     /// <summary>The nesting the scan tracks.</summary>
-    private sealed class ScanState
+    private struct ScanState
     {
         /// <summary>The graphics states saved and not restored.</summary>
         private int _savedStates;
@@ -50,7 +50,7 @@ internal static class ContentChecker
         private bool _textOpen;
 
         /// <summary>Gets a value indicating whether a text object is still open.</summary>
-        public bool IsTextOpen => _textOpen;
+        public readonly bool IsTextOpen => _textOpen;
 
         /// <summary>Applies one operator.</summary>
         /// <param name="op">The operator.</param>

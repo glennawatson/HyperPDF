@@ -3,11 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using Avalonia.Layout;
-using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -23,17 +21,11 @@ namespace HyperPdf.App.Views;
 [DebuggerDisplay("OptimizeCopyWindow: {Title}")]
 public sealed partial class OptimizeCopyWindow : ReactiveUI.Avalonia.ReactiveWindow<OptimizeCopyViewModel>
 {
-    /// <summary>The vertical space between a choice's name and its description.</summary>
-    private const double ChoiceGap = 2;
-
-    /// <summary>The vertical space around a choice.</summary>
-    private const double ChoicePadding = 4;
-
     /// <summary>Initializes a new instance of the <see cref="OptimizeCopyWindow"/> class.</summary>
     public OptimizeCopyWindow()
     {
         InitializeComponent();
-        PresetList.ItemTemplate = new FuncDataTemplate<OptimizePresetChoice>(static (choice, _) => CreateChoice(choice));
+        PresetList.ItemTemplate = new FuncDataTemplate<OptimizePresetChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
         FieldLabels.Link((LanguageBox, LanguageLabel));
         _ = this.WhenActivated(disposables =>
         {
@@ -45,17 +37,6 @@ public sealed partial class OptimizeCopyWindow : ReactiveUI.Avalonia.ReactiveWin
                 .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
             _ = PresetList.Focus();
         });
-    }
-
-    /// <summary>Creates the view of one size choice: its name, and under it what it does.</summary>
-    /// <param name="choice">The choice.</param>
-    /// <returns>The view.</returns>
-    private static StackPanel CreateChoice(OptimizePresetChoice? choice)
-    {
-        var name = new TextBlock { Text = choice?.Name, FontWeight = FontWeight.SemiBold };
-        var description = new TextBlock { Text = choice?.Description, TextWrapping = TextWrapping.Wrap };
-        description.Classes.Add("secondary");
-        return new StackPanel { Spacing = ChoiceGap, Margin = new(0, ChoicePadding), HorizontalAlignment = HorizontalAlignment.Stretch, Children = { name, description } };
     }
 
     /// <summary>Binds the heading, the size choices and the accessibility options.</summary>

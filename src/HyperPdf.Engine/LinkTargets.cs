@@ -37,14 +37,14 @@ internal static class LinkTargets
         _ => LinkTarget.None,
     };
 
-    /// <summary>Converts a rectangle in viewer space, as <see cref="PdfPage.ToViewerRectangle"/> returns it, to a page rectangle.</summary>
+    /// <summary>Converts a rectangle in physical viewer space, as <see cref="PdfPage.ToPhysicalRectangle"/> returns it, to a page rectangle.</summary>
     /// <param name="viewer">The rectangle; its "bottom" is the smaller, top, edge in viewer space.</param>
     /// <returns>The page rectangle.</returns>
     internal static PageRect ToPageRect(PdfRectangle viewer) => new(viewer.Left, viewer.Bottom, viewer.Width, viewer.Height);
 
     /// <summary>
-    /// Converts a destination, approximating the location from the destination page's height as the PDFium engine does,
-    /// so both engines send the reader to the same place.
+    /// Converts a destination, approximating the location from the destination page's height,
+    /// so the reader lands at the same place on every page size.
     /// </summary>
     /// <param name="document">The document.</param>
     /// <param name="destination">The destination.</param>
@@ -58,7 +58,7 @@ internal static class LinkTargets
 
         // An unspecified coordinate means the crop box edge; the page's transform applies the crop box and rotation.
         var page = PdfDocumentPages.GetPage(document, destination.PageIndex);
-        var point = page.ToViewer(new(destination.Left ?? page.CropBox.Left, destination.Top ?? page.CropBox.Top));
+        var point = page.ToPhysical(new(destination.Left ?? page.CropBox.Left, destination.Top ?? page.CropBox.Top));
         return LinkTarget.ForPage(destination.PageIndex, new PagePoint(point.X, point.Y));
     }
 

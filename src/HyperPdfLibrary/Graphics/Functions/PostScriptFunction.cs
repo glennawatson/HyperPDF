@@ -10,9 +10,10 @@ namespace HyperPdfLibrary.Graphics.Functions;
 
 /// <summary>
 /// A type 4 PostScript calculator function. The program is compiled once; each evaluation runs the instructions on a
-/// fixed stack of <see cref="StackLimit"/> operands held on the call stack. Operators are lenient like PDFium's: popping
-/// an empty stack gives zero and a division by zero gives zero. A program that leaves too few results yields the low end
-/// of the range.
+/// fixed stack of <see cref="StackLimit"/> operands held on the call stack. A program that raises a PostScript error
+/// (ISO 32000-2 7.10.5: stack underflow or overflow, an index out of range, an undefined result) or that leaves fewer
+/// results than the function has outputs fails. The standard does not say what a failed function produces, so each output
+/// then takes the low end of its range.
 /// </summary>
 internal sealed class PostScriptFunction : PdfFunction
 {
@@ -67,9 +68,9 @@ internal sealed class PostScriptFunction : PdfFunction
 
         Run(_code, ref stack);
         var results = stack.AsSpan();
-        if (results.Length < output.Length)
+        if (stack.Failed || results.Length < output.Length)
         {
-            // Like PDFium, a program that leaves too few results fails; clamping to the range then gives its low end.
+            // Clamping minus infinity to the range gives the low end of each output.
             output.Fill(float.NegativeInfinity);
             return;
         }
@@ -87,7 +88,7 @@ internal sealed class PostScriptFunction : PdfFunction
     private static void Run(PostScriptInstruction[] code, ref PostScriptStack stack)
     {
         var counter = 0;
-        while ((uint)counter < (uint)code.Length)
+        while ((uint)counter < (uint)code.Length && !stack.Failed)
         {
             var instruction = code[counter];
             counter = instruction.Code switch

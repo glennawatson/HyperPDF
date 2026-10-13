@@ -8,7 +8,7 @@ namespace HyperPdfLibrary.Structure.Tagged;
 
 /// <summary>One glyph a page draws, with the marked content it is drawn in.</summary>
 /// <param name="Bounds">The glyph's box in viewer space, from its advance and the font's ascent and descent.</param>
-/// <param name="Mcid">The marked content id of the outermost marked content with one, as PDFium reads it; -1 when none.</param>
+/// <param name="Mcid">The marked content id of the innermost marked content with one; -1 when none.</param>
 /// <param name="IsArtifact">Whether the glyph is inside <c>/Artifact</c> marked content: a running header, page number or decoration.</param>
 /// <param name="TextStart">Where the glyph's Unicode text starts in <see cref="PdfMarkedContentPage.Text"/>.</param>
 /// <param name="TextLength">The length of the glyph's Unicode text; zero when the font gives none.</param>

@@ -29,7 +29,7 @@ internal static class HyperPdfDocumentArchiveCopy
         try
         {
             // The snapshot carries every unsaved edit, so the copy matches what the user sees.
-            using var snapshot = HyperPdfOptimization.TakeSnapshot(self);
+            using var snapshot =HyperPdfOptimization.TakeSnapshot(self);
             var result = await PdfAConverter.SaveAsPdfAAsync(snapshot, ArchiveMapping.ToLibrary(level), destination, cancellationToken).ConfigureAwait(false);
             return ArchiveMapping.ToResult(result);
         }

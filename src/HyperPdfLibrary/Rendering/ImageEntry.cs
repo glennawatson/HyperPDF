@@ -48,8 +48,14 @@ internal sealed class ImageEntry
     /// <summary>Gets the pixel memory the image holds, in bytes.</summary>
     internal long Bytes { get; }
 
-    /// <summary>Gets or sets the entry's place in the cache's recency list; only the cache touches it, under its lock.</summary>
-    internal LinkedListNode<ImageEntry>? Node { get; set; }
+    /// <summary>Gets or sets the next more recently used entry in the cache's recency list; only the cache touches it, under its lock.</summary>
+    internal ImageEntry? Newer { get; set; }
+
+    /// <summary>Gets or sets the next less recently used entry in the cache's recency list; only the cache touches it, under its lock.</summary>
+    internal ImageEntry? Older { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the entry is in the cache's recency list; only the cache touches it, under its lock.</summary>
+    internal bool IsLinked { get; set; }
 
     /// <summary>Gets or sets the stream the cache holds the entry under; only the cache touches it, under its lock.</summary>
     internal ImageKey? Key { get; set; }

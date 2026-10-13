@@ -9,7 +9,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
 /// A 9/7 lifting step: <c>x = x + (a + b) * c</c>, multiplied then added in that order (no fused multiply-add) so the
-/// results match PDFium's.
+/// result does not depend on whether the processor has that instruction, and every platform decodes the same pixels.
 /// </summary>
 internal readonly record struct JpxIrreversibleStep : IJpxLiftStep<float>
 {

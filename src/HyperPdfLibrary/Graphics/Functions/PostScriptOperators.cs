@@ -9,8 +9,10 @@ namespace HyperPdfLibrary.Graphics.Functions;
 
 /// <summary>
 /// The PostScript calculator operators of PDF 32000 section 7.10.5, looked up by table. A grouped switch was measured and
-/// ran about 8% slower on an operator-heavy program than this delegate table, so the table stays. Operators are lenient
-/// like PDFium's CPDF_PSEngine: they never fail. Angles are in degrees, as in PostScript.
+/// ran about 8% slower on an operator-heavy program than this delegate table, so the table stays. An operator that the
+/// standard makes an error (stack underflow or overflow, an index out of range, or an undefined result such as a division
+/// by zero) marks the stack as failed instead of throwing. Operands of any type convert to numbers: a boolean is 1 or 0.
+/// Angles are in degrees, as in PostScript.
 /// </summary>
 internal static class PostScriptOperators
 {
@@ -131,43 +133,76 @@ internal static class PostScriptOperators
         PushArithmetic(ref stack, a.Number * b.Number, a.IsInteger && b.IsInteger);
     }
 
-    /// <summary>Implements <c>div</c>; dividing by zero gives zero.</summary>
+    /// <summary>Pushes a real result; a result that is not a finite number is an undefinedresult error.</summary>
+    /// <param name="stack">The operand stack.</param>
+    /// <param name="result">The result.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void PushReal(ref PostScriptStack stack, double result)
+    {
+        if (!double.IsFinite(result))
+        {
+            stack.Fail();
+            return;
+        }
+
+        stack.Push(PostScriptValue.Real(result));
+    }
+
+    /// <summary>Implements <c>div</c>; dividing by zero is an undefinedresult error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Div(ref PostScriptStack stack)
     {
         var b = stack.Pop();
         var a = stack.Pop();
-        stack.Push(PostScriptValue.Real(b.Number == 0 ? 0 : a.Number / b.Number));
+        PushReal(ref stack, b.Number == 0 ? double.NaN : a.Number / b.Number);
     }
 
-    /// <summary>Implements <c>idiv</c>; a zero divisor or an overflow gives zero.</summary>
+    /// <summary>Implements <c>idiv</c>; a zero divisor or an overflow is an undefinedresult error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Idiv(ref PostScriptStack stack)
     {
         var b = stack.PopInteger();
         var a = stack.PopInteger();
-        stack.Push(PostScriptValue.Integer(b == 0 || (a == int.MinValue && b == -1) ? 0 : a / b));
+        if (b == 0 || (a == int.MinValue && b == -1))
+        {
+            stack.Fail();
+            return;
+        }
+
+        stack.Push(PostScriptValue.Integer(Math.DivRem(a, b, out _)));
     }
 
-    /// <summary>Implements <c>mod</c>; a zero divisor gives zero.</summary>
+    /// <summary>Implements <c>mod</c>; a zero divisor is an undefinedresult error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Mod(ref PostScriptStack stack)
     {
         var b = stack.PopInteger();
         var a = stack.PopInteger();
-        stack.Push(PostScriptValue.Integer(b is 0 or -1 ? 0 : a % b));
+        if (b == 0)
+        {
+            stack.Fail();
+            return;
+        }
+
+        stack.Push(PostScriptValue.Integer(b == -1 ? 0 : a % b));
     }
 
-    /// <summary>Implements <c>atan</c>: the angle of a vector in degrees, from 0 to 360.</summary>
+    /// <summary>Implements <c>atan</c>: the angle of a vector in degrees, from 0 to 360; both operands zero is an undefinedresult error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Atan(ref PostScriptStack stack)
     {
         var denominator = stack.Pop().Number;
         var numerator = stack.Pop().Number;
+        if (numerator == 0 && denominator == 0)
+        {
+            stack.Fail();
+            return;
+        }
+
         var degrees = Math.Atan2(numerator, denominator) * HalfTurn / Math.PI;
         stack.Push(PostScriptValue.Real(degrees < 0 ? degrees + FullTurn : degrees));
     }
@@ -228,30 +263,30 @@ internal static class PostScriptOperators
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Cvr(ref PostScriptStack stack) => stack.Push(PostScriptValue.Real(stack.Pop().Number));
 
-    /// <summary>Implements <c>exp</c>.</summary>
+    /// <summary>Implements <c>exp</c>; a result that is not a real number is an undefinedresult error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Exp(ref PostScriptStack stack)
     {
         var exponent = stack.Pop().Number;
         var number = stack.Pop().Number;
-        stack.Push(PostScriptValue.Real(Math.Pow(number, exponent)));
+        PushReal(ref stack, Math.Pow(number, exponent));
     }
 
-    /// <summary>Implements <c>ln</c>.</summary>
+    /// <summary>Implements <c>ln</c>; a value that is not positive is an undefinedresult error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Ln(ref PostScriptStack stack) => stack.Push(PostScriptValue.Real(Math.Log(stack.Pop().Number)));
+    private static void Ln(ref PostScriptStack stack) => PushReal(ref stack, Math.Log(stack.Pop().Number));
 
-    /// <summary>Implements <c>log</c>.</summary>
+    /// <summary>Implements <c>log</c>; a value that is not positive is an undefinedresult error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Log(ref PostScriptStack stack) => stack.Push(PostScriptValue.Real(Math.Log10(stack.Pop().Number)));
+    private static void Log(ref PostScriptStack stack) => PushReal(ref stack, Math.Log10(stack.Pop().Number));
 
-    /// <summary>Implements <c>sqrt</c>.</summary>
+    /// <summary>Implements <c>sqrt</c>; a negative value is a rangecheck error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Sqrt(ref PostScriptStack stack) => stack.Push(PostScriptValue.Real(Math.Sqrt(stack.Pop().Number)));
+    private static void Sqrt(ref PostScriptStack stack) => PushReal(ref stack, Math.Sqrt(stack.Pop().Number));
 
     /// <summary>Implements <c>and</c>: logical for booleans, bitwise for integers.</summary>
     /// <param name="stack">The operand stack.</param>
@@ -378,7 +413,7 @@ internal static class PostScriptOperators
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void False(ref PostScriptStack stack) => stack.Push(PostScriptValue.Boolean(false));
 
-    /// <summary>Implements <c>copy</c>; a count that does not fit does nothing.</summary>
+    /// <summary>Implements <c>copy</c>; a count that does not fit is an error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Copy(ref PostScriptStack stack) => stack.Copy(stack.PopInteger());
@@ -388,7 +423,7 @@ internal static class PostScriptOperators
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Pop(ref PostScriptStack stack) => _ = stack.Pop();
 
-    /// <summary>Implements <c>roll</c>; a count that does not fit does nothing.</summary>
+    /// <summary>Implements <c>roll</c>; a count that does not fit is an error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Roll(ref PostScriptStack stack)
@@ -397,25 +432,28 @@ internal static class PostScriptOperators
         stack.Roll(stack.PopInteger(), shift);
     }
 
-    /// <summary>Implements <c>dup</c>; an empty stack does nothing.</summary>
+    /// <summary>Implements <c>dup</c>; an empty stack is an error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Dup(ref PostScriptStack stack) => stack.Copy(1);
 
-    /// <summary>Implements <c>exch</c>; a stack with fewer than two operands does nothing.</summary>
+    /// <summary>Implements <c>exch</c>; a stack with fewer than two operands is an error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Exch(ref PostScriptStack stack) => stack.Roll(ExchangeCount, 1);
 
-    /// <summary>Implements <c>index</c>; an index outside the stack does nothing.</summary>
+    /// <summary>Implements <c>index</c>; an index outside the stack is an error.</summary>
     /// <param name="stack">The operand stack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Index(ref PostScriptStack stack)
     {
         var depth = stack.PopInteger();
-        if ((uint)depth < (uint)stack.Count)
+        if ((uint)depth >= (uint)stack.Count)
         {
-            stack.Push(stack.Peek(depth));
+            stack.Fail();
+            return;
         }
+
+        stack.Push(stack.Peek(depth));
     }
 }

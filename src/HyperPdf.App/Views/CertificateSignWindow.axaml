@@ -31,6 +31,16 @@
       <TextBlock x:Name="LocationLabel" Text="Location" VerticalAlignment="Center" />
       <TextBox x:Name="LocationBox" views:ControlHelp.Text="{x:Static views:Descriptions.SigningLocation}" Grid.Column="1" AutomationProperties.Name="Location" PlaceholderText="Optional" />
     </Grid>
+    <Grid ColumnDefinitions="110,*">
+      <TextBlock x:Name="KindLabel" Text="Signature" VerticalAlignment="Center" />
+      <ComboBox x:Name="KindBox" views:ControlHelp.Text="{x:Static views:Descriptions.SignatureKind}" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Signature kind" />
+    </Grid>
+    <CheckBox x:Name="VisibleCheck" Margin="110,0,0,0" views:ControlHelp.Text="{x:Static views:Descriptions.VisibleSignature}"
+              Content="Show the signature on the page, in the bottom left corner." />
+    <StackPanel x:Name="PreviewPanel" Spacing="4">
+      <TextBlock x:Name="PreviewHeading" Classes="secondary" Text="What will be signed" />
+      <TextBlock x:Name="PreviewText" Focusable="True" TextWrapping="Wrap" AutomationProperties.Name="What will be signed" AutomationProperties.LiveSetting="Polite" />
+    </StackPanel>
     <TextBlock x:Name="ErrorText" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
       <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />

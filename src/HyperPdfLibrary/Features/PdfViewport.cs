@@ -12,4 +12,11 @@ namespace HyperPdfLibrary.Features;
 /// <param name="Name">The viewport's name, or null.</param>
 /// <param name="Measure">The measurement data, or null.</param>
 [DebuggerDisplay("PdfViewport: {Name}")]
-public sealed record PdfViewport(PdfRectangle? Bounds, string? Name, PdfMeasure? Measure);
+public sealed record PdfViewport(PdfRectangle? Bounds, string? Name, PdfMeasure? Measure)
+{
+    /// <summary>
+    /// Gets the four <c>/BBox</c> numbers in the order written (x1 y1 x2 y2); empty when the box is missing or malformed. A
+    /// geospatial measure's unit square maps (0, 0) to (x1, y1) and (1, 1) to (x2, y2), so the order matters.
+    /// </summary>
+    public double[] BoundingBox { get; init; } = [];
+}

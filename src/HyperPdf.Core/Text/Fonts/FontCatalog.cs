@@ -89,7 +89,7 @@ public sealed class FontCatalog
 
     /// <summary>
     /// Gets the installed families none of whose faces can be embedded, because their licence forbids it or their
-    /// outlines are not TrueType. Text in them can be shown on screen, and is saved in the closest built in family.
+    /// outlines are variable or bitmap only. Text in them can be shown on screen, and is saved in the closest built in family.
     /// </summary>
     public IReadOnlyList<string> PreviewOnlyFamilies { get; }
 

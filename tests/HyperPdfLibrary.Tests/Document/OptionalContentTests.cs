@@ -60,14 +60,14 @@ public sealed class OptionalContentTests
         await Assert.That(PdfDocumentLayers.GetOptionalContent(document).Layers[0].IsVisible).IsTrue();
     }
 
-    /// <summary>A group's own /Usage /View /ViewState wins over the configuration.</summary>
+    /// <summary>Without an /AS entry, a group's /Usage /View /ViewState does not change the state the configuration gives it (ISO 32000-2, 8.11.4.3).</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task ViewStateOverridesTheConfiguration()
+    public async Task ViewStateWithoutAnAutoStateLeavesTheConfigurationAlone()
     {
         using var document = Open("<< /OCGs [4 0 R] /D << /ON [4 0 R] >> >>", "<< /Type /OCG /Name (A) /Usage << /View << /ViewState /OFF >> >> >>");
 
-        await Assert.That(Shown(document, GroupA)).IsFalse();
+        await Assert.That(Shown(document, GroupA)).IsTrue();
     }
 
     /// <summary>The configuration's /AS array applies for the View event.</summary>
@@ -75,7 +75,7 @@ public sealed class OptionalContentTests
     [Test]
     public async Task AutoStateAppliesForTheViewEvent()
     {
-        const string group = "<< /Type /OCG /Name (A) /Usage << /View << /Zoom 1 >> >> >>";
+        const string group = "<< /Type /OCG /Name (A) /Usage << /View << /ViewState /ON >> >> >>";
         using var withAutoState = Open("<< /OCGs [4 0 R] /D << /BaseState /OFF /AS [<< /Event /View /Category [/View] /OCGs [4 0 R] >>] >> >>", group);
         using var without = Open("<< /OCGs [4 0 R] /D << /BaseState /OFF >> >>", group);
 

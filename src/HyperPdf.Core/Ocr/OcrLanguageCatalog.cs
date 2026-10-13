@@ -86,11 +86,15 @@ public static class OcrLanguageCatalog
     public static List<string> Parse(string? languages)
     {
         var codes = new List<string>();
-        foreach (var part in (languages ?? string.Empty).Split(LanguageSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        var text = (languages ?? string.Empty).AsSpan();
+
+        // Each code is cut out of the setting only when it is new, so blanks and repeats make no strings.
+        foreach (var range in text.Split(LanguageSeparator))
         {
-            if (!codes.Contains(part))
+            var part = text[range].Trim();
+            if (!part.IsEmpty && !Contains(codes, part))
             {
-                codes.Add(part);
+                codes.Add(part.ToString());
             }
         }
 
@@ -115,4 +119,21 @@ public static class OcrLanguageCatalog
     /// <param name="bytes">The size in bytes.</param>
     /// <returns>The description.</returns>
     public static string DescribeSize(long bytes) => $"about {Math.Max(1, (bytes + BytesPerMegabyte - 1) / BytesPerMegabyte)} MB";
+
+    /// <summary>Determines whether a list already holds a code.</summary>
+    /// <param name="codes">The codes so far.</param>
+    /// <param name="code">The code.</param>
+    /// <returns><see langword="true"/> when it is there.</returns>
+    private static bool Contains(List<string> codes, ReadOnlySpan<char> code)
+    {
+        foreach (var existing in codes)
+        {
+            if (existing.AsSpan().SequenceEqual(code))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:HyperPdf.App.Views"
+        x:Class="HyperPdf.App.Views.ExternalSignWindow"
+        Title="Sign with External Signer" Width="680" Height="860" MinWidth="520" MinHeight="620" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppWindowBackground}">
+  <!-- Layout only: bindings are made in code (ExternalSignWindow.axaml.cs). Every section is always present, so nothing moves between steps. -->
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="20" Spacing="10">
+      <TextBlock x:Name="HeadingText" FontSize="16" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1" />
+      <TextBlock TextWrapping="Wrap" Classes="secondary" Text="Use this when your signing key stays on a hardware token or with a signing service. You give the window the signer's certificates, it saves the bytes to sign, your signer signs them, and you give the answer back. The private key never reaches this app." />
+
+      <TextBlock Text="1. The signer" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <Grid ColumnDefinitions="110,*,Auto">
+        <TextBlock x:Name="CertificateLabel" Text="Certificates" VerticalAlignment="Center" />
+        <TextBox x:Name="CertificateBox" Grid.Column="1" IsReadOnly="True" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalCertificates}" AutomationProperties.Name="Signer certificates read" PlaceholderText=".cer, .crt or .pem files" />
+        <Button x:Name="BrowseButton" Grid.Column="2" Margin="8,0,0,0" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalChooseCertificates}" AutomationProperties.Name="Choose signer certificate files" Content="_Choose…" />
+      </Grid>
+      <Grid ColumnDefinitions="110,*">
+        <TextBlock x:Name="KeyLabel" Text="Key" VerticalAlignment="Center" />
+        <ComboBox x:Name="KeyBox" Grid.Column="1" HorizontalAlignment="Stretch" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalKey}" AutomationProperties.Name="Kind of signing key" />
+      </Grid>
+      <Grid ColumnDefinitions="110,*">
+        <TextBlock x:Name="ReasonLabel" Text="Reason" VerticalAlignment="Center" />
+        <TextBox x:Name="ReasonBox" Grid.Column="1" views:ControlHelp.Text="{x:Static views:Descriptions.SigningReason}" AutomationProperties.Name="Reason" PlaceholderText="Optional" />
+      </Grid>
+      <Grid ColumnDefinitions="110,*">
+        <TextBlock x:Name="LocationLabel" Text="Location" VerticalAlignment="Center" />
+        <TextBox x:Name="LocationBox" Grid.Column="1" views:ControlHelp.Text="{x:Static views:Descriptions.SigningLocation}" AutomationProperties.Name="Location" PlaceholderText="Optional" />
+      </Grid>
+
+      <TextBlock Text="2. Prepare and sign" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="PrepareButton" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalPrepare}" Content="_Prepare" />
+        <Button x:Name="SaveToSignButton" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalSaveToSign}" Content="Save Bytes to _Sign…" />
+      </StackPanel>
+      <Border BorderThickness="1" Padding="10" Height="150" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <SelectableTextBlock x:Name="PendingText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="What was prepared" />
+        </ScrollViewer>
+      </Border>
+
+      <TextBlock Text="3. Finish" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <Grid ColumnDefinitions="110,*">
+        <TextBlock x:Name="ResultLabel" Text="The signer gave" VerticalAlignment="Center" />
+        <ComboBox x:Name="ResultBox" Grid.Column="1" HorizontalAlignment="Stretch" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalResultKind}" AutomationProperties.Name="What the signer gave back" />
+      </Grid>
+      <Button x:Name="FinishButton" HorizontalAlignment="Left" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalFinish}" Content="_Finish…" />
+
+      <TextBlock Text="Progress and summary" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalProgress}" AutomationProperties.Name="Progress of the copy" />
+      <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+      <TextBlock x:Name="ErrorText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
+      <Border BorderThickness="1" Padding="10" Height="110" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalResult}" AutomationProperties.Name="Summary of the signed copy" />
+        </ScrollViewer>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalCancel}" Content="_Cancel" />
+        <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

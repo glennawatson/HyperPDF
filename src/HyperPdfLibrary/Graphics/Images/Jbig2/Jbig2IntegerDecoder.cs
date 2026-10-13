@@ -83,7 +83,7 @@ internal static class Jbig2IntegerDecoder
         return previous - (1 << codeLength);
     }
 
-    /// <summary>Applies the sign and checks the range of a decoded magnitude, as PDFium does.</summary>
+    /// <summary>Applies the sign and checks the range of a decoded magnitude (T.88 section A.2): a result that does not fit 32 bits is rejected.</summary>
     /// <param name="magnitude">The magnitude.</param>
     /// <param name="sign">The sign bit.</param>
     /// <param name="value">The value.</param>

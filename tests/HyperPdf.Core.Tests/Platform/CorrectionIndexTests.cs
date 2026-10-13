@@ -107,7 +107,8 @@ public sealed class CorrectionIndexTests
     [Arguments("zzzzzz", new string[0])]
     public async Task FindsTheClosestWords(string misspelled, string[] expected)
     {
-        var index = new CorrectionIndex(Words);
+        using var pool = WordPool.Create(Words);
+        using var index = new CorrectionIndex(pool);
         List<string> found = [];
 
         index.Lookup(misspelled, found, Limit);
@@ -120,7 +121,8 @@ public sealed class CorrectionIndexTests
     [Test]
     public async Task KeepsToTheLimitAndStartsAfresh()
     {
-        var index = new CorrectionIndex(["bat", "cat", "eat", "fat", "hat", "mat", "rat"]);
+        using var pool = WordPool.Create(["bat", "cat", "eat", "fat", "hat", "mat", "rat"]);
+        using var index = new CorrectionIndex(pool);
         List<string> first = [];
         List<string> second = [];
 
@@ -131,14 +133,59 @@ public sealed class CorrectionIndexTests
         await Assert.That(second).IsEquivalentTo(["bat", "cat", "eat", "fat", "hat"], TUnit.Assertions.Enums.CollectionOrdering.Matching);
     }
 
+    /// <summary>Verifies a list of thousands of made-up words gives the same closest words as comparing every word.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task MatchesComparingEveryWord()
+    {
+        const int wordCount = 20_000;
+        const int typos = 200;
+        const string letters = "abcdefgh";
+        const int everyWord = 1000;
+        var state = 11U;
+        var words = new string[wordCount];
+        for (var i = 0; i < wordCount; i++)
+        {
+            words[i] = $"{MakeWord(ref state, letters)}x";
+        }
+
+        using var pool = WordPool.Create(words);
+        using var index = new CorrectionIndex(pool);
+        var mismatches = 0;
+        for (var i = 0; i < typos; i++)
+        {
+            var typo = Change(ref state, words[Next(ref state, wordCount)], letters);
+            List<string> found = [];
+            index.Lookup(typo, found, everyWord);
+
+            var closest = CorrectionIndex.MaxEditDistance + 1;
+            foreach (var word in words)
+            {
+                closest = Math.Min(closest, CorrectionIndex.Distance(typo, word, closest));
+            }
+
+            var expected = closest > CorrectionIndex.MaxEditDistance
+                ? []
+                : words.Distinct().Where(word => CorrectionIndex.Distance(typo, word, closest) == closest).Order(StringComparer.Ordinal).ToArray();
+            if (!found.Order(StringComparer.Ordinal).SequenceEqual(expected))
+            {
+                mismatches++;
+            }
+        }
+
+        await Assert.That(mismatches).IsEqualTo(0);
+    }
+
     /// <summary>Verifies words longer than the index holds are left out, too long or short a word finds nothing, and an empty list finds nothing.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task LeavesOutOverlongWords()
     {
         var overlong = new string('a', CorrectionIndex.MaxWordLength + 1);
-        var index = new CorrectionIndex([overlong, "apple"]);
-        var empty = new CorrectionIndex([]);
+        using var pool = WordPool.Create([overlong, "apple"]);
+        using var emptyPool = WordPool.Create([]);
+        using var index = new CorrectionIndex(pool);
+        using var empty = new CorrectionIndex(emptyPool);
         List<string> found = [];
         List<string> tooLong = [];
         List<string> tooShort = [];

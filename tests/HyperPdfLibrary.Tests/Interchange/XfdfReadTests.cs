@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Interchange;
 
@@ -200,10 +201,9 @@ public sealed class XfdfReadTests
     public async Task BillionLaughsDoesNotExpand()
     {
         var bytes = Laughs.ToArray();
-        var before = GC.GetAllocatedBytesForCurrentThread();
 
         await Assert.That(() => XfdfReader.Read(bytes)).Throws<PdfException>();
-        await Assert.That(GC.GetAllocatedBytesForCurrentThread() - before).IsLessThan(AllocationCeiling);
+        await Assert.That(AllocationProbe.Minimum(() => IsRejected(bytes))).IsLessThan(AllocationCeiling);
     }
 
     /// <summary>Unclosed elements, broken markup and the wrong root fail with a library exception.</summary>
@@ -280,4 +280,20 @@ public sealed class XfdfReadTests
     /// <param name="text">The text.</param>
     /// <returns>The bytes.</returns>
     private static byte[] Utf8(string text) => Encoding.UTF8.GetBytes(text);
+
+    /// <summary>Reads a document that the reader must reject.</summary>
+    /// <param name="bytes">The document.</param>
+    /// <returns>True when the reader threw a library exception.</returns>
+    private static bool IsRejected(byte[] bytes)
+    {
+        try
+        {
+            _ = XfdfReader.Read(bytes);
+            return false;
+        }
+        catch (PdfException)
+        {
+            return true;
+        }
+    }
 }

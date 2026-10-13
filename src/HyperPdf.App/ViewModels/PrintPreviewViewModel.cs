@@ -237,6 +237,8 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
+        // A build still running when the window closes is now out of date; it deletes its own file instead of opening it.
+        _version++;
         _subscriptions.Dispose();
         _confirmed.Dispose();
         ClosePreview();

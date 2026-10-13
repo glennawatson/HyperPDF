@@ -61,7 +61,9 @@ internal sealed partial class PdfRevisionComparer
     {
         if (spelling.SequenceEqual(ExtensionsKey))
         {
-            return PdfModificationKinds.Metadata;
+            // Declaring the extension that validation data or a timestamp needs (ETSI EN 319 142-1, 5.6.1) adds an entry
+            // and leaves every declared one alone, so it travels with the security store it belongs to.
+            return ExtensionsOnlyAdded(now, before) ? PdfModificationKinds.SecurityStore : PdfModificationKinds.Metadata;
         }
 
         _ = PdfNameTable.TryGetKnown(spelling, out var name);
@@ -73,6 +75,35 @@ internal sealed partial class PdfRevisionComparer
             KnownName.Pages => PdfModificationKinds.Pages,
             _ => PdfModificationKinds.Other,
         };
+    }
+
+    /// <summary>Determines whether a changed /Extensions dictionary only gained entries.</summary>
+    /// <param name="now">The current dictionary, or <see langword="null"/> when the entry was removed.</param>
+    /// <param name="before">The signed dictionary, or <see langword="null"/> when there was none.</param>
+    /// <returns><see langword="true"/> when every signed entry is still there with the same value.</returns>
+    private bool ExtensionsOnlyAdded(PdfDictionary? now, PdfDictionary? before)
+    {
+        if (before is null)
+        {
+            return now is not null;
+        }
+
+        if (now is null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < before.Count; i++)
+        {
+            var spelling = _tables.Right.GetSpelling(before.GetKeyAt(i));
+            var current = now.GetRaw(_tables.Left.Intern(spelling));
+            if (current.IsNull || !PdfValueComparer.Equal(current, _tables.Left, before.GetValueAt(i), _tables.Right))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Classifies a page change: annotations added or removed, or a change to the page itself.</summary>

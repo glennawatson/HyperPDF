@@ -38,7 +38,7 @@
     <PackageVersion Include="ReactiveUI.SourceGenerators" Version="4.2.0" />
   </ItemGroup>
 
-  <ItemGroup Label="PDF engine (PDFium, BSD-3/Apache-2.0 binaries by bblanchon)">
+  <ItemGroup Label="Test-only reference renderer (BSD-3/Apache-2.0 binaries by bblanchon); never referenced by shipped code">
     <PackageVersion Include="bblanchon.PDFium.Linux" Version="$(PdfiumVersion)" />
     <PackageVersion Include="bblanchon.PDFium.Win32" Version="$(PdfiumVersion)" />
     <PackageVersion Include="bblanchon.PDFium.macOS" Version="$(PdfiumVersion)" />

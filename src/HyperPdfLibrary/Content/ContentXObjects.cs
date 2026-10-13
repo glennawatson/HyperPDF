@@ -6,6 +6,7 @@ using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics;
+using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Graphics.Images;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Rendering;
@@ -68,13 +69,13 @@ internal static class ContentXObjects
         var shading = ContentColors.GetShading(self, ContentExecution.FindResource(self, KnownName.Shading, reader.Operand(0).Name));
         if (shading is not null)
         {
-            self.Device.PaintShading(shading, ref self.State);
+            ContentPainting.PaintShading(self, shading, ref self.State);
         }
     }
 
     /// <summary>
     /// Determines whether optional content is shown: by the viewer's layer switches, or by print usage when printing.
-    /// Text extraction sees every layer, as PDFium extracts text from hidden layers too.
+    /// Text extraction sees every layer, so hidden text can still be found and read.
     /// </summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "membership">The /OC value.</param>
@@ -83,7 +84,7 @@ internal static class ContentXObjects
         ContentInterpreter self,
         PdfValue membership) =>
         self.TextObjects is not null
-        || (self.Printing ? self.Layers.IsPrinted(membership) : self.Layers.IsVisible(membership));
+        || (self.Printing ? self.Layers.IsPrinted(membership) : self.Layers.IsVisible(membership, self.ZoomClass));
 
     /// <summary>Draws an XObject.</summary>
     /// <param name = "self">The owned interpreter state.</param>
@@ -129,7 +130,7 @@ internal static class ContentXObjects
         }
 
         var reduction = ImageReduction.Select(image.Dictionary, self.State.Ctm, self.ImageScale);
-        var entry = self.Cache.AcquireImage(image, reduction, self.CancellationToken);
+        var entry = self.Cache.AcquireImage(image, reduction, ContentColorRendering.ImageRendering(self, image.Dictionary), self.State.Transfer, self.CancellationToken);
         if (entry is null)
         {
             return;
@@ -148,7 +149,7 @@ internal static class ContentXObjects
         }
     }
 
-    /// <summary>Draws a decoded image, simulating overprint the way PDFium does.</summary>
+    /// <summary>Draws a decoded image, previewing overprint when the options ask for it.</summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "image">The image.</param>
     /// <param name = "isMask">Whether it is a stencil mask.</param>
@@ -162,31 +163,41 @@ internal static class ContentXObjects
             return;
         }
 
-        if (isMask || !ContentXObjects.OverprintsImage(self, dictionary))
+        if (isMask)
         {
-            self.Device.DrawImage(image, isMask, smooth, ref self.State);
+            ContentPainting.DrawMask(self, image, smooth, ref self.State);
+            return;
+        }
+
+        if (!ContentColorants.ImageVisible(self, dictionary))
+        {
+            return;
+        }
+
+        if (!ContentXObjects.OverprintsImage(self, dictionary))
+        {
+            self.Device.DrawImage(image, false, smooth, ref self.State);
             return;
         }
 
         var state = self.State;
-        state.BlendMode = PdfBlendMode.Darken;
+        state.BlendMode = PdfBlendMode.Multiply;
         self.Device.DrawImage(image, false, smooth, ref state);
     }
 
     /// <summary>
-    /// Determines whether an image overprints. PDFium's source simulates overprint only here: an opaque, unmasked image
-    /// in DeviceCMYK, Separation or DeviceN drawn with fill overprint on, overprint mode 0, the Normal blend and both
-    /// alphas at 1 is darkened into the page instead of covering it. Paths, text and shadings never overprint. The PDFium
-    /// build the app ships shows no darkening, so the rule applies only when the document's options turn it on.
+    /// Determines whether an image overprints (ISO 32000-2 8.6.7 and 11.7.4). An opaque, unmasked image in a Separation or
+    /// DeviceN space drawn with fill overprint on, the Normal blend and both alphas at 1 leaves the backdrop colorants it
+    /// does not name alone; the Multiply blend approximates that. A DeviceCMYK image specifies all four process
+    /// colorants, so overprint changes nothing for it. The preview applies only when the renderer's options turn it on.
     /// </summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "dictionary">The image dictionary.</param>
-    /// <returns><see langword="true"/> when the image is drawn with the Darken blend.</returns>
+    /// <returns><see langword="true"/> when the image is drawn with the Multiply blend.</returns>
     internal static bool OverprintsImage(ContentInterpreter self, PdfDictionary dictionary)
     {
         if (!self.Cache.SimulateOverprint
         || !self.State.FillOverprint
-        || self.State.OverprintMode != 0
         || self.State.BlendMode != PdfBlendMode.Normal
         || self.State.FillAlpha < 1
         || self.State.StrokeAlpha < 1)
@@ -200,18 +211,18 @@ internal static class ContentXObjects
         }
 
         var space = dictionary.Get(KnownName.ColorSpace);
-        return ContentXObjects.IsSubtractive(self, space.IsNull ? dictionary.Get(KnownName.CS) : space);
+        return ContentXObjects.IsSpotSpace(self, space.IsNull ? dictionary.Get(KnownName.CS) : space);
     }
 
-    /// <summary>Determines whether a colour space is DeviceCMYK, Separation or DeviceN, following one resource name.</summary>
+    /// <summary>Determines whether a colour space is Separation or DeviceN, following one resource name.</summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "space">The colour space value.</param>
     /// <returns><see langword="true"/> for those families.</returns>
-    internal static bool IsSubtractive(ContentInterpreter self, PdfValue space)
+    internal static bool IsSpotSpace(ContentInterpreter self, PdfValue space)
     {
         if (space.AsArray() is { Count: > 0 } array)
         {
-            return array.GetName(0).ToKnownName() is KnownName.Separation or KnownName.DeviceN or KnownName.DeviceCMYK;
+            return array.GetName(0).ToKnownName() is KnownName.Separation or KnownName.DeviceN;
         }
 
         var name = space.AsName();
@@ -220,16 +231,8 @@ internal static class ContentXObjects
             return false;
         }
 
-        var known = name.ToKnownName();
-        if (known is KnownName.DeviceCMYK or KnownName.CMYK)
-        {
-            return true;
-        }
-
         var resource = ContentExecution.FindResource(self, KnownName.ColorSpace, name);
-        return resource.AsArray() is { Count: > 0 } named ? named.GetName(0).ToKnownName() is KnownName.Separation or
-        KnownName.DeviceN or
-        KnownName.DeviceCMYK : resource.AsName().ToKnownName() == KnownName.DeviceCMYK;
+        return resource.AsArray() is { Count: > 0 } named && named.GetName(0).ToKnownName() is KnownName.Separation or KnownName.DeviceN;
     }
 
     /// <summary>Decodes and draws an inline image whose ranges the reader has found.</summary>
@@ -253,12 +256,19 @@ internal static class ContentXObjects
             return;
         }
 
-        var data = PdfImageDecoder.DecodeInline(dictionary, content[reader.InlineImageData], ContentExecution.CurrentResources(self), self.Cache.DeviceColors, self.CancellationToken);
+        var data = PdfImageDecoder.DecodeInline(
+            dictionary,
+            content[reader.InlineImageData],
+            ContentExecution.CurrentResources(self),
+            self.Cache.DeviceColors,
+            ContentColorRendering.ImageRendering(self, dictionary),
+            self.CancellationToken);
         if (data is null || data.UnsupportedCodec != PdfImageCodec.None)
         {
             return;
         }
 
+        self.State.Transfer?.ApplyTo(data);
         using var image = self.Cache.ToRenderImage(data);
         if (image is not null && !(data.IsStencilMask && self.State.Fill.PaintsNothing))
         {
@@ -267,8 +277,8 @@ internal static class ContentXObjects
     }
 
     /// <summary>
-    /// Draws an image inside a Type 3 glyph that gives only a shape (<c>d1</c>) or an uncoloured pattern. PDFium renders
-    /// those as a mask painted with one colour, so a stencil mask keeps its shape and any other image covers its unit square.
+    /// Draws an image inside a Type 3 glyph that gives only a shape (<c>d1</c>) or an uncoloured pattern (ISO 32000-2 9.6.5, 8.7.3.3).
+    /// Such content paints one colour, so a stencil mask keeps its shape and any other image covers its unit square.
     /// </summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "image">The image.</param>
@@ -278,7 +288,7 @@ internal static class ContentXObjects
     {
         if (isMask)
         {
-            self.Device.DrawImage(image, true, smooth, ref self.State);
+            ContentPainting.DrawMask(self, image, smooth, ref self.State);
             return;
         }
 
@@ -289,7 +299,7 @@ internal static class ContentXObjects
         self.Path.Close();
         var square = self.Path.Detach();
         self.PathPoints = 0;
-        self.Device.Fill(square, false, ref self.State);
+        ContentPainting.Fill(self, square, false, ref self.State);
     }
 
     /// <summary>Draws a form XObject: its matrix, bounding box, resources and, when needed, its transparency group.</summary>
@@ -306,6 +316,7 @@ internal static class ContentXObjects
         var tm = self.Tm;
         var tlm = self.Tlm;
         var patternBase = self.PatternBase;
+        var blendSpace = self.BlendSpace;
         self.Path.Reset();
         self.PathPoints = 0;
         self.PendingClip = false;
@@ -333,6 +344,7 @@ internal static class ContentXObjects
             self.Tm = tm;
             self.Tlm = tlm;
             self.PatternBase = patternBase;
+            self.BlendSpace = blendSpace;
         }
     }
 
@@ -352,11 +364,30 @@ internal static class ContentXObjects
         ContentPaths.PathLine(self, box.Right, box.Top);
         ContentPaths.PathLine(self, box.Left, box.Top);
         self.Path.Close();
-        var clip = self.Path.Detach();
+        var clip = ContentPaths.TakePath(self, self.Path);
         self.Device.Clip(clip, false, self.State.Ctm);
 
         self.PathPoints = 0;
         return self.State.Ctm.MapRect(new(box.Left, box.Bottom, box.Right, box.Top));
+    }
+
+    /// <summary>Reads the /CS blending colour space of a group attributes dictionary (ISO 32000-2 Table 145).</summary>
+    /// <param name = "self">The owned interpreter state.</param>
+    /// <param name = "group">The group attributes dictionary.</param>
+    /// <returns>The space, or null when the group names none or names one a group may not use.</returns>
+    internal static PdfColorSpace? ReadGroupSpace(ContentInterpreter self, PdfDictionary group)
+    {
+        var value = group.Get(KnownName.CS);
+        if (value.IsNull)
+        {
+            return null;
+        }
+
+        var space = self.Cache.GetColorSpace(value, ContentExecution.CurrentResources(self)?.GetDictionary(KnownName.ColorSpace));
+
+        // Lab, Indexed, Pattern, Separation and DeviceN cannot be a blending space (11.3.4).
+        return space.Kind is PdfColorSpaceKind.DeviceGray or PdfColorSpaceKind.DeviceRgb or PdfColorSpaceKind.DeviceCmyk
+            or PdfColorSpaceKind.CalGray or PdfColorSpaceKind.CalRgb or PdfColorSpaceKind.IccBased ? space : null;
     }
 
     /// <summary>Determines whether the state composites objects with constant alpha, a blend mode or a soft mask.</summary>
@@ -377,8 +408,8 @@ internal static class ContentXObjects
             return null;
         }
 
-        // PDFium composites a group separately when it is isolated or drawn with transparency; a knockout group needs its
-        // own layer too, so its objects replace each other rather than the page beneath.
+        // A group is composited separately (ISO 32000-2 11.4) when it is isolated or drawn with transparency; a knockout
+        // group needs its own layer too, so its objects replace each other rather than the page beneath.
         var isolated = group.GetBoolean(KnownName.I);
         var knockout = group.GetBoolean(KnownName.K);
         if (!isolated && !knockout && !ContentXObjects.HasTransparency(self))
@@ -386,7 +417,13 @@ internal static class ContentXObjects
             return null;
         }
 
-        var info = new GroupInfo(isolated, knockout, self.State.FillAlpha, self.State.BlendMode, self.State.SoftMask, bounds);
+        // ISO 32000-2 11.6.6: only an isolated group may name its own colour space; the others inherit the parent's.
+        if (isolated && ContentXObjects.ReadGroupSpace(self, group) is { } space)
+        {
+            self.BlendSpace = space;
+        }
+
+        var info = new GroupInfo(isolated, knockout, self.State.FillAlpha, self.State.BlendMode, self.State.SoftMask, bounds, self.BlendSpace);
         self.Device.BeginGroup(info);
         self.State.FillAlpha = 1;
         self.State.StrokeAlpha = 1;

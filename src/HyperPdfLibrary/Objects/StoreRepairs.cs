@@ -26,16 +26,31 @@ public static class StoreRepairs
     public static PdfDiagnostic[] GetRepairs(PdfObjectStore self)
     {
         var all = StoreRepairs.GetDiagnostics(self);
-        var repairs = new List<PdfDiagnostic>(all.Length);
+        var count = 0;
         foreach (var report in all)
         {
-            if (report.Code.IsRepair)
-            {
-                repairs.Add(report);
-            }
+            count += report.Code.IsRepair ? 1 : 0;
         }
 
-        return [.. repairs];
+        if (count == all.Length)
+        {
+            return all;
+        }
+
+        var repairs = new PdfDiagnostic[count];
+        var next = 0;
+        foreach (var report in all)
+        {
+            if (!report.Code.IsRepair)
+            {
+                continue;
+            }
+
+            repairs[next] = report;
+            next++;
+        }
+
+        return repairs;
     }
 
     /// <summary>Rebuilds the cross-reference table by scanning the file, keeping the trailer when the scan finds none.</summary>
@@ -46,7 +61,7 @@ public static class StoreRepairs
         var rebuilt = XrefRepair.Rebuild(self.Source, self);
         rebuilt.Trailer ??= self.XrefState.Trailer;
         self.XrefState = rebuilt;
-        self.ObjectStreamsState.Clear();
+        self.ObjectStreamsIfCreated?.Clear();
 
         // Objects already parsed stay cached; only the ones that were missing are looked up in the new table.
         var grown = new object?[Math.Max(rebuilt.Size, self.CacheState.Length)];

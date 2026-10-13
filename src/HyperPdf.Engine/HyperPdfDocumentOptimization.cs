@@ -35,7 +35,7 @@ internal static class HyperPdfDocumentOptimization
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var snapshot = HyperPdfOptimization.TakeSnapshot(self);
+            using var snapshot =HyperPdfOptimization.TakeSnapshot(self);
             var options = OptimizeMapping.ToOptions(settings);
             var report = await PdfOptimizer.OptimizeSnapshotAsync(snapshot, destination, options, OptimizeMapping.ToProgress(progress), cancellationToken).ConfigureAwait(false);
             return OptimizeMapping.ToReport(report);

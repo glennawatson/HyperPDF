@@ -9,7 +9,7 @@ using HyperPdf.Core.Signatures.Signing;
 namespace HyperPdf.Core.Annotations;
 
 /// <summary>
-/// Finishes annotations when a document is saved, writing what PDFium cannot. A reply records the comment it answers
+/// Finishes annotations when a document is saved, writing what editing keeps as text. A reply records the comment it answers
 /// by name (<c>/NM</c>) while it is being edited, under <see cref="PendingKey"/>; on save, an incremental update
 /// replaces that with the standard <c>/IRT</c> reference and <c>/RT /R</c>, so every reader shows the thread. An
 /// annotation marked under <see cref="RemovedKey"/> is left out of its page, and entries kept as text under
@@ -107,7 +107,7 @@ public static class AnnotationReplyLinks
     }
 
     /// <summary>
-    /// Finishes the annotations on one page. PDFium writes new annotations inline in the page's <c>/Annots</c> array,
+    /// Finishes the annotations on one page. New annotations may be inline in the page's <c>/Annots</c> array,
     /// and <c>/IRT</c> needs a reference, so on a page with pending work every inline annotation becomes an object of
     /// its own.
     /// </summary>

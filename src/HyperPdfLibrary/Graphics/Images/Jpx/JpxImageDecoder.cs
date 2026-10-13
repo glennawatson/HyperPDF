@@ -9,13 +9,13 @@ using HyperPdfLibrary.Graphics.Colors;
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
-/// Decodes JPXDecode (JPEG 2000) images the way PDFium does. The managed decoder returns the component planes; the
-/// channels become 8-bit samples that go through the image's colour space like any 8-bit image. The image dictionary's
-/// /ColorSpace overrides the file's colour box, an Indexed space reads the raw palette indices, and /Decode is ignored as
-/// the PDF specification says. With <c>/SMaskInData 1</c> the fourth channel of an RGB image is its soft mask.
-/// High-throughput (T.814 | ISO 15444-15) code-blocks decode like regular ones; only the MIXED mode, where each
-/// code-block may use either coder, is reported as unsupported, as PDFium refuses it. Damaged data gives
-/// <see langword="null"/>.
+/// Decodes JPXDecode (JPEG 2000) images (ISO 32000-1 section 7.4.9). The managed decoder returns the component planes;
+/// the channels become 8-bit samples that go through the image's colour space like any 8-bit image. The image
+/// dictionary's /ColorSpace overrides the file's colour box (see <see cref="JpxOutputPlan"/>), an Indexed space reads the
+/// raw palette indices, and /Decode is ignored as the PDF specification says. With <c>/SMaskInData 1</c> the first
+/// channel after the colour channels is the soft mask. High-throughput (T.814 | ISO 15444-15) code-blocks decode like
+/// regular ones; the MIXED mode, where each code-block may use either coder, is reported as unsupported. Damaged data
+/// gives <see langword="null"/>.
 /// </summary>
 internal static class JpxImageDecoder
 {
@@ -24,9 +24,6 @@ internal static class JpxImageDecoder
 
     /// <summary>The <c>/SMaskInData</c> value that makes the alpha channel the soft mask.</summary>
     private const int SoftMaskInData = 1;
-
-    /// <summary>The channel that holds alpha in a four-channel RGB image.</summary>
-    private const int AlphaChannel = 3;
 
     /// <summary>Decodes a JPXDecode image.</summary>
     /// <param name="header">The image header.</param>
@@ -122,25 +119,61 @@ internal static class JpxImageDecoder
             return Unsupported(header);
         }
 
-        var selectedReduction = SelectReduction(codestream, stream, reductionLevels);
-        using var image = JpxDecoder.Decode(codestream, stream, selectedReduction, scratchPools, cancellationToken);
         var indexed = header.ColorSpace?.Kind == PdfColorSpaceKind.Indexed;
-        if (JpxChannels.Build(file, codestream.Geometry, indexed) is not { Length: > 0 } channels
-            || JpxOutputPlan.Create(file.ColorSpace, channels, image, header.ColorSpace) is not { } plan)
+        if (JpxChannels.Build(file, codestream.Geometry, indexed) is not { Channels.Length: > 0 } set
+            || JpxOutputPlan.Create(file.ColorSpace, set, codestream.Geometry, header.ColorSpace) is not { } plan)
         {
             return null;
         }
 
-        var area = image.Areas[channels[0].Component];
-        if (area.Width < (header.Width >> selectedReduction) || area.Height < (header.Height >> selectedReduction))
-        {
-            // PDFium refuses a JPX image smaller than its dictionary says.
-            return null;
-        }
+        // Only the components the output reads are decoded: a codestream with more components than colour channels, such
+        // as an opacity component the dictionary does not ask for, skips them.
+        var alpha = softMaskInData == SoftMaskInData && plan.Mode == JpxSampleMode.Scaled && set.Channels.Length > plan.Components;
+        var selectedReduction = SelectReduction(codestream, stream, reductionLevels);
+        using var image = JpxDecoder.Open(codestream, selectedReduction, scratchPools, WantedComponents(set, plan, alpha), cancellationToken);
 
-        var source = new JpxSampleSource(image, channels, file.Palette, area.Width, area.Height);
-        var alpha = plan.Action == JpxDecodeAction.ConvertArgbToRgb && softMaskInData == SoftMaskInData;
+        // The output takes the size of the largest channel plane, so subsampled channels stretch to the full image and
+        // a codestream whose size differs from the dictionary's still draws, scaled to the image's unit square. The
+        // decoder works on rows as the conversion asks for them, so no plane holds the whole image.
+        var area = LargestArea(image, set.Channels);
+        var source = new JpxSampleSource(image, stream, set.Channels, file.Palette, area.Width, area.Height);
         return Convert(header, source, plan, alpha, scratchPools);
+    }
+
+    /// <summary>Finds the components the output reads: the planned colour channels, and the opacity channel when it is used.</summary>
+    /// <param name="set">The channels.</param>
+    /// <param name="plan">The output plan.</param>
+    /// <param name="withAlpha">Whether the channel after the colour channels is the soft mask.</param>
+    /// <returns>The components to decode.</returns>
+    private static uint WantedComponents(in JpxChannelSet set, JpxOutputPlan plan, bool withAlpha)
+    {
+        var wanted = 0U;
+        var used = plan.Components + (withAlpha ? 1 : 0);
+        for (var i = 0; i < used; i++)
+        {
+            wanted = JpxComponentMask.With(wanted, set.Channels[i].Component);
+        }
+
+        return wanted;
+    }
+
+    /// <summary>Finds the channel plane with the most samples.</summary>
+    /// <param name="image">The decoded planes.</param>
+    /// <param name="channels">The channels.</param>
+    /// <returns>The largest area.</returns>
+    private static JpxRectangle LargestArea(JpxDecoder image, JpxChannel[] channels)
+    {
+        var largest = image.Areas[channels[0].Component];
+        foreach (var channel in channels)
+        {
+            var area = image.Areas[channel.Component];
+            if ((long)area.Width * area.Height > (long)largest.Width * largest.Height)
+            {
+                largest = area;
+            }
+        }
+
+        return largest;
     }
 
     /// <summary>Uses only levels available to every component and avoids tile-specific coding overrides.</summary>
@@ -202,53 +235,27 @@ internal static class JpxImageDecoder
     /// <returns>The image.</returns>
     private static PdfImageData Convert(in ImageHeader header, in JpxSampleSource source, JpxOutputPlan plan, bool withAlpha, ScratchPools scratchPools)
     {
+        // Each row goes from the decoder straight through the colour space, so the whole image is never held as one
+        // sample buffer as well.
+        if (!withAlpha)
+        {
+            return PdfImageDecoder.DecodeRows(ForSamples(header, source, plan), new JpxImageRows(source, plan), scratchPools);
+        }
+
+        // A soft mask in the data multiplies into BGRA pixels, so those images are never gray. Only the alpha channel is
+        // kept beside the pixels.
         var pixels = source.Width * source.Height;
-        var length = pixels * plan.Components;
         var pool = scratchPools.Get<byte>();
-        var samples = pool.Rent(length);
-        var alpha = withAlpha ? pool.Rent(pixels) : null;
+        var alpha = pool.Rent(pixels);
         try
         {
-            var written = samples.AsSpan(0, length);
-            JpxSampleWriter.Write(source, plan, written);
-            if (plan.Action == JpxDecodeAction.UseIndexed && header.BitsPerComponent < SampleBits)
-            {
-                ShiftIndices(written, SampleBits - header.BitsPerComponent);
-            }
-
-            if (alpha is not null)
-            {
-                JpxSampleWriter.WriteAlpha(source, AlphaChannel, alpha.AsSpan(0, pixels));
-                JpxSampleWriter.BlendToWhite(written, alpha.AsSpan(0, pixels));
-            }
-
-            // A soft mask in the data multiplies into BGRA pixels, so those images are never gray.
-            var image = PdfImageDecoder.DecodeSamples(ForSamples(header, source, plan) with { Compact = header.Compact && alpha is null }, written, scratchPools);
-            if (alpha is not null)
-            {
-                ImageAlpha.Multiply(image.Pixels, alpha.AsSpan(0, pixels));
-            }
-
+            var image = PdfImageDecoder.DecodeRows(ForSamples(header, source, plan) with { Compact = false }, new JpxImageRows(source, plan, alpha.AsSpan(0, pixels)), scratchPools);
+            ImageAlpha.Multiply(image.Pixels, alpha.AsSpan(0, pixels));
             return image;
         }
         finally
         {
-            pool.Return(samples);
-            if (alpha is not null)
-            {
-                pool.Return(alpha);
-            }
-        }
-    }
-
-    /// <summary>Shifts palette indices back down after they were scaled up to eight bits, as PDFium does.</summary>
-    /// <param name="samples">The indices.</param>
-    /// <param name="shift">The shift.</param>
-    private static void ShiftIndices(Span<byte> samples, int shift)
-    {
-        foreach (ref var sample in samples)
-        {
-            sample >>= shift;
+            pool.Return(alpha);
         }
     }
 

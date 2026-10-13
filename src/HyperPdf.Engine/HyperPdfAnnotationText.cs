@@ -22,7 +22,7 @@ internal static class HyperPdfAnnotationText
     /// <summary>How far below the top of a line its baseline sits, as a multiple of the font size.</summary>
     internal const float Ascent = 0.8F;
 
-    /// <summary>The most lines written; later lines are dropped, as the PDFium engine drops them.</summary>
+    /// <summary>The most lines written; later lines are dropped, which bounds the work for one annotation.</summary>
     internal const int MaxLines = 128;
 
     /// <summary>The font size of a stamp's word.</summary>
@@ -66,6 +66,7 @@ internal static class HyperPdfAnnotationText
                 return -1;
             }
 
+            fontSize /= page.UserUnit;
             var origin = HyperPdfAnnotationReading.ToUser(page, location);
             var bounds = MeasureLines(font, fontSize, text, origin);
             if (!bounds.IsSet)
@@ -168,6 +169,7 @@ internal static class HyperPdfAnnotationText
                 return false;
             }
 
+            fontSize /= page.UserUnit;
             var text = PdfAnnotations.GetText(annotation, annotationState.Names.Text);
             var color = HyperPdfAnnotationKinds.GetColor(annotationState, annotation, kind);
             if (kind == AnnotationKind.Callout)

@@ -114,7 +114,7 @@ internal static class StreamRecompressor
         var deflated = default(PooledBuffer);
         try
         {
-            Inflate(plain, filter, parameters, stream.Dictionary.Owner, ref inflated, cancellationToken);
+            Inflate(plain, filter, parameters, ref inflated, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             Deflate(inflated.WrittenSpan, ref deflated);
             cancellationToken.ThrowIfCancellationRequested();
@@ -131,14 +131,13 @@ internal static class StreamRecompressor
     /// <param name="data">The encoded data.</param>
     /// <param name="filter">The filter.</param>
     /// <param name="parameters">Its parameters, or <see langword="null"/>.</param>
-    /// <param name="owner">The store that owns the stream's decoders, or null.</param>
     /// <param name="output">Receives the predicted bytes.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void Inflate(ReadOnlySpan<byte> data, KnownName filter, PdfDictionary? parameters, PdfObjectStore? owner, ref PooledBuffer output, CancellationToken cancellationToken)
+    private static void Inflate(ReadOnlySpan<byte> data, KnownName filter, PdfDictionary? parameters, ref PooledBuffer output, CancellationToken cancellationToken)
     {
         if (filter is KnownName.FlateDecode or KnownName.Fl)
         {
-            _ = FlateFilter.TryDecode(data, ref output, owner?.FlateDecoders, cancellationToken);
+            _ = FlateFilter.TryDecode(data, ref output, cancellationToken);
             return;
         }
 
@@ -181,7 +180,7 @@ internal static class StreamRecompressor
             var data = plain;
             if (decode)
             {
-                _ = PdfStreamDecoder.Apply(plain, filters, default, stream.Dictionary.Owner, ref decoded, cancellationToken);
+                _ = PdfStreamDecoder.Apply(plain, filters, default, ref decoded, cancellationToken);
                 data = decoded.WrittenSpan;
             }
 

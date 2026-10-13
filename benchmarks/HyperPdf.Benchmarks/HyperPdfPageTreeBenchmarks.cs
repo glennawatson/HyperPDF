@@ -54,17 +54,17 @@ public class HyperPdfPageTreeBenchmarks
     /// <summary>Reads one leaf under a root node.</summary>
     /// <returns>The page count.</returns>
     [Benchmark(Baseline = true)]
-    public int Tiny() => PageTreeReader.Read(_tiny!.Objects).Length;
+    public int Tiny() => PageTreeReader.Read(_tiny!.Objects).Count;
 
     /// <summary>Reads many leaf siblings under one root node.</summary>
     /// <returns>The page count.</returns>
     [Benchmark]
-    public int Wide() => PageTreeReader.Read(_wide!.Objects).Length;
+    public int Wide() => PageTreeReader.Read(_wide!.Objects).Count;
 
     /// <summary>Reads one leaf under a chain of intermediate nodes.</summary>
     /// <returns>The page count.</returns>
     [Benchmark]
-    public int Deep() => PageTreeReader.Read(_deep!.Objects).Length;
+    public int Deep() => PageTreeReader.Read(_deep!.Objects).Count;
 
     /// <summary>Builds a tree with one root and the requested number of leaf siblings.</summary>
     /// <param name="count">The page count.</param>

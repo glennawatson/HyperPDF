@@ -79,11 +79,41 @@ public static class OcrRunner
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="words">A reusable list for the words; cleared first.</param>
     /// <returns>What happened.</returns>
-    public static OcrPageResult RecognizePage(IDocument document, ITextLayerWriter writer, IOcrEngine engine, int pageIndex, List<OcrWord> words)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static OcrPageResult RecognizePage(IDocument document, ITextLayerWriter writer, IOcrEngine engine, int pageIndex, List<OcrWord> words) =>
+        RecognizePage(document, writer, engine, pageIndex, words, CancellationToken.None);
+
+    /// <summary>Recognises one page and writes its words onto it.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="writer">Writes the text layer, normally the same document.</param>
+    /// <param name="engine">The recogniser.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="words">A reusable list for the words; cleared first.</param>
+    /// <param name="cancellationToken">Stops the work between the strips rendered and before the words are recognised.</param>
+    /// <returns>What happened.</returns>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static OcrPageResult RecognizePage(IDocument document, ITextLayerWriter writer, IOcrEngine engine, int pageIndex, List<OcrWord> words, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writer);
-        var status = RecognizeWords(document, engine, pageIndex, words);
-        return status == OcrPageStatus.Recognized ? WriteWords(writer, pageIndex, words) : new(pageIndex, status, 0);
+
+        // The words go back to the page they were read from, even if pages are inserted, deleted or moved meanwhile.
+        var pageToken = writer.GetPageToken(pageIndex);
+        var status = RecognizeWords(document, engine, pageIndex, words, cancellationToken);
+        return status == OcrPageStatus.Recognized ? WriteWords(writer, pageIndex, pageToken, words) : new(pageIndex, status, 0);
+    }
+
+    /// <summary>Writes recognised words onto the page they were read from, wherever that page is now.</summary>
+    /// <param name="writer">Writes the text layer.</param>
+    /// <param name="pageIndex">The zero based index the page had when it was read; reported in the result.</param>
+    /// <param name="pageToken">The token from <see cref="ITextLayerWriter.GetPageToken"/>, taken before the page was read.</param>
+    /// <param name="words">The words.</param>
+    /// <returns>What happened; no words are written when the page is gone.</returns>
+    public static OcrPageResult WriteWords(ITextLayerWriter writer, int pageIndex, long pageToken, List<OcrWord> words)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(words);
+        var written = writer.AddTextLayerToPage(pageToken, CollectionsMarshal.AsSpan(words));
+        return new(pageIndex, written > 0 ? OcrPageStatus.Recognized : OcrPageStatus.NoTextFound, written);
     }
 
     /// <summary>Writes recognised words onto a page as invisible text.</summary>
@@ -125,7 +155,19 @@ public static class OcrRunner
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="words">A reusable list receiving the words; cleared first.</param>
     /// <returns><see cref="OcrPageStatus.Recognized"/> when words were found, otherwise why not.</returns>
-    public static OcrPageStatus RecognizeWords(IDocument document, IOcrEngine engine, int pageIndex, List<OcrWord> words)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static OcrPageStatus RecognizeWords(IDocument document, IOcrEngine engine, int pageIndex, List<OcrWord> words) =>
+        RecognizeWords(document, engine, pageIndex, words, CancellationToken.None);
+
+    /// <summary>Recognises one page's words without writing them, so they can be checked first.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="engine">The recogniser.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="words">A reusable list receiving the words; cleared first.</param>
+    /// <param name="cancellationToken">Stops the work between the strips rendered and before the words are recognised.</param>
+    /// <returns><see cref="OcrPageStatus.Recognized"/> when words were found, otherwise why not.</returns>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static OcrPageStatus RecognizeWords(IDocument document, IOcrEngine engine, int pageIndex, List<OcrWord> words, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(engine);
@@ -148,11 +190,12 @@ public static class OcrRunner
         var grey = ArrayPool<byte>.Shared.Rent(width * height);
         try
         {
-            if (!RenderGrey(document, pageIndex, scale, width, height, grey))
+            if (!RenderGrey(document, pageIndex, scale, width, height, grey, cancellationToken))
             {
                 return OcrPageStatus.NotRendered;
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             engine.Recognize(grey.AsSpan(0, width * height), width, height, scale, words);
         }
         finally
@@ -214,8 +257,9 @@ public static class OcrRunner
     /// <param name="width">The width in pixels.</param>
     /// <param name="height">The height in pixels.</param>
     /// <param name="grey">The destination.</param>
+    /// <param name="cancellationToken">Stops the work between strips.</param>
     /// <returns><see langword="false"/> when the page could not be rendered.</returns>
-    private static bool RenderGrey(IDocument document, int pageIndex, float scale, int width, int height, byte[] grey)
+    private static bool RenderGrey(IDocument document, int pageIndex, float scale, int width, int height, byte[] grey, CancellationToken cancellationToken)
     {
         var stride = width * BytesPerPixel;
         var strip = ArrayPool<byte>.Shared.Rent(stride * StripRows);
@@ -223,6 +267,7 @@ public static class OcrRunner
         {
             for (var top = 0; top < height; top += StripRows)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var rows = Math.Min(StripRows, height - top);
                 var target = new RenderTarget(strip.AsSpan(0, stride * rows), width, rows, stride);
                 if (!document.Render(new(pageIndex, scale, PageRotation.None, 0, top, RenderFlags.None), target))

@@ -12,8 +12,8 @@ namespace HyperPdfLibrary.TextLayer;
 
 /// <summary>
 /// Writes recognised words onto a page as invisible text (render mode 3), each word scaled to the box it was found in,
-/// so search, selection and copy work on scanned pages without changing how they look. Each word fills its box as
-/// the PDFium engine places it: the font size makes the font's ascent and descent as tall as the box, and horizontal
+/// so search, selection and copy work on scanned pages without changing how they look. Each word fills its box:
+/// the font size makes the font's ascent and descent as tall as the box, and horizontal
 /// scaling makes the glyph run as wide. The text follows the page's rotation and crop box.
 /// </summary>
 public static class PdfTextLayer
@@ -32,6 +32,9 @@ public static class PdfTextLayer
 
     /// <summary>The most bytes a character needs: a two-byte code.</summary>
     private const int BytesPerChar = 2;
+
+    /// <summary>The most fonts whose names and use flags are kept on the stack; more are kept in arrays.</summary>
+    private const int StackFonts = 32;
 
     /// <summary>Determines whether a word has text and a box big enough to place.</summary>
     /// <param name="word">The word.</param>
@@ -62,14 +65,18 @@ public static class PdfTextLayer
             return 0;
         }
 
-        var names = PdfTextLayerPage.ChooseNames(store, page, fonts.Length);
-        var used = new bool[fonts.Length];
+        Span<int> numbers = fonts.Length <= StackFonts ? stackalloc int[StackFonts] : new int[fonts.Length];
+        Span<bool> used = fonts.Length <= StackFonts ? stackalloc bool[StackFonts] : new bool[fonts.Length];
+        numbers = numbers[..fonts.Length];
+        used = used[..fonts.Length];
+        used.Clear();
+        PdfTextLayerPage.ChooseNames(store, page, numbers);
         var codes = ArrayPool<byte>.Shared.Rent(MaxCodeBytes(words));
         var builder = default(PdfContentBuilder);
         try
         {
-            var written = WriteWords(ref builder, page.UserTransform, words, fonts, names, used, codes);
-            return written > 0 && PdfTextLayerPage.Install(store, page, fonts, names, used, builder.WrittenSpan) ? written : 0;
+            var written = WriteWords(ref builder, page.UserTransform, words, fonts, numbers, used, codes);
+            return written > 0 && PdfTextLayerPage.Install(store, page, fonts, numbers, used, builder.WrittenSpan) ? written : 0;
         }
         finally
         {
@@ -97,7 +104,7 @@ public static class PdfTextLayer
     /// <param name="userTransform">Maps viewer space to user space.</param>
     /// <param name="words">The words.</param>
     /// <param name="fonts">The fonts.</param>
-    /// <param name="names">The resource name of each font.</param>
+    /// <param name="numbers">The number in the resource name of each font.</param>
     /// <param name="used">Receives which fonts were used.</param>
     /// <param name="codes">Scratch space for a word's codes.</param>
     /// <returns>The number of words written.</returns>
@@ -106,17 +113,24 @@ public static class PdfTextLayer
         Matrix3x2 userTransform,
         ReadOnlySpan<PdfTextLayerWord> words,
         ReadOnlySpan<IPdfTextLayerFont> fonts,
-        byte[][] names,
-        bool[] used,
+        scoped ReadOnlySpan<int> numbers,
+        scoped Span<bool> used,
         byte[] codes)
     {
         builder.SaveState();
         builder.BeginText();
         builder.SetTextRenderingMode(Invisible);
+        Span<byte> nameBuffer = stackalloc byte[PdfTextLayerPage.MaxNameLength];
         var written = 0;
         foreach (ref readonly var word in words)
         {
-            if ((uint)word.Font >= (uint)fonts.Length || !IsPlaceable(word) || !WriteWord(ref builder, userTransform, word, fonts[word.Font], names[word.Font], codes))
+            if ((uint)word.Font >= (uint)fonts.Length || !IsPlaceable(word))
+            {
+                continue;
+            }
+
+            var name = PdfTextLayerPage.FormatName(numbers[word.Font], nameBuffer);
+            if (!WriteWord(ref builder, userTransform, word, fonts[word.Font], name, codes))
             {
                 continue;
             }
@@ -138,7 +152,7 @@ public static class PdfTextLayer
     /// <param name="name">The font's resource name.</param>
     /// <param name="codes">Scratch space for the codes.</param>
     /// <returns><see langword="true"/> when the word was written.</returns>
-    private static bool WriteWord(ref PdfContentBuilder builder, Matrix3x2 userTransform, in PdfTextLayerWord word, IPdfTextLayerFont font, byte[] name, byte[] codes)
+    private static bool WriteWord(ref PdfContentBuilder builder, Matrix3x2 userTransform, in PdfTextLayerWord word, IPdfTextLayerFont font, scoped ReadOnlySpan<byte> name, byte[] codes)
     {
         var span = font.Ascent + font.Descent;
         var count = font.Encode(word.Text, codes, out var extent);
@@ -148,7 +162,7 @@ public static class PdfTextLayer
             return false;
         }
 
-        // The ink fills the box, as PDFium's text objects are measured: scale the run to the box and shift its ink to the left edge.
+        // The ink fills the box: scale the run to the box and shift its ink to the left edge.
         var size = (word.Bottom - word.Top) / span;
         var scale = (word.Right - word.Left) / (ink * size / Thousand);
         var left = word.Left - (scale * extent.InkLeft * size / Thousand);

@@ -16,9 +16,6 @@ public static class FdfReader
     /// <summary>How far into the file the header may start.</summary>
     private const int HeaderSearchLength = 1024;
 
-    /// <summary>The offset of the F of FDF in the header, after the percent sign.</summary>
-    private const int LetterOffset = 1;
-
     /// <summary>Gets the bytes of the FDF header start.</summary>
     private static ReadOnlySpan<byte> Header => "%FDF-"u8;
 
@@ -51,11 +48,7 @@ public static class FdfReader
             throw new PdfException(PdfError.Format, "The file is not an FDF document.");
         }
 
-        // The object parser expects a PDF header. FDF differs in one letter, so a copy with that letter changed reads
-        // with every offset unchanged.
-        var copy = (byte[])fdf.Clone();
-        copy[header + LetterOffset] = (byte)'P';
-        using var store = StoreOpening.Open(copy, null);
+        using var store = StoreOpening.OpenFdf(fdf);
         var root = store.Catalog.GetDictionary(store.Names.Intern("FDF")) ?? throw new PdfException(PdfError.Format, "The FDF file has no FDF dictionary.");
         var data = new PdfInterchangeData();
         FdfDictionaryReader.Read(root, data);

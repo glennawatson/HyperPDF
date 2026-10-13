@@ -8,8 +8,7 @@ using HyperPdfLibrary.Fonts.Programs;
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
-/// Maps the codes of a Type 1 font with an embedded program to glyphs, as PDFium's CPDF_Type1Font::LoadGlyphMap does
-/// for embedded faces: by glyph name first, then through the program's Unicode names or its built-in encoding.
+/// Maps the codes of a Type 1 font with an embedded program to glyphs (ISO 32000-2, 9.6.5.2): by glyph name first, then through the program's Unicode names or its built-in encoding.
 /// </summary>
 internal static class Type1GlyphMapper
 {

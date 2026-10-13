@@ -61,7 +61,7 @@ public static partial class PdfAnnotations
     /// <summary>The size of a UTF-16 code unit in bytes.</summary>
     private const int Utf16Size = 2;
 
-    /// <summary>The format of numbers stored as text: up to three decimals, as PDFium writes them.</summary>
+    /// <summary>The format of numbers stored as text: up to three decimals, enough for a point value at screen precision.</summary>
     private const string NumberTextFormat = "0.###";
 
     /// <summary>Gets the UTF-16 big-endian byte order mark.</summary>
@@ -94,7 +94,7 @@ public static partial class PdfAnnotations
         annotation.Set(KnownName.Rect, PdfValue.FromArray(rectangle.ToArray(annotation.Owner)));
     }
 
-    /// <summary>Gets <c>/Rect</c>, normalised; a missing or malformed rectangle reads as empty, as PDFium reads it.</summary>
+    /// <summary>Gets <c>/Rect</c>, normalised; a missing or malformed rectangle reads as empty.</summary>
     /// <param name="annotation">The annotation.</param>
     /// <returns>The rectangle.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="annotation"/> is <see langword="null"/>.</exception>
@@ -177,7 +177,7 @@ public static partial class PdfAnnotations
         annotation.Set(KnownName.CA, PdfNumber.ToValue(Math.Clamp(opacity, 0, 1)));
     }
 
-    /// <summary>Sets <c>/Border</c> to square corners and a width, as PDFium's border setter writes it.</summary>
+    /// <summary>Sets <c>/Border</c> to square corners and a width (ISO 32000-2 Table 168 /Border: horizontal radius 0, vertical radius 0, width).</summary>
     /// <param name="annotation">The annotation.</param>
     /// <param name="width">The line width in points.</param>
     /// <exception cref="ArgumentNullException"><paramref name="annotation"/> is <see langword="null"/>.</exception>
@@ -304,7 +304,7 @@ public static partial class PdfAnnotations
         return bytes.IsEmpty ? null : PdfDate.Parse(bytes);
     }
 
-    /// <summary>Stores a number as a text string with up to three decimals, the way PDFium keeps custom numbers.</summary>
+    /// <summary>Stores a number as a text string with up to three decimals, so a viewer's own numeric keys survive in any reader.</summary>
     /// <param name="annotation">The annotation.</param>
     /// <param name="key">The key.</param>
     /// <param name="number">The number.</param>
@@ -340,7 +340,7 @@ public static partial class PdfAnnotations
     /// <param name="channel">The channel in its low byte.</param>
     /// <returns>The component.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static PdfValue Component(uint channel) =>
+    internal static PdfValue Component(uint channel) =>
         PdfNumber.ToValue(Math.Min(1, Math.Ceiling((channel & ChannelMask) / ChannelMax * SixDecimals) / SixDecimals));
 
     /// <summary>Packs three components from 0 to 1 into 0xRRGGBB, rounding each to the nearest byte.</summary>

@@ -48,8 +48,8 @@ internal static class PdfSignatureValidator
     {
         try
         {
-            // The earlier revision shares the document's security handler, so it is not disposed.
-            var signed = StoreRevisions.OpenRevision(document.Objects, signedEnd);
+            // The earlier revision borrows the document's security handler, so disposing it frees only its own caches.
+            using var signed = StoreRevisions.OpenRevision(document.Objects, signedEnd);
             return [.. PdfRevisionComparer.Compare(document.Objects, signed, signedEnd)];
         }
         catch (PdfException)

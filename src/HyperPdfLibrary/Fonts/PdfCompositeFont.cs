@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -31,6 +32,9 @@ internal sealed class PdfCompositeFont : PdfFont
 
     /// <summary>The cached outlines: by glyph id for embedded programs, by code for system fonts.</summary>
     private readonly GlyphOutlineCache _outlines = new();
+
+    /// <summary>The outlines of system-font codes beyond the slot table, made on first use.</summary>
+    private ConcurrentDictionary<int, PdfPath>? _wideOutlines;
 
     /// <summary>Initializes a new instance of the <see cref="PdfCompositeFont"/> class.</summary>
     /// <param name="dictionary">The /Type0 font dictionary.</param>
@@ -86,7 +90,10 @@ internal sealed class PdfCompositeFont : PdfFont
     {
         if (_data.Source.IsSubstitute)
         {
-            return _outlines.GetOrBuild(code, this, static (font, slot) => font.BuildSubstituteOutline(slot));
+            // The slot table covers codes below 65536; the wide codes of UTF-32 and surrogate-pair CMaps use a table of their own.
+            return (uint)code < GlyphOutlineCache.SlotCount
+                ? _outlines.GetOrBuild(code, this, static (font, slot) => font.BuildSubstituteOutline(slot))
+                : GetWideSubstituteOutline(code);
         }
 
         var glyph = GetGlyph(code);
@@ -117,8 +124,7 @@ internal sealed class PdfCompositeFont : PdfFont
         _data.Widths.TryGetAdvance(_data.CMap.ToCid(code), out var width) ? width : _data.DefaultWidth;
 
     /// <summary>
-    /// Gets the code point a code stands for when drawn in a system font, as PDFium's CPDF_CIDFont::GlyphFromCharCode
-    /// finds it: the CID's Unicode value, then the CMap's own meaning, then /ToUnicode.
+    /// Gets the code point a code stands for when drawn in a system font: the CID's Unicode value, then the CMap's own meaning, then /ToUnicode.
     /// </summary>
     /// <param name="code">The code.</param>
     /// <returns>The code point, or zero.</returns>
@@ -138,6 +144,26 @@ internal sealed class PdfCompositeFont : PdfFont
         }
 
         return codePoint;
+    }
+
+    /// <summary>Gets the outline of a code too large for the slot table, building it on first use.</summary>
+    /// <param name="code">The code.</param>
+    /// <returns>The outline, or <see langword="null"/> for a blank glyph.</returns>
+    private PdfPath? GetWideSubstituteOutline(int code)
+    {
+        var table = Volatile.Read(ref _wideOutlines) ?? CreateWideOutlines();
+
+        // Two threads can build the same outline; both are the same and one is kept. A blank glyph is kept as an empty path.
+        var path = table.GetOrAdd(code, static (key, font) => font.BuildSubstituteOutline(key) ?? PdfPath.Empty, this);
+        return path.IsEmpty ? null : path;
+    }
+
+    /// <summary>Makes the table of wide-code outlines, keeping another thread's table if it won.</summary>
+    /// <returns>The table.</returns>
+    private ConcurrentDictionary<int, PdfPath> CreateWideOutlines()
+    {
+        var created = new ConcurrentDictionary<int, PdfPath>();
+        return Interlocked.CompareExchange(ref _wideOutlines, created, null) ?? created;
     }
 
     /// <summary>Builds the outline of a code in a system font, falling back to another system font for a missing character.</summary>

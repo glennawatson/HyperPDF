@@ -194,13 +194,13 @@ public sealed class TrueTypeFontTests
     {
         var bytes = "AB"u8.ToArray();
         _ = Lookups(font, bytes);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < Iterations; i++)
+        return AllocationProbe.Minimum(() =>
         {
-            _ = Lookups(font, bytes);
-        }
-
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+            for (var i = 0; i < Iterations; i++)
+            {
+                _ = Lookups(font, bytes);
+            }
+        });
     }
 
     /// <summary>Runs every per-glyph lookup over some bytes.</summary>

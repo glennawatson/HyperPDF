@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Security;
 
@@ -246,15 +247,22 @@ internal ref struct PdfParser
     /// <param name="decoded">The decoded bytes.</param>
     /// <param name="length">The number of decoded bytes.</param>
     /// <returns>The value.</returns>
-    private readonly PdfValue Finish(byte[] decoded, int length)
+    private readonly PdfValue Finish(byte[] decoded, int length) =>
+        _security is null || !EncryptionId.IsValid ? PdfValue.FromString(decoded, 0, length) : Decrypt(decoded.AsSpan(0, length));
+
+    /// <summary>Decrypts the bytes of a string with the document's security handler.</summary>
+    /// <param name="encrypted">The bytes as stored.</param>
+    /// <returns>The string; empty when authenticated encryption rejects the bytes.</returns>
+    private readonly PdfValue Decrypt(ReadOnlySpan<byte> encrypted)
     {
-        if (_security is null || !EncryptionId.IsValid)
+        if (_security!.TryDecryptString(EncryptionId, encrypted, out var plain))
         {
-            return PdfValue.FromString(decoded, 0, length);
+            return PdfValue.FromString(plain);
         }
 
-        var plain = _security.DecryptString(EncryptionId, decoded.AsSpan(0, length));
-        return PdfValue.FromString(plain);
+        // AES-GCM data that fails authentication is never returned: the string reads as empty.
+        PdfOpenContext.Report(_owner?.Context, PdfDiagnosticCode.AuthenticationFailed, "An encrypted string failed authentication and was left out.", EncryptionId.Number, -1);
+        return PdfValue.FromString([]);
     }
 
     /// <summary>Parses an array whose opening bracket has been read.</summary>
@@ -293,19 +301,61 @@ internal ref struct PdfParser
     {
         var mark = scratch.Count;
         var more = depth < PdfLimits.MaxNesting;
+        byte[]? storedContents = null;
         while (more)
         {
-            more = ParseEntry(ref scratch, depth);
+            more = ParseEntry(ref scratch, depth, ref storedContents);
         }
 
-        return PdfValue.FromDictionary(scratch.PopDictionary(mark, _owner));
+        var dictionary = scratch.PopDictionary(mark, _owner);
+        if (storedContents is not null && !dictionary.ContainsKey(KnownName.ByteRange))
+        {
+            // Only a signature dictionary (one with a /ByteRange) keeps its /Contents in the clear; any other string is encrypted.
+            dictionary.Set(KnownName.Contents, Decrypt(storedContents));
+        }
+
+        return PdfValue.FromDictionary(dictionary);
     }
+
+    /// <summary>Determines whether an entry is a /Contents string in an encrypted document, which is read as stored until the dictionary shows what it is.</summary>
+    /// <param name="key">The entry's key.</param>
+    /// <param name="valueKind">The kind of the value's first token.</param>
+    /// <returns><see langword="true"/> when the string is read without decrypting.</returns>
+    private readonly bool KeepsStored(PdfName key, PdfTokenKind valueKind) =>
+        _security is not null && EncryptionId.IsValid && key.Is(KnownName.Contents) && valueKind is PdfTokenKind.LiteralString or PdfTokenKind.HexString;
+
+    /// <summary>
+    /// Parses a /Contents string without decrypting it, so a signature's bytes are read as stored (ISO 32000-2, 7.6.2: the
+    /// /Contents of a signature dictionary is never encrypted). The dictionary decrypts it afterwards if it is not a signature.
+    /// </summary>
+    /// <param name="kind">The string token's kind.</param>
+    /// <param name="stored">Receives the bytes as stored.</param>
+    /// <returns>The value holding the bytes as stored.</returns>
+    private readonly PdfValue ParseStoredString(PdfTokenKind kind, out byte[] stored)
+    {
+        var raw = _lexer.Lexeme;
+        var decoded = new byte[kind == PdfTokenKind.HexString ? (raw.Length + 1) / HexDigitsPerByte : raw.Length];
+        var length = kind == PdfTokenKind.HexString ? PdfStringDecoder.DecodeHex(raw, decoded) : PdfStringDecoder.DecodeLiteral(raw, decoded);
+        stored = length == decoded.Length ? decoded : decoded.AsSpan(0, length).ToArray();
+        return PdfValue.FromString(stored);
+    }
+
+    /// <summary>Parses the value of a dictionary entry whose first token has been read.</summary>
+    /// <param name="key">The entry's key.</param>
+    /// <param name="valueKind">The kind of the value's first token.</param>
+    /// <param name="depth">The dictionary's nesting depth.</param>
+    /// <param name="scratch">The scratch stack.</param>
+    /// <param name="storedContents">Receives the /Contents string as stored when it was read without decrypting.</param>
+    /// <returns>The value.</returns>
+    private PdfValue ParseEntryValue(PdfName key, PdfTokenKind valueKind, int depth, ref ParseScratch scratch, ref byte[]? storedContents) =>
+        KeepsStored(key, valueKind) ? ParseStoredString(valueKind, out storedContents) : ParseValue(valueKind, depth + 1, ref scratch);
 
     /// <summary>Parses one dictionary entry onto the scratch stack.</summary>
     /// <param name="scratch">The scratch stack.</param>
     /// <param name="depth">The dictionary's nesting depth.</param>
+    /// <param name="storedContents">Receives the /Contents string as stored when it was read without decrypting.</param>
     /// <returns><see langword="false"/> at the end of the dictionary.</returns>
-    private bool ParseEntry(ref ParseScratch scratch, int depth)
+    private bool ParseEntry(ref ParseScratch scratch, int depth, ref byte[]? storedContents)
     {
         var kind = _lexer.Next();
         if (kind != PdfTokenKind.Name)
@@ -333,7 +383,7 @@ internal ref struct PdfParser
             return false;
         }
 
-        var value = ParseValue(valueKind, depth + 1, ref scratch);
+        var value = ParseEntryValue(key, valueKind, depth, ref scratch, ref storedContents);
         if (!value.IsNull)
         {
             scratch.Push(key.Id, value);

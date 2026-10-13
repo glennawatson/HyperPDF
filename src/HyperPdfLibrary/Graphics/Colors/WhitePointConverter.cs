@@ -8,8 +8,9 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Graphics.Colors;
 
 /// <summary>
-/// Converts CIE XYZ to sRGB for a colour space with its own white point, as PDFium's XYZ_to_sRGB_WhitePoint does: the sRGB
-/// primaries are scaled so the white point maps to RGB (1, 1, 1), and the result is encoded with the sRGB curve.
+/// Converts CIE XYZ to sRGB for a colour space with its own white point (ISO 32000-2 8.6.5). The chromaticities of the sRGB
+/// primaries (IEC 61966-2-1) are scaled so the white point maps to RGB (1, 1, 1), which keeps neutral colours neutral, and
+/// the result is encoded with the sRGB transfer curve.
 /// </summary>
 [DebuggerDisplay("WhitePointConverter")]
 internal sealed class WhitePointConverter

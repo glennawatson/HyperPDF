@@ -9,8 +9,8 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.TextLayer;
 
 /// <summary>
-/// A built in Latin font with WinAnsi encoding, which needs no embedded font program. The PDFium engine writes
-/// OCR text in Helvetica, so that is the usual choice.
+/// A built in Latin font with WinAnsi encoding, which needs no embedded font program. OCR text is usually
+/// written in Helvetica.
 /// </summary>
 [DebuggerDisplay("PdfStandardTextLayerFont: {_font}")]
 public sealed class PdfStandardTextLayerFont : IPdfTextLayerFont

@@ -35,6 +35,9 @@ internal sealed class FakeOcr : IOcrEngine
     /// <summary>The bottom edge of the word read, in points.</summary>
     private const float WordBottom = 90;
 
+    /// <summary>The longest the recogniser waits at the gate; its call cannot be awaited.</summary>
+    private static readonly TimeSpan HoldLimit = TimeSpan.FromSeconds(30);
+
     /// <summary>Whether the Tesseract library is reported as installed.</summary>
     private readonly bool _engineInstalled;
 
@@ -47,6 +50,12 @@ internal sealed class FakeOcr : IOcrEngine
 
     /// <inheritdoc/>
     public OcrEngineStatus Status => OcrEngineStatus.Ready;
+
+    /// <summary>Gets or sets a gate the recogniser waits at until it is completed; <see langword="null"/> reads at once.</summary>
+    internal TaskCompletionSource? Gate { get; set; }
+
+    /// <summary>Gets the signal that the recogniser is waiting at the gate.</summary>
+    internal TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>Gets or sets the confidence of the word read on each scanned page.</summary>
     internal float Confidence { get; set; } = Clear;
@@ -64,8 +73,18 @@ internal sealed class FakeOcr : IOcrEngine
     }
 
     /// <inheritdoc/>
-    public void Recognize(ReadOnlySpan<byte> image, int width, int height, float pixelsPerPoint, List<OcrWord> output) =>
+    public void Recognize(ReadOnlySpan<byte> image, int width, int height, float pixelsPerPoint, List<OcrWord> output)
+    {
+        if (Gate is { } gate)
+        {
+            _ = Reached.TrySetResult();
+
+            // The call is synchronous, so the hold on a pool thread polls the release with a bound.
+            _ = SpinWait.SpinUntil(() => gate.Task.IsCompleted, HoldLimit);
+        }
+
         output.Add(new("Hello", PageRect.FromEdges(WordLeft, WordTop, WordRight, WordBottom), Confidence));
+    }
 
     /// <summary>Creates a setup using this fake, with English shipped in <c>bundled</c> beside the pack folder.</summary>
     /// <param name="directory">The pack folder.</param>

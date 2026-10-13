@@ -4,12 +4,11 @@
 
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.VisualTree;
@@ -17,9 +16,11 @@ using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Text;
+using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Views;
 
@@ -52,6 +53,9 @@ public sealed partial class DocumentView
 
     /// <summary>The narrowest editor, in device independent pixels, so the caret always shows.</summary>
     private const double MinEditorWidth = 4;
+
+    /// <summary>Gets the key binding that keeps the typed text on Ctrl+Enter.</summary>
+    internal KeyBinding CommitTextKey { get; } = new() { Gesture = new(Key.Enter, KeyModifiers.Control) };
 
     /// <summary>Formats a text size for the size box.</summary>
     /// <param name="size">The size in points.</param>
@@ -121,31 +125,28 @@ public sealed partial class DocumentView
             static family => family,
             static item => item as string ?? StandardFontFamilies.Sans));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.FontSize, static v => v.FontSizeBox.Text, SizeText));
-        bindings.Add(FontSizeBox.ObserveRouted(SelectingItemsControl.SelectionChangedEvent, RoutingStrategies.Bubble)
-            .SubscribeSafe(_ => ApplyFontSize(FontSizeBox.SelectedItem as string), OnError));
-        bindings.Add(FontSizeBox.ObserveRouted(KeyDownEvent, RoutingStrategies.Tunnel).Where(static e => e.Key == Key.Enter).SubscribeSafe(_ => ApplyFontSize(FontSizeBox.Text), OnError));
-        bindings.Add(FocusLosses(FontSizeBox).SubscribeSafe(_ => ApplyFontSize(FontSizeBox.Text), OnError));
+        bindings.Add(FontSizeBox.Entries.SubscribeSafe(ApplyFontSize, OnError));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.ShrinkTextCommand, static v => v.SmallerTextButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.GrowTextCommand, static v => v.LargerTextButton));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsBold, static v => v.BoldToggle.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsItalic, static v => v.ItalicToggle.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsUnderline, static v => v.UnderlineToggle.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsAlignedLeft, static v => v.AlignLeftToggle.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsAlignedCenter, static v => v.AlignCenterToggle.IsChecked, static on => on, IsOn));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsAlignedRight, static v => v.AlignRightToggle.IsChecked, static on => on, IsOn));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsBold, static v => v.BoldToggle.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsItalic, static v => v.ItalicToggle.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsUnderline, static v => v.UnderlineToggle.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsAlignedLeft, static v => v.AlignLeftToggle.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsAlignedCenter, static v => v.AlignCenterToggle.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsAlignedRight, static v => v.AlignRightToggle.IsChecked, static on => on, static on => on == true));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.TextColorName, static v => v.TextColourText.Text));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.TextColor, static v => v.TextColourSwatch.Background, Swatch));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.BlackTextItem, Parameter("Black")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.DarkBlueTextItem, Parameter("Dark blue")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.BlueTextItem, Parameter("Blue")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.RedTextItem, Parameter("Red")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.GreenTextItem, Parameter("Green")));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.BlackTextItem, "Black".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.DarkBlueTextItem, "Dark blue".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.BlueTextItem, "Blue".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.RedTextItem, "Red".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetTextColorCommand, static v => v.GreenTextItem, "Green".AsCommandParameter));
         BindSpacing(bindings);
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.EditTextPropertiesCommand, static v => v.TextPropertiesButton));
         bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.FinishTextCommand, static v => v.FinishTextButton));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.IsEditingText, static v => v.FinishTextButton.IsEnabled));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsTextTool, static v => v.AddTextTool.IsChecked, static on => on, IsOn));
-        bindings.Add(HandleInteraction(this.WhenChanged(static v => v.ViewModel!.Annotations.TextPropertiesInteraction), ShowTextPropertiesAsync));
+        bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsTextTool, static v => v.AddTextTool.IsChecked, static on => on, static on => on == true));
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Annotations.TextPropertiesInteraction).HandleWith(ShowTextPropertiesAsync));
     }
 
     /// <summary>Binds the spacing menu.</summary>
@@ -153,14 +154,14 @@ public sealed partial class DocumentView
     private void BindSpacing(MultipleDisposable bindings)
     {
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.SpacingName, static v => v.SpacingText.Text));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetLineSpacingCommand, static v => v.SingleSpacingItem, Parameter("Single")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetLineSpacingCommand, static v => v.NormalSpacingItem, Parameter("Normal")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetLineSpacingCommand, static v => v.OneHalfSpacingItem, Parameter("One and a half")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetLineSpacingCommand, static v => v.DoubleSpacingItem, Parameter("Double")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetCharacterSpacingCommand, static v => v.TightLettersItem, Parameter("Tight")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetCharacterSpacingCommand, static v => v.NormalLettersItem, Parameter("Normal")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetCharacterSpacingCommand, static v => v.WideLettersItem, Parameter("Wide")));
-        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetCharacterSpacingCommand, static v => v.WiderLettersItem, Parameter("Wider")));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetLineSpacingCommand, static v => v.SingleSpacingItem, "Single".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetLineSpacingCommand, static v => v.NormalSpacingItem, "Normal".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetLineSpacingCommand, static v => v.OneHalfSpacingItem, "One and a half".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetLineSpacingCommand, static v => v.DoubleSpacingItem, "Double".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetCharacterSpacingCommand, static v => v.TightLettersItem, "Tight".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetCharacterSpacingCommand, static v => v.NormalLettersItem, "Normal".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetCharacterSpacingCommand, static v => v.WideLettersItem, "Wide".AsCommandParameter));
+        bindings.Add(this.BindCommand(ViewModel, static vm => vm.Annotations.SetCharacterSpacingCommand, static v => v.WiderLettersItem, "Wider".AsCommandParameter));
     }
 
     /// <summary>Binds the editor that sits on the page where text is typed.</summary>
@@ -170,13 +171,25 @@ public sealed partial class DocumentView
         bindings.Add(this.Bind(ViewModel, static vm => vm.Annotations.EditingText, static v => v.PageTextEditor.Text, static text => text, static text => text ?? string.Empty));
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.Annotations.TextEdit).SubscribeSafe(ShowPageTextEditor, OnError));
         bindings.Add(this.WhenChanged(static v => v.ViewModel!.Annotations.CurrentTextFormat, static v => v.ViewModel!.Zoom, static v => v.ViewModel!.Rotation, static (format, _, _) => format)
+            .AsVoid
+            .Merge(Canvas.WhenChanged(static c => c.PageScale).AsVoid)
             .SubscribeSafe(_ => RestylePageTextEditor(), OnError));
-        bindings.Add(PageTextEditor.ObserveRouted(KeyDownEvent, RoutingStrategies.Tunnel).SubscribeSafe(OnPageTextKey, OnError));
-        bindings.Add(FocusLosses(PageTextEditor).Where(static _ => !FocusAnnouncementRepair.IsRepeating).SubscribeSafe(_ => OnPageTextFocusLost(), OnError));
-        bindings.Add(FontFamilyBox.GetObservable(ComboBox.IsDropDownOpenProperty).Where(static open => open).SubscribeSafe(_ => ViewModel?.Annotations.RefreshFontFamilies(), OnError));
-        bindings.Add(FontFamilyBox.ObserveRouted(SelectingItemsControl.SelectionChangedEvent, RoutingStrategies.Bubble).SubscribeSafe(_ => RefocusPageText(), OnError));
-        bindings.Add(PageTextEditor.ObserveRouted(TextBox.TextChangedEvent, RoutingStrategies.Bubble).SubscribeSafe(_ => PageTextUnderline.InvalidateVisual(), OnError));
-        bindings.Add(TextFormatBar.ObserveRouted(Button.ClickEvent, RoutingStrategies.Bubble, handledEventsToo: true).SubscribeSafe(_ => RefocusPageText(), OnError));
+        bindings.Add(PageTextEditor.KeyDowns.SubscribeSafe(OnPageTextKey, OnError));
+
+        // The editor handles Ctrl+Enter as a new line before any handler sees it; a key binding runs first.
+        bindings.Add(this.WhenChanged(static v => v.ViewModel!.Annotations.FinishTextCommand).Select(static command => (ICommand?)command).BindTo(this, static v => v.CommitTextKey.Command));
+        bindings.Add(PageTextEditor.LostFocuses.Where(static _ => !FocusAnnouncementRepair.IsRepeating).SubscribeSafe(_ => OnPageTextFocusLost(), OnError));
+        bindings.Add(FontFamilyBox.DropDownOpenings.InjectLatest(_tabs).SubscribeSafe(static tab => tab.Annotations.RefreshFontFamilies(), OnError));
+        bindings.Add(PageTextEditor.TextChanges.SubscribeSafe(_ => PageTextUnderline.InvalidateVisual(), OnError));
+
+        // A format change puts the focus back in the editor once the click is done, so typing carries on.
+        bindings.Add(Signal.Merge(FontFamilyBox.SelectionChanges.AsVoid, TextFormatBar.DescendantClicks.AsVoid)
+            .WithLatestFrom(
+                this.WhenChanged(static v => v.ViewModel!.Annotations.IsEditingText, static v => v.PageTextEditor.IsVisible, static (editing, shown) => editing && shown),
+                static (_, typing) => typing)
+            .Where(static typing => typing)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .SubscribeSafe(_ => PageTextEditor.Focus(), OnError));
     }
 
     /// <summary>Sets the text size from what was typed or picked in the size box.</summary>
@@ -211,7 +224,7 @@ public sealed partial class DocumentView
         // Shown first, so the editor lays its text out and its baseline can be lined up with the written one.
         PageTextEditor.IsVisible = true;
         RestylePageTextEditor();
-        _ = OnMainThread().SubscribeSafe(_ => FocusPageText(), OnError);
+        _ = Signal.Return(RxVoid.Default).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => FocusPageText(), OnError);
     }
 
     /// <summary>Focuses the editor with the caret after the text.</summary>
@@ -219,15 +232,6 @@ public sealed partial class DocumentView
     {
         _ = PageTextEditor.Focus();
         PageTextEditor.CaretIndex = PageTextEditor.Text?.Length ?? 0;
-    }
-
-    /// <summary>Puts the focus back in the editor after a format button was used, so typing carries on.</summary>
-    private void RefocusPageText()
-    {
-        if (ViewModel?.Annotations.IsEditingText == true && PageTextEditor.IsVisible)
-        {
-            _ = OnMainThread().SubscribeSafe(_ => PageTextEditor.Focus(), OnError);
-        }
     }
 
     /// <summary>Gives the editor the text's font, size, colour, style, spacing and place at the current zoom and rotation.</summary>
@@ -351,7 +355,7 @@ public sealed partial class DocumentView
         e.Handled = (e.Key, control) switch
         {
             (Key.Escape, false) => Run(annotations.CancelText),
-            (Key.Enter, true) or (Key.Tab, false) => Run(() => annotations.CommitText()),
+            (Key.Tab, false) => Run(() => annotations.CommitText()),
             (Key.Enter, false) when !PageTextEditor.AcceptsReturn => Run(() => annotations.CommitText()),
             (Key.B, true) => Run(() => annotations.IsBold = !annotations.IsBold),
             (Key.I, true) => Run(() => annotations.IsItalic = !annotations.IsItalic),

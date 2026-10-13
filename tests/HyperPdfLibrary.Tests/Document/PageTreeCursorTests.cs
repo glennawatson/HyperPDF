@@ -176,7 +176,7 @@ public sealed class PageTreeCursorTests
         rootKids.SetAt(1, PdfValue.FromReference(new(BranchObjectNumber, 0)));
         rootKids.Add(PdfValue.FromReference(new(FirstPageObjectNumber, 0)));
 
-        var pages = PageTreeReader.Read(document.Objects);
+        var pages = PageTreeReader.Read(document.Objects).Pages;
 
         await Assert.That(pages.Length).IsEqualTo(1);
         await Assert.That(pages[0].Id.Number).IsEqualTo(FirstPageObjectNumber);
@@ -202,7 +202,7 @@ public sealed class PageTreeCursorTests
         branch.Set(KnownName.Kids, PdfValue.FromArray(kids));
         document.Catalog.GetDictionary(KnownName.Pages)!.GetArray(KnownName.Kids)!.SetAt(0, PdfValue.FromDictionary(branch));
 
-        var pages = PageTreeReader.Read(document.Objects);
+        var pages = PageTreeReader.Read(document.Objects).Pages;
 
         await Assert.That(pages.Length).IsGreaterThan(0);
         await Assert.That(pages[0].Id.Number).IsEqualTo(FirstPageObjectNumber);

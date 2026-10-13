@@ -34,6 +34,9 @@ public sealed record PdfDocumentInfo
     /// <summary>Gets the modification date.</summary>
     public DateTimeOffset? Modified { get; init; }
 
+    /// <summary>Gets the trapping state: True, False or Unknown.</summary>
+    public string? Trapped { get; init; }
+
     /// <summary>Gets the format version, for example "1.7"; the catalog's /Version wins over the header.</summary>
     public string? Version { get; init; }
 

@@ -6,8 +6,11 @@ using System.Diagnostics;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpeg;
 
-/// <summary>A JPEG Huffman table with a direct lookup for short codes and canonical ranges for long ones.</summary>
-[DebuggerDisplay("JpegHuffmanTable: {Values.Length} symbols")]
+/// <summary>
+/// A JPEG Huffman table with a direct lookup for short codes and canonical ranges for long ones. A table owns its arrays
+/// and is defined again for each image, so a decoder keeps its tables between images.
+/// </summary>
+[DebuggerDisplay("JpegHuffmanTable: {Count} symbols")]
 internal sealed class JpegHuffmanTable
 {
     /// <summary>The bits looked up in one step.</summary>
@@ -28,11 +31,10 @@ internal sealed class JpegHuffmanTable
     /// <summary>The mask of the symbol in a lookup entry.</summary>
     private const int SymbolMask = 0xFF;
 
-    /// <summary>Initializes a new instance of the <see cref="JpegHuffmanTable"/> class.</summary>
-    /// <param name="values">The symbols in code order.</param>
-    private JpegHuffmanTable(byte[] values)
+    /// <summary>Initializes a new instance of the <see cref="JpegHuffmanTable"/> class with no codes.</summary>
+    internal JpegHuffmanTable()
     {
-        Values = values;
+        Values = new byte[MaxSymbols];
         Lookup = new short[1 << LookupBits];
         MaxCode = new int[MaxCodeLength + 1];
         ValueOffset = new int[MaxCodeLength + 1];
@@ -41,8 +43,14 @@ internal sealed class JpegHuffmanTable
     /// <summary>Gets a table with no codes, which fails every decode; it stands in for a table the file never defined.</summary>
     internal static JpegHuffmanTable Empty { get; } = CreateEmpty();
 
-    /// <summary>Gets the symbols in code order.</summary>
+    /// <summary>Gets the symbols in code order; only the first <see cref="Count"/> belong to the definition.</summary>
     internal byte[] Values { get; }
+
+    /// <summary>Gets the number of symbols the definition has.</summary>
+    internal int Count { get; private set; }
+
+    /// <summary>Gets a value indicating whether a definition has been accepted for this image.</summary>
+    internal bool IsDefined { get; private set; }
 
     /// <summary>Gets the lookup of the first <see cref="LookupBits"/> bits: code length in the high byte and symbol in the low, or zero.</summary>
     internal short[] Lookup { get; }
@@ -53,12 +61,20 @@ internal sealed class JpegHuffmanTable
     /// <summary>Gets the amount added to a code of each length to give its index in <see cref="Values"/>.</summary>
     internal int[] ValueOffset { get; }
 
-    /// <summary>Builds a table from a DHT definition.</summary>
+    /// <summary>Forgets the definition, so the table stands for one the file never gave.</summary>
+    internal void Undefine()
+    {
+        IsDefined = false;
+        Count = 0;
+    }
+
+    /// <summary>Defines the table from a DHT definition.</summary>
     /// <param name="counts">The number of codes of each length from 1 to 16.</param>
     /// <param name="values">The symbols in code order.</param>
-    /// <returns>The table, or <see langword="null"/> when the definition is not a valid prefix code.</returns>
-    internal static JpegHuffmanTable? Create(ReadOnlySpan<byte> counts, ReadOnlySpan<byte> values)
+    /// <returns><see langword="false"/> when the definition is not a valid prefix code; the table is then undefined.</returns>
+    internal bool TryDefine(ReadOnlySpan<byte> counts, ReadOnlySpan<byte> values)
     {
+        Undefine();
         var total = 0;
         foreach (var count in counts)
         {
@@ -67,19 +83,23 @@ internal sealed class JpegHuffmanTable
 
         if (total > MaxSymbols || total > values.Length)
         {
-            return null;
+            return false;
         }
 
-        var table = new JpegHuffmanTable(values[..total].ToArray());
-        return table.Build(counts) ? table : null;
+        values[..total].CopyTo(Values);
+        Values.AsSpan(total).Clear();
+        Lookup.AsSpan().Clear();
+        Count = total;
+        IsDefined = Build(counts);
+        return IsDefined;
     }
 
     /// <summary>Builds the table with no codes.</summary>
     /// <returns>The table.</returns>
     private static JpegHuffmanTable CreateEmpty()
     {
-        var table = new JpegHuffmanTable([]);
-        _ = table.Build(new byte[LengthCounts]);
+        var table = new JpegHuffmanTable();
+        _ = table.TryDefine(new byte[LengthCounts], []);
         return table;
     }
 

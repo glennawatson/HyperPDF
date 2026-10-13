@@ -158,6 +158,21 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
         return await OpenCoreAsync(this, Path.GetFullPath(path), null, certificate, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Maps a library error to the viewer's open error.</summary>
+    /// <param name="exception">The library exception.</param>
+    /// <param name="path">The file path.</param>
+    /// <returns>The viewer exception.</returns>
+    internal static DocumentOpenException CreateOpenException(PdfException exception, string path) => exception.Error switch
+    {
+        PdfError.Format => new(DocumentOpenError.Format, $"The file '{path}' is not a valid PDF document."),
+        PdfError.Password => new(DocumentOpenError.Password, "The document is password protected."),
+        PdfError.Security => new(DocumentOpenError.Security, exception.Message),
+        PdfError.Certificate => new(DocumentOpenError.Certificate, exception.Message),
+        PdfError.File or PdfError.Unknown when exception.InnerException is IOException or UnauthorizedAccessException =>
+            new(DocumentOpenError.File, $"The file '{path}' could not be found or read."),
+        _ => new(DocumentOpenError.Unknown, $"The document '{path}' could not be opened."),
+    };
+
     /// <summary>Opens a file with either a password or a recipient certificate.</summary>
     /// <param name="self">The engine's font and drawing services.</param>
     /// <param name="fullPath">The absolute PDF path.</param>
@@ -230,7 +245,7 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     {
         if (document.PageCount == 0)
         {
-            // A file rebuilt into one with no pages has nothing to show, so say so, as PDFium does.
+            // A file rebuilt into one with no pages has nothing to show, so say so.
             document.Dispose();
             throw new DocumentOpenException(DocumentOpenError.Format, $"The file '{fullPath}' is not a valid PDF document.");
         }
@@ -245,21 +260,6 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
             throw;
         }
     }
-
-    /// <summary>Maps a library error to the viewer's open error.</summary>
-    /// <param name="exception">The library exception.</param>
-    /// <param name="path">The file path.</param>
-    /// <returns>The viewer exception.</returns>
-    private static DocumentOpenException CreateOpenException(PdfException exception, string path) => exception.Error switch
-    {
-        PdfError.Format => new(DocumentOpenError.Format, $"The file '{path}' is not a valid PDF document."),
-        PdfError.Password => new(DocumentOpenError.Password, "The document is password protected."),
-        PdfError.Security => new(DocumentOpenError.Security, "The document uses an unsupported security handler."),
-        PdfError.Certificate => new(DocumentOpenError.Certificate, exception.Message),
-        PdfError.File or PdfError.Unknown when exception.InnerException is IOException or UnauthorizedAccessException =>
-            new(DocumentOpenError.File, $"The file '{path}' could not be found or read."),
-        _ => new(DocumentOpenError.Unknown, $"The document '{path}' could not be opened."),
-    };
 
     /// <summary>Reads a PKCS #12 file for a synchronous open.</summary>
     /// <param name="path">The certificate path.</param>

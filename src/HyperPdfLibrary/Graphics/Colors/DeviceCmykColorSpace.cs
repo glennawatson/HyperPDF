@@ -5,8 +5,8 @@
 namespace HyperPdfLibrary.Graphics.Colors;
 
 /// <summary>
-/// The DeviceCMYK colour space; one shared instance. Converts with PDFium's table interpolation (see
-/// <see cref="CmykConverter"/>), which approximates Adobe's default CMYK to sRGB conversion.
+/// The DeviceCMYK colour space; one shared instance. Converts to sRGB with a polynomial fitted to a
+/// process-ink model (see <see cref="CmykConverter"/>).
 /// </summary>
 internal sealed class DeviceCmykColorSpace : PdfColorSpace
 {
@@ -43,5 +43,5 @@ internal sealed class DeviceCmykColorSpace : PdfColorSpace
 
     /// <inheritdoc/>
     private protected override void ConvertRowCore(ReadOnlySpan<byte> samples, Span<byte> bgra, int pixelCount) =>
-        PixelConverter.CmykToBgra(samples, bgra, pixelCount);
+        CmykConverter.ToBgraRow(samples, bgra, pixelCount);
 }

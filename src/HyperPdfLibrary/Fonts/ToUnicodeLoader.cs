@@ -7,7 +7,7 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts;
 
-/// <summary>Reads a font's /ToUnicode stream; a name such as /Identity-H is ignored, as PDFium ignores it.</summary>
+/// <summary>Reads a font's /ToUnicode stream; a name such as /Identity-H is ignored because /ToUnicode must be a stream (ISO 32000-2, 9.10.3).</summary>
 internal static class ToUnicodeLoader
 {
     /// <summary>Parses /ToUnicode.</summary>

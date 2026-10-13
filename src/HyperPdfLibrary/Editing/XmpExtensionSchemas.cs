@@ -4,6 +4,7 @@
 
 using System.Text;
 using System.Xml;
+using HyperPdfLibrary.IO;
 
 namespace HyperPdfLibrary.Editing;
 
@@ -44,6 +45,9 @@ internal static class XmpExtensionSchemas
 
     /// <summary>The elements a new container leaves open: the description, the schemas property and its bag.</summary>
     private const int ContainerDepth = 3;
+
+    /// <summary>The writer settings, shared because a writer only reads them.</summary>
+    private static readonly XmlWriterSettings WriterSettings = new() { Encoding = new UTF8Encoding(false), OmitXmlDeclaration = true, ConformanceLevel = ConformanceLevel.Fragment };
 
     /// <summary>Gets the RDF namespace's bytes.</summary>
     private static ReadOnlySpan<byte> RdfNamespaceBytes => "http://www.w3.org/1999/02/22-rdf-syntax-ns#"u8;
@@ -129,9 +133,8 @@ internal static class XmpExtensionSchemas
     /// <returns>The UTF-8 bytes.</returns>
     private static byte[] Write(string rdf, string? subject, XmpExtensionProperty extension)
     {
-        var settings = new XmlWriterSettings { Encoding = new UTF8Encoding(false), OmitXmlDeclaration = true, ConformanceLevel = ConformanceLevel.Fragment };
-        using var memory = new MemoryStream();
-        using (var writer = XmlWriter.Create(memory, settings))
+        using var memory = new PooledWriteStream();
+        using (var writer = XmlWriter.Create(memory, WriterSettings))
         {
             if (subject is not null)
             {

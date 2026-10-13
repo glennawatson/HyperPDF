@@ -83,7 +83,7 @@ internal static class BorrowedPixelDrawing
         surface.Canvas.Dispose();
         surface.Bitmap.Dispose();
         surface.Pixmap.Dispose();
-        surface.GrayPaint.Dispose();
+        surface.DisposeGrayPaint();
     }
 
     /// <summary>Updates the reusable pixmap and bitmap with the pinned target.</summary>

@@ -21,4 +21,22 @@ public enum PdfSecurityResult
 
     /// <summary>The encryption dictionary is damaged, for example a missing or oversized /Recipients.</summary>
     Damaged = 4,
+
+    /// <summary>A recipient is for the certificate, but the certificate has no private key.</summary>
+    PrivateKeyRequired = 5,
+
+    /// <summary>
+    /// A recipient is for the certificate, but it uses a key type or CMS algorithm that cannot be decrypted, such as an
+    /// unsupported key derivation, key wrap or content cipher.
+    /// </summary>
+    UnsupportedRecipient = 6,
+
+    /// <summary>
+    /// A recipient's CMS data is damaged: it cannot be read, or the recipient for the certificate does not decrypt with
+    /// its private key.
+    /// </summary>
+    RecipientDamaged = 7,
+
+    /// <summary>The document uses AES-GCM (ISO/TS 32003), and this computer's cryptography library does not provide it.</summary>
+    UnsupportedCipher = 8,
 }

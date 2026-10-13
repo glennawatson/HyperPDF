@@ -7,7 +7,7 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Signatures;
 
-/// <summary>Reads each signature field's modification-detection data, in the order PDFium lists signatures.</summary>
+/// <summary>Reads each signature field's modification-detection data, in the order of /AcroForm /Fields.</summary>
 internal static class PdfSignatureDetailsReader
 {
     /// <summary>Reads the details of every signature field.</summary>
@@ -16,6 +16,11 @@ internal static class PdfSignatureDetailsReader
     internal static PdfSignatureDetails[] Read(PdfDocument document)
     {
         var signatures = PdfDocumentAttachments.GetSignatures(document);
+        if (signatures.Count == 0)
+        {
+            return [];
+        }
+
         var names = document.Objects.Names;
         var fields = document.Catalog.GetDictionary(KnownName.AcroForm)?.GetArray(KnownName.Fields);
         var certification = document.Catalog.GetDictionary(KnownName.Perms)?.GetRaw(KnownName.DocMDP) ?? default;
@@ -70,7 +75,11 @@ internal static class PdfSignatureDetailsReader
             references.UsageRights,
             value?.GetText(KnownName.Name) ?? string.Empty,
             value?.GetText(KnownName.Location) ?? string.Empty,
-            value?.GetText(KnownName.ContactInfo) ?? string.Empty);
+            value?.GetText(KnownName.ContactInfo) ?? string.Empty)
+        {
+            SeedDigest = PdfSignatureDictionaries.ReadSeedDigest(field.GetDictionary(KnownName.SV), names),
+            ReferenceDigestMethods = references.DigestMethods,
+        };
     }
 
     /// <summary>Determines whether the catalog's /Perms /DocMDP names a field's signature.</summary>

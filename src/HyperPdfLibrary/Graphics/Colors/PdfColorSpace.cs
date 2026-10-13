@@ -56,6 +56,15 @@ public abstract class PdfColorSpace
     /// <summary>Gets a value indicating whether painting in this space leaves the page unchanged (Separation /None).</summary>
     public virtual bool PaintsNothing => false;
 
+    /// <summary>Gets the names of the colorants a Separation or DeviceN space paints, one per component; <see langword="null"/> for other spaces.</summary>
+    public virtual IReadOnlyList<string>? ColorantNames => null;
+
+    /// <summary>Gets the family the content named: <see cref="Kind"/>, except for a device space that converts through the output intent profile.</summary>
+    internal virtual PdfColorSpaceKind NamedKind => Kind;
+
+    /// <summary>Gets the default decode range for 8-bit samples, as min/max pairs, built once and shared; callers must not change it.</summary>
+    internal float[] ByteDecode => SampleDecode;
+
     /// <summary>Gets the decode range of 8-bit row samples, as min/max pairs.</summary>
     private protected float[] SampleDecode
     {
@@ -164,10 +173,13 @@ public abstract class PdfColorSpace
         return lookup;
     }
 
-    /// <summary>Gets the space as it converts for a rendering intent; only ICC profiles with separate tables per intent differ.</summary>
-    /// <param name="intent">The rendering intent.</param>
-    /// <returns>This space, or one that uses the intent's table.</returns>
-    internal virtual PdfColorSpace ForIntent(IccIntent intent) => this;
+    /// <summary>
+    /// Gets the space as it converts for a rendering intent and black point choice. Only ICC conversions differ, including
+    /// those an Indexed base, a Separation or DeviceN alternate or an output intent profile makes.
+    /// </summary>
+    /// <param name="rendering">The rendering.</param>
+    /// <returns>This space, or one that converts with the rendering; the same instance on every call.</returns>
+    internal virtual PdfColorSpace ForRendering(IccRendering rendering) => this;
 
     /// <summary>Converts a colour to RGB; the spans are long enough.</summary>
     /// <param name="components">The colour's components.</param>

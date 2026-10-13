@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Text;
 using HyperPdfLibrary.Document;
 
 namespace HyperPdfLibrary.Structure.Tagged;
@@ -11,7 +10,7 @@ namespace HyperPdfLibrary.Structure.Tagged;
 /// <summary>
 /// Builds one page's reading nodes from the structure tree: each element with content or an object on the page
 /// becomes a node, and each marked content id a content leaf holding its glyphs. A marked content id is read once,
-/// by the first element in logical order that claims it, as PDFium reads shared content.
+/// by the first element in logical order that claims it, so shared content is not repeated.
 /// </summary>
 [DebuggerDisplay("TaggedNodeBuilder: page {_pageIndex}")]
 internal sealed class TaggedNodeBuilder
@@ -27,9 +26,6 @@ internal sealed class TaggedNodeBuilder
 
     /// <summary>The marked content ids already given to a node.</summary>
     private readonly HashSet<int> _used = [];
-
-    /// <summary>Builds node text.</summary>
-    private readonly StringBuilder _text = new();
 
     /// <summary>Resolves object references to annotations and form fields.</summary>
     private readonly TaggedObjectResolver _objects;
@@ -60,24 +56,6 @@ internal sealed class TaggedNodeBuilder
                 output.Add(node);
             }
         }
-    }
-
-    /// <summary>Joins two pieces of text, adding a space between words that would otherwise run together.</summary>
-    /// <param name="text">The text so far.</param>
-    /// <param name="next">The next piece.</param>
-    private static void AppendWord(StringBuilder text, string next)
-    {
-        if (next.Length == 0)
-        {
-            return;
-        }
-
-        if (text.Length > 0 && !char.IsWhiteSpace(text[^1]) && !char.IsWhiteSpace(next[0]))
-        {
-            _ = text.Append(' ');
-        }
-
-        _ = text.Append(next);
     }
 
     /// <summary>Builds an element's node, or nothing when it has nothing on the page.</summary>
@@ -154,7 +132,7 @@ internal sealed class TaggedNodeBuilder
         }
     }
 
-    /// <summary>Determines whether a kid's page is this page; a kid whose page is unknown counts, as PDFium reads it.</summary>
+    /// <summary>Determines whether a kid's page is this page; a kid whose page is unknown counts, so content is not lost when /Pg is missing.</summary>
     /// <param name="pageIndex">The kid's page.</param>
     /// <returns><see langword="true"/> when it is on this page.</returns>
     private bool IsOnPage(int pageIndex) => pageIndex == _pageIndex || pageIndex < 0;
@@ -169,31 +147,23 @@ internal sealed class TaggedNodeBuilder
             return null;
         }
 
-        var glyphs = _content.GetGlyphs(mcid);
-        _ = _text.Clear();
-        foreach (var glyph in glyphs)
-        {
-            _ = _text.Append(_content.GetText(glyph));
-        }
-
-        var leaf = new PdfSemanticNode(PdfSemanticRole.Content, PdfNodeOrigin.Tagged, _pageIndex) { Mcid = mcid, Text = _text.ToString(), Bounds = _content.GetBounds(mcid) };
-        leaf.SetItems(glyphs.ToArray());
+        var leaf = new PdfSemanticNode(PdfSemanticRole.Content, PdfNodeOrigin.Tagged, _pageIndex) { Mcid = mcid, Bounds = _content.GetBounds(mcid) };
+        leaf.SetGlyphs(_content, _content.GetGlyphs(mcid).ToArray());
         return leaf;
     }
 
-    /// <summary>Works out an element node's text and box from its children, and links a table's cells to their headers.</summary>
+    /// <summary>Works out an element node's box from its children, sets its text to come from them, and links a table's cells to their headers.</summary>
     /// <param name="node">The node.</param>
     private void Finish(PdfSemanticNode node)
     {
-        _ = _text.Clear();
         var bounds = node.Bounds;
-        foreach (var child in node.Children)
+        var children = node.Children;
+        for (var i = 0; i < children.Count; i++)
         {
-            AppendWord(_text, child.Text);
-            bounds = bounds.Union(child.Bounds);
+            bounds = bounds.Union(children[i].Bounds);
         }
 
-        node.Text = _text.ToString();
+        node.JoinChildText();
         node.Bounds = bounds.IsEmpty ? LayoutBounds(node.Element) : bounds;
         if (node.Role == PdfSemanticRole.Table)
         {

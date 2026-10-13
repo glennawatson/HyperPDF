@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Forms;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Objects;
 namespace HyperPdf.Engine;
@@ -17,17 +18,17 @@ internal static class HyperPdfForms
 
     /// <summary>Converts a library widget to the viewer's field.</summary>
     /// <param name="widget">The widget.</param>
-    /// <param name="bounds">The widget's bounds in viewer space.</param>
-    /// <returns>The field.</returns>
+    /// <param name="page">The page the widget is on; its bounds and font size are converted to physical points.</param>
+    /// <returns>The field, with bounds in physical viewer space.</returns>
     internal static FormField ToField(
             PdfFormWidget widget,
-            PdfRectangle bounds) =>
+            PdfPage page) =>
             new(
             widget.PageIndex,
             widget.Index,
             widget.Name,
             (FormFieldKind)(int)widget.Type,
-            LinkTargets.ToPageRect(bounds),
+            LinkTargets.ToPageRect(page.ToPhysicalRectangle(widget.Bounds)),
             widget.Value,
             widget.IsChecked,
             widget.Options,
@@ -35,5 +36,5 @@ internal static class HyperPdfForms
             widget.IsReadOnly,
             widget.IsRequired,
             widget.IsMultiline)
-            { MaxLength = widget.MaxLength, IsComb = widget.IsComb, FontSize = widget.FontSize };
+            { MaxLength = widget.MaxLength, IsComb = widget.IsComb, FontSize = widget.FontSize * page.UserUnit };
 }

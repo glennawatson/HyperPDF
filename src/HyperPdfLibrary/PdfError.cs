@@ -22,6 +22,10 @@ public enum PdfError
     /// <summary>The document uses an unsupported security handler.</summary>
     Security = 4,
 
-    /// <summary>The document is encrypted for certificates; open it with a recipient's certificate and private key.</summary>
+    /// <summary>
+    /// The document is encrypted for certificates, and the certificate given cannot open it: none was given, it is not a
+    /// recipient, its private key is missing, its recipient uses an unsupported algorithm, or its recipient data is damaged.
+    /// The message says which.
+    /// </summary>
     Certificate = 5,
 }

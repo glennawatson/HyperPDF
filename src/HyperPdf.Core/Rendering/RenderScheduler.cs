@@ -25,14 +25,17 @@ public sealed class RenderScheduler : IDisposable
     /// <summary>The bit position of the priority within the queue ordering key.</summary>
     private const int PriorityShift = 48;
 
+    /// <summary>The number of pending tiles the map holds before it grows.</summary>
+    private const int InitialPendingCapacity = 8;
+
     /// <summary>Guards the queue and pending map.</summary>
     private readonly Lock _gate = new();
 
     /// <summary>The work queue, ordered by priority then arrival.</summary>
-    private readonly PriorityQueue<RenderRequest, long> _queue = new();
+    private readonly RequestQueue _queue = new();
 
-    /// <summary>Keys that are queued or rendered but not yet taken, mapped to the latest request for them.</summary>
-    private readonly Dictionary<TileKey, PendingTile> _pending = [];
+    /// <summary>Keys that are queued or rendered but not yet taken, mapped to the latest request for them; sized for a typical burst so it makes no table while rendering.</summary>
+    private readonly Dictionary<TileKey, PendingTile> _pending = [with(InitialPendingCapacity)];
 
     /// <summary>The epoch at which each document's content last changed; tiles rendered before it are discarded.</summary>
     private readonly Dictionary<int, long> _invalidated = [];
@@ -225,6 +228,12 @@ public sealed class RenderScheduler : IDisposable
         return true;
     }
 
+    /// <summary>Determines whether an exception from rendering one tile may be dropped with that tile.</summary>
+    /// <param name="exception">The exception.</param>
+    /// <returns><see langword="false"/> for exceptions that mean the process is failing.</returns>
+    private static bool IsRecoverable(Exception exception) =>
+        exception is not (OutOfMemoryException or AccessViolationException);
+
     /// <summary>Reports synchronous preparation failures through the returned task.</summary>
     /// <param name="request">The page request.</param>
     /// <param name="cancellationToken">Cancels preparation.</param>
@@ -235,7 +244,7 @@ public sealed class RenderScheduler : IDisposable
         {
             return request.Document.PreparePageAsync(request.Info.PageIndex, cancellationToken);
         }
-        catch (Exception exception) when (exception is OperationCanceledException or HttpRequestException or IOException or InvalidOperationException)
+        catch (Exception exception) when (IsRecoverable(exception))
         {
             return ValueTask.FromException(exception);
         }
@@ -266,11 +275,28 @@ public sealed class RenderScheduler : IDisposable
             pending = new(request, Started: false, Epoch: 0);
             var sequence = _sequence;
             _sequence = sequence + 1;
-            _queue.Enqueue(request, ((long)request.Priority << PriorityShift) | sequence);
+            _queue.Enqueue(new(request, ((long)request.Priority << PriorityShift) | sequence));
         }
 
-        _ = _signal.Release();
-        return true;
+        return WakeRenderThread();
+    }
+
+    /// <summary>
+    /// Wakes the render thread for a queued request. The thread releases the semaphore when it stops, so a request that
+    /// raced with <see cref="Dispose"/> finds it gone and is dropped, as a request after the dispose would be.
+    /// </summary>
+    /// <returns><see langword="true"/> when the render thread was woken.</returns>
+    private bool WakeRenderThread()
+    {
+        try
+        {
+            _ = _signal.Release();
+            return true;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Uses the tab token when present and the scheduler token otherwise.</summary>
@@ -376,11 +402,11 @@ public sealed class RenderScheduler : IDisposable
                 _pending[request.Key] = pending with { Started = false };
                 var sequence = _sequence;
                 _sequence = sequence + 1;
-                _queue.Enqueue(pending.Latest, ((long)pending.Latest.Priority << PriorityShift) | sequence);
+                _queue.Enqueue(new(pending.Latest, ((long)pending.Latest.Priority << PriorityShift) | sequence));
                 _ = _signal.Release();
             }
         }
-        catch (Exception exception) when (exception is OperationCanceledException or HttpRequestException or IOException or InvalidOperationException or ObjectDisposedException)
+        catch (Exception exception) when (IsRecoverable(exception))
         {
             Debug.WriteLine($"Page preparation failed for {request.Key}: {exception.Message}");
             Forget(request.Key, epoch);
@@ -396,8 +422,9 @@ public sealed class RenderScheduler : IDisposable
         lock (_gate)
         {
             epoch = _epoch;
-            while (_queue.TryDequeue(out var queued, out _))
+            while (_queue.TryDequeue(out var entry))
             {
+                var queued = entry.Request;
                 ref var pending = ref CollectionsMarshal.GetValueRefOrNullRef(_pending, queued.Key);
 
                 // A key queued again at a more urgent priority leaves its first entry behind; skip it once handled.
@@ -480,8 +507,9 @@ public sealed class RenderScheduler : IDisposable
             surface?.Dispose();
             return false;
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (IsRecoverable(ex))
         {
+            // A damaged file or a failed read must lose its tile, not the render thread and the process.
             Debug.WriteLine($"Render failed for {request.Key}: {ex.Message}");
             surface?.Dispose();
             return false;

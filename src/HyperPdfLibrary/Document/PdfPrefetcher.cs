@@ -60,7 +60,7 @@ internal static class PdfPrefetcher
         // While nothing has been dropped from the cache since the last walk, what it loaded is still there.
         var mark = objects.PrefetchMarks.GetValue(start, static _ => new());
         var generation = source.CacheGeneration;
-        return mark.IsLoadedAt(generation) ? ValueTask.CompletedTask : WalkAsync(objects, start, kind, mark, generation, cancellationToken);
+        return mark.IsLoadedAt(kind, generation) ? ValueTask.CompletedTask : WalkAsync(objects, start, kind, mark, generation, cancellationToken);
     }
 
     /// <summary>Walks the objects a dictionary leads to, loading each level.</summary>
@@ -85,7 +85,7 @@ internal static class PdfPrefetcher
             walk.Advance();
         }
 
-        mark.SetLoadedAt(generation);
+        mark.SetLoadedAt(kind, generation);
     }
 
     /// <summary>Gets the levels followed for a kind.</summary>
@@ -258,6 +258,7 @@ internal static class PdfPrefetcher
         {
             PdfPrefetchKind.PageTree => ["Kids"],
             PdfPrefetchKind.Outline => ["First", "Next"],
+            PdfPrefetchKind.Separation => ["SeparationInfo", "Pages", "DeviceColorant", "ColorSpace"],
             _ => ["Parent", "P", "Prev", "Next", "Dest", "D", "Thumb", "B", "Popup", "IRT", "PieceInfo", "Metadata", "StructParent", "AF"],
         };
 
@@ -306,12 +307,12 @@ internal static class PdfPrefetcher
         private PdfDictionary? ReadChildren(PdfObjectId id)
         {
             var dictionary = StoreReading.GetObject(_objects, id).AsDictionary();
-            if (dictionary is null || _kind != PdfPrefetchKind.Page)
+            if (dictionary is null || _kind is not (PdfPrefetchKind.Page or PdfPrefetchKind.Separation))
             {
                 return dictionary;
             }
 
-            // Another page, or the tree above this one, is reached through a destination or a stray reference: do not walk it.
+            // Another page (for a separation, one listed in /Pages), or the tree above this one, is reached through a destination or a stray reference: do not walk it.
             return dictionary.IsName(KnownName.Type, KnownName.Page) || dictionary.IsName(KnownName.Type, KnownName.Pages) ? null : dictionary;
         }
     }

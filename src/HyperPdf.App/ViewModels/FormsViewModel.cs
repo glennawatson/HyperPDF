@@ -30,6 +30,9 @@ public sealed partial class FormsViewModel : ReactiveObject
     /// <summary>Fields read for hit testing, reused.</summary>
     private readonly List<FormField> _scratch = [];
 
+    /// <summary>The pages whose open actions have not run yet, in the order the pages opened; used on the UI thread only.</summary>
+    private readonly Queue<int> _pagesOpened = [];
+
     /// <summary>The fields' scripts by name, read on first use.</summary>
     private Dictionary<string, FieldScripts>? _scripts;
 
@@ -42,6 +45,18 @@ public sealed partial class FormsViewModel : ReactiveObject
 
     /// <summary>Gets a value indicating whether the document has a fillable form.</summary>
     public bool HasForm => Filler?.HasForm == true;
+
+    /// <summary>
+    /// Gets the question asked before a form's Import Data action loads a file: the file name the form asked for in,
+    /// <see langword="true"/> out to go on.
+    /// </summary>
+    public Interaction<string, bool> ConfirmImportInteraction { get; } = new();
+
+    /// <summary>
+    /// Gets the file chooser for a form's Import Data action: the file name the form asked for in, the path the reader
+    /// chose out, or <see langword="null"/> to cancel. The form never picks the file.
+    /// </summary>
+    public Interaction<string, string?> ChooseImportFileInteraction { get; } = new();
 
     /// <summary>Gets the text field being edited, or <see langword="null"/>.</summary>
     [Reactive]
@@ -56,7 +71,13 @@ public sealed partial class FormsViewModel : ReactiveObject
     public partial string EditText { get; set; } = string.Empty;
 
     /// <summary>Gets the document's form filler, or <see langword="null"/>.</summary>
-    private IFormFiller? Filler => DocumentFeature<IFormFiller>.Get(_owner.TryGetDocument());
+    private IFormFiller? Filler => _owner.Notices.InteractionBlocked ? null : DocumentFeature<IFormFiller>.Get(_owner.TryGetDocument());
+
+    /// <summary>
+    /// Gets the document's form actions, or <see langword="null"/>. A document whose requirements stop its processing
+    /// (ISO 32000-2 §12.11.6) has no actions, no buttons and no form filling.
+    /// </summary>
+    private IFormActions? Actions => _owner.Notices.InteractionBlocked ? null : DocumentFeature<IFormActions>.Get(_owner.TryGetDocument());
 
     /// <summary>Finds the fillable field under a point.</summary>
     /// <param name="page">The page.</param>
@@ -134,14 +155,24 @@ public sealed partial class FormsViewModel : ReactiveObject
     public async Task<FormActionResult> RunButtonAsync(FormField field)
     {
         ArgumentNullException.ThrowIfNull(field);
-        if (DocumentFeature<IFormActions>.Get(_owner.TryGetDocument()) is not
+        if (Actions is not
             {
             } actions)
         {
             return FormActionResult.None;
         }
 
-        var result = await actions.RunWidgetActionAsync(field.PageIndex, field.Index, new TabFormActionHost(_owner, true), CancellationToken.None).ConfigureAwait(true);
+        FormActionResult result;
+        try
+        {
+            result = await actions.RunWidgetActionAsync(field.PageIndex, field.Index, new TabFormActionHost(_owner, true), _owner.LifetimeToken).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException)
+        {
+            // The tab was closed, or its document was closed under the action; there is nothing left to redraw.
+            return FormActionResult.None;
+        }
+
         if ((result & (FormActionResult.Changed | FormActionResult.LayersChanged)) != 0)
         {
             RefreshAllPages();
@@ -155,7 +186,14 @@ public sealed partial class FormsViewModel : ReactiveObject
     /// <param name="pageIndex">The zero based page index.</param>
     public void OnPageShown(int pageIndex)
     {
-        if (DocumentFeature<IFormActions>.Get(_owner.TryGetDocument()) is not null && PageOpenedCommand is ICommand command && command.CanExecute(pageIndex))
+        if (Actions is null || PageOpenedCommand is not ICommand command)
+        {
+            return;
+        }
+
+        // A page that opens while the actions of an earlier page still run waits its turn instead of being skipped.
+        _pagesOpened.Enqueue(pageIndex);
+        if (command.CanExecute(pageIndex))
         {
             command.Execute(pageIndex);
         }
@@ -166,14 +204,24 @@ public sealed partial class FormsViewModel : ReactiveObject
     /// <returns>What happened.</returns>
     public async Task<FormActionResult> RunPageOpenedAsync(int pageIndex)
     {
-        if (DocumentFeature<IFormActions>.Get(_owner.TryGetDocument()) is not
+        if (Actions is not
             {
             } actions)
         {
             return FormActionResult.None;
         }
 
-        var result = await actions.RunPageOpenedAsync(pageIndex, new TabFormActionHost(_owner, false), CancellationToken.None).ConfigureAwait(true);
+        FormActionResult result;
+        try
+        {
+            result = await actions.RunPageOpenedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException)
+        {
+            // The tab was closed, or its document was closed under the action; there is nothing left to redraw.
+            return FormActionResult.None;
+        }
+
         if ((result & (FormActionResult.Changed | FormActionResult.LayersChanged)) != 0)
         {
             RefreshAllPages();
@@ -553,8 +601,7 @@ public sealed partial class FormsViewModel : ReactiveObject
     private bool StartButton(FormField field)
     {
         Focused = field;
-        var actions = DocumentFeature<IFormActions>.Get(_owner.TryGetDocument());
-        if (actions is null || RunButtonCommand is not ICommand command || !command.CanExecute(field))
+        if (Actions is null || RunButtonCommand is not ICommand command || !command.CanExecute(field))
         {
             return false;
         }
@@ -569,11 +616,18 @@ public sealed partial class FormsViewModel : ReactiveObject
     [ReactiveCommand]
     private async Task RunButton(FormField field) => await RunButtonAsync(field).ConfigureAwait(true);
 
-    /// <summary>Runs the actions of a page that became the current page.</summary>
-    /// <param name="pageIndex">The zero based page index.</param>
+    /// <summary>Runs the actions of the pages that became the current page, in the order they opened, until none wait.</summary>
+    /// <param name="pageIndex">The zero based page index that started the run; it is already queued.</param>
     /// <returns>A task.</returns>
     [ReactiveCommand]
-    private async Task PageOpened(int pageIndex) => await RunPageOpenedAsync(pageIndex).ConfigureAwait(true);
+    private async Task PageOpened(int pageIndex)
+    {
+        _ = pageIndex;
+        while (_pagesOpened.TryDequeue(out var page))
+        {
+            _ = await RunPageOpenedAsync(page).ConfigureAwait(true);
+        }
+    }
 
     /// <summary>Redraws every page, after an action changed fields, hid fields or switched layers.</summary>
     private void RefreshAllPages()

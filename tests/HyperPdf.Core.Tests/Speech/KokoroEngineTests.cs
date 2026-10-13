@@ -24,6 +24,15 @@ public sealed class KokoroEngineTests
     /// <summary>The floats in a voice pack: 510 rows of 256.</summary>
     private const int VoicePackFloats = 510 * 256;
 
+    /// <summary>The word the stand-in dictionary knows.</summary>
+    private const string Greeting = "Hello";
+
+    /// <summary>The engines made and disposed while calls run.</summary>
+    private const int DisposeRounds = 20;
+
+    /// <summary>The words in the long text, enough to keep the phonemizer busy for a few milliseconds.</summary>
+    private const int LongTextWords = 20_000;
+
     /// <summary>The engine is not ready until its files are installed.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -50,9 +59,9 @@ public sealed class KokoroEngineTests
             InstallStandIn(directory);
             using var engine = new KokoroEngine(directory);
             List<long> tokens = [];
-            KokoroVocabulary.Tokenize(engine.Phonemize("Hello", Heart), tokens);
+            KokoroVocabulary.Tokenize(engine.Phonemize(Greeting, Heart), tokens);
 
-            var audio = await engine.SynthesizeAsync("Hello", Heart, Double, CancellationToken.None);
+            var audio = await engine.SynthesizeAsync(Greeting, Heart, Double, CancellationToken.None);
 
             await Assert.That(engine.IsReady).IsTrue();
             await Assert.That(tokens.Count).IsGreaterThan(0);
@@ -61,6 +70,43 @@ public sealed class KokoroEngineTests
             await Assert.That(audio.Samples[0]).IsEqualTo(0F);
             await Assert.That(audio.Samples[1]).IsEqualTo(tokens[0] * Double);
             await Assert.That(audio.Samples[^1]).IsEqualTo(0F);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    /// <summary>The ONNX session is freed when the engine is disposed while another call holds the gate, so it never outlives the engine.</summary>
+    /// <param name="cancellationToken">Cancels the test.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DisposeFreesTheSessionWhileAnotherCallRuns(CancellationToken cancellationToken)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"kokoro-{Guid.NewGuid():N}");
+        try
+        {
+            InstallStandIn(directory);
+            var leaked = 0;
+            var longText = string.Join(' ', Enumerable.Repeat(Greeting, LongTextWords));
+            for (var round = 0; round < DisposeRounds; round++)
+            {
+                var engine = new KokoroEngine(directory);
+                _ = await engine.SynthesizeAsync(Greeting, Heart, 1F, cancellationToken);
+                var phonemize = Task.Run(() => PhonemizeIfOpen(engine, longText), cancellationToken);
+                var synthesize = Task.Run(() => SynthesizeIfOpenAsync(engine, cancellationToken), cancellationToken);
+
+                // The long text keeps the gate held while the engine is disposed.
+                await Task.Delay(TimeSpan.FromMilliseconds(1), cancellationToken);
+                var dispose = Task.Run(engine.Dispose, cancellationToken);
+                await Task.WhenAll(phonemize, synthesize, dispose);
+                if (engine.IsSessionLoaded)
+                {
+                    leaked++;
+                }
+            }
+
+            await Assert.That(leaked).IsEqualTo(0);
         }
         finally
         {
@@ -96,6 +142,37 @@ public sealed class KokoroEngineTests
         await Assert.That(KokoroModel.IsBritish("bf_emma")).IsTrue();
         await Assert.That(KokoroModel.IsBritish(Heart)).IsFalse();
         await Assert.That(KokoroModel.LexiconFiles(true)[0]).IsEqualTo("gb_gold.json");
+    }
+
+    /// <summary>Phonemizes, unless the engine was disposed first.</summary>
+    /// <param name="engine">The engine.</param>
+    /// <param name="text">The text.</param>
+    private static void PhonemizeIfOpen(KokoroEngine engine, string text)
+    {
+        try
+        {
+            _ = engine.Phonemize(text, Heart);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The engine was disposed before the call took the gate.
+        }
+    }
+
+    /// <summary>Speaks, unless the engine was disposed first.</summary>
+    /// <param name="engine">The engine.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>A task.</returns>
+    private static async Task SynthesizeIfOpenAsync(KokoroEngine engine, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _ = await engine.SynthesizeAsync(Greeting, Heart, 1F, cancellationToken);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The engine was disposed before the call took the gate.
+        }
     }
 
     /// <summary>Lays out the voice folder with the stand-in model, silent voice packs and a tiny dictionary.</summary>

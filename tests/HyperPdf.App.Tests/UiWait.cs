@@ -21,6 +21,19 @@ internal static class UiWait
     /// <summary>How long to sleep between pumps.</summary>
     private static readonly TimeSpan PumpInterval = TimeSpan.FromMilliseconds(10);
 
+    /// <summary>Runs dispatcher jobs and renders for a number of rounds, so work already on its way has finished when it returns.</summary>
+    /// <param name="rounds">How many rounds to run.</param>
+    /// <returns>A task.</returns>
+    internal static async Task PumpAsync(int rounds)
+    {
+        for (var round = 0; round < rounds; round++)
+        {
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(PumpInterval);
+        }
+    }
+
     /// <summary>Runs dispatcher jobs until <paramref name="condition"/> is true.</summary>
     /// <param name="condition">The condition, which must come to hold; a wait cannot show that something does not happen.</param>
     /// <param name="state">Describes the state the condition reads, for the timeout message, or <see langword="null"/>.</param>

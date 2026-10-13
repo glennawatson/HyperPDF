@@ -121,7 +121,8 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
             bool written;
             await using (var stream = File.Create(file))
             {
-                written = exporter.ExportPages(pages, SheetLayout.Default, stream);
+                // Exporting every page runs on the pool, so the window stays alive while a long document is prepared.
+                written = await Task.Run(() => exporter.ExportPages(pages, SheetLayout.Default, stream), _owner.LifetimeToken).ConfigureAwait(true);
             }
 
             if (!written)

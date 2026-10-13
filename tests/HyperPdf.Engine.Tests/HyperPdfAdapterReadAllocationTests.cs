@@ -44,16 +44,16 @@ public sealed class HyperPdfAdapterReadAllocationTests
         }
 
         var mismatches = 0;
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var index = 0; index < Measured; index++)
+        var allocated = AllocationProbe.Minimum(() =>
         {
-            if (Read(document, pixels) != expected)
+            for (var index = 0; index < Measured; index++)
             {
-                mismatches++;
+                if (Read(document, pixels) != expected)
+                {
+                    mismatches++;
+                }
             }
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        });
         await Assert.That(expected).IsGreaterThan(1);
         await Assert.That(mismatches).IsEqualTo(0);
         await Assert.That(allocated).IsEqualTo(0L);

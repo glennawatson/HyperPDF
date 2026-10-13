@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
@@ -12,6 +11,7 @@ using HyperPdf.Core.Settings;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.Views;
 
@@ -23,60 +23,81 @@ public sealed partial class CertificateSignWindow : ReactiveUI.Avalonia.Reactive
     public CertificateSignWindow()
     {
         InitializeComponent();
-        FieldLabels.Link((CertificateBox, CertificateLabel), (PasswordBox, PasswordLabel), (ReasonBox, ReasonLabel), (LocationBox, LocationLabel));
         RememberedBox.ItemTemplate = new FuncDataTemplate<RememberedCertificate>(static (certificate, _) => new TextBlock { Text = ItemAutomation.DescribeCertificate(certificate) });
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(ItemAutomation.NameItems(RememberedBox));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Remembered, static v => v.RememberedBox.ItemsSource));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedCertificate, static v => v.RememberedBox.SelectedItem, static chosen => chosen, static item => item as RememberedCertificate));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasRemembered, static v => v.RememberedRow.IsVisible));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.ForgetCommand, static v => v.ForgetButton));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.Remember, static v => v.RememberCheck.IsChecked, static on => on, static on => on == true));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.CertificatePath, static v => v.CertificateBox.Text, static text => text, static text => text ?? string.Empty));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.Password, static v => v.PasswordBox.Text, static text => text, static text => text ?? string.Empty));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.Reason, static v => v.ReasonBox.Text, static text => text, static text => text ?? string.Empty));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.Location, static v => v.LocationBox.Text, static text => text, static text => text ?? string.Empty));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.IsVisible, static error => error is not null));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.BrowseCommand, static v => v.BrowseButton));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.SignCommand, static v => v.SignButton));
-            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.BrowseInteraction, BrowseAsync));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
-            disposables.Add(this.WhenChanged(static v => v.ViewModel!.Answered)
-                .SwitchMap(static answered => answered)
-                .SubscribeSafe(answer => Close(answer), OnError));
-
-            // Focus the password when a certificate is already named, otherwise the certificate box.
-            disposables.Add(this.WhenChanged(static v => v.ViewModel!.CertificatePath)
-                .Take(1)
-                .SubscribeSafe(path => FocusFirstEmpty(this, path), OnError));
-
-            // After a wrong password, the password box takes the keyboard again with its text selected, ready to retype.
-            disposables.Add(this.WhenChanged(static v => v.ViewModel!.Error)
-                .Where(static error => error is not null)
-                .SubscribeSafe(_ => RetryPassword(this), OnError));
+            BindCertificate(disposables);
+            BindChoices(disposables);
+            BindAnswer(disposables);
+            BindFocus(disposables);
         });
     }
 
-    /// <summary>Focuses the password box and selects what was typed, so a wrong password can be typed again.</summary>
-    /// <param name="window">The window.</param>
-    private static void RetryPassword(CertificateSignWindow window)
+    /// <summary>Binds the remembered certificates, the certificate file and its password.</summary>
+    /// <param name="disposables">Owns the bindings.</param>
+    private void BindCertificate(MultipleDisposable disposables)
     {
-        _ = window.PasswordBox.Focus();
-        window.PasswordBox.SelectAll();
+        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Remembered, static v => v.RememberedBox.ItemsSource));
+        disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedCertificate, static v => v.RememberedBox.SelectedItem, static chosen => chosen, static item => item as RememberedCertificate));
+        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasRemembered, static v => v.RememberedRow.IsVisible));
+        disposables.Add(this.BindCommand(ViewModel, static vm => vm.ForgetCommand, static v => v.ForgetButton));
+        disposables.Add(this.Bind(ViewModel, static vm => vm.Remember, static v => v.RememberCheck.IsChecked, static on => on, static on => on == true));
+        disposables.Add(this.Bind(ViewModel, static vm => vm.CertificatePath, static v => v.CertificateBox.Text, static text => text, static text => text ?? string.Empty));
+        disposables.Add(this.Bind(ViewModel, static vm => vm.Password, static v => v.PasswordBox.Text, static text => text, static text => text ?? string.Empty));
+        disposables.Add(this.BindCommand(ViewModel, static vm => vm.BrowseCommand, static v => v.BrowseButton));
+        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.BrowseInteraction, BrowseAsync));
     }
 
-    /// <summary>Focuses the password box when a certificate is named, otherwise the certificate box.</summary>
-    /// <param name="window">The window.</param>
-    /// <param name="certificatePath">The certificate path now set.</param>
-    private static void FocusFirstEmpty(CertificateSignWindow window, string certificatePath) =>
-        _ = (string.IsNullOrEmpty(certificatePath) ? window.CertificateBox : window.PasswordBox).Focus();
+    /// <summary>Binds what the signature records, what kind it is and the preview of what will be signed.</summary>
+    /// <param name="disposables">Owns the bindings.</param>
+    private void BindChoices(MultipleDisposable disposables)
+    {
+        disposables.Add(this.Bind(ViewModel, static vm => vm.Reason, static v => v.ReasonBox.Text, static text => text, static text => text ?? string.Empty));
+        disposables.Add(this.Bind(ViewModel, static vm => vm.Location, static v => v.LocationBox.Text, static text => text, static text => text ?? string.Empty));
+        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.CertificationChoices, static v => v.KindBox.ItemsSource));
+        disposables.Add(this.Bind(ViewModel, static vm => vm.CertificationIndex, static v => v.KindBox.SelectedIndex));
+        disposables.Add(this.Bind(ViewModel, static vm => vm.IsVisibleSignature, static v => v.VisibleCheck.IsChecked, static on => on, static on => on == true));
+        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PreviewText, static v => v.PreviewText.Text));
+        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasPreview, static v => v.PreviewPanel.IsVisible));
+        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
+        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.IsVisible, static error => error is not null));
+    }
 
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
+    /// <summary>Binds the buttons that end the window.</summary>
+    /// <param name="disposables">Owns the bindings.</param>
+    private void BindAnswer(MultipleDisposable disposables)
+    {
+        disposables.Add(this.BindCommand(ViewModel, static vm => vm.SignCommand, static v => v.SignButton));
+        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
+        disposables.Add(this.WhenChanged(static v => v.ViewModel!.Answered)
+            .SwitchMap(static answered => answered)
+            .SubscribeSafe(answer => Close(answer), static error => Trace.TraceError(error.ToString())));
+    }
+
+    /// <summary>Moves the keyboard to the box that needs it: first where to start, then back after a mistake.</summary>
+    /// <param name="disposables">Owns the subscriptions.</param>
+    private void BindFocus(MultipleDisposable disposables)
+    {
+        // The named boxes are the state each chain needs, and a control cannot be passed through the operators, so these
+        // lambdas read the window's own fields. Focus starts in the password when a certificate is already named.
+        disposables.Add(this.WhenChanged(static v => v.ViewModel!.CertificatePath)
+            .Take(1)
+            .Select(path => string.IsNullOrEmpty(path) ? CertificateBox : PasswordBox)
+            .SubscribeSafe(static box => box.Focus(), static error => Trace.TraceError(error.ToString())));
+
+        // After a wrong password, the password box takes the keyboard again with its text selected, ready to retype.
+        disposables.Add(this.WhenChanged(static v => v.ViewModel!.Error)
+            .Where(static error => error is not null)
+            .Select(_ => PasswordBox)
+            .SubscribeSafe(
+                static box =>
+                {
+                    _ = box.Focus();
+                    box.SelectAll();
+                },
+                static error => Trace.TraceError(error.ToString())));
+    }
 
     /// <summary>Asks for a certificate file through the desktop's open dialog.</summary>
     /// <param name="context">The interaction context.</param>

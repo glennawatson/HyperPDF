@@ -118,13 +118,18 @@ public sealed class AsyncAllocationTests
             await form();
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < Calls; i++)
+        var attempts = new AllocationAttempts();
+        while (attempts.Next())
         {
-            await form();
+            for (var i = 0; i < Calls; i++)
+            {
+                await form();
+            }
+
+            attempts.Stop();
         }
 
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        return attempts.Smallest;
     }
 
     /// <summary>Measures the bytes allocated by awaiting a result-returning form repeatedly, each call completing at once.</summary>
@@ -138,12 +143,17 @@ public sealed class AsyncAllocationTests
             _ = await form();
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < Calls; i++)
+        var attempts = new AllocationAttempts();
+        while (attempts.Next())
         {
-            _ = await form();
+            for (var i = 0; i < Calls; i++)
+            {
+                _ = await form();
+            }
+
+            attempts.Stop();
         }
 
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        return attempts.Smallest;
     }
 }

@@ -10,26 +10,30 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
 /// The inverse discrete wavelet transform (ISO 15444-1 annex F) by lifting: the 5/3 reversible filter on integers and the
-/// 9/7 irreversible filter on floats, scaled as PDFium scales it. Each resolution is rebuilt with a horizontal pass over
-/// its rows and then a vertical pass over strips of columns. Within a line the low-pass and high-pass samples are kept
-/// apart while lifting, so each step is a vector operation over runs of samples, and interleaved at the end.
+/// 9/7 irreversible filter on floats (equations F-8 to F-14, with the sub-band gain folded into the scales). A line is
+/// rebuilt from its low-pass and high-pass samples, which are kept apart while lifting, so each step is a vector
+/// operation over runs of samples; rows are interleaved at the end, and the vertical pass lifts whole rows at once, so the
+/// same code serves a row of samples and a window of rows with every column side by side.
 /// </summary>
 internal static class JpxWavelet
 {
-    /// <summary>The columns processed together by the vertical pass.</summary>
-    internal const int StripWidth = 32;
-
     /// <summary>The samples of each low-pass and high-pass pair; also the halving of a lone high-pass sample.</summary>
     private const int Interleaved = 2;
+
+    /// <summary>The rows the 5/3 vertical filter reads beyond an output row: one lifting step reads the neighbour, the next the neighbour's neighbour.</summary>
+    private const int ReversibleMargin = 2;
+
+    /// <summary>The rows the 9/7 vertical filter reads beyond an output row: four lifting steps.</summary>
+    private const int IrreversibleMargin = 4;
 
     /// <summary>The 9/7 low-pass scale K.</summary>
     private const float LowScale = 1.230174105F;
 
     /// <summary>
-    /// The 9/7 high-pass scale: 2/K as PDFium rounds it. The factor of two stands in for the sub-band gain that the
-    /// irreversible step sizes leave out.
+    /// The 9/7 high-pass scale: 1/K from the synthesis equations, times the factor of two that the sub-band gain adds
+    /// for each high-pass direction (T.800 E-4). The step sizes leave that gain out.
     /// </summary>
-    private const float HighScale = 1.625732422F;
+    private const float HighScale = 2F / LowScale;
 
     /// <summary>The first 9/7 lifting step, applied to the low-pass samples.</summary>
     private const float Delta = -0.443506852F;
@@ -43,141 +47,63 @@ internal static class JpxWavelet
     /// <summary>The fourth 9/7 lifting step, applied to the high-pass samples.</summary>
     private const float Alpha = 1.586134342F;
 
-    /// <summary>Rebuilds a tile-component from its sub-bands.</summary>
-    /// <param name="tile">The tile, which holds the resolution areas.</param>
-    /// <param name="component">The tile-component.</param>
-    /// <param name="buffer">The coefficients, sub-bands in place; replaced by the samples.</param>
-    /// <param name="scratch">Scratch space of at least <see cref="ScratchLength"/> elements.</param>
+    /// <summary>Gets the rows on each side of a block of output rows that the vertical filter reads (the 5/3 filter reads two, the 9/7 filter four).</summary>
+    /// <param name="reversible">Whether the 5/3 filter is used.</param>
+    /// <returns>The margin in rows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Inverse(JpxTile tile, in JpxTileComponent component, int[] buffer, int[] scratch) =>
-        Inverse(tile, component, buffer, scratch, 0);
+    internal static int RowMargin(bool reversible) => reversible ? ReversibleMargin : IrreversibleMargin;
 
-    /// <summary>Rebuilds only the wavelet levels needed for a reduced-resolution tile.</summary>
-    /// <param name="tile">The tile layout.</param>
-    /// <param name="component">The component.</param>
-    /// <param name="buffer">The coefficients and output samples.</param>
-    /// <param name="scratch">The wavelet scratch.</param>
-    /// <param name="reductionLevels">The finest levels to leave out.</param>
-    internal static void Inverse(JpxTile tile, in JpxTileComponent component, int[] buffer, int[] scratch, int reductionLevels)
+    /// <summary>Rebuilds one row of a resolution from the horizontal low-pass and high-pass samples of that row (5/3).</summary>
+    /// <param name="lows">The low-pass samples, changed in place.</param>
+    /// <param name="highs">The high-pass samples, changed in place.</param>
+    /// <param name="parity">1 when the row starts on an odd column.</param>
+    /// <param name="output">Receives the row, as wide as both inputs together.</param>
+    internal static void SynthesizeRow53(Span<int> lows, Span<int> highs, int parity, Span<int> output)
     {
-        var stride = component.Area.Reduce(reductionLevels).Width;
-        for (var r = 1; r <= component.Levels - reductionLevels; r++)
+        if (Lift53(lows, highs, lows.Length, highs.Length, parity, 1))
         {
-            var area = tile.Resolutions[component.FirstResolution + r].Area;
-            var low = tile.Resolutions[component.FirstResolution + r - 1].Area;
-            var shape = new LevelShape(area.Width, area.Height, low.Width, low.Height, area.X0 & 1, area.Y0 & 1);
-            if (shape.Width == 0 || shape.Height == 0)
-            {
-                continue;
-            }
-
-            if (component.Reversible)
-            {
-                Horizontal53(buffer, stride, shape, scratch);
-                Vertical53(buffer, stride, shape, scratch);
-            }
-            else
-            {
-                var samples = MemoryMarshal.Cast<int, float>(buffer.AsSpan());
-                var work = MemoryMarshal.Cast<int, float>(scratch.AsSpan());
-                Horizontal97(samples, stride, shape, work);
-                Vertical97(samples, stride, shape, work);
-            }
+            Interleave(lows, highs, parity, output);
+            return;
         }
+
+        output[0] = lows.Length == 1 ? lows[0] : highs[0];
     }
 
-    /// <summary>Gets the scratch elements a tile-component's transform needs.</summary>
-    /// <param name="width">The tile-component width.</param>
-    /// <param name="height">The tile-component height.</param>
-    /// <returns>The number of elements.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int ScratchLength(int width, int height) => Math.Max(width, height * StripWidth);
-
-    /// <summary>Runs the 5/3 horizontal pass over every row of a resolution.</summary>
-    /// <param name="buffer">The tile-component.</param>
-    /// <param name="stride">The tile-component width.</param>
-    /// <param name="shape">The resolution's shape.</param>
-    /// <param name="scratch">Scratch space for one row.</param>
-    private static void Horizontal53(int[] buffer, int stride, in LevelShape shape, int[] scratch)
+    /// <summary>Rebuilds one row of a resolution from the horizontal low-pass and high-pass samples of that row (9/7).</summary>
+    /// <param name="lows">The low-pass samples, changed in place.</param>
+    /// <param name="highs">The high-pass samples, changed in place.</param>
+    /// <param name="parity">1 when the row starts on an odd column.</param>
+    /// <param name="output">Receives the row, as wide as both inputs together.</param>
+    internal static void SynthesizeRow97(Span<float> lows, Span<float> highs, int parity, Span<float> output)
     {
-        var line = scratch.AsSpan(0, shape.Width);
-        for (var y = 0; y < shape.Height; y++)
+        if (Lift97(lows, highs, lows.Length, highs.Length, parity, 1))
         {
-            var row = buffer.AsSpan(y * stride, shape.Width);
-            var lows = row[..shape.LowWidth];
-            var highs = row[shape.LowWidth..];
-            if (!Lift53(lows, highs, shape.LowWidth, shape.Width - shape.LowWidth, shape.ColumnParity, 1))
-            {
-                continue;
-            }
-
-            Interleave(lows, highs, shape.ColumnParity, line);
-            line.CopyTo(row);
+            Interleave(lows, highs, parity, output);
+            return;
         }
+
+        output[0] = lows.Length == 1 ? lows[0] : highs[0];
     }
 
-    /// <summary>Runs the 5/3 vertical pass over strips of columns of a resolution.</summary>
-    /// <param name="buffer">The tile-component.</param>
-    /// <param name="stride">The tile-component width.</param>
-    /// <param name="shape">The resolution's shape.</param>
-    /// <param name="scratch">Scratch space for one strip.</param>
-    private static void Vertical53(int[] buffer, int stride, in LevelShape shape, int[] scratch)
-    {
-        var highCount = shape.Height - shape.LowHeight;
-        for (var x = 0; x < shape.Width; x += StripWidth)
-        {
-            var width = Math.Min(StripWidth, shape.Width - x);
-            var work = scratch.AsSpan(0, shape.Height * width);
-            Gather(buffer, stride, x, width, shape.Height, work);
-            var lows = work[..(shape.LowHeight * width)];
-            var highs = work[(shape.LowHeight * width)..];
-            var changed = Lift53(lows, highs, shape.LowHeight, highCount, shape.RowParity, width);
-            Scatter(work, new(shape.LowHeight, highCount, changed ? shape.RowParity : -1, width), buffer.AsSpan(x), stride);
-        }
-    }
+    /// <summary>Runs the 5/3 vertical lifting over a window of rows, all columns at once.</summary>
+    /// <param name="lows">The low-pass rows, one after another, changed in place.</param>
+    /// <param name="highs">The high-pass rows, one after another, changed in place.</param>
+    /// <param name="lowRows">The number of low-pass rows.</param>
+    /// <param name="highRows">The number of high-pass rows.</param>
+    /// <param name="parity">1 when the window's first row is a high-pass row.</param>
+    /// <param name="width">The samples in a row.</param>
+    internal static void LiftRows53(Span<int> lows, Span<int> highs, int lowRows, int highRows, int parity, int width) =>
+        _ = Lift53(lows, highs, lowRows, highRows, parity, width);
 
-    /// <summary>Runs the 9/7 horizontal pass over every row of a resolution.</summary>
-    /// <param name="buffer">The tile-component.</param>
-    /// <param name="stride">The tile-component width.</param>
-    /// <param name="shape">The resolution's shape.</param>
-    /// <param name="scratch">Scratch space for one row.</param>
-    private static void Horizontal97(Span<float> buffer, int stride, in LevelShape shape, Span<float> scratch)
-    {
-        var line = scratch[..shape.Width];
-        for (var y = 0; y < shape.Height; y++)
-        {
-            var row = buffer.Slice(y * stride, shape.Width);
-            var lows = row[..shape.LowWidth];
-            var highs = row[shape.LowWidth..];
-            if (!Lift97(lows, highs, shape.LowWidth, shape.Width - shape.LowWidth, shape.ColumnParity, 1))
-            {
-                continue;
-            }
-
-            Interleave(lows, highs, shape.ColumnParity, line);
-            line.CopyTo(row);
-        }
-    }
-
-    /// <summary>Runs the 9/7 vertical pass over strips of columns of a resolution.</summary>
-    /// <param name="buffer">The tile-component.</param>
-    /// <param name="stride">The tile-component width.</param>
-    /// <param name="shape">The resolution's shape.</param>
-    /// <param name="scratch">Scratch space for one strip.</param>
-    private static void Vertical97(Span<float> buffer, int stride, in LevelShape shape, Span<float> scratch)
-    {
-        var highCount = shape.Height - shape.LowHeight;
-        for (var x = 0; x < shape.Width; x += StripWidth)
-        {
-            var width = Math.Min(StripWidth, shape.Width - x);
-            var work = scratch[..(shape.Height * width)];
-            Gather(buffer, stride, x, width, shape.Height, work);
-            var lows = work[..(shape.LowHeight * width)];
-            var highs = work[(shape.LowHeight * width)..];
-            var changed = Lift97(lows, highs, shape.LowHeight, highCount, shape.RowParity, width);
-            Scatter(work, new(shape.LowHeight, highCount, changed ? shape.RowParity : -1, width), buffer[x..], stride);
-        }
-    }
+    /// <summary>Runs the 9/7 vertical lifting over a window of rows, all columns at once.</summary>
+    /// <param name="lows">The low-pass rows, one after another, changed in place.</param>
+    /// <param name="highs">The high-pass rows, one after another, changed in place.</param>
+    /// <param name="lowRows">The number of low-pass rows.</param>
+    /// <param name="highRows">The number of high-pass rows.</param>
+    /// <param name="parity">1 when the window's first row is a high-pass row.</param>
+    /// <param name="width">The samples in a row.</param>
+    internal static void LiftRows97(Span<float> lows, Span<float> highs, int lowRows, int highRows, int parity, int width) =>
+        _ = Lift97(lows, highs, lowRows, highRows, parity, width);
 
     /// <summary>Runs the 5/3 lifting steps on one line of separated low-pass and high-pass samples.</summary>
     /// <param name="lows">The low-pass samples.</param>
@@ -185,7 +111,7 @@ internal static class JpxWavelet
     /// <param name="lowCount">The low-pass sample count.</param>
     /// <param name="highCount">The high-pass sample count.</param>
     /// <param name="parity">1 when the line starts on an odd coordinate, so with a high-pass sample.</param>
-    /// <param name="size">The values per sample: one for rows, the strip width for columns.</param>
+    /// <param name="size">The values per sample: one for rows, the row width for columns.</param>
     /// <returns><see langword="true"/> when the line needs interleaving; a single sample does not.</returns>
     private static bool Lift53(Span<int> lows, Span<int> highs, int lowCount, int highCount, int parity, int size)
     {
@@ -215,8 +141,8 @@ internal static class JpxWavelet
     /// <param name="lowCount">The low-pass sample count.</param>
     /// <param name="highCount">The high-pass sample count.</param>
     /// <param name="parity">1 when the line starts on an odd coordinate, so with a high-pass sample.</param>
-    /// <param name="size">The values per sample: one for rows, the strip width for columns.</param>
-    /// <returns><see langword="true"/> when the line needs interleaving; a single sample is left as it is, as in PDFium.</returns>
+    /// <param name="size">The values per sample: one for rows, the row width for columns.</param>
+    /// <returns><see langword="true"/> when the line needs interleaving; a single sample is left as it is (T.800 F.3.8: a one-sample line is its own reconstruction).</returns>
     private static bool Lift97(Span<float> lows, Span<float> highs, int lowCount, int highCount, int parity, int size)
     {
         if (lowCount + highCount == 1)
@@ -341,60 +267,4 @@ internal static class JpxWavelet
             Unsafe.Add(ref target, (Interleaved * i) + 1 - parity) = Unsafe.Add(ref high, i);
         }
     }
-
-    /// <summary>Copies a strip of columns into scratch, one strip row after another.</summary>
-    /// <typeparam name="T">The sample type.</typeparam>
-    /// <param name="buffer">The tile-component.</param>
-    /// <param name="stride">The tile-component width.</param>
-    /// <param name="x">The first column.</param>
-    /// <param name="width">The strip width.</param>
-    /// <param name="height">The rows.</param>
-    /// <param name="work">Receives the strip.</param>
-    private static void Gather<T>(ReadOnlySpan<T> buffer, int stride, int x, int width, int height, Span<T> work)
-    {
-        for (var y = 0; y < height; y++)
-        {
-            buffer.Slice((y * stride) + x, width).CopyTo(work.Slice(y * width, width));
-        }
-    }
-
-    /// <summary>Writes a lifted strip back, interleaving its low-pass and high-pass rows.</summary>
-    /// <typeparam name="T">The sample type.</typeparam>
-    /// <param name="work">The strip: its low-pass rows, then its high-pass rows.</param>
-    /// <param name="strip">The strip's shape.</param>
-    /// <param name="buffer">The tile-component from the strip's first column.</param>
-    /// <param name="stride">The tile-component width.</param>
-    private static void Scatter<T>(ReadOnlySpan<T> work, in StripShape strip, Span<T> buffer, int stride)
-    {
-        var width = strip.Width;
-        var step = strip.Parity < 0 ? 1 : Interleaved;
-        var lowStart = Math.Max(strip.Parity, 0);
-        var highStart = strip.Parity < 0 ? strip.LowCount : 1 - strip.Parity;
-        var highs = work[(strip.LowCount * width)..];
-        for (var i = 0; i < strip.LowCount; i++)
-        {
-            work.Slice(i * width, width).CopyTo(buffer.Slice(((step * i) + lowStart) * stride, width));
-        }
-
-        for (var i = 0; i < strip.HighCount; i++)
-        {
-            highs.Slice(i * width, width).CopyTo(buffer.Slice(((step * i) + highStart) * stride, width));
-        }
-    }
-
-    /// <summary>The shape of a strip of columns for the vertical pass.</summary>
-    /// <param name="LowCount">The low-pass rows.</param>
-    /// <param name="HighCount">The high-pass rows.</param>
-    /// <param name="Parity">1 when the first row is high-pass, 0 when low-pass, -1 to write the rows back unmoved.</param>
-    /// <param name="Width">The strip width.</param>
-    private readonly record struct StripShape(int LowCount, int HighCount, int Parity, int Width);
-
-    /// <summary>The shape of one resolution level's rebuild.</summary>
-    /// <param name="Width">The resolution width.</param>
-    /// <param name="Height">The resolution height.</param>
-    /// <param name="LowWidth">The low-pass columns: the next lower resolution's width.</param>
-    /// <param name="LowHeight">The low-pass rows: the next lower resolution's height.</param>
-    /// <param name="ColumnParity">1 when the resolution starts on an odd column.</param>
-    /// <param name="RowParity">1 when the resolution starts on an odd row.</param>
-    private readonly record struct LevelShape(int Width, int Height, int LowWidth, int LowHeight, int ColumnParity, int RowParity);
 }

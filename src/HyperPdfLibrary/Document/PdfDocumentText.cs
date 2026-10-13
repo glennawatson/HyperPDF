@@ -181,14 +181,14 @@ public static class PdfDocumentText
         return PdfDocumentText.GetTextPagePrepared(document, pageIndex, cancellationToken);
     }
 
-    /// <summary>Runs a page's content into the text device, keeping the text read before damaged content stops it, as PDFium does.</summary>
+    /// <summary>Runs a page's content into the text device, keeping the text read before damaged content stops it.</summary>
     /// <param name = "document">The document.</param>
     /// <param name = "page">The page.</param>
     /// <param name = "device">The text device.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     private static void RunContent(PdfDocument document, PdfPage page, TextDevice device, CancellationToken cancellationToken)
     {
-        using var interpreter = new ContentInterpreter(PdfDocumentRendering.GetRenderCache(document), device, 0, cancellationToken: cancellationToken);
+        using var interpreter = ContentInterpreter.Rent(PdfDocumentRendering.GetRenderCache(document), device, 0, cancellationToken);
         try
         {
             ContentExecution.RunPage(interpreter, page);

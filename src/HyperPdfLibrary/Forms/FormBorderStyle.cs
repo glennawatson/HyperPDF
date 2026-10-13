@@ -16,9 +16,9 @@ internal enum FormBorderStyle
     /// <summary>A line on the bottom edge only.</summary>
     Underline = 2,
 
-    /// <summary>A raised border: light on the top and left, dark on the bottom and right. Drawn twice as thick as the width, as PDFium does.</summary>
+    /// <summary>A raised border: light on the top and left, dark on the bottom and right.</summary>
     Beveled = 3,
 
-    /// <summary>A sunken border: grey tones, darker on the top and left. Drawn twice as thick as the width, as PDFium does.</summary>
+    /// <summary>A sunken border: dark on the top and left, light on the bottom and right.</summary>
     Inset = 4,
 }

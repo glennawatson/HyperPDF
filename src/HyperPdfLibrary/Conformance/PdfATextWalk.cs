@@ -4,6 +4,7 @@
 
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Conformance;
@@ -103,7 +104,7 @@ internal static class PdfATextWalk
             return;
         }
 
-        using var joined = new MemoryStream();
+        using var joined = new PooledWriteStream();
         for (var i = 0; i < parts.Count; i++)
         {
             if (parts.Get(i).AsStream() is not { } part || !PdfAFontStreams.TryDecode(part, state.Validation.CancellationToken, out var data))
@@ -115,7 +116,7 @@ internal static class PdfATextWalk
             joined.WriteByte((byte)'\n');
         }
 
-        Read(state, new(null, default, structParents), joined.GetBuffer().AsSpan(0, (int)joined.Length));
+        Read(state, new(null, default, structParents), joined.WrittenSpan);
     }
 
     /// <summary>Reads a page's or stream's /StructParents key.</summary>

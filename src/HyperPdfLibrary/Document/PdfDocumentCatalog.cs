@@ -17,13 +17,19 @@ public static class PdfDocumentCatalog
     /// <summary>The change level of a certification signature that names none.</summary>
     private const int DefaultDocMdpLevel = 2;
 
+    /// <summary>Gets the natural language of the document (the catalog's <c>/Lang</c>, ISO 32000-2 §14.9.2.2).</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>The language tag, or <see langword="null"/> when the catalog has none or it is blank.</returns>
+    public static string? GetLanguage(PdfDocument document) =>
+        document.Catalog.Text("Lang") is { } language && !string.IsNullOrWhiteSpace(language) ? language : null;
+
     /// <summary>Gets the article threads (the catalog's <c>/Threads</c>).</summary>
     /// <param name="document">The document.</param>
     /// <returns>The threads.</returns>
     public static PdfThread[] GetThreads(PdfDocument document)
     {
         var list = document.Catalog.Array("Threads");
-        var threads = new List<PdfThread>();
+        var threads = new List<PdfThread>(list?.Count ?? 0);
         for (var i = 0; list is not null && i < list.Count; i++)
         {
             if (list.GetDictionary(i) is { } thread)
@@ -97,7 +103,7 @@ public static class PdfDocumentCatalog
     /// <summary>Gets the page-piece data of any dictionary that has <c>/PieceInfo</c> (a page, a form XObject or the catalog).</summary>
     /// <param name="document">The document.</param>
     /// <param name="owner">The dictionary.</param>
-    /// <returns>One entry per application.</returns>
+    /// <returns>One entry per application whose value is a data dictionary; other entries are skipped.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="owner"/> is null.</exception>
     public static PdfPieceData[] GetPieceInfo(PdfDocument document, PdfDictionary owner)
     {
@@ -110,8 +116,14 @@ public static class PdfDocumentCatalog
         var pieces = new List<PdfPieceData>(info.Count);
         for (var i = 0; i < info.Count; i++)
         {
-            var data = StoreReading.Resolve(document.Objects, info.GetValueAt(i)).AsDictionary();
-            pieces.Add(new(document.Objects.Names.GetString(info.GetKeyAt(i)), data is null ? null : PdfDate.Parse(data.Value("LastModified").AsStringBytes()), data?.Dict("Private")));
+            // ISO 32000-2 Table 350: each value is a data dictionary; anything else carries no data to report.
+            if (StoreReading.Resolve(document.Objects, info.GetValueAt(i)).AsDictionary() is not { } data)
+            {
+                continue;
+            }
+
+            var modified = data.Value("LastModified");
+            pieces.Add(new(document.Objects.Names.GetString(info.GetKeyAt(i)), modified.Kind == PdfKind.String ? PdfDate.Parse(modified.AsStringBytes()) : null, data.Dict("Private")));
         }
 
         return [.. pieces];
@@ -123,7 +135,7 @@ public static class PdfDocumentCatalog
     private static PdfOutputIntent[] ReadOutputIntents(PdfDictionary owner)
     {
         var list = owner.Array("OutputIntents");
-        var intents = new List<PdfOutputIntent>();
+        var intents = new List<PdfOutputIntent>(list?.Count ?? 0);
         for (var i = 0; list is not null && i < list.Count; i++)
         {
             if (list.GetDictionary(i) is not { } intent)

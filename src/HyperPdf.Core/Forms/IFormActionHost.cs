@@ -31,9 +31,13 @@ public interface IFormActionHost
     /// <returns><see langword="true"/> when the host sent it.</returns>
     ValueTask<bool> SubmitAsync(FormSubmission submission, CancellationToken cancellationToken);
 
-    /// <summary>Offers to import form data from a file. The host imports it only if the user agrees.</summary>
-    /// <param name="file">The file as the document names it, or <see langword="null"/>.</param>
+    /// <summary>
+    /// Offers to import form data from a file. The host imports it only if the user agrees, and reads the file the user
+    /// chooses rather than the path the document names, which the document controls.
+    /// </summary>
+    /// <param name="file">The file as the document names it, or <see langword="null"/>. It is only shown to the user.</param>
+    /// <param name="importer">Applies the chosen file's bytes to the document.</param>
     /// <param name="cancellationToken">A token that cancels the call.</param>
     /// <returns><see langword="true"/> when the host imported it.</returns>
-    ValueTask<bool> ImportAsync(string? file, CancellationToken cancellationToken);
+    ValueTask<bool> ImportAsync(string? file, IFormDataImporter importer, CancellationToken cancellationToken);
 }

@@ -8,7 +8,7 @@ using HyperPdf.TestAssets;
 
 namespace HyperPdf.Core.Tests.Text;
 
-/// <summary>Tests reading, finding and subsetting installed fonts, using a generated font so results match everywhere.</summary>
+/// <summary>Tests reading and finding installed fonts, using a generated font so results match everywhere.</summary>
 public sealed class FontTests
 {
     /// <summary>The restricted licence flag: the font must not be embedded.</summary>
@@ -22,9 +22,6 @@ public sealed class FontTests
 
     /// <summary>The regular weight.</summary>
     private const int Regular = 400;
-
-    /// <summary>The glyphs a subset of "Hé" keeps: .notdef, H, é and the two parts of é.</summary>
-    private const int HeGlyphs = 5;
 
     /// <summary>The advance of an ordinary glyph in the test font.</summary>
     private const int OrdinaryAdvance = 500;
@@ -55,7 +52,7 @@ public sealed class FontTests
         await Assert.That(face.Weight).IsEqualTo(Regular);
         await Assert.That(face.IsItalic).IsFalse();
         await Assert.That(face.IsSerif).IsFalse();
-        await Assert.That(face.HasTrueTypeOutlines).IsTrue();
+        await Assert.That(face.HasEmbeddableOutlines).IsTrue();
         await Assert.That(face.CanEmbed && face.CanSubset).IsTrue();
     }
 
@@ -104,60 +101,15 @@ public sealed class FontTests
         await Assert.That(font.Kerning(TestFont.GlyphOf('V'), TestFont.GlyphOf('A'))).IsEqualTo(0);
     }
 
-    /// <summary>A subset keeps the glyphs asked for and the parts of composite glyphs, renumbered, and reads back as a font.</summary>
+    /// <summary>A licence forbidding subsetting still leaves the face embeddable, and the catalog says so.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task SubsetsWithCompositeParts()
-    {
-        var font = Load(TestFont.Create());
-        var subset = FontSubsetter.Create(font, [TestFont.GlyphOf('H'), TestFont.GlyphOf('é')])!;
-        var reloaded = Load(subset.Data);
-
-        await Assert.That(subset.GlyphCount).IsEqualTo(HeGlyphs);
-        await Assert.That(subset.Contains((ushort)TestFont.EGlyph)).IsTrue();
-        await Assert.That(subset.Contains((ushort)TestFont.AccentGlyph)).IsTrue();
-        await Assert.That(subset.Contains(TestFont.GlyphOf('Z'))).IsFalse();
-        await Assert.That(reloaded.GlyphCount).IsEqualTo(HeGlyphs);
-        await Assert.That(reloaded.GlyphFor('H')).IsEqualTo(subset.Map(TestFont.GlyphOf('H')));
-        await Assert.That(reloaded.GlyphFor('é')).IsEqualTo(subset.Map(TestFont.GlyphOf('é')));
-        await Assert.That(reloaded.GlyphFor('Z')).IsEqualTo((ushort)0);
-        await Assert.That(reloaded.Advance(subset.Map(TestFont.GlyphOf('H')))).IsEqualTo(OrdinaryAdvance);
-        await Assert.That(subset.Data.Length).IsLessThan(font.Data.Length);
-        await Assert.That(ReparseComposite(subset)).IsTrue();
-    }
-
-    /// <summary>A licence forbidding subsetting keeps every glyph, and the face is still embeddable.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task KeepsEveryGlyphWhenSubsettingIsForbidden()
+    public async Task NoSubsettingLicenceStillEmbeds()
     {
         var font = Load(TestFont.Create(NoSubsetting, null, false));
-        var subset = FontSubsetter.Create(font, [TestFont.GlyphOf('H')])!;
 
         await Assert.That(font.Face.CanEmbed).IsTrue();
-        await Assert.That(subset.GlyphCount).IsEqualTo(font.GlyphCount);
-        await Assert.That(subset.Map(TestFont.GlyphOf('Z'))).IsEqualTo(TestFont.GlyphOf('Z'));
-    }
-
-    /// <summary>The ToUnicode map lists each glyph's text in blocks, leaving out glyphs without text.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task WritesToUnicodeMaps()
-    {
-        var entries = new List<(ushort Code, string Text)> { (0x1, "A"), (0x2, string.Empty), (0x3, "ffi") };
-        for (ushort code = 0xA; code < 0x78; code++)
-        {
-            entries.Add((code, "x"));
-        }
-
-        var map = ToUnicodeCMap.Write(entries);
-
-        await Assert.That(map).Contains("<0001> <0041>");
-        await Assert.That(map).Contains("<0003> <006600660069>");
-        await Assert.That(map).DoesNotContain("<0002>");
-        await Assert.That(map).Contains("100 beginbfchar");
-        await Assert.That(map).Contains("12 beginbfchar");
-        await Assert.That(map).Contains("endcmap");
+        await Assert.That(font.Face.CanSubset).IsFalse();
     }
 
     /// <summary>Loads a font's bytes as its first face.</summary>
@@ -168,17 +120,7 @@ public sealed class FontTests
         var faces = new List<FontFace>();
         using var folder = new FontFolder();
         FontFaceReader.Read(folder.Write("font.ttf", data), faces);
-        return FontProgram.FromBytes(faces[0] with { HasTrueTypeOutlines = true }, data)!;
-    }
-
-    /// <summary>Checks the subset's composite glyph still names its renumbered parts, by subsetting it again.</summary>
-    /// <param name="subset">The subset.</param>
-    /// <returns><see langword="true"/> when subsetting the composite alone still keeps both parts.</returns>
-    private static bool ReparseComposite(FontSubset subset)
-    {
-        var reloaded = Load(subset.Data);
-        var again = FontSubsetter.Create(reloaded, [reloaded.GlyphFor('é')])!;
-        return again.GlyphCount == HeGlyphs - 1;
+        return FontProgram.FromBytes(faces[0] with { HasEmbeddableOutlines = true }, data)!;
     }
 
     /// <summary>A temporary folder of font files.</summary>

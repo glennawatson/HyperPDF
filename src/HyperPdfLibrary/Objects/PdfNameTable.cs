@@ -19,23 +19,14 @@ public sealed class PdfNameTable
     /// <summary>The largest UTF-8 encoding of a name given as text: four bytes per character.</summary>
     private const int MaxEncodedName = PdfLimits.MaxNameLength * 4;
 
-    /// <summary>The most spellings cached by text; callers pass library constants, but the cap bounds a caller that does not.</summary>
-    private const int MaxTextCache = 4096;
-
     /// <summary>The initial capacity for document-specific spellings.</summary>
     private const int InitialCapacity = 16;
 
     /// <summary>The factor by which spelling storage grows.</summary>
     private const int GrowthFactor = 2;
 
-    /// <summary>The names already interned from text, so a repeated lookup skips the encoding and the lock.</summary>
-    private readonly ConcurrentDictionary<string, PdfName> _byText = new(StringComparer.Ordinal);
-
-    /// <summary>Serialises insertion of a new document-specific name.</summary>
-    private readonly Lock _gate = new();
-
-    /// <summary>The ids of the names this document added; the outer gate serialises all writers.</summary>
-    private readonly ConcurrentDictionary<byte[], int> _ids = new(1, InitialCapacity, ByteArrayComparer.Instance);
+    /// <summary>The lookup and lock for the names this document added; made with the first such name.</summary>
+    private UnknownNames? _unknown;
 
     /// <summary>The spellings of the names this document added, indexed by id minus the known count.</summary>
     private byte[]?[] _spellings = [];
@@ -91,15 +82,16 @@ public sealed class PdfNameTable
             return known;
         }
 
-        var lookup = _ids.GetAlternateLookup<ReadOnlySpan<byte>>();
-        if (lookup.TryGetValue(spelling, out var id))
+        var unknown = Volatile.Read(ref _unknown);
+        if (unknown is not null && unknown.Ids.GetAlternateLookup<ReadOnlySpan<byte>>().TryGetValue(spelling, out var id))
         {
             return new(id);
         }
 
-        lock (_gate)
+        unknown ??= CreateUnknown();
+        lock (unknown.Gate)
         {
-            return lookup.TryGetValue(spelling, out id) ? new(id) : AddUnknown(spelling);
+            return unknown.Ids.GetAlternateLookup<ReadOnlySpan<byte>>().TryGetValue(spelling, out id) ? new(id) : AddUnknown(unknown, spelling);
         }
     }
 
@@ -109,18 +101,7 @@ public sealed class PdfNameTable
     public PdfName Intern(string spelling)
     {
         ArgumentNullException.ThrowIfNull(spelling);
-        if (_byText.TryGetValue(spelling, out var cached))
-        {
-            return cached;
-        }
-
-        var name = InternEncoded(spelling);
-        if (_byText.Count < MaxTextCache)
-        {
-            _ = _byText.TryAdd(spelling, name);
-        }
-
-        return name;
+        return InternEncoded(spelling);
     }
 
     /// <summary>Gets the spelling of a name.</summary>
@@ -152,9 +133,10 @@ public sealed class PdfNameTable
     public bool NameEquals(PdfName name, ReadOnlySpan<byte> spelling) => GetSpelling(name).SequenceEqual(spelling);
 
     /// <summary>Publishes a new spelling before making its id visible to lock-free readers.</summary>
+    /// <param name="unknown">The lookup of the document-specific names.</param>
     /// <param name="spelling">The document-specific spelling.</param>
     /// <returns>The newly assigned name.</returns>
-    private PdfName AddUnknown(ReadOnlySpan<byte> spelling)
+    private PdfName AddUnknown(UnknownNames unknown, ReadOnlySpan<byte> spelling)
     {
         var count = _count;
         var spellings = _spellings;
@@ -172,8 +154,16 @@ public sealed class PdfNameTable
         Volatile.Write(ref _count, count + 1);
 
         // Readers that obtain the id must also see its spelling and a Count that includes it.
-        _ = _ids.TryAdd(bytes, id);
+        _ = unknown.Ids.TryAdd(bytes, id);
         return new(id);
+    }
+
+    /// <summary>Makes the lookup of the document-specific names once.</summary>
+    /// <returns>The lookup.</returns>
+    private UnknownNames CreateUnknown()
+    {
+        var created = new UnknownNames();
+        return Interlocked.CompareExchange(ref _unknown, created, null) ?? created;
     }
 
     /// <summary>Encodes a spelling as UTF-8 and interns it.</summary>
@@ -184,5 +174,15 @@ public sealed class PdfNameTable
         Span<byte> buffer = stackalloc byte[MaxEncodedName];
         var length = Encoding.UTF8.GetBytes(spelling.AsSpan(0, Math.Min(spelling.Length, PdfLimits.MaxNameLength)), buffer);
         return Intern(buffer[..Math.Min(length, PdfLimits.MaxNameLength)]);
+    }
+
+    /// <summary>The lookup of the names a document added and the lock that serialises adding them.</summary>
+    private sealed class UnknownNames
+    {
+        /// <summary>Gets the lock that serialises insertion of a new document-specific name.</summary>
+        internal Lock Gate { get; } = new();
+
+        /// <summary>Gets the ids of the names this document added; the gate serialises all writers.</summary>
+        internal ConcurrentDictionary<byte[], int> Ids { get; } = new(1, InitialCapacity, ByteArrayComparer.Instance);
     }
 }

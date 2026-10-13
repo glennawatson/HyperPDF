@@ -283,6 +283,18 @@ public sealed class PdfDictionary
         return copy;
     }
 
+    /// <summary>Copies the dictionary with room for more entries, so adding them does not grow the copy again.</summary>
+    /// <param name="extra">The entries the caller is about to add.</param>
+    /// <returns>The copy.</returns>
+    internal PdfDictionary CloneWithRoom(int extra)
+    {
+        var copy = new PdfDictionary(Owner, Count + extra);
+        _keys.AsSpan(0, Count).CopyTo(copy._keys);
+        _values.AsSpan(0, Count).CopyTo(copy._values);
+        copy.Count = Count;
+        return copy;
+    }
+
     /// <summary>Determines whether a later entry has the same key, so this one is hidden: the last of duplicate keys wins.</summary>
     /// <param name="index">The entry index.</param>
     /// <returns><see langword="true"/> when a later entry repeats the key.</returns>

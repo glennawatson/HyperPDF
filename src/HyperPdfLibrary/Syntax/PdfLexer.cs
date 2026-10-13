@@ -146,7 +146,7 @@ internal ref struct PdfLexer(ReadOnlySpan<byte> data, int position)
         return kind;
     }
 
-    /// <summary>Reads a number or keyword. A stray ')' is a delimiter, so like PDFium it comes back alone as a one-byte keyword.</summary>
+    /// <summary>Reads a number or keyword. A stray ')' is a delimiter (ISO 32000-2 7.2.3), so it comes back alone as a one-byte keyword.</summary>
     /// <param name="first">The first byte.</param>
     /// <returns>The kind.</returns>
     private PdfTokenKind ReadRegular(byte first)

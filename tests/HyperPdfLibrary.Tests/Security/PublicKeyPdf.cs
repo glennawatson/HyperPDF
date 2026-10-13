@@ -66,6 +66,16 @@ internal static class PublicKeyPdf
             envelopes[i] = Envelope(permissions, recipients[i]);
         }
 
+        return FromEnvelopes(cipher, encryptMetadata, envelopes);
+    }
+
+    /// <summary>Builds an encrypted document from ready recipient lists, each holding the 0x5A seed.</summary>
+    /// <param name="cipher">The cipher.</param>
+    /// <param name="encryptMetadata">Whether metadata is encrypted (crypt filter ciphers only).</param>
+    /// <param name="envelopes">The CMS recipient lists, in order.</param>
+    /// <returns>The file.</returns>
+    internal static byte[] FromEnvelopes(PublicKeyCipher cipher, bool encryptMetadata, params byte[][] envelopes)
+    {
         var key = FileKey(envelopes, cipher, encryptMetadata);
         var data = EncryptContent(cipher, key, Encoding.ASCII.GetBytes(Content));
         return Build(data, EncryptDictionary(cipher, envelopes, encryptMetadata));
@@ -81,7 +91,7 @@ internal static class PublicKeyPdf
     /// <param name="envelopes">The recipients.</param>
     /// <param name="encryptMetadata">Whether metadata is encrypted.</param>
     /// <returns>The dictionary.</returns>
-    private static string EncryptDictionary(PublicKeyCipher cipher, byte[][] envelopes, bool encryptMetadata)
+    internal static string EncryptDictionary(PublicKeyCipher cipher, byte[][] envelopes, bool encryptMetadata)
     {
         var list = new StringBuilder();
         foreach (var envelope in envelopes)
@@ -100,11 +110,11 @@ internal static class PublicKeyPdf
         };
     }
 
-    /// <summary>Makes a recipient: the seed and permissions enveloped for a certificate.</summary>
+    /// <summary>Makes a recipient list with <see cref="EnvelopedCms"/>: the seed and permissions enveloped for an RSA certificate.</summary>
     /// <param name="permissions">The permissions.</param>
     /// <param name="certificate">The recipient.</param>
     /// <returns>The EnvelopedData DER.</returns>
-    private static byte[] Envelope(int permissions, X509Certificate2 certificate)
+    internal static byte[] Envelope(int permissions, X509Certificate2 certificate)
     {
         var content = new byte[SeedLength + PermissionsLength];
         content.AsSpan(0, SeedLength).Fill(SeedByte);
@@ -119,7 +129,7 @@ internal static class PublicKeyPdf
     /// <param name="cipher">The cipher.</param>
     /// <param name="encryptMetadata">Whether metadata is encrypted.</param>
     /// <returns>The key.</returns>
-    private static byte[] FileKey(byte[][] envelopes, PublicKeyCipher cipher, bool encryptMetadata)
+    internal static byte[] FileKey(byte[][] envelopes, PublicKeyCipher cipher, bool encryptMetadata)
     {
         var seed = new byte[SeedLength];
         seed.AsSpan().Fill(SeedByte);

@@ -34,7 +34,7 @@ internal sealed class SkiaDrawingSession : IPdfDrawingSession
                     return false;
                 }
 
-                DrawPageContent(new(surface.Canvas, surface.GrayPaint, target.Width, target.Height), content, annotations, matrix, grayscale);
+                DrawPageContent(new(surface.Canvas, grayscale ? surface.GrayPaint : null, target.Width, target.Height), content, annotations, matrix, grayscale);
                 return true;
             }
             finally

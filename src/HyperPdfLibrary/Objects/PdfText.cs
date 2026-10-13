@@ -44,6 +44,9 @@ public static class PdfText
     /// <summary>The size of a UTF-16 code unit.</summary>
     private const int Utf16Size = 2;
 
+    /// <summary>The most UTF-8 bytes one UTF-16 code unit takes.</summary>
+    private const int Utf8BytesPerUnit = 3;
+
     /// <summary>The characters of PDFDocEncoding bytes 0x18 to 0x1F.</summary>
     private const string LowSpecials = "˘ˇˆ˙˝˛˚˜";
 
@@ -129,6 +132,15 @@ public static class PdfText
     public static byte[] Encode(string text, bool allowUtf8)
     {
         ArgumentNullException.ThrowIfNull(text);
+        return Encode(text.AsSpan(), allowUtf8);
+    }
+
+    /// <summary>Encodes characters as PDFDocEncoding when every character fits, as UTF-8 with a byte order mark when allowed, and as UTF-16 big-endian with a byte order mark otherwise.</summary>
+    /// <param name="text">The characters.</param>
+    /// <param name="allowUtf8">Whether the document is PDF 2.0 or higher and may hold UTF-8 text strings.</param>
+    /// <returns>The string's bytes.</returns>
+    public static byte[] Encode(ReadOnlySpan<char> text, bool allowUtf8)
+    {
         var bytes = new byte[text.Length];
         if (TryEncodeDoc(text, bytes))
         {
@@ -160,10 +172,44 @@ public static class PdfText
     public static byte[] EncodeUtf8(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
+        return EncodeUtf8(text.AsSpan());
+    }
+
+    /// <summary>Encodes characters as UTF-8 with a byte order mark.</summary>
+    /// <param name="text">The characters.</param>
+    /// <returns>The string's bytes.</returns>
+    public static byte[] EncodeUtf8(ReadOnlySpan<char> text)
+    {
         var bytes = new byte[Utf8Mark.Length + Encoding.UTF8.GetByteCount(text)];
         Utf8Mark.CopyTo(bytes);
         _ = Encoding.UTF8.GetBytes(text, bytes.AsSpan(Utf8Mark.Length));
         return bytes;
+    }
+
+    /// <summary>Gets the most bytes <see cref="Encode(ReadOnlySpan{char}, bool, Span{byte})"/> writes for some characters.</summary>
+    /// <param name="characters">The number of characters.</param>
+    /// <returns>The length a destination needs.</returns>
+    internal static int MaxEncodedLength(int characters) => Utf8Mark.Length + (characters * Utf8BytesPerUnit);
+
+    /// <summary>Encodes characters as <see cref="Encode(ReadOnlySpan{char}, bool)"/> does, into a buffer.</summary>
+    /// <param name="text">The characters.</param>
+    /// <param name="allowUtf8">Whether the document is PDF 2.0 or higher and may hold UTF-8 text strings.</param>
+    /// <param name="destination">At least <see cref="MaxEncodedLength"/> bytes.</param>
+    /// <returns>The bytes written.</returns>
+    internal static int Encode(ReadOnlySpan<char> text, bool allowUtf8, Span<byte> destination)
+    {
+        if (TryEncodeDoc(text, destination))
+        {
+            return text.Length;
+        }
+
+        if (!allowUtf8)
+        {
+            return EncodeUtf16(text, destination);
+        }
+
+        Utf8Mark.CopyTo(destination);
+        return Utf8Mark.Length + Encoding.UTF8.GetBytes(text, destination[Utf8Mark.Length..]);
     }
 
     /// <summary>Counts the characters a text string decodes to.</summary>
@@ -222,23 +268,33 @@ public static class PdfText
     /// <summary>Encodes text as UTF-16 big-endian with a byte order mark, as PDF versions before 2.0 require for text outside PDFDocEncoding.</summary>
     /// <param name="text">The text.</param>
     /// <returns>The string's bytes.</returns>
-    private static byte[] EncodeUtf16(string text)
+    private static byte[] EncodeUtf16(ReadOnlySpan<char> text)
     {
         var bytes = new byte[Utf16Size + (text.Length * Utf16Size)];
-        Utf16BigEndianMark.CopyTo(bytes);
+        _ = EncodeUtf16(text, bytes);
+        return bytes;
+    }
+
+    /// <summary>Encodes text as UTF-16 big-endian with a byte order mark into a buffer.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="destination">At least two bytes more than twice the characters.</param>
+    /// <returns>The bytes written.</returns>
+    private static int EncodeUtf16(ReadOnlySpan<char> text, Span<byte> destination)
+    {
+        Utf16BigEndianMark.CopyTo(destination);
         for (var i = 0; i < text.Length; i++)
         {
-            BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(Utf16Size + (i * Utf16Size)), text[i]);
+            BinaryPrimitives.WriteUInt16BigEndian(destination[(Utf16Size + (i * Utf16Size))..], text[i]);
         }
 
-        return bytes;
+        return Utf16Size + (text.Length * Utf16Size);
     }
 
     /// <summary>Encodes text as PDFDocEncoding when every character has a code.</summary>
     /// <param name="text">The text.</param>
     /// <param name="destination">The bytes, at least as long as the text.</param>
     /// <returns><see langword="true"/> when every character fit.</returns>
-    private static bool TryEncodeDoc(string text, Span<byte> destination)
+    private static bool TryEncodeDoc(ReadOnlySpan<char> text, Span<byte> destination)
     {
         for (var i = 0; i < text.Length; i++)
         {

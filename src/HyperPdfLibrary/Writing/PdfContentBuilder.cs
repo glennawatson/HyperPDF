@@ -384,7 +384,7 @@ public ref struct PdfContentBuilder
     /// <summary>Sets the font and size (<c>Tf</c>).</summary>
     /// <param name="font">The font name in the resources' /Font.</param>
     /// <param name="size">The size.</param>
-    public void SetFont(ReadOnlySpan<byte> font, float size)
+    public void SetFont(scoped ReadOnlySpan<byte> font, float size)
     {
         NameOperand(font);
         Operand(size);
@@ -545,6 +545,18 @@ public ref struct PdfContentBuilder
     {
         NameOperand(tag);
         NameOperand(properties);
+        Operator("BDC"u8);
+    }
+
+    /// <summary>Begins a marked-content sequence that has a marked content identifier (<c>BDC</c> with <c>/MCID</c>, ISO 32000-2 14.7.4.2).</summary>
+    /// <param name="tag">The tag.</param>
+    /// <param name="identifier">The marked content identifier, unique on the page.</param>
+    public void BeginMarkedContent(ReadOnlySpan<byte> tag, int identifier)
+    {
+        NameOperand(tag);
+        _buffer.Write("<</MCID "u8);
+        PdfSyntax.WriteInteger(ref _buffer, identifier);
+        _buffer.Write(">> "u8);
         Operator("BDC"u8);
     }
 
@@ -715,7 +727,7 @@ public ref struct PdfContentBuilder
 
     /// <summary>Writes a name operand and a space.</summary>
     /// <param name="name">The name, unescaped and without the slash.</param>
-    private void NameOperand(ReadOnlySpan<byte> name)
+    private void NameOperand(scoped ReadOnlySpan<byte> name)
     {
         PdfSyntax.WriteName(ref _buffer, name);
         _buffer.WriteByte((byte)' ');

@@ -18,6 +18,7 @@ internal static class HyperPdfAccessibility
     /// <exception cref="System.OperationCanceledException">The token was cancelled.</exception>
     internal static PdfAccessibilityReport GetAccessibilityReport(HyperPdfDocument self, CancellationToken cancellation)
     {
+        using var access = HyperPdfNavigation.EnterPageRead(self);
         ObjectDisposedException.ThrowIf(self.IsDisposed, self);
         return PdfDocumentAccessibility.GetAccessibilityReport(self.Document, cancellation);
     }

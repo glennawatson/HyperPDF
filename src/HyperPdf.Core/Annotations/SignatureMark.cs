@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 using HyperPdf.Core.Geometry;
@@ -20,6 +21,9 @@ public sealed record SignatureMark
 
     /// <summary>The height of a typed line, as a multiple of the text size.</summary>
     internal const float TypedLineHeight = 1.25F;
+
+    /// <summary>The most smoothed points held on the stack while a drawn mark is made.</summary>
+    private const int StackPoints = 256;
 
     /// <summary>The coordinates in each stored point.</summary>
     private const int Coordinates = 2;
@@ -113,41 +117,37 @@ public sealed record SignatureMark
             strokeCount++;
         }
 
-        var smoothed = new PagePoint[smoothedTotal];
-        var lengths = new int[strokeCount];
-        var source = 0;
-        var target = 0;
-        var stroke = 0;
-        foreach (var length in strokeLengths)
+        // The smoothed points are only a step on the way to the mark's coordinates, so they are not kept.
+        PagePoint[]? rented = null;
+        Span<PagePoint> smoothed = smoothedTotal <= StackPoints ? stackalloc PagePoint[StackPoints] : (rented = ArrayPool<PagePoint>.Shared.Rent(smoothedTotal));
+        try
         {
-            if (length == 0)
+            var lengths = new int[strokeCount];
+            SmoothStrokes(points, strokeLengths, smoothed, lengths);
+            var coordinates = new float[smoothedTotal * Coordinates];
+            for (var i = 0; i < smoothedTotal; i++)
             {
-                continue;
+                coordinates[i * Coordinates] = smoothed[i].X - bounds.Left;
+                coordinates[(i * Coordinates) + 1] = smoothed[i].Y - bounds.Top;
             }
 
-            var written = SmoothStroke(points.Slice(source, length), smoothed.AsSpan(target));
-            lengths[stroke] = written;
-            stroke++;
-            source += length;
-            target += written;
+            return new()
+            {
+                Kind = kind,
+                Style = SignatureMarkStyle.Drawn,
+                Width = Math.Max(MinDrawnExtent, bounds.Width),
+                Height = Math.Max(MinDrawnExtent, bounds.Height),
+                Points = coordinates,
+                StrokeLengths = lengths,
+            };
         }
-
-        var coordinates = new float[smoothedTotal * Coordinates];
-        for (var i = 0; i < smoothed.Length; i++)
+        finally
         {
-            coordinates[i * Coordinates] = smoothed[i].X - bounds.Left;
-            coordinates[(i * Coordinates) + 1] = smoothed[i].Y - bounds.Top;
+            if (rented is not null)
+            {
+                ArrayPool<PagePoint>.Shared.Return(rented);
+            }
         }
-
-        return new()
-        {
-            Kind = kind,
-            Style = SignatureMarkStyle.Drawn,
-            Width = Math.Max(MinDrawnExtent, bounds.Width),
-            Height = Math.Max(MinDrawnExtent, bounds.Height),
-            Points = coordinates,
-            StrokeLengths = lengths,
-        };
     }
 
     /// <summary>Makes an image mark.</summary>
@@ -158,6 +158,31 @@ public sealed record SignatureMark
     {
         ArgumentNullException.ThrowIfNull(image);
         return new() { Kind = kind, Style = SignatureMarkStyle.Image, Width = image.Width, Height = image.Height, Pixels = image.Pixels };
+    }
+
+    /// <summary>Smooths each stroke into one run of points.</summary>
+    /// <param name="points">The samples, stroke after stroke.</param>
+    /// <param name="strokeLengths">The number of samples in each stroke.</param>
+    /// <param name="smoothed">Receives the smoothed strokes one after another.</param>
+    /// <param name="lengths">Receives the number of points in each smoothed stroke, leaving out empty strokes.</param>
+    private static void SmoothStrokes(ReadOnlySpan<PagePoint> points, ReadOnlySpan<int> strokeLengths, Span<PagePoint> smoothed, int[] lengths)
+    {
+        var source = 0;
+        var target = 0;
+        var stroke = 0;
+        foreach (var length in strokeLengths)
+        {
+            if (length == 0)
+            {
+                continue;
+            }
+
+            var written = SmoothStroke(points.Slice(source, length), smoothed[target..]);
+            lengths[stroke] = written;
+            stroke++;
+            source += length;
+            target += written;
+        }
     }
 
     /// <summary>Adds up stroke lengths.</summary>

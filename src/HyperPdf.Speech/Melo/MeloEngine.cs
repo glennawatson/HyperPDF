@@ -123,19 +123,9 @@ public sealed class MeloEngine : ISpeechEngine
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0 || !_gate.TryEnter())
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
         {
-            // A synthesis holds the gate; it sees the flag and releases the sessions when it finishes.
-            return;
-        }
-
-        try
-        {
-            ReleaseSessions();
-        }
-        finally
-        {
-            _gate.Exit();
+            ReleaseIfDisposed();
         }
     }
 
@@ -155,20 +145,28 @@ public sealed class MeloEngine : ISpeechEngine
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(voiceId);
-        lock (_gate)
+        try
         {
-            var frontEnd = GetFrontEnd();
-            frontEnd.Prepare(Normalize(text, MeloModel.IsBritish(voiceId)), _input);
-            var names = new StringBuilder();
-            foreach (var id in _input.Phones)
+            lock (_gate)
             {
-                if (id != MeloSymbols.Blank)
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+                var frontEnd = GetFrontEnd();
+                frontEnd.Prepare(Normalize(text, MeloModel.IsBritish(voiceId)), _input);
+                var names = new StringBuilder();
+                foreach (var id in _input.Phones)
                 {
-                    _ = names.Append(names.Length > 0 ? " " : string.Empty).Append(frontEnd.Symbols.Name(id));
+                    if (id != MeloSymbols.Blank)
+                    {
+                        _ = names.Append(names.Length > 0 ? " " : string.Empty).Append(frontEnd.Symbols.Name(id));
+                    }
                 }
-            }
 
-            return names.ToString();
+                return names.ToString();
+            }
+        }
+        finally
+        {
+            ReleaseIfDisposed();
         }
     }
 
@@ -275,11 +273,11 @@ public sealed class MeloEngine : ISpeechEngine
     /// <returns>The audio.</returns>
     private SpeechAudio Synthesize(string text, string voiceId, float speed, CancellationToken cancellationToken)
     {
-        lock (_gate)
+        try
         {
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-            try
+            lock (_gate)
             {
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
                 var frontEnd = GetFrontEnd();
                 var symbols = frontEnd.Symbols;
                 if (!symbols.Speakers.TryGetValue(voiceId, out var speaker))
@@ -303,14 +301,31 @@ public sealed class MeloEngine : ISpeechEngine
 
                 return new(CollectionsMarshal.AsSpan(samples)[..Trimmed(samples, symbols.SampleRate)].ToArray(), symbols.SampleRate);
             }
-            finally
-            {
-                // Dispose did not wait for this synthesis, so the last holder of the gate frees the models.
-                if (Volatile.Read(ref _disposed) != 0)
-                {
-                    ReleaseSessions();
-                }
-            }
+        }
+        finally
+        {
+            ReleaseIfDisposed();
+        }
+    }
+
+    /// <summary>
+    /// Frees the ONNX sessions when the engine is disposed and no call holds the gate. A call that holds it frees them
+    /// itself when it leaves, so the sessions are released by whoever leaves last.
+    /// </summary>
+    private void ReleaseIfDisposed()
+    {
+        if (Volatile.Read(ref _disposed) == 0 || !_gate.TryEnter())
+        {
+            return;
+        }
+
+        try
+        {
+            ReleaseSessions();
+        }
+        finally
+        {
+            _gate.Exit();
         }
     }
 

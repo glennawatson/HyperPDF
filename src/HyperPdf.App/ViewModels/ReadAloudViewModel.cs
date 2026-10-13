@@ -802,7 +802,11 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
             var page = SpokenPage;
             var reading = _owner.GetReadingDocument();
             await document.PreparePageAsync(page, cancellationToken).ConfigureAwait(true);
-            (_pageText, _map) = await Task.Run(() => LoadText(document, reading, page), cancellationToken).ConfigureAwait(true);
+            var loaded = await Task.Run(() => LoadText(document, reading, page), cancellationToken).ConfigureAwait(true);
+
+            // A load that was already running when a newer read started must not overwrite the newer read's page, sentences and start.
+            cancellationToken.ThrowIfCancellationRequested();
+            (_pageText, _map) = loaded;
             _sentences.Clear();
             SentenceSplitter.Split(_pageText, _sentences);
             _loadedPage = page;

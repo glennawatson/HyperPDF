@@ -18,9 +18,6 @@ internal readonly record struct Jbig2RegionInfo(int Width, int Height, int X, in
     /// <summary>The mask of the combination operator bits.</summary>
     private const int OperatorMask = 0x07;
 
-    /// <summary>The mask of the operators PDFium reads from two bits.</summary>
-    private const int TwoBitMask = 0x03;
-
     /// <summary>Gets the external combination operator.</summary>
     internal Jbig2ComposeOperator Operator => ToOperator(Flags);
 
@@ -41,9 +38,15 @@ internal readonly record struct Jbig2RegionInfo(int Width, int Height, int X, in
         return true;
     }
 
-    /// <summary>Maps operator bits as PDFium does: 4 is REPLACE, otherwise the low two bits.</summary>
+    /// <summary>
+    /// Maps the three operator bits (T.88 section 7.4.1.5): 0 to 4 are OR, AND, XOR, XNOR and REPLACE. Our rule for the
+    /// reserved values 5 to 7 is OR, the operator that never erases black pixels already drawn.
+    /// </summary>
     /// <param name="bits">The bits.</param>
     /// <returns>The operator.</returns>
-    internal static Jbig2ComposeOperator ToOperator(int bits) =>
-        (bits & OperatorMask) == (int)Jbig2ComposeOperator.Replace ? Jbig2ComposeOperator.Replace : (Jbig2ComposeOperator)(bits & TwoBitMask);
+    internal static Jbig2ComposeOperator ToOperator(int bits)
+    {
+        var value = bits & OperatorMask;
+        return value <= (int)Jbig2ComposeOperator.Replace ? (Jbig2ComposeOperator)value : Jbig2ComposeOperator.Or;
+    }
 }

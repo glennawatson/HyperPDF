@@ -123,19 +123,7 @@ public static class PdfDocumentRendering
     /// <param name="document">The document.</param>
     internal static void ReleaseRendering(PdfDocument document)
     {
-        WeakReference<PdfPageRenderer>[] renderers;
-        PdfRenderCacheEntry[] normalCaches;
-        PdfRenderCacheEntry[] intentCaches;
-        lock (document.State.RenderersGate)
-        {
-            renderers = [.. document.State.Renderers];
-            document.State.Renderers.Clear();
-            normalCaches = document.State.RendererCaches is { } normal ? [.. normal.Values] : [];
-            intentCaches = document.State.IntentRendererCaches is { } intent ? [.. intent.Values] : [];
-            document.State.RendererCaches = null;
-            document.State.IntentRendererCaches = null;
-        }
-
+        var (renderers, normalCaches, intentCaches) = DetachRendering(document);
         foreach (var reference in renderers)
         {
             if (reference.TryGetTarget(out var renderer))
@@ -159,6 +147,29 @@ public static class PdfDocumentRendering
         Volatile.Read(ref document.State.TextPages)?.Clear();
     }
 
+    /// <summary>Takes the tracked renderers and render caches away from the document.</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>What was tracked; empty for a document nothing has rendered from, which has no lock yet.</returns>
+    private static DetachedRendering DetachRendering(PdfDocument document)
+    {
+        // The disposed flag is set before this runs, so no renderer registers while the lock does not exist.
+        if (document.State.RenderersGateIfCreated is not { } gate)
+        {
+            return new([], [], []);
+        }
+
+        lock (gate)
+        {
+            var renderers = document.State.Renderers.ToArray();
+            document.State.Renderers.Clear();
+            var normalCaches = document.State.RendererCaches is { } normal ? [.. normal.Values] : Array.Empty<PdfRenderCacheEntry>();
+            var intentCaches = document.State.IntentRendererCaches is { } intent ? [.. intent.Values] : Array.Empty<PdfRenderCacheEntry>();
+            document.State.RendererCaches = null;
+            document.State.IntentRendererCaches = null;
+            return new(renderers, normalCaches, intentCaches);
+        }
+    }
+
     /// <summary>Finds or creates a cache whose options never change after publication.</summary>
     /// <param name="document">The document.</param>
     /// <param name="options">The renderer options whose image and drawing settings form the key.</param>
@@ -170,7 +181,8 @@ public static class PdfDocumentRendering
         lock (document.State.RenderersGate)
         {
             ObjectDisposedException.ThrowIf(document.IsDisposed, document);
-            var key = new PdfRenderCacheKey(options.ImageCacheBytes, options.SimulateOverprint, options.FormHighlight);
+            var hidden = PdfRenderCacheKey.Normalize(options.HiddenColorants);
+            var key = new PdfRenderCacheKey(options.ImageCacheBytes, options.SimulateOverprint, options.FormHighlight, PdfRenderCacheKey.Join(hidden));
             var caches = outputIntent
                 ? document.State.IntentRendererCaches ??= []
                 : document.State.RendererCaches ??= [];
@@ -184,9 +196,16 @@ public static class PdfDocumentRendering
             cache.Images.Capacity = key.ImageCacheBytes;
             cache.SimulateOverprint = key.SimulateOverprint;
             cache.FormHighlight = key.FormHighlight;
+            cache.HiddenColorants = hidden;
             var created = new PdfRenderCacheEntry(key, cache, outputIntent);
             caches.Add(key, created);
             return created;
         }
     }
+
+    /// <summary>The renderers and render caches a document tracked when its rendering was released.</summary>
+    /// <param name="Renderers">The weakly tracked page renderers.</param>
+    /// <param name="NormalCaches">The caches of the normal renderers.</param>
+    /// <param name="IntentCaches">The caches of the output-intent renderers.</param>
+    private readonly record struct DetachedRendering(WeakReference<PdfPageRenderer>[] Renderers, PdfRenderCacheEntry[] NormalCaches, PdfRenderCacheEntry[] IntentCaches);
 }

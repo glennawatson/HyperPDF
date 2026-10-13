@@ -146,7 +146,7 @@ internal static class HyperPdfAnnotationShapes
                 page,
                 points,
                 strokeLengths,
-                new(KnownName.Ink, inkKind, color, width)) : -1;
+                new(KnownName.Ink, inkKind, color, width / page.UserUnit)) : -1;
         }
     }
 
@@ -195,10 +195,10 @@ internal static class HyperPdfAnnotationShapes
         {
             return HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is not { } page ? -1 : kind switch
             {
-                AnnotationKind.Rectangle => AddBox(annotationState, pageIndex, page, start, end, new(KnownName.Square, kind, color, width)),
-                AnnotationKind.Ellipse => AddBox(annotationState, pageIndex, page, start, end, new(KnownName.Circle, kind, color, width)),
-                AnnotationKind.Arrow => AddArrow(annotationState, pageIndex, page, start, end, new(KnownName.Ink, kind, color, width)),
-                AnnotationKind.Line => AddStrokes(annotationState, pageIndex, page, [start, end], [StrokePoints], new(KnownName.Ink, kind, color, width)),
+                AnnotationKind.Rectangle => AddBox(annotationState, pageIndex, page, start, end, new(KnownName.Square, kind, color, width / page.UserUnit)),
+                AnnotationKind.Ellipse => AddBox(annotationState, pageIndex, page, start, end, new(KnownName.Circle, kind, color, width / page.UserUnit)),
+                AnnotationKind.Arrow => AddArrow(annotationState, pageIndex, page, start, end, new(KnownName.Ink, kind, color, width / page.UserUnit)),
+                AnnotationKind.Line => AddStrokes(annotationState, pageIndex, page, [start, end], [StrokePoints], new(KnownName.Ink, kind, color, width / page.UserUnit)),
                 _ => -1,
             };
         }
@@ -234,7 +234,7 @@ internal static class HyperPdfAnnotationShapes
                 page,
                 vertices,
                 [vertices.Length],
-                new(subtype, kind, color, width)) : -1;
+                new(subtype, kind, color, width / page.UserUnit)) : -1;
         }
     }
 

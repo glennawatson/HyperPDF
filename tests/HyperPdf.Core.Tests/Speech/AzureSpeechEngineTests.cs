@@ -25,6 +25,21 @@ public sealed class AzureSpeechEngineTests
     /// <summary>The samples in the recorded reply.</summary>
     private const int ReplySamples = 2;
 
+    /// <summary>The samples in the long clip; more than one vector and not a multiple of one.</summary>
+    private const int ClipSamples = 1003;
+
+    /// <summary>The step between the long clip's samples.</summary>
+    private const int ClipStride = 97;
+
+    /// <summary>Moves the long clip's samples so some are negative.</summary>
+    private const int ClipOffset = 40_000;
+
+    /// <summary>Scales 16 bit samples to the range -1 to 1.</summary>
+    private const float ClipScale = 1F / 32_768F;
+
+    /// <summary>The times the escaped text is repeated, enough to outgrow the stack buffer.</summary>
+    private const int Repeats = 40;
+
     /// <summary>Replies with two samples: silence, then half scale.</summary>
     private static readonly RecordingHandler PcmHandler = new([0, 0, 0, 0x40]);
 
@@ -93,6 +108,49 @@ public sealed class AzureSpeechEngineTests
 
         await Assert.That(AzureSpeechEngine.ToSamples(bytes)[0]).IsEqualTo(Half);
     }
+
+    /// <summary>A clip longer than one vector, with an odd trailing byte, converts every sample the same as one at a time.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ConvertsALongClip()
+    {
+        var bytes = new byte[(ClipSamples * sizeof(short)) + 1];
+        for (var i = 0; i < ClipSamples; i++)
+        {
+            System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(i * sizeof(short)), ClipSample(i));
+        }
+
+        var samples = AzureSpeechEngine.ToSamples(bytes);
+        var wrong = 0;
+        for (var i = 0; i < ClipSamples; i++)
+        {
+            // The same bits, not just close: the vector path must give exactly what one sample at a time gives.
+            wrong += BitConverter.SingleToInt32Bits(samples[i]) == BitConverter.SingleToInt32Bits(ClipSample(i) * ClipScale) ? 0 : 1;
+        }
+
+        await Assert.That(samples.Length).IsEqualTo(ClipSamples);
+        await Assert.That(wrong).IsEqualTo(0);
+    }
+
+    /// <summary>Quotes and angle brackets in the text, voice and language are escaped, and a long document is not cut short.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task EscapesTheSsml()
+    {
+        var text = string.Concat(Enumerable.Repeat("a < b \"and\" 'c' > d & e. ", Repeats));
+
+        var ssml = AzureSpeechEngine.BuildSsml(text, "xx\"<-Voice", 1);
+
+        await Assert.That(ssml).Contains("xml:lang=\"xx&quot;&lt;-\"");
+        await Assert.That(ssml).Contains("name=\"xx&quot;&lt;-Voice\"");
+        await Assert.That(ssml).Contains("rate=\"+0%\"");
+        await Assert.That(ssml).Contains(string.Concat(Enumerable.Repeat("a &lt; b &quot;and&quot; &apos;c&apos; &gt; d &amp; e. ", Repeats)));
+    }
+
+    /// <summary>Gets a sample that covers the whole range, wrapping round.</summary>
+    /// <param name="index">The sample's place in the clip.</param>
+    /// <returns>The sample.</returns>
+    private static short ClipSample(int index) => (short)((index * ClipStride) - ClipOffset);
 
     /// <summary>Records the request and replies with fixed PCM.</summary>
     /// <param name="reply">The reply body.</param>

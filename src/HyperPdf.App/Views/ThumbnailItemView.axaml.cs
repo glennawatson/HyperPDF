@@ -45,6 +45,6 @@ public sealed partial class ThumbnailItemView : ReactiveUI.Avalonia.ReactiveUser
         Thumbnail.Width = item?.Width ?? 0;
         Thumbnail.Height = item?.Height ?? 0;
         Thumbnail.PageIndex = item?.PageIndex ?? -1;
-        LabelText.Text = item?.Label;
+        LabelText.Text = item?.Caption;
     }
 }

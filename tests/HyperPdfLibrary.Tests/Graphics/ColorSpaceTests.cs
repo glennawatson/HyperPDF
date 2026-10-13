@@ -73,8 +73,8 @@ public sealed class ColorSpaceTests
     /// <summary>The components of RGB.</summary>
     private const int Rgb = 3;
 
-    /// <summary>The green of full cyan in PDFium's CMYK table, 174 / 255.</summary>
-    private const float FullCyanGreen = 174F / 255F;
+    /// <summary>The largest difference between the CMYK polynomial and its colour model: 3 bytes of 255.</summary>
+    private const float ModelTolerance = 3F / 255F;
 
     /// <summary>The highest index of the random palette.</summary>
     private const int FullPalette = 255;
@@ -164,8 +164,9 @@ public sealed class ColorSpaceTests
         await Assert.That(bgra[1]).IsEqualTo((byte)MaxByte);
         await Assert.That(bgra[BytesPerPixel + RedByte]).IsEqualTo((byte)MaxByte);
 
-        // Indexes past /HiVal are black, as in PDFium.
-        await Assert.That(bgra[ThirdPixel + 1]).IsEqualTo((byte)0);
+        // ISO 32000-2 8.6.6.3: an index past /HiVal is adjusted to the last palette entry, which is green here.
+        await Assert.That(bgra[ThirdPixel + 1]).IsEqualTo((byte)MaxByte);
+        await Assert.That(bgra[ThirdPixel + RedByte]).IsEqualTo((byte)0);
         await Assert.That(bgra[ThirdPixel + AlphaByte]).IsEqualTo((byte)MaxByte);
     }
 
@@ -180,9 +181,10 @@ public sealed class ColorSpaceTests
 
         await Assert.That(space.Kind).IsEqualTo(PdfColorSpaceKind.Separation);
 
-        // Full cyan through PDFium's CMYK table has no red and about two thirds green (174 / 255).
-        await Assert.That(full[0]).IsEqualTo(0).Within(Tolerance);
-        await Assert.That(full[1]).IsEqualTo(FullCyanGreen).Within(Tolerance);
+        // Full cyan through the DeviceCMYK polynomial matches the colour model it was fitted to, within its fit error.
+        var model = CmykNeugebauerModel.ToSrgb(1, 0, 0, 0);
+        await Assert.That(full[0]).IsEqualTo((float)model.Red).Within(ModelTolerance);
+        await Assert.That(full[1]).IsEqualTo((float)model.Green).Within(ModelTolerance);
         await Assert.That(none[0]).IsEqualTo(1).Within(Tolerance);
     }
 

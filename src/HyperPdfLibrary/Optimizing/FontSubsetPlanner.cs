@@ -29,7 +29,7 @@ internal static class FontSubsetPlanner
     /// <param name = "graph">The reachable objects.</param>
     /// <param name = "glyphs">Receives the glyphs to keep, by program number.</param>
     /// <param name = "report">Receives what was skipped.</param>
-    internal static void Plan(PdfDocument document, ContentUsageScanner scanner, OptimizerGraph graph, Dictionary<int, HashSet<int>> glyphs, OptimizeReportBuilder report)
+    internal static void Plan(PdfDocument document, ContentUsageScanner scanner, OptimizerGraph graph, Dictionary<int, CodeBitSet> glyphs, OptimizeReportBuilder report)
     {
         var programs = FindPrograms(graph, report);
         if (programs.Count == 0)
@@ -37,7 +37,7 @@ internal static class FontSubsetPlanner
             return;
         }
 
-        var device = new FontUsageDevice();
+        using var device = FontUsageDevice.Rent();
         if (!RunPages(document, device))
         {
             report.Skip(PdfOptimizeCategory.Fonts, 0, "A page's content could not be read to the end, so no font was subset.");
@@ -45,11 +45,21 @@ internal static class FontSubsetPlanner
         }
 
         var shown = GlyphsByFont(device, scanner);
-        foreach (var (program, users) in programs)
+        try
         {
-            if (Union(program, users, shown, scanner, report) is { } kept)
+            foreach (var (program, users) in programs)
             {
-                glyphs[program] = kept;
+                if (Union(program, users, shown, scanner, report) is { } kept)
+                {
+                    glyphs[program] = kept;
+                }
+            }
+        }
+        finally
+        {
+            foreach (var set in shown.Values)
+            {
+                set.Dispose();
             }
         }
     }
@@ -109,7 +119,7 @@ internal static class FontSubsetPlanner
     {
         for (var i = 0; i < document.PageCount; i++)
         {
-            using var interpreter = new ContentInterpreter(PdfDocumentRendering.GetRenderCache(document), device, 0);
+            using var interpreter = ContentInterpreter.Rent(PdfDocumentRendering.GetRenderCache(document), device, 0);
             try
             {
                 ContentExecution.RunPage(interpreter, PdfDocumentPages.GetPage(document, i));
@@ -134,9 +144,9 @@ internal static class FontSubsetPlanner
     /// <param name = "device">The device that saw the codes.</param>
     /// <param name = "scanner">What the content analysis learned, including each font's object number.</param>
     /// <returns>The glyphs each font shows, by font number.</returns>
-    private static Dictionary<int, HashSet<int>> GlyphsByFont(FontUsageDevice device, ContentUsageScanner scanner)
+    private static Dictionary<int, CodeBitSet> GlyphsByFont(FontUsageDevice device, ContentUsageScanner scanner)
     {
-        var shown = new Dictionary<int, HashSet<int>>();
+        var shown = new Dictionary<int, CodeBitSet>();
         foreach (var (font, codes) in device.Codes)
         {
             if (!scanner.FontNumbers.TryGetValue(font.Dictionary, out var number))
@@ -145,10 +155,18 @@ internal static class FontSubsetPlanner
             }
 
             ref var glyphs = ref CollectionsMarshal.GetValueRefOrAddDefault(shown, number, out _);
-            glyphs ??= [];
-            foreach (var code in codes)
+            glyphs ??= new(true);
+            for (var code = codes.NextBit(0); code != CodeBitSet.NoBit; code = codes.NextBit(code + 1))
             {
                 AddGlyphs(font, code, glyphs);
+            }
+
+            if (codes.Overflow is { } overflow)
+            {
+                foreach (var code in overflow)
+                {
+                    AddGlyphs(font, code, glyphs);
+                }
             }
         }
 
@@ -159,7 +177,7 @@ internal static class FontSubsetPlanner
     /// <param name = "font">The font.</param>
     /// <param name = "code">The code.</param>
     /// <param name = "glyphs">The glyphs.</param>
-    private static void AddGlyphs(PdfFont font, int code, HashSet<int> glyphs)
+    private static void AddGlyphs(PdfFont font, int code, CodeBitSet glyphs)
     {
         switch (font)
         {
@@ -192,7 +210,7 @@ internal static class FontSubsetPlanner
     /// <param name = "font">The font.</param>
     /// <param name = "code">The code.</param>
     /// <param name = "glyphs">The glyphs.</param>
-    private static void AddCmapGlyphs(TrueTypeProgram program, PdfFont font, int code, HashSet<int> glyphs)
+    private static void AddCmapGlyphs(TrueTypeProgram program, PdfFont font, int code, CodeBitSet glyphs)
     {
         AddGlyph(glyphs, program.LookupMacCmap(code));
         AddGlyph(glyphs, program.LookupSymbolCmap(code));
@@ -211,7 +229,7 @@ internal static class FontSubsetPlanner
     /// <summary>Adds a glyph when it is one.</summary>
     /// <param name = "glyphs">The glyphs.</param>
     /// <param name = "glyph">The glyph id, or a negative value for none.</param>
-    private static void AddGlyph(HashSet<int> glyphs, int glyph)
+    private static void AddGlyph(CodeBitSet glyphs, int glyph)
     {
         if (glyph <= 0)
         {
@@ -228,9 +246,9 @@ internal static class FontSubsetPlanner
     /// <param name = "scanner">What the content analysis learned.</param>
     /// <param name = "report">Receives the reason a program stays whole.</param>
     /// <returns>The glyphs to keep, or <see langword="null"/>.</returns>
-    private static HashSet<int>? Union(int program, List<int> users, Dictionary<int, HashSet<int>> shown, ContentUsageScanner scanner, OptimizeReportBuilder report)
+    private static CodeBitSet? Union(int program, List<int> users, Dictionary<int, CodeBitSet> shown, ContentUsageScanner scanner, OptimizeReportBuilder report)
     {
-        var kept = new HashSet<int>();
+        var kept = new CodeBitSet();
         foreach (var user in users)
         {
             if (scanner.ExcludedFonts.Contains(user))

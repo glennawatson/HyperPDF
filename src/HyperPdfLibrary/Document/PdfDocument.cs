@@ -5,8 +5,10 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Drawing;
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Text;
 
 namespace HyperPdfLibrary.Document;
 
@@ -16,10 +18,13 @@ namespace HyperPdfLibrary.Document;
 /// tree. Safe to call from any thread.
 /// </summary>
 [DebuggerDisplay("PdfDocument: {PageCount} pages")]
-public sealed class PdfDocument : IDisposable
+public sealed class PdfDocument : IDisposable, IObjectsChangedListener
 {
     /// <summary>The caches shared by this document's operations.</summary>
     private PdfDocumentState _state = new();
+
+    /// <summary>The drawing services; made on first use when the document was opened without any.</summary>
+    private PdfDrawingServices? _drawingServices;
 
     /// <summary>Initializes a new instance of the <see cref="PdfDocument"/> class.</summary>
     /// <param name="objects">The document's objects.</param>
@@ -28,7 +33,6 @@ public sealed class PdfDocument : IDisposable
     {
         Objects = objects;
         FontFactory = fontFactory;
-        DrawingServices = objects.Context?.DrawingServices ?? new(new());
         State.PageSet = PdfPageSet.Read(objects);
     }
 
@@ -39,7 +43,7 @@ public sealed class PdfDocument : IDisposable
     public PdfDictionary Catalog => Objects.Catalog;
 
     /// <summary>Gets the number of pages.</summary>
-    public int PageCount => PdfDocumentPages.GetPageSet(this).Pages.Length;
+    public int PageCount => PdfDocumentPages.GetPageSet(this).Count;
 
     /// <summary>Gets a value indicating whether the document is encrypted.</summary>
     public bool IsEncrypted => Objects.Security is not null;
@@ -48,7 +52,7 @@ public sealed class PdfDocument : IDisposable
     public bool IsDisposed => Volatile.Read(ref State.Disposed) != 0;
 
     /// <summary>Gets the drawing services selected when this document was opened.</summary>
-    public PdfDrawingServices DrawingServices { get; }
+    public PdfDrawingServices DrawingServices => Volatile.Read(ref _drawingServices) ?? CreateDrawingServices();
 
     /// <summary>Gets the font loader selected for this document.</summary>
     internal Func<PdfDictionary, PdfFont?>? FontFactory { get; }
@@ -72,11 +76,20 @@ public sealed class PdfDocument : IDisposable
         // Closing the objects first means nothing running can parse and re-fill the caches that are emptied next.
         Objects.Dispose();
         PdfDocumentRendering.ReleaseRendering(this);
-        _ = Interlocked.Exchange(ref State.TextBuild, null);
+        TextPageBuild.Release(this);
         _ = Interlocked.Exchange(ref State.FontPreparations, null);
     }
 
     /// <summary>Invalidates document caches when the owned object store changes.</summary>
+    /// <param name="scopes">The parts of the document the change can affect.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void OnObjectsChanged() => PdfDocumentEditing.InvalidateCaches(this);
+    void IObjectsChangedListener.OnObjectsChanged(PdfCacheScopes scopes) => PdfDocumentEditing.InvalidateCaches(this, scopes);
+
+    /// <summary>Takes the open context's services, which it makes when the open selected none, once.</summary>
+    /// <returns>The services.</returns>
+    private PdfDrawingServices CreateDrawingServices()
+    {
+        var created = Objects.Context?.DrawingServices ?? new PdfDrawingServices(new());
+        return Interlocked.CompareExchange(ref _drawingServices, created, null) ?? created;
+    }
 }

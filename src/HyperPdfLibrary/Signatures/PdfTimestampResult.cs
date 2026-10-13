@@ -13,4 +13,11 @@ namespace HyperPdfLibrary.Signatures;
 /// <param name="Authority">The authority's certificate, or <see langword="null"/> when it cannot be found.</param>
 /// <param name="Chain">The authority's chain, or <see langword="null"/> when there is no certificate.</param>
 [DebuggerDisplay("PdfTimestampResult: {Time} valid {IsValid}")]
-public sealed record PdfTimestampResult(DateTimeOffset Time, bool IsValid, X509Certificate2? Authority, PdfChainResult? Chain);
+public sealed record PdfTimestampResult(DateTimeOffset Time, bool IsValid, X509Certificate2? Authority, PdfChainResult? Chain)
+{
+    /// <summary>
+    /// Gets whether the token could be checked: <see cref="PdfCmsStatus.Unsupported"/> when its digest cannot be
+    /// computed here and <see cref="PdfCmsStatus.DigestNotAllowed"/> when PDF does not allow it.
+    /// </summary>
+    public PdfCmsStatus Status { get; init; }
+}

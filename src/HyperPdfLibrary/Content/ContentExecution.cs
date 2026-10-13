@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Graphics.Colors;
@@ -68,6 +69,35 @@ internal static class ContentExecution
         self.State = new() { Ctm = page.ViewerTransform, };
         self.PatternBase = page.ViewerTransform;
         self.Resources.Add(page.Resources);
+        ContentExecution.BeginPageGroup(self, page);
+    }
+
+    /// <summary>
+    /// Applies the page's /Group (ISO 32000-2 11.4.7): its /CS becomes the blending colour space, and /K true makes the
+    /// page's top-level objects knock each other out. The page group is isolated whatever /I says, which is how the
+    /// device already composites a page over the paper.
+    /// </summary>
+    /// <param name = "self">The owned interpreter state.</param>
+    /// <param name = "page">The page.</param>
+    internal static void BeginPageGroup(ContentInterpreter self, PdfPage page)
+    {
+        self.BlendSpace = null;
+        self.PageGroup = null;
+        var group = page.Dictionary.GetDictionary(KnownName.Group);
+        if (group is null || !group.IsName(KnownName.S, KnownName.Transparency))
+        {
+            return;
+        }
+
+        self.BlendSpace = ContentXObjects.ReadGroupSpace(self, group);
+        if (!group.GetBoolean(KnownName.K))
+        {
+            return;
+        }
+
+        var info = new GroupInfo(true, true, 1, PdfBlendMode.Normal, null, PdfRect.Empty, self.BlendSpace);
+        self.Device.BeginGroup(info);
+        self.PageGroup = info;
     }
 
     /// <summary>
@@ -104,6 +134,12 @@ internal static class ContentExecution
     internal static void EndPage(ContentInterpreter self)
     {
         ContentExecution.Unwind(self);
+        if (self.PageGroup is { } group)
+        {
+            self.Device.EndGroup(group);
+            self.PageGroup = null;
+        }
+
         self.Resources.Clear();
     }
 

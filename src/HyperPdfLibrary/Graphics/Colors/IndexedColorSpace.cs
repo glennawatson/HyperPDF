@@ -8,12 +8,16 @@ namespace HyperPdfLibrary.Graphics.Colors;
 
 /// <summary>
 /// An Indexed colour space: a palette of base-space colours. The palette is converted to BGRA once, so a row converts by
-/// table lookup. Indexes above /HiVal are black, as in PDFium.
+/// table lookup. ISO 32000-2 8.6.6.3 says a value outside 0 to /HiVal is clamped to that range, so
+/// an out-of-range index uses the nearest palette end.
 /// </summary>
 internal sealed class IndexedColorSpace : PdfColorSpace
 {
     /// <summary>The largest palette index.</summary>
     internal const int MaxHighValue = 255;
+
+    /// <summary>Added before flooring, so that halves round up.</summary>
+    private const float RoundingHalf = 0.5F;
 
     /// <summary>The base colour space.</summary>
     private readonly PdfColorSpace _base;
@@ -29,6 +33,9 @@ internal sealed class IndexedColorSpace : PdfColorSpace
 
     /// <summary>The BGRA word for every byte index.</summary>
     private readonly uint[] _lookup;
+
+    /// <summary>The spaces made for each rendering that converts the base differently, or <see langword="null"/> before the first.</summary>
+    private PdfColorSpace?[]? _renderings;
 
     /// <summary>Initializes a new instance of the <see cref="IndexedColorSpace"/> class.</summary>
     /// <param name="baseSpace">The base colour space.</param>
@@ -46,11 +53,9 @@ internal sealed class IndexedColorSpace : PdfColorSpace
         var bgra = new byte[entries * PixelConverter.BytesPerPixel];
         baseSpace.ConvertRow(_palette, bgra, entries);
         var words = MemoryMarshal.Cast<byte, uint>(bgra);
-        Span<float> black = stackalloc float[RgbComponents];
-        var blackWord = PixelConverter.PackNative(black);
         for (var i = 0; i < _lookup.Length; i++)
         {
-            _lookup[i] = i <= _highValue ? words[i] : blackWord;
+            _lookup[i] = words[Math.Min(i, _highValue)];
         }
     }
 
@@ -67,17 +72,24 @@ internal sealed class IndexedColorSpace : PdfColorSpace
     public override float[] GetDefaultDecode(int bitsPerComponent) => [0, (1 << Math.Clamp(bitsPerComponent, 1, ByteBits)) - 1];
 
     /// <inheritdoc/>
+    internal override PdfColorSpace ForRendering(IccRendering rendering)
+    {
+        var baseSpace = _base.ForRendering(rendering);
+        return ReferenceEquals(baseSpace, _base)
+            ? this
+            : ColorSpaceRenderings.GetOrCreate(
+                ref _renderings,
+                rendering,
+                this,
+                baseSpace,
+                static (owner, converting) => new IndexedColorSpace(converting, owner._highValue, owner._palette));
+    }
+
+    /// <inheritdoc/>
     private protected override void ToRgbCore(ReadOnlySpan<float> components, Span<float> rgb)
     {
-        // Like PDFium, an index outside 0..HiVal is black.
-        var rounded = float.IsFinite(components[0]) ? MathF.Round(components[0]) : 0;
-        if (rounded < 0 || rounded > _highValue)
-        {
-            rgb[..RgbComponents].Clear();
-            return;
-        }
-
-        var index = (int)rounded;
+        // ISO 32000-2 8.6.6.3: round to the nearest integer with halves up, then clamp to 0..HiVal. NaN reads as index 0.
+        var index = float.IsNaN(components[0]) ? 0 : (int)Math.Clamp(MathF.Floor(components[0] + RoundingHalf), 0, _highValue);
         var count = _base.Components;
         var decode = _baseDecode;
         Span<float> values = stackalloc float[MaxComponents];

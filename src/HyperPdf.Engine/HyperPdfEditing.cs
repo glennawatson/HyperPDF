@@ -2,7 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Editing;
 
 namespace HyperPdf.Engine;
 
@@ -17,7 +19,8 @@ internal static class HyperPdfEditing
     {
         if (changed)
         {
-            Edited(self);
+            // A field value and its appearance are widget and field objects: no page content or structure tree changes.
+            Edited(self, PdfCacheScopes.None);
         }
 
         return changed;
@@ -43,10 +46,21 @@ internal static class HyperPdfEditing
     {
         if (changed && (uint)pageIndex < (uint)self.PageCount)
         {
-            Edited(self);
+            // An annotation is an object in the page's /Annots array: the page's content stream and the structure tree stay.
+            Edited(self, PdfCacheScopes.None);
         }
 
         return changed;
+    }
+
+    /// <summary>Records an edit of the bookmarks or attached files: drops what was read from them and marks the document unsaved.</summary>
+    /// <param name="self">The owning document.</param>
+    internal static void PartsEdited(HyperPdfDocument self)
+    {
+        // Bookmarks, attached files, metadata and layers are not page content and not part of the structure tree.
+        Edited(self, PdfCacheScopes.None);
+        Volatile.Write(ref self.Outline, null);
+        Volatile.Write(ref self.Attachments, null);
     }
 
     /// <summary>
@@ -54,9 +68,18 @@ internal static class HyperPdfEditing
     /// links and page pictures. Moving the edit version on marks the document unsaved.
     /// </summary>
     /// <param name="self">The owning document.</param>
-    internal static void Edited(HyperPdfDocument self)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Edited(HyperPdfDocument self) =>Edited(self, PdfCacheScopes.All);
+
+    /// <summary>
+    /// Drops everything read or drawn from the objects before an edit. The library keeps the text pages, marked content and
+    /// structure tree that the edit's parts cannot have changed.
+    /// </summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="scopes">The parts of the document the edit can have changed.</param>
+    internal static void Edited(HyperPdfDocument self, PdfCacheScopes scopes)
     {
-        PdfDocumentEditing.InvalidateCaches(self.Document);
+        PdfDocumentEditing.InvalidateCaches(self.Document, scopes);
         Volatile.Write(ref self.Links, null);
         HyperPdfRendering.ResetRenderer(self);
         _ = Interlocked.Increment(ref self.EditVersion);

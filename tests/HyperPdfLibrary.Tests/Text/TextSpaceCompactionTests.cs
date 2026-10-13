@@ -101,7 +101,7 @@ public sealed class TextSpaceCompactionTests
         await Assert.That(first.Text).IsEqualTo("A B");
         await Assert.That(second.Text).IsEqualTo("C");
         await Assert.That(ReferenceEquals(state, document.State.TextBuild)).IsTrue();
-        await Assert.That(state.Temp.Count).IsEqualTo(0);
-        await Assert.That(state.TempText.Count).IsEqualTo(0);
+        await Assert.That(state.LineChars.Count).IsEqualTo(0);
+        await Assert.That(state.Chars.Count).IsEqualTo(0);
     }
 }

@@ -130,6 +130,35 @@ public sealed class ImageCacheTests
         full!.Release();
     }
 
+    /// <summary>A decode that runs out of memory is tried again on the next request instead of being remembered as failed.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task OutOfMemoryWhileDecodingIsNotRemembered()
+    {
+        var cache = new ImageCache();
+        var stream = Stream();
+        var attempts = 0;
+        var first = cache.Acquire(stream, 0, (key, state) =>
+        {
+            // Counts decode attempts; a capturing lambda keeps the test short.
+            attempts++;
+
+            // An array past the runtime's size limit raises the real OutOfMemoryException.
+            GC.KeepAlive(new byte[int.MaxValue]);
+            return null;
+        });
+        var second = cache.Acquire(stream, 0, (key, state) =>
+        {
+            attempts++;
+            return Create();
+        });
+
+        await Assert.That(first).IsNull();
+        await Assert.That(second).IsNotNull();
+        await Assert.That(attempts).IsEqualTo(Attempts);
+        second!.Release();
+    }
+
     /// <summary>Creates an empty stream to key the cache with.</summary>
     /// <returns>The stream.</returns>
     private static PdfStream Stream() => new(new PdfDictionary(null), []);

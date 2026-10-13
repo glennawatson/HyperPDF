@@ -198,7 +198,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         || (uint)destination > (uint)(_owner.PageCount - SelectedPages.Count)
         ? Task.CompletedTask
         : RunEditAsync(
-            static (manager, request, token) => manager.ApplyAsync(request, token),
+            static (manager, request, report, token) => manager.ApplyAsync(request, report, token),
             new(PageEditKind.Move, CopySelectedPages(), destination),
             "Could not move pages.");
 
@@ -284,6 +284,21 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         }
 
         return true;
+    }
+
+    /// <summary>Says what a page edit or copy could not keep: separation pages and trap networks.</summary>
+    /// <param name="report">The report.</param>
+    /// <returns>The notice, or <see langword="null"/> when everything was kept.</returns>
+    private static string? CopyNotice(PageEditReport report)
+    {
+        var separations = SeparationText.ChangeNotice(report.SeparationChanges);
+        if (report.TrapNetworkWarnings.Count == 0)
+        {
+            return separations;
+        }
+
+        var traps = SaveText.TrapNetworkNotice(report.TrapNetworkWarnings);
+        return separations is null ? traps : $"{separations} {traps}";
     }
 
     /// <summary>Copies page indexes from memory without an iterator allocation.</summary>
@@ -424,7 +439,11 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
             {
                 var index = SelectedPages.Count > 0 ? SelectedPages[0] : Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount);
                 var previousCount = _owner.PageCount;
-                await manager.InsertAsync(index, paths, token).ConfigureAwait(true);
+                var report = new PageEditReport();
+
+                // The library reads and rewrites the pages before its first await, so the app starts it on the pool.
+                await Task.Run(() => manager.InsertAsync(index, paths, report, token).AsTask(), token).ConfigureAwait(true);
+                ShowSeparationNotice(report);
                 return new(true, () => CopyRange(index, Math.Max(0, _owner.PageCount - previousCount)));
             }
 
@@ -445,7 +464,9 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
             {
                 var index = _owner.PageCount;
                 var previousCount = _owner.PageCount;
-                await manager.InsertAsync(index, paths, token).ConfigureAwait(true);
+                var report = new PageEditReport();
+                await Task.Run(() => manager.InsertAsync(index, paths, report, token).AsTask(), token).ConfigureAwait(true);
+                ShowSeparationNotice(report);
                 return new(true, () => CopyRange(index, Math.Max(0, _owner.PageCount - previousCount)));
             }
 
@@ -477,13 +498,17 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
             var temporary = destination + TemporarySuffix + Guid.NewGuid().ToString("N");
             try
             {
+                var report = new PageEditReport();
                 await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, FileBufferSize, FileOptions.Asynchronous))
                 {
-                    await manager.ExtractAsync(CopySelectedPages(), stream, token).ConfigureAwait(true);
+                    var pages = CopySelectedPages();
+                    await Task.Run(() => manager.ExtractAsync(pages, stream, report, token).AsTask(), token).ConfigureAwait(true);
                 }
 
                 File.Move(temporary, destination, true);
-                _owner.Notice = $"Extracted {SelectedPages.Count} pages.";
+                _owner.Notice = CopyNotice(report) is { } separations
+                    ? $"Extracted {SelectedPages.Count} pages. {separations}"
+                    : $"Extracted {SelectedPages.Count} pages.";
                 return default;
             }
             finally
@@ -513,25 +538,27 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>A task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task RunSelectedEditAsync(PageEditKind kind, int value, string failureMessage) => RunEditAsync(
-        static (manager, request, token) => manager.ApplyAsync(request, token),
+        static (manager, request, report, token) => manager.ApplyAsync(request, report, token),
         new(kind, CopySelectedPages(), value),
         failureMessage);
 
-    /// <summary>Runs an edit that carries a page request.</summary>
+    /// <summary>Runs an edit that carries a page request, then says what it could not keep.</summary>
     /// <param name="edit">The edit operation.</param>
     /// <param name="request">The selected pages and operation.</param>
     /// <param name="failureMessage">The notice shown when the operation fails.</param>
     /// <returns>A task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task RunEditAsync(
-        Func<IPageManager, PageEditRequest, CancellationToken, ValueTask> edit,
+        Func<IPageManager, PageEditRequest, PageEditReport, CancellationToken, ValueTask> edit,
         PageEditRequest request,
         string failureMessage) =>
         RunAsync(
             async (manager, token) =>
             {
                 var oldSelection = CopyPages(request.Pages);
-                await edit(manager, request, token).ConfigureAwait(true);
+                var report = new PageEditReport();
+                await Task.Run(() => edit(manager, request, report, token).AsTask(), token).ConfigureAwait(true);
+                ShowSeparationNotice(report);
                 return new(true, () => SelectionAfterEdit(request.Kind, oldSelection, request.Value) ?? Array.Empty<int>());
             },
             failureMessage,
@@ -544,9 +571,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     private Task RunHistoryAsync(bool undo) => RunAsync(
         async (manager, token) =>
         {
-            var changed = undo
-                ? await manager.UndoAsync(token).ConfigureAwait(true)
-                : await manager.RedoAsync(token).ConfigureAwait(true);
+            var changed = await Task.Run(() => undo ? manager.UndoAsync(token).AsTask() : manager.RedoAsync(token).AsTask(), token).ConfigureAwait(true);
             return new(changed, () => SelectedPages);
         },
         undo ? "Could not undo the page edit." : "Could not redo the page edit.",
@@ -590,6 +615,16 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         {
             IsBusy = false;
             RefreshState();
+        }
+    }
+
+    /// <summary>Tells the reader when an edit could not keep the colour separations of a printed page together.</summary>
+    /// <param name="report">The edit's report.</param>
+    private void ShowSeparationNotice(PageEditReport report)
+    {
+        if (CopyNotice(report) is { } notice)
+        {
+            _owner.Notice = notice;
         }
     }
 

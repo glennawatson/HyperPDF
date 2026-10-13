@@ -8,8 +8,13 @@ using Avalonia.VisualTree;
 using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
+using HyperPdf.Core.Documents;
+using HyperPdf.Core.Forms;
+using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Theming;
+using HyperPdf.Engine;
+using HyperPdf.TestAssets;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
@@ -22,6 +27,45 @@ public sealed class PreferencesViewModelTests
 
     /// <summary>The settings file used by the tests.</summary>
     private const string SettingsFile = "settings.json";
+
+    /// <summary>The index of the soft yellow tint.</summary>
+    private const int YellowChoice = 1;
+
+    /// <summary>The soft yellow tint as 0xRRGGBB.</summary>
+    private const uint YellowTint = 0xEBDC96U;
+
+    /// <summary>The index of the 60% strength.</summary>
+    private const int StrongChoice = 5;
+
+    /// <summary>The 60% strength as an opacity from 0 to 255.</summary>
+    private const int StrongAlpha = 153;
+
+    /// <summary>A strength saved by an earlier version that is not offered; the closest offered one is 40%.</summary>
+    private const int LegacyAlpha = 100;
+
+    /// <summary>The bytes in a BGRA pixel.</summary>
+    private const int BytesPerPixel = 4;
+
+    /// <summary>The x of a point inside the empty, fillable field "Limited".</summary>
+    private const int FillableX = 172;
+
+    /// <summary>The y, from the top, of a point inside "Limited".</summary>
+    private const int FillableY = 460;
+
+    /// <summary>The position of the red channel in a BGRA pixel.</summary>
+    private const int RedSlot = 2;
+
+    /// <summary>The position of the blue channel in a BGRA pixel.</summary>
+    private const int BlueSlot = 0;
+
+    /// <summary>The bits to shift the red of a colour down by.</summary>
+    private const int RedShift = 16;
+
+    /// <summary>How far a blended channel may differ from the expected one, in levels of 255.</summary>
+    private const int ChannelTolerance = 3;
+
+    /// <summary>The largest value of a channel.</summary>
+    private const double ChannelMax = 255;
 
     /// <summary>Legacy engine settings are ignored and omitted when settings are saved again.</summary>
     /// <param name="legacyChoice">The value saved by an earlier version.</param>
@@ -81,6 +125,71 @@ public sealed class PreferencesViewModelTests
         await Assert.That(saved.PageToneEnabled).IsTrue();
     }
 
+    /// <summary>The form field colour and strength are listed with plain names, saved when chosen and read back by a new run.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task FormHighlightChoicesRoundTrip()
+    {
+        using var test = new TestServices();
+        var path = Path.Combine(test.Directory, SettingsFile);
+        using (var preferences = new PreferencesViewModel(test.Services))
+        {
+            await Assert.That(PreferencesViewModel.FormHighlightColorOptions[preferences.FormHighlightColor]).IsEqualTo("Soft blue");
+            await Assert.That(PreferencesViewModel.FormHighlightOpacityOptions[preferences.FormHighlightOpacity]).IsEqualTo("25% (standard)");
+            preferences.FormHighlightColor = YellowChoice;
+            preferences.FormHighlightOpacity = StrongChoice;
+        }
+
+        var saved = new SettingsStore(path).Load();
+        using var nextRun = new AppServices(new SettingsStore(path), new HyperPdfEngine(), new FallbackPlatform());
+        using var reloaded = new PreferencesViewModel(nextRun);
+
+        await Assert.That(saved.FormHighlightColor).IsEqualTo(YellowTint);
+        await Assert.That(saved.FormHighlightAlpha).IsEqualTo(StrongAlpha);
+        await Assert.That(reloaded.FormHighlightColor).IsEqualTo(YellowChoice);
+        await Assert.That(reloaded.FormHighlightOpacity).IsEqualTo(StrongChoice);
+    }
+
+    /// <summary>A tint saved by an earlier version that is not one of the offered colours shows the closest choice and is kept until the user picks another.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task UnlistedFormHighlightIsKeptUntilChanged()
+    {
+        using var test = new TestServices();
+        test.Services.Settings.FormHighlightColor = LegacyTintColor;
+        test.Services.Settings.FormHighlightAlpha = LegacyAlpha;
+        using var preferences = new PreferencesViewModel(test.Services);
+
+        await Assert.That(test.Services.Settings.FormHighlightColor).IsEqualTo(LegacyTintColor);
+        await Assert.That(test.Services.Settings.FormHighlightAlpha).IsEqualTo(LegacyAlpha);
+        await Assert.That(PreferencesViewModel.FormHighlightOpacityOptions[preferences.FormHighlightOpacity]).IsEqualTo("40%");
+    }
+
+    /// <summary>Choosing a colour and strength tints the fillable fields of a document that is already open.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ChosenFormHighlightAppearsInTheOpenDocument()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("rich-form.pdf", FormSamples.CreateRichForm())]);
+        using var preferences = new PreferencesViewModel(test.Services) { FormHighlightColor = YellowChoice, FormHighlightOpacity = StrongChoice };
+        var document = main.SelectedTab!.TryGetDocument()!;
+        var tint = DocumentFeature<IFormHighlight>.Get(document)!.Highlight;
+        var size = document.GetPageSizes()[0];
+        var width = (int)MathF.Ceiling(size.Width);
+        var pixels = new byte[width * (int)MathF.Ceiling(size.Height) * BytesPerPixel];
+
+        var rendered = document.Render(new(0, 1, PageRotation.None, 0, 0, RenderFlags.Annotations), new(pixels, width, (int)MathF.Ceiling(size.Height), width * BytesPerPixel));
+        var offset = ((FillableY * width) + FillableX) * BytesPerPixel;
+
+        await Assert.That(tint.Color).IsEqualTo(YellowTint);
+        await Assert.That(tint.Alpha).IsEqualTo((byte)StrongAlpha);
+        await Assert.That(rendered).IsTrue();
+        await Assert.That(Math.Abs(pixels[offset + RedSlot] - Blend(YellowTint >> RedShift))).IsLessThanOrEqualTo(ChannelTolerance);
+        await Assert.That(Math.Abs(pixels[offset + BlueSlot] - Blend(YellowTint))).IsLessThanOrEqualTo(ChannelTolerance);
+    }
+
     /// <summary>The ask-before-reload choice is visible and survives another settings load.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -130,4 +239,9 @@ public sealed class PreferencesViewModelTests
             window.Close();
         }
     }
+
+    /// <summary>Works out the channel a colour channel gives over white at the strong strength.</summary>
+    /// <param name="channel">The colour's channel, in the low byte.</param>
+    /// <returns>The blended value.</returns>
+    private static int Blend(uint channel) => (int)Math.Round(ChannelMax - ((ChannelMax - (channel & byte.MaxValue)) * (StrongAlpha / ChannelMax)));
 }

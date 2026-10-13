@@ -21,6 +21,11 @@ internal readonly record struct BlackPointCompensation(Float3 Scale, Float3 Offs
     /// <returns>The map, or <see langword="null"/> when the black points are the same or the source is the white point.</returns>
     internal static BlackPointCompensation? Between(Float3 source, Float3 destination)
     {
+        if (IsSame(source, destination))
+        {
+            return null;
+        }
+
         var x = Axis(source.X, destination.X, IccPcs.WhiteX);
         var y = Axis(source.Y, destination.Y, IccPcs.WhiteY);
         var z = Axis(source.Z, destination.Z, IccPcs.WhiteZ);
@@ -42,6 +47,29 @@ internal readonly record struct BlackPointCompensation(Float3 Scale, Float3 Offs
         (Scale.X * xyz.X) + Offset.X,
         (Scale.Y * xyz.Y) + Offset.Y,
         (Scale.Z * xyz.Z) + Offset.Z);
+
+    /// <summary>Scales the rows of a matrix that gives D50 XYZ, so it gives XYZ already multiplied by <see cref="Scale"/>.</summary>
+    /// <param name="toXyz">The matrix whose rows give X, Y and Z.</param>
+    /// <returns>The scaled matrix; adding <see cref="Offset"/> to its result completes the map.</returns>
+    internal Matrix3 ScaleRows(in Matrix3 toXyz) => new(
+        Scale.X * toXyz.A,
+        Scale.X * toXyz.B,
+        Scale.X * toXyz.C,
+        Scale.Y * toXyz.D,
+        Scale.Y * toXyz.E,
+        Scale.Y * toXyz.F,
+        Scale.Z * toXyz.G,
+        Scale.Z * toXyz.H,
+        Scale.Z * toXyz.I);
+
+    /// <summary>Determines whether two black points are equal within the tolerance, so the map would change nothing.</summary>
+    /// <param name="source">The source black point.</param>
+    /// <param name="destination">The destination black point.</param>
+    /// <returns><see langword="true"/> when every axis agrees.</returns>
+    private static bool IsSame(Float3 source, Float3 destination) =>
+        MathF.Abs(source.X - destination.X) < Tolerance
+        && MathF.Abs(source.Y - destination.Y) < Tolerance
+        && MathF.Abs(source.Z - destination.Z) < Tolerance;
 
     /// <summary>Builds the map along one axis.</summary>
     /// <param name="source">The source black point on this axis.</param>

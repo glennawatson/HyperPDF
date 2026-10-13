@@ -31,13 +31,13 @@ internal static class DocumentSave
 
             if (!serialized)
             {
-                return new(false, null);
+                return new(false, report.Failure);
             }
 
             FileReplacement.Replace(temporary, path);
             published = true;
             source.MarkSavePublished();
-            return new(true, null, report.ClaimRemoved) { ClaimRepaired = report.ClaimRepaired };
+            return Saved(report);
         }
         catch (IOException ex)
         {
@@ -70,18 +70,19 @@ internal static class DocumentSave
             var options = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write, Share = FileShare.None, Options = FileOptions.Asynchronous };
             await using (var stream = new FileStream(temporary, options))
             {
-                serialized = await editor.SaveAsync(stream, report, cancellationToken).ConfigureAwait(true);
+                // Serializing the whole file runs before the library's first await, so it starts on the pool to keep the window alive.
+                serialized = await Task.Run(() => editor.SaveAsync(stream, report, cancellationToken).AsTask(), cancellationToken).ConfigureAwait(true);
             }
 
             if (!serialized)
             {
-                return new(false, null);
+                return new(false, report.Failure);
             }
 
             FileReplacement.Replace(temporary, path);
             published = true;
             source.MarkSavePublished();
-            return new(true, null, report.ClaimRemoved) { ClaimRepaired = report.ClaimRepaired };
+            return Saved(report);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -100,6 +101,16 @@ internal static class DocumentSave
             Finish(source, temporary, serialized, published);
         }
     }
+
+    /// <summary>Describes a save that replaced the destination, with what the save found that the reader should know.</summary>
+    /// <param name="report">The save's report.</param>
+    /// <returns>The outcome.</returns>
+    private static DocumentSaveOutcome Saved(DocumentSaveReport report) => new(true, null, report.ClaimRemoved)
+    {
+        ClaimRepaired = report.ClaimRepaired,
+        TrapNetworkWarnings = report.TrapNetworkWarnings,
+        RequirementWarnings = report.RequirementWarnings,
+    };
 
     /// <summary>Deletes unpublished output and keeps serialized edits dirty when replacement failed.</summary>
     /// <param name="source">The edited document source.</param>

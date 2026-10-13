@@ -11,7 +11,7 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
-/// A /Type3 font, loaded as PDFium's CPDF_Type3Font::Load does: the font matrix, /Widths scaled by the matrix's x scale
+/// A /Type3 font, (ISO 32000-2, 9.6.4): the font matrix, /Widths scaled by the matrix's x scale
 /// and rounded to glyph units, and each code's /CharProcs stream found through the encoding's glyph names.
 /// </summary>
 [DebuggerDisplay("Type3Font")]

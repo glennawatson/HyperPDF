@@ -22,6 +22,10 @@
   <ItemGroup>
     <!-- Builds the PDFs with known shapes that the render parity tests compare. -->
     <Compile Include="..\HyperPdfLibrary.Tests\Rendering\RenderTestPdf.cs" Link="RenderTestPdf.cs" />
+    <!-- Generates the CMYK ICC profiles of the PDFium colour parity test from a documented ink model. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\Graphics\IccCmykFixture.cs" Link="Shared\IccCmykFixture.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Graphics\IccTestProfileBuilder.cs" Link="Shared\IccTestProfileBuilder.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Graphics\IccReference.cs" Link="Shared\IccReference.cs" />
     <!-- Encrypted and structured fixtures for the page editing parity tests. -->
     <Compile Include="..\HyperPdfLibrary.Tests\Writing\WritingTestDocuments.cs" Link="Shared\WritingTestDocuments.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Editing\EditingTestDocuments.cs" Link="Shared\EditingTestDocuments.cs" />
@@ -32,11 +36,18 @@
     <Compile Include="..\HyperPdfLibrary.Tests\Fonts\FontSpec.cs" Link="Fonts\FontSpec.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Fonts\FontTestDocument.cs" Link="Fonts\FontTestDocument.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Fonts\TestFontPrograms.cs" Link="Fonts\TestFontPrograms.cs" />
+    <!-- Builds the PDFs with fonts embedded through the library that the embedded font parity tests compare. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\Fonts\Embedding\EmbeddedFontPdf.cs" Link="Fonts\EmbeddedFontPdf.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Creation\CreatedFiles.cs" Link="Shared\CreatedFiles.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Fonts\Embedding\ScriptedShaper.cs" Link="Fonts\ScriptedShaper.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Security\PublicKeyPdf.cs" Link="Security\PublicKeyPdf.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Security\PublicKeyCipher.cs" Link="Security\PublicKeyCipher.cs" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Security\EcdhRecipients.cs" Link="Security\EcdhRecipients.cs" />
+    <EmbeddedResource Include="..\HyperPdfLibrary.Tests\Security\Data\*" LogicalName="HyperPdfLibrary.Tests.Security.Ecdh.%(Filename)%(Extension)" />
     <Compile Include="..\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
     <!-- The JPEG 2000 test encoder, which writes the HTJ2K images the high-throughput parity tests compare. -->
     <Compile Include="..\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Graphics\Jpx\JpxFixtures.cs" Link="Jpx\JpxFixtures.cs" />
     <Compile Include="..\..\scripts\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />
     <EmbeddedResource Include="..\..\src\HyperPdfLibrary\Graphics\Images\Jpx\Data\T814CxtVlc.txt" LogicalName="T814CxtVlc.txt" />
     <Compile Include="..\HyperPdfLibrary.Tests\Graphics\Jpeg\JpegTestRandom.cs" Link="Jpx\JpegTestRandom.cs" />

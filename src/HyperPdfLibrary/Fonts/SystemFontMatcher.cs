@@ -10,9 +10,9 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
-/// Chooses a system font for a font the PDF does not embed, in the spirit of PDFium's font mapper: the named family in
+/// Chooses a system font for a font the PDF does not embed (ISO 32000-2, 9.6.2.2 and 9.8.2): the named family in
 /// the asked weight and slant, then a standard stand-in chosen by the standard 14 name or the serif, fixed-pitch and
-/// symbolic flags. The selected font provider resolves platform-specific faces.
+/// symbolic descriptor flags. The selected font provider resolves platform-specific faces.
 /// Faces are cached for the drawing service instance by family, weight and slant.
 /// </summary>
 /// <param name="provider">The provider of system faces, or null for bundled faces only.</param>
@@ -138,7 +138,7 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider, PdfFontResou
 
     /// <summary>
     /// Names the standard font a request means. A TrueType font called Arial or TimesNewRoman is a standard font under
-    /// another name, as PDFium's name table treats it.
+    /// another name; the standard font name lookup knows these aliases.
     /// </summary>
     /// <param name="request">The request.</param>
     /// <returns>The request, with its standard font set when the name is an alias.</returns>

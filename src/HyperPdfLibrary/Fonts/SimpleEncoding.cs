@@ -12,7 +12,7 @@ namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
 /// A simple font's encoding: a base encoding and the /Differences glyph names. <see cref="FontEncoding.None"/> as the
-/// base means the font program's built-in encoding. Built as PDFium's CPDF_SimpleFont::LoadPDFEncoding does.
+/// base means the font program's built-in encoding (ISO 32000-2, 9.6.5.1 and Annex D).
 /// </summary>
 /// <param name="Base">The base encoding, or <see cref="FontEncoding.None"/> for the built-in one.</param>
 /// <param name="Differences">The glyph name of each code /Differences sets, or <see langword="null"/> when it sets none.</param>
@@ -77,7 +77,7 @@ internal sealed record SimpleEncoding(FontEncoding Base, byte[]?[]? Differences)
     {
         if (settings.IsSymbolName)
         {
-            // PDFium gives a TrueType "Symbol" its Microsoft symbol cmap, which has no glyph names.
+            // A TrueType font named Symbol is a symbolic font whose (3,0) cmap has no glyph names to look up.
             return settings.IsTrueType ? FontEncoding.None : FontEncoding.Symbol;
         }
 
@@ -101,11 +101,11 @@ internal sealed record SimpleEncoding(FontEncoding Base, byte[]?[]? Differences)
             return settings.IsTrueType ? settings.Initial : FontEncoding.Symbol;
         }
 
-        // An encoding name always maps MacExpertEncoding to WinAnsiEncoding, as PDFium does.
+        // MacExpertEncoding is only valid for Type 1 fonts (Table 109), so a named /Encoding of it reads as WinAnsiEncoding.
         return ToEncoding(PdfNames.Spell(font, name), true) ?? settings.Initial;
     }
 
-    /// <summary>Maps a predefined encoding name. StandardEncoding is not mapped, as in PDFium, so it keeps the base.</summary>
+    /// <summary>Maps a predefined encoding name. StandardEncoding is not a valid /Encoding name (Table 109), so it keeps the base.</summary>
     /// <param name="name">The name.</param>
     /// <param name="expertAsWinAnsi">Whether MacExpertEncoding becomes WinAnsiEncoding.</param>
     /// <returns>The encoding, or <see langword="null"/> for any other name.</returns>

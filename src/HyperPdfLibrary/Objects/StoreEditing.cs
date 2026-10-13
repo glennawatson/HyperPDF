@@ -19,7 +19,7 @@ public static class StoreEditing
     {
         lock (self.Gate)
         {
-            return self.EditsState.Count > 0 || self.DeletedState.Count > 0;
+            return self.EditsIfCreated is { Count: > 0 } || self.DeletedIfCreated is { Count: > 0 };
         }
     }
 
@@ -59,7 +59,7 @@ public static class StoreEditing
         {
             StoreTransactions.RecordEdit(self, id.Number);
             self.EditsState[id.Number] = value;
-            _ = self.DeletedState.Remove(id.Number);
+            _ = self.DeletedIfCreated?.Remove(id.Number);
             self.NextNumberState = Math.Max(self.NextNumberState, id.Number + 1);
 
             // A cached copy would be answered before the edit; drop it.
@@ -84,17 +84,17 @@ public static class StoreEditing
         ArgumentOutOfRangeException.ThrowIfGreaterThan(number, PdfLimits.MaxObjectNumber);
         lock (self.Gate)
         {
-            var existed = self.XrefState.GetType(number) != XrefEntryType.Free || self.FreedGenerationsState.ContainsKey(number);
+            var existed = self.XrefState.GetType(number) != XrefEntryType.Free || self.FreedGenerationsIfCreated?.ContainsKey(number) == true;
             var generation = StoreEditing.GetGenerationLocked(self, number);
             StoreTransactions.RecordEdit(self, number);
-            _ = self.EditsState.Remove(number);
+            _ = self.EditsIfCreated?.Remove(number);
             if ((uint)number < (uint)self.CacheState.Length)
             {
                 Volatile.Write(ref self.CacheState[number], null);
             }
 
             // An object that never reached a file, or is already free, has nothing to record.
-            if (existed && !self.DeletedState.Contains(number))
+            if (existed && self.DeletedIfCreated?.Contains(number) != true)
             {
                 self.FreedGenerationsState[number] = Math.Min(generation + 1, StoreEditing.MaxGeneration);
                 _ = self.DeletedState.Add(number);
@@ -109,9 +109,12 @@ public static class StoreEditing
     {
         lock (self.Gate)
         {
-            var numbers = new int[self.EditsState.Count + self.DeletedState.Count];
-            self.EditsState.Keys.CopyTo(numbers, 0);
-            self.DeletedState.CopyTo(numbers, self.EditsState.Count);
+            var edits = self.EditsIfCreated;
+            var deleted = self.DeletedIfCreated;
+            var editCount = edits?.Count ?? 0;
+            var numbers = new int[editCount + (deleted?.Count ?? 0)];
+            edits?.Keys.CopyTo(numbers, 0);
+            deleted?.CopyTo(numbers, editCount);
             Array.Sort(numbers);
             return numbers;
         }
@@ -128,24 +131,30 @@ public static class StoreEditing
     {
         lock (self.Gate)
         {
-            var objects = new PdfEditedObject[self.EditsState.Count + self.DeletedState.Count];
-            var keys = new int[objects.Length];
+            var edits = self.EditsIfCreated;
+            var deleted = self.DeletedIfCreated;
+            var objects = new PdfEditedObject[(edits?.Count ?? 0) + (deleted?.Count ?? 0)];
             var count = 0;
-            foreach (var (number, value) in self.EditsState)
+            if (edits is not null)
             {
-                keys[count] = number;
-                objects[count] = new(number, value, false, StoreEditing.GetGenerationLocked(self, number));
-                count++;
+                foreach (var (number, value) in edits)
+                {
+                    objects[count] = new(number, value, false, StoreEditing.GetGenerationLocked(self, number));
+                    count++;
+                }
             }
 
-            foreach (var number in self.DeletedState)
+            if (deleted is not null)
             {
-                keys[count] = number;
-                objects[count] = new(number, default, true, StoreEditing.GetGenerationLocked(self, number));
-                count++;
+                foreach (var number in deleted)
+                {
+                    objects[count] = new(number, default, true, StoreEditing.GetGenerationLocked(self, number));
+                    count++;
+                }
             }
 
-            Array.Sort(keys, objects);
+            // Object numbers are unique, so an unstable sort on them gives the one order.
+            objects.AsSpan().Sort(static (left, right) => left.Number.CompareTo(right.Number));
             size = self.Size;
             return objects;
         }
@@ -173,7 +182,7 @@ public static class StoreEditing
     {
         lock (self.Gate)
         {
-            return self.EditsState.Count > 0 || self.DeletedState.Count > 0 || self.TrailerEditedState;
+            return self.EditsIfCreated is { Count: > 0 } || self.DeletedIfCreated is { Count: > 0 } || self.TrailerEditedState;
         }
     }
 
@@ -183,9 +192,9 @@ public static class StoreEditing
     {
         lock (self.Gate)
         {
-            self.EditsState.Clear();
-            self.DeletedState.Clear();
-            self.FreedGenerationsState.Clear();
+            self.EditsIfCreated?.Clear();
+            self.DeletedIfCreated?.Clear();
+            self.FreedGenerationsIfCreated?.Clear();
             self.TrailerEditedState = false;
         }
     }
@@ -198,13 +207,13 @@ public static class StoreEditing
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool TryGetEdited(PdfObjectStore self, int number, out PdfValue value)
     {
-        if (self.EditsState.TryGetValue(number, out value))
+        if (self.EditsIfCreated is { } edits && edits.TryGetValue(number, out value))
         {
             return true;
         }
 
         value = default;
-        return self.DeletedState.Contains(number);
+        return self.DeletedIfCreated?.Contains(number) == true;
     }
 
     /// <summary>Gets an object's generation while holding the lock.</summary>
@@ -213,7 +222,7 @@ public static class StoreEditing
     /// <returns>The generation.</returns>
     internal static int GetGenerationLocked(PdfObjectStore self, int number)
     {
-        if (self.FreedGenerationsState.TryGetValue(number, out var freed))
+        if (self.FreedGenerationsIfCreated is { } generations && generations.TryGetValue(number, out var freed))
         {
             return freed;
         }

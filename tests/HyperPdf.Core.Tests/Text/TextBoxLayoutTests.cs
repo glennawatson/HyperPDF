@@ -199,7 +199,7 @@ public sealed class TextBoxLayoutTests
     /// <returns>The font.</returns>
     private static FontProgram LoadFont()
     {
-        var face = new FontFace(TestFont.Family, "Regular", "test.ttf", 0) { HasTrueTypeOutlines = true };
+        var face = new FontFace(TestFont.Family, "Regular", "test.ttf", 0) { HasEmbeddableOutlines = true };
         return FontProgram.FromBytes(face, TestFont.Create())!;
     }
 }

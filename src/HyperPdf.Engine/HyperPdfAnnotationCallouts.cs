@@ -68,7 +68,7 @@ internal static class HyperPdfAnnotationCallouts
             var callout = PdfAnnotations.Create(annotationState.Store, KnownName.FreeText, default);
             callout.Set(KnownName.IT, PdfValue.FromName(annotationState.Names.Callout));
             callout.Set(KnownName.LE, PdfValue.FromName(KnownName.OpenArrow));
-            return BuildCallout(annotationState, callout, text, new(fontSize, color), HyperPdfAnnotationReading.ToUser(page, target), HyperPdfAnnotationReading.ToUser(page, location))
+            return BuildCallout(annotationState, callout, text, new(fontSize / page.UserUnit, color), HyperPdfAnnotationReading.ToUser(page, target), HyperPdfAnnotationReading.ToUser(page, location))
                 ? HyperPdfAnnotationReading.Add(annotationState, pageIndex, page, callout, color, text, HyperPdfAnnotationKinds.GetCalloutSubject())
                 : -1;
         }
@@ -199,7 +199,7 @@ internal static class HyperPdfAnnotationCallouts
         callout.Set(annotationState.Names.Anchor, PdfValue.FromString(buffer[..written].ToArray()));
     }
 
-    /// <summary>Reads a callout's text corner, kept as <c>/A [x y]</c> text the way the PDFium engine writes it.</summary>
+    /// <summary>Reads a callout's text corner, kept as <c>/A [x y]</c> text, because the standard has no key for it.</summary>
     /// <param name="annotationState">The annotation state.</param>
     /// <param name="callout">The callout.</param>
     /// <param name="anchor">The corner.</param>

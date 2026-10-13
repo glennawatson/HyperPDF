@@ -40,6 +40,9 @@ public sealed record DocumentMetadata
     /// <summary>Gets a value indicating whether the document is encrypted.</summary>
     public bool IsEncrypted { get; init; }
 
+    /// <summary>Gets the check of the document's integrity protection (PDF MAC), or null when it has none to check.</summary>
+    public DocumentIntegrity? Integrity { get; init; }
+
     /// <summary>Gets whether the source file has a valid linearization header.</summary>
     public bool IsLinearized { get; init; }
 

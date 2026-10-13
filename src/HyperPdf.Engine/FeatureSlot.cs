@@ -37,39 +37,66 @@ internal enum FeatureSlot
     /// <summary>The PDF/A copy writer.</summary>
     ArchiveCopyWriter = 8,
 
+    /// <summary>The separation source.</summary>
+    Separations = 9,
+
+    /// <summary>The PDF 2.0 copy writer.</summary>
+    Pdf20CopyWriter = 10,
+
     /// <summary>The text layout source, the last document service.</summary>
-    TextLayout = 9,
+    TextLayout = 11,
 
     /// <summary>The page management source, the first editing service.</summary>
-    PageManagement = 10,
+    PageManagement = 12,
 
     /// <summary>The annotation editor.</summary>
-    AnnotationEditor = 11,
+    AnnotationEditor = 13,
 
     /// <summary>The text box editor.</summary>
-    TextBoxEditor = 12,
+    TextBoxEditor = 14,
 
     /// <summary>The image signature editor.</summary>
-    ImageSignatureEditor = 13,
+    ImageSignatureEditor = 15,
 
     /// <summary>The text layer writer.</summary>
-    TextLayerWriter = 14,
+    TextLayerWriter = 16,
 
     /// <summary>The page exporter, the last editing service.</summary>
-    PageExporter = 15,
+    PageExporter = 17,
 
     /// <summary>The form order, the first form service.</summary>
-    FormOrder = 16,
+    FormOrder = 18,
 
     /// <summary>The form actions.</summary>
-    FormActions = 17,
+    FormActions = 19,
 
     /// <summary>The form highlight.</summary>
-    FormHighlight = 18,
+    FormHighlight = 20,
 
     /// <summary>The form filler.</summary>
-    FormFiller = 19,
+    FormFiller = 21,
 
-    /// <summary>The form script source, the last service.</summary>
-    FormScripts = 20,
+    /// <summary>The form script source.</summary>
+    FormScripts = 22,
+
+    /// <summary>The document requirements check.</summary>
+    Requirements = 23,
+
+    /// <summary>The document protector.</summary>
+    Protector = 24,
+
+    /// <summary>The bookmark editor.</summary>
+    OutlineEditor = 25,
+
+    /// <summary>The attached file editor.</summary>
+    AttachmentEditor = 26,
+
+    /// <summary>The form field designer.</summary>
+    FormDesigner = 27,
+
+    /// <summary>The flattened copy writer.</summary>
+    FlattenCopyWriter = 28,
+
+    /// <summary>The certificate signer, the last service.</summary>
+    Signer = 29,
 }

@@ -12,6 +12,9 @@ public static class PdfDocumentContent
     /// <summary>The most /Parent steps followed to find a field's inherited actions.</summary>
     internal const int MaxFieldDepth = 32;
 
+    /// <summary>The array elements in one name tree pair: the name and its value.</summary>
+    private const int NamePairLength = 2;
+
     /// <summary>Finds the annotations on a page that need a media player or a 3D viewer, loading the page first.</summary>
     /// <param name="document">The document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
@@ -55,6 +58,20 @@ cancellationToken);
         var entries = new List<NameTreeEntry>();
         NameTree.Enumerate(tree, entries);
         return entries.Count;
+    }
+
+    /// <summary>Determines whether the /Names /JavaScript name tree holds at least one script, without listing them all.</summary>
+    /// <param name="document">The document.</param>
+    /// <returns><see langword="true"/> when <see cref="GetJavaScriptActionCount"/> would be above zero.</returns>
+    public static bool HasJavaScriptActions(PdfDocument document)
+    {
+        if (document.Catalog.GetDictionary(KnownName.Names)?.GetDictionary(KnownName.JavaScript) is not { } tree)
+        {
+            return false;
+        }
+
+        // A root that holds a pair itself is answered at once; a tree of kids is walked.
+        return tree.GetArray(KnownName.Names) is { Count: >= NamePairLength } || PdfDocumentContent.GetJavaScriptActionCount(document) > 0;
     }
 
     /// <summary>Finds the annotations on a page that need a media player or a 3D viewer.</summary>

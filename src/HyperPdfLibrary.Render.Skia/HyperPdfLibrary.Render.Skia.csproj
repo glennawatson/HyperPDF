@@ -11,6 +11,10 @@
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
   </ItemGroup>
+  <!-- The idle-object slots are shared with HyperPdfLibrary, which does not expose its internals to this assembly. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\Pooling\*.cs" LinkBase="Shared\Pooling" />
+  </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="HyperPdfLibrary.Tests" />
     <InternalsVisibleTo Include="HyperPdf.Engine.Tests" />

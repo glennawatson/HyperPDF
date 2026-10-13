@@ -24,18 +24,17 @@ public static class FdfWriter
     {
         ArgumentNullException.ThrowIfNull(data);
         var names = new PdfNameTable();
-        var objects = new FdfObjects();
-        var catalog = new PdfDictionary(null, 1);
-        catalog.Set(names.Intern("FDF"), PdfValue.FromDictionary(FdfDocumentBuilder.Build(data, names, objects)));
-        using var writer = new PdfObjectWriter(names);
-        writer.WriteRaw(Header);
-        writer.WriteIndirectObject(new(1, 0), PdfValue.FromDictionary(catalog));
-        for (var i = 0; i < objects.Count; i++)
+        var writer = new PdfObjectWriter(names);
+        try
         {
-            writer.WriteIndirectObject(FdfObjects.IdOf(i), objects[i]);
+            writer.WriteRaw(Header);
+            FdfDocumentWriter.Write(ref writer, data);
+            writer.WriteRaw(TrailerStart);
+            return writer.ToArray();
         }
-
-        writer.WriteRaw(TrailerStart);
-        return writer.ToArray();
+        finally
+        {
+            writer.Dispose();
+        }
     }
 }

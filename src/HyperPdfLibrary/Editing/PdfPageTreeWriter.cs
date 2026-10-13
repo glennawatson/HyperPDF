@@ -16,11 +16,11 @@ namespace HyperPdfLibrary.Editing;
 /// </summary>
 internal static class PdfPageTreeWriter
 {
-    /// <summary>The most kids a node holds, as PDFium and qpdf write them.</summary>
+    /// <summary>The most kids a node holds, which keeps the tree shallow while each node stays small.</summary>
     internal const int FanOut = 64;
 
     /// <summary>Gets the attributes a page inherits from the page tree.</summary>
-    private static ReadOnlySpan<KnownName> InheritableKeys => [KnownName.Resources, KnownName.MediaBox, KnownName.CropBox, KnownName.Rotate];
+    internal static ReadOnlySpan<KnownName> InheritableKeys => [KnownName.Resources, KnownName.MediaBox, KnownName.CropBox, KnownName.Rotate];
 
     /// <summary>Writes the page tree.</summary>
     /// <param name="transaction">The transaction.</param>
@@ -143,7 +143,7 @@ internal static class PdfPageTreeWriter
     /// <summary>Determines whether a node carries any inheritable attribute.</summary>
     /// <param name="node">The node.</param>
     /// <returns><see langword="true"/> when it does.</returns>
-    private static bool HasInheritable(PdfDictionary node)
+    internal static bool HasInheritable(PdfDictionary node)
     {
         foreach (var key in InheritableKeys)
         {

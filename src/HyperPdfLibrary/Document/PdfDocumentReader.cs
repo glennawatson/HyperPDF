@@ -328,7 +328,7 @@ public static class PdfDocumentReader
         try
         {
             var document = new PdfDocument(objects, fontFactory);
-            StoreTransactions.SetChangeCallback(objects, document.OnObjectsChanged);
+            StoreTransactions.SetChangeListener(objects, document);
             return document;
         }
         catch
@@ -346,7 +346,7 @@ public static class PdfDocumentReader
     /// <returns>The objects.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static PdfObjectStore OpenObjects(PdfByteSource source, bool ownsSource, PdfOpenOptions options, CancellationToken cancellationToken) =>
-        StoreOpening.OpenWith(source, ownsSource, options with { CancellationToken = cancellationToken });
+        StoreOpening.OpenWith(source, ownsSource, options, cancellationToken);
 
     /// <summary>Makes the document, reading the page tree with its open context.</summary>
     /// <param name="objects">The objects.</param>

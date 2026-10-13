@@ -7,8 +7,8 @@ using System.Diagnostics;
 namespace HyperPdfLibrary.Rendering;
 
 /// <summary>
-/// The soft tint drawn over fillable form fields, as PDFium's form fill environment draws it: a filled rectangle over each
-/// visible widget that is not read-only and is not a push button.
+/// The soft tint drawn over fillable form fields: a filled rectangle over each visible widget that is not read-only and
+/// is not a push button.
 /// </summary>
 /// <param name="Rgb">The colour as 0xRRGGBB.</param>
 /// <param name="Alpha">The opacity, 0 (clear) to 255 (solid).</param>

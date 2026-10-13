@@ -1,14 +1,14 @@
 [
   {
-    "id": "pdfium-cmyk-table",
-    "name": "PDFium CMYK conversion table",
-    "version": "PDFium 2019 source, commit 547d3f4ba2a309f059e4d0ccc12490690c1c23c7",
-    "origin": "CMYK conversion table copied into HyperPdfLibrary",
-    "licence": "BSD-3-Clause",
-    "copyright": "Copyright 2014 Foxit Software Inc.; Copyright 2019 The PDFium Authors.",
-    "link": "https://pdfium.googlesource.com/pdfium/+/547d3f4ba2a309f059e4d0ccc12490690c1c23c7/core/fxge/dib/cfx_cmyk_to_srgb.cpp",
-    "textFile": "upstream/pdfium-cmyk-bsd.txt",
-    "licenceSource": "https://pdfium.googlesource.com/pdfium/+/547d3f4ba2a309f059e4d0ccc12490690c1c23c7/LICENSE"
+    "id": "unicode-ucd",
+    "name": "Unicode Character Database tables (Bidi_Class, Bidi_Mirroring_Glyph, decompositions)",
+    "version": "Unicode 18.0.0",
+    "origin": "Compact tables generated into HyperPdfLibrary by scripts/UnicodeTextTableGenerator.cs",
+    "licence": "Unicode-3.0",
+    "copyright": "Copyright 1991-2026 Unicode, Inc.",
+    "link": "https://www.unicode.org/Public/18.0.0/ucd/",
+    "textFile": "upstream/unicode-license.txt",
+    "licenceSource": "https://www.unicode.org/license.txt"
   },
   {
     "id": "open-font-pack",
@@ -160,163 +160,6 @@
     "artifactSha256": {
       "melo-en-lexicon.txt": "e0f56092fca1721f9556ac7e9cab66cff2d4ec7b5afe5618036747c99513a823"
     }
-  },
-  {
-    "id": "pdfium-pdfium",
-    "bundle": "pdfium-bundled",
-    "name": "PDFium (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/pdfium.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "BSD-3-Clause AND Apache-2.0",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/pdfium.txt",
-    "textFile": "pdfium/pdfium.txt",
-    "additionalLicenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-mac-x64.tgz#licenses/pdfium.txt"
-  },
-  {
-    "id": "pdfium-abseil",
-    "bundle": "pdfium-bundled",
-    "name": "Abseil (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/abseil.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "Apache-2.0",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/abseil.txt",
-    "textFile": "pdfium/abseil.txt"
-  },
-  {
-    "id": "pdfium-agg23",
-    "bundle": "pdfium-bundled",
-    "name": "Anti-Grain Geometry 2.3 (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/agg23.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "LicenseRef-AGG-2.3",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/agg23.txt",
-    "textFile": "pdfium/agg23.txt"
-  },
-  {
-    "id": "pdfium-fast_float",
-    "bundle": "pdfium-bundled",
-    "name": "fast_float (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/fast_float.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "MIT",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/fast_float.txt",
-    "textFile": "pdfium/fast_float.txt"
-  },
-  {
-    "id": "pdfium-freetype",
-    "bundle": "pdfium-bundled",
-    "name": "FreeType (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/freetype.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "FTL",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/freetype.txt",
-    "textFile": "pdfium/freetype.txt"
-  },
-  {
-    "id": "pdfium-icu",
-    "bundle": "pdfium-bundled",
-    "name": "ICU (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/icu.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "Unicode-3.0",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/icu.txt",
-    "textFile": "pdfium/icu.txt"
-  },
-  {
-    "id": "pdfium-lcms",
-    "bundle": "pdfium-bundled",
-    "name": "Little CMS (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/lcms.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "MIT",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/lcms.txt",
-    "textFile": "pdfium/lcms.txt"
-  },
-  {
-    "id": "pdfium-libjpeg_turbo",
-    "bundle": "pdfium-bundled",
-    "name": "libjpeg-turbo / Independent JPEG Group (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/libjpeg_turbo.md",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "BSD-3-Clause AND IJG AND Zlib",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/libjpeg_turbo.md",
-    "textFile": "pdfium/libjpeg_turbo.txt"
-  },
-  {
-    "id": "pdfium-libopenjpeg",
-    "bundle": "pdfium-bundled",
-    "name": "OpenJPEG (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/libopenjpeg.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "BSD-2-Clause",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/libopenjpeg.txt",
-    "textFile": "pdfium/libopenjpeg.txt"
-  },
-  {
-    "id": "pdfium-libpng",
-    "bundle": "pdfium-bundled",
-    "name": "libpng (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/libpng.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "libpng-2.0",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/libpng.txt",
-    "textFile": "pdfium/libpng.txt"
-  },
-  {
-    "id": "pdfium-llvm-libc",
-    "bundle": "pdfium-bundled",
-    "name": "LLVM libc (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/llvm-libc.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "Apache-2.0 WITH LLVM-exception",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/llvm-libc.txt",
-    "textFile": "pdfium/llvm-libc.txt"
-  },
-  {
-    "id": "pdfium-simdutf",
-    "bundle": "pdfium-bundled",
-    "name": "simdutf (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/simdutf.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "MIT",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/simdutf.txt",
-    "textFile": "pdfium/simdutf.txt"
-  },
-  {
-    "id": "pdfium-zlib",
-    "bundle": "pdfium-bundled",
-    "name": "zlib (inside PDFium)",
-    "version": "PDFium 156.0.8076 (chromium/8076); archive licences/zlib.txt",
-    "origin": "Bundled inside the PDFium native binary",
-    "licence": "Zlib",
-    "copyright": "See the complete upstream notice below.",
-    "link": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8076",
-    "licenceSource": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8076/pdfium-linux-x64.tgz#licenses/zlib.txt",
-    "textFile": "pdfium/zlib.txt"
   },
   {
     "id": "verapdf-profile-text",

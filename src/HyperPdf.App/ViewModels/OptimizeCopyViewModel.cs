@@ -20,7 +20,7 @@ namespace HyperPdf.App.ViewModels;
 /// temporary file and moved into place once it is complete, so a cancel or a failure leaves no half-written file.
 /// </summary>
 [DebuggerDisplay("OptimizeCopyViewModel: {FileName}")]
-public sealed partial class OptimizeCopyViewModel : ReactiveObject, IDisposable
+public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowRequest
 {
     /// <summary>The ending of the temporary file the copy is written to.</summary>
     private const string TemporarySuffix = ".optimising";
@@ -210,9 +210,9 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, IDisposable
             StatusText = "Cancelled. No file was saved.";
             ProgressPercent = 0;
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (CopyFailure.IsExpected(ex))
         {
-            Error = $"Could not save the copy: {ex.Message}";
+            Error = $"Could not save the copy: {CopyFailure.Describe(ex)}";
             StatusText = "The copy was not saved.";
             ProgressPercent = 0;
         }

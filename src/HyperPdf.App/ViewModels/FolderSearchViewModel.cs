@@ -29,6 +29,9 @@ public sealed partial class FolderSearchViewModel(AppServices services, Action<s
     /// <summary>Cancels the running search.</summary>
     private CancellationTokenSource? _running;
 
+    /// <summary>Counts the searches started, so a search that finishes late can tell it was replaced.</summary>
+    private int _version;
+
     /// <summary>Gets the interaction that asks for a folder.</summary>
     public Interaction<RxVoid, string?> ChooseFolderInteraction { get; } = new();
 
@@ -69,16 +72,20 @@ public sealed partial class FolderSearchViewModel(AppServices services, Action<s
     public Task SearchAsync()
     {
         Stop();
+
+        // Whatever search was running now belongs to the past, even if no new one starts.
+        _version++;
         Results.Clear();
         if (string.IsNullOrWhiteSpace(Query) || !Directory.Exists(Folder))
         {
             Status = "Choose a folder and the words to find.";
+            IsSearching = false;
             return Task.CompletedTask;
         }
 
         var cancellation = new CancellationTokenSource();
         _running = cancellation;
-        return RunAsync(Folder, Query.Trim(), Options(), IncludeSubfolders, cancellation);
+        return RunAsync(Folder, Query.Trim(), Options(), IncludeSubfolders, new(_version, cancellation.Token));
     }
 
     /// <summary>Stops the running search; the results so far stay.</summary>
@@ -117,12 +124,12 @@ public sealed partial class FolderSearchViewModel(AppServices services, Action<s
     /// <param name="query">The words.</param>
     /// <param name="options">The options.</param>
     /// <param name="subfolders">Whether to search subfolders.</param>
-    /// <param name="cancellation">Stops the search.</param>
+    /// <param name="run">Stops the search, and says which search it is.</param>
     /// <returns>A task.</returns>
-    private async Task RunAsync(string folder, string query, SearchOptions options, bool subfolders, CancellationTokenSource cancellation)
+    private async Task RunAsync(string folder, string query, SearchOptions options, bool subfolders, FolderSearchRun run)
     {
         IsSearching = true;
-        var token = cancellation.Token;
+        var token = run.Token;
         var matches = 0;
         var withMatches = 0;
         try
@@ -132,22 +139,40 @@ public sealed partial class FolderSearchViewModel(AppServices services, Action<s
             {
                 var path = files[i];
                 var found = await FolderSearch.SearchFileAsync(services.Engine, path, query, options, MaxMatchesPerFile, token).ConfigureAwait(true);
+
+                // A file that finished just as the search was stopped or replaced must not add old matches to the results.
+                if (token.IsCancellationRequested)
+                {
+                    break;
+                }
+
                 Add(found);
                 matches += found.Matches.Count;
                 withMatches += found.Matches.Count > 0 ? 1 : 0;
                 Status = string.Create(CultureInfo.CurrentCulture, $"{Summary(matches, withMatches)}; searched {i + 1} of {files.Count}");
             }
 
-            var stopped = token.IsCancellationRequested ? ", stopped" : string.Empty;
-            Status = files.Count == 0 ? "There are no PDF files in this folder." : string.Create(CultureInfo.CurrentCulture, $"{Summary(matches, withMatches)} of {files.Count}{stopped}");
+            // A newer search owns the status and the busy flag, so an older one that unwinds late leaves them alone.
+            if (run.Version == _version)
+            {
+                var stopped = token.IsCancellationRequested ? ", stopped" : string.Empty;
+                Status = files.Count == 0 ? "There are no PDF files in this folder." : string.Create(CultureInfo.CurrentCulture, $"{Summary(matches, withMatches)} of {files.Count}{stopped}");
+            }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (run.Version == _version)
         {
             Status = $"{Matches(matches)}, stopped";
         }
+        catch (OperationCanceledException)
+        {
+            // A newer search replaced this one.
+        }
         finally
         {
-            IsSearching = false;
+            if (run.Version == _version)
+            {
+                IsSearching = false;
+            }
         }
     }
 

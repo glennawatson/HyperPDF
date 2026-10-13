@@ -3,10 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Graphics;
+using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Layers;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Rendering;
@@ -17,17 +19,26 @@ namespace HyperPdfLibrary.Content;
 [DebuggerDisplay("ContentInterpreter: depth {_depth}, stack {_stack.Count}")]
 internal sealed class ContentInterpreter : IDisposable
 {
-    /// <summary>The document's caches.</summary>
-    private readonly PdfRenderCache _cache;
+    /// <summary>Idle interpreters, kept so a page, pattern cell or mask recorded on a busy thread reuses the state stacks and path builders.</summary>
+    private static readonly ReusableSlots<ContentInterpreter> Idle = new();
 
-    /// <summary>The device everything is drawn on.</summary>
-    private readonly IContentDevice _device;
+    /// <summary>The document's caches; null while the interpreter sits idle.</summary>
+    private PdfRenderCache _cache = null!;
+
+    /// <summary>The device everything is drawn on; null while the interpreter sits idle.</summary>
+    private IContentDevice _device = null!;
 
     /// <summary>The device as a text collector told where each text-showing operator starts; null for other devices.</summary>
-    private readonly ITextObjectDevice? _textObjects;
+    private ITextObjectDevice? _textObjects;
 
-    /// <summary>The document's layers.</summary>
-    private readonly PdfOptionalContent _layers;
+    /// <summary>The document's layers; null while the interpreter sits idle.</summary>
+    private PdfOptionalContent _layers = null!;
+
+    /// <summary>The reused path handed to devices that keep no paths; made on first use.</summary>
+    private PdfPath? _scratchPath;
+
+    /// <summary>Whether a <c>Rent</c> call handed this interpreter out, so <see cref="Dispose"/> returns it to the idle slots.</summary>
+    private bool _rented;
 
     /// <summary>The current graphics state.</summary>
     private GraphicsState _state = new();
@@ -77,22 +88,20 @@ internal sealed class ContentInterpreter : IDisposable
     /// <param name = "depth">The nesting depth already in use, for streams run from inside others.</param>
     /// <param name="imageScale">The upper device scale for selecting decoded image resolution.</param>
     /// <param name="cancellationToken">Cancels content and image decoding.</param>
-    internal ContentInterpreter(PdfRenderCache cache, IContentDevice device, int depth, float imageScale = float.PositiveInfinity, CancellationToken cancellationToken = default)
-    {
-        _cache = cache;
-        _device = device;
-        _textObjects = device as ITextObjectDevice;
-        _layers = PdfDocumentLayers.GetOptionalContent(cache.Document);
-        _depth = depth;
-        ImageScale = imageScale;
-        CancellationToken = cancellationToken;
-    }
+    internal ContentInterpreter(PdfRenderCache cache, IContentDevice device, int depth, float imageScale = float.PositiveInfinity, CancellationToken cancellationToken = default) =>
+        Attach(cache, device, depth, imageScale, cancellationToken);
 
     /// <summary>Gets the upper device scale for decoded images in this recording.</summary>
-    internal float ImageScale { get; }
+    internal float ImageScale { get; private set; }
 
     /// <summary>Gets the token for the current content execution.</summary>
     internal CancellationToken CancellationToken { get; private set; }
+
+    /// <summary>Gets or sets the blending colour space of the group being run, or null when none is known.</summary>
+    internal PdfColorSpace? BlendSpace { get; set; }
+
+    /// <summary>Gets or sets the knockout page group the device is inside, or null.</summary>
+    internal GroupInfo? PageGroup { get; set; }
 
     /// <summary>Gets the interpreter's Cache state.</summary>
     internal PdfRenderCache Cache => _cache;
@@ -114,6 +123,12 @@ internal sealed class ContentInterpreter : IDisposable
 
     /// <summary>Gets the interpreter's Marked state.</summary>
     internal List<bool> Marked { get; } = [];
+
+    /// <summary>Gets a value indicating whether the device only reads a path during the call, so paths are lent from the builders instead of copied.</summary>
+    internal bool LendsPaths { get; private set; }
+
+    /// <summary>Gets the reused path that lends the builders' commands to a device that keeps no paths.</summary>
+    internal PdfPath ScratchPath => _scratchPath ??= new();
 
     /// <summary>Gets the interpreter's Path state.</summary>
     internal PdfPathBuilder Path { get; } = new();
@@ -166,12 +181,124 @@ internal sealed class ContentInterpreter : IDisposable
     /// <summary>Gets or sets a value indicating whether optional content follows print usage rather than the viewer's layer switches.</summary>
     internal bool Printing { get; set; }
 
+    /// <summary>Gets or sets the zoom class of the magnification being drawn, which decides layers with zoom limits; -1 ignores the limits.</summary>
+    internal int ZoomClass { get; set; } = OptionalContentZoom.NoZoom;
+
+    /// <summary>Gets the layer version, zoom class and print mode that decide what content shows, which cached recordings are keyed by.</summary>
+    internal RecordingMode Mode => new(_layers.Version, ZoomClass, Printing);
+
+    /// <summary>Gets or sets the collector told which colorants the content paints, or <see langword="null"/> when nothing collects them.</summary>
+    internal IColorantSink? Colorants { get; set; }
+
     /// <inheritdoc/>
     public void Dispose()
     {
+        if (!_rented)
+        {
+            return;
+        }
+
+        _rented = false;
+        Reset();
+        _ = Idle.Offer(this);
+    }
+
+    /// <summary>Hands out an idle interpreter that draws at full scale and cannot be cancelled. Dispose it to give it back.</summary>
+    /// <param name = "cache">The document's caches.</param>
+    /// <param name = "device">The device to draw on.</param>
+    /// <param name = "depth">The nesting depth already in use, for streams run from inside others.</param>
+    /// <returns>An interpreter in its starting state, owned by the caller until it is disposed.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ContentInterpreter Rent(PdfRenderCache cache, IContentDevice device, int depth) =>
+        Rent(cache, device, depth, float.PositiveInfinity, CancellationToken.None);
+
+    /// <summary>Hands out an idle interpreter that draws at full scale. Dispose it to give it back.</summary>
+    /// <param name = "cache">The document's caches.</param>
+    /// <param name = "device">The device to draw on.</param>
+    /// <param name = "depth">The nesting depth already in use, for streams run from inside others.</param>
+    /// <param name="cancellationToken">Cancels content and image decoding.</param>
+    /// <returns>An interpreter in its starting state, owned by the caller until it is disposed.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ContentInterpreter Rent(PdfRenderCache cache, IContentDevice device, int depth, CancellationToken cancellationToken) =>
+        Rent(cache, device, depth, float.PositiveInfinity, cancellationToken);
+
+    /// <summary>Hands out an idle interpreter, or makes one when none is idle. Dispose it to give it back.</summary>
+    /// <param name = "cache">The document's caches.</param>
+    /// <param name = "device">The device to draw on.</param>
+    /// <param name = "depth">The nesting depth already in use, for streams run from inside others.</param>
+    /// <param name="imageScale">The upper device scale for selecting decoded image resolution.</param>
+    /// <param name="cancellationToken">Cancels content and image decoding.</param>
+    /// <returns>An interpreter in its starting state, owned by the caller until it is disposed.</returns>
+    internal static ContentInterpreter Rent(PdfRenderCache cache, IContentDevice device, int depth, float imageScale, CancellationToken cancellationToken)
+    {
+        var interpreter = Idle.Take();
+        if (interpreter is null)
+        {
+            interpreter = new(cache, device, depth, imageScale, cancellationToken);
+        }
+        else
+        {
+            interpreter.Attach(cache, device, depth, imageScale, cancellationToken);
+        }
+
+        interpreter._rented = true;
+        return interpreter;
     }
 
     /// <summary>Updates the token when a paused recording resumes under a new call.</summary>
     /// <param name="cancellationToken">The current caller's token.</param>
     internal void SetCancellationToken(CancellationToken cancellationToken) => CancellationToken = cancellationToken;
+
+    /// <summary>Points the interpreter at a document and device for a new run.</summary>
+    /// <param name = "cache">The document's caches.</param>
+    /// <param name = "device">The device to draw on.</param>
+    /// <param name = "depth">The nesting depth already in use.</param>
+    /// <param name="imageScale">The upper device scale for selecting decoded image resolution.</param>
+    /// <param name="cancellationToken">Cancels content and image decoding.</param>
+    private void Attach(PdfRenderCache cache, IContentDevice device, int depth, float imageScale, CancellationToken cancellationToken)
+    {
+        _cache = cache;
+        _device = device;
+        _textObjects = device as ITextObjectDevice;
+        LendsPaths = !device.RetainsPaths;
+        _layers = PdfDocumentLayers.GetOptionalContent(cache.Document);
+        _depth = depth;
+        ImageScale = imageScale;
+        CancellationToken = cancellationToken;
+    }
+
+    /// <summary>Clears every per-run value and drops the document and device, so an idle interpreter keeps neither alive.</summary>
+    private void Reset()
+    {
+        Stack.Clear();
+        Resources.Clear();
+        Marked.Clear();
+        Path.Reset();
+        TextClip.Reset();
+        _state = new();
+        _current = default;
+        _pathPoints = 0;
+        _textClipGlyphs = 0;
+        _tm = Matrix3x2.Identity;
+        _tlm = Matrix3x2.Identity;
+        _patternBase = Matrix3x2.Identity;
+        _depth = 0;
+        _stackFloor = 0;
+        _markedFloor = 0;
+        _hidden = 0;
+        _pendingClip = false;
+        _pendingClipEvenOdd = false;
+        _colorLocked = false;
+        BlendSpace = null;
+        PageGroup = null;
+        Printing = false;
+        ZoomClass = OptionalContentZoom.NoZoom;
+        Colorants = null;
+        CancellationToken = default;
+        _textObjects = null;
+        LendsPaths = false;
+        _cache = null!;
+        _device = null!;
+        _layers = null!;
+    }
 }

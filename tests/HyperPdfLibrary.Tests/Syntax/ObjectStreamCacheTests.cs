@@ -12,7 +12,7 @@ namespace HyperPdfLibrary.Tests.Syntax;
 public sealed class ObjectStreamCacheTests
 {
     /// <summary>The pages in the sample document.</summary>
-    private const int PageCount = 120;
+    private const int PageCount = 1_500;
 
     /// <summary>The objects packed in each object stream, which gives the document many object streams.</summary>
     private const int ObjectsPerStream = 10;

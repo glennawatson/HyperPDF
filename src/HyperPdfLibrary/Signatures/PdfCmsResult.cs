@@ -29,6 +29,9 @@ public sealed record PdfCmsResult(
     PdfChainResult? Chain,
     string Detail)
 {
+    /// <summary>Gets the digest algorithm as a /DigestMethod value, or <see cref="PdfDigestMethod.Unknown"/>.</summary>
+    public PdfDigestMethod Digest => PdfDigestMethods.FromOid(DigestAlgorithm);
+
     /// <summary>Creates the result for a container that could not be checked.</summary>
     /// <param name="status">Why.</param>
     /// <param name="detail">A description.</param>

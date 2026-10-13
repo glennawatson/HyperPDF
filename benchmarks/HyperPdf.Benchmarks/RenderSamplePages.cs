@@ -29,6 +29,9 @@ internal static class RenderSamplePages
     /// <summary>The page objects shared by both samples: catalog, page tree and page, which refers to objects 4 (content) and 5 (resources).</summary>
     private const string Catalog = "<< /Type /Catalog /Pages 2 0 R >>";
 
+    /// <summary>A Letter page whose content is object 4 and resources object 5.</summary>
+    private const string LetterPage = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources 5 0 R /Contents 4 0 R >>";
+
     /// <summary>The page tree.</summary>
     private const string Pages = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
 
@@ -46,7 +49,7 @@ internal static class RenderSamplePages
         return MiniPdf.Build(
             Catalog,
             Pages,
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources 5 0 R /Contents 4 0 R >>",
+            LetterPage,
             MiniPdf.Stream(string.Empty, content),
             "<< /ExtGState << /Half << /ca 0.5 /CA 0.5 >> /Mul << /BM /Multiply /ca 0.8 >> /Masked << /SMask << /S /Luminosity /G 8 0 R /BC [0.2] >> >> >> "
             + "/XObject << /Knock 6 0 R /Iso 7 0 R >> "
@@ -55,6 +58,57 @@ internal static class RenderSamplePages
             MiniPdf.Stream("/Type /XObject /Subtype /Form /BBox [0 0 400 400] /Group << /S /Transparency /I true /K true >>", group),
             MiniPdf.Stream("/Type /XObject /Subtype /Form /BBox [0 0 400 400] /Group << /S /Transparency /I false >>", group),
             MiniPdf.Stream("/Type /XObject /Subtype /Form /BBox [0 0 612 792] /Group << /S /Transparency /CS /DeviceGray >>", "1 g 300 300 120 250 re f 0.5 g 420 300 130 250 re f"));
+    }
+
+    /// <summary>
+    /// Creates a Letter page that draws 100 transparency groups: each is a non-isolated group at half alpha that holds an
+    /// isolated knockout group, so every draw opens two nested layers.
+    /// </summary>
+    /// <returns>The PDF bytes.</returns>
+    internal static byte[] CreateNestedGroupsPage()
+    {
+        const int Groups = 100;
+        const int Columns = 10;
+        const int Cell = 60;
+        var content = new StringBuilder("1 1 0.8 rg 0 0 612 792 re f ");
+        for (var i = 0; i < Groups; i++)
+        {
+            _ = content.Append(CultureInfo.InvariantCulture, $"q 1 0 0 1 {i % Columns * Cell} {i / Columns * Cell} cm /Half gs /Outer Do Q ");
+        }
+
+        return MiniPdf.Build(
+            Catalog,
+            Pages,
+            LetterPage,
+            MiniPdf.Stream(string.Empty, content.ToString()),
+            "<< /ExtGState << /Half << /ca 0.5 /CA 0.5 >> >> /XObject << /Outer 7 0 R >> >>",
+            MiniPdf.Stream("/Type /XObject /Subtype /Form /BBox [0 0 60 60] /Group << /S /Transparency /I true /K true >>", "1 0 0 rg 5 5 35 35 re f 0 0 1 rg 20 20 35 35 re f"),
+            MiniPdf.Stream("/Type /XObject /Subtype /Form /BBox [0 0 60 60] /Group << /S /Transparency /I false >> /Resources << /XObject << /Inner 6 0 R >> >>", "/Inner Do"));
+    }
+
+    /// <summary>
+    /// Creates a Letter page of pattern fills: a small tiling cell, a tiling pattern with a huge step, an axial shading
+    /// pattern clipped by /BBox with /AntiAlias, and a mesh shading pattern used to stroke a line.
+    /// </summary>
+    /// <returns>The PDF bytes.</returns>
+    internal static byte[] CreatePatternPage()
+    {
+        const string content =
+            "/Pattern cs /Tile scn 0 0 306 792 re f /Huge scn 306 0 306 396 re f /Box scn 306 396 306 396 re f "
+            + "/Pattern CS /Mesh SCN 20 w 20 20 m 590 20 l S";
+        const string axial = "<< /PatternType 2 /Shading << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [306 0 612 0] /BBox [330 420 590 770] /AntiAlias true "
+            + "/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0.9 0.2] /C1 [0.2 0.4 1] /N 1 >> /Extend [true true] /Background [0.9 0.9 0.9] >> >>";
+        return MiniPdf.Build(
+            Catalog,
+            Pages,
+            LetterPage,
+            MiniPdf.Stream(string.Empty, content),
+            $"<< /Pattern << /Tile 6 0 R /Huge 7 0 R /Box {axial} /Mesh << /PatternType 2 /Shading 8 0 R >> >> >>",
+            MiniPdf.Stream("/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 12 12] /XStep 12 /YStep 12 /Resources << >>", "1 0 0 rg 0 0 6 6 re f 0 0 1 rg 6 6 6 6 re f"),
+            MiniPdf.Stream("/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 40 40] /XStep 1000000 /YStep 1000000 /Resources << >>", "0 0.6 0 rg 0 0 40 40 re f"),
+            MiniPdf.Stream(
+                "/ShadingType 4 /ColorSpace /DeviceRGB /BitsPerCoordinate 8 /BitsPerComponent 8 /BitsPerFlag 8 /Decode [0 612 0 792 0 1 0 1 0 1] /Filter /ASCIIHexDecode",
+                "00 00 00 FF0000 00 FF 00 00FF00 00 00 FF 0000FF>"));
     }
 
     /// <summary>Creates a dense, searchable text page using a standard PDF font.</summary>
@@ -73,7 +127,7 @@ internal static class RenderSamplePages
         return MiniPdf.Build(
             Catalog,
             Pages,
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources 5 0 R /Contents 4 0 R >>",
+            LetterPage,
             MiniPdf.Stream(string.Empty, content.ToString()),
             "<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >>");
     }

@@ -18,6 +18,14 @@ internal static class HyperPdfTagged
     /// <summary>The minimum marked-content coverage for a usable reading order.</summary>
     internal const double MinimumMarked = 0.5;
 
+    /// <summary>The characters of the page this thread is reading.</summary>
+    [ThreadStatic]
+    private static List<PageCharacter>? _characters;
+
+    /// <summary>The block walker this thread reuses.</summary>
+    [ThreadStatic]
+    private static TaggedBlockWalker? _walker;
+
     /// <summary>Builds a page's reading nodes from recognised words, for a page that is only an image.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="words">The words, in page space.</param>
@@ -37,8 +45,8 @@ internal static class HyperPdfTagged
     }
 
     /// <summary>
-    /// Gets a page's block-level elements in logical order from the managed structure reader, matching
-    /// <see cref="ITaggedStructureSource.GetTaggedBlocks"/> on the PDFium engine: the same coverage checks, kinds,
+    /// Gets a page's block-level elements in logical order from the managed structure reader, as
+    /// <see cref="ITaggedStructureSource.GetTaggedBlocks"/> describes them: coverage checks, kinds,
     /// levels and replacement text, with characters indexed as <see cref="ITextLayoutSource.GetCharacters"/> gives them.
     /// </summary>
     /// <param name="self">The owning document.</param>
@@ -69,21 +77,17 @@ internal static class HyperPdfTagged
             return false;
         }
 
-        var characters = new List<PageCharacter>();
-        HyperPdfDocumentCharacterLayout.GetCharacters(self, pageIndex, characters);
-        var walker = new TaggedBlockWalker(TaggedCharacterMap.Create(content, characters));
-        foreach (var node in page.Nodes)
+        // Each thread keeps one character list for the page being read, emptied after use.
+        var characters = _characters ??= [];
+        try
         {
-            walker.Visit(node);
+            HyperPdfDocumentCharacterLayout.GetCharacters(self, pageIndex, characters);
+            return WalkBlocks(page, TaggedCharacterMap.Create(content, characters), marked, output);
         }
-
-        if (walker.Covered < marked * HyperPdfTagged.MinimumCoverage || walker.Blocks.Count == 0)
+        finally
         {
-            return false;
+            characters.Clear();
         }
-
-        output.AddRange(walker.Blocks);
-        return true;
     }
 
     /// <summary>Reads a page's reading structure: tagged when it can be, otherwise inferred from the layout.</summary>
@@ -96,5 +100,40 @@ internal static class HyperPdfTagged
         using var access = HyperPdfNavigation.EnterPageRead(self);
         ObjectDisposedException.ThrowIf(!access.IsActive || self.IsDisposed, self);
         return PdfReadingStructure.Read(self.Document, pageIndex);
+    }
+
+    /// <summary>Walks a page's tagged nodes into blocks, keeping them only when they cover enough of the marked text.</summary>
+    /// <param name="page">The page's nodes.</param>
+    /// <param name="map">Each glyph's characters.</param>
+    /// <param name="marked">The marked characters on the page.</param>
+    /// <param name="output">Receives the blocks; left as it was when the page is not covered well enough.</param>
+    /// <returns><see langword="true"/> when the blocks were kept.</returns>
+    private static bool WalkBlocks(PdfSemanticPage page, GlyphCharacters[] map, int marked, List<TaggedBlock> output)
+    {
+        var start = output.Count;
+
+        // Each thread keeps one walker with its index buffers, which a walk empties after use.
+        var walker = _walker ??= new();
+        walker.Begin(map, output);
+        try
+        {
+            var nodes = page.Nodes;
+            for (var i = 0; i < nodes.Count; i++)
+            {
+                walker.Visit(nodes[i]);
+            }
+
+            if (walker.Covered >= marked * HyperPdfTagged.MinimumCoverage && output.Count > start)
+            {
+                return true;
+            }
+        }
+        finally
+        {
+            walker.End();
+        }
+
+        output.RemoveRange(start, output.Count - start);
+        return false;
     }
 }

@@ -24,9 +24,10 @@ internal static class PortfolioReader
     private const int ColorComponents = 3;
 
     /// <summary>Reads the schema, ordered by each field's <c>/O</c> value.</summary>
+    /// <param name="objects">The document's objects, which resolve references and name the keys.</param>
     /// <param name="schema">The <c>/Schema</c> dictionary, or null.</param>
-    /// <returns>The fields.</returns>
-    internal static PdfPortfolioField[] ReadSchema(PdfDictionary? schema)
+    /// <returns>The fields; entries that are not dictionaries are skipped.</returns>
+    internal static PdfPortfolioField[] ReadSchema(PdfObjectStore objects, PdfDictionary? schema)
     {
         if (schema is null)
         {
@@ -36,12 +37,12 @@ internal static class PortfolioReader
         var fields = new List<PdfPortfolioField>(schema.Count);
         for (var i = 0; i < schema.Count; i++)
         {
-            if (StoreReading.Resolve(schema.Owner!, schema.GetValueAt(i)).AsDictionary() is not { } field)
+            if (StoreReading.Resolve(objects, schema.GetValueAt(i)).AsDictionary() is not { } field)
             {
                 continue;
             }
 
-            var key = schema.Owner!.Names.GetString(schema.GetKeyAt(i));
+            var key = objects.Names.GetString(schema.GetKeyAt(i));
             fields.Add(new(key, field.NameText("Subtype") ?? string.Empty, field.Text("N") ?? string.Empty, field.Int("O", 0), field.Flag("V", true), field.Flag("E", false)));
         }
 
@@ -152,19 +153,20 @@ internal static class PortfolioReader
     }
 
     /// <summary>Reads a collection item dictionary as text values.</summary>
+    /// <param name="objects">The document's objects, which resolve references and name the keys.</param>
     /// <param name="item">The <c>/CI</c> dictionary, or null.</param>
     /// <returns>The values by key.</returns>
-    internal static Dictionary<string, string> ReadItemValues(PdfDictionary? item)
+    internal static Dictionary<string, string> ReadItemValues(PdfObjectStore objects, PdfDictionary? item)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var i = 0; item is not null && i < item.Count; i++)
         {
             var value = item.GetValueAt(i);
-            var resolved = StoreReading.Resolve(item.Owner!, value);
-            var text = resolved.AsDictionary() is { } sub ? sub.Value("D").ScalarText(item.Owner) : resolved.ScalarText(item.Owner);
+            var resolved = StoreReading.Resolve(objects, value);
+            var text = resolved.AsDictionary() is { } sub ? sub.Value("D").ScalarText(objects) : resolved.ScalarText(objects);
             if (text is not null)
             {
-                values[item.Owner!.Names.GetString(item.GetKeyAt(i))] = text;
+                values[objects.Names.GetString(item.GetKeyAt(i))] = text;
             }
         }
 

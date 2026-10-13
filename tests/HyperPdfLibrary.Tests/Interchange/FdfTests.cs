@@ -16,6 +16,12 @@ public sealed class FdfTests
     /// <summary>A small limit that the sample is longer than.</summary>
     private const long SmallLimit = 32;
 
+    /// <summary>The start of a hexadecimal string that holds UTF-16BE text: its byte order mark.</summary>
+    private const string ByteOrderMark = "<FEFF";
+
+    /// <summary>A string written in PDFDocEncoding: the é of "café" is the one byte 0xE9, written as an octal escape.</summary>
+    private const string PdfDocCafe = @"(caf\351)";
+
     /// <summary>The fields the three-field file applies.</summary>
     private const int AppliedFields = 3;
 
@@ -139,6 +145,64 @@ public sealed class FdfTests
         await Assert.That(static () => FdfReader.Read([])).Throws<PdfException>();
     }
 
+    /// <summary>
+    /// Text that fits PDFDocEncoding is written as PDFDocEncoding and text that does not as UTF-16BE with its byte order mark
+    /// (ISO 32000-2 §7.9.2.2), and both read back unchanged.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TextEncodingsWriteAndReadBack()
+    {
+        const string latin = "café";
+        const string wide = "Ωmega 日本";
+        var data = new PdfInterchangeData();
+        data.Fields.Add(new("Wide", [wide]));
+        data.Fields.Add(new("Latin", [latin]));
+
+        var bytes = FdfWriter.Write(data);
+        var read = FdfReader.Read(bytes);
+        var text = Encoding.Latin1.GetString(bytes);
+
+        await Assert.That(read.Fields.Single(static field => field.Name == "Wide").Value).IsEqualTo(wide);
+        await Assert.That(read.Fields.Single(static field => field.Name == "Latin").Value).IsEqualTo(latin);
+        await Assert.That(CountOf(text, ByteOrderMark)).IsEqualTo(1).Because("only the text outside PDFDocEncoding needs a byte order mark");
+        await Assert.That(text).Contains(PdfDocCafe);
+    }
+
+    /// <summary>A field tree nested far deeper than the limit is read within the limit, without overflowing the stack.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ExcessiveNestingIsBounded()
+    {
+        const int levels = 2000;
+        var builder = new StringBuilder("%FDF-1.2\n1 0 obj\n<< /FDF << /Fields [");
+        for (var i = 0; i < levels; i++)
+        {
+            _ = builder.Append("<< /T (n) /Kids [");
+        }
+
+        _ = builder.Append("<< /T (leaf) /V (x) >>");
+        for (var i = 0; i < levels; i++)
+        {
+            _ = builder.Append("] >>");
+        }
+
+        _ = builder.Append("] >> >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF");
+        var bytes = Encoding.Latin1.GetBytes(builder.ToString());
+
+        var deepest = 0;
+        try
+        {
+            deepest = FdfReader.Read(bytes).Fields.Select(static field => field.Name.Count(static character => character == '.') + 1).DefaultIfEmpty(0).Max();
+        }
+        catch (PdfException)
+        {
+            // Refusing the file is as safe as reading it to the limit.
+        }
+
+        await Assert.That(deepest).IsLessThanOrEqualTo(PdfLimits.MaxNesting + 1);
+    }
+
     /// <summary>A field tree that refers to itself is read once, not forever.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -149,5 +213,20 @@ public sealed class FdfTests
         var data = FdfReader.Read(cycle);
 
         await Assert.That(data.Fields.Count).IsEqualTo(1);
+    }
+
+    /// <summary>Counts the non-overlapping occurrences of a text.</summary>
+    /// <param name="text">The text searched.</param>
+    /// <param name="value">The text sought.</param>
+    /// <returns>The count.</returns>
+    private static int CountOf(string text, string value)
+    {
+        var count = 0;
+        for (var at = text.IndexOf(value, StringComparison.Ordinal); at >= 0; at = text.IndexOf(value, at + value.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
     }
 }

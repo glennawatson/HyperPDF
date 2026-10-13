@@ -20,6 +20,9 @@ internal static class HyperPdfDocumentFormHighlight
     /// <param name="value">The value to use.</param>
     internal static void SetHighlight(HyperPdfDocument self, FormHighlight value)
     {
+        // Renders hold the page read lock while they make or use the renderer, so with the write lock no renderer can be
+        // made with the old tint and published after the reset below.
+        using var access = HyperPdfNavigation.EnterPageWrite(self);
         if (self.IsDisposed)
         {
             return;

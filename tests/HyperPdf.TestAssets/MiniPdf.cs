@@ -13,8 +13,15 @@ public static class MiniPdf
     /// <summary>Builds a PDF file whose object <c>n</c> is <c>objects[n - 1]</c>. Object 1 must be the catalog.</summary>
     /// <param name="objects">The object bodies, such as <c>&lt;&lt; /Type /Catalog /Pages 2 0 R &gt;&gt;</c>.</param>
     /// <returns>The file bytes; the cross-reference table is correct.</returns>
-    public static byte[] Build(params string[] objects)
+    public static byte[] Build(params string[] objects) => BuildWithTrailer(string.Empty, objects);
+
+    /// <summary>Builds a PDF file whose object <c>n</c> is <c>objects[n - 1]</c>, with extra trailer entries. Object 1 must be the catalog.</summary>
+    /// <param name="trailerEntries">Trailer entries after <c>/Size</c> and <c>/Root</c>, such as <c>/Encrypt 4 0 R /ID [&lt;00&gt; &lt;00&gt;]</c>.</param>
+    /// <param name="objects">The object bodies.</param>
+    /// <returns>The file bytes; the cross-reference table is correct.</returns>
+    public static byte[] BuildWithTrailer(string trailerEntries, params string[] objects)
     {
+        ArgumentNullException.ThrowIfNull(trailerEntries);
         ArgumentNullException.ThrowIfNull(objects);
         var latin1 = Encoding.Latin1;
         var output = new StringBuilder("%PDF-1.7\n");
@@ -32,7 +39,8 @@ public static class MiniPdf
             _ = output.Append(CultureInfo.InvariantCulture, $"{offset:D10} 00000 n \n");
         }
 
-        _ = output.Append(CultureInfo.InvariantCulture, $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        var extra = trailerEntries.Length == 0 ? string.Empty : $" {trailerEntries}";
+        _ = output.Append(CultureInfo.InvariantCulture, $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R{extra} >>\nstartxref\n{xref}\n%%EOF\n");
         return latin1.GetBytes(output.ToString());
     }
 

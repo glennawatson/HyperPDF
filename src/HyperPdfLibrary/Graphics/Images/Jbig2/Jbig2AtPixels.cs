@@ -87,7 +87,7 @@ internal readonly record struct Jbig2AtPixels(sbyte X1, sbyte Y1, sbyte X2, sbyt
         _ => Y4,
     };
 
-    /// <summary>Determines whether the pixels used by a generic template are its nominal ones, as PDFium's fast paths check.</summary>
+    /// <summary>Determines whether the pixels used by a generic template are its nominal ones (figures 3 to 6), which the fast row loops assume.</summary>
     /// <param name="template">The template, 0 to 3.</param>
     /// <returns><see langword="true"/> when the template's pixels are nominal.</returns>
     internal bool IsNominal(int template) => template == 0 ? this == Template0 : X1 == ForTemplate(template).X1 && Y1 == -1;

@@ -13,4 +13,9 @@
     <InternalsVisibleTo Include="HyperPdf.Core.Tests" />
     <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
   </ItemGroup>
+
+  <!-- The CMS digest and SHAKE256 checks HyperPdfLibrary uses, compiled here too because Core cannot reference it. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\Cms\*.cs" LinkBase="Shared\Cms" />
+  </ItemGroup>
 </Project>

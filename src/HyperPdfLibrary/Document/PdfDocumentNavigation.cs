@@ -17,6 +17,15 @@ public static class PdfDocumentNavigation
     /// <summary>The deepest outline nesting read.</summary>
     internal const int MaxOutlineDepth = 64;
 
+    /// <summary>The outline style flag for italic text (ISO 32000-2 12.3.3, Table 151).</summary>
+    internal const int ItalicFlag = 1;
+
+    /// <summary>The outline style flag for bold text.</summary>
+    internal const int BoldFlag = 2;
+
+    /// <summary>The components of an outline entry's /C colour.</summary>
+    private const int RgbComponents = 3;
+
     /// <summary>The position of the left coordinate in an /XYZ, /FitV or /FitR destination.</summary>
     private const int LeftSlot = 2;
 
@@ -82,7 +91,7 @@ public static class PdfDocumentNavigation
         return navigation.HasAction ? navigation : PdfDocumentActionTypes.ReadExtendedAction(document, action, action.NameText("S") ?? string.Empty);
     }
 
-    /// <summary>Looks up a named destination in the /Names /Dests name tree and then the catalog's /Dests dictionary, as PDFium does.</summary>
+    /// <summary>Looks up a named destination in the /Names /Dests name tree and then the catalog's /Dests dictionary (ISO 32000-2 12.3.2.4).</summary>
     /// <param name="document">The document.</param>
     /// <param name="name">The name or string.</param>
     /// <returns>The destination value, or null.</returns>
@@ -98,6 +107,15 @@ public static class PdfDocumentNavigation
         return document.Catalog.GetDictionary(KnownName.Dests) is { } dests ? dests.Get(document.Objects.Names.Intern(bytes)) : default;
     }
 
+    /// <summary>Reads an explicit destination in another document, whose page is a zero based page number (ISO 32000-2 12.3.2.2).</summary>
+    /// <param name="array">The destination array.</param>
+    /// <returns>The destination, or <see langword="null"/> when the page is not a page number.</returns>
+    internal static PdfDestination? ReadOtherDocumentDestination(PdfArray array)
+    {
+        var page = array.GetRaw(0);
+        return page.IsNumber && page.AsInt32(-1) is var index and >= 0 ? PdfDocumentNavigation.DestinationAt(array, index) : null;
+    }
+
     /// <summary>Gets the outline while checking cancellation during its first walk.</summary>
     /// <param name="document">The document.</param>
     /// <param name="cancellationToken">Cancels the walk.</param>
@@ -105,6 +123,9 @@ public static class PdfDocumentNavigation
     private static PdfOutlineItem[] ReadOutlinePrepared(PdfDocument document, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        // Read before the objects are, so an edit that lands while the outline is read keeps it out of the cache.
+        var revision = PdfDocumentCaches.Revision(document);
         var outline = Volatile.Read(ref document.State.Outline);
         if (outline is not null)
         {
@@ -113,10 +134,10 @@ public static class PdfDocumentNavigation
 
         var budget = PdfDocumentNavigation.MaxOutlineEntries;
         var visited = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
-        var first = document.Catalog.GetDictionary(KnownName.Outlines)?.GetDictionary(KnownName.First);
-        outline = [.. PdfDocumentNavigation.ReadOutlineLevel(document, first, 0, visited, ref budget, cancellationToken)];
-        Volatile.Write(ref document.State.Outline, outline);
-        return outline;
+        var root = document.Catalog.GetDictionary(KnownName.Outlines);
+        var firstId = root?.GetRaw(KnownName.First).AsReference() ?? default;
+        outline = [.. PdfDocumentNavigation.ReadOutlineLevel(document, root?.GetDictionary(KnownName.First), firstId, 0, visited, ref budget, cancellationToken)];
+        return PdfDocumentCaches.Publish(document, ref document.State.Outline, outline, revision);
     }
 
     /// <summary>Reads the outline once its objects are loaded, reporting failures through the task.</summary>
@@ -166,7 +187,7 @@ public static class PdfDocumentNavigation
         KnownName.URI => PdfDocumentFileSpecs.ReadUri(document, action),
         KnownName.GoToR => PdfDocumentNavigation.ReadRemoteGoTo(document, action),
         KnownName.Launch => PdfDocumentFileSpecs.ReadLaunch(document, action),
-        KnownName.GoToE => new EmbeddedGoToAction(action.GetDictionary(KnownName.T)?.GetText(KnownName.N)),
+        KnownName.GoToE => EmbeddedGoToReader.Read(document, action),
         KnownName.Named => new NamedAction(document.Objects.Names.GetString(action.GetName(KnownName.N))),
         KnownName.JavaScript => PdfDocumentFileSpecs.ReadScript(action.Get(KnownName.JS)) is { } script ? new JavaScriptAction(script) : default(PdfAction),
         _ => default,
@@ -175,23 +196,55 @@ public static class PdfDocumentNavigation
     /// <summary>Reads one level of the outline and, recursively, the levels below it.</summary>
     /// <param name="document">The document.</param>
     /// <param name="first">The first entry at this level.</param>
+    /// <param name="firstId">The first entry's object, or an invalid id when it is not an indirect object.</param>
     /// <param name="depth">The level's depth.</param>
     /// <param name="visited">The entries already read, to stop at loops.</param>
     /// <param name="budget">The entries still allowed.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The entries.</returns>
-    private static List<PdfOutlineItem> ReadOutlineLevel(PdfDocument document, PdfDictionary? first, int depth, HashSet<PdfDictionary> visited, ref int budget, CancellationToken cancellationToken)
+    private static List<PdfOutlineItem> ReadOutlineLevel(
+        PdfDocument document,
+        PdfDictionary? first,
+        PdfObjectId firstId,
+        int depth,
+        HashSet<PdfDictionary> visited,
+        ref int budget,
+        CancellationToken cancellationToken)
     {
         var items = new List<PdfOutlineItem>();
+        var id = firstId;
         for (var entry = first; entry is not null && budget > 0 && depth < PdfDocumentNavigation.MaxOutlineDepth && visited.Add(entry); entry = entry.GetDictionary(KnownName.Next))
         {
             cancellationToken.ThrowIfCancellationRequested();
             budget--;
-            var children = PdfDocumentNavigation.ReadOutlineLevel(document, entry.GetDictionary(KnownName.First), depth + 1, visited, ref budget, cancellationToken);
-            items.Add(new(entry.GetText(KnownName.Title) ?? string.Empty, PdfDocumentNavigation.ReadOutlineTarget(document, entry), [.. children], entry.GetInteger(KnownName.Count) > 0));
+            var childId = entry.GetRaw(KnownName.First).AsReference();
+            var children = PdfDocumentNavigation.ReadOutlineLevel(document, entry.GetDictionary(KnownName.First), childId, depth + 1, visited, ref budget, cancellationToken);
+            items.Add(new(entry.GetText(KnownName.Title) ?? string.Empty, PdfDocumentNavigation.ReadOutlineTarget(document, entry), [.. children], entry.GetInteger(KnownName.Count) > 0)
+            {
+                Id = id,
+                Style = PdfDocumentNavigation.ReadOutlineStyle(entry),
+            });
+            id = entry.GetRaw(KnownName.Next).AsReference();
         }
 
         return items;
+    }
+
+    /// <summary>Reads an outline entry's colour (<c>/C</c>) and style flags (<c>/F</c>).</summary>
+    /// <param name="entry">The outline entry.</param>
+    /// <returns>The style, or <see langword="null"/> when the entry sets neither.</returns>
+    private static PdfBookmarkStyle? ReadOutlineStyle(PdfDictionary entry)
+    {
+        var colour = entry.GetArray(KnownName.C);
+        if (colour is null && !entry.ContainsKey(KnownName.F))
+        {
+            return null;
+        }
+
+        Span<float> rgb = stackalloc float[RgbComponents];
+        _ = colour?.ReadNumbers(rgb);
+        var flags = entry.GetInt32(KnownName.F);
+        return new(rgb[0], rgb[1], rgb[RgbComponents - 1], (flags & ItalicFlag) != 0, (flags & BoldFlag) != 0);
     }
 
     /// <summary>Reads where an outline entry leads: its /Dest, or else its /A action.</summary>
@@ -216,7 +269,15 @@ public static class PdfDocumentNavigation
     {
         var page = array.GetRaw(0);
         var index = page.IsReference ? PdfDocumentPages.GetPageIndex(document, page.AsReference()) : page.AsInt32(-1);
-        return (uint)index >= (uint)document.PageCount ? null : array.GetName(1).ToKnownName() switch
+        return (uint)index >= (uint)document.PageCount ? null : PdfDocumentNavigation.DestinationAt(array, index);
+    }
+
+    /// <summary>Reads the fit type and coordinates of an explicit destination.</summary>
+    /// <param name="array">The destination array.</param>
+    /// <param name="index">The page the destination is on.</param>
+    /// <returns>The destination.</returns>
+    private static PdfDestination DestinationAt(PdfArray array, int index) =>
+        array.GetName(1).ToKnownName() switch
         {
             KnownName.XYZ =>
         new(
@@ -236,7 +297,6 @@ public static class PdfDocumentNavigation
             KnownName.FitR => new(index, PdfDocumentNavigation.Optional(array, PdfDocumentNavigation.LeftSlot), PdfDocumentNavigation.Optional(array, PdfDocumentNavigation.FitRTopSlot), null),
             _ => new(index, null, null, null),
         };
-    }
 
     /// <summary>Reads a go-to action.</summary>
     /// <param name="document">The document.</param>

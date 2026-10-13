@@ -10,6 +10,12 @@ namespace HyperPdf.TestAssets;
 /// </summary>
 public sealed class ThrottledStream : Stream
 {
+    /// <summary>
+    /// An event that is never set, waited on to hold a blocking read for the latency. One event serves every stream and
+    /// read, because its wait object is created on the first blocking wait and not again.
+    /// </summary>
+    private static readonly ManualResetEventSlim Idle = new(false);
+
     /// <summary>The bytes.</summary>
     private readonly byte[] _bytes;
 
@@ -74,9 +80,9 @@ public sealed class ThrottledStream : Stream
     {
         _ = Interlocked.Increment(ref _syncReads);
 
-        // A blocking read on a slow device holds its thread for as long as the device takes.
-        using var wait = new ManualResetEventSlim(false);
-        _ = wait.Wait(_latency);
+        // A blocking read on a slow device holds its thread for as long as the device takes. The event is never set,
+        // so every wait runs to its timeout.
+        _ = Idle.Wait(_latency);
         return Copy(buffer);
     }
 

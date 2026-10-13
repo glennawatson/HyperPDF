@@ -85,22 +85,15 @@ public sealed class KokoroEngine : ISpeechEngine
     /// <inheritdoc/>
     public IReadOnlyList<SpeechVoice> Voices => KokoroModel.Voices;
 
+    /// <summary>Gets a value indicating whether the ONNX session is loaded, which tests use to check that disposal frees it.</summary>
+    internal bool IsSessionLoaded => Volatile.Read(ref _session) is not null;
+
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0 || !_gate.TryEnter())
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
         {
-            // A synthesis holds the gate; it sees the flag and releases the session when it finishes.
-            return;
-        }
-
-        try
-        {
-            ReleaseSession();
-        }
-        finally
-        {
-            _gate.Exit();
+            ReleaseIfDisposed();
         }
     }
 
@@ -118,10 +111,18 @@ public sealed class KokoroEngine : ISpeechEngine
     /// <returns>The phonemes.</returns>
     public string Phonemize(string text, string voiceId)
     {
-        lock (_gate)
+        try
         {
-            var british = KokoroModel.IsBritish(voiceId);
-            return GetPhonemizer(british).Phonemize(TextNormalizer.Normalize(text, british));
+            lock (_gate)
+            {
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+                var british = KokoroModel.IsBritish(voiceId);
+                return GetPhonemizer(british).Phonemize(TextNormalizer.Normalize(text, british));
+            }
+        }
+        finally
+        {
+            ReleaseIfDisposed();
         }
     }
 
@@ -158,11 +159,11 @@ public sealed class KokoroEngine : ISpeechEngine
     /// <returns>The audio.</returns>
     private SpeechAudio Synthesize(string text, string voiceId, float speed, CancellationToken cancellationToken)
     {
-        lock (_gate)
+        try
         {
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-            try
+            lock (_gate)
             {
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
                 var british = KokoroModel.IsBritish(voiceId);
                 var phonemes = GetPhonemizer(british).Phonemize(TextNormalizer.Normalize(text, british));
                 KokoroVocabulary.Tokenize(phonemes, _tokens);
@@ -183,14 +184,31 @@ public sealed class KokoroEngine : ISpeechEngine
 
                 return new([.. samples], KokoroModel.SampleRate);
             }
-            finally
-            {
-                // Dispose did not wait for this synthesis, so the last holder of the gate frees the model.
-                if (Volatile.Read(ref _disposed) != 0)
-                {
-                    ReleaseSession();
-                }
-            }
+        }
+        finally
+        {
+            ReleaseIfDisposed();
+        }
+    }
+
+    /// <summary>
+    /// Frees the ONNX session when the engine is disposed and no call holds the gate. A call that holds it frees the session
+    /// itself when it leaves, so the session is released by whoever leaves last.
+    /// </summary>
+    private void ReleaseIfDisposed()
+    {
+        if (Volatile.Read(ref _disposed) == 0 || !_gate.TryEnter())
+        {
+            return;
+        }
+
+        try
+        {
+            ReleaseSession();
+        }
+        finally
+        {
+            _gate.Exit();
         }
     }
 

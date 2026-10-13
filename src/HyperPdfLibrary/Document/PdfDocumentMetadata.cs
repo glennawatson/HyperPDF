@@ -56,9 +56,23 @@ public static class PdfDocumentMetadata
             Producer = PdfDocumentMetadata.Text(info, KnownName.Producer),
             Created = info is null ? null : PdfDate.Parse(info.GetStringBytes(KnownName.CreationDate)),
             Modified = info is null ? null : PdfDate.Parse(info.GetStringBytes(KnownName.ModDate)),
+            Trapped = info?.NameText("Trapped"),
             Version = document.Catalog.GetName(KnownName.Version) is { IsNone: false } version ? document.Objects.Names.GetString(version) : document.Objects.Version,
             IsEncrypted = document.IsEncrypted,
         };
+    }
+
+    /// <summary>
+    /// Gets the document information a viewer shows: the information dictionary combined with the catalog's XMP. A PDF 2.0
+    /// file takes the XMP value when both exist (ISO 32000-2 §14.3.3); an earlier file uses XMP only for an entry the
+    /// dictionary lacks. <see cref="GetInfo"/> still reports the dictionary alone.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <returns>The information.</returns>
+    public static PdfDocumentInfo GetResolvedInfo(PdfDocument document)
+    {
+        var info = PdfDocumentMetadata.GetInfo(document);
+        return PdfDocumentMetadata.GetXmp(document) is { } xmp ? XmpInfoResolver.Resolve(info, xmp) : info;
     }
 
     /// <summary>Reads an information entry, treating blank text as missing.</summary>

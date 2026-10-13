@@ -45,7 +45,7 @@ internal readonly record struct FormFrame(float Width, float Height, int Rotatio
     /// <summary>Creates the frame for a widget.</summary>
     /// <param name="context">The widget.</param>
     /// <returns>The frame.</returns>
-    internal static FormFrame Create(AppearanceContext context)
+    internal static FormFrame Create(in AppearanceContext context)
     {
         var rect = context.Rect;
         var mk = context.Characteristics;

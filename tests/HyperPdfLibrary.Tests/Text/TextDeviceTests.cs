@@ -35,8 +35,8 @@ public sealed class TextDeviceTests
     /// <summary>The x of the third glyph, one advance and the kerning gap after the second.</summary>
     private const float ThirdX = SecondX + GlyphAdvance + KerningGap;
 
-    /// <summary>The kerning PDFium records for a 3 point gap at size 10: minus 300 thousandths.</summary>
-    private const float ExpectedKerning = -300;
+    /// <summary>The pen position of the third glyph in the run: its x less the first glyph's x.</summary>
+    private const float ExpectedThirdPen = ThirdX - FirstX;
 
     /// <summary>The tolerance for kerning values.</summary>
     private const float Tolerance = 0.01F;
@@ -47,7 +47,7 @@ public sealed class TextDeviceTests
     /// <summary>The runs when the interpreter reports a text object for each glyph pair.</summary>
     private const int HookedRuns = 2;
 
-    /// <summary>Without text object starts, glyphs moving forward along one baseline form one run, and gaps become kerning.</summary>
+    /// <summary>Without text object starts, glyphs moving forward along one baseline form one run, and a gap leaves the next glyph's pen further along.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task GlyphsOnABaselineFormOneRun()
@@ -55,10 +55,10 @@ public sealed class TextDeviceTests
         var device = Collect(false);
 
         await Assert.That(device.Runs.Count).IsEqualTo(1);
-        await Assert.That(device.Glyphs[1].Kerning).IsEqualTo(ExpectedKerning).Within(Tolerance);
+        await Assert.That(device.Glyphs[2].Pen).IsEqualTo(ExpectedThirdPen).Within(Tolerance);
     }
 
-    /// <summary>With text object starts, each text object is its own run, as PDFium's text objects are.</summary>
+    /// <summary>With text object starts, each text object is its own run.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task TextObjectStartsSplitRuns()

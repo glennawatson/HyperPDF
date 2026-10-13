@@ -8,6 +8,7 @@ using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Graphics.Functions;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Rendering;
 
 namespace HyperPdfLibrary.Content;
 
@@ -77,7 +78,7 @@ internal static class ContentExtendedGraphics
         _ => null,
     };
 
-    /// <summary>Reads a boolean entry the way PDFium does, which also accepts a non-zero number.</summary>
+    /// <summary>Reads a boolean entry leniently: a non-zero number also counts as true, because damaged files write 1 for true.</summary>
     /// <param name = "value">The value.</param>
     /// <returns><see langword="true"/> for <c>true</c> or a non-zero number.</returns>
     internal static bool IsTrue(PdfValue value) => value.AsBoolean() || value.AsInt32() != 0;
@@ -106,11 +107,16 @@ internal static class ContentExtendedGraphics
         return table;
     }
 
-    /// <summary>Applies the entries of an ExtGState dictionary that affect rendering; rendering intent, flatness and the like are ignored.</summary>
+    /// <summary>
+    /// Applies the entries of an ExtGState dictionary (ISO 32000-2 Table 53). Flatness, smoothness, stroke adjustment,
+    /// halftone, black generation and undercolour removal are kept in the state and change no output; the transfer
+    /// function changes the final colours.
+    /// </summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "dictionary">The dictionary.</param>
     internal static void ApplyExtGState(ContentInterpreter self, PdfDictionary dictionary)
     {
+        var rendering = self.State.ColorRendering;
         for (var i = 0; i < dictionary.Count; i++)
         {
             var key = dictionary.GetKeyAt(i);
@@ -121,46 +127,55 @@ internal static class ContentExtendedGraphics
                 continue;
             }
 
-            ContentExtendedGraphics.ApplyExtGStateEntry(self, key.ToKnownName(), value);
+            if (key == self.Cache.UseBlackPointCompensation)
+            {
+                ContentColorRendering.ApplyBlackPointMode(self, value);
+                continue;
+            }
+
+            var known = key.ToKnownName();
+            if (!ContentDeviceFunctions.Apply(self, dictionary, known, value))
+            {
+                ContentExtendedGraphics.ApplyExtGStateEntry(self, known, value);
+            }
         }
 
         ContentExtendedGraphics.ApplyOverprint(self, dictionary);
+        ContentColorRendering.Refresh(self, rendering);
     }
 
     /// <summary>
-    /// Applies /OP, /op, /OPM and /TK as PDFium reads them: /OP sets stroke overprint, and fill overprint too unless /op
-    /// is present. Rendering intent (/RI), flatness (/FL), smoothness (/SM), transfer and halftones are parsed and ignored.
+    /// Applies /OP, /op, /OPM and /TK: /OP sets stroke overprint, and fill overprint too unless /op
+    /// is present (ISO 32000-2 Table 57). A value of the wrong type is ignored, and /OPM keeps only 0 or 1.
     /// </summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "dictionary">The ExtGState dictionary.</param>
     internal static void ApplyOverprint(ContentInterpreter self, PdfDictionary dictionary)
     {
-        var stroke = dictionary.Get(KnownName.OP);
-        var fill = dictionary.Get(KnownName.FillOverprint);
-        if (!stroke.IsNull)
+        var fillUsable = ContentDeviceFunctions.TryReadBoolean(dictionary.Get(KnownName.FillOverprint), out var fill);
+        if (ContentDeviceFunctions.TryReadBoolean(dictionary.Get(KnownName.OP), out var stroke))
         {
-            self.State.StrokeOverprint = ContentExtendedGraphics.IsTrue(stroke);
-            if (fill.IsNull)
+            self.State.StrokeOverprint = stroke;
+            if (!fillUsable)
             {
-                self.State.FillOverprint = self.State.StrokeOverprint;
+                self.State.FillOverprint = stroke;
             }
         }
 
-        if (!fill.IsNull)
+        if (fillUsable)
         {
-            self.State.FillOverprint = ContentExtendedGraphics.IsTrue(fill);
+            self.State.FillOverprint = fill;
         }
 
         var mode = dictionary.Get(KnownName.OPM);
-        if (!mode.IsNull)
+        if (mode.IsNumber && mode.AsInt32() is 0 or 1)
         {
             self.State.OverprintMode = mode.AsInt32();
         }
 
-        var knockout = dictionary.Get(KnownName.TK);
-        if (!knockout.IsNull)
+        if (ContentDeviceFunctions.TryReadBoolean(dictionary.Get(KnownName.TK), out var knockout))
         {
-            self.State.TextKnockout = ContentExtendedGraphics.IsTrue(knockout);
+            self.State.TextKnockout = knockout;
         }
     }
 
@@ -216,7 +231,7 @@ internal static class ContentExtendedGraphics
         }
     }
 
-    /// <summary>Applies the entries that name other objects: font, blend mode and soft mask.</summary>
+    /// <summary>Applies the entries that name other objects or values: font, blend mode, soft mask and rendering intent.</summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "key">The key.</param>
     /// <param name = "value">The value, resolved.</param>
@@ -247,15 +262,21 @@ internal static class ContentExtendedGraphics
                     break;
                 }
 
+            case KnownName.RI:
+                {
+                    ContentColorRendering.ApplyIntent(self, value);
+                    break;
+                }
+
             default:
                 {
-                    // Overprint and text knockout are read by ApplyOverprint; transfer, halftone, flatness and rendering intent change nothing drawn.
+                    // Overprint and text knockout are read by ApplyOverprint; the device-dependent keys by ContentDeviceFunctions.
                     break;
                 }
         }
     }
 
-    /// <summary>Applies a /D entry: <c>[dashArray phase]</c>.</summary>
+    /// <summary>Applies a /D entry: <c>[dashArray phase]</c>. The lengths of each dash array are made once and reused.</summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "array">The array.</param>
     internal static void ApplyDash(ContentInterpreter self, PdfArray? array)
@@ -265,6 +286,16 @@ internal static class ContentExtendedGraphics
             return;
         }
 
+        var pattern = self.Cache.Dashes.GetOrCreate(lengths, 0, static (key, _) => ContentExtendedGraphics.ReadDash(key));
+        self.State.Dash = pattern?.Lengths ?? [];
+        self.State.DashPhase = array.GetSingle(1);
+    }
+
+    /// <summary>Reads the lengths of a dash array.</summary>
+    /// <param name = "lengths">The array.</param>
+    /// <returns>The pattern; no lengths when the array is empty or its lengths add to nothing.</returns>
+    internal static DashPattern ReadDash(PdfArray lengths)
+    {
         Span<float> buffer = stackalloc float[ContentGraphicsState.MaxDashEntries];
         var count = Math.Min(lengths.Count, buffer.Length);
         var total = 0F;
@@ -274,19 +305,27 @@ internal static class ContentExtendedGraphics
             total += Math.Abs(buffer[i]);
         }
 
-        self.State.Dash = count == 0 || total <= 0 ? [] : [.. buffer[..count]];
-        self.State.DashPhase = array.GetSingle(1);
+        return new(count == 0 || total <= 0 ? [] : [.. buffer[..count]]);
     }
 
     /// <summary>Gets a soft mask recorded with the current transform.</summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "mask">The soft mask dictionary.</param>
     /// <returns>The mask, or null when it is damaged or no drawing backend is registered.</returns>
-    internal static PdfSoftMask? GetSoftMask(ContentInterpreter self, PdfDictionary mask) =>
-        self.Cache.Document.DrawingServices.ConfiguredBackend is null || mask.GetStream(KnownName.G) is null ? null : self.Cache.SoftMasks.GetOrCreate(
-            new(mask, self.State.Ctm),
+    internal static PdfSoftMask? GetSoftMask(ContentInterpreter self, PdfDictionary mask)
+    {
+        if (self.Cache.Document.DrawingServices.ConfiguredBackend is null || mask.GetStream(KnownName.G) is null)
+        {
+            return null;
+        }
+
+        var mode = self.Mode;
+        self.Cache.ObserveLayerVersion(mode.LayerVersion);
+        return self.Cache.SoftMasks.GetOrCreate(
+            new(mask, self.State.Ctm, ContentExecution.CurrentResources(self), mode),
             new SoftMaskRequest(self, mask),
             static (key, request) => ContentExtendedGraphics.RecordSoftMask(request.Owner, request.Mask, key.Ctm));
+    }
 
     /// <summary>Records a soft mask's group to a picture.</summary>
     /// <param name = "self">The owned interpreter state.</param>
@@ -300,7 +339,10 @@ internal static class ContentExtendedGraphics
             ? ctm.MapRect(new(box.Left, box.Bottom, box.Right, box.Top))
             : PdfRect.Create(-UnboundedExtent, -UnboundedExtent, UnboundedSize, UnboundedSize);
         using var recorder = self.Device.CreatePictureDevice(bounds);
-        using var child = new ContentInterpreter(self.Cache, recorder, self.Depth + 1, cancellationToken: self.CancellationToken) { Printing = self.Printing };
+        using var child = ContentInterpreter.Rent(self.Cache, recorder, self.Depth + 1, self.CancellationToken);
+        child.Printing = self.Printing;
+        child.ZoomClass = self.ZoomClass;
+        child.Colorants = self.Colorants;
         ContentExecution.RunForm(child, group, ctm, ContentExecution.CurrentResources(self));
         var picture = recorder.Finish();
         var luminosity = mask.IsName(KnownName.S, KnownName.Luminosity);

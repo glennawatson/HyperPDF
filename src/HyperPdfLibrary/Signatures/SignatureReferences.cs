@@ -10,5 +10,6 @@ namespace HyperPdfLibrary.Signatures;
 /// <param name="DocMdp">The DocMDP permission, or None.</param>
 /// <param name="FieldMdp">The FieldMDP lock, or <see langword="null"/>.</param>
 /// <param name="UsageRights">The UR3 usage rights, or <see langword="null"/>.</param>
+/// <param name="DigestMethods">Each reference's /DigestMethod, in order.</param>
 [DebuggerDisplay("SignatureReferences: {DocMdp}")]
-internal readonly record struct SignatureReferences(PdfMdpPermission DocMdp, PdfFieldLock? FieldMdp, PdfUsageRights? UsageRights);
+internal readonly record struct SignatureReferences(PdfMdpPermission DocMdp, PdfFieldLock? FieldMdp, PdfUsageRights? UsageRights, PdfDigestMethod[] DigestMethods);

@@ -12,8 +12,8 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
-/// Loads /Type1, /MMType1 and /TrueType fonts as PDFium's CPDF_Type1Font, CPDF_TrueTypeFont and their shared
-/// CPDF_FaceBasedSimpleFont::LoadCommon do: descriptor, widths, encoding, then the glyph map.
+/// Loads /Type1, /MMType1 and /TrueType fonts (ISO 32000-2 clauses 9.6.2 and 9.6.3): descriptor, widths, encoding,
+/// then the glyph map.
 /// </summary>
 internal static class SimpleFontLoader
 {
@@ -101,7 +101,7 @@ internal static class SimpleFontLoader
         return new(font, baseFont, standard, descriptor, flags, program, trueType);
     }
 
-    /// <summary>Chooses the base encoding before /Encoding is read, as PDFium's Load and LoadCommon do.</summary>
+    /// <summary>Chooses the base encoding before /Encoding is read: symbolic fonts start from the font program's own encoding, others from StandardEncoding (ISO 32000-2, 9.6.5.1).</summary>
     /// <param name="facts">The facts.</param>
     /// <returns>The encoding; <see cref="FontEncoding.None"/> for built-in.</returns>
     private static FontEncoding InitialEncoding(SimpleFontFacts facts)
@@ -148,7 +148,8 @@ internal static class SimpleFontLoader
 
         if (facts.Program is null)
         {
-            // PDFium gives a code with no glyph in a substituted font the width of the space.
+            // A code the substitute face cannot draw and that has no width keeps the advance of the space, so
+            // the text after it does not collapse onto it.
             for (var code = 0; code < widths.Length; code++)
             {
                 if (map.Glyphs[code] < 0 && code != SpaceCode && widths[code] == 0)
@@ -214,7 +215,7 @@ internal static class SimpleFontLoader
         return glyph >= 0 ? source.GetAdvance(glyph) : 0;
     }
 
-    /// <summary>Draws the lowercase codes of an AllCap font with the capitals' glyphs, as PDFium does.</summary>
+    /// <summary>Draws the lowercase codes of an AllCap font with the capitals' glyphs, for the AllCap font flag (ISO 32000-2, 9.8.2, Table 121).</summary>
     /// <param name="facts">The facts.</param>
     /// <param name="map">The glyph map.</param>
     /// <param name="widths">The widths.</param>
@@ -255,7 +256,7 @@ internal static class SimpleFontLoader
             return facts.Descriptor.Ascent / GlyphUnits;
         }
 
-        return (DrawnWithStandardFace(facts) ? StandardFaceMetrics.Ascent(facts.Standard) : source.Ascent) / GlyphUnits;
+        return (DrawnWithStandardFace(facts) ? StandardFonts.GetAscent(facts.Standard) : source.Ascent) / GlyphUnits;
     }
 
     /// <summary>Chooses the descent: the descriptor's, the standard face's, then the glyph source's.</summary>
@@ -269,12 +270,12 @@ internal static class SimpleFontLoader
             return facts.Descriptor.Descent / GlyphUnits;
         }
 
-        return (DrawnWithStandardFace(facts) ? StandardFaceMetrics.Descent(facts.Standard) : source.Descent) / GlyphUnits;
+        return (DrawnWithStandardFace(facts) ? StandardFonts.GetDescent(facts.Standard) : source.Descent) / GlyphUnits;
     }
 
     /// <summary>
-    /// Determines whether PDFium draws the font with one of its standard faces and takes the ascent and descent from it:
-    /// a standard 14 font with no embedded program.
+    /// Determines whether the font is a standard 14 font with no embedded program, so the published Adobe metrics
+    /// give its ascent and descent.
     /// </summary>
     /// <param name="facts">The facts.</param>
     /// <returns><see langword="true"/> for a standard font drawn with a standard face.</returns>

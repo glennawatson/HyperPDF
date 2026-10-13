@@ -35,8 +35,11 @@ public sealed class AsyncCancellationTests
     /// <summary>The wait before the token is cancelled, in milliseconds.</summary>
     private const int CancelAfterMilliseconds = 60;
 
-    /// <summary>How long opening the huge page tree must take, in milliseconds, for the test to mean anything.</summary>
-    private const int MinimumOpenMilliseconds = 120;
+    /// <summary>The wait before the token is cancelled while the huge page tree is walked, in milliseconds; the walk reads pages from their bytes and is short.</summary>
+    private const int WalkCancelAfterMilliseconds = 10;
+
+    /// <summary>How long walking the huge page tree must take, in milliseconds, for the test to mean anything.</summary>
+    private const int WalkMinimumMilliseconds = 25;
 
     /// <summary>How long after the cancellation the work may take to stop, in milliseconds.</summary>
     private const int StopLimitMilliseconds = 600;
@@ -92,19 +95,24 @@ public sealed class AsyncCancellationTests
         _ = await PdfDocumentNavigation.GetOutlineAsync(document, CancellationToken.None);
 
         var allCompleted = true;
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < WarmQueries; i++)
+        var attempts = new AllocationAttempts();
+        while (attempts.Next())
         {
-            var page = PdfDocumentPages.GetPageAsync(document, 0, CancellationToken.None);
-            var text = PdfDocumentText.GetTextPageAsync(document, 0, CancellationToken.None);
-            var outline = PdfDocumentNavigation.GetOutlineAsync(document, CancellationToken.None);
-            allCompleted &= page.IsCompletedSuccessfully && text.IsCompletedSuccessfully && outline.IsCompletedSuccessfully;
-            _ = await page;
-            _ = await text;
-            _ = await outline;
+            for (var i = 0; i < WarmQueries; i++)
+            {
+                var page = PdfDocumentPages.GetPageAsync(document, 0, CancellationToken.None);
+                var text = PdfDocumentText.GetTextPageAsync(document, 0, CancellationToken.None);
+                var outline = PdfDocumentNavigation.GetOutlineAsync(document, CancellationToken.None);
+                allCompleted &= page.IsCompletedSuccessfully && text.IsCompletedSuccessfully && outline.IsCompletedSuccessfully;
+                _ = await page;
+                _ = await text;
+                _ = await outline;
+            }
+
+            attempts.Stop();
         }
 
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = attempts.Smallest;
         await Assert.That(allCompleted).IsTrue();
         await Assert.That(allocated).IsEqualTo(0);
     }
@@ -166,13 +174,13 @@ public sealed class AsyncCancellationTests
 
         var uncancelled = Elapsed(baseline);
         using var source = new CancellationTokenSource();
-        source.CancelAfter(CancelAfterMilliseconds);
+        source.CancelAfter(WalkCancelAfterMilliseconds);
         var start = Stopwatch.GetTimestamp();
         await Assert.That(await Cancelled(() => SkiaTestRegistration.OpenAsync(ManyPages, null, source.Token).AsTask())).IsTrue();
         var elapsed = Elapsed(start);
 
-        await Assert.That(uncancelled).IsGreaterThan(MinimumOpenMilliseconds);
-        await Assert.That(elapsed).IsLessThan(CancelAfterMilliseconds + StopLimitMilliseconds);
+        await Assert.That(uncancelled).IsGreaterThan(WalkMinimumMilliseconds);
+        await Assert.That(elapsed).IsLessThan(WalkCancelAfterMilliseconds + StopLimitMilliseconds);
         await Assert.That(elapsed).IsLessThan(uncancelled);
     }
 

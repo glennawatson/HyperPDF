@@ -65,6 +65,7 @@ internal static unsafe class ContentOperators
         table[(int)ContentOperator.SetMiterLimit] = &ContentGraphicsState.OpSetMiterLimit;
         table[(int)ContentOperator.SetDash] = &ContentGraphicsState.OpSetDash;
         table[(int)ContentOperator.SetGraphicsState] = &ContentGraphicsState.OpSetGraphicsState;
+        table[(int)ContentOperator.SetRenderingIntent] = &ContentColorRendering.OpSetRenderingIntent;
     }
 
     /// <summary>Registers the colour operators.</summary>
@@ -126,7 +127,7 @@ internal static unsafe class ContentOperators
     /// <param name = "reader">The reader.</param>
     internal static void OpIgnore(ContentInterpreter self, ref ContentReader reader)
     {
-        // Compatibility sections, flatness, rendering intent, marked points and stray inline image keywords change nothing drawn.
+        // Compatibility sections, flatness, marked points and stray inline image keywords change nothing drawn.
     }
 
     /// <summary>Runs one operator, treating a damaged operand as a skipped operator.</summary>

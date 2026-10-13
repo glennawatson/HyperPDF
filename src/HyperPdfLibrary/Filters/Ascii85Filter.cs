@@ -35,7 +35,7 @@ internal static class Ascii85Filter
 
     /// <summary>
     /// Decodes base-85 groups up to the first character that is not a digit, 'z' or white space (normally the '~&gt;'
-    /// end marker), as PDFium does. A leading '&lt;~' is skipped.
+    /// end marker, ISO 32000-1 section 7.4.3). A leading '&lt;~' is skipped.
     /// </summary>
     /// <param name="input">The encoded data.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>

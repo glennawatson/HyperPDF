@@ -33,6 +33,33 @@ public sealed record XmpMetadata(byte[] RawPacket, IReadOnlyDictionary<string, s
     /// <summary>The PDF/UA identification namespace.</summary>
     public static readonly string PdfUaIdNamespace = "http://www.aiim.org/pdfua/ns/id/";
 
+    /// <summary>The XMP media management namespace.</summary>
+    public static readonly string XmpMediaManagementNamespace = "http://ns.adobe.com/xap/1.0/mm/";
+
+    /// <summary>The XMP rights management namespace.</summary>
+    public static readonly string XmpRightsNamespace = "http://ns.adobe.com/xap/1.0/rights/";
+
+    /// <summary>The PDF/X identification namespace.</summary>
+    public static readonly string PdfXNamespace = "http://ns.adobe.com/pdfx/1.3/";
+
+    /// <summary>The PDF/A extension schema container namespace.</summary>
+    public static readonly string PdfAExtensionNamespace = "http://www.aiim.org/pdfa/ns/extension/";
+
+    /// <summary>The PDF/A extension schema description namespace.</summary>
+    public static readonly string PdfASchemaNamespace = "http://www.aiim.org/pdfa/ns/schema#";
+
+    /// <summary>The PDF/A extension property description namespace.</summary>
+    public static readonly string PdfAPropertyNamespace = "http://www.aiim.org/pdfa/ns/property#";
+
+    /// <summary>The braces around the namespace in a property key.</summary>
+    private const int KeyDelimiters = 2;
+
+    /// <summary>The longest key built on the stack; a longer one is built as a string.</summary>
+    private const int StackKeyChars = 256;
+
+    /// <summary>The date shapes that stop before the day, which the general parser reads wrongly or refuses.</summary>
+    private static readonly string[] PartialDateFormats = ["yyyy", "yyyy-MM"];
+
     /// <summary>Gets the title (the default language).</summary>
     public string? Title => GetValue(DublinCoreNamespace, "title");
 
@@ -78,6 +105,36 @@ public sealed record XmpMetadata(byte[] RawPacket, IReadOnlyDictionary<string, s
     /// <summary>Gets the PDF/UA part (<c>pdfuaid:part</c>), or null.</summary>
     public int? PdfUaPart => GetInt(PdfUaIdNamespace, "part");
 
+    /// <summary>Gets the trapping state (<c>pdf:Trapped</c>): True, False or Unknown.</summary>
+    public string? Trapped => GetValue(PdfNamespace, nameof(Trapped));
+
+    /// <summary>Gets the rights statement (<c>dc:rights</c>, the default language).</summary>
+    public string? Rights => GetValue(DublinCoreNamespace, "rights");
+
+    /// <summary>Gets the document identifier (<c>xmpMM:DocumentID</c>).</summary>
+    public string? DocumentId => GetValue(XmpMediaManagementNamespace, "DocumentID");
+
+    /// <summary>Gets the instance identifier (<c>xmpMM:InstanceID</c>).</summary>
+    public string? InstanceId => GetValue(XmpMediaManagementNamespace, "InstanceID");
+
+    /// <summary>Gets the original document identifier (<c>xmpMM:OriginalDocumentID</c>).</summary>
+    public string? OriginalDocumentId => GetValue(XmpMediaManagementNamespace, "OriginalDocumentID");
+
+    /// <summary>Gets the copyright flag (<c>xmpRights:Marked</c>), or null when missing or not a boolean.</summary>
+    public bool? RightsMarked => GetBool(XmpRightsNamespace, "Marked");
+
+    /// <summary>Gets the rights owners (<c>xmpRights:Owner</c>).</summary>
+    public string[] RightsOwners => GetValues(XmpRightsNamespace, "Owner");
+
+    /// <summary>Gets the usage terms (<c>xmpRights:UsageTerms</c>, the default language).</summary>
+    public string? UsageTerms => GetValue(XmpRightsNamespace, nameof(UsageTerms));
+
+    /// <summary>Gets the rights web statement (<c>xmpRights:WebStatement</c>).</summary>
+    public string? WebStatement => GetValue(XmpRightsNamespace, nameof(WebStatement));
+
+    /// <summary>Gets the PDF/X version (<c>pdfx:GTS_PDFXVersion</c>), for example "PDF/X-4".</summary>
+    public string? PdfXVersion => GetValue(PdfXNamespace, "GTS_PDFXVersion");
+
     /// <summary>Builds a property key.</summary>
     /// <param name="namespaceUri">The namespace URI.</param>
     /// <param name="localName">The local name.</param>
@@ -90,14 +147,35 @@ public sealed record XmpMetadata(byte[] RawPacket, IReadOnlyDictionary<string, s
     /// <param name="localName">The property's local name.</param>
     /// <returns>The value, or null when missing.</returns>
     public string? GetValue(string namespaceUri, string localName) =>
-        Properties.TryGetValue(Key(namespaceUri, localName), out var values) && values.Length > 0 ? values[0] : null;
+        TryGetProperty(namespaceUri, localName, out var values) && values.Length > 0 ? values[0] : null;
 
     /// <summary>Gets all values of a property.</summary>
     /// <param name="namespaceUri">The property's namespace URI.</param>
     /// <param name="localName">The property's local name.</param>
     /// <returns>The values; empty when missing.</returns>
     public string[] GetValues(string namespaceUri, string localName) =>
-        Properties.TryGetValue(Key(namespaceUri, localName), out var values) ? values : [];
+        TryGetProperty(namespaceUri, localName, out var values) ? values : [];
+
+    /// <summary>Looks a property up by its namespace and name. A parsed packet's dictionary is searched with a key built on the stack, so the lookup makes no string.</summary>
+    /// <param name="namespaceUri">The property's namespace URI.</param>
+    /// <param name="localName">The property's local name.</param>
+    /// <param name="values">Receives the values.</param>
+    /// <returns><see langword="true"/> when the property exists.</returns>
+    private bool TryGetProperty(string namespaceUri, string localName, out string[] values)
+    {
+        var length = namespaceUri.Length + localName.Length + KeyDelimiters;
+        if (length <= StackKeyChars && Properties is Dictionary<string, string[]> dictionary && dictionary.TryGetAlternateLookup<ReadOnlySpan<char>>(out var lookup))
+        {
+            Span<char> key = stackalloc char[length];
+            key[0] = '{';
+            namespaceUri.CopyTo(key[1..]);
+            key[namespaceUri.Length + 1] = '}';
+            localName.CopyTo(key[(namespaceUri.Length + KeyDelimiters)..]);
+            return lookup.TryGetValue(key, out values!);
+        }
+
+        return Properties.TryGetValue(Key(namespaceUri, localName), out values!);
+    }
 
     /// <summary>Reads an integer property.</summary>
     /// <param name="namespaceUri">The namespace URI.</param>
@@ -106,9 +184,24 @@ public sealed record XmpMetadata(byte[] RawPacket, IReadOnlyDictionary<string, s
     private int? GetInt(string namespaceUri, string localName) =>
         int.TryParse(GetValue(namespaceUri, localName), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
 
-    /// <summary>Reads an <c>xmp:</c> date property.</summary>
+    /// <summary>Reads a boolean property (<c>True</c> or <c>False</c>).</summary>
+    /// <param name="namespaceUri">The namespace URI.</param>
+    /// <param name="localName">The local name.</param>
+    /// <returns>The value, or null.</returns>
+    private bool? GetBool(string namespaceUri, string localName) =>
+        bool.TryParse(GetValue(namespaceUri, localName), out var value) ? value : null;
+
+    /// <summary>Reads an <c>xmp:</c> date property. XMP dates may be a year, a year and month, a date, or a date with a time.</summary>
     /// <param name="localName">The local name.</param>
     /// <returns>The date, or null.</returns>
-    private DateTimeOffset? GetDate(string localName) =>
-        DateTimeOffset.TryParse(GetValue(XmpNamespace, localName), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var value) ? value : null;
+    private DateTimeOffset? GetDate(string localName)
+    {
+        var text = GetValue(XmpNamespace, localName);
+        if (DateTimeOffset.TryParseExact(text, PartialDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var partial))
+        {
+            return partial;
+        }
+
+        return DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var value) ? value : null;
+    }
 }

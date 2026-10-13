@@ -49,6 +49,9 @@ internal sealed class FakeDocument : IDocument
     /// <summary>Gets or sets an event every render waits on before drawing.</summary>
     internal ManualResetEventSlim? Gate { get; set; }
 
+    /// <summary>Gets or sets an exception every render throws after the gate opens.</summary>
+    internal Exception? RenderFailure { get; set; }
+
     /// <summary>Gets or sets asynchronous page preparation.</summary>
     internal Func<int, CancellationToken, ValueTask>? Preparation { get; set; }
 
@@ -77,6 +80,11 @@ internal sealed class FakeDocument : IDocument
         Started.Set();
         _ = _firstRenderStarted.TrySetResult();
         Gate?.Wait();
+        if (RenderFailure is { } failure)
+        {
+            throw failure;
+        }
+
         if (IsDisposed)
         {
             return false;

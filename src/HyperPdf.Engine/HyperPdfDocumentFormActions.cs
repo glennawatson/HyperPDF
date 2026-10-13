@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Forms;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdf.Engine;
@@ -21,16 +22,9 @@ internal static class HyperPdfDocumentFormActions
     internal static async ValueTask<FormActionResult> RunWidgetActionAsync(HyperPdfDocument self, int pageIndex, int index, IFormActionHost host, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(host);
-        if (self.IsDisposed || (uint)pageIndex >= (uint)self.PageCount
-            || PdfDocumentPages.GetPage(self.Document, pageIndex).Dictionary.GetArray(KnownName.Annots) is not { } annotations
-            || (uint)index >= (uint)annotations.Count
-            || annotations.GetDictionary(index)?.GetDictionary(KnownName.A) is not { } action)
-        {
-            return FormActionResult.None;
-        }
-
-        var node = PdfDocumentActions.ReadActionNode(self.Document, action);
-        return HyperPdfFormRuntime.Complete(self, await HyperPdfFormRuntime.CreateRunner(self, host).RunAsync(node, pageIndex, cancellationToken).ConfigureAwait(false));
+        return ReadAction(self, pageIndex, index) is { } node
+            ? HyperPdfFormRuntime.Complete(self, await HyperPdfFormRuntime.CreateRunner(self, host).RunAsync(node, pageIndex, cancellationToken).ConfigureAwait(false))
+            : FormActionResult.None;
     }
 
     /// <summary>Runs the actions a page does when it opens.</summary>
@@ -45,5 +39,21 @@ internal static class HyperPdfDocumentFormActions
         return self.IsDisposed
             ? FormActionResult.None
             : HyperPdfFormRuntime.Complete(self, await HyperPdfFormRuntime.CreateRunner(self, host).RunPageOpenedAsync(pageIndex, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>Reads the action of a widget while no edit runs.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="index">The widget index.</param>
+    /// <returns>The action, or <see langword="null"/> when the widget has none.</returns>
+    private static PdfActionNode? ReadAction(HyperPdfDocument self, int pageIndex, int index)
+    {
+        using var access = HyperPdfNavigation.EnterPageRead(self);
+        return self.IsDisposed || (uint)pageIndex >= (uint)self.PageCount
+            || PdfDocumentPages.GetPage(self.Document, pageIndex).Dictionary.GetArray(KnownName.Annots) is not { } annotations
+            || (uint)index >= (uint)annotations.Count
+            || annotations.GetDictionary(index)?.GetDictionary(KnownName.A) is not { } action
+            ? null
+            : PdfDocumentActions.ReadActionNode(self.Document, action);
     }
 }

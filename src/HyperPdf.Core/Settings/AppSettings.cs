@@ -50,10 +50,10 @@ public sealed class AppSettings
     public string OcrLanguage { get; set; } = "eng";
 
     /// <summary>Gets or sets the colour of the tint over fillable form fields, as 0xRRGGBB.</summary>
-    public uint FormHighlightColor { get; set; } = 0xB4CCDCU;
+    public uint FormHighlightColor { get; set; } = HyperPdf.Core.Forms.FormHighlight.Default.Color;
 
     /// <summary>Gets or sets the opacity of the tint over fillable form fields, 0 (off) to 255.</summary>
-    public int FormHighlightAlpha { get; set; } = 72;
+    public int FormHighlightAlpha { get; set; } = HyperPdf.Core.Forms.FormHighlight.Default.Alpha;
 
     /// <summary>Gets or sets which voice reads documents aloud.</summary>
     public SpeechEngineChoice SpeechEngine { get; set; }

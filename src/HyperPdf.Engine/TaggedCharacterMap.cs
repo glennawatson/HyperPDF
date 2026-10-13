@@ -61,9 +61,9 @@ internal static class TaggedCharacterMap
     }
 
     /// <summary>
-    /// Determines whether a space PDFium inserted between a glyph and the one before it belongs to the glyph. PDFium
-    /// gives such a space the text object it falls inside, so it counts in that marked content; between two marked
-    /// content ids it belongs to neither.
+    /// Determines whether a space the extractor generated between a glyph and the one before it belongs to the glyph.
+    /// A space between two glyphs of one marked content id counts in that marked content; between two ids it belongs
+    /// to neither.
     /// </summary>
     /// <param name="content">The recorded glyphs.</param>
     /// <param name="characters">The page characters.</param>
@@ -125,9 +125,8 @@ internal static class TaggedCharacterMap
     }
 
     /// <summary>
-    /// Matches a drawn space to the very next character when that is a space. PDFium marks some drawn spaces as
-    /// generated but still counts them in their marked content, so a generated space matches too; line breaks it
-    /// inserts are skipped.
+    /// Matches a drawn space to the very next character when that is a space. A generated space matches too, because
+    /// it may stand in for a drawn one when spaces are collapsed; generated line breaks are skipped.
     /// </summary>
     /// <param name="characters">The page characters.</param>
     /// <param name="from">The first character that may match.</param>

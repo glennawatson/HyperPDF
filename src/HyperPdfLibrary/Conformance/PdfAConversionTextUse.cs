@@ -23,7 +23,7 @@ internal static class PdfAConversionTextUse
         for (var i = 0; i < document.PageCount; i++)
         {
             var page = PdfDocumentPages.GetPage(document, i);
-            using var interpreter = new ContentInterpreter(cache, device, 0, float.PositiveInfinity, session.CancellationToken);
+            using var interpreter = ContentInterpreter.Rent(cache, device, 0, session.CancellationToken);
             try
             {
                 ContentExecution.RunPage(interpreter, page);

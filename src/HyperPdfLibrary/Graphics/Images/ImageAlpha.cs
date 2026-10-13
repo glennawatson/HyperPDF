@@ -99,8 +99,8 @@ internal static class ImageAlpha
     }
 
     /// <summary>
-    /// Replaces colours that were blended with a matte colour by the soft mask: c = m + (c' - m) * 255 / alpha, as PDFium
-    /// does. Pixels with zero or full alpha are left alone.
+    /// Replaces colours that were blended with a matte colour by the soft mask: c = m + (c' - m) * 255 / alpha (ISO 32000-1
+    /// section 11.6.5.3, the Matte entry). Pixels with zero or full alpha are left alone.
     /// </summary>
     /// <param name="bgra">The opaque, pre-blended pixels.</param>
     /// <param name="alpha">One alpha byte per pixel.</param>

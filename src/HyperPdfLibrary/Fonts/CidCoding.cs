@@ -4,7 +4,7 @@
 
 namespace HyperPdfLibrary.Fonts;
 
-/// <summary>What a composite font's character codes mean, as PDFium's CIDCoding records; it decides how a code without /ToUnicode becomes text.</summary>
+/// <summary>What a composite font's character codes mean, taken from the CMap name (ISO 32000-2, 9.7.5.2); it decides how a code without /ToUnicode becomes text.</summary>
 internal enum CidCoding
 {
     /// <summary>The codes mean nothing on their own: embedded CMap streams and predefined CMap names the library does not know.</summary>

@@ -30,7 +30,7 @@ public static class PdfDocumentPortfolio
 
         var root = collection.Dict("Folders") is { } folders ? PortfolioReader.ReadFolder(folders, 0, [with(ReferenceEqualityComparer.Instance)]) : null;
         return new(
-PortfolioReader.ReadSchema(collection.Dict("Schema")),
+PortfolioReader.ReadSchema(document.Objects, collection.Dict("Schema")),
 PortfolioReader.ReadSort(collection.Dict("Sort")),
 collection.Text("D"),
 collection.NameText("View") ?? PdfDocumentPortfolio.DefaultPortfolioView,
@@ -52,7 +52,7 @@ PdfDocumentPortfolio.ReadPortfolioItems(document));
         {
             var spec = i < entries.Count ? entries[i].Value.AsDictionary() : null;
             var folder = i < entries.Count ? PortfolioReader.ReadFolderId(entries[i].Key.AsStringBytes()) : null;
-            items[i] = new(attachments[i].Index, attachments[i].Name, folder, PortfolioReader.ReadItemValues(spec?.Dict("CI")));
+            items[i] = new(attachments[i].Index, attachments[i].Name, folder, PortfolioReader.ReadItemValues(document.Objects, spec?.Dict("CI")));
         }
 
         return items;

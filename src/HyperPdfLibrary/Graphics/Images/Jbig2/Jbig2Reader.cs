@@ -9,8 +9,7 @@ using HyperPdfLibrary.Filters;
 namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
 /// <summary>
-/// Reads big-endian integers and bits, most significant first, from JBIG2 data. Byte reads ignore the bit position, as
-/// in PDFium. Reads past the end fail instead of throwing.
+/// Reads big-endian integers and bits, most significant first, from JBIG2 data. Byte reads ignore the bit position. Reads past the end fail instead of throwing.
 /// </summary>
 internal ref struct Jbig2Reader
 {
@@ -188,7 +187,7 @@ internal ref struct Jbig2Reader
         return true;
     }
 
-    /// <summary>Reads up to 32 bits; near the end it reads only the bits left, as PDFium does.</summary>
+    /// <summary>Reads up to 32 bits; near the end it reads only the bits left and the missing low bits are zero.</summary>
     /// <param name="count">The bits wanted, from 0 to 32.</param>
     /// <param name="value">The bits, right-aligned.</param>
     /// <returns><see langword="false"/> when the position is past the end.</returns>

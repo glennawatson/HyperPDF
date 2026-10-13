@@ -11,8 +11,8 @@ namespace HyperPdfLibrary.Fonts;
 /// <param name="Descent">The descent, usually negative.</param>
 /// <param name="IsBold">Whether the font is bold.</param>
 /// <param name="AdjustSpacing">
-/// Whether glyphs of a substituted font are centred or narrowed to the PDF widths, as PDFium's glyph spacing
-/// heuristic does when the system lacks the named font.
+/// Whether glyphs of a substituted font are centred or narrowed to the PDF widths, used when the system lacks the
+/// named font.
 /// </param>
 [DebuggerDisplay("FontMetrics: {Ascent} {Descent}")]
 internal readonly record struct FontMetrics(float Ascent, float Descent, bool IsBold, bool AdjustSpacing);

@@ -58,8 +58,8 @@ internal sealed class IccMatrixTransform : IccTransform
     /// <summary>The sRGB byte for each of <see cref="EncodeSteps"/> linear values.</summary>
     private static readonly byte[] EncodeTable = BuildEncodeTable();
 
-    /// <summary>The linear value of every 8-bit sample, red then green then blue.</summary>
-    private readonly float[] _linear = new float[PdfColorSpace.RgbComponents * PixelConverter.LookupSize];
+    /// <summary>The linear value of every 8-bit sample, red then green then blue; shared with the sibling.</summary>
+    private readonly float[] _linear;
 
     /// <summary>The red, green and blue curves.</summary>
     private readonly IccCurve[] _curves;
@@ -67,13 +67,32 @@ internal sealed class IccMatrixTransform : IccTransform
     /// <summary>The matrix from linear profile RGB to linear sRGB.</summary>
     private readonly Matrix3 _matrix;
 
-    /// <summary>Initializes a new instance of the <see cref="IccMatrixTransform"/> class.</summary>
+    /// <summary>The linear sRGB added after the matrix: zero, or the shift that black point compensation makes.</summary>
+    private readonly Float3 _offset;
+
+    /// <summary>The matrix without black point compensation, which the plain sibling uses.</summary>
+    private readonly Matrix3 _plainMatrix;
+
+    /// <summary>Whether this transform compensates for a profile black that is not the output black.</summary>
+    private readonly bool _compensates;
+
+    /// <summary>The compensating transform this plain one was made from, or <see langword="null"/> for the compensating one.</summary>
+    private readonly IccMatrixTransform? _compensated;
+
+    /// <summary>The plain sibling, made on first request, or <see langword="null"/> before that.</summary>
+    private IccMatrixTransform? _plain;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IccMatrixTransform"/> class that compensates for black points, as
+    /// the initial graphics state asks. Compensation changes the result only when the profile's black, the colorants at
+    /// zero curve output, is not XYZ zero; a plain sibling then serves renderings that turn it off.
+    /// </summary>
     /// <param name="curves">The red, green and blue curves.</param>
     /// <param name="colorants">The matrix whose columns are the profile's red, green and blue colorants in D50 XYZ.</param>
     internal IccMatrixTransform(IccCurve[] curves, in Matrix3 colorants)
     {
         _curves = curves;
-        _matrix = IccProfile.XyzToSrgb.Multiply(colorants);
+        _linear = new float[PdfColorSpace.RgbComponents * PixelConverter.LookupSize];
         for (var c = 0; c < curves.Length; c++)
         {
             for (var i = 0; i < PixelConverter.LookupSize; i++)
@@ -82,6 +101,33 @@ internal sealed class IccMatrixTransform : IccTransform
             }
         }
 
+        _plainMatrix = IccProfile.XyzToSrgb.Multiply(colorants);
+        var black = colorants.Transform(curves[0].Evaluate(0), curves[1].Evaluate(0), curves[^1].Evaluate(0));
+
+        // The output is sRGB, whose black is XYZ zero.
+        if (BlackPointCompensation.Between(black, default) is { } compensation)
+        {
+            _matrix = IccProfile.XyzToSrgb.Multiply(compensation.ScaleRows(colorants));
+            _offset = IccProfile.XyzToSrgb.Transform(compensation.Offset.X, compensation.Offset.Y, compensation.Offset.Z);
+            _compensates = true;
+        }
+        else
+        {
+            _matrix = _plainMatrix;
+        }
+
+        IsSrgb = IsCloseToSrgb() && IsUnshifted();
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="IccMatrixTransform"/> class that does not compensate for black points.</summary>
+    /// <param name="compensated">The compensating transform, whose curves and tables this one shares.</param>
+    private IccMatrixTransform(IccMatrixTransform compensated)
+    {
+        _curves = compensated._curves;
+        _linear = compensated._linear;
+        _matrix = compensated._plainMatrix;
+        _plainMatrix = compensated._plainMatrix;
+        _compensated = compensated;
         IsSrgb = IsCloseToSrgb();
     }
 
@@ -91,6 +137,20 @@ internal sealed class IccMatrixTransform : IccTransform
     /// <inheritdoc/>
     internal override bool IsSrgb { get; }
 
+    /// <summary>Gets the transform for a rendering; a matrix profile converts the same way for every intent, so only the black point choice counts.</summary>
+    /// <param name="rendering">The rendering.</param>
+    /// <returns>The transform with or without black point compensation.</returns>
+    internal override IccTransform ForRendering(IccRendering rendering)
+    {
+        var compensate = rendering.Compensate && rendering.Intent != IccIntent.AbsoluteColorimetric;
+        if (_compensated is not null)
+        {
+            return compensate ? _compensated : this;
+        }
+
+        return compensate || !_compensates ? this : Volatile.Read(ref _plain) ?? CreatePlain();
+    }
+
     /// <inheritdoc/>
     internal override void ToRgb(ReadOnlySpan<float> components, Span<float> rgb)
     {
@@ -98,9 +158,9 @@ internal sealed class IccMatrixTransform : IccTransform
             _curves[0].Evaluate(components[0]),
             _curves[1].Evaluate(components[1]),
             _curves[^1].Evaluate(components[^1]));
-        rgb[0] = SrgbTransfer.Encode(linear.X);
-        rgb[1] = SrgbTransfer.Encode(linear.Y);
-        rgb[PdfColorSpace.RgbComponents - 1] = SrgbTransfer.Encode(linear.Z);
+        rgb[0] = SrgbTransfer.Encode(linear.X + _offset.X);
+        rgb[1] = SrgbTransfer.Encode(linear.Y + _offset.Y);
+        rgb[PdfColorSpace.RgbComponents - 1] = SrgbTransfer.Encode(linear.Z + _offset.Z);
     }
 
     /// <inheritdoc/>
@@ -118,7 +178,7 @@ internal sealed class IccMatrixTransform : IccTransform
             if (p == 0 || key != previous)
             {
                 var linear = _matrix.Transform(red[pixel[0]], green[pixel[1]], blue[pixel[PdfColorSpace.PairSize]]);
-                word = PixelConverter.Pack(Encode(linear.X), Encode(linear.Y), Encode(linear.Z));
+                word = PixelConverter.Pack(Encode(linear.X + _offset.X), Encode(linear.Y + _offset.Y), Encode(linear.Z + _offset.Z));
                 previous = key;
             }
 
@@ -171,6 +231,18 @@ internal sealed class IccMatrixTransform : IccTransform
         var identity = IsNear(m.A, 1) && IsNear(m.E, 1) && IsNear(m.I, 1)
             && IsNear(m.B, 0) && IsNear(m.C, 0) && IsNear(m.D, 0) && IsNear(m.F, 0) && IsNear(m.G, 0) && IsNear(m.H, 0);
         return identity && AreCurvesSrgb();
+    }
+
+    /// <summary>Determines whether black point compensation shifts colours by no more than the sRGB tolerance.</summary>
+    /// <returns><see langword="true"/> when the offset is close to zero.</returns>
+    private bool IsUnshifted() => IsNear(_offset.X, 0) && IsNear(_offset.Y, 0) && IsNear(_offset.Z, 0);
+
+    /// <summary>Makes the plain sibling and publishes it.</summary>
+    /// <returns>The sibling; the same instance on every call.</returns>
+    private IccMatrixTransform CreatePlain()
+    {
+        var created = new IccMatrixTransform(this);
+        return Interlocked.CompareExchange(ref _plain, created, null) ?? created;
     }
 
     /// <summary>Determines whether every curve matches the sRGB decode curve at a few points.</summary>

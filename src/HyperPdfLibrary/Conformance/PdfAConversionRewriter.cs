@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -23,17 +24,27 @@ internal static class PdfAConversionRewriter
     /// <param name="state">The state passed to each call of the fix.</param>
     /// <param name="fix">Returns a changed copy of a dictionary, or <see langword="null"/> to leave it.</param>
     /// <returns>The number of objects changed.</returns>
-    internal static int Rewrite<TState>(PdfAConversionSession session, TState state, Func<PdfAConversionSession, TState, PdfDictionary, PdfDictionary?> fix)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int Rewrite<TState>(PdfAConversionSession session, TState state, Func<PdfAConversionSession, TState, PdfDictionary, PdfDictionary?> fix) =>
+        Rewrite(session.Store, new PdfAConversionSessionFix<TState>(session, state, fix), static (run, dictionary) => run.Fix(run.Session, run.State, dictionary), session.CancellationToken);
+
+    /// <summary>Runs a fix over a document's objects.</summary>
+    /// <typeparam name="TState">The fix's state.</typeparam>
+    /// <param name="store">The working copy's objects.</param>
+    /// <param name="state">The state passed to each call of the fix.</param>
+    /// <param name="fix">Returns a changed copy of a dictionary, or <see langword="null"/> to leave it.</param>
+    /// <param name="cancellationToken">Cancels the run.</param>
+    /// <returns>The number of objects changed.</returns>
+    internal static int Rewrite<TState>(PdfObjectStore store, TState state, Func<TState, PdfDictionary, PdfDictionary?> fix, CancellationToken cancellationToken)
     {
-        var rewrite = new PdfAConversionRewrite<TState>(session, state, fix);
-        var store = session.Store;
-        var graph = PdfObjectGraph.Collect(store, false, session.CancellationToken);
+        var rewrite = new PdfAConversionRewrite<TState>(state, fix);
+        var graph = PdfObjectGraph.Collect(store, false, cancellationToken);
         var changed = 0;
         for (var number = 1; number <= graph.Count; number++)
         {
             if ((number & CancellationCheckMask) == 0)
             {
-                session.CancellationToken.ThrowIfCancellationRequested();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var value = graph.GetValue(number);
@@ -142,7 +153,7 @@ internal static class PdfAConversionRewriter
         }
 
         var current = copy ?? dictionary;
-        return rewrite.Fix(rewrite.Session, rewrite.State, current) ?? current;
+        return rewrite.Fix(rewrite.State, current) ?? current;
     }
 
     /// <summary>Rewrites the dictionaries and arrays inside an array.</summary>

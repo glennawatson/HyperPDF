@@ -6,6 +6,7 @@ using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Text;
 
 namespace HyperPdfLibrary.Tests.Text;
 
@@ -13,6 +14,9 @@ namespace HyperPdfLibrary.Tests.Text;
 [NotInParallel]
 public sealed class TextPageBuildTests
 {
+    /// <summary>More than the states closed documents may leave, so one rent of each kind drains them.</summary>
+    private const int SharedStateLimit = 8;
+
     /// <summary>A nested document extraction cannot reset the outer document's text buffers.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -31,6 +35,36 @@ public sealed class TextPageBuildTests
         var outerText = PdfDocumentText.GetTextPage(outer, 0).Text;
         await Assert.That(innerText).IsEqualTo("INNER");
         await Assert.That(outerText).IsEqualTo("AB");
+    }
+
+    /// <summary>A closed document hands its cleaned build state to the documents opened after it.</summary>
+    /// <returns>A task.</returns>
+    /// <exception cref="InvalidOperationException">The first extraction did not return its state.</exception>
+    [Test]
+    public async Task ClosedDocumentSharesItsBuildState()
+    {
+        TextPageBuildState state;
+        using (var first = TextTestDocument.Open(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td (A) Tj ET").ToBytes()))
+        {
+            _ = PdfDocumentText.ExtractText(first, 0);
+            state = first.State.TextBuild ?? throw new InvalidOperationException("The first extraction did not return its state.");
+        }
+
+        using var second = TextTestDocument.Open(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td (B) Tj ET").ToBytes());
+        var rented = new List<TextPageBuildState>();
+        for (var i = 0; i <= SharedStateLimit; i++)
+        {
+            rented.Add(TextPageBuild.Rent(second));
+        }
+
+        var found = rented.Exists(item => ReferenceEquals(item, state));
+        foreach (var item in rented)
+        {
+            TextPageBuild.Return(second, item);
+        }
+
+        await Assert.That(found).IsTrue();
+        await Assert.That(PdfDocumentText.ExtractText(second, 0).Text).IsEqualTo("B");
     }
 
     /// <summary>Starts an independent extraction before the outer extraction draws its second glyph.</summary>

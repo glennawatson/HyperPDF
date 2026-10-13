@@ -157,7 +157,7 @@ public sealed class RedactionViewModelTests
         nativeMain.Open([native.CreateDocument(SourceName, 1)]);
         await Assert.That(await UiWait.UntilAsync(() => nativeMain.SelectedTab!.IsLoaded)).IsTrue();
 
-        await Assert.That(nativeMain.SelectedTab!.Redact.CanRun).IsTrue();
+        await Assert.That(nativeMain.SelectedTab!.Copies.Redact.CanRun).IsTrue();
     }
 
     /// <summary>
@@ -177,7 +177,7 @@ public sealed class RedactionViewModelTests
         var marked = tab.Annotations.AddShape(0, AnnotationKind.Redaction, Origin, Far);
         var before = tab.TryGetDocument()!.GetCharacterCount(0);
         RedactionReport? report = null;
-        using var handler = tab.Redact.Interaction.RegisterHandler(async context =>
+        using var handler = tab.Copies.Redact.Interaction.RegisterHandler(async context =>
         {
             using var picker = context.Input.SaveInteraction.RegisterHandler(pick => pick.SetOutput(destination));
             context.Input.Understands = true;
@@ -186,7 +186,7 @@ public sealed class RedactionViewModelTests
             context.SetOutput(RxVoid.Default);
         });
 
-        _ = await tab.Redact.RunCommand.Execute().ToTask();
+        _ = await tab.Copies.Redact.RunCommand.Execute().ToTask();
 
         await TestServices.OpenAndWaitAsync(main, [destination]);
         await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.IsLoaded)).IsTrue();

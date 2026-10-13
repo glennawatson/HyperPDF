@@ -16,14 +16,10 @@ public static class PdfDocumentSignatureValidation
     /// <returns>The details, one per entry of <see cref="PdfDocumentAttachments.GetSignatures"/>.</returns>
     public static IReadOnlyList<PdfSignatureDetails> GetSignatureDetails(PdfDocument document)
     {
-        if (Volatile.Read(ref document.State.SignatureDetails) is { } cached)
-        {
-            return cached;
-        }
-
-        var details = PdfSignatureDetailsReader.Read(document);
-        Volatile.Write(ref document.State.SignatureDetails, details);
-        return details;
+        var revision = PdfDocumentCaches.Revision(document);
+        return Volatile.Read(ref document.State.SignatureDetails) is { } cached
+            ? cached
+            : PdfDocumentCaches.Publish(document, ref document.State.SignatureDetails, PdfSignatureDetailsReader.Read(document), revision);
     }
 
     /// <summary>Gets the document security store (/DSS) and its /VRI entries.</summary>
@@ -31,14 +27,10 @@ public static class PdfDocumentSignatureValidation
     /// <returns>The store, or <see cref="PdfSecurityStore.Empty"/>.</returns>
     public static PdfSecurityStore GetSecurityStore(PdfDocument document)
     {
-        if (Volatile.Read(ref document.State.SecurityStore) is { } cached)
-        {
-            return cached;
-        }
-
-        var store = PdfSecurityStoreReader.Read(document.Catalog, document.Objects.Names);
-        Volatile.Write(ref document.State.SecurityStore, store);
-        return store;
+        var revision = PdfDocumentCaches.Revision(document);
+        return Volatile.Read(ref document.State.SecurityStore) is { } cached
+            ? cached
+            : PdfDocumentCaches.Publish(document, ref document.State.SecurityStore, PdfSecurityStoreReader.Read(document.Catalog, document.Objects.Names), revision);
     }
 
     /// <summary>Gets the file's revisions: the original save and each incremental update, oldest first.</summary>

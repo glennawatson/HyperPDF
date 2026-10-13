@@ -11,9 +11,6 @@ namespace HyperPdfLibrary.Graphics.Colors;
 /// </summary>
 internal sealed class IccBasedColorSpace : PdfColorSpace
 {
-    /// <summary>The rendering intents with a transform of their own.</summary>
-    private const int IntentCount = 4;
-
     /// <summary>The number of colour components.</summary>
     private readonly int _components;
 
@@ -29,8 +26,8 @@ internal sealed class IccBasedColorSpace : PdfColorSpace
     /// <summary>Whether the range is [0 1] for every component, so samples pass straight to the alternate.</summary>
     private readonly bool _isUnitRange;
 
-    /// <summary>The spaces made for each rendering intent, filled on first request.</summary>
-    private readonly IccBasedColorSpace?[] _intentSpaces = new IccBasedColorSpace?[IntentCount];
+    /// <summary>The spaces made for each rendering that converts differently, or <see langword="null"/> before the first.</summary>
+    private PdfColorSpace?[]? _renderings;
 
     /// <summary>Initializes a new instance of the <see cref="IccBasedColorSpace"/> class.</summary>
     /// <param name="alternate">The space colours convert through; it has the same number of components. <see langword="null"/> when <paramref name="transform"/> is set and no alternate fits.</param>
@@ -77,33 +74,22 @@ internal sealed class IccBasedColorSpace : PdfColorSpace
     public override float[] GetDefaultDecode(int bitsPerComponent) => (float[])_range.Clone();
 
     /// <inheritdoc/>
-    internal override PdfColorSpace ForIntent(IccIntent intent)
+    internal override PdfColorSpace ForRendering(IccRendering rendering)
     {
         if (_transform is null)
         {
             return this;
         }
 
-        var slot = (int)intent;
-        if ((uint)slot >= IntentCount)
-        {
-            return this;
-        }
-
-        var existing = Volatile.Read(ref _intentSpaces[slot]);
-        if (existing is not null)
-        {
-            return existing;
-        }
-
-        var transform = _transform.ForIntent(intent);
-        if (ReferenceEquals(transform, _transform))
-        {
-            return this;
-        }
-
-        var made = new IccBasedColorSpace(_alternate, _range, transform, _components);
-        return Interlocked.CompareExchange(ref _intentSpaces[slot], made, null) ?? made;
+        var transform = _transform.ForRendering(rendering);
+        return ReferenceEquals(transform, _transform)
+            ? this
+            : ColorSpaceRenderings.GetOrCreate(
+                ref _renderings,
+                rendering,
+                this,
+                transform,
+                static (owner, converting) => new IccBasedColorSpace(owner._alternate, owner._range, converting, owner._components));
     }
 
     /// <inheritdoc/>

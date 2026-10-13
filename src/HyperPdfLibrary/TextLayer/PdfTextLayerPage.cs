@@ -17,7 +17,7 @@ namespace HyperPdfLibrary.TextLayer;
 internal static class PdfTextLayerPage
 {
     /// <summary>The longest name: the prefix, then the digits of an int.</summary>
-    private const int MaxNameLength = 16;
+    internal const int MaxNameLength = 16;
 
     /// <summary>The entries of a small dictionary.</summary>
     private const int SmallEntries = 4;
@@ -34,44 +34,48 @@ internal static class PdfTextLayerPage
     /// <summary>Chooses a resource name for each font that the page does not already use.</summary>
     /// <param name="store">The document.</param>
     /// <param name="page">The page.</param>
-    /// <param name="count">The number of fonts.</param>
-    /// <returns>The names, as bytes without the slash.</returns>
-    internal static byte[][] ChooseNames(PdfObjectStore store, PdfPage page, int count)
+    /// <param name="numbers">Receives the number in each font's name, from <see cref="FormatName"/>.</param>
+    internal static void ChooseNames(PdfObjectStore store, PdfPage page, Span<int> numbers)
     {
         var existing = Resources(store, page)?.GetDictionary(KnownName.Font);
-        var names = new byte[count][];
         Span<byte> buffer = stackalloc byte[MaxNameLength];
-        NamePrefix.CopyTo(buffer);
         var number = 1;
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < numbers.Length; i++)
         {
-            int length;
-            do
+            while (existing is not null && existing.ContainsKey(store.Names.Intern(FormatName(number, buffer))))
             {
-                _ = number.TryFormat(buffer[NamePrefix.Length..], out var digits);
-                length = NamePrefix.Length + digits;
                 number++;
             }
-            while (existing is not null && existing.ContainsKey(store.Names.Intern(buffer[..length])));
-            names[i] = buffer[..length].ToArray();
-        }
 
-        return names;
+            numbers[i] = number;
+            number++;
+        }
+    }
+
+    /// <summary>Writes the resource name of a font.</summary>
+    /// <param name="number">The number from <see cref="ChooseNames"/>.</param>
+    /// <param name="buffer">The room for the name, at least <see cref="MaxNameLength"/> bytes.</param>
+    /// <returns>The name, as bytes without the slash.</returns>
+    internal static ReadOnlySpan<byte> FormatName(int number, Span<byte> buffer)
+    {
+        NamePrefix.CopyTo(buffer);
+        _ = number.TryFormat(buffer[NamePrefix.Length..], out var digits);
+        return buffer[..(NamePrefix.Length + digits)];
     }
 
     /// <summary>Adds the fonts, wraps the existing content and appends the text layer.</summary>
     /// <param name="store">The document.</param>
     /// <param name="page">The page.</param>
     /// <param name="fonts">The fonts.</param>
-    /// <param name="names">The resource name of each font.</param>
+    /// <param name="numbers">The number in the resource name of each font.</param>
     /// <param name="used">Which fonts the content uses.</param>
     /// <param name="content">The text layer's content.</param>
     /// <returns><see langword="true"/> when the page was changed.</returns>
-    internal static bool Install(PdfObjectStore store, PdfPage page, ReadOnlySpan<IPdfTextLayerFont> fonts, byte[][] names, bool[] used, ReadOnlySpan<byte> content)
+    internal static bool Install(PdfObjectStore store, PdfPage page, ReadOnlySpan<IPdfTextLayerFont> fonts, ReadOnlySpan<int> numbers, ReadOnlySpan<bool> used, ReadOnlySpan<byte> content)
     {
         var current = PdfPageAnnotations.GetPageDictionary(store, page);
         var copy = current.Clone();
-        copy.Set(KnownName.Resources, PdfValue.FromDictionary(WithFonts(store, Resources(store, page), fonts, names, used)));
+        copy.Set(KnownName.Resources, PdfValue.FromDictionary(WithFonts(store, Resources(store, page), fonts, numbers, used)));
         copy.Set(KnownName.Contents, PdfValue.FromArray(WrapContents(store, current, content)));
         StoreEditing.Replace(store, page.Id, PdfValue.FromDictionary(copy));
         return true;
@@ -87,18 +91,19 @@ internal static class PdfTextLayerPage
     /// <param name="store">The document.</param>
     /// <param name="resources">The resources, or <see langword="null"/>.</param>
     /// <param name="fonts">The fonts.</param>
-    /// <param name="names">The resource name of each font.</param>
+    /// <param name="numbers">The number in the resource name of each font.</param>
     /// <param name="used">Which fonts the content uses.</param>
     /// <returns>The new resources.</returns>
-    private static PdfDictionary WithFonts(PdfObjectStore store, PdfDictionary? resources, ReadOnlySpan<IPdfTextLayerFont> fonts, byte[][] names, bool[] used)
+    private static PdfDictionary WithFonts(PdfObjectStore store, PdfDictionary? resources, ReadOnlySpan<IPdfTextLayerFont> fonts, ReadOnlySpan<int> numbers, ReadOnlySpan<bool> used)
     {
         var copy = resources?.Clone() ?? new PdfDictionary(store, SmallEntries);
         var table = copy.GetDictionary(KnownName.Font)?.Clone() ?? new PdfDictionary(store, fonts.Length);
+        Span<byte> buffer = stackalloc byte[MaxNameLength];
         for (var i = 0; i < fonts.Length; i++)
         {
             if (used[i])
             {
-                table.Set(store.Names.Intern(names[i]), fonts[i].Resource);
+                table.Set(store.Names.Intern(FormatName(numbers[i], buffer)), fonts[i].Resource);
             }
         }
 

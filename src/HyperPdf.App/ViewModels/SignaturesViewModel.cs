@@ -7,13 +7,10 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using HyperPdf.App.Services;
-using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
-using HyperPdf.Core.Platform;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Signatures;
 using HyperPdf.Core.Signatures.Signing;
-using HyperPdf.Http.Signatures;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.SourceGenerators;
@@ -76,8 +73,8 @@ public sealed partial class SignaturesViewModel : ReactiveObject
     /// <param name="exception">The exception.</param>
     /// <returns><see langword="true"/> for a damaged file, a certificate problem, a file error or an unreachable timestamp server.</returns>
     private static bool IsSigningFailure(Exception exception) =>
-        exception is InvalidDataException or NotSupportedException or CryptographicException or IOException or UnauthorizedAccessException
-            or HttpRequestException or TaskCanceledException;
+        exception is InvalidDataException or SigningRefusedException or NotSupportedException or CryptographicException or IOException or UnauthorizedAccessException
+            or HttpRequestException or TaskCanceledException or InvalidOperationException;
 
     /// <summary>Checks every signature against the file.</summary>
     /// <param name="raw">The signatures as stored.</param>
@@ -148,27 +145,18 @@ public sealed partial class SignaturesViewModel : ReactiveObject
         }
     }
 
-    /// <summary>Gets the document as it is now: its saved bytes, or with unsaved edits written in.</summary>
-    /// <returns>The bytes, or <see langword="null"/> when the document is not open.</returns>
-    private byte[]? ReadCurrent()
-    {
-        var document = _owner.TryGetDocument();
-        if (DocumentFeature<IAnnotationEditor>.Get(document) is { HasUnsavedChanges: true } editor)
-        {
-            using var stream = new MemoryStream();
-            return editor.Save(stream) ? stream.ToArray() : null;
-        }
-
-        return document is null ? null : File.ReadAllBytes(_owner.FilePath);
-    }
-
     /// <summary>Asks for the certificate and where to save, signs a copy off the UI thread and opens it.</summary>
     /// <param name="cancellationToken">Stops signing, including waiting for the timestamp server.</param>
     /// <returns>A task.</returns>
     [ReactiveCommand]
     private async Task SignWithCertificateAsync(CancellationToken cancellationToken)
     {
-        using var request = new CertificateSignViewModel(_services.Settings.RememberedCertificates);
+        // The preview asks the tab for its document each time, so a reload while the window is open does not leave it on a closed one.
+        using var request = new CertificateSignViewModel(
+            _services.Settings.RememberedCertificates,
+            Math.Max(0, _owner.CurrentPageIndex),
+            r => PdfSigner.Preview(_owner.TryGetDocument(), r),
+            _services.Settings.TimestampServer);
         var accepted = await CertificateSignInteraction.Handle(request).ToTask(cancellationToken).ConfigureAwait(true);
         var certificate = accepted ? request.TakeCertificate() : null;
         UpdateRemembered(request, certificate);
@@ -181,21 +169,22 @@ public sealed partial class SignaturesViewModel : ReactiveObject
         {
             var suggested = $"{Path.GetFileNameWithoutExtension(_owner.FileName)}-signed.pdf";
             var destination = await _owner.SaveAsInteraction.Handle(suggested).ToTask(cancellationToken).ConfigureAwait(true);
-            if (string.IsNullOrEmpty(destination) || ReadCurrent() is not { } source)
+            var document = _owner.TryGetDocument();
+            if (string.IsNullOrEmpty(destination) || document is null)
             {
                 return;
             }
 
-            var signing = new SigningRequest(Math.Max(0, _owner.CurrentPageIndex), request.Reason, request.Location, TimeProvider.System.GetUtcNow());
+            var signing = request.BuildRequest(TimeProvider.System.GetUtcNow());
+            SigningOutcome signed;
             try
             {
-                var timestamper = Uri.TryCreate(_services.Settings.TimestampServer, UriKind.Absolute, out var server) ? new TimestampAuthorityClient(server) : null;
+                var timestamper = TimestampServers.Create(_services.Settings.TimestampServer);
 
-                // Reading and signing the file is CPU work, so it starts on the pool; the timestamp request then awaits.
-                var signed = await Task.Run(() => PdfSigner.SignAsync(source, certificate, signing, timestamper, cancellationToken), cancellationToken).ConfigureAwait(true);
-                var temporary = $"{destination}.signing";
-                await File.WriteAllBytesAsync(temporary, signed, cancellationToken).ConfigureAwait(true);
-                FileReplacement.Replace(temporary, destination);
+                // Building and signing the file is CPU work, so it starts on the pool; the timestamp request then awaits.
+                // The document is signed with its unsaved edits, and the open document is not changed.
+                signed = await Task.Run(() => PdfSigner.SignAsync(document, certificate, signing, timestamper, cancellationToken).AsTask(), cancellationToken).ConfigureAwait(true);
+                await SignedCopyFile.WriteAsync(signed, destination, cancellationToken).ConfigureAwait(true);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -203,11 +192,12 @@ public sealed partial class SignaturesViewModel : ReactiveObject
             }
             catch (Exception ex) when (IsSigningFailure(ex))
             {
-                _owner.Notice = $"Could not sign: {ex.Message}";
+                _owner.Notice = $"Could not sign: {CopyFailure.Describe(ex)}";
                 return;
             }
 
-            _owner.Notice = $"Signed copy saved as {Path.GetFileName(destination)}.";
+            // Notes tell the user what the signer changed or could not do, such as a missing timestamp or a repair.
+            _owner.Notice = $"Signed copy saved as {Path.GetFileName(destination)}.{SignedCopyFile.NotesSuffix(signed)}";
             _services.RequestOpen(destination);
         }
     }

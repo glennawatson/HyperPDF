@@ -8,9 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
@@ -29,9 +27,6 @@ internal sealed class ThumbnailPageInteraction : IDisposable
     /// <summary>The fraction of an item's height separating its before and after drop positions.</summary>
     private const double Half = 0.5;
 
-    /// <summary>The view whose current tab supplies page actions.</summary>
-    private readonly DocumentView _view;
-
     /// <summary>The thumbnail list.</summary>
     private readonly ThumbnailListBox _list;
 
@@ -48,22 +43,53 @@ internal sealed class ThumbnailPageInteraction : IDisposable
     private bool _disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ThumbnailPageInteraction"/> class.</summary>
-    /// <param name="view">The active view.</param>
+    /// <param name="tabs">The tab whose page actions the thumbnails run.</param>
     /// <param name="list">The thumbnail list.</param>
-    internal ThumbnailPageInteraction(DocumentView view, ThumbnailListBox list)
+    internal ThumbnailPageInteraction(IObservable<DocumentTabViewModel?> tabs, ThumbnailListBox list)
     {
-        _view = view;
         _list = list;
         DragDrop.SetAllowDrop(list, true);
+
+        // The lambdas that read _drag and _dragging capture this object, which owns the drag in progress.
         _subscriptions =
         [
-            list.ObserveRouted(InputElement.KeyDownEvent, RoutingStrategies.Tunnel).SubscribeSafe(OnKey, OnError),
-            list.ObserveRouted(SelectingItemsControl.SelectionChangedEvent).SubscribeSafe(_ => OnSelectionChanged(), OnError),
-            list.ObserveRouted(InputElement.PointerPressedEvent, RoutingStrategies.Tunnel).SubscribeSafe(OnPressed, OnError),
-            list.ObserveRouted(InputElement.PointerMovedEvent).SubscribeSafe(OnMoved, OnError),
-            list.ObserveRouted(InputElement.PointerReleasedEvent).SubscribeSafe(_ => ResetPress(), OnError),
-            list.ObserveRouted(DragDrop.DragOverEvent).SubscribeSafe(OnDragOver, OnError),
-            list.ObserveRouted(DragDrop.DropEvent).SubscribeSafe(OnDrop, OnError),
+            list.KeyDowns
+                .Inject(tabs)
+                .Pick(static press =>
+                {
+                    var (args, tab) = press;
+                    var reorder = args.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt);
+                    ICommand? command = args.Key switch
+                    {
+                        Key.Up when reorder => tab.Pages.MoveEarlierCommand,
+                        Key.Down when reorder => tab.Pages.MoveLaterCommand,
+                        Key.Delete when args.KeyModifiers == KeyModifiers.None => tab.Pages.DeleteCommand,
+                        _ => null,
+                    };
+                    return command is { } found && found.CanExecute(null) ? new PageShortcut(args, found) : default(PageShortcut?);
+                })
+                .Do(static shortcut => shortcut.Press.Handled = true)
+                .SubscribeSafe(static shortcut => shortcut.Command.Execute(null), OnError),
+            list.SelectionChanges.InjectLatest(tabs).SubscribeSafe(SyncSelection, OnError),
+            list.ItemPresses
+                .Do(_ => _drag = null)
+                .Inject(tabs)
+                .Where(static press => press.State.Pages.CanEdit && press.Value.KeyModifiers == KeyModifiers.None)
+                .Where(press => press.Value.GetCurrentPoint(list).Properties.IsLeftButtonPressed)
+                .SubscribeSafe(RecordPress, OnError),
+            list.PointerMoves
+                .Where(move => !_dragging && move.GetCurrentPoint(list).Properties.IsLeftButtonPressed)
+                .Pick(move => _drag is { } drag && PassedDragThreshold(move.GetPosition(list), drag.Point) ? drag : default(ThumbnailDrag?))
+                .SubscribeSafe(drag => _ = DragAsync(drag), OnError),
+            list.PointerReleases.Where(_ => !_dragging).SubscribeSafe(_ => _drag = null, OnError),
+            list.DragOvers
+                .Inject(tabs)
+                .Where(over => _dragging && _drag is { } drag && drag.DocumentId == over.State.Source.Id)
+                .SubscribeSafe(AcceptDragOver, OnError),
+            list.Drops
+                .Inject(tabs)
+                .Where(drop => !_disposed && _dragging && _drag is { } drag && drag.DocumentId == drop.State.Source.Id && InsertionAt(drop.Value.GetPosition(list)) >= 0)
+                .SubscribeSafe(MoveSelectionToDrop, OnError),
         ];
     }
 
@@ -106,15 +132,11 @@ internal sealed class ThumbnailPageInteraction : IDisposable
         Math.Abs(point.X - origin.X) >= DragThreshold || Math.Abs(point.Y - origin.Y) >= DragThreshold;
 
     /// <summary>Normalises user selection changes, including mutations of the list's selected-items collection.</summary>
-    private void OnSelectionChanged()
+    /// <param name="tab">The tab whose thumbnails are listed.</param>
+    private void SyncSelection(DocumentTabViewModel tab)
     {
-        if (_view.ViewModel is not { } tab || _list.SelectedItems is not { } items)
-        {
-            return;
-        }
-
-        var selected = new List<int>(items.Count);
-        foreach (var item in items)
+        var selected = new List<int>(_list.SelectedItems?.Count ?? 0);
+        foreach (var item in _list.SelectedItems ?? Array.Empty<object>())
         {
             if (item is ThumbnailItemViewModel thumbnail)
             {
@@ -126,47 +148,12 @@ internal sealed class ThumbnailPageInteraction : IDisposable
         tab.SelectedThumbnail = _list.SelectedItem as ThumbnailItemViewModel;
     }
 
-    /// <summary>Runs a labelled page command when its shortcut is available.</summary>
-    /// <param name="args">The key event.</param>
-    private void OnKey(KeyEventArgs args)
-    {
-        if (_view.ViewModel?.Pages is not { } pages)
-        {
-            return;
-        }
-
-        ICommand? command = null;
-        if (args.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt))
-        {
-            command = args.Key switch
-            {
-                Key.Up => pages.MoveEarlierCommand,
-                Key.Down => pages.MoveLaterCommand,
-                _ => null,
-            };
-        }
-        else if (args.Key == Key.Delete && args.KeyModifiers == KeyModifiers.None)
-        {
-            command = pages.DeleteCommand;
-        }
-
-        if (command is null || !command.CanExecute(null))
-        {
-            return;
-        }
-
-        args.Handled = true;
-        command.Execute(null);
-    }
-
     /// <summary>Records a left press and preserves a group selection when dragging one of its pages.</summary>
-    /// <param name="args">The pointer press.</param>
-    private void OnPressed(PointerPressedEventArgs args)
+    /// <param name="press">The pointer press and the tab whose pages can be edited.</param>
+    private void RecordPress(Injected<PointerPressedEventArgs, DocumentTabViewModel> press)
     {
-        _drag = null;
-        if (_view.ViewModel is not { Pages.CanEdit: true } tab || args.KeyModifiers != KeyModifiers.None
-            || !args.GetCurrentPoint(_list).Properties.IsLeftButtonPressed
-            || ThumbnailAt(args.GetPosition(_list)) is not { } item)
+        var (args, tab) = press;
+        if (ThumbnailAt(args.GetPosition(_list)) is not { } item)
         {
             return;
         }
@@ -184,20 +171,6 @@ internal sealed class ThumbnailPageInteraction : IDisposable
         }
 
         _drag = new(args, args.GetPosition(_list), tab.Source.Id);
-    }
-
-    /// <summary>Starts a desktop drag once the press moves far enough.</summary>
-    /// <param name="args">The pointer movement.</param>
-    private void OnMoved(PointerEventArgs args)
-    {
-        if (_dragging || _drag is not { } drag || !args.GetCurrentPoint(_list).Properties.IsLeftButtonPressed
-            || !PassedDragThreshold(args.GetPosition(_list), drag.Point))
-        {
-            return;
-        }
-
-        // DragAsync observes and reports its own failures, since routed events cannot await the desktop drag.
-        _ = DragAsync(drag);
     }
 
     /// <summary>Runs the desktop drag while retaining the originating document identity.</summary>
@@ -224,14 +197,10 @@ internal sealed class ThumbnailPageInteraction : IDisposable
     }
 
     /// <summary>Accepts only a drag from this activation's current document.</summary>
-    /// <param name="args">The drag event.</param>
-    private void OnDragOver(DragEventArgs args)
+    /// <param name="over">The drag event and the current tab.</param>
+    private void AcceptDragOver(Injected<DragEventArgs, DocumentTabViewModel> over)
     {
-        if (!_dragging || _drag is not { } drag || _view.ViewModel is not { } tab || drag.DocumentId != tab.Source.Id)
-        {
-            return;
-        }
-
+        var (args, tab) = over;
         args.Handled = true;
         args.DragEffects = tab.Pages.CanEdit && InsertionAt(args.GetPosition(_list)) >= 0
             ? DragDropEffects.Move
@@ -239,16 +208,12 @@ internal sealed class ThumbnailPageInteraction : IDisposable
     }
 
     /// <summary>Moves the selection to the indicated before or after position.</summary>
-    /// <param name="args">The drop event.</param>
-    private void OnDrop(DragEventArgs args)
+    /// <param name="drop">The drop event and the current tab.</param>
+    private void MoveSelectionToDrop(Injected<DragEventArgs, DocumentTabViewModel> drop)
     {
-        var insertion = InsertionAt(args.GetPosition(_list));
-        if (_disposed || !_dragging || _drag is not { } drag || _view.ViewModel is not { } tab || drag.DocumentId != tab.Source.Id || insertion < 0)
-        {
-            return;
-        }
-
+        var (args, tab) = drop;
         args.Handled = true;
+        var insertion = InsertionAt(args.GetPosition(_list));
         var removedBefore = 0;
         foreach (var page in tab.Pages.SelectedPages)
         {
@@ -292,19 +257,15 @@ internal sealed class ThumbnailPageInteraction : IDisposable
         return item.PageIndex + (point.Y - top.Y >= container.Bounds.Height * Half ? 1 : 0);
     }
 
-    /// <summary>Forgets a press that ended without starting a drag.</summary>
-    private void ResetPress()
-    {
-        if (!_dragging)
-        {
-            _drag = null;
-        }
-    }
-
     /// <summary>The press that may start a page drag.</summary>
     /// <param name="Press">The pointer event required by the desktop drag API.</param>
     /// <param name="Point">The starting position.</param>
     /// <param name="DocumentId">The document identity at the start of the press.</param>
     [DebuggerDisplay("ThumbnailDrag: document {DocumentId}")]
-    private sealed record ThumbnailDrag(PointerPressedEventArgs Press, Point Point, int DocumentId);
+    private readonly record struct ThumbnailDrag(PointerPressedEventArgs Press, Point Point, int DocumentId);
+
+    /// <summary>A key press that runs a page command.</summary>
+    /// <param name="Press">The key press, marked handled when the command runs.</param>
+    /// <param name="Command">The command.</param>
+    private readonly record struct PageShortcut(KeyEventArgs Press, ICommand Command);
 }

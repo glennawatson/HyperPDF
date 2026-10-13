@@ -108,23 +108,10 @@ public sealed class App : Application
             shouldStart = true;
         }
 
-        if (shouldStart)
-        {
-            Dispatcher.UIThread.Post(StartAndShow);
-        }
-        else
-        {
-            Dispatcher.UIThread.Post(ShutdownDesktop);
-        }
-    }
-
-    /// <summary>Stops a forwarded process after its request reached the running viewer.</summary>
-    private void ShutdownDesktop()
-    {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            desktop.Shutdown();
-        }
+        // A forwarded process stops once its request reached the running viewer.
+        var started = Signal.Return(shouldStart, RxSchedulers.MainThreadScheduler);
+        _lifetime.Add(started.Where(static start => start).SubscribeSafe(_ => StartAndShow(), OnError));
+        _lifetime.Add(started.Where(static start => !start).SubscribeSafe(_ => (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown(), OnError));
     }
 
     /// <summary>Creates the services and the main window.</summary>
@@ -145,6 +132,7 @@ public sealed class App : Application
         _lifetime.Add(new FocusAnnouncementRepair(services.FocusAnnouncements, () => desktop.Windows));
         _lifetime.Add(services);
         _lifetime.Add(viewModel);
+        _lifetime.Add(CommandFailureObserver.Instance.Attach(viewModel.ReportFailure));
 
         // Both current values arrive synchronously on subscription, so the first frame is already themed.
         _lifetime.Add(services.Theme.SubscribeSafe(ApplyTheme, OnError));

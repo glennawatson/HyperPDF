@@ -54,6 +54,12 @@ internal sealed class RenderTestPdf
     /// <summary>Gets or sets extra entries of the catalog dictionary, such as /OCProperties.</summary>
     internal string CatalogEntries { get; set; } = string.Empty;
 
+    /// <summary>Gets or sets extra entries of the trailer dictionary, such as /Info.</summary>
+    internal string TrailerEntries { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the PDF version the header names, such as 1.7 or 2.0.</summary>
+    internal string Version { get; set; } = "1.7";
+
     /// <summary>Gets the number the next added object receives.</summary>
     internal int NextNumber => ContentNumber + _extra.Count + 1;
 
@@ -91,7 +97,7 @@ internal sealed class RenderTestPdf
     internal byte[] ToBytes()
     {
         using var file = new MemoryStream();
-        Write(file, "%PDF-1.7\n");
+        Write(file, $"%PDF-{Version}\n");
         var offsets = new List<long>();
         var content = Encoding.ASCII.GetBytes(Content);
         WriteObject(file, offsets, CatalogNumber, Encoding.ASCII.GetBytes(string.Create(CultureInfo.InvariantCulture, $"<< /Type /Catalog /Pages {PagesNumber} 0 R {CatalogEntries} >>")));
@@ -120,7 +126,7 @@ internal sealed class RenderTestPdf
             Write(file, string.Create(CultureInfo.InvariantCulture, $"{offset:D10} 00000 n \n"));
         }
 
-        Write(file, string.Create(CultureInfo.InvariantCulture, $"trailer\n<< /Size {offsets.Count + 1} /Root {CatalogNumber} 0 R >>\nstartxref\n{tableOffset}\n%%EOF\n"));
+        Write(file, string.Create(CultureInfo.InvariantCulture, $"trailer\n<< /Size {offsets.Count + 1} /Root {CatalogNumber} 0 R {TrailerEntries} >>\nstartxref\n{tableOffset}\n%%EOF\n"));
         return file.ToArray();
     }
 

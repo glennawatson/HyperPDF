@@ -35,6 +35,27 @@ public sealed class TestTimestampAuthority : ISignatureTimestamper, IDisposable
     /// <summary>The SHA-256 algorithm.</summary>
     private const string Sha256Oid = "2.16.840.1.101.3.4.2.1";
 
+    /// <summary>The SHA-384 algorithm.</summary>
+    private const string Sha384Oid = "2.16.840.1.101.3.4.2.2";
+
+    /// <summary>The SHA-512 algorithm.</summary>
+    private const string Sha512Oid = "2.16.840.1.101.3.4.2.3";
+
+    /// <summary>The SHA3-384 algorithm.</summary>
+    private const string Sha3x384Oid = "2.16.840.1.101.3.4.2.9";
+
+    /// <summary>The SHA3-512 algorithm.</summary>
+    private const string Sha3x512Oid = "2.16.840.1.101.3.4.2.10";
+
+    /// <summary>The SHA3-256 algorithm.</summary>
+    private const string Sha3x256Oid = "2.16.840.1.101.3.4.2.8";
+
+    /// <summary>The id-shake256 algorithm.</summary>
+    private const string Shake256Oid = "2.16.840.1.101.3.4.2.12";
+
+    /// <summary>The SHAKE256 output length PDF uses.</summary>
+    private const int Shake256Length = 64;
+
     /// <summary>A policy identifier for the tokens.</summary>
     private const string PolicyOid = "1.3.6.1.4.1.99999.1";
 
@@ -65,11 +86,52 @@ public sealed class TestTimestampAuthority : ISignatureTimestamper, IDisposable
     /// <summary>Gets the number of tokens issued, so tests can tell a timestamp was asked for.</summary>
     public int Issued { get; private set; }
 
+    /// <summary>
+    /// Gets the message imprint's digest OID: SHA-256 (the default), SHA3-256 (2.16.840.1.101.3.4.2.8) or SHAKE256
+    /// (2.16.840.1.101.3.4.2.12, 64 bytes).
+    /// </summary>
+    public string ImprintOid { get; init; } = Sha256Oid;
+
     /// <inheritdoc/>
-    public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+    public int EstimatedTokenSize => 0;
+
+    /// <summary>Gets a token over some data, hashed with <see cref="ImprintOid"/>.</summary>
+    /// <param name="data">The data to stamp.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The DER token.</returns>
+    public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken) =>
+        Stamp(Imprint(data.Span), ImprintOid, cancellationToken);
+
+    /// <inheritdoc/>
+    public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, SigningDigest digest, CancellationToken cancellationToken) =>
+        Stamp(hash.ToArray(), DigestOid(digest), cancellationToken);
+
+    /// <inheritdoc/>
+    public void Dispose() => Certificate.Dispose();
+
+    /// <summary>Gets the object identifier of a digest.</summary>
+    /// <param name="digest">The digest.</param>
+    /// <returns>The identifier.</returns>
+    private static string DigestOid(SigningDigest digest) => digest switch
+    {
+        SigningDigest.Sha3_256 => Sha3x256Oid,
+        SigningDigest.Shake256 => Shake256Oid,
+        SigningDigest.Sha384 => Sha384Oid,
+        SigningDigest.Sha512 => Sha512Oid,
+        SigningDigest.Sha3_384 => Sha3x384Oid,
+        SigningDigest.Sha3_512 => Sha3x512Oid,
+        _ => Sha256Oid,
+    };
+
+    /// <summary>Signs a token over a hash.</summary>
+    /// <param name="hash">The hash to stamp.</param>
+    /// <param name="imprintOid">The digest that made the hash.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The DER token.</returns>
+    private ValueTask<byte[]> Stamp(byte[] hash, string imprintOid, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var content = new ContentInfo(new(TstInfoOid), TstInfo(SHA256.HashData(data.Span)));
+        var content = new ContentInfo(new(TstInfoOid), TstInfo(hash, imprintOid));
         var cms = new SignedCms(content, false);
         var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, Certificate) { DigestAlgorithm = new(Sha256Oid), IncludeOption = X509IncludeOption.EndCertOnly };
         _ = signer.SignedAttributes.Add(new AsnEncodedData(SigningCertificateV2Oid, SigningCertificateV2()));
@@ -78,13 +140,11 @@ public sealed class TestTimestampAuthority : ISignatureTimestamper, IDisposable
         return ValueTask.FromResult(cms.Encode());
     }
 
-    /// <inheritdoc/>
-    public void Dispose() => Certificate.Dispose();
-
     /// <summary>Encodes the TSTInfo: version, policy, message imprint, serial number and time.</summary>
-    /// <param name="hash">The SHA-256 hash being stamped.</param>
+    /// <param name="hash">The hash being stamped.</param>
+    /// <param name="imprintOid">The digest that made the hash.</param>
     /// <returns>The DER bytes.</returns>
-    private byte[] TstInfo(byte[] hash)
+    private byte[] TstInfo(byte[] hash, string imprintOid)
     {
         var writer = new AsnWriter(AsnEncodingRules.DER);
         using (writer.PushSequence())
@@ -95,7 +155,7 @@ public sealed class TestTimestampAuthority : ISignatureTimestamper, IDisposable
             {
                 using (writer.PushSequence())
                 {
-                    writer.WriteObjectIdentifier(Sha256Oid);
+                    writer.WriteObjectIdentifier(imprintOid);
                 }
 
                 writer.WriteOctetString(hash);
@@ -107,6 +167,18 @@ public sealed class TestTimestampAuthority : ISignatureTimestamper, IDisposable
 
         return writer.Encode();
     }
+
+    /// <summary>Hashes the stamped data with the imprint's digest.</summary>
+    /// <param name="data">The data.</param>
+    /// <returns>The hash.</returns>
+    /// <exception cref="NotSupportedException">The imprint OID is not one the authority can compute.</exception>
+    private byte[] Imprint(ReadOnlySpan<byte> data) => ImprintOid switch
+    {
+        Sha256Oid => SHA256.HashData(data),
+        Sha3x256Oid => SHA3_256.HashData(data),
+        Shake256Oid => Shake256.HashData(data, Shake256Length),
+        _ => throw new NotSupportedException($"The test authority cannot hash with {ImprintOid}."),
+    };
 
     /// <summary>Encodes SigningCertificateV2 with one ESSCertIDv2 holding the certificate's SHA-256 hash.</summary>
     /// <returns>The DER bytes.</returns>

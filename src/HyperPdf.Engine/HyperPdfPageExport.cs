@@ -2,8 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using HyperPdf.Core.Printing;
 using HyperPdfLibrary;
 using HyperPdfLibrary.Document;
@@ -14,6 +14,9 @@ namespace HyperPdf.Engine;
 /// <summary>Implements PageExport over the document's owned state.</summary>
 internal static class HyperPdfPageExport
 {
+    /// <summary>The most cells on a sheet whose placements are built on the stack.</summary>
+    internal const int StackCells = 16;
+
     /// <summary>The fraction of a poster tile shared with its neighbour.</summary>
     internal const float PosterOverlap = 0.04F;
 
@@ -73,7 +76,8 @@ internal static class HyperPdfPageExport
             y += (cell.Y - (item.Height * scale)) / MarginsPerAxis;
         }
 
-        return new(item.Form, new(scale, 0, 0, scale, x, y));
+        var formScale = scale * item.UserUnit;
+        return new(item.Form, new(formScale, 0, 0, formScale, x, y));
     }
 
     /// <summary>Works out where a page's box lands on paper, centred and scaled as chosen.</summary>
@@ -90,7 +94,11 @@ internal static class HyperPdfPageExport
         var wide = turned ? box.Height > box.Width : box.Width > box.Height;
         sheet = wide != turned ? new(paper.Y, paper.X) : paper;
         const float Margins = MarginsPerAxis * PrintMargin;
-        var scale = PrintScale.For(layout.Scaling, layout.ScalePercent, box.Width, box.Height, sheet.X - Margins, sheet.Y - Margins);
+        var unit = page.UserUnit;
+        var fit = PrintScale.For(layout.Scaling, layout.ScalePercent, box.Width * unit, box.Height * unit, sheet.X - Margins, sheet.Y - Margins);
+
+        // The form is in user space, so the physical fit is multiplied by the user unit.
+        var scale = fit * unit;
         var x = ((sheet.X - (box.Width * scale)) / MarginsPerAxis) - (box.Left * scale);
         var y = ((sheet.Y - (box.Height * scale)) / MarginsPerAxis) - (box.Bottom * scale);
         return new(form, new(scale, 0, 0, scale, x, y));
@@ -103,28 +111,44 @@ internal static class HyperPdfPageExport
     /// <param name="rows">The cells down.</param>
     /// <param name="sheet">The sheet size in points.</param>
     /// <returns>The number of sheets added.</returns>
-    internal static int LaySheets(PdfDocumentBuilder builder, List<SheetPage?> items, int columns, int rows, Vector2 sheet)
+    internal static int LaySheets(PdfDocumentBuilder builder, ReadOnlySpan<SheetPage?> items, int columns, int rows, Vector2 sheet)
     {
         var perSheet = columns * rows;
         var cell = new Vector2(sheet.X / columns, sheet.Y / rows);
-        var placements = new List<PdfFormPlacement>(perSheet);
-        var sheets = 0;
-        for (var start = 0; start < items.Count; start += perSheet)
+
+        // A sheet's placements are built on the stack; only an unusually large grid rents an array.
+        PdfFormPlacement[]? rented = null;
+        Span<PdfFormPlacement> placements = perSheet <= StackCells ? stackalloc PdfFormPlacement[StackCells] : (rented = ArrayPool<PdfFormPlacement>.Shared.Rent(perSheet));
+        try
         {
-            placements.Clear();
-            for (var i = start; i < Math.Min(start + perSheet, items.Count); i++)
+            var sheets = 0;
+            for (var start = 0; start < items.Length; start += perSheet)
             {
-                if (items[i] is { } item)
+                var count = 0;
+                for (var i = start; i < Math.Min(start + perSheet, items.Length); i++)
                 {
-                    placements.Add(Place(item, i - start, columns, rows, cell));
+                    if (items[i] is not { } item)
+                    {
+                        continue;
+                    }
+
+                    placements[count] = Place(item, i - start, columns, rows, cell);
+                    count++;
                 }
+
+                _ = builder.AddSheet(sheet.X, sheet.Y, placements[..count]);
+                sheets++;
             }
 
-            _ = builder.AddSheet(sheet.X, sheet.Y, CollectionsMarshal.AsSpan(placements));
-            sheets++;
+            return sheets;
         }
-
-        return sheets;
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<PdfFormPlacement>.Shared.Return(rented);
+            }
+        }
     }
 
     /// <summary>Gets a sheet's size in points.</summary>
@@ -253,22 +277,22 @@ internal static class HyperPdfPageExport
         SheetGrid.GetGrid(layout.PagesPerSheet, out var columns, out var rows, out var landscape);
         if (columns == 1 && rows == 1)
         {
-            // PDFium copies pages for a one by one grid rather than resizing them to the paper.
+            // A one by one grid keeps each page at its own size rather than resizing it to the paper.
             return ComposeFlat(self, builder, importer, pages, filter);
         }
 
-        var forms = new Dictionary<int, SheetPage?>();
-        var items = new List<SheetPage?>(pages.Length);
-        foreach (var index in pages)
+        // The pages' forms are held in a pooled array; a page that cannot be read is left out, not left blank.
+        var rented = ArrayPool<SheetPage?>.Shared.Rent(pages.Length);
+        try
         {
-            var item = GetForm(self, importer, forms, index, filter);
-            if (item is not null)
-            {
-                items.Add(item);
-            }
+            var items = rented.AsSpan(0, pages.Length);
+            ImportForms(self, importer, pages, filter, items);
+            return LaySheets(builder, items[..RemoveBlanks(items)], columns, rows, GetSheetSize(layout.Paper, landscape));
         }
-
-        return LaySheets(builder, items, columns, rows, GetSheetSize(layout.Paper, landscape));
+        finally
+        {
+            ArrayPool<SheetPage?>.Shared.Return(rented);
+        }
     }
 
     /// <summary>Puts the pages in booklet order, two to a sideways sheet.</summary>
@@ -281,17 +305,29 @@ internal static class HyperPdfPageExport
     /// <returns>The number of sheets added.</returns>
     internal static int ComposeBooklet(HyperPdfDocument self, PdfDocumentBuilder builder, PdfPageImporter importer, ReadOnlySpan<int> pages, in SheetLayout layout, PdfAnnotationFilter filter)
     {
-        var order = new List<int>(Booklet.SheetCount(pages.Length) * (BookletColumns * BookletColumns));
-        Booklet.Arrange(pages.Length, order);
-        var forms = new Dictionary<int, SheetPage?>();
-        var items = new List<SheetPage?>(order.Count);
-        foreach (var position in order)
+        // The cells' pages and forms are held in pooled arrays.
+        var cells = Booklet.SheetCount(pages.Length) * (BookletColumns * BookletColumns);
+        var cellPages = ArrayPool<int>.Shared.Rent(cells);
+        var cellForms = ArrayPool<SheetPage?>.Shared.Rent(cells);
+        try
         {
-            // A blank page leaves its cell empty.
-            items.Add(position < 0 ? null : GetForm(self, importer, forms, pages[position], filter));
-        }
+            var order = cellPages.AsSpan(0, cells);
+            Booklet.Arrange(pages.Length, order);
+            for (var i = 0; i < order.Length; i++)
+            {
+                // A blank page keeps its position of -1 and leaves its cell empty.
+                order[i] = order[i] < 0 ? order[i] : pages[order[i]];
+            }
 
-        return LaySheets(builder, items, BookletColumns, 1, GetSheetSize(layout.Paper, true));
+            var items = cellForms.AsSpan(0, cells);
+            ImportForms(self, importer, order, filter, items);
+            return LaySheets(builder, items, BookletColumns, 1, GetSheetSize(layout.Paper, true));
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(cellPages);
+            ArrayPool<SheetPage?>.Shared.Return(cellForms);
+        }
     }
 
     /// <summary>Spreads each page over tiles-squared sheets, each showing part of the page.</summary>
@@ -304,7 +340,7 @@ internal static class HyperPdfPageExport
     /// <returns>The number of sheets added.</returns>
     internal static int ComposePoster(HyperPdfDocument self, PdfDocumentBuilder builder, PdfPageImporter importer, ReadOnlySpan<int> pages, in SheetLayout layout, PdfAnnotationFilter filter)
     {
-        // PDFium lays a single page on a single-page sheet by copying it, so each tile is a page the size of its box.
+        // A single page on a single-page sheet is copied, so each tile is a page the size of its box.
         var tiles = Math.Max(1, layout.PosterTiles);
         var sheets = 0;
         foreach (var index in pages)
@@ -353,7 +389,7 @@ internal static class HyperPdfPageExport
             var box = tiles > 0 ? GetTileBox(page.MediaBox, tile, tiles) : page.CropBox;
             var form = importer.ImportForm(page, box, filter, false);
             PdfFormPlacement placement = new(form, Matrix3x2.CreateTranslation(-box.Left, -box.Bottom));
-            _ = builder.AddSheet(box.Width, box.Height, page.Rotation, [placement]);
+            _ = builder.AddSheet(box.Width, box.Height, page.Rotation, page.UserUnit, [placement]);
             return true;
         }
         catch (Exception ex) when (ex is PdfException or InvalidDataException)
@@ -362,32 +398,66 @@ internal static class HyperPdfPageExport
         }
     }
 
-    /// <summary>Copies a page as a form, once however often it is used.</summary>
+    /// <summary>Copies each cell's page as a form, once however often the page is used.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="importer">Copies the pages.</param>
-    /// <param name="forms">The forms already made, by page.</param>
+    /// <param name="cellPages">The page of each cell, or -1 for a blank cell.</param>
+    /// <param name="filter">The annotations drawn.</param>
+    /// <param name="items">Receives each cell's form, or <see langword="null"/> for a blank cell or a page that cannot be read.</param>
+    internal static void ImportForms(HyperPdfDocument self, PdfPageImporter importer, ReadOnlySpan<int> cellPages, PdfAnnotationFilter filter, Span<SheetPage?> items)
+    {
+        for (var cell = 0; cell < cellPages.Length; cell++)
+        {
+            var index = cellPages[cell];
+            if (index < 0)
+            {
+                items[cell] = null;
+                continue;
+            }
+
+            // The first cell showing a page made its form; later cells share it.
+            var first = cellPages[..cell].IndexOf(index);
+            items[cell] = first >= 0 ? items[first] : GetForm(self, importer, index, filter);
+        }
+    }
+
+    /// <summary>Moves the forms to the front, leaving out the blank ones.</summary>
+    /// <param name="items">The forms; the front holds the kept ones afterwards.</param>
+    /// <returns>The number kept.</returns>
+    internal static int RemoveBlanks(Span<SheetPage?> items)
+    {
+        var kept = 0;
+        foreach (var item in items)
+        {
+            if (item is null)
+            {
+                continue;
+            }
+
+            items[kept] = item;
+            kept++;
+        }
+
+        return kept;
+    }
+
+    /// <summary>Copies a page as a form.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="importer">Copies the pages.</param>
     /// <param name="index">The page.</param>
     /// <param name="filter">The annotations drawn.</param>
     /// <returns>The form, or <see langword="null"/> when the page cannot be read.</returns>
-    internal static SheetPage? GetForm(HyperPdfDocument self, PdfPageImporter importer, Dictionary<int, SheetPage?> forms, int index, PdfAnnotationFilter filter)
+    internal static SheetPage? GetForm(HyperPdfDocument self, PdfPageImporter importer, int index, PdfAnnotationFilter filter)
     {
-        if (forms.TryGetValue(index, out var existing))
-        {
-            return existing;
-        }
-
-        SheetPage? item = null;
         try
         {
             var page = PdfDocumentPages.GetPage(self.Document, index);
-            item = new(importer.ImportForm(page, page.CropBox, filter, true), page.Width, page.Height);
+            return new SheetPage(importer.ImportForm(page, page.CropBox, filter, true), page.PhysicalWidth, page.PhysicalHeight, page.UserUnit);
         }
         catch (Exception ex) when (ex is PdfException or InvalidDataException)
         {
             // A page that cannot be read is left blank.
+            return null;
         }
-
-        forms[index] = item;
-        return item;
     }
 }

@@ -52,7 +52,13 @@ internal static class PdfAConversionSubstitute
             return null;
         }
 
-        var glyphs = new HashSet<int>(plan.Glyphs.Values) { 0 };
+        using var glyphs = new CodeBitSet(true);
+        _ = glyphs.Add(0);
+        foreach (var glyph in plan.Glyphs.Values)
+        {
+            _ = glyphs.Add(glyph);
+        }
+
         if (TrueTypeSubsetter.SubsetWithCmap(bytes, glyphs, PdfAConversionCmap.Write(plan.Glyphs)) is not { } subset)
         {
             return "the matching open font could not be prepared.";

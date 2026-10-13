@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace HyperPdfLibrary.Structure;
 
@@ -14,22 +15,31 @@ namespace HyperPdfLibrary.Structure;
 internal sealed class ObjectStreamCache
 {
     /// <summary>The most decoded object streams kept by default.</summary>
-    internal const int DefaultMaxStreams = 8;
+    internal const int DefaultMaxStreams = 128;
 
     /// <summary>The most decoded bytes kept by default: 4 MiB.</summary>
     internal const long DefaultMaxBytes = 4L * 1024 * 1024;
+
+    /// <summary>The slots made when the first stream is cached; the arrays grow as more are.</summary>
+    private const int InitialSlots = 4;
+
+    /// <summary>The factor by which the slot arrays grow.</summary>
+    private const int GrowthFactor = 2;
 
     /// <summary>Guards every field below.</summary>
     private readonly Lock _gate = new();
 
     /// <summary>The object numbers of the cached streams, in slots <c>0.._count</c>.</summary>
-    private int[] _containers;
+    private int[] _containers = [];
 
     /// <summary>The cached streams, parallel to <see cref="_containers"/>.</summary>
-    private ObjectStreamIndex?[] _items;
+    private ObjectStreamIndex?[] _items = [];
 
     /// <summary>When each slot was last used, parallel to <see cref="_containers"/>.</summary>
-    private long[] _stamps;
+    private long[] _stamps = [];
+
+    /// <summary>The most streams to keep.</summary>
+    private int _maxStreams;
 
     /// <summary>The most decoded bytes to keep.</summary>
     private long _maxBytes;
@@ -54,10 +64,7 @@ internal sealed class ObjectStreamCache
     /// <param name="maxBytes">The most decoded bytes to keep, apart from the newest stream.</param>
     internal ObjectStreamCache(int maxStreams, long maxBytes)
     {
-        var slots = Math.Max(maxStreams, 1);
-        _containers = new int[slots];
-        _items = new ObjectStreamIndex?[slots];
-        _stamps = new long[slots];
+        _maxStreams = Math.Max(maxStreams, 1);
         _maxBytes = maxBytes;
     }
 
@@ -121,9 +128,13 @@ internal sealed class ObjectStreamCache
             }
             else
             {
-                if (_count == _items.Length)
+                if (_count == _maxStreams)
                 {
                     RemoveOldest();
+                }
+                else if (_count == _items.Length)
+                {
+                    Grow();
                 }
 
                 slot = _count;
@@ -146,15 +157,19 @@ internal sealed class ObjectStreamCache
     {
         lock (_gate)
         {
-            var slots = Math.Max(maxStreams, 1);
-            while (_count > slots)
+            _maxStreams = Math.Max(maxStreams, 1);
+            while (_count > _maxStreams)
             {
                 RemoveOldest();
             }
 
-            Array.Resize(ref _containers, slots);
-            Array.Resize(ref _items, slots);
-            Array.Resize(ref _stamps, slots);
+            if (_items.Length > _maxStreams)
+            {
+                Array.Resize(ref _containers, _maxStreams);
+                Array.Resize(ref _items, _maxStreams);
+                Array.Resize(ref _stamps, _maxStreams);
+            }
+
             _maxBytes = maxBytes;
             TrimToBytes();
         }
@@ -174,17 +189,16 @@ internal sealed class ObjectStreamCache
     /// <summary>Finds the slot holding a stream; the caller holds the lock.</summary>
     /// <param name="container">The object stream's number.</param>
     /// <returns>The slot; -1 when not cached.</returns>
-    private int Find(int container)
-    {
-        for (var i = 0; i < _count; i++)
-        {
-            if (_containers[i] == container)
-            {
-                return i;
-            }
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int Find(int container) => _containers.AsSpan(0, _count).IndexOf(container);
 
-        return -1;
+    /// <summary>Makes room for more streams in the slot arrays, up to the most kept; the caller holds the lock.</summary>
+    private void Grow()
+    {
+        var slots = Math.Min(Math.Max(InitialSlots, _items.Length * GrowthFactor), _maxStreams);
+        Array.Resize(ref _containers, slots);
+        Array.Resize(ref _items, slots);
+        Array.Resize(ref _stamps, slots);
     }
 
     /// <summary>Drops the oldest streams until the byte budget holds, keeping at least one; the caller holds the lock.</summary>

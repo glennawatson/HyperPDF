@@ -25,6 +25,9 @@ internal static class XmpEditor
     /// <summary>The length of <c>xmlns:</c>.</summary>
     private const int XmlnsLength = 6;
 
+    /// <summary>The reader settings for the well-formed check, shared because a reader only reads them.</summary>
+    private static readonly XmlReaderSettings WellFormedSettings = new() { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = MaxPacketLength, };
+
     /// <summary>Gets the RDF namespace.</summary>
     private static ReadOnlySpan<byte> RdfNamespace => "http://www.w3.org/1999/02/22-rdf-syntax-ns#"u8;
 
@@ -92,11 +95,10 @@ internal static class XmpEditor
             return false;
         }
 
-        var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = MaxPacketLength, };
         using var stream = new MemoryStream(xml, false);
         try
         {
-            using var reader = XmlReader.Create(stream, settings);
+            using var reader = XmlReader.Create(stream, WellFormedSettings);
             while (reader.Read())
             {
                 // Reading to the end is the check.

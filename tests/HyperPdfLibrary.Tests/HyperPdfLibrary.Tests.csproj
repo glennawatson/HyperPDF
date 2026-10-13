@@ -20,4 +20,19 @@
   <ItemGroup>
     <EmbeddedResource Include="Conformance\VeraPdf\Data\verapdf-results.tsv" LogicalName="HyperPdfLibrary.Tests.VeraPdfRecordedResults.tsv" />
   </ItemGroup>
+
+  <!-- OpenSSL's ECDH recipient envelopes and their test-only keys, read by Security/EcdhRecipients.cs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Security\Data\*" LogicalName="HyperPdfLibrary.Tests.Security.Ecdh.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- OpenSSL's SHA-3 and SHAKE256 signatures over one prepared file, read by Signatures/Sha3Signatures.cs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Signatures\Data\*" LogicalName="HyperPdfLibrary.Tests.Signatures.Sha3.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- OpenSSL's elliptic-curve and EdDSA signatures over the same prepared file, read by Signatures/EcSignatures.cs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Signatures\EcData\*" LogicalName="HyperPdfLibrary.Tests.Signatures.Ec.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

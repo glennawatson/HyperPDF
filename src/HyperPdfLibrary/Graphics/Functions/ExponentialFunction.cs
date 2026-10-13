@@ -42,8 +42,8 @@ internal sealed class ExponentialFunction : PdfFunction
         var c0Array = dictionary.GetArray(KnownName.C0);
         var exponent = dictionary.Get(KnownName.N);
 
-        // Like PDFium's CPDF_ExpIntFunc, the output count comes from /Range, else from /C0, and a shorter /C0 or /C1 is
-        // padded rather than rejected.
+        // ISO 32000-2 7.10.3 gives /C0 and /C1 the same length, which sets the output count. A damaged file may disagree, so
+        // the count comes from /Range when present, else from /C0, and a shorter /C0 or /C1 is padded with its default (0 or 1).
         var outputs = range is not null ? range.Length / FunctionReader.PairSize : Math.Max(c0Array?.Count ?? 1, 1);
         if (domain.Length != FunctionReader.PairSize || !exponent.IsNumber || outputs > MaxComponents)
         {

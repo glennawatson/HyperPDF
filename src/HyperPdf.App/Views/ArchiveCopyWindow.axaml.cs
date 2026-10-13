@@ -3,11 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using Avalonia.Layout;
-using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -23,17 +21,11 @@ namespace HyperPdf.App.Views;
 [DebuggerDisplay("ArchiveCopyWindow: {Title}")]
 public sealed partial class ArchiveCopyWindow : ReactiveUI.Avalonia.ReactiveWindow<ArchiveCopyViewModel>
 {
-    /// <summary>The vertical space between a choice's name and its description.</summary>
-    private const double ChoiceGap = 2;
-
-    /// <summary>The vertical space around a choice.</summary>
-    private const double ChoicePadding = 4;
-
     /// <summary>Initializes a new instance of the <see cref="ArchiveCopyWindow"/> class.</summary>
     public ArchiveCopyWindow()
     {
         InitializeComponent();
-        LevelList.ItemTemplate = new FuncDataTemplate<ArchiveLevelChoice>(static (choice, _) => CreateChoice(choice));
+        LevelList.ItemTemplate = new FuncDataTemplate<ArchiveLevelChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(ItemAutomation.NameItems(LevelList));
@@ -44,17 +36,6 @@ public sealed partial class ArchiveCopyWindow : ReactiveUI.Avalonia.ReactiveWind
                 .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
             _ = LevelList.Focus();
         });
-    }
-
-    /// <summary>Creates the view of one level: its name, and under it what it means.</summary>
-    /// <param name="choice">The choice.</param>
-    /// <returns>The view.</returns>
-    private static StackPanel CreateChoice(ArchiveLevelChoice? choice)
-    {
-        var name = new TextBlock { Text = choice?.Name, FontWeight = FontWeight.SemiBold };
-        var description = new TextBlock { Text = choice?.Description, TextWrapping = TextWrapping.Wrap };
-        description.Classes.Add("secondary");
-        return new StackPanel { Spacing = ChoiceGap, Margin = new(0, ChoicePadding), HorizontalAlignment = HorizontalAlignment.Stretch, Children = { name, description } };
     }
 
     /// <summary>Binds the heading and the level choices.</summary>

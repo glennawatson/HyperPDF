@@ -10,8 +10,8 @@ namespace HyperPdfLibrary.Tests.Document;
 /// <summary>Checks Roman page labels through the public document API.</summary>
 public sealed class RomanPageLabelTests
 {
-    /// <summary>The Roman label wrap used by PDFium.</summary>
-    private const int MaxRoman = 1_000_000;
+    /// <summary>The largest number written in Roman numerals.</summary>
+    private const int MaxRoman = 100_000;
 
     /// <summary>The second zero-based page index.</summary>
     private const int SecondPage = 2;
@@ -19,11 +19,11 @@ public sealed class RomanPageLabelTests
     /// <summary>The third zero-based page index.</summary>
     private const int ThirdPage = 3;
 
-    /// <summary>The number of thousands in the last Roman number before wrapping.</summary>
-    private const int LastThousands = 999;
+    /// <summary>The number of thousands in the largest Roman label.</summary>
+    private const int MaxThousands = 100;
 
-    /// <summary>The number of thousands in int.MaxValue after wrapping.</summary>
-    private const int LargestThousands = 483;
+    /// <summary>The number of thousands in the number just below the cap.</summary>
+    private const int LastThousands = 99;
 
     /// <summary>A page dictionary shared by the four-page fixture.</summary>
     private const string Page = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>";
@@ -41,32 +41,31 @@ public sealed class RomanPageLabelTests
         await Assert.That(PdfDocumentLabels.GetPageLabel(document, ThirdPage)).IsEqualTo("CMXLIV");
     }
 
-    /// <summary>Zero, negative and wrapped numbers keep their existing empty-label behavior.</summary>
+    /// <summary>Zero and negative numbers have no Roman form; a number over the cap is written in digits.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task HandlesNonPositiveAndWrappedNumbers()
+    public async Task HandlesNonPositiveAndOverlargeNumbers()
     {
         using var document = Open($"[0 << /S /r /St 0 >> 1 << /S /R /St -1 >> 2 << /S /r /St {MaxRoman} >> 3 << /S /R /St {MaxRoman + 1} >>]");
 
         await Assert.That(PdfDocumentLabels.GetPageLabel(document, 0)).IsNull();
         await Assert.That(PdfDocumentLabels.GetPageLabel(document, 1)).IsNull();
-        await Assert.That(PdfDocumentLabels.GetPageLabel(document, SecondPage)).IsNull();
-        await Assert.That(PdfDocumentLabels.GetPageLabel(document, ThirdPage)).IsEqualTo("I");
+        await Assert.That(PdfDocumentLabels.GetPageLabel(document, SecondPage)).IsEqualTo(new('m', MaxThousands));
+        await Assert.That(PdfDocumentLabels.GetPageLabel(document, ThirdPage)).IsEqualTo((MaxRoman + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
-    /// <summary>The last number before wrapping and the largest PDF integer keep their modulo behavior.</summary>
+    /// <summary>The last number written in numerals and the largest PDF integer, which falls back to digits.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task FormatsLargeValuesAtTheWrapBoundary()
+    public async Task FormatsLargeValuesAtTheCap()
     {
         using var document = Open($"[0 << /S /r /St {MaxRoman - 1} >> 2 << /S /R /St {int.MaxValue} >>]");
         var last = PdfDocumentLabels.GetPageLabel(document, 0);
         var largest = PdfDocumentLabels.GetPageLabel(document, SecondPage);
 
         await Assert.That(last).IsEqualTo($"{new string('m', LastThousands)}cmxcix");
-        await Assert.That(PdfDocumentLabels.GetPageLabel(document, 1)).IsNull();
-        await Assert.That(largest).IsEqualTo($"{new string('M', LargestThousands)}DCXLVII");
-        await Assert.That(PdfDocumentLabels.GetPageLabel(document, ThirdPage)).IsNull();
+        await Assert.That(PdfDocumentLabels.GetPageLabel(document, 1)).IsEqualTo(new('m', MaxThousands));
+        await Assert.That(largest).IsEqualTo(int.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     /// <summary>Prefix and offset apply to the selected range, while pages before it use decimal labels.</summary>

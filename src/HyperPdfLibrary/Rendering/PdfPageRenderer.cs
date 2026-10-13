@@ -45,9 +45,6 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <summary>The cached pictures, least recently used first.</summary>
     private readonly List<PagePictures> _entries = [with(CachedPages + 1)];
 
-    /// <summary>The ids of the images already added up while measuring the pictures; scratch space for the lock holder.</summary>
-    private readonly HashSet<uint> _counted = [];
-
     /// <summary>The document.</summary>
     private readonly PdfDocument _document;
 
@@ -59,6 +56,9 @@ public sealed partial class PdfPageRenderer : IDisposable
 
     /// <summary>The output-intent cache entry acquired on first use for this renderer's options.</summary>
     private PdfRenderCacheEntry? _intentEntry;
+
+    /// <summary>The ids of the images already added up while measuring the pictures; scratch space for the lock holder, made when a picture first lists an image.</summary>
+    private HashSet<uint>? _counted;
 
     /// <summary>Whether the renderer has been disposed.</summary>
     private bool _disposed;
@@ -119,16 +119,17 @@ public sealed partial class PdfPageRenderer : IDisposable
         }
     }
 
-    /// <summary>Gets the size of a whole page image, as PDFium sizes it: the rotated page size times the scale, rounded up.</summary>
+    /// <summary>Gets the size of a whole page image: the rotated physical page size (user space size times <c>/UserUnit</c>) times the scale, rounded up.</summary>
     /// <param name="page">The page.</param>
     /// <param name="quarterTurns">The extra clockwise rotation in quarter turns.</param>
-    /// <param name="scale">Device pixels per point.</param>
+    /// <param name="scale">Device pixels per point of physical size.</param>
     /// <param name="width">Receives the width in pixels.</param>
     /// <param name="height">Receives the height in pixels.</param>
     /// <exception cref="ArgumentNullException"><paramref name="page"/> is <see langword="null"/>.</exception>
     public static void GetPixelSize(PdfPage page, int quarterTurns, float scale, out int width, out int height)
     {
         ArgumentNullException.ThrowIfNull(page);
+        scale = EffectiveScale(page, scale);
         var odd = (quarterTurns & QuarterTurn) != 0;
         width = Math.Max(1, (int)MathF.Ceiling((odd ? page.Height : page.Width) * scale));
         height = Math.Max(1, (int)MathF.Ceiling((odd ? page.Width : page.Height) * scale));
@@ -150,7 +151,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
         try
         {
             var recorded = entry.Recordings;
@@ -183,7 +184,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
         try
         {
             var recorded = entry.Recordings;
@@ -216,7 +217,7 @@ public sealed partial class PdfPageRenderer : IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
         try
         {
             var recorded = entry.Recordings;
@@ -244,7 +245,7 @@ public sealed partial class PdfPageRenderer : IDisposable
     }
 
     /// <summary>
-    /// Renders part of a page progressively, like FPDF_RenderPageBitmap_Start and _Continue. While the page is not yet
+    /// Renders part of a page progressively, a slice of operators at a time. While the page is not yet
     /// recorded, its content is recorded a slice of operators at a time, asking <paramref name="shouldPause"/> after
     /// each slice; when it pauses, call again with the same request to continue. The target is drawn only when the
     /// status is <see cref="PdfRenderStatus.Done"/>. Once a page is recorded this costs the same as a normal render.
@@ -266,7 +267,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
         try
         {
             var recorded = entry.Recordings;
@@ -312,7 +313,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), request.Scale);
+        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
         try
         {
             var recorded = entry.Recordings;
@@ -365,6 +366,12 @@ public sealed partial class PdfPageRenderer : IDisposable
             }
         }
     }
+
+    /// <summary>Gets the device pixels per user space unit: the scale per point of physical size times the page's <c>/UserUnit</c> (ISO 32000-2 7.7.3.3).</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="scale">The requested scale, in device pixels per point of physical size.</param>
+    /// <returns>The pixels per user space unit.</returns>
+    internal static float EffectiveScale(PdfPage page, float scale) => scale * page.UserUnit;
 
     /// <summary>Computes the matrix from viewer space to the target's pixels.</summary>
     /// <param name="page">The page.</param>
@@ -446,13 +453,13 @@ public sealed partial class PdfPageRenderer : IDisposable
 
     /// <summary>
     /// Chooses the caches a render records with: the output intent's when the flag asks for it, or when the document claims
-    /// PDF/A and has a usable intent, unless <see cref="PdfRenderFlags.FixedDeviceColors"/> forces the fixed conversions.
+    /// PDF/A and has a usable intent (ISO 19005 asks a reader to convert device colours through it).
     /// </summary>
     /// <param name="flags">The render flags.</param>
     /// <returns>The cache selected by this renderer's options and the output-intent flag.</returns>
     private PdfRenderCache CacheFor(PdfRenderFlags flags)
     {
-        if ((flags & PdfRenderFlags.FixedDeviceColors) != 0 || ((flags & PdfRenderFlags.OutputIntent) == 0 && !PdfDocumentOutputIntentRendering.ClaimsPdfA(_document)))
+        if ((flags & PdfRenderFlags.OutputIntent) == 0 && !PdfDocumentOutputIntentRendering.ClaimsPdfA(_document))
         {
             return Cache;
         }
@@ -494,7 +501,9 @@ public sealed partial class PdfPageRenderer : IDisposable
             PdfDocumentRendering.RegisterRenderer(_document, this);
         }
 
-        var version = PdfDocumentLayers.GetOptionalContent(_document).Version;
+        var layers = PdfDocumentLayers.GetOptionalContent(_document);
+        var version = layers.Version;
+        var zoomClass = layers.GetZoomClass(scale);
         var scaleBand = GetScaleBand(scale, out var upperScale);
         lock (_gate)
         {
@@ -502,7 +511,7 @@ public sealed partial class PdfPageRenderer : IDisposable
             for (var i = 0; i < _entries.Count; i++)
             {
                 var existing = _entries[i];
-                if (existing.PageIndex != pageIndex || existing.Version != version || existing.UsesIntent != usesIntent || existing.ScaleBand != scaleBand)
+                if (existing.PageIndex != pageIndex || existing.Version != version || existing.UsesIntent != usesIntent || existing.ScaleBand != scaleBand || existing.ZoomClass != zoomClass)
                 {
                     continue;
                 }
@@ -513,7 +522,7 @@ public sealed partial class PdfPageRenderer : IDisposable
                 return existing;
             }
 
-            var created = new PagePictures(pageIndex, version, usesIntent, scaleBand, upperScale);
+            var created = new PagePictures(pageIndex, version, usesIntent, scaleBand, upperScale, zoomClass);
             _entries.Add(created);
             created.Acquire();
             EvictLocked();
@@ -556,7 +565,7 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <returns>The bytes held.</returns>
     private long MeasureLocked(int first)
     {
-        _counted.Clear();
+        _counted?.Clear();
         var total = 0L;
         for (var i = first; i < _entries.Count; i++)
         {
@@ -564,7 +573,7 @@ public sealed partial class PdfPageRenderer : IDisposable
             total += picture.HeldBytes;
             foreach (var (id, bytes) in picture.Images)
             {
-                if (_counted.Add(id))
+                if ((_counted ??= []).Add(id))
                 {
                     total += bytes;
                 }

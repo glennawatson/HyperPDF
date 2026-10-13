@@ -28,6 +28,7 @@ public static class PdfDocumentSignatureEditing
             document,
             "Remove signatures",
             PdfChangeKinds.Signing,
+            PdfCacheScopes.None,
             state,
             static (transaction, state) => state.Removed = SignatureRemoval.Remove(state.Document.Objects, transaction));
         return state.Removed;

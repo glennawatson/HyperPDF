@@ -97,7 +97,7 @@ internal static class HyperPdfAnnotationEditing
                 return false;
             }
 
-            if (!Restyle(annotationState, annotation, kind, width))
+            if (!Restyle(annotationState, annotation, kind, width / page.UserUnit))
             {
                 return false;
             }

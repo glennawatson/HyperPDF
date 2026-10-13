@@ -2,119 +2,103 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Numerics;
 using System.Runtime.InteropServices;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Text;
 
-/// <summary>Assembles text lines, including ActualText and bidirectional order.</summary>
+/// <summary>
+/// Turns the runs of one line into characters. Runs are put in order along the line's direction; word spaces are
+/// generated from the gap between a glyph's advance end and the next glyph's origin (see <see cref="TextSpacing"/>);
+/// glyphs drawn twice at nearly the same place, as fake bold does, are kept once; and /ActualText replaces the glyphs it covers.
+/// </summary>
 internal static class TextLineAssembly
 {
-    /// <summary>The character PDFium writes in the text for a glyph without Unicode, and for a joining hyphen.</summary>
-    internal const char NoText = (char)0xFFFE;
+    /// <summary>The number of runs back that are compared with a run for being a repeat of it.</summary>
+    private const int RunLookBack = 6;
 
-    /// <summary>The last ASCII value PDFium checks with isprint.</summary>
-    private const char AsciiLimit = '\u0080';
+    /// <summary>The number of glyphs back that are compared with a glyph for being a repeat of it.</summary>
+    private const int GlyphLookBack = 12;
 
-    /// <summary>The first printable ASCII character.</summary>
-    private const char FirstPrintable = ' ';
+    /// <summary>The share of the em within which a repeated glyph or run counts as drawn twice.</summary>
+    private const float RepeatShare = 0.12F;
 
-    /// <summary>The last printable ASCII character.</summary>
-    private const char LastPrintable = '~';
+    /// <summary>The size of the buffer for one character's decomposition.</summary>
+    private const int PieceBuffer = TextUnicode.MaxDecomposition;
 
-    /// <summary>The first character PDFium treats as a non-character in /ActualText.</summary>
-    private const char ReplacementCharacter = (char)0xFFFD;
+    /// <summary>The code recorded for characters that no glyph produced.</summary>
+    private const int NoCode = -1;
 
-    /// <summary>Gets the control characters PDFium leaves out of the page text.</summary>
-    private static ReadOnlySpan<char> ControlCharacters => ['\u0002', '\u0003', '\u0093', '\u0094', '\u0096', '\u0097', '\u0098', NoText];
-
-    /// <summary>Determines whether a character goes into the page text, as PDFium's IsNormalCharacter decides.</summary>
-    /// <param name="info">The character.</param>
-    /// <returns><see langword="true"/> when it has text.</returns>
-    internal static bool IsNormal(in TextBuildChar info) => info.Unicode == '\0' ? info.Code != 0 : info.Kind == PdfTextCharKind.Hyphen || !ControlCharacters.Contains(info.Unicode);
-
-    /// <summary>Works out how a run's /ActualText applies, as PDFium's PreMarkedContent does.</summary>
-    /// <param name="state">The reusable build state.</param>
-    /// <param name="run">The run.</param>
-    /// <returns>The state.</returns>
-    internal static ActualTextState ActualTextStateOf(TextPageBuildState state, in TextRun run)
+    /// <summary>Builds the characters of a line and adds them to the page.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="firstRun">The first run of the line.</param>
+    /// <param name="runCount">The number of runs in the line.</param>
+    internal static void AppendLine(TextPageBuildState state, int firstRun, int runCount)
     {
-        var marks = run.Marks;
-        if (marks.Count == 0 || !marks.HasActualText)
+        state.LineChars.Clear();
+        state.Recent.Clear();
+        state.Order.Clear();
+        state.HasPrevious = false;
+        state.GroupCount = 0;
+        state.LineAxis = state.Frames[firstRun].Axis;
+        for (var i = firstRun; i < firstRun + runCount; i++)
         {
-            return ActualTextState.Pass;
+            if (!IsRepeatedRun(state, i))
+            {
+                state.Order.Add(i);
+            }
         }
 
-        if (IsSameSpanAsPrevious(state, marks))
+        SortAlongLine(state);
+        foreach (var run in CollectionsMarshal.AsSpan(state.Order))
         {
-            return ActualTextState.Done;
+            AppendRun(state, run);
         }
 
-        var text = marks.ActualText;
-        if (string.IsNullOrEmpty(text))
-        {
-            return ActualTextState.Pass;
-        }
-
-        return HasPrintable(text) ? ActualTextState.Replace : ActualTextState.Done;
+        TextLineOrder.Complete(state);
     }
 
-    /// <summary>Adds a run's /ActualText in place of its glyphs, spreading the characters across the run's bounds.</summary>
-    /// <param name="state">The reusable build state.</param>
-    /// <param name="index">The run.</param>
-    /// <returns><see langword="true"/> when the text is right to left and must be reversed back into logical order.</returns>
-    internal static bool AddActualText(TextPageBuildState state, int index)
+    /// <summary>Puts the line's runs in order of their start along the line's direction; runs at one place keep content order.</summary>
+    /// <param name="state">The build state.</param>
+    private static void SortAlongLine(TextPageBuildState state)
+    {
+        var order = CollectionsMarshal.AsSpan(state.Order);
+        var axis = state.LineAxis;
+        for (var i = 1; i < order.Length; i++)
+        {
+            var value = order[i];
+            var key = Vector2.Dot(state.Frames[value].Start, axis);
+            var j = i - 1;
+            while (j >= 0 && Vector2.Dot(state.Frames[order[j]].Start, axis) > key)
+            {
+                order[j + 1] = order[j];
+                j--;
+            }
+
+            order[j + 1] = value;
+        }
+    }
+
+    /// <summary>Determines whether a run shows the same glyphs as a recent run of the line, at nearly the same place.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="index">The index of the run.</param>
+    /// <returns><see langword="true"/> when it is a repeat.</returns>
+    private static bool IsRepeatedRun(TextPageBuildState state, int index)
     {
         var run = state.Runs[index];
-        var text = run.Marks.LastActualText;
-        if (text.Length == 0)
+        var frame = state.Frames[index];
+        var limit = Math.Max(0, state.Order.Count - RunLookBack);
+        for (var k = state.Order.Count - 1; k >= limit; k--)
         {
-            return false;
-        }
+            var earlier = state.Order[k];
+            var other = state.Runs[earlier];
+            if (!ReferenceEquals(other.Font, run.Font) || other.GlyphCount != run.GlyphCount || other.Marks.Id != run.Marks.Id)
+            {
+                continue;
+            }
 
-        var rightToLeft = TextGlyphAssembly.IsRightToLeft(state, run) || (state.Previous >= 0 && TextGlyphAssembly.IsRightToLeft(state, state.Runs[state.Previous]) && TextUnicode.IsRightToLeft(text));
-        var rect = run.Rect;
-        var share = rect.Width / text.Length;
-        rect = rightToLeft ? rect with { Left = rect.Right - share } : rect with { Right = rect.Left + share };
-        AddActualTextChars(state, index, text, rect, rightToLeft ? -rect.Width : rect.Width);
-        return rightToLeft;
-    }
-
-    /// <summary>Moves the line being built to the page in bidi order, as PDFium's CloseTempLine does.</summary>
-    /// <param name="state">The reusable build state.</param>
-    internal static void CloseTempLine(TextPageBuildState state)
-    {
-        if (state.Temp.Count == 0)
-        {
-            return;
-        }
-
-        CollapseSpaces(state);
-        var rightToLeft = FindSegments(state);
-        var current = rightToLeft ? TextDirection.Right : TextDirection.Left;
-        foreach (var segment in CollectionsMarshal.AsSpan(state.Segments))
-        {
-            current = AddSegment(state, segment, current);
-        }
-
-        state.Temp.Clear();
-        state.TempText.Clear();
-        state.Segments.Clear();
-    }
-
-    /// <summary>Determines whether an ASCII character is printable, as C's isprint does.</summary>
-    /// <param name="value">The character.</param>
-    /// <returns><see langword="true"/> when it is printable.</returns>
-    private static bool IsPrintable(char value) => value is >= FirstPrintable and <= LastPrintable;
-
-    /// <summary>Determines whether /ActualText has a character PDFium counts as printable.</summary>
-    /// <param name="text">The text.</param>
-    /// <returns><see langword="true"/> when it has one.</returns>
-    private static bool HasPrintable(string text)
-    {
-        foreach (var value in text)
-        {
-            if (value is > AsciiLimit and < ReplacementCharacter || (value <= AsciiLimit && IsPrintable(value)))
+            if (IsNear(state.Frames[earlier].Start, frame.Start, frame.SafeEm) && SameCodes(state, other, run))
             {
                 return true;
             }
@@ -123,191 +107,291 @@ internal static class TextLineAssembly
         return false;
     }
 
-    /// <summary>Determines whether the previous run was in the same /ActualText span, whose text it already added.</summary>
-    /// <param name="state">The reusable build state.</param>
-    /// <param name="marks">The run's marks.</param>
-    /// <returns><see langword="true"/> when it was.</returns>
-    private static bool IsSameSpanAsPrevious(TextPageBuildState state, TextMarks marks)
+    /// <summary>Determines whether two runs show the same character codes.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="first">The first run.</param>
+    /// <param name="second">The second run.</param>
+    /// <returns><see langword="true"/> when every code matches.</returns>
+    private static bool SameCodes(TextPageBuildState state, in TextRun first, in TextRun second)
     {
-        if (state.Previous < 0)
+        var glyphs = CollectionsMarshal.AsSpan(state.Glyphs);
+        for (var i = 0; i < first.GlyphCount; i++)
+        {
+            if (glyphs[first.FirstGlyph + i].Code != glyphs[second.FirstGlyph + i].Code)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Determines whether two points are within the repeat distance of each other on both axes.</summary>
+    /// <param name="first">The first point.</param>
+    /// <param name="second">The second point.</param>
+    /// <param name="em">The em.</param>
+    /// <returns><see langword="true"/> when they are near.</returns>
+    private static bool IsNear(Vector2 first, Vector2 second, float em)
+    {
+        var tolerance = RepeatShare * em;
+        return MathF.Abs(first.X - second.X) <= tolerance && MathF.Abs(first.Y - second.Y) <= tolerance;
+    }
+
+    /// <summary>Adds the characters of one run.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="index">The index of the run.</param>
+    private static void AppendRun(TextPageBuildState state, int index)
+    {
+        var run = state.Runs[index];
+        if (run.Marks.Id != 0)
+        {
+            if (state.PlacedSequences.Add(run.Marks.Id))
+            {
+                AppendReplacementText(state, index, run);
+            }
+
+            return;
+        }
+
+        var glyphs = CollectionsMarshal.AsSpan(state.Glyphs).Slice(run.FirstGlyph, run.GlyphCount);
+        foreach (var glyph in glyphs)
+        {
+            AppendGlyph(state, index, run, glyph);
+        }
+    }
+
+    /// <summary>Adds the glyph's characters, a generated space before it when the gap calls for one.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="index">The index of the run.</param>
+    /// <param name="run">The run.</param>
+    /// <param name="glyph">The glyph.</param>
+    private static void AppendGlyph(TextPageBuildState state, int index, in TextRun run, in TextGlyph glyph)
+    {
+        var frame = state.Frames[index];
+        var origin = TextGeometry.Transform(run.Matrix, glyph.Origin);
+        if (IsRepeatedGlyph(state, run, glyph.Code, origin, frame.Em))
+        {
+            return;
+        }
+
+        var text = CollectionsMarshal.AsSpan(state.Unicode).Slice(glyph.UnicodeStart, glyph.UnicodeLength);
+        var pen = TextGeometry.Transform(run.Matrix, PenPoint(run, glyph.Pen));
+        if (state.HasPrevious && NeedsSpace(state, pen, text))
+        {
+            AddGeneratedSpace(state, index);
+        }
+
+        AddGlyphChars(state, index, run, glyph, text);
+        state.Recent.Add(new(run.Font, glyph.Code, origin, frame.Em));
+        state.HasPrevious = true;
+        state.PreviousEnd = TextGeometry.Transform(run.Matrix, PenPoint(run, glyph.Pen + glyph.Advance));
+        state.PreviousEm = frame.Em;
+        state.PreviousFont = run.Font;
+    }
+
+    /// <summary>Starts a new glyph group in the line being built.</summary>
+    /// <param name="state">The build state.</param>
+    /// <returns>The group number.</returns>
+    private static int NextGroup(TextPageBuildState state)
+    {
+        var group = state.GroupCount;
+        state.GroupCount = group + 1;
+        return group;
+    }
+
+    /// <summary>Gets a point on a run's pen line.</summary>
+    /// <param name="run">The run.</param>
+    /// <param name="along">The distance along the writing direction.</param>
+    /// <returns>The point in run space.</returns>
+    private static Vector2 PenPoint(in TextRun run, float along) => run.Font.IsVertical ? new(0, along) : new(along, 0);
+
+    /// <summary>Determines whether a glyph repeats one of the last few glyphs of the line.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="run">The glyph's run.</param>
+    /// <param name="code">The code.</param>
+    /// <param name="origin">The glyph origin in user space.</param>
+    /// <param name="em">The em.</param>
+    /// <returns><see langword="true"/> when it is a repeat.</returns>
+    private static bool IsRepeatedGlyph(TextPageBuildState state, in TextRun run, int code, Vector2 origin, float em)
+    {
+        var limit = Math.Max(0, state.Recent.Count - GlyphLookBack);
+        for (var k = state.Recent.Count - 1; k >= limit; k--)
+        {
+            var recent = state.Recent[k];
+            if (recent.Code == code && ReferenceEquals(recent.Font, run.Font) && IsNear(recent.Origin, origin, MathF.Max(MathF.Abs(em), MathF.Abs(recent.Em))))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Determines whether the gap before a glyph is a word space.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="pen">The glyph's pen position in user space.</param>
+    /// <param name="text">The glyph's text.</param>
+    /// <returns><see langword="true"/> when a space should be generated.</returns>
+    private static bool NeedsSpace(TextPageBuildState state, Vector2 pen, ReadOnlySpan<char> text)
+    {
+        var em = MathF.Abs(state.PreviousEm);
+        var gap = Vector2.Dot(pen - state.PreviousEnd, state.LineAxis);
+        if (em <= 0 || gap <= TextSpacing.NeverSpaceEm * em || state.PreviousFont is null)
         {
             return false;
         }
 
-        var previous = state.Runs[state.Previous].Marks;
-        return previous.Count == marks.Count && ReferenceEquals(previous.Innermost, marks.Innermost);
+        if (gap <= TextSpacing.ThresholdEm(state, state.PreviousFont) * em)
+        {
+            return false;
+        }
+
+        return !EndsWithSpace(state) && !StartsWithSpace(text) && !BothCjk(state, text);
     }
 
-    /// <summary>Adds the characters of /ActualText, each with its share of the run's bounds.</summary>
-    /// <param name="state">The reusable build state.</param>
-    /// <param name="index">The run.</param>
+    /// <summary>Determines whether the line so far ends with a space.</summary>
+    /// <param name="state">The build state.</param>
+    /// <returns><see langword="true"/> when the last character is a space.</returns>
+    private static bool EndsWithSpace(TextPageBuildState state) => state.LineChars.Count > 0 && state.LineChars[^1] is { Unicode: ' ', InText: true };
+
+    /// <summary>Determines whether a glyph's text starts with a space.</summary>
     /// <param name="text">The text.</param>
-    /// <param name="rect">The first character's box.</param>
-    /// <param name="step">The distance between boxes.</param>
-    private static void AddActualTextChars(TextPageBuildState state, int index, string text, PdfRectangle rect, float step)
-    {
-        var run = state.Runs[index];
-        for (var k = 0; k < text.Length; k++)
-        {
-            var value = text[k] <= AsciiLimit && !IsPrintable(text[k]) ? ' ' : text[k];
-            if (value >= ReplacementCharacter)
-            {
-                continue;
-            }
+    /// <returns><see langword="true"/> when it does.</returns>
+    private static bool StartsWithSpace(ReadOnlySpan<char> text) => !text.IsEmpty && text[0] == ' ';
 
-            var offset = k * step;
-            var box = new PdfRectangle(rect.Left + offset, rect.Bottom, rect.Right + offset, rect.Top);
-            state.TempText.Add(value);
-            state.Temp.Add(new(PdfTextCharKind.ActualText, -1, value, run.Position, box, box, run.Matrix, index, 0));
+    /// <summary>Determines whether a gap lies between two characters of scripts that are written without spaces.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="text">The text after the gap.</param>
+    /// <returns><see langword="true"/> when both sides are CJK.</returns>
+    private static bool BothCjk(TextPageBuildState state, ReadOnlySpan<char> text) =>
+        !text.IsEmpty && state.LineChars.Count > 0 && TextUnicode.IsCjk(text[0]) && TextUnicode.IsCjk(state.LineChars[^1].Unicode);
+
+    /// <summary>Adds a space the extractor generated at the end of the previous glyph.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="index">The run of the glyph after the space.</param>
+    private static void AddGeneratedSpace(TextPageBuildState state, int index)
+    {
+        var point = state.PreviousEnd;
+        var box = new PdfRectangle(point.X, point.Y, point.X, point.Y);
+        state.LineChars.Add(new(PdfTextCharKind.Generated, NoCode, ' ', point, box, box, index, NextGroup(state), state.LineIndex, true));
+    }
+
+    /// <summary>Adds the characters one glyph shows.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="index">The index of the run.</param>
+    /// <param name="run">The run.</param>
+    /// <param name="glyph">The glyph.</param>
+    /// <param name="text">The glyph's text.</param>
+    private static void AddGlyphChars(TextPageBuildState state, int index, in TextRun run, in TextGlyph glyph, ReadOnlySpan<char> text)
+    {
+        var group = NextGroup(state);
+        var origin = TextGeometry.Transform(run.Matrix, glyph.Origin);
+        var outline = TextGeometry.IsEmpty(glyph.Outline) ? glyph.Cell : glyph.Outline;
+        var loose = TextGeometry.Union(glyph.Cell, outline);
+        var vertical = run.Font.IsVertical;
+        if (text.IsEmpty)
+        {
+            var value = (char)glyph.Code;
+            var box = TextGeometry.TransformRect(run.Matrix, outline);
+            state.LineChars.Add(new(PdfTextCharKind.NotUnicode, glyph.Code, value, origin, box, TextGeometry.TransformRect(run.Matrix, loose), index, group, state.LineIndex, false));
+            return;
+        }
+
+        var total = CountPieces(text);
+        var position = 0;
+        Span<char> pieces = stackalloc char[PieceBuffer];
+        foreach (var value in text)
+        {
+            var count = TextUnicode.Decompose(value, pieces);
+            var kind = count > 0 ? PdfTextCharKind.Piece : PdfTextCharKind.Normal;
+            for (var i = 0; i < Math.Max(count, 1); i++)
+            {
+                var character = count > 0 ? pieces[i] : value;
+                var box = TextGeometry.TransformRect(run.Matrix, Slice(outline, position, total, vertical));
+                var looseBox = TextGeometry.TransformRect(run.Matrix, Slice(loose, position, total, vertical));
+                AddCharacter(state, new(kind, glyph.Code, character, origin, box, looseBox, index, group, state.LineIndex, !TextUnicode.IsHidden(character)));
+                position++;
+            }
         }
     }
 
-    /// <summary>Removes the second of each pair of adjacent spaces in the line being built.</summary>
-    /// <param name="state">The reusable build state.</param>
-    private static void CollapseSpaces(TextPageBuildState state)
+    /// <summary>Counts the characters a glyph's text gives once presentation forms are split.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>The count.</returns>
+    private static int CountPieces(ReadOnlySpan<char> text)
     {
-        var previousSpace = false;
-        var write = 0;
-        var count = state.TempText.Count;
-        for (var read = 0; read < count; read++)
+        var total = 0;
+        Span<char> pieces = stackalloc char[PieceBuffer];
+        foreach (var value in text)
         {
-            var value = state.TempText[read];
-            var space = value == ' ';
-            if (space && previousSpace)
-            {
-                continue;
-            }
-
-            if (write != read)
-            {
-                state.TempText[write] = value;
-                state.Temp[write] = state.Temp[read];
-            }
-
-            write++;
-            previousSpace = space;
+            total += Math.Max(TextUnicode.Decompose(value, pieces), 1);
         }
 
-        if (write == count)
+        return total;
+    }
+
+    /// <summary>Adds a character, leaving out a space that follows another space.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="character">The character.</param>
+    private static void AddCharacter(TextPageBuildState state, in TextBuildChar character)
+    {
+        if (character is { Unicode: ' ', InText: true } && EndsWithSpace(state))
         {
             return;
         }
 
-        state.TempText.RemoveRange(write, count - write);
-        state.Temp.RemoveRange(write, count - write);
+        state.LineChars.Add(character);
     }
 
-    /// <summary>Splits the line being built into direction segments, in display order.</summary>
-    /// <param name="state">The reusable build state.</param>
-    /// <returns><see langword="true"/> when the line reads right to left.</returns>
-    private static bool FindSegments(TextPageBuildState state)
+    /// <summary>Gets the part of a rectangle that one character of a multi-character glyph covers.</summary>
+    /// <param name="rectangle">The glyph rectangle in run space.</param>
+    /// <param name="position">The character's position among the glyph's characters.</param>
+    /// <param name="total">The number of characters.</param>
+    /// <param name="vertical">Whether the run writes vertically, which runs top to bottom.</param>
+    /// <returns>The part in run space.</returns>
+    private static PdfRectangle Slice(in PdfRectangle rectangle, int position, int total, bool vertical)
     {
-        state.Segments.Clear();
-        var text = CollectionsMarshal.AsSpan(state.TempText);
-        var right = 0;
-        var left = 0;
-        var start = 0;
-        for (var i = 1; i <= text.Length; i++)
+        if (total <= 1)
         {
-            var direction = TextUnicode.GetDirection(text[start]);
-            if (i < text.Length && TextUnicode.GetDirection(text[i]) == direction)
-            {
-                continue;
-            }
-
-            state.Segments.Add(new(start, i - start, direction));
-            right += direction == TextDirection.Right ? 1 : 0;
-            left += direction == TextDirection.Left ? 1 : 0;
-            start = i;
+            return rectangle;
         }
 
-        var rightToLeft = right > left || state.RightToLeft;
-        if (rightToLeft)
+        if (vertical)
         {
-            state.Segments.Reverse();
+            var height = (rectangle.Top - rectangle.Bottom) / total;
+            return new(rectangle.Left, rectangle.Top - ((position + 1) * height), rectangle.Right, rectangle.Top - (position * height));
         }
 
-        return rightToLeft;
+        var width = (rectangle.Right - rectangle.Left) / total;
+        return new(rectangle.Left + (position * width), rectangle.Bottom, rectangle.Left + ((position + 1) * width), rectangle.Top);
     }
 
-    /// <summary>Adds one direction segment of the line being built to the page.</summary>
-    /// <param name="state">The reusable build state.</param>
-    /// <param name="segment">The segment.</param>
-    /// <param name="current">The direction in force before it.</param>
-    /// <returns>The direction in force after it.</returns>
-    private static TextDirection AddSegment(TextPageBuildState state, in TextSegment segment, TextDirection current)
+    /// <summary>Adds the /ActualText of a run in place of its glyphs, spread along the run's extent.</summary>
+    /// <param name="state">The build state.</param>
+    /// <param name="index">The index of the run.</param>
+    /// <param name="run">The run.</param>
+    private static void AppendReplacementText(TextPageBuildState state, int index, in TextRun run)
     {
-        var end = segment.Start + segment.Count;
-        if (segment.Direction == TextDirection.Right || (segment.Direction == TextDirection.Neutral && current == TextDirection.Right))
+        var glyphs = CollectionsMarshal.AsSpan(state.Glyphs).Slice(run.FirstGlyph, run.GlyphCount);
+        var extent = glyphs[0].Cell;
+        foreach (var glyph in glyphs)
         {
-            // /ActualText is already in logical order, so only glyph text is reversed.
-            if (segment.Count > 0 && state.Temp[segment.Start].Kind == PdfTextCharKind.ActualText)
-            {
-                AddRange(state, segment.Start, end, true);
-            }
-            else
-            {
-                for (var i = end - 1; i >= segment.Start; i--)
-                {
-                    AddChar(state, state.TempText[i], state.Temp[i], true);
-                }
-            }
-
-            return TextDirection.Right;
+            extent = TextGeometry.Union(extent, glyph.Cell);
         }
 
-        AddRange(state, segment.Start, end, false);
-        return segment.Direction == TextDirection.LeftWeak ? current : TextDirection.Left;
-    }
-
-    /// <summary>Adds characters of the line being built to the page in order.</summary>
-    /// <param name="state">The reusable build state.</param>
-    /// <param name="start">The first character.</param>
-    /// <param name="end">The index after the last.</param>
-    /// <param name="rightToLeft">Whether they are right-to-left text.</param>
-    private static void AddRange(TextPageBuildState state, int start, int end, bool rightToLeft)
-    {
-        for (var i = start; i < end; i++)
+        var text = run.Marks.ActualText;
+        var vertical = run.Font.IsVertical;
+        var origin = TextGeometry.Transform(run.Matrix, glyphs[0].Origin);
+        for (var i = 0; i < text.Length; i++)
         {
-            AddChar(state, state.TempText[i], state.Temp[i], rightToLeft);
-        }
-    }
-
-    /// <summary>Adds a character to the page, mirroring and decomposing as PDFium's AddCharInfo does.</summary>
-    /// <param name="state">The reusable build state.</param>
-    /// <param name="value">The character's text.</param>
-    /// <param name="info">The character.</param>
-    /// <param name="rightToLeft">Whether it is right-to-left text.</param>
-    private static void AddChar(TextPageBuildState state, char value, in TextBuildChar info, bool rightToLeft)
-    {
-        if (!IsNormal(info))
-        {
-            state.Chars.Add(info);
-            return;
+            var box = TextGeometry.TransformRect(run.Matrix, Slice(extent, i, text.Length, vertical));
+            AddCharacter(state, new(PdfTextCharKind.ActualText, NoCode, text[i], origin, box, box, index, NextGroup(state), state.LineIndex, !TextUnicode.IsHidden(text[i])));
         }
 
-        if (rightToLeft)
-        {
-            value = TextUnicode.GetMirror(value);
-        }
-
-        if (!rightToLeft && !TextUnicode.IsLigature(value))
-        {
-            state.Text.Add(value);
-            state.Chars.Add(info);
-            return;
-        }
-
-        Span<char> parts = stackalloc char[TextUnicode.MaxDecomposition];
-        var count = TextUnicode.Decompose(value, parts);
-        var piece = info with
-        {
-            Kind = PdfTextCharKind.Piece
-        };
-        foreach (var part in parts[..count])
-        {
-            state.Chars.Add(piece with { Unicode = part });
-            state.Text.Add(part);
-        }
+        var last = glyphs[^1];
+        state.HasPrevious = true;
+        state.PreviousEnd = TextGeometry.Transform(run.Matrix, PenPoint(run, last.Pen + last.Advance));
+        state.PreviousEm = state.Frames[index].Em;
+        state.PreviousFont = run.Font;
     }
 }

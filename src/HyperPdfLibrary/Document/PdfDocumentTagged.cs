@@ -14,13 +14,14 @@ public static class PdfDocumentTagged
     /// <returns>The structure tree, or null when the document has none.</returns>
     public static PdfStructureTree? GetStructureTree(PdfDocument document)
     {
+        // Read before the tree is, so an edit that lands while it loads keeps it out of the cache.
+        var revision = PdfDocumentCaches.Revision(document);
         var read = Volatile.Read(ref document.State.StructureTree);
         if (read is null)
         {
             lock (document.State.StructureGate)
             {
-                read = document.State.StructureTree ?? new(PdfStructureTree.Load(document));
-                Volatile.Write(ref document.State.StructureTree, read);
+                read = document.State.StructureTree ?? PdfDocumentCaches.Publish(document, ref document.State.StructureTree, new(PdfStructureTree.Load(document)), revision);
             }
         }
 
@@ -36,18 +37,18 @@ public static class PdfDocumentTagged
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, document.PageCount);
-        if (Volatile.Read(ref document.State.MarkedContent) is null)
-        {
-            _ = Interlocked.CompareExchange(ref document.State.MarkedContent, new PdfMarkedContentPage?[document.PageCount], null);
-        }
 
-        var pages = Volatile.Read(ref document.State.MarkedContent)!;
-        if (Volatile.Read(ref pages[pageIndex]) is { } recorded)
+        // Read before the page count and the page are, so an edit that lands meanwhile keeps the record out of the cache.
+        var revision = PdfDocumentCaches.Revision(document);
+        var pages = PdfDocumentCaches.PerPage(document, ref document.State.MarkedContent, revision);
+        if ((uint)pageIndex < (uint)pages.Length && Volatile.Read(ref pages[pageIndex]) is { } recorded)
         {
             return recorded;
         }
 
         var page = MarkedContentRecorder.Record(document, PdfDocumentPages.GetPage(document, pageIndex));
-        return Interlocked.CompareExchange(ref pages[pageIndex], page, null) ?? page;
+
+        // The array was made for the page count before an edit changed it, so a page beyond it is recorded but not kept.
+        return (uint)pageIndex < (uint)pages.Length ? PdfDocumentCaches.PublishFirst(document, ref pages[pageIndex], page, revision) : page;
     }
 }

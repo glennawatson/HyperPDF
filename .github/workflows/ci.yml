@@ -96,3 +96,31 @@ jobs:
           name: pdfa-validation
           path: ${{ runner.temp }}/pdfa-output
           if-no-files-found: warn
+  pdf20-syntax:
+    name: PDF 2.0 copy syntax check (qpdf)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Setup .NET
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@b824c637960b1886a6a30a2526856bbf017661cf
+        with:
+          src-folder: '.'
+          stamp-version: 'false'
+          dotnet-versions: '11.x'
+      - name: Install qpdf
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes qpdf
+      - name: Fetch verified reference PDFs
+        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/reference-pdfs" usgs-lost-city-2023 verapdf-ua-headings verapdf-ua-tables verapdf-ua-notes pdfjs-textfields pdfjs-js-buttons pdfjs-annotation-attachment pypdf-latex-forms pypdf-libreoffice-form pypdf-outline pypdf-arabic pypdf-annotations pypdf-attachment
+      - name: Save PDF 2.0 copies and check them with qpdf
+        run: dotnet run --file scripts/CheckPdf20Copies.cs -- "${{ runner.temp }}/reference-pdfs" "${{ runner.temp }}/pdf20-copies"
+      - name: Upload PDF 2.0 copies
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pdf20-copies
+          path: ${{ runner.temp }}/pdf20-copies
+          if-no-files-found: warn

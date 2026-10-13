@@ -11,7 +11,7 @@ using HyperPdf.TestAssets;
 namespace HyperPdf.Benchmarks;
 
 /// <summary>
-/// Measures working out reading order on a two-column article page: reading its characters from PDFium, ordering them,
+/// Measures working out reading order on a two-column article page: reading its characters, ordering them,
 /// and flattening the result for Read Aloud. Allocations come from the EventPipe trace.
 /// </summary>
 public class ReadingOrderBenchmarks
@@ -68,7 +68,7 @@ public class ReadingOrderBenchmarks
         _tagged.Dispose();
     }
 
-    /// <summary>Reads a page's characters and their positions from PDFium.</summary>
+    /// <summary>Reads a page's characters and their positions.</summary>
     /// <returns>The character count.</returns>
     [Benchmark]
     public int ReadCharacters()

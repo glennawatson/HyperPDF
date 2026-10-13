@@ -163,6 +163,7 @@ public sealed class PdfEditHistory
     /// <exception cref="InvalidOperationException">A transaction is open.</exception>
     private bool Step(List<PdfEditRecord> from, List<PdfEditRecord> to, bool undo)
     {
+        PdfCacheScopes scopes;
         lock (_store.Gate)
         {
             if (StoreTransactions.GetCurrentTransaction(_store) is not null)
@@ -176,6 +177,7 @@ public sealed class PdfEditHistory
             }
 
             var record = from[^1];
+            scopes = record.Scopes;
             from.RemoveAt(from.Count - 1);
             if (undo)
             {
@@ -190,7 +192,7 @@ public sealed class PdfEditHistory
             Trim(to, _depth);
         }
 
-        StoreTransactions.NotifyChanged(_store);
+        StoreTransactions.NotifyChanged(_store, scopes);
         return true;
     }
 }

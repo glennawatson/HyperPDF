@@ -16,14 +16,11 @@ public sealed class ScratchPools
     /// <summary>The default retention limit: 48 MiB, about one decoded 600 dpi page.</summary>
     private const long DefaultBytes = 48L * 1024 * 1024;
 
-    /// <summary>Guards pool registration, the budget and retained-byte count.</summary>
+    /// <summary>Guards pool registration, the budget and retained-byte count, and the arrays every pool of this owner keeps.</summary>
     private readonly Lock _gate = new();
 
-    /// <summary>The lazily created pools by element type.</summary>
-    private readonly Dictionary<Type, object> _pools = [];
-
-    /// <summary>The trim action of each pool created by this owner.</summary>
-    private readonly List<Action> _trimmers = [];
+    /// <summary>The most recently created pool of an uncommon element type; each pool links to the one before.</summary>
+    private ScratchPoolBase? _head;
 
     /// <summary>The byte pool used most often by image decoders.</summary>
     private ScratchPool<byte>? _bytes;
@@ -96,18 +93,28 @@ public sealed class ScratchPools
     /// <summary>Gets this owner's integer array pool.</summary>
     internal ScratchPool<int> Ints => Volatile.Read(ref _ints) ?? Get<int>();
 
+    /// <summary>Gets the lock that guards this owner's budget and the arrays all of its pools keep.</summary>
+    internal Lock Gate => _gate;
+
+    /// <summary>Gets a value indicating whether document close has ended this owner's retention.</summary>
+    internal bool IsClosed
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _closed;
+            }
+        }
+    }
+
     /// <summary>Releases every buffer this owner keeps. Arrays in use are unaffected.</summary>
     public void Trim()
     {
-        Action[] trimmers;
-        lock (_gate)
+        // Pools are only added at the head and never unlinked, so the chain from this snapshot stays valid without the lock.
+        for (var pool = Volatile.Read(ref _head); pool is not null; pool = pool.Next)
         {
-            trimmers = [.. _trimmers];
-        }
-
-        foreach (var trim in trimmers)
-        {
-            trim();
+            pool.Trim();
         }
     }
 
@@ -123,15 +130,48 @@ public sealed class ScratchPools
 
         lock (_gate)
         {
-            if (_pools.TryGetValue(typeof(T), out var existing))
+            for (var pool = _head; pool is not null; pool = pool.Next)
             {
-                return (ScratchPool<T>)existing;
+                if (pool is ScratchPool<T> existing)
+                {
+                    return existing;
+                }
             }
 
-            var created = new ScratchPool<T>(this);
-            _pools.Add(typeof(T), created);
-            _trimmers.Add(created.Trim);
+            var created = new ScratchPool<T>(this) { Next = _head };
+            Volatile.Write(ref _head, created);
             PublishCommon(created);
+            return created;
+        }
+    }
+
+    /// <summary>Gets this owner's idle working objects of one kind.</summary>
+    /// <typeparam name="T">The kind of object.</typeparam>
+    /// <returns>The owned slots.</returns>
+    internal ScratchObjects<T> Objects<T>()
+        where T : class, IDisposable
+    {
+        // Pools are only added at the head and never unlinked, so the chain from this snapshot stays valid without the lock.
+        for (var pool = Volatile.Read(ref _head); pool is not null; pool = pool.Next)
+        {
+            if (pool is ScratchObjects<T> existing)
+            {
+                return existing;
+            }
+        }
+
+        lock (_gate)
+        {
+            for (var pool = _head; pool is not null; pool = pool.Next)
+            {
+                if (pool is ScratchObjects<T> existing)
+                {
+                    return existing;
+                }
+            }
+
+            var created = new ScratchObjects<T>(this) { Next = _head };
+            Volatile.Write(ref _head, created);
             return created;
         }
     }

@@ -83,8 +83,10 @@ internal static class HyperPdfText
             return -1;
         }
 
-        var user = text.Page.ToUser(new(point.X, point.Y));
-        return Math.Max(text.GetIndexAtPosition(user, tolerance, tolerance), -1);
+        // The point and tolerance are physical points; the text page measures in user space units.
+        var user = text.Page.FromPhysical(new(point.X, point.Y));
+        var userTolerance = tolerance / text.Page.UserUnit;
+        return Math.Max(text.GetIndexAtPosition(user, userTolerance, userTolerance), -1);
     }
 
     /// <summary>Gets the text of a run of characters, as <see cref="HyperPdfDocument.GetText"/> will.</summary>
@@ -114,7 +116,7 @@ internal static class HyperPdfText
             start,
             count,
             new RectOutput(text, output),
-            static (state, rect) => state.Output.Add(LinkTargets.ToPageRect(state.Text.Page.ToViewerRectangle(rect))));
+            static (state, rect) => state.Output.Add(LinkTargets.ToPageRect(state.Text.Page.ToPhysicalRectangle(rect))));
     }
 
     /// <summary>Finds every occurrence of text on a page, as <see cref="HyperPdfDocument.Find"/> will.</summary>
@@ -156,11 +158,11 @@ internal static class HyperPdfText
         {
             var generated = info.IsGenerated;
             var bounds = generated ? default : CharacterBounds(text, info);
-            output.Add(new(info.Unicode, bounds, EffectiveSize(info), !generated && info.IsBold, generated));
+            output.Add(new(info.Unicode, bounds, EffectiveSize(info) * text.Page.UserUnit, !generated && info.IsBold, generated));
         }
     }
 
-    /// <summary>Appends the web and email addresses written as text on a page, as PDFium's web links are added to <see cref="HyperPdfDocument.GetLinks"/>.</summary>
+    /// <summary>Appends the web and email addresses written as text on a page, for <see cref="HyperPdfDocument.GetLinks"/>.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="output">The list receiving the links.</param>
@@ -179,7 +181,7 @@ internal static class HyperPdfText
                 link.Count,
                 new LinkOutput(text, output, LinkTarget.ForUri(link.Url)),
                 static (state, rect) => state.Output.Add(new(
-                    LinkTargets.ToPageRect(state.Text.Page.ToViewerRectangle(rect)),
+                    LinkTargets.ToPageRect(state.Text.Page.ToPhysicalRectangle(rect)),
                     state.Target)));
         }
     }
@@ -205,7 +207,7 @@ internal static class HyperPdfText
 
     /// <summary>
     /// Gets a character's box from its advance and the font's ascent and descent, so narrow letters keep their side
-    /// bearings; the outline box is the fallback, as the PDFium document does.
+    /// bearings; the outline box is the fallback.
     /// </summary>
     /// <param name="text">The text page.</param>
     /// <param name="info">The character.</param>
@@ -213,12 +215,12 @@ internal static class HyperPdfText
     internal static PageRect CharacterBounds(PdfTextPage text, in PdfTextChar info)
     {
         var box = info.LooseBox.Right > info.LooseBox.Left ? info.LooseBox : info.Box;
-        return LinkTargets.ToPageRect(text.Page.ToViewerRectangle(box));
+        return LinkTargets.ToPageRect(text.Page.ToPhysicalRectangle(box));
     }
 
     /// <summary>Gets the size a character is drawn at: the box height when the text matrix scales a small font size up.</summary>
     /// <param name="info">The character.</param>
-    /// <returns>The size in points.</returns>
+    /// <returns>The size in user space units.</returns>
     internal static float EffectiveSize(in PdfTextChar info)
     {
         if (info.IsGenerated)

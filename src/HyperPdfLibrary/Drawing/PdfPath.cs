@@ -11,8 +11,11 @@ namespace HyperPdfLibrary.Drawing;
 [DebuggerDisplay("PdfPath: {PointCount} points")]
 public sealed class PdfPath
 {
-    /// <summary>The exact, immutable command array owned by this path.</summary>
-    private readonly PdfPathCommand[] _commands;
+    /// <summary>The command array; the first <see cref="_count"/> commands are the path. An ordinary path owns the exact array and never changes it.</summary>
+    private PdfPathCommand[] _commands;
+
+    /// <summary>The number of commands in the path.</summary>
+    private int _count;
 
     /// <summary>Initializes a new instance of the <see cref="PdfPath"/> class.</summary>
     /// <param name="commands">The immutable commands.</param>
@@ -20,43 +23,47 @@ public sealed class PdfPath
     internal PdfPath(PdfPathCommand[] commands, PdfPathFillRule fillRule)
     {
         _commands = commands;
+        _count = commands.Length;
         FillRule = fillRule;
-        var measurements = Measure(commands);
-        Bounds = measurements.Bounds;
-        PointCount = measurements.PointCount;
-        IsEmpty = measurements.IsEmpty;
+        Measure();
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PdfPath"/> class that has no commands until it is lent some with <see cref="Lend"/>.</summary>
+    internal PdfPath()
+        : this([], PdfPathFillRule.Winding)
+    {
     }
 
     /// <summary>Gets an empty winding path.</summary>
     public static PdfPath Empty { get; } = new([], PdfPathFillRule.Winding);
 
     /// <summary>Gets the fill rule.</summary>
-    public PdfPathFillRule FillRule { get; }
+    public PdfPathFillRule FillRule { get; private set; }
 
     /// <summary>Gets the bounds of the path's endpoints and control points.</summary>
-    public PdfRect Bounds { get; }
+    public PdfRect Bounds { get; private set; }
 
     /// <summary>Gets the number of endpoints and curve control points.</summary>
-    public int PointCount { get; }
+    public int PointCount { get; private set; }
 
     /// <summary>Gets whether the path has no line or curve segments.</summary>
-    public bool IsEmpty { get; }
+    public bool IsEmpty { get; private set; }
 
     /// <summary>Gets the path commands as a read-only view.</summary>
-    public ReadOnlySpan<PdfPathCommand> Commands => _commands;
+    public ReadOnlySpan<PdfPathCommand> Commands => new(_commands, 0, _count);
 
     /// <summary>Returns a copy of the path transformed by a matrix.</summary>
     /// <param name="matrix">The transform.</param>
     /// <returns>An independent path with transformed points.</returns>
     public PdfPath Transform(Matrix3x2 matrix)
     {
-        if (_commands.Length == 0)
+        if (_count == 0)
         {
             return FillRule == PdfPathFillRule.Winding ? Empty : new([], FillRule);
         }
 
-        var transformed = new PdfPathCommand[_commands.Length];
-        for (var i = 0; i < _commands.Length; i++)
+        var transformed = new PdfPathCommand[_count];
+        for (var i = 0; i < transformed.Length; i++)
         {
             transformed[i] = _commands[i].Transform(matrix);
         }
@@ -64,10 +71,24 @@ public sealed class PdfPath
         return new(transformed, FillRule);
     }
 
-    /// <summary>Calculates the bounds and point count for a command sequence.</summary>
-    /// <param name="commands">The commands.</param>
-    /// <returns>The path measurements.</returns>
-    private static PathMeasurements Measure(ReadOnlySpan<PdfPathCommand> commands)
+    /// <summary>
+    /// Points this path at commands that someone else owns, so a path can be passed to a device without copying them. The
+    /// view lasts until the owner changes the commands; only the owner of this instance may use it, and only for a device
+    /// that does not keep paths.
+    /// </summary>
+    /// <param name="commands">The owner's command array.</param>
+    /// <param name="count">The number of commands in use.</param>
+    /// <param name="fillRule">The rule used to fill the path.</param>
+    internal void Lend(PdfPathCommand[] commands, int count, PdfPathFillRule fillRule)
+    {
+        _commands = commands;
+        _count = count;
+        FillRule = fillRule;
+        Measure();
+    }
+
+    /// <summary>Calculates the bounds and point count of the commands in use.</summary>
+    private void Measure()
     {
         var left = float.PositiveInfinity;
         var top = float.PositiveInfinity;
@@ -76,7 +97,7 @@ public sealed class PdfPath
         var pointCount = 0;
         var hasSegment = false;
 
-        foreach (var command in commands)
+        foreach (var command in Commands)
         {
             pointCount += command.PointCount;
             hasSegment |= command.Kind is PdfPathCommandKind.LineTo or PdfPathCommandKind.QuadraticTo or PdfPathCommandKind.CubicTo;
@@ -90,13 +111,8 @@ public sealed class PdfPath
             }
         }
 
-        var bounds = pointCount == 0 ? PdfRect.Empty : new(left, top, right, bottom);
-        return new(bounds, pointCount, !hasSegment);
+        Bounds = pointCount == 0 ? PdfRect.Empty : new(left, top, right, bottom);
+        PointCount = pointCount;
+        IsEmpty = !hasSegment;
     }
-
-    /// <summary>The bounds and point count calculated from path commands.</summary>
-    /// <param name="Bounds">The control-point bounds.</param>
-    /// <param name="PointCount">The endpoints and control points.</param>
-    /// <param name="IsEmpty">Whether the path contains no drawing segment.</param>
-    private readonly record struct PathMeasurements(PdfRect Bounds, int PointCount, bool IsEmpty);
 }

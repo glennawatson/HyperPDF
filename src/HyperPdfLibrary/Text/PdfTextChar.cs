@@ -8,13 +8,13 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Text;
 
-/// <summary>One character of a text page, in user space, as PDFium's text page reports it.</summary>
-/// <param name="Unicode">The character; 2 for a line-end hyphen and 0 for a glyph with neither text nor a code.</param>
+/// <summary>One character of a text page, in user space.</summary>
+/// <param name="Unicode">The character; the hyphen itself for a line-end hyphen, and 0 for a glyph with neither text nor a code.</param>
 /// <param name="Kind">Where the character came from.</param>
 /// <param name="Code">The character code, or -1 for generated and /ActualText characters.</param>
 /// <param name="Origin">The glyph origin.</param>
 /// <param name="Box">The glyph's outline box; a point for generated characters.</param>
-/// <param name="LooseBox">The box from the advance and the font's ascent and descent, joined with <paramref name="Box"/>.</param>
+/// <param name="LooseBox">The em cell: the glyph's advance by the font's descent to ascent, joined with <paramref name="Box"/>.</param>
 /// <param name="FontSize">The font size set by the content, before any scaling; 1 for characters without a font.</param>
 /// <param name="RenderMode">The text render mode; 3 is invisible text, such as an OCR layer.</param>
 /// <param name="IsBold">Whether the font is bold.</param>

@@ -287,11 +287,11 @@ public sealed class ArchiveCopyViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(SourceName, Pages)]);
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
-        await Assert.That(tab.Archive.CanRun).IsTrue();
-        await Assert.That(tab.Archive.MenuText).IsEqualTo("Save P_DF/A Copy…");
+        await Assert.That(tab.Copies.Archive.CanRun).IsTrue();
+        await Assert.That(tab.Copies.Archive.MenuText).IsEqualTo("Save P_DF/A Copy…");
         var destination = Path.Combine(test.Directory, "archived.pdf");
         ArchiveCopyResult? result = null;
-        using var handler = tab.Archive.Interaction.RegisterHandler(async context =>
+        using var handler = tab.Copies.Archive.Interaction.RegisterHandler(async context =>
         {
             using var picker = context.Input.SaveInteraction.RegisterHandler(pick => pick.SetOutput(destination));
             _ = await context.Input.SaveCommand.Execute().ToTask();
@@ -299,7 +299,7 @@ public sealed class ArchiveCopyViewModelTests
             context.SetOutput(RxVoid.Default);
         });
 
-        _ = await tab.Archive.RunCommand.Execute().ToTask();
+        _ = await tab.Copies.Archive.RunCommand.Execute().ToTask();
 
         await Assert.That(result).IsNotNull();
         await Assert.That(result!.Converted).IsTrue().Because(string.Join("; ", result.Problems.Select(static p => p.Description)));

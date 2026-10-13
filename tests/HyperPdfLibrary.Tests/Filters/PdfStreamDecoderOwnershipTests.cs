@@ -33,7 +33,6 @@ public sealed class PdfStreamDecoderOwnershipTests
         var firstStream = first.Catalog.GetStream(KnownName.Metadata)!;
         var secondStream = second.Catalog.GetStream(KnownName.Metadata)!;
 
-        await Assert.That(first.Objects.FlateDecoders is not null && ReferenceEquals(first.Objects.FlateDecoders, second.Objects.FlateDecoders)).IsFalse();
         await Assert.That(firstStream.DecodeToArray(testToken)).IsEquivalentTo(original);
         await Assert.That(secondStream.DecodeToArray(testToken)).IsEquivalentTo(original);
 

@@ -2,9 +2,11 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Text;
 using HyperPdfLibrary.Fonts.Data;
+using HyperPdfLibrary.IO;
 
 namespace HyperPdfLibrary.Conformance;
 
@@ -215,32 +217,44 @@ internal static class PdfATrueTypeReader
     private static void ReadPostNames(PdfAFontCursor cursor, PdfATrueTypeTableRecord post, Dictionary<string, int> names)
     {
         var count = cursor.ReadUInt16();
-        var indexes = new int[count];
-        for (var i = 0; i < count; i++)
+        var indexes = ArrayPool<int>.Shared.Rent(count);
+        string[]? strings = null;
+        var stringCount = 0;
+        try
         {
-            indexes[i] = cursor.ReadUInt16();
-        }
-
-        var strings = new List<string>();
-        while (cursor.Position < post.Offset + post.Length)
-        {
-            var length = cursor.ReadByte();
-            var bytes = new byte[length];
-            cursor.ReadAvailable(bytes);
-            strings.Add(Encoding.Latin1.GetString(bytes));
-        }
-
-        for (var i = 0; i < count; i++)
-        {
-            var index = indexes[i];
-            if (index < CffStandardData.MacGlyphCount)
+            for (var i = 0; i < count; i++)
             {
-                names[Encoding.ASCII.GetString(CffStandardData.GetMacGlyphName(index))] = i;
+                indexes[i] = cursor.ReadUInt16();
             }
-            else if (index - CffStandardData.MacGlyphCount < strings.Count)
+
+            // A name is at most 255 bytes, so one stack buffer reads them all.
+            Span<byte> bytes = stackalloc byte[byte.MaxValue];
+            while (cursor.Position < post.Offset + post.Length)
             {
-                names[strings[index - CffStandardData.MacGlyphCount]] = i;
+                var name = bytes[..cursor.ReadByte()];
+                cursor.ReadAvailable(name);
+                PooledArrays.EnsureRoom(ref strings, stringCount, clear: true)[stringCount] = Encoding.Latin1.GetString(name);
+                stringCount++;
             }
+
+            _ = names.EnsureCapacity(count);
+            for (var i = 0; i < count; i++)
+            {
+                var index = indexes[i];
+                if (index < CffStandardData.MacGlyphCount)
+                {
+                    names[Encoding.ASCII.GetString(CffStandardData.GetMacGlyphName(index))] = i;
+                }
+                else if (index - CffStandardData.MacGlyphCount < stringCount)
+                {
+                    names[strings![index - CffStandardData.MacGlyphCount]] = i;
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(indexes);
+            PooledArrays.Return(ref strings, stringCount, clear: true);
         }
     }
 }

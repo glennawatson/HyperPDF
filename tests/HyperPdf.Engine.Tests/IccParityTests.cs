@@ -6,11 +6,15 @@ using System.Globalization;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Engine.Tests.RenderingComparison;
+using HyperPdfLibrary.Tests.Graphics;
 using HyperPdfLibrary.Tests.Rendering;
 
 namespace HyperPdf.Engine.Tests;
 
-/// <summary>Renders pages with CMYK ICC images in PDFium (Little CMS) and HyperPDF and compares the pixels.</summary>
+/// <summary>
+/// Renders pages with CMYK ICC images in PDFium (Little CMS) and HyperPDF and compares the pixels. The profiles come from
+/// <see cref="IccCmykFixture"/>, so the test needs no profile installed on the machine and runs on every platform.
+/// </summary>
 public sealed class IccParityTests
 {
     /// <summary>The side of the test image in pixels.</summary>
@@ -37,12 +41,6 @@ public sealed class IccParityTests
     /// <summary>The largest sample value.</summary>
     private const double MaxSample = 255.0;
 
-    /// <summary>The smallest size of a full print characterization profile; smaller profiles are synthetic.</summary>
-    private const int CharacterizationSize = 100_000;
-
-    /// <summary>The largest share of pixels that may differ by more than <see cref="PixelTolerance"/> with a synthetic profile.</summary>
-    private const double SyntheticShare = 0.05;
-
     /// <summary>The steps of black ink between patches, as a fraction of full ink.</summary>
     private const double BlackStep = 1.0 / 3.0;
 
@@ -52,61 +50,29 @@ public sealed class IccParityTests
     /// <summary>The index of the black channel in a CMYK pixel.</summary>
     private const int BlackChannel = 3;
 
-    /// <summary>The bytes of the profile header that identify its colour space.</summary>
-    private const int HeaderLength = 20;
-
-    /// <summary>The offset of the data colour space signature in the header.</summary>
-    private const int SpaceOffset = 16;
-
     /// <summary>The page index of the only page.</summary>
     private const int FirstPage = 0;
 
-    /// <summary>The largest number of system profiles compared.</summary>
-    private const int MaxProfiles = 6;
-
-    /// <summary>The folders searched for CMYK profiles.</summary>
-    private static readonly string[] ProfileFolders =
-    [
-        "/usr/share/color/icc",
-        "/usr/share/ghostscript/iccprofiles",
-        "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles",
-    ];
-
-    /// <summary>A CMYK image coloured through each system CMYK profile matches PDFium within the issue's limits.</summary>
+    /// <summary>A CMYK image coloured through the 'mft2' fixture matches PDFium within the issue's limits.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CmykImageMatchesPdfium()
+    public async Task CmykImageThroughMft2ProfileMatchesPdfium()
     {
-        var found = 0;
-        var worstMean = 0.0;
-        var worstShare = 0.0;
-        var worstSyntheticShare = 0.0;
-        foreach (var path in FindCmykProfiles().Take(MaxProfiles))
-        {
-            found++;
-            var profile = await File.ReadAllBytesAsync(path);
-            var (mean, share) = Compare(profile);
-            worstMean = Math.Max(worstMean, mean);
+        var (mean, share) = Compare(IccCmykFixture.BuildMft2(), "OFF");
 
-            // Ghostscript's small synthetic profiles clip the sRGB gamut along creases that Little CMS places slightly differently.
-            if (profile.Length >= CharacterizationSize)
-            {
-                worstShare = Math.Max(worstShare, share);
-            }
-            else
-            {
-                worstSyntheticShare = Math.Max(worstSyntheticShare, share);
-            }
-        }
+        await Assert.That(mean).IsLessThanOrEqualTo(MeanThreshold);
+        await Assert.That(share).IsLessThanOrEqualTo(DifferingShare);
+    }
 
-        if (found == 0)
-        {
-            Skip.Test("No CMYK ICC profile was found in the system profile folders.");
-        }
+    /// <summary>A CMYK image coloured through the v4 'mAB ' fixture matches PDFium within the issue's limits.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CmykImageThroughMabProfileMatchesPdfium()
+    {
+        var (mean, share) = Compare(IccCmykFixture.BuildMab(), "ON");
 
-        await Assert.That(worstMean).IsLessThanOrEqualTo(MeanThreshold);
-        await Assert.That(worstShare).IsLessThanOrEqualTo(DifferingShare);
-        await Assert.That(worstSyntheticShare).IsLessThanOrEqualTo(SyntheticShare);
+        await Assert.That(mean).IsLessThanOrEqualTo(MeanThreshold);
+        await Assert.That(share).IsLessThanOrEqualTo(DifferingShare);
     }
 
     /// <summary>Builds the test image: ramps of cyan and magenta with yellow along the diagonal, in patches of rising black.</summary>
@@ -139,25 +105,31 @@ public sealed class IccParityTests
 
     /// <summary>Builds a page with the image coloured through a profile.</summary>
     /// <param name="profile">The profile bytes.</param>
+    /// <param name="compensation">The /UseBlackPtComp value to match what Little CMS does for the profile version.</param>
     /// <returns>The PDF bytes.</returns>
-    private static byte[] BuildPdf(byte[] profile)
+    private static byte[] BuildPdf(byte[] profile, string compensation)
     {
         var pdf = new RenderTestPdf(ImageSize, ImageSize);
         var icc = pdf.AddStream("/N 4 /Alternate /DeviceCMYK", profile);
         var image = pdf.AddStream(
             string.Create(CultureInfo.InvariantCulture, $"/Type /XObject /Subtype /Image /Width {ImageSize} /Height {ImageSize} /ColorSpace [/ICCBased {icc} 0 R] /BitsPerComponent 8"),
             BuildImage());
-        pdf.Content = string.Create(CultureInfo.InvariantCulture, $"q {ImageSize} 0 0 {ImageSize} 0 0 cm /Im Do Q");
-        pdf.Resources = string.Create(CultureInfo.InvariantCulture, $"/XObject << /Im {image} 0 R >>");
+
+        // PDFium always converts with the perceptual intent, and Little CMS compensates black points for v4 profiles only,
+        // so the page asks for the same. ISO 32000-2 8.6.5.8 and 8.6.5.9 let a page choose both; the default would read the
+        // relative colorimetric table.
+        pdf.Content = string.Create(CultureInfo.InvariantCulture, $"/Perceptual ri /Plain gs q {ImageSize} 0 0 {ImageSize} 0 0 cm /Im Do Q");
+        pdf.Resources = string.Create(CultureInfo.InvariantCulture, $"/ExtGState << /Plain << /UseBlackPtComp /{compensation} >> >> /XObject << /Im {image} 0 R >>");
         return pdf.ToBytes();
     }
 
     /// <summary>Renders the page with both engines and compares the pixels.</summary>
     /// <param name="profile">The profile bytes.</param>
+    /// <param name="compensation">The /UseBlackPtComp value.</param>
     /// <returns>The mean absolute difference per channel and the share of pixels whose channels differ by more than the tolerance.</returns>
-    private static ComparisonResult Compare(byte[] profile)
+    private static ComparisonResult Compare(byte[] profile, string compensation)
     {
-        using var input = new HyperPdfTestDocument(BuildPdf(profile));
+        using var input = new HyperPdfTestDocument(BuildPdf(profile, compensation));
         var info = new PageRenderInfo(FirstPage, 1, PageRotation.None, 0, 0, RenderFlags.None);
         var expected = PdfiumReferenceRendering.Render(input.Pdf, info).Pixels.ToArray();
         var actual = Render(input.Document, info);
@@ -193,32 +165,6 @@ public sealed class IccParityTests
         var pixels = new byte[ImageSize * ImageSize * BytesPerPixel];
         var rendered = document.Render(info, new(pixels, ImageSize, ImageSize, ImageSize * BytesPerPixel));
         return rendered ? pixels : throw new InvalidOperationException("The page could not be rendered.");
-    }
-
-    /// <summary>Finds CMYK ICC profiles in the usual system folders.</summary>
-    /// <returns>The paths.</returns>
-    private static IEnumerable<string> FindCmykProfiles()
-    {
-        foreach (var folder in ProfileFolders.Where(Directory.Exists))
-        {
-            foreach (var path in Directory.EnumerateFiles(folder, "*.ic*", SearchOption.AllDirectories))
-            {
-                if (IsCmyk(path))
-                {
-                    yield return path;
-                }
-            }
-        }
-    }
-
-    /// <summary>Determines whether a file is a CMYK ICC profile.</summary>
-    /// <param name="path">The file.</param>
-    /// <returns><see langword="true"/> when the header names the CMYK colour space.</returns>
-    private static bool IsCmyk(string path)
-    {
-        using var stream = File.OpenRead(path);
-        Span<byte> header = stackalloc byte[HeaderLength];
-        return stream.Read(header) == HeaderLength && header[SpaceOffset..(SpaceOffset + CmykBytes)].SequenceEqual("CMYK"u8);
     }
 
     /// <summary>The result of comparing two renderings.</summary>

@@ -48,6 +48,18 @@ internal static class ColorSpaceParser
     internal static PdfColorSpace? Parse(PdfValue value, PdfDictionary? resources, int depth, OutputIntentColors? colors) =>
         ParseCore(value, resources, depth, new(colors, false));
 
+    /// <summary>
+    /// Parses a /DefaultGray, /DefaultRGB or /DefaultCMYK colour space. Device spaces named inside it, such as the alternate
+    /// of a DeviceN space, are not replaced by the defaults themselves (ISO 32000-2 8.6.5.6).
+    /// </summary>
+    /// <param name="value">The colour space array.</param>
+    /// <param name="resources">The /ColorSpace resource dictionary, or null.</param>
+    /// <param name="colors">The output-intent substitutions, or null.</param>
+    /// <returns>The colour space, or null.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfColorSpace? ParseDefault(PdfValue value, PdfDictionary? resources, OutputIntentColors? colors) =>
+        ParseCore(value, resources, 0, new(colors, true));
+
     /// <summary>Finds a dictionary value by a key that the library does not intern.</summary>
     /// <param name="dictionary">The dictionary.</param>
     /// <param name="spelling">The key's UTF-8 spelling.</param>
@@ -177,7 +189,7 @@ internal static class ColorSpaceParser
     /// <returns>The colour space, or <see langword="null"/> for other families.</returns>
     private static PdfColorSpace? ParseCalibrated(KnownName family, PdfArray array) => family switch
     {
-        KnownName.CalGray => new CalGrayColorSpace(),
+        KnownName.CalGray => CalGrayColorSpace.Parse(array.GetDictionary(FirstParameter)),
         KnownName.CalRGB => CalRgbColorSpace.Parse(array.GetDictionary(FirstParameter)),
         KnownName.Lab => LabColorSpace.Parse(array.GetDictionary(FirstParameter)),
         _ => null,
@@ -337,8 +349,8 @@ internal static class ColorSpaceParser
     /// <returns>The colour space.</returns>
     private static SeparationColorSpace ParseSeparation(PdfArray array, PdfDictionary? resources, int depth, ParseContext context)
     {
-        var isNone = IsNone(array.GetName(FirstParameter), array.Owner);
-        return new(ParseTint(array, resources, depth, 1, context), isNone);
+        var name = array.GetName(FirstParameter);
+        return new(ParseTint(array, resources, depth, 1, context), IsNone(name, array.Owner), ColorantName(name, array.Owner));
     }
 
     /// <summary>Parses a DeviceN space.</summary>
@@ -356,13 +368,23 @@ internal static class ColorSpaceParser
         }
 
         var allNone = true;
-        for (var i = 0; i < names.Count && allNone; i++)
+        var colorants = new string[names.Count];
+        for (var i = 0; i < names.Count; i++)
         {
-            allNone = IsNone(names.GetName(i), names.Owner);
+            var name = names.GetName(i);
+            allNone &= IsNone(name, names.Owner);
+            colorants[i] = ColorantName(name, names.Owner);
         }
 
-        return new(names.Count, ParseTint(array, resources, depth, names.Count, context), allNone);
+        return new(names.Count, ParseTint(array, resources, depth, names.Count, context), allNone, colorants);
     }
+
+    /// <summary>Spells a colorant name.</summary>
+    /// <param name="name">The name.</param>
+    /// <param name="owner">The document whose name table spells the name.</param>
+    /// <returns>The spelling; empty when the name is missing.</returns>
+    private static string ColorantName(PdfName name, PdfObjectStore? owner) =>
+        name.IsNone || owner is null ? string.Empty : owner.Names.GetString(name);
 
     /// <summary>Parses the alternate space and tint transform of a Separation or DeviceN space.</summary>
     /// <param name="array">The array.</param>

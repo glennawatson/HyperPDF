@@ -34,6 +34,27 @@ public sealed partial class PageCanvas
     /// <summary>The last picture put on the clipboard, kept because some desktops read it only when it is pasted.</summary>
     private Bitmap? _snapshot;
 
+    /// <summary>Completes when the latest snapshot asked for has finished, so the next one can take its turn.</summary>
+    private Task _lastSnapshot = Task.CompletedTask;
+
+    /// <summary>The snapshots asked for.</summary>
+    private int _snapshotsRequested;
+
+    /// <summary>The snapshots that have taken their turn and started.</summary>
+    private int _snapshotsStarted;
+
+    /// <summary>The snapshots that have finished, whether they made a picture or not.</summary>
+    private int _snapshotsFinished;
+
+    /// <summary>Gets how many snapshots have been asked for.</summary>
+    internal int SnapshotsRequested => Volatile.Read(ref _snapshotsRequested);
+
+    /// <summary>Gets how many snapshots have taken their turn and started.</summary>
+    internal int SnapshotsStarted => Volatile.Read(ref _snapshotsStarted);
+
+    /// <summary>Gets how many snapshots have finished.</summary>
+    internal int SnapshotsFinished => Volatile.Read(ref _snapshotsFinished);
+
     /// <summary>Renders part of a page into a new bitmap, off the user interface thread.</summary>
     /// <param name="state">The document, page, rotation and region.</param>
     /// <returns>The picture, or <see langword="null"/> when rendering failed.</returns>
@@ -65,6 +86,13 @@ public sealed partial class PageCanvas
     /// <returns>A task.</returns>
     private async Task SnapshotAsync(DocumentTabViewModel tab, Rect area)
     {
+        // One snapshot at a time: a second must not dispose the picture the first is still copying or saving.
+        _ = Interlocked.Increment(ref _snapshotsRequested);
+        var previous = _lastSnapshot;
+        var turn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _lastSnapshot = turn.Task;
+        await previous.ConfigureAwait(true);
+        _ = Interlocked.Increment(ref _snapshotsStarted);
         try
         {
             if (FindSnapshotRegion(in area, out var page) is not { IsEmpty: false } region || tab.TryGetDocument() is not { } document)
@@ -89,6 +117,11 @@ public sealed partial class PageCanvas
         {
             OnError(error);
             tab.Notice = FailedMessage;
+        }
+        finally
+        {
+            _ = Interlocked.Increment(ref _snapshotsFinished);
+            _ = turn.TrySetResult();
         }
     }
 

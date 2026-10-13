@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
+using HyperPdf.Cms;
 using Microsoft.Win32.SafeHandles;
 
 namespace HyperPdf.Core.Signatures;
@@ -80,9 +81,10 @@ public static class SignatureVerifier
         }
 
         var cms = new SignedCms(new(signed), true);
+        var der = signature.Contents.AsSpan(0, encodedLength);
         try
         {
-            cms.Decode(signature.Contents.AsSpan(0, encodedLength));
+            cms.Decode(der);
         }
         catch (CryptographicException ex)
         {
@@ -94,7 +96,13 @@ public static class SignatureVerifier
             return Unchecked(signature, "The signature does not include the signer's certificate.");
         }
 
-        var integrity = Integrity(CheckSignature(cms), coversAll);
+        var check = CmsSignerChecks.CheckDetached(der, cms.SignerInfos[0], signed, certificate, store.Certificates);
+        if (NotChecked(signature, certificate, check, cms.SignerInfos[0].DigestAlgorithm.Value) is { } notChecked)
+        {
+            return notChecked;
+        }
+
+        var integrity = Integrity(check.Signature == CmsSignatureStatus.Valid, coversAll);
         var trust = new TrustSources(extraTrust, store);
         var timestamp = ReadSignatureTimestamp(cms.SignerInfos[0], trust);
         DateTimeOffset? checkedAt = timestamp is { IsValid: true } ? timestamp.Time : null;
@@ -124,6 +132,12 @@ public static class SignatureVerifier
         return coversAll ? SignatureIntegrity.Intact : SignatureIntegrity.ChangedAfterSigning;
     }
 
+    /// <summary>Gets the integrity of a signature whose digest could not be used.</summary>
+    /// <param name="status">The digest's status.</param>
+    /// <returns>Not allowed, or unsupported.</returns>
+    private static SignatureIntegrity UnsupportedIntegrity(CmsDigestStatus status) =>
+        status == CmsDigestStatus.NotAllowed ? SignatureIntegrity.DigestNotAllowed : SignatureIntegrity.Unsupported;
+
     /// <summary>Checks a document timestamp: a timestamp token over the signed bytes instead of a person's signature.</summary>
     /// <param name="signature">The signature as stored.</param>
     /// <param name="signed">The signed bytes.</param>
@@ -138,7 +152,9 @@ public static class SignatureVerifier
             return Unchecked(signature, "The document timestamp could not be read.");
         }
 
-        var valid = decoded.VerifySignatureForData(signed, out var authority, trust.Store.Certificates);
+        var check = CmsTimestamps.Verify(decoded, signed, trust.Store.Certificates, out var authority);
+        var supported = check.DigestStatus == CmsDigestStatus.Available;
+        var valid = supported && check.IsValid;
         var time = decoded.TokenInfo.Timestamp;
         var trusted = authority is not null && IsTrusted(authority, decoded.AsSignedCms().Certificates, trust, time, out _);
         var name = authority?.GetNameInfo(X509NameType.SimpleName, false) ?? string.Empty;
@@ -148,9 +164,15 @@ public static class SignatureVerifier
             authority?.GetNameInfo(X509NameType.SimpleName, true) ?? string.Empty,
             time,
             signature.Reason,
-            Integrity(valid, coversAll),
+            supported ? Integrity(valid, coversAll) : UnsupportedIntegrity(check.DigestStatus),
             trusted,
-            string.Empty) { Timestamp = new(time, name, valid, trusted), IsDocumentTimestamp = true, HasLongTermValidation = trust.Store.HasRevocationData, CheckedAt = time };
+            CmsCheckText.Describe(check.Digest, check.DigestStatus, decoded.TokenInfo.HashAlgorithmId.Value))
+        {
+            Timestamp = new(time, name, valid, trusted) { IsSupported = supported },
+            IsDocumentTimestamp = true,
+            HasLongTermValidation = trust.Store.HasRevocationData,
+            CheckedAt = time,
+        };
     }
 
     /// <summary>Reads and checks the timestamp on a signature: that it stamps this signature and that its authority is trusted.</summary>
@@ -171,29 +193,67 @@ public static class SignatureVerifier
                 return new(DateTimeOffset.MinValue, string.Empty, false, false);
             }
 
-            var valid = token.VerifySignatureForSignerInfo(signer, out var authority, trust.Store.Certificates);
+            // The token stamps the signer's signature value.
+            var check = CmsTimestamps.Verify(token, signer.GetSignature(), trust.Store.Certificates, out var authority);
+            var supported = check.DigestStatus == CmsDigestStatus.Available;
+            var valid = supported && check.IsValid;
             var time = token.TokenInfo.Timestamp;
             var trusted = authority is not null && IsTrusted(authority, token.AsSignedCms().Certificates, trust, time, out _);
-            return new(time, authority?.GetNameInfo(X509NameType.SimpleName, false) ?? string.Empty, valid, trusted);
+            return new(time, authority?.GetNameInfo(X509NameType.SimpleName, false) ?? string.Empty, valid, trusted) { IsSupported = supported };
         }
 
         return null;
     }
 
-    /// <summary>Checks the signature mathematically, without judging the certificate.</summary>
-    /// <param name="cms">The decoded signature.</param>
-    /// <returns><see langword="true"/> when the signed bytes match.</returns>
-    private static bool CheckSignature(SignedCms cms)
+    /// <summary>
+    /// Gives the result for a signature whose digest or signature algorithm could not be checked, or whose digest PDF does
+    /// not allow (ISO/TS 32001:2022, 5.1.4), so it is never reported as valid.
+    /// </summary>
+    /// <param name="signature">The signature as stored.</param>
+    /// <param name="certificate">The signer's certificate.</param>
+    /// <param name="check">The signer check.</param>
+    /// <param name="oid">The signer's digest OID, named when the digest is unknown.</param>
+    /// <returns>The result, or <see langword="null"/> when the signature was checked.</returns>
+    private static DocumentSignature? NotChecked(RawSignature signature, X509Certificate2 certificate, in CmsSignerCheck check, string? oid)
     {
-        try
+        var integrity = check switch
         {
-            cms.CheckSignature(true);
-            return true;
-        }
-        catch (CryptographicException)
+            { DigestStatus: CmsDigestStatus.NotAllowed } => SignatureIntegrity.DigestNotAllowed,
+            { DigestStatus: not CmsDigestStatus.Available } or { Signature: CmsSignatureStatus.Unsupported } => SignatureIntegrity.Unsupported,
+            { Signature: CmsSignatureStatus.CurveDigestNotAllowed } => SignatureIntegrity.CurveDigestNotAllowed,
+            { Signature: CmsSignatureStatus.UnnamedCurve } => SignatureIntegrity.UnnamedCurve,
+            { Signature: CmsSignatureStatus.DigestMismatch } => SignatureIntegrity.DigestMismatch,
+            _ => SignatureIntegrity.Unknown,
+        };
+        if (integrity == SignatureIntegrity.Unknown)
         {
-            return false;
+            return null;
         }
+
+        var detail = NotCheckedDetail(check, oid);
+        return new(
+            signature.Index,
+            certificate.GetNameInfo(X509NameType.SimpleName, false),
+            certificate.GetNameInfo(X509NameType.SimpleName, true),
+            signature.SigningTime,
+            signature.Reason,
+            integrity,
+            false,
+            detail);
+    }
+
+    /// <summary>Explains in plain words why a signature was not checked or is not valid.</summary>
+    /// <param name="check">The signer check.</param>
+    /// <param name="oid">The signer's digest OID, named when the digest is unknown.</param>
+    /// <returns>The explanation.</returns>
+    private static string NotCheckedDetail(in CmsSignerCheck check, string? oid)
+    {
+        if (check.DigestStatus != CmsDigestStatus.Available)
+        {
+            return CmsCheckText.Describe(check.Digest, check.DigestStatus, oid);
+        }
+
+        return CmsCheckText.IsRuleViolation(check.Signature) ? CmsCheckText.Rule(check.Signature, check.Digest) : CmsCheckText.UnsupportedSignature(check.Digest);
     }
 
     /// <summary>Determines whether a certificate chains to a trusted root, as of a time.</summary>
@@ -205,6 +265,12 @@ public static class SignatureVerifier
     /// <returns><see langword="true"/> when trusted.</returns>
     private static bool IsTrusted(X509Certificate2 certificate, X509Certificate2Collection included, in TrustSources trust, DateTimeOffset? at, out string detail)
     {
+        if (!CmsChainSupport.CanBuild(certificate))
+        {
+            detail = "This computer's certificate checker does not support the type of key in this certificate.";
+            return false;
+        }
+
         using var chain = new X509Chain();
         chain.ChainPolicy.UrlRetrievalTimeout = RevocationTimeout;
         chain.ChainPolicy.ExtraStore.AddRange(included);

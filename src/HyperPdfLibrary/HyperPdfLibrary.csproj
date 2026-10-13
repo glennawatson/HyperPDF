@@ -66,7 +66,7 @@
   <!-- The notices of what the library ships: its packages and the font and CMap resource packs. The nupkg carries them as THIRD-PARTY-NOTICES.md. -->
   <PropertyGroup>
     <NoticesResourceName>HyperPdfLibrary.ThirdPartyNotices.md</NoticesResourceName>
-    <NoticesComponents>open-font-pack;adobe-cmaps;pdfium-cmyk-table;verapdf-profile-text</NoticesComponents>
+    <NoticesComponents>unicode-ucd;open-font-pack;adobe-cmaps;verapdf-profile-text</NoticesComponents>
   </PropertyGroup>
   <Import Project="..\..\licenses\ThirdPartyNotices.targets" />
   <ItemGroup>
@@ -78,5 +78,12 @@
     <InternalsVisibleTo Include="HyperPdf.Engine" />
     <InternalsVisibleTo Include="HyperPdf.Engine.Tests" />
     <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+
+  <!-- The CMS digest and SHAKE256 checks are shared with HyperPdf.Core's signature verifier, which cannot reference
+       this library, so both compile the same internal source. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\Cms\*.cs" LinkBase="Shared\Cms" />
+    <Compile Include="..\Shared\Pooling\*.cs" LinkBase="Shared\Pooling" />
   </ItemGroup>
 </Project>

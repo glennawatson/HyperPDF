@@ -170,7 +170,7 @@ internal sealed class SampledFunction : PdfFunction
         return encode;
     }
 
-    /// <summary>Reads and decodes every sample. Like PDFium, data shorter than the declared samples is rejected.</summary>
+    /// <summary>Reads and decodes every sample. Data shorter than the declared sample count (ISO 32000-2 7.10.2) makes the function invalid.</summary>
     /// <param name="stream">The function stream.</param>
     /// <param name="size">The grid sizes.</param>
     /// <param name="outputs">The number of outputs.</param>

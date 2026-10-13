@@ -42,8 +42,8 @@ internal ref partial struct JpegDecoder
     /// <returns><see langword="false"/> when the buffer is too small or nothing was decoded.</returns>
     internal readonly bool Write(Span<byte> output, bool convertColor)
     {
-        var components = _components;
-        if (components is null || components.Length == 0)
+        var components = Components;
+        if (components.IsEmpty)
         {
             return false;
         }
@@ -81,7 +81,7 @@ internal ref partial struct JpegDecoder
     /// <param name="components">The frame's components.</param>
     /// <param name="id">The component id.</param>
     /// <returns>The index, or -1.</returns>
-    private static int FindComponent(JpegComponent[] components, int id)
+    private static int FindComponent(ReadOnlySpan<JpegComponent> components, int id)
     {
         for (var i = 0; i < components.Length; i++)
         {
@@ -98,8 +98,8 @@ internal ref partial struct JpegDecoder
     /// <param name="tables">The tables.</param>
     /// <param name="id">The table id.</param>
     /// <returns>The table, or the empty table when the id is unknown.</returns>
-    private static JpegHuffmanTable FindTable(JpegHuffmanTable?[] tables, int id) =>
-        (uint)id < (uint)tables.Length ? tables[id] ?? JpegHuffmanTable.Empty : JpegHuffmanTable.Empty;
+    private static JpegHuffmanTable FindTable(JpegHuffmanTable[] tables, int id) =>
+        (uint)id < (uint)tables.Length && tables[id].IsDefined ? tables[id] : JpegHuffmanTable.Empty;
 
     /// <summary>Chooses the scan mode of a progressive scan.</summary>
     /// <param name="start">The first zigzag index.</param>
@@ -167,8 +167,8 @@ internal ref partial struct JpegDecoder
     /// <returns>What to do next.</returns>
     private Step ReadScan(scoped ReadOnlySpan<byte> segment)
     {
-        var components = _components;
-        if (components is null || segment.IsEmpty)
+        var components = Components;
+        if (components.IsEmpty || segment.IsEmpty)
         {
             return Step.Fail;
         }
@@ -200,7 +200,7 @@ internal ref partial struct JpegDecoder
     /// <returns><see langword="false"/> when a component id is not in the frame.</returns>
     private readonly bool SelectComponents(scoped ReadOnlySpan<byte> segment, int count, scoped Span<int> indices)
     {
-        var components = _components!;
+        var components = Components;
         for (var i = 0; i < count; i++)
         {
             var entry = ScanEntriesOffset + (ScanEntryBytes * i);
@@ -212,9 +212,11 @@ internal ref partial struct JpegDecoder
 
             var component = components[index];
             var tables = segment[entry + 1];
-            component.DcTable = FindTable(_codesDc, tables >> NibbleBits);
-            component.AcTable = FindTable(_codesAc, tables & NibbleMask);
-            component.LatchQuant(_quantTables[component.QuantId]);
+            component.DcTable = FindTable(_state.DcTables, tables >> NibbleBits);
+            component.AcTable = FindTable(_state.AcTables, tables & NibbleMask);
+
+            // A quantization table id beyond the four slots names no table, so the component gets none.
+            component.LatchQuant((uint)component.QuantId < JpegState.TableSlots && _state.QuantizationDefined[component.QuantId] ? _state.Quantization[component.QuantId] : null);
             indices[i] = index;
         }
 
@@ -254,8 +256,7 @@ internal ref partial struct JpegDecoder
     /// <param name="scan">The scan parameters.</param>
     private readonly void DecodeScan(ref JpegBitReader reader, scoped ReadOnlySpan<int> indices, in JpegScan scan)
     {
-        var components = _components!;
-        var first = components[indices[0]];
+        var first = Components[indices[0]];
         var total = indices.Length == 1 ? first.BlocksPerLine * first.BlocksPerColumn : _mcusPerLine * _mcusPerColumn;
         var endOfBandRun = 0;
         var untilRestart = _restartInterval;
@@ -294,7 +295,7 @@ internal ref partial struct JpegDecoder
     {
         foreach (var index in indices)
         {
-            _components![index].DcPredictor = 0;
+            _state.Components[index].DcPredictor = 0;
         }
     }
 
@@ -306,7 +307,7 @@ internal ref partial struct JpegDecoder
     /// <param name="endOfBandRun">The end-of-band run, updated.</param>
     private readonly void DecodeUnit(ref JpegBitReader reader, scoped ReadOnlySpan<int> indices, in JpegScan scan, int unit, ref int endOfBandRun)
     {
-        var components = _components!;
+        var components = Components;
         if (indices.Length == 1)
         {
             var single = components[indices[0]];
@@ -333,13 +334,14 @@ internal ref partial struct JpegDecoder
     /// <returns><see langword="false"/> when a component has no quantization table.</returns>
     private readonly bool Reconstruct()
     {
-        if (_components is null)
+        var components = Components;
+        if (components.IsEmpty)
         {
             return false;
         }
 
         Span<int> work = stackalloc int[JpegBlock.Length];
-        foreach (var component in _components)
+        foreach (var component in components)
         {
             if (!component.Reconstruct(work))
             {

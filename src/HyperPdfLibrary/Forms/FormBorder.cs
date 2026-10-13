@@ -8,7 +8,7 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Forms;
 
 /// <summary>How a widget's border is drawn.</summary>
-/// <param name="Width">The line width; 0 when the widget has no border colour, so nothing is drawn. A beveled or inset border is twice the width the widget asks for.</param>
+/// <param name="Width">The line width; 0 when the widget has no border colour, so nothing is drawn; a beveled or inset border needs no colour.</param>
 /// <param name="Style">The line style.</param>
 /// <param name="Dash">The dash length of a dashed line.</param>
 [DebuggerDisplay("FormBorder: {Style} {Width}")]
@@ -19,9 +19,6 @@ internal readonly record struct FormBorder(float Width, FormBorderStyle Style, f
 
     /// <summary>The dash length when a widget does not give one.</summary>
     private const float DefaultDash = 3;
-
-    /// <summary>How many times thicker a beveled or inset border is drawn than its width.</summary>
-    private const float RaisedFactor = 2;
 
     /// <summary>The position of the width in a <c>/Border</c> array.</summary>
     private const int BorderWidthSlot = 2;
@@ -37,9 +34,9 @@ internal readonly record struct FormBorder(float Width, FormBorderStyle Style, f
         var dash = style?.GetArray(KnownName.D) is { Count: > 0 } dashes ? dashes.GetSingle(0) : DefaultDash;
         var kind = ReadStyle(style);
 
-        // PDFium draws a bevel or inset border twice as thick as its width, and shades it even without a border colour.
+        // A beveled or inset border shades its own edge, so it needs no border colour; the other styles draw nothing without one.
         var raised = kind is FormBorderStyle.Beveled or FormBorderStyle.Inset;
-        return new(width > 0 && (hasColor || raised) ? width * (raised ? RaisedFactor : 1) : 0, kind, dash > 0 ? dash : DefaultDash);
+        return new(width > 0 && (hasColor || raised) ? width : 0, kind, dash > 0 ? dash : DefaultDash);
     }
 
     /// <summary>Reads the line width: <c>/BS /W</c>, else the third entry of <c>/Border</c>, else 1.</summary>

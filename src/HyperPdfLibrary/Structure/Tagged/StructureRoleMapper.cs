@@ -9,8 +9,8 @@ namespace HyperPdfLibrary.Structure.Tagged;
 
 /// <summary>
 /// Resolves an element's type to a standard type through the root <c>/RoleMap</c> and, for PDF 2.0 namespaces, each
-/// namespace's <c>/RoleMapNS</c>. As in PDFium, the role map is followed even for a type that is already standard. Chains
-/// are followed to their end with a step limit, so a loop in the maps stops.
+/// namespace's <c>/RoleMapNS</c>. The role map is followed even for a type that is already standard, because a document may
+/// remap a standard name (ISO 32000-2 14.7.3). Chains are followed to their end with a step limit, so a loop in the maps stops.
 /// </summary>
 [DebuggerDisplay("StructureRoleMapper")]
 internal sealed class StructureRoleMapper

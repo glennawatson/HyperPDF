@@ -15,43 +15,58 @@ internal static class PageTreeReader
     /// <summary>Reads every page.</summary>
     /// <param name="objects">The document's objects.</param>
     /// <returns>The pages.</returns>
-    internal static PdfPage[] Read(PdfObjectStore objects)
+    internal static PdfPageSet Read(PdfObjectStore objects)
     {
-        var pages = new List<PdfPage>();
         var root = objects.Catalog.GetRaw(KnownName.Pages);
-        var visited = new HashSet<int>();
-        var ancestors = new Stack<AncestorCursor>();
-        var node = new PendingNode(root, default, 0);
-        while (true)
-        {
-            PdfOpenContext.ThrowIfCancelled(objects.Context);
-            if (Visit(objects, node, ancestors, visited, pages, out var firstChild))
-            {
-                node = firstChild;
-                continue;
-            }
 
-            if (!TryNextChild(ancestors, out node))
+        // The root's /Count is the page total in a well-formed tree; it only sizes the result array, so a wrong one costs one resize.
+        var expected = StoreReading.Resolve(objects, root).AsDictionary()?.GetInt32(KnownName.Count, 0) ?? 0;
+        var pages = new PdfPageBuffer(Math.Clamp(expected, 0, objects.Size));
+        var walk = new PageTreeWalk(objects.Size);
+        try
+        {
+            var node = new PendingNode(root, default, 0, 0);
+            while (true)
             {
-                break;
+                PdfOpenContext.ThrowIfCancelled(objects.Context);
+                if (Visit(objects, node, ref walk, ref pages, out var firstChild))
+                {
+                    node = firstChild;
+                    continue;
+                }
+
+                if (!TryNextChild(ref walk, out node))
+                {
+                    break;
+                }
             }
         }
+        finally
+        {
+            walk.Release();
+        }
 
-        return pages.Count > 0 ? [.. pages] : ScanForPages(objects);
+        return pages.Count > 0 ? pages.ToSet(objects) : ScanForPages(objects);
     }
 
     /// <summary>Visits one node: adds a page, or enters its first kid.</summary>
     /// <param name="objects">The document's objects.</param>
     /// <param name="node">The node.</param>
-    /// <param name="ancestors">The active ancestors and their next kid indexes.</param>
-    /// <param name="visited">The object numbers already visited.</param>
+    /// <param name="walk">The active ancestors and the object numbers already visited.</param>
     /// <param name="pages">The pages found.</param>
     /// <param name="firstChild">The first kid to visit, when the node has kids.</param>
     /// <returns>Whether the node has a first kid.</returns>
-    private static bool Visit(PdfObjectStore objects, in PendingNode node, Stack<AncestorCursor> ancestors, HashSet<int> visited, List<PdfPage> pages, out PendingNode firstChild)
+    private static bool Visit(PdfObjectStore objects, in PendingNode node, ref PageTreeWalk walk, ref PdfPageBuffer pages, out PendingNode firstChild)
     {
         firstChild = default;
         var id = node.Reference.AsReference();
+        if (id.IsValid && PageLeafProbe.TryRead(objects, id))
+        {
+            // A plain page is recognised from its bytes and parsed when it is first used.
+            pages.Add(new(id, null, node.InheritIndex));
+            return false;
+        }
+
         var dictionary = StoreReading.Resolve(objects, node.Reference).AsDictionary();
         if (dictionary is null)
         {
@@ -61,18 +76,37 @@ internal static class PageTreeReader
         var kids = dictionary.GetArray(KnownName.Kids);
         if (kids is null || dictionary.IsName(KnownName.Type, KnownName.Page))
         {
-            pages.Add(new(pages.Count, id, dictionary, node.Inherited));
+            // The page itself is made when it is first used; what reading it would report is reported now.
+            PdfPage.ReportFaults(dictionary, id);
+            pages.Add(new(id, id.IsValid ? null : dictionary, node.InheritIndex));
             return false;
         }
 
-        // A page listed twice is listed twice, as in PDFium; only intermediate nodes are guarded against loops.
+        return Enter(objects, node, dictionary, kids, ref walk, ref pages, out firstChild);
+    }
+
+    /// <summary>Enters an intermediate node: checks it is not too deep or a repeat, and moves to its first kid.</summary>
+    /// <param name="objects">The document's objects.</param>
+    /// <param name="node">The node.</param>
+    /// <param name="dictionary">The node's dictionary.</param>
+    /// <param name="kids">The node's kids.</param>
+    /// <param name="walk">The active ancestors and the object numbers already visited.</param>
+    /// <param name="pages">The pages found.</param>
+    /// <param name="firstChild">The first kid to visit, when the node has kids.</param>
+    /// <returns>Whether the node has a first kid.</returns>
+    private static bool Enter(PdfObjectStore objects, in PendingNode node, PdfDictionary dictionary, PdfArray kids, ref PageTreeWalk walk, ref PdfPageBuffer pages, out PendingNode firstChild)
+    {
+        firstChild = default;
+        var id = node.Reference.AsReference();
+
+        // A page listed twice is listed twice, because each leaf is a page of the document; only intermediate nodes are guarded against loops.
         if (node.Depth >= PdfLimits.MaxPageTreeDepth)
         {
             PdfOpenContext.Report(objects.Context, PdfDiagnosticCode.RecursionLimit, "The page tree was too deep and was cut off.", id.Number, -1);
             return false;
         }
 
-        if (id.IsValid && !visited.Add(id.Number))
+        if (id.IsValid && !walk.TryMarkVisited(id.Number))
         {
             PdfOpenContext.Report(objects.Context, PdfDiagnosticCode.RecursionLimit, "The page tree loops back on itself; the repeat was ignored.", id.Number, -1);
             return false;
@@ -85,32 +119,33 @@ internal static class PageTreeReader
         }
 
         var depth = node.Depth + 1;
+        var inheritIndex = pages.Intern(inherited, node.InheritIndex);
         if (kids.Count > 1)
         {
-            ancestors.Push(new(kids, 1, kids.Count, inherited, depth));
+            walk.Push(new(kids, 1, kids.Count, inherited, inheritIndex, depth));
         }
 
-        firstChild = new(kids.GetRaw(0), inherited, depth);
+        firstChild = new(kids.GetRaw(0), inherited, inheritIndex, depth);
         return true;
     }
 
     /// <summary>Advances to the next kid of the nearest ancestor that has one.</summary>
-    /// <param name="ancestors">The active ancestors.</param>
+    /// <param name="walk">The active ancestors.</param>
     /// <param name="child">The next kid, when present.</param>
     /// <returns>Whether another kid remains.</returns>
-    private static bool TryNextChild(Stack<AncestorCursor> ancestors, out PendingNode child)
+    private static bool TryNextChild(ref PageTreeWalk walk, out PendingNode child)
     {
-        while (ancestors.TryPop(out var ancestor))
+        while (walk.TryPop(out var ancestor))
         {
             if (ancestor.NextChildIndex >= ancestor.ChildCount)
             {
                 continue;
             }
 
-            child = new(ancestor.Kids.GetRaw(ancestor.NextChildIndex), ancestor.Inherited, ancestor.Depth);
+            child = new(ancestor.Kids.GetRaw(ancestor.NextChildIndex), ancestor.Inherited, ancestor.InheritIndex, ancestor.Depth);
             if (ancestor.NextChildIndex + 1 < ancestor.ChildCount)
             {
-                ancestors.Push(ancestor with { NextChildIndex = ancestor.NextChildIndex + 1 });
+                walk.Push(ancestor with { NextChildIndex = ancestor.NextChildIndex + 1 });
             }
 
             return true;
@@ -123,17 +158,22 @@ internal static class PageTreeReader
     /// <summary>Finds page objects by scanning every object, for files whose page tree is broken.</summary>
     /// <param name="objects">The document's objects.</param>
     /// <returns>The pages, in object order.</returns>
-    private static PdfPage[] ScanForPages(PdfObjectStore objects)
+    private static PdfPageSet ScanForPages(PdfObjectStore objects)
     {
-        var pages = new List<PdfPage>();
+        var pages = new PdfPageBuffer(0);
+        var previous = 0;
         for (var number = 1; number < objects.Size; number++)
         {
             PdfOpenContext.ThrowIfCancelled(objects.Context);
             var id = new PdfObjectId(number, 0);
-            if (StoreReading.GetObject(objects, id).AsDictionary() is { } dictionary && dictionary.IsName(KnownName.Type, KnownName.Page))
+            if (StoreReading.GetObject(objects, id).AsDictionary() is not { } dictionary || !dictionary.IsName(KnownName.Type, KnownName.Page))
             {
-                pages.Add(new(pages.Count, id, dictionary, InheritFromParents(dictionary)));
+                continue;
             }
+
+            previous = pages.Intern(InheritFromParents(dictionary), previous);
+            PdfPage.ReportFaults(dictionary, id);
+            pages.Add(new(id, null, previous));
         }
 
         if (pages.Count > 0)
@@ -141,7 +181,7 @@ internal static class PageTreeReader
             PdfOpenContext.Report(objects.Context, PdfDiagnosticCode.PageTreeRebuilt, "The page tree was missing or broken; the pages were found by scanning.", 0, -1);
         }
 
-        return [.. pages];
+        return pages.ToSet(objects);
     }
 
     /// <summary>Collects the attributes a page inherits by walking its /Parent chain; loops and over-deep chains are cut off.</summary>
@@ -176,14 +216,7 @@ internal static class PageTreeReader
     /// <summary>A page tree node waiting to be visited.</summary>
     /// <param name="Reference">The node, usually a reference.</param>
     /// <param name="Inherited">The attributes it inherits.</param>
+    /// <param name="InheritIndex">The position of those attributes in the page set's table.</param>
     /// <param name="Depth">Its depth in the tree.</param>
-    private readonly record struct PendingNode(PdfValue Reference, InheritedAttributes Inherited, int Depth);
-
-    /// <summary>An ancestor whose remaining kids are visited in document order.</summary>
-    /// <param name="Kids">The ancestor's kids.</param>
-    /// <param name="NextChildIndex">The next kid's index.</param>
-    /// <param name="ChildCount">The number of kids when the ancestor was entered.</param>
-    /// <param name="Inherited">The attributes its kids inherit.</param>
-    /// <param name="Depth">The kids' depth.</param>
-    private readonly record struct AncestorCursor(PdfArray Kids, int NextChildIndex, int ChildCount, InheritedAttributes Inherited, int Depth);
+    private readonly record struct PendingNode(PdfValue Reference, InheritedAttributes Inherited, int InheritIndex, int Depth);
 }

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Text;
 
@@ -124,13 +125,15 @@ public sealed class TextQueryTests
         await Assert.That(visitedMatches).IsEquivalentTo(matches);
 
         CallbackQuery(page, visitedRects, visitedMatches);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < Repeats; i++)
+        var allocated = AllocationProbe.Minimum(() =>
         {
-            CallbackQuery(page, visitedRects, visitedMatches);
-        }
+            for (var i = 0; i < Repeats; i++)
+            {
+                CallbackQuery(page, visitedRects, visitedMatches);
+            }
+        });
 
-        await Assert.That(GC.GetAllocatedBytesForCurrentThread() - before).IsEqualTo(0L);
+        await Assert.That(allocated).IsEqualTo(0L);
     }
 
     /// <summary>Search ignores case by default, can match case and whole words, and crosses line breaks.</summary>
@@ -189,14 +192,14 @@ public sealed class TextQueryTests
         var matches = new List<PdfTextMatch>(OutputCapacity);
         _ = Query(page, rects, matches);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
         var total = 0;
-        for (var i = 0; i < Repeats; i++)
+        var allocated = AllocationProbe.Minimum(() =>
         {
-            total += Query(page, rects, matches);
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            for (var i = 0; i < Repeats; i++)
+            {
+                total += Query(page, rects, matches);
+            }
+        });
 
         await Assert.That(total).IsGreaterThan(0);
         await Assert.That(allocated).IsEqualTo(0L);

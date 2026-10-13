@@ -91,11 +91,12 @@ internal static class ItemAutomation
     /// <returns>The description, or <see langword="null"/> for items that name themselves.</returns>
     internal static string? Describe(object? item, int index, int count) => item switch
     {
+        ThumbnailItemViewModel { Colorant: { } colorant } separation => $"{DescribePage(separation.Label, separation.PageIndex, count)}, {colorant} separation",
         ThumbnailItemViewModel thumbnail => DescribePage(thumbnail.Label, thumbnail.PageIndex, count),
         SearchResultItemViewModel result => string.Create(CultureInfo.CurrentCulture, $"Page {result.PageNumber}: {result.Context}"),
         AnnotationItemViewModel annotation => annotation.SpokenText,
         DocumentAttachment attachment => string.Create(CultureInfo.CurrentCulture, $"{attachment.Name}, {AttachmentsViewModel.FormatSize(attachment.Size)}"),
-        LayerItemViewModel layer => layer.Name,
+        LayerItemViewModel layer => layer.SpokenName,
         RecentDocument recent => DescribeFile(recent.FileName, recent.Folder),
         DocumentTabViewModel tab => DescribeFile(tab.FileName, tab.Folder),
         FolderSearchResultViewModel found => found.SpokenText,
@@ -105,6 +106,12 @@ internal static class ItemAutomation
         RememberedCertificate certificate => DescribeCertificate(certificate),
         OptimizePresetChoice preset => $"{preset.Name}. {preset.Description}",
         ArchiveLevelChoice level => $"{level.Name}. {level.Description}",
+        ProtectionFormatChoice format => $"{format.Name}. {format.Description}",
+        FlattenScopeChoice scope => $"{scope.Name}. {scope.Description}",
+        FlattenLookChoice look => $"{look.Name}. {look.Description}",
+        ValidationActionChoice action => $"{action.Name}. {action.Description}",
+        SigningKeyChoice key => key.Name,
+        ExternalResultChoice result => result.Name,
         string text => text,
         _ => count > 0 ? string.Create(CultureInfo.CurrentCulture, $"Item {index + 1} of {count}") : null,
     };

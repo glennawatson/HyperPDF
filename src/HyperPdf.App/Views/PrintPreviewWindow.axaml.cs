@@ -8,12 +8,12 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Printing;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.ObservableEvents;
 
 namespace HyperPdf.App.Views;
 
@@ -72,7 +72,7 @@ public sealed partial class PrintPreviewWindow : ReactiveUI.Avalonia.ReactiveWin
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ShowsScalePercent, static v => v.ScalePercentRow.IsVisible));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IncludeAnnotations, static v => v.AnnotationsBox.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Destination, static v => v.PrinterHint.IsVisible, static d => d == PrintDestination.SystemDialog));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Destination, static v => v.PrintButton.Content, ButtonText));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Destination, static v => v.PrintButton.Content, static destination => destination.ButtonText));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ConfirmCommand, static v => v.PrintButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.SystemDialogCommand, static v => v.SystemDialogButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
@@ -81,22 +81,13 @@ public sealed partial class PrintPreviewWindow : ReactiveUI.Avalonia.ReactiveWin
                 .SubscribeSafe(answer => Close(answer), OnError));
 
             // Ctrl+Shift+P opens the system print dialog.
-            disposables.Add(SystemDialogShortcut().InvokeCommand(this, static v => v.ViewModel!.SystemDialogCommand));
+            disposables.Add(this.KeyDowns.Chord(new(Key.P, KeyModifiers.Control | KeyModifiers.Shift)).MarkHandled().AsVoid
+                .InvokeCommand(this, static v => v.ViewModel!.SystemDialogCommand));
 
             // Start on the first setting; the sheets are a preview, so the keyboard begins where choices are made.
             _ = DestinationBox.Focus();
         });
     }
-
-    /// <summary>Gets the main button's text for a destination: Print sends at once, the others open a dialog next.</summary>
-    /// <param name="destination">The destination.</param>
-    /// <returns>The text.</returns>
-    private static string ButtonText(PrintDestination destination) => destination switch
-    {
-        PrintDestination.Printer => "Print",
-        PrintDestination.SaveAsPdf => "Save…",
-        _ => "Print…",
-    };
 
     /// <summary>Reports a failure in a subscription.</summary>
     /// <param name="error">The error.</param>
@@ -118,15 +109,4 @@ public sealed partial class PrintPreviewWindow : ReactiveUI.Avalonia.ReactiveWin
             (PaperBox, PaperLabel),
             (ScalingBox, ScalingLabel),
             (ScalePercentBox, ScalePercentLabel));
-
-    /// <summary>Gets a request each time Ctrl+Shift+P is pressed.</summary>
-    /// <returns>The requests; the declared type matters because InvokeCommand must start from this method's result.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> SystemDialogShortcut() => this.Events().KeyDown
-        .Where(static e => e.Key == Key.P && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift))
-        .Select(static e =>
-        {
-            e.Handled = true;
-            return RxVoid.Default;
-        });
 }

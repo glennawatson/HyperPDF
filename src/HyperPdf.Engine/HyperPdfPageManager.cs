@@ -2,10 +2,12 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdf.Engine;
@@ -67,85 +69,38 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
     }
 
     /// <inheritdoc/>
-    public async ValueTask ApplyAsync(PageEditRequest request, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask ApplyAsync(PageEditRequest request, CancellationToken cancellationToken) => ApplyCoreAsync(request, null, cancellationToken);
+
+    /// <inheritdoc/>
+    public ValueTask ApplyAsync(PageEditRequest request, PageEditReport report, CancellationToken cancellationToken)
     {
-        var label = LabelFor(request.Kind);
-        var pages = request.Pages.ToArray();
-        ArgumentOutOfRangeException.ThrowIfZero(pages.Length, nameof(request));
-        var revision = Snapshot(cancellationToken);
-        await PrefetchAsync(_document, pages, cancellationToken).ConfigureAwait(false);
-        lock (_gate)
-        {
-            ValidateRevision(revision, cancellationToken);
-            using var access = HyperPdfNavigation.EnterPageWrite(_owner);
-            using var transaction = PdfDocumentEditing.BeginEdit(_document, label);
-            ApplyCore(_document, request.Kind, pages, request.Value, cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-            transaction.Commit();
-            Changed();
-        }
+        ArgumentNullException.ThrowIfNull(report);
+        return ApplyCoreAsync(request, report, cancellationToken);
     }
 
     /// <inheritdoc/>
-    public async ValueTask InsertAsync(int index, string[] files, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask InsertAsync(int index, string[] files, CancellationToken cancellationToken) =>
+        InsertCoreAsync(index, files, null, cancellationToken);
+
+    /// <inheritdoc/>
+    public ValueTask InsertAsync(int index, string[] files, PageEditReport report, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(files);
-        var paths = (string[])files.Clone();
-        var revision = Snapshot(cancellationToken);
-        lock (_gate)
-        {
-            ValidateRevision(revision, cancellationToken);
-            ArgumentOutOfRangeException.ThrowIfNegative(index);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(index, _document.PageCount);
-        }
-
-        if (paths.Length == 0)
-        {
-            return;
-        }
-
-        var pending = new List<ImportDocument>(paths.Length);
-        try
-        {
-            foreach (var path in paths)
-            {
-                await PrepareImportAsync(path, pending, cancellationToken).ConfigureAwait(false);
-            }
-
-            await PrefetchAsync(_document, ReadOnlyMemory<int>.Empty, cancellationToken).ConfigureAwait(false);
-            lock (_gate)
-            {
-                ValidateRevision(revision, cancellationToken);
-                using var access = HyperPdfNavigation.EnterPageWrite(_owner);
-                InsertPrepared(index, pending, cancellationToken);
-            }
-        }
-        finally
-        {
-            foreach (var source in pending)
-            {
-                source.Document.Dispose();
-            }
-        }
+        ArgumentNullException.ThrowIfNull(report);
+        return InsertCoreAsync(index, files, report, cancellationToken);
     }
 
     /// <inheritdoc/>
-    public async ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(destination);
-        var selected = pages.ToArray();
-        ArgumentOutOfRangeException.ThrowIfZero(selected.Length, nameof(pages));
-        var revision = Snapshot(cancellationToken);
-        await PrefetchAsync(_document, selected, cancellationToken).ConfigureAwait(false);
-        byte[] bytes;
-        lock (_gate)
-        {
-            ValidateRevision(revision, cancellationToken);
-            using var access = HyperPdfNavigation.EnterPageWrite(_owner);
-            bytes = PdfDocumentPageOperations.ExtractPages(_document, selected, cancellationToken);
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, CancellationToken cancellationToken) =>
+        ExtractCoreAsync(pages, destination, null, cancellationToken);
 
-        await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+    /// <inheritdoc/>
+    public ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, PageEditReport report, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        return ExtractCoreAsync(pages, destination, report, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -192,17 +147,18 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 
     /// <summary>Applies a page edit inside the caller's transaction.</summary>
     /// <param name="document">The document being edited.</param>
-    /// <param name="kind">The operation.</param>
-    /// <param name="pages">The frozen page selection.</param>
-    /// <param name="value">The turn or destination index.</param>
+    /// <param name="request">The operation, its frozen page selection and its turn or destination index.</param>
+    /// <param name="report">Receives what a deletion or copy could not keep, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels page copying.</param>
-    private static void ApplyCore(PdfDocument document, PageEditKind kind, ReadOnlySpan<int> pages, int value, CancellationToken cancellationToken)
+    private static void ApplyCore(PdfDocument document, in PageEditRequest request, PdfPageEditReport? report, CancellationToken cancellationToken)
     {
-        switch (kind)
+        var pages = request.Pages.Span;
+        var value = request.Value;
+        switch (request.Kind)
         {
             case PageEditKind.Delete:
                 {
-                    PdfDocumentPageOperations.DeletePages(document, pages);
+                    PdfDocumentPageOperations.DeletePages(document, pages, report);
                     break;
                 }
 
@@ -220,7 +176,7 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 
             case PageEditKind.Duplicate:
                 {
-                    PdfDocumentPageOperations.InsertPages(document, value, document, pages, cancellationToken);
+                    PdfDocumentPageOperations.InsertPages(document, value, document, pages, report, cancellationToken);
                     break;
                 }
         }
@@ -235,8 +191,9 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         await PdfPrefetcher.PrefetchAsync(document.Objects, document.Catalog, PdfPrefetchKind.Page, cancellationToken).ConfigureAwait(false);
-        _ = await PdfDocumentNavigation.GetOutlineAsync(document, cancellationToken).ConfigureAwait(false);
+        await HyperPdfEditPrefetch.OutlineAsync(document, cancellationToken).ConfigureAwait(false);
         await PrefetchFormsAsync(document, cancellationToken).ConfigureAwait(false);
+        _ = await PdfDocumentSeparations.GetSeparationsAsync(document, cancellationToken).ConfigureAwait(false);
         for (var index = 0; index < pages.Length; index++)
         {
             _ = await PdfDocumentPages.GetPageAsync(document, pages.Span[index], cancellationToken).ConfigureAwait(false);
@@ -308,15 +265,16 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
     /// <summary>Commits every prepared source as one edit and retains its objects for saving and redo.</summary>
     /// <param name="index">The first inserted page's index.</param>
     /// <param name="pending">The sources whose ownership transfers on commit.</param>
+    /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels before committing.</param>
-    private void InsertPrepared(int index, List<ImportDocument> pending, CancellationToken cancellationToken)
+    private void InsertPrepared(int index, List<ImportDocument> pending, PdfPageEditReport? report, CancellationToken cancellationToken)
     {
         _ = _imports.EnsureCapacity(checked(_imports.Count + pending.Count));
-        using var transaction = PdfDocumentEditing.BeginEdit(_document, "Insert pages");
+        using var transaction = HyperPdfEditTransactions.Begin(_document, "Insert pages");
         foreach (var source in pending)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            PdfDocumentPageOperations.InsertPages(_document, index, source.Document, source.Pages, cancellationToken);
+            PdfDocumentPageOperations.InsertPages(_document, index, source.Document, source.Pages, report, cancellationToken);
             index = checked(index + source.Pages.Length);
         }
 
@@ -329,6 +287,132 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 
         pending.Clear();
         Changed();
+    }
+
+    /// <summary>Inserts every page of the files as one undo step.</summary>
+    /// <param name="index">The first inserted page's zero-based index.</param>
+    /// <param name="files">PDF files in insertion order.</param>
+    /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels opening and importing the files.</param>
+    /// <returns>A task completing after the document has changed.</returns>
+    private async ValueTask InsertCoreAsync(int index, string[] files, PageEditReport? report, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        var changes = report is null ? null : new PdfPageEditReport();
+        var paths = (string[])files.Clone();
+        var revision = Snapshot(cancellationToken);
+        lock (_gate)
+        {
+            ValidateRevision(revision, cancellationToken);
+            ArgumentOutOfRangeException.ThrowIfNegative(index);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(index, _document.PageCount);
+        }
+
+        if (paths.Length == 0)
+        {
+            return;
+        }
+
+        var pending = new List<ImportDocument>(paths.Length);
+        try
+        {
+            foreach (var path in paths)
+            {
+                await PrepareImportAsync(path, pending, cancellationToken).ConfigureAwait(false);
+            }
+
+            await PrefetchAsync(_document, ReadOnlyMemory<int>.Empty, cancellationToken).ConfigureAwait(false);
+            lock (_gate)
+            {
+                ValidateRevision(revision, cancellationToken);
+                using var access = HyperPdfNavigation.EnterPageWrite(_owner);
+                InsertPrepared(index, pending, changes, cancellationToken);
+            }
+
+            HyperPdfSeparations.CopyReport(changes, report);
+        }
+        finally
+        {
+            foreach (var source in pending)
+            {
+                source.Document.Dispose();
+            }
+        }
+    }
+
+    /// <summary>Applies a page edit as one undo step.</summary>
+    /// <param name="request">The operation and zero-based indexes.</param>
+    /// <param name="report">Receives what the edit could not keep, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels page resource reads and the edit.</param>
+    /// <returns>A task completing after the document has changed.</returns>
+    private async ValueTask ApplyCoreAsync(PageEditRequest request, PageEditReport? report, CancellationToken cancellationToken)
+    {
+        var label = LabelFor(request.Kind);
+        ArgumentOutOfRangeException.ThrowIfZero(request.Pages.Length, nameof(request));
+
+        // The selection is copied into a pooled array, so the caller's memory can change while pages are read.
+        var rented = ArrayPool<int>.Shared.Rent(request.Pages.Length);
+        try
+        {
+            request.Pages.Span.CopyTo(rented);
+            var pages = rented.AsMemory(0, request.Pages.Length);
+            var revision = Snapshot(cancellationToken);
+            await PrefetchAsync(_document, pages, cancellationToken).ConfigureAwait(false);
+            var changes = report is null ? null : new PdfPageEditReport();
+            lock (_gate)
+            {
+                ValidateRevision(revision, cancellationToken);
+                using var access = HyperPdfNavigation.EnterPageWrite(_owner);
+                using var transaction = HyperPdfEditTransactions.Begin(_document, label);
+                ApplyCore(_document, new(request.Kind, pages, request.Value), changes, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                transaction.Commit();
+                Changed();
+            }
+
+            HyperPdfSeparations.CopyReport(changes, report);
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(rented);
+        }
+    }
+
+    /// <summary>Writes the selected pages to a new PDF.</summary>
+    /// <param name="pages">Zero-based indexes in output order.</param>
+    /// <param name="destination">The stream receiving the new PDF.</param>
+    /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels page reads and writing.</param>
+    /// <returns>A task completing after the file has been written.</returns>
+    private async ValueTask ExtractCoreAsync(ReadOnlyMemory<int> pages, Stream destination, PageEditReport? report, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentOutOfRangeException.ThrowIfZero(pages.Length, nameof(pages));
+
+        // The selection is copied into a pooled array, so the caller's memory can change while pages are read.
+        var rented = ArrayPool<int>.Shared.Rent(pages.Length);
+        try
+        {
+            pages.Span.CopyTo(rented);
+            var selected = rented.AsMemory(0, pages.Length);
+            var revision = Snapshot(cancellationToken);
+            await PrefetchAsync(_document, selected, cancellationToken).ConfigureAwait(false);
+            var changes = report is null ? null : new PdfPageEditReport();
+            byte[] bytes;
+            lock (_gate)
+            {
+                ValidateRevision(revision, cancellationToken);
+                using var access = HyperPdfNavigation.EnterPageWrite(_owner);
+                bytes = PdfDocumentPageOperations.ExtractPages(_document, selected.Span, changes, cancellationToken);
+            }
+
+            await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+            HyperPdfSeparations.CopyReport(changes, report);
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(rented);
+        }
     }
 
     /// <summary>Captures the page generation while checking lifetime and cancellation.</summary>
@@ -369,7 +453,7 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
             ThrowIfDisposed();
             cancellationToken.ThrowIfCancellationRequested();
             using var access = HyperPdfNavigation.EnterPageWrite(_owner);
-            var changed = undo ? PdfDocumentEditing.Undo(_document) : PdfDocumentEditing.Redo(_document);
+            var changed = HyperPdfEditTransactions.Step(_document, undo);
             if (changed)
             {
                 Changed();

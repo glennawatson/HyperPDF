@@ -16,6 +16,8 @@ internal static class HyperPdfDocumentAttachments
     /// <returns>The attachments.</returns>
     internal static IReadOnlyList<DocumentAttachment> GetAttachments(HyperPdfDocument self)
     {
+        // An edit drops this cache under the page write lock, so a list read here is never published after that drop.
+        using var access = HyperPdfNavigation.EnterPageRead(self);
         if (self.IsDisposed)
         {
             return [];
@@ -45,16 +47,14 @@ internal static class HyperPdfDocumentAttachments
     internal static bool SaveAttachment(HyperPdfDocument self, int index, Stream destination)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        var attachments = self.IsDisposed ? [] : PdfDocumentAttachments.GetAttachments(self.Document);
-        if ((uint)index >= (uint)attachments.Count || attachments[index].Data is not { } data)
-        {
-            return false;
-        }
-
         var output = default(PooledBuffer);
         try
         {
-            _ = data.Decode(ref output);
+            if (!Decode(self, index, ref output))
+            {
+                return false;
+            }
+
             destination.Write(output.WrittenSpan);
             return true;
         }
@@ -62,5 +62,23 @@ internal static class HyperPdfDocumentAttachments
         {
             output.Dispose();
         }
+    }
+
+    /// <summary>Decodes an embedded file while no edit runs, so the index still names the file the caller listed.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="index">The attachment index.</param>
+    /// <param name="output">Receives the contents.</param>
+    /// <returns><see langword="true"/> when the file exists and has contents.</returns>
+    private static bool Decode(HyperPdfDocument self, int index, ref PooledBuffer output)
+    {
+        using var access = HyperPdfNavigation.EnterPageRead(self);
+        var attachments = self.IsDisposed ? [] : PdfDocumentAttachments.GetAttachments(self.Document);
+        if ((uint)index >= (uint)attachments.Count || attachments[index].Data is not { } data)
+        {
+            return false;
+        }
+
+        _ = data.Decode(ref output);
+        return true;
     }
 }

@@ -19,6 +19,9 @@ internal sealed class OutputIntentColorSpace : PdfColorSpace
     /// <summary>The profile space colours convert through.</summary>
     private readonly PdfColorSpace _profile;
 
+    /// <summary>The spaces made for each rendering that converts the profile differently, or <see langword="null"/> before the first.</summary>
+    private PdfColorSpace?[]? _renderings;
+
     /// <summary>Initializes a new instance of the <see cref="OutputIntentColorSpace"/> class.</summary>
     /// <param name="device">The device space the content named.</param>
     /// <param name="profile">The profile space colours convert through; it has the same component count.</param>
@@ -35,7 +38,24 @@ internal sealed class OutputIntentColorSpace : PdfColorSpace
     public override PdfColorSpaceKind Kind => PdfColorSpaceKind.IccBased;
 
     /// <inheritdoc/>
+    internal override PdfColorSpaceKind NamedKind => _device.Kind;
+
+    /// <inheritdoc/>
     public override void GetInitialColor(Span<float> components) => _device.GetInitialColor(components);
+
+    /// <inheritdoc/>
+    internal override PdfColorSpace ForRendering(IccRendering rendering)
+    {
+        var profile = _profile.ForRendering(rendering);
+        return ReferenceEquals(profile, _profile)
+            ? this
+            : ColorSpaceRenderings.GetOrCreate(
+                ref _renderings,
+                rendering,
+                this,
+                profile,
+                static (owner, converting) => new OutputIntentColorSpace(owner._device, converting));
+    }
 
     /// <inheritdoc/>
     private protected override void ToRgbCore(ReadOnlySpan<float> components, Span<float> rgb) => _profile.ToRgb(components, rgb);

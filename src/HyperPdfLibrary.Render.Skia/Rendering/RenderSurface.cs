@@ -19,13 +19,15 @@ internal sealed class RenderSurface : IDisposable
     /// <summary>The weight of blue in luminance.</summary>
     private const float LumaBlue = 0.114F;
 
+    /// <summary>The grayscale paint, made the first time a grayscale page is drawn.</summary>
+    private SKPaint? _grayPaint;
+
     /// <summary>Initializes a new instance of the <see cref="RenderSurface"/> class.</summary>
     internal RenderSurface()
     {
         Bitmap = new();
         Pixmap = new();
         Canvas = new(Bitmap);
-        GrayPaint = CreateGrayPaint();
     }
 
     /// <summary>Gets the bitmap that borrows the pinned target.</summary>
@@ -37,8 +39,8 @@ internal sealed class RenderSurface : IDisposable
     /// <summary>Gets the reusable canvas wrapper.</summary>
     internal BorrowedPixelCanvas Canvas { get; }
 
-    /// <summary>Gets the paint that renders a layer in grayscale.</summary>
-    internal SKPaint GrayPaint { get; }
+    /// <summary>Gets the paint that renders a layer in grayscale; a colour page never makes it.</summary>
+    internal SKPaint GrayPaint => _grayPaint ??= CreateGrayPaint();
 
     /// <summary>Gets or sets a value indicating whether the holder has been disposed.</summary>
     internal bool IsDisposed { get; set; }
@@ -47,7 +49,7 @@ internal sealed class RenderSurface : IDisposable
     /// <returns>The owned paint.</returns>
     internal static SKPaint CreateGrayPaint()
     {
-        float[] gray =
+        ReadOnlySpan<float> gray =
         [
             LumaRed, LumaGreen, LumaBlue, 0, 0,
             LumaRed, LumaGreen, LumaBlue, 0, 0,
@@ -55,6 +57,13 @@ internal sealed class RenderSurface : IDisposable
             0, 0, 0, 1, 0,
         ];
         return new() { ColorFilter = SKColorFilter.CreateColorMatrix(gray) };
+    }
+
+    /// <summary>Disposes the grayscale paint when one was made.</summary>
+    internal void DisposeGrayPaint()
+    {
+        _grayPaint?.Dispose();
+        _grayPaint = null;
     }
 
     /// <inheritdoc/>

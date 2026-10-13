@@ -38,6 +38,7 @@ public static class PdfDocumentMetadataEditing
         document,
         "Edit document properties",
         PdfChangeKinds.Metadata,
+        PdfCacheScopes.None,
         new MetadataEditState(
         document,
         edit),

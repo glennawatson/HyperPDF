@@ -282,6 +282,24 @@ public sealed class FormRuntimeTests
         await Assert.That(host.Submissions[0].Fields.Length).IsGreaterThan(0);
     }
 
+    /// <summary>An import action is only offered to the host: a host that imports reports the form changed, one that declines changes nothing.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RunnerOffersImportsToTheHost()
+    {
+        using var document = PdfDocumentReader.Open(FormImportSamples.Create(), null);
+        var accepting = new RecordingActionHost();
+        var declining = new RecordingActionHost { Accepts = false };
+
+        var accepted = await new PdfActionRunner(document, accepting).RunAsync(ButtonAction(document, FormImportSamples.LoadIndex), CancellationToken.None);
+        var declined = await new PdfActionRunner(document, declining).RunAsync(ButtonAction(document, FormImportSamples.LoadIndex), CancellationToken.None);
+
+        await Assert.That(accepted).IsEqualTo(PdfActionResult.Ran | PdfActionResult.Changed);
+        await Assert.That(declined).IsEqualTo(PdfActionResult.Declined);
+        await Assert.That(accepting.Imports.Select(static import => import.File ?? string.Empty)).IsEquivalentTo([FormImportSamples.NamedFile]);
+        await Assert.That(declining.Imports.Count).IsEqualTo(1);
+    }
+
     /// <summary>JavaScript is never run; the runner skips it.</summary>
     /// <returns>A task.</returns>
     [Test]

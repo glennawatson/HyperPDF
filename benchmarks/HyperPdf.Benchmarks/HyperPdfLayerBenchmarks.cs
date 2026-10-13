@@ -10,8 +10,8 @@ using HyperPdfLibrary.Layers;
 namespace HyperPdf.Benchmarks;
 
 /// <summary>
-/// Measures HyperPDF's layer handling: reading the layers and showing or hiding one. PDFium has no layer API, so
-/// <see cref="LayerBenchmarks"/> measures its rewrite-and-reopen path for comparison.
+/// Measures HyperPDF's layer handling: reading the layers and showing or hiding one. <see cref="LayerBenchmarks"/> measures
+/// rewriting the file and reopening it for comparison.
 /// </summary>
 public class HyperPdfLayerBenchmarks
 {

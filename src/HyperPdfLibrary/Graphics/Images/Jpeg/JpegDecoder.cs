@@ -73,20 +73,20 @@ internal ref partial struct JpegDecoder
     /// <summary>The explicit scratch cache for this image decode.</summary>
     private readonly ScratchPools _scratchPools;
 
-    /// <summary>The DC Huffman tables by id.</summary>
-    private readonly JpegHuffmanTable?[] _codesDc;
-
-    /// <summary>The AC Huffman tables by id.</summary>
-    private readonly JpegHuffmanTable?[] _codesAc;
-
-    /// <summary>The quantizer steps by id, in storage order; a redefinition replaces the array.</summary>
-    private readonly int[]?[] _quantTables;
+    /// <summary>The tables and components of this image, taken from the idle states and given back by <see cref="Dispose"/>.</summary>
+    private readonly JpegState _state;
 
     /// <summary>The position in <see cref="_data"/>.</summary>
     private int _position;
 
-    /// <summary>The frame's components, or <see langword="null"/> before the frame header.</summary>
-    private JpegComponent[]? _components;
+    /// <summary>The components of the frame that are set up; none before the frame header.</summary>
+    private int _componentCount;
+
+    /// <summary>Whether a frame header has been read, so a second one is refused.</summary>
+    private bool _hasFrame;
+
+    /// <summary>One once <see cref="Dispose"/> has given the state back, so a second call gives nothing back again.</summary>
+    private int _returned;
 
     /// <summary>The restart interval in MCUs, or zero.</summary>
     private int _restartInterval;
@@ -132,9 +132,7 @@ internal ref partial struct JpegDecoder
         _data = data;
         _scratchPools = scratchPools;
         _cancellationToken = cancellationToken;
-        _codesDc = new JpegHuffmanTable?[TableSlots];
-        _codesAc = new JpegHuffmanTable?[TableSlots];
-        _quantTables = new int[]?[TableSlots];
+        _state = JpegState.Rent();
     }
 
     /// <summary>What to do after a marker segment.</summary>
@@ -149,6 +147,9 @@ internal ref partial struct JpegDecoder
         /// <summary>The data cannot be decoded.</summary>
         Fail = 2,
     }
+
+    /// <summary>Gets the components of the frame, none before the frame header.</summary>
+    private readonly ReadOnlySpan<JpegComponent> Components => _state.Components.AsSpan(0, _componentCount);
 
     /// <summary>Decodes a JPEG to interleaved component samples.</summary>
     /// <param name="data">The JPEG data.</param>
@@ -184,17 +185,13 @@ internal ref partial struct JpegDecoder
     /// <summary>Returns the pooled buffers.</summary>
     internal void Dispose()
     {
-        if (_components is null)
+        if (Interlocked.Exchange(ref _returned, 1) != 0)
         {
             return;
         }
 
-        foreach (var component in _components)
-        {
-            component.Dispose();
-        }
-
-        _components = null;
+        _componentCount = 0;
+        JpegState.Return(_state);
     }
 
     /// <summary>Maps a success flag to a step.</summary>
@@ -290,14 +287,14 @@ internal ref partial struct JpegDecoder
                 return false;
             }
 
-            var table = new int[JpegBlock.Length];
+            var table = _state.Quantization[id];
             var zigzag = JpegBlock.Zigzag;
             for (var i = 0; i < JpegBlock.Length; i++)
             {
                 table[zigzag[i]] = wide ? BinaryPrimitives.ReadUInt16BigEndian(rest[(1 + (i * WideBytes))..]) : rest[1 + i];
             }
 
-            _quantTables[id] = table;
+            _state.QuantizationDefined[id] = true;
             rest = rest[size..];
         }
 
@@ -325,13 +322,12 @@ internal ref partial struct JpegDecoder
                 return false;
             }
 
-            var table = JpegHuffmanTable.Create(counts, rest.Slice(HuffmanHeaderBytes, total));
-            if (table is null)
+            var table = (rest[0] >> NibbleBits == AcClass ? _state.AcTables : _state.DcTables)[id];
+            if (!table.TryDefine(counts, rest.Slice(HuffmanHeaderBytes, total)))
             {
                 return false;
             }
 
-            (rest[0] >> NibbleBits == AcClass ? _codesAc : _codesDc)[id] = table;
             rest = rest[(HuffmanHeaderBytes + total)..];
         }
 
@@ -359,7 +355,7 @@ internal ref partial struct JpegDecoder
     private bool ReadFrame(byte marker, scoped ReadOnlySpan<byte> segment)
     {
         var count = segment.Length > CountOffset ? segment[CountOffset] : 0;
-        if (_components is not null || !IsReadableFrame(marker, segment, count))
+        if (_hasFrame || !IsReadableFrame(marker, segment, count))
         {
             return false;
         }
@@ -392,8 +388,7 @@ internal ref partial struct JpegDecoder
 
         _mcusPerLine = CeilingDivide(_width, JpegBlock.Side * _maxHorizontal);
         _mcusPerColumn = CeilingDivide(_height, JpegBlock.Side * _maxVertical);
-        var components = new JpegComponent[count];
-        _components = components;
+        _hasFrame = true;
         for (var i = 0; i < count; i++)
         {
             var offset = FirstComponentOffset + (i * ComponentBytes);
@@ -401,8 +396,6 @@ internal ref partial struct JpegDecoder
             var vertical = segment[offset + 1] & NibbleMask;
             if ((long)_mcusPerLine * horizontal * _mcusPerColumn * vertical * JpegBlock.Length > MaxCoefficients)
             {
-                // Only the components created so far are disposed with the decoder.
-                _components = components[..i];
                 return false;
             }
 
@@ -412,7 +405,8 @@ internal ref partial struct JpegDecoder
                 _mcusPerColumn,
                 CeilingDivide(CeilingDivide(_width * horizontal, _maxHorizontal), JpegBlock.Side),
                 CeilingDivide(CeilingDivide(_height * vertical, _maxVertical), JpegBlock.Side));
-            components[i] = new(spec, grid, _scratchPools);
+            _state.Components[i].Initialize(spec, grid, _scratchPools);
+            _componentCount = i + 1;
         }
 
         return true;

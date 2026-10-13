@@ -16,6 +16,9 @@ public static unsafe class CupsPrinting
     /// <summary>The most copies one job asks for.</summary>
     private const int MaxCopies = 999;
 
+    /// <summary>The number of options sent with a job.</summary>
+    private const int OptionCount = 5;
+
     /// <summary>The option holding a printer's description.</summary>
     private const string InfoOption = "printer-info";
 
@@ -83,14 +86,15 @@ public static unsafe class CupsPrinting
             return new(false, "The print system (CUPS) is not installed.");
         }
 
-        var pairs = BuildOptions(options);
-        var native = new CupsOption[pairs.Length];
+        var settings = BuildOptions(options);
+        var native = new CupsOption[OptionCount];
         try
         {
-            for (var i = 0; i < pairs.Length; i++)
-            {
-                native[i] = new(Marshal.StringToCoTaskMemUTF8(pairs[i].Name), Marshal.StringToCoTaskMemUTF8(pairs[i].Value));
-            }
+            native[0] = NativeOption(CupsJobOptions.CopiesName, settings.Copies);
+            native[1] = NativeOption(CupsJobOptions.MediaName, settings.Media);
+            native[2] = NativeOption(CupsJobOptions.SidesName, settings.Sides);
+            native[3] = NativeOption(CupsJobOptions.ColorModeName, settings.ColorMode);
+            native[4] = NativeOption(CupsJobOptions.ScalingName, settings.Scaling);
 
             var name = Encoding.UTF8.GetBytes(options.Printer + '\0');
             var file = Encoding.UTF8.GetBytes(filePath + '\0');
@@ -125,14 +129,8 @@ public static unsafe class CupsPrinting
     /// <summary>Builds the CUPS options for a job.</summary>
     /// <param name="options">The job settings.</param>
     /// <returns>Option names and values.</returns>
-    internal static (string Name, string Value)[] BuildOptions(in PrintJobOptions options) =>
-    [
-        ("copies", Math.Clamp(options.Copies, 1, MaxCopies).ToString(CultureInfo.InvariantCulture)),
-        ("media", GetMedia(options.Paper)),
-        ("sides", GetSides(options)),
-        ("print-color-mode", options.Colour ? "color" : "monochrome"),
-        ("print-scaling", "none"),
-    ];
+    internal static CupsJobOptions BuildOptions(in PrintJobOptions options) =>
+        new(Math.Clamp(options.Copies, 1, MaxCopies).ToString(CultureInfo.InvariantCulture), GetMedia(options.Paper), GetSides(options), options.Colour ? "color" : "monochrome", "none");
 
     /// <summary>Gets the PWG media name for a paper size.</summary>
     /// <param name="paper">The paper.</param>
@@ -146,6 +144,12 @@ public static unsafe class CupsPrinting
         PaperSize.Tabloid => "na_ledger_11x17in",
         _ => "iso_a4_210x297mm",
     };
+
+    /// <summary>Copies an option's name and value into native memory, which the caller frees.</summary>
+    /// <param name="name">The option name.</param>
+    /// <param name="value">The option value.</param>
+    /// <returns>The native option.</returns>
+    private static CupsOption NativeOption(string name, string value) => new(Marshal.StringToCoTaskMemUTF8(name), Marshal.StringToCoTaskMemUTF8(value));
 
     /// <summary>Gets the CUPS sides value for the chosen duplex edge.</summary>
     /// <param name="options">The job settings.</param>

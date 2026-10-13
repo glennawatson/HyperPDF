@@ -11,11 +11,18 @@ namespace HyperPdfLibrary.Editing;
 /// Carries the form fields behind copied widgets. Each widget keeps its <c>/Parent</c> chain: the fields above it are
 /// copied with only the copied widgets and fields as kids, and the root fields join the target's <c>/AcroForm /Fields</c>.
 /// A root field whose name the target uses is renamed, and the form's <c>/DR</c>, <c>/DA</c>, <c>/Q</c> and
-/// <c>/NeedAppearances</c> are merged without changing the target's fields.
+/// <c>/NeedAppearances</c> are merged without changing the target's fields. The signature flags and calculation order
+/// follow the carried fields, and the target's XFA data is removed when the carried fields make it stale.
 /// </summary>
 [DebuggerDisplay("PdfCarryForms: {_nodes.Count} fields")]
 internal sealed class PdfCarryForms
 {
+    /// <summary>The signature flags that are defined: signatures exist (bit 1) and append only (bit 2).</summary>
+    private const int SignatureFlagsMask = 3;
+
+    /// <summary>What the report says when the target's XFA data was removed.</summary>
+    private const string XfaRemovedMessage = "The document's XFA form data was removed because the copied pages added form fields it does not describe. The standard form fields are kept.";
+
     /// <summary>The context.</summary>
     private readonly PdfCarryContext _context;
 
@@ -27,6 +34,15 @@ internal sealed class PdfCarryForms
 
     /// <summary>The widgets that are root fields themselves, by source object number.</summary>
     private readonly List<int> _rootWidgets = [];
+
+    /// <summary>The widgets carried, by source object number.</summary>
+    private readonly HashSet<int> _widgets = [];
+
+    /// <summary>Receives what the copy changed in the target's form, or <see langword="null"/>.</summary>
+    private PdfPageEditReport? _report;
+
+    /// <summary>Whether a carried widget belongs to a signature field.</summary>
+    private bool _hasSignature;
 
     /// <summary>The names of the target's root fields, plus those carried; made on first use.</summary>
     private HashSet<string>? _rootNames;
@@ -48,6 +64,8 @@ internal sealed class PdfCarryForms
     internal PreparedWidget Prepare(PdfDictionary widget, int number)
     {
         _defaults ??= new(_context);
+        _ = _widgets.Add(number);
+        _hasSignature |= IsSignature(widget);
         var copy = widget.Clone();
         RenameAppearance(copy);
         var parent = widget.GetRaw(KnownName.Parent).AsReference();
@@ -67,13 +85,15 @@ internal sealed class PdfCarryForms
     }
 
     /// <summary>Copies the fields above the carried widgets and adds the root fields to the target's form.</summary>
-    internal void Finish()
+    /// <param name="report">Receives what the copy changed in the target's form, or <see langword="null"/>.</param>
+    internal void Finish(PdfPageEditReport? report)
     {
         if (!HasFields)
         {
             return;
         }
 
+        _report = report;
         var sink = _context.Sink;
         var roots = new List<PdfValue>();
         foreach (var node in _nodes.Values)
@@ -95,6 +115,25 @@ internal sealed class PdfCarryForms
         }
 
         WriteForm(roots);
+    }
+
+    /// <summary>Determines whether a field is a signature field, reading <c>/FT</c> from the field or its nearest ancestor that has one.</summary>
+    /// <param name="field">The field or widget in the source.</param>
+    /// <returns><see langword="true"/> for a signature field.</returns>
+    private static bool IsSignature(PdfDictionary field)
+    {
+        var node = field;
+        for (var depth = 0; node is not null && depth < PdfLimits.MaxPageTreeDepth; depth++)
+        {
+            if (node.ContainsKey(KnownName.FT))
+            {
+                return node.IsName(KnownName.FT, KnownName.Sig);
+            }
+
+            node = node.GetDictionary(KnownName.Parent);
+        }
+
+        return false;
     }
 
     /// <summary>Registers a field and its ancestors that are not registered yet.</summary>
@@ -287,6 +326,9 @@ internal sealed class PdfCarryForms
         }
 
         form.Set(KnownName.Fields, PdfValue.FromArray(fields));
+        MergeSignatureFlags(form);
+        MergeCalculationOrder(form);
+        RemoveStaleXfa(form, existing);
         MergeResources(form);
         if (existing is null)
         {
@@ -300,6 +342,77 @@ internal sealed class PdfCarryForms
 
         _context.SetEntry(catalog, KnownName.AcroForm, form);
         _context.CatalogChanged = true;
+    }
+
+    /// <summary>
+    /// Keeps the signature flags (<c>/SigFlags</c>, ISO 32000-2 12.7.2, Table 224) the source set when a signature field was
+    /// carried: the flags of the target and the source are combined.
+    /// </summary>
+    /// <param name="form">The target's form, changed in place.</param>
+    private void MergeSignatureFlags(PdfDictionary form)
+    {
+        var carried = _hasSignature ? (_defaults!.SourceForm?.GetInt32(KnownName.SigFlags) ?? 0) & SignatureFlagsMask : 0;
+        if (carried != 0)
+        {
+            form.Set(KnownName.SigFlags, PdfValue.FromInteger(form.GetInt32(KnownName.SigFlags) | carried));
+        }
+    }
+
+    /// <summary>
+    /// Appends the carried fields that the source's calculation order (<c>/CO</c>, ISO 32000-2 12.7.3.2, Table 225) lists to
+    /// the target's, in the source's order. The target's fields calculate first.
+    /// </summary>
+    /// <param name="form">The target's form, changed in place.</param>
+    private void MergeCalculationOrder(PdfDictionary form)
+    {
+        if (_defaults!.SourceForm?.GetArray(KnownName.CO) is not { } order)
+        {
+            return;
+        }
+
+        var merged = form.GetArray(KnownName.CO)?.Clone() ?? new PdfArray(_context.TargetStore);
+        var before = merged.Count;
+        for (var i = 0; i < order.Count; i++)
+        {
+            if (FindCarriedField(order.GetRaw(i)) is var mapped and > 0)
+            {
+                merged.Add(PdfValue.FromReference(new(mapped, 0)));
+            }
+        }
+
+        if (merged.Count == before)
+        {
+            return;
+        }
+
+        form.Set(KnownName.CO, PdfValue.FromArray(merged));
+    }
+
+    /// <summary>Finds the copy of a field a calculation order lists.</summary>
+    /// <param name="listed">The entry as stored in the source.</param>
+    /// <returns>The copy's object number, or 0 when the field was not carried.</returns>
+    private int FindCarriedField(PdfValue listed)
+    {
+        var field = listed.AsReference();
+        return field.IsValid && (_nodes.ContainsKey(field.Number) || _widgets.Contains(field.Number)) ? Math.Max(0, _context.Sink.GetMapped(field.Number)) : 0;
+    }
+
+    /// <summary>
+    /// Removes the target's XFA data (<c>/XFA</c>, ISO 32000-2 12.7.8) when the target also has standard fields and the copy
+    /// added fields its template does not describe. XFA packets cannot be combined, and a form whose template misses fields
+    /// would hide the copied ones; the standard fields stay, and the change is reported.
+    /// </summary>
+    /// <param name="form">The target's form, changed in place.</param>
+    /// <param name="existing">The target's form before the copy, or <see langword="null"/>.</param>
+    private void RemoveStaleXfa(PdfDictionary form, PdfDictionary? existing)
+    {
+        if (existing is null || !existing.ContainsKey(KnownName.XFA) || existing.GetArray(KnownName.Fields) is not { Count: > 0 })
+        {
+            return;
+        }
+
+        _ = form.Remove(KnownName.XFA);
+        _report?.AddFormChange(XfaRemovedMessage);
     }
 
     /// <summary>Gives a new AcroForm the source form's default appearance and quadding.</summary>

@@ -37,6 +37,18 @@ internal static class PdfLimits
     /// <summary>The largest window of a file one object or trailer is parsed from; stream data is not part of it.</summary>
     internal const int MaxObjectWindow = 1 << 26;
 
+    /// <summary>The most requirement dictionaries read from the catalog's <c>/Requirements</c> array.</summary>
+    internal const int MaxRequirements = 256;
+
+    /// <summary>The most alternative handlers read from one requirement's <c>/RH</c> entry.</summary>
+    internal const int MaxRequirementHandlers = 16;
+
+    /// <summary>The longest script name or version text kept from a requirement, in characters.</summary>
+    internal const int MaxRequirementText = 256;
+
     /// <summary>The largest cross-reference table section read, in bytes.</summary>
     internal const int MaxXrefWindow = 1 << 28;
+
+    /// <summary>The longest PDF MAC token read, in bytes; a token with one recipient and three attributes is under 400.</summary>
+    internal const int MaxMacTokenLength = 1 << 14;
 }

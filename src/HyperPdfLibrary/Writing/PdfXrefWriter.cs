@@ -72,6 +72,27 @@ internal static class PdfXrefWriter
         }
     }
 
+    /// <summary>
+    /// Writes a classic table, the trailer and the <c>startxref</c> pointer, and gives the revision its PDF MAC. The trailer is
+    /// written again until the byte range in the <c>/AuthCode</c> matches the file.
+    /// </summary>
+    /// <param name="writer">The writer.</param>
+    /// <param name="rows">The entries, in ascending number order.</param>
+    /// <param name="trailer">The trailer dictionary, which holds the <c>/AuthCode</c> when the revision has a PDF MAC.</param>
+    /// <param name="startXref">The offset of the table.</param>
+    /// <param name="sealing">The PDF MAC of the revision.</param>
+    internal static void WriteTable(ref PdfObjectWriter writer, ReadOnlySpan<XrefRow> rows, PdfDictionary trailer, long startXref, in PdfMacSealing sealing)
+    {
+        var start = writer.Length;
+        do
+        {
+            writer.Buffer.Length = start;
+            WriteTable(ref writer, rows);
+            WriteTrailer(ref writer, trailer, startXref);
+        }
+        while (sealing.Seal is { } seal && !seal.TryComplete(ref writer, sealing.Prefix, start, sealing.CancellationToken));
+    }
+
     /// <summary>Writes the trailer after a classic table, and the <c>startxref</c> pointer.</summary>
     /// <param name="writer">The writer.</param>
     /// <param name="trailer">The trailer dictionary.</param>
@@ -120,6 +141,27 @@ internal static class PdfXrefWriter
         }
 
         WriteStartXref(ref writer, offset);
+    }
+
+    /// <summary>
+    /// Writes a Flate-compressed cross-reference stream holding the trailer and the <c>startxref</c> pointer, and gives the
+    /// revision its PDF MAC. The stream is written again until the byte range in the <c>/AuthCode</c> matches the file.
+    /// </summary>
+    /// <param name="writer">The writer.</param>
+    /// <param name="rows">The entries in ascending number order, including the stream's own.</param>
+    /// <param name="trailer">The trailer entries; /Type, /W and /Index are added.</param>
+    /// <param name="id">The stream's object id.</param>
+    /// <param name="offset">The stream's file offset.</param>
+    /// <param name="sealing">The PDF MAC of the revision.</param>
+    internal static void WriteStream(ref PdfObjectWriter writer, ReadOnlySpan<XrefRow> rows, PdfDictionary trailer, PdfObjectId id, long offset, in PdfMacSealing sealing)
+    {
+        var start = writer.Length;
+        do
+        {
+            writer.Buffer.Length = start;
+            WriteStream(ref writer, rows, trailer, id, offset);
+        }
+        while (sealing.Seal is { } seal && !seal.TryComplete(ref writer, sealing.Prefix, start, sealing.CancellationToken));
     }
 
     /// <summary>Creates a trailer with /Size and /Prev and the /Root, /Info and /Encrypt of another trailer.</summary>

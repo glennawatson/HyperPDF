@@ -30,7 +30,7 @@ public static class StoreTransactions
     {
         lock (self.Gate)
         {
-            return self.TransactionState?.Transaction;
+            return self.TransactionState;
         }
     }
 
@@ -43,7 +43,17 @@ public static class StoreTransactions
     /// <returns>The transaction.</returns>
     /// <exception cref = "ArgumentNullException"><paramref name = "label"/> is <see langword="null"/>.</exception>
     /// <exception cref = "InvalidOperationException">A transaction is already open.</exception>
-    public static PdfEditTransaction BeginTransaction(PdfObjectStore self, string label)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfEditTransaction BeginTransaction(PdfObjectStore self, string label) =>StoreTransactions.BeginTransaction(self, label, PdfCacheScopes.All);
+
+    /// <summary>Starts a transaction whose changes are known to affect only some parts of the document.</summary>
+    /// <param name = "self">The owned object-store state.</param>
+    /// <param name = "label">A short description of the edit, shown for undo.</param>
+    /// <param name = "scopes">The parts of the document the transaction's changes can affect.</param>
+    /// <returns>The transaction.</returns>
+    /// <exception cref = "ArgumentNullException"><paramref name = "label"/> is <see langword="null"/>.</exception>
+    /// <exception cref = "InvalidOperationException">A transaction is already open.</exception>
+    internal static PdfEditTransaction BeginTransaction(PdfObjectStore self, string label, PdfCacheScopes scopes)
     {
         ArgumentNullException.ThrowIfNull(label);
         lock (self.Gate)
@@ -53,29 +63,55 @@ public static class StoreTransactions
                 throw new InvalidOperationException("A transaction is already open on this document.");
             }
 
-            var transaction = new PdfEditTransaction(self, label);
-            self.TransactionState = new(transaction);
+            var transaction = new PdfEditTransaction(self, label, scopes);
+            self.TransactionState = transaction;
             return transaction;
         }
     }
 
-    /// <summary>Sets the callback run after a transaction ends or an edit is undone or redone.</summary>
+    /// <summary>Sets the listener told after a transaction ends or an edit is undone or redone.</summary>
     /// <param name = "self">The owned object-store state.</param>
-    /// <param name = "callback">The callback.</param>
+    /// <param name = "listener">The listener.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void SetChangeCallback(PdfObjectStore self, Action callback) => Volatile.Write(ref self.ChangedState, callback);
+    internal static void SetChangeListener(PdfObjectStore self, IObjectsChangedListener listener) => Volatile.Write(ref self.ChangedState, listener);
 
-    /// <summary>Runs the change callback. Called without holding the lock.</summary>
+    /// <summary>Gets the number the next added object gets.</summary>
     /// <param name = "self">The owned object-store state.</param>
+    /// <returns>The object number.</returns>
+    internal static int GetNextNumber(PdfObjectStore self)
+    {
+        lock (self.Gate)
+        {
+            return self.NextNumberState;
+        }
+    }
+
+    /// <summary>
+    /// Puts the number the next added object gets back to an earlier value, after a rollback removed every object added since,
+    /// so the objects added next are numbered as if the rolled back ones never existed.
+    /// </summary>
+    /// <param name = "self">The owned object-store state.</param>
+    /// <param name = "number">The value <see cref = "GetNextNumber"/> returned before the rolled back objects were added.</param>
+    internal static void ResetNextNumber(PdfObjectStore self, int number)
+    {
+        lock (self.Gate)
+        {
+            self.NextNumberState = Math.Min(self.NextNumberState, number);
+        }
+    }
+
+    /// <summary>Tells the change listener. Called without holding the lock.</summary>
+    /// <param name = "self">The owned object-store state.</param>
+    /// <param name = "scopes">The parts of the document the change can affect.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void NotifyChanged(PdfObjectStore self) => Volatile.Read(ref self.ChangedState)?.Invoke();
+    internal static void NotifyChanged(PdfObjectStore self, PdfCacheScopes scopes) => Volatile.Read(ref self.ChangedState)?.OnObjectsChanged(scopes);
 
     /// <summary>Closes a transaction, while holding the lock.</summary>
     /// <param name = "self">The owned object-store state.</param>
     /// <param name = "transaction">The transaction.</param>
     internal static void EndTransactionLocked(PdfObjectStore self, PdfEditTransaction transaction)
     {
-        if (ReferenceEquals(self.TransactionState?.Transaction, transaction))
+        if (ReferenceEquals(self.TransactionState, transaction))
         {
             self.TransactionState = null;
         }
@@ -87,13 +123,13 @@ public static class StoreTransactions
     /// <returns>The entry.</returns>
     internal static PdfObjectState CaptureLocked(PdfObjectStore self, int number)
     {
-        var freed = self.FreedGenerationsState.TryGetValue(number, out var generation) ? generation : -1;
-        if (self.EditsState.TryGetValue(number, out var value))
+        var freed = self.FreedGenerationsIfCreated is { } generations && generations.TryGetValue(number, out var generation) ? generation : -1;
+        if (self.EditsIfCreated is { } edits && edits.TryGetValue(number, out var value))
         {
             return new(number, PdfObjectStateKind.Edited, value, freed);
         }
 
-        return new(number, self.DeletedState.Contains(number) ? PdfObjectStateKind.Deleted : PdfObjectStateKind.Original, default, freed);
+        return new(number, self.DeletedIfCreated?.Contains(number) == true ? PdfObjectStateKind.Deleted : PdfObjectStateKind.Original, default, freed);
     }
 
     /// <summary>Puts objects and trailer entries back as they were captured, while holding the lock.</summary>
@@ -127,21 +163,21 @@ public static class StoreTransactions
             case PdfObjectStateKind.Edited:
                 {
                     self.EditsState[number] = state.Value;
-                    _ = self.DeletedState.Remove(number);
+                    _ = self.DeletedIfCreated?.Remove(number);
                     break;
                 }
 
             case PdfObjectStateKind.Deleted:
                 {
-                    _ = self.EditsState.Remove(number);
+                    _ = self.EditsIfCreated?.Remove(number);
                     _ = self.DeletedState.Add(number);
                     break;
                 }
 
             default:
                 {
-                    _ = self.EditsState.Remove(number);
-                    _ = self.DeletedState.Remove(number);
+                    _ = self.EditsIfCreated?.Remove(number);
+                    _ = self.DeletedIfCreated?.Remove(number);
                     break;
                 }
         }
@@ -152,7 +188,7 @@ public static class StoreTransactions
         }
         else
         {
-            _ = self.FreedGenerationsState.Remove(number);
+            _ = self.FreedGenerationsIfCreated?.Remove(number);
         }
 
         self.NextNumberState = Math.Max(self.NextNumberState, number + 1);
@@ -208,5 +244,12 @@ public static class StoreTransactions
     /// <param name = "self">The owned object-store state.</param>
     /// <param name = "number">The object number.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void RecordEdit(PdfObjectStore self, int number) => self.TransactionState?.Transaction.RecordLocked(StoreTransactions.CaptureLocked(self, number));
+    internal static void RecordEdit(PdfObjectStore self, int number)
+    {
+        // Only the first change to an object is recorded, so a repeat skips reading its entry.
+        if (self.TransactionState is { } transaction && transaction.NeedsRecordLocked(number))
+        {
+            transaction.RecordLocked(StoreTransactions.CaptureLocked(self, number));
+        }
+    }
 }

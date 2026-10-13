@@ -98,10 +98,10 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
     /// <param name="attachment">The file.</param>
     /// <param name="path">Where to save it.</param>
     /// <returns><see langword="true"/> when saved.</returns>
-    public bool Save(DocumentAttachment attachment, string path)
+    public async Task<bool> SaveToAsync(DocumentAttachment attachment, string path)
     {
         ArgumentNullException.ThrowIfNull(attachment);
-        var saved = Write(attachment, path);
+        var saved = await WriteAsync(attachment, path).ConfigureAwait(true);
         if (saved)
         {
             _owner.Notice = $"Saved {attachment.Name}.";
@@ -136,14 +136,25 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
         }
 
         var path = Path.Combine(folder, name.Length > 0 ? name : UnnamedFile);
-        return Write(attachment, path) && await _owner.Links.OpenFileAsync(path, 0).ConfigureAwait(true);
+        return await WriteAsync(attachment, path).ConfigureAwait(true) && await _owner.Links.OpenFileAsync(path, 0).ConfigureAwait(true);
+    }
+
+    /// <summary>Extracts an embedded file into a new file.</summary>
+    /// <param name="source">The document's attachments.</param>
+    /// <param name="index">The attachment.</param>
+    /// <param name="path">Where to write it.</param>
+    /// <returns><see langword="true"/> when written.</returns>
+    private static bool WriteFile(IAttachmentSource source, int index, string path)
+    {
+        using var stream = File.Create(path);
+        return source.SaveAttachment(index, stream);
     }
 
     /// <summary>Writes an embedded file to a path, saying what went wrong when it cannot.</summary>
     /// <param name="attachment">The file.</param>
     /// <param name="path">Where to write it.</param>
     /// <returns><see langword="true"/> when written.</returns>
-    private bool Write(DocumentAttachment attachment, string path)
+    private async Task<bool> WriteAsync(DocumentAttachment attachment, string path)
     {
         if (DocumentFeature<IAttachmentSource>.Get(_owner.TryGetDocument()) is not
             {
@@ -154,11 +165,9 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
 
         try
         {
-            bool written;
-            using (var stream = File.Create(path))
-            {
-                written = source.SaveAttachment(attachment.Index, stream);
-            }
+            // Extracting and writing the file is synchronous, so it runs on the pool and a large attachment does not freeze the window.
+            var index = attachment.Index;
+            var written = await Task.Run(() => WriteFile(source, index, path), _owner.LifetimeToken).ConfigureAwait(true);
 
             if (!written)
             {
@@ -175,6 +184,11 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
         catch (UnauthorizedAccessException ex)
         {
             _owner.Notice = $"Could not save {attachment.Name}: {ex.Message}";
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            _owner.Notice = $"Could not save {attachment.Name}: the document was closed.";
             return false;
         }
     }
@@ -203,7 +217,7 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
         var path = await SaveInteraction.Handle(Path.GetFileName(attachment.Name)).ToTask().ConfigureAwait(true);
         if (!string.IsNullOrEmpty(path))
         {
-            _ = Save(attachment, path);
+            _ = await SaveToAsync(attachment, path).ConfigureAwait(true);
         }
     }
 }

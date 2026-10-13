@@ -7,9 +7,10 @@ using System.Runtime.CompilerServices;
 namespace HyperPdfLibrary.Graphics.Functions;
 
 /// <summary>
-/// The operand stack of a PostScript calculator program, over caller-provided storage. It is lenient like PDFium's
-/// CPDF_PSEngine: popping an empty stack gives zero, pushing onto a full stack is ignored, and operators with bad operand
-/// counts do nothing. A broken program therefore still produces a number instead of throwing.
+/// The operand stack of a PostScript calculator program, over caller-provided storage. ISO 32000-2 7.10.5 makes popping an
+/// empty stack (stackunderflow), pushing onto a full stack (stackoverflow) and an operand count or index out of range
+/// (rangecheck) errors. Here the first error sets <see cref="Failed"/>; the operation then does nothing, and the program
+/// stops without throwing, so the caller decides what a failed program produces.
 /// </summary>
 internal ref struct PostScriptStack
 {
@@ -22,6 +23,9 @@ internal ref struct PostScriptStack
 
     /// <summary>Gets the number of operands.</summary>
     internal int Count { get; private set; }
+
+    /// <summary>Gets a value indicating whether the program raised a PostScript error.</summary>
+    internal bool Failed { get; private set; }
 
     /// <summary>Converts a number to an integer, saturating at the integer limits; NaN becomes zero.</summary>
     /// <param name="value">The number.</param>
@@ -37,13 +41,17 @@ internal ref struct PostScriptStack
         return value >= int.MaxValue ? int.MaxValue : (int)value;
     }
 
-    /// <summary>Pushes an operand; an operand pushed onto a full stack is dropped.</summary>
+    /// <summary>Records a PostScript error: stackunderflow, stackoverflow, rangecheck or undefinedresult.</summary>
+    internal void Fail() => Failed = true;
+
+    /// <summary>Pushes an operand; pushing onto a full stack is a stackoverflow error.</summary>
     /// <param name="value">The operand.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Push(PostScriptValue value)
     {
         if (Count == _items.Length)
         {
+            Failed = true;
             return;
         }
 
@@ -52,12 +60,13 @@ internal ref struct PostScriptStack
     }
 
     /// <summary>Pops an operand.</summary>
-    /// <returns>The operand, or zero when the stack is empty.</returns>
+    /// <returns>The operand, or zero after a stackunderflow error.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal PostScriptValue Pop()
     {
         if (Count == 0)
         {
+            Failed = true;
             return default;
         }
 
@@ -75,12 +84,13 @@ internal ref struct PostScriptStack
     /// <returns>The operand, or zero when the stack is not that deep.</returns>
     internal readonly PostScriptValue Peek(int depth) => (uint)depth < (uint)Count ? _items[Count - 1 - depth] : default;
 
-    /// <summary>Duplicates the top operands; nothing happens when the count does not fit.</summary>
+    /// <summary>Duplicates the top operands; a count that is negative or deeper than the stack is a rangecheck or stackunderflow error, and one that overflows is a stackoverflow error.</summary>
     /// <param name="count">The number of operands.</param>
     internal void Copy(int count)
     {
         if (count < 0 || count > Count || Count + count > _items.Length)
         {
+            Failed = true;
             return;
         }
 
@@ -88,12 +98,18 @@ internal ref struct PostScriptStack
         Count += count;
     }
 
-    /// <summary>Rolls the top operands; nothing happens when the count does not fit.</summary>
+    /// <summary>Rolls the top operands; a negative count or one deeper than the stack is a rangecheck or stackunderflow error. A count of zero rolls nothing.</summary>
     /// <param name="count">The number of operands rolled.</param>
     /// <param name="shift">The positions moved towards the top; negative moves towards the bottom.</param>
     internal void Roll(int count, int shift)
     {
-        if (count <= 0 || count > Count)
+        if (count < 0 || count > Count)
+        {
+            Failed = true;
+            return;
+        }
+
+        if (count == 0)
         {
             return;
         }

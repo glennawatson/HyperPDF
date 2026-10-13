@@ -62,6 +62,14 @@ public sealed record PdfSignatureValidationReport(
     /// <summary>Gets a value indicating whether the signature over that hash is good.</summary>
     public bool SignatureValid => Cms.SignatureValid;
 
+    /// <summary>
+    /// Gets a value indicating whether the signature's digest is one the field's seed value /DigestMethod accepts; true
+    /// when the field names no digests. Check <see cref="PdfSeedValueDigest.IsRequired"/> to tell a broken requirement
+    /// from an ignored recommendation.
+    /// </summary>
+    public bool DigestMatchesSeedValue =>
+        Signature.SeedDigest is not { } seed || (Cms.Digest != PdfDigestMethod.Unknown && Array.IndexOf(seed.Methods, Cms.Digest) >= 0);
+
     /// <summary>Gets the signer's certificate, or <see langword="null"/>.</summary>
     public X509Certificate2? Signer => Cms.Signer;
 

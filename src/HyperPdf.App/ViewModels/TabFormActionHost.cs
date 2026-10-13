@@ -5,13 +5,14 @@
 using System.Diagnostics;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.ViewModels;
 
 /// <summary>
 /// The tab's part of running a form's actions: it moves between pages, follows links through the tab's own link handling,
-/// and refuses to send or import form data, saying so in the tab's notice. Sending data off the computer is never done
-/// without the user, and the viewer does not offer it.
+/// imports form data from a file the reader chooses once the reader agrees, and refuses to send form data, saying so in
+/// the tab's notice. Sending data off the computer is never done without the user, and the viewer does not offer it.
 /// </summary>
 /// <param name="owner">The tab.</param>
 /// <param name="allowNavigation">
@@ -62,6 +63,7 @@ internal sealed class TabFormActionHost(DocumentTabViewModel owner, bool allowNa
     /// <inheritdoc/>
     public ValueTask<bool> SubmitAsync(FormSubmission submission, CancellationToken cancellationToken)
     {
+        // Sending needs network plumbing and a consent flow that the viewer does not have, so the action is refused and explained.
         owner.Notice = string.IsNullOrEmpty(submission.Url)
             ? "This form asked to send your answers. HyperPDF does not send form data."
             : $"This form asked to send your answers to {submission.Url}. HyperPDF does not send form data.";
@@ -69,9 +71,32 @@ internal sealed class TabFormActionHost(DocumentTabViewModel owner, bool allowNa
     }
 
     /// <inheritdoc/>
-    public ValueTask<bool> ImportAsync(string? file, CancellationToken cancellationToken)
+    public async ValueTask<bool> ImportAsync(string? file, IFormDataImporter importer, CancellationToken cancellationToken)
     {
-        owner.Notice = "This form asked to load answers from a file. HyperPDF does not import form data.";
-        return ValueTask.FromResult(false);
+        ArgumentNullException.ThrowIfNull(importer);
+
+        // A page action that runs by itself, such as a page's open action, may not put questions to the reader.
+        if (!allowNavigation)
+        {
+            return false;
+        }
+
+        var name = FormDataFiles.DisplayName(file);
+        if (!await owner.Forms.ConfirmImportInteraction.Handle(name).ToTask(cancellationToken).ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        // The reader picks the file. The path in the document is only shown, so a form cannot read a file of its choosing.
+        if (await owner.Forms.ChooseImportFileInteraction.Handle(name).ToTask(cancellationToken).ConfigureAwait(true) is not { Length: > 0 } path)
+        {
+            return false;
+        }
+
+        var chosen = Path.GetFileName(path);
+        var data = await FormDataFiles.ReadAsync(path, cancellationToken).ConfigureAwait(true);
+        var result = data is null ? FormDataImportResult.Failed : importer.Import(data);
+        owner.Notice = FormDataFiles.Describe(chosen, result);
+        return result.Succeeded;
     }
 }

@@ -13,6 +13,23 @@ public static class PdfDocumentMeasure
     /// <summary>The default precision of a number format.</summary>
     private const int DefaultPrecision = 100;
 
+    /// <summary>The numbers in a bounding box.</summary>
+    private const int BoxNumbers = 4;
+
+    /// <summary>Gets a page's viewports (<c>/VP</c>), loading the page's objects first.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="cancellationToken">Cancels the loading.</param>
+    /// <returns>The viewports.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The page does not exist.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static ValueTask<PdfViewport[]> GetViewportsAsync(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
+    {
+        var page = PdfDocumentPages.GetPage(document, pageIndex);
+        var load = PdfPrefetcher.PrefetchAsync(document.Objects, page.Dictionary, PdfPrefetchKind.Page, cancellationToken);
+        return load.IsCompletedSuccessfully ? PdfDocumentMeasure.ViewportsReady(document, page, cancellationToken) : PdfDocumentMeasure.ViewportsAfterAsync(document, load, page, cancellationToken);
+    }
+
     /// <summary>Gets a page's viewports (<c>/VP</c>).</summary>
     /// <param name="document">The document.</param>
     /// <param name="page">The page.</param>
@@ -22,13 +39,19 @@ public static class PdfDocumentMeasure
     {
         ArgumentNullException.ThrowIfNull(page);
         var list = page.Dictionary.Array("VP");
-        var viewports = new List<PdfViewport>();
+        var viewports = new List<PdfViewport>(list?.Count ?? 0);
         for (var i = 0; list is not null && i < list.Count; i++)
         {
-            if (list.GetDictionary(i) is { } viewport)
+            if (list.GetDictionary(i) is not { } viewport)
             {
-                viewports.Add(new(viewport.Rect("BBox"), viewport.Text("Name"), viewport.Dict("Measure") is { } measure ? PdfDocumentMeasure.ReadMeasure(document, measure) : null));
+                continue;
             }
+
+            var box = PdfDocumentMeasure.ReadPoints(viewport.Array("BBox"));
+            viewports.Add(new(viewport.Rect("BBox"), viewport.Text("Name"), viewport.Dict("Measure") is { } measure ? PdfDocumentMeasure.ReadMeasure(document, measure) : null)
+            {
+                BoundingBox = box.Length == PdfDocumentMeasure.BoxNumbers ? box : [],
+            });
         }
 
         return [.. viewports];
@@ -62,8 +85,13 @@ subtype == "GEO" ? PdfDocumentMeasure.ReadGeospatial(measure) : null);
     /// <returns>The formats.</returns>
     private static PdfNumberFormat[] ReadNumberFormats(PdfArray? formats)
     {
-        var result = new List<PdfNumberFormat>();
-        for (var i = 0; formats is not null && i < formats.Count; i++)
+        if (formats is null)
+        {
+            return [];
+        }
+
+        var result = new List<PdfNumberFormat>(formats.Count);
+        for (var i = 0; i < formats.Count; i++)
         {
             if (formats.GetDictionary(i) is { } format)
             {
@@ -89,20 +117,92 @@ format.Text("PS") ?? " ",
 format.Text("SS") ?? " ",
 format.NameText("O") ?? "S");
 
-    /// <summary>Reads the geospatial entries of a GEO measure.</summary>
+    /// <summary>Reads the geospatial entries of a GEO measure (ISO 32000-2 Table 269).</summary>
     /// <param name="measure">The measure dictionary.</param>
     /// <returns>The geospatial data.</returns>
     private static PdfGeospatial ReadGeospatial(PdfDictionary measure)
     {
         var gcs = measure.Dict("GCS");
         var epsg = gcs?.Value("EPSG") ?? default;
+        var text = gcs?.Text("WKT");
         return new(
-gcs?.NameText("Type"),
-gcs?.Text("WKT"),
-epsg.IsNumber ? epsg.AsInt32() : null,
-measure.Array("GPTS").Numbers(),
-measure.Array("LPTS").Numbers(),
-measure.Array("Bounds").Numbers(),
-measure.Array("PDU").NameTexts());
+            gcs?.NameText("Type"),
+            text,
+            epsg.IsNumber ? epsg.AsInt32() : null,
+            PdfDocumentMeasure.ReadPoints(measure.Array("GPTS")),
+            PdfDocumentMeasure.ReadPoints(measure.Array("LPTS")),
+            PdfDocumentMeasure.ReadPoints(measure.Array("Bounds")),
+            measure.Array("PDU").NameTexts())
+        {
+            CoordinateSystemName = WellKnownTextNames.Read(text),
+            DisplayCoordinateSystem = measure.Dict("DCS") is { } display ? PdfDocumentMeasure.ReadCoordinateSystem(display) : null,
+            ProjectedMatrix = PdfDocumentMeasure.ReadPoints(measure.Array("PCSM")),
+        };
+    }
+
+    /// <summary>Reads a geographic or projected coordinate system dictionary (ISO 32000-2 Tables 270 and 271).</summary>
+    /// <param name="system">The dictionary.</param>
+    /// <returns>The coordinate system.</returns>
+    private static PdfCoordinateSystem ReadCoordinateSystem(PdfDictionary system)
+    {
+        var epsg = system.Value("EPSG");
+        var text = system.Text("WKT");
+        return new(system.NameText("Type"), WellKnownTextNames.Read(text), epsg.IsNumber ? epsg.AsInt32() : null, text);
+    }
+
+    /// <summary>Reads an array that must hold only numbers, such as a point array.</summary>
+    /// <param name="array">The array, or null.</param>
+    /// <returns>The numbers; empty when the array is missing or an entry is not a number.</returns>
+    private static double[] ReadPoints(PdfArray? array)
+    {
+        if (array is null)
+        {
+            return [];
+        }
+
+        var numbers = new double[array.Count];
+        for (var i = 0; i < numbers.Length; i++)
+        {
+            var value = array.Get(i);
+            if (!value.IsNumber)
+            {
+                return [];
+            }
+
+            numbers[i] = value.AsNumber();
+        }
+
+        return numbers;
+    }
+
+    /// <summary>Reads a page's viewports once its objects are loaded, reporting failures through the task.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="cancellationToken">The token.</param>
+    /// <returns>The completed viewports, or a faulted task.</returns>
+    private static ValueTask<PdfViewport[]> ViewportsReady(PdfDocument document, PdfPage page, CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return new(PdfDocumentMeasure.GetViewports(document, page));
+        }
+        catch (Exception ex) when (PdfDocumentAsyncTasks.IsTaskFault(ex))
+        {
+            return ValueTask.FromException<PdfViewport[]>(ex);
+        }
+    }
+
+    /// <summary>Waits for a load, then reads a page's viewports.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="load">The load.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="cancellationToken">The token.</param>
+    /// <returns>The viewports.</returns>
+    private static async ValueTask<PdfViewport[]> ViewportsAfterAsync(PdfDocument document, ValueTask load, PdfPage page, CancellationToken cancellationToken)
+    {
+        await load.ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return PdfDocumentMeasure.GetViewports(document, page);
     }
 }

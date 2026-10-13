@@ -129,7 +129,7 @@ internal static class ContentColors
 
         Span<float> components = stackalloc float[PdfColorSpace.MaxComponents];
         ContentColors.CopyComponents(ref reader, space.Components, components);
-        ContentColors.Store(self, stroke, ColorState.Resolve(ContentDeviceColors.MapDeviceSpace(self, space), components));
+        ContentColors.Store(self, stroke, ColorState.Resolve(ContentDeviceColors.MapDeviceSpace(self, space), components, self.State.ColorRendering));
     }
 
     /// <summary>Stores a colour as the fill or stroke colour.</summary>
@@ -163,7 +163,7 @@ internal static class ContentColors
         Span<float> initial = stackalloc float[PdfColorSpace.MaxComponents];
         initial.Clear();
         space.GetInitialColor(initial);
-        var colour = ColorState.Resolve(space, initial);
+        var colour = ColorState.Resolve(space, initial, self.State.ColorRendering);
         if (space.Kind == PdfColorSpaceKind.Pattern)
         {
             // Painting in a pattern space paints nothing until a pattern is selected.
@@ -235,7 +235,7 @@ internal static class ContentColors
         }
 
         ContentColors.CopyComponents(ref reader, count, components);
-        ContentColors.Store(self, stroke, ColorState.Resolve(space, components));
+        ContentColors.Store(self, stroke, ColorState.Resolve(space, components, self.State.ColorRendering));
     }
 
     /// <summary>Selects a pattern as the fill or stroke colour.</summary>
@@ -246,7 +246,7 @@ internal static class ContentColors
     /// <param name = "components">The components of an uncoloured pattern's colour.</param>
     internal static void SelectPattern(ContentInterpreter self, bool stroke, PatternColorSpace space, PdfName name, ReadOnlySpan<float> components)
     {
-        var rgb = space.Underlying is { } underlying ? ColorState.Resolve(underlying, components).Rgb : 0U;
+        var rgb = space.Underlying is { } underlying ? ColorState.Resolve(underlying, components, self.State.ColorRendering).Rgb : 0U;
         var paint = ContentColors.CreatePatternPaint(self, name, rgb);
         ContentColors.Store(self, stroke, new(space, rgb, paint, paint is null));
     }
@@ -274,7 +274,7 @@ internal static class ContentColors
         {
             var shadingValue = dictionary.Get(KnownName.Shading);
             var shading = ContentColors.GetShading(self, shadingValue);
-            return shading is null ? null : new PdfPatternPaint(shading, matrix);
+            return shading is null ? null : ContentColors.GetPaint(self, shading, matrix);
         }
 
         if (value.AsStream() is not { } stream)
@@ -282,10 +282,18 @@ internal static class ContentColors
             return null;
         }
 
+        if (self.Depth >= PdfLimits.MaxDrawDepth)
+        {
+            // Checked before the cache, because a cell refused only for being nested too deeply must not be remembered as damaged.
+            return null;
+        }
+
         var uncolored = dictionary.GetInt32(KnownName.PaintType) == ContentColors.UncoloredPaintType;
         var bucket = ContentColors.PatternScaleBucket(matrix);
+        var mode = self.Mode;
+        self.Cache.ObserveLayerVersion(mode.LayerVersion);
         var cell = self.Cache.Cells.GetOrCreate(
-            new(dictionary, uncolored ? rgb : 0, bucket),
+            new(dictionary, uncolored ? rgb : 0, bucket, mode),
             new CellRequest(self, stream, uncolored, rgb),
             static (key, request) => ContentColors.RecordCell(
                 request.Owner,
@@ -293,8 +301,19 @@ internal static class ContentColors
                 request.Uncolored,
                 request.Rgb,
                 MathF.Pow(ContentColors.PatternScaleBase, key.ScaleBucket)));
-        return cell is null ? null : new PdfPatternPaint(cell, matrix);
+        return cell is null ? null : ContentColors.GetPaint(self, cell, matrix);
     }
+
+    /// <summary>Gets the paint for a recorded cell or a shading at a place, making it the first time.</summary>
+    /// <param name = "self">The owned interpreter state.</param>
+    /// <param name = "source">The <see cref = "PatternCell"/> or <see cref = "PdfShading"/>.</param>
+    /// <param name = "matrix">The matrix from pattern space to the stream's default space.</param>
+    /// <returns>The paint, shared by every selection of the same pattern at the same place.</returns>
+    internal static PdfPatternPaint GetPaint(ContentInterpreter self, object source, Matrix3x2 matrix) =>
+        self.Cache.PatternPaints.GetOrCreate(
+            new(source, matrix),
+            0,
+            static (key, _) => key.Source is PatternCell cell ? new PdfPatternPaint(cell, key.Matrix) : new PdfPatternPaint((PdfShading)key.Source, key.Matrix))!;
 
     /// <summary>Gets a parsed shading.</summary>
     /// <param name = "self">The owned interpreter state.</param>
@@ -309,8 +328,9 @@ internal static class ContentColors
         }
 
         var spaces = ContentExecution.CurrentResources(self)?.GetDictionary(KnownName.ColorSpace);
-        return self.Cache.Shadings.GetOrCreate(dictionary, new ShadingRequest(value, spaces, self.Cache.DeviceColors), static (key, request) =>
+        var shading = self.Cache.Shadings.GetOrCreate(new(dictionary, spaces), new ShadingRequest(value, spaces, self.Cache.DeviceColors), static (_, request) =>
             PdfShading.Parse(request.Value, request.Spaces, request.Colors));
+        return shading?.ForRendering(self.State.ColorRendering).ForTransfer(self.State.Transfer);
     }
 
     /// <summary>Records a tiling pattern's cell.</summary>
@@ -319,7 +339,7 @@ internal static class ContentColors
     /// <param name = "uncolored">Whether the pattern is uncoloured.</param>
     /// <param name = "rgb">The colour for an uncoloured pattern.</param>
     /// <param name = "scale">The page units one pattern unit spans, which sets the resolution of a rasterised period.</param>
-    /// <returns>The cell, or null when the pattern is damaged, nested too deeply or has a zero step, which PDFium does not draw.</returns>
+    /// <returns>The cell, or null when the pattern is damaged, nested too deeply or has a zero step, which ISO 32000-2 8.7.3.2 does not allow, so nothing is drawn.</returns>
     internal static PatternCell? RecordCell(ContentInterpreter self, PdfStream pattern, bool uncolored, uint rgb, float scale)
     {
         var dictionary = pattern.Dictionary;
@@ -335,8 +355,13 @@ internal static class ContentColors
             return null;
         }
 
+        // Images drawn in the cell are listed in the recording page's weight. Later pages that reuse the cell do not list
+        // them again, which is right: the cell cache keeps them alive until it is cleared, so evicting a page frees none of them.
         using var recorder = self.Device.CreatePictureDevice(new(box.Left, box.Bottom, box.Right, box.Top));
-        using var child = new ContentInterpreter(self.Cache, recorder, self.Depth + 1, cancellationToken: self.CancellationToken) { Printing = self.Printing };
+        using var child = ContentInterpreter.Rent(self.Cache, recorder, self.Depth + 1, self.CancellationToken);
+        child.Printing = self.Printing;
+        child.ZoomClass = self.ZoomClass;
+        child.Colorants = self.Colorants;
         ContentExecution.RunPattern(child, pattern, uncolored, rgb);
         using var cell = recorder.Finish();
         return self.Cache.Document.DrawingServices.Backend.ComposeTile(cell, box, stepX, stepY, scale);

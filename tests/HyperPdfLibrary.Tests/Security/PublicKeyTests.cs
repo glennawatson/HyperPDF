@@ -8,6 +8,8 @@ using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Rendering;
+using HyperPdfLibrary.Security;
+using HyperPdfLibrary.Syntax;
 
 namespace HyperPdfLibrary.Tests.Security;
 
@@ -131,15 +133,31 @@ public sealed class PublicKeyTests
         await Assert.That(exception!.Error).IsEqualTo(PdfError.Format);
     }
 
-    /// <summary>Damaged recipients that are strings are skipped, so the certificate is reported as not a recipient.</summary>
+    /// <summary>A recipient string that is not CMS enveloped data gives a certificate error that says it is damaged.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task GarbageRecipientIsSkipped()
+    public async Task GarbageRecipientIsReportedDamaged()
     {
-        var file = PublicKeyPdf.WithDictionary("<< /Filter /Adobe.PubSec /SubFilter /adbe.pkcs7.s4 /V 2 /Length 128 /Recipients [<3003020101>] >>");
+        const string Encrypt = "<< /Filter /Adobe.PubSec /SubFilter /adbe.pkcs7.s4 /V 2 /Length 128 /Recipients [<3003020101>] >>";
+        var file = PublicKeyPdf.WithDictionary(Encrypt);
         var exception = await Assert.That(() => PdfDocumentReader.OpenWithCertificate(file, Recipient)).Throws<PdfException>();
+        var dictionary = new PdfParser("<< /Filter /Adobe.PubSec /SubFilter /adbe.pkcs7.s4 /V 2 /Length 128 /Recipients [<3003020101>] >>"u8.ToArray(), 0, null, new()).ParseValue().AsDictionary()!;
 
         await Assert.That(exception!.Error).IsEqualTo(PdfError.Certificate);
+        await Assert.That(PdfSecurityHandler.TryCreatePublicKey(dictionary, Recipient, out _)).IsEqualTo(PdfSecurityResult.RecipientDamaged);
+    }
+
+    /// <summary>The RSA recipient's certificate without its private key gives a missing-key result.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task MissingRsaPrivateKeyIsReported()
+    {
+        using var publicOnly = X509CertificateLoader.LoadCertificate(Recipient.RawData);
+        var file = PublicKeyPdf.Encrypted(PublicKeyCipher.Aes256, Permissions, true, Recipient);
+        var exception = await Assert.That(() => PdfDocumentReader.OpenWithCertificate(file, publicOnly)).Throws<PdfException>();
+
+        await Assert.That(exception!.Error).IsEqualTo(PdfError.Certificate);
+        await Assert.That(exception.Message).Contains("private key is missing");
     }
 
     /// <summary>Decodes the page's content stream.</summary>

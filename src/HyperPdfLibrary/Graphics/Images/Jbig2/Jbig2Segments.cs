@@ -213,7 +213,7 @@ internal static class Jbig2Segments
         var flags = reader.Data[reader.Offset + PageFlagsOffset];
         reader.Skip(PageInfoTail);
 
-        // The page has the PDF image's size, as in PDFium; the page information's own size is not used.
+        // The page has the PDF image's size (ISO 32000-1 section 7.4.7 takes it from the image dictionary); the page information's own size is not used.
         state.Page?.Fill((flags & DefaultPixelFlag) != 0);
         state.InPage = true;
         state.PageSeen = true;

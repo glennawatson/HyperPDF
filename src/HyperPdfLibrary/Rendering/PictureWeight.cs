@@ -35,4 +35,11 @@ public sealed class PictureWeight
     /// <summary>Gets the distinct images drawn so far.</summary>
     /// <returns>A copy of the list; empty when no image was drawn.</returns>
     public ImageWeight[] ToArray() => _images.Count == 0 ? [] : [.. _images];
+
+    /// <summary>Forgets every image listed, so the instance can count another recording.</summary>
+    public void Reset()
+    {
+        _seen.Clear();
+        _images.Clear();
+    }
 }

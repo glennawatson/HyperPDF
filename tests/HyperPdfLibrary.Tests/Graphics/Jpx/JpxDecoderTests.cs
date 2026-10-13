@@ -291,16 +291,10 @@ public sealed class JpxDecoderTests
         return planes;
     }
 
-    /// <summary>Divides rounding up.</summary>
-    /// <param name="value">The value.</param>
-    /// <param name="divisor">The divisor.</param>
-    /// <returns>The quotient.</returns>
-    private static int Ceil(int value, int divisor) => (value + divisor - 1) / divisor;
-
     /// <summary>Encodes generated samples and checks the decoder gives them back exactly.</summary>
     /// <param name="options">The options.</param>
     /// <returns><see langword="true"/> when every sample matches.</returns>
-    private static bool RoundTrips(JpxTestOptions options)
+    internal static bool RoundTrips(JpxTestOptions options)
     {
         var planes = Planes(options);
         var decoded = DecodePlanes(JpxTestEncoder.Encode(options, planes));
@@ -319,4 +313,10 @@ public sealed class JpxDecoderTests
 
         return true;
     }
+
+    /// <summary>Divides rounding up.</summary>
+    /// <param name="value">The value.</param>
+    /// <param name="divisor">The divisor.</param>
+    /// <returns>The quotient.</returns>
+    private static int Ceil(int value, int divisor) => (value + divisor - 1) / divisor;
 }

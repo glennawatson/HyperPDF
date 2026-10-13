@@ -7,6 +7,7 @@ using System.Text;
 using System.Xml;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
+using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Metadata;
 
 namespace HyperPdfLibrary.Conformance;
@@ -49,6 +50,9 @@ internal static class PdfAConversionXmp
     /// <summary>The list item element.</summary>
     private const string Item = "li";
 
+    /// <summary>The writer settings, shared because a writer only reads them.</summary>
+    private static readonly XmlWriterSettings WriterSettings = new() { Encoding = new UTF8Encoding(false), OmitXmlDeclaration = true, Indent = true };
+
     /// <summary>Gets the extension schema description of <c>pdfuaid:part</c>, for parts 1 to 3.</summary>
     private static XmpExtensionProperty PdfUaPart => new(
         "PDF/UA identification schema",
@@ -64,9 +68,8 @@ internal static class PdfAConversionXmp
     /// <returns>The packet as UTF-8 bytes, or <see langword="null"/> when the PDF/UA description cannot be added.</returns>
     internal static byte[]? Write(PdfAConversionProperties properties, PdfALevel level)
     {
-        var settings = new XmlWriterSettings { Encoding = new UTF8Encoding(false), OmitXmlDeclaration = true, Indent = true };
-        using var memory = new MemoryStream();
-        using (var writer = XmlWriter.Create(memory, settings))
+        using var memory = new PooledWriteStream();
+        using (var writer = XmlWriter.Create(memory, WriterSettings))
         {
             writer.WriteProcessingInstruction("xpacket", "begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"");
             writer.WriteStartElement("x", "xmpmeta", Meta);

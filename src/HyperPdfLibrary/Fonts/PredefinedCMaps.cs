@@ -13,7 +13,7 @@ namespace HyperPdfLibrary.Fonts;
 /// The predefined CMaps of ISO 32000-2 Table 116: Identity-H and Identity-V, and every Adobe-GB1, CNS1, Japan1 and
 /// Korea1 CMap, H and V, including the UCS2, UTF16 and UTF32 ones. The CJK CMaps are generated from compact
 /// binary resource packs on demand; each selected service caches parsed maps. Names the library does not know
-/// get PDFium's fallback: two-byte codes used as CIDs, with no text of their own.
+/// read two-byte codes as CIDs, with no text of their own.
 /// </summary>
 internal static class PredefinedCMaps
 {
@@ -62,7 +62,7 @@ internal static class PredefinedCMaps
     /// <summary>Gets a predefined CMap by name.</summary>
     /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The CMap name.</param>
-    /// <returns>The CMap; an unknown name reads two-byte codes as CIDs, as PDFium does, vertically when it ends in V.</returns>
+    /// <returns>The CMap; an unknown name reads two-byte codes as CIDs, vertically when it ends in V.</returns>
     internal static CompositeCMap Get(PdfFontResources resources, ReadOnlySpan<byte> name) =>
         Find(resources, name) ?? (!name.IsEmpty && name[^1] == (byte)'V' ? UnknownV : UnknownH);
 

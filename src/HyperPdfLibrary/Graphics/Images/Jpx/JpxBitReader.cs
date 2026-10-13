@@ -8,7 +8,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
 /// Reads packet header bits (ISO 15444-1 B.10.1): most significant bit first, with a zero bit stuffed after every 0xFF
-/// byte. Past the end it reads zeros, as PDFium does.
+/// byte. Past the end it reads zeros, our rule for truncated data, so a damaged header ends the packet instead of throwing.
 /// </summary>
 internal ref struct JpxBitReader
 {

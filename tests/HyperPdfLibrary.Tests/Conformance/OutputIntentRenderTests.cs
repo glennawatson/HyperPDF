@@ -144,22 +144,6 @@ public sealed class OutputIntentRenderTests
         await Assert.That(image.IsNear(Middle, Middle, ProfileColor(), Tolerance)).IsTrue();
     }
 
-    /// <summary>The PDFium colours flag keeps the fixed conversion for a PDF/A document, with or without the intent flag.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task FixedDeviceColorsFlagKeepsTheFixedConversion()
-    {
-        var pdf = IntentPdf(CmykFill);
-        ConformancePdf.Claim(pdf, 1, "B", null);
-        using var page = new RenderTestPage(pdf.ToBytes());
-
-        var plain = page.RenderPage(1, 0, PdfRenderFlags.FixedDeviceColors);
-        var both = page.RenderPage(1, 0, PdfRenderFlags.FixedDeviceColors | On);
-
-        await Assert.That(plain.IsNear(Middle, Middle, DeviceColor(), Tolerance)).IsTrue();
-        await Assert.That(both.IsNear(Middle, Middle, DeviceColor(), Tolerance)).IsTrue();
-    }
-
     /// <summary>A DeviceCMYK image converts through the profile with the option on, and keeps the table with it off.</summary>
     /// <returns>A task.</returns>
     [Test]

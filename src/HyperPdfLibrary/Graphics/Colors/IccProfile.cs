@@ -223,7 +223,7 @@ internal static class IccProfile
     private static IccLutTransform? CreateLookUp(ReadOnlySpan<byte> profile)
     {
         var shape = ShapeOf(profile);
-        return shape is null || FindTag(profile, PerceptualTable).IsEmpty ? null : IccLutProfile.Create(profile.ToArray(), shape)?.Get(IccIntent.Perceptual);
+        return shape is null || FindTag(profile, PerceptualTable).IsEmpty ? null : IccLutProfile.Create(profile.ToArray(), shape)?.Get(IccRendering.Default);
     }
 
     /// <summary>Reads the colour spaces and version from the header.</summary>

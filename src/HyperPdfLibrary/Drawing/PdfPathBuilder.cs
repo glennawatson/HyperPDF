@@ -9,11 +9,17 @@ using System.Runtime.CompilerServices;
 namespace HyperPdfLibrary.Drawing;
 
 /// <summary>Builds a path from ordered drawing commands.</summary>
-[DebuggerDisplay("PdfPathBuilder: {_commands.Count} commands")]
+[DebuggerDisplay("PdfPathBuilder: {_count} commands")]
 public sealed class PdfPathBuilder
 {
-    /// <summary>The ordered commands being built.</summary>
-    private readonly List<PdfPathCommand> _commands = [];
+    /// <summary>The commands a new builder has room for.</summary>
+    private const int InitialCapacity = 4;
+
+    /// <summary>The ordered commands being built; the first <see cref="_count"/> are in use.</summary>
+    private PdfPathCommand[] _commands = [];
+
+    /// <summary>The number of commands in use.</summary>
+    private int _count;
 
     /// <summary>Gets or sets the rule used to fill paths created by this builder.</summary>
     public PdfPathFillRule FillRule { get; set; }
@@ -22,13 +28,13 @@ public sealed class PdfPathBuilder
     /// <param name="x">The horizontal coordinate.</param>
     /// <param name="y">The vertical coordinate.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void MoveTo(float x, float y) => _commands.Add(new(PdfPathCommandKind.MoveTo, new(x, y), default, default));
+    public void MoveTo(float x, float y) => Add(new(PdfPathCommandKind.MoveTo, new(x, y), default, default));
 
     /// <summary>Adds a line to a point.</summary>
     /// <param name="x">The horizontal coordinate.</param>
     /// <param name="y">The vertical coordinate.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void LineTo(float x, float y) => _commands.Add(new(PdfPathCommandKind.LineTo, new(x, y), default, default));
+    public void LineTo(float x, float y) => Add(new(PdfPathCommandKind.LineTo, new(x, y), default, default));
 
     /// <summary>Adds a quadratic curve to a point.</summary>
     /// <param name="controlX">The horizontal coordinate of the control point.</param>
@@ -37,7 +43,7 @@ public sealed class PdfPathBuilder
     /// <param name="y">The vertical coordinate of the endpoint.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void QuadTo(float controlX, float controlY, float x, float y) =>
-        _commands.Add(new(PdfPathCommandKind.QuadraticTo, new(x, y), new(controlX, controlY), default));
+        Add(new(PdfPathCommandKind.QuadraticTo, new(x, y), new(controlX, controlY), default));
 
     /// <summary>Adds a cubic curve to a point.</summary>
     /// <param name="control1X">The horizontal coordinate of the first control point.</param>
@@ -48,17 +54,17 @@ public sealed class PdfPathBuilder
     /// <param name="y">The vertical coordinate of the endpoint.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void CubicTo(float control1X, float control1Y, float control2X, float control2Y, float x, float y) =>
-        _commands.Add(new(PdfPathCommandKind.CubicTo, new(x, y), new(control1X, control1Y), new(control2X, control2Y)));
+        Add(new(PdfPathCommandKind.CubicTo, new(x, y), new(control1X, control1Y), new(control2X, control2Y)));
 
     /// <summary>Closes the current contour.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Close() => _commands.Add(new(PdfPathCommandKind.Close, default, default, default));
+    public void Close() => Add(new(PdfPathCommandKind.Close, default, default, default));
 
     /// <summary>Clears all commands and restores the winding fill rule.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Reset()
     {
-        _commands.Clear();
+        _count = 0;
         FillRule = PdfPathFillRule.Winding;
     }
 
@@ -81,7 +87,7 @@ public sealed class PdfPathBuilder
         ArgumentNullException.ThrowIfNull(path);
         foreach (var command in path.Commands)
         {
-            _commands.Add(command);
+            Add(command);
         }
     }
 
@@ -94,7 +100,7 @@ public sealed class PdfPathBuilder
         ArgumentNullException.ThrowIfNull(path);
         foreach (var command in path.Commands)
         {
-            _commands.Add(command.Transform(matrix));
+            Add(command.Transform(matrix));
         }
     }
 
@@ -102,7 +108,7 @@ public sealed class PdfPathBuilder
     /// <param name="matrix">The transform.</param>
     public void Transform(Matrix3x2 matrix)
     {
-        for (var i = 0; i < _commands.Count; i++)
+        for (var i = 0; i < _count; i++)
         {
             _commands[i] = _commands[i].Transform(matrix);
         }
@@ -112,13 +118,40 @@ public sealed class PdfPathBuilder
     /// <returns>The immutable path.</returns>
     public PdfPath Detach()
     {
-        if (_commands.Count == 0)
+        if (_count == 0)
         {
             return FillRule == PdfPathFillRule.Winding ? PdfPath.Empty : new([], FillRule);
         }
 
-        var path = new PdfPath(_commands.ToArray(), FillRule);
-        _commands.Clear();
+        var path = new PdfPath(_commands.AsSpan(0, _count).ToArray(), FillRule);
+        _count = 0;
         return path;
+    }
+
+    /// <summary>
+    /// Empties the builder and shows its commands through a reusable path, so a device that does not keep paths can be
+    /// given one without a copy. The commands stay readable until the next command is added to this builder.
+    /// </summary>
+    /// <param name="scratch">The path to point at the commands.</param>
+    /// <returns><paramref name="scratch"/>, now showing the commands.</returns>
+    internal PdfPath Lend(PdfPath scratch)
+    {
+        scratch.Lend(_commands, _count, FillRule);
+        _count = 0;
+        return scratch;
+    }
+
+    /// <summary>Adds a command, making room for it first.</summary>
+    /// <param name="command">The command.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void Add(in PdfPathCommand command)
+    {
+        if (_count == _commands.Length)
+        {
+            Array.Resize(ref _commands, Math.Max(InitialCapacity, _count << 1));
+        }
+
+        _commands[_count] = command;
+        _count++;
     }
 }

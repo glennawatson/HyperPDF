@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Layers;
@@ -22,20 +23,14 @@ public sealed class PdfOptionalContent
     /// <summary>The objects references resolve against.</summary>
     private readonly PdfObjectStore _objects;
 
-    /// <summary>Guards writers of <see cref="_hidden"/>.</summary>
+    /// <summary>The objects the layers were read from, which tell whether an edit changed them.</summary>
+    private readonly object?[] _witness;
+
+    /// <summary>Guards writers of <see cref="_hidden"/> and <see cref="_set"/>.</summary>
     private readonly Lock _gate = new();
 
-    /// <summary>The layers in document order, with their default visibility.</summary>
-    private readonly PdfLayer[] _defaults;
-
-    /// <summary>The object numbers of groups that are not for viewing, which are always shown.</summary>
-    private readonly HashSet<int> _nonView;
-
-    /// <summary>The sets of groups of which only one is shown.</summary>
-    private readonly int[][] _radioGroups;
-
-    /// <summary>The object numbers of the groups hidden when printing, which the layer switches do not change.</summary>
-    private readonly HashSet<int> _printHidden;
+    /// <summary>The layers and their state under the configuration in use.</summary>
+    private OptionalContentSet _set;
 
     /// <summary>The object numbers of the hidden groups.</summary>
     private HashSet<int> _hidden;
@@ -49,18 +44,17 @@ public sealed class PdfOptionalContent
     {
         ArgumentNullException.ThrowIfNull(objects);
         _objects = objects;
-        var set = OptionalContentReader.Read(objects);
-        _defaults = set.Layers;
-        _hidden = set.Hidden;
-        _nonView = set.NonView;
-        _radioGroups = set.RadioGroups;
-        _printHidden = set.PrintHidden;
+
+        // Taken before the read, so an edit between the two makes the layers look changed, never unchanged.
+        _witness = OptionalContentReader.Witness(objects);
+        _set = OptionalContentReader.Read(objects);
+        _hidden = _set.Hidden;
     }
 
     /// <summary>Gets a value indicating whether the document has layers.</summary>
-    public bool HasLayers => _defaults.Length > 0;
+    public bool HasLayers => Volatile.Read(ref _set).Layers.Length > 0;
 
-    /// <summary>Gets a number that changes whenever a layer is shown or hidden.</summary>
+    /// <summary>Gets a number that changes whenever a layer is shown or hidden, or the configuration changes.</summary>
     public int Version => Volatile.Read(ref _version);
 
     /// <summary>Gets the layers in document order, with their current visibility.</summary>
@@ -68,13 +62,14 @@ public sealed class PdfOptionalContent
     {
         get
         {
+            var set = Volatile.Read(ref _set);
             var hidden = Volatile.Read(ref _hidden);
-            var layers = new PdfLayer[_defaults.Length];
+            var layers = new PdfLayer[set.Layers.Length];
             for (var i = 0; i < layers.Length; i++)
             {
-                layers[i] = _defaults[i] with
+                layers[i] = set.Layers[i] with
                 {
-                    IsVisible = !hidden.Contains(_defaults[i].Id)
+                    IsVisible = !hidden.Contains(set.Layers[i].Id)
                 };
             }
 
@@ -82,24 +77,279 @@ public sealed class PdfOptionalContent
         }
     }
 
-    /// <summary>Shows or hides a layer. Showing a layer hides the other layers of its radio button groups.</summary>
+    /// <summary>
+    /// Gets the layer order as a tree for a layer panel (ISO 32000-2, 8.11.4.3 /Order). A configuration without /Order lists
+    /// every layer in turn. Layers the order leaves out are not presented, as the standard says.
+    /// </summary>
+    public IReadOnlyList<PdfLayerNode> Tree => Volatile.Read(ref _set).Tree;
+
+    /// <summary>Gets which layers of <see cref="Tree"/> a panel lists (/ListMode).</summary>
+    public PdfLayerListMode ListMode => Volatile.Read(ref _set).ListMode;
+
+    /// <summary>Gets the default configuration and the alternate configurations, with the one in use marked.</summary>
+    public IReadOnlyList<PdfLayerConfiguration> Configurations => Volatile.Read(ref _set).Configurations;
+
+    /// <summary>Gets the <see cref="PdfLayerConfiguration.Index"/> of the configuration in use.</summary>
+    public int ActiveConfiguration => Volatile.Read(ref _set).ActiveConfiguration;
+
+    /// <summary>
+    /// Shows or hides a layer. Showing a layer hides the other layers of its radio button groups, except locked ones.
+    /// A locked layer cannot be changed this way.
+    /// </summary>
     /// <param name="id">The layer's object number.</param>
     /// <param name="visible">Whether to show it.</param>
-    /// <returns><see langword="true"/> when the document has the layer.</returns>
-    public bool SetVisible(int id, bool visible)
+    /// <returns><see langword="true"/> when the document has the layer and it is not locked.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool SetVisible(int id, bool visible) => SetVisible(id, visible, false);
+
+    /// <summary>Determines whether the configuration in use locks a layer, so a user interface must not change it.</summary>
+    /// <param name="id">The layer's object number.</param>
+    /// <returns><see langword="true"/> when locked.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsLocked(int id) => Volatile.Read(ref _set).Locked.Contains(id);
+
+    /// <summary>Makes another configuration the one in use, which resets every layer to that configuration's state.</summary>
+    /// <param name="index">The <see cref="PdfLayerConfiguration.Index"/>: a position in /Configs, or <see cref="PdfLayerConfiguration.DefaultIndex"/>.</param>
+    /// <returns><see langword="false"/> when there is no such configuration or its /Intent does not include View.</returns>
+    public bool SelectConfiguration(int index)
     {
-        if (!HasLayer(id))
+        var configurations = Volatile.Read(ref _set).Configurations;
+        var slot = index - PdfLayerConfiguration.DefaultIndex;
+        if ((uint)slot >= (uint)configurations.Length || !configurations[slot].AppliesToView)
         {
             return false;
         }
 
         lock (_gate)
         {
+            var set = OptionalContentReader.Read(_objects, index);
+            Volatile.Write(ref _set, set);
+            Volatile.Write(ref _hidden, set.Hidden);
+            _ = Interlocked.Increment(ref _version);
+        }
+
+        return true;
+    }
+
+    /// <summary>Undoes every change made with <see cref="SetVisible(int, bool)"/>, returning to the configuration's own states.</summary>
+    /// <returns><see langword="true"/> when something changed.</returns>
+    public bool ResetToDefault()
+    {
+        lock (_gate)
+        {
+            var defaults = Volatile.Read(ref _set).Hidden;
+            if (_hidden.SetEquals(defaults))
+            {
+                return false;
+            }
+
+            Volatile.Write(ref _hidden, defaults);
+            _ = Interlocked.Increment(ref _version);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Gets the object numbers of the layers a page refers to, for a layer panel whose <see cref="ListMode"/> is
+    /// <see cref="PdfLayerListMode.VisiblePages"/>. The page's resources and annotations are read; its content is not.
+    /// </summary>
+    /// <param name="page">The page.</param>
+    /// <returns>The layers' object numbers.</returns>
+    public IReadOnlyCollection<int> GetLayerIdsOnPage(PdfPage page)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        return OptionalContentPages.Collect(_objects, page);
+    }
+
+    /// <summary>Gets the zoom class of a magnification, for <see cref="IsVisibleAt(PdfValue, double)"/> and for caching pictures.</summary>
+    /// <param name="magnification">The magnification, where 1 is 100 percent.</param>
+    /// <returns>A number that changes exactly when a zoom limit is crossed; 0 when no layer has a zoom limit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int GetZoomClass(double magnification) => OptionalContentZoom.ClassOf(Volatile.Read(ref _set).ZoomLimits, magnification);
+
+    /// <summary>Determines whether content marked with an optional content group or membership dictionary is shown, ignoring zoom limits.</summary>
+    /// <param name="value">The /OC value: a reference to an OCG or OCMD.</param>
+    /// <returns><see langword="true"/> when the content is shown.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsVisible(PdfValue value) => IsVisible(value, OptionalContentZoom.NoZoom);
+
+    /// <summary>
+    /// Determines whether content marked with an optional content group or membership dictionary is shown at a
+    /// magnification. A group an /AS usage application dictionary manages by zoom is shown from its /Zoom /min up to,
+    /// not including, its /max (ISO 32000-2, 8.11.4.4, Table 100).
+    /// </summary>
+    /// <param name="value">The /OC value: a reference to an OCG or OCMD.</param>
+    /// <param name="magnification">The magnification, where 1 is 100 percent.</param>
+    /// <returns><see langword="true"/> when the content is shown.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsVisibleAt(PdfValue value, double magnification) => IsVisible(value, GetZoomClass(magnification));
+
+    /// <summary>
+    /// Determines whether content marked with an optional content group or membership dictionary prints, using each
+    /// group's print usage (/Usage /Print /PrintState) and the configuration's Print event (ISO 32000-2, 8.11.4.4).
+    /// </summary>
+    /// <param name="value">The /OC value: a reference to an OCG or OCMD.</param>
+    /// <returns><see langword="true"/> when the content prints.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsPrinted(PdfValue value) => IsShownFor(value, PdfOptionalContentEvent.Print);
+
+    /// <summary>
+    /// Determines whether content marked with an optional content group or membership dictionary is kept when the
+    /// document is saved to a format that has no optional content, using each group's export usage
+    /// (/Usage /Export /ExportState) and the configuration's Export event.
+    /// </summary>
+    /// <param name="value">The /OC value: a reference to an OCG or OCMD.</param>
+    /// <returns><see langword="true"/> when the content is exported.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsExported(PdfValue value) => IsShownFor(value, PdfOptionalContentEvent.Export);
+
+    /// <summary>Determines whether content is shown for an event, using the configuration's states and not the viewer's switches.</summary>
+    /// <param name="value">The /OC value: a reference to an OCG or OCMD.</param>
+    /// <param name="ev">The event.</param>
+    /// <returns><see langword="true"/> when shown.</returns>
+    public bool IsShownFor(PdfValue value, PdfOptionalContentEvent ev)
+    {
+        if (ev == PdfOptionalContentEvent.View)
+        {
+            return IsVisible(value);
+        }
+
+        var set = Volatile.Read(ref _set);
+        return set.Layers.Length == 0 || Evaluate(value, new(ev == PdfOptionalContentEvent.Print ? set.PrintHidden : set.ExportHidden, set, OptionalContentZoom.NoZoom), 0);
+    }
+
+    /// <summary>
+    /// Determines whether a dictionary is a membership dictionary. A dictionary without a /Type is a group
+    /// unless it carries /OCGs or /VE, so a damaged file that omits /Type still reads.
+    /// </summary>
+    /// <param name="dictionary">The dictionary.</param>
+    /// <returns><see langword="true"/> for an OCMD.</returns>
+    internal static bool IsMembership(PdfDictionary dictionary)
+    {
+        if (dictionary.IsName(KnownName.Type, KnownName.OCG))
+        {
+            return false;
+        }
+
+        return dictionary.IsName(KnownName.Type, KnownName.OCMD) || dictionary.ContainsKey(KnownName.OCGs) || dictionary.ContainsKey(KnownName.VE);
+    }
+
+    /// <summary>Determines whether content is shown by the viewer's switches in a zoom class.</summary>
+    /// <param name="value">The /OC value: a reference to an OCG or OCMD.</param>
+    /// <param name="zoomClass">The zoom class from <see cref="GetZoomClass(double)"/>, or -1 to ignore zoom limits.</param>
+    /// <returns><see langword="true"/> when shown.</returns>
+    internal bool IsVisible(PdfValue value, int zoomClass)
+    {
+        var set = Volatile.Read(ref _set);
+        return set.Layers.Length == 0 || Evaluate(value, new(Volatile.Read(ref _hidden), set, zoomClass), 0);
+    }
+
+    /// <summary>Shows or hides a layer on behalf of an action, which may change a locked layer.</summary>
+    /// <param name="id">The layer's object number.</param>
+    /// <param name="visible">Whether to show it.</param>
+    /// <returns><see langword="true"/> when the document has the layer.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool SetVisibleByAction(int id, bool visible) => SetVisible(id, visible, true);
+
+    /// <summary>
+    /// Determines whether the objects the layers were read from are still the document's, so an edit elsewhere in the file
+    /// leaves the layers, and which are shown, as they are.
+    /// </summary>
+    /// <returns><see langword="true"/> when no layer object changed.</returns>
+    internal bool IsCurrent()
+    {
+        var now = OptionalContentReader.Witness(_objects);
+        return now.AsSpan().SequenceEqual(_witness.AsSpan(), ReferenceEqualityComparer.Instance);
+    }
+
+    /// <summary>Tells renderers to redraw every page, after an edit changed what a page paints.</summary>
+    internal void InvalidatePages() => _ = Interlocked.Increment(ref _version);
+
+    /// <summary>Sets the first version, before the layer set is shared, so it starts above an earlier set's versions.</summary>
+    /// <param name="version">The first version.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void StartAt(int version) => Volatile.Write(ref _version, version);
+
+    /// <summary>Determines whether a group is within its zoom range.</summary>
+    /// <param name="state">The state being evaluated.</param>
+    /// <param name="id">The group's object number.</param>
+    /// <returns><see langword="true"/> when no zoom limit hides the group.</returns>
+    private static bool InZoom(in Evaluation state, int id) =>
+        state.ZoomClass < 0 || !state.Set.ZoomRanges.TryGetValue(id, out var range) || range.Contains(state.ZoomClass);
+
+    /// <summary>Determines whether one group is shown.</summary>
+    /// <param name="group">The group reference.</param>
+    /// <param name="state">The state being evaluated.</param>
+    /// <returns><see langword="true"/> when shown.</returns>
+    private static bool IsGroupShown(PdfValue group, in Evaluation state)
+    {
+        var id = group.AsReference();
+        return !id.IsValid || state.Set.NonView.Contains(id.Number) || (!state.Hidden.Contains(id.Number) && InZoom(state, id.Number));
+    }
+
+    /// <summary>Determines whether the document lists a layer.</summary>
+    /// <param name="set">The layers.</param>
+    /// <param name="id">The layer's object number.</param>
+    /// <returns><see langword="true"/> when listed.</returns>
+    private static bool HasLayer(OptionalContentSet set, int id)
+    {
+        foreach (var layer in set.Layers)
+        {
+            if (layer.Id == id)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Hides the other groups of every radio button set that holds a group.</summary>
+    /// <param name="set">The layers.</param>
+    /// <param name="id">The group just shown.</param>
+    /// <param name="hidden">The hidden set being built.</param>
+    /// <param name="overrideLocks">Whether locked siblings may be hidden.</param>
+    /// <returns><see langword="true"/> when a group was newly hidden.</returns>
+    private static bool HideSiblings(OptionalContentSet set, int id, HashSet<int> hidden, bool overrideLocks)
+    {
+        var changed = false;
+        foreach (var group in set.RadioGroups)
+        {
+            if (Array.IndexOf(group, id) < 0)
+            {
+                continue;
+            }
+
+            foreach (var sibling in group)
+            {
+                changed |= sibling != id && HasLayer(set, sibling) && (overrideLocks || !set.Locked.Contains(sibling)) && hidden.Add(sibling);
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>Shows or hides a layer, optionally ignoring locks.</summary>
+    /// <param name="id">The layer's object number.</param>
+    /// <param name="visible">Whether to show it.</param>
+    /// <param name="overrideLocks">Whether a locked layer may change.</param>
+    /// <returns><see langword="true"/> when the document has the layer and it may change.</returns>
+    private bool SetVisible(int id, bool visible, bool overrideLocks)
+    {
+        var set = Volatile.Read(ref _set);
+        if (!HasLayer(set, id) || (!overrideLocks && set.Locked.Contains(id)))
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            set = Volatile.Read(ref _set);
             var next = new HashSet<int>(_hidden);
             var changed = visible ? next.Remove(id) : next.Add(id);
             if (visible)
             {
-                changed |= HideSiblings(id, next);
+                changed |= HideSiblings(set, id, next, overrideLocks);
             }
 
             if (changed)
@@ -112,88 +362,12 @@ public sealed class PdfOptionalContent
         return true;
     }
 
-    /// <summary>Determines whether content marked with an optional content group or membership dictionary is shown.</summary>
-    /// <param name="value">The /OC value: a reference to an OCG or OCMD.</param>
-    /// <returns><see langword="true"/> when the content is shown.</returns>
-    public bool IsVisible(PdfValue value) => _defaults.Length == 0 || Evaluate(value, Volatile.Read(ref _hidden), 0);
-
-    /// <summary>
-    /// Determines whether content marked with an optional content group or membership dictionary prints, using each
-    /// group's print usage (/Usage /Print /PrintState) and the configuration's Print event, as PDFium does when printing.
-    /// </summary>
-    /// <param name="value">The /OC value: a reference to an OCG or OCMD.</param>
-    /// <returns><see langword="true"/> when the content prints.</returns>
-    public bool IsPrinted(PdfValue value) => _defaults.Length == 0 || Evaluate(value, _printHidden, 0);
-
-    /// <summary>Tells renderers to redraw every page, after an edit changed what a page paints.</summary>
-    internal void InvalidatePages() => _ = Interlocked.Increment(ref _version);
-
-    /// <summary>Sets the first version, before the layer set is shared, so it starts above an earlier set's versions.</summary>
-    /// <param name="version">The first version.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void StartAt(int version) => Volatile.Write(ref _version, version);
-
-    /// <summary>
-    /// Determines whether a dictionary is a membership dictionary. A dictionary without a /Type is a group, as in PDFium,
-    /// unless it carries /OCGs or /VE.
-    /// </summary>
-    /// <param name="dictionary">The dictionary.</param>
-    /// <returns><see langword="true"/> for an OCMD.</returns>
-    private static bool IsMembership(PdfDictionary dictionary)
-    {
-        if (dictionary.IsName(KnownName.Type, KnownName.OCG))
-        {
-            return false;
-        }
-
-        return dictionary.IsName(KnownName.Type, KnownName.OCMD) || dictionary.ContainsKey(KnownName.OCGs) || dictionary.ContainsKey(KnownName.VE);
-    }
-
-    /// <summary>Determines whether the document lists a layer.</summary>
-    /// <param name="id">The layer's object number.</param>
-    /// <returns><see langword="true"/> when listed.</returns>
-    private bool HasLayer(int id)
-    {
-        foreach (var layer in _defaults)
-        {
-            if (layer.Id == id)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Hides the other groups of every radio button set that holds a group.</summary>
-    /// <param name="id">The group just shown.</param>
-    /// <param name="hidden">The hidden set being built.</param>
-    /// <returns><see langword="true"/> when a group was newly hidden.</returns>
-    private bool HideSiblings(int id, HashSet<int> hidden)
-    {
-        var changed = false;
-        foreach (var set in _radioGroups)
-        {
-            if (Array.IndexOf(set, id) < 0)
-            {
-                continue;
-            }
-
-            foreach (var sibling in set)
-            {
-                changed |= sibling != id && HasLayer(sibling) && hidden.Add(sibling);
-            }
-        }
-
-        return changed;
-    }
-
     /// <summary>Evaluates an OCG reference, an OCMD or a visibility expression.</summary>
     /// <param name="value">The value.</param>
-    /// <param name="hidden">The hidden groups.</param>
+    /// <param name="state">The state being evaluated.</param>
     /// <param name="depth">The nesting depth.</param>
     /// <returns><see langword="true"/> when shown.</returns>
-    private bool Evaluate(PdfValue value, HashSet<int> hidden, int depth)
+    private bool Evaluate(PdfValue value, in Evaluation state, int depth)
     {
         if (depth > MaxExpressionDepth)
         {
@@ -208,34 +382,24 @@ public sealed class PdfOptionalContent
 
         if (!IsMembership(dictionary))
         {
-            return IsGroupShown(value, hidden);
+            return IsGroupShown(value, state);
         }
 
         var expression = dictionary.GetArray(KnownName.VE);
-        return expression is not null ? EvaluateExpression(expression, hidden, depth + 1) : EvaluatePolicy(dictionary, hidden);
-    }
-
-    /// <summary>Determines whether one group is shown.</summary>
-    /// <param name="group">The group reference.</param>
-    /// <param name="hidden">The hidden groups.</param>
-    /// <returns><see langword="true"/> when shown.</returns>
-    private bool IsGroupShown(PdfValue group, HashSet<int> hidden)
-    {
-        var id = group.AsReference();
-        return !id.IsValid || !hidden.Contains(id.Number) || _nonView.Contains(id.Number);
+        return expression is not null ? EvaluateExpression(expression, state, depth + 1) : EvaluatePolicy(dictionary, state);
     }
 
     /// <summary>Applies an OCMD's /P policy to its /OCGs, counting only the groups that resolve.</summary>
     /// <param name="membership">The OCMD.</param>
-    /// <param name="hidden">The hidden groups.</param>
+    /// <param name="state">The state being evaluated.</param>
     /// <returns><see langword="true"/> when shown.</returns>
-    private bool EvaluatePolicy(PdfDictionary membership, HashSet<int> hidden)
+    private bool EvaluatePolicy(PdfDictionary membership, in Evaluation state)
     {
         var groups = membership.GetRaw(KnownName.OCGs);
         var resolved = StoreReading.Resolve(_objects, groups);
         if (resolved.AsDictionary() is not null)
         {
-            return IsGroupShown(groups, hidden);
+            return IsGroupShown(groups, state);
         }
 
         if (resolved.AsArray() is not { } array)
@@ -254,7 +418,7 @@ public sealed class PdfOptionalContent
             }
 
             count++;
-            shown += IsGroupShown(item, hidden) ? 1 : 0;
+            shown += IsGroupShown(item, state) ? 1 : 0;
         }
 
         return count == 0 || membership.GetName(KnownName.P).ToKnownName() switch
@@ -268,21 +432,21 @@ public sealed class PdfOptionalContent
 
     /// <summary>Evaluates a /VE visibility expression: [/And ...], [/Or ...] or [/Not x].</summary>
     /// <param name="expression">The expression.</param>
-    /// <param name="hidden">The hidden groups.</param>
+    /// <param name="state">The state being evaluated.</param>
     /// <param name="depth">The nesting depth.</param>
     /// <returns><see langword="true"/> when shown.</returns>
-    private bool EvaluateExpression(PdfArray expression, HashSet<int> hidden, int depth)
+    private bool EvaluateExpression(PdfArray expression, in Evaluation state, int depth)
     {
         var op = expression.GetName(0).ToKnownName();
         if (op == KnownName.Not)
         {
-            return !EvaluateOperand(expression.GetRaw(1), hidden, depth);
+            return !EvaluateOperand(expression.GetRaw(1), state, depth);
         }
 
         var isAnd = op == KnownName.And;
         for (var i = 1; i < expression.Count; i++)
         {
-            var result = EvaluateOperand(expression.GetRaw(i), hidden, depth);
+            var result = EvaluateOperand(expression.GetRaw(i), state, depth);
             if (result != isAnd)
             {
                 return result;
@@ -294,21 +458,17 @@ public sealed class PdfOptionalContent
 
     /// <summary>Evaluates one operand of an expression: a group or a nested expression.</summary>
     /// <param name="operand">The operand.</param>
-    /// <param name="hidden">The hidden groups.</param>
+    /// <param name="state">The state being evaluated.</param>
     /// <param name="depth">The nesting depth.</param>
     /// <returns><see langword="true"/> when shown.</returns>
-    private bool EvaluateOperand(
-        PdfValue operand,
-        HashSet<int> hidden,
-        int depth) =>
-        StoreReading.Resolve(
-        _objects,
-        operand).AsArray() is { } nested
-        && depth <= MaxExpressionDepth ? EvaluateExpression(
-        nested,
-        hidden,
-        depth + 1) : Evaluate(
-        operand,
-        hidden,
-        depth);
+    private bool EvaluateOperand(PdfValue operand, in Evaluation state, int depth) =>
+        StoreReading.Resolve(_objects, operand).AsArray() is { } nested && depth <= MaxExpressionDepth
+            ? EvaluateExpression(nested, state, depth + 1)
+            : Evaluate(operand, state, depth);
+
+    /// <summary>What a visibility check reads: the hidden groups of the event, the layer set, and the zoom class.</summary>
+    /// <param name="Hidden">The hidden groups.</param>
+    /// <param name="Set">The layer set.</param>
+    /// <param name="ZoomClass">The zoom class, or -1 to ignore zoom limits.</param>
+    private readonly record struct Evaluation(HashSet<int> Hidden, OptionalContentSet Set, int ZoomClass);
 }

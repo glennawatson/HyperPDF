@@ -43,6 +43,12 @@ internal static class SfntTag
     /// <summary>Gets the compact font format outlines.</summary>
     internal static uint Cff => 0x43464620; // "CFF "
 
+    /// <summary>Gets the variable font outlines table, which PDF cannot embed.</summary>
+    internal static uint Cff2 => 0x43464632; // "CFF2"
+
+    /// <summary>Gets the font variations table, which marks a variable font.</summary>
+    internal static uint Fvar => 0x66766172; // fvar
+
     /// <summary>Gets the control value table.</summary>
     internal static uint Cvt => 0x63767420; // "cvt "
 

@@ -96,6 +96,19 @@ internal sealed class JpxPacketDecoder
     /// <summary>The position in the packed headers.</summary>
     private int _packedPosition;
 
+    /// <summary>Forgets the tile and its data, so an idle reader keeps nothing alive.</summary>
+    internal void Clear()
+    {
+        _tile = null!;
+        _coding = null!;
+        _data = [];
+        _packed = null;
+        _bodyEnd = 0;
+        _bodyPosition = 0;
+        _packedEnd = 0;
+        _packedPosition = 0;
+    }
+
     /// <summary>Starts a tile.</summary>
     /// <param name="tile">The tile layout.</param>
     /// <param name="coding">The tile's coding parameters.</param>
@@ -329,7 +342,7 @@ internal sealed class JpxPacketDecoder
             }
         }
 
-        // The loop stops one past the zero bit-plane count, as in PDFium.
+        // The tag tree is read until its value is known; the loop ends one past the number of missing bit-planes P (B.10.5), so P = threshold - 1.
         block.BitPlanes = magnitude + 1 - threshold;
         block.LengthBits = InitialLengthBits;
         block.Included = true;

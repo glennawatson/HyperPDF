@@ -27,4 +27,12 @@ internal sealed class HyperPdfTextLayerWriterService : ITextLayerWriter
             _owner,
             pageIndex,
             words);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public long GetPageToken(int pageIndex) => HyperPdfDocumentTextLayers.GetPageToken(_owner, pageIndex);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int AddTextLayerToPage(long pageToken, ReadOnlySpan<OcrWord> words) => HyperPdfDocumentTextLayers.AddTextLayerToPage(_owner, pageToken, words);
 }

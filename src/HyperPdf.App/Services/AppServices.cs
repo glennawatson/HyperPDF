@@ -149,6 +149,9 @@ public sealed class AppServices : IDisposable
     /// <summary>Gets notifications when user settings are applied.</summary>
     internal AsObservableSignal<RxVoid> SettingsApplied{ get; }
 
+    /// <summary>Gets the tint over fillable form fields the settings choose.</summary>
+    internal FormHighlight FormHighlight => ReadHighlight(this);
+
     /// <summary>Creates the services for the current platform.</summary>
     /// <param name="platform">The desktop integration, normally from <see cref="DesktopPlatforms.Detect"/>.</param>
     /// <returns>The services.</returns>

@@ -28,6 +28,9 @@ internal sealed class FakeRedactor : IDocumentRedactor
     /// <summary>Gets how many times the redactor ran.</summary>
     internal int Calls { get; private set; }
 
+    /// <summary>Gets the managed thread the last run started on.</summary>
+    internal int ThreadId { get; private set; }
+
     /// <summary>Gets the settings of the last run.</summary>
     internal RedactionSettings? Received { get; private set; }
 
@@ -47,6 +50,7 @@ internal sealed class FakeRedactor : IDocumentRedactor
     public async Task<RedactionReport> ApplyAsync(Stream destination, RedactionSettings settings, CancellationToken cancellationToken)
     {
         Calls++;
+        ThreadId = Environment.CurrentManagedThreadId;
         Received = settings;
         await destination.WriteAsync(Output, cancellationToken).ConfigureAwait(false);
         _ = Started.TrySetResult();

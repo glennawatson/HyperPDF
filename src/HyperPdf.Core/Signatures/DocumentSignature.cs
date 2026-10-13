@@ -39,6 +39,7 @@ public sealed record DocumentSignature(int Index, string SignerName, string Issu
             return Timestamp switch
             {
                 null => ltv.TrimStart(),
+                { IsSupported: false } => $"The timestamp from {Timestamp.Authority} uses a method this computer cannot check.{ltv}",
                 { IsValid: false } => $"The timestamp from {Timestamp.Authority} does not match.{ltv}",
                 { IsTrusted: false } => $"Timestamped {Timestamp.Time:g} by {Timestamp.Authority}, whose certificate is not trusted on this computer.{ltv}",
                 _ => $"Timestamped {Timestamp.Time:g} by {Timestamp.Authority}; the certificate was checked as of that time.{ltv}",
@@ -55,6 +56,11 @@ public sealed record DocumentSignature(int Index, string SignerName, string Issu
         SignatureIntegrity.Intact => "The document has not changed since it was signed, but the signer's certificate is not trusted on this computer.",
         SignatureIntegrity.ChangedAfterSigning => "The signed part is unchanged; the document was changed after signing.",
         SignatureIntegrity.Invalid => "The signature does not match: the signed content was altered or the signature is damaged.",
+        SignatureIntegrity.Unsupported => "This signature could not be checked on this computer: it uses a method this computer cannot check. It is not known to be valid or invalid.",
+        SignatureIntegrity.DigestNotAllowed => "The signature is not valid: it uses a method PDF does not allow.",
+        SignatureIntegrity.CurveDigestNotAllowed => "The signature is not valid: it pairs an elliptic curve with a digest PDF does not allow.",
+        SignatureIntegrity.UnnamedCurve => "The signature is not valid: the signer's certificate does not name its elliptic curve, which PDF requires.",
+        SignatureIntegrity.DigestMismatch => "The signature is not valid: it hashes the signed attributes with a different digest from the content, which PDF does not allow.",
         _ => "This signature could not be checked.",
     };
 }

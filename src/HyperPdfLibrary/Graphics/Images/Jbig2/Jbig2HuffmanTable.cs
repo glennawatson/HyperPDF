@@ -15,7 +15,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 [DebuggerDisplay("Jbig2HuffmanTable: {LineCount} lines, out-of-band {HasOutOfBand}")]
 internal sealed partial class Jbig2HuffmanTable
 {
-    /// <summary>The longest code value kept, as PDFium's 32-bit code check.</summary>
+    /// <summary>The largest code value kept: prefix codes are at most 32 bits (T.88 section B.3).</summary>
     private const ulong MaxCode = uint.MaxValue;
 
     /// <summary>The range length of the lower and upper range lines.</summary>

@@ -46,6 +46,22 @@ internal static class InterchangeAnnotationBuilder
         return dictionary;
     }
 
+    /// <summary>Builds the embedded file stream of an attachment.</summary>
+    /// <param name="attachment">The attachment.</param>
+    /// <param name="owner">The owning document, or <see langword="null"/>.</param>
+    /// <param name="names">The names.</param>
+    /// <returns>The stream.</returns>
+    internal static PdfStream BuildEmbeddedFile(PdfInterchangeAttachment attachment, PdfObjectStore? owner, PdfNameTable names)
+    {
+        var parameters = new PdfDictionary(owner, ParameterEntries);
+        parameters.Set(KnownName.Size, PdfValue.FromInteger(attachment.Data.Length));
+        var file = new PdfDictionary(owner);
+        file.Set(KnownName.Type, PdfValue.FromName(names.Intern("EmbeddedFile")));
+        file.Set(KnownName.Params, PdfValue.FromDictionary(parameters));
+        SetName(file, KnownName.Subtype, attachment.MimeType, names);
+        return new(file, attachment.Data);
+    }
+
     /// <summary>Makes an annotation a reply to another.</summary>
     /// <param name="dictionary">The reply.</param>
     /// <param name="parent">The annotation it answers, an indirect object.</param>
@@ -194,14 +210,8 @@ internal static class InterchangeAnnotationBuilder
     /// <returns>The file specification.</returns>
     private static PdfDictionary BuildSpec(PdfInterchangeAttachment attachment, PdfObjectStore? owner, PdfNameTable names, IInterchangeObjects sink)
     {
-        var parameters = new PdfDictionary(owner, ParameterEntries);
-        parameters.Set(KnownName.Size, PdfValue.FromInteger(attachment.Data.Length));
-        var file = new PdfDictionary(owner);
-        file.Set(KnownName.Type, PdfValue.FromName(names.Intern("EmbeddedFile")));
-        file.Set(KnownName.Params, PdfValue.FromDictionary(parameters));
-        SetName(file, KnownName.Subtype, attachment.MimeType, names);
         var embedded = new PdfDictionary(owner, 1);
-        embedded.Set(KnownName.F, sink.Add(new(file, attachment.Data)));
+        embedded.Set(KnownName.F, sink.Add(BuildEmbeddedFile(attachment, owner, names)));
         var spec = new PdfDictionary(owner, SpecEntries);
         spec.Set(KnownName.Type, PdfValue.FromName(KnownName.Filespec));
         SetText(spec, KnownName.F, attachment.FileName);

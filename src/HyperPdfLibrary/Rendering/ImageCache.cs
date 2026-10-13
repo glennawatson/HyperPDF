@@ -37,8 +37,11 @@ internal sealed class ImageCache
     /// <summary>The decodes in progress by stream, so a second thread that needs the image waits instead of decoding it again.</summary>
     private readonly Dictionary<ImageKey, ImageDecode> _decoding = [];
 
-    /// <summary>The cached images, most recently used first.</summary>
-    private readonly LinkedList<ImageEntry> _recency = [];
+    /// <summary>The most recently used cached image; the entries link to each other, so listing one makes no node.</summary>
+    private ImageEntry? _newest;
+
+    /// <summary>The least recently used cached image.</summary>
+    private ImageEntry? _oldest;
 
     /// <summary>The pixel bytes held.</summary>
     private long _bytes;
@@ -274,6 +277,11 @@ internal sealed class ImageCache
         {
             return Publish(key, decode(key, state));
         }
+        catch (OutOfMemoryException)
+        {
+            // Memory may be free again on the next request, so the stream is not remembered as failed.
+            return null;
+        }
         finally
         {
             // Waiters wake whether the decode produced an image, failed or threw; they look the result up again, and one of
@@ -311,7 +319,7 @@ internal sealed class ImageCache
 
             created.Acquire();
             created.Key = key;
-            created.Node = _recency.AddFirst(created);
+            LinkNewest(created);
             _map[key] = created;
             _bytes += created.Bytes;
             EvictLocked(created);
@@ -322,13 +330,14 @@ internal sealed class ImageCache
     /// <summary>Evicts every image. The caller holds the lock.</summary>
     private void ClearLocked()
     {
-        foreach (var entry in _recency)
+        for (var entry = _newest; entry is not null;)
         {
-            entry.Node = null;
+            var older = entry.Older;
+            Unlink(entry);
             entry.Evict();
+            entry = older;
         }
 
-        _recency.Clear();
         _map.Clear();
         _failed.Clear();
         _bytes = 0;
@@ -352,10 +361,10 @@ internal sealed class ImageCache
     {
         if (_map.TryGetValue(key, out entry))
         {
-            if (entry.Node is { } node && node != _recency.First)
+            if (entry.IsLinked && entry != _newest)
             {
-                _recency.Remove(node);
-                _recency.AddFirst(node);
+                Unlink(entry);
+                LinkNewest(entry);
             }
 
             entry.Acquire();
@@ -370,11 +379,9 @@ internal sealed class ImageCache
     /// <param name="keep">An entry that stays even when it alone is over the limit, or null.</param>
     private void EvictLocked(ImageEntry? keep)
     {
-        while (_bytes > _capacity && _recency.Last is { } last && last.Value != keep)
+        while (_bytes > _capacity && _oldest is { } entry && entry != keep)
         {
-            var entry = last.Value;
-            _recency.RemoveLast();
-            entry.Node = null;
+            Unlink(entry);
             _bytes -= entry.Bytes;
             if (entry.Key is { } key)
             {
@@ -383,5 +390,48 @@ internal sealed class ImageCache
 
             entry.Evict();
         }
+    }
+
+    /// <summary>Puts an entry at the most recently used end of the list. The caller holds the lock.</summary>
+    /// <param name="entry">The entry, which is not in the list.</param>
+    private void LinkNewest(ImageEntry entry)
+    {
+        entry.Older = _newest;
+        entry.Newer = null;
+        if (_newest is not null)
+        {
+            _newest.Newer = entry;
+        }
+
+        _newest = entry;
+        _oldest ??= entry;
+        entry.IsLinked = true;
+    }
+
+    /// <summary>Takes an entry out of the list. The caller holds the lock.</summary>
+    /// <param name="entry">The entry, which is in the list.</param>
+    private void Unlink(ImageEntry entry)
+    {
+        if (entry.Newer is not null)
+        {
+            entry.Newer.Older = entry.Older;
+        }
+        else
+        {
+            _newest = entry.Older;
+        }
+
+        if (entry.Older is not null)
+        {
+            entry.Older.Newer = entry.Newer;
+        }
+        else
+        {
+            _oldest = entry.Newer;
+        }
+
+        entry.Newer = null;
+        entry.Older = null;
+        entry.IsLinked = false;
     }
 }

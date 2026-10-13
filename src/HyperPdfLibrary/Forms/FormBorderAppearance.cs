@@ -19,15 +19,6 @@ internal static class FormBorderAppearance
     /// <summary>The numbers that make up a corner: x and y.</summary>
     private const int CornerStride = 2;
 
-    /// <summary>The grey of the top and left of an inset border.</summary>
-    private const float InsetLightGray = 0.5F;
-
-    /// <summary>The grey of the bottom and right of an inset border.</summary>
-    private const float InsetDarkGray = 0.75F;
-
-    /// <summary>The grey of the top and left of a beveled border.</summary>
-    private const float BevelLightGray = 1;
-
     /// <summary>Draws a circle or ellipse path with four curves.</summary>
     /// <param name="builder">The content.</param>
     /// <param name="centerX">The centre's x.</param>
@@ -54,14 +45,20 @@ internal static class FormBorderAppearance
     internal static void Paint(ref PdfContentBuilder builder, in FormFrame frame, PdfDictionary? characteristics, bool circle)
     {
         var background = characteristics?.GetArray(KnownName.BG);
+        var raised = IsRaised(frame);
+        if (circle && raised)
+        {
+            FormCircleBevel.Paint(ref builder, frame, characteristics?.GetArray(KnownName.BC), background);
+            return;
+        }
+
         PaintBackground(ref builder, frame, background, circle);
         if (frame.Border.Width <= 0)
         {
             return;
         }
 
-        // A radio button's round bevel is drawn as a plain round border.
-        if (!circle && frame.Border.Style is FormBorderStyle.Beveled or FormBorderStyle.Inset)
+        if (raised)
         {
             PaintBevel(ref builder, frame, characteristics?.GetArray(KnownName.BC), background);
             return;
@@ -69,6 +66,11 @@ internal static class FormBorderAppearance
 
         PaintBorder(ref builder, frame, characteristics?.GetArray(KnownName.BC), circle);
     }
+
+    /// <summary>Determines whether the border is a beveled or inset one that has a width.</summary>
+    /// <param name="frame">The frame.</param>
+    /// <returns><see langword="true"/> for a drawn bevel or inset border.</returns>
+    private static bool IsRaised(in FormFrame frame) => frame.Border.Width > 0 && frame.Border.Style is FormBorderStyle.Beveled or FormBorderStyle.Inset;
 
     /// <summary>Fills the background in the widget's background colour, if it has one.</summary>
     /// <param name="builder">The content.</param>
@@ -161,40 +163,32 @@ internal static class FormBorderAppearance
     }
 
     /// <summary>
-    /// Draws a beveled or inset border as PDFium draws it: a ring of the border colour as wide as half the border, inside it a
-    /// lit L on the top and left and a shaded L on the bottom and right. A beveled border shades with half the background colour
-    /// and has no shade without a background; an inset border uses fixed greys.
+    /// Draws a beveled or inset border (ISO 32000-2 12.5.4, Table 168) as a frame of the requested width, cut into four
+    /// mitred strips like a picture frame. The top and left strips take one tone and the bottom and right strips the
+    /// other (see <see cref="FormBevelTone"/>): a beveled border is lit from the upper left, an inset border is the
+    /// reverse. The tones come from the border colour, else the background colour, else a mid grey.
     /// </summary>
     /// <param name="builder">The content.</param>
-    /// <param name="frame">The frame; its border width is already twice the width the widget asks for.</param>
+    /// <param name="frame">The frame.</param>
     /// <param name="border">The <c>/BC</c> colour, or <see langword="null"/>.</param>
     /// <param name="background">The <c>/BG</c> colour, or <see langword="null"/>.</param>
     private static void PaintBevel(ref PdfContentBuilder builder, in FormFrame frame, PdfArray? border, PdfArray? background)
     {
-        var half = frame.Border.Width * Half;
+        var edge = frame.Border.Width;
         var width = frame.Width;
         var height = frame.Height;
-        var inner = half + half;
-        var beveled = frame.Border.Style == FormBorderStyle.Beveled;
+        var tone = border ?? background;
+        var raised = frame.Border.Style == FormBorderStyle.Beveled;
 
         builder.SaveState();
-        builder.SetFillGray(beveled ? BevelLightGray : InsetLightGray);
-        FillCorners(ref builder, [half, half, half, height - half, width - half, height - half, width - inner, height - inner, inner, height - inner, inner, inner]);
-        if (!beveled)
+        if (FormBevelTone.TryWrite(ref builder, tone, raised, false))
         {
-            builder.SetFillGray(InsetDarkGray);
+            FillCorners(ref builder, [0, 0, 0, height, width, height, width - edge, height - edge, edge, height - edge, edge, edge]);
         }
 
-        if (!beveled || (background is not null && TryWriteHalvedFill(ref builder, background)))
+        if (FormBevelTone.TryWrite(ref builder, tone, !raised, false))
         {
-            FillCorners(ref builder, [width - half, height - half, width - half, half, half, half, inner, inner, width - inner, inner, width - inner, height - inner]);
-        }
-
-        if (border is not null && FormAppearanceColor.TryWriteColor(ref builder, border, false))
-        {
-            builder.Rectangle(0, 0, width, height);
-            builder.Rectangle(half, half, width - inner, height - inner);
-            builder.FillEvenOdd();
+            FillCorners(ref builder, [width, height, width, 0, 0, 0, edge, edge, width - edge, edge, width - edge, height - edge]);
         }
 
         builder.RestoreState();
@@ -203,7 +197,7 @@ internal static class FormBorderAppearance
     /// <summary>Fills a polygon given as x, y pairs.</summary>
     /// <param name="builder">The content.</param>
     /// <param name="points">The corners as x, y pairs.</param>
-    private static void FillCorners(ref PdfContentBuilder builder, float[] points)
+    private static void FillCorners(ref PdfContentBuilder builder, scoped ReadOnlySpan<float> points)
     {
         builder.MoveTo(points[0], points[1]);
         for (var i = CornerStride; i + 1 < points.Length; i += CornerStride)
@@ -213,38 +207,5 @@ internal static class FormBorderAppearance
 
         builder.ClosePath();
         builder.Fill();
-    }
-
-    /// <summary>Sets the fill colour to half of a colour: every component divided by two, which shades it.</summary>
-    /// <param name="builder">The content.</param>
-    /// <param name="color">The components: one for gray, three for RGB, four for CMYK.</param>
-    /// <returns><see langword="false"/> when the array is empty or has another length, meaning no colour.</returns>
-    private static bool TryWriteHalvedFill(ref PdfContentBuilder builder, PdfArray color)
-    {
-        switch (color.Count)
-        {
-            case FormAppearanceColor.GrayComponents:
-            {
-                builder.SetFillGray(color.GetSingle(0) * Half);
-                return true;
-            }
-
-            case FormAppearanceColor.RgbComponents:
-            {
-                builder.SetFillRgb(color.GetSingle(0) * Half, color.GetSingle(1) * Half, color.GetSingle(FormAppearanceColor.BlueSlot) * Half);
-                return true;
-            }
-
-            case FormAppearanceColor.CmykComponents:
-            {
-                builder.SetFillCmyk(color.GetSingle(0) * Half, color.GetSingle(1) * Half, color.GetSingle(FormAppearanceColor.BlueSlot) * Half, color.GetSingle(FormAppearanceColor.BlackSlot) * Half);
-                return true;
-            }
-
-            default:
-            {
-                return false;
-            }
-        }
     }
 }

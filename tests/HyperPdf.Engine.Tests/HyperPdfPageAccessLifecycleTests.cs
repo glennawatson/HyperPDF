@@ -18,9 +18,6 @@ public sealed class HyperPdfPageAccessLifecycleTests
     /// <summary>The independently opened documents closed during reads.</summary>
     private const int Rounds = 16;
 
-    /// <summary>The maximum reads per worker when the close operation does not stop it.</summary>
-    private const int MaximumReads = 100_000;
-
     /// <summary>The pages in each generated fixture.</summary>
     private const int Pages = 3;
 
@@ -61,9 +58,9 @@ public sealed class HyperPdfPageAccessLifecycleTests
             try
             {
                 await Task.WhenAll(started).WaitAsync(timeout.Token);
-                if (Volatile.Read(ref run.Active) == 0)
+                if (Volatile.Read(ref run.Active) != Readers)
                 {
-                    throw new InvalidOperationException("All readers finished before owner close could overlap them.");
+                    throw new InvalidOperationException("A reader stopped before owner close could overlap it.");
                 }
 
                 Close(document, failures);
@@ -87,7 +84,8 @@ public sealed class HyperPdfPageAccessLifecycleTests
         _ = Interlocked.Increment(ref run.Active);
         try
         {
-            for (var read = 0; read < MaximumReads && !run.Token.IsCancellationRequested; read++)
+            // Readers only stop when told to, so every reader is still reading when the owner closes.
+            while (!run.Token.IsCancellationRequested)
             {
                 _ = HyperPdf.Engine.HyperPdfNavigation.GetPageLabel(run.Document, PageIndex);
                 _ = HyperPdf.Engine.HyperPdfNavigation.GetLinks(run.Document, PageIndex);
@@ -95,9 +93,9 @@ public sealed class HyperPdfPageAccessLifecycleTests
                 _ = state.Started.TrySetResult();
             }
         }
-        catch (ObjectDisposedException)
+        catch (ObjectDisposedException exception) when (!IsRaisedByLock(exception))
         {
-            // Closing a document may reject a read; synchronization failures are retained below.
+            // Closing a document may reject a read; a rejection raised by the disposed lock itself is a failure.
         }
         catch (Exception exception)
         {
@@ -109,6 +107,12 @@ public sealed class HyperPdfPageAccessLifecycleTests
             _ = Interlocked.Decrement(ref run.Active);
         }
     }
+
+    /// <summary>Gets whether a rejection came from the page access lock rather than the document's closed check.</summary>
+    /// <param name="exception">The rejection.</param>
+    /// <returns>Whether the lock raised it.</returns>
+    private static bool IsRaisedByLock(ObjectDisposedException exception) =>
+        exception.StackTrace?.Contains(nameof(ReaderWriterLockSlim), StringComparison.Ordinal) == true;
 
     /// <summary>Records an actual owner-close failure while permitting all readers to drain.</summary>
     /// <param name="document">The owner being closed.</param>

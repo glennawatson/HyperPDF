@@ -15,8 +15,8 @@ namespace HyperPdf.Benchmarks;
 
 /// <summary>
 /// Measures HyperPDF on a document whose page dictionaries live in many small object streams: opening it, reading its
-/// objects in a scattered order, and rendering scattered pages. The decoded object streams are kept in a bounded cache,
-/// so these show what decoding them again costs. Allocations come from the EventPipe trace.
+/// objects in a scattered order, and rendering scattered pages. The decoded object streams are kept in a bounded cache
+/// of 128 streams or 4 MiB, so these show what the first decode of each stream costs. Allocations come from the EventPipe trace.
 /// </summary>
 public class HyperPdfObjectStreamBenchmarks
 {

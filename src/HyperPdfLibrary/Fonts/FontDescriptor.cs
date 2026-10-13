@@ -3,18 +3,19 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts;
 
-/// <summary>The entries of a /FontDescriptor that drawing uses, read as PDFium's CPDF_Font::LoadFontDescriptor does.</summary>
+/// <summary>The entries of a /FontDescriptor that drawing uses (ISO 32000-2, 9.8.1, Table 120).</summary>
 /// <param name="Flags">The flags, with Italic added when the italic angle is negative.</param>
 /// <param name="HasFlags">Whether the descriptor gives /Flags.</param>
 /// <param name="ItalicAngle">The italic angle in degrees.</param>
 /// <param name="Ascent">The ascent in glyph units, or zero.</param>
 /// <param name="Descent">The descent in glyph units, made negative, or zero.</param>
-/// <param name="Weight">The /FontWeight, or the weight implied by /StemV when the descriptor gives a full set of metrics; zero when unknown.</param>
+/// <param name="Weight">The /FontWeight; zero when unknown.</param>
 /// <param name="MissingWidth">The /MissingWidth, or <see langword="null"/>.</param>
 /// <param name="FontFile">The embedded font program stream, or <see langword="null"/>.</param>
 /// <param name="FileKind">The key the program came from.</param>
@@ -30,17 +31,8 @@ internal sealed record FontDescriptor(
     PdfStream? FontFile,
     FontFileKind FileKind)
 {
-    /// <summary>A descent larger than this is a positive number written by mistake, as PDFium treats it.</summary>
+    /// <summary>A descent larger than this is a positive number written by mistake; Table 120 says /Descent is negative or zero.</summary>
     private const float PositiveDescentLimit = 10;
-
-    /// <summary>The StemV below which the weight is five times the stem.</summary>
-    private const int ThinStem = 140;
-
-    /// <summary>The weight per stem unit for thin stems.</summary>
-    private const int ThinStemScale = 5;
-
-    /// <summary>The weight per stem unit for thick stems.</summary>
-    private const int ThickStemScale = 4;
 
     /// <summary>The numbers in a /FontBBox.</summary>
     private const int BoxNumbers = 4;
@@ -109,28 +101,11 @@ internal sealed record FontDescriptor(
         }
     }
 
-    /// <summary>Reads the weight: /FontWeight, else one derived from /StemV when the descriptor is complete.</summary>
+    /// <summary>Reads the weight from /FontWeight (ISO 32000-2, 9.8.1, Table 120). /StemV is not a weight, so it is not used.</summary>
     /// <param name="descriptor">The descriptor.</param>
     /// <returns>The weight, or zero.</returns>
-    private static int ReadWeight(PdfDictionary descriptor)
-    {
-        var weight = descriptor.GetInt32(KnownName.FontWeight);
-        if (weight > 0)
-        {
-            return weight;
-        }
-
-        // PDFium only trusts the stem width when the descriptor also gives the other metrics (kFontUseExternAttr).
-        var complete = descriptor.ContainsKey(KnownName.ItalicAngle) && descriptor.ContainsKey(KnownName.Ascent)
-            && descriptor.ContainsKey(KnownName.Descent) && descriptor.ContainsKey(KnownName.CapHeight) && descriptor.ContainsKey(KnownName.StemV);
-        if (!complete)
-        {
-            return 0;
-        }
-
-        var stem = descriptor.GetInt32(KnownName.StemV);
-        return stem < ThinStem ? stem * ThinStemScale : (stem * ThickStemScale) + ThinStem;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ReadWeight(PdfDictionary descriptor) => Math.Max(0, descriptor.GetInt32(KnownName.FontWeight));
 
     /// <summary>Finds the embedded program: /FontFile, then /FontFile2, then /FontFile3.</summary>
     /// <param name="descriptor">The descriptor.</param>

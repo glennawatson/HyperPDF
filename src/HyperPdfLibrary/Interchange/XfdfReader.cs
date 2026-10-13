@@ -13,6 +13,9 @@ namespace HyperPdfLibrary.Interchange;
 /// </summary>
 public static class XfdfReader
 {
+    /// <summary>The reader settings for the default bound, shared because a reader only reads them.</summary>
+    private static readonly XmlReaderSettings DefaultSettings = CreateSettings(PdfInterchangeOptions.Default.MaxLength);
+
     /// <summary>Reads an XFDF file with the default bounds.</summary>
     /// <param name="xml">The file's bytes, in any encoding XML allows.</param>
     /// <returns>The data.</returns>
@@ -50,15 +53,7 @@ public static class XfdfReader
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(options);
-        var settings = new XmlReaderSettings
-        {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null,
-            MaxCharactersInDocument = options.MaxLength,
-            IgnoreComments = true,
-            IgnoreProcessingInstructions = true,
-            CloseInput = false,
-        };
+        var settings = options.MaxLength == PdfInterchangeOptions.Default.MaxLength ? DefaultSettings : CreateSettings(options.MaxLength);
         var data = new PdfInterchangeData();
         try
         {
@@ -72,4 +67,17 @@ public static class XfdfReader
 
         return data;
     }
+
+    /// <summary>Makes reader settings that refuse type declarations and bound the length.</summary>
+    /// <param name="maxLength">The most characters read.</param>
+    /// <returns>The settings.</returns>
+    private static XmlReaderSettings CreateSettings(long maxLength) => new()
+    {
+        DtdProcessing = DtdProcessing.Prohibit,
+        XmlResolver = null,
+        MaxCharactersInDocument = maxLength,
+        IgnoreComments = true,
+        IgnoreProcessingInstructions = true,
+        CloseInput = false,
+    };
 }

@@ -10,7 +10,8 @@ namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
 /// The /W or /W2 metrics of a CID font, flattened into arrays indexed by CID so a lookup is one read. When runs
-/// overlap the first one wins, as in PDFium. CIDs above 65535 are ignored, as PDFium's CIDs are 16-bit.
+/// overlap the first one wins. CIDs above 65535 are ignored: the predefined CMaps and Adobe's character collections
+/// stay within 16 bits (ISO 32000-2, 9.7.5).
 /// </summary>
 [DebuggerDisplay("CidMetricsTable: {_advances.Length} CIDs")]
 internal sealed class CidMetricsTable
@@ -90,7 +91,7 @@ internal sealed class CidMetricsTable
         return true;
     }
 
-    /// <summary>Parses a metrics array as PDFium's LoadMetricsArray does.</summary>
+    /// <summary>Parses a /W or /W2 array (ISO 32000-2, 9.7.4.3 and 9.7.4.4).</summary>
     /// <param name="array">The array.</param>
     /// <param name="values">The numbers per CID.</param>
     /// <returns>The entries in order.</returns>

@@ -8,6 +8,19 @@ namespace HyperPdfLibrary.Forms;
 /// <summary>Async operations over shared form state.</summary>
 public static class PdfFormAsync
 {
+    /// <summary>Rebuilds the appearance of a text, choice or push button field from its value and appearance characteristics.</summary>
+    /// <param name = "form">The shared form state.</param>
+    /// <param name = "pageIndex">The zero based page index.</param>
+    /// <param name = "index">The widget's index in the page's annotations.</param>
+    /// <param name = "cancellationToken">A token that cancels the drawing; it is checked for every widget, line and row.</param>
+    /// <returns><see langword="true"/> when the widget is a text, choice or push button field.</returns>
+    /// <exception cref = "OperationCanceledException">The token was cancelled.</exception>
+    public static ValueTask<bool> RegenerateAppearanceAsync(PdfForm form, int pageIndex, int index, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(PdfFormEditing.RegenerateAppearance(form, pageIndex, index, cancellationToken));
+    }
+
     /// <summary>Resets form fields to their default values.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "action">The action.</param>

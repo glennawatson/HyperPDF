@@ -151,14 +151,20 @@ internal static partial class Jbig2TextRegion
         /// <returns><see langword="false"/> when the data is damaged.</returns>
         private bool PlaceArithmetic(ref Jbig2ArithmeticDecoder decoder, Jbig2IntegerContexts integers, Instance instance)
         {
-            if (!_symbols.TryFind(instance.Id, out var store, out var index) || !store.IsPresent(index))
+            if (!_symbols.TryFind(instance.Id, out var store, out var index))
             {
                 return false;
             }
 
+            // A symbol without a bitmap is an empty bitmap (T.88 section 6.4.5): it is counted and placed, and draws nothing.
             if (!instance.Refine)
             {
                 return Place(store.Get(index), instance.T);
+            }
+
+            if (!store.IsPresent(index))
+            {
+                return false;
             }
 
             _ = DecodeInteger(ref decoder, integers, Jbig2IntegerKind.RefineWidth, out var deltaWidth);

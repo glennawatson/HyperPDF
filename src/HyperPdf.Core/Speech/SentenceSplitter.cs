@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
-using System.Text;
 
 namespace HyperPdf.Core.Speech;
 
@@ -17,6 +16,9 @@ public static class SentenceSplitter
 {
     /// <summary>The longest sentence spoken in one piece, in characters.</summary>
     private const int MaxLength = 300;
+
+    /// <summary>The longest sentence prepared on the stack, in characters; a sentence is normally under <see cref="MaxLength"/>.</summary>
+    private const int StackSentence = 512;
 
     /// <summary>The longest line taken for a heading, in characters.</summary>
     private const int MaxHeadingLength = 40;
@@ -62,7 +64,29 @@ public static class SentenceSplitter
     /// <returns>The text to speak.</returns>
     public static string ToSpeech(ReadOnlySpan<char> sentence)
     {
-        var builder = new StringBuilder(sentence.Length);
+        // The prepared text is never longer than the sentence, so one buffer holds it; only a very long one is rented.
+        char[]? rented = null;
+        Span<char> buffer = sentence.Length <= StackSentence ? stackalloc char[StackSentence] : (rented = ArrayPool<char>.Shared.Rent(sentence.Length));
+        try
+        {
+            return new(buffer[..Prepare(sentence, buffer)].Trim());
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<char>.Shared.Return(rented);
+            }
+        }
+    }
+
+    /// <summary>Writes a sentence with words broken over lines joined and every other run of white space as one space.</summary>
+    /// <param name="sentence">The sentence as it appears on the page.</param>
+    /// <param name="buffer">Receives the text; at least as long as the sentence.</param>
+    /// <returns>The characters written.</returns>
+    private static int Prepare(ReadOnlySpan<char> sentence, Span<char> buffer)
+    {
+        var length = 0;
         for (var i = 0; i < sentence.Length; i++)
         {
             var c = sentence[i];
@@ -75,15 +99,17 @@ public static class SentenceSplitter
 
             if (!char.IsWhiteSpace(c) && !char.IsControl(c))
             {
-                _ = builder.Append(c);
+                buffer[length] = c;
+                length++;
             }
-            else if (builder.Length > 0 && builder[^1] != ' ')
+            else if (length > 0 && buffer[length - 1] != ' ')
             {
-                _ = builder.Append(' ');
+                buffer[length] = ' ';
+                length++;
             }
         }
 
-        return builder.ToString().Trim();
+        return length;
     }
 
     /// <summary>Determines whether a line break is at an index.</summary>

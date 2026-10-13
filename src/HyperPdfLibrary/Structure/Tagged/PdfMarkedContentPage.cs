@@ -170,7 +170,7 @@ public sealed class PdfMarkedContentPage
         return count;
     }
 
-    /// <summary>Counts the visible characters, and those in marked content, as PDFium does for its coverage checks.</summary>
+    /// <summary>Counts the visible characters, and those in marked content, so callers can tell how much of the page the structure tree covers.</summary>
     private void CountCharacters()
     {
         for (var i = 0; i < _glyphs.Length; i++)

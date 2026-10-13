@@ -111,7 +111,7 @@ converted.AsSpan(PdfDocumentFileSpecs.DriveSlot)) : converted;
         return string.IsNullOrEmpty(name) ? null : name;
     }
 
-    /// <summary>Reads a URI action; a URI without a scheme is resolved against the catalog's /URI /Base, as in PDFium.</summary>
+    /// <summary>Reads a URI action; a URI without a scheme is resolved against the catalog's /URI /Base (ISO 32000-2 12.6.4.7).</summary>
     /// <param name="document">The document.</param>
     /// <param name="action">The action dictionary.</param>
     /// <returns>The action.</returns>

@@ -8,12 +8,9 @@ using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
@@ -21,6 +18,7 @@ using HyperPdf.Core.Platform;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.ObservableEvents;
 
@@ -33,26 +31,17 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     /// <summary>The column of the second view while split.</summary>
     private const int SecondViewColumn = 2;
 
-    /// <summary>How far the pointer must move before a tab drag starts.</summary>
-    private const double DragThreshold = 6;
-
-    /// <summary>Pixels the tab strip scrolls per wheel notch.</summary>
-    private const double TabWheelStep = 60;
-
     /// <summary>The PDF file type filter.</summary>
     private static readonly FilePickerFileType PdfFileType = new("PDF documents") { Patterns = ["*.pdf", "*.PDF"], MimeTypes = ["application/pdf"] };
+
+    /// <summary>The view model the window shows. Events read it from here, not from a field.</summary>
+    private readonly IObservable<MainViewModel?> _viewModels;
 
     /// <summary>The Search in Folder window, while it is open.</summary>
     private FolderSearchWindow? _folderSearch;
 
     /// <summary>Forgets the Search in Folder window when it closes.</summary>
     private IDisposable? _folderSearchClosed;
-
-    /// <summary>The tab being dragged.</summary>
-    private DocumentTabViewModel? _draggedTab;
-
-    /// <summary>Where the tab drag started.</summary>
-    private Point _dragStart;
 
     /// <summary>The window state before presenting started, restored when it ends.</summary>
     private WindowState? _stateBeforePresenting;
@@ -64,6 +53,7 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     public MainWindow()
     {
         InitializeComponent();
+        _viewModels = this.WhenChanged(static v => v.ViewModel);
         TabStrip.ItemTemplate = new FuncDataTemplate<DocumentTabViewModel>(static (_, _) => new TabItemView());
         TabFinderList.ItemTemplate = new FuncDataTemplate<DocumentTabViewModel>(static (_, _) => new TabSummaryView());
         DocumentHost.ContentTemplate = new FuncDataTemplate<DocumentTabViewModel>(static (_, _) => new DocumentView(), true);
@@ -75,15 +65,21 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
             {
                 disposables.Add(ItemAutomation.NameItems(TabFinderList));
                 BindWindowEvents(disposables);
-                BindTabStrip(disposables, TabStrip);
-                BindTabFinder(disposables, TabFinderList, TabFinderBox, TabFinderButton.Flyout!);
-                BindRecentMenu(disposables, RecentMenuItem, TabsMenuButton.Flyout!);
+                BindTabStrip(disposables);
+                BindTabFinder(disposables);
+                BindRecentMenu(disposables);
                 BindProperties(disposables);
                 BindCommands(disposables);
                 disposables.Add(this.WhenChanged(static v => v.ViewModel!.SelectedTab!.IsPresenting).SubscribeSafe(OnPresentingChanged, OnError));
-                disposables.Add(InputElement.LostFocusEvent.Raised
-                    .Where(static raised => raised.Item2 is FocusChangedEventArgs { NewFocusedElement: null })
-                    .SubscribeSafe(raised => OnFocusLost(raised.Item1), OnError));
+
+                // Hiding or removing the focused control leaves nothing focused; once the input is handled, focus goes back.
+                // A screen reader repeat clears focus only for a moment, so it is ignored.
+                disposables.Add(this.LostFocuses.FocusDropped
+                    .Where(static _ => !FocusAnnouncementRepair.IsRepeating)
+                    .WithLatestFrom(this.WhenChanged(static v => v.IsActive), static (_, active) => active)
+                    .Where(static active => active)
+                    .ObserveOn(AvaloniaScheduler.Instance)
+                    .SubscribeSafe(_ => RestoreLostFocus(), OnError));
                 disposables.Add(Scope.Create(this, static window => window.ReleaseWindows()));
             },
             this.WhenChanged(static view => view.ViewModel));
@@ -126,183 +122,126 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
         }
     }
 
-    /// <summary>Converts storage items to local paths.</summary>
-    /// <param name="items">The items.</param>
-    /// <returns>The paths.</returns>
-    private static List<string> ToPaths(IEnumerable<IStorageItem> items)
-    {
-        var paths = new List<string>();
-        foreach (var item in items)
-        {
-            if (item.TryGetLocalPath() is { } path)
-            {
-                paths.Add(path);
-            }
-        }
-
-        return paths;
-    }
-
     /// <summary>Reports a failure in a subscription.</summary>
     /// <param name="error">The error.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
-    /// <summary>Readies the hover preview of the tab under the pointer.</summary>
-    /// <param name="e">The event.</param>
-    private static void OnTabPreviewOpening(CancelRoutedEventArgs e)
+    /// <summary>Opens the menu of the tab under the pointer: close it, close the others, close all, reload.</summary>
+    /// <param name="request">The request and the window's view model.</param>
+    private static void ShowTabMenu(Injected<ItemContextRequest<DocumentTabViewModel>, MainViewModel> request)
     {
-        if ((e.Source as Control)?.DataContext is DocumentTabViewModel tab)
+        var (menu, viewModel) = request;
+        new ContextMenu
         {
-            _ = tab.PreparePreviewAsync(CancellationToken.None);
-        }
-    }
-
-    /// <summary>Accepts dragged files.</summary>
-    /// <param name="e">The event.</param>
-    private static void OnDragOver(DragEventArgs e) =>
-        e.DragEffects = e.DataTransfer.Contains(DataFormat.File) || e.DataTransfer.Contains(DataFormat.Text) ? DragDropEffects.Copy : DragDropEffects.None;
-
-    /// <summary>Gets the tab a pointer event came from, read from the data context its source inherits.</summary>
-    /// <param name="e">The event.</param>
-    /// <returns>The tab, if any.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static DocumentTabViewModel? TabUnder(RoutedEventArgs e) => (e.Source as StyledElement)?.DataContext as DocumentTabViewModel;
-
-    /// <summary>Gets the tab under a pointer event.</summary>
-    /// <param name="strip">The tab strip.</param>
-    /// <param name="e">The event.</param>
-    /// <returns>The tab, if any.</returns>
-    private static DocumentTabViewModel? GetTabAt(ListBox strip, PointerEventArgs e)
-    {
-        var point = e.GetPosition(strip);
-        foreach (var visual in strip.GetVisualsAt(point))
-        {
-            if (visual is Control { DataContext: DocumentTabViewModel tab })
+            ItemsSource = new Control[]
             {
-                return tab;
-            }
-        }
-
-        return null;
+                new MenuItem { Header = "_Close", Command = viewModel.CloseTabCommand, CommandParameter = menu.Item, InputGesture = new(Key.W, KeyModifiers.Control) },
+                new MenuItem { Header = "Close _Other Tabs", Command = viewModel.CloseOtherTabsCommand, CommandParameter = menu.Item },
+                new MenuItem { Header = "Close _All Tabs", Command = viewModel.CloseAllTabsCommand },
+                new Separator(),
+                new MenuItem { Header = "_Save", Command = menu.Item.SaveCommand, IsEnabled = menu.Item.HasUnsavedChanges },
+                new MenuItem { Header = "Re_load", Command = menu.Item.ReloadCommand },
+            },
+        }.Open(menu.Source);
     }
 
-    /// <summary>Scrolls the tab strip horizontally with the mouse wheel.</summary>
-    /// <param name="strip">The tab strip.</param>
-    /// <param name="e">The event.</param>
-    private static void OnTabWheel(ListBox strip, PointerWheelEventArgs e)
+    /// <summary>Makes a recent document's menu item open it, and says where it is.</summary>
+    /// <param name="prepared">The menu item with its recent document, and the window's view model.</param>
+    private static void PrepareRecentItem(Injected<RecentMenuEntry, MainViewModel> prepared)
     {
-        if (strip.FindDescendantOfType<ScrollViewer>() is not { } scroller)
-        {
-            return;
-        }
-
-        scroller.Offset = new(Math.Max(0, scroller.Offset.X - ((e.Delta.Y + e.Delta.X) * TabWheelStep)), scroller.Offset.Y);
-        e.Handled = true;
+        var (entry, viewModel) = prepared;
+        entry.Item.Command = viewModel.OpenRecentCommand;
+        entry.Item.CommandParameter = entry.Recent;
+        ControlHelp.SetText(entry.Item, string.Create(CultureInfo.CurrentCulture, $"Open {entry.Recent.FileName} from {entry.Recent.Folder}."));
+        AutomationProperties.SetName(entry.Item, entry.Recent.FileName);
     }
 
-    /// <summary>Forgets the windows and drag state owned while the window is active.</summary>
+    /// <summary>Forgets the windows owned while the window is active.</summary>
     private void ReleaseWindows()
     {
         _folderSearchClosed?.Dispose();
         _folderSearchClosed = null;
         _folderSearch = null;
-        _draggedTab = null;
     }
 
     /// <summary>Observes drag and drop, keyboard shortcuts and closing.</summary>
     /// <param name="disposables">Owns the subscriptions.</param>
     private void BindWindowEvents(MultipleDisposable disposables)
     {
-        var keys = this.ObserveRouted(InputElement.KeyDownEvent, RoutingStrategies.Tunnel);
-        disposables.Add(this.ObserveRouted(DragDrop.DragOverEvent).SubscribeSafe(OnDragOver, OnError));
-        disposables.Add(this.ObserveRouted(DragDrop.DropEvent).SubscribeSafe(OnDrop, OnError));
-        disposables.Add(keys.SubscribeSafe(OnPreviewKeyDown, OnError));
-        disposables.Add(keys.Where(static e => e.Key == Key.Tab && (e.KeyModifiers & KeyModifiers.Control) != 0 && (e.KeyModifiers & KeyModifiers.Shift) == 0)
-            .Select(static e =>
-            {
-                e.Handled = true;
-                return RxVoid.Default;
-            })
+        var keys = this.KeyDowns;
+        disposables.Add(this.DragOvers.SubscribeSafe(static args => args.DragEffects = args.CopyFilesAndText, OnError));
+        disposables.Add(this.Drops.Dropped.Inject(_viewModels).SubscribeSafe(static dropped => dropped.State.Open(dropped.Value), OnError));
+        disposables.Add(keys.Inject(_viewModels).SubscribeSafe(OnPreviewKeyDown, OnError));
+        disposables.Add(keys.Pressing(Key.Tab).Holding(KeyModifiers.Control).Without(KeyModifiers.Shift).MarkHandled().AsVoid
             .InvokeCommand(this, static v => v.ViewModel!.NextTabCommand));
-        disposables.Add(keys.Where(static e => e.Key == Key.Tab && (e.KeyModifiers & KeyModifiers.Control) != 0 && (e.KeyModifiers & KeyModifiers.Shift) != 0)
-            .Select(static e =>
-            {
-                e.Handled = true;
-                return RxVoid.Default;
-            })
+        disposables.Add(keys.Pressing(Key.Tab).Holding(KeyModifiers.Control | KeyModifiers.Shift).MarkHandled().AsVoid
             .InvokeCommand(this, static v => v.ViewModel!.PreviousTabCommand));
-        disposables.Add(this.Events().Closing.SubscribeSafe(OnWindowClosing, OnError));
+        disposables.Add(this.Events().Closing.Inject(_viewModels).SubscribeSafe(OnWindowClosing, OnError));
     }
 
     /// <summary>Observes the tab strip: dragging, wheel, hover preview, close buttons and the tab menu.</summary>
     /// <param name="disposables">Owns the subscriptions.</param>
-    /// <param name="tabStrip">The tab strip; Events() needs the typed parameter because it cannot see fields the XAML name generator creates.</param>
-    private void BindTabStrip(MultipleDisposable disposables, ListBox tabStrip)
+    private void BindTabStrip(MultipleDisposable disposables)
     {
-        var pressed = tabStrip.ObserveRouted(InputElement.PointerPressedEvent, RoutingStrategies.Tunnel);
-        disposables.Add(pressed.Where(static e => e.GetCurrentPoint(e.Source as Visual).Properties.IsMiddleButtonPressed && TabUnder(e) is not null)
-            .Select(static e =>
+        disposables.Add(TabStrip.TabMiddleClicks.InvokeCommand(this, static v => v.ViewModel!.CloseTabCommand));
+        disposables.Add(TabStrip.TabReorders.Inject(_viewModels).SubscribeSafe(
+            static reorder =>
             {
-                e.Handled = true;
-                return TabUnder(e);
-            })
-            .InvokeCommand(this, static v => v.ViewModel!.CloseTabCommand));
-        disposables.Add(pressed.SubscribeSafe(e => OnTabPointerPressed(tabStrip, e), OnError));
-        disposables.Add(tabStrip.ObserveRouted(InputElement.PointerMovedEvent, RoutingStrategies.Tunnel).SubscribeSafe(e => OnTabPointerMoved(tabStrip, e), OnError));
-        disposables.Add(tabStrip.ObserveRouted(InputElement.PointerReleasedEvent, RoutingStrategies.Tunnel).SubscribeSafe(_ => _draggedTab = null, OnError));
-        disposables.Add(tabStrip.ObserveRouted(InputElement.PointerWheelChangedEvent, RoutingStrategies.Tunnel).SubscribeSafe(e => OnTabWheel(tabStrip, e), OnError));
-        disposables.Add(tabStrip.ObserveRouted(ToolTip.ToolTipOpeningEvent).SubscribeSafe(OnTabPreviewOpening, OnError));
-        disposables.Add(tabStrip.ObserveRouted(Button.ClickEvent, RoutingStrategies.Bubble)
-            .Where(static e => e.Source is Button { Name: "CloseButton", DataContext: DocumentTabViewModel })
-            .Select(static e =>
-            {
-                e.Handled = true;
-                return (e.Source as Control)?.DataContext as DocumentTabViewModel;
-            })
-            .InvokeCommand(this, static v => v.ViewModel!.CloseTabCommand));
-        disposables.Add(tabStrip.Events().ContextRequested.SubscribeSafe(OnTabContextRequested, OnError));
+                var (move, viewModel) = reorder;
+                viewModel.MoveTab(viewModel.Tabs.IndexOf(move.Drag.Tab), viewModel.Tabs.IndexOf(move.Target));
+            },
+            OnError));
+        disposables.Add(TabStrip.TabScrolls.SubscribeSafe(static scroll => scroll.Scroller.Offset = scroll.Offset, OnError));
+        disposables.Add(TabStrip.TabPreviewOpenings.SubscribeSafe(static tab => _ = tab.PreparePreviewAsync(CancellationToken.None), OnError));
+        disposables.Add(TabStrip.ItemContextRequests<DocumentTabViewModel>().Inject(_viewModels).SubscribeSafe(ShowTabMenu, OnError));
     }
 
     /// <summary>Fills Open Recent from the recent documents, refreshed each time the menu opens.</summary>
     /// <param name="disposables">Owns the bindings.</param>
-    /// <param name="recentMenu">The Open Recent menu item; Events() needs it typed, as with the tab finder.</param>
-    /// <param name="tabsMenu">The flyout that holds it.</param>
-    private void BindRecentMenu(MultipleDisposable disposables, MenuItem recentMenu, FlyoutBase tabsMenu)
+    private void BindRecentMenu(MultipleDisposable disposables)
     {
         disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments, static v => v.RecentMenuItem.ItemsSource));
         disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments.Count, static v => v.RecentMenuItem.IsEnabled, static count => count > 0));
         disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments.Count, static v => v.ClearRecentMenuItem.IsEnabled, static count => count > 0));
-        disposables.Add(recentMenu.Events().ContainerPrepared.SubscribeSafe(args => PrepareRecentItem(args.Container), OnError));
-        disposables.Add(tabsMenu.Events().Opened.SubscribeSafe(_ => ViewModel?.RefreshRecentDocuments(), OnError));
-    }
-
-    /// <summary>Makes a recent document's menu item open it, and says where it is.</summary>
-    /// <param name="container">The menu item.</param>
-    private void PrepareRecentItem(Control container)
-    {
-        if (container is not MenuItem item || item.DataContext is not RecentDocument recent || ViewModel is not { } viewModel)
-        {
-            return;
-        }
-
-        item.Command = viewModel.OpenRecentCommand;
-        item.CommandParameter = recent;
-        ControlHelp.SetText(item, string.Create(CultureInfo.CurrentCulture, $"Open {recent.FileName} from {recent.Folder}."));
-        AutomationProperties.SetName(item, recent.FileName);
+        disposables.Add(RecentMenuItem.ContainersPrepared
+            .Pick(static args => args.Container is MenuItem { DataContext: RecentDocument recent } item ? new RecentMenuEntry(item, recent) : default(RecentMenuEntry?))
+            .Inject(_viewModels)
+            .SubscribeSafe(PrepareRecentItem, OnError));
+        disposables.Add(TabsMenuButton.FlyoutOpenings.InjectLatest(_viewModels).SubscribeSafe(static viewModel => viewModel.RefreshRecentDocuments(), OnError));
     }
 
     /// <summary>Observes the tab finder flyout: picking a tab, searching and opening.</summary>
     /// <param name="disposables">Owns the subscriptions.</param>
-    /// <param name="list">The found tabs list; Events() needs the typed parameters because it cannot see fields the XAML name generator creates.</param>
-    /// <param name="box">The search box.</param>
-    /// <param name="flyout">The flyout that holds them.</param>
-    private void BindTabFinder(MultipleDisposable disposables, ListBox list, TextBox box, FlyoutBase flyout)
+    private void BindTabFinder(MultipleDisposable disposables)
     {
-        disposables.Add(list.Events().SelectionChanged.SubscribeSafe(_ => OnTabFound(list), OnError));
-        disposables.Add(box.Events().KeyDown.Where(static args => args.Key == Key.Enter).SubscribeSafe(_ => PickFirstFoundTab(list), OnError));
-        disposables.Add(flyout.Events().Opened.SubscribeSafe(_ => OnTabFinderOpened(list, box), OnError));
-        disposables.Add(this.WhenChanged(static v => v.ViewModel!.TabFinderRequests).SwitchTo().SubscribeSafe(_ => flyout.ShowAt(TabFinderButton), OnError));
+        disposables.Add(TabFinderList.SelectionChanges
+            .Select(static args => (args.Source as ListBox)?.SelectedItem as DocumentTabViewModel)
+            .KeepNotNull()
+            .Inject(_viewModels)
+            .SubscribeSafe(
+                found =>
+                {
+                    var (tab, viewModel) = found;
+                    viewModel.SelectedTab = tab;
+                    TabFinderButton.Flyout?.Hide();
+                    TabStrip.ScrollIntoView(tab);
+                },
+                OnError));
+        disposables.Add(TabFinderBox.KeyDowns.Pressing(Key.Enter)
+            .Inject(_viewModels)
+            .Where(static found => found.State.FoundTabs.Count > 0)
+            .SubscribeSafe(found => TabFinderList.SelectedItem = found.State.FoundTabs[0], OnError));
+        disposables.Add(TabFinderButton.FlyoutOpenings.InjectLatest(_viewModels).SubscribeSafe(
+            viewModel =>
+            {
+                viewModel.RefreshFoundTabs();
+                TabFinderList.SelectedItem = null;
+                _ = TabFinderBox.Focus();
+                TabFinderBox.SelectAll();
+            },
+            OnError));
+        disposables.Add(this.WhenChanged(static v => v.ViewModel!.TabFinderRequests).SwitchTo().SubscribeSafe(_ => TabFinderButton.Flyout!.ShowAt(TabFinderButton), OnError));
     }
 
     /// <summary>Binds the view model's values to the controls.</summary>
@@ -325,7 +264,11 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
         disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SplitTab, static v => v.SplitHost.Content));
         disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SplitTab, static v => v.SplitHost.IsVisible, static split => split is not null));
         disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SplitTab, static v => v.SplitSplitter.IsVisible, static split => split is not null));
-        disposables.Add(this.WhenChanged(static v => v.ViewModel!.SplitTab).SubscribeSafe(OnSplitChanged, OnError));
+
+        // The width is shared between the two views while split, and given back to the first afterwards.
+        disposables.Add(this.WhenChanged(static v => v.ViewModel!.SplitTab).SubscribeSafe(
+            split => DocumentArea.ColumnDefinitions[SecondViewColumn].Width = split is null ? new GridLength(0) : new GridLength(1, GridUnitType.Star),
+            OnError));
     }
 
     /// <summary>Binds the buttons and menu items to commands, and handles the view model's interactions.</summary>
@@ -353,14 +296,10 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     }
 
     /// <summary>Confirms unsaved edits and saves the session before closing.</summary>
-    /// <param name="e">The close request.</param>
-    private void OnWindowClosing(WindowClosingEventArgs e)
+    /// <param name="closing">The close request and the window's view model.</param>
+    private void OnWindowClosing(Injected<WindowClosingEventArgs, MainViewModel> closing)
     {
-        if (ViewModel is not { } viewModel)
-        {
-            return;
-        }
-
+        var (e, viewModel) = closing;
         if (!_closeConfirmed && viewModel.HasUnsavedTabs)
         {
             e.Cancel = true;
@@ -388,32 +327,7 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     private async Task OpenFilesAsync(IInteractionContext<RxVoid, IReadOnlyList<string>> context)
     {
         var files = await StorageProvider.OpenFilePickerAsync(new() { Title = "Open Document", AllowMultiple = true, FileTypeFilter = [PdfFileType, FilePickerFileTypes.All] });
-        context.SetOutput(ToPaths(files));
-    }
-
-    /// <summary>Refreshes the tab finder and focuses its search box.</summary>
-    /// <param name="list">The found tabs list.</param>
-    /// <param name="box">The search box.</param>
-    private void OnTabFinderOpened(ListBox list, TextBox box)
-    {
-        ViewModel?.RefreshFoundTabs();
-        list.SelectedItem = null;
-        _ = box.Focus();
-        box.SelectAll();
-    }
-
-    /// <summary>Selects the tab picked in the tab finder and closes it.</summary>
-    /// <param name="list">The found tabs list.</param>
-    private void OnTabFound(ListBox list)
-    {
-        if (list.SelectedItem is not DocumentTabViewModel tab || ViewModel is not { } viewModel)
-        {
-            return;
-        }
-
-        viewModel.SelectedTab = tab;
-        TabFinderButton.Flyout?.Hide();
-        TabStrip.ScrollIntoView(tab);
+        context.SetOutput(files.LocalPaths);
     }
 
     /// <summary>Asks before closing the window with unsaved edits, then closes when the user agrees.</summary>
@@ -434,41 +348,6 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
         catch (Exception error)
         {
             OnError(error);
-        }
-    }
-
-    /// <summary>Opens the menu of the tab under the pointer: close it, close the others, close all, reload.</summary>
-    /// <param name="e">The event.</param>
-    private void OnTabContextRequested(ContextRequestedEventArgs e)
-    {
-        if ((e.Source as Control)?.DataContext is not DocumentTabViewModel tab || ViewModel is not { } viewModel || e.Source is not Control source)
-        {
-            return;
-        }
-
-        var menu = new ContextMenu
-        {
-            ItemsSource = new Control[]
-            {
-                new MenuItem { Header = "_Close", Command = viewModel.CloseTabCommand, CommandParameter = tab, InputGesture = new(Key.W, KeyModifiers.Control) },
-                new MenuItem { Header = "Close _Other Tabs", Command = viewModel.CloseOtherTabsCommand, CommandParameter = tab },
-                new MenuItem { Header = "Close _All Tabs", Command = viewModel.CloseAllTabsCommand },
-                new Separator(),
-                new MenuItem { Header = "_Save", Command = tab.SaveCommand, IsEnabled = tab.HasUnsavedChanges },
-                new MenuItem { Header = "Re_load", Command = tab.ReloadCommand },
-            },
-        };
-        menu.Open(source);
-        e.Handled = true;
-    }
-
-    /// <summary>Selects the first tab the finder lists.</summary>
-    /// <param name="list">The found tabs list.</param>
-    private void PickFirstFoundTab(ListBox list)
-    {
-        if (ViewModel is { FoundTabs.Count: > 0 } viewModel)
-        {
-            list.SelectedItem = viewModel.FoundTabs[0];
         }
     }
 
@@ -527,11 +406,6 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
         return Task.CompletedTask;
     }
 
-    /// <summary>Shares the width between the two views while split, and gives it all back to the first afterwards.</summary>
-    /// <param name="split">The second view, or <see langword="null"/>.</param>
-    private void OnSplitChanged(DocumentTabViewModel? split) =>
-        DocumentArea.ColumnDefinitions[SecondViewColumn].Width = split is null ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-
     /// <summary>Shows another window, which releases its view model once closed.</summary>
     /// <param name="context">The interaction context.</param>
     /// <returns>A task.</returns>
@@ -574,34 +448,11 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
         }
     }
 
-    /// <summary>Opens dropped files, for example from Dolphin, or a dropped web address.</summary>
-    /// <param name="e">The event.</param>
-    private void OnDrop(DragEventArgs e)
-    {
-        if (ViewModel is not { } viewModel)
-        {
-            return;
-        }
-
-        if (e.DataTransfer.TryGetFiles() is { Length: > 0 } files)
-        {
-            viewModel.Open(ToPaths(files));
-        }
-        else if (e.DataTransfer.TryGetText() is { Length: > 0 } text)
-        {
-            viewModel.Open(text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-        }
-    }
-
     /// <summary>Runs the command of a keyboard shortcut, then handles shortcuts that would otherwise move keyboard focus.</summary>
-    /// <param name="e">The event.</param>
-    private void OnPreviewKeyDown(KeyEventArgs e)
+    /// <param name="press">The key press and the window's view model.</param>
+    private void OnPreviewKeyDown(Injected<KeyEventArgs, MainViewModel> press)
     {
-        if (ViewModel is not { } viewModel)
-        {
-            return;
-        }
-
+        var (e, viewModel) = press;
         if (Shortcuts.TryRun(viewModel, e, FocusManager?.GetFocusedElement() is TextBox))
         {
             e.Handled = true;
@@ -639,21 +490,10 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     }
 
     /// <summary>
-    /// Waits until the current input is handled, then gives focus back to the main content if it is still lost. Hiding
-    /// or removing the focused control leaves nothing focused, which a screen reader cannot announce and a keyboard
-    /// user cannot see. A screen reader repeat clears focus only for a moment, so it is ignored.
+    /// Focuses the document, or the start page's Open button when no document is open, if focus is still lost. Hiding or
+    /// removing the focused control leaves nothing focused, which a screen reader cannot announce and a keyboard user
+    /// cannot see.
     /// </summary>
-    /// <param name="sender">The element the loss is being raised on.</param>
-    private void OnFocusLost(object sender)
-    {
-        // The class-wide event reports each step of every window's route; only this window's own step is ours.
-        if (ReferenceEquals(sender, this) && IsActive && !FocusAnnouncementRepair.IsRepeating)
-        {
-            Dispatcher.UIThread.Post(static window => ((MainWindow)window!).RestoreLostFocus(), this, DispatcherPriority.Background);
-        }
-    }
-
-    /// <summary>Focuses the document, or the start page's Open button when no document is open, if focus is still lost.</summary>
     private void RestoreLostFocus()
     {
         if (!IsActive || FocusManager?.GetFocusedElement() is not null)
@@ -683,39 +523,5 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
         }
 
         return null;
-    }
-
-    /// <summary>Starts a possible tab drag.</summary>
-    /// <param name="strip">The tab strip.</param>
-    /// <param name="e">The event.</param>
-    private void OnTabPointerPressed(ListBox strip, PointerPressedEventArgs e)
-    {
-        if (!e.GetCurrentPoint(strip).Properties.IsLeftButtonPressed)
-        {
-            return;
-        }
-
-        _draggedTab = GetTabAt(strip, e);
-        _dragStart = e.GetPosition(strip);
-    }
-
-    /// <summary>Reorders tabs while dragging.</summary>
-    /// <param name="strip">The tab strip.</param>
-    /// <param name="e">The event.</param>
-    private void OnTabPointerMoved(ListBox strip, PointerEventArgs e)
-    {
-        if (_draggedTab is null || ViewModel is not { } viewModel || Math.Abs(e.GetPosition(strip).X - _dragStart.X) < DragThreshold)
-        {
-            return;
-        }
-
-        var target = GetTabAt(strip, e);
-        if (target is null || target == _draggedTab)
-        {
-            return;
-        }
-
-        viewModel.MoveTab(viewModel.Tabs.IndexOf(_draggedTab), viewModel.Tabs.IndexOf(target));
-        _dragStart = e.GetPosition(strip);
     }
 }

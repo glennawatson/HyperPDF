@@ -51,7 +51,7 @@ public sealed class PdfStructureTree
         new StructureTreeBuilder(document, root, names, _index).Build(root, Language, _roots);
     }
 
-    /// <summary>Gets a value indicating whether the catalog's <c>/MarkInfo</c> says the document is tagged, as PDFium checks.</summary>
+    /// <summary>Gets a value indicating whether the catalog's <c>/MarkInfo</c> says the document is tagged (ISO 32000-2 14.7.1).</summary>
     public bool IsMarked { get; }
 
     /// <summary>Gets the document's language, the catalog's <c>/Lang</c>, or <see langword="null"/>.</summary>

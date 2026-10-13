@@ -7,6 +7,7 @@ using System.Xml;
 using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
+using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Optimizing;
@@ -38,6 +39,9 @@ internal static class InferredTagsXmp
 
     /// <summary>The entries of a metadata stream dictionary.</summary>
     private const int MetadataEntries = 2;
+
+    /// <summary>The writer settings, shared because a writer only reads them.</summary>
+    private static readonly XmlWriterSettings WriterSettings = new() { Encoding = new UTF8Encoding(false), OmitXmlDeclaration = true, };
 
     /// <summary>Gets the PDF/A extension schema description of the property.</summary>
     private static XmpExtensionProperty Extension => new(
@@ -96,9 +100,8 @@ internal static class InferredTagsXmp
     /// <returns>The packet as UTF-8 bytes.</returns>
     private static byte[] NewPacket()
     {
-        var settings = new XmlWriterSettings { Encoding = new UTF8Encoding(false), OmitXmlDeclaration = true, };
-        using var memory = new MemoryStream();
-        using (var writer = XmlWriter.Create(memory, settings))
+        using var memory = new PooledWriteStream();
+        using (var writer = XmlWriter.Create(memory, WriterSettings))
         {
             writer.WriteProcessingInstruction("xpacket", "begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"");
             writer.WriteStartElement("x", "xmpmeta", Meta);

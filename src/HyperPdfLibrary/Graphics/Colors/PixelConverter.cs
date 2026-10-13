@@ -10,7 +10,7 @@ using System.Runtime.Intrinsics;
 namespace HyperPdfLibrary.Graphics.Colors;
 
 /// <summary>
-/// Converts rows of 8-bit device samples to opaque BGRA. Gray, RGB and CMYK use <see cref="Vector128"/> byte shuffles with
+/// Converts rows of 8-bit device samples to opaque BGRA. Gray and RGB use <see cref="Vector128"/> byte shuffles with
 /// a scalar tail that computes exactly the same bytes; other spaces use a 256-entry lookup table.
 /// </summary>
 internal static class PixelConverter
@@ -26,9 +26,6 @@ internal static class PixelConverter
 
     /// <summary>The components of an RGB sample.</summary>
     private const int RgbComponents = 3;
-
-    /// <summary>The components of a CMYK sample.</summary>
-    private const int CmykComponents = 4;
 
     /// <summary>The bytes in one vector.</summary>
     private const int VectorBytes = 16;
@@ -50,9 +47,6 @@ internal static class PixelConverter
 
     /// <summary>The bias that makes a float to byte conversion round to nearest.</summary>
     private const float RoundHalf = 0.5F;
-
-    /// <summary>The shift of the black byte in a little-endian CMYK word.</summary>
-    private const int BlackShift = 24;
 
     /// <summary>The offset of the second quarter of the gray shuffle table.</summary>
     private const int SecondQuarter = VectorBytes;
@@ -146,28 +140,6 @@ internal static class PixelConverter
         {
             var pixel = rgb.Slice(i * RgbComponents, RgbComponents);
             BinaryPrimitives.WriteUInt32LittleEndian(bgra[(i * BytesPerPixel)..], Pack(pixel[0], pixel[1], pixel[2]));
-        }
-    }
-
-    /// <summary>Converts CMYK samples to BGRA with PDFium's table interpolation (see <see cref="CmykConverter"/>).</summary>
-    /// <param name="cmyk">Cyan, magenta, yellow and black bytes per pixel.</param>
-    /// <param name="bgra">Four bytes per pixel.</param>
-    /// <param name="count">The pixel count.</param>
-    internal static void CmykToBgra(ReadOnlySpan<byte> cmyk, Span<byte> bgra, int count)
-    {
-        // A run of equal pixels, common in flat areas, reuses the previous result.
-        var previous = 0U;
-        var word = 0U;
-        for (var i = 0; i < count; i++)
-        {
-            var pixel = BinaryPrimitives.ReadUInt32LittleEndian(cmyk[(i * CmykComponents)..]);
-            if (i == 0 || pixel != previous)
-            {
-                word = CmykConverter.ToBgra((byte)pixel, (byte)(pixel >> GreenShift), (byte)(pixel >> RedShift), (byte)(pixel >> BlackShift));
-                previous = pixel;
-            }
-
-            BinaryPrimitives.WriteUInt32LittleEndian(bgra[(i * BytesPerPixel)..], word);
         }
     }
 

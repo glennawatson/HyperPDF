@@ -4,6 +4,7 @@
 
 using System.Buffers.Binary;
 using System.Text;
+using HyperPdf.TestAssets;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Objects;
 using static HyperPdfLibrary.Tests.Graphics.IccTestProfileBuilder;
@@ -142,6 +143,12 @@ public sealed class IccLutProfileTests
     /// <summary>The smallest difference in green between the two tables of the intent test, as a fraction.</summary>
     private const float IntentGap = 0.3F;
 
+    /// <summary>Relative colorimetric without black point compensation, which converts exactly what the table holds.</summary>
+    private static readonly IccRendering Relative = new(IccIntent.RelativeColorimetric, false);
+
+    /// <summary>Perceptual with black point compensation.</summary>
+    private static readonly IccRendering CompensatedPerceptual = new(IccIntent.Perceptual, true);
+
     /// <summary>The lightness weights of the cyan, magenta, yellow and black inks in the CMYK model.</summary>
     private static readonly double[] InkLightness = [0.45, 0.35, 0.15, 0];
 
@@ -214,7 +221,7 @@ public sealed class IccLutProfileTests
     public async Task Lut8CmykNodesMatchReference()
     {
         var profile = Profile(Version2, "CMYK", "Lab ", new Tag("A2B0", Lut8(CmykComponents, CmykGrid, CmykModel)));
-        var space = IccSpace(profile, CmykComponents).ForIntent(IccIntent.RelativeColorimetric);
+        var space = IccSpace(profile, CmykComponents).ForRendering(Relative);
 
         foreach (var node in CmykNodes)
         {
@@ -229,7 +236,7 @@ public sealed class IccLutProfileTests
     public async Task Lut16CmykUsesLegacyLabEncoding()
     {
         var profile = Profile(Version2, "CMYK", "Lab ", new Tag("A2B0", Lut16(CmykComponents, CmykGrid, LegacyModel)));
-        var space = IccSpace(profile, CmykComponents).ForIntent(IccIntent.RelativeColorimetric);
+        var space = IccSpace(profile, CmykComponents).ForRendering(Relative);
 
         foreach (var node in CmykNodes)
         {
@@ -251,7 +258,7 @@ public sealed class IccLutProfileTests
             WideBytes);
         var tag = AToB(RgbComponents, [SmallGrid, SmallGrid, SmallGrid], XyzModel, stages);
         var profile = Profile(Version4, "RGB ", "XYZ ", new Tag("A2B0", tag));
-        var space = IccSpace(profile, RgbComponents).ForIntent(IccIntent.RelativeColorimetric);
+        var space = IccSpace(profile, RgbComponents).ForRendering(Relative);
 
         foreach (var input in RgbPoints)
         {
@@ -276,7 +283,7 @@ public sealed class IccLutProfileTests
     public async Task PerceptualIntentCompensatesBlackPoint()
     {
         var profile = Profile(Version4, "CMYK", "Lab ", new Tag("A2B0", Lut8(CmykComponents, CmykGrid, CmykModel)));
-        var perceptual = IccSpace(profile, CmykComponents);
+        var perceptual = IccSpace(profile, CmykComponents).ForRendering(CompensatedPerceptual);
 
         foreach (var node in CmykNodes)
         {
@@ -292,7 +299,7 @@ public sealed class IccLutProfileTests
     public async Task PerceptualIntentUsesDarkestColorantForV2Profiles()
     {
         var profile = Profile(Version2, "CMYK", "Lab ", new Tag("A2B0", Lut8(CmykComponents, CmykGrid, CmykModel)));
-        var perceptual = IccSpace(profile, CmykComponents);
+        var perceptual = IccSpace(profile, CmykComponents).ForRendering(CompensatedPerceptual);
         var darkest = IccReference.XyzToLab(IccReference.LabV4ToXyz(Quantize8(CmykModel([1, 1, 1, 1]))));
         var sourceBlack = IccReference.LabToXyz(Math.Min(darkest[0], MaxBlackLightness), 0, 0);
 
@@ -330,7 +337,7 @@ public sealed class IccLutProfileTests
     public async Task InterpolatedPointsStayCloseToReference()
     {
         var profile = Profile(Version2, "CMYK", "Lab ", new Tag("A2B0", Lut16(CmykComponents, CmykGrid, LegacyModel)));
-        var space = IccSpace(profile, CmykComponents).ForIntent(IccIntent.RelativeColorimetric);
+        var space = IccSpace(profile, CmykComponents).ForRendering(Relative);
         var worst = 0.0;
         for (var i = 0; i < SamplePoints; i++)
         {
@@ -389,10 +396,10 @@ public sealed class IccLutProfileTests
             new Tag("A2B0", Lut8(CmykComponents, CornerGrid, static _ => DarkLab)),
             new Tag("A2B1", Lut8(CmykComponents, CornerGrid, static _ => LightLab)));
         var space = IccSpace(profile, CmykComponents);
-        var perceptual = Convert(space.ForIntent(IccIntent.Perceptual), [0, 0, 0, 0]);
-        var relative = Convert(space.ForIntent(IccIntent.RelativeColorimetric), [0, 0, 0, 0]);
-        var absolute = Convert(space.ForIntent(IccIntent.AbsoluteColorimetric), [0, 0, 0, 0]);
-        var saturation = Convert(space.ForIntent(IccIntent.Saturation), [0, 0, 0, 0]);
+        var perceptual = Convert(space.ForRendering(new(IccIntent.Perceptual, false)), [0, 0, 0, 0]);
+        var relative = Convert(space.ForRendering(Relative), [0, 0, 0, 0]);
+        var absolute = Convert(space.ForRendering(new(IccIntent.AbsoluteColorimetric, false)), [0, 0, 0, 0]);
+        var saturation = Convert(space.ForRendering(new(IccIntent.Saturation, false)), [0, 0, 0, 0]);
 
         await Assert.That(relative[1]).IsGreaterThan(perceptual[1] + IntentGap);
         await Assert.That(absolute[1]).IsEqualTo(relative[1]);
@@ -421,7 +428,7 @@ public sealed class IccLutProfileTests
     public async Task FiveColourProfileConverts()
     {
         var profile = Profile(Version2, "5CLR", "Lab ", new Tag("A2B0", Lut8(WideComponents, WideGrid, WideModel)));
-        var space = IccSpace(profile, WideComponents).ForIntent(IccIntent.RelativeColorimetric);
+        var space = IccSpace(profile, WideComponents).ForRendering(Relative);
 
         await Assert.That(space.Components).IsEqualTo(WideComponents);
         foreach (var node in WidePoints)
@@ -437,7 +444,7 @@ public sealed class IccLutProfileTests
     public async Task LabProfileConvertsLabUnits()
     {
         var profile = Profile(Version2, "Lab ", "Lab ", new Tag("A2B0", Lut8(RgbComponents, LabGrid, static p => p)));
-        var space = IccSpace(profile, RgbComponents).ForIntent(IccIntent.RelativeColorimetric);
+        var space = IccSpace(profile, RgbComponents).ForRendering(Relative);
 
         foreach (var lab in LabPoints)
         {
@@ -455,7 +462,7 @@ public sealed class IccLutProfileTests
     {
         static double[] Gray(double[] p) => [p[0], ChromaOffset / ChromaRange, ChromaOffset / ChromaRange];
         var profile = Profile(Version2, "GRAY", "Lab ", new Tag("A2B0", Lut8(1, CmykGrid, Gray)));
-        var space = IccSpace(profile, 1).ForIntent(IccIntent.RelativeColorimetric);
+        var space = IccSpace(profile, 1).ForRendering(Relative);
 
         foreach (var gray in GrayPoints)
         {
@@ -526,14 +533,19 @@ public sealed class IccLutProfileTests
             space.ToRgb(components, rgb);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        space.ConvertRow(samples, bgra, Pixels);
-        space.ToRgb(components, rgb);
+        var allocated = AllocationProbe.Minimum(() =>
+        {
+            space.ConvertRow(samples, bgra, Pixels);
+            space.ToRgb(components, rgb);
+        });
 
-        await Assert.That(GC.GetAllocatedBytesForCurrentThread() - before).IsEqualTo(0L);
+        await Assert.That(allocated).IsEqualTo(0L);
     }
 
-    /// <summary>Real CMYK profiles found on the machine convert paper white to near white and full black to a dark colour.</summary>
+    /// <summary>
+    /// An optional smoke test: real CMYK profiles found on the machine convert paper white to near white and full black to a
+    /// dark colour. It skips when the machine has none; <see cref="IccCmykFixtureTests"/> holds the coverage that needs no host profile.
+    /// </summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task SystemCmykProfilesConvertSensibly()

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
@@ -31,7 +32,22 @@ internal static class JpxBlockDecoder
     /// <param name="data">The tile's packet data.</param>
     /// <param name="target">Where the coefficients go.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    internal static void Decode(JpxBlockState state, JpxTile tile, int blockIndex, byte[] data, in JpxBlockTarget target, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Decode(JpxBlockState state, JpxTile tile, int blockIndex, byte[] data, in JpxBlockTarget target, CancellationToken cancellationToken) =>
+        Decode(state, tile, blockIndex, data, target, tile.Bands[tile.Blocks[blockIndex].Band], cancellationToken);
+
+    /// <summary>
+    /// Decodes one code-block into a buffer that holds some of its sub-band, such as a strip of rows. The block lands at
+    /// <c>band.BufferX + block.X0 - band.X0</c> across and <c>band.BufferY + block.Y0 - band.Y0</c> down in the buffer.
+    /// </summary>
+    /// <param name="state">The decoder's mutable state.</param>
+    /// <param name="tile">The tile, which holds the code-block's segments and chunks.</param>
+    /// <param name="blockIndex">The code-block index.</param>
+    /// <param name="data">The tile's packet data.</param>
+    /// <param name="target">Where the coefficients go.</param>
+    /// <param name="band">The sub-band, with the buffer position of its first sample set for <paramref name="target"/>.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal static void Decode(JpxBlockState state, JpxTile tile, int blockIndex, byte[] data, in JpxBlockTarget target, in JpxBandLayout band, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var block = tile.Blocks[blockIndex];
@@ -41,7 +57,6 @@ internal static class JpxBlockDecoder
             return;
         }
 
-        var band = tile.Bands[block.Band];
         if ((target.Style & JpxBlockStyle.HighThroughput) != 0)
         {
             JpxHtBlockDecoder.DecodeHighThroughput(state, tile, block, band, data, target);

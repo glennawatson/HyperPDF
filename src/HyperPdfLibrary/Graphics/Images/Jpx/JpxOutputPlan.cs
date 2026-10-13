@@ -8,219 +8,127 @@ using HyperPdfLibrary.Graphics.Colors;
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
-/// Decides how decoded channels become PDF samples, following PDFium: its sYCC and gray guesses, then
-/// <c>JpxDecodeConversion</c>. The image dictionary's /ColorSpace, when present, wins over the file's colour box but
-/// must agree with it for the device spaces; without one, the colour box or the channel count decides.
+/// Decides which colour space the decoded channels are read in and how they become samples. The rules, in order:
+/// <list type="number">
+/// <item>An image dictionary /ColorSpace decides, and the colour boxes of the file are ignored (ISO 32000-1 section
+/// 7.4.9). The file needs at least as many channels as the space has components.</item>
+/// <item>Otherwise the file's enumerated colour space decides (T.800 table I.10): sRGB is DeviceRGB, greyscale is
+/// DeviceGray, CMYK is DeviceCMYK, and sYCC and e-sYCC become DeviceRGB after conversion.</item>
+/// <item>Otherwise (an ICC profile, a vendor method, a raw codestream, or an enumerated space that needs more colour
+/// channels than the file has) our rule follows section 7.4.9: the colour channel count picks DeviceGray for one or two,
+/// DeviceRGB for three and DeviceCMYK for four or more. The colour channel count is the channel definition box's when
+/// it has one, else every channel.</item>
+/// <item>Our rule for files that do not say what they hold: three colour channels whose second and third are
+/// subsampled while the first is not are taken as YCbCr, because RGB is never stored with reduced chroma.</item>
+/// </list>
 /// </summary>
-/// <param name="Action">The conversion.</param>
 /// <param name="ColorSpace">The colour space the samples are read in.</param>
 /// <param name="Components">The samples per pixel written.</param>
-/// <param name="Sycc">The sYCC conversion to apply, or none.</param>
+/// <param name="Mode">How values become samples.</param>
+/// <param name="Sycc">Whether the first three channels are YCbCr to convert to RGB.</param>
 /// <param name="KeepsDictionarySpace">Whether <see cref="ColorSpace"/> is the image dictionary's own.</param>
-[DebuggerDisplay("JpxOutputPlan: {Action}, {Components} components")]
-internal sealed record JpxOutputPlan(JpxDecodeAction Action, PdfColorSpace ColorSpace, int Components, JpxSyccLayout Sycc, bool KeepsDictionarySpace)
+[DebuggerDisplay("JpxOutputPlan: {Components} components, {Mode}")]
+internal sealed record JpxOutputPlan(PdfColorSpace ColorSpace, int Components, JpxSampleMode Mode, bool Sycc, bool KeepsDictionarySpace)
 {
-    /// <summary>The channels of an RGB or sYCC image.</summary>
-    private const int ColourChannels = 3;
-
-    /// <summary>The channels of a CMYK or alpha-carrying RGB image.</summary>
-    private const int FourChannels = 4;
-
-    /// <summary>The most channels PDFium treats as gray: gray, or gray with alpha.</summary>
+    /// <summary>The most channels read as grey: grey alone, or grey with its opacity.</summary>
     private const int GrayChannels = 2;
 
-    /// <summary>The second chroma channel.</summary>
-    private const int SecondChroma = 2;
+    /// <summary>The colour channels of an RGB or YCbCr image.</summary>
+    private const int ThreeChannels = 3;
 
-    /// <summary>The chroma subsampling factor of 4:2:2 and 4:2:0.</summary>
-    private const int Halved = 2;
+    /// <summary>The colour channels of a CMYK image.</summary>
+    private const int FourChannels = 4;
+
+    /// <summary>The channel that carries the first chroma plane of YCbCr.</summary>
+    private const int FirstChroma = 1;
+
+    /// <summary>The channel that carries the second chroma plane of YCbCr.</summary>
+    private const int SecondChroma = 2;
 
     /// <summary>Plans the conversion.</summary>
     /// <param name="declared">The colour space the file declares.</param>
-    /// <param name="channels">The channels.</param>
-    /// <param name="image">The decoded planes.</param>
+    /// <param name="set">The channels in colour order.</param>
+    /// <param name="geometry">The codestream geometry, which gives each component's subsampling.</param>
     /// <param name="dictionarySpace">The image dictionary's /ColorSpace, or <see langword="null"/>.</param>
-    /// <returns>The plan, or <see langword="null"/> when PDFium would refuse the image.</returns>
-    internal static JpxOutputPlan? Create(JpxColorSpace declared, ReadOnlySpan<JpxChannel> channels, JpxDecodedImage image, PdfColorSpace? dictionarySpace)
+    /// <returns>The plan, or <see langword="null"/> when the file has too few channels for the colour space.</returns>
+    internal static JpxOutputPlan? Create(JpxColorSpace declared, in JpxChannelSet set, JpxGeometry geometry, PdfColorSpace? dictionarySpace)
     {
-        var count = channels.Length;
-        var (space, sycc) = ResolveSycc(GuessSpace(declared, channels, image), channels, image);
-        var action = dictionarySpace is null ? FromImage(space, count) : FromBoth(space, count, dictionarySpace);
-        if (action is not { } chosen)
+        var available = set.Channels.Length;
+        if (dictionarySpace is not null)
         {
-            return null;
+            return FromDictionary(dictionarySpace, available);
         }
 
-        var colorSpace = chosen switch
-        {
-            JpxDecodeAction.UseGray => PdfColorSpace.DeviceGray,
-            JpxDecodeAction.UseRgb or JpxDecodeAction.ConvertArgbToRgb => PdfColorSpace.DeviceRgb,
-            JpxDecodeAction.UseCmyk => PdfColorSpace.DeviceCmyk,
-            _ => dictionarySpace ?? PdfColorSpace.FromComponents(ComponentsOf(space, count)),
-        };
-
-        var components = colorSpace.Components;
-        return components > count ? null : new(chosen, colorSpace, components, sycc, ReferenceEquals(colorSpace, dictionarySpace));
+        var colours = set.ColourCount > 0 ? Math.Min(set.ColourCount, available) : available;
+        var components = ColourComponents(declared, colours);
+        var sycc = declared is JpxColorSpace.Sycc or JpxColorSpace.Eycc
+            ? components == ThreeChannels
+            : components == ThreeChannels && declared is JpxColorSpace.Unspecified or JpxColorSpace.Unknown && HasReducedChroma(set.Channels, geometry);
+        return new(DeviceSpace(components), components, JpxSampleMode.Scaled, sycc, false);
     }
 
-    /// <summary>Decides whether an sYCC image converts to RGB, as PDFium's <c>color_sycc_to_rgb</c> does.</summary>
-    /// <param name="space">The guessed colour space.</param>
-    /// <param name="channels">The channels.</param>
-    /// <param name="image">The decoded planes.</param>
-    /// <returns>The colour space after any conversion, and the conversion.</returns>
-    private static SpaceChoice ResolveSycc(JpxColorSpace space, ReadOnlySpan<JpxChannel> channels, JpxDecodedImage image)
+    /// <summary>Plans for the image dictionary's colour space.</summary>
+    /// <param name="dictionarySpace">The colour space.</param>
+    /// <param name="available">The channels in the file.</param>
+    /// <returns>The plan, or <see langword="null"/> when the file has too few channels.</returns>
+    private static JpxOutputPlan? FromDictionary(PdfColorSpace dictionarySpace, int available)
     {
-        if (space != JpxColorSpace.Sycc)
-        {
-            return new(space, JpxSyccLayout.None);
-        }
-
-        if (channels.Length < ColourChannels)
-        {
-            return new(JpxColorSpace.Gray, JpxSyccLayout.None);
-        }
-
-        var layout = SyccLayout(channels, image);
-        return new(layout == JpxSyccLayout.None ? space : JpxColorSpace.Srgb, layout);
+        var mode = dictionarySpace.Kind == PdfColorSpaceKind.Indexed ? JpxSampleMode.RawIndices : JpxSampleMode.Scaled;
+        return dictionarySpace.Components > available ? null : new(dictionarySpace, dictionarySpace.Components, mode, false, true);
     }
 
-    /// <summary>Applies PDFium's guesses: three channels with subsampled chroma are sYCC, and one or two channels are gray.</summary>
+    /// <summary>Gets the colour components to write: the declared space's when the file has enough colour channels, else by channel count.</summary>
     /// <param name="declared">The declared colour space.</param>
-    /// <param name="channels">The channels.</param>
-    /// <param name="image">The decoded planes.</param>
-    /// <returns>The colour space PDFium sees.</returns>
-    private static JpxColorSpace GuessSpace(JpxColorSpace declared, ReadOnlySpan<JpxChannel> channels, JpxDecodedImage image)
+    /// <param name="colours">The colour channels the file has.</param>
+    /// <returns>1, 3 or 4.</returns>
+    private static int ColourComponents(JpxColorSpace declared, int colours)
     {
-        var components = image.Geometry.Components;
-        if (declared != JpxColorSpace.Sycc && channels.Length == ColourChannels
-            && components[channels[0].Component].Dx == components[channels[0].Component].Dy
-            && components[channels[1].Component].Dx != 1)
+        var wanted = declared switch
         {
-            return JpxColorSpace.Sycc;
-        }
-
-        return channels.Length <= GrayChannels ? JpxColorSpace.Gray : declared;
-    }
-
-    /// <summary>Finds which sYCC sampling the channels have, with the plane sizes PDFium checks.</summary>
-    /// <param name="channels">The channels.</param>
-    /// <param name="image">The decoded planes.</param>
-    /// <returns>The layout, or none when PDFium would leave the samples unconverted.</returns>
-    private static JpxSyccLayout SyccLayout(ReadOnlySpan<JpxChannel> channels, JpxDecodedImage image)
-    {
-        var components = image.Geometry.Components;
-        var cb = components[channels[1].Component];
-        var cr = components[channels[SecondChroma].Component];
-        if (!IsFullResolution(components[channels[0].Component]))
-        {
-            return JpxSyccLayout.None;
-        }
-
-        if (IsFullResolution(cb) && IsFullResolution(cr))
-        {
-            return JpxSyccLayout.Full;
-        }
-
-        var areas = image.Areas;
-        return HalvedLayout(cb, cr, areas[channels[0].Component], areas[channels[1].Component], areas[channels[SecondChroma].Component]);
-    }
-
-    /// <summary>Determines whether a component is sampled at every reference grid point.</summary>
-    /// <param name="component">The component.</param>
-    /// <returns><see langword="true"/> when it is.</returns>
-    private static bool IsFullResolution(in JpxComponentInfo component) => component is { Dx: 1, Dy: 1 };
-
-    /// <summary>Finds the 4:2:2 or 4:2:0 layout of halved chroma, with the plane sizes PDFium checks.</summary>
-    /// <param name="cb">The Cb component.</param>
-    /// <param name="cr">The Cr component.</param>
-    /// <param name="luma">The luma plane.</param>
-    /// <param name="blue">The Cb plane.</param>
-    /// <param name="red">The Cr plane.</param>
-    /// <returns>The layout, or none.</returns>
-    private static JpxSyccLayout HalvedLayout(in JpxComponentInfo cb, in JpxComponentInfo cr, in JpxRectangle luma, in JpxRectangle blue, in JpxRectangle red)
-    {
-        if (cb.Dx != Halved || cr.Dx != Halved || !ChromaMatches(luma, blue, red))
-        {
-            return JpxSyccLayout.None;
-        }
-
-        if (cb.Dy == 1 && cr.Dy == 1 && luma.Height == blue.Height)
-        {
-            return JpxSyccLayout.HalfWidth;
-        }
-
-        return cb.Dy == Halved && cr.Dy == Halved && JpxRectangle.CeilDivide(luma.Height, Halved) == blue.Height ? JpxSyccLayout.Quarter : JpxSyccLayout.None;
-    }
-
-    /// <summary>Checks that two chroma planes match and are half the luma width, rounded up.</summary>
-    /// <param name="luma">The luma plane.</param>
-    /// <param name="blue">The Cb plane.</param>
-    /// <param name="red">The Cr plane.</param>
-    /// <returns><see langword="true"/> when they do.</returns>
-    private static bool ChromaMatches(in JpxRectangle luma, in JpxRectangle blue, in JpxRectangle red) =>
-        JpxRectangle.CeilDivide(luma.Width, Halved) == blue.Width && blue.Width == red.Width && blue.Height == red.Height;
-
-    /// <summary>Chooses the conversion from the file alone, when the dictionary has no /ColorSpace.</summary>
-    /// <param name="space">The file's colour space.</param>
-    /// <param name="count">The channels.</param>
-    /// <returns>The conversion.</returns>
-    private static JpxDecodeAction? FromImage(JpxColorSpace space, int count) => space switch
-    {
-        JpxColorSpace.Unknown or JpxColorSpace.Unspecified => count == ColourChannels ? JpxDecodeAction.UseRgb : JpxDecodeAction.DoNothing,
-        JpxColorSpace.Srgb => count > ColourChannels ? JpxDecodeAction.ConvertArgbToRgb : JpxDecodeAction.UseRgb,
-        JpxColorSpace.Gray => JpxDecodeAction.UseGray,
-        JpxColorSpace.Cmyk => JpxDecodeAction.UseCmyk,
-        _ => JpxDecodeAction.DoNothing,
-    };
-
-    /// <summary>Chooses the conversion from the dictionary's colour space, which must agree with the file's for the device spaces.</summary>
-    /// <param name="space">The file's colour space.</param>
-    /// <param name="count">The channels.</param>
-    /// <param name="dictionarySpace">The dictionary's colour space.</param>
-    /// <returns>The conversion, or <see langword="null"/> when the two disagree.</returns>
-    private static JpxDecodeAction? FromBoth(JpxColorSpace space, int count, PdfColorSpace dictionarySpace)
-    {
-        var loose = space is JpxColorSpace.Unknown or JpxColorSpace.Unspecified;
-        return dictionarySpace.Kind switch
-        {
-            PdfColorSpaceKind.DeviceGray => loose || space == JpxColorSpace.Gray ? JpxDecodeAction.UseGray : null,
-            PdfColorSpaceKind.DeviceRgb when loose || space == JpxColorSpace.Srgb => count > ColourChannels ? JpxDecodeAction.ConvertArgbToRgb : JpxDecodeAction.UseRgb,
-            PdfColorSpaceKind.DeviceRgb => null,
-            PdfColorSpaceKind.DeviceCmyk => loose || space == JpxColorSpace.Cmyk ? JpxDecodeAction.UseCmyk : null,
-            _ => FromOther(space, count, dictionarySpace),
+            JpxColorSpace.Gray => 1,
+            JpxColorSpace.Srgb or JpxColorSpace.Sycc or JpxColorSpace.Eycc => ThreeChannels,
+            JpxColorSpace.Cmyk => FourChannels,
+            _ => 0,
         };
+
+        return wanted > 0 && wanted <= colours ? wanted : ByCount(colours);
     }
 
-    /// <summary>Chooses the conversion for a dictionary colour space that is not a device space.</summary>
-    /// <param name="space">The file's colour space.</param>
-    /// <param name="count">The channels.</param>
-    /// <param name="dictionarySpace">The dictionary's colour space.</param>
-    /// <returns>The conversion.</returns>
-    private static JpxDecodeAction FromOther(JpxColorSpace space, int count, PdfColorSpace dictionarySpace)
+    /// <summary>Gets the components to write for a channel count when the file's colour space does not decide (ISO 32000-1 section 7.4.9).</summary>
+    /// <param name="colours">The colour channels.</param>
+    /// <returns>1 for up to <see cref="GrayChannels"/> channels, 3 for three, else 4.</returns>
+    private static int ByCount(int colours) => colours switch
     {
-        // Many iOS-made files pair a three-component space with four sRGB channels (crbug.com/345431077).
-        if (dictionarySpace.Components == ColourChannels && count == FourChannels && space == JpxColorSpace.Srgb)
-        {
-            return JpxDecodeAction.ConvertArgbToRgb;
-        }
-
-        return dictionarySpace.Kind == PdfColorSpaceKind.Indexed && dictionarySpace.Components == 1 ? JpxDecodeAction.UseIndexed : JpxDecodeAction.DoNothing;
-    }
-
-    /// <summary>Gets the component count PDFium takes from the file when the dictionary has no /ColorSpace.</summary>
-    /// <param name="space">The file's colour space.</param>
-    /// <param name="count">The channels.</param>
-    /// <returns>The component count.</returns>
-    private static int ComponentsOf(JpxColorSpace space, int count) => space switch
-    {
-        JpxColorSpace.Gray => 1,
-        JpxColorSpace.Srgb or JpxColorSpace.Sycc or JpxColorSpace.Eycc => ColourChannels,
-        JpxColorSpace.Cmyk => FourChannels,
-        _ => count,
+        <= GrayChannels => 1,
+        ThreeChannels => ThreeChannels,
+        _ => FourChannels,
     };
 
-    /// <summary>A colour space after the sYCC decision, and the conversion chosen.</summary>
-    /// <param name="Space">The colour space.</param>
-    /// <param name="Sycc">The sYCC conversion, or none.</param>
-    private readonly record struct SpaceChoice(JpxColorSpace Space, JpxSyccLayout Sycc);
+    /// <summary>Gets the device colour space with a number of components.</summary>
+    /// <param name="components">1, 3 or 4.</param>
+    /// <returns>The colour space.</returns>
+    private static PdfColorSpace DeviceSpace(int components) => components switch
+    {
+        1 => PdfColorSpace.DeviceGray,
+        ThreeChannels => PdfColorSpace.DeviceRgb,
+        _ => PdfColorSpace.DeviceCmyk,
+    };
+
+    /// <summary>Determines whether the second and third channels are sampled more coarsely than the first, which is at full resolution.</summary>
+    /// <param name="channels">The channels in colour order, at least three.</param>
+    /// <param name="geometry">The codestream geometry.</param>
+    /// <returns><see langword="true"/> when the chroma looks reduced.</returns>
+    private static bool HasReducedChroma(JpxChannel[] channels, JpxGeometry geometry)
+    {
+        var components = geometry.Components;
+        var luma = components[channels[0].Component];
+        var first = components[channels[FirstChroma].Component];
+        var second = components[channels[SecondChroma].Component];
+        return luma is { Dx: 1, Dy: 1 } && IsReduced(first) && IsReduced(second);
+    }
+
+    /// <summary>Determines whether a component skips grid points.</summary>
+    /// <param name="component">The component.</param>
+    /// <returns><see langword="true"/> when either subsampling factor is above one.</returns>
+    private static bool IsReduced(in JpxComponentInfo component) => component.Dx > 1 || component.Dy > 1;
 }

@@ -7,6 +7,9 @@ using System.Diagnostics;
 using System.Numerics;
 
 using HyperPdfLibrary.Fonts;
+using HyperPdfLibrary.Graphics.Colors;
+using HyperPdfLibrary.Graphics.Functions;
+using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Graphics;
 
@@ -33,6 +36,8 @@ public record struct GraphicsState
         HorizontalScaling = 1;
         Dash = [];
         TextKnockout = true;
+        Flatness = 1;
+        RenderingIntent = IccIntent.RelativeColorimetric;
     }
 
     /// <summary>Gets or sets the current transformation matrix, from user space to the page.</summary>
@@ -109,4 +114,37 @@ public record struct GraphicsState
 
     /// <summary>Gets or sets a value indicating whether the glyphs of one text show knock each other out, /TK.</summary>
     public bool TextKnockout { get; set; }
+
+    /// <summary>Gets or sets the flatness tolerance, /FL, from 0 to 100; the drawing device flattens curves on its own, so it changes no output.</summary>
+    public float Flatness { get; set; }
+
+    /// <summary>Gets or sets the smoothness tolerance, /SM, from 0 to 1; the drawing device shades smoothly on its own, so it changes no output.</summary>
+    public float Smoothness { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether automatic stroke adjustment is on, /SA. The drawing device draws thin lines
+    /// at least one pixel wide whatever the value, so it changes no output.
+    /// </summary>
+    public bool StrokeAdjustment { get; set; }
+
+    /// <summary>Gets or sets the transfer function tables, /TR2 or else /TR, or null for the identity (a name, or no function).</summary>
+    public PdfTransfer? Transfer { get; set; }
+
+    /// <summary>Gets or sets the halftone dictionary, /HT; null for the default halftone. A screen shows continuous tones, so it changes no output.</summary>
+    public PdfDictionary? Halftone { get; set; }
+
+    /// <summary>Gets or sets the black generation function, /BG2 or else /BG; null for the default. It acts on CMYK separation, which a screen does not do.</summary>
+    public PdfFunction? BlackGeneration { get; set; }
+
+    /// <summary>Gets or sets the undercolour removal function, /UCR2 or else /UCR; null for the default. It acts on CMYK separation, which a screen does not do.</summary>
+    public PdfFunction? UndercolorRemoval { get; set; }
+
+    /// <summary>Gets or sets the rendering intent, /RI or <c>ri</c>; relative colorimetric initially (ISO 32000-2 Table 51).</summary>
+    internal IccIntent RenderingIntent { get; set; }
+
+    /// <summary>Gets or sets the black point compensation choice, /UseBlackPtComp; /Default initially (ISO 32000-2 Table 51).</summary>
+    internal BlackPointCompensationMode BlackPointMode { get; set; }
+
+    /// <summary>Gets the ICC conversion the rendering intent and black point choice select.</summary>
+    internal readonly IccRendering ColorRendering => IccRendering.From(RenderingIntent, BlackPointMode);
 }
