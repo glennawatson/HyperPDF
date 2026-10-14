@@ -530,7 +530,7 @@ public sealed class RenderingTests
             var tab = main.SelectedTab!;
             var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
             var chrome = Find<StackPanel>(view, "Chrome");
-            var tabBar = Find<Border>(window, "TabBar");
+            var tabBar = Find<TabBarView>(window, "TabBar");
             var canvas = window.GetVisualDescendants().OfType<PageCanvas>().Single();
             var zoomBefore = tab.ZoomMode;
 

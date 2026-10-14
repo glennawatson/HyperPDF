@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.TabBarView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TabBarView.axaml.cs). -->
+  <Border Classes="tabbar">
+    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+      <ListBox x:Name="TabStrip" AutomationProperties.Name="Open documents" Classes="tabstrip"
+               ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <!-- Virtualised so a thousand tabs cost no more than the ones on screen. -->
+            <VirtualizingStackPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+      </ListBox>
+      <views:TabFinderView x:Name="TabFinder" Grid.Column="1" />
+      <Button AutomationProperties.Name="Open" x:Name="OpenButton" views:ControlHelp.Text="{x:Static views:Descriptions.Open}" Grid.Column="2" Classes="tool">
+        <StackPanel Orientation="Horizontal">
+          <Path Classes="icon add" Data="{StaticResource IconAdd}" />
+          <TextBlock Classes="label" Text="Open" />
+        </StackPanel>
+      </Button>
+      <Button AutomationProperties.Name="Tabs and settings" x:Name="TabsMenuButton" views:ControlHelp.Text="{x:Static views:Descriptions.TabsMenu}" Grid.Column="3" Classes="tool" Content="Tabs &amp; settings ▾" Margin="0,0,4,0">
+        <Button.Flyout>
+          <MenuFlyout Placement="BottomEdgeAlignedRight">
+            <MenuItem x:Name="OpenMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.Open}" Header="_Open…" InputGesture="Ctrl+O" />
+            <MenuItem x:Name="RecentMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.OpenRecent}" Header="Open _Recent" />
+            <MenuItem x:Name="ClearRecentMenuItem" views:ControlHelp.Text="Remove recent PDFs without deleting files. On Linux, this also clears the desktop's shared recent PDF list." Header="Clear Recent List" />
+            <MenuItem x:Name="NewWindowMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.NewWindow}" Header="_New Window" InputGesture="Ctrl+N" />
+            <MenuItem x:Name="ReopenMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.ReopenClosedTabs}" Header="_Reopen Closed Tabs" InputGesture="Ctrl+Shift+T" />
+            <MenuItem x:Name="SearchFolderMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.SearchFolder}" Header="_Search in Folder…" InputGesture="Ctrl+Shift+F" />
+            <Separator />
+            <MenuItem x:Name="PageToneMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.ComfortPageColour}" Header="_Comfort Page Colour" InputGesture="Ctrl+I" ToggleType="CheckBox" />
+            <MenuItem x:Name="PreferencesMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.Preferences}" Header="_Preferences…" InputGesture="Ctrl+OemComma" />
+            <MenuItem x:Name="LicencesMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.Licences}" Header="About and _Licences…" />
+            <Separator />
+            <MenuItem x:Name="CloseAllMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.CloseAllTabs}" Header="Close _All Tabs" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+    </Grid>
+  </Border>
+</UserControl>

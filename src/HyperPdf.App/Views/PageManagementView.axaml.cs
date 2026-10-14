@@ -9,7 +9,6 @@ using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.Views;
 
@@ -23,7 +22,17 @@ public sealed partial class PageManagementView : ReactiveUI.Avalonia.ReactiveUse
         InitializeComponent();
         _ = this.WhenActivated(disposables =>
         {
-            BindActions(disposables);
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.DeleteCommand, static v => v.DeleteItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.RotateClockwiseCommand, static v => v.ClockwiseItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.RotateCounterclockwiseCommand, static v => v.CounterclockwiseItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.DuplicateCommand, static v => v.DuplicateItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.MoveEarlierCommand, static v => v.EarlierItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.MoveLaterCommand, static v => v.LaterItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.InsertFilesCommand, static v => v.InsertItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.MergeFilesCommand, static v => v.MergeItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.ExtractCommand, static v => v.ExtractItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.UndoCommand, static v => v.UndoItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.RedoCommand, static v => v.RedoItem));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Status, static v => v.PageStatusText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UndoText, static v => v.UndoItem.Header));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RedoText, static v => v.RedoItem.Header));
@@ -31,23 +40,6 @@ public sealed partial class PageManagementView : ReactiveUI.Avalonia.ReactiveUse
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.MergeFilesInteraction, OpenFilesAsync));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ExtractInteraction, SaveFileAsync));
         });
-    }
-
-    /// <summary>Binds each labelled action to the selection's command.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindActions(MultipleDisposable disposables)
-    {
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.DeleteCommand, static v => v.DeleteItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.RotateClockwiseCommand, static v => v.ClockwiseItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.RotateCounterclockwiseCommand, static v => v.CounterclockwiseItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.DuplicateCommand, static v => v.DuplicateItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.MoveEarlierCommand, static v => v.EarlierItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.MoveLaterCommand, static v => v.LaterItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.InsertFilesCommand, static v => v.InsertItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.MergeFilesCommand, static v => v.MergeItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.ExtractCommand, static v => v.ExtractItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.UndoCommand, static v => v.UndoItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.RedoCommand, static v => v.RedoItem));
     }
 
     /// <summary>Asks which PDFs to insert in the order selected.</summary>

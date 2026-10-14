@@ -81,14 +81,14 @@ public sealed class ScreenReaderTests
             await Assert.That(AutomationProperties.GetPositionInSet(results.ContainerFromIndex(0)!)).IsEqualTo(1);
             await Assert.That(AutomationProperties.GetHelpText(results.ContainerFromIndex(0)!)).IsEqualTo(OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() ? $"1 of {Pages}" : null);
 
-            var strip = window.FindControl<ListBox>("TabStrip")!;
+            var strip = window.FindControl<TabBarView>("TabBar")!.FindControl<ListBox>("TabStrip")!;
             await Assert.That(NameOf(strip.ContainerFromIndex(0)!)).IsEqualTo(FileName);
 
             await Assert.That(string.Join(", ", UnnamedItems(window))).IsEqualTo(string.Empty);
 
             // Outline entries are named as they are shown.
             tab.IsOutlineMode = true;
-            var outline = view.FindControl<TreeView>("OutlineTree")!;
+            var outline = view.FindControl<OutlinePanelView>("OutlinePanel")!.FindControl<TreeView>("OutlineTree")!;
             await Assert.That(await UiWait.UntilAsync(() => outline.GetVisualDescendants().OfType<TreeViewItem>().Any(static item => item.IsEffectivelyVisible))).IsTrue();
             await Assert.That(string.Join(", ", UnnamedItems(window))).IsEqualTo(string.Empty);
         }

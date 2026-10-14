@@ -10,7 +10,6 @@ using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.Views;
 
@@ -31,52 +30,38 @@ public sealed partial class RedactionWindow : ReactiveUI.Avalonia.ReactiveWindow
         {
             disposables.Add(ItemAutomation.NameItems(ImageList));
             disposables.Add(ItemAutomation.NameItems(LineArtList));
-            BindSettings(disposables);
-            BindRun(disposables);
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Apply redactions to {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Summary, static v => v.SummaryText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SourceNote, static v => v.NoteText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SourceNote, static v => v.NoteText.IsVisible, static note => note is not null));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.WarningText, static v => v.WarningText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ImageOptions, static v => v.ImageList.ItemsSource));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.LineArtOptions, static v => v.LineArtList.ItemsSource));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedImage, static v => v.ImageList.SelectedItem, static choice => choice, static item => item as RedactionImageOption));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedLineArt, static v => v.LineArtList.SelectedItem, static choice => choice, static item => item as RedactionLineArtOption));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.RemoveHiddenText, static v => v.HiddenTextBox.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.RemoveLinksAndComments, static v => v.LinksBox.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.ScrubMetadata, static v => v.MetadataBox.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Understands, static v => v.UnderstandBox.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.ImageList.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.LineArtList.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.HiddenTextBox.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.LinksBox.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.MetadataBox.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.UnderstandBox.IsEnabled, static running => !running));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.ApplyCommand, static v => v.ApplyButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.RunProgress.IsIndeterminate));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusText, static v => v.StatusText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultText, static v => v.ResultText.Text));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
                 .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
             _ = UnderstandBox.Focus();
         });
-    }
-
-    /// <summary>Binds the heading, the warning and the settings.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindSettings(MultipleDisposable disposables)
-    {
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Apply redactions to {name}"));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Summary, static v => v.SummaryText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SourceNote, static v => v.NoteText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SourceNote, static v => v.NoteText.IsVisible, static note => note is not null));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.WarningText, static v => v.WarningText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ImageOptions, static v => v.ImageList.ItemsSource));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.LineArtOptions, static v => v.LineArtList.ItemsSource));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedImage, static v => v.ImageList.SelectedItem, static choice => choice, static item => item as RedactionImageOption));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedLineArt, static v => v.LineArtList.SelectedItem, static choice => choice, static item => item as RedactionLineArtOption));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.RemoveHiddenText, static v => v.HiddenTextBox.IsChecked, static on => on, static on => on == true));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.RemoveLinksAndComments, static v => v.LinksBox.IsChecked, static on => on, static on => on == true));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.ScrubMetadata, static v => v.MetadataBox.IsChecked, static on => on, static on => on == true));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.Understands, static v => v.UnderstandBox.IsChecked, static on => on, static on => on == true));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.ImageList.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.LineArtList.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.HiddenTextBox.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.LinksBox.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.MetadataBox.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.UnderstandBox.IsEnabled, static running => !running));
-    }
-
-    /// <summary>Binds the apply, cancel and close buttons, the progress, the summary and the save picker.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindRun(MultipleDisposable disposables)
-    {
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.ApplyCommand, static v => v.ApplyButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.RunProgress.IsIndeterminate));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusText, static v => v.StatusText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultText, static v => v.ResultText.Text));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
     }
 
     /// <summary>Asks where to save the redacted copy, through the desktop's save dialog.</summary>

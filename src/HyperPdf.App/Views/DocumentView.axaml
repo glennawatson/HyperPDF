@@ -821,10 +821,7 @@
               <views:PageManagementView x:Name="PageTools" />
               <controls:ThumbnailListBox Grid.Row="1" x:Name="ThumbnailList" AutomationProperties.Name="Page thumbnails" Classes="thumbnails" Background="Transparent" SelectionMode="Multiple" />
             </Grid>
-            <Panel x:Name="OutlinePanel">
-              <TreeView x:Name="OutlineTree" AutomationProperties.Name="Outline" Background="Transparent" />
-              <TextBlock x:Name="NoOutlineText" Classes="secondary" Margin="12" TextWrapping="Wrap" Text="This document has no outline." />
-            </Panel>
+            <views:OutlinePanelView x:Name="OutlinePanel" />
             <!-- Comment list: a text filter, then filters and sort order shown on request, then the list. -->
             <DockPanel x:Name="AnnotationsPanel">
               <StackPanel DockPanel.Dock="Top" Margin="8,4,8,4" Spacing="6">

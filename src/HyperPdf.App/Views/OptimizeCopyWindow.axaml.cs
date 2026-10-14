@@ -10,7 +10,6 @@ using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.Views;
 
@@ -30,46 +29,32 @@ public sealed partial class OptimizeCopyWindow : ReactiveUI.Avalonia.ReactiveWin
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(ItemAutomation.NameItems(PresetList));
-            BindSettings(disposables);
-            BindRun(disposables);
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Save an optimised copy of {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Presets, static v => v.PresetList.ItemsSource));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedPreset, static v => v.PresetList.SelectedItem, static choice => choice, static item => item as OptimizePresetChoice));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.FixAccessibility, static v => v.FixBox.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Language, static v => v.LanguageBox.Text, static text => text, static text => text ?? string.Empty));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.AddInferredTags, static v => v.TagsBox.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.CleanUp, static v => v.CleanBox.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.PresetList.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.FixBox.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.TagsBox.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.CleanBox.IsEnabled, static running => !running));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel!.FixAccessibility, static v => v.ViewModel!.IsRunning, static (fix, running) => fix && !running)
+                .BindTo(this, static v => v.LanguageBox.IsEnabled));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ProgressPercent, static v => v.CopyProgress.Value));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusText, static v => v.StatusText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultText, static v => v.ResultText.Text));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
                 .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
             _ = PresetList.Focus();
         });
-    }
-
-    /// <summary>Binds the heading, the size choices and the accessibility options.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindSettings(MultipleDisposable disposables)
-    {
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Save an optimised copy of {name}"));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Presets, static v => v.PresetList.ItemsSource));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedPreset, static v => v.PresetList.SelectedItem, static choice => choice, static item => item as OptimizePresetChoice));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.FixAccessibility, static v => v.FixBox.IsChecked, static on => on, static on => on == true));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.Language, static v => v.LanguageBox.Text, static text => text, static text => text ?? string.Empty));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.AddInferredTags, static v => v.TagsBox.IsChecked, static on => on, static on => on == true));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.CleanUp, static v => v.CleanBox.IsChecked, static on => on, static on => on == true));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.PresetList.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.FixBox.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.TagsBox.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.CleanBox.IsEnabled, static running => !running));
-        disposables.Add(this.WhenChanged(static v => v.ViewModel!.FixAccessibility, static v => v.ViewModel!.IsRunning, static (fix, running) => fix && !running)
-            .BindTo(this, static v => v.LanguageBox.IsEnabled));
-    }
-
-    /// <summary>Binds the save, cancel and close buttons, the progress, the summary and the save picker.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindRun(MultipleDisposable disposables)
-    {
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ProgressPercent, static v => v.CopyProgress.Value));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusText, static v => v.StatusText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultText, static v => v.ResultText.Text));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
     }
 
     /// <summary>Asks where to save the copy, through the desktop's save dialog.</summary>

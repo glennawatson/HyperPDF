@@ -10,7 +10,6 @@ using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.Views;
 
@@ -29,42 +28,28 @@ public sealed partial class ArchiveCopyWindow : ReactiveUI.Avalonia.ReactiveWind
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(ItemAutomation.NameItems(LevelList));
-            BindSettings(disposables);
-            BindRun(disposables);
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Save a PDF/A copy of {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Levels, static v => v.LevelList.ItemsSource));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedLevel, static v => v.LevelList.SelectedItem, static choice => choice, static item => item as ArchiveLevelChoice));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.LevelList.IsEnabled, static running => !running));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
+
+            // A separate busy bar shows while running: switching one bar out of indeterminate mode can leave its moving
+            // segment drawn when the value stays at zero, as after a refusal.
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.BusyProgress.IsVisible));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.CopyProgress.IsVisible, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ProgressPercent, static v => v.CopyProgress.Value));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusText, static v => v.StatusText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultText, static v => v.ResultText.Text));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
                 .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
             _ = LevelList.Focus();
         });
-    }
-
-    /// <summary>Binds the heading and the level choices.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindSettings(MultipleDisposable disposables)
-    {
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Save a PDF/A copy of {name}"));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Levels, static v => v.LevelList.ItemsSource));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedLevel, static v => v.LevelList.SelectedItem, static choice => choice, static item => item as ArchiveLevelChoice));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.LevelList.IsEnabled, static running => !running));
-    }
-
-    /// <summary>Binds the save, cancel and close buttons, the busy bar, the summary and the save picker.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindRun(MultipleDisposable disposables)
-    {
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
-
-        // A separate busy bar shows while running: switching one bar out of indeterminate mode can leave its moving
-        // segment drawn when the value stays at zero, as after a refusal.
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.BusyProgress.IsVisible));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.CopyProgress.IsVisible, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ProgressPercent, static v => v.CopyProgress.Value));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusText, static v => v.StatusText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultText, static v => v.ResultText.Text));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
     }
 
     /// <summary>Asks where to save the copy, through the desktop's save dialog.</summary>
