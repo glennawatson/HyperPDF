@@ -110,6 +110,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>The page management state, created on first use.</summary>
     private PageManagementViewModel? _pages;
 
+    /// <summary>The bookmark editing state, created on first use.</summary>
+    private OutlineEditViewModel? _outlineEditing;
+
+    /// <summary>Whether selecting an outline entry is part of an edit, so it must not move the reader.</summary>
+    private bool _keepingOutlineSelection;
+
     /// <summary>The document's text in reading order, created on first use.</summary>
     private TabReading? _reading;
 
@@ -404,6 +410,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the files embedded in the document.</summary>
     public AttachmentsViewModel Attachments => field ??= new(this);
+
+    /// <summary>Gets the bookmark editing state.</summary>
+    public OutlineEditViewModel OutlineEditing => _outlineEditing ??= new(this);
 
     /// <summary>Gets the annotation state.</summary>
     public AnnotationsViewModel Annotations => _annotations ??= new(this);
@@ -747,6 +756,18 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     {
         TabTiles.DropBoth(RenderHub, Source.Id);
         _pageEdits.EmitIfOpen(-1);
+    }
+
+    /// <summary>Shows the bookmarks of an edited document without moving the reader.</summary>
+    /// <param name="items">The rebuilt entries.</param>
+    /// <param name="selectId">The object number of the entry to select, or 0 for none.</param>
+    public void ShowEditedOutline(IReadOnlyList<OutlineItemViewModel> items, int selectId)
+    {
+        _keepingOutlineSelection = true;
+        Outline = items;
+        SelectedOutlineItem = OutlineItemViewModel.Find(items, selectId);
+        _keepingOutlineSelection = false;
+        HasUnsavedChanges = Source.HasUnsavedChanges;
     }
 
     /// <summary>Drops an edited page's tiles so it redraws, and tells views about it.</summary>
@@ -1297,7 +1318,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <param name="item">The selected entry.</param>
     private void OnOutlineItemSelected(OutlineItemViewModel? item)
     {
-        if (item is not null)
+        if (item is not null && !_keepingOutlineSelection)
         {
             Navigate(item.Target);
         }
@@ -1467,6 +1488,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         _measure?.Dispose();
         _annotations?.Dispose();
         _pages?.Dispose();
+        _outlineEditing?.Dispose();
     }
 
     /// <summary>Releases the copy commands, links, page tools and file watch.</summary>

@@ -16,7 +16,10 @@ namespace HyperPdf.App.Tests;
 /// <summary>Checks the tab strip and thumbnail list pointer input in a headless window.</summary>
 public sealed class TabStripInteractionTests
 {
-    /// <summary>The name of the tab strip in the main window.</summary>
+    /// <summary>The name of the tab bar in the main window.</summary>
+    private const string TabBarName = "TabBar";
+
+    /// <summary>The name of the tab strip in the tab bar.</summary>
     private const string TabStripName = "TabStrip";
 
     /// <summary>The number of tabs in the small scenarios, and of thumbnails in the group.</summary>
@@ -52,7 +55,7 @@ public sealed class TabStripInteractionTests
         window.Show();
         try
         {
-            var strip = window.FindControl<ListBox>(TabStripName)!;
+            var strip = window.FindControl<TabBarView>(TabBarName)!.FindControl<ListBox>(TabStripName)!;
             _ = await UiWait.UntilAsync(() => strip.GetRealizedContainers().Count() == Pair);
             var second = main.Tabs[1];
             var point = Centre(window, ContainerOf(strip, second));
@@ -80,7 +83,7 @@ public sealed class TabStripInteractionTests
         window.Show();
         try
         {
-            var strip = window.FindControl<ListBox>(TabStripName)!;
+            var strip = window.FindControl<TabBarView>(TabBarName)!.FindControl<ListBox>(TabStripName)!;
             _ = await UiWait.UntilAsync(() => strip.GetRealizedContainers().Count() == Pair);
             var first = main.Tabs[0];
             var second = main.Tabs[1];
@@ -118,7 +121,7 @@ public sealed class TabStripInteractionTests
         window.Show();
         try
         {
-            var strip = window.FindControl<ListBox>(TabStripName)!;
+            var strip = window.FindControl<TabBarView>(TabBarName)!.FindControl<ListBox>(TabStripName)!;
             var scroller = strip.FindDescendantOfType<ScrollViewer>()!;
             _ = await UiWait.UntilAsync(() => scroller.Extent.Width > scroller.Viewport.Width && scroller.Offset.X > 0);
             var before = scroller.Offset.X;

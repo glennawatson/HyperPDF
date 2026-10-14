@@ -10,7 +10,6 @@ using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.ObservableEvents;
 
 namespace HyperPdf.App.Views;
@@ -33,9 +32,35 @@ public sealed partial class ExternalSignWindow : ReactiveUI.Avalonia.ReactiveWin
         {
             disposables.Add(ItemAutomation.NameItems(KeyBox));
             disposables.Add(ItemAutomation.NameItems(ResultBox));
-            BindSigner(disposables);
-            BindSteps(disposables);
-            BindRun(disposables);
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Sign a copy of {name} with an external signer"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SignerText, static v => v.CertificateBox.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.KeyChoices, static v => v.KeyBox.ItemsSource));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedKey, static v => v.KeyBox.SelectedItem, static choice => choice, static item => item as SigningKeyChoice));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Reason, static v => v.ReasonBox.Text, static text => text, static text => text ?? string.Empty));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Location, static v => v.LocationBox.Text, static text => text, static text => text ?? string.Empty));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.KeyBox.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.ReasonBox.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.LocationBox.IsEnabled, static running => !running));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.BrowseButton.IsEnabled, static running => !running));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.BrowseCommand, static v => v.BrowseButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.PrepareCommand, static v => v.PrepareButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveToSignCommand, static v => v.SaveToSignButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.FinishCommand, static v => v.FinishButton));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PendingText, static v => v.PendingText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultChoices, static v => v.ResultBox.ItemsSource));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedResult, static v => v.ResultBox.SelectedItem, static choice => choice, static item => item as ExternalResultChoice));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.ResultBox.IsEnabled, static running => !running));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.CopyProgress.IsIndeterminate));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ProgressPercent, static v => v.CopyProgress.Value));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusText, static v => v.StatusText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultText, static v => v.ResultText.Text));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.BrowseInteraction, BrowseAsync));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveToSignInteraction, SaveToSignAsync));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.OpenSignatureInteraction, OpenSignatureAsync));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveCopyInteraction, SaveCopyAsync));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
                 .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
@@ -46,53 +71,6 @@ public sealed partial class ExternalSignWindow : ReactiveUI.Avalonia.ReactiveWin
                 .Select(_ => BrowseButton)
                 .SubscribeSafe(static button => button.Focus(), static error => Trace.TraceError(error.ToString())));
         });
-    }
-
-    /// <summary>Binds the heading and the signer's details.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindSigner(MultipleDisposable disposables)
-    {
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Sign a copy of {name} with an external signer"));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SignerText, static v => v.CertificateBox.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.KeyChoices, static v => v.KeyBox.ItemsSource));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedKey, static v => v.KeyBox.SelectedItem, static choice => choice, static item => item as SigningKeyChoice));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.Reason, static v => v.ReasonBox.Text, static text => text, static text => text ?? string.Empty));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.Location, static v => v.LocationBox.Text, static text => text, static text => text ?? string.Empty));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.KeyBox.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.ReasonBox.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.LocationBox.IsEnabled, static running => !running));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.BrowseButton.IsEnabled, static running => !running));
-    }
-
-    /// <summary>Binds the prepare, save and finish steps.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindSteps(MultipleDisposable disposables)
-    {
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.BrowseCommand, static v => v.BrowseButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.PrepareCommand, static v => v.PrepareButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveToSignCommand, static v => v.SaveToSignButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.FinishCommand, static v => v.FinishButton));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PendingText, static v => v.PendingText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultChoices, static v => v.ResultBox.ItemsSource));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedResult, static v => v.ResultBox.SelectedItem, static choice => choice, static item => item as ExternalResultChoice));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.ResultBox.IsEnabled, static running => !running));
-    }
-
-    /// <summary>Binds the cancel and close buttons, the progress, the summary and the pickers.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindRun(MultipleDisposable disposables)
-    {
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.CopyProgress.IsIndeterminate));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ProgressPercent, static v => v.CopyProgress.Value));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusText, static v => v.StatusText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Error, static v => v.ErrorText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultText, static v => v.ResultText.Text));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.BrowseInteraction, BrowseAsync));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveToSignInteraction, SaveToSignAsync));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.OpenSignatureInteraction, OpenSignatureAsync));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveCopyInteraction, SaveCopyAsync));
     }
 
     /// <summary>Asks for the signer's certificate files through the desktop's open dialog.</summary>

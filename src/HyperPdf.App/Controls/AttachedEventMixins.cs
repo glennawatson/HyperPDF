@@ -33,12 +33,21 @@ internal static class AttachedEventMixins
         /// <summary>
         /// Gets the wheel turns on their way down to the pointer's target. <c>Events()</c> reads bubbling events, but a
         /// scroll viewer and its scroll bars handle the wheel while it bubbles, so only a tunnelling handler sees every
-        /// turn first. This is the one routed event the app reads this way.
+        /// turn first. The wheel and the key presses below are the routed events the app reads this way.
         /// </summary>
         internal IObservable<PointerWheelEventArgs> TunnelWheels => Signal.FromEvent<EventHandler<PointerWheelEventArgs>, PointerWheelEventArgs>(
             static next => (_, args) => next(args),
             handler => target.AddHandler(InputElement.PointerWheelChangedEvent, handler, RoutingStrategies.Tunnel),
             handler => target.RemoveHandler(InputElement.PointerWheelChangedEvent, handler));
+
+        /// <summary>
+        /// Gets the key presses on their way down to the focused element. A tree or list handles arrow keys while the press
+        /// bubbles, even with Ctrl and Shift held, so only a tunnelling handler sees every press first.
+        /// </summary>
+        internal IObservable<KeyEventArgs> TunnelKeyDowns => Signal.FromEvent<EventHandler<KeyEventArgs>, KeyEventArgs>(
+            static next => (_, args) => next(args),
+            handler => target.AddHandler(InputElement.KeyDownEvent, handler, RoutingStrategies.Tunnel),
+            handler => target.RemoveHandler(InputElement.KeyDownEvent, handler));
     }
 
     /// <summary>Adds the drag and drop streams.</summary>

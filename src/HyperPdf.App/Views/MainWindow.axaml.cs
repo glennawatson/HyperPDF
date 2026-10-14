@@ -3,10 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Avalonia;
-using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
@@ -14,7 +12,6 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
-using HyperPdf.Core.Platform;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -54,22 +51,43 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     {
         InitializeComponent();
         _viewModels = this.WhenChanged(static v => v.ViewModel);
-        TabStrip.ItemTemplate = new FuncDataTemplate<DocumentTabViewModel>(static (_, _) => new TabItemView());
-        TabFinderList.ItemTemplate = new FuncDataTemplate<DocumentTabViewModel>(static (_, _) => new TabSummaryView());
         DocumentHost.ContentTemplate = new FuncDataTemplate<DocumentTabViewModel>(static (_, _) => new DocumentView(), true);
         SplitHost.ContentTemplate = new FuncDataTemplate<DocumentTabViewModel>(static (_, _) => new DocumentView(), true);
-        RecentMenuItem.ItemTemplate = new FuncDataTemplate<RecentDocument>(static (recent, _) => new TextBlock { Text = recent?.FileName });
-
+        var keys = this.KeyDowns;
         _ = this.WhenActivated(
             disposables =>
             {
-                disposables.Add(ItemAutomation.NameItems(TabFinderList));
-                BindWindowEvents(disposables);
-                BindTabStrip(disposables);
-                BindTabFinder(disposables);
-                BindRecentMenu(disposables);
-                BindProperties(disposables);
-                BindCommands(disposables);
+                disposables.Add(this.DragOvers.SubscribeSafe(static args => args.DragEffects = args.CopyFilesAndText, OnError));
+                disposables.Add(this.Drops.Dropped.Inject(_viewModels).SubscribeSafe(static dropped => dropped.State.Open(dropped.Value), OnError));
+                disposables.Add(keys.Inject(_viewModels).SubscribeSafe(OnPreviewKeyDown, OnError));
+                disposables.Add(keys.Pressing(Key.Tab).Holding(KeyModifiers.Control).Without(KeyModifiers.Shift).MarkHandled().AsVoid
+                    .InvokeCommand(this, static v => v.ViewModel!.NextTabCommand));
+                disposables.Add(keys.Pressing(Key.Tab).Holding(KeyModifiers.Control | KeyModifiers.Shift).MarkHandled().AsVoid
+                    .InvokeCommand(this, static v => v.ViewModel!.PreviousTabCommand));
+                disposables.Add(this.Events().Closing.Inject(_viewModels).SubscribeSafe(OnWindowClosing, OnError));
+                disposables.Add(this.OneWayBind(ViewModel, static vm => vm.WindowTitle, static v => v.Title));
+                disposables.Add(_viewModels.BindTo(this, static v => v.TabBar.ViewModel));
+                disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusMessage, static v => v.StatusText.Text));
+                disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusMessage, static v => v.StatusBar.IsVisible, static message => message is not null));
+                disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasTabs, static v => v.StartPage.IsVisible, static hasTabs => !hasTabs));
+                disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasTabs, static v => v.DocumentHost.IsVisible));
+                disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SelectedTab, static v => v.DocumentHost.Content));
+                disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SplitTab, static v => v.SplitHost.Content));
+                disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SplitTab, static v => v.SplitHost.IsVisible, static split => split is not null));
+                disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SplitTab, static v => v.SplitSplitter.IsVisible, static split => split is not null));
+
+                // The width is shared between the two views while split, and given back to the first afterwards.
+                disposables.Add(this.WhenChanged(static v => v.ViewModel!.SplitTab).SubscribeSafe(
+                    split => DocumentArea.ColumnDefinitions[SecondViewColumn].Width = split is null ? new GridLength(0) : new GridLength(1, GridUnitType.Star),
+                    OnError));
+                disposables.Add(this.BindCommand(ViewModel, static vm => vm.DismissStatusCommand, static v => v.DismissStatusButton));
+                disposables.Add(this.BindInteraction(ViewModel, static vm => vm.OpenFileInteraction, OpenFilesAsync));
+                disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowPropertiesInteraction, ShowPropertiesAsync));
+                disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ConfirmInteraction, ConfirmAsync));
+                disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowPreferencesInteraction, ShowPreferencesAsync));
+                disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowLicencesInteraction, ShowLicencesAsync));
+                disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowFolderSearchInteraction, ShowFolderSearchAsync));
+                disposables.Add(this.BindInteraction(ViewModel, static vm => vm.NewWindowInteraction, ShowNewWindowAsync));
                 disposables.Add(this.WhenChanged(static v => v.ViewModel!.SelectedTab!.IsPresenting).SubscribeSafe(OnPresentingChanged, OnError));
 
                 // Hiding or removing the focused control leaves nothing focused; once the input is handled, focus goes back.
@@ -127,172 +145,12 @@ public sealed partial class MainWindow : ReactiveUI.Avalonia.ReactiveWindow<Main
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
-    /// <summary>Opens the menu of the tab under the pointer: close it, close the others, close all, reload.</summary>
-    /// <param name="request">The request and the window's view model.</param>
-    private static void ShowTabMenu(Injected<ItemContextRequest<DocumentTabViewModel>, MainViewModel> request)
-    {
-        var (menu, viewModel) = request;
-        new ContextMenu
-        {
-            ItemsSource = new Control[]
-            {
-                new MenuItem { Header = "_Close", Command = viewModel.CloseTabCommand, CommandParameter = menu.Item, InputGesture = new(Key.W, KeyModifiers.Control) },
-                new MenuItem { Header = "Close _Other Tabs", Command = viewModel.CloseOtherTabsCommand, CommandParameter = menu.Item },
-                new MenuItem { Header = "Close _All Tabs", Command = viewModel.CloseAllTabsCommand },
-                new Separator(),
-                new MenuItem { Header = "_Save", Command = menu.Item.SaveCommand, IsEnabled = menu.Item.HasUnsavedChanges },
-                new MenuItem { Header = "Re_load", Command = menu.Item.ReloadCommand },
-            },
-        }.Open(menu.Source);
-    }
-
-    /// <summary>Makes a recent document's menu item open it, and says where it is.</summary>
-    /// <param name="prepared">The menu item with its recent document, and the window's view model.</param>
-    private static void PrepareRecentItem(Injected<RecentMenuEntry, MainViewModel> prepared)
-    {
-        var (entry, viewModel) = prepared;
-        entry.Item.Command = viewModel.OpenRecentCommand;
-        entry.Item.CommandParameter = entry.Recent;
-        ControlHelp.SetText(entry.Item, string.Create(CultureInfo.CurrentCulture, $"Open {entry.Recent.FileName} from {entry.Recent.Folder}."));
-        AutomationProperties.SetName(entry.Item, entry.Recent.FileName);
-    }
-
     /// <summary>Forgets the windows owned while the window is active.</summary>
     private void ReleaseWindows()
     {
         _folderSearchClosed?.Dispose();
         _folderSearchClosed = null;
         _folderSearch = null;
-    }
-
-    /// <summary>Observes drag and drop, keyboard shortcuts and closing.</summary>
-    /// <param name="disposables">Owns the subscriptions.</param>
-    private void BindWindowEvents(MultipleDisposable disposables)
-    {
-        var keys = this.KeyDowns;
-        disposables.Add(this.DragOvers.SubscribeSafe(static args => args.DragEffects = args.CopyFilesAndText, OnError));
-        disposables.Add(this.Drops.Dropped.Inject(_viewModels).SubscribeSafe(static dropped => dropped.State.Open(dropped.Value), OnError));
-        disposables.Add(keys.Inject(_viewModels).SubscribeSafe(OnPreviewKeyDown, OnError));
-        disposables.Add(keys.Pressing(Key.Tab).Holding(KeyModifiers.Control).Without(KeyModifiers.Shift).MarkHandled().AsVoid
-            .InvokeCommand(this, static v => v.ViewModel!.NextTabCommand));
-        disposables.Add(keys.Pressing(Key.Tab).Holding(KeyModifiers.Control | KeyModifiers.Shift).MarkHandled().AsVoid
-            .InvokeCommand(this, static v => v.ViewModel!.PreviousTabCommand));
-        disposables.Add(this.Events().Closing.Inject(_viewModels).SubscribeSafe(OnWindowClosing, OnError));
-    }
-
-    /// <summary>Observes the tab strip: dragging, wheel, hover preview, close buttons and the tab menu.</summary>
-    /// <param name="disposables">Owns the subscriptions.</param>
-    private void BindTabStrip(MultipleDisposable disposables)
-    {
-        disposables.Add(TabStrip.TabMiddleClicks.InvokeCommand(this, static v => v.ViewModel!.CloseTabCommand));
-        disposables.Add(TabStrip.TabReorders.Inject(_viewModels).SubscribeSafe(
-            static reorder =>
-            {
-                var (move, viewModel) = reorder;
-                viewModel.MoveTab(viewModel.Tabs.IndexOf(move.Drag.Tab), viewModel.Tabs.IndexOf(move.Target));
-            },
-            OnError));
-        disposables.Add(TabStrip.TabScrolls.SubscribeSafe(static scroll => scroll.Scroller.Offset = scroll.Offset, OnError));
-        disposables.Add(TabStrip.TabPreviewOpenings.SubscribeSafe(static tab => _ = tab.PreparePreviewAsync(CancellationToken.None), OnError));
-        disposables.Add(TabStrip.ItemContextRequests<DocumentTabViewModel>().Inject(_viewModels).SubscribeSafe(ShowTabMenu, OnError));
-    }
-
-    /// <summary>Fills Open Recent from the recent documents, refreshed each time the menu opens.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindRecentMenu(MultipleDisposable disposables)
-    {
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments, static v => v.RecentMenuItem.ItemsSource));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments.Count, static v => v.RecentMenuItem.IsEnabled, static count => count > 0));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RecentDocuments.Count, static v => v.ClearRecentMenuItem.IsEnabled, static count => count > 0));
-        disposables.Add(RecentMenuItem.ContainersPrepared
-            .Pick(static args => args.Container is MenuItem { DataContext: RecentDocument recent } item ? new RecentMenuEntry(item, recent) : default(RecentMenuEntry?))
-            .Inject(_viewModels)
-            .SubscribeSafe(PrepareRecentItem, OnError));
-        disposables.Add(TabsMenuButton.FlyoutOpenings.InjectLatest(_viewModels).SubscribeSafe(static viewModel => viewModel.RefreshRecentDocuments(), OnError));
-    }
-
-    /// <summary>Observes the tab finder flyout: picking a tab, searching and opening.</summary>
-    /// <param name="disposables">Owns the subscriptions.</param>
-    private void BindTabFinder(MultipleDisposable disposables)
-    {
-        disposables.Add(TabFinderList.SelectionChanges
-            .Select(static args => (args.Source as ListBox)?.SelectedItem as DocumentTabViewModel)
-            .KeepNotNull()
-            .Inject(_viewModels)
-            .SubscribeSafe(
-                found =>
-                {
-                    var (tab, viewModel) = found;
-                    viewModel.SelectedTab = tab;
-                    TabFinderButton.Flyout?.Hide();
-                    TabStrip.ScrollIntoView(tab);
-                },
-                OnError));
-        disposables.Add(TabFinderBox.KeyDowns.Pressing(Key.Enter)
-            .Inject(_viewModels)
-            .Where(static found => found.State.FoundTabs.Count > 0)
-            .SubscribeSafe(found => TabFinderList.SelectedItem = found.State.FoundTabs[0], OnError));
-        disposables.Add(TabFinderButton.FlyoutOpenings.InjectLatest(_viewModels).SubscribeSafe(
-            viewModel =>
-            {
-                viewModel.RefreshFoundTabs();
-                TabFinderList.SelectedItem = null;
-                _ = TabFinderBox.Focus();
-                TabFinderBox.SelectAll();
-            },
-            OnError));
-        disposables.Add(this.WhenChanged(static v => v.ViewModel!.TabFinderRequests).SwitchTo().SubscribeSafe(_ => TabFinderButton.Flyout!.ShowAt(TabFinderButton), OnError));
-    }
-
-    /// <summary>Binds the view model's values to the controls.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindProperties(MultipleDisposable disposables)
-    {
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.WindowTitle, static v => v.Title));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Tabs, static v => v.TabStrip.ItemsSource));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedTab, static v => v.TabStrip.SelectedItem, static tab => tab, static item => item as DocumentTabViewModel));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasTabs, static v => v.TabFinderButton.IsVisible));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Tabs.Count, static v => v.TabCountText.Text, static count => string.Create(CultureInfo.CurrentCulture, $"Tabs {count}")));
-        disposables.Add(this.Bind(ViewModel, static vm => vm.TabQuery, static v => v.TabFinderBox.Text, static query => query, static text => text ?? string.Empty));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FoundTabs, static v => v.TabFinderList.ItemsSource));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PageToneEnabled, static v => v.PageToneMenuItem.IsChecked));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusMessage, static v => v.StatusText.Text));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.StatusMessage, static v => v.StatusBar.IsVisible, static message => message is not null));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasTabs, static v => v.StartPage.IsVisible, static hasTabs => !hasTabs));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasTabs, static v => v.DocumentHost.IsVisible));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SelectedTab, static v => v.DocumentHost.Content));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SplitTab, static v => v.SplitHost.Content));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SplitTab, static v => v.SplitHost.IsVisible, static split => split is not null));
-        disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SplitTab, static v => v.SplitSplitter.IsVisible, static split => split is not null));
-
-        // The width is shared between the two views while split, and given back to the first afterwards.
-        disposables.Add(this.WhenChanged(static v => v.ViewModel!.SplitTab).SubscribeSafe(
-            split => DocumentArea.ColumnDefinitions[SecondViewColumn].Width = split is null ? new GridLength(0) : new GridLength(1, GridUnitType.Star),
-            OnError));
-    }
-
-    /// <summary>Binds the buttons and menu items to commands, and handles the view model's interactions.</summary>
-    /// <param name="disposables">Owns the bindings.</param>
-    private void BindCommands(MultipleDisposable disposables)
-    {
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.OpenCommand, static v => v.OpenButton));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.OpenCommand, static v => v.OpenMenuItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.ClearRecentCommand, static v => v.ClearRecentMenuItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.ReopenClosedTabCommand, static v => v.ReopenMenuItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.TogglePageToneCommand, static v => v.PageToneMenuItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.PreferencesCommand, static v => v.PreferencesMenuItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.SearchFolderCommand, static v => v.SearchFolderMenuItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseAllTabsCommand, static v => v.CloseAllMenuItem));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.DismissStatusCommand, static v => v.DismissStatusButton));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.OpenFileInteraction, OpenFilesAsync));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowPropertiesInteraction, ShowPropertiesAsync));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ConfirmInteraction, ConfirmAsync));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowPreferencesInteraction, ShowPreferencesAsync));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.LicencesCommand, static v => v.LicencesMenuItem));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowLicencesInteraction, ShowLicencesAsync));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowFolderSearchInteraction, ShowFolderSearchAsync));
-        disposables.Add(this.BindInteraction(ViewModel, static vm => vm.NewWindowInteraction, ShowNewWindowAsync));
-        disposables.Add(this.BindCommand(ViewModel, static vm => vm.NewWindowCommand, static v => v.NewWindowMenuItem));
     }
 
     /// <summary>Confirms unsaved edits and saves the session before closing.</summary>

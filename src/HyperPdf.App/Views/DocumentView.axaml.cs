@@ -58,7 +58,6 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         PageTextUnderline.Editor = PageTextEditor;
         PageTextEditor.KeyBindings.Add(CommitTextKey);
         ThumbnailList.ItemTemplate = new FuncDataTemplate<ThumbnailItemViewModel>((_, _) => new ThumbnailItemView { Tab = ViewModel });
-        OutlineTree.ItemTemplate = new FuncTreeDataTemplate<OutlineItemViewModel>(static (_, _) => new OutlineItemView(), static item => item.Children);
         SearchResultList.ItemTemplate = new FuncDataTemplate<SearchResultItemViewModel>(static (_, _) => new SearchResultView());
         AnnotationList.ItemTemplate = new FuncDataTemplate<AnnotationItemViewModel>(static (_, _) => new AnnotationItemView());
         AttachmentList.ItemTemplate = new FuncDataTemplate<DocumentAttachment>(static (_, _) => new AttachmentItemView());
@@ -500,9 +499,7 @@ public sealed partial class DocumentView : ReactiveUI.Avalonia.ReactiveUserContr
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Thumbnails, static v => v.ThumbnailList.ItemsSource));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.ReduceMotion, static v => v.ThumbnailList.ReduceMotion));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsOutlineMode, static v => v.OutlinePanel.IsVisible));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Outline, static v => v.OutlineTree.ItemsSource));
-        bindings.Add(this.Bind(ViewModel, static vm => vm.SelectedOutlineItem, static v => v.OutlineTree.SelectedItem, static item => item, static item => item as OutlineItemViewModel));
-        bindings.Add(this.OneWayBind(ViewModel, static vm => vm.HasOutline, static v => v.NoOutlineText.IsVisible, static has => !has));
+        bindings.Add(_tabs.BindTo(this, static v => v.OutlinePanel.ViewModel));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.IsAnnotationsMode, static v => v.AnnotationsPanel.IsVisible));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.VisibleItems, static v => v.AnnotationList.ItemsSource));
         bindings.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.Items.Count, static v => v.NoAnnotationsText.IsVisible, static count => count == 0));

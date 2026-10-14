@@ -121,6 +121,20 @@ internal static class EventOperatorMixins
             where TState : class =>
             source.WithLatestFrom(state, static (_, latest) => latest).WhereNotNull();
 
+        /// <summary>Gets the rows a tree shows for the values, for the values it shows now.</summary>
+        /// <param name="tree">The tree.</param>
+        /// <returns>The rows.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal IObservable<TreeViewItem> RowsIn(TreeView tree) =>
+            source.SelectWith(tree, static (shown, item) => item is null ? null : shown.ContainerFromItem(item) as TreeViewItem).KeepNotNull();
+
+        /// <summary>Keeps the values seen while the keyboard focus is outside an area, for example after the control that held it was replaced.</summary>
+        /// <param name="area">The area.</param>
+        /// <returns>The values seen while the focus is elsewhere.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal IObservable<T> WhileFocusOutside(Visual area) =>
+            source.WhereWith(area, static (watched, _) => !(TopLevel.GetTopLevel(watched)?.FocusManager?.GetFocusedElement() is Visual focused && watched.IsVisualAncestorOf(focused)));
+
         /// <summary>
         /// Runs an async handler for each value, and cancels the handler still running for the previous value when the
         /// next one arrives, so a slow older request can never finish after and override a newer one.
