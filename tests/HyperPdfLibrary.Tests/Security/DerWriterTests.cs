@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Formats.Asn1;
+using System.Security.Cryptography;
 using HyperPdfLibrary.Security;
+using HyperPdfLibrary.Tests.Signing;
 
 namespace HyperPdfLibrary.Tests.Security;
 
@@ -27,6 +29,51 @@ public sealed class DerWriterTests
 
     /// <summary>A length that needs three bytes after the length marker.</summary>
     private const int ThreeByteLength = 70_000;
+
+    /// <summary>The number of random trees written.</summary>
+    private const int RandomTrees = 400;
+
+    /// <summary>The deepest nesting of a random tree; below the room the writer is given.</summary>
+    private const int RandomDepth = 5;
+
+    /// <summary>The number of kinds of random value.</summary>
+    private const int KindCount = 3;
+
+    /// <summary>The kind that is an octet string.</summary>
+    private const int OctetKind = 0;
+
+    /// <summary>The kind that is a sequence.</summary>
+    private const int SequenceKind = 1;
+
+    /// <summary>The kind that is a SET OF.</summary>
+    private const int SetOfKind = 2;
+
+    /// <summary>One more than the most children of a random sequence.</summary>
+    private const int MaxChildren = 5;
+
+    /// <summary>One more than the most elements of a random SET OF, enough to go past the elements sorted on the stack.</summary>
+    private const int MaxSetElements = 80;
+
+    /// <summary>One more than the most bytes in an element of a random SET OF.</summary>
+    private const int MaxSetElementBytes = 4;
+
+    /// <summary>The number of choices of length range.</summary>
+    private const int BoundaryOdds = 4;
+
+    /// <summary>The band of lengths around the short form limit.</summary>
+    private const int ShortBand = 0;
+
+    /// <summary>The band of lengths around the one-byte long form limit.</summary>
+    private const int OneByteBand = 1;
+
+    /// <summary>The band of lengths up to 70,000.</summary>
+    private const int LargeBand = 2;
+
+    /// <summary>Added to a length to make the exclusive upper bound two past it.</summary>
+    private const int TwoBytesFrom = 2;
+
+    /// <summary>One more than the longest small length.</summary>
+    private const int SmallLength = 40;
 
     /// <summary>The OID of id-data in dotted form.</summary>
     private const string DataOid = "1.2.840.113549.1.7.1";
@@ -107,6 +154,102 @@ public sealed class DerWriterTests
 
         await Assert.That(WritePrimitives(time)).IsEquivalentTo(expected.Encode());
     }
+
+    /// <summary>Random nested sequences, octet strings of random lengths up to 70,000 bytes and SET OFs with many elements are written as the BCL writer writes them and are strict DER.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RandomTreesMatchTheBclWriter()
+    {
+        var mismatches = new List<int>();
+        for (var tree = 0; tree < RandomTrees; tree++)
+        {
+            if (!RandomTreeMatches())
+            {
+                mismatches.Add(tree);
+            }
+        }
+
+        await Assert.That(mismatches).IsEmpty();
+    }
+
+    /// <summary>Writes one random tree to both writers.</summary>
+    /// <returns><see langword="true"/> when the bytes are the same and strict DER.</returns>
+    private static bool RandomTreeMatches()
+    {
+        var expected = new AsnWriter(AsnEncodingRules.DER);
+        var writer = new DerWriter(stackalloc int[MaxDepth], SmallCapacity);
+        try
+        {
+            FillRandom(ref writer, expected, 0);
+            var actual = writer.ToArray();
+            return actual.AsSpan().SequenceEqual(expected.Encode()) && StrictDer.Check(actual) is null;
+        }
+        finally
+        {
+            writer.Dispose();
+        }
+    }
+
+    /// <summary>Writes a random value to both writers.</summary>
+    /// <param name="writer">The writer under test.</param>
+    /// <param name="expected">The BCL writer.</param>
+    /// <param name="depth">The nesting level.</param>
+    private static void FillRandom(ref DerWriter writer, AsnWriter expected, int depth)
+    {
+        var kind = depth >= RandomDepth ? OctetKind : RandomNumberGenerator.GetInt32(KindCount);
+        switch (kind)
+        {
+            case SequenceKind:
+            {
+                writer.Begin(DerWriter.SequenceTag);
+                using (expected.PushSequence())
+                {
+                    for (var i = RandomNumberGenerator.GetInt32(MaxChildren); i > 0; i--)
+                    {
+                        FillRandom(ref writer, expected, depth + 1);
+                    }
+                }
+
+                writer.End();
+                break;
+            }
+
+            case SetOfKind:
+            {
+                writer.Begin(DerWriter.SetTag);
+                using (expected.PushSetOf())
+                {
+                    for (var i = RandomNumberGenerator.GetInt32(MaxSetElements); i > 0; i--)
+                    {
+                        var element = RandomNumberGenerator.GetBytes(RandomNumberGenerator.GetInt32(MaxSetElementBytes));
+                        expected.WriteOctetString(element);
+                        writer.WriteOctetString(element);
+                    }
+                }
+
+                writer.EndSetOf();
+                break;
+            }
+
+            default:
+            {
+                var contents = RandomNumberGenerator.GetBytes(RandomLength());
+                expected.WriteOctetString(contents);
+                writer.WriteOctetString(contents);
+                break;
+            }
+        }
+    }
+
+    /// <summary>Picks a length near the interesting boundaries now and then, and a small one otherwise.</summary>
+    /// <returns>The length.</returns>
+    private static int RandomLength() => RandomNumberGenerator.GetInt32(BoundaryOdds) switch
+    {
+        ShortBand => RandomNumberGenerator.GetInt32(LastShortLength - 1, FirstLongLength + 1),
+        OneByteBand => RandomNumberGenerator.GetInt32(LastOneByteLength - 1, LastOneByteLength + TwoBytesFrom),
+        LargeBand => RandomNumberGenerator.GetInt32(ThreeByteLength),
+        _ => RandomNumberGenerator.GetInt32(SmallLength),
+    };
 
     /// <summary>Writes an OID and an octet string inside two sequences.</summary>
     /// <param name="contents">The octet string.</param>

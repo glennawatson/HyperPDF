@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Text;
 using System.Text.RegularExpressions;
+using HyperPdfLibrary.Tests.Signing;
 
 namespace HyperPdfLibrary.Tests.Security;
 
@@ -164,7 +165,7 @@ internal static partial class MacChecker
         var start = text.IndexOf(string.Create(CultureInfo.InvariantCulture, $"\n{match.Groups["number"].Value} 0 obj"), StringComparison.Ordinal);
         var contents = text.IndexOf(MacPdf.ContentsMarker, start, StringComparison.Ordinal) + MacPdf.ContentsMarker.Length;
         var digits = text.IndexOf('>', contents) - contents;
-        var container = Convert.FromHexString(text.AsSpan(contents, digits)).AsSpan().TrimEnd((byte)0).ToArray();
+        var container = SigningFixtures.Container(Convert.FromHexString(text.AsSpan(contents, digits)));
         var after = contents + digits + 1;
         byte[] covered = [.. file.AsSpan(0, contents - 1), .. file.AsSpan(after, (int)RevisionEnd(text, contents) - after)];
         var cms = new SignedCms(new(covered), true);
