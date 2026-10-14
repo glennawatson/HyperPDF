@@ -10,6 +10,8 @@ using HyperPdf.Core.Forms;
 using HyperPdf.Core.Forms.Scripting;
 using HyperPdf.Core.Geometry;
 using ReactiveUI;
+using ReactiveUI.Binding;
+using ReactiveUI.Primitives;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -19,13 +21,16 @@ namespace HyperPdf.App.ViewModels;
 /// click; choices are picked from a menu. Every change goes to the document straight away.
 /// </summary>
 [DebuggerDisplay("FormsViewModel: Editing {Editing}")]
-public sealed partial class FormsViewModel : ReactiveObject
+public sealed partial class FormsViewModel : ReactiveObject, IDisposable
 {
     /// <summary>The most passes of recalculation, so fields that depend on each other in a loop still settle.</summary>
     private const int MaxCalculationPasses = 8;
 
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
+
+    /// <summary>Runs the open actions of each page that becomes the current page, until the tab closes.</summary>
+    private readonly IDisposable _pageOpenings;
 
     /// <summary>Fields read for hit testing, reused.</summary>
     private readonly List<FormField> _scratch = [];
@@ -41,7 +46,23 @@ public sealed partial class FormsViewModel : ReactiveObject
 
     /// <summary>Initializes a new instance of the <see cref="FormsViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
-    public FormsViewModel(DocumentTabViewModel owner) => _owner = owner;
+    public FormsViewModel(DocumentTabViewModel owner)
+    {
+        _owner = owner;
+
+        // Each page that becomes the current page runs its open actions. A page that opens while the actions of an
+        // earlier page still run waits its turn in the queue instead of being skipped: it is queued first, and the
+        // running command drains the queue.
+        _pageOpenings = owner.WhenChanged(static tab => tab.CurrentPageIndex)
+            .Skip(1)
+            .WhereWith(this, static (forms, _) => forms.Actions is not null)
+            .DoWith(this, static (forms, page) => forms._pagesOpened.Enqueue(page))
+            .InvokeCommand(this, static forms => forms.PageOpenedCommand);
+    }
+
+    /// <summary>Gets the latest change filling in the form made to a page; the tab redraws the page it names.</summary>
+    [Reactive]
+    public partial PageChange LastPageChange { get; private set; }
 
     /// <summary>Gets a value indicating whether the document has a fillable form.</summary>
     public bool HasForm => Filler?.HasForm == true;
@@ -182,22 +203,9 @@ public sealed partial class FormsViewModel : ReactiveObject
         return result;
     }
 
-    /// <summary>Starts the actions of a page that became the current page, if the document has any.</summary>
-    /// <param name="pageIndex">The zero based page index.</param>
-    public void OnPageShown(int pageIndex)
-    {
-        if (Actions is null || PageOpenedCommand is not ICommand command)
-        {
-            return;
-        }
-
-        // A page that opens while the actions of an earlier page still run waits its turn instead of being skipped.
-        _pagesOpened.Enqueue(pageIndex);
-        if (command.CanExecute(pageIndex))
-        {
-            command.Execute(pageIndex);
-        }
-    }
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _pageOpenings.Dispose();
 
     /// <summary>Runs the actions a page does when it opens.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
@@ -361,7 +369,7 @@ public sealed partial class FormsViewModel : ReactiveObject
 
                 values[scripts.Name] = text;
                 changed = true;
-                _owner.OnPageEdited(scripts.PageIndex);
+                LastPageChange = LastPageChange.Next(scripts.PageIndex);
             }
 
             if (!changed)
@@ -630,13 +638,8 @@ public sealed partial class FormsViewModel : ReactiveObject
     }
 
     /// <summary>Redraws every page, after an action changed fields, hid fields or switched layers.</summary>
-    private void RefreshAllPages()
-    {
-        for (var page = 0; page < _owner.PageCount; page++)
-        {
-            _owner.OnPageEdited(page);
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void RefreshAllPages() => LastPageChange = LastPageChange.Next(PageChange.AllPages);
 
     /// <summary>Redraws the page of a changed field.</summary>
     /// <param name="field">The field.</param>
@@ -645,7 +648,7 @@ public sealed partial class FormsViewModel : ReactiveObject
     {
         if (changed)
         {
-            _owner.OnPageEdited(field.PageIndex);
+            LastPageChange = LastPageChange.Next(field.PageIndex);
         }
     }
 }

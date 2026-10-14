@@ -74,7 +74,7 @@ public sealed class PageManagementViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("pages.pdf", ThreePages)]);
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
-        using var pages = new PageManagementViewModel(tab);
+        var pages = tab.Pages;
 
         pages.SelectPages(UnnormalizedSelection);
         var selected = pages.SelectedPages.ToArray();
@@ -104,7 +104,7 @@ public sealed class PageManagementViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit-pages.pdf", ThreePages)]);
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
-        using var pages = new PageManagementViewModel(tab);
+        var pages = tab.Pages;
         pages.SelectPages([SelectedPage]);
 
         _ = await pages.RotateClockwiseCommand.Execute().ToTask();
@@ -141,7 +141,7 @@ public sealed class PageManagementViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("move-pages.pdf", InitialPages)]);
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
-        using var pages = new PageManagementViewModel(tab);
+        var pages = tab.Pages;
         pages.SelectPages([ThirdPage]);
 
         _ = await pages.MoveEarlierCommand.Execute().ToTask();
@@ -171,7 +171,7 @@ public sealed class PageManagementViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("mutation.pdf", InitialPages)]);
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
-        using var pages = new PageManagementViewModel(tab);
+        var pages = tab.Pages;
         var import = test.CreateDocument("import.pdf", ImportedPages);
         using var insert = pages.InsertInteraction.RegisterHandler(context => context.SetOutput([import]));
         using var merge = pages.MergeFilesInteraction.RegisterHandler(context => context.SetOutput([import]));
@@ -208,7 +208,7 @@ public sealed class PageManagementViewModelTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("file-pages.pdf", TwoPages)]);
         var tab = main.SelectedTab!;
-        using var pages = new PageManagementViewModel(tab);
+        var pages = tab.Pages;
         var source = test.CreateDocument("source-pages.pdf", 1);
         using var insert = pages.InsertInteraction.RegisterHandler(context => context.SetOutput([source]));
 

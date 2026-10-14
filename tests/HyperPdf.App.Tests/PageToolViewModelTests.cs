@@ -67,21 +67,4 @@ public sealed class PageToolViewModelTests
         await Assert.That(on).IsTrue();
         await Assert.That(tab.PageTools.IsAutoScrolling).IsFalse();
     }
-
-    /// <summary>Verifies Select All asks the view to select the current page's text.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task SelectAllAsksTheView()
-    {
-        using var test = new TestServices();
-        using var main = new MainViewModel(test.Services);
-        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("select.pdf", 1)]);
-        var tab = main.SelectedTab!;
-        var requests = 0;
-        using var watch = tab.PageTools.SelectAllRequests.SubscribeSafe(_ => requests++, static _ => { });
-
-        _ = await tab.PageTools.SelectAllCommand.Execute().ToTask();
-
-        await Assert.That(requests).IsEqualTo(1);
-    }
 }

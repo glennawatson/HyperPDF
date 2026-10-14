@@ -28,34 +28,40 @@ internal static class TabStripMixins
         /// <summary>Gets the tab being dragged: a left press on a tab starts one and any release ends it.</summary>
         internal IObservable<TabDrag?> TabDrags => Signal.Merge(
             strip.ItemPresses
-                .Where(press => press.GetCurrentPoint(strip).Properties.IsLeftButtonPressed)
-                .Select(press => TabAt(strip, press.GetPosition(strip)) is { } tab ? new TabDrag(tab, press.GetPosition(strip)) : null),
+                .WhereWith(strip, static (list, press) => press.GetCurrentPoint(list).Properties.IsLeftButtonPressed)
+                .SelectWith(strip, static (list, press) => TabAt(list, press.GetPosition(list)) is { } tab ? new TabDrag(tab, press.GetPosition(list)) : null),
             strip.PointerReleases.Select(static _ => (TabDrag?)null));
 
         /// <summary>Gets the moves of a dragged tab onto the place of the tab under the pointer.</summary>
         internal IObservable<TabReorder> TabReorders => strip.PointerMoves
             .WithLatestFrom(strip.TabDrags, static (move, drag) => new TabMove(move, drag))
-            .Pick(move =>
-            {
-                var position = move.Move.GetPosition(strip);
-                return move.Drag is { } drag && Math.Abs(position.X - drag.Start.X) >= DragThreshold && TabAt(strip, position) is { } target && target != drag.Tab
-                    ? new TabReorder(drag, target, position)
-                    : default(TabReorder?);
-            })
+            .SelectWith(
+                strip,
+                static (list, move) =>
+                {
+                    var position = move.Move.GetPosition(list);
+                    return move.Drag is { } drag && Math.Abs(position.X - drag.Start.X) >= DragThreshold && TabAt(list, position) is { } target && target != drag.Tab
+                        ? new TabReorder(drag, target, position)
+                        : default(TabReorder?);
+                })
+            .KeepValues
             .Do(static reorder => reorder.Drag.Start = reorder.Position);
 
         /// <summary>Gets the tabs closed by a middle click, which the strip marks handled.</summary>
         internal IObservable<DocumentTabViewModel> TabMiddleClicks => strip.ItemPresses
-            .Where(press => press.GetCurrentPoint(strip).Properties.IsMiddleButtonPressed)
+            .WhereWith(strip, static (list, press) => press.GetCurrentPoint(list).Properties.IsMiddleButtonPressed)
             .MarkHandled()
             .SourceItems<DocumentTabViewModel>();
 
         /// <summary>Gets the sideways scrolls the wheel makes, which the strip marks handled.</summary>
         internal IObservable<TabScroll> TabScrolls => strip.PointerWheels
             .MarkHandled()
-            .Pick(wheel => strip.FindDescendantOfType<ScrollViewer>() is { } scroller
-                ? new TabScroll(scroller, new(Math.Max(0, scroller.Offset.X - ((wheel.Delta.Y + wheel.Delta.X) * WheelStep)), scroller.Offset.Y))
-                : default(TabScroll?));
+            .SelectWith(
+                strip,
+                static (list, wheel) => list.FindDescendantOfType<ScrollViewer>() is { } scroller
+                    ? new TabScroll(scroller, new(Math.Max(0, scroller.Offset.X - ((wheel.Delta.Y + wheel.Delta.X) * WheelStep)), scroller.Offset.Y))
+                    : default(TabScroll?))
+            .KeepValues;
 
         /// <summary>Gets the tabs whose hover preview is about to open.</summary>
         internal IObservable<DocumentTabViewModel> TabPreviewOpenings => strip.ToolTipOpenings.SourceItems<DocumentTabViewModel>();

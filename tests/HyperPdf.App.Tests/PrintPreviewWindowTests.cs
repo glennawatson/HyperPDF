@@ -56,8 +56,8 @@ public sealed class PrintPreviewWindowTests
         try
         {
             await Assert.That(await UiWait.UntilAsync(() => preview.Destination == PrintDestination.Printer)).IsTrue();
-            var binding = window.FindControl<ComboBox>("BindingBox")!;
-            var sides = window.FindControl<CheckBox>("TwoSidedBox")!;
+            var binding = window.FindNamed<ComboBox>("BindingBox");
+            var sides = window.FindNamed<CheckBox>("TwoSidedBox");
             await Assert.That(binding.IsEffectivelyVisible).IsTrue();
             await Assert.That(binding.IsEnabled).IsFalse();
             sides.IsChecked = true;
@@ -90,15 +90,15 @@ public sealed class PrintPreviewWindowTests
         try
         {
             await Assert.That(await UiWait.UntilAsync(() => preview.Destination == PrintDestination.Printer && preview.IsValid && !preview.IsBuilding)).IsTrue();
-            var scaling = window.FindControl<ComboBox>("ScalingBox")!;
-            var percent = window.FindControl<NumericUpDown>("ScalePercentBox")!;
+            var scaling = window.FindNamed<ComboBox>("ScalingBox");
+            var percent = window.FindNamed<NumericUpDown>("ScalePercentBox");
             await Assert.That(scaling.IsEffectivelyVisible).IsTrue();
             await Assert.That(percent.IsEffectivelyVisible).IsFalse();
             scaling.SelectedIndex = (int)PrintScaling.Custom;
             percent.Value = CustomPercent;
             await Assert.That(await UiWait.UntilAsync(() => percent.IsEffectivelyVisible && preview.CurrentLayout().ScalePercent == CustomPercent)).IsTrue();
             await Assert.That(preview.CurrentLayout().Scaling).IsEqualTo(PrintScaling.Custom);
-            window.FindControl<ComboBox>("PaperBox")!.SelectedIndex = (int)PaperSize.Tabloid;
+            window.FindNamed<ComboBox>("PaperBox").SelectedIndex = (int)PaperSize.Tabloid;
             await Assert.That(await UiWait.UntilAsync(() => preview.CurrentLayout().Paper == PaperSize.Tabloid && preview.IsValid && !preview.IsBuilding)).IsTrue();
             preview.LayoutIndex = 1;
             await Assert.That(await UiWait.UntilAsync(() => !scaling.IsEffectivelyVisible && !percent.IsEffectivelyVisible)).IsTrue();

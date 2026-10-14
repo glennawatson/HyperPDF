@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.ActionBarView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (ActionBarView.axaml.cs). -->
+  <WrapPanel Orientation="Horizontal">
+    <Button AutomationProperties.Name="Save" x:Name="SaveButton" views:ControlHelp.Text="{x:Static views:Descriptions.Save}" Classes="tool">
+      <StackPanel Orientation="Horizontal">
+        <Path Classes="icon add" Data="{StaticResource IconSave}" />
+        <TextBlock Classes="label" Text="Save" />
+      </StackPanel>
+    </Button>
+    <Button AutomationProperties.Name="Print" x:Name="PrintItem" views:ControlHelp.Text="{x:Static views:Descriptions.Print}" Classes="tool">
+      <StackPanel Orientation="Horizontal">
+        <Path Classes="icon nav" Data="{StaticResource IconPrint}" />
+        <TextBlock Classes="label" Text="Print" />
+      </StackPanel>
+    </Button>
+    <ToggleButton AutomationProperties.Name="Annotate" x:Name="AnnotateToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Annotate}" Classes="tool">
+      <StackPanel Orientation="Horizontal">
+        <Path Classes="icon edit" Data="{StaticResource IconHighlight}" />
+        <TextBlock Classes="label" Text="Annotate" />
+      </StackPanel>
+    </ToggleButton>
+    <ToggleButton AutomationProperties.Name="Fill &amp; Sign" x:Name="FillSignToggle" views:ControlHelp.Text="{x:Static views:Descriptions.FillSign}" Classes="tool">
+      <StackPanel Orientation="Horizontal">
+        <Path Classes="icon edit" Data="{StaticResource IconFillSign}" />
+        <TextBlock Classes="label" Text="Fill &amp; Sign" />
+      </StackPanel>
+    </ToggleButton>
+    <Rectangle Classes="separator" />
+    <ToggleButton AutomationProperties.Name="Find" x:Name="FindToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Find}" Classes="tool">
+      <StackPanel Orientation="Horizontal">
+        <Path Classes="icon nav" Data="{StaticResource IconSearch}" />
+        <TextBlock Classes="label" Text="Find" />
+      </StackPanel>
+    </ToggleButton>
+    <ToggleButton AutomationProperties.Name="Focus" x:Name="FocusToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Focus}" Classes="tool">
+      <StackPanel Orientation="Horizontal">
+        <Path Classes="icon nav" Data="{StaticResource IconFocus}" />
+        <TextBlock Classes="label" Text="Focus" />
+      </StackPanel>
+    </ToggleButton>
+    <ToggleButton AutomationProperties.Name="Read Aloud" x:Name="ReadAloudToggle" views:ControlHelp.Text="{x:Static views:Descriptions.ReadAloud}" Classes="tool">
+      <StackPanel Orientation="Horizontal">
+        <Path Classes="icon nav" Data="{StaticResource IconSpeaker}" />
+        <TextBlock Classes="label" Text="Read Aloud" />
+      </StackPanel>
+    </ToggleButton>
+    <views:ViewMenuView />
+    <views:DocumentMenuView x:Name="DocumentMenu" />
+    <Button x:Name="ToolsMenuButton" views:ControlHelp.Text="{x:Static views:Descriptions.ToolsMenu}" AutomationProperties.Name="Tools" Classes="tool" Content="Tools ▾">
+      <Button.Flyout>
+        <MenuFlyout Placement="BottomEdgeAlignedRight">
+          <MenuItem x:Name="MeasureItem" views:ControlHelp.Text="{x:Static views:Descriptions.Measure}" Header="_Measure" InputGesture="Ctrl+Shift+M" />
+          <MenuItem x:Name="SnapshotToolItem" views:ControlHelp.Text="{x:Static views:Descriptions.SnapshotTool}" Header="_Snapshot" ToggleType="CheckBox" />
+          <MenuItem x:Name="RecognizeTextItem" views:ControlHelp.Text="{x:Static views:Descriptions.RecognizeText}" Header="Recognise _Text" />
+          <MenuItem x:Name="RecognizeLanguageItem" views:ControlHelp.Text="{x:Static views:Descriptions.RecognizeTextInLanguage}" Header="Recognise Text in Another _Language…" />
+        </MenuFlyout>
+      </Button.Flyout>
+    </Button>
+  </WrapPanel>
+</UserControl>

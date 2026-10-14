@@ -8,6 +8,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Media;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Signatures;
 using ReactiveUI;
@@ -41,7 +42,7 @@ public sealed partial class SignaturesWindow : ReactiveUI.Avalonia.ReactiveWindo
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
-                .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(_ => Close(), ErrorTrace.Write));
             _ = CloseButton.Focus();
         });
     }

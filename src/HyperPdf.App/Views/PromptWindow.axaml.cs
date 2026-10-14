@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using Avalonia.Media;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -42,7 +43,7 @@ public sealed partial class PromptWindow : ReactiveUI.Avalonia.ReactiveWindow<Pr
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Answered)
                 .SwitchMap(static answered => answered)
-                .SubscribeSafe(Close, static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(Close, ErrorTrace.Write));
 
             _ = InputBox.Focus();
             InputBox.SelectAll();

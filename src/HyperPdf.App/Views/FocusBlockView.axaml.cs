@@ -3,11 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Windows.Input;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Media;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Reading;
 using ReactiveUI;
@@ -21,6 +24,9 @@ namespace HyperPdf.App.Views;
 [DebuggerDisplay("FocusBlockView: {ViewModel}")]
 public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserControl<FocusBlockViewModel>
 {
+    /// <summary>Defines the <see cref="FocusMode"/> property.</summary>
+    public static readonly StyledProperty<FocusModeViewModel?> FocusModeProperty = AvaloniaProperty.Register<FocusBlockView, FocusModeViewModel?>(nameof(FocusMode));
+
     /// <summary>The opacity of text dimmed by the focus band.</summary>
     private const double DimmedOpacity = 0.4;
 
@@ -33,26 +39,30 @@ public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserCon
         InitializeComponent();
         _ = this.WhenActivated(disposables =>
         {
-            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(ShowBlock, OnError));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(ShowBlock, ErrorTrace.Write));
 
             // The sentence being read is marked with a theme brush, so the marks follow a change of resources.
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Spoken, static v => v.ViewModel!.Word, static (_, _) => RxVoid.Default)
                 .Merge(this.Events().ResourcesChanged.AsVoid)
-                .SubscribeSafe(_ => ShowMarks(), OnError));
+                .SubscribeSafe(_ => ShowMarks(), ErrorTrace.Write));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsDimmed, static v => v.Opacity, static dimmed => dimmed ? DimmedOpacity : 1));
-            disposables.Add(this.ContextRequests
-                .Where(_ => FocusMode is not null)
-                .MarkHandled()
-                .InjectLatest(this.WhenChanged(static v => v.ViewModel))
-                .SubscribeSafe(
-                    block => new ContextMenu { ItemsSource = new[] { new MenuItem { Header = "_Read Aloud from Here", Command = FocusMode?.ReadFromHereCommand, CommandParameter = block } } }
-                        .Open(this),
-                    OnError));
+
+            // The block's menu reads aloud from this block, through the Focus Mode that shows it.
+            disposables.Add(this.WhenChanged(static v => v.FocusMode)
+                .Select(static focus => (ICommand?)focus?.ReadFromHereCommand)
+                .BindTo(ReadFromHereItem, static item => item.Command));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel)
+                .Select(static block => (object?)block)
+                .BindTo(ReadFromHereItem, static item => item.CommandParameter));
         });
     }
 
     /// <summary>Gets or sets Focus Mode, which reads aloud from a block chosen in its menu.</summary>
-    public FocusModeViewModel? FocusMode { get; set; }
+    public FocusModeViewModel? FocusMode
+    {
+        get => GetValue(FocusModeProperty);
+        set => SetValue(FocusModeProperty, value);
+    }
 
     /// <summary>Gets the block's text control, for tests and place keeping.</summary>
     internal TextBlock BodyText => Body;
@@ -96,11 +106,6 @@ public sealed partial class FocusBlockView : ReactiveUI.Avalonia.ReactiveUserCon
     /// <param name="position">The position.</param>
     /// <returns><see langword="true"/> inside.</returns>
     private static bool Inside(TextRange range, int position) => !range.IsEmpty && position >= range.Start && position < range.End;
-
-    /// <summary>Reports a binding failure.</summary>
-    /// <param name="error">The error.</param>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Shows a block's kind and text.</summary>
     /// <param name="block">The block.</param>

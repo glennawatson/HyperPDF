@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.NoticeBarsView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (NoticeBarsView.axaml.cs). -->
+  <StackPanel>
+    <!-- Says once, calmly, what this document holds that cannot be shown or run, instead of silently showing fallback pages. -->
+    <Border x:Name="ContentWarningBar" Classes="toolbar">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock x:Name="ContentWarningText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
+        <Button Grid.Column="1" x:Name="DismissContentWarningButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissContentWarning}" Content="Dismiss" />
+      </Grid>
+    </Border>
+
+    <!-- Says plainly when an encrypted document's integrity protection (PDF MAC) failed, is missing or could not be checked. -->
+    <Border x:Name="IntegrityNoticeBar" Classes="toolbar">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock x:Name="IntegrityNoticeText" AutomationProperties.LiveSetting="Assertive" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
+        <Button Grid.Column="1" x:Name="DismissIntegrityNoticeButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissIntegrityNotice}" Content="Dismiss" />
+      </Grid>
+    </Border>
+
+    <!-- Says once, calmly, that the file was damaged and repaired to show it; the list of repairs is shown on request. -->
+    <Border x:Name="RepairNoticeBar" Classes="toolbar">
+      <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto">
+        <TextBlock x:Name="RepairNoticeText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
+        <Button Grid.Column="1" x:Name="ToggleRepairDetailsButton" views:ControlHelp.Text="{x:Static views:Descriptions.ToggleRepairDetails}" Content="Details" />
+        <Button Grid.Column="2" x:Name="DismissRepairNoticeButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissRepairNotice}" Content="Dismiss" />
+        <TextBlock Grid.Row="1" Grid.ColumnSpan="3" x:Name="RepairDetailsText" VerticalAlignment="Center" Margin="6,4" TextWrapping="Wrap" />
+      </Grid>
+    </Border>
+
+    <!-- Says once, calmly, which features the file declares it needs that HyperPDF cannot provide; the list is shown on request. -->
+    <Border x:Name="RequirementNoticeBar" Classes="toolbar">
+      <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto">
+        <TextBlock x:Name="RequirementNoticeText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
+        <Button Grid.Column="1" x:Name="ToggleRequirementDetailsButton" views:ControlHelp.Text="{x:Static views:Descriptions.ToggleRequirementDetails}" Content="Details" />
+        <Button Grid.Column="2" x:Name="DismissRequirementNoticeButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissRequirementNotice}" Content="Dismiss" />
+        <TextBlock Grid.Row="1" Grid.ColumnSpan="3" x:Name="RequirementDetailsText" VerticalAlignment="Center" Margin="6,4" TextWrapping="Wrap" />
+      </Grid>
+    </Border>
+
+    <!-- A message that waits until dismissed, for example a failed save. -->
+    <Border x:Name="NoticeBar" Classes="toolbar">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock x:Name="NoticeText" AutomationProperties.LiveSetting="Assertive" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
+        <Button Grid.Column="1" x:Name="DismissNoticeButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissMessage}" Content="Dismiss" />
+      </Grid>
+    </Border>
+
+    <!-- Shown when the user chose to be asked before reloading a changed file, or has unsaved edits. -->
+    <Border x:Name="ReloadBar" Classes="toolbar">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock x:Name="ReloadText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" Text="This PDF changed on disk. Reload it?" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+          <Button x:Name="ReloadButton" views:ControlHelp.Text="{x:Static views:Descriptions.ReloadChanged}" Content="Reload" />
+          <Button x:Name="DismissReloadButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissReload}" Content="Dismiss" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -136,6 +136,19 @@ internal static class EventOperatorMixins
             source.WhereWith(area, static (watched, _) => !(TopLevel.GetTopLevel(watched)?.FocusManager?.GetFocusedElement() is Visual focused && watched.IsVisualAncestorOf(focused)));
 
         /// <summary>
+        /// Keeps the values seen while the keyboard focus is inside an area or on a control that is no longer shown, which is the
+        /// case when the area is about to be hidden, so the focus can be moved before it is lost.
+        /// </summary>
+        /// <param name="area">The area.</param>
+        /// <returns>The values seen while the area holds the focus.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal IObservable<T> WhileFocusInside(Visual area) =>
+            source.WhereWith(
+                area,
+                static (watched, _) => TopLevel.GetTopLevel(watched)?.FocusManager?.GetFocusedElement() is Visual focused
+                    && (watched.IsVisualAncestorOf(focused) || focused is InputElement { IsEffectivelyVisible: false }));
+
+        /// <summary>
         /// Runs an async handler for each value, and cancels the handler still running for the previous value when the
         /// next one arrives, so a slow older request can never finish after and override a newer one.
         /// </summary>

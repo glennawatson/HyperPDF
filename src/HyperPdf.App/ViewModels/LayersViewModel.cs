@@ -4,6 +4,8 @@
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -24,10 +26,7 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
 
-    /// <summary>Follows each listed layer's check box; replaced when the tree is refilled.</summary>
-    private readonly SingleReplaceableDisposable _itemChanges = new();
-
-    /// <summary>Follows the configuration choice for the view model's lifetime.</summary>
+    /// <summary>Follows the configuration choice and the listed layers' check boxes for the view model's lifetime.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
     /// <summary>The listed layers by id, to bring their check boxes in step with the document.</summary>
@@ -45,11 +44,27 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
     {
         _owner = owner;
 
-        // The first value is the unselected state before the document is read.
+        // The first value is the unselected state before the document is read. A choice made while the tree is rebuilt
+        // comes from the rebuild, not the reader. The filter reads the view model's own state: a constructor cannot hand
+        // 'this' to a state-passing operator.
         _subscriptions.Add(this.WhenChanged(static x => x.SelectedConfigurationIndex)
             .Skip(1)
-            .SubscribeSafe(OnConfigurationChosen, static error => Trace.TraceError(error.ToString())));
+            .Where(position => !_updating && (uint)position < (uint)_configurationIds.Count)
+            .SubscribeSafe(UseConfiguration, ErrorTrace.Write));
+
+        // A file whose layer list follows the visible pages lists its layers again for each page.
+        _subscriptions.Add(owner.WhenChanged(static tab => tab.CurrentPageIndex)
+            .Skip(1)
+            .WhereWith(owner, static (tab, _) => DocumentFeature<ILayerSource>.Get(tab.TryGetDocument()) is { ListMode: DocumentLayerListMode.VisiblePages })
+            .SubscribeSafe(_ => Refresh(), ErrorTrace.Write));
+
+        // Refilling the tree replaces the subscriptions to the old entries' check boxes.
+        _subscriptions.Add(this.WhenChanged(static x => x.ItemChanges).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
     }
+
+    /// <summary>Gets the latest change to what the pages show, after layers were shown or hidden; the tab redraws every page.</summary>
+    [Reactive]
+    public partial PageChange LastPageChange { get; private set; }
 
     /// <summary>Gets the top-level entries of the layers tree.</summary>
     public ObservableCollection<LayerItemViewModel> Items { get; } = [];
@@ -68,6 +83,10 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
     /// <summary>Gets or sets the position in <see cref="ConfigurationNames"/> of the configuration in use; -1 for none.</summary>
     [Reactive]
     public partial int SelectedConfigurationIndex { get; set; }
+
+    /// <summary>Gets or sets the subscriptions to the listed layers' check boxes.</summary>
+    [Reactive]
+    private partial MultipleDisposable? ItemChanges { get; set; }
 
     /// <summary>Lists the document's layers; called when the document loads.</summary>
     public void Refresh()
@@ -88,21 +107,9 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
         }
     }
 
-    /// <summary>Lists the layers of the visible page again, for a file whose layer list follows the visible pages.</summary>
-    public void OnPageChanged()
-    {
-        if (DocumentFeature<ILayerSource>.Get(_owner.TryGetDocument()) is { ListMode: DocumentLayerListMode.VisiblePages })
-        {
-            Refresh();
-        }
-    }
-
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _subscriptions.Dispose();
-        _itemChanges.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Builds the entries of a level of the tree.</summary>
     /// <param name="nodes">The file's entries.</param>
@@ -151,7 +158,7 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
             }
         }
 
-        _itemChanges.Create(itemChanges);
+        ItemChanges = itemChanges;
         HasLayers = layers.Count > 0;
         FillConfigurations(source);
     }
@@ -176,20 +183,15 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
 
     /// <summary>Makes the chosen configuration the one in use and lists the layers again.</summary>
     /// <param name="position">The position in <see cref="ConfigurationNames"/>.</param>
-    private void OnConfigurationChosen(int position)
+    private void UseConfiguration(int position)
     {
-        if (_updating || (uint)position >= (uint)_configurationIds.Count)
-        {
-            return;
-        }
-
         if (DocumentFeature<ILayerSource>.Get(_owner.TryGetDocument()) is not { } source || !source.SelectConfiguration(_configurationIds[position]))
         {
             return;
         }
 
         Refresh();
-        _owner.OnLayersChanged();
+        LastPageChange = LastPageChange.Next(PageChange.AllPages);
     }
 
     /// <summary>Follows an entry's check box and those of its sublayers.</summary>
@@ -204,7 +206,7 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
             // The first value is the layer's current state, which the document already has.
             itemChanges.Add(item.WhenChanged(static x => x.IsVisible)
                 .Skip(1)
-                .SubscribeSafe(visible => SetVisible(item, visible), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(visible => SetVisible(item, visible), ErrorTrace.Write));
         }
 
         foreach (var child in item.Children)
@@ -227,7 +229,7 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
         Synchronize(source);
         if (changed)
         {
-            _owner.OnLayersChanged();
+            LastPageChange = LastPageChange.Next(PageChange.AllPages);
         }
     }
 
@@ -262,6 +264,6 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
         }
 
         Synchronize(source);
-        _owner.OnLayersChanged();
+        LastPageChange = LastPageChange.Next(PageChange.AllPages);
     }
 }

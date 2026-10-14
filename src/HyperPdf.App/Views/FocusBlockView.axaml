@@ -2,5 +2,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="HyperPdf.App.Views.FocusBlockView">
   <!-- Sizes, spacing, colours and typeface come from Focus Mode's settings as resources (FocusView.axaml.cs). -->
+  <UserControl.ContextMenu>
+    <ContextMenu>
+      <MenuItem x:Name="ReadFromHereItem" Header="_Read Aloud from Here" />
+    </ContextMenu>
+  </UserControl.ContextMenu>
   <TextBlock x:Name="Body" Classes="focus" TextWrapping="Wrap" />
 </UserControl>

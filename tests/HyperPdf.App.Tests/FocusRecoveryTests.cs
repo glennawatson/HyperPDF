@@ -277,19 +277,19 @@ public sealed class FocusRecoveryTests
         const int repetitions = 1000;
         var (window, box) = ShowTextBox();
         using var repair = new FocusAnnouncementRepair(HyperPdf.Core.Platform.NoFocusAnnouncementCheck.Instance, () => [window]);
-        var focus = ((object)box, (Avalonia.Interactivity.RoutedEventArgs)new FocusChangedEventArgs(InputElement.GotFocusEvent) { NewFocusedElement = box });
+        var focus = new FocusArrival(box, new FocusChangedEventArgs(InputElement.GotFocusEvent) { NewFocusedElement = box });
         try
         {
             for (var i = 0; i < repetitions; i++)
             {
-                repair.OnGotFocus(focus);
+                _ = repair.ReadFocusChange(focus);
             }
 
             var allocated = AllocationProbe.Minimum(() =>
             {
                 for (var i = 0; i < repetitions; i++)
                 {
-                    repair.OnGotFocus(focus);
+                    _ = repair.ReadFocusChange(focus);
                 }
             });
 

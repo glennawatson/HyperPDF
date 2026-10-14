@@ -449,7 +449,7 @@ public sealed partial class PageCanvas
         };
         return
         [
-            Item("_Copy", "Ctrl+C", tab.CopyTextCommand, GetSelectedText(), true),
+            Item("_Copy", "Ctrl+C", _copyCommand, GetSelectedText(), true),
             Item("_Read Aloud from Here", null, tab.ReadAloud.ReadFromCharacterCommand, readFrom, true),
             new Separator(),
             highlight,

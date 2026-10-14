@@ -93,20 +93,6 @@ public sealed partial class PageCanvas
         }
     }
 
-    /// <summary>Shows the caret when caret mode starts, and gives the canvas the keyboard.</summary>
-    /// <param name="tab">The tab.</param>
-    /// <param name="on">Whether caret mode is on.</param>
-    private void OnCaretModeChanged(DocumentTabViewModel tab, bool on)
-    {
-        if (on)
-        {
-            StartCaret(tab);
-            _ = Focus();
-        }
-
-        InvalidateVisual();
-    }
-
     /// <summary>Handles the arrow keys in caret mode.</summary>
     /// <param name="e">The key event.</param>
     /// <returns><see langword="true"/> when handled.</returns>

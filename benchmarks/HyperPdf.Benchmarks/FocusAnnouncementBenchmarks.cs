@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input;
 using BenchmarkDotNet.Attributes;
+using HyperPdf.App.Controls;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Platform;
 using HyperPdf.Platform.Linux.Accessibility;
@@ -25,7 +26,7 @@ public class FocusAnnouncementBenchmarks
     private FocusAnnouncementRepair? _repair;
 
     /// <summary>The focused control's event.</summary>
-    private (object Sender, Avalonia.Interactivity.RoutedEventArgs Args) _focus;
+    private FocusArrival _focus;
 
     /// <summary>Gets or sets a value indicating whether a screen reader is listening.</summary>
     [Params(false, true)]
@@ -37,16 +38,17 @@ public class FocusAnnouncementBenchmarks
     {
         _repair = new(ScreenReader ? new ListeningCheck() : NoFocusAnnouncementCheck.Instance, static () => []);
         var button = new Button();
-        _focus = (button, new FocusChangedEventArgs(InputElement.GotFocusEvent) { NewFocusedElement = button });
+        _focus = new(button, new FocusChangedEventArgs(InputElement.GotFocusEvent) { NewFocusedElement = button });
     }
 
     /// <summary>Releases the repair.</summary>
     [GlobalCleanup]
     public void Cleanup() => _repair?.Dispose();
 
-    /// <summary>Handles one focus change up to the point a check would start.</summary>
+    /// <summary>Reads one focus change up to the point a check would start.</summary>
+    /// <returns>The change to check, or <see langword="null"/> when no screen reader listens.</returns>
     [Benchmark]
-    public void FocusChange() => _repair!.OnGotFocus(_focus);
+    public object? FocusChange() => _repair!.ReadFocusChange(_focus);
 
     /// <summary>Classifies one registry registration, as each screen reader registration is.</summary>
     /// <returns>Whether the registration makes the bridge send object events.</returns>

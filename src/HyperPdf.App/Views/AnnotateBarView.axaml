@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.AnnotateBarView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotateBarView.axaml.cs). -->
+  <!-- Annotate tools: shown only while annotating. Each tool has its name beside its icon. -->
+  <Border x:Name="AnnotateBar" Classes="toolbar subbar" AutomationProperties.Name="Annotate tools" AutomationProperties.ControlTypeOverride="ToolBar">
+    <Grid ColumnDefinitions="*,Auto">
+      <WrapPanel Orientation="Horizontal">
+        <ToggleButton AutomationProperties.Name="Select" x:Name="SelectTool" views:ControlHelp.Text="{x:Static views:Descriptions.SelectTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconCursor}" />
+            <TextBlock Classes="label" Text="Select" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Highlight" x:Name="HighlightTool" views:ControlHelp.Text="{x:Static views:Descriptions.HighlightTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconHighlight}" />
+            <TextBlock Classes="label" Text="Highlight" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Underline" x:Name="UnderlineTool" views:ControlHelp.Text="{x:Static views:Descriptions.UnderlineTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconUnderline}" />
+            <TextBlock Classes="label" Text="Underline" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Strike" x:Name="StrikeOutTool" views:ControlHelp.Text="{x:Static views:Descriptions.StrikeTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconStrike}" />
+            <TextBlock Classes="label" Text="Strike" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Draw" x:Name="DrawTool" views:ControlHelp.Text="{x:Static views:Descriptions.DrawTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconDraw}" />
+            <TextBlock Classes="label" Text="Draw" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Note" x:Name="NoteTool" views:ControlHelp.Text="{x:Static views:Descriptions.NoteTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon add" Data="{StaticResource IconNote}" />
+            <TextBlock Classes="label" Text="Note" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Text" x:Name="TextTool" views:ControlHelp.Text="{x:Static views:Descriptions.TextTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon add" Data="{StaticResource IconText}" />
+            <TextBlock Classes="label" Text="Text" />
+          </StackPanel>
+        </ToggleButton>
+        <views:AnnotateShapeButtonView />
+        <views:AnnotateStampButtonView />
+        <Rectangle Classes="separator" />
+        <views:AnnotationStyleView />
+      </WrapPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal">
+        <Button AutomationProperties.Name="Undo" x:Name="UndoButton" views:ControlHelp.Text="{x:Static views:Descriptions.Undo}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconUndo}" />
+            <TextBlock Classes="label" Text="Undo" />
+          </StackPanel>
+        </Button>
+        <Button AutomationProperties.Name="Redo" x:Name="RedoButton" views:ControlHelp.Text="{x:Static views:Descriptions.Redo}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconRedo}" />
+            <TextBlock Classes="label" Text="Redo" />
+          </StackPanel>
+        </Button>
+        <Button AutomationProperties.Name="Done" x:Name="AnnotateDoneButton" views:ControlHelp.Text="{x:Static views:Descriptions.AnnotateDone}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconDone}" />
+            <TextBlock Classes="label" Text="Done" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

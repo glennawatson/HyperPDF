@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -38,7 +39,9 @@ public sealed partial class FocusPageView : ReactiveUI.Avalonia.ReactiveUserCont
             this.FindAncestorOfType<ScrollViewer>()?.RegisterAnchorCandidate(this);
 
             // The page is a plain, fully realised list item, so its text loads only once it is near the view.
-            disposables.Add(this.Events().EffectiveViewportChanged.Nearing(this).SubscribeSafe(change => _ = ViewModel?.LoadAsync(), static error => Trace.TraceError(error.ToString())));
+            disposables.Add(this.Events().EffectiveViewportChanged.Nearing(this)
+                .InjectLatest(this.WhenChanged(static v => v.ViewModel))
+                .SubscribeSafe(static page => _ = page.LoadAsync(), ErrorTrace.Write));
         });
     }
 

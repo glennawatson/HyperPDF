@@ -10,6 +10,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -34,8 +35,8 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
     /// <summary>Language codes in the settings that the catalogue does not offer, kept so they are not lost.</summary>
     private readonly List<string> _otherCodes = [];
 
-    /// <summary>Stops the download in progress.</summary>
-    private CancellationTokenSource? _download;
+    /// <summary>Stops the download in progress, or <see langword="null"/> when none runs; the download owns its cancellation source.</summary>
+    private Action? _stopDownload;
 
     /// <summary>Initializes a new instance of the <see cref="OcrLanguagesViewModel"/> class.</summary>
     /// <param name="services">The application services.</param>
@@ -57,6 +58,9 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
                 + $"and are kept on this computer in {services.Ocr.LanguageDirectory}. Recognised text never leaves this computer."
             : OcrSetup.EngineUnavailableText;
         _isDownloading = this.WhenChanged(static vm => vm.IsDownloading);
+
+        // Closing the window stops a download in progress.
+        _subscriptions.Add(Scope.Create(StopDownload));
     }
 
     /// <summary>Gets every language offered, English first, created when first read.</summary>
@@ -81,12 +85,8 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
     public partial string StatusText { get; private set; } = string.Empty;
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _download?.Cancel();
-        _download?.Dispose();
-        _subscriptions.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Describes packs for people, for example "English and German".</summary>
     /// <param name="packs">The packs.</param>
@@ -118,7 +118,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
         }
 
         using var download = new CancellationTokenSource();
-        _download = download;
+        _stopDownload = download.Cancel;
         IsDownloading = true;
         DownloadProgress = 0;
         Refresh();
@@ -151,7 +151,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
         }
         finally
         {
-            _download = null;
+            _stopDownload = null;
             IsDownloading = false;
             Refresh();
         }
@@ -178,11 +178,6 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
         Refresh();
     }
 
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
-
     /// <summary>Describes where a language's data is.</summary>
     /// <param name="downloaded">Whether its pack is downloaded.</param>
     /// <param name="bundled">Whether its data ships with the app.</param>
@@ -207,7 +202,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
     /// <summary>Stops the download in progress, keeping packs already finished.</summary>
     [ReactiveCommand(CanExecute = nameof(_isDownloading))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void StopDownload() => _download?.Cancel();
+    private void StopDownload() => _stopDownload?.Invoke();
 
     /// <summary>Creates a row for each language offered, ticking the chosen ones, and follows each tick box.</summary>
     /// <returns>The rows.</returns>
@@ -222,12 +217,10 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
         }
 
         Refresh(items);
-        foreach (var item in items)
-        {
-            // A tick or untick writes the chosen languages to the settings; the callback calls an instance member.
-            _subscriptions.Add(item.WhenChanged(static row => row.IsSelected).Skip(1).SubscribeSafe(_ => SaveSelection(), OnError));
-        }
 
+        // A tick or untick on any row writes the chosen languages to the settings.
+        _subscriptions.Add(Signal.Merge(Array.ConvertAll(items, static item => item.WhenChanged(static row => row.IsSelected).Skip(1)))
+            .SubscribeSafe(_ => SaveSelection(), ErrorTrace.Write));
         return items;
     }
 

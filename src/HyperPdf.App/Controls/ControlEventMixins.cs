@@ -67,6 +67,9 @@ internal static class ControlEventMixins
         /// <summary>Gets the moments the element or a child loses focus.</summary>
         internal IObservable<RoutedEventArgs> LostFocuses => element.Events().LostFocus;
 
+        /// <summary>Gets the moments the element or a child takes focus.</summary>
+        internal IObservable<FocusChangedEventArgs> GotFocuses => element.Events().GotFocus;
+
         /// <summary>Gets the requests for a context menu.</summary>
         internal IObservable<ContextRequestedEventArgs> ContextRequests => element.Events().ContextRequested;
 
@@ -137,6 +140,14 @@ internal static class ControlEventMixins
                 list.ContainersPrepared.Select(static prepared => prepared.Container))
             .OfType<TemplatedControl>()
             .SelectMany(container => container.TemplatePointerPresses.TakeUntil(list.ContainersClearing.Where(cleared => ReferenceEquals(cleared.Container, container))));
+    }
+
+    /// <summary>Adds the click stream of a menu item.</summary>
+    /// <param name="item">The menu item.</param>
+    extension(MenuItem item)
+    {
+        /// <summary>Gets the clicks, from the pointer, the keyboard or the item's access key.</summary>
+        internal IObservable<RoutedEventArgs> Clicks => item.Events().Click;
     }
 
     /// <summary>Adds the scroll stream of a scroll bar.</summary>

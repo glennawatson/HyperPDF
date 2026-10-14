@@ -10,14 +10,11 @@ using HyperPdf.Core.Platform;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Tabs;
-using HyperPdf.Core.Theming;
 using HyperPdf.Http.Remote;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -41,17 +38,14 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     /// <summary>Recently closed tabs, most recent last; tabs closed together form one group and reopen together.</summary>
     private readonly List<SessionTab[]> _closedTabs = [];
 
-    /// <summary>Emits when the tab finder should open.</summary>
-    private readonly Signal<RxVoid> _tabFinderRequests = new();
+    /// <summary>
+    /// Owns everything the view model holds: the download token, the subscriptions that follow the services, and
+    /// finally the tabs. It releases them in the order they were added.
+    /// </summary>
+    private readonly MultipleDisposable _subscriptions = [];
 
-    /// <summary>Subscriptions following the theme, open requests and applied settings.</summary>
-    private readonly MultipleDisposable _subscriptions;
-
-    /// <summary>Cancels downloads that are still running when the window's view model is disposed.</summary>
-    private readonly CancellationTokenSource _lifetime = new();
-
-    /// <summary>Whether the view model was disposed: 1 once it was.</summary>
-    private int _disposed;
+    /// <summary>Cancelled when the window's view model is disposed, which stops downloads still running; its source is owned by <see cref="_subscriptions"/>.</summary>
+    private readonly CancellationToken _lifetime;
 
     /// <summary>The tab whose cancellable work currently owns selection.</summary>
     private DocumentTabViewModel? _activeTab;
@@ -62,18 +56,30 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     {
         ArgumentNullException.ThrowIfNull(services);
         _services = services;
-        TabFinderRequests = new(_tabFinderRequests);
         PageToneEnabled = services.Settings.PageToneEnabled;
         RefreshRecentDocuments();
-        _subscriptions =
-        [
-            services.Theme.SubscribeSafe(OnTheme, OnError),
-            services.OpenRequests.SubscribeSafe(path => Open([path]), OnError),
-            services.SettingsApplied.SubscribeSafe(_ => OnSettingsApplied(), OnError),
-            this.WhenChanged(static x => x.TabQuery).Skip(1).SubscribeSafe(_ => RefreshFoundTabs(), OnError),
-            this.WhenChanged(static x => x.SelectedTab).Skip(1).SubscribeSafe(OnSelectedTabChanged, OnError),
-            this.WhenChanged(static x => x.PageToneEnabled).Skip(1).SubscribeSafe(ApplyPageTone, OnError),
-        ];
+        var lifetime = new CancellationDisposable();
+        _lifetime = lifetime.Token;
+        _subscriptions.Add(lifetime);
+        _subscriptions.Add(services.Theme.Select(static theme => theme.PageTone).SubscribeSafe(ShareTone, ErrorTrace.Write));
+
+        // The window made last answers a request to open a document, so it opens once. The handler needs this view model.
+        _subscriptions.Add(services.OpenDocumentInteraction.RegisterHandler(context =>
+        {
+            Open([context.Input]);
+            context.SetOutput(RxVoid.Default);
+        }));
+        _subscriptions.Add(services.WhenChanged(static x => x.SettingsVersion).Skip(1).SubscribeSafe(_ => TakeSettings(), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.TabQuery).Skip(1).SubscribeSafe(_ => RefreshFoundTabs(), ErrorTrace.Write));
+
+        // Leaving a tab stops its work and puts away a second view of another document; the tab shown starts its work.
+        _subscriptions.Add(this.WhenChanged(static x => x.SelectedTab)
+            .Skip(1)
+            .Do(LeaveActiveTab)
+            .KeepNotNull()
+            .SubscribeSafe(static tab => tab.IsSelected = true, ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.PageToneEnabled).Skip(1).SubscribeSafe(ApplyPageTone, ErrorTrace.Write));
+        _subscriptions.Add(Scope.Create(ReleaseTabs));
     }
 
     /// <summary>Gets the interaction asking the view for files to open.</summary>
@@ -148,8 +154,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial string? StatusMessage { get; private set; }
 
-    /// <summary>Gets the requests to open the tab finder.</summary>
-    public AsObservableSignal<RxVoid> TabFinderRequests { get; }
+    /// <summary>Gets or sets a value indicating whether the tab finder is open; a command sets it to open the finder, and closing the finder clears it.</summary>
+    [Reactive]
+    public partial bool IsTabFinderOpen { get; set; }
 
     /// <summary>Gets the second view of the selected document while the view is split, or <see langword="null"/>.</summary>
     [Reactive]
@@ -432,33 +439,8 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-        {
-            return;
-        }
-
-        _lifetime.Cancel();
-        _lifetime.Dispose();
-        _subscriptions.Dispose();
-        _tabFinderRequests.Dispose();
-        SplitTab?.Dispose();
-        foreach (var tab in Tabs)
-        {
-            tab.Dispose();
-
-            // Like closing the tab: the pool drops the source, which closes its document and forgets its passwords.
-            _services.Pool.Remove(tab.Source);
-        }
-
-        Tabs.Clear();
-    }
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Converts a path or <c>file://</c> URI to a full local path.</summary>
     /// <param name="item">The item.</param>
@@ -499,24 +481,40 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         // The second view shares the open document, so edits made in either view are in the one file.
         var split = new DocumentTabViewModel(tab.Source, _services) { PageTone = PageTone, OpenDocument = OpenLinked, ToggleSplitView = ToggleSplit, IsSecondaryView = true };
         split.ReportPosition(tab.Position, tab.CurrentPageIndex);
-        split.StartSelectedWork();
+        split.IsSelected = true;
         tab.IsSplitView = true;
         split.IsSplitView = true;
         SplitTab = split;
     }
 
-    /// <summary>Loads the newly selected document, and puts away a second view of another one.</summary>
-    /// <param name="tab">The selected tab.</param>
-    private void OnSelectedTabChanged(DocumentTabViewModel? tab)
+    /// <summary>Stops the work of the tab that was shown, and puts away a second view of a document other than the newly selected one.</summary>
+    /// <param name="next">The tab selected now.</param>
+    private void LeaveActiveTab(DocumentTabViewModel? next)
     {
-        _activeTab?.StopSelectedWork();
-        if (SplitTab is { } split && !ReferenceEquals(split.Source, tab?.Source))
+        if (_activeTab is { } left)
+        {
+            left.IsSelected = false;
+        }
+
+        if (SplitTab is { } split && !ReferenceEquals(split.Source, next?.Source))
         {
             CloseSplit();
         }
 
-        _activeTab = tab;
-        tab?.StartSelectedWork();
+        _activeTab = next;
+    }
+
+    /// <summary>Releases the second view and every tab, like closing them: the pool drops each source, which closes its document and forgets its passwords.</summary>
+    private void ReleaseTabs()
+    {
+        SplitTab?.Dispose();
+        foreach (var tab in Tabs)
+        {
+            tab.Dispose();
+            _services.Pool.Remove(tab.Source);
+        }
+
+        Tabs.Clear();
     }
 
     /// <summary>Puts the second view away.</summary>
@@ -625,7 +623,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     private async Task OpenRemoteAsync(Uri uri)
     {
         StatusMessage = $"Downloading {uri.Host}…";
-        var token = _lifetime.Token;
+        var token = _lifetime;
         try
         {
             var path = await _services.Downloader.DownloadAsync(uri, token).ConfigureAwait(true);
@@ -808,10 +806,10 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void GoToTab(DocumentTabViewModel? tab) => SelectedTab = tab ?? SelectedTab;
 
-    /// <summary>Asks the view to open the tab finder.</summary>
+    /// <summary>Opens the tab finder.</summary>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ShowTabFinder() => _tabFinderRequests.OnNext(RxVoid.Default);
+    private void ShowTabFinder() => IsTabFinderOpen = true;
 
     /// <summary>Clears the status message.</summary>
     [ReactiveCommand]
@@ -917,7 +915,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Takes the settings that change what is open: the page colour switch and the tint over fillable form fields.</summary>
-    private void OnSettingsApplied()
+    private void TakeSettings()
     {
         PageToneEnabled = _services.Settings.PageToneEnabled;
         var highlight = _services.FormHighlight;
@@ -927,14 +925,14 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         }
     }
 
-    /// <summary>Applies a new theme's page tone to every tab.</summary>
-    /// <param name="theme">The theme.</param>
-    private void OnTheme(ResolvedTheme theme)
+    /// <summary>Gives a new theme's page tone to the window and every tab.</summary>
+    /// <param name="tone">The page tone.</param>
+    private void ShareTone(PageTone tone)
     {
-        PageTone = theme.PageTone;
+        PageTone = tone;
         foreach (var tab in Tabs)
         {
-            tab.PageTone = theme.PageTone;
+            tab.PageTone = tone;
         }
     }
 }

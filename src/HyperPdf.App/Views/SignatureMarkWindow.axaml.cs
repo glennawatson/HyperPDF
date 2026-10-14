@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Avalonia.Platform.Storage;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Annotations;
 using ReactiveUI;
@@ -52,12 +52,12 @@ public sealed partial class SignatureMarkWindow : ReactiveUI.Avalonia.ReactiveWi
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Answered)
                 .SwitchMap(static answered => answered)
-                .SubscribeSafe(answer => Close(answer), OnError));
+                .SubscribeSafe(answer => Close(answer), ErrorTrace.Write));
 
             // Start on the chosen way: the text box when typing, otherwise the way's option.
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Style)
                 .Take(1)
-                .SubscribeSafe(style => FocusStart(this, style), OnError));
+                .SubscribeSafe(style => FocusStart(this, style), ErrorTrace.Write));
         });
     }
 
@@ -70,11 +70,6 @@ public sealed partial class SignatureMarkWindow : ReactiveUI.Avalonia.ReactiveWi
         SignatureMarkStyle.Image => window.ImageOption.Focus(),
         _ => window.MarkTextBox.Focus(),
     };
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Asks for a picture through the desktop's open dialog.</summary>
     /// <param name="context">The interaction context.</param>

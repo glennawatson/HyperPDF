@@ -15,15 +15,17 @@ using HyperPdf.Core.Speech;
 using HyperPdf.Core.Spelling;
 using HyperPdf.Core.Theming;
 using HyperPdf.Http.Remote;
+using ReactiveUI;
+using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Advanced;
-using ReactiveUI.Primitives.Signals;
+using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.Services;
 
 /// <summary>The composition root: every long lived service, created once at start up.</summary>
 [DebuggerDisplay("AppServices")]
-public sealed class AppServices : IDisposable
+public sealed partial class AppServices : ReactiveObject, IDisposable
 {
     /// <summary>Bytes in a megabyte.</summary>
     private const long BytesPerMegabyte = 1024 * 1024;
@@ -31,23 +33,14 @@ public sealed class AppServices : IDisposable
     /// <summary>The smallest permitted tile cache, in megabytes.</summary>
     private const int MinCacheMegabytes = 32;
 
-    /// <summary>The resolved theme, re-published when the settings or the desktop palette change.</summary>
-    private readonly BehaviorSignal<ResolvedTheme> _theme;
-
-    /// <summary>Documents the app is asked to open as tabs, for example a signed copy.</summary>
-    private readonly Signal<string> _openRequests = new();
-
-    /// <summary>Emits when user settings are applied, including changes that leave the theme unchanged.</summary>
-    private readonly Signal<RxVoid> _settingsApplied = new();
+    /// <summary>Owns everything the services create, and releases it all in the order it was added.</summary>
+    private readonly MultipleDisposable _subscriptions = [];
 
     /// <summary>The latest desktop palette, if any.</summary>
     private DesktopPalette? _palette;
 
-    /// <summary>The speech engine, kept while the settings that chose it stay the same.</summary>
-    private ISpeechEngine? _speechEngine;
-
     /// <summary>The settings the speech engine was made for.</summary>
-    private (SpeechEngineChoice Choice, string Key, string Region) _speechEngineFor;
+    private SpeechEngineKey _speechEngineFor;
 
     /// <summary>The sound output, created when first used.</summary>
     private IAudioOutput? _audio;
@@ -72,15 +65,24 @@ public sealed class AppServices : IDisposable
         SignatureMarkStore = SignatureMarkStore.Beside(settingsStore);
         SignatureMarks = SignatureMarkStore.Load();
         Engine = engine;
-        Pool = new(engine, Math.Max(1, Settings.MaxOpenDocuments));
         RenderHub = new(Math.Max(MinCacheMegabytes, Settings.TileCacheMegabytes) * BytesPerMegabyte);
+        Pool = new(engine, Math.Max(1, Settings.MaxOpenDocuments));
         Downloader = new(Path.Combine(Path.GetTempPath(), "hyperpdf-downloads"));
-        _theme = new(ThemeResolver.Resolve(Settings, null));
+        CurrentTheme = ThemeResolver.Resolve(Settings, null);
         Speech = SpeechSetup.CreateDefault(platform);
         FocusAnnouncements = platform.CreateFocusAnnouncementCheck();
-        Theme = new(_theme);
-        OpenRequests = new(_openRequests);
-        SettingsApplied = new(_settingsApplied);
+        Theme = this.WhenChanged(static services => services.CurrentTheme);
+        _subscriptions.Add(RenderHub);
+        _subscriptions.Add(Pool);
+        if (ThemeSource is IDisposable themeSource)
+        {
+            _subscriptions.Add(themeSource);
+        }
+
+        _subscriptions.Add(FocusAnnouncements);
+
+        // The speech engine in use is open until settings choose another or the services end.
+        _subscriptions.Add(this.WhenChanged(static services => services.SpeechEngine).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
     }
 
     /// <summary>Gets the settings store.</summary>
@@ -132,25 +134,34 @@ public sealed class AppServices : IDisposable
     public Func<ISpellChecker> CreateSpellChecker { get; init; } = SpellCheckers.Create;
 
     /// <summary>Gets the spell checker for form fields, made on first use.</summary>
-    public ISpellChecker SpellChecker => _spellChecker ??= CreateSpellChecker();
+    public ISpellChecker SpellChecker => _spellChecker ??= Own(CreateSpellChecker());
 
     /// <summary>Gets the sound output shared by every tab.</summary>
-    public IAudioOutput Audio => _audio ??= Speech.CreateAudio();
+    public IAudioOutput Audio => _audio ??= Own(Speech.CreateAudio());
 
-    /// <summary>Gets the resolved theme; the current value is replayed on subscription.</summary>
-    public AsObservableSignal<ResolvedTheme> Theme{ get; }
+    /// <summary>Gets the resolved theme, re-resolved when the settings or the desktop palette change; the current value is replayed on subscription.</summary>
+    public IObservable<ResolvedTheme> Theme { get; }
 
-    /// <summary>Gets the documents the app is asked to open as tabs.</summary>
-    public AsObservableSignal<string> OpenRequests{ get; }
+    /// <summary>
+    /// Gets the request to open a document as a tab, for example a signed copy. The window that was made last answers it,
+    /// so a document opens once.
+    /// </summary>
+    public Interaction<string, RxVoid> OpenDocumentInteraction { get; } = new();
 
     /// <summary>Gets the current resolved theme.</summary>
-    public ResolvedTheme CurrentTheme => _theme.Value;
+    [Reactive]
+    public partial ResolvedTheme CurrentTheme { get; private set; }
 
-    /// <summary>Gets notifications when user settings are applied.</summary>
-    internal AsObservableSignal<RxVoid> SettingsApplied{ get; }
+    /// <summary>Gets a number that changes each time user settings are applied, including changes that leave the theme unchanged.</summary>
+    [Reactive]
+    public partial int SettingsVersion { get; private set; }
 
     /// <summary>Gets the tint over fillable form fields the settings choose.</summary>
     internal FormHighlight FormHighlight => ReadHighlight(this);
+
+    /// <summary>Gets the speech engine in use, kept while the settings that chose it stay the same, or <see langword="null"/> before one is needed.</summary>
+    [Reactive]
+    internal partial ISpeechEngine? SpeechEngine { get; private set; }
 
     /// <summary>Creates the services for the current platform.</summary>
     /// <param name="platform">The desktop integration, normally from <see cref="DesktopPlatforms.Detect"/>.</param>
@@ -173,15 +184,16 @@ public sealed class AppServices : IDisposable
     /// <returns>The engine.</returns>
     public ISpeechEngine GetSpeechEngine()
     {
-        var wanted = (Settings.SpeechEngine, Settings.AzureSpeechKey, Settings.AzureSpeechRegion);
-        if (_speechEngine is null || _speechEngineFor != wanted)
+        var wanted = new SpeechEngineKey(Settings.SpeechEngine, Settings.AzureSpeechKey, Settings.AzureSpeechRegion);
+        if (SpeechEngine is not { } engine || _speechEngineFor != wanted)
         {
-            _speechEngine?.Dispose();
-            _speechEngine = Speech.CreateEngine(Settings, Speech.VoiceDirectory);
+            // The new engine replaces the one before, which the ownership chain in the constructor then releases.
+            engine = Speech.CreateEngine(Settings, Speech.VoiceDirectory);
+            SpeechEngine = engine;
             _speechEngineFor = wanted;
         }
 
-        return _speechEngine;
+        return engine;
     }
 
     /// <summary>Records which tab is reading aloud, pausing the one that was.</summary>
@@ -199,7 +211,7 @@ public sealed class AppServices : IDisposable
     /// <summary>Asks the window to open a document as a tab.</summary>
     /// <param name="path">The document.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void RequestOpen(string path) => _openRequests.OnNext(path);
+    public void RequestOpen(string path) => _ = OpenDocumentInteraction.WhenHandled(path).SubscribeSafeErrors(ErrorTrace.Write);
 
     /// <summary>Records a new desktop palette and re-resolves the theme. Call on the UI thread.</summary>
     /// <param name="palette">The palette, or <see langword="null"/> when the desktop has none.</param>
@@ -213,7 +225,7 @@ public sealed class AppServices : IDisposable
     public void ApplySettings()
     {
         RefreshTheme();
-        _settingsApplied.OnNext(RxVoid.Default);
+        SettingsVersion++;
         SaveSettings();
     }
 
@@ -252,19 +264,8 @@ public sealed class AppServices : IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _theme.Dispose();
-        _openRequests.Dispose();
-        _settingsApplied.Dispose();
-        RenderHub.Dispose();
-        Pool.Dispose();
-        (ThemeSource as IDisposable)?.Dispose();
-        _speechEngine?.Dispose();
-        _audio?.Dispose();
-        (_spellChecker as IDisposable)?.Dispose();
-        FocusAnnouncements.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Reads the tint over fillable form fields from the settings.</summary>
     /// <param name="services">The services, or <see langword="null"/> before they exist.</param>
@@ -273,13 +274,27 @@ public sealed class AppServices : IDisposable
         ? FormHighlight.Default
         : new(services.Settings.FormHighlightColor, (byte)Math.Clamp(services.Settings.FormHighlightAlpha, 0, byte.MaxValue));
 
-    /// <summary>Publishes the theme when it changed.</summary>
-    private void RefreshTheme()
+    /// <summary>Resolves the theme again; the reactive property tells subscribers only when the theme changed.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void RefreshTheme() => CurrentTheme = ThemeResolver.Resolve(Settings, _palette);
+
+    /// <summary>Hands a service to the owner so it is released with the rest, when it has anything to release.</summary>
+    /// <typeparam name="T">The service type.</typeparam>
+    /// <param name="service">The service.</param>
+    /// <returns>The same service.</returns>
+    private T Own<T>(T service)
     {
-        var theme = ThemeResolver.Resolve(Settings, _palette);
-        if (theme != _theme.Value)
+        if (service is IDisposable disposable)
         {
-            _theme.OnNext(theme);
+            _subscriptions.Add(disposable);
         }
+
+        return service;
     }
+
+    /// <summary>The settings a speech engine was made for.</summary>
+    /// <param name="Choice">The engine chosen.</param>
+    /// <param name="Key">The Azure speech key.</param>
+    /// <param name="Region">The Azure speech region.</param>
+    private readonly record struct SpeechEngineKey(SpeechEngineChoice Choice, string Key, string Region);
 }

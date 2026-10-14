@@ -2,17 +2,17 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics;
 using System.Globalization;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Attachments;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Settings;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.ObservableEvents;
 
 namespace HyperPdf.App.Views;
 
@@ -31,29 +31,10 @@ internal static class ItemAutomation
         ArgumentNullException.ThrowIfNull(list);
 
         // The event carries only the container, and a container is not yet tied to its list while it is prepared,
-        // so the handler captures the list to count its items. SubscribeSafe has no state-passing form.
-        return list.Events().ContainerPrepared.SubscribeSafe(args => OnContainerPrepared(list, args), static error => Trace.TraceError(error.ToString()));
-    }
-
-    /// <summary>Names a list item as it is prepared for an item, from what the item holds and where it sits.</summary>
-    /// <param name="list">The list.</param>
-    /// <param name="args">The container that was prepared and its position.</param>
-    internal static void OnContainerPrepared(ItemsControl list, ContainerPreparedEventArgs args)
-    {
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(args);
-        var container = args.Container;
-        var item = list.ItemFromContainer(container) ?? container.DataContext;
-        var count = list.Items.Count;
-        AutomationProperties.SetName(container, Describe(item, args.Index, count));
-        AutomationProperties.SetPositionInSet(container, args.Index + 1);
-        AutomationProperties.SetSizeOfSet(container, count);
-
-        // Avalonia's Linux and macOS bridges drop the set position, so there it is spoken as the description.
-        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
-        {
-            AutomationProperties.SetHelpText(container, DescribePosition(item, args.Index, count));
-        }
+        // so the list travels with each event to count its items.
+        return list.ContainersPrepared
+            .SelectWith(list, static (owner, args) => new PreparedItem(owner, args))
+            .SubscribeSafe(NameItem, ErrorTrace.Write);
     }
 
     /// <summary>Puts an item's place in its list into words, unless its name already says it.</summary>
@@ -141,6 +122,25 @@ internal static class ItemAutomation
     /// <returns>The description.</returns>
     internal static string DescribeCertificate(RememberedCertificate? certificate) =>
         certificate is null ? string.Empty : string.Create(CultureInfo.CurrentCulture, $"{certificate.Subject} ({Path.GetFileName(certificate.Path)})");
+
+    /// <summary>Names a list item as it is prepared for an item, from what the item holds and where it sits.</summary>
+    /// <param name="prepared">The list and the container that was prepared with its position.</param>
+    private static void NameItem(PreparedItem prepared)
+    {
+        var (list, args) = prepared;
+        var container = args.Container;
+        var item = list.ItemFromContainer(container) ?? container.DataContext;
+        var count = list.Items.Count;
+        AutomationProperties.SetName(container, Describe(item, args.Index, count));
+        AutomationProperties.SetPositionInSet(container, args.Index + 1);
+        AutomationProperties.SetSizeOfSet(container, count);
+
+        // Avalonia's Linux and macOS bridges drop the set position, so there it is spoken as the description.
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+        {
+            AutomationProperties.SetHelpText(container, DescribePosition(item, args.Index, count));
+        }
+    }
 
     /// <summary>Describes a file by its name and folder.</summary>
     /// <param name="fileName">The file name.</param>

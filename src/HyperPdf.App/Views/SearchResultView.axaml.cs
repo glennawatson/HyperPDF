@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -22,7 +23,7 @@ public sealed partial class SearchResultView : ReactiveUI.Avalonia.ReactiveUserC
 
         // A search result is an immutable record with no change notification, so OneWayBind cannot observe it.
         // The view follows which one it shows instead.
-        _ = this.WhenActivated(disposables => disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, static error => Trace.TraceError(error.ToString()))));
+        _ = this.WhenActivated(disposables => disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, ErrorTrace.Write)));
     }
 
     /// <summary>Shows a search result.</summary>

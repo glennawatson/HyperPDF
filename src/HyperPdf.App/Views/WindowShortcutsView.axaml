@@ -1,0 +1,6 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HyperPdf.App.Views.WindowShortcutsView"
+             IsHitTestVisible="False" Focusable="False" Width="0" Height="0">
+  <!-- Shows nothing: it runs the window's keyboard shortcuts (WindowShortcutsView.axaml.cs). -->
+</UserControl>

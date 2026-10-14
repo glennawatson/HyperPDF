@@ -119,12 +119,12 @@ public sealed class AccessibilityTests
         try
         {
             var view = await FindDocumentViewAsync(window);
-            var print = view.FindControl<Button>("PrintItem")!;
+            var print = view.FindNamed<Button>("PrintItem")!;
             await Assert.That(print.IsEffectivelyVisible).IsTrue();
             await Assert.That(ControlAutomationPeer.CreatePeerForElement(print).GetName()).IsEqualTo("Print");
             foreach (var name in new[] { "ViewMenuButton", "DocumentMenuButton", "ToolsMenuButton" })
             {
-                var button = view.FindControl<Button>(name)!;
+                var button = view.FindNamed<Button>(name)!;
                 await Assert.That(button.IsEffectivelyVisible).IsTrue();
                 await Assert.That(button.Content is string { Length: > 0 }).IsTrue();
                 var origin = button.TranslatePoint(default, window)!.Value;

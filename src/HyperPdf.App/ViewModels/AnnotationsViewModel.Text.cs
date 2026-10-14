@@ -4,12 +4,14 @@
 
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Text;
 using HyperPdf.Core.Text.Fonts;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -490,11 +492,16 @@ public sealed partial class AnnotationsViewModel
     /// <returns>The subscriptions.</returns>
     private IDisposable[] WatchTextFormat() =>
     [
-        this.WhenChanged(static x => x.FontFamily, static x => x.FontSize, static x => x.TextColor).Skip(1).SubscribeSafe(_ => OnFormatChanged(), OnError),
-        this.WhenChanged(static x => x.IsBold, static x => x.IsItalic, static x => x.IsUnderline).Skip(1).SubscribeSafe(_ => OnFormatChanged(), OnError),
-        this.WhenChanged(static x => x.TextAlignment, static x => x.LineSpacing, static x => x.CharacterSpacing).Skip(1).SubscribeSafe(_ => OnFormatChanged(), OnError),
-        this.WhenChanged(static x => x.CombCells).Skip(1).SubscribeSafe(_ => OnFormatChanged(), OnError),
-        this.WhenChanged(static x => x.Selected).Skip(1).SubscribeSafe(LoadSelectedFormat, OnError),
+
+        // A format change reformats the picked text box, unless the change came from reading that box's format.
+        Signal.Merge(
+                this.WhenChanged(static x => x.FontFamily, static x => x.FontSize, static x => x.TextColor, static (_, _, _) => RxVoid.Default).Skip(1),
+                this.WhenChanged(static x => x.IsBold, static x => x.IsItalic, static x => x.IsUnderline, static (_, _, _) => RxVoid.Default).Skip(1),
+                this.WhenChanged(static x => x.TextAlignment, static x => x.LineSpacing, static x => x.CharacterSpacing, static (_, _, _) => RxVoid.Default).Skip(1),
+                this.WhenChanged(static x => x.CombCells).Skip(1).Select(static _ => RxVoid.Default))
+            .WhereWith(this, static (annotations, _) => !annotations._loadingFormat)
+            .SubscribeSafe(_ => ReformatSelected(), ErrorTrace.Write),
+        this.WhenChanged(static x => x.Selected).Skip(1).SubscribeSafe(LoadSelectedFormat, ErrorTrace.Write),
     ];
 
     /// <summary>Reads the installed font families off the UI thread, then offers them.</summary>
@@ -503,15 +510,6 @@ public sealed partial class AnnotationsViewModel
     {
         _ = await Task.Run(static () => FontCatalog.System).ConfigureAwait(true);
         RefreshFontFamilies();
-    }
-
-    /// <summary>Applies a format change to the picked text box, unless the change came from reading it.</summary>
-    private void OnFormatChanged()
-    {
-        if (!_loadingFormat)
-        {
-            _ = ReformatSelected();
-        }
     }
 
     /// <summary>Shows a picked text box's format in the format controls.</summary>

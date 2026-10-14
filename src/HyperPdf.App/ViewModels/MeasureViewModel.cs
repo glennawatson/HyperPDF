@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Measuring;
 using ReactiveUI;
@@ -48,9 +49,9 @@ public sealed partial class MeasureViewModel : ReactiveObject, IDisposable
         ScaleText = DefaultScale.ToString();
 
         // The first value of each is the current state, so only later changes act.
-        _subscriptions.Add(this.WhenChanged(static x => x.IsOn).Skip(1).SubscribeSafe(_ => Clear(), OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.Mode).Skip(1).SubscribeSafe(_ => Clear(), OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.ScaleText).Skip(1).SubscribeSafe(_ => Update(), OnError));
+        _subscriptions.Add(this.WhenChanged(static x => x.IsOn).Skip(1).SubscribeSafe(_ => Clear(), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.Mode).Skip(1).SubscribeSafe(_ => Clear(), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.ScaleText).Skip(1).SubscribeSafe(_ => Update(), ErrorTrace.Write));
     }
 
     /// <summary>Gets or sets a value indicating whether the measuring tool is out.</summary>
@@ -186,11 +187,6 @@ public sealed partial class MeasureViewModel : ReactiveObject, IDisposable
     /// <summary>Gets the scale in use: the one typed, or failing that true size.</summary>
     /// <returns>The scale.</returns>
     public MeasureScale CurrentScale() => MeasureScale.TryParse(ScaleText, out var scale) ? scale : DefaultScale;
-
-    /// <summary>Traces an error from a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Starts a measurement on a page, taking the page's declared scale when it has one.</summary>
     /// <param name="page">The page.</param>

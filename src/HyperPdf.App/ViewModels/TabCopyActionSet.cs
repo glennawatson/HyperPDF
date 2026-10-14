@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
+using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.ViewModels;
 
@@ -15,6 +17,9 @@ namespace HyperPdf.App.ViewModels;
 [DebuggerDisplay("TabCopyActionSet")]
 public sealed class TabCopyActionSet : ReactiveObject, IDisposable
 {
+    /// <summary>Owns every copy action, and so the window each one has open.</summary>
+    private readonly MultipleDisposable _subscriptions;
+
     /// <summary>Initializes a new instance of the <see cref="TabCopyActionSet"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
     internal TabCopyActionSet(DocumentTabViewModel owner)
@@ -28,6 +33,7 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
         Redact = new(owner, TabCopyActions.Redact);
         Validation = new(owner, TabCopyActions.Validation);
         ExternalSign = new(owner, TabCopyActions.ExternalSign);
+        _subscriptions = [Optimize, Archive, Pdf20, Flatten, Protect, Unprotect, Redact, Validation, ExternalSign];
     }
 
     /// <summary>Gets saving an optimised copy, for engines that can write one.</summary>
@@ -58,18 +64,8 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
     public TabCopyAction<ExternalSignViewModel> ExternalSign { get; }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        Optimize.Dispose();
-        Archive.Dispose();
-        Pdf20.Dispose();
-        Flatten.Dispose();
-        Protect.Dispose();
-        Unprotect.Dispose();
-        Redact.Dispose();
-        Validation.Dispose();
-        ExternalSign.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Stops the run in every open copy window and closes it, because the document they work on is going away.</summary>
     /// <returns><see langword="true"/> when a window was open.</returns>

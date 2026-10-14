@@ -4,11 +4,13 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Platform;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -48,8 +50,8 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
     /// <summary>Whether a run is in progress, so it can be cancelled.</summary>
     private readonly IObservable<bool> _canCancel;
 
-    /// <summary>Stops the run in progress; <see langword="null"/> when none is.</summary>
-    private CancellationTokenSource? _cancel;
+    /// <summary>Owns the run in progress until the window closes.</summary>
+    private readonly MultipleDisposable _subscriptions = [];
 
     /// <summary>Initializes a new instance of the <see cref="ArchiveCopyViewModel"/> class.</summary>
     /// <param name="writer">The open document's PDF/A copy writer.</param>
@@ -64,6 +66,7 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
         SelectedLevel = Levels[SuggestedLevel];
         _canSave = this.WhenChanged(static vm => vm.IsRunning).Select(static running => !running);
         _canCancel = this.WhenChanged(static vm => vm.IsRunning);
+        _subscriptions.Add(this.WhenChanged(static vm => vm.Run).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
     }
 
     /// <summary>Gets the level choices, oldest first, with PDF/A-2b suggested.</summary>
@@ -125,12 +128,13 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
     /// <summary>Gets the file name suggested for the copy.</summary>
     public string SuggestedName => $"{Path.GetFileNameWithoutExtension(FileName)} (PDF-A).pdf";
 
+    /// <summary>Gets or sets the run in progress, which disposing cancels, or <see langword="null"/> when none is.</summary>
+    [Reactive]
+    private partial CancellationDisposable? Run { get; set; }
+
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        Volatile.Read(ref _cancel)?.Cancel();
-        _cancel?.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
@@ -163,7 +167,7 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
     /// <summary>Stops the copy in progress.</summary>
     [ReactiveCommand(CanExecute = nameof(_canCancel))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void Cancel() => Volatile.Read(ref _cancel)?.Cancel();
+    private void Cancel() => Run = null;
 
     /// <summary>Stops any copy in progress and asks the window to close.</summary>
     [ReactiveCommand]
@@ -188,15 +192,15 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
             return;
         }
 
-        var cancel = new CancellationTokenSource();
-        Volatile.Write(ref _cancel, cancel);
+        var run = new CancellationDisposable();
+        Run = run;
         IsRunning = true;
         ProgressPercent = 0;
         ResultText = string.Empty;
         StatusText = $"Making a {ArchiveText.Label(Level)} copy. This can take a while for long files.";
         try
         {
-            ShowResult(await WriteAsync(path, cancel.Token).ConfigureAwait(true), path);
+            ShowResult(await WriteAsync(path, run.Token).ConfigureAwait(true), path);
         }
         catch (OperationCanceledException)
         {
@@ -209,8 +213,11 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
         }
         finally
         {
-            Volatile.Write(ref _cancel, null);
-            cancel.Dispose();
+            if (ReferenceEquals(Run, run))
+            {
+                Run = null;
+            }
+
             IsRunning = false;
         }
     }

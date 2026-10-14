@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.ReadAloudBarView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (ReadAloudBarView.axaml.cs). -->
+  <!-- Read Aloud: steady controls; the sentence being read is softly marked on the page and the view follows it. -->
+  <Border x:Name="ReadAloudBar" Classes="toolbar" AutomationProperties.Name="Read Aloud" AutomationProperties.ControlTypeOverride="ToolBar">
+    <Grid ColumnDefinitions="Auto,*,Auto">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button AutomationProperties.Name="Previous sentence" x:Name="PreviousSentenceButton" views:ControlHelp.Text="{x:Static views:Descriptions.PreviousSentence}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconPreviousSentence}" />
+        </Button>
+        <Button AutomationProperties.Name="Play" x:Name="PlayButton" views:ControlHelp.Text="{x:Static views:Descriptions.Play}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconPlay}" />
+            <TextBlock Classes="label" Text="Play" />
+          </StackPanel>
+        </Button>
+        <Button AutomationProperties.Name="Pause" x:Name="PauseButton" views:ControlHelp.Text="{x:Static views:Descriptions.Pause}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconPause}" />
+            <TextBlock Classes="label" Text="Pause" />
+          </StackPanel>
+        </Button>
+        <Button AutomationProperties.Name="Next sentence" x:Name="NextSentenceButton" views:ControlHelp.Text="{x:Static views:Descriptions.NextSentence}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconNextSentence}" />
+        </Button>
+        <ComboBox x:Name="VoiceBox" views:ControlHelp.Text="{x:Static views:Descriptions.Voice}" AutomationProperties.Name="Voice" Width="250" VerticalAlignment="Center" Margin="8,0,2,0" />
+        <ComboBox x:Name="SpeedBox" views:ControlHelp.Text="{x:Static views:Descriptions.Speed}" AutomationProperties.Name="Speed" Width="150" VerticalAlignment="Center" />
+        <Button AutomationProperties.Name="Options" x:Name="ReadAloudOptionsButton" views:ControlHelp.Text="{x:Static views:Descriptions.ReadAloudOptions}" Classes="tool">
+          <TextBlock Classes="label" Text="Options" />
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <StackPanel Spacing="8" Margin="4">
+                <CheckBox x:Name="WordMarkCheck" views:ControlHelp.Text="{x:Static views:Descriptions.WordMark}" Content="Mark the word being read" />
+                <CheckBox x:Name="FocusBandCheck" views:ControlHelp.Text="{x:Static views:Descriptions.FocusBand}" Content="Dim text away from what is read" />
+              </StackPanel>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+        <Button x:Name="DownloadVoiceButton" views:ControlHelp.Text="{x:Static views:Descriptions.DownloadVoice}" Content="Download Voice" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <ProgressBar x:Name="VoiceDownloadProgress" AutomationProperties.Name="Voice download progress" Width="140" Minimum="0" Maximum="1" VerticalAlignment="Center" Margin="8,0" />
+      </StackPanel>
+      <TextBlock Grid.Column="1" x:Name="ReadAloudText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="8,0" TextWrapping="Wrap" />
+      <Button Grid.Column="2" x:Name="CloseReadAloudButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseReadAloud}" Content="Close" />
+    </Grid>
+  </Border>
+</UserControl>

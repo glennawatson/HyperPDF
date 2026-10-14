@@ -7,6 +7,8 @@ using Avalonia;
 using Avalonia.Controls;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Layout;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Controls;
 
@@ -22,26 +24,30 @@ public sealed partial class PageCanvas
     /// <summary>How long one wheel zoom takes to ease to its target.</summary>
     private static readonly TimeSpan ZoomDuration = TimeSpan.FromMilliseconds(140);
 
-    /// <summary>The zoom when the current easing started.</summary>
-    private double _zoomFrom;
-
-    /// <summary>The zoom the current easing ends at.</summary>
-    private double _zoomTo;
-
-    /// <summary>When the current easing started.</summary>
-    private long _zoomStarted;
-
-    /// <summary>The anchor in viewport coordinates, which stays still while the zoom eases.</summary>
-    private Point _zoomAnchor;
-
-    /// <summary>1 while a wheel zoom is easing, so tiles at passing scales are not requested.</summary>
-    private int _zoomEasing;
+    /// <summary>Defines the <see cref="WheelZoom"/> property.</summary>
+    private static readonly DirectProperty<PageCanvas, WheelZoomEase> WheelZoomProperty =
+        AvaloniaProperty.RegisterDirect<PageCanvas, WheelZoomEase>(nameof(WheelZoom), static canvas => canvas.WheelZoom);
 
     /// <summary>Whether the canvas is moving its own scroll offset to hold a zoom anchor.</summary>
     private bool _anchoring;
 
-    /// <summary>Gets a value indicating whether a wheel zoom is easing.</summary>
-    internal bool IsZoomEasing => Volatile.Read(ref _zoomEasing) != 0;
+    /// <summary>Gets a value indicating whether a wheel zoom is easing, so tiles at passing scales are not requested.</summary>
+    internal bool IsZoomEasing => WheelZoom.IsRunning;
+
+    /// <summary>Gets the wheel zoom easing now, or the last one once it has settled; a new notch starts a new ease.</summary>
+    internal WheelZoomEase WheelZoom
+    {
+        get;
+        private set => SetAndRaise(WheelZoomProperty, ref field, value);
+    }
+
+    /// <summary>Gets the frames of the wheel zoom easing now, each carrying the ease; none once it settles.</summary>
+    /// <param name="ease">The ease.</param>
+    /// <returns>The frames.</returns>
+    private IObservable<WheelZoomEase> ZoomFrames(in WheelZoomEase ease) =>
+        ease.IsRunning && TopLevel.GetTopLevel(this) is { } top
+            ? top.AnimationFrames.SelectWith(ease, static (running, _) => running)
+            : Signal.Never<WheelZoomEase>();
 
     /// <summary>Starts or extends a wheel zoom towards a new factor.</summary>
     /// <param name="tab">The tab.</param>
@@ -54,54 +60,44 @@ public sealed partial class PageCanvas
             return;
         }
 
-        var target = ZoomCalculator.Clamp((IsZoomEasing ? _zoomTo : tab.Zoom) * factor);
-        if (tab.ReduceMotion || TopLevel.GetTopLevel(this) is not { } top)
+        var target = ZoomCalculator.Clamp((IsZoomEasing ? WheelZoom.To : tab.Zoom) * factor);
+        if (tab.ReduceMotion || TopLevel.GetTopLevel(this) is null)
         {
             ZoomAround(tab, target, anchor);
             return;
         }
 
-        _zoomFrom = tab.Zoom;
-        _zoomTo = target;
-        _zoomStarted = Stopwatch.GetTimestamp();
-        _zoomAnchor = anchor - _scroller.Offset;
-
-        // A running easing picks up the new target on its next frame.
-        if (Interlocked.Exchange(ref _zoomEasing, 1) == 0)
-        {
-            top.RequestAnimationFrame(OnZoomFrame);
-        }
+        // The ease starts from the zoom shown now, so a notch while easing carries on smoothly towards the new target.
+        WheelZoom = new(true, tab.Zoom, target, Stopwatch.GetTimestamp(), anchor - _scroller.Offset);
     }
 
-    /// <summary>Moves the easing zoom one frame on.</summary>
-    /// <param name="time">The frame time, unused because the easing measures its own start.</param>
-    private void OnZoomFrame(TimeSpan time)
+    /// <summary>Moves a wheel zoom one frame on, and settles it at its target once its time is up.</summary>
+    /// <param name="ease">The ease.</param>
+    private void StepZoom(WheelZoomEase ease)
     {
         if (_scroller is null || Tab is not { } tab)
         {
-            _ = Interlocked.Exchange(ref _zoomEasing, 0);
+            WheelZoom = ease with { IsRunning = false };
             return;
         }
 
-        var progress = Math.Min(1, Stopwatch.GetElapsedTime(_zoomStarted) / ZoomDuration);
+        var progress = Math.Min(1, Stopwatch.GetElapsedTime(ease.Started) / ZoomDuration);
 
         // Cubic ease out, applied to the zoom ratio so each frame scales by the same proportion.
         var eased = 1 - Math.Pow(1 - progress, ZoomEasePower);
-        var zoom = _zoomFrom * Math.Pow(_zoomTo / _zoomFrom, eased);
+        var zoom = ease.From * Math.Pow(ease.To / ease.From, eased);
         var done = progress >= 1;
         if (done)
         {
-            _ = Interlocked.Exchange(ref _zoomEasing, 0);
+            // Settled before the last step, so the tiles of the final zoom are requested.
+            WheelZoom = ease with { IsRunning = false };
         }
 
-        ZoomAround(tab, done ? _zoomTo : zoom, _zoomAnchor + _scroller.Offset);
-        if (!done)
+        ZoomAround(tab, done ? ease.To : zoom, ease.Anchor + _scroller.Offset);
+        if (done)
         {
-            TopLevel.GetTopLevel(this)?.RequestAnimationFrame(OnZoomFrame);
-            return;
+            InvalidateVisual();
         }
-
-        InvalidateVisual();
     }
 
     /// <summary>Zooms keeping the point under the pointer fixed, with the new layout and offset in the same frame.</summary>
@@ -147,4 +143,12 @@ public sealed partial class PageCanvas
 
         ReportPosition();
     }
+
+    /// <summary>A wheel zoom easing from one zoom to another over the window's frames.</summary>
+    /// <param name="IsRunning">Whether it is still easing.</param>
+    /// <param name="From">The zoom it started from.</param>
+    /// <param name="To">The zoom it ends at.</param>
+    /// <param name="Started">When it started, as a <see cref="Stopwatch"/> timestamp.</param>
+    /// <param name="Anchor">The point in viewport coordinates that stays still while the zoom eases.</param>
+    internal readonly record struct WheelZoomEase(bool IsRunning, double From, double To, long Started, Point Anchor);
 }

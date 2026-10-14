@@ -7,7 +7,9 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Settings;
 using ReactiveUI;
+using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
+using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
 
@@ -16,32 +18,34 @@ namespace HyperPdf.App.ViewModels;
 /// saved, so its own save is not taken for an outside edit.
 /// </summary>
 [DebuggerDisplay("TabFileWatch: {_stamp}")]
-internal sealed class TabFileWatch : IDisposable
+internal sealed partial class TabFileWatch : ReactiveObject
 {
-    /// <summary>Watches the file for changes once started.</summary>
-    private IDisposable? _watch;
-
     /// <summary>The file's last write time and length when it was loaded or last seen to change.</summary>
     private DocumentFileStamp _stamp;
 
     /// <summary>When the file was last saved from this tab.</summary>
     private long _savedAt;
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _watch?.Dispose();
+    /// <summary>Initializes a new instance of the <see cref="TabFileWatch"/> class.</summary>
+    internal TabFileWatch() =>
+        Changes = this.WhenChanged(static watch => watch.WatchedPath)
+            .KeepNotNull()
+            .DistinctUntilChanged()
+            .SwitchMap(FileChanges.Watch);
+
+    /// <summary>Gets the moments the watched file may have changed, on the watcher's thread; nothing is watched until <see cref="Start"/>.</summary>
+    internal IObservable<RxVoid> Changes { get; }
+
+    /// <summary>Gets the file being watched, or <see langword="null"/> before the watch starts.</summary>
+    [Reactive]
+    internal partial string? WatchedPath { get; private set; }
 
     /// <summary>Starts watching the file for changes, from the file as it is now.</summary>
     /// <param name="path">The file.</param>
-    /// <param name="changed">Called on the UI thread when the file may have changed.</param>
-    internal void Start(string path, Action changed)
+    internal void Start(string path)
     {
         _stamp = DocumentFileStamp.Read(path);
-
-        // The terminal callback calls the tab's handler; Primitives has no state-passing SubscribeSafe yet.
-        _watch ??= FileChanges.Watch(path)
-            .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .SubscribeSafe(_ => changed(), static ex => Trace.TraceError(ex.ToString()));
+        WatchedPath ??= path;
     }
 
     /// <summary>Records that the tab saved the file just now.</summary>

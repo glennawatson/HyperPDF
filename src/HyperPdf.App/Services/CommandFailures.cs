@@ -2,9 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using HyperPdf.App.ViewModels;
+using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.Services;
@@ -14,30 +13,13 @@ namespace HyperPdf.App.Services;
 /// main thread, which ends the app and loses the unsaved edits of every tab; this one traces the error and tells the
 /// reader in plain words instead.
 /// </summary>
-internal sealed class CommandFailureObserver : IObserver<Exception>
+internal static class CommandFailures
 {
     /// <summary>Where the plain words go, or <see langword="null"/> before a window is up.</summary>
-    private Action<string>? _show;
+    private static Action<string>? _show;
 
-    /// <summary>Gets the observer the app hands to ReactiveUI.</summary>
-    internal static CommandFailureObserver Instance { get; } = new();
-
-    /// <inheritdoc/>
-    public void OnNext(Exception value)
-    {
-        Trace.TraceError(value.ToString());
-        Volatile.Read(ref _show)?.Invoke(Describe(value));
-    }
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void OnError(Exception error) => Trace.TraceError(error.ToString());
-
-    /// <inheritdoc/>
-    public void OnCompleted()
-    {
-        // The handler lasts as long as the app.
-    }
+    /// <summary>Gets the observer the app hands to ReactiveUI as its exception handler.</summary>
+    internal static IObserver<Exception> Observer { get; } = Witness.Create<Exception>(Report, ErrorTrace.Write);
 
     /// <summary>Describes a failure in plain words.</summary>
     /// <param name="error">The failure.</param>
@@ -53,10 +35,18 @@ internal sealed class CommandFailureObserver : IObserver<Exception>
     /// <summary>Sends the plain words of later failures to a window.</summary>
     /// <param name="show">Shows the words.</param>
     /// <returns>Stops sending when disposed.</returns>
-    internal IDisposable Attach(Action<string> show)
+    internal static IDisposable ShowIn(Action<string> show)
     {
         ArgumentNullException.ThrowIfNull(show);
         Volatile.Write(ref _show, show);
-        return Scope.Create(this, static self => Volatile.Write(ref self._show, null));
+        return Scope.Create(static () => Volatile.Write(ref _show, null));
+    }
+
+    /// <summary>Traces a failure and shows its plain words in the window, when there is one.</summary>
+    /// <param name="error">The failure.</param>
+    private static void Report(Exception error)
+    {
+        ErrorTrace.Write(error);
+        Volatile.Read(ref _show)?.Invoke(Describe(error));
     }
 }

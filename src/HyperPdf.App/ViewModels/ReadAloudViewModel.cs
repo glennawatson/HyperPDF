@@ -13,7 +13,6 @@ using HyperPdf.Core.Speech;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
@@ -52,9 +51,6 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     /// <summary>The application services.</summary>
     private readonly AppServices _services;
 
-    /// <summary>Signals each change to what is being read.</summary>
-    private readonly Signal<RxVoid> _marks = new();
-
     /// <summary>The subscriptions.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
@@ -88,8 +84,11 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     /// <summary>The character reading should start from once the page is loaded; <see cref="int.MaxValue"/> means the last sentence.</summary>
     private int _startChar;
 
-    /// <summary>Stops the reading or download in progress.</summary>
-    private CancellationTokenSource? _work;
+    /// <summary>
+    /// Stops the reading or download in progress, or <see langword="null"/> when none runs. The work owns and disposes its
+    /// cancellation source; this is the source's Cancel, so <see cref="IsCurrentWork"/> can tell which work it stops.
+    /// </summary>
+    private Action? _stopWork;
 
     /// <summary>Initializes a new instance of the <see cref="ReadAloudViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
@@ -106,16 +105,31 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         SpeedIndex = NearestSpeed(services.Settings.SpeechSpeed);
         _listing = false;
 
-        MarksChanged = new(_marks);
         _canDownloadVoice = this.WhenChanged(static vm => vm.IsDownloading).Select(static busy => !busy);
         _playPauseTextHelper = this.WhenChanged(static vm => vm.IsPlaying).Select(static playing => playing ? "Pause" : "Play").ToProperty(this, static vm => vm.PlayPauseText);
 
-        _subscriptions.Add(this.WhenChanged(static vm => vm.IsOpen).Skip(1).SubscribeSafe(OnIsOpenChanged, OnError));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.VoiceIndex).Skip(1).SubscribeSafe(_ => OnChoiceChanged(), OnError));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SpeedIndex).Skip(1).SubscribeSafe(_ => OnChoiceChanged(), OnError));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SpokenPage).Skip(1).SubscribeSafe(_ => _marks.OnNext(RxVoid.Default), OnError));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SpokenRange).Skip(1).SubscribeSafe(_ => _marks.OnNext(RxVoid.Default), OnError));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SpokenWord).Skip(1).SubscribeSafe(_ => _marks.OnNext(RxVoid.Default), OnError));
+        _subscriptions.Add(_playPauseTextHelper);
+        _subscriptions.Add(Scope.Create(CancelWork));
+
+        // Opening the bar starts reading from the current page; closing it stops and clears the mark.
+        var openings = this.WhenChanged(static vm => vm.IsOpen).Skip(1);
+        _subscriptions.Add(openings.Where(static open => open).SubscribeSafe(_ => Begin(), ErrorTrace.Write));
+        _subscriptions.Add(openings.Where(static open => !open).SubscribeSafe(_ => Stop(), ErrorTrace.Write));
+
+        // A voice or speed the reader picks is remembered and used at once; setting up the lists picks nothing. The filter
+        // reads the view model's own flag: a constructor cannot hand 'this' to a state-passing operator.
+        _subscriptions.Add(Signal.Merge(
+                this.WhenChanged(static vm => vm.VoiceIndex).Skip(1),
+                this.WhenChanged(static vm => vm.SpeedIndex).Skip(1))
+            .Where(_ => !_listing)
+            .SubscribeSafe(_ => UseChosenVoiceAndSpeed(), ErrorTrace.Write));
+
+        // Each move of the page, sentence or word being read moves the marks version on, which the views follow.
+        _subscriptions.Add(Signal.Merge(
+                this.WhenChanged(static vm => vm.SpokenPage).Skip(1).Select(static _ => RxVoid.Default),
+                this.WhenChanged(static vm => vm.SpokenRange).Skip(1).Select(static _ => RxVoid.Default),
+                this.WhenChanged(static vm => vm.SpokenWord).Skip(1).Select(static _ => RxVoid.Default))
+            .SubscribeSafe(_ => MarksVersion++, ErrorTrace.Write));
     }
 
     /// <summary>Gets or sets a value indicating whether the Read Aloud bar is shown. Opening starts reading from the current page.</summary>
@@ -169,8 +183,9 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial int SpokenPage { get; private set; } = -1;
 
-    /// <summary>Gets a notification each time the page, sentence or word being read changes.</summary>
-    public AsObservableSignal<RxVoid> MarksChanged { get; }
+    /// <summary>Gets a number that changes each time the page, sentence or word being read changes, so views mark it again.</summary>
+    [Reactive]
+    public partial int MarksVersion { get; private set; }
 
     /// <summary>Gets the sentence being read, as a range of the page's reading text, for Focus Mode.</summary>
     [Reactive]
@@ -221,15 +236,8 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _subscriptions.Dispose();
-        _playPauseTextHelper?.Dispose();
-        _work?.Cancel();
-        _work?.Dispose();
-        _work = null;
-        _marks.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Describes a size in megabytes.</summary>
     /// <param name="bytes">The bytes.</param>
@@ -362,11 +370,6 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     private static void ObservePrepared(Task<SpeechAudio>? prepared) =>
         prepared?.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
 
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The failure.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
-
     /// <summary>Forgets documents that have gone; if that is not enough, starts the list afresh.</summary>
     /// <param name="positions">The remembered positions.</param>
     private static void Prune(Dictionary<string, ReadingPosition> positions)
@@ -459,20 +462,6 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool Toggle() => IsOpen = !IsOpen;
 
-    /// <summary>Starts reading when the bar opens and stops when it closes.</summary>
-    /// <param name="open">Whether the bar is open.</param>
-    private void OnIsOpenChanged(bool open)
-    {
-        if (open)
-        {
-            Begin();
-        }
-        else
-        {
-            Stop();
-        }
-    }
-
     /// <summary>Moves a sentence forwards or back, carrying on reading if it was.</summary>
     /// <param name="delta">+1 or -1.</param>
     private void Step(int delta)
@@ -530,7 +519,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     {
         CancelWork();
         var work = new CancellationTokenSource();
-        _work = work;
+        _stopWork = work.Cancel;
         _services.ClaimSpeech(this);
         _ = ReadAsync(work);
     }
@@ -538,19 +527,20 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     /// <summary>Cancels the reading or download in progress.</summary>
     private void CancelWork()
     {
-        var work = _work;
-        _work = null;
-        work?.Cancel();
+        var stop = _stopWork;
+        _stopWork = null;
+        stop?.Invoke();
     }
 
-    /// <summary>Restarts the current sentence with the new voice or speed and remembers the choice.</summary>
-    private void OnChoiceChanged()
-    {
-        if (_listing)
-        {
-            return;
-        }
+    /// <summary>Determines whether a piece of work is the one in progress.</summary>
+    /// <param name="work">The work's cancellation source.</param>
+    /// <returns><see langword="true"/> when stopping now would stop this work.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsCurrentWork(CancellationTokenSource work) => ReferenceEquals(_stopWork?.Target, work);
 
+    /// <summary>Remembers the chosen voice and speed, and restarts the current sentence with them.</summary>
+    private void UseChosenVoiceAndSpeed()
+    {
         var settings = _services.Settings;
         settings.SpeechSpeed = SpeedValues[Math.Clamp(SpeedIndex, 0, SpeedValues.Length - 1)];
         var voices = _services.GetSpeechEngine().Voices;
@@ -650,12 +640,12 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         }
         finally
         {
-            if (ReferenceEquals(_work, work))
+            if (IsCurrentWork(work))
             {
-                _work = null;
+                _stopWork = null;
                 SetPlaying(false);
             }
-            else if (_work is null)
+            else if (_stopWork is null)
             {
                 SetPlaying(false);
             }
@@ -861,7 +851,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     {
         CancelWork();
         using var work = new CancellationTokenSource();
-        _work = work;
+        _stopWork = work.Cancel;
         IsDownloading = true;
         DownloadProgress = 0;
         try
@@ -892,9 +882,9 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         finally
         {
             IsDownloading = false;
-            if (ReferenceEquals(_work, work))
+            if (IsCurrentWork(work))
             {
-                _work = null;
+                _stopWork = null;
             }
         }
     }

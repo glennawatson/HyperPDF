@@ -10,7 +10,6 @@ using HyperPdf.Core.Settings;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
@@ -34,17 +33,11 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     /// <summary>How much Larger and Smaller change the text size.</summary>
     private const double FontStep = 1;
 
-    /// <summary>How far a value may be from its clamped or rounded form and still count as the same.</summary>
-    private const double Tolerance = 1e-9;
-
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
 
     /// <summary>The application services.</summary>
     private readonly AppServices _services;
-
-    /// <summary>Requests to bring a place into view.</summary>
-    private readonly Signal<FocusScrollRequest> _scrollRequests = new();
 
     /// <summary>The subscriptions.</summary>
     private readonly MultipleDisposable _subscriptions = [];
@@ -58,7 +51,7 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     /// <summary>The page last marked as being read.</summary>
     private int _markedPage = -1;
 
-    /// <summary>The <see cref="TabReading.Version"/> the pages were made for.</summary>
+    /// <summary>The <see cref="TabReading.TextKey"/> the pages were made for.</summary>
     private long _builtFor = -1;
 
     /// <summary>Initializes a new instance of the <see cref="FocusModeViewModel"/> class.</summary>
@@ -70,7 +63,6 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
         ArgumentNullException.ThrowIfNull(services);
         _owner = owner;
         _services = services;
-        ScrollRequests = new(_scrollRequests);
 
         // The settings seed the properties before anything listens, so loading them neither saves nor reacts.
         var settings = services.Settings;
@@ -83,28 +75,44 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
         FocusBand = settings.FocusBand;
         WordHighlight = settings.ReadAloudHighlight == ReadAloudHighlight.SentenceAndWord;
 
-        _subscriptions.Add(owner.ReadAloud.MarksChanged.SubscribeSafe(_ => MarkSpoken(), OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.IsOn).Skip(1).SubscribeSafe(OnIsOnChanged, OnError));
+        // What is read aloud is marked as it moves on, and again when the band is turned on or off.
+        _subscriptions.Add(Signal.Merge(
+                owner.ReadAloud.WhenChanged(static reader => reader.MarksVersion).Skip(1).Select(static _ => RxVoid.Default),
+                this.WhenChanged(static x => x.FocusBand).Skip(1).Select(static _ => RxVoid.Default))
+            .SubscribeSafe(_ => MarkSpoken(), ErrorTrace.Write));
+
+        // Opening shows the place being viewed; closing returns to the pages at the place read.
+        var switches = this.WhenChanged(static x => x.IsOn).Skip(1);
+        _subscriptions.Add(switches.Where(static on => on).SubscribeSafe(_ => Open(), ErrorTrace.Write));
+        _subscriptions.Add(switches.Where(static on => !on).SubscribeSafe(_ => ReturnToPages(), ErrorTrace.Write));
 
         // Text that changes while Focus Mode is open (a reload, recognised text, moved pages) is shown at once.
-        _subscriptions.Add(owner.Reading.Changes.Merge(owner.DocumentChanges)
+        _subscriptions.Add(Signal.Merge(
+                owner.Reading.WhenChanged(static reading => reading.Version).Skip(1),
+                owner.WhenChanged(static tab => tab.LayoutVersion).Skip(1))
             .WithLatestFrom(this.WhenChanged(static x => x.IsOn), static (_, on) => on)
             .Where(static on => on)
-            .SubscribeSafe(_ => Open(), OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.FontSize).Skip(1).SubscribeSafe(OnFontSizeChanged, OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.LineSpacing).Skip(1).SubscribeSafe(
-            value => Apply(() => _services.Settings.FocusLineSpacing = value),
-            OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.ParagraphSpacing).Skip(1).SubscribeSafe(
-            value => Apply(() => _services.Settings.FocusParagraphSpacing = value),
-            OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.TextWidth).Skip(1).SubscribeSafe(OnTextWidthChanged, OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.PageColour).Skip(1).SubscribeSafe(OnPageColourChanged, OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.Font).Skip(1).SubscribeSafe(OnFontChanged, OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.FocusBand).Skip(1).SubscribeSafe(OnFocusBandChanged, OnError));
-        _subscriptions.Add(this.WhenChanged(static x => x.WordHighlight).Skip(1).SubscribeSafe(
-            value => Apply(() => _services.Settings.ReadAloudHighlight = value ? ReadAloudHighlight.SentenceAndWord : ReadAloudHighlight.Sentence),
-            OnError));
+            .SubscribeSafe(_ => Open(), ErrorTrace.Write));
+
+        // Each setting is saved as it changes; the setters have already kept it in range.
+        _subscriptions.Add(this.WhenChanged(static x => x.FontSize).Skip(1)
+            .SubscribeSafe(size => Save(size, static (saved, value) => saved.FocusFontSize = value), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.LineSpacing).Skip(1)
+            .SubscribeSafe(spacing => Save(spacing, static (saved, value) => saved.FocusLineSpacing = value), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.ParagraphSpacing).Skip(1)
+            .SubscribeSafe(spacing => Save(spacing, static (saved, value) => saved.FocusParagraphSpacing = value), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.TextWidth).Skip(1)
+            .SubscribeSafe(width => Save(width, static (saved, value) => saved.FocusTextWidth = (int)value), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.PageColour).Skip(1)
+            .SubscribeSafe(colour => Save(colour, static (saved, value) => saved.FocusPageColour = (FocusPageColour)value), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.Font).Skip(1)
+            .SubscribeSafe(font => Save(font, static (saved, value) => saved.FocusFont = (FocusFont)value), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.FocusBand).Skip(1)
+            .SubscribeSafe(on => Save(on, static (saved, value) => saved.FocusBand = value), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.WordHighlight).Skip(1)
+            .SubscribeSafe(
+                on => Save(on, static (saved, value) => saved.ReadAloudHighlight = value ? ReadAloudHighlight.SentenceAndWord : ReadAloudHighlight.Sentence),
+                ErrorTrace.Write));
     }
 
     /// <summary>Gets the page colour choices.</summary>
@@ -121,12 +129,16 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial IReadOnlyList<FocusPageViewModel> Pages { get; private set; } = [];
 
-    /// <summary>Gets the requests to bring a place into view.</summary>
-    public AsObservableSignal<FocusScrollRequest> ScrollRequests { get; }
+    /// <summary>Gets the place the view was last asked to bring into view; the view scrolls each time it changes.</summary>
+    [Reactive]
+    public partial FocusScrollRequest ScrollTarget { get; private set; }
 
     /// <summary>Gets or sets the text size in points; values outside the range are clamped.</summary>
-    [Reactive]
-    public partial double FontSize { get; set; }
+    public double FontSize
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, Math.Clamp(value, MinFontSize, MaxFontSize));
+    }
 
     /// <summary>Gets or sets the line spacing, as a multiple of the text size.</summary>
     [Reactive]
@@ -137,16 +149,25 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     public partial double ParagraphSpacing { get; set; }
 
     /// <summary>Gets or sets the text column width, in characters; fractions are rounded.</summary>
-    [Reactive]
-    public partial double TextWidth { get; set; }
+    public double TextWidth
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, Math.Round(value));
+    }
 
-    /// <summary>Gets or sets the page colour's index in <see cref="PageColourOptions"/>.</summary>
-    [Reactive]
-    public partial int PageColour { get; set; }
+    /// <summary>Gets or sets the page colour's index in <see cref="PageColourOptions"/>; values outside the options are clamped.</summary>
+    public int PageColour
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, Math.Clamp(value, 0, PageColourOptions.Count - 1));
+    }
 
-    /// <summary>Gets or sets the typeface's index in <see cref="FontOptions"/>.</summary>
-    [Reactive]
-    public partial int Font { get; set; }
+    /// <summary>Gets or sets the typeface's index in <see cref="FontOptions"/>; values outside the options are clamped.</summary>
+    public int Font
+    {
+        get;
+        set => this.RaiseAndSetIfChanged(ref field, Math.Clamp(value, 0, FontOptions.Count - 1));
+    }
 
     /// <summary>Gets or sets a value indicating whether text away from what is being read aloud is dimmed.</summary>
     [Reactive]
@@ -168,8 +189,7 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     /// <summary>Asks the view to bring a place into view; a newer request replaces one that has not finished.</summary>
     /// <param name="pageIndex">The page.</param>
     /// <param name="fraction">How far down the page, from 0 to 1.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void ScrollTo(int pageIndex, double fraction) => _scrollRequests.EmitIfOpen(new(pageIndex, fraction));
+    public void ScrollTo(int pageIndex, double fraction) => ScrollTarget = ScrollTarget.Next(pageIndex, fraction);
 
     /// <summary>Starts reading aloud at a block.</summary>
     /// <param name="block">The block.</param>
@@ -191,24 +211,16 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _subscriptions.Dispose();
-        _scrollRequests.Dispose();
-    }
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The failure.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Creates the pages if needed and brings the place being viewed into view.</summary>
     private void Open()
     {
         // Pages keep what they loaded, so they are made again whenever the text may differ: after a reload, a change of
         // pages or text recognition, as well as when the page count changes.
-        var version = _owner.Reading.Version;
-        if (Pages.Count != _owner.PageCount || _builtFor != version)
+        var key = _owner.Reading.TextKey;
+        if (Pages.Count != _owner.PageCount || _builtFor != key)
         {
             var pages = new FocusPageViewModel[_owner.PageCount];
             for (var i = 0; i < pages.Length; i++)
@@ -216,7 +228,7 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
                 pages[i] = new(i, $"Page {i + 1}", _owner.GetReadingDocument);
             }
 
-            _builtFor = version;
+            _builtFor = key;
             Pages = pages;
         }
 
@@ -224,6 +236,10 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
         ReportTop(position.PageIndex, position.OffsetFraction);
         ScrollTo(position.PageIndex, position.OffsetFraction);
     }
+
+    /// <summary>Shows the pages again at the place that was at the top of Focus Mode.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ReturnToPages() => _owner.NavigateTo(_topPage, null, _topFraction);
 
     /// <summary>Marks what is being read aloud, and follows it to a new page.</summary>
     private void MarkSpoken()
@@ -248,6 +264,16 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
         }
     }
 
+    /// <summary>Writes one setting and saves the settings.</summary>
+    /// <typeparam name="T">The setting's type.</typeparam>
+    /// <param name="value">The value.</param>
+    /// <param name="write">Writes the value into the settings.</param>
+    private void Save<T>(T value, Action<AppSettings, T> write)
+    {
+        write(_services.Settings, value);
+        _services.SaveSettings();
+    }
+
     /// <summary>Switches Focus Mode on or off.</summary>
     /// <returns>Whether it is now on.</returns>
     [ReactiveCommand]
@@ -262,91 +288,4 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     /// <returns>The new size.</returns>
     [ReactiveCommand]
     private double Smaller() => FontSize = Math.Max(MinFontSize, FontSize - FontStep);
-
-    /// <summary>Opens Focus Mode at the place being viewed, or returns to the pages at the place read.</summary>
-    /// <param name="on">Whether Focus Mode is now on.</param>
-    private void OnIsOnChanged(bool on)
-    {
-        if (on)
-        {
-            Open();
-        }
-        else
-        {
-            _owner.NavigateTo(new(_topPage, null, _topFraction));
-        }
-    }
-
-    /// <summary>Clamps the text size, then saves it.</summary>
-    /// <param name="value">The size asked for.</param>
-    private void OnFontSizeChanged(double value)
-    {
-        var clamped = Math.Clamp(value, MinFontSize, MaxFontSize);
-        if (Math.Abs(clamped - value) > Tolerance)
-        {
-            // Writing back raises another change, which saves.
-            FontSize = clamped;
-            return;
-        }
-
-        Apply(() => _services.Settings.FocusFontSize = clamped);
-    }
-
-    /// <summary>Rounds the column width to whole characters, then saves it.</summary>
-    /// <param name="value">The width asked for.</param>
-    private void OnTextWidthChanged(double value)
-    {
-        var rounded = Math.Round(value);
-        if (Math.Abs(rounded - value) > Tolerance)
-        {
-            TextWidth = rounded;
-            return;
-        }
-
-        Apply(() => _services.Settings.FocusTextWidth = (int)rounded);
-    }
-
-    /// <summary>Clamps the page colour to the options, then saves it.</summary>
-    /// <param name="value">The index asked for.</param>
-    private void OnPageColourChanged(int value)
-    {
-        var clamped = Math.Clamp(value, 0, PageColourOptions.Count - 1);
-        if (clamped != value)
-        {
-            PageColour = clamped;
-            return;
-        }
-
-        Apply(() => _services.Settings.FocusPageColour = (FocusPageColour)clamped);
-    }
-
-    /// <summary>Clamps the typeface to the options, then saves it.</summary>
-    /// <param name="value">The index asked for.</param>
-    private void OnFontChanged(int value)
-    {
-        var clamped = Math.Clamp(value, 0, FontOptions.Count - 1);
-        if (clamped != value)
-        {
-            Font = clamped;
-            return;
-        }
-
-        Apply(() => _services.Settings.FocusFont = (FocusFont)clamped);
-    }
-
-    /// <summary>Saves the focus band setting and marks the page being read.</summary>
-    /// <param name="on">Whether the band is on.</param>
-    private void OnFocusBandChanged(bool on)
-    {
-        Apply(() => _services.Settings.FocusBand = on);
-        MarkSpoken();
-    }
-
-    /// <summary>Applies a setting and saves it.</summary>
-    /// <param name="change">The change.</param>
-    private void Apply(Action change)
-    {
-        change();
-        _services.SaveSettings();
-    }
 }

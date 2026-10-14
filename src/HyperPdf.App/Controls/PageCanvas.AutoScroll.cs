@@ -3,11 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Input;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Navigation;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Controls;
 
@@ -21,13 +22,10 @@ public sealed partial class PageCanvas
     /// <summary>Works out how far each frame moves.</summary>
     private readonly AutoScroller _autoScroller = new();
 
-    /// <summary>The frame callback, made once so frames do not allocate.</summary>
-    private Action<TimeSpan>? _autoScrollFrame;
-
     /// <summary>When the last auto-scroll frame ran.</summary>
     private long _autoScrollLast;
 
-    /// <summary>1 while auto-scroll frames are being requested.</summary>
+    /// <summary>1 while a glide's frames are subscribed.</summary>
     private int _autoScrollRunning;
 
     /// <summary>Gets a value indicating whether auto-scroll frames are being requested, for tests.</summary>
@@ -71,51 +69,32 @@ public sealed partial class PageCanvas
         }
     }
 
-    /// <summary>Starts or stops the auto-scroll frames.</summary>
-    /// <param name="on">Whether auto-scroll is on.</param>
-    private void OnAutoScrollChanged(bool on)
-    {
-        if (!on)
-        {
-            StopAutoScrollFrames();
-            return;
-        }
-
-        if (Interlocked.Exchange(ref _autoScrollRunning, 1) != 0)
-        {
-            return;
-        }
-
-        // The keyboard comes to the pages so the arrows change the speed and Escape stops.
-        _ = Focus();
-        _autoScroller.Reset();
-        _autoScrollLast = Stopwatch.GetTimestamp();
-        RequestAutoScrollFrame();
-    }
-
-    /// <summary>Stops requesting auto-scroll frames.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void StopAutoScrollFrames() => _ = Interlocked.Exchange(ref _autoScrollRunning, 0);
-
-    /// <summary>Asks for the next auto-scroll frame.</summary>
-    private void RequestAutoScrollFrame()
+    /// <summary>
+    /// Starts a glide: the keyboard comes to the pages so the arrows change the speed and Escape stops, and the window's
+    /// frames move the pages until the subscription ends.
+    /// </summary>
+    /// <returns>The frames, or none when the canvas is not in a window.</returns>
+    private IObservable<TimeSpan> StartGlide()
     {
         if (TopLevel.GetTopLevel(this) is not { } top)
         {
-            StopAutoScrollFrames();
-            return;
+            return Signal.Never<TimeSpan>();
         }
 
-        top.RequestAnimationFrame(_autoScrollFrame ??= OnAutoScrollFrame);
+        _ = Focus();
+        _autoScroller.Reset();
+        _autoScrollLast = Stopwatch.GetTimestamp();
+        _ = Interlocked.Exchange(ref _autoScrollRunning, 1);
+
+        // Finally has no state-passing form, so the end of the glide reaches the flag through this closure.
+        return top.AnimationFrames.Finally(() => Interlocked.Exchange(ref _autoScrollRunning, 0));
     }
 
-    /// <summary>Moves the pages on by the time since the last frame.</summary>
-    /// <param name="time">The frame time, unused because the scroller measures its own time.</param>
-    private void OnAutoScrollFrame(TimeSpan time)
+    /// <summary>Moves the pages on by the time since the last frame, and ends auto-scroll at the end of the document.</summary>
+    private void StepAutoScroll()
     {
-        if (!IsAutoScrollRunning || _scroller is null || Tab is not { PageTools.IsAutoScrolling: true } tab)
+        if (_scroller is null || Tab is not { PageTools.IsAutoScrolling: true } tab)
         {
-            StopAutoScrollFrames();
             return;
         }
 
@@ -125,13 +104,9 @@ public sealed partial class PageCanvas
         var distance = _autoScroller.Advance(seconds, tab.PageTools.AutoScrollSpeed, tab.ReduceMotion);
         if (distance > 0 && !AutoScrollBy(distance))
         {
-            // The end of the document: auto-scroll stops by itself.
-            StopAutoScrollFrames();
+            // Turning auto-scroll off ends the glide's frames.
             tab.PageTools.IsAutoScrolling = false;
-            return;
         }
-
-        RequestAutoScrollFrame();
     }
 
     /// <summary>Scrolls down, page by page within the page shown and then to the next page.</summary>

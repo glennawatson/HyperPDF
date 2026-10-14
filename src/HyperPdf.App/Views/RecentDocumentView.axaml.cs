@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Platform;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -28,10 +29,10 @@ public sealed partial class RecentDocumentView : ReactiveUI.Avalonia.ReactiveUse
             disposables.Add(recent.Select(static item => item?.Folder).BindTo(this, static v => v.FolderText.Text));
 
             // The tip is an attached property, which a binding expression cannot reach.
-            disposables.Add(recent.SubscribeSafe(item => ToolTip.SetTip(this, item?.FilePath), static error => Trace.TraceError(error.ToString())));
+            disposables.Add(recent.SubscribeSafe(item => ToolTip.SetTip(this, item?.FilePath), ErrorTrace.Write));
 
             // Handled, so the click removes the row without also opening its document.
-            disposables.Add(RemoveButton.Clicks.MarkHandled().InjectLatest(recent).SubscribeSafe(item => RemoveRequested?.Invoke(item), static error => Trace.TraceError(error.ToString())));
+            disposables.Add(RemoveButton.Clicks.MarkHandled().InjectLatest(recent).SubscribeSafe(item => RemoveRequested?.Invoke(item), ErrorTrace.Write));
         });
     }
 

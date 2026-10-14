@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Settings;
 using ReactiveUI;
@@ -48,26 +49,25 @@ public sealed partial class CertificateSignWindow : ReactiveUI.Avalonia.Reactive
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Answered)
                 .SwitchMap(static answered => answered)
-                .SubscribeSafe(answer => Close(answer), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(answer => Close(answer), ErrorTrace.Write));
 
-            // The named boxes are the state each chain needs, and a control cannot be passed through the operators, so these
-            // lambdas read the window's own fields. Focus starts in the password when a certificate is already named.
+            // Focus starts in the password when a certificate is already named.
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CertificatePath)
                 .Take(1)
-                .Select(path => string.IsNullOrEmpty(path) ? CertificateBox : PasswordBox)
-                .SubscribeSafe(static box => box.Focus(), static error => Trace.TraceError(error.ToString())));
+                .SelectWith(this, static (window, path) => string.IsNullOrEmpty(path) ? window.CertificateBox : window.PasswordBox)
+                .SubscribeSafe(static box => box.Focus(), ErrorTrace.Write));
 
             // After a wrong password, the password box takes the keyboard again with its text selected, ready to retype.
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Error)
                 .Where(static error => error is not null)
-                .Select(_ => PasswordBox)
+                .SelectWith(this, static (window, _) => window.PasswordBox)
                 .SubscribeSafe(
                     static box =>
                     {
                         _ = box.Focus();
                         box.SelectAll();
                     },
-                    static error => Trace.TraceError(error.ToString())));
+                    ErrorTrace.Write));
         });
     }
 

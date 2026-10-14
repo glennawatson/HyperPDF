@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -63,13 +64,12 @@ public sealed partial class ExternalSignWindow : ReactiveUI.Avalonia.ReactiveWin
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveCopyInteraction, SaveCopyAsync));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
-                .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(_ => Close(), ErrorTrace.Write));
 
-            // The keyboard moves to the first step once the first layout is done. The named button is the state the chain
-            // needs, so the lambda reads the window's own field.
+            // The keyboard moves to the first step once the first layout is done.
             disposables.Add(this.Events().LayoutUpdated.Take(1)
-                .Select(_ => BrowseButton)
-                .SubscribeSafe(static button => button.Focus(), static error => Trace.TraceError(error.ToString())));
+                .SelectWith(this, static (window, _) => window.BrowseButton)
+                .SubscribeSafe(static button => button.Focus(), ErrorTrace.Write));
         });
     }
 

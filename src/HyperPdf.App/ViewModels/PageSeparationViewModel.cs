@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -41,9 +42,13 @@ public sealed partial class PageSeparationViewModel : ReactiveObject, IDisposabl
     {
         ArgumentNullException.ThrowIfNull(owner);
         _owner = owner;
+
+        // Choosing another colourant shows its separation page; choosing the page already shown does nothing.
         _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedIndex)
             .Skip(1)
-            .SubscribeSafe(OnSelectedIndexChanged, static error => Trace.TraceError(error.ToString())));
+            .Select(PageToShow)
+            .Where(static page => page >= 0)
+            .SubscribeSafe(owner.ShowPage, ErrorTrace.Write));
     }
 
     /// <summary>
@@ -133,13 +138,11 @@ public sealed partial class PageSeparationViewModel : ReactiveObject, IDisposabl
         SelectedIndex = slot.Position;
     }
 
-    /// <summary>Shows the separation the reader chose.</summary>
+    /// <summary>Gets the page of the separation at a position in <see cref="Colorants"/>, when it is not the page shown now.</summary>
     /// <param name="index">The chosen position.</param>
-    private void OnSelectedIndexChanged(int index)
-    {
-        if (_group is { } group && (uint)index < (uint)group.Pages.Length && group.Pages[index].PageIndex != _owner.CurrentPageIndex)
-        {
-            _owner.ShowPage(group.Pages[index].PageIndex);
-        }
-    }
+    /// <returns>The page to show, or -1 when there is nothing to show.</returns>
+    private int PageToShow(int index) =>
+        _group is { } group && (uint)index < (uint)group.Pages.Length && group.Pages[index].PageIndex != _owner.CurrentPageIndex
+            ? group.Pages[index].PageIndex
+            : -1;
 }

@@ -4,7 +4,6 @@
 
 using HyperPdf.App.ViewModels;
 using HyperPdf.TestAssets;
-using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
 
@@ -30,15 +29,14 @@ public sealed class FocusModeViewModelTests
         await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
-        var changes = 0;
-        using var probe = tab.ReadAloud.MarksChanged.SubscribeSafe(_ => changes++, static _ => { });
+        var marksBefore = tab.ReadAloud.MarksVersion;
         tab.FocusMode.IsOn = true;
         await tab.FocusMode.Pages[0].LoadAsync();
 
         tab.ReadAloud.IsOpen = true;
 
         await Assert.That(await UiWait.UntilAsync(() => !tab.ReadAloud.SpokenRange.IsEmpty)).IsTrue();
-        await Assert.That(changes).IsGreaterThan(0);
+        await Assert.That(tab.ReadAloud.MarksVersion).IsGreaterThan(marksBefore);
         await Assert.That(tab.FocusMode.Pages[0].Blocks[0].Spoken.IsEmpty).IsFalse();
         tab.ReadAloud.IsOpen = false;
     }

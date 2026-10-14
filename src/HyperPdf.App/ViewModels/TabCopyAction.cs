@@ -4,10 +4,11 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Signals;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -27,8 +28,14 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
     /// <summary>The command's texts, availability and window.</summary>
     private readonly TabCopyActionSpec<TRequest> _spec;
 
-    /// <summary>Whether the command can run; a signal, as generated bindings cannot observe a generic type's properties.</summary>
-    private readonly BehaviorSignal<bool> _canRun = new(false);
+    /// <summary>
+    /// Whether the command can run, read from <see cref="CanRun"/>. The binding generator cannot observe a generic type's
+    /// properties, so the change notifications ReactiveObject itself publishes are read instead.
+    /// </summary>
+    private readonly IObservable<bool> _canRun;
+
+    /// <summary>Owns the command.</summary>
+    private readonly MultipleDisposable _lifetime = [];
 
     /// <summary>The window's view model while the window is open, so the tab can close it when its document goes away.</summary>
     private TRequest? _open;
@@ -41,6 +48,11 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
         _owner = owner;
         _spec = spec;
         MenuText = spec.UnavailableText;
+        _canRun = Changed
+            .Where(static change => change.PropertyName == nameof(CanRun))
+            .Select(static change => change.Sender is TabCopyAction<TRequest> { CanRun: true })
+            .StartWith(false);
+        _lifetime.Add(RunCommand);
     }
 
     /// <summary>Gets a value indicating whether the open document's engine can make this copy.</summary>
@@ -56,7 +68,7 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _canRun.Dispose();
+    public void Dispose() => _lifetime.Dispose();
 
     /// <summary>Stops the run in the command's window and closes it, because the document it works on is going away.</summary>
     /// <returns><see langword="true"/> when a window was open.</returns>
@@ -67,7 +79,8 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
             return false;
         }
 
-        _ = request.CloseCommand.Execute().SubscribeSafe(static _ => { }, static error => Trace.TraceError(error.ToString()));
+        // Executing a command is a cold stream that completes once the command has run, so the subscription ends by itself.
+        _ = request.CloseCommand.Execute().SubscribeSafe(static _ => { }, ErrorTrace.Write);
         return true;
     }
 
@@ -78,7 +91,6 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
         var can = _spec.IsAvailable(document);
         CanRun = can;
         MenuText = can ? _spec.AvailableText : _spec.UnavailableText;
-        _canRun.OnNext(can);
     }
 
     /// <summary>Shows the command's window for the tab's document.</summary>

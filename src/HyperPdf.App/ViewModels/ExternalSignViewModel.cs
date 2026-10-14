@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Signatures.Signing;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -91,9 +92,12 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
         _canCancel = this.WhenChanged(static vm => vm.IsRunning);
 
         // A prepared file belongs to the choices it was made with, so changing one discards it.
-        _subscriptions.Add(this.WhenChanged(static vm => vm.Reason).Skip(1).SubscribeSafe(_ => Discard(), static error => Trace.TraceError(error.ToString())));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.Location).Skip(1).SubscribeSafe(_ => Discard(), static error => Trace.TraceError(error.ToString())));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedKey).Skip(1).SubscribeSafe(_ => Discard(), static error => Trace.TraceError(error.ToString())));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.Reason, static vm => vm.Location, static vm => vm.SelectedKey, static (_, _, _) => RxVoid.Default)
+            .Skip(1)
+            .SubscribeSafe(_ => Discard(), ErrorTrace.Write));
+
+        // Closing the window stops a run in progress; the run itself disposes its source when it ends.
+        _subscriptions.Add(Scope.Create(Cancel));
     }
 
     /// <summary>Gets the kinds of signature the signer's key can make.</summary>
@@ -186,12 +190,8 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
     public ExternalResultKind ResultKind => SelectedResult?.Kind ?? ExternalResultKind.SignatureValue;
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        Volatile.Read(ref _cancel)?.Cancel();
-        _cancel?.Dispose();
-        _subscriptions.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Determines whether an exception is a signing failure to tell the user about, rather than a bug.</summary>
     /// <param name="exception">The exception.</param>

@@ -22,14 +22,11 @@ public sealed partial class AttachmentItemView : ReactiveUI.Avalonia.ReactiveUse
 
         // An attachment is an immutable record with no change notification, so OneWayBind cannot observe it.
         // The view follows which one it shows instead.
-        _ = this.WhenActivated(disposables => disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, static error => Trace.TraceError(error.ToString()))));
-    }
-
-    /// <summary>Shows an attachment.</summary>
-    /// <param name="attachment">The attachment.</param>
-    private void Show(DocumentAttachment? attachment)
-    {
-        NameText.Text = attachment?.Name;
-        SizeText.Text = attachment is null ? null : AttachmentsViewModel.FormatSize(attachment.Size);
+        var attachments = this.WhenChanged(static v => v.ViewModel);
+        _ = this.WhenActivated(disposables =>
+        {
+            disposables.Add(attachments.Select(static attachment => attachment?.Name).BindTo(this, static v => v.NameText.Text));
+            disposables.Add(attachments.Select(static attachment => attachment is null ? null : AttachmentsViewModel.FormatSize(attachment.Size)).BindTo(this, static v => v.SizeText.Text));
+        });
     }
 }

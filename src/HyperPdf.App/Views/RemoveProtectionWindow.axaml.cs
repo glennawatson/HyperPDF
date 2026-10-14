@@ -5,12 +5,12 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.ObservableEvents;
-using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Views;
 
@@ -44,16 +44,14 @@ public sealed partial class RemoveProtectionWindow : ReactiveUI.Avalonia.Reactiv
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ResultText, static v => v.ResultText.Text));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
 
-            // The named controls are the state the chain needs, and a control cannot be passed through the operators, so
-            // these lambdas read the window's own fields.
-            var needsOwner = this.Events().LayoutUpdated.Take(1).WithLatestFrom(this.WhenChanged(static v => v.ViewModel!.NeedsOwnerPassword), static (_, needs) => needs);
-            disposables.Add(Signal.Merge(
-                    needsOwner.Where(static needs => needs).Select(_ => (Control)OwnerBox),
-                    needsOwner.Where(static needs => !needs).Select(_ => (Control)SaveButton))
-                .SubscribeSafe(static control => control.Focus(), static error => Trace.TraceError(error.ToString())));
+            // The keyboard moves to the owner password when the file needs one, otherwise to Save.
+            disposables.Add(this.Events().LayoutUpdated.Take(1)
+                .WithLatestFrom(this.WhenChanged(static v => v.ViewModel!.NeedsOwnerPassword), static (_, needs) => needs)
+                .SelectWith(this, static (window, needs) => needs ? (Control)window.OwnerBox : window.SaveButton)
+                .SubscribeSafe(static control => control.Focus(), ErrorTrace.Write));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
-                .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(_ => Close(), ErrorTrace.Write));
         });
     }
 

@@ -4,17 +4,16 @@
 
 using System.Collections;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Documents;
 using HyperPdfLibrary;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.ObservableEvents;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -41,14 +40,11 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>The owner that supplies the open document and refreshes its page layout.</summary>
     private readonly DocumentTabViewModel _owner;
 
-    /// <summary>Cancels an in-flight operation when the owning tab closes.</summary>
-    private readonly CancellationTokenSource _lifetime = new();
+    /// <summary>Cancelled when the owning tab closes, which stops an in-flight operation; its source is owned by <see cref="_subscriptions"/>.</summary>
+    private readonly CancellationToken _lifetime;
 
     /// <summary>Owns the selection subscription.</summary>
     private readonly MultipleDisposable _subscriptions = [];
-
-    /// <summary>Owns the collection-change subscription for the bound thumbnail selection.</summary>
-    private readonly SwapDisposable _selectedThumbnailSubscription = new();
 
     /// <summary>Whether a page edit can run.</summary>
     private readonly IObservable<bool> _canEdit;
@@ -71,15 +67,17 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>Whether an edit can be redone.</summary>
     private readonly IObservable<bool> _canRedo;
 
-    /// <summary>Whether this view model has been disposed.</summary>
-    private int _disposed;
-
     /// <summary>Initializes a new instance of the <see cref="PageManagementViewModel"/> class.</summary>
     /// <param name="owner">The tab holding the document.</param>
     public PageManagementViewModel(DocumentTabViewModel owner)
     {
         ArgumentNullException.ThrowIfNull(owner);
         _owner = owner;
+
+        // Closing the tab first stops an operation that is still running.
+        var lifetime = new CancellationDisposable();
+        _lifetime = lifetime.Token;
+        _subscriptions.Add(lifetime);
         _canEdit = this.WhenChanged(static vm => vm.CanEdit);
         _canEditSelection = this.WhenChanged(static vm => vm.CanEdit, static vm => vm.SelectedPages, static (canEdit, pages) => canEdit && pages.Count > 0);
         _canMoveEarlier = this.WhenChanged(static vm => vm.CanMoveEarlier);
@@ -87,12 +85,19 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         _canDelete = this.WhenChanged(static vm => vm.CanDelete);
         _canUndo = this.WhenChanged(static vm => vm.CanUndo);
         _canRedo = this.WhenChanged(static vm => vm.CanRedo);
-        AttachSelectedThumbnailCollection(SelectedThumbnails);
+
+        // The sidebar's two-way selection binding either replaces the collection or edits it in place; both select the
+        // pages it holds. The first value is the collection the view model starts with, which holds nothing yet.
         _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedThumbnails)
+            .SwitchMap(static thumbnails => thumbnails.Edits)
             .Skip(1)
-            .SubscribeSafe(OnSelectedThumbnailsReplaced, static _ => { }));
+            .SubscribeSafe(SelectThumbnailPages, ErrorTrace.Write));
         RefreshState();
     }
+
+    /// <summary>Gets a number that changes each time an edit changes the page order or geometry, so the tab reads its pages again.</summary>
+    [Reactive]
+    public partial int StructureVersion { get; private set; }
 
     /// <summary>Gets the selected zero-based page indexes in document order.</summary>
     [Reactive]
@@ -203,18 +208,8 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
             "Could not move pages.");
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-        {
-            return;
-        }
-
-        _lifetime.Cancel();
-        _lifetime.Dispose();
-        _subscriptions.Dispose();
-        _selectedThumbnailSubscription.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
@@ -339,9 +334,9 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         return pages;
     }
 
-    /// <summary>Normalizes a selection change made by the thumbnail control.</summary>
+    /// <summary>Selects the pages of the thumbnails the thumbnail control selected, in document order.</summary>
     /// <param name="thumbnails">The selected thumbnail items.</param>
-    private void OnSelectedThumbnailsChanged(IList thumbnails)
+    private void SelectThumbnailPages(IList thumbnails)
     {
         var indexes = new List<int>(thumbnails.Count);
         foreach (var thumbnail in thumbnails)
@@ -353,29 +348,6 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         }
 
         SelectPages(indexes);
-    }
-
-    /// <summary>Follows collection replacements made by the two-way thumbnail selection binding.</summary>
-    /// <param name="thumbnails">The replacement selection collection.</param>
-    private void OnSelectedThumbnailsReplaced(IList thumbnails)
-    {
-        AttachSelectedThumbnailCollection(thumbnails);
-        OnSelectedThumbnailsChanged(thumbnails);
-    }
-
-    /// <summary>Subscribes to in-place edits made to the currently bound selection collection.</summary>
-    /// <param name="thumbnails">The selection collection, or <see langword="null"/> when detaching.</param>
-    private void AttachSelectedThumbnailCollection(IList? thumbnails)
-    {
-        if (thumbnails is not INotifyCollectionChanged collection)
-        {
-            _selectedThumbnailSubscription.Disposable = null;
-            return;
-        }
-
-        _selectedThumbnailSubscription.Disposable = collection.Events().CollectionChanged.SubscribeSafe(
-            _ => OnSelectedThumbnailsChanged(thumbnails),
-            static error => Trace.TraceError(error.ToString()));
     }
 
     /// <summary>Copies the selected indexes into an operation request.</summary>
@@ -594,10 +566,10 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         RefreshState();
         try
         {
-            var result = await operation(manager, _lifetime.Token).ConfigureAwait(true);
+            var result = await operation(manager, _lifetime).ConfigureAwait(true);
             if (result.Changed && refreshDocument)
             {
-                _owner.OnPageStructureChanged();
+                StructureVersion++;
                 if (result.SelectionAfterRefresh is { } selection)
                 {
                     SelectPages(selection());

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using ReactiveUI.Primitives;
 
@@ -72,7 +73,7 @@ public sealed class OutlineEditViewModelTests
         var tab = main.SelectedTab!;
         var chosen = tab.Outline[LastIndex];
         var jumps = new List<NavigationRequest>();
-        using var navigation = tab.NavigationRequests.SubscribeSafe(jumps.Add, static _ => { });
+        using var navigation = tab.Destinations.SubscribeSafe(jumps.Add, static _ => { });
         tab.SelectedOutlineItem = chosen;
         var jumpsToChoose = jumps.Count;
         using var answer = AnswerWith(tab, Typed);
@@ -137,7 +138,7 @@ public sealed class OutlineEditViewModelTests
         var tab = main.SelectedTab!;
         var removed = tab.Outline[1];
         var jumps = new List<NavigationRequest>();
-        using var navigation = tab.NavigationRequests.SubscribeSafe(jumps.Add, static _ => { });
+        using var navigation = tab.Destinations.SubscribeSafe(jumps.Add, static _ => { });
         tab.SelectedOutlineItem = removed;
         var jumpsToChoose = jumps.Count;
 

@@ -5,14 +5,13 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Search;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -36,9 +35,6 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     /// <summary>Hits grouped by page, for highlighting.</summary>
     private readonly Dictionary<int, List<SearchHit>> _hitsByPage = [];
 
-    /// <summary>Emits when highlights change.</summary>
-    private readonly Signal<RxVoid> _highlightChanges = new();
-
     /// <summary>Cancels the running search.</summary>
     private CancellationTokenSource? _search;
 
@@ -50,20 +46,29 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     public SearchViewModel(DocumentTabViewModel owner)
     {
         _owner = owner;
-        HighlightChanges = new(_highlightChanges);
         _subscriptions =
         [
             this.WhenChanged(static x => x.Query, static x => x.MatchCase, static x => x.WholeWord)
                 .Throttle(TypingDelay, RxSchedulers.MainThreadScheduler)
-                .SubscribeSafe(_ => StartSearch(), OnSearchError),
+                .SubscribeSafe(_ => StartSearch(), ErrorTrace.Write),
+
+            // A result picked in the sidebar list moves to its hit; selecting the current hit's result moves nothing.
             this.WhenChanged(static x => x.SelectedResult)
                 .Skip(1)
-                .SubscribeSafe(SelectResult, OnSearchError),
+                .KeepNotNull()
+
+                // The filter reads the current hit: a constructor cannot hand 'this' to a state-passing operator.
+                .Where(result => result.Index != CurrentIndex)
+                .SubscribeSafe(result => MoveTo(result.Index), ErrorTrace.Write),
+
+            // The running search stops with the view model, after the subscriptions that could start another.
+            Scope.Create(Cancel),
         ];
     }
 
-    /// <summary>Gets notifications that the highlights changed, so the canvas can repaint.</summary>
-    public AsObservableSignal<RxVoid> HighlightChanges { get; }
+    /// <summary>Gets a number that changes each time the highlighted hits change, so the pages draw them again.</summary>
+    [Reactive]
+    public partial int HighlightVersion { get; private set; }
 
     /// <summary>Gets or sets the query.</summary>
     [Reactive]
@@ -145,13 +150,8 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _subscriptions.Dispose();
-        Cancel();
-        _highlightChanges.OnCompleted();
-        _highlightChanges.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Restarts the search after the document reloads.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -176,11 +176,6 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
         StartSearch();
     }
 
-    /// <summary>Reports a failure in the query pipeline.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnSearchError(Exception error) => Debug.WriteLine(error);
-
     /// <summary>Gets the text around a hit.</summary>
     /// <param name="document">The document.</param>
     /// <param name="match">The match.</param>
@@ -193,16 +188,6 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
         return text.ReplaceLineEndings(" ").Trim();
     }
 
-    /// <summary>Moves to the hit of a result the user picked in the sidebar list.</summary>
-    /// <param name="result">The selected result, or <see langword="null"/>.</param>
-    private void SelectResult(SearchResultItemViewModel? result)
-    {
-        if (result is not null && result.Index != CurrentIndex)
-        {
-            MoveTo(result.Index);
-        }
-    }
-
     /// <summary>Selects a hit and scrolls to it.</summary>
     /// <param name="index">The hit index.</param>
     private void MoveTo(int index)
@@ -212,8 +197,8 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
         SelectedResult = item;
         UpdateStatus();
         var bounds = item.Hit.Bounds;
-        _owner.NavigateTo(new(item.PageIndex, bounds.Length > 0 ? bounds[0] : null, 0));
-        _highlightChanges.EmitIfOpen(RxVoid.Default);
+        _owner.NavigateTo(item.PageIndex, bounds.Length > 0 ? bounds[0] : null, 0);
+        HighlightVersion++;
     }
 
     /// <summary>Cancels the running search.</summary>
@@ -233,7 +218,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
         CurrentIndex = -1;
         SelectedResult = null;
         Status = string.Empty;
-        _highlightChanges.EmitIfOpen(RxVoid.Default);
+        HighlightVersion++;
     }
 
     /// <summary>Starts a new search for the current query.</summary>
@@ -288,7 +273,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
                 }
 
                 UpdateStatus();
-                _highlightChanges.EmitIfOpen(RxVoid.Default);
+                HighlightVersion++;
             }
         }
         catch (OperationCanceledException)

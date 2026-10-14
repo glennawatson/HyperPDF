@@ -10,6 +10,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Search;
 using ReactiveUI;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -18,19 +19,36 @@ namespace HyperPdf.App.ViewModels;
 /// Search every PDF in a folder: results arrive file by file while the search runs off the UI thread, and opening one
 /// shows its page with the words found.
 /// </summary>
-/// <param name="services">The services.</param>
-/// <param name="open">Opens a file at a page with the words to show.</param>
 [DebuggerDisplay("FolderSearchViewModel: {Query} in {Folder}: {Results.Count} results")]
-public sealed partial class FolderSearchViewModel(AppServices services, Action<string, int, string> open) : ReactiveObject, IDisposable
+public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
 {
     /// <summary>The most matches kept per file.</summary>
     private const int MaxMatchesPerFile = 200;
+
+    /// <summary>The services.</summary>
+    private readonly AppServices _services;
+
+    /// <summary>Opens a file at a page with the words to show.</summary>
+    private readonly Action<string, int, string> _open;
+
+    /// <summary>Owns what ends with the view model: the running search.</summary>
+    private readonly MultipleDisposable _lifetime = [];
 
     /// <summary>Cancels the running search.</summary>
     private CancellationTokenSource? _running;
 
     /// <summary>Counts the searches started, so a search that finishes late can tell it was replaced.</summary>
     private int _version;
+
+    /// <summary>Initializes a new instance of the <see cref="FolderSearchViewModel"/> class.</summary>
+    /// <param name="services">The services.</param>
+    /// <param name="open">Opens a file at a page with the words to show.</param>
+    public FolderSearchViewModel(AppServices services, Action<string, int, string> open)
+    {
+        _services = services;
+        _open = open;
+        _lifetime.Add(Scope.Create(Stop));
+    }
 
     /// <summary>Gets the interaction that asks for a folder.</summary>
     public Interaction<RxVoid, string?> ChooseFolderInteraction { get; } = new();
@@ -104,7 +122,7 @@ public sealed partial class FolderSearchViewModel(AppServices services, Action<s
 
     /// <inheritdoc/>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => Close();
+    public void Dispose() => _lifetime.Dispose();
 
     /// <summary>Counts matches in words: "1 match", "3 matches".</summary>
     /// <param name="count">The count.</param>
@@ -138,7 +156,7 @@ public sealed partial class FolderSearchViewModel(AppServices services, Action<s
             for (var i = 0; i < files.Count && !token.IsCancellationRequested; i++)
             {
                 var path = files[i];
-                var found = await FolderSearch.SearchFileAsync(services.Engine, path, query, options, MaxMatchesPerFile, token).ConfigureAwait(true);
+                var found = await FolderSearch.SearchFileAsync(_services.Engine, path, query, options, MaxMatchesPerFile, token).ConfigureAwait(true);
 
                 // A file that finished just as the search was stopped or replaced must not add old matches to the results.
                 if (token.IsCancellationRequested)
@@ -221,7 +239,7 @@ public sealed partial class FolderSearchViewModel(AppServices services, Action<s
     {
         if (result is { IsMatch: true })
         {
-            open(result.Path, result.PageIndex, Query.Trim());
+            _open(result.Path, result.PageIndex, Query.Trim());
         }
     }
 }

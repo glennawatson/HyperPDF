@@ -5,12 +5,12 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -28,14 +28,11 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
 
-    /// <summary>Cancels an edit in flight when the tab closes.</summary>
-    private readonly CancellationTokenSource _lifetime = new();
+    /// <summary>Cancelled when the tab closes, which stops an edit in flight; its source is owned by <see cref="_subscriptions"/>.</summary>
+    private readonly CancellationToken _lifetime;
 
     /// <summary>Owns the selection subscriptions.</summary>
     private readonly MultipleDisposable _subscriptions = [];
-
-    /// <summary>Raised when an edit has changed the bookmark list.</summary>
-    private readonly Signal<RxVoid> _edits = new();
 
     /// <summary>Whether a bookmark can be added.</summary>
     private readonly IObservable<bool> _canAdd;
@@ -67,12 +64,16 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
         _canMoveDown = this.WhenChanged(static vm => vm.CanMoveDown);
         _canIndent = this.WhenChanged(static vm => vm.CanIndent);
         _canOutdent = this.WhenChanged(static vm => vm.CanOutdent);
+        var lifetime = new CancellationDisposable();
+        _lifetime = lifetime.Token;
+        _subscriptions.Add(lifetime);
         _subscriptions.Add(owner.WhenChanged(static tab => tab.SelectedOutlineItem, static tab => tab.Outline, static tab => tab.IsLoaded, static (_, _, _) => RxVoid.Default)
-            .SubscribeSafe(_ => RefreshState(), OnError));
+            .SubscribeSafe(_ => RefreshState(), ErrorTrace.Write));
     }
 
-    /// <summary>Gets the signal raised each time an edit has changed the bookmark list, so a view can restore the keyboard focus the new list took away.</summary>
-    public IObservable<RxVoid> Edits => _edits;
+    /// <summary>Gets a number that changes each time an edit has changed the bookmark list, so a view can restore the keyboard focus the new list took away.</summary>
+    [Reactive]
+    public partial int EditVersion { get; private set; }
 
     /// <summary>Gets the interaction asking for a bookmark's title.</summary>
     public Interaction<TextPrompt, string?> PromptInteraction { get; } = new();
@@ -109,13 +110,8 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
     public partial string Status { get; private set; } = string.Empty;
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _lifetime.Cancel();
-        _subscriptions.Dispose();
-        _edits.Dispose();
-        _lifetime.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Finds an entry's place among its siblings.</summary>
     /// <param name="items">The entries at one level.</param>
@@ -141,11 +137,6 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
 
         return null;
     }
-
-    /// <summary>Reports a failure of a subscription.</summary>
-    /// <param name="error">The failure.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Adds a bookmark to the current page, below the selected bookmark or at the top level.</summary>
     /// <returns>A task.</returns>
@@ -237,12 +228,12 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
 
         try
         {
-            var result = await edit(editor, _lifetime.Token).ConfigureAwait(true);
+            var result = await edit(editor, _lifetime).ConfigureAwait(true);
             if (result.Succeeded)
             {
                 ShowEdited(selectId);
                 _owner.Pages.Refresh();
-                _edits.EmitIfOpen(RxVoid.Default);
+                EditVersion++;
             }
 
             Status = result.Succeeded ? done : result.Problem ?? "The bookmarks could not be changed.";

@@ -7,6 +7,7 @@ using System.Text;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Documents;
@@ -141,9 +142,9 @@ public sealed class DocumentTabViewModelTests
         {
             await Assert.That(await UiWait.UntilAsync(() => window.GetVisualDescendants().OfType<DocumentView>().Any())).IsTrue();
             var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
-            var panel = view.FindControl<Border>("CertificatePanel")!;
-            var file = view.FindControl<TextBox>("OpenCertificatePathBox")!;
-            var password = view.FindControl<TextBox>("OpenCertificatePasswordBox")!;
+            var panel = view.FindNamed<Border>("CertificatePanel")!;
+            var file = view.FindNamed<TextBox>("OpenCertificatePathBox")!;
+            var password = view.FindNamed<TextBox>("OpenCertificatePasswordBox")!;
 
             await Assert.That(panel.IsVisible).IsTrue();
             await Assert.That(AutomationProperties.GetName(file)).IsEqualTo("Certificate file");
@@ -202,7 +203,7 @@ public sealed class DocumentTabViewModelTests
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var requests = new List<NavigationRequest>();
-        using var navigation = tab.NavigationRequests.SubscribeSafe(requests.Add, static _ => { });
+        using var navigation = tab.Destinations.SubscribeSafe(requests.Add, static _ => { });
         const int fourthPage = 3;
 
         tab.PageEntry = "4";
@@ -227,7 +228,7 @@ public sealed class DocumentTabViewModelTests
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var requests = new List<NavigationRequest>();
-        using var navigation = tab.NavigationRequests.SubscribeSafe(requests.Add, static _ => { });
+        using var navigation = tab.Destinations.SubscribeSafe(requests.Add, static _ => { });
         var canGoBack = false;
         using var back = tab.GoBackCommand.CanExecute.SubscribeSafe(can => canGoBack = can, static _ => { });
         const int jumpPage = 4;
@@ -293,10 +294,10 @@ public sealed class DocumentTabViewModelTests
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
 
-        tab.OnFileChanged();
+        tab.CheckChangedFile();
         var unchanged = tab.HasPendingReload;
         await File.AppendAllTextAsync(path, "\n% edited elsewhere\n");
-        tab.OnFileChanged();
+        tab.CheckChangedFile();
 
         await Assert.That(unchanged).IsFalse();
         await Assert.That(tab.HasPendingReload).IsTrue();

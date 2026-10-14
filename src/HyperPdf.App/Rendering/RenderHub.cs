@@ -3,14 +3,18 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Rendering;
 using ReactiveUI;
+using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.Signals;
+using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.Rendering;
 
@@ -19,13 +23,17 @@ namespace HyperPdf.App.Rendering;
 /// batches, then <see cref="TilesArrived"/> lets visible controls repaint.
 /// </summary>
 [DebuggerDisplay("RenderHub: {Cache}")]
-public sealed class RenderHub : IDisposable
+public sealed partial class RenderHub : ReactiveObject, IDisposable
 {
-    /// <summary>Emits on the UI thread after tiles were added to the cache.</summary>
-    private readonly Signal<RxVoid> _tilesArrived = new();
+    /// <summary>
+    /// Passes a software recovery request from a render thread, which asks for one when the GPU is lost, to the signal
+    /// the constructor's chain moves onto the UI thread. It is a signal because the requests come from any thread; the
+    /// hub owns the signal through <see cref="_subscriptions"/>.
+    /// </summary>
+    private readonly Action<RxVoid> _requestRecovery;
 
-    /// <summary>The subscription draining completed tiles.</summary>
-    private readonly IDisposable _drainSubscription;
+    /// <summary>Owns the signal, the drain and the cache, and releases them in the order they were added.</summary>
+    private readonly MultipleDisposable _subscriptions = [];
 
     /// <summary>The tile factory and its graphics availability.</summary>
     private readonly AvaloniaSurfaceFactory _surfaceFactory;
@@ -43,14 +51,29 @@ public sealed class RenderHub : IDisposable
         Cache = new(cacheBytes);
         _surfaceFactory = new(RequestSoftwareRecovery);
         Scheduler = new(_surfaceFactory);
-        TilesArrived = new(_tilesArrived);
-        _drainSubscription = Scheduler.Completed
+        TilesArrived = this.WhenChanged(static hub => hub.TileVersion).Skip(1).Select(static _ => RxVoid.Default);
+
+        // Closing is first, so work that finishes while the rest is released finds the hub closed.
+        var recoveryRequests = new Signal<RxVoid>();
+        _requestRecovery = recoveryRequests.OnNext;
+        _subscriptions.Add(Scope.Create(MarkClosed));
+        _subscriptions.Add(Scheduler.Completed
             .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .SubscribeSafe(_ => Drain(), static ex => Trace.TraceError(ex.ToString()));
+            .SubscribeSafe(_ => Drain(), ErrorTrace.Write));
+        _subscriptions.Add(recoveryRequests
+            .ObserveOn(AvaloniaScheduler.Instance)
+            .SubscribeSafe(_ => RecoverSoftware(), ErrorTrace.Write));
+        _subscriptions.Add(recoveryRequests);
+        _subscriptions.Add(Scheduler);
+        _subscriptions.Add(Cache);
     }
 
     /// <summary>Gets notifications, on the UI thread, that new tiles were added to the cache.</summary>
-    public AsObservableSignal<RxVoid> TilesArrived { get; }
+    public IObservable<RxVoid> TilesArrived { get; }
+
+    /// <summary>Gets a number that changes each time tiles were added to the cache, or dropped from it.</summary>
+    [Reactive]
+    public partial int TileVersion { get; private set; }
 
     /// <summary>Gets the tile cache. Use only on the UI thread.</summary>
     public TileCache Cache { get; }
@@ -59,19 +82,8 @@ public sealed class RenderHub : IDisposable
     public RenderScheduler Scheduler { get; }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-        {
-            return;
-        }
-
-        _drainSubscription.Dispose();
-        Scheduler.Dispose();
-        Cache.Dispose();
-        _tilesArrived.OnCompleted();
-        _tilesArrived.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Schedules a repaint so cached GPU tiles can present software pixels after device loss.</summary>
     internal void RequestSoftwareRecovery()
@@ -81,7 +93,7 @@ public sealed class RenderHub : IDisposable
             return;
         }
 
-        _ = Signal.Return(RxVoid.Default).ObserveOn(AvaloniaScheduler.Instance).SubscribeSafe(_ => RecoverSoftwareOnUi(), static ex => Trace.TraceError(ex.ToString()));
+        _requestRecovery(RxVoid.Default);
     }
 
     /// <summary>Releases a document's tiles and starts a frame so its GPU images retire on the owning context.</summary>
@@ -94,7 +106,7 @@ public sealed class RenderHub : IDisposable
         }
 
         Cache.RemoveDocument(documentId);
-        _tilesArrived.OnNext(RxVoid.Default);
+        TileVersion++;
         InvalidateWindows();
     }
 
@@ -110,6 +122,10 @@ public sealed class RenderHub : IDisposable
         }
     }
 
+    /// <summary>Marks the hub closed, so work that finishes while the rest is released finds it closed.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void MarkClosed() => Volatile.Write(ref _disposed, 1);
+
     /// <summary>Moves completed tiles into the cache.</summary>
     private void Drain()
     {
@@ -122,12 +138,12 @@ public sealed class RenderHub : IDisposable
 
         if (any)
         {
-            _tilesArrived.OnNext(RxVoid.Default);
+            TileVersion++;
         }
     }
 
     /// <summary>Repaints visible tiles after GPU loss while retaining cached tiles for software presentation.</summary>
-    private void RecoverSoftwareOnUi()
+    private void RecoverSoftware()
     {
         Volatile.Write(ref _recoveryQueued, 0);
         if (Volatile.Read(ref _disposed) != 0)
@@ -135,7 +151,7 @@ public sealed class RenderHub : IDisposable
             return;
         }
 
-        _tilesArrived.OnNext(RxVoid.Default);
+        TileVersion++;
         InvalidateWindows();
     }
 }

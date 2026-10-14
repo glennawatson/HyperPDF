@@ -81,9 +81,10 @@ public sealed class RecentMenuTests
         try
         {
             var tabBar = window.FindControl<TabBarView>("TabBar")!;
-            var menuButton = tabBar.FindControl<Button>("TabsMenuButton")!;
+            var tabsMenu = tabBar.FindControl<TabsMenuView>("TabsMenu")!;
+            var menuButton = tabsMenu.FindControl<Button>("TabsMenuButton")!;
             menuButton.Flyout!.ShowAt(menuButton);
-            var recent = tabBar.FindControl<MenuItem>("RecentMenuItem")!;
+            var recent = tabsMenu.FindControl<MenuItem>("RecentMenuItem")!;
             await Assert.That(await UiWait.UntilAsync(() => recent.IsEnabled)).IsTrue();
             recent.Open();
             await Assert.That(await UiWait.UntilAsync(() => FindRecentItem(recent, earlier) is { Command: not null })).IsTrue();

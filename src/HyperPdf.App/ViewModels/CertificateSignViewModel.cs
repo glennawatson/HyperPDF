@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Signatures.Signing;
 using ReactiveUI;
@@ -37,9 +38,6 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <summary>The bottom left corner of the page, where a visible signature goes.</summary>
     private static readonly SigningArea VisibleArea = new(VisibleMargin, VisibleMargin, VisibleMargin + VisibleWidth, VisibleMargin + VisibleHeight);
 
-    /// <summary>Raises <see cref="Answered"/> with <see langword="true"/>.</summary>
-    private readonly Signal<RxVoid> _confirmed = new();
-
     /// <summary>Whether a certificate file is named, so signing can start.</summary>
     private readonly IObservable<bool> _canSign;
 
@@ -57,9 +55,6 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
 
     /// <summary>The address of the timestamp server from Preferences; empty for none.</summary>
     private readonly string _timestampServer;
-
-    /// <summary>The loaded certificate, once the password was right.</summary>
-    private X509Certificate2? _certificate;
 
     /// <summary>The last preview, kept so signing can be refused with its reasons.</summary>
     private SigningPreview? _preview;
@@ -86,19 +81,29 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
         HasRemembered = Remembered.Count > 0;
         _canSign = this.WhenChanged(static vm => vm.CertificatePath).Select(static path => !string.IsNullOrWhiteSpace(path));
         _canForget = this.WhenChanged(static vm => vm.SelectedCertificate).Select(static chosen => chosen is not null);
-        Answered = Signal.Merge(_confirmed.Select(static _ => true), CancelCommand);
+
+        // A sign that loaded the certificate answers yes; one refused with a message in the window leaves it open.
+        Answered = Signal.Merge(SignCommand.Where(static signed => signed), CancelCommand);
 
         // Choosing a remembered certificate fills in its file. The box shows whether the named file is remembered, so a
         // newly chosen file is only remembered when the user ticks it.
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedCertificate).SubscribeSafe(UseRemembered, OnError));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.CertificatePath).SubscribeSafe(path => Remember = IsRemembered(path), OnError));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedCertificate)
+            .KeepNotNull()
+            .SubscribeSafe(chosen => CertificatePath = chosen.Path, ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.CertificatePath).SubscribeSafe(path => Remember = IsRemembered(path), ErrorTrace.Write));
         SelectedCertificate = Remembered.Count > 0 ? Remembered[0] : null;
 
         // What will be signed is described again whenever a choice that changes it changes.
-        _subscriptions.Add(this.WhenChanged(static vm => vm.Reason).SubscribeSafe(_ => UpdatePreview(), OnError));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.Location).SubscribeSafe(_ => UpdatePreview(), OnError));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.CertificationIndex).SubscribeSafe(_ => UpdatePreview(), OnError));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.IsVisibleSignature).SubscribeSafe(_ => UpdatePreview(), OnError));
+        _subscriptions.Add(this.WhenChanged(
+                static vm => vm.Reason,
+                static vm => vm.Location,
+                static vm => vm.CertificationIndex,
+                static vm => vm.IsVisibleSignature,
+                static (_, _, _, _) => RxVoid.Default)
+            .SubscribeSafe(_ => UpdatePreview(), ErrorTrace.Write));
+
+        // The loaded certificate is open until a newer one replaces it or the window closes, unless it was handed over.
+        _subscriptions.Add(this.WhenChanged(static vm => vm.Certificate).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
     }
 
     /// <summary>Gets the kinds of signature the user can choose between.</summary>
@@ -160,6 +165,10 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <summary>Gets the answer, which closes the window: <see langword="true"/> to sign.</summary>
     public IObservable<bool> Answered { get; }
 
+    /// <summary>Gets the loaded certificate, once the password was right, or <see langword="null"/>.</summary>
+    [Reactive]
+    internal partial Handover<X509Certificate2>? Certificate { get; private set; }
+
     /// <summary>Builds the request for what is chosen.</summary>
     /// <param name="time">The signing time.</param>
     /// <returns>The request.</returns>
@@ -173,29 +182,20 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <returns>The certificate, or <see langword="null"/> when none was loaded.</returns>
     public X509Certificate2? TakeCertificate()
     {
-        var certificate = _certificate;
-        _certificate = null;
+        var certificate = Certificate?.HandOver();
+        Certificate = null;
         return certificate;
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _subscriptions.Dispose();
-        _certificate?.Dispose();
-        _confirmed.Dispose();
-    }
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Closes the window without signing.</summary>
     /// <returns>Always <see langword="false"/>.</returns>
     [ReactiveCommand]
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private static bool Cancel() => false;
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Describes what signing would do for what is chosen now.</summary>
     private void UpdatePreview()
@@ -220,16 +220,6 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
         PreviewText = SigningPreviewText.Describe(_preview, _timestampServer);
     }
 
-    /// <summary>Fills in a chosen remembered certificate.</summary>
-    /// <param name="chosen">The certificate, or <see langword="null"/>.</param>
-    private void UseRemembered(RememberedCertificate? chosen)
-    {
-        if (chosen is not null)
-        {
-            CertificatePath = chosen.Path;
-        }
-    }
-
     /// <summary>Determines whether a certificate file is remembered.</summary>
     /// <param name="path">The file.</param>
     /// <returns><see langword="true"/> when it is in the remembered list.</returns>
@@ -246,15 +236,16 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
         return false;
     }
 
-    /// <summary>Loads the certificate with the password, confirming when it can sign.</summary>
+    /// <summary>Loads the certificate with the password.</summary>
+    /// <returns><see langword="true"/> when the certificate can sign, which answers the window; otherwise the window shows why not.</returns>
     [ReactiveCommand(CanExecute = nameof(_canSign))]
-    private void Sign()
+    private bool Sign()
     {
         UpdatePreview();
         if (_preview is { CanSign: false } refused)
         {
             Error = string.Join(' ', refused.Problems);
-            return;
+            return false;
         }
 
         try
@@ -264,16 +255,15 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
             {
                 certificate.Dispose();
                 Error = "This certificate has no private key, so it cannot sign.";
-                return;
+                return false;
             }
 
-            _certificate?.Dispose();
-            _certificate = certificate;
+            Certificate = new(certificate);
             Error = null;
 
             // The password has done its job; drop it rather than keep it for the life of the window.
             Password = string.Empty;
-            _confirmed.OnNext(RxVoid.Default);
+            return true;
         }
         catch (CryptographicException)
         {
@@ -287,6 +277,8 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
         {
             Error = ex.Message;
         }
+
+        return false;
     }
 
     /// <summary>Forgets the chosen remembered certificate. The certificate file itself is left alone.</summary>

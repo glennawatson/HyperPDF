@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Reading;
@@ -42,12 +43,17 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
         Canvas = owner;
         _name = Describe(owner.Tab);
 
-        // The peer lives as long as its canvas and only references it, so the subscription needs no owner.
+        // The peer lives as long as its canvas and only references it, so the subscription needs no owner. A new page,
+        // page count or tab gives a new name, which is announced when it differs from the one last reported.
         _ = owner.WhenChanged(static x => x.Tab)
             .SwitchMap(static tab => tab is null
-                ? Signal.Return((Page: -1, Count: 0))
-                : tab.WhenChanged(static x => x.CurrentPageIndex, static x => x.PageCount, static (page, count) => (Page: page, Count: count)))
-            .SubscribeSafe(_ => OnPageChanged(), static error => Trace.TraceError(error.ToString()));
+                ? Signal.Return(RxVoid.Default)
+                : Signal.Merge(tab.WhenChanged(static x => x.CurrentPageIndex).AsVoid, tab.WhenChanged(static x => x.PageCount).AsVoid))
+
+            // The steps read the peer's own name: a constructor cannot hand 'this' to a state-passing operator.
+            .Select(_ => GetName())
+            .Where(name => !string.Equals(name, _name, StringComparison.Ordinal))
+            .SubscribeSafe(AnnouncePage, ErrorTrace.Write);
     }
 
     /// <inheritdoc/>
@@ -124,14 +130,9 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
     }
 
     /// <summary>Tells assistive technology the page, and with it the name and the text, changed.</summary>
-    private void OnPageChanged()
+    /// <param name="name">The new name, for example "Page 6 of 40".</param>
+    private void AnnouncePage(string name)
     {
-        var name = GetName();
-        if (name == _name)
-        {
-            return;
-        }
-
         var oldName = _name;
         _name = name;
         var oldText = _textPage < 0 ? null : _text;

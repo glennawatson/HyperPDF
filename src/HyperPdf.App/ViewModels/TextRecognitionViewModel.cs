@@ -43,7 +43,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     /// <summary>Emits whether nothing is running or downloading; enables Recognize and the language bar's button.</summary>
     private readonly IObservable<bool> _isIdle;
 
-    /// <summary>Subscriptions following the language choice.</summary>
+    /// <summary>Owns the subscription following the language choice, and the recognition and download in progress.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
     /// <summary>The languages the next run uses.</summary>
@@ -51,12 +51,6 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
 
     /// <summary>Whether the language bar's index is being set from code rather than picked.</summary>
     private bool _settingIndex;
-
-    /// <summary>Cancels the running recognition.</summary>
-    private CancellationTokenSource? _cancellation;
-
-    /// <summary>Cancels the running download.</summary>
-    private CancellationTokenSource? _download;
 
     /// <summary>Initializes a new instance of the <see cref="TextRecognitionViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
@@ -72,11 +66,23 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         _isIdle = this.WhenChanged(static vm => vm.IsBusy).Select(static busy => !busy);
         LanguageIndex = IndexOf(_chosen[0]);
         LanguageActionText = DescribeAction(services.Ocr, _chosen);
-        _subscriptions.Add(this.WhenChanged(static vm => vm.LanguageIndex).Skip(1).SubscribeSafe(_ => OnLanguagePicked(), OnError));
+
+        // A language the reader picks is the one the next run uses; the bar setting its own index is not a pick. The
+        // filter reads the view model's own flag: a constructor cannot hand 'this' to a state-passing operator.
+        _subscriptions.Add(this.WhenChanged(static vm => vm.LanguageIndex)
+            .Skip(1)
+            .Where(_ => !_settingIndex)
+            .SubscribeSafe(UseLanguage, ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.RecognitionRun).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.DownloadRun).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
     }
 
     /// <summary>Gets the languages offered in the language bar, English first.</summary>
     public static IReadOnlyList<string> LanguageNames { get; } = BuildLanguageNames();
+
+    /// <summary>Gets the latest page recognition wrote text on; the tab redraws the page it names.</summary>
+    [Reactive]
+    public partial PageChange LastPageChange { get; private set; }
 
     /// <summary>Gets a value indicating whether recognition is running.</summary>
     [Reactive]
@@ -118,15 +124,17 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     [Reactive]
     public partial double DownloadProgress { get; private set; }
 
+    /// <summary>Gets or sets the recognition in progress, which disposing stops, or <see langword="null"/> when none is.</summary>
+    [Reactive]
+    private partial CancellationDisposable? RecognitionRun { get; set; }
+
+    /// <summary>Gets or sets the download in progress, which disposing stops, or <see langword="null"/> when none is.</summary>
+    [Reactive]
+    private partial CancellationDisposable? DownloadRun { get; set; }
+
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _subscriptions.Dispose();
-        _download?.Cancel();
-        _download?.Dispose();
-        _cancellation?.Cancel();
-        _cancellation?.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Describes the outcome of a run.</summary>
     /// <param name="recognized">Pages given text.</param>
@@ -203,11 +211,6 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         return names;
     }
 
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
-
     /// <summary>Recognises one page and writes its words, unless the page must be checked first and reads too poorly to trust.</summary>
     /// <param name="document">The document.</param>
     /// <param name="writer">The document's text layer writer.</param>
@@ -265,25 +268,21 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     [ReactiveCommand]
     private void CloseLanguageBar()
     {
-        _download?.Cancel();
+        DownloadRun = null;
         IsLanguageBarOpen = false;
     }
 
     /// <summary>Stops after the page being recognised.</summary>
     [ReactiveCommand(CanExecute = nameof(_isRunning))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void Stop() => _cancellation?.Cancel();
+    private void Stop() => RecognitionRun = null;
 
-    /// <summary>Makes the picked language the one the next run uses.</summary>
-    private void OnLanguagePicked()
+    /// <summary>Makes a language the one the next run uses.</summary>
+    /// <param name="index">The language's position in <see cref="LanguageNames"/>.</param>
+    private void UseLanguage(int index)
     {
-        if (_settingIndex)
-        {
-            return;
-        }
-
         var packs = OcrLanguageCatalog.Packs;
-        _chosen = [packs[Math.Clamp(LanguageIndex, 0, packs.Count - 1)].Code];
+        _chosen = [packs[Math.Clamp(index, 0, packs.Count - 1)].Code];
         LanguageActionText = DescribeAction(_services.Ocr, _chosen);
     }
 
@@ -304,8 +303,8 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     /// <returns><see langword="true"/> when they downloaded.</returns>
     private async Task<bool> DownloadAsync(IReadOnlyList<OcrLanguagePack> packs)
     {
-        using var download = new CancellationTokenSource();
-        _download = download;
+        var download = new CancellationDisposable();
+        DownloadRun = download;
         IsDownloading = true;
         IsBusy = true;
         DownloadProgress = 0;
@@ -338,7 +337,11 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         }
         finally
         {
-            _download = null;
+            if (ReferenceEquals(DownloadRun, download))
+            {
+                DownloadRun = null;
+            }
+
             IsDownloading = false;
             IsBusy = false;
         }
@@ -358,21 +361,22 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
             return;
         }
 
-        using var cancellation = new CancellationTokenSource();
-        _cancellation = cancellation;
+        var recognition = new CancellationDisposable();
+        RecognitionRun = recognition;
+        var cancellationToken = recognition.Token;
         IsRunning = true;
         IsBusy = true;
         try
         {
             ProgressText = "Starting text recognition…";
-            using var engine = await Task.Run(_services.CreateOcrEngine, cancellation.Token).ConfigureAwait(true);
+            using var engine = await Task.Run(_services.CreateOcrEngine, cancellationToken).ConfigureAwait(true);
             if (!engine.IsAvailable)
             {
                 _owner.Notice = OcrSetup.EngineUnavailableText;
                 return;
             }
 
-            var run = await RecognizePagesAsync(document, writer, engine, confirmed, cancellation.Token).ConfigureAwait(true);
+            var run = await RecognizePagesAsync(document, writer, engine, confirmed, cancellationToken).ConfigureAwait(true);
             if (run.Unsure)
             {
                 OpenLanguageBar($"The first scanned page does not read well as {OcrLanguagesViewModel.DescribePacks(ChosenPacks())}, "
@@ -384,7 +388,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
             _owner.InvalidateReading();
             _owner.Notice = run.Closed
                 ? "Text recognition stopped because the document was closed."
-                : Describe(run.Recognized, run.AlreadyText, document.PageCount, cancellation.IsCancellationRequested);
+                : Describe(run.Recognized, run.AlreadyText, document.PageCount, cancellationToken.IsCancellationRequested);
         }
         catch (OperationCanceledException)
         {
@@ -397,7 +401,11 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         }
         finally
         {
-            _cancellation = null;
+            if (ReferenceEquals(RecognitionRun, recognition))
+            {
+                RecognitionRun = null;
+            }
+
             IsRunning = false;
             IsBusy = false;
             Progress = 0;
@@ -495,7 +503,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
                     {
                         checkFirst = false;
                         run = run with { Recognized = run.Recognized + 1 };
-                        _owner.OnPageEdited(index);
+                        LastPageChange = LastPageChange.Next(index);
                         break;
                     }
 

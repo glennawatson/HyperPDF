@@ -59,6 +59,7 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         ArgumentNullException.ThrowIfNull(services);
         _services = services;
         OcrLanguages = new(services);
+        _subscriptions.Add(OcrLanguages);
         Load();
         Follow();
     }
@@ -180,11 +181,8 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     public partial int FormHighlightOpacity { get; set; }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _subscriptions.Dispose();
-        OcrLanguages.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Asks the window to close; the choices are already applied.</summary>
     [ReactiveCommand]
@@ -192,11 +190,6 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     private static void Close()
     {
     }
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Finds the offered colour closest to a saved one, so a value from an older settings file still shows a choice.</summary>
     /// <param name="color">The saved colour as 0xRRGGBB.</param>
@@ -367,5 +360,5 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
                 change(value);
                 _services.ApplySettings();
             },
-            OnError));
+            ErrorTrace.Write));
 }
