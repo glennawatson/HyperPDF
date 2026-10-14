@@ -13,6 +13,15 @@ internal enum JpegProcess
     /// <summary>Progressive Huffman coding (SOF2).</summary>
     Progressive = 1,
 
-    /// <summary>Lossless, hierarchical or arithmetic coding, which the managed decoder does not read.</summary>
+    /// <summary>A frame marker that is not a defined process.</summary>
     Unsupported = 2,
+
+    /// <summary>Arithmetic coding (SOF9, SOF10 and SOF13 to SOF15), which PDF does not carry and the managed decoder does not read.</summary>
+    Arithmetic = 3,
+
+    /// <summary>Lossless coding (SOF3 and SOF11), which PDF does not carry and the managed decoder does not read.</summary>
+    Lossless = 4,
+
+    /// <summary>Differential frames of the hierarchical mode (SOF5 to SOF7), which PDF does not carry and the managed decoder does not read.</summary>
+    Hierarchical = 5,
 }

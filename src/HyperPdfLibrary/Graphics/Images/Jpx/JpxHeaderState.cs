@@ -20,31 +20,38 @@ internal sealed class JpxHeaderState
     /// <summary>The offset of the layer end in a progression change.</summary>
     private const int LayerEndOffset = 2;
 
-    /// <summary>The offset of the resolution end in a progression change.</summary>
-    private const int ResolutionEndOffset = 4;
-
-    /// <summary>The offset of the component end in a progression change.</summary>
-    private const int ComponentEndOffset = 5;
-
-    /// <summary>The offset of the order in a progression change.</summary>
-    private const int OrderOffset = 6;
+    /// <summary>The bytes of a 16-bit field.</summary>
+    private const int ShortBytes = 2;
 
     /// <summary>The component end value that means 256 components.</summary>
     private const int AllComponents = 256;
 
+    /// <summary>The component end value that means 16384 components, the most there can be.</summary>
+    private const int AllWideComponents = 16_384;
+
+    /// <summary>The components above which a component index takes two bytes.</summary>
+    private const int ByteIndexComponents = 256;
+
     /// <summary>The bytes of an RGN segment with a one-byte component index.</summary>
     private const int RoiBytes = 3;
 
-    /// <summary>The offset of the shift in an RGN segment.</summary>
-    private const int RoiShiftOffset = 2;
-
     /// <summary>The marker value that means no region-of-interest shift was given.</summary>
     private const int Unset = -1;
+
+    /// <summary>The Zppm or Zppt index of each entry of <see cref="PackedHeaders"/>.</summary>
+    private readonly List<byte> _packedIndices = [];
+
+    /// <summary>The bytes of a component index in COC, QCC, RGN and POC segments.</summary>
+    private readonly int _indexBytes;
+
+    /// <summary>The count of packed pieces before the current tile-part header; Zppt numbers restart in each header.</summary>
+    private int _partStart;
 
     /// <summary>Initializes a new instance of the <see cref="JpxHeaderState"/> class.</summary>
     /// <param name="components">The number of components.</param>
     internal JpxHeaderState(int components)
     {
+        _indexBytes = components > ByteIndexComponents ? ShortBytes : 1;
         ComponentStyles = new JpxCodingStyle?[components];
         ComponentQuantizations = new JpxQuantization?[components];
         RoiShifts = new int[components];
@@ -74,6 +81,9 @@ internal sealed class JpxHeaderState
 
     /// <summary>Gets the packed packet header pieces from PPM or PPT markers, offsets into the codestream, or <see langword="null"/>.</summary>
     internal List<JpxDataRange>? PackedHeaders { get; private set; }
+
+    /// <summary>Starts the header of another tile-part, whose PPT segments are numbered again from zero.</summary>
+    internal void BeginTilePart() => _partStart = PackedHeaders?.Count ?? 0;
 
     /// <summary>Reads one marker segment; markers the decoder does not need are skipped.</summary>
     /// <param name="marker">The marker code.</param>
@@ -112,14 +122,28 @@ internal sealed class JpxHeaderState
     /// <returns><see langword="true"/> when valid.</returns>
     private bool ReadComponentStyle(ReadOnlySpan<byte> segment)
     {
-        if (segment.Length < JpxMarkers.MarkerBytes || segment[0] >= ComponentStyles.Length)
+        if (segment.Length < _indexBytes + 1 || ReadIndex(segment, 0) >= ComponentStyles.Length)
         {
             return false;
         }
 
-        var style = JpxCodingStyle.Read(segment[JpxMarkers.MarkerBytes..], (segment[1] & JpxCodingStyle.PrecinctsBit) != 0, out _);
-        ComponentStyles[segment[0]] = style;
+        var style = JpxCodingStyle.Read(segment[(_indexBytes + 1)..], (segment[_indexBytes] & JpxCodingStyle.PrecinctsBit) != 0, out _);
+        ComponentStyles[ReadIndex(segment, 0)] = style;
         return style is not null;
+    }
+
+    /// <summary>Reads a component index: one byte, or two when the image has more than 256 components (A.6.2, A.6.3).</summary>
+    /// <param name="segment">The segment.</param>
+    /// <param name="offset">The offset of the index.</param>
+    /// <returns>The index, or a value past any component when the segment is too short.</returns>
+    private int ReadIndex(ReadOnlySpan<byte> segment, int offset)
+    {
+        if (segment.Length < offset + _indexBytes)
+        {
+            return int.MaxValue;
+        }
+
+        return _indexBytes == 1 ? segment[offset] : BinaryPrimitives.ReadUInt16BigEndian(segment[offset..]);
     }
 
     /// <summary>Reads a QCC segment.</summary>
@@ -127,13 +151,13 @@ internal sealed class JpxHeaderState
     /// <returns><see langword="true"/> when valid.</returns>
     private bool ReadComponentQuantization(ReadOnlySpan<byte> segment)
     {
-        if (segment.IsEmpty || segment[0] >= ComponentQuantizations.Length)
+        if (segment.Length <= _indexBytes || ReadIndex(segment, 0) >= ComponentQuantizations.Length)
         {
             return false;
         }
 
-        var quantization = JpxQuantization.Read(segment[1..]);
-        ComponentQuantizations[segment[0]] = quantization;
+        var quantization = JpxQuantization.Read(segment[_indexBytes..]);
+        ComponentQuantizations[ReadIndex(segment, 0)] = quantization;
         return quantization is not null;
     }
 
@@ -142,12 +166,17 @@ internal sealed class JpxHeaderState
     /// <returns><see langword="true"/> when valid.</returns>
     private bool ReadRegion(ReadOnlySpan<byte> segment)
     {
-        if (segment.Length < RoiBytes || segment[0] >= RoiShifts.Length)
+        if (segment.Length < _indexBytes + RoiBytes - 1 || ReadIndex(segment, 0) >= RoiShifts.Length)
         {
             return false;
         }
 
-        RoiShifts[segment[0]] = segment[RoiShiftOffset];
+        // Srgn is 0 (implicit maxshift) in this edition (A.6.3); other methods are not defined, so the marker is ignored.
+        if (segment[_indexBytes] == 0)
+        {
+            RoiShifts[ReadIndex(segment, 0)] = segment[_indexBytes + 1];
+        }
+
         return true;
     }
 
@@ -156,7 +185,9 @@ internal sealed class JpxHeaderState
     /// <returns><see langword="true"/> when valid.</returns>
     private bool ReadChanges(ReadOnlySpan<byte> segment)
     {
-        var count = segment.Length / ChangeBytes;
+        // An entry is the resolution start, component start, layer end, resolution end, component end and order; the component fields are two bytes when there are over 256 components (A.6.6).
+        var width = ChangeBytes + (ShortBytes * (_indexBytes - 1));
+        var count = segment.Length / width;
         if (count == 0)
         {
             return false;
@@ -166,18 +197,33 @@ internal sealed class JpxHeaderState
         Changes ??= [];
         for (var i = 0; i < count; i++)
         {
-            var entry = segment.Slice(i * ChangeBytes, ChangeBytes);
-            var order = entry[OrderOffset];
+            var entry = segment.Slice(i * width, width);
+            var order = entry[width - 1];
             if (order > (int)JpxProgressionOrder.ComponentPositionResolutionLayer)
             {
                 return false;
             }
 
-            var componentEnd = entry[ComponentEndOffset] == 0 ? AllComponents : entry[ComponentEndOffset];
-            Changes.Add(new(entry[0], entry[1], BinaryPrimitives.ReadUInt16BigEndian(entry[LayerEndOffset..]), entry[ResolutionEndOffset], componentEnd, (JpxProgressionOrder)order));
+            Changes.Add(ReadChange(entry, (JpxProgressionOrder)order));
         }
 
         return true;
+    }
+
+    /// <summary>Reads one POC entry.</summary>
+    /// <param name="entry">The entry's bytes.</param>
+    /// <param name="order">The progression order, the entry's last byte.</param>
+    /// <returns>The change.</returns>
+    private JpxProgressionChange ReadChange(ReadOnlySpan<byte> entry, JpxProgressionOrder order)
+    {
+        var layerEnd = LayerEndOffset - 1 + _indexBytes;
+        var componentEnd = ReadIndex(entry, layerEnd + ShortBytes + 1);
+        if (componentEnd == 0)
+        {
+            componentEnd = _indexBytes == 1 ? AllComponents : AllWideComponents;
+        }
+
+        return new(entry[0], ReadIndex(entry, 1), BinaryPrimitives.ReadUInt16BigEndian(entry[layerEnd..]), entry[layerEnd + ShortBytes], componentEnd, order);
     }
 
     /// <summary>Records a PPM or PPT segment's packed headers, after its index byte.</summary>
@@ -191,7 +237,16 @@ internal sealed class JpxHeaderState
             return false;
         }
 
-        (PackedHeaders ??= []).Add(new(offset + 1, segment.Length - 1));
+        // Zppm and Zppt number the segments, which may appear in any order; the packed data is read in that order (A.7.4, A.7.5).
+        var headers = PackedHeaders ??= [];
+        var index = _packedIndices.Count;
+        while (index > _partStart && _packedIndices[index - 1] > segment[0])
+        {
+            index--;
+        }
+
+        _packedIndices.Insert(index, segment[0]);
+        headers.Insert(index, new(offset + 1, segment.Length - 1));
         return true;
     }
 }

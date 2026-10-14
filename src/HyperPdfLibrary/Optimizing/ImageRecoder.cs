@@ -4,25 +4,31 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using HyperPdfLibrary.Creation;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
+using HyperPdfLibrary.Graphics.Images.Jpx.Encoding;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Optimizing;
 
 /// <summary>
 /// Re-encodes one image at a time. Colour and grey images drawn well above the target resolution are downsampled and
-/// saved as JPEG; continuous-tone images are saved as JPEG when lossy changes are allowed; black-and-white images are
-/// fax or Flate coded losslessly. Masks, colour-keyed, CMYK, indexed and other images are left to lossless
-/// recompression, and JBIG2 and JPEG 2000 images are left as they are. A result is used only when it is smaller.
+/// saved as JPEG; continuous-tone images are saved as JPEG when lossy changes are allowed, or as JPEG 2000 (lossy or
+/// lossless) when the options choose it and the document may hold it; black-and-white images are fax, JBIG2 (when the
+/// options ask for it) or Flate coded, losslessly unless lossy JBIG2 is chosen. Masks, colour-keyed, CMYK, indexed and
+/// other images are left to lossless recompression, and images that are already JBIG2 or JPEG 2000 are left as they are,
+/// as decoding and re-encoding them would add loss for little gain. A result is used only when it is smaller.
 /// </summary>
 /// <param name="options">The options.</param>
 /// <param name="names">The optimiser's names.</param>
 /// <param name="drawingServices">The document's image codec.</param>
+/// <param name="allowJpx">Whether the document may hold JPEG 2000 images: false for PDF/A-1.</param>
+/// <param name="jbig2">What JBIG2 coding may be tried for black-and-white images, after the document's PDF/A claim is taken into account.</param>
 /// <param name="cancellationToken">Cancels image decoding.</param>
 [DebuggerDisplay("ImageRecoder")]
-internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames names, PdfDrawingServices drawingServices, CancellationToken cancellationToken)
+internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames names, PdfDrawingServices drawingServices, bool allowJpx, PdfJbig2Mode jbig2, CancellationToken cancellationToken)
 {
     /// <summary>The bits of an 8-bit sample.</summary>
     private const int ByteBits = 8;
@@ -39,9 +45,9 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
     /// <summary>The bytes of an RGB sample triple.</summary>
     private const int RgbBytes = 3;
 
-    /// <summary>Gets the image codec required by JPEG recoding.</summary>
+    /// <summary>Gets the image codec that resamples images drawn well above the target resolution; JPEG decoding and encoding are managed.</summary>
     private IPdfImageCodec Codec => drawingServices.Images
-        ?? throw new NotSupportedException("Supply an image codec in PdfOpenOptions.DrawingServices before optimizing JPEG images.");
+        ?? throw new NotSupportedException("Supply an image codec in PdfOpenOptions.DrawingServices before downsampling images.");
 
     /// <summary>Re-encodes an image.</summary>
     /// <param name="image">The image.</param>
@@ -66,7 +72,7 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
 
         if (BilevelRecoder.IsBilevel(dictionary))
         {
-            return options.EncodeBilevelAsCcitt ? BilevelRecoder.Recode(image, codec, width, height, cancellationToken) : ImageOutcome.Unchanged;
+            return RecodeBilevel(image, codec, new(width, height, 1), isMask);
         }
 
         var eightBit = dictionary.GetInt32(KnownName.BitsPerComponent, ByteBits) == ByteBits;
@@ -105,6 +111,27 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
             ? string.Create(CultureInfo.InvariantCulture, $"{from.Width}x{from.Height}")
             : string.Create(CultureInfo.InvariantCulture, $"{from.Width}x{from.Height} downsampled to {to.Width}x{to.Height}");
 
+    /// <summary>Works out the codings a black-and-white image may be tried with.</summary>
+    /// <param name="isMask">Whether another image uses it as a soft or stencil mask, which is never coded lossily.</param>
+    /// <returns>The codings.</returns>
+    private BilevelCodings Codings(bool isMask)
+    {
+        var mode = jbig2 == PdfJbig2Mode.Lossy && (!options.AllowLossyImages || isMask) ? PdfJbig2Mode.Lossless : jbig2;
+        return new(options.EncodeBilevelAsCcitt, mode);
+    }
+
+    /// <summary>Re-encodes a 1-bit image with the codings the options allow.</summary>
+    /// <param name="image">The image.</param>
+    /// <param name="codec">Its codec.</param>
+    /// <param name="size">Its size.</param>
+    /// <param name="isMask">Whether another image uses it as a mask.</param>
+    /// <returns>The outcome.</returns>
+    private ImageOutcome RecodeBilevel(PdfStream image, CodecKind codec, PixelSize size, bool isMask)
+    {
+        var codings = Codings(isMask);
+        return codings.IsAnyEnabled ? BilevelRecoder.Recode(image, codec, size, codings, cancellationToken) : ImageOutcome.Unchanged;
+    }
+
     /// <summary>Re-encodes an 8-bit grey or RGB image.</summary>
     /// <param name="image">The image.</param>
     /// <param name="codec">Its codec: bytes or JPEG.</param>
@@ -122,7 +149,7 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
 
         var size = new PixelSize(dictionary.GetInt32(KnownName.Width, 0), dictionary.GetInt32(KnownName.Height, 0), components);
         var lossy = options.AllowLossyImages && !isMask && !ImageColor.HasColorKey(dictionary);
-        var job = new ImageJob(image, size, lossy ? Target(use, size, dictionary) : null, lossy);
+        var job = new ImageJob(image, size, lossy ? Target(use, size, dictionary) : null, lossy, Codings(isMask));
         return codec == CodecKind.Jpeg ? RecodeJpeg(job) : RecodeSamples(job);
     }
 
@@ -168,7 +195,7 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
                 return ImageOutcome.Unchanged;
             }
 
-            return ImagePixels.TryDecodeJpeg(Codec, encoded.WrittenSpan, job.Size.Components, ref pixels, out var decoded) && decoded == job.Size
+            return ImagePixels.TryDecodeJpeg(encoded.WrittenSpan, job.Size.Components, ref pixels, out var decoded, cancellationToken) && decoded == job.Size
                 ? EncodeJpeg(job, pixels.WrittenSpan, target)
                 : ImageOutcome.Unchanged;
         }
@@ -197,24 +224,40 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
             }
 
             var data = samples.WrittenSpan[..needed];
-            if (size.Components == 1 && options.EncodeBilevelAsCcitt && BilevelEncoder.IsBlackAndWhite(data))
+            if (size.Components == 1 && job.Codings.IsAnyEnabled && BilevelEncoder.IsBlackAndWhite(data))
             {
-                return BilevelRecoder.PackAndCode(job.Image, data, size);
+                return BilevelRecoder.PackAndCode(job.Image, data, size, job.Codings, cancellationToken);
             }
 
-            if (!job.Lossy || (job.Target is null && !IsContinuousTone(data, size.Components, count)))
+            if (allowJpx && options.ImageCodec == PdfOptimizeImageCodec.Jpeg2000)
             {
-                return ImageOutcome.Unchanged;
+                return job.Target is null && !IsContinuousTone(data, size.Components, count) ? ImageOutcome.Unchanged : EncodeJpx(job, data);
             }
 
-            ImagePixels.FromSamples(data, size.Components, count, ref pixels);
-            return EncodeJpeg(job, pixels.WrittenSpan, job.Target ?? size);
+            return RecodeAsJpeg(job, data, ref pixels);
         }
         finally
         {
             samples.Dispose();
             pixels.Dispose();
         }
+    }
+
+    /// <summary>Re-encodes decoded samples as JPEG when lossy changes are allowed and the image looks like a photograph or is being downsampled.</summary>
+    /// <param name="job">The image and its plan.</param>
+    /// <param name="data">The grey or RGB samples.</param>
+    /// <param name="pixels">Receives the pixels the encoder reads.</param>
+    /// <returns>The outcome.</returns>
+    private ImageOutcome RecodeAsJpeg(ImageJob job, ReadOnlySpan<byte> data, ref PooledBuffer pixels)
+    {
+        var size = job.Size;
+        if (!job.Lossy || (job.Target is null && !IsContinuousTone(data, size.Components, size.Width * size.Height)))
+        {
+            return ImageOutcome.Unchanged;
+        }
+
+        ImagePixels.FromSamples(data, size.Components, size.Width * size.Height, ref pixels);
+        return EncodeJpeg(job, pixels.WrittenSpan, job.Target ?? size);
     }
 
     /// <summary>Downsamples pixels when needed and encodes them as JPEG, keeping the result only when smaller.</summary>
@@ -238,8 +281,8 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
                 source = resized.WrittenSpan;
             }
 
-            var jpeg = ImagePixels.EncodeJpeg(Codec, source, target, options.JpegQuality);
-            if (jpeg is null || jpeg.Length >= job.Image.RawLength)
+            var jpeg = ImagePixels.EncodeJpeg(source, target, options.JpegQuality, cancellationToken);
+            if (jpeg.Length >= job.Image.RawLength)
             {
                 return ImageOutcome.Unchanged;
             }
@@ -261,11 +304,94 @@ internal sealed class ImageRecoder(PdfOptimizeOptions options, OptimizerNames na
         }
     }
 
+    /// <summary>Downsamples 8-bit samples when needed and encodes them as JPEG 2000, keeping the result only when smaller.</summary>
+    /// <param name="job">The image and its plan.</param>
+    /// <param name="samples">The grey or RGB samples at full size.</param>
+    /// <returns>The outcome.</returns>
+    private ImageOutcome EncodeJpx(ImageJob job, ReadOnlySpan<byte> samples)
+    {
+        var target = job.Target ?? job.Size;
+        var packed = default(PooledBuffer);
+        var file = default(PooledBuffer);
+        try
+        {
+            var source = samples;
+            if (target != job.Size)
+            {
+                if (!Shrink(job, samples, target, ref packed))
+                {
+                    return ImageOutcome.Unchanged;
+                }
+
+                source = packed.WrittenSpan;
+            }
+
+            var shape = new PdfJpxImage(target.Width, target.Height, target.Components, ByteBits, ReadOnlyMemory<byte>.Empty);
+            var jpxOptions = new PdfJpxOptions { Mode = job.Lossy ? PdfJpxMode.Lossy : PdfJpxMode.Lossless, Quality = options.JpegQuality };
+            JpxEncoder.Encode(shape, source, jpxOptions, ref file, cancellationToken);
+            return file.Length >= job.Image.RawLength ? ImageOutcome.Unchanged : JpxOutcome(job, target, file.ToArray());
+        }
+        finally
+        {
+            packed.Dispose();
+            file.Dispose();
+        }
+    }
+
+    /// <summary>Downsamples packed samples to a target size and packs the result again.</summary>
+    /// <param name="job">The image and its plan.</param>
+    /// <param name="samples">The grey or RGB samples at full size.</param>
+    /// <param name="target">The size to write.</param>
+    /// <param name="packed">Receives the samples at the target size.</param>
+    /// <returns><see langword="true"/> when the resample ran.</returns>
+    private bool Shrink(ImageJob job, ReadOnlySpan<byte> samples, PixelSize target, ref PooledBuffer packed)
+    {
+        var pixels = default(PooledBuffer);
+        var resized = default(PooledBuffer);
+        try
+        {
+            ImagePixels.FromSamples(samples, job.Size.Components, job.Size.Width * job.Size.Height, ref pixels);
+            if (!ImagePixels.Downsample(Codec, pixels.WrittenSpan, job.Size, target.Width, target.Height, ref resized))
+            {
+                return false;
+            }
+
+            ImagePixels.ToSamples(resized.WrittenSpan, target.Components, target.Width * target.Height, ref packed);
+            return true;
+        }
+        finally
+        {
+            pixels.Dispose();
+            resized.Dispose();
+        }
+    }
+
+    /// <summary>Makes the replacement image stream for JPEG 2000 data.</summary>
+    /// <param name="job">The image and its plan.</param>
+    /// <param name="target">The size written.</param>
+    /// <param name="file">The JPEG 2000 file.</param>
+    /// <returns>The outcome.</returns>
+    private ImageOutcome JpxOutcome(ImageJob job, PixelSize target, byte[] file)
+    {
+        var copy = job.Image.Dictionary.Clone();
+        _ = copy.Remove(KnownName.Length);
+        _ = copy.Remove(KnownName.DL);
+        _ = copy.Remove(KnownName.DecodeParms);
+        copy.Set(KnownName.Filter, PdfValue.FromName(KnownName.JPXDecode));
+        copy.Set(KnownName.Width, PdfValue.FromInteger(target.Width));
+        copy.Set(KnownName.Height, PdfValue.FromInteger(target.Height));
+        copy.Set(KnownName.BitsPerComponent, PdfValue.FromInteger(ByteBits));
+        var kind = job.Lossy ? string.Create(CultureInfo.InvariantCulture, $"JPEG 2000 quality {options.JpegQuality}") : "lossless JPEG 2000";
+        var note = string.Create(CultureInfo.InvariantCulture, $"Image {Resized(job.Size, target)} saved as {kind}.");
+        return new(new(copy, file), note);
+    }
+
     /// <summary>One image being re-encoded.</summary>
     /// <param name="Image">The image.</param>
     /// <param name="Size">Its size and components.</param>
     /// <param name="Target">The size to downsample to, or <see langword="null"/> to keep it.</param>
     /// <param name="Lossy">Whether lossy encoding is allowed.</param>
+    /// <param name="Codings">The codings that may be tried if the image turns out to be black and white.</param>
     [DebuggerDisplay("ImageJob: {Size}")]
-    private sealed record ImageJob(PdfStream Image, PixelSize Size, PixelSize? Target, bool Lossy);
+    private sealed record ImageJob(PdfStream Image, PixelSize Size, PixelSize? Target, bool Lossy, BilevelCodings Codings);
 }

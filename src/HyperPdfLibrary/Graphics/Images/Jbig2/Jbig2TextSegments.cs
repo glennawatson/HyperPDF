@@ -250,6 +250,14 @@ internal static class Jbig2TextSegments
         }
 
         var symbols = CollectSymbols(state, segment);
+        if (symbols.Count == 0)
+        {
+            // T.88 section 7.4.3.2 takes the symbols from the referred-to dictionaries. ITU's conformance streams have text
+            // regions that refer to none and expect the dictionaries decoded before them, so a decoder that reads
+            // leniently uses those instead of drawing nothing.
+            symbols = CollectPrecedingSymbols(state);
+        }
+
         var symbolCount = symbols.Count;
         if (!settings.Huffman)
         {
@@ -294,6 +302,21 @@ internal static class Jbig2TextSegments
         return result;
     }
 
+    /// <summary>Collects the symbols of every symbol dictionary decoded so far: the global ones first, then the page's, each in segment order.</summary>
+    /// <param name="state">The decoder's mutable state.</param>
+    /// <returns>The symbols.</returns>
+    internal static Jbig2SymbolSet CollectPrecedingSymbols(Jbig2DecodeState state)
+    {
+        var symbols = new Jbig2SymbolSet();
+        if (state.Globals is not null)
+        {
+            AddDictionaries(state.Globals, symbols);
+        }
+
+        AddDictionaries(state, symbols);
+        return symbols;
+    }
+
     /// <summary>Collects the symbols of the symbol dictionaries a segment refers to, in order.</summary>
     /// <param name="state">The decoder's mutable state.</param>
     /// <param name="segment">The segment.</param>
@@ -310,5 +333,19 @@ internal static class Jbig2TextSegments
         }
 
         return symbols;
+    }
+
+    /// <summary>Adds the symbols of the dictionaries a state has decoded.</summary>
+    /// <param name="state">The state.</param>
+    /// <param name="symbols">Receives the symbols.</param>
+    private static void AddDictionaries(Jbig2DecodeState state, Jbig2SymbolSet symbols)
+    {
+        foreach (var segment in state.Segments)
+        {
+            if (segment.Symbols is { } dictionary)
+            {
+                symbols.Add(dictionary.Symbols);
+            }
+        }
     }
 }

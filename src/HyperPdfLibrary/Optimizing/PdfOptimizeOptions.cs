@@ -59,8 +59,21 @@ public sealed record PdfOptimizeOptions
     /// <summary>Gets the JPEG quality, from 1 to 100, for colour and greyscale images re-encoded lossily.</summary>
     public int JpegQuality { get; init; } = BalancedQuality;
 
+    /// <summary>
+    /// Gets the codec for continuous-tone grey and RGB images: JPEG by default. JPEG 2000 needs no image codec for encoding
+    /// and also compresses losslessly; the result is used only when it is smaller than the image it replaces.
+    /// </summary>
+    public PdfOptimizeImageCodec ImageCodec { get; init; }
+
     /// <summary>Gets a value indicating whether black-and-white images are re-encoded as CCITT Group 4 when that is smaller.</summary>
     public bool EncodeBilevelAsCcitt { get; init; } = true;
+
+    /// <summary>
+    /// Gets whether black-and-white images may be re-encoded as JBIG2 when that is smaller than the other codings; off by
+    /// default. The optimiser keeps the JBIG2 data in the image stream, with no separate /JBIG2Globals stream, and never
+    /// writes JBIG2 in a file that claims PDF/A-1.
+    /// </summary>
+    public PdfJbig2Mode Jbig2 { get; init; } = PdfJbig2Mode.Off;
 
     /// <summary>Gets a value indicating whether uncompressed streams are compressed and Flate streams recompressed at the best level.</summary>
     public bool RecompressStreams { get; init; } = true;

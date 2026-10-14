@@ -9,13 +9,14 @@ using HyperPdfLibrary.Graphics.Colors;
 namespace HyperPdfLibrary.Graphics.Images.Jpx;
 
 /// <summary>
-/// Decodes JPXDecode (JPEG 2000) images (ISO 32000-1 section 7.4.9). The managed decoder returns the component planes;
+/// Decodes JPXDecode (JPEG 2000) images (ISO 32000-2 section 7.4.9). The managed decoder returns the component planes;
 /// the channels become 8-bit samples that go through the image's colour space like any 8-bit image. The image
-/// dictionary's /ColorSpace overrides the file's colour box (see <see cref="JpxOutputPlan"/>), an Indexed space reads the
-/// raw palette indices, and /Decode is ignored as the PDF specification says. With <c>/SMaskInData 1</c> the first
-/// channel after the colour channels is the soft mask. High-throughput (T.814 | ISO 15444-15) code-blocks decode like
-/// regular ones; the MIXED mode, where each code-block may use either coder, is reported as unsupported. Damaged data
-/// gives <see langword="null"/>.
+/// dictionary's /ColorSpace overrides the file's colour boxes (see <see cref="JpxOutputPlan"/>) and then its /Decode
+/// applies; without /ColorSpace /Decode is ignored. An Indexed space reads the raw palette indices. With
+/// <c>/SMaskInData 1</c> or <c>2</c> the opacity channel is the soft mask (for 2 the colours are divided by it first), and
+/// an image mask reads the first channel as its 1-bit samples. High-throughput (T.814 | ISO 15444-15) code-blocks decode like
+/// regular ones, including the MIXED mode, where each code-block may use either coder. Damaged data gives
+/// <see langword="null"/>.
 /// </summary>
 internal static class JpxImageDecoder
 {
@@ -24,6 +25,15 @@ internal static class JpxImageDecoder
 
     /// <summary>The <c>/SMaskInData</c> value that makes the alpha channel the soft mask.</summary>
     private const int SoftMaskInData = 1;
+
+    /// <summary>The <c>/SMaskInData</c> value for colour channels that are premultiplied by the alpha channel.</summary>
+    private const int PremultipliedSoftMask = 2;
+
+    /// <summary>The first 8-bit sample that is a one bit in an image mask.</summary>
+    private const int HalfScale = 128;
+
+    /// <summary>The most significant bit of a byte.</summary>
+    private const int HighBit = 0x80;
 
     /// <summary>Decodes a JPXDecode image.</summary>
     /// <param name="header">The image header.</param>
@@ -66,33 +76,6 @@ internal static class JpxImageDecoder
         }
     }
 
-    /// <summary>Creates the result for a JPX image the decoder does not support.</summary>
-    /// <param name="header">The image header.</param>
-    /// <returns>An image with no pixels that names the JPEG 2000 codec.</returns>
-    private static PdfImageData Unsupported(in ImageHeader header) =>
-        new(header.Width, header.Height, [], header.IsStencil, header.Interpolate, PdfImageCodec.Jpeg2000);
-
-    /// <summary>Determines whether a codestream's main header asks for mixed HT and regular code-blocks.</summary>
-    /// <param name="codestream">The codestream.</param>
-    /// <returns><see langword="true"/> when any component does.</returns>
-    private static bool UsesMixedBlocks(JpxCodestream codestream)
-    {
-        if ((codestream.Main.Style!.BlockStyle & JpxBlockStyle.HighThroughputMixed) != 0)
-        {
-            return true;
-        }
-
-        foreach (var style in codestream.Main.ComponentStyles)
-        {
-            if (style is not null && (style.BlockStyle & JpxBlockStyle.HighThroughputMixed) != 0)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Reads the file, decodes the codestream and converts the channels.</summary>
     /// <param name="header">The image header.</param>
     /// <param name="data">The JPX data.</param>
@@ -114,21 +97,16 @@ internal static class JpxImageDecoder
             return null;
         }
 
-        if (UsesMixedBlocks(codestream))
-        {
-            return Unsupported(header);
-        }
-
-        var indexed = header.ColorSpace?.Kind == PdfColorSpaceKind.Indexed;
-        if (JpxChannels.Build(file, codestream.Geometry, indexed) is not { Channels.Length: > 0 } set
-            || JpxOutputPlan.Create(file.ColorSpace, set, codestream.Geometry, header.ColorSpace) is not { } plan)
+        if (Plan(header, data, file, codestream.Geometry) is not { } planned)
         {
             return null;
         }
 
+        var (set, plan) = planned;
+
         // Only the components the output reads are decoded: a codestream with more components than colour channels, such
         // as an opacity component the dictionary does not ask for, skips them.
-        var alpha = softMaskInData == SoftMaskInData && plan.Mode == JpxSampleMode.Scaled && set.Channels.Length > plan.Components;
+        var alpha = header.IsStencil ? -1 : OpacityChannel(set, plan, softMaskInData);
         var selectedReduction = SelectReduction(codestream, stream, reductionLevels);
         using var image = JpxDecoder.Open(codestream, selectedReduction, scratchPools, WantedComponents(set, plan, alpha), cancellationToken);
 
@@ -136,25 +114,86 @@ internal static class JpxImageDecoder
         // a codestream whose size differs from the dictionary's still draws, scaled to the image's unit square. The
         // decoder works on rows as the conversion asks for them, so no plane holds the whole image.
         var area = LargestArea(image, set.Channels);
+
+        // The codestream, not the dictionary, sets the output size, so a small file may not claim a huge image.
+        if ((long)area.Width * area.Height * PixelConverter.BytesPerPixel > ImageHeader.MaxDecodedBytes)
+        {
+            return null;
+        }
+
         var source = new JpxSampleSource(image, stream, set.Channels, file.Palette, area.Width, area.Height);
-        return Convert(header, source, plan, alpha, scratchPools);
+        return header.IsStencil
+            ? ConvertStencil(header, source, plan, scratchPools)
+            : Convert(header, source, plan, new(alpha, softMaskInData == PremultipliedSoftMask), scratchPools);
+    }
+
+    /// <summary>Builds the channels and decides how they become samples.</summary>
+    /// <param name="header">The image header.</param>
+    /// <param name="data">The JPX data.</param>
+    /// <param name="file">The JP2 boxes.</param>
+    /// <param name="geometry">The codestream geometry.</param>
+    /// <returns>The channels and plan, or <see langword="null"/> when the file has none or too few for the colour space.</returns>
+    private static ChannelPlan? Plan(in ImageHeader header, ReadOnlySpan<byte> data, JpxFileInfo file, JpxGeometry geometry)
+    {
+        var indexed = header.ColorSpace?.Kind == PdfColorSpaceKind.Indexed;
+        if (JpxChannels.Build(file, geometry, indexed) is not { Channels.Length: > 0 } set)
+        {
+            return null;
+        }
+
+        // An image mask reads the first channel as 1-bit samples (ISO 32000-2 section 7.4.9); the dictionary has no colour space then.
+        if (header.IsStencil)
+        {
+            return new(set, new(PdfColorSpace.DeviceGray, 1, JpxSampleMode.Scaled, false, false));
+        }
+
+        var profileSpace = header.ColorSpace is null && file.Profile.Length > 0 ? JpxProfileSpace.Create(data.Slice(file.Profile.Offset, file.Profile.Length)) : null;
+
+        // CIELab is the one enumerated space that is neither a device space nor a conversion to RGB, so it takes the place of a profile that cannot be used.
+        if (profileSpace is null && header.ColorSpace is null && file.ColorSpace == JpxColorSpace.Lab)
+        {
+            profileSpace = JpxLabSpace.Create(file.Lab, set.Channels);
+        }
+
+        return JpxOutputPlan.Create(file.ColorSpace, set, geometry, header.ColorSpace, profileSpace) is { } plan ? new(set, plan) : null;
+    }
+
+    /// <summary>Finds the channel that carries the soft mask in the data (<c>/SMaskInData</c> 1 or 2).</summary>
+    /// <param name="set">The channels.</param>
+    /// <param name="plan">The output plan.</param>
+    /// <param name="softMaskInData">The <c>/SMaskInData</c> entry.</param>
+    /// <returns>The channel index, or -1 when the data has no soft mask or the dictionary does not ask for it.</returns>
+    private static int OpacityChannel(in JpxChannelSet set, JpxOutputPlan plan, int softMaskInData)
+    {
+        if (softMaskInData is not (SoftMaskInData or PremultipliedSoftMask) || plan.Mode != JpxSampleMode.Scaled)
+        {
+            return -1;
+        }
+
+        // A channel definition box names the opacity channel; without one the channel after the colour channels is taken as it.
+        var channel = set.Opacity switch
+        {
+            JpxChannelSet.NoOpacity => -1,
+            JpxChannelSet.Undeclared => plan.Components,
+            _ => set.Opacity,
+        };
+        return channel >= 0 && channel < set.Channels.Length ? channel : -1;
     }
 
     /// <summary>Finds the components the output reads: the planned colour channels, and the opacity channel when it is used.</summary>
     /// <param name="set">The channels.</param>
     /// <param name="plan">The output plan.</param>
-    /// <param name="withAlpha">Whether the channel after the colour channels is the soft mask.</param>
+    /// <param name="alpha">The index of the soft mask channel, or -1.</param>
     /// <returns>The components to decode.</returns>
-    private static uint WantedComponents(in JpxChannelSet set, JpxOutputPlan plan, bool withAlpha)
+    private static uint WantedComponents(in JpxChannelSet set, JpxOutputPlan plan, int alpha)
     {
         var wanted = 0U;
-        var used = plan.Components + (withAlpha ? 1 : 0);
-        for (var i = 0; i < used; i++)
+        for (var i = 0; i < plan.Components; i++)
         {
             wanted = JpxComponentMask.With(wanted, set.Channels[i].Component);
         }
 
-        return wanted;
+        return alpha < 0 ? wanted : JpxComponentMask.With(wanted, set.Channels[alpha].Component);
     }
 
     /// <summary>Finds the channel plane with the most samples.</summary>
@@ -230,14 +269,14 @@ internal static class JpxImageDecoder
     /// <param name="header">The image header.</param>
     /// <param name="source">The decoded channels.</param>
     /// <param name="plan">The output plan.</param>
-    /// <param name="withAlpha">Whether the fourth channel is the soft mask.</param>
+    /// <param name="softMask">The soft mask in the data, if the dictionary asks for it.</param>
     /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The image.</returns>
-    private static PdfImageData Convert(in ImageHeader header, in JpxSampleSource source, JpxOutputPlan plan, bool withAlpha, ScratchPools scratchPools)
+    private static PdfImageData Convert(in ImageHeader header, in JpxSampleSource source, JpxOutputPlan plan, SoftMask softMask, ScratchPools scratchPools)
     {
         // Each row goes from the decoder straight through the colour space, so the whole image is never held as one
         // sample buffer as well.
-        if (!withAlpha)
+        if (softMask.Channel < 0)
         {
             return PdfImageDecoder.DecodeRows(ForSamples(header, source, plan), new JpxImageRows(source, plan), scratchPools);
         }
@@ -249,13 +288,60 @@ internal static class JpxImageDecoder
         var alpha = pool.Rent(pixels);
         try
         {
-            var image = PdfImageDecoder.DecodeRows(ForSamples(header, source, plan) with { Compact = false }, new JpxImageRows(source, plan, alpha.AsSpan(0, pixels)), scratchPools);
+            var rows = new JpxImageRows(source, plan, alpha.AsSpan(0, pixels), softMask.Channel, softMask.Premultiplied);
+            var image = PdfImageDecoder.DecodeRows(ForSamples(header, source, plan) with { Compact = false }, rows, scratchPools);
             ImageAlpha.Multiply(image.Pixels, alpha.AsSpan(0, pixels));
             return image;
         }
         finally
         {
             pool.Return(alpha);
+        }
+    }
+
+    /// <summary>Reads the first channel as the 1-bit samples of an image mask and decodes it to coverage.</summary>
+    /// <param name="header">The image header, of an image mask.</param>
+    /// <param name="source">The decoded channels.</param>
+    /// <param name="plan">The output plan, for the first channel as grey.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <returns>The coverage image.</returns>
+    private static PdfImageData ConvertStencil(in ImageHeader header, in JpxSampleSource source, JpxOutputPlan plan, ScratchPools scratchPools)
+    {
+        var mask = header with { Width = source.Width, Height = source.Height, BitsPerComponent = 1 };
+        var length = mask.RowBytes * mask.Height;
+        var bytes = scratchPools.Get<byte>();
+        var rows = bytes.Rent(length);
+        var samples = bytes.Rent(source.Width);
+        try
+        {
+            var packed = rows.AsSpan(0, length);
+            packed.Clear();
+            for (var y = 0; y < source.Height; y++)
+            {
+                JpxSampleWriter.WritePlanRow(source, plan, y, samples.AsSpan(0, source.Width));
+                PackRow(samples.AsSpan(0, source.Width), packed.Slice(y * mask.RowBytes, mask.RowBytes));
+            }
+
+            return PdfImageDecoder.DecodeStencil(mask, packed);
+        }
+        finally
+        {
+            bytes.Return(samples);
+            bytes.Return(rows);
+        }
+    }
+
+    /// <summary>Packs 8-bit samples to bits, most significant first: a sample of at least half scale is a one.</summary>
+    /// <param name="samples">The samples of a row.</param>
+    /// <param name="bits">The packed row, cleared.</param>
+    private static void PackRow(ReadOnlySpan<byte> samples, Span<byte> bits)
+    {
+        for (var x = 0; x < samples.Length; x++)
+        {
+            if (samples[x] >= HalfScale)
+            {
+                bits[x / SampleBits] |= (byte)(HighBit >> (x % SampleBits));
+            }
         }
     }
 
@@ -270,8 +356,21 @@ internal static class JpxImageDecoder
         Height = source.Height,
         BitsPerComponent = SampleBits,
         IsStencil = false,
+
+        // The Decode array applies only when the dictionary gives the colour space (ISO 32000-2 section 7.4.9); the
+        // raw indices of an Indexed space are not scaled samples, so they are never decoded.
+        Decode = plan.KeepsDictionarySpace && plan.Mode == JpxSampleMode.Scaled ? header.Decode : null,
         ColorSpace = plan.ColorSpace,
-        Decode = null,
         ColorKey = plan.KeepsDictionarySpace ? header.ColorKey : null,
     };
+
+    /// <summary>The channels of a file and how they become samples.</summary>
+    /// <param name="Set">The channels.</param>
+    /// <param name="Plan">The output plan.</param>
+    private readonly record struct ChannelPlan(JpxChannelSet Set, JpxOutputPlan Plan);
+
+    /// <summary>The soft mask in the data: which channel holds it and whether the colour channels are multiplied by it.</summary>
+    /// <param name="Channel">The index of the opacity channel, or -1 for none.</param>
+    /// <param name="Premultiplied">Whether the colour channels are premultiplied (<c>/SMaskInData 2</c>).</param>
+    private readonly record struct SoftMask(int Channel, bool Premultiplied);
 }

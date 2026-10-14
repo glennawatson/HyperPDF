@@ -64,7 +64,7 @@ internal static class PdfStreamWriting
 
             case PdfStreamMode.Recompress:
                 {
-                    return TryRecompress(ref writer, stream, id, encrypt, policy.Level);
+                    return TryRecompress(ref writer, stream, id, encrypt, policy);
                 }
 
             default:
@@ -118,16 +118,17 @@ internal static class PdfStreamWriting
     }
 
     /// <summary>
-    /// Writes a stream that has no filter, or only byte filters, as Flate at a level, when that is smaller than the data it
-    /// has. A stream with an image codec, a crypt filter or external data is left to be copied.
+    /// Writes a stream that has no filter, or only byte filters, with the policy's encoding (Flate unless the caller chose
+    /// another) when that is smaller than the data it has. A stream with an image codec, a crypt filter or external data is
+    /// left to be copied. An encoding that ends in ASCII text is always written, as it cannot be smaller.
     /// </summary>
     /// <param name="writer">The writer.</param>
     /// <param name="stream">The stream.</param>
     /// <param name="id">The stream's new object id.</param>
     /// <param name="encrypt">Whether the stream is encrypted for its new number.</param>
-    /// <param name="level">The Flate level.</param>
+    /// <param name="policy">The Flate level and the encoding.</param>
     /// <returns><see langword="true"/> when the stream was written; <see langword="false"/> when the caller copies it.</returns>
-    private static bool TryRecompress(ref PdfObjectWriter writer, PdfStream stream, PdfObjectId id, bool encrypt, PdfCompressionLevel level)
+    private static bool TryRecompress(ref PdfObjectWriter writer, PdfStream stream, PdfObjectId id, bool encrypt, StreamPolicy policy)
     {
         var unfiltered = IsUnfiltered(stream.Dictionary);
         if (stream.Dictionary.ContainsKey(KnownName.F) || (!unfiltered && !IsByteFilterChain(stream.Dictionary)))
@@ -149,13 +150,22 @@ internal static class PdfStreamWriting
                 data = decoded.WrittenSpan;
             }
 
-            FlateFilter.Encode(data, level, ref compressed);
-            if (compressed.Length >= original.Length && !probe.HasRepairs)
+            StreamEncoder.Encode(policy.Encoding, data, policy.Level, ref compressed);
+            var armoured = StreamEncoder.IsTextArmoured(policy.Encoding);
+            if (!armoured && compressed.Length >= original.Length && !probe.HasRepairs)
             {
                 return false;
             }
 
-            WriteFlate(ref writer, stream, id, encrypt, data, level, ref compressed);
+            if (policy.Encoding == PdfStreamEncoding.Flate)
+            {
+                WriteFlate(ref writer, stream, id, encrypt, data, policy.Level, ref compressed);
+            }
+            else
+            {
+                WriteEncoded(ref writer, stream, id, encrypt, data, policy.Encoding, ref compressed);
+            }
+
             return true;
         }
         finally
@@ -163,6 +173,31 @@ internal static class PdfStreamWriting
             compressed.Dispose();
             decoded.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Writes a stream's decoded data under an encoding that is already applied, dropping the old filter and its parameters.
+    /// The data is written plainly when a compression filter made it no smaller.
+    /// </summary>
+    /// <param name="writer">The writer.</param>
+    /// <param name="stream">The stream.</param>
+    /// <param name="id">The stream's new object id.</param>
+    /// <param name="encrypt">Whether the stream is encrypted for its new number.</param>
+    /// <param name="data">The decoded data.</param>
+    /// <param name="encoding">The encoding applied to <paramref name="encoded"/>.</param>
+    /// <param name="encoded">The data after the encoding.</param>
+    private static void WriteEncoded(ref PdfObjectWriter writer, PdfStream stream, PdfObjectId id, bool encrypt, ReadOnlySpan<byte> data, PdfStreamEncoding encoding, ref PooledBuffer encoded)
+    {
+        var dictionary = WithoutFilters(stream.Dictionary);
+        var keep = StreamEncoder.IsTextArmoured(encoding) || encoded.Length < data.Length;
+        if (keep)
+        {
+            StreamEncoder.SetFilters(dictionary, encoding);
+        }
+
+        writer.WriteObjectHeader(id);
+        writer.WriteStream(dictionary, keep ? encoded.WrittenSpan : data, encrypt ? id : default, false);
+        writer.WriteRaw(EndObject);
     }
 
     /// <summary>Writes a stream's decoded data as Flate, or plainly when Flate is no smaller, dropping the old filter and its parameters.</summary>

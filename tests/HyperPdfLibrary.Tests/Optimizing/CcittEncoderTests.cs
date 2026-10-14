@@ -7,8 +7,8 @@ using HyperPdfLibrary.Graphics.Images;
 
 namespace HyperPdfLibrary.Tests.Optimizing;
 
-/// <summary>Round trips through <see cref="CcittG4Encoder"/> and <see cref="CcittFaxDecoder"/>.</summary>
-public sealed class CcittG4EncoderTests
+/// <summary>Round trips through <see cref="CcittEncoder"/> and <see cref="CcittFaxDecoder"/>.</summary>
+public sealed partial class CcittEncoderTests
 {
     /// <summary>The bits in a byte.</summary>
     private const int ByteBits = 8;
@@ -167,7 +167,7 @@ public sealed class CcittG4EncoderTests
         var output = default(PooledBuffer);
         try
         {
-            CcittG4Encoder.Encode(rows, width, height, blackIs1, ref output);
+            CcittEncoder.EncodeGroup4(rows, width, height, blackIs1, ref output, new());
             return output.ToArray();
         }
         finally

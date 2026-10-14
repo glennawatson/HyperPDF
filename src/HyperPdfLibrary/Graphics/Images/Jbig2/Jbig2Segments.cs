@@ -13,9 +13,6 @@ internal static class Jbig2Segments
     /// <summary>The bytes after an arithmetic-coded segment's data that the decoder may have read into.</summary>
     internal const int ArithmeticTrailer = 2;
 
-    /// <summary>The bytes of the row count after a generic region of unknown length.</summary>
-    internal const int RowCountBytes = 4;
-
     /// <summary>The page information bytes after the width and height: the resolutions, flags and striping.</summary>
     internal const int PageInfoTail = 11;
 
@@ -62,6 +59,19 @@ internal static class Jbig2Segments
         RefinementRegion = 9,
     }
 
+    /// <summary>What became of a segment that was processed.</summary>
+    private enum Outcome
+    {
+        /// <summary>The segment decoded and is kept for later segments to refer to.</summary>
+        Kept = 0,
+
+        /// <summary>The segment failed, was dropped, and processing goes on with the next one.</summary>
+        Skipped = 1,
+
+        /// <summary>The segment failed and the next segment cannot be found.</summary>
+        Stopped = 2,
+    }
+
     /// <summary>Gets the kind of each segment type number from 0 to 63.</summary>
     internal static ReadOnlySpan<byte> SegmentKinds =>
     [
@@ -83,6 +93,7 @@ internal static class Jbig2Segments
         }
 
         var reader = new Jbig2Reader(data, state.Workspace.ScratchPools, state.CancellationToken);
+        var damaged = false;
         while (reader.BytesLeft >= MinSegmentSize)
         {
             state.CancellationToken.ThrowIfCancellationRequested();
@@ -92,30 +103,30 @@ internal static class Jbig2Segments
             }
 
             var status = DecodeSegment(state, ref reader, segment);
-            if (status != Jbig2Status.Success || !MoveToNextSegment(ref reader, segment))
+            if (status == Jbig2Status.EndReached)
             {
                 segment.Dispose();
-                return status == Jbig2Status.EndReached ? Jbig2Status.Success : Jbig2Status.Failure;
+                return damaged ? Jbig2Status.Failure : Jbig2Status.Success;
             }
 
-            state.Segments.Add(segment);
+            var outcome = Settle(state, ref reader, segment, status);
+            if (outcome == Outcome.Stopped)
+            {
+                return Jbig2Status.Failure;
+            }
+
+            damaged |= outcome == Outcome.Skipped;
         }
 
-        return Jbig2Status.Success;
+        return damaged ? Jbig2Status.Failure : Jbig2Status.Success;
     }
 
     /// <summary>Moves the reader to the next segment header.</summary>
     /// <param name="reader">The reader.</param>
-    /// <param name="segment">The segment just processed.</param>
+    /// <param name="segment">The segment just processed, whose data length is known.</param>
     /// <returns><see langword="false"/> when the data length overflows.</returns>
     internal static bool MoveToNextSegment(ref Jbig2Reader reader, Jbig2Segment segment)
     {
-        if (segment.DataLength == Jbig2Segment.UnknownLength)
-        {
-            reader.Skip(RowCountBytes);
-            return true;
-        }
-
         var next = (long)segment.DataOffset + segment.DataLength;
         if (next > uint.MaxValue)
         {
@@ -156,7 +167,7 @@ internal static class Jbig2Segments
         var kind = (SegmentKind)SegmentKinds[(int)segment.Type & TypeMask];
         if (kind >= Jbig2Segments.SegmentKind.TextRegion)
         {
-            return state.InPage && state.Page is not null ? DecodeRegion(state, ref reader, segment, kind, state.Page) : Jbig2Status.Failure;
+            return state.Page is null ? Jbig2Status.Failure : DecodePageRegion(state, ref reader, segment, kind, state.Page);
         }
 
         return kind switch
@@ -165,9 +176,26 @@ internal static class Jbig2Segments
             Jbig2Segments.SegmentKind.PatternDictionary => Jbig2Dictionaries.DecodePatternDictionary(state, ref reader, segment),
             Jbig2Segments.SegmentKind.Table => Jbig2Dictionaries.DecodeTable(ref reader, segment),
             Jbig2Segments.SegmentKind.PageInformation => DecodePageInformation(state, ref reader),
-            Jbig2Segments.SegmentKind.End => End(state, segment),
+            Jbig2Segments.SegmentKind.End => Jbig2Status.EndReached,
             _ => Skip(ref reader, segment),
         };
+    }
+
+    /// <summary>
+    /// Processes a region segment on the page. A stream without a page information segment is read as a white page, so
+    /// its regions still draw; the page then counts as seen once a region succeeds.
+    /// </summary>
+    /// <param name="state">The decoder's mutable state.</param>
+    /// <param name="reader">The reader, at the segment data.</param>
+    /// <param name="segment">The segment.</param>
+    /// <param name="kind">The region kind.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>The status.</returns>
+    internal static Jbig2Status DecodePageRegion(Jbig2DecodeState state, ref Jbig2Reader reader, Jbig2Segment segment, SegmentKind kind, Jbig2Bitmap page)
+    {
+        var status = DecodeRegion(state, ref reader, segment, kind, page);
+        state.PageSeen |= status == Jbig2Status.Success;
+        return status;
     }
 
     /// <summary>Processes a region segment.</summary>
@@ -185,20 +213,6 @@ internal static class Jbig2Segments
         _ => Jbig2Regions.DecodeRefinementRegion(state, ref reader, segment, page),
     };
 
-    /// <summary>Handles an end-of-page or end-of-file segment.</summary>
-    /// <param name="state">The decoder's mutable state.</param>
-    /// <param name="segment">The segment.</param>
-    /// <returns><see cref="Jbig2Status.EndReached"/>.</returns>
-    internal static Jbig2Status End(Jbig2DecodeState state, Jbig2Segment segment)
-    {
-        if (segment.Type == Jbig2SegmentType.EndOfPage)
-        {
-            state.InPage = false;
-        }
-
-        return Jbig2Status.EndReached;
-    }
-
     /// <summary>Processes a page information segment: the page is filled with its default pixel.</summary>
     /// <param name="state">The decoder's mutable state.</param>
     /// <param name="reader">The reader.</param>
@@ -215,7 +229,6 @@ internal static class Jbig2Segments
 
         // The page has the PDF image's size (ISO 32000-1 section 7.4.7 takes it from the image dictionary); the page information's own size is not used.
         state.Page?.Fill((flags & DefaultPixelFlag) != 0);
-        state.InPage = true;
         state.PageSeen = true;
         return Jbig2Status.Success;
     }
@@ -304,5 +317,28 @@ internal static class Jbig2Segments
         var composed = Jbig2Composer.Compose(page, region.View, info.X, info.Y, info.Operator);
         region.Dispose();
         return state.Workspace.TryCharge(composed) ? Jbig2Status.Success : Jbig2Status.Failure;
+    }
+
+    /// <summary>
+    /// Keeps a decoded segment and moves to the next header. A segment of known length that fails is skipped, so the
+    /// regions after it still draw (lenient reading). A segment of unknown length leaves the reader after its own end
+    /// marker and row count when it succeeds; when it fails there is no way to find the next segment.
+    /// </summary>
+    /// <param name="state">The decoder's mutable state.</param>
+    /// <param name="reader">The reader.</param>
+    /// <param name="segment">The segment just processed.</param>
+    /// <param name="status">What processing it returned.</param>
+    /// <returns>What happened to the segment.</returns>
+    private static Outcome Settle(Jbig2DecodeState state, ref Jbig2Reader reader, Jbig2Segment segment, Jbig2Status status)
+    {
+        var canContinue = segment.DataLength == Jbig2Segment.UnknownLength ? status == Jbig2Status.Success : MoveToNextSegment(ref reader, segment);
+        if (status == Jbig2Status.Success && canContinue)
+        {
+            state.Segments.Add(segment);
+            return Outcome.Kept;
+        }
+
+        segment.Dispose();
+        return canContinue ? Outcome.Skipped : Outcome.Stopped;
     }
 }

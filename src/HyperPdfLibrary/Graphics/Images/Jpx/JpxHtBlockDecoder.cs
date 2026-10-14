@@ -40,14 +40,13 @@ internal static class JpxHtBlockDecoder
     /// <summary>The magnitude bits of a sign-magnitude sample.</summary>
     internal const int MagnitudeMask = int.MaxValue;
 
-    /// <summary>Counts the passes of the first HT set that can be decoded.</summary>
-    /// <param name="cleanup">The cleanup segment.</param>
+    /// <summary>Counts the passes of an HT set that can be decoded: its cleanup pass and the refinement passes that have bytes.</summary>
     /// <param name="refinement">The refinement segment, or an empty one.</param>
     /// <param name="planes">The code-block's bit-planes.</param>
     /// <returns>1 for the cleanup pass alone, 2 with SigProp, 3 with SigProp and MagRef.</returns>
-    internal static int HtPasses(JpxSegment cleanup, JpxSegment refinement, int planes)
+    internal static int HtPasses(JpxSegment refinement, int planes)
     {
-        var passes = Math.Min(cleanup.Passes + refinement.Passes, FullHtSet);
+        var passes = Math.Min(1 + refinement.Passes, FullHtSet);
 
         // Our rule: refinement passes (T.814 clause 7.3.5 to 7.3.7) with no bytes, or with no bit-plane left below the cleanup pass, have nothing to refine and are dropped.
         return refinement.Length == 0 || planes < RefinablePlanes ? Math.Min(passes, 1) : passes;
@@ -62,30 +61,70 @@ internal static class JpxHtBlockDecoder
     /// <param name="target">Where the coefficients go.</param>
     internal static void DecodeHighThroughput(JpxBlockState state, JpxTile tile, JpxCodeBlock block, in JpxBandLayout band, byte[] data, in JpxBlockTarget target)
     {
-        if (target.RoiShift != 0 || band.Magnitude > MaxHtMagnitude || block.Area.Width > MaxBlockWidth)
+        var magnitude = band.Magnitude + target.RoiShift;
+        if (magnitude > MaxHtMagnitude || block.Area.Width > MaxBlockWidth)
         {
             return;
         }
 
-        var cleanup = tile.Segments[block.FirstSegment];
-        var refinement = cleanup.Next >= 0 ? tile.Segments[cleanup.Next] : default;
-        var passes = HtPasses(cleanup, refinement, block.BitPlanes);
-        var refinementLength = passes > 1 ? refinement.Length : 0;
-        if (cleanup.Length < SuffixLengthBytes || cleanup.Length + refinementLength > block.DataLength)
+        // The set to decode is the last one with a cleanup segment (T.814 clause 7.1.1 leaves the choice to the decoder); S_blk counts the
+        // zero bit-planes, the placeholder sets and the sets before it (clause B.3).
+        var set = LastSet(tile, block);
+        var planes = target.RoiShift + block.BitPlanes - (block.PlaceholderPasses / FullHtSet) - set.Skipped;
+        var passes = HtPasses(set.Refinement, planes);
+        var refinementLength = passes > 1 ? set.Refinement.Length : 0;
+        if (planes < 1 || set.Cleanup.Length < SuffixLengthBytes || set.Offset + set.Cleanup.Length + refinementLength > block.DataLength)
         {
             return;
         }
 
         JpxBlockDecoder.Prepare(state, block.Area.Width, block.Area.Height, band.Orientation, target.Style);
         var source = JpxBlockDecoder.Gather(state, tile, block, data, out var offset);
-        var bytes = source.AsSpan(offset, cleanup.Length + refinementLength);
-        if (HtCleanup(state, bytes[..cleanup.Length], block.BitPlanes, band.Magnitude) && passes > 1)
+        var bytes = source.AsSpan(offset + set.Offset, set.Cleanup.Length + refinementLength);
+        if (HtCleanup(state, bytes[..set.Cleanup.Length], planes, magnitude) && passes > 1)
         {
-            HtRefine(state, bytes[cleanup.Length..], passes, block.BitPlanes);
+            HtRefine(state, bytes[set.Cleanup.Length..], passes, planes);
         }
 
         ToSigned(state);
+        if (target.RoiShift > 0)
+        {
+            JpxBlockDecoder.ApplyRoi(state, target.RoiShift);
+        }
+
         JpxBlockDecoder.Store(state, block, band, target);
+    }
+
+    /// <summary>Finds the last HT set of a code-block that has a cleanup segment, passing over the placeholder segments.</summary>
+    /// <param name="tile">The tile, which holds the segments.</param>
+    /// <param name="block">The code-block.</param>
+    /// <returns>The set, or one with an empty cleanup segment when the block has none.</returns>
+    internal static HtSet LastSet(JpxTile tile, JpxCodeBlock block)
+    {
+        var best = default(HtSet);
+        var bytesBefore = 0;
+        var index = 0;
+        var segment = block.FirstSegment;
+        for (var skipped = 0; skipped < block.PlaceholderSegments && segment >= 0; skipped++)
+        {
+            segment = tile.Segments[segment].Next;
+        }
+
+        while (segment >= 0)
+        {
+            var cleanup = tile.Segments[segment];
+            var refinement = cleanup.Next >= 0 ? tile.Segments[cleanup.Next] : default;
+            if (cleanup.Length >= SuffixLengthBytes)
+            {
+                best = new(cleanup, refinement, bytesBefore, index);
+            }
+
+            bytesBefore += cleanup.Length + refinement.Length;
+            index++;
+            segment = cleanup.Next >= 0 ? refinement.Next : -1;
+        }
+
+        return best;
     }
 
     /// <summary>Runs the refinement passes.</summary>
@@ -156,4 +195,11 @@ internal static class JpxHtBlockDecoder
 
         return true;
     }
+
+    /// <summary>One HT set of a code-block: its cleanup and refinement segments, where its bytes start and the sets before it.</summary>
+    /// <param name="Cleanup">The cleanup segment.</param>
+    /// <param name="Refinement">The refinement segment, or an empty one.</param>
+    /// <param name="Offset">The bytes of the earlier sets, which come before this set's bytes.</param>
+    /// <param name="Skipped">The HT sets before this one (S_skip).</param>
+    internal readonly record struct HtSet(JpxSegment Cleanup, JpxSegment Refinement, int Offset, int Skipped);
 }

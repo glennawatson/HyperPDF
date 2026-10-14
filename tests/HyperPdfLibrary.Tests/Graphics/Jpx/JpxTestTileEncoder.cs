@@ -20,6 +20,12 @@ internal sealed class JpxTestTileEncoder
     /// <summary>The initial length indicator bits, Lblock.</summary>
     private const int InitialLengthBits = 3;
 
+    /// <summary>The passes of one HT placeholder set.</summary>
+    private const int PlaceholderSetPasses = 3;
+
+    /// <summary>The fewest length indicator bits of an HT code-block in the MIXED mode.</summary>
+    private const int MixedMinLengthBits = 4;
+
     /// <summary>A threshold above any zero bit-plane count, so the tag tree sends the whole value.</summary>
     private const int WholeValue = 999;
 
@@ -104,6 +110,9 @@ internal sealed class JpxTestTileEncoder
     /// <summary>Whether each block has been included.</summary>
     private readonly bool[] _included;
 
+    /// <summary>Whether each block is coded with the HT block coder.</summary>
+    private readonly bool[] _highThroughput;
+
     /// <summary>The inclusion tag tree of each precinct.</summary>
     private readonly Dictionary<int, JpxTestTagTree> _inclusion = [];
 
@@ -129,6 +138,7 @@ internal sealed class JpxTestTileEncoder
         _sent = new int[count];
         _lengthBits = new int[count];
         _included = new bool[count];
+        _highThroughput = new bool[count];
         var coder = new JpxTestBlockEncoder();
         for (var i = 0; i < count; i++)
         {
@@ -245,15 +255,37 @@ internal sealed class JpxTestTileEncoder
         }
 
         var style = _tile.Components[band.Component].BlockStyle;
-        var code = (style & JpxBlockStyle.HighThroughput) != 0
+
+        // In the MIXED mode every other code-block is an HT code-block.
+        _highThroughput[index] = (style & JpxBlockStyle.HighThroughput) != 0 && ((style & JpxBlockStyle.HighThroughputMixed) == 0 || (index & 1) == 1);
+        var code = _highThroughput[index]
             ? JpxTestHtBlockEncoder.Encode(coefficients, width, height, _options.HtRefinement, (style & JpxBlockStyle.VerticallyCausal) != 0)
             : coder.Encode(coefficients, width, height, band.Orientation, style);
-        if (code.Bits > band.Magnitude)
+        if (code.Bits > band.Magnitude + _options.RoiShift)
         {
             throw new InvalidOperationException("The quantization exponents leave too few magnitude bits.");
         }
 
-        return code;
+        return _highThroughput[index] ? WithPlaceholders(code, band.Magnitude + _options.RoiShift) : code;
+    }
+
+    /// <summary>
+    /// Puts HT placeholder passes before a block's first cleanup pass: they join its first segment (T.814 clause B.2), and the zero
+    /// bit-planes shrink by one for each set so the block's bit-planes stay the same (S_blk = P + P0, clause B.3).
+    /// </summary>
+    /// <param name="code">The coded block.</param>
+    /// <param name="magnitude">The sub-band's magnitude bit-planes, with any region-of-interest shift.</param>
+    /// <returns>The block with placeholder sets, as many as the option asks for and the zero bit-planes allow.</returns>
+    private JpxTestBlockCode WithPlaceholders(JpxTestBlockCode code, int magnitude)
+    {
+        var sets = code.Bits == 0 ? 0 : Math.Min(_options.HtPlaceholderSets, magnitude - code.Bits);
+        if (sets <= 0)
+        {
+            return code;
+        }
+
+        List<JpxTestSegment> segments = [code.Segments[0] with { Passes = code.Segments[0].Passes + (PlaceholderSetPasses * sets) }, .. code.Segments.Skip(1)];
+        return new(code.Bits, segments) { PlaceholderSets = sets };
     }
 
     /// <summary>Spreads a block's passes over the layers.</summary>
@@ -291,7 +323,7 @@ internal sealed class JpxTestTileEncoder
             {
                 var index = cell.FirstBlock + k;
                 inclusion[k] = FirstLayer(index);
-                zeros[k] = _codes[index].Bits == 0 ? 0 : _tile.Bands[_tile.Blocks[index].Band].Magnitude - _codes[index].Bits;
+                zeros[k] = _codes[index].Bits == 0 ? 0 : _tile.Bands[_tile.Blocks[index].Band].Magnitude + _options.RoiShift - _codes[index].Bits - _codes[index].PlaceholderSets;
             }
 
             _inclusion[p] = new(cell.BlocksWide, cell.BlocksHigh, inclusion);
@@ -500,6 +532,13 @@ internal sealed class JpxTestTileEncoder
         {
             var bits = piece.Length == 0 ? 0 : BitOperations.Log2((uint)piece.Length) + 1;
             needed = Math.Max(needed, bits - BitOperations.Log2((uint)piece.Passes));
+        }
+
+        if (_highThroughput[index] && _sent[index] == 0 && (_tile.Components[_tile.Bands[_tile.Blocks[index].Band].Component].BlockStyle & JpxBlockStyle.HighThroughputMixed) != 0)
+        {
+            // T.814 clause A.4: the first length field of an HT code-block in the MIXED mode starts with a 0 bit and Lblock is above 3.
+            var first = pieces[0].Length == 0 ? 0 : BitOperations.Log2((uint)pieces[0].Length) + 1;
+            needed = Math.Max(needed, Math.Max(MixedMinLengthBits, first + 1));
         }
 
         for (var i = _lengthBits[index]; i < needed; i++)

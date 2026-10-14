@@ -13,4 +13,20 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 /// <param name="Mappings">The component mapping, or <see langword="null"/>.</param>
 /// <param name="Definitions">The channel definitions, or <see langword="null"/>.</param>
 [DebuggerDisplay("JpxFileInfo: {ColorSpace}")]
-internal sealed record JpxFileInfo(JpxDataRange Codestream, JpxColorSpace ColorSpace, JpxPalette? Palette, JpxChannelMapping[]? Mappings, JpxChannelDefinition[]? Definitions);
+internal sealed record JpxFileInfo(JpxDataRange Codestream, JpxColorSpace ColorSpace, JpxPalette? Palette, JpxChannelMapping[]? Mappings, JpxChannelDefinition[]? Definitions)
+{
+    /// <summary>
+    /// Gets where the ICC profile of the best colour specification is, or an empty range when that specification is not a
+    /// profile. When it is, <see cref="ColorSpace"/> is the best enumerated space, for use when the profile cannot be read.
+    /// </summary>
+    internal JpxDataRange Profile { get; init; }
+
+    /// <summary>
+    /// Gets the opacity type an Opacity box states (ISO 15444-2 M.11.7.6): 0 when the last channel is opacity, 1 when it is
+    /// premultiplied opacity, or -1 when the file has no Opacity box or the box is a chroma-key, which PDF ignores.
+    /// </summary>
+    internal int OpacityKind { get; init; } = -1;
+
+    /// <summary>Gets the CIELab parameters of the best enumerated colour space when it is CIELab with explicit parameters, otherwise <see langword="null"/> (the defaults apply).</summary>
+    internal JpxLabParameters? Lab { get; init; }
+}

@@ -12,6 +12,9 @@ namespace HyperPdfLibrary.Tests.Graphics.Jpx;
 [DebuggerDisplay("JpxTestBlockCode: {Bits} bits, {Segments.Count} segments")]
 internal sealed record JpxTestBlockCode(int Bits, List<JpxTestSegment> Segments)
 {
+    /// <summary>Gets the HT placeholder sets before the first cleanup pass, whose passes <see cref="Segments"/> already counts in its first segment.</summary>
+    internal int PlaceholderSets { get; init; }
+
     /// <summary>Gets the number of coding passes.</summary>
     internal int Passes
     {

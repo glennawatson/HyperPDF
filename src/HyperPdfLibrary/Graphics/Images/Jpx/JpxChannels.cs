@@ -41,7 +41,27 @@ internal static class JpxChannels
             return null;
         }
 
-        return file.Definitions is { Length: > 0 } definitions ? Arrange(channels, definitions) : new JpxChannelSet(channels, 0);
+        var declared = file.OpacityKind >= 0 && channels.Length > 1 ? OpacityBoxDefinitions(channels.Length, file.OpacityKind) : file.Definitions;
+        return declared is { Length: > 0 } definitions ? Arrange(channels, definitions) : new JpxChannelSet(channels, 0);
+    }
+
+    /// <summary>
+    /// Gives the definitions an Opacity box stands for (ISO 15444-2 M.11.7.6): colour channel k has association k + 1 and
+    /// the last channel is opacity (type 1) or premultiplied opacity (type 2) for the whole image.
+    /// </summary>
+    /// <param name="count">The channels.</param>
+    /// <param name="kind">The box's type: 0 for opacity, 1 for premultiplied opacity.</param>
+    /// <returns>One definition per channel.</returns>
+    private static JpxChannelDefinition[] OpacityBoxDefinitions(int count, int kind)
+    {
+        var definitions = new JpxChannelDefinition[count];
+        for (var c = 0; c < count - 1; c++)
+        {
+            definitions[c] = new(c, ColourType, c + 1);
+        }
+
+        definitions[count - 1] = new(count - 1, FirstOpacityType + kind, 0);
+        return definitions;
     }
 
     /// <summary>Makes one channel per component.</summary>
@@ -116,7 +136,30 @@ internal static class JpxChannels
             colours++;
         }
 
-        return colours == 0 || !AreContiguous(slots, colours) ? new(channels, 0) : new(Order(channels, slots, colours, definitions), colours);
+        if (colours == 0 || !AreContiguous(slots, colours))
+        {
+            return new(channels, 0);
+        }
+
+        var opacityType = FindOpacityType(definitions, channels.Length);
+        return new(Order(channels, slots, colours, definitions), colours) { Opacity = opacityType < 0 ? JpxChannelSet.NoOpacity : colours, Premultiplied = opacityType == LastOpacityType };
+    }
+
+    /// <summary>Finds the first opacity channel the definitions declare.</summary>
+    /// <param name="definitions">The channel definitions.</param>
+    /// <param name="channels">The number of channels.</param>
+    /// <returns>The channel definition type of the first opacity channel, or -1 when there is none.</returns>
+    private static int FindOpacityType(JpxChannelDefinition[] definitions, int channels)
+    {
+        foreach (var (channel, type, _) in definitions)
+        {
+            if (channel < channels && type is >= FirstOpacityType and <= LastOpacityType)
+            {
+                return type;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Determines whether the first slots, and only those, name a channel.</summary>

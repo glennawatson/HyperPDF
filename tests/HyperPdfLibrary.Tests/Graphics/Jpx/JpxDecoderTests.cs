@@ -46,6 +46,27 @@ public sealed class JpxDecoderTests
     /// <summary>Many decomposition levels for a small image, so some resolutions are one sample or empty.</summary>
     private const int ManyLevels = 7;
 
+    /// <summary>The region-of-interest shift: above the magnitude bits of any background coefficient of 8-bit samples.</summary>
+    private const int RoiShift = 12;
+
+    /// <summary>The shift of the direct region-of-interest test.</summary>
+    private const int RegionShift = 10;
+
+    /// <summary>The largest background value at twice scale with the shift: one below two to the shift plus one.</summary>
+    private const int LargestBackground = (2 << RegionShift) - 1;
+
+    /// <summary>A background value between the shift and the largest.</summary>
+    private const int MidBackground = 1 << RegionShift;
+
+    /// <summary>The smallest value at twice scale that carries the shift, three halves of two to the shift plus one.</summary>
+    private const int SmallestInside = 3 << RegionShift;
+
+    /// <summary>The value <see cref="SmallestInside"/> takes after the shift is removed.</summary>
+    private const int ShiftedInside = 3;
+
+    /// <summary>A small background value.</summary>
+    private const int SmallValue = 5;
+
     /// <summary>The seed of the sample generator.</summary>
     private const uint Seed = 1234;
 
@@ -128,6 +149,39 @@ public sealed class JpxDecoderTests
         var options = new JpxTestOptions { Style = (JpxBlockStyle)style, Layers = ThreeLayers };
 
         await Assert.That(RoundTrips(options)).IsTrue();
+    }
+
+    /// <summary>A maxshift region of interest (RGN) decodes exactly, with and without the bypass mode that counts passes from the shifted top plane.</summary>
+    /// <param name="style">The mode switches.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments((int)JpxBlockStyle.None)]
+    [Arguments((int)JpxBlockStyle.Bypass)]
+    [Arguments((int)(JpxBlockStyle.Bypass | JpxBlockStyle.TerminateAll))]
+    public async Task RegionOfInterestRoundTrips(int style)
+    {
+        var options = new JpxTestOptions { Components = Rgb, Transform = true, Style = (JpxBlockStyle)style, RoiShift = RoiShift, Layers = ThreeLayers };
+
+        await Assert.That(RoundTrips(options)).IsTrue();
+    }
+
+    /// <summary>
+    /// Removing the shift leaves background coefficients alone up to the largest they can be (the values are at twice scale,
+    /// with a half-step midpoint) and moves the ones that carry the shift down.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RegionShiftLeavesTheLargestBackgroundCoefficient()
+    {
+        int[] before = [LargestBackground, -LargestBackground, SmallestInside, -SmallestInside, 0, SmallValue, MidBackground, -MidBackground];
+        int[] after = [LargestBackground, -LargestBackground, ShiftedInside, -ShiftedInside, 0, SmallValue, MidBackground, -MidBackground];
+        using var state = new JpxBlockState();
+        JpxBlockDecoder.Prepare(state, before.Length, 1, 0, JpxBlockStyle.None);
+        before.CopyTo(state.Values, 0);
+
+        JpxBlockDecoder.ApplyRoi(state, RegionShift);
+
+        await Assert.That(state.Values.AsSpan(0, after.Length).SequenceEqual(after)).IsTrue();
     }
 
     /// <summary>Tiles over an odd image origin, with the component transform, decode exactly.</summary>

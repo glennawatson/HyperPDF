@@ -15,7 +15,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 /// <param name="Y3">The row offset of the third pixel.</param>
 /// <param name="X4">The column offset of the fourth pixel.</param>
 /// <param name="Y4">The row offset of the fourth pixel.</param>
-internal readonly record struct Jbig2AtPixels(sbyte X1, sbyte Y1, sbyte X2, sbyte Y2, sbyte X3, sbyte Y3, sbyte X4, sbyte Y4)
+internal readonly record struct Jbig2AtPixels(short X1, short Y1, short X2, short Y2, short X3, short Y3, short X4, short Y4)
 {
     /// <summary>The second pixel's index.</summary>
     private const int Second = 1;

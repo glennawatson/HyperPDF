@@ -83,6 +83,15 @@ internal sealed record JpxTestOptions
     /// <summary>Gets a value indicating whether HT code-blocks also send SigProp and MagRef passes where they stay lossless.</summary>
     internal bool HtRefinement { get; init; }
 
+    /// <summary>Gets the HT placeholder sets (P0) written before each HT code-block's first cleanup pass: three placeholder passes each, as many as the block's zero bit-planes allow.</summary>
+    internal int HtPlaceholderSets { get; init; }
+
+    /// <summary>
+    /// Gets the maxshift region-of-interest shift written in RGN markers, or zero for none. Every third coefficient of
+    /// each sub-band is treated as inside the region and shifted up.
+    /// </summary>
+    internal int RoiShift { get; init; }
+
     /// <summary>Gets the progression volumes written in a POC marker, or <see langword="null"/> for none.</summary>
     internal JpxProgressionChange[]? Changes { get; init; }
 }

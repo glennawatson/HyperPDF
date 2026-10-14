@@ -261,32 +261,60 @@ internal ref partial struct JpegDecoder
         var endOfBandRun = 0;
         var untilRestart = _restartInterval;
         ResetPredictors(indices);
-        for (var unit = 0; unit < total; unit++)
+        var unit = 0;
+        while (unit < total)
         {
             if ((unit & CancelCheckMask) == 0)
             {
                 _cancellationToken.ThrowIfCancellationRequested();
             }
 
-            if (_restartInterval != 0 && untilRestart == 0)
+            if (untilRestart == 0 && !TryBeginInterval(ref reader, indices, ref endOfBandRun, ref untilRestart))
             {
-                if (!reader.TryRestart())
-                {
-                    break;
-                }
-
-                ResetPredictors(indices);
-                endOfBandRun = 0;
-                untilRestart = _restartInterval;
+                break;
             }
 
             DecodeUnit(ref reader, indices, in scan, unit, ref endOfBandRun);
             untilRestart--;
-            if (reader.Failed || reader.Overrun)
+            unit++;
+            if (!(reader.Failed || reader.Overrun))
+            {
+                continue;
+            }
+
+            // Damage inside a restart interval costs only that interval: skip to the next restart marker and carry on.
+            if (_restartInterval == 0)
             {
                 break;
             }
+
+            unit += untilRestart;
+            untilRestart = 0;
         }
+    }
+
+    /// <summary>Moves past a restart marker and resets the state a restart interval starts with.</summary>
+    /// <param name="reader">The bit reader.</param>
+    /// <param name="indices">The scan's components.</param>
+    /// <param name="endOfBandRun">The end-of-band run, cleared.</param>
+    /// <param name="untilRestart">The units left in the interval, set to a whole interval.</param>
+    /// <returns><see langword="false"/> when the scan has no restart marker where one is due.</returns>
+    private readonly bool TryBeginInterval(ref JpegBitReader reader, scoped ReadOnlySpan<int> indices, ref int endOfBandRun, ref int untilRestart)
+    {
+        if (_restartInterval == 0)
+        {
+            return true;
+        }
+
+        if (!reader.TryRestart())
+        {
+            return false;
+        }
+
+        ResetPredictors(indices);
+        endOfBandRun = 0;
+        untilRestart = _restartInterval;
+        return true;
     }
 
     /// <summary>Resets the DC predictors of the scan's components.</summary>
@@ -343,7 +371,7 @@ internal ref partial struct JpegDecoder
         Span<int> work = stackalloc int[JpegBlock.Length];
         foreach (var component in components)
         {
-            if (!component.Reconstruct(work))
+            if (!component.Reconstruct(work, _sampleDrop))
             {
                 return false;
             }

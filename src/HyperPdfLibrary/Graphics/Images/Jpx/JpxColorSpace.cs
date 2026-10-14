@@ -27,4 +27,7 @@ internal enum JpxColorSpace
 
     /// <summary>CMYK, enumerated colour space 12.</summary>
     Cmyk = 6,
+
+    /// <summary>CIELab, enumerated colour space 14 of ISO 15444-2.</summary>
+    Lab = 7,
 }

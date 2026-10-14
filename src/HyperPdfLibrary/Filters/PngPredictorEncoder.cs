@@ -14,6 +14,12 @@ namespace HyperPdfLibrary.Filters;
 /// </summary>
 internal static class PngPredictorEncoder
 {
+    /// <summary>The <c>/Predictor</c> value that selects the None filter on every row; Sub, Up, Average and Paeth follow it.</summary>
+    private const int FirstPredictor = 10;
+
+    /// <summary>The <c>/Predictor</c> value that picks the best filter for each row.</summary>
+    private const int OptimumPredictor = 15;
+
     /// <summary>The number of row filters.</summary>
     private const int FilterCount = 5;
 
@@ -48,10 +54,24 @@ internal static class PngPredictorEncoder
     /// <param name="output">Receives a tag byte and the filtered bytes for each row.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="rowBytes"/> or <paramref name="pixelBytes"/> is not positive.</exception>
     /// <exception cref="ArgumentException">The samples are not a whole number of rows.</exception>
-    internal static void Encode(ReadOnlySpan<byte> samples, int rowBytes, int pixelBytes, ref PooledBuffer output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Encode(ReadOnlySpan<byte> samples, int rowBytes, int pixelBytes, ref PooledBuffer output) =>
+        Encode(samples, rowBytes, pixelBytes, OptimumPredictor, ref output);
+
+    /// <summary>Filters every row of an image the way a <c>/Predictor</c> value from 10 to 15 says (ISO 32000-2 table 10).</summary>
+    /// <param name="samples">The unfiltered rows, packed with no padding between them.</param>
+    /// <param name="rowBytes">The bytes in a row.</param>
+    /// <param name="pixelBytes">The bytes in a pixel, at least one; the distance to the pixel on the left.</param>
+    /// <param name="predictor">10 for None, 11 for Sub, 12 for Up, 13 for Average and 14 for Paeth on every row, or 15 to pick the best filter for each row.</param>
+    /// <param name="output">Receives a tag byte and the filtered bytes for each row.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="rowBytes"/> or <paramref name="pixelBytes"/> is not positive, or <paramref name="predictor"/> is not from 10 to 15.</exception>
+    /// <exception cref="ArgumentException">The samples are not a whole number of rows.</exception>
+    internal static void Encode(ReadOnlySpan<byte> samples, int rowBytes, int pixelBytes, int predictor, ref PooledBuffer output)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(rowBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelBytes);
+        ArgumentOutOfRangeException.ThrowIfLessThan(predictor, FirstPredictor);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(predictor, OptimumPredictor);
         if (samples.Length % rowBytes != 0)
         {
             throw new ArgumentException("The samples are not a whole number of rows.", nameof(samples));
@@ -64,9 +84,12 @@ internal static class PngPredictorEncoder
             for (var offset = 0; offset < samples.Length; offset += rowBytes)
             {
                 var row = samples.Slice(offset, rowBytes);
-                var best = FilterRow(row, previous, pixelBytes, candidates.AsSpan(0, rowBytes * FilterCount));
-                output.WriteByte(best);
-                output.Write(candidates.AsSpan(best * rowBytes, rowBytes));
+                var tag = predictor == OptimumPredictor
+                    ? FilterRow(row, previous, pixelBytes, candidates.AsSpan(0, rowBytes * FilterCount))
+                    : FilterWith((byte)(predictor - FirstPredictor), row, previous, pixelBytes, candidates.AsSpan(0, rowBytes));
+                var filtered = predictor == OptimumPredictor ? candidates.AsSpan(tag * rowBytes, rowBytes) : candidates.AsSpan(0, rowBytes);
+                output.WriteByte(tag);
+                output.Write(filtered);
                 previous = row;
             }
         }
@@ -82,6 +105,51 @@ internal static class PngPredictorEncoder
     /// <returns>The bytes, at least one.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int GetPixelBytes(int colors, int bitsPerComponent) => Math.Max(1, ((colors * bitsPerComponent) + ByteBits - 1) / ByteBits);
+
+    /// <summary>Filters one row with the filter a tag names.</summary>
+    /// <param name="tag">The filter's tag, from 0 for None to 4 for Paeth.</param>
+    /// <param name="row">The row.</param>
+    /// <param name="previous">The row above, or empty for the first row.</param>
+    /// <param name="pixelBytes">The bytes in a pixel.</param>
+    /// <param name="target">Receives the filtered row.</param>
+    /// <returns>The tag.</returns>
+    private static byte FilterWith(byte tag, ReadOnlySpan<byte> row, ReadOnlySpan<byte> previous, int pixelBytes, Span<byte> target)
+    {
+        switch (tag)
+        {
+            case Sub:
+            {
+                FilterSub(row, pixelBytes, target);
+                break;
+            }
+
+            case Up:
+            {
+                FilterUp(row, previous, target);
+                break;
+            }
+
+            case Average:
+            {
+                FilterAverage(row, previous, pixelBytes, target);
+                break;
+            }
+
+            case Paeth:
+            {
+                FilterPaeth(row, previous, pixelBytes, target);
+                break;
+            }
+
+            default:
+            {
+                row.CopyTo(target);
+                break;
+            }
+        }
+
+        return tag;
+    }
 
     /// <summary>Filters one row all five ways and picks the best.</summary>
     /// <param name="row">The row.</param>

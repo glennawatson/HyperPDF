@@ -44,7 +44,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             var span = flags.AsSpan(0, inputCount + settings.NewCount);
             return ReadArithmeticExportFlags(ref decoder, integers, span, settings.ExportCount)
                 ? Export(inputs, created, span, settings.ExportCount)
-                : Discard(created);
+                : ExportAllNew(created, settings);
         }
         finally
         {
@@ -226,6 +226,17 @@ internal static partial class Jbig2SymbolDictionaryDecoder
 
         return runs.Exported <= exportCount;
     }
+
+    /// <summary>Handles export flags that cannot be read: a dictionary that exports exactly the symbols it defines still offers them.</summary>
+    /// <param name="created">The new symbols; owned by the result or disposed.</param>
+    /// <param name="settings">The dictionary parameters.</param>
+    /// <returns>The new symbols, or <see langword="null"/> when the dictionary exports a different number of symbols.</returns>
+    /// <remarks>
+    /// T.88 section 6.5.10 reads the export flags after the last height class. ITU's conformance streams end their arithmetic data
+    /// before the flags are complete, so a decoder that reads leniently takes the flags as "export every new symbol".
+    /// </remarks>
+    private static Jbig2SymbolStore? ExportAllNew(Jbig2SymbolStore created, Jbig2SymbolDictionarySettings settings) =>
+        settings.ExportCount == settings.NewCount ? created : Discard(created);
 
     /// <summary>Builds the exported symbols from the input and new symbols.</summary>
     /// <param name="inputs">The input symbols.</param>

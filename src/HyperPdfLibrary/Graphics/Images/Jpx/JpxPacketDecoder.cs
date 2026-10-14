@@ -36,6 +36,12 @@ internal sealed class JpxPacketDecoder
     /// <summary>The passes of an HT refinement segment: SigProp and MagRef.</summary>
     private const int HtRefinementPasses = 2;
 
+    /// <summary>The passes of a full HT set: cleanup, SigProp and MagRef; placeholder passes come in sets of this many.</summary>
+    private const int HtSetPasses = 3;
+
+    /// <summary>The fewest bytes of the first HT cleanup segment (T.814 clause B.3).</summary>
+    private const int MinCleanupBytes = 2;
+
     /// <summary>The most passes of a segment without mode switches (ISO 15444-1 B.10.6).</summary>
     private const int MaxPasses = 109;
 
@@ -215,6 +221,51 @@ internal sealed class JpxPacketDecoder
     /// <returns>The next segment's most passes.</returns>
     private static int BypassFollower(int previous) => previous is 1 or FirstBypassPasses ? RawBypassPasses : 1;
 
+    /// <summary>
+    /// Decides how many of an HT code-block's new passes are placeholder passes in the same codeword segment as its first cleanup pass.
+    /// T is the set of segment ends (T.814 clause B.2); it does not hold the last placeholder pass, so the placeholder passes and the first
+    /// cleanup pass share a segment, whose length is the cleanup segment's. The placeholder passes number a multiple of three in all, and the
+    /// packet with the first cleanup pass has no other cleanup pass (clauses B.1 and B.3), so a contribution with the cleanup pass ends in a
+    /// set of one to three passes. A contribution without one is placeholder passes alone, which have no bytes; a first cleanup segment has at least two.
+    /// </summary>
+    /// <param name="block">The code-block.</param>
+    /// <param name="passes">The new passes.</param>
+    /// <param name="reader">A copy of the header reader, at the first length field.</param>
+    /// <returns>The placeholder passes before the cleanup pass in this contribution, or -1 when it has no cleanup pass.</returns>
+    private static int PlaceholderSplit(JpxCodeBlock block, int passes, JpxBitReader reader)
+    {
+        for (var placeholders = Math.Max(passes - HtSetPasses, 0); placeholders < passes; placeholders++)
+        {
+            if ((block.PlaceholderPasses + placeholders) % HtSetPasses != 0)
+            {
+                continue;
+            }
+
+            return reader.ReadBits(block.LengthBits + BitOperations.Log2((uint)(placeholders + 1))) >= MinCleanupBytes ? placeholders : -1;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Decides whether a code-block is an HT code-block from its first contribution. In the MIXED mode an HT code-block's
+    /// first length field starts with a 0 bit and Lblock is above 3 (T.814 clause A.4); a block that does not follow that
+    /// pattern is a regular block. With the HT bit alone every block is HT, and without it none is.
+    /// </summary>
+    /// <param name="style">The code-block style of the tile-component.</param>
+    /// <param name="lengthBits">Lblock after this contribution's increment.</param>
+    /// <param name="reader">A copy of the header reader, positioned at the first length field; it is not advanced for the caller.</param>
+    /// <returns><see langword="true"/> for an HT code-block.</returns>
+    private static bool IsHighThroughput(JpxBlockStyle style, int lengthBits, JpxBitReader reader)
+    {
+        if ((style & JpxBlockStyle.HighThroughput) == 0)
+        {
+            return false;
+        }
+
+        return (style & JpxBlockStyle.HighThroughputMixed) == 0 || (lengthBits > InitialLengthBits && reader.ReadBit() == 0);
+    }
+
     /// <summary>Determines whether the packet headers have run out.</summary>
     /// <returns><see langword="true"/> when no header bytes remain.</returns>
     private bool HeaderExhausted() => _packed is null ? _bodyPosition >= _bodyEnd : _packedPosition >= _packedEnd;
@@ -320,6 +371,11 @@ internal sealed class JpxPacketDecoder
 
         block.LengthBits += increment;
         block.NewPasses = passes;
+        if (block.FirstSegment < 0)
+        {
+            block.HighThroughput = IsHighThroughput(style, block.LengthBits, reader);
+        }
+
         return ReadSegmentLengths(ref block, passes, style, ref reader);
     }
 
@@ -357,13 +413,59 @@ internal sealed class JpxPacketDecoder
     /// <returns><see langword="false"/> when a length field is too wide.</returns>
     private bool ReadSegmentLengths(ref JpxCodeBlock block, int passes, JpxBlockStyle style, ref JpxBitReader reader)
     {
+        if (!block.UsesHighThroughput(style) || block.CleanupStarted)
+        {
+            return ReadLengths(ref block, passes, style, ref reader, true);
+        }
+
+        // An HT block's first contribution can start with placeholder passes. They share a codeword segment with the cleanup pass that
+        // follows them, or, with no cleanup pass yet, form a segment of their own with no bytes (T.814 clauses B.1 to B.3).
+        var placeholders = PlaceholderSplit(block, passes, reader);
+        var inFirstSegment = placeholders < 0 ? passes : placeholders + 1;
+        var index = _tile.Segments.Add(new() { Next = -1, MaxPasses = inFirstSegment });
+        LinkSegment(ref block, index);
+        block.PacketSegment = index;
+        var bits = block.LengthBits + BitOperations.Log2((uint)inFirstSegment);
+        if (bits > MaxLengthBits)
+        {
+            return false;
+        }
+
+        ref var segment = ref _tile.Segments[index];
+        segment.NewPasses = inFirstSegment;
+        segment.NewLength = (int)Math.Min(reader.ReadBits(bits), int.MaxValue);
+        if (placeholders < 0)
+        {
+            block.PlaceholderPasses += (byte)passes;
+            block.PlaceholderSegments++;
+            return true;
+        }
+
+        block.CleanupStarted = true;
+        block.PlaceholderPasses += (byte)placeholders;
+        return passes == inFirstSegment || ReadLengths(ref block, passes - inFirstSegment, style, ref reader, false);
+    }
+
+    /// <summary>Reads the length fields of a contribution's passes, one per codeword segment.</summary>
+    /// <param name="block">The code-block.</param>
+    /// <param name="passes">The passes to read.</param>
+    /// <param name="style">The code-block mode switches.</param>
+    /// <param name="reader">The header bits.</param>
+    /// <param name="first">Whether the first segment read is where the packet's body starts for this block.</param>
+    /// <returns><see langword="false"/> when a length field is too wide.</returns>
+    private bool ReadLengths(ref JpxCodeBlock block, int passes, JpxBlockStyle style, ref JpxBitReader reader, bool first)
+    {
         var segment = block.LastSegment;
-        if (segment < 0 || _tile.Segments[segment].Passes == _tile.Segments[segment].MaxPasses)
+        if (!first || segment < 0 || _tile.Segments[segment].Passes == _tile.Segments[segment].MaxPasses)
         {
             segment = AddSegment(ref block, style);
         }
 
-        block.PacketSegment = segment;
+        if (first)
+        {
+            block.PacketSegment = segment;
+        }
+
         var remaining = passes;
         while (true)
         {
@@ -396,10 +498,12 @@ internal sealed class JpxPacketDecoder
     {
         var previous = block.LastSegment;
         var maxPasses = MaxPasses;
-        if ((style & JpxBlockStyle.HighThroughput) != 0)
+        if (block.UsesHighThroughput(style))
         {
             // HT sets alternate a one-pass cleanup segment with a SigProp and MagRef refinement segment.
-            maxPasses = previous < 0 || _tile.Segments[previous].MaxPasses == HtRefinementPasses ? 1 : HtRefinementPasses;
+            // After the placeholder segments, the segments alternate: a cleanup segment, then a refinement segment.
+            var held = CountSegments(ref block) - block.PlaceholderSegments;
+            maxPasses = (held & 1) == 1 ? HtRefinementPasses : 1;
         }
         else if ((style & JpxBlockStyle.TerminateAll) != 0)
         {
@@ -411,6 +515,30 @@ internal sealed class JpxPacketDecoder
         }
 
         var index = _tile.Segments.Add(new() { Next = -1, MaxPasses = maxPasses });
+        LinkSegment(ref block, index);
+        return index;
+    }
+
+    /// <summary>Counts the segments of a code-block.</summary>
+    /// <param name="block">The code-block.</param>
+    /// <returns>The segments in its list.</returns>
+    private int CountSegments(ref JpxCodeBlock block)
+    {
+        var count = 0;
+        for (var segment = block.FirstSegment; segment >= 0; segment = _tile.Segments[segment].Next)
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>Appends a segment to a code-block's list.</summary>
+    /// <param name="block">The code-block.</param>
+    /// <param name="index">The segment index.</param>
+    private void LinkSegment(ref JpxCodeBlock block, int index)
+    {
+        var previous = block.LastSegment;
         if (previous < 0)
         {
             block.FirstSegment = index;
@@ -421,7 +549,6 @@ internal sealed class JpxPacketDecoder
         }
 
         block.LastSegment = index;
-        return index;
     }
 
     /// <summary>Reads the packet body: each included code-block's new bytes, segment by segment.</summary>

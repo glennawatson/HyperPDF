@@ -19,9 +19,18 @@ public sealed record PdfImageOptions
     /// </summary>
     public PdfIccColorSpace IccColorSpace { get; init; }
 
+    /// <summary>
+    /// Gets JPEG 2000 options to store gray, RGB and BGRA colour data as a <c>JPXDecode</c> image instead of Flate, or
+    /// <see langword="null"/> for Flate. Alpha still goes to a Flate soft mask. JPEG 2000 needs PDF 1.5 and is not allowed in PDF/A-1.
+    /// </summary>
+    public PdfJpxOptions? Jpeg2000 { get; init; }
+
     /// <summary>Gets a value indicating whether a viewer should smooth the image when it scales it (<c>/Interpolate</c>).</summary>
     public bool Interpolate { get; init; }
 
     /// <summary>Gets a value indicating whether a bilevel image is a stencil mask that paints the current fill colour where its bits are clear (ISO 32000-2 8.9.6.2).</summary>
     public bool AsStencil { get; init; }
+
+    /// <summary>Gets the CCITT coding used for a one-bit image; Group 4 by default.</summary>
+    public PdfBilevelCoding BilevelCoding { get; init; }
 }

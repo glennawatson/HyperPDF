@@ -3,15 +3,17 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Creation;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
+using HyperPdfLibrary.Graphics.Images.Jpeg;
 
 namespace HyperPdfLibrary.Optimizing;
 
 /// <summary>
-/// Unpacks gray or RGBX samples and reduces image blocks in managed code. The configured image codec provides JPEG
-/// decoding, JPEG encoding and the final Mitchell cubic resample.
+/// Unpacks gray or RGBX samples, reduces image blocks, and decodes and encodes JPEG in managed code. The configured
+/// image codec provides only the final Mitchell cubic resample.
 /// </summary>
 internal static class ImagePixels
 {
@@ -62,6 +64,29 @@ internal static class ImagePixels
         pixels.Advance(pixelCount * RgbxBytes);
     }
 
+    /// <summary>Packs pixels into 8-bit samples: grey as is, RGBX narrowed to RGB.</summary>
+    /// <param name="pixels">The pixels.</param>
+    /// <param name="components">One for grey, three for RGB.</param>
+    /// <param name="pixelCount">The number of pixels to pack.</param>
+    /// <param name="samples">Receives the samples.</param>
+    internal static void ToSamples(ReadOnlySpan<byte> pixels, int components, int pixelCount, ref PooledBuffer samples)
+    {
+        if (components == 1)
+        {
+            samples.Write(pixels[..pixelCount]);
+            return;
+        }
+
+        var target = samples.GetSpan(pixelCount * RgbBytes);
+        for (var i = 0; i < pixelCount; i++)
+        {
+            var source = pixels.Slice(i * RgbxBytes, RgbBytes);
+            source.CopyTo(target.Slice(i * RgbBytes, RgbBytes));
+        }
+
+        samples.Advance(pixelCount * RgbBytes);
+    }
+
     /// <summary>Shrinks pixels to a target size: whole blocks averaged first, then a cubic resample to the exact size.</summary>
     /// <param name="codec">The selected image codec.</param>
     /// <param name="source">The pixels.</param>
@@ -90,46 +115,54 @@ internal static class ImagePixels
         }
     }
 
-    /// <summary>Encodes pixels through the configured image codec.</summary>
-    /// <param name="codec">The selected image codec.</param>
+    /// <summary>Encodes pixels as a JPEG with the managed encoder.</summary>
     /// <param name="pixels">The gray or RGBX pixels.</param>
     /// <param name="size">The source dimensions and layout.</param>
     /// <param name="quality">The JPEG quality.</param>
-    /// <returns>The encoded bytes, or null when encoding fails.</returns>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    /// <returns>The encoded bytes.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static byte[]? EncodeJpeg(IPdfImageCodec codec, ReadOnlySpan<byte> pixels, PixelSize size, int quality) =>
-        codec.EncodeJpeg(pixels, Layout(size), quality);
+    internal static byte[] EncodeJpeg(ReadOnlySpan<byte> pixels, PixelSize size, int quality, CancellationToken cancellationToken) =>
+        PdfJpegEncoder.Encode(pixels, size.Components == 1 ? PdfJpegPixelFormat.Gray8 : PdfJpegPixelFormat.Rgbx32, size.Width, size.Height, new() { Quality = quality }, cancellationToken);
 
-    /// <summary>Decodes JPEG pixels through the configured image codec.</summary>
-    /// <param name="codec">The selected image codec.</param>
+    /// <summary>Decodes JPEG pixels with the managed decoder.</summary>
     /// <param name="jpeg">The JPEG bytes.</param>
     /// <param name="components">One for gray, three for RGBX.</param>
     /// <param name="pixels">Receives the decoded pixels.</param>
     /// <param name="size">Receives the JPEG dimensions.</param>
+    /// <param name="cancellationToken">Cancels the decode.</param>
     /// <returns>True when usable pixels were decoded.</returns>
-    internal static bool TryDecodeJpeg(IPdfImageCodec codec, ReadOnlySpan<byte> jpeg, int components, ref PooledBuffer pixels, out PixelSize size)
+    internal static bool TryDecodeJpeg(ReadOnlySpan<byte> jpeg, int components, ref PooledBuffer pixels, out PixelSize size, CancellationToken cancellationToken)
     {
         size = default;
-        if (!JpegMarkers.TryReadInfo(jpeg, out var info) || !info.IsSupported)
+        if (!JpegMarkers.TryReadInfo(jpeg, out var info) || !info.IsSupported || info.Components != components)
         {
             return false;
         }
 
-        var length = (long)info.Width * info.Height * PixelBytes(components);
-        if ((long)info.Width * info.Height > ImageHeader.MaxPixels || length > int.MaxValue)
+        var count = (long)info.Width * info.Height;
+        if (count > ImageHeader.MaxPixels || !JpegDecoder.IsPlausibleSize(info, jpeg.Length))
         {
             return false;
         }
 
-        var decoded = new PixelSize(info.Width, info.Height, components);
-        if (!codec.TryDecodeJpeg(jpeg, Layout(decoded), pixels.GetSpan((int)length)))
+        var samples = new PooledBuffer((int)(count * components));
+        try
         {
-            return false;
-        }
+            var span = samples.GetSpan((int)(count * components))[..(int)(count * components)];
+            if (!JpegDecoder.TryDecode(jpeg, info.UsesColorTransform(JpegInfo.NoColorTransform), span, cancellationToken))
+            {
+                return false;
+            }
 
-        pixels.Advance((int)length);
-        size = decoded;
-        return true;
+            FromSamples(span, components, (int)count, ref pixels);
+            size = new(info.Width, info.Height, components);
+            return true;
+        }
+        finally
+        {
+            samples.Dispose();
+        }
     }
 
     /// <summary>Resamples pixels through the configured image codec.</summary>

@@ -31,6 +31,36 @@ internal static class JpxFileFormat
     /// <summary>The box type of the channel definition box, 'cdef'.</summary>
     private const uint DefinitionBox = 0x63646566;
 
+    /// <summary>The box type of a compositing layer header superbox, 'jplh' (ISO 15444-2 M.11.7).</summary>
+    private const uint LayerHeaderBox = 0x6A706C68;
+
+    /// <summary>The box type of a colour group superbox, 'cgrp' (ISO 15444-2 M.11.7.1).</summary>
+    private const uint ColourGroupBox = 0x63677270;
+
+    /// <summary>The box type of the opacity box, 'opct' (ISO 15444-2 M.11.7.6).</summary>
+    private const uint OpacityBox = 0x6F706374;
+
+    /// <summary>The box type of a fragment table superbox, 'ftbl' (ISO 15444-2 M.11.3).</summary>
+    private const uint FragmentTableBox = 0x6674626C;
+
+    /// <summary>The box type of a fragment list box, 'flst' (ISO 15444-2 M.11.3.1).</summary>
+    private const uint FragmentListBox = 0x666C7374;
+
+    /// <summary>The bytes of a fragment entry: a 64-bit offset, a 32-bit length and a 16-bit data reference.</summary>
+    private const int FragmentBytes = 14;
+
+    /// <summary>The offset of the length in a fragment entry.</summary>
+    private const int FragmentLengthOffset = 8;
+
+    /// <summary>The offset of the data reference in a fragment entry.</summary>
+    private const int FragmentReferenceOffset = 12;
+
+    /// <summary>The opacity type of an Opacity box whose last channel is opacity.</summary>
+    private const int OpacityLast = 0;
+
+    /// <summary>The opacity type of an Opacity box whose last channel is premultiplied opacity.</summary>
+    private const int OpacityLastPremultiplied = 1;
+
     /// <summary>The bytes of a box header.</summary>
     private const int BoxHeaderBytes = 8;
 
@@ -45,6 +75,12 @@ internal static class JpxFileFormat
 
     /// <summary>The colour method of an enumerated colour space.</summary>
     private const int EnumeratedMethod = 1;
+
+    /// <summary>The colour method of a restricted ICC profile.</summary>
+    private const int RestrictedIccMethod = 2;
+
+    /// <summary>The colour method of any ICC profile (ISO 15444-2).</summary>
+    private const int AnyIccMethod = 3;
 
     /// <summary>The bytes before the enumerated colour space in a colour box.</summary>
     private const int ColourHeaderBytes = 3;
@@ -63,6 +99,9 @@ internal static class JpxFileFormat
 
     /// <summary>The enumerated colour space of CMYK.</summary>
     private const uint Cmyk = 12;
+
+    /// <summary>The enumerated colour space of CIELab.</summary>
+    private const uint CieLab = 14;
 
     /// <summary>The bytes of a palette box before the column sizes.</summary>
     private const int PaletteHeaderBytes = 3;
@@ -122,10 +161,47 @@ internal static class JpxFileFormat
                 return builder.Finish(new(body.Offset, body.Length));
             }
 
+            if (type == FragmentTableBox)
+            {
+                // The first codestream decides; one that is fragmented is read only when it is a single fragment in this file.
+                return ReadFragment(data, body) is { } fragment ? builder.Finish(fragment) : null;
+            }
+
             if (type == HeaderBox)
             {
-                ReadHeader(data.Slice(body.Offset, body.Length), builder);
+                ReadHeader(data.Slice(body.Offset, body.Length), body.Offset, builder);
             }
+            else if (type == LayerHeaderBox && builder.Layer is null)
+            {
+                // The first compositing layer is the one shown; its boxes override the defaults of the JP2 header box (M.11.7).
+                builder.Layer = new();
+                ReadHeader(data.Slice(body.Offset, body.Length), body.Offset, builder.Layer);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Finds the codestream a fragment table box describes.</summary>
+    /// <param name="data">The file.</param>
+    /// <param name="table">The contents of the fragment table box.</param>
+    /// <returns>Where the codestream is, or <see langword="null"/> when it has several fragments, is outside this file or is damaged.</returns>
+    private static JpxDataRange? ReadFragment(ReadOnlySpan<byte> data, JpxDataRange table)
+    {
+        var contents = data.Slice(table.Offset, table.Length);
+        var position = 0;
+        while (NextBox(contents, ref position, out var type, out var body))
+        {
+            if (type != FragmentListBox || body.Length < ShortBytes + FragmentBytes || BinaryPrimitives.ReadUInt16BigEndian(contents[body.Offset..]) != 1)
+            {
+                continue;
+            }
+
+            var entry = contents.Slice(body.Offset + ShortBytes, FragmentBytes);
+            var offset = BinaryPrimitives.ReadUInt64BigEndian(entry);
+            var length = BinaryPrimitives.ReadUInt32BigEndian(entry[FragmentLengthOffset..]);
+            var reference = BinaryPrimitives.ReadUInt16BigEndian(entry[FragmentReferenceOffset..]);
+            return reference == 0 && offset <= (ulong)data.Length && length <= (ulong)data.Length - offset ? new((int)offset, (int)length) : null;
         }
 
         return null;
@@ -174,8 +250,9 @@ internal static class JpxFileFormat
 
     /// <summary>Reads the boxes inside the JP2 header box.</summary>
     /// <param name="header">The header box contents.</param>
+    /// <param name="offset">Where the header box contents start in the file.</param>
     /// <param name="builder">Collects what the boxes say.</param>
-    private static void ReadHeader(ReadOnlySpan<byte> header, Builder builder)
+    private static void ReadHeader(ReadOnlySpan<byte> header, int offset, Builder builder)
     {
         var position = 0;
         while (NextBox(header, ref position, out var type, out var range))
@@ -185,7 +262,7 @@ internal static class JpxFileFormat
             {
                 case ColourBox:
                 {
-                    builder.OfferColour(body.Length >= ColourHeaderBytes ? ReadColour(body) : new(JpxColorSpace.Unknown, 0, 0));
+                    builder.OfferColour(body.Length >= ColourHeaderBytes ? ReadColour(body, offset + range.Offset) : new(JpxColorSpace.Unknown, 0, 0));
                     break;
                 }
 
@@ -206,24 +283,59 @@ internal static class JpxFileFormat
                     builder.Definitions ??= ReadDefinitions(body);
                     break;
                 }
+
+                case ColourGroupBox:
+                {
+                    ReadHeader(body, offset + range.Offset, builder);
+                    break;
+                }
+
+                case OpacityBox:
+                {
+                    builder.OpacityKind = ReadOpacityKind(body);
+                    break;
+                }
             }
         }
     }
 
+    /// <summary>Reads the type of an Opacity box (ISO 15444-2 M.11.7.6). A chroma-key, and any reserved type, is not used: PDF ignores chroma-key transparency.</summary>
+    /// <param name="body">The box contents.</param>
+    /// <returns>0 or 1 for a last opacity channel, or -1.</returns>
+    private static int ReadOpacityKind(ReadOnlySpan<byte> body) =>
+        !body.IsEmpty && body[0] is OpacityLast or OpacityLastPremultiplied ? body[0] : -1;
+
     /// <summary>
     /// Reads a colour specification box (T.800 I.5.3.3): the method, the precedence, the approximation and, for the
-    /// enumerated method, the colour space. An ICC profile or a vendor method gives an unknown space, so the channel
-    /// count decides (ISO 32000-1 section 7.4.9).
+    /// enumerated method, the colour space, and for an ICC method (restricted ICC, or any ICC of the Part 2 method 3) the
+    /// profile. A vendor method gives an unknown space, so the channel count decides (ISO 32000-2 section 7.4.9).
     /// </summary>
     /// <param name="body">The box contents, at least <see cref="ColourHeaderBytes"/> long.</param>
+    /// <param name="offset">Where the box contents start in the file.</param>
     /// <returns>The candidate colour space.</returns>
-    private static ColourCandidate ReadColour(ReadOnlySpan<byte> body)
+    private static ColourCandidate ReadColour(ReadOnlySpan<byte> body, int offset)
     {
         var space = body.Length >= ColourHeaderBytes + TypeBytes && body[0] == EnumeratedMethod
             ? FromEnumerated(BinaryPrimitives.ReadUInt32BigEndian(body[ColourHeaderBytes..]))
             : JpxColorSpace.Unknown;
-        return new(space, (sbyte)body[1], body[2]);
+        var isProfile = body[0] is RestrictedIccMethod or AnyIccMethod && body.Length > ColourHeaderBytes;
+        var candidate = new ColourCandidate(space, (sbyte)body[1], body[2]) { Profile = isProfile ? new(offset + ColourHeaderBytes, body.Length - ColourHeaderBytes) : default };
+        return space == JpxColorSpace.Lab ? WithLab(candidate, body[(ColourHeaderBytes + TypeBytes)..]) : candidate;
     }
+
+    /// <summary>
+    /// Adds the enumerated parameters of a CIELab specification (ISO 15444-2 M.11.7.4.1). Without them the defaults apply; a
+    /// field of another length breaks the rule that all parameters are given, so the specification is not used.
+    /// </summary>
+    /// <param name="candidate">The candidate, with the CIELab space.</param>
+    /// <param name="field">The EP field, the rest of the box.</param>
+    /// <returns>The candidate with its parameters, or an unknown space.</returns>
+    private static ColourCandidate WithLab(in ColourCandidate candidate, ReadOnlySpan<byte> field) => field.Length switch
+    {
+        0 => candidate,
+        JpxLabParameters.Bytes => candidate with { Lab = JpxLabParameters.Read(field) },
+        _ => candidate with { Space = JpxColorSpace.Unknown },
+    };
 
     /// <summary>Maps an enumerated colour space (T.800 table I.10, and I.5.3.3 for e-sYCC and CMYK).</summary>
     /// <param name="enumerated">The enumerated colour space.</param>
@@ -235,6 +347,7 @@ internal static class JpxFileFormat
         Sycc => JpxColorSpace.Sycc,
         Eycc => JpxColorSpace.Eycc,
         Cmyk => JpxColorSpace.Cmyk,
+        CieLab => JpxColorSpace.Lab,
         _ => JpxColorSpace.Unknown,
     };
 
@@ -355,12 +468,18 @@ internal static class JpxFileFormat
         /// <summary>The ranking key's ceiling for the approximation part, above any rank.</summary>
         private const int ApproximationCeiling = 1_023;
 
+        /// <summary>Gets where the ICC profile is in the file, or an empty range for an enumerated or vendor specification.</summary>
+        internal JpxDataRange Profile { get; init; }
+
+        /// <summary>Gets the explicit CIELab parameters of an enumerated CIELab specification, or <see langword="null"/>.</summary>
+        internal JpxLabParameters? Lab { get; init; }
+
         /// <summary>
-        /// Gets the ranking key: a known space first, then the higher precedence, then the better approximation (1 is
-        /// best; 0, unknown, ranks last).
+        /// Gets the ranking key: a known space or profile first, then the higher precedence, then the better approximation
+        /// (1 is best; 0, unknown, ranks last).
         /// </summary>
         private int Key =>
-            ((Space == JpxColorSpace.Unknown ? 0 : 1) << KnownShift)
+            ((Space == JpxColorSpace.Unknown && Profile.Length == 0 ? 0 : 1) << KnownShift)
             + ((Precedence + PrecedenceBias) << PrecedenceShift)
             + (ApproximationCeiling - (Approximation == 0 ? UnknownApproximation : Approximation));
 
@@ -376,6 +495,9 @@ internal static class JpxFileFormat
         /// <summary>The colour specification chosen so far.</summary>
         private ColourCandidate? _colour;
 
+        /// <summary>The best enumerated colour specification, which stands in when the best one is a profile that cannot be used.</summary>
+        private ColourCandidate? _enumerated;
+
         /// <summary>Gets or sets the palette.</summary>
         internal JpxPalette? Palette { get; set; }
 
@@ -384,6 +506,12 @@ internal static class JpxFileFormat
 
         /// <summary>Gets or sets the channel definitions.</summary>
         internal JpxChannelDefinition[]? Definitions { get; set; }
+
+        /// <summary>Gets or sets the opacity type of an Opacity box, or -1.</summary>
+        internal int OpacityKind { get; set; } = -1;
+
+        /// <summary>Gets or sets what the first compositing layer header box says, or <see langword="null"/> when there is none.</summary>
+        internal Builder? Layer { get; set; }
 
         /// <summary>
         /// Considers a colour specification box. A box naming a space we know beats one we do not; among known spaces the
@@ -396,12 +524,52 @@ internal static class JpxFileFormat
             {
                 _colour = candidate;
             }
+
+            if (candidate.Space != JpxColorSpace.Unknown && (_enumerated is not { } bestEnumerated || candidate.Beats(bestEnumerated)))
+            {
+                _enumerated = candidate;
+            }
         }
 
-        /// <summary>Builds the file information.</summary>
+        /// <summary>
+        /// Builds the file information. The first compositing layer's boxes win over those of the JP2 header box: its colour
+        /// specifications replace the header's, and its channel definition or Opacity box replaces the header's definitions.
+        /// </summary>
         /// <param name="codestream">Where the codestream is.</param>
         /// <returns>The file information.</returns>
-        internal JpxFileInfo Finish(in JpxDataRange codestream) =>
-            new(codestream, _colour?.Space ?? JpxColorSpace.Unknown, Palette, Mappings, Definitions);
+        internal JpxFileInfo Finish(in JpxDataRange codestream)
+        {
+            var merged = Merge();
+            return new(codestream, merged._enumerated?.Space ?? JpxColorSpace.Unknown, merged.Palette, merged.Mappings, merged.Definitions)
+            {
+                Profile = merged._colour?.Profile ?? default,
+                OpacityKind = merged.OpacityKind,
+                Lab = merged._enumerated?.Lab,
+            };
+        }
+
+        /// <summary>Lays the compositing layer's boxes over the JP2 header's.</summary>
+        /// <returns>The builder that holds what applies.</returns>
+        private Builder Merge()
+        {
+            if (Layer is not { } layer)
+            {
+                return this;
+            }
+
+            var merged = new Builder { Palette = layer.Palette ?? Palette, Mappings = layer.Mappings ?? Mappings, OpacityKind = layer.OpacityKind };
+            var useLayerColours = layer._colour is not null;
+            merged._colour = useLayerColours ? layer._colour : _colour;
+            merged._enumerated = useLayerColours ? layer._enumerated : _enumerated;
+
+            // An Opacity box of the layer replaces any channel definitions; a layer with definitions of its own replaces the header's Opacity box.
+            if (layer.OpacityKind < 0)
+            {
+                merged.Definitions = layer.Definitions ?? Definitions;
+                merged.OpacityKind = layer.Definitions is null ? OpacityKind : -1;
+            }
+
+            return merged;
+        }
     }
 }

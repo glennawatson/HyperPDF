@@ -5,6 +5,7 @@
 using HyperPdfLibrary.Creation;
 using HyperPdfLibrary.Graphics.Images;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Tests.Graphics.Jpx;
 using SkiaSharp;
 
 namespace HyperPdfLibrary.Tests.Creation;
@@ -199,6 +200,30 @@ public sealed class ImageWriterTests
         await Assert.That(stream.DecodeToArray()).IsEquivalentTo(pixels);
     }
 
+    /// <summary>With JPEG 2000 chosen, gray and RGB pixels are stored under JPXDecode and decode to the same samples.</summary>
+    /// <param name="format">The pixel format.</param>
+    /// <param name="bytesPerPixel">The bytes of a pixel.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(PdfRasterFormat.Gray8, 1)]
+    [Arguments(PdfRasterFormat.Rgb24, RgbBytes)]
+    public async Task Jpeg2000PixelsRoundTrip(PdfRasterFormat format, int bytesPerPixel)
+    {
+        var pixels = CreatePixels(Width * Height * bytesPerPixel);
+        var sink = new ListSink();
+
+        var image = PdfImageWriter.AddRaster(sink, new(format, Width, Height, pixels), new PdfImageOptions { Jpeg2000 = PdfJpxOptions.Lossless }, CancellationToken.None);
+
+        var stream = sink.GetStream(image.Id);
+        var planes = JpxDecoderTests.DecodePlanes(stream.CopyRawData());
+        await Assert.That(stream.Dictionary.IsName(KnownName.Filter, KnownName.JPXDecode)).IsTrue();
+        await Assert.That(planes).IsNotNull();
+        for (var c = 0; c < bytesPerPixel; c++)
+        {
+            await Assert.That(planes![c].Select(static sample => (byte)sample).ToArray().AsSpan().SequenceEqual(Component(pixels, bytesPerPixel, c))).IsTrue();
+        }
+    }
+
     /// <summary>Transparency goes to a gray soft mask and the colour to RGB; opaque pixels need no mask.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -242,6 +267,29 @@ public sealed class ImageWriterTests
         await Assert.That(stream.Dictionary.GetInt32(KnownName.BitsPerComponent)).IsEqualTo(1);
         var decoded = new byte[rows.Length];
         CcittFaxDecoder.Decode(stream.CopyRawData(), new(-1, Width, Height, false, false, false, true), Width, Height, decoded);
+        await Assert.That(MaskPadding(decoded)).IsEquivalentTo(MaskPadding(rows));
+    }
+
+    /// <summary>The options can ask for Group 3 coding, which writes the matching /K and decodes to the same rows.</summary>
+    /// <param name="coding">The coding asked for.</param>
+    /// <param name="expectedK">The /K value that coding stands for.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(PdfBilevelCoding.Group4, -1)]
+    [Arguments(PdfBilevelCoding.Group3OneDimensional, 0)]
+    [Arguments(PdfBilevelCoding.Group3TwoDimensional, 4)]
+    public async Task BilevelPixelsUseTheRequestedCoding(PdfBilevelCoding coding, int expectedK)
+    {
+        var rows = CreateStripes();
+        var sink = new ListSink();
+
+        var image = PdfImageWriter.AddRaster(sink, new(PdfRasterFormat.Bilevel1, Width, Height, rows), new PdfImageOptions { BilevelCoding = coding }, CancellationToken.None);
+
+        var stream = sink.GetStream(image.Id);
+        var parameters = stream.Dictionary.GetDictionary(KnownName.DecodeParms)!;
+        await Assert.That(parameters.GetInt32(KnownName.K)).IsEqualTo(expectedK);
+        var decoded = new byte[rows.Length];
+        CcittFaxDecoder.Decode(stream.CopyRawData(), CcittParameters.FromDictionary(parameters), Width, Height, decoded);
         await Assert.That(MaskPadding(decoded)).IsEquivalentTo(MaskPadding(rows));
     }
 
@@ -431,5 +479,21 @@ public sealed class ImageWriterTests
         using var image = SKImage.FromBitmap(bitmap);
         using var data = image.Encode(SKEncodedImageFormat.Jpeg, JpegQuality);
         return data.ToArray();
+    }
+
+    /// <summary>Gets one component of interleaved pixels.</summary>
+    /// <param name="pixels">The pixels.</param>
+    /// <param name="stride">The components in a pixel.</param>
+    /// <param name="component">The component.</param>
+    /// <returns>The component's samples.</returns>
+    private static byte[] Component(byte[] pixels, int stride, int component)
+    {
+        var samples = new byte[pixels.Length / stride];
+        for (var i = 0; i < samples.Length; i++)
+        {
+            samples[i] = pixels[(i * stride) + component];
+        }
+
+        return samples;
     }
 }

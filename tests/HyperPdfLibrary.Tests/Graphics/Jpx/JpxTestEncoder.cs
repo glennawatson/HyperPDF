@@ -50,6 +50,15 @@ internal static class JpxTestEncoder
     /// <summary>The low byte of POC.</summary>
     private const byte PocLow = 0x5F;
 
+    /// <summary>The spacing of the coefficients inside the region of interest.</summary>
+    private const int RegionStride = 3;
+
+    /// <summary>The high byte of Ccap15 for the MIXED mode: both code-block mix bits set.</summary>
+    private const byte MixedCcapHigh = 0xC0;
+
+    /// <summary>The low byte of RGN.</summary>
+    private const byte RgnLow = 0x5E;
+
     /// <summary>The low byte of PPT.</summary>
     private const byte PptLow = 0x61;
 
@@ -127,16 +136,26 @@ internal static class JpxTestEncoder
         var main = new JpxHeaderState(options.Components);
         _ = main.Read(JpxMarkers.CodingStyle, cod, 0);
         _ = main.Read(JpxMarkers.Quantization, qcd, 0);
+        for (var c = 0; options.RoiShift > 0 && c < options.Components; c++)
+        {
+            _ = main.Read(JpxMarkers.RegionOfInterest, RgnSegment(c, options.RoiShift), 0);
+        }
+
         var parameters = JpxTileParameters.Resolve(main, new(options.Components));
         var output = new List<byte> { MarkerHigh, SocLow };
         WriteSegment(output, SizLow, siz);
         if ((options.Style & JpxBlockStyle.HighThroughput) != 0)
         {
-            WriteSegment(output, CapLow, CapSegment());
+            WriteSegment(output, CapLow, CapSegment(options.Style));
         }
 
         WriteSegment(output, CodLow, cod);
         WriteSegment(output, QcdLow, qcd);
+        for (var c = 0; options.RoiShift > 0 && c < options.Components; c++)
+        {
+            WriteSegment(output, RgnLow, RgnSegment(c, options.RoiShift));
+        }
+
         if (options.Changes is { } changes)
         {
             WriteSegment(output, PocLow, PocSegment(changes));
@@ -190,12 +209,18 @@ internal static class JpxTestEncoder
         return segment;
     }
 
-    /// <summary>Writes the CAP segment after its length field: Part 15 used, with Ccap15 zero for HT-only reversible coding.</summary>
+    /// <summary>Writes the CAP segment after its length field: Part 15 used, with Ccap15 zero for HT-only reversible coding, or the MIXED mode bits.</summary>
+    /// <param name="style">The code-block style.</param>
     /// <returns>The segment.</returns>
-    private static byte[] CapSegment()
+    private static byte[] CapSegment(JpxBlockStyle style)
     {
         var segment = new byte[sizeof(uint) + sizeof(ushort)];
         BinaryPrimitives.WriteUInt32BigEndian(segment, JpxCapabilities.Part15);
+        if ((style & JpxBlockStyle.HighThroughputMixed) != 0)
+        {
+            segment[sizeof(uint)] = MixedCcapHigh;
+        }
+
         return segment;
     }
 
@@ -237,6 +262,12 @@ internal static class JpxTestEncoder
         segment.AsSpan(1).Fill((Precision + ExponentHeadroom) << ExponentShift);
         return segment;
     }
+
+    /// <summary>Writes an RGN segment after its length field: a one-byte component index and the implicit (maxshift) style.</summary>
+    /// <param name="component">The component.</param>
+    /// <param name="shift">The shift.</param>
+    /// <returns>The segment.</returns>
+    private static byte[] RgnSegment(int component, int shift) => [(byte)component, 0, (byte)shift];
 
     /// <summary>Writes the POC segment after its length field, with one-byte component indices.</summary>
     /// <param name="changes">The progression volumes.</param>
@@ -304,9 +335,21 @@ internal static class JpxTestEncoder
         for (var c = 0; c < options.Components; c++)
         {
             JpxTestWavelet.Forward(tile, tile.Components[c], buffers[c]);
+            ShiftRegion(buffers[c], options.RoiShift);
         }
 
         return buffers;
+    }
+
+    /// <summary>Shifts every third coefficient up by the region-of-interest shift (the maxshift method, annex H): the decoder tells them apart by magnitude.</summary>
+    /// <param name="buffer">The coefficients.</param>
+    /// <param name="shift">The shift, or zero for none.</param>
+    private static void ShiftRegion(int[] buffer, int shift)
+    {
+        for (var i = 0; shift > 0 && i < buffer.Length; i += RegionStride)
+        {
+            buffer[i] <<= shift;
+        }
     }
 
     /// <summary>Applies the forward reversible component transform (equation G-5).</summary>

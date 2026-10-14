@@ -62,6 +62,12 @@ public sealed class Jbig2RobustnessTests
     /// <summary>A byte with every pixel white in the output.</summary>
     private const byte White = 0xFF;
 
+    /// <summary>The leading bytes of each sample, which hold the first segment headers and region fields, that are set to extreme values.</summary>
+    private const int HeaderBytes = 48;
+
+    /// <summary>Gets the values tried in each of the leading bytes.</summary>
+    private static ReadOnlySpan<byte> ExtremeBytes => [0x00, 0x7F, 0x80, 0xFF];
+
     /// <summary>Every sample, cut short anywhere, decodes without throwing.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -103,6 +109,35 @@ public sealed class Jbig2RobustnessTests
         }
 
         await Assert.That(decodes).IsGreaterThan(Corruptions);
+    }
+
+    /// <summary>Every small sample with each of its first bytes set to an extreme value decodes without throwing: this reaches every field of the first segment headers and region headers.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DamagedHeadersDoNotThrow()
+    {
+        var decodes = 0;
+        foreach (var sample in Jbig2Samples.All)
+        {
+            if ((long)sample.Width * sample.Height > LargePage)
+            {
+                continue;
+            }
+
+            for (var offset = 0; offset < Math.Min(HeaderBytes, sample.Data.Length); offset++)
+            {
+                foreach (var value in ExtremeBytes)
+                {
+                    var data = sample.Data.ToArray();
+                    data[offset] = value;
+                    var rows = new byte[Jbig2Decoder.GetRowBytes(sample.Width) * sample.Height];
+                    _ = Jbig2Decoder.TryDecode(data, sample.Globals, sample.Width, sample.Height, rows);
+                    decodes++;
+                }
+            }
+        }
+
+        await Assert.That(decodes).IsGreaterThan(HeaderBytes);
     }
 
     /// <summary>A generic region whose data ends early keeps the rows decoded before the end.</summary>

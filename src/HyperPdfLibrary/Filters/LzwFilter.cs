@@ -47,7 +47,8 @@ internal static class LzwFilter
         var lengths = ArrayPool<int>.Shared.Rent(TableSize);
         try
         {
-            var decoder = new Decoder(offsets, lengths, earlyChange);
+            // Table 8 allows only 0 and 1; any other value counts as 1, like the default.
+            var decoder = new Decoder(offsets, lengths, earlyChange == 0 ? 0 : 1);
             Run(input, ref decoder, ref output, cancellationToken);
             return !decoder.Damaged;
         }

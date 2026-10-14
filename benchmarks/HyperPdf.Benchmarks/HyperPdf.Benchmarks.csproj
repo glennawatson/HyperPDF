@@ -60,6 +60,9 @@
     <!-- Valid PDF/A files, so the conformant save benchmarks measure a claim that is kept rather than repaired. -->
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtures.cs" Link="Conformance\PdfAFixtures.cs" />
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtureLevel.cs" Link="Conformance\PdfAFixtureLevel.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtureImage.cs" Link="Conformance\PdfAFixtureImage.cs" />
+    <!-- A repeatable pseudo-random generator for the generated samples of the encoder benchmarks. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Filters\SampleRandom.cs" Link="Filters\SampleRandom.cs" />
     <!-- The 1.x samples the PDF 2.0 copy benchmark converts. -->
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Pdf20\Pdf20TestPdf.cs" Link="Pdf20\Pdf20TestPdf.cs" />
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\ConformancePdf.cs" Link="Conformance\ConformancePdf.cs" />

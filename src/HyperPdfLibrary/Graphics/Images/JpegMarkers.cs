@@ -37,6 +37,21 @@ internal static class JpegMarkers
     /// <summary>The progressive frame marker, SOF2.</summary>
     internal const byte ProgressiveFrame = 0xC2;
 
+    /// <summary>The lossless Huffman frame marker, SOF3.</summary>
+    internal const byte LosslessFrame = 0xC3;
+
+    /// <summary>The first differential frame marker of the hierarchical mode, SOF5.</summary>
+    internal const byte DifferentialSequentialFrame = 0xC5;
+
+    /// <summary>The last differential Huffman frame marker of the hierarchical mode, SOF7.</summary>
+    internal const byte DifferentialLosslessFrame = 0xC7;
+
+    /// <summary>The lossless arithmetic frame marker, SOF11.</summary>
+    internal const byte LosslessArithmeticFrame = 0xCB;
+
+    /// <summary>The define-number-of-lines marker, DNL.</summary>
+    internal const byte NumberOfLines = 0xDC;
+
     /// <summary>The byte that starts every marker.</summary>
     internal const byte MarkerPrefix = 0xFF;
 
@@ -60,6 +75,9 @@ internal static class JpegMarkers
 
     /// <summary>The arithmetic conditioning marker, which shares the SOF range.</summary>
     private const byte ArithmeticConditioning = 0xCC;
+
+    /// <summary>The JFIF application marker, APP0.</summary>
+    private const byte JfifApplication = 0xE0;
 
     /// <summary>The Adobe application marker, APP14.</summary>
     private const byte AdobeApplication = 0xEE;
@@ -106,6 +124,9 @@ internal static class JpegMarkers
     /// <summary>The components of an RGB JPEG.</summary>
     private const int RgbComponents = 3;
 
+    /// <summary>Gets the tag that opens a JFIF segment: "JFIF" and its terminating zero (ISO/IEC 10918-5, 10.1).</summary>
+    private static ReadOnlySpan<byte> JfifTag => "JFIF\0"u8;
+
     /// <summary>Gets the tag that opens the Adobe segment.</summary>
     private static ReadOnlySpan<byte> AdobeTag => "Adobe"u8;
 
@@ -131,6 +152,7 @@ internal static class JpegMarkers
     {
         info = default;
         var adobe = -1;
+        var jfif = false;
         var found = false;
         var position = 0;
         while (TryNextMarker(data, ref position, out var marker))
@@ -158,10 +180,49 @@ internal static class JpegMarkers
             {
                 adobe = ReadAdobeTransform(segment, adobe);
             }
+            else if (marker == JfifApplication && segment.StartsWith(JfifTag))
+            {
+                jfif = true;
+            }
         }
 
-        info = info with { AdobeTransform = adobe };
+        info = WithDeferredHeight(data, info with { AdobeTransform = adobe, HasJfif = jfif });
         return found;
+    }
+
+    /// <summary>
+    /// Finds the line count that a DNL marker gives a frame whose header says zero lines (ISO/IEC 10918-1, B.2.5). The marker
+    /// follows the first scan.
+    /// </summary>
+    /// <param name="data">The JPEG data.</param>
+    /// <param name="height">Receives the number of lines.</param>
+    /// <returns><see langword="true"/> when a DNL marker with a non-zero line count was found.</returns>
+    internal static bool TryFindDnlHeight(ReadOnlySpan<byte> data, out int height)
+    {
+        height = 0;
+        var position = 0;
+        while (TryNextMarker(data, ref position, out var marker) && marker != EndOfImage)
+        {
+            if (!HasLength(marker))
+            {
+                continue;
+            }
+
+            if (!TryReadSegment(data, ref position, out var segment))
+            {
+                return false;
+            }
+
+            if (marker != NumberOfLines)
+            {
+                continue;
+            }
+
+            height = segment.Length >= LengthBytes ? BinaryPrimitives.ReadUInt16BigEndian(segment) : 0;
+            return height > 0;
+        }
+
+        return false;
     }
 
     /// <summary>Finds the next marker, skipping entropy-coded bytes, stuffed zeros and fill bytes.</summary>
@@ -264,23 +325,35 @@ internal static class JpegMarkers
             return false;
         }
 
-        var process = marker switch
-        {
-            BaselineFrame or ExtendedFrame => JpegProcess.Sequential,
-            ProgressiveFrame => JpegProcess.Progressive,
-            _ => JpegProcess.Unsupported,
-        };
-
         info = new(
             BinaryPrimitives.ReadUInt16BigEndian(segment[WidthOffset..]),
             BinaryPrimitives.ReadUInt16BigEndian(segment[HeightOffset..]),
             count,
             segment[0],
-            process,
+            ProcessOf(marker),
             -1,
             HasRgbIds(segment, count));
         return true;
     }
+
+    /// <summary>Names the coding process of a start-of-frame marker (ISO/IEC 10918-1, Table B.1).</summary>
+    /// <param name="marker">The frame marker, SOF0 to SOF15.</param>
+    /// <returns>The process.</returns>
+    private static JpegProcess ProcessOf(byte marker) => marker switch
+    {
+        BaselineFrame or ExtendedFrame => JpegProcess.Sequential,
+        ProgressiveFrame => JpegProcess.Progressive,
+        LosslessFrame or LosslessArithmeticFrame => JpegProcess.Lossless,
+        >= DifferentialSequentialFrame and <= DifferentialLosslessFrame => JpegProcess.Hierarchical,
+        _ => JpegProcess.Arithmetic,
+    };
+
+    /// <summary>Takes the line count from the DNL marker when the frame header left it at zero.</summary>
+    /// <param name="data">The JPEG data.</param>
+    /// <param name="info">The header values.</param>
+    /// <returns>The values with the line count filled in when a DNL marker gives one.</returns>
+    private static JpegInfo WithDeferredHeight(ReadOnlySpan<byte> data, in JpegInfo info) =>
+        info.Height == 0 && TryFindDnlHeight(data, out var height) ? info with { Height = height } : info;
 
     /// <summary>Determines whether the three components are labelled R, G and B.</summary>
     /// <param name="segment">The frame payload.</param>

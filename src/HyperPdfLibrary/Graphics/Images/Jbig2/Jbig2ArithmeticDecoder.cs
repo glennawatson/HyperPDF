@@ -49,18 +49,6 @@ internal ref struct Jbig2ArithmeticDecoder
     /// <summary>The shift of the more probable symbol in a context byte.</summary>
     private const int MpsShift = 7;
 
-    /// <summary>
-    /// The Qe probability of each state (T.88 table E.1). A static array rather than a span property, because spans of
-    /// multi-byte constants allocate on every access in unoptimised builds.
-    /// </summary>
-    private static readonly ushort[] Qe =
-    [
-        0x5601, 0x3401, 0x1801, 0x0AC1, 0x0521, 0x0221, 0x5601, 0x5401, 0x4801, 0x3801, 0x3001, 0x2401, 0x1C01, 0x1601,
-        0x5601, 0x5401, 0x5101, 0x4801, 0x3801, 0x3401, 0x3001, 0x2801, 0x2401, 0x2201, 0x1C01, 0x1801, 0x1601, 0x1401,
-        0x1201, 0x1101, 0x0AC1, 0x09C1, 0x08A1, 0x0521, 0x0441, 0x02A1, 0x0221, 0x0141, 0x0111, 0x0085, 0x0049, 0x0025,
-        0x0015, 0x0009, 0x0005, 0x0001, 0x5601,
-    ];
-
     /// <summary>The data.</summary>
     private readonly ReadOnlySpan<byte> _data;
 
@@ -108,30 +96,6 @@ internal ref struct Jbig2ArithmeticDecoder
     /// <summary>Gets a value indicating whether the decoder has read past the end of the data.</summary>
     internal bool IsComplete { readonly get; private set; }
 
-    /// <summary>Gets the next state after a more probable symbol (T.88 table E.1).</summary>
-    private static ReadOnlySpan<byte> NextMps =>
-    [
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x26, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x1D, 0x0F, 0x10, 0x11, 0x12, 0x13,
-        0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26,
-        0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2D, 0x2E,
-    ];
-
-    /// <summary>Gets the next state after a less probable symbol (T.88 table E.1).</summary>
-    private static ReadOnlySpan<byte> NextLps =>
-    [
-        0x01, 0x06, 0x09, 0x0C, 0x1D, 0x21, 0x06, 0x0E, 0x0E, 0x0E, 0x11, 0x12, 0x14, 0x15, 0x0E, 0x0E, 0x0F, 0x10, 0x11,
-        0x12, 0x13, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23,
-        0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2E,
-    ];
-
-    /// <summary>Gets whether a less probable symbol swaps the more probable symbol (T.88 table E.1).</summary>
-    private static ReadOnlySpan<byte> Switch =>
-    [
-        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ];
-
     /// <summary>Decodes one bit with a context.</summary>
     /// <param name="context">The context byte, updated in place.</param>
     /// <returns>The bit.</returns>
@@ -140,7 +104,7 @@ internal ref struct Jbig2ArithmeticDecoder
     {
         int state = context;
         var index = state & IndexMask;
-        uint qe = Qe[index];
+        var qe = Jbig2MqStates.Qe(index);
         _a -= qe;
         if ((_c >> CodeShift) < _a)
         {
@@ -166,7 +130,7 @@ internal ref struct Jbig2ArithmeticDecoder
     private static int Mps(ref byte context, int state, int index)
     {
         var mps = state >> MpsShift;
-        context = (byte)((mps << MpsShift) | NextMps[index]);
+        context = (byte)((mps << MpsShift) | Jbig2MqStates.NextMps(index));
         return mps;
     }
 
@@ -180,8 +144,8 @@ internal ref struct Jbig2ArithmeticDecoder
     {
         var mps = state >> MpsShift;
         var bit = 1 - mps;
-        var nextMps = Switch[index] != 0 ? bit : mps;
-        context = (byte)((nextMps << MpsShift) | NextLps[index]);
+        var nextMps = Jbig2MqStates.Switches(index) ? bit : mps;
+        context = (byte)((nextMps << MpsShift) | Jbig2MqStates.NextLps(index));
         return bit;
     }
 

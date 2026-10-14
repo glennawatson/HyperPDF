@@ -10,6 +10,12 @@ internal static class Jbig2Regions
     /// <summary>The generic region flag for MMR coding.</summary>
     internal const int MmrFlag = 0x01;
 
+    /// <summary>The generic region flag for the extended template with 12 adaptive pixels.</summary>
+    internal const int ExtendedTemplateFlag = 0x10;
+
+    /// <summary>The bytes of the row count after a generic region of unknown length.</summary>
+    internal const int RowCountBytes = 4;
+
     /// <summary>The shift of a generic template in region flags.</summary>
     internal const int TemplateShift = 1;
 
@@ -54,6 +60,50 @@ internal static class Jbig2Regions
         var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
         _ = Jbig2GenericRegion.Decode(ref decoder, contexts.Span, parameters, region, null);
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
+    }
+
+    /// <summary>Determines whether a generic region's flags select the extended template (T.88 section 7.4.6.2, EXTTEMPLATE, which applies to template 0 only).</summary>
+    /// <param name="flags">The generic region flags.</param>
+    /// <param name="template">The generic template.</param>
+    /// <returns><see langword="true"/> for the extended template.</returns>
+    internal static bool IsExtended(int flags, int template) => template == 0 && (flags & ExtendedTemplateFlag) != 0;
+
+    /// <summary>Decodes an arithmetic generic region that uses the extended template.</summary>
+    /// <param name="reader">The reader.</param>
+    /// <param name="region">The white region bitmap.</param>
+    /// <param name="typicalPrediction">Whether typical prediction is on.</param>
+    /// <param name="at">The twelve adaptive template pixels.</param>
+    internal static void DecodeExtendedRegion(ref Jbig2Reader reader, Jbig2Bitmap region, bool typicalPrediction, in Jbig2ExtendedAtPixels at)
+    {
+        using var contexts = new Jbig2ContextBuffer(Jbig2ExtendedGenericRegion.ContextCount, reader.ScratchPools);
+        var decoder = new Jbig2ArithmeticDecoder(reader.Data, reader.Offset, reader.CancellationToken);
+        _ = Jbig2ExtendedGenericRegion.Decode(ref decoder, contexts.Span, typicalPrediction, at, region, null);
+        Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
+    }
+
+    /// <summary>Reads the adaptive template pixels of a generic region: twelve with the extended template, else four for template 0 or one.</summary>
+    /// <param name="reader">The reader.</param>
+    /// <param name="template">The template.</param>
+    /// <param name="extended">Whether the extended template flag is set.</param>
+    /// <param name="at">The pixels; a template with fewer than twelve fills the first group.</param>
+    /// <returns><see langword="false"/> when the data ends.</returns>
+    internal static bool TryReadGenericAt(ref Jbig2Reader reader, int template, bool extended, out Jbig2ExtendedAtPixels at)
+    {
+        at = default;
+        if (!extended || template != 0)
+        {
+            var read = TryReadAt(ref reader, template, out var first);
+            at = Jbig2ExtendedAtPixels.FromFirst(first);
+            return read;
+        }
+
+        if (!TryReadAt(ref reader, 0, out var low) || !TryReadAt(ref reader, 0, out var middle) || !TryReadAt(ref reader, 0, out var high))
+        {
+            return false;
+        }
+
+        at = new(low, middle, high);
+        return true;
     }
 
     /// <summary>Reads the adaptive template pixels of a generic template: four for template 0, else one.</summary>
@@ -194,17 +244,17 @@ internal static class Jbig2Regions
     /// <returns>The status.</returns>
     internal static Jbig2Status DecodeGenericRegion(Jbig2DecodeState state, ref Jbig2Reader reader, Jbig2Segment segment, Jbig2Bitmap page)
     {
-        if (!Jbig2RegionInfo.TryRead(ref reader, out var info) || !reader.TryReadByte(out var flags))
+        if (!TryReadGeneric(ref reader, segment, out var setup))
         {
             return Jbig2Status.Failure;
         }
 
-        var mmr = (flags & MmrFlag) != 0;
-        var template = (flags >> TemplateShift) & TemplateMask;
-        var at = default(Jbig2AtPixels);
-        if ((!mmr && !TryReadAt(ref reader, template, out at)) || !Jbig2Limits.IsValidSize(info.Width, info.Height) || !state.Workspace.TryCharge((long)info.Width * info.Height))
+        var info = setup.Info;
+        if (!Jbig2Limits.IsValidSize(info.Width, info.Height) || !state.Workspace.TryCharge((long)info.Width * info.Height))
         {
-            return Jbig2Status.Failure;
+            // A region of unknown length whose row count is zero holds nothing; the next segment starts after its row count.
+            reader.Offset = setup.End + RowCountBytes;
+            return setup.Unknown && info.Height == 0 && info.Width > 0 ? Jbig2Status.Success : Jbig2Status.Failure;
         }
 
         var region = Jbig2Bitmap.Create(info.Width, info.Height, state.Workspace.ScratchPools);
@@ -213,15 +263,7 @@ internal static class Jbig2Regions
             return Jbig2Status.Failure;
         }
 
-        if (mmr)
-        {
-            DecodeMmrRegion(ref reader, region);
-        }
-        else
-        {
-            DecodeArithmeticRegion(ref reader, region, new(template, ((flags >> TypicalShift) & 1) != 0, at));
-        }
-
+        DecodeGenericBody(ref reader, region, setup);
         return Jbig2Segments.Finish(state, segment, info, region, segment.Type == Jbig2SegmentType.IntermediateGenericRegion, page);
     }
 
@@ -317,4 +359,73 @@ internal static class Jbig2Regions
         Jbig2Segments.FinishArithmetic(ref reader, decoder.Position);
         return decoded;
     }
+
+    /// <summary>
+    /// Reads a generic region's header fields. A region of unknown length is cut at its end marker, and its height at the
+    /// row count after the marker, which can be lower than the height in the header (T.88 section 7.4.6.4).
+    /// </summary>
+    /// <param name="reader">The reader, at the segment data.</param>
+    /// <param name="segment">The segment.</param>
+    /// <param name="setup">The fields.</param>
+    /// <returns><see langword="false"/> when the data ends.</returns>
+    private static bool TryReadGeneric(ref Jbig2Reader reader, Jbig2Segment segment, out GenericSetup setup)
+    {
+        setup = default;
+        if (!Jbig2RegionInfo.TryRead(ref reader, out var info) || !reader.TryReadByte(out var flags))
+        {
+            return false;
+        }
+
+        var mmr = (flags & MmrFlag) != 0;
+        var template = (flags >> TemplateShift) & TemplateMask;
+        var at = default(Jbig2ExtendedAtPixels);
+        if (!mmr && !TryReadGenericAt(ref reader, template, (flags & ExtendedTemplateFlag) != 0, out at))
+        {
+            return false;
+        }
+
+        var unknown = segment.DataLength == Jbig2Segment.UnknownLength;
+        var end = reader.Data.Length;
+        var rows = (uint)Math.Max(info.Height, 0);
+        if (unknown && !Jbig2GenericExtent.TryFind(reader.Data, reader.Offset, mmr, out end, out rows))
+        {
+            return false;
+        }
+
+        setup = new(info with { Height = (int)Math.Min((uint)Math.Max(info.Height, 0), rows) }, flags, at, end, unknown);
+        return true;
+    }
+
+    /// <summary>Decodes the coded data of a generic region into its bitmap and moves the reader past the segment data of an unknown length.</summary>
+    /// <param name="reader">The reader, at the coded data.</param>
+    /// <param name="region">The white region bitmap.</param>
+    /// <param name="setup">The region fields.</param>
+    private static void DecodeGenericBody(ref Jbig2Reader reader, Jbig2Bitmap region, in GenericSetup setup)
+    {
+        var body = new Jbig2Reader(reader.Data[..setup.End], reader.ScratchPools, reader.CancellationToken) { Offset = reader.Offset };
+        var template = (setup.Flags >> TemplateShift) & TemplateMask;
+        var typical = ((setup.Flags >> TypicalShift) & 1) != 0;
+        if ((setup.Flags & MmrFlag) != 0)
+        {
+            DecodeMmrRegion(ref body, region);
+        }
+        else if (IsExtended(setup.Flags, template))
+        {
+            DecodeExtendedRegion(ref body, region, typical, setup.At);
+        }
+        else
+        {
+            DecodeArithmeticRegion(ref body, region, new(template, typical, setup.At.First));
+        }
+
+        reader.Offset = setup.Unknown ? setup.End + RowCountBytes : body.Offset;
+    }
+
+    /// <summary>The header fields of a generic region.</summary>
+    /// <param name="Info">The region information, with the height cut to the row count of an unknown-length region.</param>
+    /// <param name="Flags">The generic region flags.</param>
+    /// <param name="At">The adaptive template pixels.</param>
+    /// <param name="End">The offset where the coded data ends: just past the end marker, or the end of the stream.</param>
+    /// <param name="Unknown">Whether the segment data length is unknown.</param>
+    private readonly record struct GenericSetup(Jbig2RegionInfo Info, int Flags, Jbig2ExtendedAtPixels At, int End, bool Unknown);
 }

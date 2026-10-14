@@ -12,7 +12,8 @@ namespace HyperPdfLibrary.Graphics.Images;
 /// <summary>
 /// Decodes CCITT Group 3 (one- and two-dimensional) and Group 4 fax data into packed 1-bit rows, most significant bit
 /// first. Damaged data never throws: rows that cannot be decoded stay white, and decoding resynchronises on the next
-/// end-of-line code when the data has them.
+/// end-of-line code when the data has them. The code words are those of Recommendation T.4 tables 2 to 4. The uncompressed-mode
+/// extension codes (T.4 table 5) are not decoded: PDF has no way to say a stream uses them, so they count as damage.
 /// </summary>
 internal static class CcittFaxDecoder
 {
@@ -336,6 +337,9 @@ internal static class CcittFaxDecoder
         /// <summary>Whether decoding has stopped.</summary>
         private bool _stopped;
 
+        /// <summary>Whether the previous line was damaged.</summary>
+        private bool _previousDamaged;
+
         /// <summary>Initializes a new instance of the <see cref="LineDecoder"/> struct.</summary>
         /// <param name="data">The encoded data.</param>
         /// <param name="parameters">The filter parameters.</param>
@@ -416,9 +420,19 @@ internal static class CcittFaxDecoder
             }
 
             var decoded = twoDimensional ? Decode2D() : Decode1D();
-            if (!decoded)
+            if (decoded)
             {
-                _stopped = !Resync();
+                _previousDamaged = false;
+                return true;
+            }
+
+            _stopped = !Resync();
+
+            // A damaged Group 3 line whose end was found again is replaced as ISO 32000-2 table 11 says for
+            // /DamagedRowsBeforeError: by the previous line, or by a white line when that was damaged too.
+            if (!_stopped && _k >= 0)
+            {
+                SubstituteDamagedLine();
             }
 
             return true;
@@ -560,20 +574,7 @@ internal static class CcittFaxDecoder
         private bool StartLine(out bool twoDimensional)
         {
             twoDimensional = _k < 0;
-            if (_byteAlign && _k < 0)
-            {
-                _reader.AlignOverPadding();
-            }
-
-            // Fill zeros before an end-of-line code are skipped with it. Fill after the code, or without one, is
-            // skipped by aligning; alignment is skipped when the bits up to the boundary are not all zero padding.
-            var eol = TrySkipEol(ref _reader);
-            if (_byteAlign && _k >= 0)
-            {
-                _reader.AlignOverPadding();
-            }
-
-            _sawEol |= eol;
+            var eol = SkipFillAndEol();
             if (_k > 0)
             {
                 twoDimensional = _reader.Peek(1) == 0;
@@ -582,6 +583,30 @@ internal static class CcittFaxDecoder
 
             // A second end-of-line code in a row is the end-of-block (Group 4) or return-to-control (Group 3) sequence.
             return !(eol && PeekEol(ref _reader)) && !_reader.IsAtEnd;
+        }
+
+        /// <summary>Skips the fill zeros and the end-of-line code that may come before a line.</summary>
+        /// <returns><see langword="true"/> when an end-of-line code was skipped.</returns>
+        private bool SkipFillAndEol()
+        {
+            // Group 4 rows, and Group 3 rows in data with no end-of-line codes, are separated only by fill zeros. Those
+            // are skipped first: left in place they would join the leading zeros of the next code word into a false
+            // end-of-line code. Alignment is skipped when the bits up to the boundary are not all zero padding.
+            if (_byteAlign && (_k < 0 || (!_expectEol && !_sawEol)))
+            {
+                _reader.AlignOverPadding();
+            }
+
+            // Fill zeros before an end-of-line code are skipped with it; fill after the code is skipped by aligning,
+            // unless another end-of-line code follows, which would lose some of its zeros.
+            var eol = TrySkipEol(ref _reader);
+            if (_byteAlign && _k >= 0 && !(eol && _k == 0 && PeekEol(ref _reader)))
+            {
+                _reader.AlignOverPadding();
+            }
+
+            _sawEol |= eol;
+            return eol;
         }
 
         /// <summary>Decodes a one-dimensional (modified Huffman) line.</summary>
@@ -720,6 +745,14 @@ internal static class CcittFaxDecoder
             _current[_currentCount] = position;
             _currentCount++;
             return true;
+        }
+
+        /// <summary>Replaces the line just decoded with the previous line, or with a white line when the previous line was damaged too.</summary>
+        private void SubstituteDamagedLine()
+        {
+            _currentCount = _previousDamaged ? 0 : _referenceCount;
+            _reference[.._currentCount].CopyTo(_current);
+            _previousDamaged = true;
         }
 
         /// <summary>Moves to the next end-of-line code after damage, when the data has them.</summary>

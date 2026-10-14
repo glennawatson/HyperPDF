@@ -9,7 +9,8 @@ using HyperPdfLibrary.Filters;
 namespace HyperPdfLibrary.Graphics.Images.Jpeg;
 
 /// <summary>
-/// A managed decoder for 8-bit sequential and progressive Huffman JPEGs of one to four components. It returns the
+/// A managed decoder for sequential and progressive Huffman JPEGs of one to four components, 8 or 12 bits a sample
+/// (12-bit samples are reduced to 8 bits). Arithmetic, lossless and hierarchical files are refused. It returns the
 /// component samples as the file holds them, interleaved, with an optional YCbCr-to-RGB or YCCK-to-CMYK conversion.
 /// It applies no Adobe inversion and no colour-space rules: the PDF colour pipeline and /Decode array do that.
 /// A damaged or truncated scan keeps the image decoded so far.
@@ -28,8 +29,23 @@ internal ref partial struct JpegDecoder
     /// <summary>The most coefficients one component may need.</summary>
     private const long MaxCoefficients = 1L << 29;
 
-    /// <summary>The sample precision the decoder reads.</summary>
+    /// <summary>The sample precision of baseline files and the one PDF allows.</summary>
     private const int Precision = 8;
+
+    /// <summary>The sample precision of extended sequential and progressive files, which the decoder reduces to 8 bits.</summary>
+    private const int ExtendedPrecision = 12;
+
+    /// <summary>The bits dropped from a 12-bit sample to make an 8-bit one.</summary>
+    private const int ExtendedDrop = ExtendedPrecision - Precision;
+
+    /// <summary>
+    /// The most 8x8 blocks, counting every component, that one input byte may be said to describe. Each block needs at
+    /// least one bit, so this tolerates a truncated file and still stops a tiny file from claiming a huge image.
+    /// </summary>
+    private const long BlocksPerInputByte = 128;
+
+    /// <summary>The blocks a file may claim beyond what its length allows, so small images are never refused.</summary>
+    private const long BlockAllowance = 1024;
 
     /// <summary>The offset of the height in the frame payload.</summary>
     private const int HeightOffset = 1;
@@ -112,6 +128,9 @@ internal ref partial struct JpegDecoder
     /// <summary>Whether the frame is progressive.</summary>
     private bool _progressive;
 
+    /// <summary>The bits the inverse transform drops from each sample: 4 for a 12-bit frame, otherwise 0.</summary>
+    private int _sampleDrop;
+
     /// <summary>The scans decoded so far.</summary>
     private int _scanCount;
 
@@ -182,6 +201,14 @@ internal ref partial struct JpegDecoder
         }
     }
 
+    /// <summary>Checks that an image of the declared size can be described by data of the given length.</summary>
+    /// <param name="info">The frame header values.</param>
+    /// <param name="dataLength">The length of the JPEG data.</param>
+    /// <returns><see langword="false"/> when the header claims far more blocks than the data could hold, as a damaged or hostile file does.</returns>
+    internal static bool IsPlausibleSize(in JpegInfo info, int dataLength) =>
+        (long)info.Width * info.Height * info.Components / JpegBlock.Length
+        <= (dataLength * BlocksPerInputByte) + BlockAllowance;
+
     /// <summary>Returns the pooled buffers.</summary>
     internal void Dispose()
     {
@@ -209,14 +236,14 @@ internal ref partial struct JpegDecoder
     /// <param name="marker">The frame marker.</param>
     /// <param name="segment">The payload.</param>
     /// <param name="count">The declared component count.</param>
-    /// <returns><see langword="true"/> for an 8-bit Huffman frame with a valid component count.</returns>
+    /// <returns><see langword="true"/> for an 8-bit or 12-bit Huffman frame with a valid component count.</returns>
     private static bool IsReadableFrame(byte marker, ReadOnlySpan<byte> segment, int count)
     {
         var huffman = marker is JpegMarkers.BaselineFrame or JpegMarkers.ExtendedFrame or JpegMarkers.ProgressiveFrame;
         return huffman
             && count is >= 1 and <= MaxComponents
             && segment.Length >= FirstComponentOffset + (count * ComponentBytes)
-            && segment[0] == Precision;
+            && segment[0] is Precision or ExtendedPrecision;
     }
 
     /// <summary>Reads every marker segment and scan, then reconstructs the sample planes.</summary>
@@ -362,9 +389,23 @@ internal ref partial struct JpegDecoder
 
         _width = BinaryPrimitives.ReadUInt16BigEndian(segment[WidthOffset..]);
         _height = BinaryPrimitives.ReadUInt16BigEndian(segment[HeightOffset..]);
+        if (_height == 0 && JpegMarkers.TryFindDnlHeight(_data, out var lines))
+        {
+            // A frame header may leave the line count to a DNL marker after the first scan (ISO/IEC 10918-1, B.2.5).
+            _height = lines;
+        }
+
         _progressive = marker == JpegMarkers.ProgressiveFrame;
-        return _width > 0 && _height > 0 && CreateComponents(segment, count);
+        _sampleDrop = segment[0] == ExtendedPrecision ? ExtendedDrop : 0;
+        return _width > 0 && _height > 0 && IsWithinLimits(count) && CreateComponents(segment, count);
     }
+
+    /// <summary>Checks the frame's size against the pixel limit and the length of the data before any buffer is rented.</summary>
+    /// <param name="count">The component count.</param>
+    /// <returns><see langword="true"/> when the size is acceptable.</returns>
+    private readonly bool IsWithinLimits(int count) =>
+        (long)_width * _height <= ImageHeader.MaxPixels
+        && IsPlausibleSize(new(_width, _height, count, Precision, JpegProcess.Sequential, -1, false), _data.Length);
 
     /// <summary>Allocates the components of a frame.</summary>
     /// <param name="segment">The frame payload.</param>

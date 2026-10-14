@@ -22,6 +22,9 @@ internal static class JpegImageDecoder
     /// <summary>What the repair log says about a JPEG that ends before its end-of-image marker.</summary>
     private const string TruncatedMessage = "A JPEG image ends without its end marker; the part that decoded is used.";
 
+    /// <summary>The components of a two-channel JPEG, which only a two-component colour space can interpret.</summary>
+    private const int TwoComponents = 2;
+
     /// <summary>The components of an RGB JPEG.</summary>
     private const int RgbComponents = 3;
 
@@ -83,14 +86,29 @@ internal static class JpegImageDecoder
             return null;
         }
 
+        // A header that claims far more image than the data could hold is damaged or hostile; refuse it before renting buffers.
+        if (!JpegDecoder.IsPlausibleSize(info, data.Length))
+        {
+            return Unsupported(header);
+        }
+
         var convert = info.UsesColorTransform(colorTransform);
-        var needsRawSamples = info.Components == CmykComponents || (info.Components == RgbComponents && !convert);
-        var image = needsRawSamples
+        var image = NeedsRawSamples(info, convert)
             ? DecodeManaged(header, data, info, convert, scratchPools, cancellationToken)
             : DecodeProvider(header, data, info, imageCodec, scratchPools) ?? DecodeManaged(header, data, info, convert, scratchPools, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return image ?? Unsupported(header);
     }
+
+    /// <summary>Determines whether only the managed decoder can read the file: CMYK, untransformed RGB, two channels, or more than 8 bits.</summary>
+    /// <param name="info">The JPEG's headers.</param>
+    /// <param name="convert">Whether the samples are YCbCr or YCCK.</param>
+    /// <returns><see langword="true"/> when the provider codec is not used.</returns>
+    private static bool NeedsRawSamples(in JpegInfo info, bool convert) =>
+        info.Components == CmykComponents
+        || info.Precision != SampleBits
+        || info.Components == TwoComponents
+        || (info.Components == RgbComponents && !convert);
 
     /// <summary>Reports JPEG data that ends before its end-of-image marker.</summary>
     /// <param name="data">The JPEG data.</param>
@@ -145,6 +163,12 @@ internal static class JpegImageDecoder
     /// <returns>The image, or <see langword="null"/> when the JPEG cannot be decoded.</returns>
     private static PdfImageData? DecodeManaged(in ImageHeader header, ReadOnlySpan<byte> data, in JpegInfo info, bool convert, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
+        // No device colour space has two components, so such a JPEG needs an image colour space that does.
+        if (info.Components == TwoComponents && header.ColorSpace?.Components != TwoComponents)
+        {
+            return null;
+        }
+
         var length = info.Width * info.Height * info.Components;
         var pool = scratchPools.Get<byte>();
         var samples = pool.Rent(length);
