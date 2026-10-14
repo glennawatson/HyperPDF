@@ -102,8 +102,8 @@ public sealed class DocumentCreationTests
             using var document = PdfDocumentReader.Open(pdf, null);
             await Assert.That(result.PageCount).IsEqualTo(MixedPages);
             await Assert.That(document.PageCount).IsEqualTo(MixedPages);
-            await Assert.That(CreatedFiles.TextOf(pdf, 0)).Contains(Heading).And.Contains(Body);
-            await Assert.That(CreatedFiles.TextOf(pdf, 1)).Contains("Second page");
+            await Assert.That(await CreatedFiles.TextOfAsync(pdf, 0)).Contains(Heading).And.Contains(Body);
+            await Assert.That(await CreatedFiles.TextOfAsync(pdf, 1)).Contains("Second page");
             await Assert.That(result.IsTagged).IsFalse();
         }
         finally

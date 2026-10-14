@@ -86,7 +86,7 @@ public sealed class DocumentCreatorTests
         var pdf = creator.ToArray();
         CreatedFiles.Keep("text-embedded.pdf", pdf);
 
-        await Assert.That(CreatedFiles.TextOf(pdf, 0)).Contains(Greeting);
+        await Assert.That(await CreatedFiles.TextOfAsync(pdf, 0)).Contains(Greeting);
         await Assert.That(font.IsEmbedded).IsTrue();
         await Assert.That(OptimizerTestKit.Latin1(pdf)).Contains("/FontFile2");
         await Assert.That(pdf.Length).IsLessThan(TestFont.Create().Length);
@@ -103,7 +103,7 @@ public sealed class DocumentCreatorTests
 
         var pdf = creator.ToArray();
 
-        await Assert.That(CreatedFiles.TextOf(pdf, 0)).Contains(Greeting);
+        await Assert.That(await CreatedFiles.TextOfAsync(pdf, 0)).Contains(Greeting);
         await Assert.That(font.IsEmbedded).IsFalse();
         await Assert.That(OptimizerTestKit.Latin1(pdf)).DoesNotContain("/FontFile");
     }
@@ -219,8 +219,8 @@ public sealed class DocumentCreatorTests
         var pdf = creator.ToArray();
 
         await Assert.That(creator.PageCount).IsEqualTo(TwoPages);
-        await Assert.That(CreatedFiles.TextOf(pdf, 0)).Contains(Greeting);
-        await Assert.That(CreatedFiles.TextOf(pdf, 1)).Contains("Copied page");
+        await Assert.That(await CreatedFiles.TextOfAsync(pdf, 0)).Contains(Greeting);
+        await Assert.That(await CreatedFiles.TextOfAsync(pdf, 1)).Contains("Copied page");
     }
 
     /// <summary>A page index outside the source document is refused.</summary>
