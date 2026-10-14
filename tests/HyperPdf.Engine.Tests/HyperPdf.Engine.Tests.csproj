@@ -41,6 +41,8 @@
     <Compile Include="..\HyperPdfLibrary.Tests\Creation\CreatedFiles.cs" Link="Shared\CreatedFiles.cs" />
     <!-- Prepares the font data of non-embedded fonts once, so the synchronous text and render paths do not depend on test order. -->
     <Compile Include="..\HyperPdfLibrary.Tests\Fonts\FontDataWarmUp.cs" Link="Fonts\FontDataWarmUp.cs" />
+    <!-- Caps the tests running at once in this process, which shares a small CI runner with other test processes. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\TestParallelLimit.cs" Link="TestParallelLimit.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Fonts\Embedding\ScriptedShaper.cs" Link="Fonts\ScriptedShaper.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Security\PublicKeyPdf.cs" Link="Security\PublicKeyPdf.cs" />
     <Compile Include="..\HyperPdfLibrary.Tests\Security\PublicKeyCipher.cs" Link="Security\PublicKeyCipher.cs" />
