@@ -143,9 +143,12 @@ public sealed class SourceDisposeTests
         var document = SourceOpener.Open(kind, seed.Bytes, PdfOpenOptions.Default, directory);
         var started = new CountdownEvent(Readers);
         var tasks = new Task[Readers];
+        var job = new ReadJob(document, started, problems, seed.Name, kind);
+
+        // The readers spin until the dispose, so they run on their own threads and never starve this method's continuations.
         for (var i = 0; i < Readers; i++)
         {
-            tasks[i] = Task.Run(() => ReadUntilDisposed(document, started, problems, seed.Name, kind), CancellationToken.None);
+            tasks[i] = DedicatedThread.Run(job, ReadUntilDisposed, CancellationToken.None);
         }
 
         while (started.CurrentCount > 0)
@@ -164,13 +167,10 @@ public sealed class SourceDisposeTests
     }
 
     /// <summary>Reads until the document is disposed; only ObjectDisposedException may stop the loop.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="started">Signalled when the reader starts.</param>
-    /// <param name="problems">Receives anything unexpected.</param>
-    /// <param name="name">The seed name.</param>
-    /// <param name="kind">The source kind.</param>
-    private static void ReadUntilDisposed(PdfDocument document, CountdownEvent started, ConcurrentQueue<string> problems, string name, string kind)
+    /// <param name="job">The document and what the reader signals and reports to.</param>
+    private static void ReadUntilDisposed(ReadJob job)
     {
+        var (document, started, problems, name, kind) = job;
         _ = started.Signal();
         try
         {
@@ -188,4 +188,12 @@ public sealed class SourceDisposeTests
             problems.Enqueue(string.Create(CultureInfo.InvariantCulture, $"{name} via {kind}: {ex}"));
         }
     }
+
+    /// <summary>What one reading thread reads and reports to.</summary>
+    /// <param name="Document">The document.</param>
+    /// <param name="Started">Signalled when the reader starts.</param>
+    /// <param name="Problems">Receives anything unexpected.</param>
+    /// <param name="Name">The seed name.</param>
+    /// <param name="Kind">The source kind.</param>
+    private sealed record ReadJob(PdfDocument Document, CountdownEvent Started, ConcurrentQueue<string> Problems, string Name, string Kind);
 }

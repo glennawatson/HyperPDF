@@ -26,13 +26,17 @@ internal static class CreatedFiles
         File.WriteAllBytes(Path.Combine(folder, name), pdf);
     }
 
-    /// <summary>Gets a page's text.</summary>
+    /// <summary>
+    /// Gets a page's text the async way, which prepares the fonts the page uses first. The data of a font that is not embedded is
+    /// fetched on demand, so a test cannot count on another test having fetched it.
+    /// </summary>
     /// <param name="pdf">The document.</param>
     /// <param name="page">The zero-based page.</param>
     /// <returns>The text.</returns>
-    internal static string TextOf(byte[] pdf, int page)
+    internal static async Task<string> TextOfAsync(byte[] pdf, int page)
     {
         using var document = PdfDocumentReader.Open(pdf, null);
-        return PdfDocumentText.GetTextPage(document, page).Text;
+        var textPage = await PdfDocumentText.GetTextPageAsync(document, page, CancellationToken.None);
+        return textPage.Text;
     }
 }

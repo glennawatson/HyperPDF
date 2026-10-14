@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Globalization;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 
@@ -24,8 +25,8 @@ public sealed class HyperPdfPageAccessLifecycleTests
     /// <summary>The page read by all workers.</summary>
     private const int PageIndex = Pages - 1;
 
-    /// <summary>The maximum time for the regression to complete.</summary>
-    private const int TimeoutSeconds = 30;
+    /// <summary>The maximum time for one round to start its readers and stop them again; it only guards against a hang.</summary>
+    private const int RoundTimeoutSeconds = 60;
 
     /// <summary>Closing the actual adapter while page readers run does not fail lock disposal.</summary>
     /// <returns>A task.</returns>
@@ -33,11 +34,12 @@ public sealed class HyperPdfPageAccessLifecycleTests
     [Test]
     public async Task ConcurrentReadersAndOwnerCloseDoNotThrowSynchronizationExceptions()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(TimeoutSeconds));
         var failures = new ConcurrentQueue<Exception>();
         var bytes = TestPdf.Create(Pages);
         for (var round = 0; round < Rounds; round++)
         {
+            // Each round has its own budget, so a slow machine that needs longer overall is not mistaken for a hang.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(RoundTimeoutSeconds));
             var document = new HyperPdfDocument(PdfDocumentReader.Open(bytes, null), "concurrent-close.pdf");
             using var stop = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
             var run = new ReadRun(document, failures, stop.Token);
@@ -47,33 +49,65 @@ public sealed class HyperPdfPageAccessLifecycleTests
             {
                 var state = new ReaderState(run);
                 started[reader] = state.Started.Task;
-                tasks[reader] = Task.Factory.StartNew(
-                    static value => ReadUntilStopped((ReaderState)value!),
-                    state,
-                    CancellationToken.None,
-                    TaskCreationOptions.LongRunning,
-                    TaskScheduler.Default);
+                tasks[reader] = DedicatedThread.Run(state, ReadUntilStopped, CancellationToken.None);
             }
 
             try
             {
-                await Task.WhenAll(started).WaitAsync(timeout.Token);
-                if (Volatile.Read(ref run.Active) != Readers)
-                {
-                    throw new InvalidOperationException("A reader stopped before owner close could overlap it.");
-                }
-
+                await WaitForOverlapAsync(started, run, round, timeout.Token);
                 Close(document, failures);
             }
             finally
             {
                 await stop.CancelAsync();
-                await Task.WhenAll(tasks).WaitAsync(timeout.Token);
+                await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(RoundTimeoutSeconds), CancellationToken.None);
                 Close(document, failures);
             }
         }
 
         await Assert.That(string.Join(Environment.NewLine, failures.Select(static failure => failure.ToString()))).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>Waits until every reader has finished a first read and is still reading, so the owner close overlaps them.</summary>
+    /// <param name="started">The readers' first-read notifications.</param>
+    /// <param name="run">The shared reader state.</param>
+    /// <param name="round">The round, for the failure message.</param>
+    /// <param name="token">Cancelled when the round has run too long.</param>
+    /// <returns>A task.</returns>
+    /// <exception cref="InvalidOperationException">A reader did not start in time or stopped before the close.</exception>
+    private static async Task WaitForOverlapAsync(Task[] started, ReadRun run, int round, CancellationToken token)
+    {
+        try
+        {
+            await Task.WhenAll(started).WaitAsync(token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw new InvalidOperationException(Describe("The readers did not finish a first read in time.", run, round));
+        }
+
+        if (Volatile.Read(ref run.Active) == Readers)
+        {
+            return;
+        }
+
+        var reason = token.IsCancellationRequested
+            ? "The round timeout expired and stopped the readers."
+            : "A reader stopped before owner close could overlap it.";
+        throw new InvalidOperationException(Describe(reason, run, round));
+    }
+
+    /// <summary>Builds a failure message that says why the readers did not overlap the close.</summary>
+    /// <param name="reason">What went wrong.</param>
+    /// <param name="run">The shared reader state.</param>
+    /// <param name="round">The round.</param>
+    /// <returns>The message.</returns>
+    private static string Describe(string reason, ReadRun run, int round)
+    {
+        var first = run.Failures.TryPeek(out var failure) ? failure.ToString() : "none";
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{reason} Round {round + 1} of {Rounds}: {Volatile.Read(ref run.Active)} of {Readers} readers active, {run.Failures.Count} queued failures, first failure: {first}");
     }
 
     /// <summary>Reads page data on one dedicated worker without holding access across an await.</summary>

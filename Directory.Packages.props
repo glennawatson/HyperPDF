@@ -6,11 +6,11 @@
 
   <PropertyGroup Label="Shared Version Variables">
     <AvaloniaVersion>12.1.4</AvaloniaVersion>
-    <PdfiumVersion>157.0.8086</PdfiumVersion>
-    <TUnitVersion>1.73.19</TUnitVersion>
+    <PdfiumVersion>157.0.8100</PdfiumVersion>
+    <TUnitVersion>1.75.0</TUnitVersion>
     <!-- StyleSharp.Analyzers, PerformanceSharp.Analyzers and SecuritySharp.Analyzers ship from the
          same release pipeline and always share a version. -->
-    <RoslynCommonAnalyzersVersion>5.1.2</RoslynCommonAnalyzersVersion>
+    <RoslynCommonAnalyzersVersion>5.1.3</RoslynCommonAnalyzersVersion>
     <SkiaVersion>4.153.1</SkiaVersion>
     <HarfBuzzVersion>14.2.1.301</HarfBuzzVersion>
     <TesseractNativeVersion>5.5.2.200</TesseractNativeVersion>
@@ -75,9 +75,20 @@
     <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.2.8" />
   </ItemGroup>
 
-  <ItemGroup Label="Cryptography">
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0-rc.1.26425.128" />
-  </ItemGroup>
+  <!-- Each target framework takes the package of its own release: the .NET 11 package refers to types
+       (CompositeMLKem) that only the .NET 11 runtime has. -->
+  <Choose>
+    <When Condition="'$(TargetFramework)' == 'net10.0'">
+      <ItemGroup>
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0-rc.2.26504.105" />
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
 
   <ItemGroup Label="Packaging tools">
     <PackageVersion Include="MinVer" Version="8.0.0" />

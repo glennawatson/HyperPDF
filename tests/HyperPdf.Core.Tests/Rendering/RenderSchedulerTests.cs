@@ -600,9 +600,11 @@ public sealed class RenderSchedulerTests
             gate.Set();
         }
 
+        // The render finishes after the gate opens, so it gets its own bound rather than what the start used up.
+        using var finishTimeout = new CancellationTokenSource(Timeout);
         while (document.RenderCount == 0)
         {
-            if (!await timer.WaitForNextTickAsync(timeout.Token))
+            if (!await timer.WaitForNextTickAsync(finishTimeout.Token))
             {
                 break;
             }

@@ -167,7 +167,7 @@ public sealed class ConcurrencyTests
     /// </summary>
     /// <param name="body">The body.</param>
     /// <returns>A task that completes with the body.</returns>
-    private static Task RunOnOwnThread(Action body) => Task.Factory.StartNew(body, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+    private static Task RunOnOwnThread(Action body) => DedicatedThread.Run(body, static body => body(), CancellationToken.None);
 
     /// <summary>Opens a document and reads it on the calling thread.</summary>
     /// <param name="file">The file.</param>

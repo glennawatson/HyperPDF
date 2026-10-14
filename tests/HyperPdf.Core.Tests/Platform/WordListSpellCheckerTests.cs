@@ -98,20 +98,28 @@ public sealed class WordListSpellCheckerTests
         try
         {
             var failures = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
+            var longWord = new string('a', LongWordLength);
             for (var round = 0; round < DisposeRounds; round++)
             {
+                using var started = new SemaphoreSlim(0);
                 var checker = new WordListSpellChecker(Path.Combine(folder, British));
                 using var stop = new CancellationTokenSource();
+                var job = new CheckJob(checker, failures, longWord, started, stop.Token);
                 var tasks = new List<Task>();
+
+                // The checks spin until stopped, so they run on their own threads and never starve the thread pool.
                 for (var reader = 0; reader < CheckingThreads; reader++)
                 {
-                    tasks.Add(Task.Run(() => CheckUntilStopped(checker, failures, stop.Token), cancellationToken));
+                    tasks.Add(DedicatedThread.Run(job, CheckUntilStopped, cancellationToken));
                 }
 
                 // Hashing the long word takes long enough that a check is still running when the checker is disposed.
-                await Task.Delay(TimeSpan.FromMilliseconds(1), cancellationToken);
-                tasks.Add(Task.Run(() => DisposeAndPoison(checker), cancellationToken));
-                await tasks[^1];
+                for (var reader = 0; reader < CheckingThreads; reader++)
+                {
+                    await started.WaitAsync(cancellationToken);
+                }
+
+                await DedicatedThread.Run(checker, DisposeAndPoison, cancellationToken);
                 await stop.CancelAsync();
                 await Task.WhenAll(tasks);
             }
@@ -125,23 +133,30 @@ public sealed class WordListSpellCheckerTests
     }
 
     /// <summary>Checks words until stopped, recording any exception.</summary>
-    /// <param name="checker">The checker.</param>
-    /// <param name="failures">Receives the exceptions.</param>
-    /// <param name="stop">Stops the loop.</param>
-    private static void CheckUntilStopped(WordListSpellChecker checker, System.Collections.Concurrent.ConcurrentQueue<Exception> failures, CancellationToken stop)
+    /// <param name="job">The checker, the words, and what stops and reports the loop.</param>
+    private static void CheckUntilStopped(CheckJob job)
     {
         try
         {
-            var longWord = new string('a', LongWordLength);
-            while (!stop.IsCancellationRequested)
+            var signalled = false;
+            while (!job.Stop.IsCancellationRequested)
             {
-                _ = checker.IsCorrect(Capitalised);
-                _ = checker.IsCorrect(longWord);
+                _ = job.Checker.IsCorrect(Capitalised);
+                if (!signalled)
+                {
+                    _ = job.Started.Release();
+                    signalled = true;
+                }
+
+                _ = job.Checker.IsCorrect(job.LongWord);
             }
         }
         catch (Exception ex)
         {
-            failures.Enqueue(ex);
+            job.Failures.Enqueue(ex);
+
+            // The test waits for every thread to start, so a thread that failed first still lets it go on.
+            _ = job.Started.Release();
         }
     }
 
@@ -180,4 +195,17 @@ public sealed class WordListSpellCheckerTests
 
         return folder;
     }
+
+    /// <summary>What one checking thread reads and reports to.</summary>
+    /// <param name="Checker">The checker.</param>
+    /// <param name="Failures">Receives the exceptions.</param>
+    /// <param name="LongWord">A word whose hash takes long enough to overlap the dispose.</param>
+    /// <param name="Started">Released once the thread has made its first check.</param>
+    /// <param name="Stop">Stops the loop.</param>
+    private sealed record CheckJob(
+        WordListSpellChecker Checker,
+        System.Collections.Concurrent.ConcurrentQueue<Exception> Failures,
+        string LongWord,
+        SemaphoreSlim Started,
+        CancellationToken Stop);
 }

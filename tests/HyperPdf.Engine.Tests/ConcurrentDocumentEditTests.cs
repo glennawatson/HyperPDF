@@ -188,15 +188,8 @@ public sealed class ConcurrentDocumentEditTests
         var readers = new Task[Readers];
         for (var r = 0; r < readers.Length; r++)
         {
-            readers[r] = Task.Run(
-                () =>
-                {
-                    while (!stop.IsCancellationRequested)
-                    {
-                        _ = read();
-                    }
-                },
-                cancellationToken);
+            // The readers spin until stopped, so they run on their own threads and never starve the edits' continuations.
+            readers[r] = DedicatedThread.Run(new ReadLoop(read, stop.Token), ReadUntilStopped, cancellationToken);
         }
 
         var baseline = read();
@@ -213,4 +206,19 @@ public sealed class ConcurrentDocumentEditTests
         await Task.WhenAll(readers);
         return stale;
     }
+
+    /// <summary>Reads until stopped.</summary>
+    /// <param name="loop">The read and what stops it.</param>
+    private static void ReadUntilStopped(ReadLoop loop)
+    {
+        while (!loop.Stop.IsCancellationRequested)
+        {
+            _ = loop.Read();
+        }
+    }
+
+    /// <summary>What one reading thread calls and what stops it.</summary>
+    /// <param name="Read">Reads the count the edits change.</param>
+    /// <param name="Stop">Stops the loop.</param>
+    private sealed record ReadLoop(Func<int> Read, CancellationToken Stop);
 }
