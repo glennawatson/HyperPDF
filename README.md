@@ -1,12 +1,20 @@
 # Hyper PDF Viewer
 
-A PDF viewer for Linux, Windows and macOS. Read, search, annotate, fill forms, sign and print in one tabbed window. Documents stay on your computer unless you choose an online service.
+A calm PDF viewer for Linux, Windows and macOS. Read, search, annotate, fill forms, sign, protect, edit pages and print in one tabbed window. Documents stay on your computer unless you choose an online service.
+
+HyperPDF is made for people with ADHD or autism, and it works to improve access for people with low vision. Controls are clear, stay where you left them and can be adjusted. See [Comfort and access](#comfort-and-access).
 
 ![Document tabs, toolbar actions and thumbnails](docs/images/document-window.png)
 
 ## Get started
 
-Download a package from [GitHub releases](https://github.com/glennawatson/HyperPDF/releases). Packages support Linux AppImage, deb, rpm and AUR, Windows installers and portable archives, and macOS app bundles and disk images.
+Download a package from [GitHub releases](https://github.com/glennawatson/HyperPDF/releases).
+
+| System | Packages |
+|---|---|
+| Windows (x64 and ARM64) | MSI installer, MSIX package, portable zip, and the bare `.exe`. The MSIX needs Windows 10 version 2004 or later. |
+| macOS 12 or later (Apple silicon and Intel) | Disk image (`.dmg`) and app zip. |
+| Linux (x64 and ARM64) | AppImage, `.deb`, `.rpm` and `.tar.gz`. Each release also has a PKGBUILD for Arch Linux (`hyperpdf-bin`). |
 
 1. Choose **Open**, or drop a PDF onto the window.
 2. Use the page box, thumbnails or bookmarks to move through it.
@@ -28,7 +36,12 @@ If a PDF needs a recipient certificate, choose your `.p12` or `.pfx` file and en
 | Annotate | Highlights, underlines, strike-outs, squiggles, notes, text, callouts, ink, shapes, arrows, polygons, clouds and stamps, including your own words or a picture. Move, resize, recolour and restyle comments after placing them. Undo and redo every change. |
 | Review | Browse comments, filter them by text, type, colour or author, sort them, reply and set review status. Set the author name in Preferences. |
 | Fill forms | Text fields, check boxes, radio buttons, lists and one-letter-per-box fields. Tab and Shift+Tab move between fields; Space ticks. On printed forms, lines, boxes and letter boxes are outlined and text snaps to them. Save filled forms. Common calculations and formats are supported. Spelling is checked with the desktop's dictionaries. |
-| Sign | Type or draw a visible signature. Sign with a protected `.p12` or `.pfx` certificate. Check signatures and timestamps. |
+| Sign | Type or draw a visible signature. Sign with a protected `.p12` or `.pfx` certificate (RSA or elliptic curve), or with an external signer when your key stays on a hardware token or with a signing service. The private key never reaches the app. Check signatures and timestamps. |
+| Keep signatures valid | **Add Validation Data or Timestamp** stores the certificates and revocation answers a signature needs, so it can still be checked after the certificates expire. It can also add a trusted document timestamp. |
+| Protect | **Protect with Password** sets a reading password and an owner password, and lets you allow or stop printing, copying, editing, forms and screen readers. Choose AES-256, AES-128 or AES-256 with change detection (AES-GCM). **Remove Protection** saves a copy with no password and no limits. |
+| Manage pages | Delete, duplicate, rotate and reorder pages. Extract pages to a new file, insert another PDF before a page, or merge PDFs at the end. Undo and redo each change. |
+| Redact | Mark text or areas, then **Apply Redactions** to remove what is under them for good. Choose what happens to pictures and drawings, and whether to remove hidden text, links, comments and metadata. |
+| Save a copy | Optimised (smaller file), flattened (forms and markup become part of the page), PDF/A for long-term keeping, and PDF 2.0. Each copy window says what changed, or why a copy could not be made. Your open file is not changed. |
 | Recognise text | Add searchable text to scanned pages. Tesseract and English come with the app; other languages download in one click when needed. |
 | Measure | Distance, perimeter and area. Use the drawing's scale or enter your own. Keep measurements on the page. |
 | Use the desktop | Recent documents, Show in Folder and opening files in the running window. Reload changed files automatically or when asked. |
@@ -79,8 +92,18 @@ No single theme suits everyone. Choose the appearance that works for you.
 
 | Action | Shortcut |
 |---|---|
+| Open / save / save as | Ctrl+O / Ctrl+S / Ctrl+Shift+S |
+| Print / print with the system dialog | Ctrl+P / Ctrl+Shift+P |
 | Switch / close tab | Ctrl+Tab / Ctrl+W |
 | New window | Ctrl+N |
+| Find / search in a folder | Ctrl+F / Ctrl+Shift+F |
+| Undo / redo | Ctrl+Z / Ctrl+Y |
+| Zoom in / out / reset | Ctrl+Plus / Ctrl+Minus / Ctrl+0 |
+| Back / forward | Alt+Left / Alt+Right |
+| Show or hide the sidebar | F9 |
+| Read Aloud | Ctrl+Shift+Y |
+| Measure | Ctrl+Shift+M |
+| Document properties | Alt+Enter |
 | Reopen closed tabs / find a tab | Ctrl+Shift+T / Ctrl+Shift+A |
 | Next / previous search match | F3 / Shift+F3 |
 | Fit page / Focus Mode | Ctrl+1 / Ctrl+4 |
@@ -97,7 +120,9 @@ No single theme suits everyone. Choose the appearance that works for you.
 
 ## Limits
 
-Arbitrary form JavaScript, XFA forms, multimedia, 3D and portfolio layouts are not supported; the app says when a document uses them. Certificate signing needs an unencrypted PDF.
+Arbitrary form JavaScript, XFA forms, multimedia, 3D and portfolio layouts are not supported; the app says when a document uses them.
+
+Copies you save are checked and say so when something could not be made to fit, for example a PDF/A level the file cannot meet. Programs that follow older PDF rules may not open AES-256 with change detection (AES-GCM) files yet.
 
 Spell checking uses the Windows and macOS spell checkers. On Linux it uses the installed word lists in `/usr/share/dict`, such as the `wbritish` or `wamerican` package, or a list of your own in `~/.local/share/hyperpdf/dictionaries`.
 
@@ -106,6 +131,10 @@ Linux uses X11 when available, then native Wayland. Native Wayland does not expo
 ## Report a problem
 
 Report a problem with the [bug form](https://github.com/glennawatson/HyperPDF/issues/new?template=bugs.yml). Suggest a change with the [feature form](https://github.com/glennawatson/HyperPDF/issues/new?template=features.yml).
+
+## For developers
+
+The PDF engine behind the viewer is published on NuGet as `HyperPdfLibrary`. See its [package page](docs/hyperpdf/PACKAGE-README.md).
 
 ## Research
 
