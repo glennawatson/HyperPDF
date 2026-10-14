@@ -3,23 +3,18 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.ViewModels;
 
 /// <summary>Links to other files: other PDFs open in a tab; other files open with the desktop's app once the reader agrees.</summary>
 [DebuggerDisplay("TabFileLinks: {_owner.FileName}")]
-public sealed class TabFileLinks : ReactiveObject, IDisposable
+public sealed class TabFileLinks : ReactiveObject
 {
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
-
-    /// <summary>Raises files the reader agreed to open with the desktop's app.</summary>
-    private readonly Signal<string> _fileLaunchRequests = new();
 
     /// <summary>Initializes a new instance of the <see cref="TabFileLinks"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
@@ -28,8 +23,8 @@ public sealed class TabFileLinks : ReactiveObject, IDisposable
     /// <summary>Gets the question asked before a file opens in another app: the file's name in, <see langword="true"/> to open it.</summary>
     public Interaction<string, bool> ConfirmOpenFileInteraction { get; } = new();
 
-    /// <summary>Gets the files to open with the desktop's app, as full paths.</summary>
-    public IObservable<string> FileLaunchRequests => _fileLaunchRequests;
+    /// <summary>Gets the request to open a file the reader agreed to open with the desktop's app, as a full path.</summary>
+    public Interaction<string, RxVoid> LaunchFileInteraction { get; } = new();
 
     /// <summary>Opens a file a link or attachment points to: a PDF in a tab, anything else with another app after asking.</summary>
     /// <param name="fullPath">The file.</param>
@@ -62,13 +57,9 @@ public sealed class TabFileLinks : ReactiveObject, IDisposable
             return false;
         }
 
-        _fileLaunchRequests.OnNext(fullPath);
+        _ = await LaunchFileInteraction.Handle(fullPath).ToTask().ConfigureAwait(true);
         return true;
     }
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _fileLaunchRequests.Dispose();
 
     /// <summary>Follows a link to another file, or to a document embedded in this one.</summary>
     /// <param name="target">The target.</param>

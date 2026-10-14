@@ -5,6 +5,9 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Views;
 
@@ -18,8 +21,11 @@ public static class ControlHelp
     public static readonly AttachedProperty<string?> TextProperty = AvaloniaProperty.RegisterAttached<Control, string?>("Text", typeof(ControlHelp));
 
     /// <summary>Initializes static members of the <see cref="ControlHelp"/> class, copying each new explanation to the tooltip and the help text.</summary>
+    /// <remarks>The property lasts as long as the app, and so does this subscription, so it is never disposed.</remarks>
     static ControlHelp() =>
-        _ = TextProperty.Changed.AddClassHandler<Control, string?>(static (control, change) => Apply(control, change.NewValue.GetValueOrDefault()));
+        _ = TextProperty.ClassChanges
+            .Pick(static change => change.Sender is Control control ? new HelpChange(control, change.NewValue.GetValueOrDefault()) : default(HelpChange?))
+            .SubscribeSafe(static change => Apply(change.Control, change.Text), ErrorTrace.Write);
 
     /// <summary>Gets a control's explanation.</summary>
     /// <param name="control">The control.</param>
@@ -47,4 +53,9 @@ public static class ControlHelp
         ToolTip.SetTip(control, text);
         AutomationProperties.SetHelpText(control, text);
     }
+
+    /// <summary>A control and the explanation it was given.</summary>
+    /// <param name="Control">The control.</param>
+    /// <param name="Text">The explanation.</param>
+    private readonly record struct HelpChange(Control Control, string? Text);
 }

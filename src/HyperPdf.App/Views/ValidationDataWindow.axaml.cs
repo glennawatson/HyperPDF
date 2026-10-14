@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -55,13 +56,12 @@ public sealed partial class ValidationDataWindow : ReactiveUI.Avalonia.ReactiveW
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
-                .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(_ => Close(), ErrorTrace.Write));
 
-            // The keyboard moves to the choices once the first layout is done, when the list can take it. The named list
-            // is the state the chain needs, so the lambda reads the window's own field.
+            // The keyboard moves to the choices once the first layout is done, when the list can take it.
             disposables.Add(this.Events().LayoutUpdated.Take(1)
-                .Select(_ => ActionList)
-                .SubscribeSafe(static list => list.Focus(), static error => Trace.TraceError(error.ToString())));
+                .SelectWith(this, static (window, _) => window.ActionList)
+                .SubscribeSafe(static list => list.Focus(), ErrorTrace.Write));
         });
     }
 

@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -23,7 +24,7 @@ public sealed partial class OutlineItemView : ReactiveUI.Avalonia.ReactiveUserCo
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Title, static v => v.TitleText.Text));
-            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, static error => Trace.TraceError(error.ToString())));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, ErrorTrace.Write));
 
             // The tree item that hosts this view owns the expander, so the model is bound to it directly.
             // The model writes first, so the tree item starts from its state; each direction follows the view's ViewModel.

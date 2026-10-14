@@ -11,6 +11,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using HyperPdf.App.Controls;
 using HyperPdf.App.Services;
 using HyperPdf.App.Theming;
 using HyperPdf.App.ViewModels;
@@ -30,6 +31,12 @@ namespace HyperPdf.App;
 [DebuggerDisplay("App: HyperPDF")]
 public sealed class App : Application
 {
+    /// <summary>
+    /// Runs work after Avalonia's own ContextIdle jobs. The scheduler needs a dispatcher, and the UI thread's is the only
+    /// one the app has, so this is the one place the app names it.
+    /// </summary>
+    private static readonly AvaloniaScheduler IdleScheduler = new(Dispatcher.UIThread, DispatcherPriority.ApplicationIdle);
+
     /// <summary>Subscriptions and resources owned for the application's lifetime.</summary>
     private readonly MultipleDisposable _lifetime = [];
 
@@ -45,78 +52,104 @@ public sealed class App : Application
         DesktopThemeApplier.Apply(this, ThemeResolver.Resolve(new(), null));
     }
 
-    /// <inheritdoc/>
-    public override void OnFrameworkInitializationCompleted()
-    {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            if (Program.NeedsSingleInstancePreflight)
-            {
-                _lifetime.Add(Signal.Return(this, new AvaloniaScheduler(Dispatcher.UIThread, DispatcherPriority.ApplicationIdle))
-                    .SubscribeSafe(static app => _ = app.StartAfterForwardingAsync(), static error => Trace.TraceError(error.ToString())));
-            }
-            else if (OperatingSystem.IsLinux())
-            {
-                // Avalonia's AT-SPI bridge waits 100 ms for the UI thread to go idle and, if it times out, finishes
-                // starting on a pool thread where it cannot read the main window, which then never reaches screen
-                // readers. Starting below its ContextIdle wait lets that wait finish first, on the UI thread.
-                _lifetime.Add(Signal.Return(this, new AvaloniaScheduler(Dispatcher.UIThread, DispatcherPriority.ApplicationIdle))
-                    .SubscribeSafe(static app => app.StartAndShow(), static error => Trace.TraceError(error.ToString())));
-            }
-            else
-            {
-                Start(desktop);
-            }
-        }
-
-        base.OnFrameworkInitializationCompleted();
-    }
-
-    /// <summary>Releases the services once the desktop lifetime has ended.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void Release() => _lifetime.Dispose();
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
-
-    /// <summary>Starts once the lifetime is already running, so the main window is shown here.</summary>
-    private void StartAndShow()
+    /// <summary>
+    /// Starts the app once Avalonia has made the application and its desktop lifetime, from the builder's
+    /// <c>AfterSetup</c> step, which runs just before the framework reports set-up complete.
+    /// </summary>
+    internal void Start()
     {
         if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
         {
             return;
         }
 
-        Start(desktop);
-        _window?.Show();
+        if (Program.NeedsSingleInstancePreflight)
+        {
+            // A forwarded process stops once its request reached the running viewer.
+            _lifetime.Add(Signal.Return(this, IdleScheduler)
+                .SwitchMap(static _ => Signal.FromAsync(static _ => CanStartAsync()))
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .SubscribeSafe(shouldStart => ShowOrShutDown(desktop, shouldStart), ErrorTrace.Write));
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            // Avalonia's AT-SPI bridge waits 100 ms for the UI thread to go idle and, if it times out, finishes
+            // starting on a pool thread where it cannot read the main window, which then never reaches screen
+            // readers. Starting below its ContextIdle wait lets that wait finish first, on the UI thread.
+            _lifetime.Add(Signal.Return(desktop, IdleScheduler).SubscribeSafe(StartAndShow, ErrorTrace.Write));
+        }
+        else
+        {
+            Open(desktop);
+        }
     }
 
-    /// <summary>Checks single-instance ownership without holding the UI thread, then starts or closes this window.</summary>
-    /// <returns>A task for the forwarding check.</returns>
-    private async Task StartAfterForwardingAsync()
+    /// <summary>Releases the services once the desktop lifetime has ended.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Release() => _lifetime.Dispose();
+
+    /// <summary>Checks single-instance ownership without holding the UI thread.</summary>
+    /// <returns>A task that gives whether this process should show its own window.</returns>
+    private static async Task<bool> CanStartAsync()
     {
-        bool shouldStart;
         try
         {
-            shouldStart = await Program.StartSingleInstanceAsync().ConfigureAwait(false);
+            return await Program.StartSingleInstanceAsync().ConfigureAwait(false);
         }
         catch (Exception error)
         {
-            Trace.TraceError(error.ToString());
-            shouldStart = true;
+            ErrorTrace.Write(error);
+            return true;
+        }
+    }
+
+    /// <summary>Applies the documents the desktop asked the app to open, such as a PDF chosen in the Finder.</summary>
+    /// <param name="activation">The activation.</param>
+    /// <returns>The documents as paths, or <see langword="null"/> when the activation is not about files.</returns>
+    private static OpenRequest? ReadFiles(ActivatedEventArgs activation)
+    {
+        if (activation is not FileActivatedEventArgs files)
+        {
+            return null;
         }
 
-        // A forwarded process stops once its request reached the running viewer.
-        var started = Signal.Return(shouldStart, RxSchedulers.MainThreadScheduler);
-        _lifetime.Add(started.Where(static start => start).SubscribeSafe(_ => StartAndShow(), OnError));
-        _lifetime.Add(started.Where(static start => !start).SubscribeSafe(_ => (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown(), OnError));
+        var paths = new List<string>(files.Files.Count);
+        foreach (var file in files.Files)
+        {
+            if (file.TryGetLocalPath() is { } path)
+            {
+                paths.Add(path);
+            }
+        }
+
+        return new(paths, null);
+    }
+
+    /// <summary>Starts the app, or ends this process, once the single instance check is answered.</summary>
+    /// <param name="desktop">The desktop lifetime.</param>
+    /// <param name="shouldStart">Whether this process holds the single instance claim.</param>
+    private void ShowOrShutDown(IClassicDesktopStyleApplicationLifetime desktop, bool shouldStart)
+    {
+        if (shouldStart)
+        {
+            StartAndShow(desktop);
+            return;
+        }
+
+        desktop.Shutdown();
+    }
+
+    /// <summary>Starts once the lifetime is already running, so the main window is shown here.</summary>
+    /// <param name="desktop">The desktop lifetime.</param>
+    private void StartAndShow(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        Open(desktop);
+        _window?.Show();
     }
 
     /// <summary>Creates the services and the main window.</summary>
     /// <param name="desktop">The desktop lifetime.</param>
-    private void Start(IClassicDesktopStyleApplicationLifetime desktop)
+    private void Open(IClassicDesktopStyleApplicationLifetime desktop)
     {
         var services = AppServices.CreateDefault(Program.Platform);
         var viewModel = new MainViewModel(services);
@@ -132,34 +165,36 @@ public sealed class App : Application
         _lifetime.Add(new FocusAnnouncementRepair(services.FocusAnnouncements, () => desktop.Windows));
         _lifetime.Add(services);
         _lifetime.Add(viewModel);
-        _lifetime.Add(CommandFailureObserver.Instance.Attach(viewModel.ReportFailure));
+        _lifetime.Add(CommandFailures.ShowIn(viewModel.ReportFailure));
 
         // Both current values arrive synchronously on subscription, so the first frame is already themed.
-        _lifetime.Add(services.Theme.SubscribeSafe(ApplyTheme, OnError));
+        _lifetime.Add(services.Theme.SubscribeSafe(ApplyTheme, ErrorTrace.Write));
         if (services.ThemeSource is { } themeSource)
         {
-            _lifetime.Add(themeSource.Palette.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(services.SetDesktopPalette, OnError));
+            _lifetime.Add(themeSource.Palette.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(services.SetDesktopPalette, ErrorTrace.Write));
         }
 
         if (Program.InstanceHost is { } host)
         {
-            _lifetime.Add(host.OpenRequests.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(OpenForwarded, OnError));
+            _lifetime.Add(host.OpenRequests.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(OpenForwarded, ErrorTrace.Write));
         }
 
         // Documents opened from the Finder (or another app) on macOS arrive as activation events.
         if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
         {
-            _lifetime.Add(activatable.Events().Activated.SubscribeSafe(OnActivated, OnError));
+            _lifetime.Add(activatable.Events().Activated
+                .Select(ReadFiles)
+                .KeepNotNull()
+                .SubscribeSafe(OpenForwarded, ErrorTrace.Write));
         }
 
         if (!OperatingSystem.IsWindows())
         {
             // Shut down cleanly on SIGTERM (for example at logout) so the session is saved.
-            _lifetime.Add(PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
-            {
-                context.Cancel = true;
-                _lifetime.Add(Signal.Return(RxVoid.Default).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => desktop.Shutdown(), OnError));
-            }));
+            _lifetime.Add(PosixSignalRegistration.Requests(PosixSignal.SIGTERM)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .SelectWith(desktop, static (lifetime, _) => lifetime)
+                .SubscribeSafe(static lifetime => lifetime.Shutdown(), ErrorTrace.Write));
         }
 
         viewModel.RestoreSession();
@@ -176,27 +211,6 @@ public sealed class App : Application
         {
             DesktopThemeApplier.ApplyFont(_window, theme);
         }
-    }
-
-    /// <summary>Opens documents the desktop asked the app to open, such as a PDF chosen in the Finder.</summary>
-    /// <param name="activation">The activation.</param>
-    private void OnActivated(ActivatedEventArgs activation)
-    {
-        if (activation is not FileActivatedEventArgs files)
-        {
-            return;
-        }
-
-        var paths = new List<string>(files.Files.Count);
-        foreach (var file in files.Files)
-        {
-            if (file.TryGetLocalPath() is { } path)
-            {
-                paths.Add(path);
-            }
-        }
-
-        OpenForwarded(new(paths, null));
     }
 
     /// <summary>Opens forwarded documents and raises the window.</summary>

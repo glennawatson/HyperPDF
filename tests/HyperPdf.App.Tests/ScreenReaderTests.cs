@@ -61,7 +61,7 @@ public sealed class ScreenReaderTests
             var tab = main.SelectedTab!;
             tab.SidebarVisible = true;
             tab.IsThumbnailsMode = true;
-            var thumbnails = view.FindControl<ThumbnailListBox>("ThumbnailList")!;
+            var thumbnails = view.FindNamed<ThumbnailListBox>("ThumbnailList")!;
             await Assert.That(await UiWait.UntilAsync(() => thumbnails.GetRealizedContainers().Count() == Pages)).IsTrue();
 
             await Assert.That(NameOf(thumbnails.ContainerFromIndex(0)!)).IsEqualTo("Page 1 of 3");
@@ -75,7 +75,7 @@ public sealed class ScreenReaderTests
                 () => $"Query '{tab.Search.Query}', searching {tab.Search.IsSearching}, results {tab.Search.Results.Count}, status '{tab.Search.Status}', "
                     + $"page {tab.CurrentPageIndex}, loaded {tab.IsLoaded}, closed {tab.TryGetDocument()?.IsDisposed}.")).IsTrue();
             tab.IsSearchMode = true;
-            var results = view.FindControl<ListBox>("SearchResultList")!;
+            var results = view.FindNamed<ListBox>("SearchResultList")!;
             await Assert.That(await UiWait.UntilAsync(() => results.ContainerFromIndex(0) is not null)).IsTrue();
             await Assert.That(NameOf(results.ContainerFromIndex(0)!)).StartsWith("Page 1: ");
             await Assert.That(AutomationProperties.GetPositionInSet(results.ContainerFromIndex(0)!)).IsEqualTo(1);
@@ -88,7 +88,7 @@ public sealed class ScreenReaderTests
 
             // Outline entries are named as they are shown.
             tab.IsOutlineMode = true;
-            var outline = view.FindControl<OutlinePanelView>("OutlinePanel")!.FindControl<TreeView>("OutlineTree")!;
+            var outline = view.FindNamed<OutlinePanelView>("OutlinePanel")!.FindControl<TreeView>("OutlineTree")!;
             await Assert.That(await UiWait.UntilAsync(() => outline.GetVisualDescendants().OfType<TreeViewItem>().Any(static item => item.IsEffectivelyVisible))).IsTrue();
             await Assert.That(string.Join(", ", UnnamedItems(window))).IsEqualTo(string.Empty);
         }
@@ -116,8 +116,8 @@ public sealed class ScreenReaderTests
             await Assert.That(Landmark(view, "PageArea")).IsEqualTo(AutomationLandmarkType.Main);
             await Assert.That(Landmark(view, "FindBar")).IsEqualTo(AutomationLandmarkType.Search);
             await Assert.That(Landmark(window, "TabBar")).IsEqualTo(AutomationLandmarkType.Navigation);
-            await Assert.That(NameOf(view.FindControl<Control>("PageArea")!)).IsEqualTo("Pages");
-            await Assert.That(NameOf(view.FindControl<Control>("MainToolBar")!)).IsEqualTo("Tool bar");
+            await Assert.That(NameOf(view.FindNamed<Control>("PageArea")!)).IsEqualTo("Pages");
+            await Assert.That(NameOf(view.FindNamed<Control>("MainToolBar")!)).IsEqualTo("Tool bar");
         }
         finally
         {
@@ -242,7 +242,7 @@ public sealed class ScreenReaderTests
         try
         {
             var view = await FindDocumentViewAsync(window);
-            var box = view.FindControl<TextBox>("SearchBox")!;
+            var box = view.FindNamed<TextBox>("SearchBox")!;
             var canvas = view.GetVisualDescendants().OfType<PageCanvas>().Single();
             main.SelectedTab!.Search.IsOpen = true;
             await Assert.That(await UiWait.UntilAsync(() => box.IsFocused)).IsTrue();
@@ -274,7 +274,7 @@ public sealed class ScreenReaderTests
             var tab = main.SelectedTab!;
             tab.SidebarVisible = true;
             tab.IsThumbnailsMode = true;
-            var thumbnails = view.FindControl<ThumbnailListBox>("ThumbnailList")!;
+            var thumbnails = view.FindNamed<ThumbnailListBox>("ThumbnailList")!;
             await Assert.That(await UiWait.UntilAsync(() => thumbnails.ContainerFromIndex(0) is not null)).IsTrue();
             var item = thumbnails.ContainerFromIndex(0)!;
             _ = item.Focus();
@@ -305,8 +305,8 @@ public sealed class ScreenReaderTests
         {
             var view = await FindDocumentViewAsync(window);
             main.SelectedTab!.ReadAloud.IsOpen = true;
-            var button = view.FindControl<Button>("ReadAloudOptionsButton")!;
-            var check = view.FindControl<CheckBox>("WordMarkCheck")!;
+            var button = view.FindNamed<Button>("ReadAloudOptionsButton")!;
+            var check = view.FindNamed<CheckBox>("WordMarkCheck")!;
             await Assert.That(await UiWait.UntilAsync(() => button.IsEffectivelyVisible)).IsTrue();
             _ = button.Focus();
             await Assert.That(await UiWait.UntilAsync(() => button.IsFocused)).IsTrue();

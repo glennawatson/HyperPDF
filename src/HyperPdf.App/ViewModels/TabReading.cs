@@ -3,27 +3,23 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Reading;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Signals;
+using ReactiveUI;
+using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
 
 /// <summary>
 /// The document's pages in reading order for one tab, shared by Read Aloud, Focus Mode and the screen reader view. It
-/// is worked out again when the document is reloaded, its pages change or its page text changes, and it says when that
-/// happens so a view of the text can load it again.
+/// is worked out again when the document is reloaded, its pages change or its page text changes, and its
+/// <see cref="Version"/> moves on when that happens so a view of the text can load it again.
 /// </summary>
 [DebuggerDisplay("TabReading: Version {Version}")]
-internal sealed class TabReading : IDisposable
+internal sealed partial class TabReading : ReactiveObject
 {
     /// <summary>The tab.</summary>
     private readonly DocumentTabViewModel _owner;
-
-    /// <summary>Emits when the text a reader sees may have changed.</summary>
-    private readonly Signal<RxVoid> _changes = new();
 
     /// <summary>The document's pages in reading order, once asked for.</summary>
     private ReadingDocument? _reading;
@@ -34,22 +30,16 @@ internal sealed class TabReading : IDisposable
     /// <summary>The open document the reading order reads from, captured on the UI thread.</summary>
     private IDocument? _readingSource;
 
-    /// <summary>How many times the text or pages were reset; it only grows.</summary>
-    private int _generation;
-
     /// <summary>Initializes a new instance of the <see cref="TabReading"/> class.</summary>
     /// <param name="owner">The tab.</param>
     internal TabReading(DocumentTabViewModel owner) => _owner = owner;
 
-    /// <summary>Gets notifications that the reading text changed: after a reload, a change of pages or recognised text.</summary>
-    internal IObservable<RxVoid> Changes => _changes;
+    /// <summary>Gets how many times the reading text was reset: after a reload, a change of pages or recognised text. It only grows.</summary>
+    [Reactive]
+    internal partial int Version { get; private set; }
 
     /// <summary>Gets a number that differs whenever the text a reader sees may differ: the document the tab shows and how often its text was reset.</summary>
-    internal long Version => ((long)_owner.Source.Id << 32) | (uint)Volatile.Read(ref _generation);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _changes.Dispose();
+    internal long TextKey => ((long)_owner.Source.Id << 32) | (uint)Version;
 
     /// <summary>Gets the document's pages in reading order.</summary>
     /// <returns>The reading order, or <see langword="null"/> when the document is closed or cannot describe its layout.</returns>
@@ -98,10 +88,6 @@ internal sealed class TabReading : IDisposable
             : new ReadingSources(characters, DocumentFeature<ITaggedStructureSource>.Get(document));
     }
 
-    /// <summary>Moves the version on and tells readers of the text.</summary>
-    private void Publish()
-    {
-        _ = Interlocked.Increment(ref _generation);
-        _changes.EmitIfOpen(RxVoid.Default);
-    }
+    /// <summary>Moves the version on, which views of the text follow.</summary>
+    private void Publish() => Version++;
 }

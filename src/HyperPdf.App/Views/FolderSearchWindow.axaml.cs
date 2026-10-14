@@ -3,10 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -44,7 +44,7 @@ public sealed partial class FolderSearchWindow : ReactiveUI.Avalonia.ReactiveWin
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
-                .SubscribeSafe(_ => Close(), OnError));
+                .SubscribeSafe(_ => Close(), ErrorTrace.Write));
             disposables.Add(ResultList.ItemOpens<FolderSearchResultViewModel>().InvokeCommand(ViewModel, static vm => vm.OpenCommand));
 
             // The window deactivates when it closes by any route (title bar, Alt+F4), which ends a search still running.
@@ -52,11 +52,6 @@ public sealed partial class FolderSearchWindow : ReactiveUI.Avalonia.ReactiveWin
             _ = QueryBox.Focus();
         });
     }
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Asks for the folder to search.</summary>
     /// <param name="context">The interaction context.</param>

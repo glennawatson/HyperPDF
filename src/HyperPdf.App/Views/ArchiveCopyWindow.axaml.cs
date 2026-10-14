@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -47,7 +48,7 @@ public sealed partial class ArchiveCopyWindow : ReactiveUI.Avalonia.ReactiveWind
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
-                .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(_ => Close(), ErrorTrace.Write));
             _ = LevelList.Focus();
         });
     }

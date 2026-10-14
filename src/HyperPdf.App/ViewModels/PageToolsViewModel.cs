@@ -7,28 +7,16 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Navigation;
 using ReactiveUI;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Advanced;
-using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
 
-/// <summary>
-/// Moving around and grabbing content in a tab: the select text, hand, zoom to area and snapshot tools, auto-scroll and
-/// selecting all the text on a page.
-/// </summary>
+/// <summary>Moving around and grabbing content in a tab: the select text, hand, zoom to area and snapshot tools, and auto-scroll.</summary>
 [DebuggerDisplay("PageToolsViewModel: {PageTool}")]
-public sealed partial class PageToolsViewModel : ReactiveObject, IDisposable
+public sealed partial class PageToolsViewModel : ReactiveObject
 {
     /// <summary>The file name suggested when a snapshot is saved as a picture.</summary>
     private const string SnapshotFileName = "snapshot.png";
-
-    /// <summary>Emits when the view is asked to select all the text on the current page.</summary>
-    private readonly Signal<RxVoid> _selectAllRequests = new();
-
-    /// <summary>Gets the requests to select all the text on the current page.</summary>
-    public AsObservableSignal<RxVoid> SelectAllRequests => field ??= new(_selectAllRequests);
 
     /// <summary>Gets the suggested name of a saved snapshot.</summary>
     public string SnapshotName => SnapshotFileName;
@@ -79,10 +67,6 @@ public sealed partial class PageToolsViewModel : ReactiveObject, IDisposable
         return true;
     }
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _selectAllRequests.Dispose();
-
     /// <summary>Chooses what dragging on the pages does.</summary>
     /// <param name="tool">The tool.</param>
     [ReactiveCommand]
@@ -113,9 +97,4 @@ public sealed partial class PageToolsViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void SlowerAutoScroll() => _ = ChangeAutoScrollSpeed(-1);
-
-    /// <summary>Asks the view to select all the text on the current page.</summary>
-    [ReactiveCommand]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void SelectAll() => _selectAllRequests.OnNext(RxVoid.Default);
 }

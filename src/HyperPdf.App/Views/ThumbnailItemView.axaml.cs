@@ -26,7 +26,11 @@ public sealed partial class ThumbnailItemView : ReactiveUI.Avalonia.ReactiveUser
         {
             // A thumbnail item is an immutable record with no change notification, so OneWayBind cannot observe it.
             // The view follows which item it shows, and which tab it belongs to.
-            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, static error => Trace.TraceError(error.ToString())));
+            var items = this.WhenChanged(static v => v.ViewModel);
+            disposables.Add(items.Select(static item => item?.Width ?? 0).BindTo(this, static v => v.Thumbnail.Width));
+            disposables.Add(items.Select(static item => item?.Height ?? 0).BindTo(this, static v => v.Thumbnail.Height));
+            disposables.Add(items.Select(static item => item?.PageIndex ?? -1).BindTo(this, static v => v.Thumbnail.PageIndex));
+            disposables.Add(items.Select(static item => item?.Caption).BindTo(this, static v => v.LabelText.Text));
             disposables.Add(this.WhenChanged(static v => v.Tab).BindTo(this, static v => v.Thumbnail.Tab));
         });
     }
@@ -36,15 +40,5 @@ public sealed partial class ThumbnailItemView : ReactiveUI.Avalonia.ReactiveUser
     {
         get => GetValue(TabProperty);
         set => SetValue(TabProperty, value);
-    }
-
-    /// <summary>Shows a thumbnail item.</summary>
-    /// <param name="item">The item.</param>
-    private void Show(ThumbnailItemViewModel? item)
-    {
-        Thumbnail.Width = item?.Width ?? 0;
-        Thumbnail.Height = item?.Height ?? 0;
-        Thumbnail.PageIndex = item?.PageIndex ?? -1;
-        LabelText.Text = item?.Caption;
     }
 }

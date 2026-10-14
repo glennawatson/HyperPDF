@@ -6,10 +6,13 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
+using HyperPdf.App.Services;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.ObservableEvents;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Controls;
 
@@ -32,20 +35,8 @@ public sealed class ThumbnailListBox : ListBox, IActivatableView
     /// <summary>How long the list takes to ease to the selection.</summary>
     private static readonly TimeSpan EaseDuration = TimeSpan.FromMilliseconds(160);
 
-    /// <summary>The offset before an unrealized selection is brought into view.</summary>
-    private double? _pendingOffset;
-
-    /// <summary>The offset the current ease started from.</summary>
-    private double _easeFrom;
-
-    /// <summary>The offset the current ease ends at.</summary>
-    private double _easeTo;
-
-    /// <summary>When the current ease started.</summary>
-    private long _easeStarted;
-
-    /// <summary>1 while an ease is running.</summary>
-    private int _easing;
+    /// <summary>The ease running now, or <see langword="null"/> when the list is still.</summary>
+    private ThumbnailEase? _running;
 
     /// <summary>Initializes a new instance of the <see cref="ThumbnailListBox"/> class.</summary>
     public ThumbnailListBox()
@@ -53,8 +44,15 @@ public sealed class ThumbnailListBox : ListBox, IActivatableView
         AutoScrollToSelectedItem = false;
         _ = this.WhenActivated(disposables =>
         {
-            disposables.Add(this.WhenChanged(static x => x.SelectedIndex).Skip(1).SubscribeSafe(_ => OnSelectionChanged(), OnError));
-            disposables.Add(Scope.Create(this, static list => list.StopFollowing()));
+            // Each new selection is followed in turn; following a newer one replaces the frames of the one before.
+            disposables.Add(this.WhenChanged(static x => x.SelectedIndex)
+                .Skip(1)
+                .SelectWith(this, static (list, _) => list)
+                .SwitchMap(static list => list.FollowSelection())
+                .SubscribeSafe(static ease => ease.List.StepEase(ease), ErrorTrace.Write));
+
+            // Taken off screen, the list forgets the ease it was running.
+            disposables.Add(Scope.Create(this, static list => list._running = null));
         });
     }
 
@@ -68,124 +66,131 @@ public sealed class ThumbnailListBox : ListBox, IActivatableView
     /// <inheritdoc/>
     protected override Type StyleKeyOverride => typeof(ListBox);
 
-    /// <inheritdoc/>
-    protected override Size ArrangeOverride(Size finalSize)
-    {
-        var result = base.ArrangeOverride(finalSize);
-        if (_pendingOffset is { } offset && FollowSelection(offset))
-        {
-            _pendingOffset = null;
-        }
-
-        return result;
-    }
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
+    /// <summary>Gets an ease's frames, which end once it has finished or another ease has replaced it.</summary>
+    /// <param name="top">The window.</param>
+    /// <param name="ease">The ease.</param>
+    /// <returns>The ease, once per frame.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
+    private static IObservable<ThumbnailEase> EaseFrames(TopLevel top, ThumbnailEase ease) =>
+        top.AnimationFrames
+            .SelectWith(ease, static (running, _) => running)
+            .TakeWhile(static running => ReferenceEquals(running.List._running, running));
 
-    /// <summary>Stops following the selection.</summary>
-    private void StopFollowing()
+    /// <summary>
+    /// Works out how the list follows the newly selected thumbnail: it stays put, jumps, or eases. A thumbnail that is not
+    /// laid out yet is brought into view first and followed after the layout pass that places it.
+    /// </summary>
+    /// <returns>The frames of the ease, if there is one.</returns>
+    private IObservable<ThumbnailEase> FollowSelection()
     {
-        _pendingOffset = null;
-        _ = Interlocked.Exchange(ref _easing, 0);
-    }
-
-    /// <summary>Follows a newly selected thumbnail after it has been realized.</summary>
-    private void OnSelectionChanged()
-    {
-        _pendingOffset = null;
         if (SelectedIndex < 0 || Scroll is not ScrollViewer scroll || scroll.Viewport.Height <= 0)
         {
-            return;
+            return Signal.Empty<ThumbnailEase>();
         }
 
         // While easing, the list is judged where it is heading, so a page already on its way into view stays put.
-        var offset = Volatile.Read(ref _easing) != 0 ? _easeTo : scroll.Offset.Y;
-        if (FollowSelection(offset))
+        var start = new FollowStart(this, scroll, _running?.To ?? scroll.Offset.Y);
+        if (TargetOffset(start) is not { } target)
         {
-            return;
+            ScrollIntoView(SelectedIndex);
+            return Signal.Merge(Signal.Return(RxVoid.Default), this.Events().LayoutUpdated.Select(static _ => RxVoid.Default))
+                .SelectWith(start, static (follow, _) => follow.List.TargetOffset(follow))
+                .KeepValues
+                .Take(1)
+                .SelectWith(start, static (follow, to) => new FollowTarget(follow, to))
+                .SwitchMap(static follow => follow.Start.List.EaseTo(follow.Start, follow.To));
         }
 
-        _pendingOffset = offset;
-        ScrollIntoView(SelectedIndex);
-        if (FollowSelection(offset))
-        {
-            _pendingOffset = null;
-        }
+        return EaseTo(start, target);
     }
 
-    /// <summary>Moves to the selected item when it is not in full view.</summary>
-    /// <param name="offset">The offset before the selection changed.</param>
-    /// <returns>Whether the selected container has been realized.</returns>
-    private bool FollowSelection(double offset)
+    /// <summary>Gets the offset that puts the selected thumbnail in full view, once the thumbnail is laid out.</summary>
+    /// <param name="start">Where the list started from.</param>
+    /// <returns>The offset, or <see langword="null"/> while the thumbnail is not laid out.</returns>
+    private double? TargetOffset(FollowStart start)
     {
-        if (Scroll is not ScrollViewer scroll || ContainerFromIndex(SelectedIndex) is not { } container
-            || container.TranslatePoint(default, scroll) is not { } position)
+        var scroll = start.Scroll;
+        if (ContainerFromIndex(SelectedIndex) is not { } container || container.TranslatePoint(default, scroll) is not { } position)
         {
-            return false;
+            return null;
         }
 
         var top = position.Y + scroll.Offset.Y;
-        var next = ThumbnailViewport.GetOffset(offset, scroll.Viewport.Height, top, top + container.Bounds.Height, scroll.Extent.Height);
-        if (Math.Abs(next - offset) > OffsetTolerance)
-        {
-            EaseTo(scroll, offset, next);
-        }
-        else if (Math.Abs(scroll.Offset.Y - offset) > OffsetTolerance)
-        {
-            // Realizing the item may have scrolled; the item was already in view, so the list goes back.
-            scroll.Offset = new(scroll.Offset.X, offset);
-        }
-
-        return true;
+        return ThumbnailViewport.GetOffset(start.Offset, scroll.Viewport.Height, top, top + container.Bounds.Height, scroll.Extent.Height);
     }
 
-    /// <summary>Eases the list to a new offset, or jumps there when motion is reduced.</summary>
-    /// <param name="scroll">The scroll viewer.</param>
-    /// <param name="from">The offset the reader was looking at.</param>
+    /// <summary>Eases the list to a new offset, jumps there when motion is reduced, or keeps the ease already running.</summary>
+    /// <param name="start">Where the list started from.</param>
     /// <param name="to">The new offset.</param>
-    private void EaseTo(ScrollViewer scroll, double from, double to)
+    /// <returns>The frames of the ease, or none when the list does not ease.</returns>
+    private IObservable<ThumbnailEase> EaseTo(FollowStart start, double to)
     {
-        if (ReduceMotion || TopLevel.GetTopLevel(this) is not { } top)
+        var scroll = start.Scroll;
+        var from = start.Offset;
+        var top = TopLevel.GetTopLevel(this);
+        if (Math.Abs(to - from) <= OffsetTolerance)
         {
-            _ = Interlocked.Exchange(ref _easing, 0);
+            if (_running is { } running && top is not null)
+            {
+                // The selection is in view where the running ease is heading, so that ease carries on.
+                return EaseFrames(top, running);
+            }
+
+            if (Math.Abs(scroll.Offset.Y - from) > OffsetTolerance)
+            {
+                // Realizing the item may have scrolled; the item was already in view, so the list goes back.
+                scroll.Offset = new(scroll.Offset.X, from);
+            }
+
+            return Signal.Empty<ThumbnailEase>();
+        }
+
+        if (ReduceMotion || top is null)
+        {
+            _running = null;
             scroll.Offset = new(scroll.Offset.X, to);
-            return;
+            return Signal.Empty<ThumbnailEase>();
         }
 
         // A long jump starts one viewport short, so the ease shows direction without sliding past many pages.
         var distance = to - from;
         var viewport = scroll.Viewport.Height;
-        _easeFrom = Math.Abs(distance) > viewport ? to - Math.CopySign(viewport, distance) : from;
-        _easeTo = to;
-        _easeStarted = Stopwatch.GetTimestamp();
-        scroll.Offset = new(scroll.Offset.X, _easeFrom);
-        if (Interlocked.Exchange(ref _easing, 1) == 0)
-        {
-            top.RequestAnimationFrame(OnEaseFrame);
-        }
+        var easeFrom = Math.Abs(distance) > viewport ? to - Math.CopySign(viewport, distance) : from;
+        scroll.Offset = new(scroll.Offset.X, easeFrom);
+        var ease = new ThumbnailEase(this, scroll, easeFrom, to, Stopwatch.GetTimestamp());
+        _running = ease;
+        return EaseFrames(top, ease);
     }
 
-    /// <summary>Moves the ease one frame on.</summary>
-    /// <param name="time">The frame time, unused because the ease measures its own start.</param>
-    private void OnEaseFrame(TimeSpan time)
+    /// <summary>Moves an ease one frame on, and ends it once the list has arrived.</summary>
+    /// <param name="ease">The ease.</param>
+    private void StepEase(ThumbnailEase ease)
     {
-        if (Volatile.Read(ref _easing) == 0 || Scroll is not ScrollViewer scroll)
-        {
-            return;
-        }
-
-        var progress = Math.Min(1, Stopwatch.GetElapsedTime(_easeStarted) / EaseDuration);
+        var progress = Math.Min(1, Stopwatch.GetElapsedTime(ease.Started) / EaseDuration);
         var eased = 1 - Math.Pow(1 - progress, EasePower);
-        scroll.Offset = new(scroll.Offset.X, _easeFrom + ((_easeTo - _easeFrom) * eased));
-        if (progress >= 1)
+        ease.Scroll.Offset = new(ease.Scroll.Offset.X, ease.From + ((ease.To - ease.From) * eased));
+        if (progress >= 1 && ReferenceEquals(_running, ease))
         {
-            _ = Interlocked.Exchange(ref _easing, 0);
-            return;
+            _running = null;
         }
-
-        TopLevel.GetTopLevel(this)?.RequestAnimationFrame(OnEaseFrame);
     }
+
+    /// <summary>Where the list was when a new thumbnail was selected.</summary>
+    /// <param name="List">The list.</param>
+    /// <param name="Scroll">The list's scroll viewer.</param>
+    /// <param name="Offset">The offset the list is judged from: where it is, or where its running ease is heading.</param>
+    private sealed record FollowStart(ThumbnailListBox List, ScrollViewer Scroll, double Offset);
+
+    /// <summary>Where the list goes to show a newly selected thumbnail.</summary>
+    /// <param name="Start">Where the list started from.</param>
+    /// <param name="To">The offset that shows the thumbnail.</param>
+    private sealed record FollowTarget(FollowStart Start, double To);
+
+    /// <summary>A running ease of the list to a new offset.</summary>
+    /// <param name="List">The list.</param>
+    /// <param name="Scroll">The list's scroll viewer.</param>
+    /// <param name="From">The offset the ease started from.</param>
+    /// <param name="To">The offset the ease ends at.</param>
+    /// <param name="Started">When the ease started, as a <see cref="Stopwatch"/> timestamp.</param>
+    private sealed record ThumbnailEase(ThumbnailListBox List, ScrollViewer Scroll, double From, double To, long Started);
 }

@@ -14,6 +14,15 @@ namespace HyperPdf.App.Controls;
 /// </summary>
 public sealed partial class PageCanvas
 {
+    /// <summary>Selects all the text on the page shown, as Ctrl+A does; the caret moves to its end.</summary>
+    internal void SelectAllText()
+    {
+        if (Tab is { } tab)
+        {
+            SelectAllOnPage(tab);
+        }
+    }
+
     /// <summary>Handles the moving and grabbing keys before the other page keys.</summary>
     /// <param name="e">The key press.</param>
     /// <returns><see langword="true"/> when the key was used.</returns>
@@ -62,23 +71,6 @@ public sealed partial class PageCanvas
         tab.GoToPage(page);
         InvalidateVisual();
         return true;
-    }
-
-    /// <summary>Selects all the text on the current page when the Select All menu item asks.</summary>
-    private void OnSelectAllRequested()
-    {
-        if (Tab is { } tab)
-        {
-            SelectAllOnPage(tab);
-        }
-    }
-
-    /// <summary>Drops a drag in progress and shows the new tool's pointer when the tool changes.</summary>
-    private void OnPageToolChanged()
-    {
-        _areaDragging = false;
-        Cursor = ToolCursor();
-        InvalidateVisual();
     }
 
     /// <summary>Selects all the text on the current page; the caret moves to its end, so Shift and the arrows adjust it.</summary>

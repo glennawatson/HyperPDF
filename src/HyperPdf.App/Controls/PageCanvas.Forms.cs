@@ -106,7 +106,7 @@ public sealed partial class PageCanvas
             return false;
         }
 
-        Tab?.NavigateTo(new(field.PageIndex, field.Bounds, 0));
+        Tab?.NavigateTo(field.PageIndex, field.Bounds, 0);
         return Redraw();
     }
 

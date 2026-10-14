@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Licences;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -51,7 +52,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
         _subscriptions.Add(_detailTitleHelper);
         _subscriptions.Add(_detailsHelper);
         _subscriptions.Add(_licenceTextHelper);
-        _subscriptions.Add(this.WhenChanged(static vm => vm.Search).SubscribeSafe(_ => Refresh(), static error => Trace.TraceError(error.ToString())));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.Search).SubscribeSafe(_ => Refresh(), ErrorTrace.Write));
     }
 
     /// <summary>Gets the interaction that puts text on the clipboard.</summary>

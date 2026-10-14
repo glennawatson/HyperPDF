@@ -10,6 +10,7 @@ using HyperPdf.Core.Platform;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -43,6 +44,9 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     /// <summary>Whether a run is in progress, so it can be cancelled.</summary>
     private readonly IObservable<bool> _canCancel;
 
+    /// <summary>Owns what the window's lifetime ends.</summary>
+    private readonly MultipleDisposable _lifetime = [];
+
     /// <summary>Stops the run in progress; <see langword="null"/> when none is.</summary>
     private CancellationTokenSource? _cancel;
 
@@ -61,6 +65,9 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         SelectedPreset = Presets[1];
         _canSave = this.WhenChanged(static vm => vm.IsRunning).Select(static running => !running);
         _canCancel = this.WhenChanged(static vm => vm.IsRunning);
+
+        // Closing the window stops a run in progress; the run itself disposes its source when it ends.
+        _lifetime.Add(Scope.Create(Cancel));
     }
 
     /// <summary>Gets the size choices.</summary>
@@ -132,12 +139,8 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     public string SuggestedName => $"{Path.GetFileNameWithoutExtension(FileName)} (optimised).pdf";
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        // Cancelling first lets a run in progress stop; the run disposes the source again, which is harmless.
-        Volatile.Read(ref _cancel)?.Cancel();
-        _cancel?.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _lifetime.Dispose();
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
@@ -234,7 +237,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         var settings = Settings;
 
         // Created here, on the UI thread, so each report is posted back to it.
-        var progress = new Progress<OptimizeProgress>(OnProgress);
+        var progress = new Progress<OptimizeProgress>(ShowProgress);
         try
         {
             OptimizeReport report;
@@ -258,7 +261,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
 
     /// <summary>Shows the progress of the run.</summary>
     /// <param name="progress">The step and its progress.</param>
-    private void OnProgress(OptimizeProgress progress)
+    private void ShowProgress(OptimizeProgress progress)
     {
         if (!IsRunning)
         {

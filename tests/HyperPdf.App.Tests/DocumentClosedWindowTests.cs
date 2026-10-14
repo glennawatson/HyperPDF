@@ -229,18 +229,21 @@ public sealed class DocumentClosedWindowTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(SourceName, Pages)]);
-        using var attached = CommandFailureObserver.Instance.Attach(main.ReportFailure);
+        using var attached = CommandFailures.ShowIn(main.ReportFailure);
 
-        CommandFailureObserver.Instance.OnNext(new ObjectDisposedException(DisposedName));
+        CommandFailures.Observer.OnNext(new ObjectDisposedException(DisposedName));
 
         await Assert.That(main.SelectedTab!.Notice).IsEqualTo("That action stopped because the document was closed or reloaded.");
 
-        CommandFailureObserver.Instance.OnNext(new FormatException("The value is not a number."));
+        CommandFailures.Observer.OnNext(new FormatException("The value is not a number."));
 
         await Assert.That(main.SelectedTab.Notice).IsEqualTo("That action did not finish: The value is not a number.");
     }
 
-    /// <summary>A page edit that arrives after the tab was closed, such as the last page of a text recognition run, is ignored.</summary>
+    /// <summary>
+    /// A page change that arrives after the tab was closed, such as the last page of a text recognition run, is ignored:
+    /// closing the tab ends the chain that redraws for its parts' changes.
+    /// </summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task PageEditAfterTheTabClosedIsIgnored()
@@ -249,12 +252,16 @@ public sealed class DocumentClosedWindowTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(SourceName, Pages)]);
         var tab = main.SelectedTab!;
+        var contentBefore = tab.ContentVersion;
         main.CloseTabWithoutAsking(tab);
 
-        tab.OnPageEdited(0);
-        tab.OnLayersChanged();
+        _ = await tab.Layers.ResetCommand.Execute().ToTask();
 
-        await Assert.That(tab.LifetimeToken.IsCancellationRequested).IsTrue();
+        using (Assert.Multiple())
+        {
+            await Assert.That(tab.LifetimeToken.IsCancellationRequested).IsTrue();
+            await Assert.That(tab.ContentVersion).IsEqualTo(contentBefore);
+        }
     }
 
     /// <summary>Checks a window's error line names the closed document.</summary>

@@ -6,10 +6,12 @@ using System.Diagnostics;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Views;
 
@@ -26,6 +28,7 @@ public sealed partial class OutlinePanelView : ReactiveUI.Avalonia.ReactiveUserC
         var keys = OutlineTree.TunnelKeyDowns;
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsOutlineMode, static v => v.IsVisible));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Outline, static v => v.OutlineTree.ItemsSource));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedOutlineItem, static v => v.OutlineTree.SelectedItem, static item => item, static item => item as OutlineItemViewModel));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasOutline, static v => v.NoOutlineText.IsVisible, static has => !has));
@@ -38,13 +41,14 @@ public sealed partial class OutlinePanelView : ReactiveUI.Avalonia.ReactiveUserC
             disposables.Add(keys.Chord(new(Key.Left, Arrange)).MarkHandled().AsVoid.InvokeCommand(this, static v => v.ViewModel!.OutlineEditing.OutdentCommand));
 
             // An edit replaces the rows, so a row that held the keyboard focus is gone; the focus goes back to the chosen bookmark.
-            disposables.Add(this.WhenChanged(static v => v.ViewModel!.OutlineEditing.Edits).SwitchMap(static edits => edits)
+            disposables.Add(this.WhenChanged(static v => v.ViewModel)
+                .SwitchMap(static tab => tab is null ? Signal.Never<int>() : tab.OutlineEditing.WhenChanged(static editing => editing.EditVersion).Skip(1))
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .WhileFocusOutside(OutlineTools)
                 .InjectLatest(this.WhenChanged(static v => v.ViewModel))
                 .Select(static tab => tab.SelectedOutlineItem)
                 .RowsIn(OutlineTree)
-                .SubscribeSafe(static row => _ = row.Focus(), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(static row => _ = row.Focus(), ErrorTrace.Write));
         });
     }
 }

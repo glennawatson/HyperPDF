@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -32,33 +33,35 @@ public sealed partial class TabFinderView : ReactiveUI.Avalonia.ReactiveUserCont
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Tabs.Count, static v => v.TabCountText.Text, static count => string.Create(CultureInfo.CurrentCulture, $"Tabs {count}")));
             disposables.Add(this.Bind(ViewModel, static vm => vm.TabQuery, static v => v.TabFinderBox.Text, static query => query, static text => text ?? string.Empty));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FoundTabs, static v => v.TabFinderList.ItemsSource));
+
+            // Picking a tab selects it and puts the finder away.
             disposables.Add(TabFinderList.SelectionChanges
                 .Select(static args => (args.Source as ListBox)?.SelectedItem as DocumentTabViewModel)
                 .KeepNotNull()
                 .Inject(viewModels)
-                .SubscribeSafe(
-                    found =>
-                    {
-                        var (tab, viewModel) = found;
-                        viewModel.SelectedTab = tab;
-                        TabFinderButton.Flyout?.Hide();
-                    },
-                    static error => Trace.TraceError(error.ToString())));
+                .Do(static found => found.State.SelectedTab = found.Value)
+                .SubscribeSafe(_ => TabFinderButton.Flyout?.Hide(), ErrorTrace.Write));
             disposables.Add(TabFinderBox.KeyDowns.Pressing(Key.Enter)
                 .Inject(viewModels)
                 .Where(static found => found.State.FoundTabs.Count > 0)
-                .SubscribeSafe(found => TabFinderList.SelectedItem = found.State.FoundTabs[0], static error => Trace.TraceError(error.ToString())));
-            disposables.Add(TabFinderButton.FlyoutOpenings.InjectLatest(viewModels).SubscribeSafe(
-                viewModel =>
+                .SubscribeSafe(found => TabFinderList.SelectedItem = found.State.FoundTabs[0], ErrorTrace.Write));
+
+            // The finder opens from its button or from the view model, and the view model follows the flyout.
+            disposables.Add(TabFinderButton.FlyoutOpenings.InjectLatest(viewModels)
+                .Do(static viewModel =>
                 {
                     viewModel.RefreshFoundTabs();
-                    TabFinderList.SelectedItem = null;
-                    _ = TabFinderBox.Focus();
-                    TabFinderBox.SelectAll();
-                },
-                static error => Trace.TraceError(error.ToString())));
-            disposables.Add(this.WhenChanged(static v => v.ViewModel!.TabFinderRequests).SwitchTo()
-                .SubscribeSafe(_ => TabFinderButton.Flyout!.ShowAt(TabFinderButton), static error => Trace.TraceError(error.ToString())));
+                    viewModel.IsTabFinderOpen = true;
+                })
+                .SelectWith(TabFinderList, static (list, _) => list)
+                .Do(static list => list.SelectedItem = null)
+                .SelectWith(TabFinderBox, static (box, _) => box)
+                .FocusSelectingAll());
+            disposables.Add(TabFinderButton.FlyoutClosings.InjectLatest(viewModels).SubscribeSafe(static viewModel => viewModel.IsTabFinderOpen = false, ErrorTrace.Write));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel!.IsTabFinderOpen)
+                .Where(static open => open)
+                .WhereWith(this, static (view, _) => view.TabFinderButton.Flyout is { IsOpen: false })
+                .SubscribeSafe(_ => TabFinderButton.Flyout!.ShowAt(TabFinderButton), ErrorTrace.Write));
         });
     }
 }

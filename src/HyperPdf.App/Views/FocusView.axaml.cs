@@ -10,6 +10,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -91,25 +92,11 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
     {
         InitializeComponent();
         _focus = this.WhenChanged(static v => v.ViewModel);
-        ColourBox.ItemsSource = FocusModeViewModel.PageColourOptions;
-        FontBox.ItemsSource = FocusModeViewModel.FontOptions;
-        ColourBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
-        FontBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
         PageList.ItemTemplate = new FuncDataTemplate<FocusPageViewModel>((_, _) => new FocusPageView { FocusMode = ViewModel });
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(_focus.BindTo(this, static v => v.Toolbar.ViewModel));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Pages, static v => v.PageList.ItemsSource));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.SmallerCommand, static v => v.SmallerButton));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.LargerCommand, static v => v.LargerButton));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.ToggleCommand, static v => v.BackToPagesButton));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.FontSize, static v => v.SizeSlider.Value));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.LineSpacing, static v => v.LineSlider.Value));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.ParagraphSpacing, static v => v.ParagraphSlider.Value));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.TextWidth, static v => v.WidthSlider.Value));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.PageColour, static v => v.ColourBox.SelectedIndex));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.Font, static v => v.FontBox.SelectedIndex));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.FocusBand, static v => v.BandCheck.IsChecked, static on => on, static on => on == true));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.WordHighlight, static v => v.WordCheck.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.WhenChanged(
                     static v => v.ViewModel!.FontSize,
                     static v => v.ViewModel!.LineSpacing,
@@ -120,21 +107,19 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
                     static (_, _, _, _, _, _) => RxVoid.Default)
                 .Merge(this.Events().ResourcesChanged.AsVoid)
                 .InjectLatest(_focus)
-                .SubscribeSafe(ApplySettings, OnError));
-            disposables.Add(this.WhenChanged(static v => v.ViewModel!.ScrollRequests)
-                .SwitchMap(static stream => stream)
+                .SubscribeSafe(ApplySettings, ErrorTrace.Write));
+
+            // Each new scroll target of the Focus Mode shown is brought into view; the target it already had is not.
+            disposables.Add(_focus
+                .SwitchMap(static focus => focus is null ? Signal.Never<FocusScrollRequest>() : focus.WhenChanged(static mode => mode.ScrollTarget).Skip(1))
                 .Inject(_focus)
 
                 // A newer request cancels the older scroll, which may still be waiting for its page to load.
                 .SwitchAsync(ScrollToAsync)
-                .SubscribeSafe(static _ => { }, OnError));
-            disposables.Add(this.WhenChanged(static v => v.FocusScroller.Offset).InjectLatest(_focus).SubscribeSafe(ReportTop, OnError));
+                .SubscribeSafe(static _ => { }, ErrorTrace.Write));
+            disposables.Add(this.WhenChanged(static v => v.FocusScroller.Offset).InjectLatest(_focus).SubscribeSafe(ReportTop, ErrorTrace.Write));
         });
     }
-
-    /// <summary>Focuses the first control, so focus lands in Focus Mode when it opens.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void FocusFirstControl() => _ = BackToPagesButton.Focus();
 
     /// <summary>Gets the page views currently realised, top to bottom.</summary>
     /// <returns>The views.</returns>
@@ -151,11 +136,6 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
 
         return views;
     }
-
-    /// <summary>Reports a binding failure.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Gets a colour's relative brightness.</summary>
     /// <param name="colour">The colour.</param>

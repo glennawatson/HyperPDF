@@ -79,7 +79,10 @@ public static class Program
             .UseDesktopPlatform(isLinux, x11Display, waylandDisplay)
             .With(new X11PlatformOptions { WmClass = AppIdentity.WindowClass, RenderingMode = [X11RenderingMode.Vulkan, X11RenderingMode.Egl, X11RenderingMode.Glx, X11RenderingMode.Software] })
             .LogToTrace()
-            .UseReactiveUI(static builder => builder.WithExceptionHandler(CommandFailureObserver.Instance));
+            .UseReactiveUI(static builder => builder.WithExceptionHandler(CommandFailures.Observer))
+
+            // Runs once the application and its desktop lifetime exist, just before Avalonia reports set-up complete.
+            .AfterSetup(static builder => (builder.Instance as App)?.Start());
 
     /// <summary>Forwards startup documents to a running viewer, or claims its single-instance endpoint.</summary>
     /// <returns>Whether this process should show its own window.</returns>

@@ -101,7 +101,7 @@ public sealed class OffUiThreadWorkTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("pages.pdf", Pages)]);
         var tab = main.SelectedTab!;
-        using var pages = new PageManagementViewModel(tab);
+        var pages = tab.Pages;
         pages.SelectPages([1]);
         var uiThread = Environment.CurrentManagedThreadId;
 

@@ -3,13 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
@@ -17,6 +17,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Views;
 
@@ -39,11 +40,8 @@ public sealed class PrintPreviewPageView : ReactiveUI.Avalonia.ReactiveUserContr
     /// <summary>The caption.</summary>
     private readonly TextBlock _caption = new() { HorizontalAlignment = HorizontalAlignment.Center, Margin = new(0, 6, 0, 0) };
 
-    /// <summary>The sizing subscription, owned until disposal so unloaded sheets can be measured.</summary>
-    private readonly MultipleDisposable _sizing;
-
-    /// <summary>The current visible sheet's preparation.</summary>
-    private CancellationTokenSource? _preparation;
+    /// <summary>Owns what the view keeps while unloaded sheets can be measured: its caption and size follow the sheet.</summary>
+    private readonly MultipleDisposable _lifetime = [];
 
     /// <summary>The rendered sheet.</summary>
     private WriteableBitmap? _bitmap;
@@ -70,29 +68,26 @@ public sealed class PrintPreviewPageView : ReactiveUI.Avalonia.ReactiveUserContr
         Content = sheet;
 
         // Virtualised sheets receive their model before loading; sizing must precede the first measure.
-        _sizing = [this.WhenChanged(static v => v.ViewModel).SubscribeSafe(SetSheetSize, OnError)];
+        var sheets = this.WhenChanged(static v => v.ViewModel);
+        _lifetime.Add(sheets.SubscribeSafe(ReserveSheetSize, ErrorTrace.Write));
+        _lifetime.Add(sheets.Select(static page => page?.Caption).BindTo(_caption, static caption => caption.Text));
 
-        // A sheet is an immutable record, so the view follows which one it shows.
-        _ = this.WhenActivated(disposables =>
+        // A sheet is an immutable record, so the view follows which one it shows: the old picture goes at once, and the
+        // new sheet is prepared and drawn off the UI thread. Showing another sheet ends the work for the one before, and
+        // disposing the view ends the activation, which cancels the work and releases the picture.
+        _lifetime.Add(this.WhenActivated(disposables =>
         {
-            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(PrepareAndShow, OnError));
-            disposables.Add(EmptyDisposable.Instance.DisposeWith(ReleaseBitmap));
-            disposables.Add(EmptyDisposable.Instance.DisposeWith(StopPreparation));
-        });
+            disposables.Add(sheets
+                .SelectWith(this, static (view, page) => view.RenderRequestFor(page))
+                .SwitchMap(RenderedSheet)
+                .SubscribeSafe(ShowBitmap, ErrorTrace.Write));
+            disposables.Add(Scope.Create(this, static view => view.ShowBitmap(null)));
+        }));
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _sizing.Dispose();
-        StopPreparation();
-        ReleaseBitmap();
-    }
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _lifetime.Dispose();
 
     /// <summary>Draws a sheet into a bitmap.</summary>
     /// <param name="bitmap">The bitmap.</param>
@@ -106,110 +101,75 @@ public sealed class PrintPreviewPageView : ReactiveUI.Avalonia.ReactiveUserContr
         _ = sheet.Document.Render(info, new(span, pixels.Width, pixels.Height, buffer.RowBytes));
     }
 
-    /// <summary>Prepares only the sheet this view currently displays.</summary>
-    /// <param name="sheet">The visible sheet.</param>
-    private void PrepareAndShow(PrintPreviewPage? sheet)
-    {
-        StopPreparation();
-        Show(null);
-        _caption.Text = sheet?.Caption;
-        if (sheet is null || sheet.Document.IsDisposed)
-        {
-            return;
-        }
+    /// <summary>
+    /// Gets the picture of a sheet as it will print: nothing at once, then the sheet drawn on white paper once it is prepared.
+    /// The work stops when the subscription ends.
+    /// </summary>
+    /// <param name="request">The sheet and the size to draw it at, or no sheet.</param>
+    /// <returns>The pictures; a <see langword="null"/> picture clears the old one.</returns>
+    private static IObservable<WriteableBitmap?> RenderedSheet(SheetRender? request) => request is not { } render
+        ? Signal.Return<WriteableBitmap?>(null)
+        : Signal.FromAsync(token => RenderAsync(render, token)).StartWith((WriteableBitmap?)null);
 
-        var source = new CancellationTokenSource();
-        _preparation = source;
-        _ = ShowAfterPreparationAsync(sheet, source);
-    }
-
-    /// <summary>Renders a prepared sheet if the view still displays it.</summary>
-    /// <param name="sheet">The requested sheet.</param>
-    /// <param name="source">Cancels preparation when the view changes or deactivates.</param>
-    /// <returns>A task completing after the sheet is drawn or cancelled.</returns>
-    private async Task ShowAfterPreparationAsync(PrintPreviewPage sheet, CancellationTokenSource source)
+    /// <summary>Prepares a sheet and renders it off the UI thread.</summary>
+    /// <param name="render">The sheet and the size to draw it at.</param>
+    /// <param name="token">Cancels the work when the view shows another sheet or deactivates.</param>
+    /// <returns>The picture, or <see langword="null"/> when the work was cancelled or failed.</returns>
+    private static async Task<WriteableBitmap?> RenderAsync(SheetRender render, CancellationToken token)
     {
+        var (sheet, pixels, scaling) = render;
+        WriteableBitmap? bitmap = null;
         try
         {
-            await sheet.Document.PreparePageAsync(sheet.PageIndex, source.Token).ConfigureAwait(true);
-            if (ReferenceEquals(_preparation, source) && ReferenceEquals(ViewModel, sheet))
-            {
-                await ShowAsync(sheet, source).ConfigureAwait(true);
-            }
+            await sheet.Document.PreparePageAsync(sheet.PageIndex, token).ConfigureAwait(true);
+
+            // The bitmap belongs to this call until it is returned, so a sheet change while it renders cannot dispose it mid-draw.
+            bitmap = new(pixels, new(ScreenDpi * scaling, ScreenDpi * scaling), PixelFormat.Bgra8888, AlphaFormat.Premul);
+            var drawing = bitmap;
+            await Task.Run(() => RenderSheet(drawing, sheet, pixels), token).ConfigureAwait(true);
+            token.ThrowIfCancellationRequested();
+            return bitmap;
         }
-        catch (OperationCanceledException) when (source.IsCancellationRequested)
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Changing sheets or closing the view cancels the old sheet's preparation.
+            // Changing sheets or closing the view cancels the old sheet's work.
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
-            OnError(error);
+            ErrorTrace.Write(error);
         }
-        finally
+
+        bitmap?.Dispose();
+        return null;
+    }
+
+    /// <summary>Works out what to draw for the sheet the view shows now, on the UI thread.</summary>
+    /// <param name="sheet">The sheet, or <see langword="null"/>.</param>
+    /// <returns>The request, or <see langword="null"/> when there is nothing to draw.</returns>
+    private SheetRender? RenderRequestFor(PrintPreviewPage? sheet)
+    {
+        if (sheet is null || sheet.Document.IsDisposed || sheet.Size.Width <= 0 || sheet.Size.Height <= 0)
         {
-            if (ReferenceEquals(_preparation, source))
-            {
-                StopPreparation();
-            }
-        }
-    }
-
-    /// <summary>Cancels preparation for a sheet the view no longer displays.</summary>
-    private void StopPreparation()
-    {
-        _preparation?.Cancel();
-        _preparation?.Dispose();
-        _preparation = null;
-    }
-
-    /// <summary>Clears the sheet and its caption, ready for the next one.</summary>
-    /// <param name="sheet">The sheet being shown next, or <see langword="null"/>.</param>
-    private void Show(PrintPreviewPage? sheet)
-    {
-        ReleaseBitmap();
-        _caption.Text = sheet?.Caption;
-    }
-
-    /// <summary>Renders a sheet as it will print, off the UI thread: white paper, annotations included.</summary>
-    /// <param name="sheet">The sheet.</param>
-    /// <param name="source">Cancels the rendering when the view changes or deactivates.</param>
-    /// <returns>A task completing once the sheet is shown or dropped.</returns>
-    private async Task ShowAsync(PrintPreviewPage sheet, CancellationTokenSource source)
-    {
-        Show(sheet);
-        if (sheet.Document.IsDisposed || sheet.Size.Width <= 0 || sheet.Size.Height <= 0)
-        {
-            return;
+            return null;
         }
 
         var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
         var pixels = new PixelSize(Math.Max(1, (int)Math.Round(_image.Width * scaling)), Math.Max(1, (int)Math.Round(_image.Height * scaling)));
+        return new(sheet, pixels, scaling);
+    }
 
-        // The bitmap belongs to this call until it is shown, so a sheet change while it renders cannot dispose it mid-draw.
-        var bitmap = new WriteableBitmap(pixels, new(ScreenDpi * scaling, ScreenDpi * scaling), PixelFormat.Bgra8888, AlphaFormat.Premul);
-        try
-        {
-            await Task.Run(() => RenderSheet(bitmap, sheet, pixels), source.Token).ConfigureAwait(true);
-        }
-        catch
-        {
-            bitmap.Dispose();
-            throw;
-        }
-
-        if (!ReferenceEquals(_preparation, source) || !ReferenceEquals(ViewModel, sheet))
-        {
-            bitmap.Dispose();
-            return;
-        }
-
-        _bitmap = bitmap;
+    /// <summary>Shows a picture of the sheet and releases the one before; no picture leaves the paper blank.</summary>
+    /// <param name="bitmap">The picture, or <see langword="null"/>.</param>
+    private void ShowBitmap(WriteableBitmap? bitmap)
+    {
         _image.Source = bitmap;
+        _bitmap?.Dispose();
+        _bitmap = bitmap;
     }
 
     /// <summary>Reserves the paper's size before the virtualising panel measures a recycled sheet.</summary>
     /// <param name="sheet">The sheet assigned to the view.</param>
-    private void SetSheetSize(PrintPreviewPage? sheet)
+    private void ReserveSheetSize(PrintPreviewPage? sheet)
     {
         if (sheet is null || sheet.Size.Width <= 0 || sheet.Size.Height <= 0)
         {
@@ -219,14 +179,11 @@ public sealed class PrintPreviewPageView : ReactiveUI.Avalonia.ReactiveUserContr
         var scale = SheetSide / Math.Max(sheet.Size.Width, sheet.Size.Height);
         _image.Width = sheet.Size.Width * scale;
         _image.Height = sheet.Size.Height * scale;
-        _caption.Text = sheet.Caption;
     }
 
-    /// <summary>Releases the rendered sheet.</summary>
-    private void ReleaseBitmap()
-    {
-        _image.Source = null;
-        _bitmap?.Dispose();
-        _bitmap = null;
-    }
+    /// <summary>A sheet to draw and the size to draw it at.</summary>
+    /// <param name="Sheet">The sheet.</param>
+    /// <param name="Pixels">The bitmap's size.</param>
+    /// <param name="Scaling">The display scale.</param>
+    private sealed record SheetRender(PrintPreviewPage Sheet, PixelSize Pixels, double Scaling);
 }

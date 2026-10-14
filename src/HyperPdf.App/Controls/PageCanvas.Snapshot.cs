@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
@@ -115,7 +116,7 @@ public sealed partial class PageCanvas
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
-            OnError(error);
+            ErrorTrace.Write(error);
             tab.Notice = FailedMessage;
         }
         finally
@@ -162,7 +163,7 @@ public sealed partial class PageCanvas
             catch (NotSupportedException error)
             {
                 // Some desktops' clipboards hold only text; the picture is saved instead.
-                OnError(error);
+                ErrorTrace.Write(error);
             }
         }
 

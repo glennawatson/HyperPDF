@@ -54,20 +54,11 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     /// <summary>The subscriptions rebuilding the preview.</summary>
     private readonly MultipleDisposable _subscriptions;
 
-    /// <summary>Raises <see cref="Answered"/> with <see langword="true"/>.</summary>
-    private readonly Signal<RxVoid> _confirmed = new();
-
     /// <summary>Whether the settings are valid and no build is running, so the print can be confirmed.</summary>
     private readonly IObservable<bool> _ready;
 
     /// <summary>The pages chosen, reused between rebuilds.</summary>
     private readonly List<int> _chosen = [];
-
-    /// <summary>Counts rebuilds, so a slow one that finishes late is dropped.</summary>
-    private int _version;
-
-    /// <summary>The preview document.</summary>
-    private IDocument? _preview;
 
     /// <summary>Initializes a new instance of the <see cref="PrintPreviewViewModel"/> class.</summary>
     /// <param name="tab">The tab being printed.</param>
@@ -82,27 +73,39 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         _subscriptions =
         [
 
+            // The sheets go with the window.
+            Scope.Create(Sheets.Clear),
+
+            // The preview shown is open until another replaces it or the window closes: the switch releases the one
+            // before, which closes its document and deletes its file unless the file was handed over to print.
+            this.WhenChanged(static vm => vm.Preview).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write),
+
             // Keeps the copies within range; the first value is the current one.
             this.WhenChanged(static vm => vm.Copies)
                 .Skip(1)
-                .SubscribeSafe(ClampCopies, static error => Trace.TraceError(error.ToString())),
-            this.WhenChanged(
-                    static vm => vm.PageChoice,
-                    static vm => vm.CustomPages,
-                    static vm => vm.PagesPerSheetIndex,
-                    static vm => vm.LayoutIndex,
-                    static vm => vm.Paper,
-                    static vm => vm.IncludeAnnotations,
-                    static vm => vm.SelectedTarget,
-                    static (_, _, _, _, _, _, _) => RxVoid.Default)
-                .SubscribeSafe(OnSettingsChanged, static error => Trace.TraceError(error.ToString())),
+                .SubscribeSafe(ClampCopies, ErrorTrace.Write),
 
-            // Scaling changes rebuild too; the first value is the current one, already built above.
-            this.WhenChanged(static vm => vm.Scaling, static vm => vm.ScalePercent, static (_, _) => RxVoid.Default)
-                .Skip(1)
-                .SubscribeSafe(OnScalingChanged, static error => Trace.TraceError(error.ToString())),
+            // Each setting change builds the preview again. Scaling changes rebuild only when the scale applies to these
+            // sheets; their first value is the current one, already built by the first settings value.
+            Signal.Merge(
+                    this.WhenChanged(
+                        static vm => vm.PageChoice,
+                        static vm => vm.CustomPages,
+                        static vm => vm.PagesPerSheetIndex,
+                        static vm => vm.LayoutIndex,
+                        static vm => vm.Paper,
+                        static vm => vm.IncludeAnnotations,
+                        static vm => vm.SelectedTarget,
+                        static (_, _, _, _, _, _, _) => RxVoid.Default),
+                    this.WhenChanged(static vm => vm.Scaling, static vm => vm.ScalePercent, static (_, _) => RxVoid.Default)
+                        .Skip(1)
+                        .Where(_ => ShowsScaling))
+                .SwitchMap(_ => Signal.FromAsync(RebuildAsync))
+                .SubscribeSafeErrors(ErrorTrace.Write),
         ];
-        Answered = Signal.Merge(_confirmed.Select(static _ => true), CancelCommand);
+
+        // Print and the system dialog answer yes, Cancel answers no; each is a command, so the answer is their results.
+        Answered = Signal.Merge(ConfirmCommand, SystemDialogCommand, CancelCommand);
     }
 
     /// <summary>Gets the layout choices: pages in order, a booklet, or posters of 2, 3 or 4 sheets across.</summary>
@@ -211,10 +214,14 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     public partial int SelectedSheetIndex { get; set; } = -1;
 
     /// <summary>Gets the file that will print, once built.</summary>
-    public string? PreviewPath { get; private set; }
+    public string? PreviewPath => Preview?.Path;
 
     /// <summary>Gets the answer, which closes the window: <see langword="true"/> to print.</summary>
     public IObservable<bool> Answered { get; }
+
+    /// <summary>Gets the preview shown: the file that will print and the document read from it, or <see langword="null"/> before one is built.</summary>
+    [Reactive]
+    internal partial PrintPreviewFile? Preview { get; private set; }
 
     /// <summary>Describes a sheet count.</summary>
     /// <param name="sheets">The sheets.</param>
@@ -235,21 +242,14 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        // A build still running when the window closes is now out of date; it deletes its own file instead of opening it.
-        _version++;
-        _subscriptions.Dispose();
-        _confirmed.Dispose();
-        ClosePreview();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Hands over the file that will print: the preview closes and the caller deletes the file when done.</summary>
     /// <returns>The file, or <see langword="null"/> when none is ready.</returns>
     public string? TakePrintFile()
     {
-        var path = PreviewPath;
-        PreviewPath = null;
+        var path = Preview?.HandOver();
         ClosePreview();
         return path;
     }
@@ -313,6 +313,12 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool Cancel() => false;
 
+    /// <summary>Confirms the print.</summary>
+    /// <returns>Always <see langword="true"/>, the answer that prints.</returns>
+    [ReactiveCommand(CanExecute = nameof(_ready))]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool Confirm() => true;
+
     /// <summary>Lists the printers off the UI thread and chooses the default one, when there are any.</summary>
     /// <returns>A task.</returns>
     private async Task LoadPrintersAsync()
@@ -334,17 +340,13 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         }
     }
 
-    /// <summary>Confirms the print.</summary>
-    [ReactiveCommand(CanExecute = nameof(_ready))]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void Confirm() => _confirmed.OnNext(RxVoid.Default);
-
     /// <summary>Skips these settings and prints the whole document from the desktop's own dialog.</summary>
+    /// <returns>Always <see langword="true"/>, the answer that prints.</returns>
     [ReactiveCommand]
-    private void SystemDialog()
+    private bool SystemDialog()
     {
         SelectedTarget = SystemDialogTarget;
-        _confirmed.OnNext(RxVoid.Default);
+        return true;
     }
 
     /// <summary>Keeps the number of copies between one and the most offered.</summary>
@@ -357,20 +359,6 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
             Copies = clamped;
         }
     }
-
-    /// <summary>Rebuilds the preview after the scale changed, only when the scale applies to these sheets.</summary>
-    /// <param name="change">Unused.</param>
-    private void OnScalingChanged(RxVoid change)
-    {
-        if (ShowsScaling)
-        {
-            _ = RebuildAsync();
-        }
-    }
-
-    /// <summary>Rebuilds the preview after a setting changed.</summary>
-    /// <param name="change">Unused.</param>
-    private void OnSettingsChanged(RxVoid change) => _ = RebuildAsync();
 
     /// <summary>Chooses the pages from the settings.</summary>
     /// <returns><see langword="true"/> when at least one page is chosen.</returns>
@@ -404,27 +392,28 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Builds the file that will print off the UI thread, then shows its sheets.</summary>
-    /// <returns>A task.</returns>
-    private async Task RebuildAsync()
+    /// <param name="cancellationToken">Cancelled when a newer setting starts another build or the window closes; the file built is then deleted.</param>
+    /// <returns>A task that completes once the sheets are shown.</returns>
+    private async Task<RxVoid> RebuildAsync(CancellationToken cancellationToken)
     {
-        var version = ++_version;
         if (DocumentFeature<IPageExporter>.Get(_tab.TryGetDocument()) is not
             {
             } exporter || !ChoosePages())
         {
             IsValid = false;
             Summary = PageChoice == PrintPageChoice.Custom ? "Type pages like 1-3, 7" : "Nothing to print";
-            return;
+            return RxVoid.Default;
         }
 
         IsBuilding = true;
         var pages = _chosen.ToArray();
         var layout = CurrentLayout();
-        var path = await Task.Run(() => Build(exporter, pages, layout)).ConfigureAwait(true);
-        if (version != _version)
+        var path = await Task.Run(() => Build(exporter, pages, layout), CancellationToken.None).ConfigureAwait(true);
+        if (cancellationToken.IsCancellationRequested)
         {
+            // A newer build replaced this one, or the window closed.
             Delete(path);
-            return;
+            return RxVoid.Default;
         }
 
         IsBuilding = false;
@@ -434,29 +423,61 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         {
             IsValid = false;
             Summary = "Could not prepare the pages";
-            return;
+            return RxVoid.Default;
         }
 
-        PreviewPath = path;
-        _preview = _services.Engine.Open(path, null);
-        var sizes = _preview.GetPageSizes();
+        var preview = new PrintPreviewFile(_services.Engine.Open(path, null), path);
+        Preview = preview;
+        var sizes = preview.Document.GetPageSizes();
         for (var i = 0; i < sizes.Length; i++)
         {
-            Sheets.Add(new(_preview, i, sizes[i], string.Create(CultureInfo.CurrentCulture, $"{i + 1} of {sizes.Length}")));
+            Sheets.Add(new(preview.Document, i, sizes[i], string.Create(CultureInfo.CurrentCulture, $"{i + 1} of {sizes.Length}")));
         }
 
         SelectedSheetIndex = Math.Min(selected, sizes.Length - 1);
         Summary = DescribeSheets(sizes.Length);
         IsValid = true;
+        return RxVoid.Default;
     }
 
-    /// <summary>Closes and deletes the current preview.</summary>
+    /// <summary>Takes the sheets away and lets the preview go, which closes its document and deletes its file unless it was handed over.</summary>
     private void ClosePreview()
     {
         Sheets.Clear();
-        _preview?.Dispose();
-        _preview = null;
-        Delete(PreviewPath);
-        PreviewPath = null;
+        Preview = null;
+    }
+
+    /// <summary>The file that will print and the document read from it to show its sheets.</summary>
+    /// <param name="document">The document read from the file.</param>
+    /// <param name="path">The file.</param>
+    [DebuggerDisplay("PrintPreviewFile: {Path}")]
+    internal sealed class PrintPreviewFile(IDocument document, string path) : IDisposable
+    {
+        /// <summary>1 once the file was handed over to print, so it is not deleted here.</summary>
+        private int _handedOver;
+
+        /// <summary>Gets the document read from the file.</summary>
+        internal IDocument Document { get; } = document;
+
+        /// <summary>Gets the file.</summary>
+        internal string Path { get; } = path;
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            Document.Dispose();
+            if (Volatile.Read(ref _handedOver) == 0)
+            {
+                Delete(Path);
+            }
+        }
+
+        /// <summary>Hands the file over to print; the caller deletes it when done.</summary>
+        /// <returns>The file.</returns>
+        internal string HandOver()
+        {
+            Volatile.Write(ref _handedOver, 1);
+            return Path;
+        }
     }
 }

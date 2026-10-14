@@ -11,19 +11,11 @@
     <views:TabBarView x:Name="TabBar" AutomationProperties.Name="Tabs" AutomationProperties.LandmarkType="Navigation" />
     <Panel Grid.Row="1">
       <views:StartView x:Name="StartPage" />
-      <!-- The second column holds a second view of the same document while the view is split. -->
-      <Grid x:Name="DocumentArea" ColumnDefinitions="*,Auto,0">
-        <ContentControl x:Name="DocumentHost" />
-        <GridSplitter x:Name="SplitSplitter" Grid.Column="1" Width="6" views:ControlHelp.Text="{x:Static views:Descriptions.SplitSplitter}" AutomationProperties.Name="Split view divider" IsVisible="False" />
-        <ContentControl x:Name="SplitHost" Grid.Column="2" AutomationProperties.Name="Second view" IsVisible="False" />
-      </Grid>
+      <views:DocumentAreaView x:Name="DocumentArea" />
     </Panel>
-    <Border Grid.Row="2" x:Name="StatusBar" Classes="toolbar" BorderThickness="0,1,0,0" AutomationProperties.Name="Status" AutomationProperties.ControlTypeOverride="StatusBar">
-      <Grid ColumnDefinitions="*,Auto">
-        <!-- Downloads and their failures are announced without moving the focus. -->
-        <TextBlock x:Name="StatusText" AutomationProperties.LiveSetting="Polite" Margin="6,2" VerticalAlignment="Center" />
-        <Button Grid.Column="1" x:Name="DismissStatusButton" views:ControlHelp.Text="{x:Static views:Descriptions.DismissMessage}" Content="Dismiss" />
-      </Grid>
-    </Border>
+    <views:StatusBarView Grid.Row="2" x:Name="StatusBarArea" />
+    <!-- The window's keyboard shortcuts and dialogs; neither shows anything. -->
+    <views:WindowShortcutsView x:Name="ShortcutKeys" />
+    <views:WindowDialogsView x:Name="Dialogs" />
   </Grid>
 </Window>

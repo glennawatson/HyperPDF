@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.AnnotationStyleView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotationStyleView.axaml.cs). -->
+  <StackPanel Orientation="Horizontal">
+    <!-- One colour button, always showing the colour's name, so colour is never the only cue. -->
+    <Button AutomationProperties.Name="Annotation colour" x:Name="ColourButton" views:ControlHelp.Text="{x:Static views:Descriptions.AnnotationColour}" Classes="tool">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Border x:Name="ColourSwatch" Classes="swatch" />
+        <TextBlock x:Name="ColourText" VerticalAlignment="Center" />
+      </StackPanel>
+      <Button.Flyout>
+        <MenuFlyout>
+          <MenuItem x:Name="YellowItem" views:ControlHelp.Text="{x:Static views:Descriptions.Yellow}" Header="_Yellow">
+            <MenuItem.Icon>
+              <Border Classes="swatch" Background="#F0DC96" />
+            </MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="GreenItem" views:ControlHelp.Text="{x:Static views:Descriptions.Green}" Header="_Green">
+            <MenuItem.Icon>
+              <Border Classes="swatch" Background="#BCDCB0" />
+            </MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="BlueItem" views:ControlHelp.Text="{x:Static views:Descriptions.Blue}" Header="_Blue">
+            <MenuItem.Icon>
+              <Border Classes="swatch" Background="#B4CCDC" />
+            </MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="RedItem" views:ControlHelp.Text="{x:Static views:Descriptions.Red}" Header="_Red">
+            <MenuItem.Icon>
+              <Border Classes="swatch" Background="#E8BCB4" />
+            </MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="PurpleItem" views:ControlHelp.Text="{x:Static views:Descriptions.Purple}" Header="_Purple">
+            <MenuItem.Icon>
+              <Border Classes="swatch" Background="#D4C8E4" />
+            </MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="OrangeItem" views:ControlHelp.Text="{x:Static views:Descriptions.Orange}" Header="_Orange">
+            <MenuItem.Icon>
+              <Border Classes="swatch" Background="#F0CCA8" />
+            </MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="GreyItem" views:ControlHelp.Text="{x:Static views:Descriptions.Grey}" Header="Gr_ey">
+            <MenuItem.Icon>
+              <Border Classes="swatch" Background="#D0D0CC" />
+            </MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="DarkBlueItem" views:ControlHelp.Text="{x:Static views:Descriptions.DarkBlue}" Header="_Dark Blue">
+            <MenuItem.Icon>
+              <Border Classes="swatch" Background="#23324A" />
+            </MenuItem.Icon>
+          </MenuItem>
+        </MenuFlyout>
+      </Button.Flyout>
+    </Button>
+    <Button AutomationProperties.Name="Line width" x:Name="LineWidthButton" views:ControlHelp.Text="{x:Static views:Descriptions.LineWidth}" Classes="tool">
+      <StackPanel Orientation="Horizontal">
+        <Path Classes="icon edit" Data="{StaticResource IconLineWidth}" />
+        <TextBlock x:Name="LineWidthText" Classes="label" Text="Line" />
+      </StackPanel>
+      <Button.Flyout>
+        <MenuFlyout>
+          <MenuItem x:Name="ThinLineItem" views:ControlHelp.Text="{x:Static views:Descriptions.LineThin}" Header="_Thin" />
+          <MenuItem x:Name="MediumLineItem" views:ControlHelp.Text="{x:Static views:Descriptions.LineMedium}" Header="_Medium" />
+          <MenuItem x:Name="ThickLineItem" views:ControlHelp.Text="{x:Static views:Descriptions.LineThick}" Header="T_hick" />
+        </MenuFlyout>
+      </Button.Flyout>
+    </Button>
+  </StackPanel>
+</UserControl>

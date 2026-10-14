@@ -4,10 +4,12 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Protection;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -25,9 +27,6 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     /// <summary>The path of the open document, which must never be overwritten.</summary>
     private readonly string _sourcePath;
 
-    /// <summary>Stops the run in progress; <see langword="null"/> when none is.</summary>
-    private CancellationTokenSource? _cancel;
-
     /// <summary>Initializes a new instance of the <see cref="ProtectionRunViewModel"/> class.</summary>
     /// <param name="sourcePath">The path of the open document.</param>
     protected ProtectionRunViewModel(string sourcePath)
@@ -37,6 +36,7 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
         FileName = Path.GetFileName(sourcePath);
         CanStart = this.WhenChanged(static vm => vm.IsRunning).Select(static running => !running);
         CanStop = this.WhenChanged(static vm => vm.IsRunning);
+        Subscriptions.Add(this.WhenChanged(static vm => vm.Run).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
     }
 
     /// <summary>Gets the name of the open document.</summary>
@@ -78,6 +78,16 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     /// <summary>Gets whether a run is in progress, so it can be cancelled.</summary>
     protected IObservable<bool> CanStop { get; }
 
+    /// <summary>
+    /// Gets what the window owns until it closes: the run in progress, and what a derived window adds, such as
+    /// forgetting the passwords it holds.
+    /// </summary>
+    protected MultipleDisposable Subscriptions { get; } = [];
+
+    /// <summary>Gets or sets the run in progress, which disposing cancels, or <see langword="null"/> when none is.</summary>
+    [Reactive]
+    private partial CancellationDisposable? Run { get; set; }
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -85,17 +95,14 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>Stops a run in progress. A derived window overrides it to forget the passwords it holds.</summary>
+    /// <summary>Releases what the window owns: the run in progress, and what a derived window added to <see cref="Subscriptions"/>.</summary>
     /// <param name="disposing"><see langword="true"/> when called from <see cref="Dispose()"/>.</param>
     protected virtual void Dispose(bool disposing)
     {
-        if (!disposing)
+        if (disposing)
         {
-            return;
+            Subscriptions.Dispose();
         }
-
-        Volatile.Read(ref _cancel)?.Cancel();
-        _cancel?.Dispose();
     }
 
     /// <summary>Asks where to save, then writes the copy there.</summary>
@@ -118,15 +125,15 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
             return;
         }
 
-        var cancel = new CancellationTokenSource();
-        Volatile.Write(ref _cancel, cancel);
+        var run = new CancellationDisposable();
+        Run = run;
         IsRunning = true;
         ProgressPercent = 0;
         ResultText = string.Empty;
         StatusText = runningText;
         try
         {
-            ShowResult(await ProtectedCopyFile.WriteAsync(write, path, cancel.Token).ConfigureAwait(true), path, action);
+            ShowResult(await ProtectedCopyFile.WriteAsync(write, path, run.Token).ConfigureAwait(true), path, action);
         }
         catch (OperationCanceledException)
         {
@@ -139,8 +146,11 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
         }
         finally
         {
-            Volatile.Write(ref _cancel, null);
-            cancel.Dispose();
+            if (ReferenceEquals(Run, run))
+            {
+                Run = null;
+            }
+
             IsRunning = false;
         }
     }
@@ -148,7 +158,7 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     /// <summary>Stops the copy in progress.</summary>
     [ReactiveCommand(CanExecute = nameof(CanStop))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void Cancel() => Volatile.Read(ref _cancel)?.Cancel();
+    private void Cancel() => Run = null;
 
     /// <summary>Stops any copy in progress and asks the window to close.</summary>
     [ReactiveCommand]

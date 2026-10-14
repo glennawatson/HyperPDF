@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -30,7 +31,7 @@ public sealed partial class LayerItemView : ReactiveUI.Avalonia.ReactiveUserCont
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Note, static v => v.NoteText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasNote, static v => v.NoteText.IsVisible));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsVisible, static v => v.LayerBox.IsChecked, static on => on, static on => on == true));
-            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, static error => Trace.TraceError(error.ToString())));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(NameTreeItem, ErrorTrace.Write));
 
             // The tree item that hosts this view owns the expander, so the model is bound to it directly.
             if (this.FindAncestorOfType<TreeViewItem>() is { } container)
@@ -43,7 +44,7 @@ public sealed partial class LayerItemView : ReactiveUI.Avalonia.ReactiveUserCont
 
     /// <summary>Names the tree item for screen readers, including that a layer is locked or that an entry is a group.</summary>
     /// <param name="entry">The entry.</param>
-    private void Show(LayerItemViewModel? entry)
+    private void NameTreeItem(LayerItemViewModel? entry)
     {
         // The name is an attached property, which a binding expression cannot reach.
         ToolTip.SetTip(this, entry?.SpokenName);

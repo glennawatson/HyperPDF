@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.LayersPanelView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (LayersPanelView.axaml.cs). -->
+  <DockPanel x:Name="LayersPanel">
+    <TextBlock DockPanel.Dock="Top" Classes="secondary" Margin="12,4,12,8" TextWrapping="Wrap" Text="Tick a layer to show it. Layers marked Locked cannot be changed. Only the view changes, not the file." />
+    <StackPanel DockPanel.Dock="Bottom" Margin="8" Spacing="6">
+      <ComboBox x:Name="ConfigurationBox" AutomationProperties.Name="Layer configuration" views:ControlHelp.Text="{x:Static views:Descriptions.LayerConfiguration}" HorizontalAlignment="Stretch" />
+      <Button x:Name="ResetLayersButton" views:ControlHelp.Text="{x:Static views:Descriptions.ResetLayers}" HorizontalAlignment="Stretch" Content="Reset Layers" />
+    </StackPanel>
+    <TreeView x:Name="LayerTree" AutomationProperties.Name="Layers" Background="Transparent" />
+  </DockPanel>
+</UserControl>

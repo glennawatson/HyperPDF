@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.AnnotationListView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotationListView.axaml.cs). -->
+  <!-- Comment list: a text filter, then filters and sort order shown on request, then the list. -->
+  <DockPanel x:Name="AnnotationsPanel">
+    <StackPanel DockPanel.Dock="Top" Margin="8,4,8,4" Spacing="6">
+      <TextBox AutomationProperties.Name="Filter comments" x:Name="AnnotationFilterBox" views:ControlHelp.Text="{x:Static views:Descriptions.AnnotationFilterText}" PlaceholderText="Filter comments" />
+      <ToggleButton AutomationProperties.Name="Filter and sort" x:Name="AnnotationFiltersToggle" views:ControlHelp.Text="{x:Static views:Descriptions.AnnotationFilters}" HorizontalAlignment="Stretch">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Path Classes="icon nav" Data="{StaticResource IconFilter}" />
+          <TextBlock Text="Filter and Sort" VerticalAlignment="Center" />
+        </StackPanel>
+      </ToggleButton>
+      <StackPanel x:Name="AnnotationFiltersPanel" Spacing="4">
+        <TextBlock x:Name="AnnotationTypeLabel" Classes="secondary" Text="Type" />
+        <ComboBox AutomationProperties.Name="Type" x:Name="AnnotationTypeBox" views:ControlHelp.Text="{x:Static views:Descriptions.AnnotationTypeFilter}" HorizontalAlignment="Stretch" />
+        <TextBlock x:Name="AnnotationColourLabel" Classes="secondary" Text="Colour" />
+        <ComboBox AutomationProperties.Name="Colour" x:Name="AnnotationColourBox" views:ControlHelp.Text="{x:Static views:Descriptions.AnnotationColourFilter}" HorizontalAlignment="Stretch" />
+        <TextBlock x:Name="AnnotationAuthorLabel" Classes="secondary" Text="Author" />
+        <ComboBox AutomationProperties.Name="Author" x:Name="AnnotationAuthorBox" views:ControlHelp.Text="{x:Static views:Descriptions.AnnotationAuthorFilter}" HorizontalAlignment="Stretch" />
+        <TextBlock x:Name="AnnotationSortLabel" Classes="secondary" Text="Sort by" />
+        <ComboBox AutomationProperties.Name="Sort by" x:Name="AnnotationSortBox" views:ControlHelp.Text="{x:Static views:Descriptions.AnnotationSort}" HorizontalAlignment="Stretch" />
+        <Button AutomationProperties.Name="Show all comments" x:Name="ClearAnnotationFilterButton" views:ControlHelp.Text="{x:Static views:Descriptions.ClearAnnotationFilter}" HorizontalAlignment="Stretch" Content="Show All Comments" />
+      </StackPanel>
+    </StackPanel>
+    <Panel>
+      <ListBox x:Name="AnnotationList" AutomationProperties.Name="Annotations" Background="Transparent" />
+      <TextBlock x:Name="NoAnnotationsText" Classes="secondary" Margin="12" TextWrapping="Wrap"
+                 Text="No annotations yet. Choose Annotate, or right-click selected text." />
+      <TextBlock x:Name="NoMatchesText" Classes="secondary" Margin="12" TextWrapping="Wrap"
+                 Text="No comments match the filter. Choose Show All Comments to see them all." />
+    </Panel>
+  </DockPanel>
+</UserControl>

@@ -59,7 +59,11 @@ public sealed class FileLinkTests
             asked = context.Input;
             context.SetOutput(agree);
         });
-        using var launches = tab.Links.FileLaunchRequests.SubscribeSafe(path => launched = path, static _ => { });
+        using var launches = tab.Links.LaunchFileInteraction.RegisterHandler(context =>
+        {
+            launched = context.Input;
+            context.SetOutput(RxVoid.Default);
+        });
 
         tab.Navigate(Target(tab, LinkTargetKind.LaunchFile));
 
@@ -127,7 +131,11 @@ public sealed class FileLinkTests
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         string? launched = null;
         using var handler = tab.Links.ConfirmOpenFileInteraction.RegisterHandler(static context => context.SetOutput(true));
-        using var launches = tab.Links.FileLaunchRequests.SubscribeSafe(file => launched = file, static _ => { });
+        using var launches = tab.Links.LaunchFileInteraction.RegisterHandler(context =>
+        {
+            launched = context.Input;
+            context.SetOutput(RxVoid.Default);
+        });
 
         tab.Attachments.Selected = tab.Attachments.Items[0];
         _ = await tab.Attachments.OpenSelectedCommand.Execute().ToTask();

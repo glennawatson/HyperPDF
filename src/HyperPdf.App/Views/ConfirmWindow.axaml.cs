@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -28,7 +29,7 @@ public sealed partial class ConfirmWindow : ReactiveUI.Avalonia.ReactiveWindow<C
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Answered)
                 .SwitchMap(static answered => answered)
-                .SubscribeSafe(answer => Close(answer), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(answer => Close(answer), ErrorTrace.Write));
 
             _ = CancelButton.Focus();
         });

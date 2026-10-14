@@ -31,6 +31,12 @@ public sealed class SplitViewTests
     /// <summary>The side of a marker tile.</summary>
     private const int TileSide = 8;
 
+    /// <summary>Where the rectangle drawn as an edit starts, in points.</summary>
+    private const float ShapeStart = 10;
+
+    /// <summary>Where the rectangle drawn as an edit ends, in points.</summary>
+    private const float ShapeEnd = 60;
+
     /// <summary>The two views once split.</summary>
     private const int TwoViews = 2;
 
@@ -91,10 +97,11 @@ public sealed class SplitViewTests
         var splitAgain = main.SplitTab!;
         var secondAgain = TileKey.Preview(splitAgain.TileId, 0, PageRotation.None, PageTone.None.Id);
         cache.Add(secondAgain, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability()));
-        tab.OnPageEdited(0);
+        var marked = tab.Annotations.AddShape(0, HyperPdf.Core.Annotations.AnnotationKind.Rectangle, new(ShapeStart, ShapeStart), new(ShapeEnd, ShapeEnd));
 
         using (Assert.Multiple())
         {
+            await Assert.That(marked).IsTrue();
             await Assert.That(split.TileId).IsNotEqualTo(tab.TileId);
             await Assert.That(firstKeptWhenSecondClosed).IsTrue();
             await Assert.That(secondDroppedWhenClosed).IsTrue();
@@ -122,7 +129,7 @@ public sealed class SplitViewTests
             var views = Views(window);
             await Assert.That(views[0].Bounds.Width).IsGreaterThan(0);
             await Assert.That(views[1].Bounds.Width).IsGreaterThan(0);
-            await Assert.That(window.FindControl<GridSplitter>("SplitSplitter")!.IsVisible).IsTrue();
+            await Assert.That(window.FindControl<DocumentAreaView>("DocumentArea")!.FindControl<GridSplitter>("SplitSplitter")!.IsVisible).IsTrue();
 
             _ = await main.SelectedTab.SplitViewCommand.Execute().ToTask();
             await Assert.That(await UiWait.UntilAsync(() => Views(window).Count == 1)).IsTrue();

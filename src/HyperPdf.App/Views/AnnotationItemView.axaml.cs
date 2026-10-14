@@ -25,18 +25,17 @@ public sealed partial class AnnotationItemView : ReactiveUI.Avalonia.ReactiveUse
 
         // An annotation item is an immutable snapshot with no change notification, so OneWayBind cannot observe it.
         // The view follows which item it shows instead.
-        _ = this.WhenActivated(disposables => disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, static error => Trace.TraceError(error.ToString()))));
-    }
-
-    /// <summary>Shows an annotation item.</summary>
-    /// <param name="item">The item.</param>
-    private void Show(AnnotationItemViewModel? item)
-    {
-        KindText.Text = item?.Heading;
-        SummaryText.Text = item?.Summary;
-        DetailsText.Text = item?.Details;
-        RepliesText.Text = item?.RepliesText;
-        RepliesText.IsVisible = item is { RepliesText.Length: > 0 };
-        Swatch.Background = item is null ? null : new SolidColorBrush(Color.FromUInt32(OpaqueAlpha | item.Annotation.Color));
+        var items = this.WhenChanged(static v => v.ViewModel);
+        _ = this.WhenActivated(disposables =>
+        {
+            disposables.Add(items.Select(static item => item?.Heading).BindTo(this, static v => v.KindText.Text));
+            disposables.Add(items.Select(static item => item?.Summary).BindTo(this, static v => v.SummaryText.Text));
+            disposables.Add(items.Select(static item => item?.Details).BindTo(this, static v => v.DetailsText.Text));
+            disposables.Add(items.Select(static item => item?.RepliesText).BindTo(this, static v => v.RepliesText.Text));
+            disposables.Add(items.Select(static item => item is { RepliesText.Length: > 0 }).BindTo(this, static v => v.RepliesText.IsVisible));
+            disposables.Add(items
+                .Select(static item => item is null ? null : (IBrush)new SolidColorBrush(Color.FromUInt32(OpaqueAlpha | item.Annotation.Color)))
+                .BindTo(this, static v => v.Swatch.Background));
+        });
     }
 }

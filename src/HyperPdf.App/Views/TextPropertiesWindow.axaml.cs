@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -53,7 +54,7 @@ public sealed partial class TextPropertiesWindow : ReactiveUI.Avalonia.ReactiveW
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Answered)
                 .SwitchMap(static answered => answered)
-                .SubscribeSafe(apply => Close(apply), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(apply => Close(apply), ErrorTrace.Write));
             _ = ContentInput.Focus();
         });
     }

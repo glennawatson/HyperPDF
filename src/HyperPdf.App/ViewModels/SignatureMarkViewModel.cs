@@ -11,6 +11,7 @@ using HyperPdf.Core.Geometry;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
@@ -31,6 +32,9 @@ public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable
 
     /// <summary>The number of points in each drawn stroke.</summary>
     private readonly List<int> _strokeLengths = [];
+
+    /// <summary>Owns the derived values.</summary>
+    private readonly MultipleDisposable _subscriptions = [];
 
     /// <summary>Whether there is a mark to use.</summary>
     private readonly IObservable<bool> _canUse;
@@ -65,6 +69,8 @@ public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable
         _imageMarkHelper = this.WhenChanged(static vm => vm.SourceImage, static vm => vm.RemovePaper, PrepareImage).ToProperty(this, static vm => vm.ImageMark);
         _previewHelper = this.WhenChanged(static vm => vm.Style, static vm => vm.Text, static vm => vm.Drawing, static vm => vm.ImageMark, Choose)
             .ToProperty(this, static vm => vm.Preview);
+        _subscriptions.Add(_imageMarkHelper);
+        _subscriptions.Add(_previewHelper);
         _canUse = this.WhenChanged(static vm => vm.Preview).Select(static preview => preview is not null);
         _canForget = this.WhenChanged(static vm => vm.HasSaved);
         Answered = Signal.Merge(UseCommand, CancelCommand);
@@ -172,11 +178,8 @@ public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _imageMarkHelper?.Dispose();
-        _previewHelper?.Dispose();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Prepares a picture: removes white paper when asked and trims empty margins.</summary>
     /// <param name="image">The picture.</param>

@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using HyperPdf.Core.Protection;
 using ReactiveUI.Binding;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -36,6 +37,10 @@ public sealed partial class ProtectViewModel : ProtectionRunViewModel
         SelectedFormat = ProtectionChecks.Formats[0];
         _accessibilityWarningHelper = this.WhenChanged(static vm => vm.AllowAccessibility, static vm => vm.SelectedFormat, ProtectionChecks.AccessibilityWarning)
             .ToProperty(this, static vm => vm.AccessibilityWarning);
+        Subscriptions.Add(_accessibilityWarningHelper);
+
+        // The passwords are forgotten once the window closes.
+        Subscriptions.Add(Scope.Create(ForgetPasswords));
     }
 
     /// <summary>Gets how the open document is protected now.</summary>
@@ -102,21 +107,14 @@ public sealed partial class ProtectViewModel : ProtectionRunViewModel
     [ObservableAsProperty]
     public partial string AccessibilityWarning { get; }
 
-    /// <inheritdoc/>
-    protected override void Dispose(bool disposing)
+    /// <summary>Clears the passwords typed, so they are not kept after the window closes.</summary>
+    private void ForgetPasswords()
     {
-        base.Dispose(disposing);
-        if (!disposing)
-        {
-            return;
-        }
-
         UserPassword = string.Empty;
         UserPasswordRepeat = string.Empty;
         OwnerPassword = string.Empty;
         OwnerPasswordRepeat = string.Empty;
         CurrentOwnerPassword = string.Empty;
-        _accessibilityWarningHelper?.Dispose();
     }
 
     /// <summary>Builds the request from the choices.</summary>

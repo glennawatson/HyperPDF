@@ -257,7 +257,7 @@ public sealed class PageToolTests
 
             canvas.ClearSelection();
             _ = await tab.ToggleCaretModeCommand.Execute().ToTask();
-            _ = await tab.PageTools.SelectAllCommand.Execute().ToTask();
+            window.GetVisualDescendants().OfType<DocumentMenuView>().Single().FindNamed<MenuItem>("SelectAllItem")!.RaiseEvent(new(MenuItem.ClickEvent));
             var fromMenu = await UiWait.UntilAsync(() => canvas.GetSelectedText() == text);
 
             await Assert.That(count).IsGreaterThan(0);

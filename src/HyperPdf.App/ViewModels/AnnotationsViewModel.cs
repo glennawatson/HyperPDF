@@ -86,10 +86,10 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
         [
             this.WhenChanged(static x => x.FilterText, static x => x.FilterType, static x => x.FilterColor)
                 .Skip(1)
-                .SubscribeSafe(_ => ApplyFilter(), OnError),
+                .SubscribeSafe(_ => ApplyFilter(), ErrorTrace.Write),
             this.WhenChanged(static x => x.FilterAuthor, static x => x.SortOrder)
                 .Skip(1)
-                .SubscribeSafe(_ => ApplyFilter(), OnError),
+                .SubscribeSafe(_ => ApplyFilter(), ErrorTrace.Write),
         ];
         foreach (var subscription in WatchTextFormat())
         {
@@ -117,6 +117,10 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     /// <summary>Gets or sets a value indicating whether the annotation tool row is shown.</summary>
     [Reactive]
     public partial bool IsAnnotating { get; set; }
+
+    /// <summary>Gets the latest change annotating made to a page; the tab redraws the page it names.</summary>
+    [Reactive]
+    public partial PageChange LastPageChange { get; private set; }
 
     /// <summary>Gets or sets the active tool.</summary>
     [Reactive(
@@ -552,11 +556,6 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
         return $"{value:0.#} pt";
     }
 
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
-
     /// <summary>Turns a tool on, or back to selecting when it is turned off.</summary>
     /// <param name="on">Whether the tool is being turned on.</param>
     /// <param name="tool">The tool.</param>
@@ -681,14 +680,14 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
         }
 
         Selected = item.Annotation;
-        _owner.NavigateTo(new(item.Annotation.PageIndex, item.Annotation.Bounds, 0));
+        _owner.NavigateTo(item.Annotation.PageIndex, item.Annotation.Bounds, 0);
     }
 
     /// <summary>Redraws an edited page and refreshes its entries in the list.</summary>
     /// <param name="page">The page.</param>
     private void Edited(int page)
     {
-        _owner.OnPageEdited(page);
+        LastPageChange = LastPageChange.Next(page);
         RefreshPage(page);
     }
 }

@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -18,6 +17,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Controls;
 
@@ -52,9 +52,6 @@ public sealed class PageThumbnail : Control, IActivatableView
     /// <summary>The tab work token <see cref="_request"/> follows.</summary>
     private CancellationToken _requestFor;
 
-    /// <summary>Subscriptions to the tab and render hub while attached.</summary>
-    private MultipleDisposable? _subscriptions;
-
     /// <summary>Initializes static members of the <see cref="PageThumbnail"/> class.</summary>
     static PageThumbnail() => AffectsRender<PageThumbnail>(TabProperty, PageIndexProperty);
 
@@ -62,11 +59,25 @@ public sealed class PageThumbnail : Control, IActivatableView
     public PageThumbnail() =>
         _ = this.WhenActivated(disposables =>
         {
-            disposables.Add(this.WhenChanged(static x => x.Tab).SubscribeSafe(Subscribe, OnError));
-            disposables.Add(this.WhenChanged(static x => x.PageIndex).Skip(1).SubscribeSafe(_ => CancelRequest(), OnError));
+            var tabs = this.WhenChanged(static x => x.Tab);
 
-            // Detaching releases the tab and render hub subscriptions.
-            disposables.Add(Scope.Create(this, static thumbnail => thumbnail.Subscribe(null)));
+            // The thumbnail can draw before it activates, so a request already queued for this tab is still wanted.
+            // Cancelling it would leave the thumbnail blank, as nothing repaints it afterwards; a request for another
+            // tab is not.
+            disposables.Add(tabs
+                .WhereWith(this, static (thumbnail, tab) => tab is null || !ReferenceEquals(thumbnail._requestTab, tab))
+                .SubscribeSafe(_ => CancelRequest(), ErrorTrace.Write));
+            disposables.Add(this.WhenChanged(static x => x.PageIndex).Skip(1).SubscribeSafe(_ => CancelRequest(), ErrorTrace.Write));
+
+            // The shown tab's tile arrivals and page tone changes repaint the thumbnail; showing another tab ends the
+            // streams of the one before.
+            disposables.Add(tabs
+                .SelectWith(this, static (thumbnail, tab) => new ShownTab(thumbnail, tab))
+                .SwitchMap(Repaints)
+                .SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
+
+            // Taken off screen, the thumbnail gives up its queued request.
+            disposables.Add(Scope.Create(this, static thumbnail => thumbnail.CancelRequest()));
         });
 
     /// <summary>Gets or sets the tab.</summary>
@@ -125,10 +136,17 @@ public sealed class PageThumbnail : Control, IActivatableView
         _ = tab.RenderHub.Scheduler.Request(request);
     }
 
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
+    /// <summary>
+    /// Gets the moments a tab's thumbnail must be drawn again: when new tiles arrive while it has no image yet, and when
+    /// the page tone changes.
+    /// </summary>
+    /// <param name="shown">The thumbnail and the tab it shows.</param>
+    /// <returns>The repaints, or none without a tab.</returns>
+    private static IObservable<RxVoid> Repaints(ShownTab shown) => shown.Tab is not { } tab
+        ? Signal.Empty<RxVoid>()
+        : Signal.Merge(
+            tab.RenderHub.TilesArrived.WhereWith(shown.Thumbnail, static (thumbnail, _) => !thumbnail._hasImage),
+            tab.WhenChanged(static x => x.PageTone).Skip(1).Select(static _ => RxVoid.Default));
 
     /// <summary>
     /// Gets the token for the request of a page's preview. It ends with the tab's selected work, and also when the
@@ -165,38 +183,8 @@ public sealed class PageThumbnail : Control, IActivatableView
         _ = CancellationSources.CancelAndDisposeAsync(request);
     }
 
-    /// <summary>Redraws when new tiles arrive, until the thumbnail has its image.</summary>
-    private void InvalidateWithoutImage()
-    {
-        if (!_hasImage)
-        {
-            InvalidateVisual();
-        }
-    }
-
-    /// <summary>Subscribes to tile arrivals and page tone changes, replacing any previous subscriptions.</summary>
-    /// <param name="tab">The tab, or <see langword="null"/> to unsubscribe.</param>
-    private void Subscribe(DocumentTabViewModel? tab)
-    {
-        _subscriptions?.Dispose();
-        _subscriptions = null;
-
-        // The thumbnail can draw before it activates, so a request already queued for this tab is still wanted.
-        // Cancelling it here would leave the thumbnail blank, as nothing repaints it afterwards.
-        if (tab is null || !ReferenceEquals(_requestTab, tab))
-        {
-            CancelRequest();
-        }
-
-        if (tab is null)
-        {
-            return;
-        }
-
-        _subscriptions =
-        [
-            tab.RenderHub.TilesArrived.SubscribeSafe(_ => InvalidateWithoutImage(), OnError),
-            tab.WhenChanged(static x => x.PageTone).Skip(1).SubscribeSafe(_ => InvalidateVisual(), OnError),
-        ];
-    }
+    /// <summary>A thumbnail and the tab it shows.</summary>
+    /// <param name="Thumbnail">The thumbnail.</param>
+    /// <param name="Tab">The tab, or <see langword="null"/>.</param>
+    private sealed record ShownTab(PageThumbnail Thumbnail, DocumentTabViewModel? Tab);
 }

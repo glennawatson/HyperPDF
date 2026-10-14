@@ -5,6 +5,7 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Documents;
@@ -46,7 +47,7 @@ public sealed class PageSeparationTests
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
         var requests = new List<NavigationRequest>();
-        using var navigation = tab.NavigationRequests.SubscribeSafe(requests.Add, static _ => { });
+        using var navigation = tab.Destinations.SubscribeSafe(requests.Add, static _ => { });
         var first = tab.Separations.Description;
         var colorants = tab.Separations.Colorants.ToArray();
 
@@ -129,7 +130,7 @@ public sealed class PageSeparationTests
         await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
-        using var pages = new PageManagementViewModel(tab);
+        var pages = tab.Pages;
 
         pages.SelectPages([BlackPage]);
         _ = await pages.DeleteCommand.Execute().ToTask();

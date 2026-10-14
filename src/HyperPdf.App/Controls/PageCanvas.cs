@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -15,6 +16,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
 using HyperPdf.App.Rendering;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
@@ -44,17 +46,11 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Defines the <see cref="PageScale"/> property.</summary>
     public static readonly DirectProperty<PageCanvas, double> PageScaleProperty = AvaloniaProperty.RegisterDirect<PageCanvas, double>(nameof(PageScale), static canvas => canvas.PageScale);
 
-    /// <summary>Defines the <see cref="HitBrush"/> property.</summary>
-    public static readonly StyledProperty<IBrush?> HitBrushProperty = AvaloniaProperty.Register<PageCanvas, IBrush?>(nameof(HitBrush));
-
     /// <summary>Defines the <see cref="CurrentHitOutline"/> property.</summary>
     public static readonly StyledProperty<IBrush?> CurrentHitOutlineProperty = AvaloniaProperty.Register<PageCanvas, IBrush?>(nameof(CurrentHitOutline));
 
     /// <summary>Defines the <see cref="SelectionBrush"/> property.</summary>
     public static readonly StyledProperty<IBrush?> SelectionBrushProperty = AvaloniaProperty.Register<PageCanvas, IBrush?>(nameof(SelectionBrush));
-
-    /// <summary>Defines the <see cref="DimBrush"/> property.</summary>
-    public static readonly StyledProperty<IBrush?> DimBrushProperty = AvaloniaProperty.Register<PageCanvas, IBrush?>(nameof(DimBrush));
 
     /// <summary>Defines the <see cref="LabelBackground"/> property.</summary>
     public static readonly StyledProperty<IBrush?> LabelBackgroundProperty = AvaloniaProperty.Register<PageCanvas, IBrush?>(nameof(LabelBackground));
@@ -62,17 +58,8 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Defines the <see cref="LabelForeground"/> property.</summary>
     public static readonly StyledProperty<IBrush?> LabelForegroundProperty = AvaloniaProperty.Register<PageCanvas, IBrush?>(nameof(LabelForeground));
 
-    /// <summary>Defines the <see cref="SpokenBrush"/> property.</summary>
-    public static readonly StyledProperty<IBrush?> SpokenBrushProperty = AvaloniaProperty.Register<PageCanvas, IBrush?>(nameof(SpokenBrush));
-
     /// <summary>The gap between pages.</summary>
     private const double PageSpacing = 12;
-
-    /// <summary>The thickness of the line under the word being read.</summary>
-    private const double WordUnderline = 1.5;
-
-    /// <summary>How far the focus band reaches above and below the sentence being read.</summary>
-    private const double FocusBandMargin = 6;
 
     /// <summary>The margin around the pages.</summary>
     private const double ContentMargin = 16;
@@ -132,6 +119,9 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Selection rectangles by page, computed lazily.</summary>
     private readonly Dictionary<int, List<PageRect>> _selectionRects = [];
 
+    /// <summary>Copies the selected text from the pages' menu.</summary>
+    private readonly ICommand _copyCommand;
+
     /// <summary>The current layout.</summary>
     private DocumentLayout _layout = DocumentLayout.Empty;
 
@@ -141,11 +131,8 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>The hosting scroll viewer.</summary>
     private ScrollViewer? _scroller;
 
-    /// <summary>The tab currently wired up.</summary>
-    private DocumentTabViewModel? _wiredTab;
-
-    /// <summary>Subscriptions to the wired tab.</summary>
-    private MultipleDisposable? _tabSubscriptions;
+    /// <summary>The tab shown, which lets go of its render requests and auto-scroll when another tab replaces it.</summary>
+    private DocumentTabViewModel? _shownTab;
 
     /// <summary>A position to restore once the layout has been measured.</summary>
     private Action? _pendingScroll;
@@ -198,7 +185,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Initializes static members of the <see cref="PageCanvas"/> class.</summary>
     static PageCanvas()
     {
-        AffectsRender<PageCanvas>(TabProperty, HitBrushProperty, CurrentHitOutlineProperty, SelectionBrushProperty, SpokenBrushProperty, DimBrushProperty);
+        AffectsRender<PageCanvas>(TabProperty, CurrentHitOutlineProperty, SelectionBrushProperty);
         AffectsRender<PageCanvas>(LabelBackgroundProperty, LabelForegroundProperty);
         FocusableProperty.OverrideDefaultValue<PageCanvas>(true);
     }
@@ -206,51 +193,78 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Initializes a new instance of the <see cref="PageCanvas"/> class.</summary>
     public PageCanvas()
     {
+        _copyCommand = ReactiveCommand.Create<string>(CopyToClipboard);
+        var tabs = this.WhenChanged(static x => x.Tab);
         _ = this.WhenActivated(disposables =>
         {
             // Deactivating releases what the canvas holds once its subscriptions have ended.
-            disposables.Add(Scope.Create(
-                this,
-                static canvas =>
-                {
-                    canvas.StopAutoScrollFrames();
-                    canvas._markPainter?.Dispose();
-                    canvas._markPainter = null;
-                    canvas._scroller = null;
-                    canvas.Wire(null);
-                }));
+            disposables.Add(Scope.Create(this, static canvas => canvas.PutAway()));
             _scroller = this.FindAncestorOfType<ScrollViewer>();
             if (_scroller is { } scroller)
             {
-                disposables.Add(scroller.WhenChanged(static x => x.Offset).Skip(1).SubscribeSafe(_ => OnScrolled(), OnError));
-                disposables.Add(scroller.WhenChanged(static x => x.Bounds).Select(static bounds => bounds.Size).DistinctUntilChanged().Skip(1).SubscribeSafe(_ => OnViewportResized(), OnError));
+                // Scrolling draws the pages again, and tells the tab where the reader is unless a scroll is still to be applied.
+                var offsets = scroller.WhenChanged(static x => x.Offset).Skip(1);
+                disposables.Add(offsets.SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
+                disposables.Add(offsets.WhereWith(this, static (canvas, _) => canvas._pendingScroll is null).SubscribeSafe(_ => ReportPosition(), ErrorTrace.Write));
+                disposables.Add(scroller.WhenChanged(static x => x.Bounds).Select(static bounds => bounds.Size).DistinctUntilChanged().Skip(1).SubscribeSafe(_ => RelayoutInPlace(), ErrorTrace.Write));
 
-                // The extent changes after a layout pass; apply any pending scroll once the dispatcher is idle again.
-                disposables.Add(scroller.WhenChanged(static x => x.Extent).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => ApplyPendingScroll(), OnError));
+                // The extent changes after a layout pass; apply any pending scroll once the dispatcher is idle again. A
+                // layout whose extent did not change still finishes a layout pass, which applies the scroll too.
+                disposables.Add(scroller.WhenChanged(static x => x.Extent).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => ApplyPendingScroll(), ErrorTrace.Write));
+                disposables.Add(this.Events().LayoutUpdated
+                    .WhereWith(this, static (canvas, _) => canvas._pendingScroll is not null)
+                    .ObserveOn(RxSchedulers.MainThreadScheduler)
+                    .SubscribeSafe(_ => ApplyPendingScroll(), ErrorTrace.Write));
 
-                // Ctrl and the wheel always zoom, wherever in the scroller the pointer is. The canvas draws nothing between
-                // its pages, so a notch there never reaches it. The scroll viewer and its scroll bars handle the wheel
-                // themselves, so only a tunnelling handler on the scroll viewer sees the notch first.
-                disposables.Add(scroller.TunnelWheels.SubscribeSafe(e => Guard(HandleCtrlWheel, e), OnError));
+                // Ctrl and the wheel always zoom, wherever in the scroller the pointer is. Only a tunnelling handler on the
+                // scroll viewer sees the notch before the viewer and its bars handle it.
+                disposables.Add(scroller.TunnelWheels.SubscribeSafe(e => Guard(HandleCtrlWheel, e), ErrorTrace.Write));
             }
 
-            disposables.Add(this.WhenChanged(static x => x.Tab).SubscribeSafe(Wire, OnError));
+            // The tab shown; each stream below follows the tab shown now and lets go of the one before.
+            disposables.Add(tabs.SubscribeSafe(ShowTab, ErrorTrace.Write));
+            disposables.Add(tabs.Follow(static tab => tab.CanvasRedraws).SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
+            disposables.Add(tabs.Follow(static tab => tab.LayoutSettingsChanges).SubscribeSafe(_ => RelayoutForSettings(), ErrorTrace.Write));
+            disposables.Add(tabs.Follow(static tab => tab.Destinations).SubscribeSafe(ScrollTo, ErrorTrace.Write));
+            disposables.Add(tabs.Follow(static tab => tab.PageReads).SubscribeSafe(_ => ReadPagesAgain(), ErrorTrace.Write));
+
+            // The selection belongs to the canvas, so it clears once a menu command has used it.
+            disposables.Add(tabs.Follow(static tab => tab.SelectionUses).SubscribeSafe(_ => ClearSelection(), ErrorTrace.Write));
+
+            // Caret mode shows its caret and gives the pages the keyboard as it starts.
+            disposables.Add(tabs.Follow(static tab => tab.CaretModeStarts).Do(StartCaret).SelectWith(this, static (canvas, _) => canvas).TakeFocus());
+
+            // A new page tool drops a drag in progress and shows its own pointer.
+            disposables.Add(tabs.Follow(static tab => tab.PageToolChanges).SubscribeSafe(_ => ShowPageTool(), ErrorTrace.Write));
+
+            // A wheel zoom eases over the window's frames; a newer notch replaces the ease (PageCanvas.Zoom.cs).
+            disposables.Add(this.WhenChanged(static canvas => canvas.WheelZoom)
+                .SelectWith(this, static (canvas, ease) => canvas.ZoomFrames(ease))
+                .SwitchMap(static frames => frames)
+                .SubscribeSafe(StepZoom, ErrorTrace.Write));
+
+            // Auto-scroll glides the pages on every frame while it is on, and stops with the frames (PageCanvas.AutoScroll.cs).
+            disposables.Add(tabs.Follow(static tab => tab.AutoScrolling)
+                .DistinctUntilChanged()
+                .SelectWith(this, static (canvas, on) => on ? Signal.Defer(canvas.StartGlide) : Signal.Never<TimeSpan>())
+                .SwitchMap(static frames => frames)
+                .SubscribeSafe(_ => StepAutoScroll(), ErrorTrace.Write));
             disposables.Add(this.WhenChanged(static x => x.CurrentHitOutline)
-                .SubscribeSafe(outline => _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null, OnError));
+                .SubscribeSafe(outline => _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null, ErrorTrace.Write));
 
             // One failing gesture must not end the subscription, or the page would stop answering input.
-            disposables.Add(this.Events().PointerWheelChanged.SubscribeSafe(e => Guard(HandlePointerWheel, e), OnError));
-            disposables.Add(this.Events().PointerPressed.SubscribeSafe(e => Guard(HandlePointerPressed, e), OnError));
-            disposables.Add(this.Events().PointerMoved.SubscribeSafe(e => Guard(HandlePointerMoved, e), OnError));
-            disposables.Add(this.Events().PointerReleased.SubscribeSafe(e => Guard(HandlePointerReleased, e), OnError));
-            disposables.Add(this.Events().KeyDown.SubscribeSafe(e => Guard(HandleKeyDown, e), OnError));
+            disposables.Add(this.Events().PointerWheelChanged.SubscribeSafe(e => Guard(HandlePointerWheel, e), ErrorTrace.Write));
+            disposables.Add(this.Events().PointerPressed.SubscribeSafe(e => Guard(HandlePointerPressed, e), ErrorTrace.Write));
+            disposables.Add(this.Events().PointerMoved.SubscribeSafe(e => Guard(HandlePointerMoved, e), ErrorTrace.Write));
+            disposables.Add(this.Events().PointerReleased.SubscribeSafe(e => Guard(HandlePointerReleased, e), ErrorTrace.Write));
+            disposables.Add(this.Events().KeyDown.SubscribeSafe(e => Guard(HandleKeyDown, e), ErrorTrace.Write));
 
             // Moving around: pinch zoom, and Space held to move the pages (PageCanvas.Pinch.cs, PageCanvas.Hand.cs).
-            disposables.Add(this.Events().Pinch.SubscribeSafe(e => Guard(HandlePinch, e), OnError));
-            disposables.Add(this.Events().PinchEnded.SubscribeSafe(e => Guard(HandlePinchEnded, e), OnError));
-            disposables.Add(this.Events().PointerTouchPadGestureMagnify.SubscribeSafe(e => Guard(HandleMagnify, e), OnError));
-            disposables.Add(this.Events().KeyUp.SubscribeSafe(e => Guard(HandleKeyUp, e), OnError));
-            disposables.Add(this.Events().LostFocus.SubscribeSafe(_ => ReleaseSpace(), OnError));
+            disposables.Add(this.Events().Pinch.SubscribeSafe(e => Guard(HandlePinch, e), ErrorTrace.Write));
+            disposables.Add(this.Events().PinchEnded.SubscribeSafe(e => Guard(HandlePinchEnded, e), ErrorTrace.Write));
+            disposables.Add(this.Events().PointerTouchPadGestureMagnify.SubscribeSafe(e => Guard(HandleMagnify, e), ErrorTrace.Write));
+            disposables.Add(this.Events().KeyUp.SubscribeSafe(e => Guard(HandleKeyUp, e), ErrorTrace.Write));
+            disposables.Add(this.Events().LostFocus.SubscribeSafe(_ => ReleaseSpace(), ErrorTrace.Write));
         });
 
         // Two fingers on a touch screen zoom the pages (PageCanvas.Pinch.cs).
@@ -264,14 +278,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
         set => SetValue(TabProperty, value);
     }
 
-    /// <summary>Gets or sets the fill of search hits.</summary>
-    public IBrush? HitBrush
-    {
-        get => GetValue(HitBrushProperty);
-        set => SetValue(HitBrushProperty, value);
-    }
-
-    /// <summary>Gets or sets the outline of the current search hit.</summary>
+    /// <summary>Gets or sets the outline of the picked annotation and of the annotation being moved.</summary>
     public IBrush? CurrentHitOutline
     {
         get => GetValue(CurrentHitOutlineProperty);
@@ -297,20 +304,6 @@ public sealed partial class PageCanvas : Control, IActivatableView
     {
         get => GetValue(LabelForegroundProperty);
         set => SetValue(LabelForegroundProperty, value);
-    }
-
-    /// <summary>Gets or sets the translucent paper colour laid over text away from what is being read, for the focus band.</summary>
-    public IBrush? DimBrush
-    {
-        get => GetValue(DimBrushProperty);
-        set => SetValue(DimBrushProperty, value);
-    }
-
-    /// <summary>Gets or sets the soft fill marking the sentence being read aloud.</summary>
-    public IBrush? SpokenBrush
-    {
-        get => GetValue(SpokenBrushProperty);
-        set => SetValue(SpokenBrushProperty, value);
     }
 
     /// <summary>Gets the selected text.</summary>
@@ -373,13 +366,36 @@ public sealed partial class PageCanvas : Control, IActivatableView
         DrawCaret(context, tab);
     }
 
+    /// <summary>Gets the pages laid out between two heights on the canvas.</summary>
+    /// <param name="top">The upper height.</param>
+    /// <param name="bottom">The lower height.</param>
+    /// <param name="first">The first page, or -1 when none.</param>
+    /// <param name="last">The last page, or -1 when none.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void GetPagesBetween(double top, double bottom, out int first, out int last) => _layout.GetVisiblePages(top, bottom, out first, out last);
+
+    /// <summary>Gets where a page is laid out on the canvas and how its points map there.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="transform">How the page's points map onto the canvas.</param>
+    /// <param name="bounds">The page's bounds on the canvas.</param>
+    /// <returns><see langword="true"/> when the page is laid out.</returns>
+    internal bool TryGetPageTransform(int page, out PageTransform transform, out Rect bounds)
+    {
+        if (Tab is not { } tab || (uint)page >= (uint)_sizes.Length || page >= _layout.PageCount)
+        {
+            transform = default;
+            bounds = default;
+            return false;
+        }
+
+        var layout = _layout.GetPageBounds(page);
+        transform = new(layout, _sizes[page], tab.Rotation, _layout.Options.Scale);
+        bounds = new(layout.X, layout.Y, layout.Width, layout.Height);
+        return true;
+    }
+
     /// <inheritdoc/>
     protected override Size MeasureOverride(Size availableSize) => new(_layout.ExtentWidth, _layout.ExtentHeight);
-
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
 
     /// <summary>Reuses the generation when a tile arrival repaints the same view.</summary>
     /// <param name="tab">The tab.</param>
@@ -482,12 +498,16 @@ public sealed partial class PageCanvas : Control, IActivatableView
         catch (Exception error) when (error is not OutOfMemoryException)
         {
             // The gesture is abandoned: release any capture so the next press starts cleanly.
-            OnError(error);
+            ErrorTrace.Write(error);
             (args as PointerEventArgs)?.Pointer.Capture(null);
             _selecting = false;
             _panning = false;
             _areaDragging = false;
-            StopAutoScrollFrames();
+            if (Tab is { } tab)
+            {
+                tab.PageTools.IsAutoScrolling = false;
+            }
+
             InvalidateVisual();
         }
     }
@@ -715,8 +735,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
             return;
         }
 
-        DrawHighlights(context, frame.Tab, page, bounds);
-        DrawFocusBand(context, frame.Tab, page, bounds, new(bounds, _sizes[page], frame.Tab.Rotation, _layout.Options.Scale));
+        DrawSelection(context, frame.Tab, page, bounds);
     }
 
     /// <summary>Gets the device pixels per point that tiles are rendered at.</summary>
@@ -853,101 +872,23 @@ public sealed partial class PageCanvas : Control, IActivatableView
         }
     }
 
-    /// <summary>Draws search hits and the text selection on a page.</summary>
+    /// <summary>Draws the text selection on a page; the search hits and reading marks are drawn by <see cref="PageMarksLayer"/>.</summary>
     /// <param name="context">The drawing context.</param>
     /// <param name="tab">The tab.</param>
     /// <param name="page">The page.</param>
     /// <param name="bounds">The page bounds.</param>
-    private void DrawHighlights(DrawingContext context, DocumentTabViewModel tab, int page, in LayoutRect bounds)
+    private void DrawSelection(DrawingContext context, DocumentTabViewModel tab, int page, in LayoutRect bounds)
     {
-        var transform = new PageTransform(bounds, _sizes[page], tab.Rotation, _layout.Options.Scale);
-        if (tab.Search.GetHits(page) is { } hits)
-        {
-            var current = tab.Search.CurrentHit;
-            var fill = HitBrush;
-            foreach (var hit in hits)
-            {
-                var pen = ReferenceEquals(hit, current) ? _currentHitPen : null;
-                foreach (var rect in hit.Bounds)
-                {
-                    context.DrawRectangle(fill, pen, transform.ToCanvas(rect));
-                }
-            }
-        }
-
-        DrawSpoken(context, tab, page, transform);
         if (SelectionBrush is not { } selection)
         {
             return;
         }
 
+        var transform = new PageTransform(bounds, _sizes[page], tab.Rotation, _layout.Options.Scale);
         foreach (var rect in GetSelectionRects(page))
         {
             context.FillRectangle(selection, transform.ToCanvas(rect));
         }
-    }
-
-    /// <summary>Softly marks the sentence being read aloud.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="tab">The tab.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="transform">The page transform.</param>
-    private void DrawSpoken(DrawingContext context, DocumentTabViewModel tab, int page, in PageTransform transform)
-    {
-        var reader = tab.ReadAloud;
-        if (SpokenBrush is not { } brush || reader.SpokenPage != page)
-        {
-            return;
-        }
-
-        foreach (var rect in reader.SpokenBounds)
-        {
-            context.FillRectangle(brush, transform.ToCanvas(rect));
-        }
-
-        // The word is underlined rather than filled, so the marks stay quiet.
-        var pen = _currentHitPen;
-        foreach (var rect in reader.SpokenWordBounds)
-        {
-            var word = transform.ToCanvas(rect);
-            context.DrawLine(pen ?? new Pen(brush, WordUnderline), word.BottomLeft, word.BottomRight);
-        }
-    }
-
-    /// <summary>
-    /// Dims the page away from the sentence being read, when the focus band is on: a band around the sentence stays
-    /// clear and the rest of its page, and every other page, is laid over with the translucent paper colour.
-    /// </summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="tab">The tab.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="bounds">The page's bounds on the canvas.</param>
-    /// <param name="transform">The page transform.</param>
-    private void DrawFocusBand(DrawingContext context, DocumentTabViewModel tab, int page, in LayoutRect bounds, in PageTransform transform)
-    {
-        var reader = tab.ReadAloud;
-        if (DimBrush is not { } dim || !tab.FocusMode.FocusBand || reader.SpokenPage < 0 || reader.SpokenBounds.Count == 0)
-        {
-            return;
-        }
-
-        var pageRect = new Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
-        if (reader.SpokenPage != page)
-        {
-            context.FillRectangle(dim, pageRect);
-            return;
-        }
-
-        var band = transform.ToCanvas(reader.SpokenBounds[0]);
-        foreach (var rect in reader.SpokenBounds)
-        {
-            band = band.Union(transform.ToCanvas(rect));
-        }
-
-        var top = Math.Max(pageRect.Top, band.Top - FocusBandMargin);
-        var bottom = Math.Min(pageRect.Bottom, band.Bottom + FocusBandMargin);
-        context.FillRectangle(dim, new(pageRect.Left, pageRect.Top, pageRect.Width, Math.Max(0, top - pageRect.Top)));
-        context.FillRectangle(dim, new(pageRect.Left, bottom, pageRect.Width, Math.Max(0, pageRect.Bottom - bottom)));
     }
 
     /// <summary>Gets the selection rectangles on a page, computing them on first use.</summary>
@@ -1046,13 +987,31 @@ public sealed partial class PageCanvas : Control, IActivatableView
         return null;
     }
 
-    /// <summary>Subscribes to a tab's changes, replacing any previous subscriptions.</summary>
-    /// <param name="tab">The tab.</param>
-    private void Wire(DocumentTabViewModel? tab)
+    /// <summary>Lets go of what the canvas holds once it is put away: the signature mark preview, the scroll viewer and the tab.</summary>
+    private void PutAway()
     {
-        _tabSubscriptions?.Dispose();
-        _tabSubscriptions = null;
-        if (_wiredTab is { } old)
+        _markPainter?.Dispose();
+        _markPainter = null;
+        _scroller = null;
+        ShowTab(null);
+    }
+
+    /// <summary>Drops a drag in progress and shows the pointer of the page tool chosen now.</summary>
+    private void ShowPageTool()
+    {
+        _areaDragging = false;
+        Cursor = ToolCursor();
+        InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Shows a tab: forgets what belonged to the tab shown before, then lays the new tab's pages out where its reader was.
+    /// The streams the canvas follows switch to the new tab by themselves.
+    /// </summary>
+    /// <param name="tab">The tab, or <see langword="null"/> to show nothing.</param>
+    private void ShowTab(DocumentTabViewModel? tab)
+    {
+        if (_shownTab is { } old && !ReferenceEquals(old, tab))
         {
             _ = old.CanvasClient.Advance();
             old.PageTools.IsAutoScrolling = false;
@@ -1060,7 +1019,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
 
         _renderTab = null;
         _renderDocument = null;
-        _wiredTab = tab;
+        _shownTab = tab;
         _links.Clear();
         ClearSelection();
         if (tab is null)
@@ -1069,43 +1028,6 @@ public sealed partial class PageCanvas : Control, IActivatableView
             return;
         }
 
-        _tabSubscriptions =
-        [
-
-            // The zoom only matters to the layout in Free mode, so it is part of the key only then.
-            tab.WhenChanged(
-                    static x => x.ZoomMode,
-                    static x => x.LayoutMode,
-                    static x => x.Rotation,
-                    static x => x.IsPageByPage,
-                    static x => x.Zoom,
-                    static (mode, layout, rotation, pageByPage, zoom) => (mode, layout, rotation, pageByPage, Zoom: mode == ZoomMode.Free ? zoom : 0))
-                .DistinctUntilChanged()
-                .Skip(1)
-                .SubscribeSafe(_ => OnLayoutSettingsChanged(), OnError),
-            tab.WhenChanged(static x => x.PageTone).Skip(1).SubscribeSafe(_ => InvalidateVisual(), OnError),
-            tab.NavigationRequests.SubscribeSafe(OnNavigationRequested, OnError),
-            tab.DocumentChanges.SubscribeSafe(_ => OnDocumentChanged(), OnError),
-            tab.Search.HighlightChanges.SubscribeSafe(_ => InvalidateVisual(), OnError),
-            tab.ReadAloud.WhenChanged(static x => x.SpokenBounds).Skip(1).SubscribeSafe(_ => InvalidateVisual(), OnError),
-            tab.ReadAloud.MarksChanged.SubscribeSafe(_ => InvalidateVisual(), OnError),
-            tab.FocusMode.WhenChanged(static x => x.FocusBand).Skip(1).SubscribeSafe(_ => InvalidateVisual(), OnError),
-            tab.RenderHub.TilesArrived.SubscribeSafe(_ => InvalidateVisual(), OnError),
-            tab.PageEdits.SubscribeSafe(_ => InvalidateVisual(), OnError),
-            tab.CopyRequests.SubscribeSafe(CopyToClipboard, OnError),
-
-            // The selection belongs to the canvas, so it clears once a menu command has used it.
-            tab.Annotations.MarkSelectionCommand.Where(static marked => marked).SubscribeSafe(_ => ClearSelection(), OnError),
-            tab.ReadAloud.ReadFromCharacterCommand.SubscribeSafe(_ => ClearSelection(), OnError),
-            tab.WhenChanged(static x => x.IsCaretMode).Skip(1).SubscribeSafe(on => OnCaretModeChanged(tab, on), OnError),
-            tab.Annotations.WhenChanged(static x => x.Selected).Skip(1).SubscribeSafe(_ => InvalidateVisual(), OnError),
-            tab.FillAndSign.WhenChanged(static x => x.Placement).Skip(1).SubscribeSafe(_ => InvalidateVisual(), OnError),
-
-            // Moving around and grabbing content (PageCanvas.Navigation.cs, PageCanvas.AutoScroll.cs, PageCanvas.Area.cs).
-            tab.PageTools.SelectAllRequests.SubscribeSafe(_ => OnSelectAllRequested(), OnError),
-            tab.WhenChanged(static x => x.PageTools.IsAutoScrolling).SubscribeSafe(OnAutoScrollChanged, OnError),
-            tab.WhenChanged(static x => x.PageTools.PageTool).Skip(1).SubscribeSafe(_ => OnPageToolChanged(), OnError),
-        ];
         var position = tab.Position;
         RebuildLayout();
         ScrollToPosition(position);
@@ -1142,8 +1064,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
 
     /// <summary>Scrolls to a remembered position once laid out.</summary>
     /// <param name="position">The position.</param>
-    private void ScrollToPosition(DocumentPosition position)
-    {
+    private void ScrollToPosition(DocumentPosition position) =>
         _pendingScroll = () =>
         {
             if (_scroller is null || position.PageIndex < 0 || position.PageIndex >= _layout.PageCount)
@@ -1153,13 +1074,6 @@ public sealed partial class PageCanvas : Control, IActivatableView
 
             _scroller.Offset = new(_scroller.Offset.X, GetPageScrollTop(position.PageIndex, position.OffsetFraction));
         };
-        SchedulePendingScroll();
-    }
-
-    /// <summary>Applies the pending scroll after the next layout pass, covering layouts whose extent did not change.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void SchedulePendingScroll() =>
-        _ = Signal.Timer(TimeSpan.Zero, RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => ApplyPendingScroll(), OnError);
 
     /// <summary>Reports the current position to the tab.</summary>
     private void ReportPosition()
@@ -1190,18 +1104,8 @@ public sealed partial class PageCanvas : Control, IActivatableView
         ReportPosition();
     }
 
-    /// <summary>Repaints and reports the position after scrolling.</summary>
-    private void OnScrolled()
-    {
-        InvalidateVisual();
-        if (_pendingScroll is null)
-        {
-            ReportPosition();
-        }
-    }
-
-    /// <summary>Relayouts when the viewport size changes, keeping the current position.</summary>
-    private void OnViewportResized()
+    /// <summary>Lays the pages out again for a new viewport size, keeping the reader's place.</summary>
+    private void RelayoutInPlace()
     {
         if (Tab is not { } tab)
         {
@@ -1213,8 +1117,8 @@ public sealed partial class PageCanvas : Control, IActivatableView
         ScrollToPosition(position);
     }
 
-    /// <summary>Relayouts when zoom, arrangement or rotation change, keeping the current position.</summary>
-    private void OnLayoutSettingsChanged()
+    /// <summary>Lays the pages out again for a new zoom, arrangement or rotation, keeping the reader's place unless a zoom holds its own anchor.</summary>
+    private void RelayoutForSettings()
     {
         if (Tab is not { } tab)
         {
@@ -1230,9 +1134,9 @@ public sealed partial class PageCanvas : Control, IActivatableView
         }
     }
 
-    /// <summary>Scrolls to a navigation target.</summary>
-    /// <param name="request">The request.</param>
-    private void OnNavigationRequested(NavigationRequest request)
+    /// <summary>Scrolls to a place the reader asked to go.</summary>
+    /// <param name="request">The place.</param>
+    private void ScrollTo(NavigationRequest request)
     {
         if (_scroller is null || Tab is not { } tab || request.PageIndex < 0 || request.PageIndex >= _layout.PageCount)
         {
@@ -1258,8 +1162,8 @@ public sealed partial class PageCanvas : Control, IActivatableView
         ReportPosition();
     }
 
-    /// <summary>Relayouts after the document loads or reloads.</summary>
-    private void OnDocumentChanged()
+    /// <summary>Lays the pages out again after the document loads, reloads or its pages change, keeping the reader's place.</summary>
+    private void ReadPagesAgain()
     {
         _links.Clear();
         ClearSelection();

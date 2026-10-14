@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.TextFormatBarView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TextFormatBarView.axaml.cs). -->
+  <!--
+    Text format: shown with the Annotate and Fill & Sign tools, so it stays in one place. It shows the format of the
+    text being typed or picked, and changing it changes that text straight away.
+  -->
+  <Border x:Name="TextFormatBar" Classes="toolbar subbar" AutomationProperties.Name="Text format" AutomationProperties.ControlTypeOverride="ToolBar">
+    <WrapPanel Orientation="Horizontal">
+      <TextBlock x:Name="FontFamilyLabel" Classes="secondary" Text="Font" VerticalAlignment="Center" Margin="6,0,4,0" />
+      <ComboBox x:Name="FontFamilyBox" views:ControlHelp.Text="{x:Static views:Descriptions.FontFamily}" Width="190" VerticalAlignment="Center" MaxDropDownHeight="420" />
+      <TextBlock x:Name="FontSizeLabel" Classes="secondary" Text="Size" VerticalAlignment="Center" Margin="10,0,4,0" />
+      <ComboBox x:Name="FontSizeBox" views:ControlHelp.Text="{x:Static views:Descriptions.FontSize}" IsEditable="True" Width="76" VerticalAlignment="Center" />
+      <Button AutomationProperties.Name="Smaller text" x:Name="SmallerTextButton" views:ControlHelp.Text="{x:Static views:Descriptions.ShrinkPageText}" Classes="tool">
+        <StackPanel Orientation="Horizontal">
+          <Path Classes="icon edit" Data="{StaticResource IconZoomOut}" />
+          <TextBlock Classes="label" Text="Smaller" />
+        </StackPanel>
+      </Button>
+      <Button AutomationProperties.Name="Larger text" x:Name="LargerTextButton" views:ControlHelp.Text="{x:Static views:Descriptions.GrowPageText}" Classes="tool">
+        <StackPanel Orientation="Horizontal">
+          <Path Classes="icon edit" Data="{StaticResource IconZoomIn}" />
+          <TextBlock Classes="label" Text="Larger" />
+        </StackPanel>
+      </Button>
+      <Rectangle Classes="separator" />
+      <ToggleButton AutomationProperties.Name="Bold" x:Name="BoldToggle" views:ControlHelp.Text="{x:Static views:Descriptions.BoldText}" Classes="tool">
+        <TextBlock Classes="label" Text="Bold" FontWeight="Bold" />
+      </ToggleButton>
+      <ToggleButton AutomationProperties.Name="Italic" x:Name="ItalicToggle" views:ControlHelp.Text="{x:Static views:Descriptions.ItalicText}" Classes="tool">
+        <TextBlock Classes="label" Text="Italic" FontStyle="Italic" />
+      </ToggleButton>
+      <ToggleButton AutomationProperties.Name="Underline text" x:Name="UnderlineToggle" views:ControlHelp.Text="{x:Static views:Descriptions.UnderlineText}" Classes="tool">
+        <TextBlock Classes="label" Text="Underline" TextDecorations="Underline" />
+      </ToggleButton>
+      <Rectangle Classes="separator" />
+      <ToggleButton AutomationProperties.Name="Align left" x:Name="AlignLeftToggle" views:ControlHelp.Text="{x:Static views:Descriptions.AlignLeft}" Classes="tool">
+        <TextBlock Classes="label" Text="Left" />
+      </ToggleButton>
+      <ToggleButton AutomationProperties.Name="Centre" x:Name="AlignCenterToggle" views:ControlHelp.Text="{x:Static views:Descriptions.AlignCenter}" Classes="tool">
+        <TextBlock Classes="label" Text="Centre" />
+      </ToggleButton>
+      <ToggleButton AutomationProperties.Name="Align right" x:Name="AlignRightToggle" views:ControlHelp.Text="{x:Static views:Descriptions.AlignRight}" Classes="tool">
+        <TextBlock Classes="label" Text="Right" />
+      </ToggleButton>
+      <Rectangle Classes="separator" />
+      <Button AutomationProperties.Name="Text colour" x:Name="TextColourButton" views:ControlHelp.Text="{x:Static views:Descriptions.TextColour}" Classes="tool">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Border x:Name="TextColourSwatch" Classes="swatch" />
+          <TextBlock x:Name="TextColourText" VerticalAlignment="Center" />
+        </StackPanel>
+        <Button.Flyout>
+          <MenuFlyout>
+            <MenuItem x:Name="BlackTextItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextColour}" Header="_Black" />
+            <MenuItem x:Name="DarkBlueTextItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextColour}" Header="_Dark Blue" />
+            <MenuItem x:Name="BlueTextItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextColour}" Header="B_lue" />
+            <MenuItem x:Name="RedTextItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextColour}" Header="_Red" />
+            <MenuItem x:Name="GreenTextItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextColour}" Header="_Green" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+      <views:TextSpacingView />
+      <Button AutomationProperties.Name="Text Properties…" x:Name="TextPropertiesButton" views:ControlHelp.Text="{x:Static views:Descriptions.TextProperties}" Classes="tool">
+        <StackPanel Orientation="Horizontal">
+          <Path Classes="icon edit" Data="{StaticResource IconTextSize}" />
+          <TextBlock Classes="label" Text="Properties…" />
+        </StackPanel>
+      </Button>
+      <Button AutomationProperties.Name="Finish Text" x:Name="FinishTextButton" views:ControlHelp.Text="{x:Static views:Descriptions.FinishText}" Classes="tool">
+        <StackPanel Orientation="Horizontal">
+          <Path Classes="icon nav" Data="{StaticResource IconDone}" />
+          <TextBlock Classes="label" Text="Finish Text" />
+        </StackPanel>
+      </Button>
+    </WrapPanel>
+  </Border>
+</UserControl>

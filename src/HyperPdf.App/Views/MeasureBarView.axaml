@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.MeasureBarView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (MeasureBarView.axaml.cs). -->
+  <!-- Measuring: shown only while measuring. Click points on the page; double-click or Enter finishes, Esc clears. -->
+  <Border x:Name="MeasureBar" Classes="toolbar subbar" AutomationProperties.Name="Measure tools" AutomationProperties.ControlTypeOverride="ToolBar">
+    <Grid ColumnDefinitions="*,Auto">
+      <WrapPanel Orientation="Horizontal">
+        <ToggleButton AutomationProperties.Name="Distance" x:Name="DistanceTool" views:ControlHelp.Text="{x:Static views:Descriptions.Distance}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconRuler}" />
+            <TextBlock Classes="label" Text="Distance" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Perimeter" x:Name="PerimeterTool" views:ControlHelp.Text="{x:Static views:Descriptions.Perimeter}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconPerimeter}" />
+            <TextBlock Classes="label" Text="Perimeter" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Area" x:Name="AreaTool" views:ControlHelp.Text="{x:Static views:Descriptions.Area}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconArea}" />
+            <TextBlock Classes="label" Text="Area" />
+          </StackPanel>
+        </ToggleButton>
+        <Rectangle Classes="separator" />
+        <TextBlock x:Name="ScaleLabel" Classes="secondary" Text="Scale" VerticalAlignment="Center" Margin="4,0,6,0" />
+        <TextBox x:Name="ScaleBox" views:ControlHelp.Text="{x:Static views:Descriptions.MeasureScale}" AutomationProperties.Name="Measuring scale" Width="130" Height="30" MinHeight="30" VerticalAlignment="Center"
+                 VerticalContentAlignment="Center" />
+        <TextBlock x:Name="MeasureResult" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="12,0" FontWeight="SemiBold" />
+      </WrapPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal">
+        <Button AutomationProperties.Name="Keep on page" x:Name="MeasureKeepButton" views:ControlHelp.Text="{x:Static views:Descriptions.MeasureKeep}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon add" Data="{StaticResource IconAdd}" />
+            <TextBlock Classes="label" Text="Keep" />
+          </StackPanel>
+        </Button>
+        <Button AutomationProperties.Name="Clear measurement" x:Name="MeasureClearButton" views:ControlHelp.Text="{x:Static views:Descriptions.MeasureClear}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconClose}" />
+            <TextBlock Classes="label" Text="Clear" />
+          </StackPanel>
+        </Button>
+        <Button AutomationProperties.Name="Done measuring" x:Name="MeasureDoneButton" views:ControlHelp.Text="{x:Static views:Descriptions.MeasureDone}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconDone}" />
+            <TextBlock Classes="label" Text="Done" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

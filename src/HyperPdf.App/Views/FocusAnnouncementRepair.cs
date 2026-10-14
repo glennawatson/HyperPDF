@@ -6,10 +6,12 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
+using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Platform;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Views;
@@ -25,20 +27,14 @@ internal sealed class FocusAnnouncementRepair : IDisposable
     /// <summary>The check that sees the announcements.</summary>
     private readonly IFocusAnnouncementCheck _check;
 
-    /// <summary>The subscription to focus changes in every window.</summary>
-    private readonly IDisposable _subscription;
-
-    /// <summary>The subscription to the check becoming active.</summary>
-    private readonly IDisposable _activations;
-
     /// <summary>Lists the app's windows, to find the focused control when a screen reader starts listening.</summary>
     private readonly Func<IEnumerable<TopLevel>> _windows;
 
+    /// <summary>Owns the chain that checks and repeats focus changes.</summary>
+    private readonly MultipleDisposable _subscriptions = [];
+
     /// <summary>The control focus was last repeated on, so a repeat that is still unheard is not repeated again.</summary>
     private IInputElement? _repeated;
-
-    /// <summary>Stops the check for the latest focus change.</summary>
-    private CancellationTokenSource? _checking;
 
     /// <summary>Initializes a new instance of the <see cref="FocusAnnouncementRepair"/> class.</summary>
     /// <param name="check">The check that sees the announcements.</param>
@@ -49,8 +45,16 @@ internal sealed class FocusAnnouncementRepair : IDisposable
         ArgumentNullException.ThrowIfNull(windows);
         _check = check;
         _windows = windows;
-        _subscription = InputElement.GotFocusEvent.Raised.SubscribeSafe(OnGotFocus, OnError);
-        _activations = check.Activations.SubscribeSafe(_ => OnActivated(), OnError);
+
+        // A focus change, or a screen reader starting to listen, starts a check. A newer change replaces the walk for
+        // the older one, which SwitchMap cancels; an unheard change is repeated on the UI thread.
+        _subscriptions.Add(Signal.Merge(
+                InputElement.FocusArrivals.Select(ReadFocusChange).KeepNotNull(),
+                check.Activations.ObserveOn(AvaloniaScheduler.Instance).Select(_ => ReadFocusedControl()).KeepNotNull())
+            .Do(ForgetEarlierRepeat)
+            .SwitchMap(static change => change.WhenUnheard())
+            .ObserveOn(AvaloniaScheduler.Instance)
+            .SubscribeSafe(static change => change.Repeat(), ErrorTrace.Write));
     }
 
     /// <summary>
@@ -60,12 +64,8 @@ internal sealed class FocusAnnouncementRepair : IDisposable
     internal static bool IsRepeating { get; private set; }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _subscription.Dispose();
-        _activations.Dispose();
-        _ = Interlocked.Exchange(ref _checking, null)?.CancelAsync();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _subscriptions.Dispose();
 
     /// <summary>Moves focus away and back, keeping a text box's caret and selection.</summary>
     /// <param name="topLevel">The focused control's window.</param>
@@ -76,7 +76,7 @@ internal sealed class FocusAnnouncementRepair : IDisposable
         ArgumentNullException.ThrowIfNull(topLevel);
         ArgumentNullException.ThrowIfNull(element);
         var text = element as TextBox;
-        var (start, end, caret) = text is null ? default : (text.SelectionStart, text.SelectionEnd, text.CaretIndex);
+        var selection = text is null ? default : new TextSelection(text.SelectionStart, text.SelectionEnd, text.CaretIndex);
         IsRepeating = true;
         try
         {
@@ -93,98 +93,79 @@ internal sealed class FocusAnnouncementRepair : IDisposable
             return;
         }
 
-        text.CaretIndex = caret;
-        text.SelectionStart = start;
-        text.SelectionEnd = end;
+        text.CaretIndex = selection.Caret;
+        text.SelectionStart = selection.Start;
+        text.SelectionEnd = selection.End;
     }
 
     /// <summary>
-    /// Starts checking a focus change once a screen reader is listening. Focus that arrives with a pointer press is left
-    /// alone: moving it away would release the press, so the click would be lost.
+    /// Reads the focus change worth checking from one step of a focus event, once a screen reader is listening. Focus
+    /// that arrives with a pointer press is left alone: moving it away would release the press, so the click would be lost.
+    /// Only the step on the focused control itself counts, so the change is read once, not once per ancestor.
     /// </summary>
-    /// <param name="raised">The control that raised the event and the event.</param>
-    internal void OnGotFocus((object Sender, RoutedEventArgs Args) raised)
-    {
-        if (!_check.IsActive || raised.Args is not FocusChangedEventArgs { NewFocusedElement: InputElement element } focus
-            || focus.NavigationMethod == NavigationMethod.Pointer || !ReferenceEquals(raised.Sender, element)
-            || TopLevel.GetTopLevel(element) is not { } topLevel || ReferenceEquals(element, topLevel))
-        {
-            return;
-        }
-
-        if (!ReferenceEquals(element, _repeated))
-        {
-            _repeated = null;
-        }
-
-        _ = CheckAsync(new(this, topLevel, element, focus.NavigationMethod), _check.Announcements);
-    }
+    /// <param name="arrival">The control the step reached and the event.</param>
+    /// <returns>The change to check, or <see langword="null"/>; nothing is allocated while no screen reader listens.</returns>
+    internal FocusChange? ReadFocusChange(FocusArrival arrival) =>
+        !_check.IsActive || arrival.Args is not FocusChangedEventArgs { NewFocusedElement: InputElement element } focus
+            || focus.NavigationMethod == NavigationMethod.Pointer || !ReferenceEquals(arrival.Sender, element)
+            || TopLevel.GetTopLevel(element) is not { } topLevel || ReferenceEquals(element, topLevel)
+            ? null
+            : new(this, topLevel, element, focus.NavigationMethod, _check.Announcements, !ReferenceEquals(element, _repeated));
 
     /// <summary>
-    /// Checks the focused control again once a screen reader starts listening: it may have taken focus before the check
-    /// could see the bridge, or before the screen reader started.
+    /// Reads the control that has focus in the active window, once a screen reader starts listening: it may have taken
+    /// focus before the check could see the bridge, or before the screen reader started. How focus arrived is no longer
+    /// known, so a repeat uses keyboard navigation and the focus outline stays visible.
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void OnActivated() => _ = Signal.Return(this, AvaloniaScheduler.Instance).SubscribeSafe(static repair => repair.CheckFocused(), OnError);
-
-    /// <summary>Reports a failure in the subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
-
-    /// <summary>
-    /// Checks the control that has focus in the active window. How focus arrived is no longer known, so the repeat uses
-    /// keyboard navigation and the focus outline stays visible.
-    /// </summary>
-    private void CheckFocused()
+    /// <returns>The change to check, or <see langword="null"/> when no window holds focus.</returns>
+    private FocusChange? ReadFocusedControl()
     {
         if (!_check.IsActive)
         {
-            return;
+            return null;
         }
 
         foreach (var window in _windows())
         {
-            if (window is not WindowBase { IsActive: true } || window.FocusManager?.GetFocusedElement() is not InputElement element || ReferenceEquals(element, window))
+            if (window is WindowBase { IsActive: true } && window.FocusManager?.GetFocusedElement() is InputElement element && !ReferenceEquals(element, window))
             {
-                continue;
+                return new(this, window, element, NavigationMethod.Tab, _check.Announcements, true);
             }
+        }
 
+        return null;
+    }
+
+    /// <summary>Forgets the control focus was last repeated on once focus has moved to another one.</summary>
+    /// <param name="change">The new focus change.</param>
+    private void ForgetEarlierRepeat(FocusChange change)
+    {
+        if (change.IsFresh)
+        {
             _repeated = null;
-            _ = CheckAsync(new(this, window, element, NavigationMethod.Tab), _check.Announcements);
-            return;
         }
     }
 
-    /// <summary>Waits for the announcement and repeats the focus change when there was none.</summary>
-    /// <param name="change">The focus change.</param>
-    /// <param name="announcementsBefore">The announcements counted before it.</param>
-    /// <returns>A task that completes once checked.</returns>
-    private async Task CheckAsync(FocusChange change, long announcementsBefore)
+    /// <summary>Waits for the announcement of a focus change.</summary>
+    /// <param name="announcementsBefore">The announcements counted before the change.</param>
+    /// <param name="cancellationToken">Cancelled when a newer focus change replaces this one.</param>
+    /// <returns><see langword="true"/> when the change went unheard and should be repeated.</returns>
+    private async Task<bool> IsUnheardAsync(long announcementsBefore, CancellationToken cancellationToken)
     {
-        // Focus has moved on, so the walk for the previous change is no longer needed. The source is only cancelled,
-        // never disposed: it holds no timer or handle, and a walk that is ending must not race a dispose.
-        var checking = new CancellationTokenSource();
-        if (Interlocked.Exchange(ref _checking, checking) is { } older)
-        {
-            await older.CancelAsync().ConfigureAwait(false);
-        }
-
         try
         {
-            if (await _check.PrepareRepeatAsync(announcementsBefore, checking.Token).ConfigureAwait(false) && !checking.IsCancellationRequested)
-            {
-                _ = Signal.Return(change, AvaloniaScheduler.Instance).SubscribeSafe(static pending => pending.Repeat(), OnError);
-            }
+            return await _check.PrepareRepeatAsync(announcementsBefore, cancellationToken).ConfigureAwait(false) && !cancellationToken.IsCancellationRequested;
         }
-        catch (OperationCanceledException) when (checking.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // A newer focus change replaced this check.
+            return false;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // A failed check leaves focus as the bridge reported it; the user can still move on.
-            OnError(ex);
+            ErrorTrace.Write(ex);
+            return false;
         }
     }
 
@@ -201,15 +182,39 @@ internal sealed class FocusAnnouncementRepair : IDisposable
         Refocus(change.TopLevel, change.Element, change.Method);
     }
 
+    /// <summary>A text box's selection and caret, kept while focus moves away and back.</summary>
+    /// <param name="Start">The selection start.</param>
+    /// <param name="End">The selection end.</param>
+    /// <param name="Caret">The caret index.</param>
+    private readonly record struct TextSelection(int Start, int End, int Caret);
+
     /// <summary>A focus change waiting for its announcement.</summary>
     /// <param name="Owner">The repair that saw it.</param>
     /// <param name="TopLevel">The window.</param>
     /// <param name="Element">The focused control.</param>
     /// <param name="Method">How focus arrived.</param>
-    private sealed record FocusChange(FocusAnnouncementRepair Owner, TopLevel TopLevel, InputElement Element, NavigationMethod Method)
+    /// <param name="AnnouncementsBefore">The announcements counted before the change.</param>
+    /// <param name="IsFresh">Whether the change is to a control other than the one last repeated, which is then forgotten.</param>
+    internal sealed record FocusChange(FocusAnnouncementRepair Owner, TopLevel TopLevel, InputElement Element, NavigationMethod Method, long AnnouncementsBefore, bool IsFresh)
     {
-        /// <summary>Repeats the change on the UI thread.</summary>
+        /// <summary>
+        /// Gets the change once its announcement was missed; nothing arrives when it was heard. The walk starts on the
+        /// UI thread's next turn, because SwitchMap subscribes the newer walk before it disposes the older one, and the
+        /// older walk's token must be cancelled first.
+        /// </summary>
+        /// <returns>The change, at most once.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal IObservable<FocusChange> WhenUnheard() =>
+            Signal.FromAsync(IsUnheardAsync).SubscribeOn(AvaloniaScheduler.Instance).Where(static unheard => unheard).SelectWith(this, static (change, _) => change);
+
+        /// <summary>Repeats the change; runs on the UI thread.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Repeat() => Owner.Repeat(this);
+
+        /// <summary>Waits for the change's announcement.</summary>
+        /// <param name="cancellationToken">Cancelled when a newer change replaces this one.</param>
+        /// <returns><see langword="true"/> when it went unheard.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private Task<bool> IsUnheardAsync(CancellationToken cancellationToken) => Owner.IsUnheardAsync(AnnouncementsBefore, cancellationToken);
     }
 }

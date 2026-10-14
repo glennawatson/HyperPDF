@@ -42,53 +42,10 @@
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="Margin" Value="0,28,0,14" />
     </Style>
-    <Style Selector="Grid.focusSettings TextBlock">
-      <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
   </UserControl.Styles>
 
   <DockPanel x:Name="Root" Background="{DynamicResource FocusBackground}">
-    <!-- Quiet, persistent controls: text size, the text settings, and the way back to the pages. -->
-    <Border DockPanel.Dock="Top" Classes="toolbar">
-      <Grid ColumnDefinitions="*,Auto">
-        <StackPanel Orientation="Horizontal" Spacing="2">
-          <Button x:Name="SmallerButton" views:ControlHelp.Text="{x:Static views:Descriptions.SmallerText}" Classes="tool" AutomationProperties.Name="Smaller text">
-            <TextBlock Classes="label" Text="A−" />
-          </Button>
-          <Button x:Name="LargerButton" views:ControlHelp.Text="{x:Static views:Descriptions.LargerText}" Classes="tool" AutomationProperties.Name="Larger text">
-            <TextBlock Classes="label" Text="A+" />
-          </Button>
-          <Button AutomationProperties.Name="Text Settings" x:Name="TextSettingsButton" views:ControlHelp.Text="{x:Static views:Descriptions.TextSettings}" Classes="tool">
-            <TextBlock Classes="label" Text="Text Settings" />
-            <Button.Flyout>
-              <Flyout Placement="BottomEdgeAlignedLeft">
-                <Grid Classes="focusSettings" ColumnDefinitions="Auto,240" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16" Margin="8">
-                  <TextBlock Grid.Row="0" Text="Text size" />
-                  <Slider x:Name="SizeSlider" views:ControlHelp.Text="{x:Static views:Descriptions.TextSize}" Grid.Row="0" Grid.Column="1" Minimum="12" Maximum="32" SmallChange="1" LargeChange="2"
-                          AutomationProperties.Name="Text size" />
-                  <TextBlock Grid.Row="1" Text="Line spacing" />
-                  <Slider x:Name="LineSlider" views:ControlHelp.Text="{x:Static views:Descriptions.LineSpacing}" Grid.Row="1" Grid.Column="1" Minimum="1.2" Maximum="2.4" SmallChange="0.1" LargeChange="0.2"
-                          AutomationProperties.Name="Line spacing" />
-                  <TextBlock Grid.Row="2" Text="Paragraph spacing" />
-                  <Slider x:Name="ParagraphSlider" views:ControlHelp.Text="{x:Static views:Descriptions.ParagraphSpacing}" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="2.5" SmallChange="0.1" LargeChange="0.5"
-                          AutomationProperties.Name="Paragraph spacing" />
-                  <TextBlock Grid.Row="3" Text="Text width" />
-                  <Slider x:Name="WidthSlider" views:ControlHelp.Text="{x:Static views:Descriptions.TextWidth}" Grid.Row="3" Grid.Column="1" Minimum="40" Maximum="110" SmallChange="2" LargeChange="10"
-                          AutomationProperties.Name="Text width" />
-                  <TextBlock Grid.Row="4" Text="Page colour" />
-                  <ComboBox x:Name="ColourBox" views:ControlHelp.Text="{x:Static views:Descriptions.FocusPageColour}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Page colour" />
-                  <TextBlock Grid.Row="5" Text="Typeface" />
-                  <ComboBox x:Name="FontBox" views:ControlHelp.Text="{x:Static views:Descriptions.Typeface}" Grid.Row="5" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Typeface" />
-                  <CheckBox x:Name="BandCheck" views:ControlHelp.Text="{x:Static views:Descriptions.FocusBand}" Grid.Row="6" Grid.ColumnSpan="2" Content="Dim text away from what is read aloud" />
-                  <CheckBox x:Name="WordCheck" views:ControlHelp.Text="{x:Static views:Descriptions.WordMark}" Grid.Row="7" Grid.ColumnSpan="2" Content="Mark the word being read aloud" />
-                </Grid>
-              </Flyout>
-            </Button.Flyout>
-          </Button>
-        </StackPanel>
-        <Button Grid.Column="1" x:Name="BackToPagesButton" views:ControlHelp.Text="{x:Static views:Descriptions.BackToPages}" Content="Back to Pages" />
-      </Grid>
-    </Border>
+    <views:FocusToolbarView x:Name="Toolbar" DockPanel.Dock="Top" />
 
     <ScrollViewer x:Name="FocusScroller" HorizontalScrollBarVisibility="Disabled">
       <ItemsControl x:Name="PageList" HorizontalAlignment="Center" Margin="24,0,24,64">

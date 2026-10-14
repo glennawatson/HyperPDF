@@ -240,7 +240,7 @@ public sealed class WheelZoomAnchorTests
         _ = await UiWait.UntilAsync(() => scroller.Viewport.Height > 0 && tab.PageCount == Pages);
         tab.SetZoom(StartZoom);
         _ = await UiWait.UntilAsync(() => scroller.Extent.Height > Pages * PageHeight * StartZoom);
-        tab.NavigateTo(new(StartPage, null, pageFraction));
+        tab.NavigateTo(StartPage, null, pageFraction);
         _ = await UiWait.UntilAsync(() => tab.CurrentPageIndex >= StartPage && test.Services.RenderHub.Scheduler.IsIdle);
         Pump();
         return canvas;

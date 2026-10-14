@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Avalonia.Controls.Templates;
 using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
@@ -34,8 +33,4 @@ public sealed partial class StartView : ReactiveUI.Avalonia.ReactiveUserControl<
             disposables.Add(RecentList.ItemPicks<RecentDocument>().InvokeCommand(ViewModel, static vm => vm.OpenRecentCommand));
         });
     }
-
-    /// <summary>Focuses the Open button.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void FocusOpenButton() => _ = OpenButton.Focus();
 }

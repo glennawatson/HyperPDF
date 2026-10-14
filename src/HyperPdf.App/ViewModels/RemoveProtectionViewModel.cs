@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Protection;
+using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -31,6 +33,9 @@ public sealed partial class RemoveProtectionViewModel : ProtectionRunViewModel
         _protector = protector;
         Status = protector.GetStatus();
         StatusText = ReadyStatus;
+
+        // The password is forgotten once the window closes.
+        Subscriptions.Add(Scope.Create(ForgetPassword));
     }
 
     /// <summary>Gets how the open document is protected now.</summary>
@@ -46,15 +51,9 @@ public sealed partial class RemoveProtectionViewModel : ProtectionRunViewModel
     [Reactive]
     public partial string OwnerPassword { get; set; } = string.Empty;
 
-    /// <inheritdoc/>
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        if (disposing)
-        {
-            OwnerPassword = string.Empty;
-        }
-    }
+    /// <summary>Clears the password typed, so it is not kept after the window closes.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ForgetPassword() => OwnerPassword = string.Empty;
 
     /// <summary>Asks where to save, then writes the copy without protection there.</summary>
     /// <returns>A task.</returns>

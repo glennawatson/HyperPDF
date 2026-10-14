@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -42,7 +43,7 @@ public sealed partial class TabItemView : ReactiveUI.Avalonia.ReactiveUserContro
             // The unsaved dot is only seen, so the tab's spoken name says it too. The name is an attached property
             // on the tab strip's item, which a binding expression cannot reach.
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.FileName, static v => v.ViewModel!.HasUnsavedChanges, ItemAutomation.DescribeTab)
-                .SubscribeSafe(name => ItemAutomation.NameContainer(this, name), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(name => ItemAutomation.NameContainer(this, name), ErrorTrace.Write));
         });
     }
 }

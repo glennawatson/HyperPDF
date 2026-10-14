@@ -12,11 +12,11 @@ public sealed class FormPageOpenedTests
     /// <summary>The pages of the generated document.</summary>
     private const int Pages = 3;
 
-    /// <summary>The first page.</summary>
-    private const int FirstPage = 0;
+    /// <summary>The first page shown after the one the document opens at.</summary>
+    private const int FirstPage = 1;
 
-    /// <summary>The second page.</summary>
-    private const int SecondPage = 1;
+    /// <summary>The page shown next.</summary>
+    private const int SecondPage = 2;
 
     /// <summary>The page that opens while the first page's actions still run waits its turn and then runs.</summary>
     /// <returns>A task.</returns>
@@ -31,9 +31,10 @@ public sealed class FormPageOpenedTests
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         engine.FormGate = gate;
 
-        tab.Forms.OnPageShown(FirstPage);
+        // The forms follow the page shown, which the pages report as the reader scrolls.
+        tab.ReportPosition(new(FirstPage, 0), FirstPage);
         _ = await UiWait.UntilAsync(() => engine.OpenedPages.Count == 1, static () => "The first page's actions did not start.");
-        tab.Forms.OnPageShown(SecondPage);
+        tab.ReportPosition(new(SecondPage, 0), SecondPage);
         await UiWait.PumpAsync(1);
         _ = gate.TrySetResult();
 

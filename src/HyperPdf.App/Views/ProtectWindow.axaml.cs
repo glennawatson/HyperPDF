@@ -6,12 +6,12 @@ using System.Diagnostics;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.ObservableEvents;
-using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Views;
 
@@ -63,15 +63,14 @@ public sealed partial class ProtectWindow : ReactiveUI.Avalonia.ReactiveWindow<P
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.SaveInteraction, SaveAsync));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
-                .SubscribeSafe(_ => Close(), static error => Trace.TraceError(error.ToString())));
+                .SubscribeSafe(_ => Close(), ErrorTrace.Write));
 
-            // The named boxes are the state the chain needs, and a control cannot be passed through the operators, so these
-            // lambdas read the window's own fields. The keyboard moves once the window is open, when its boxes can take it.
-            var needsOwner = this.Events().LayoutUpdated.Take(1).WithLatestFrom(this.WhenChanged(static v => v.ViewModel!.NeedsCurrentOwner), static (_, needs) => needs);
-            disposables.Add(Signal.Merge(
-                    needsOwner.Where(static needs => needs).Select(_ => CurrentOwnerBox),
-                    needsOwner.Where(static needs => !needs).Select(_ => UserBox))
-                .SubscribeSafe(static box => box.Focus(), static error => Trace.TraceError(error.ToString())));
+            // The keyboard moves once the window is open, when its boxes can take it: to the current owner password when
+            // the file has one, otherwise to the user password.
+            disposables.Add(this.Events().LayoutUpdated.Take(1)
+                .WithLatestFrom(this.WhenChanged(static v => v.ViewModel!.NeedsCurrentOwner), static (_, needs) => needs)
+                .SelectWith(this, static (window, needs) => needs ? window.CurrentOwnerBox : window.UserBox)
+                .SubscribeSafe(static box => box.Focus(), ErrorTrace.Write));
         });
     }
 

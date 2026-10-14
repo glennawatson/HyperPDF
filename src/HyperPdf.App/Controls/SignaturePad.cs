@@ -3,13 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using ReactiveUI;
@@ -69,44 +69,23 @@ public sealed class SignaturePad : Control, IActivatableView
         Cursor = new(StandardCursorType.Cross);
         _ = this.WhenActivated(disposables =>
         {
-            // A press starts a stroke and keeps the pointer until it is released.
-            disposables.Add(this.PointerPresses.MarkHandled().SubscribeSafe(
-                press =>
-                {
-                    var point = press.GetPosition(this);
-                    _stroke.Clear();
-                    _stroke.Add(new((float)point.X, (float)point.Y));
-                    press.Pointer.Capture(this);
-                    InvalidateVisual();
-                },
-                OnError));
-            disposables.Add(this.PointerMoves.Where(_ => _stroke.Count is > 0 and < MaxStrokePoints).SubscribeSafe(
-                move =>
-                {
-                    var point = move.GetPosition(this);
-                    _stroke.Add(new((float)Math.Clamp(point.X, 0, Bounds.Width), (float)Math.Clamp(point.Y, 0, Bounds.Height)));
-                    InvalidateVisual();
-                },
-                OnError));
-
-            // A release finishes the stroke and passes it to the stroke command.
-            disposables.Add(this.PointerReleases.Where(_ => _stroke.Count > 0).SubscribeSafe(
-                release =>
-                {
-                    release.Pointer.Capture(null);
-                    PagePoint[] stroke = [.. _stroke];
-                    _stroke.Clear();
-                    _drawn.Add(stroke);
-                    InvalidateVisual();
-                    if (StrokeCommand is { } command && command.CanExecute(stroke))
-                    {
-                        command.Execute(stroke);
-                    }
-                },
-                OnError));
+            // A press starts a stroke and keeps the pointer; the moves until the release add to it, up to the most
+            // points a stroke keeps, and the release finishes it.
+            var strokes = this.PointerPresses.MarkHandled();
+            disposables.Add(strokes.SubscribeSafe(StartStroke, ErrorTrace.Write));
+            disposables.Add(strokes
+                .SelectWith(this, static (pad, _) => pad)
+                .SwitchMap(static pad => pad.PointerMoves
+                    .TakeUntil(pad.PointerReleases)
+                    .WhereWith(pad, static (drawing, _) => drawing._stroke.Count < MaxStrokePoints))
+                .SubscribeSafe(ExtendStroke, ErrorTrace.Write));
+            disposables.Add(strokes
+                .SelectWith(this, static (pad, _) => pad)
+                .SwitchMap(static pad => pad.PointerReleases.Take(1))
+                .SubscribeSafe(FinishStroke, ErrorTrace.Write));
 
             // Clearing the mark clears what was drawn here too, so Clear Drawing starts again.
-            disposables.Add(this.WhenChanged(static pad => pad.Mark).Where(static mark => mark is null).SubscribeSafe(_ => Clear(), OnError));
+            disposables.Add(this.WhenChanged(static pad => pad.Mark).Where(static mark => mark is null).SubscribeSafe(_ => Clear(), ErrorTrace.Write));
 
             // The cached picture is freed once the pad is no longer shown.
             disposables.Add(Scope.Create(this, static pad => pad.FreePainter()));
@@ -165,11 +144,6 @@ public sealed class SignaturePad : Control, IActivatableView
         return new(area.X + ((area.Width - width) * Half), area.Y + ((area.Height - height) * Half), width, height);
     }
 
-    /// <summary>Reports a failure in a subscription.</summary>
-    /// <param name="error">The error.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void OnError(Exception error) => Trace.TraceError(error.ToString());
-
     /// <summary>Draws one stroke as joined lines.</summary>
     /// <param name="context">The drawing context.</param>
     /// <param name="stroke">The points.</param>
@@ -178,6 +152,46 @@ public sealed class SignaturePad : Control, IActivatableView
         for (var i = 1; i < stroke.Length; i++)
         {
             context.DrawLine(InkPen, new(stroke[i - 1].X, stroke[i - 1].Y), new(stroke[i].X, stroke[i].Y));
+        }
+    }
+
+    /// <summary>Starts a stroke where the pointer was pressed and keeps the pointer until it is released.</summary>
+    /// <param name="press">The press.</param>
+    private void StartStroke(PointerPressedEventArgs press)
+    {
+        var point = press.GetPosition(this);
+        _stroke.Clear();
+        _stroke.Add(new((float)point.X, (float)point.Y));
+        press.Pointer.Capture(this);
+        InvalidateVisual();
+    }
+
+    /// <summary>Adds the pointer's place to the stroke, kept inside the pad.</summary>
+    /// <param name="move">The move.</param>
+    private void ExtendStroke(PointerEventArgs move)
+    {
+        var point = move.GetPosition(this);
+        _stroke.Add(new((float)Math.Clamp(point.X, 0, Bounds.Width), (float)Math.Clamp(point.Y, 0, Bounds.Height)));
+        InvalidateVisual();
+    }
+
+    /// <summary>Finishes the stroke on release and passes it to the stroke command.</summary>
+    /// <param name="release">The release.</param>
+    private void FinishStroke(PointerReleasedEventArgs release)
+    {
+        release.Pointer.Capture(null);
+        if (_stroke.Count == 0)
+        {
+            return;
+        }
+
+        PagePoint[] stroke = [.. _stroke];
+        _stroke.Clear();
+        _drawn.Add(stroke);
+        InvalidateVisual();
+        if (StrokeCommand is { } command && command.CanExecute(stroke))
+        {
+            command.Execute(stroke);
         }
     }
 

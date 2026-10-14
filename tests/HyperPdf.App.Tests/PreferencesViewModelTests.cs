@@ -223,12 +223,12 @@ public sealed class PreferencesViewModelTests
         try
         {
             var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
-            var reloadBar = view.FindControl<Border>("ReloadBar")!;
+            var reloadBar = view.FindNamed<Border>("ReloadBar")!;
             await File.AppendAllTextAsync(path, "\n% external change\n");
-            tab.OnFileChanged();
+            tab.CheckChangedFile();
             await Assert.That(reloadBar.IsVisible).IsTrue();
-            await Assert.That(view.FindControl<TextBlock>("ReloadText")!.Text).Contains("Reload it?");
-            var dismiss = view.FindControl<Button>("DismissReloadButton")!;
+            await Assert.That(view.FindNamed<TextBlock>("ReloadText")!.Text).Contains("Reload it?");
+            var dismiss = view.FindNamed<Button>("DismissReloadButton")!;
             await Assert.That(await UiWait.UntilAsync(() => dismiss.Command is not null)).IsTrue();
             dismiss.Command!.Execute(null);
             await Assert.That(reloadBar.IsVisible).IsFalse();

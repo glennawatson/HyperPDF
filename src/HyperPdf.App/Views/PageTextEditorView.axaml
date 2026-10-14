@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:HyperPdf.App.Controls"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.PageTextEditorView"
+             ClipToBounds="False">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (PageTextEditorView.axaml.cs). -->
+  <Canvas>
+    <!-- Text typed on the page sits where it will be written, in its own font, size and colour. -->
+    <TextBox x:Name="PageTextEditor" views:ControlHelp.Text="{x:Static views:Descriptions.PageText}" AutomationProperties.Name="Text on page" Classes="pagetext" AcceptsReturn="True" IsVisible="False" />
+    <!-- Underlines the typed text, which the editor cannot do itself; the pointer passes through it. -->
+    <controls:PageTextUnderline x:Name="PageTextUnderline" IsHitTestVisible="False" RenderTransformOrigin="0%,0%" />
+  </Canvas>
+</UserControl>
