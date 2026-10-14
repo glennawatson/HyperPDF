@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Formats.Asn1;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -107,7 +108,7 @@ internal static class SigningFixtures
     {
         using var document = PdfDocumentReader.Open(file, null);
         var field = PdfDocumentAttachments.GetSignatures(document)[0];
-        contents = field.Contents.AsSpan().TrimEnd((byte)0).ToArray();
+        contents = Container(field.Contents);
         var signed = new List<byte>();
         for (var i = 0; i + 1 < field.ByteRange.Length; i += RangePair)
         {
@@ -115,6 +116,18 @@ internal static class SigningFixtures
         }
 
         return [.. signed];
+    }
+
+    /// <summary>
+    /// Cuts the signature container out of a zero-padded /Contents value. The container ends where its own DER length says:
+    /// a signature can end in zero bytes, so trimming the zeros would cut it short.
+    /// </summary>
+    /// <param name="padded">The /Contents bytes, container first and zero padding after it.</param>
+    /// <returns>The container.</returns>
+    internal static byte[] Container(ReadOnlySpan<byte> padded)
+    {
+        _ = AsnDecoder.ReadEncodedValue(padded, AsnEncodingRules.BER, out _, out _, out var length);
+        return padded[..length].ToArray();
     }
 
     /// <summary>Creates a self-signed elliptic-curve certificate.</summary>
