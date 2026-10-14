@@ -140,9 +140,10 @@ public static class Jbig2Decoder
     {
         using var workspace = new Jbig2Workspace(scratchPools);
         using var global = globals.IsEmpty ? null : new Jbig2DecodeState(null, workspace, null, cancellationToken);
-        if (global is not null && Jbig2Segments.DecodeSequential(global, globals) != Jbig2Status.Success)
+        if (global is not null)
         {
-            return false;
+            // Damaged globals keep the segments that decoded; a page that needs a lost one fails on its own.
+            _ = Jbig2Segments.DecodeSequential(global, globals);
         }
 
         using var context = new Jbig2DecodeState(page, workspace, global, cancellationToken);

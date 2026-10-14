@@ -353,6 +353,24 @@ public static class PdfImageDecoder
             ?? DecodeColor(header, rows, space, unpacker, scratchPools);
     }
 
+    /// <summary>Decodes a stencil mask to coverage.</summary>
+    /// <param name="header">The image header.</param>
+    /// <param name="data">The 1-bit samples.</param>
+    /// <returns>The coverage image.</returns>
+    internal static PdfImageData DecodeStencil(in ImageHeader header, ReadOnlySpan<byte> data)
+    {
+        var decode = header.GetDecode();
+        var paintOnes = decode[0] > decode[1];
+        var coverage = PixelMemory.Allocate((long)header.Width * header.Height, out var pinned);
+        for (var y = 0; y < header.Height; y++)
+        {
+            var row = data.Slice(y * header.RowBytes, header.RowBytes);
+            ImageAlpha.ExpandStencilRow(row, coverage.AsSpan(y * header.Width, header.Width), paintOnes);
+        }
+
+        return new(header.Width, header.Height, coverage, true, header.Interpolate, PdfImageCodec.None) { IsPinned = pinned };
+    }
+
     /// <summary>Determines whether an image gets a soft mask or stencil mask stream, which need BGRA pixels to multiply into.</summary>
     /// <param name="dictionary">The image dictionary.</param>
     /// <returns><see langword="true"/> when the image has a mask stream.</returns>
@@ -518,24 +536,6 @@ public static class PdfImageDecoder
                 pool.Return(alpha);
             }
         }
-    }
-
-    /// <summary>Decodes a stencil mask to coverage.</summary>
-    /// <param name="header">The image header.</param>
-    /// <param name="data">The 1-bit samples.</param>
-    /// <returns>The coverage image.</returns>
-    private static PdfImageData DecodeStencil(in ImageHeader header, ReadOnlySpan<byte> data)
-    {
-        var decode = header.GetDecode();
-        var paintOnes = decode[0] > decode[1];
-        var coverage = PixelMemory.Allocate((long)header.Width * header.Height, out var pinned);
-        for (var y = 0; y < header.Height; y++)
-        {
-            var row = data.Slice(y * header.RowBytes, header.RowBytes);
-            ImageAlpha.ExpandStencilRow(row, coverage.AsSpan(y * header.Width, header.Width), paintOnes);
-        }
-
-        return new(header.Width, header.Height, coverage, true, header.Interpolate, PdfImageCodec.None) { IsPinned = pinned };
     }
 
     /// <summary>Applies the image's /SMask, or else its stencil /Mask stream.</summary>

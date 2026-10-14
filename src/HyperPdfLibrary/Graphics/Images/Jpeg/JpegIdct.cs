@@ -82,20 +82,32 @@ internal static class JpegIdct
     /// <param name="destination">Receives the 8x8 samples, row by row, starting at the first element.</param>
     /// <param name="stride">The distance between rows in <paramref name="destination"/>.</param>
     /// <exception cref="ArgumentOutOfRangeException">A span is too short for a block.</exception>
-    internal static void Transform(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quant, Span<int> work, Span<byte> destination, int stride)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Transform(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quant, Span<int> work, Span<byte> destination, int stride) =>
+        Transform(coefficients, quant, work, destination, stride, 0);
+
+    /// <summary>Transforms one block into samples, dropping low bits so a 12-bit frame yields 8-bit samples.</summary>
+    /// <param name="coefficients">The 64 coefficients in storage order.</param>
+    /// <param name="quant">The 64 quantizer steps in storage order.</param>
+    /// <param name="work">A 64-int scratch buffer.</param>
+    /// <param name="destination">Receives the 8x8 samples, row by row, starting at the first element.</param>
+    /// <param name="stride">The distance between rows in <paramref name="destination"/>.</param>
+    /// <param name="sampleDrop">The bits dropped from each sample: 0 for 8-bit frames, 4 for 12-bit frames. The level shift stays 128.</param>
+    /// <exception cref="ArgumentOutOfRangeException">A span is too short for a block.</exception>
+    internal static void Transform(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quant, Span<int> work, Span<byte> destination, int stride, int sampleDrop)
     {
         Validate(coefficients, quant, work, destination, stride);
         if (!coefficients[1..].ContainsAnyExcept((short)0))
         {
-            FillDc(coefficients[0] * quant[0], destination, stride);
+            FillDc(coefficients[0] * quant[0], destination, stride, sampleDrop);
         }
         else if (Vector256.IsHardwareAccelerated)
         {
-            JpegIdctVector.Transform(coefficients, quant, work, destination, stride);
+            JpegIdctVector.Transform(coefficients, quant, work, destination, stride, sampleDrop);
         }
         else
         {
-            TransformScalar(coefficients, quant, work, destination, stride);
+            TransformScalar(coefficients, quant, work, destination, stride, sampleDrop);
         }
     }
 
@@ -106,7 +118,19 @@ internal static class JpegIdct
     /// <param name="destination">Receives the 8x8 samples.</param>
     /// <param name="stride">The distance between rows in <paramref name="destination"/>.</param>
     /// <exception cref="ArgumentOutOfRangeException">A span is too short for a block.</exception>
-    internal static void TransformScalar(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quant, Span<int> work, Span<byte> destination, int stride)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void TransformScalar(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quant, Span<int> work, Span<byte> destination, int stride) =>
+        TransformScalar(coefficients, quant, work, destination, stride, 0);
+
+    /// <summary>Transforms one block with scalar code, dropping low bits so a 12-bit frame yields 8-bit samples.</summary>
+    /// <param name="coefficients">The 64 coefficients in storage order.</param>
+    /// <param name="quant">The 64 quantizer steps in storage order.</param>
+    /// <param name="work">A 64-int scratch buffer.</param>
+    /// <param name="destination">Receives the 8x8 samples.</param>
+    /// <param name="stride">The distance between rows in <paramref name="destination"/>.</param>
+    /// <param name="sampleDrop">The bits dropped from each sample: 0 for 8-bit frames, 4 for 12-bit frames.</param>
+    /// <exception cref="ArgumentOutOfRangeException">A span is too short for a block.</exception>
+    internal static void TransformScalar(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quant, Span<int> work, Span<byte> destination, int stride, int sampleDrop)
     {
         Validate(coefficients, quant, work, destination, stride);
         for (var i = 0; i < JpegBlock.Length; i++)
@@ -122,7 +146,7 @@ internal static class JpegIdct
         TransposeScalar(work);
         for (var lane = 0; lane < JpegBlock.Side; lane++)
         {
-            Pass(work, lane, SecondPassShift);
+            Pass(work, lane, SecondPassShift + sampleDrop);
         }
 
         for (var y = 0; y < JpegBlock.Side; y++)
@@ -171,9 +195,10 @@ internal static class JpegIdct
     /// <param name="dc">The dequantized DC coefficient.</param>
     /// <param name="destination">Receives the samples.</param>
     /// <param name="stride">The row distance.</param>
-    private static void FillDc(int dc, Span<byte> destination, int stride)
+    /// <param name="sampleDrop">The bits dropped from each sample.</param>
+    private static void FillDc(int dc, Span<byte> destination, int stride, int sampleDrop)
     {
-        var sample = (byte)Math.Clamp(((dc + DcRound) >> DcShift) + LevelShift, 0, MaxSample);
+        var sample = (byte)Math.Clamp(((dc + (DcRound << sampleDrop)) >> (DcShift + sampleDrop)) + LevelShift, 0, MaxSample);
         for (var y = 0; y < JpegBlock.Side; y++)
         {
             destination.Slice(y * stride, JpegBlock.Side).Fill(sample);

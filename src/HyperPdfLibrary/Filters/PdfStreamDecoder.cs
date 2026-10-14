@@ -202,16 +202,9 @@ internal static class PdfStreamDecoder
                 return ApplyDictionaryCoder(known, input, parms, ref output, source);
             }
 
-            case KnownName.ASCIIHexDecode or KnownName.AHx:
+            case KnownName.ASCIIHexDecode or KnownName.AHx or KnownName.ASCII85Decode or KnownName.A85:
             {
-                AsciiHexFilter.Decode(input, ref output);
-                break;
-            }
-
-            case KnownName.ASCII85Decode or KnownName.A85:
-            {
-                Ascii85Filter.Decode(input, ref output);
-                break;
+                return ApplyText(known, input, ref output);
             }
 
             case KnownName.RunLengthDecode or KnownName.RL:
@@ -235,6 +228,19 @@ internal static class PdfStreamDecoder
         }
 
         return FilterResult.Applied;
+    }
+
+    /// <summary>Applies ASCIIHexDecode or ASCII85Decode.</summary>
+    /// <param name="known">The filter, which is one of the two ASCII filters in full or abbreviated form.</param>
+    /// <param name="input">The encoded text.</param>
+    /// <param name="output">The buffer receiving the decoded data.</param>
+    /// <returns><see cref="FilterResult.Damaged"/> when the text broke the filter's rules.</returns>
+    private static FilterResult ApplyText(KnownName known, ReadOnlySpan<byte> input, ref PooledBuffer output)
+    {
+        var clean = known is KnownName.ASCIIHexDecode or KnownName.AHx
+            ? AsciiHexFilter.TryDecode(input, ref output)
+            : Ascii85Filter.TryDecode(input, ref output);
+        return clean ? FilterResult.Applied : FilterResult.Damaged;
     }
 
     /// <summary>Applies Flate or LZW, then the predictor named in the parameters.</summary>

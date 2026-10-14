@@ -37,6 +37,12 @@ public readonly record struct PdfCompactOptions(bool UseObjectStreams, bool Remo
     /// <summary>Gets how hard Flate compression works, for <see cref="PdfStreamMode.Compress"/>, <see cref="PdfStreamMode.Recompress"/> and object streams.</summary>
     public PdfCompressionLevel CompressionLevel { get; init; }
 
+    /// <summary>
+    /// Gets the filters <see cref="PdfStreamMode.Recompress"/> writes streams with; Flate by default. A file that claims PDF/A
+    /// or PDF/UA is written with Flate in place of LZW.
+    /// </summary>
+    public PdfStreamEncoding RecompressEncoding { get; init; }
+
     /// <summary>Gets the page content changes to make before writing. They are made in the document in memory as one undoable edit.</summary>
     public PdfContentNormalisation Normalisation { get; init; }
 

@@ -58,12 +58,20 @@ internal sealed class Jbig2PatternDictionary : IDisposable
             return null;
         }
 
-        var at = template == FullTemplate
-            ? Jbig2AtPixels.Template0 with { X1 = unchecked((sbyte)-width), Y1 = 0 }
-            : new(unchecked((sbyte)-width), 0, 0, 0, 0, 0, 0, 0);
-        _ = Jbig2GenericRegion.Decode(ref decoder, contexts, new(template, false, at), collective, null);
+        _ = Jbig2GenericRegion.Decode(ref decoder, contexts, new(template, false, AtPixels(template, width)), collective, null);
         return Split(collective, width, height, grayMax);
     }
+
+    /// <summary>
+    /// Gets the adaptive pixels of a pattern dictionary's collective bitmap (T.88 table 27): the first one sits one
+    /// pattern width to the left on the same row, so it can reach the previous pattern, and the others are nominal.
+    /// </summary>
+    /// <param name="template">The generic template, HDTEMPLATE.</param>
+    /// <param name="width">The pattern width, HDPW, up to 255.</param>
+    /// <returns>The pixels.</returns>
+    internal static Jbig2AtPixels AtPixels(int template, int width) => template == FullTemplate
+        ? Jbig2AtPixels.Template0 with { X1 = (short)-width, Y1 = 0 }
+        : new((short)-width, 0, 0, 0, 0, 0, 0, 0);
 
     /// <summary>Decodes an MMR-coded pattern dictionary.</summary>
     /// <param name="data">The coded data.</param>

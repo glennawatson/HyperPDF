@@ -46,11 +46,50 @@ public sealed class CcittFaxDecoderTests
     /// <summary>The row of a damaged image checked to be white.</summary>
     private const int LastRow = 2;
 
+    /// <summary>The end-of-line code.</summary>
+    private const string EndOfLineBits = "000000000001";
+
+    /// <summary>The one-dimensional code of the pattern row: white 2, black 3, white 3.</summary>
+    private const string PatternBits = "0111101000";
+
+    /// <summary>Eight zeros and a one: no code word starts with eight zeros, and it is too short to pass for an end-of-line code, so the row is damaged.</summary>
+    private const string DamagedBits = "000000001";
+
+    /// <summary>The one-dimensional code of four white pixels then four black ones: white 4, black 4.</summary>
+    private const string FourWhiteFourBlackBits = "1011011";
+
+    /// <summary>Four white pixels then four black ones, with black as 0 bits.</summary>
+    private const byte FourWhiteFourBlack = 0xF0;
+
+    /// <summary>White 29 (00000010) then black 3 (10).</summary>
+    private const string WhiteTwentyNineBlackThreeBits = "0000001010";
+
+    /// <summary>Six zero bits that pad ten bits to two bytes.</summary>
+    private const string SixFillBits = "000000";
+
+    /// <summary>The width of the row made of a white run of 29 and a black run of 3.</summary>
+    private const int WideRowWidth = 32;
+
+    /// <summary>The rows in the wide-row sample.</summary>
+    private const int WideRows = 2;
+
+    /// <summary>The rows in the damaged-row sample, counting one damaged row.</summary>
+    private const int DamagedRows = 3;
+
     /// <summary>The bits in a byte.</summary>
     private const int BitsPerByte = 8;
 
     /// <summary>The highest bit index within a byte.</summary>
     private const int HighBit = 7;
+
+    /// <summary>Two rows of 29 white pixels and 3 black ones, with black as 0 bits.</summary>
+    private static readonly byte[] WideRowResult = [0xFF, 0xFF, 0xFF, 0xF8, 0xFF, 0xFF, 0xFF, 0xF8];
+
+    /// <summary>The rows decoded when the second of three rows is damaged: the first row twice, then the last row.</summary>
+    private static readonly byte[] OneDamagedRowResult = [PatternRow, PatternRow, FourWhiteFourBlack];
+
+    /// <summary>The rows decoded when two rows in a row are damaged: the first row, a copy of it, a white row, then the last row.</summary>
+    private static readonly byte[] TwoDamagedRowsResult = [PatternRow, PatternRow, WhiteRow, FourWhiteFourBlack];
 
     /// <summary>
     /// Group 4: row 1 is V0 (1), all white. Row 2 is horizontal (001), white 2 (0111), black 3 (10), then V0 (1).
@@ -220,6 +259,49 @@ public sealed class CcittFaxDecoderTests
         await Assert.That(empty).IsEquivalentTo(AllWhite);
     }
 
+    /// <summary>
+    /// A Group 3 row that cannot be decoded is replaced by the row before it once its end-of-line code is found again
+    /// (ISO 32000-2 table 11, /DamagedRowsBeforeError).
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DamagedGroup3RowIsReplacedByThePreviousRow()
+    {
+        var data = FromBits(EndOfLineBits + PatternBits + EndOfLineBits + DamagedBits + EndOfLineBits + FourWhiteFourBlackBits);
+
+        var rows = Decode(data, new(0, SmallWidth, DamagedRows, false, false, true, false), SmallWidth, DamagedRows);
+
+        await Assert.That(rows).IsEquivalentTo(OneDamagedRowResult);
+    }
+
+    /// <summary>A second damaged row in a row becomes white, because the row before it was damaged too.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SecondDamagedGroup3RowInARowIsWhite()
+    {
+        var data = FromBits(EndOfLineBits + PatternBits + EndOfLineBits + DamagedBits + EndOfLineBits + DamagedBits + EndOfLineBits + FourWhiteFourBlackBits);
+
+        var rows = Decode(data, new(0, SmallWidth, DamagedRows + 1, false, false, true, false), SmallWidth, DamagedRows + 1);
+
+        await Assert.That(rows).IsEquivalentTo(TwoDamagedRowsResult);
+    }
+
+    /// <summary>
+    /// Byte-aligned Group 3 rows with no end-of-line codes (the TIFF compression 2 layout) decode when the fill zeros and the
+    /// leading zeros of the next code word are eleven or more together, which would otherwise pass for an end-of-line code.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ByteAlignedGroup3WithoutEolSkipsFillBeforeLongZeroPrefix()
+    {
+        // White 29 (00000010, six leading zeros) then black 3 (10), padded with six zeros to a whole number of bytes, twice.
+        var data = FromBits(WhiteTwentyNineBlackThreeBits + SixFillBits + WhiteTwentyNineBlackThreeBits + SixFillBits);
+
+        var rows = Decode(data, new(0, WideRowWidth, WideRows, false, true, false, false), WideRowWidth, WideRows);
+
+        await Assert.That(rows).IsEquivalentTo(WideRowResult);
+    }
+
     /// <summary>The parameters read from a dictionary use the specification defaults for missing entries.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -233,6 +315,23 @@ public sealed class CcittFaxDecoderTests
         await Assert.That(parameters.Columns).IsEqualTo(CcittParameters.FromDictionary(null).Columns);
         await Assert.That(parameters.EndOfBlock).IsTrue();
         await Assert.That(parameters.BlackIs1).IsFalse();
+    }
+
+    /// <summary>Turns a string of 0 and 1 characters into bytes, padding the last byte with zeros.</summary>
+    /// <param name="bits">The bits, most significant first.</param>
+    /// <returns>The bytes.</returns>
+    private static byte[] FromBits(string bits)
+    {
+        var bytes = new byte[(bits.Length + HighBit) / BitsPerByte];
+        for (var i = 0; i < bits.Length; i++)
+        {
+            if (bits[i] == '1')
+            {
+                bytes[i / BitsPerByte] |= (byte)(1 << (HighBit - (i % BitsPerByte)));
+            }
+        }
+
+        return bytes;
     }
 
     /// <summary>Creates parameters with the columns taken from the image width.</summary>

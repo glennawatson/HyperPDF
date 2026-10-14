@@ -24,20 +24,80 @@ internal static class JpegIdctVector
     /// <summary>The rows written in one step.</summary>
     private const int RowPair = 2;
 
+    /// <summary>Transforms one block of an 8-bit frame.</summary>
+    /// <param name="coefficients">The 64 coefficients in storage order.</param>
+    /// <param name="quant">The 64 quantizer steps in storage order.</param>
+    /// <param name="work">A 64-int scratch buffer.</param>
+    /// <param name="destination">Receives the 8x8 samples.</param>
+    /// <param name="stride">The distance between rows in <paramref name="destination"/>.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Transform(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quant, Span<int> work, Span<byte> destination, int stride) =>
+        Transform(coefficients, quant, work, destination, stride, 0);
+
     /// <summary>Transforms one block.</summary>
     /// <param name="coefficients">The 64 coefficients in storage order.</param>
     /// <param name="quant">The 64 quantizer steps in storage order.</param>
     /// <param name="work">A 64-int scratch buffer.</param>
     /// <param name="destination">Receives the 8x8 samples.</param>
     /// <param name="stride">The distance between rows in <paramref name="destination"/>.</param>
-    internal static void Transform(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quant, Span<int> work, Span<byte> destination, int stride)
+    /// <param name="sampleDrop">The bits dropped from each sample: 0 for 8-bit frames, 4 for 12-bit frames.</param>
+    internal static void Transform(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quant, Span<int> work, Span<byte> destination, int stride, int sampleDrop)
     {
         ref var w = ref MemoryMarshal.GetReference(work);
         Dequantize(ref MemoryMarshal.GetReference(coefficients), ref MemoryMarshal.GetReference(quant), ref w);
         Pass(ref w, JpegIdct.FirstPassShift);
         Transpose(work, ref w);
-        Pass(ref w, JpegIdct.SecondPassShift);
+        Pass(ref w, JpegIdct.SecondPassShift + sampleDrop);
         Store(ref w, destination, stride);
+    }
+
+    /// <summary>Transposes the work matrix in place.</summary>
+    /// <param name="work">The matrix as a span, for the scalar fallback.</param>
+    /// <param name="origin">The first element of the matrix.</param>
+    internal static void Transpose(Span<int> work, ref int origin)
+    {
+        if (!Avx2.IsSupported)
+        {
+            JpegIdct.TransposeScalar(work);
+            return;
+        }
+
+        var r0 = Vector256.LoadUnsafe(ref origin, 0);
+        var r1 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row1);
+        var r2 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row2);
+        var r3 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row3);
+        var r4 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row4);
+        var r5 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row5);
+        var r6 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row6);
+        var r7 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row7);
+
+        // Interleave pairs of rows, then pairs of pairs, then join the 128-bit halves.
+        var t0 = Avx2.UnpackLow(r0, r1).AsInt64();
+        var t1 = Avx2.UnpackHigh(r0, r1).AsInt64();
+        var t2 = Avx2.UnpackLow(r2, r3).AsInt64();
+        var t3 = Avx2.UnpackHigh(r2, r3).AsInt64();
+        var t4 = Avx2.UnpackLow(r4, r5).AsInt64();
+        var t5 = Avx2.UnpackHigh(r4, r5).AsInt64();
+        var t6 = Avx2.UnpackLow(r6, r7).AsInt64();
+        var t7 = Avx2.UnpackHigh(r6, r7).AsInt64();
+
+        var u0 = Avx2.UnpackLow(t0, t2).AsInt32();
+        var u1 = Avx2.UnpackHigh(t0, t2).AsInt32();
+        var u2 = Avx2.UnpackLow(t1, t3).AsInt32();
+        var u3 = Avx2.UnpackHigh(t1, t3).AsInt32();
+        var u4 = Avx2.UnpackLow(t4, t6).AsInt32();
+        var u5 = Avx2.UnpackHigh(t4, t6).AsInt32();
+        var u6 = Avx2.UnpackLow(t5, t7).AsInt32();
+        var u7 = Avx2.UnpackHigh(t5, t7).AsInt32();
+
+        Avx2.Permute2x128(u0, u4, LowHalves).StoreUnsafe(ref origin, 0);
+        Avx2.Permute2x128(u1, u5, LowHalves).StoreUnsafe(ref origin, JpegBlock.Row1);
+        Avx2.Permute2x128(u2, u6, LowHalves).StoreUnsafe(ref origin, JpegBlock.Row2);
+        Avx2.Permute2x128(u3, u7, LowHalves).StoreUnsafe(ref origin, JpegBlock.Row3);
+        Avx2.Permute2x128(u0, u4, HighHalves).StoreUnsafe(ref origin, JpegBlock.Row4);
+        Avx2.Permute2x128(u1, u5, HighHalves).StoreUnsafe(ref origin, JpegBlock.Row5);
+        Avx2.Permute2x128(u2, u6, HighHalves).StoreUnsafe(ref origin, JpegBlock.Row6);
+        Avx2.Permute2x128(u3, u7, HighHalves).StoreUnsafe(ref origin, JpegBlock.Row7);
     }
 
     /// <summary>Widens the coefficients and multiplies them by the quantizer steps.</summary>
@@ -116,55 +176,6 @@ internal static class JpegIdctVector
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Vector256<int> Descale(Vector256<int> value, Vector256<int> rounding, int shift) =>
         Vector256.ShiftRightArithmetic(value + rounding, shift);
-
-    /// <summary>Transposes the work matrix in place.</summary>
-    /// <param name="work">The matrix as a span, for the scalar fallback.</param>
-    /// <param name="origin">The first element of the matrix.</param>
-    private static void Transpose(Span<int> work, ref int origin)
-    {
-        if (!Avx2.IsSupported)
-        {
-            JpegIdct.TransposeScalar(work);
-            return;
-        }
-
-        var r0 = Vector256.LoadUnsafe(ref origin, 0);
-        var r1 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row1);
-        var r2 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row2);
-        var r3 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row3);
-        var r4 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row4);
-        var r5 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row5);
-        var r6 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row6);
-        var r7 = Vector256.LoadUnsafe(ref origin, JpegBlock.Row7);
-
-        // Interleave pairs of rows, then pairs of pairs, then join the 128-bit halves.
-        var t0 = Avx2.UnpackLow(r0, r1).AsInt64();
-        var t1 = Avx2.UnpackHigh(r0, r1).AsInt64();
-        var t2 = Avx2.UnpackLow(r2, r3).AsInt64();
-        var t3 = Avx2.UnpackHigh(r2, r3).AsInt64();
-        var t4 = Avx2.UnpackLow(r4, r5).AsInt64();
-        var t5 = Avx2.UnpackHigh(r4, r5).AsInt64();
-        var t6 = Avx2.UnpackLow(r6, r7).AsInt64();
-        var t7 = Avx2.UnpackHigh(r6, r7).AsInt64();
-
-        var u0 = Avx2.UnpackLow(t0, t2).AsInt32();
-        var u1 = Avx2.UnpackHigh(t0, t2).AsInt32();
-        var u2 = Avx2.UnpackLow(t1, t3).AsInt32();
-        var u3 = Avx2.UnpackHigh(t1, t3).AsInt32();
-        var u4 = Avx2.UnpackLow(t4, t6).AsInt32();
-        var u5 = Avx2.UnpackHigh(t4, t6).AsInt32();
-        var u6 = Avx2.UnpackLow(t5, t7).AsInt32();
-        var u7 = Avx2.UnpackHigh(t5, t7).AsInt32();
-
-        Avx2.Permute2x128(u0, u4, LowHalves).StoreUnsafe(ref origin, 0);
-        Avx2.Permute2x128(u1, u5, LowHalves).StoreUnsafe(ref origin, JpegBlock.Row1);
-        Avx2.Permute2x128(u2, u6, LowHalves).StoreUnsafe(ref origin, JpegBlock.Row2);
-        Avx2.Permute2x128(u3, u7, LowHalves).StoreUnsafe(ref origin, JpegBlock.Row3);
-        Avx2.Permute2x128(u0, u4, HighHalves).StoreUnsafe(ref origin, JpegBlock.Row4);
-        Avx2.Permute2x128(u1, u5, HighHalves).StoreUnsafe(ref origin, JpegBlock.Row5);
-        Avx2.Permute2x128(u2, u6, HighHalves).StoreUnsafe(ref origin, JpegBlock.Row6);
-        Avx2.Permute2x128(u3, u7, HighHalves).StoreUnsafe(ref origin, JpegBlock.Row7);
-    }
 
     /// <summary>Adds the level shift, clamps to bytes and writes the eight rows.</summary>
     /// <param name="work">The transformed matrix.</param>

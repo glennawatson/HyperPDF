@@ -171,6 +171,27 @@ public sealed class JpxHighThroughputTests
         await Assert.That(RoundTrips(options with { HtRefinement = true })).IsTrue();
     }
 
+    /// <summary>
+    /// Placeholder passes before the first cleanup pass, shared with it in one codeword segment, decode exactly, including when quality
+    /// layers split them and with refinement passes after the cleanup pass (T.814 clauses B.1 to B.3).
+    /// </summary>
+    /// <param name="sets">The placeholder sets.</param>
+    /// <param name="layers">The quality layers.</param>
+    /// <param name="refine">Whether the refinement passes are used.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(1, 1, false)]
+    [Arguments(1, ThreeLayers, true)]
+    [Arguments(2, ThreeLayers, true)]
+    [Arguments(2, ThreeLayers, false)]
+    public async Task PlaceholderPassesRoundTrip(int sets, int layers, bool refine)
+    {
+        var layered = new JpxTestOptions { Components = Rgb, Transform = true, Layers = layers, PrecinctExponent = SmallPrecincts, BlockExponent = SmallBlocks };
+        var options = Ht(layered with { HtRefinement = refine, HtPlaceholderSets = sets });
+
+        await Assert.That(RoundTrips(options)).IsTrue();
+    }
+
     /// <summary>Tiles, split tile-parts, packet markers and packed headers decode exactly.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -180,6 +201,46 @@ public sealed class JpxHighThroughputTests
         var options = Ht(tiled with { HtRefinement = true, Wrap = true });
 
         await Assert.That(RoundTrips(options)).IsTrue();
+    }
+
+    /// <summary>
+    /// The MIXED mode, where every other code-block is an HT code-block and the rest are regular, decodes exactly: the packet
+    /// headers tell the two apart (T.814 clause A.4), whatever the layers and refinement passes.
+    /// </summary>
+    /// <param name="layers">The quality layers.</param>
+    /// <param name="refine">Whether the HT refinement passes are used.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(1, false)]
+    [Arguments(1, true)]
+    [Arguments(ThreeLayers, true)]
+    public async Task MixedModeRoundTrips(int layers, bool refine)
+    {
+        var options = Mixed(new() { Components = Rgb, Transform = true, Layers = layers, PrecinctExponent = SmallPrecincts, BlockExponent = SmallBlocks, HtRefinement = refine });
+
+        await Assert.That(RoundTrips(options)).IsTrue();
+    }
+
+    /// <summary>The MIXED mode with the regular blocks using their own mode switches and noise decodes exactly.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task MixedModeKeepsTheRegularModeSwitches()
+    {
+        var options = Mixed(new() { Width = LargeWidth, Height = LargeHeight, BlockExponent = LargeBlocks, HtRefinement = true });
+        options = options with { Style = options.Style | JpxBlockStyle.Reset | JpxBlockStyle.SegmentationSymbols };
+
+        await Assert.That(RoundTrips(options, Noise(options))).IsTrue();
+    }
+
+    /// <summary>The CAP marker of a MIXED mode stream declares it.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CapabilitiesDeclareTheMixedModeInAStream()
+    {
+        var options = Mixed(new());
+        var codestream = JpxCodestream.Read(JpxTestEncoder.Encode(options, JpxDecoderTests.Planes(options)));
+
+        await Assert.That(codestream!.Capabilities.DeclaresMixed).IsTrue();
     }
 
     /// <summary>The CAP marker and the Rsiz bit are read and declare Part 15.</summary>
@@ -232,6 +293,11 @@ public sealed class JpxHighThroughputTests
     /// <param name="options">The options.</param>
     /// <returns>The options with HT code-blocks.</returns>
     private static JpxTestOptions Ht(JpxTestOptions options) => options with { Style = options.Style | JpxBlockStyle.HighThroughput };
+
+    /// <summary>Adds the HT and MIXED block style bits.</summary>
+    /// <param name="options">The options.</param>
+    /// <returns>The options with a mix of HT and regular code-blocks.</returns>
+    private static JpxTestOptions Mixed(JpxTestOptions options) => options with { Style = options.Style | JpxBlockStyle.HighThroughput | JpxBlockStyle.HighThroughputMixed };
 
     /// <summary>Makes full-range noise for each component.</summary>
     /// <param name="options">The options, with no subsampling.</param>

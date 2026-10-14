@@ -68,6 +68,9 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
     /// <summary>Re-encodes images.</summary>
     private ImageRecoder? _recoder;
 
+    /// <summary>What JBIG2 coding may be tried, after the PDF/A claim is taken into account.</summary>
+    private PdfJbig2Mode _jbig2;
+
     /// <summary>Initializes a new instance of the <see cref="OptimizeSession"/> class.</summary>
     /// <param name="source">The document.</param>
     /// <param name="options">The options.</param>
@@ -129,8 +132,11 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
         Report(PdfOptimizePhase.Checking, 0, 0);
         _working = _ownsSource ? _source : PdfDocumentOptimizing.OpenWorkingCopy(_source);
         _names = new(Working.Objects.Names);
-        _recoder = new(_options, Names, Working.DrawingServices, _cancellationToken);
         _report.PdfAPart = PdfDocumentMetadata.GetXmp(Working)?.PdfAPart ?? 0;
+        _jbig2 = Jbig2Mode();
+
+        // PDF/A-1 forbids JPEG 2000 images (ISO 19005-1 6.1.10).
+        _recoder = new(_options, Names, Working.DrawingServices, _report.PdfAPart != PdfA1, _jbig2, _cancellationToken);
         _report.WasSigned = IsSigned(Working);
         if (_report.WasSigned)
         {
@@ -228,6 +234,21 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
         {
             AccessibilityPass.Run(Working, _options, Names, _report);
         }
+
+        ShareJbig2Dictionary(scanner);
+    }
+
+    /// <summary>Codes images that share marks with one JBIG2 dictionary, when JBIG2 may be used and that is smaller.</summary>
+    /// <param name="scanner">What the analysis learned.</param>
+    private void ShareJbig2Dictionary(ContentUsageScanner scanner)
+    {
+        if (_jbig2 == PdfJbig2Mode.Off)
+        {
+            return;
+        }
+
+        var mode = _jbig2 == PdfJbig2Mode.Lossy && _options.AllowLossyImages ? PdfJbig2Mode.Lossy : PdfJbig2Mode.Lossless;
+        SharedJbig2Pass.Run(Working.Objects, scanner, mode, _report, _cancellationToken);
     }
 
     /// <summary>Adds text layers from the recognition hook to image-only pages, unless a PDF/A claim forbids the unembedded font.</summary>
@@ -288,6 +309,24 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
         return WritePlan.Rewrite(new(graph, store, settings, this));
     }
 
+    /// <summary>Decides how JBIG2 may be used: not at all in a PDF/A-1 file, which forbids it.</summary>
+    /// <returns>The JBIG2 mode for black-and-white images.</returns>
+    private PdfJbig2Mode Jbig2Mode()
+    {
+        if (_options.Jbig2 == PdfJbig2Mode.Off || !_options.OptimizeImages)
+        {
+            return PdfJbig2Mode.Off;
+        }
+
+        if (_report.PdfAPart != PdfA1)
+        {
+            return _options.Jbig2;
+        }
+
+        _report.Skip(PdfOptimizeCategory.Images, 0, "The document claims PDF/A-1, which forbids JBIG2, so black-and-white images were not coded as JBIG2.");
+        return PdfJbig2Mode.Off;
+    }
+
     /// <summary>Decides whether to write object streams, which PDF/A-1 forbids.</summary>
     /// <returns><see langword="true"/> when they are written.</returns>
     private bool UseObjectStreams()
@@ -312,8 +351,27 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
     private string Version(PdfObjectStore store)
     {
         var version = store.Version.Length == 0 ? DefaultVersion : store.Version;
-        var objectStreams = _options.UseObjectStreams && _report.PdfAPart != PdfA1;
-        return objectStreams && VersionNumber(version) < VersionNumber(ObjectStreamVersion) ? ObjectStreamVersion : version;
+        var required = RequiredVersion();
+        return required is not null && VersionNumber(version) < VersionNumber(required) ? required : version;
+    }
+
+    /// <summary>Gets the oldest header version the optimised file may need, for the features the options allow.</summary>
+    /// <returns>The version, or <see langword="null"/> when no feature needs a newer header.</returns>
+    private string? RequiredVersion()
+    {
+        // PDF/A-1 files use none of these features.
+        if (_report.PdfAPart == PdfA1)
+        {
+            return null;
+        }
+
+        // The JPXDecode filter and object streams both need PDF 1.5; JBIG2Decode needs PDF 1.4.
+        if (_options.UseObjectStreams || (_options.OptimizeImages && _options.ImageCodec == PdfOptimizeImageCodec.Jpeg2000))
+        {
+            return ObjectStreamVersion;
+        }
+
+        return _options.Jbig2 != PdfJbig2Mode.Off ? DefaultVersion : null;
     }
 
     /// <summary>Lists the images to re-encode and the images used as masks.</summary>

@@ -15,7 +15,10 @@ public interface IPdfImageCodec
     /// <returns>True when the JPEG dimensions match and usable opaque pixels were decoded.</returns>
     bool TryDecodeJpeg(ReadOnlySpan<byte> encoded, PdfImagePixelLayout layout, Span<byte> pixels);
 
-    /// <summary>Encodes pixels as JPEG, compositing premultiplied BGRA over black because JPEG has no alpha.</summary>
+    /// <summary>
+    /// Encodes pixels as JPEG, compositing premultiplied BGRA over black because JPEG has no alpha. The library no longer
+    /// calls this: the optimiser and image creation use the managed <c>PdfJpegEncoder</c>. It stays for hosts that call it themselves.
+    /// </summary>
     /// <param name="pixels">The source pixels with tightly packed rows.</param>
     /// <param name="layout">The source dimensions and format.</param>
     /// <param name="quality">The quality, clamped to 1 through 100.</param>

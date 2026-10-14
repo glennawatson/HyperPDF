@@ -32,6 +32,6 @@ internal enum JpxBlockStyle
     /// <summary>High-throughput block coding (T.814 | ISO 15444-15); the mode switches above then do not apply, except vertically causal.</summary>
     HighThroughput = 1 << 6,
 
-    /// <summary>With <see cref="HighThroughput"/>, each code-block may be HT or regular (the MIXED mode), which is not decoded.</summary>
+    /// <summary>With <see cref="HighThroughput"/>, each code-block may be HT or regular (the MIXED mode, T.814 clause A.4).</summary>
     HighThroughputMixed = 1 << 7,
 }

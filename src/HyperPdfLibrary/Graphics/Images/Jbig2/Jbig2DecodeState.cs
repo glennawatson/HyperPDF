@@ -22,9 +22,6 @@ internal sealed class Jbig2DecodeState : IDisposable
     /// <summary>The work budget shared with the global context.</summary>
     private readonly Jbig2Workspace _workspace;
 
-    /// <summary>Whether a page information segment has started the page.</summary>
-    private bool _inPage;
-
     /// <summary>Initializes a new instance of the <see cref="Jbig2DecodeState"/> class.</summary>
     /// <param name="page">The page bitmap, or <see langword="null"/> for global segments.</param>
     /// <param name="workspace">The work budget and scratch bitmaps.</param>
@@ -53,10 +50,7 @@ internal sealed class Jbig2DecodeState : IDisposable
     /// <summary>Gets the token for this page or global segment decode.</summary>
     internal CancellationToken CancellationToken { get; }
 
-    /// <summary>Gets a reference to the flag indicating page information has started the page.</summary>
-    internal ref bool InPage => ref _inPage;
-
-    /// <summary>Gets or sets a value indicating whether a page information segment was processed.</summary>
+    /// <summary>Gets or sets a value indicating whether a page information segment was processed or a region reached the page.</summary>
     internal bool PageSeen { get; set; }
 
     /// <summary>Returns the buffers of every segment's results.</summary>

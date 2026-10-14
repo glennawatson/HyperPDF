@@ -32,6 +32,12 @@ internal sealed class JpxCodestream
     /// <summary>The high byte every marker code has.</summary>
     private const int MarkerPrefix = 0xFF00;
 
+    /// <summary>The first reserved marker that has no segment.</summary>
+    private const int FirstBareMarker = 0xFF30;
+
+    /// <summary>The last reserved marker that has no segment.</summary>
+    private const int LastBareMarker = 0xFF3F;
+
     /// <summary>Initializes a new instance of the <see cref="JpxCodestream"/> class.</summary>
     /// <param name="geometry">The image geometry.</param>
     /// <param name="main">The main header parameters.</param>
@@ -97,6 +103,7 @@ internal sealed class JpxCodestream
     /// <returns><see langword="false"/> when a needed marker is invalid.</returns>
     internal static bool ReadTileHeader(ReadOnlySpan<byte> data, in JpxDataRange header, JpxHeaderState state)
     {
+        state.BeginTilePart();
         var position = header.Offset;
         var end = header.End;
         while (position + MarkerHeaderBytes <= end)
@@ -123,6 +130,14 @@ internal sealed class JpxCodestream
         if (position + MarkerHeaderBytes > data.Length || (BinaryPrimitives.ReadUInt16BigEndian(data[position..]) & MarkerPrefix) != MarkerPrefix)
         {
             return false;
+        }
+
+        // The markers 0xFF30 to 0xFF3F are reserved and have no segment, so there is no length field to read (A.1, table A.2).
+        var code = BinaryPrimitives.ReadUInt16BigEndian(data[position..]);
+        if (code is >= FirstBareMarker and <= LastBareMarker)
+        {
+            position += JpxMarkers.MarkerBytes;
+            return true;
         }
 
         var length = BinaryPrimitives.ReadUInt16BigEndian(data[(position + JpxMarkers.MarkerBytes)..]);

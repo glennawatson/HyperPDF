@@ -375,7 +375,7 @@ public static class PdfCompactWriter
         writer.SetRenumbering(graph.Map);
         var encryptNumber = keepEncrypt ? PdfXrefWriter.EncryptNumber(store.Trailer) : 0;
         var streamCount = objectStreams ? PackedStreamCount(graph, encryptNumber, cancellationToken) : 0;
-        var policy = StreamPolicy.Of(options);
+        var policy = StreamPolicy.Of(options, StreamEncoder.UsesLzw(options.RecompressEncoding) && PdfAClaimReading.ClaimsPdfAOrPdfUa(store));
 
         // Entry 0, the objects, the object streams and, with object streams, the cross-reference stream.
         var rows = new XrefRow[graph.Count + streamCount + 1 + (objectStreams ? 1 : 0)];

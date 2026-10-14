@@ -126,7 +126,7 @@ internal sealed class JpxTileStream : IDisposable
         }
 
         var parameters = JpxTileParameters.Resolve(codestream.Main, state);
-        if (HasMixedBlocks(parameters) || !_tile.Build(_geometry, tile, parameters))
+        if (!_tile.Build(_geometry, tile, parameters))
         {
             return false;
         }
@@ -194,22 +194,6 @@ internal sealed class JpxTileStream : IDisposable
         ReturnArray(ref _bandStarts);
         _transform = false;
         _transformProduced = 0;
-    }
-
-    /// <summary>Determines whether a tile mixes HT and regular code-blocks within a component, which is not decoded.</summary>
-    /// <param name="parameters">The tile's coding parameters.</param>
-    /// <returns><see langword="true"/> when any component does.</returns>
-    private static bool HasMixedBlocks(JpxTileParameters parameters)
-    {
-        foreach (var style in parameters.Styles)
-        {
-            if ((style.BlockStyle & JpxBlockStyle.HighThroughputMixed) != 0)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns a rented array.</summary>

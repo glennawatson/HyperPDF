@@ -12,10 +12,12 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 /// <list type="number">
 /// <item>An image dictionary /ColorSpace decides, and the colour boxes of the file are ignored (ISO 32000-1 section
 /// 7.4.9). The file needs at least as many channels as the space has components.</item>
-/// <item>Otherwise the file's enumerated colour space decides (T.800 table I.10): sRGB is DeviceRGB, greyscale is
-/// DeviceGray, CMYK is DeviceCMYK, and sYCC and e-sYCC become DeviceRGB after conversion.</item>
-/// <item>Otherwise (an ICC profile, a vendor method, a raw codestream, or an enumerated space that needs more colour
-/// channels than the file has) our rule follows section 7.4.9: the colour channel count picks DeviceGray for one or two,
+/// <item>Otherwise the colour specification of the file with the highest precedence and best approximation decides
+/// (ISO 32000-2 section 7.4.9). An ICC profile that can be read becomes an ICCBased space. An enumerated colour space
+/// (T.800 table I.10) is sRGB for DeviceRGB, greyscale for DeviceGray, CMYK for DeviceCMYK, and sYCC and e-sYCC become
+/// DeviceRGB after conversion.</item>
+/// <item>Otherwise (an unreadable ICC profile, a vendor method, a raw codestream, or an enumerated space that needs more colour
+/// channels than the file has) section 7.4.9 applies: the colour channel count picks DeviceGray for one or two,
 /// DeviceRGB for three and DeviceCMYK for four or more. The colour channel count is the channel definition box's when
 /// it has one, else every channel.</item>
 /// <item>Our rule for files that do not say what they hold: three colour channels whose second and third are
@@ -50,13 +52,19 @@ internal sealed record JpxOutputPlan(PdfColorSpace ColorSpace, int Components, J
     /// <param name="set">The channels in colour order.</param>
     /// <param name="geometry">The codestream geometry, which gives each component's subsampling.</param>
     /// <param name="dictionarySpace">The image dictionary's /ColorSpace, or <see langword="null"/>.</param>
+    /// <param name="profileSpace">The colour space of the file's best ICC profile, or <see langword="null"/> when it has none that can be used.</param>
     /// <returns>The plan, or <see langword="null"/> when the file has too few channels for the colour space.</returns>
-    internal static JpxOutputPlan? Create(JpxColorSpace declared, in JpxChannelSet set, JpxGeometry geometry, PdfColorSpace? dictionarySpace)
+    internal static JpxOutputPlan? Create(JpxColorSpace declared, in JpxChannelSet set, JpxGeometry geometry, PdfColorSpace? dictionarySpace, PdfColorSpace? profileSpace)
     {
         var available = set.Channels.Length;
         if (dictionarySpace is not null)
         {
             return FromDictionary(dictionarySpace, available);
+        }
+
+        if (FromProfile(profileSpace, set) is { } profilePlan)
+        {
+            return profilePlan;
         }
 
         var colours = set.ColourCount > 0 ? Math.Min(set.ColourCount, available) : available;
@@ -65,6 +73,16 @@ internal sealed record JpxOutputPlan(PdfColorSpace ColorSpace, int Components, J
             ? components == ThreeChannels
             : components == ThreeChannels && declared is JpxColorSpace.Unspecified or JpxColorSpace.Unknown && HasReducedChroma(set.Channels, geometry);
         return new(DeviceSpace(components), components, JpxSampleMode.Scaled, sycc, false);
+    }
+
+    /// <summary>Plans for the ICC profile of the file's best colour specification, which needs as many colour channels as it has components.</summary>
+    /// <param name="profileSpace">The profile's colour space, or <see langword="null"/>.</param>
+    /// <param name="set">The channels.</param>
+    /// <returns>The plan, or <see langword="null"/> when there is no usable profile or the file has too few colour channels.</returns>
+    private static JpxOutputPlan? FromProfile(PdfColorSpace? profileSpace, in JpxChannelSet set)
+    {
+        var colours = set.ColourCount > 0 ? set.ColourCount : set.Channels.Length;
+        return profileSpace is not null && profileSpace.Components <= colours ? new(profileSpace, profileSpace.Components, JpxSampleMode.Scaled, false, false) : null;
     }
 
     /// <summary>Plans for the image dictionary's colour space.</summary>

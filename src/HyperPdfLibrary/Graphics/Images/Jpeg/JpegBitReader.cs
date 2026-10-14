@@ -74,6 +74,7 @@ internal ref struct JpegBitReader
         _buffer = 0;
         _bitCount = 0;
         _padBits = 0;
+        Failed = false;
         while (_position + 1 < _data.Length)
         {
             if (_data[_position] != JpegMarkers.MarkerPrefix)
@@ -129,6 +130,13 @@ internal ref struct JpegBitReader
     {
         if (count == 0)
         {
+            return 0;
+        }
+
+        // A damaged table can name a size no coefficient has; refuse it instead of reading past the buffer's bits.
+        if (count > LongestRead)
+        {
+            Failed = true;
             return 0;
         }
 

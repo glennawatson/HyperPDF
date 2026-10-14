@@ -98,22 +98,32 @@ public static class PdfImageWriter
     {
         ArgumentNullException.ThrowIfNull(sink);
         ArgumentNullException.ThrowIfNull(options);
-        if (!JpegMarkers.TryReadInfo(jpeg, out var info) || !info.IsSupported || info.Height == 0)
-        {
-            throw new ArgumentException("The bytes are not a JPEG that DCTDecode can carry.", nameof(jpeg));
-        }
-
-        var dictionary = RasterImageEncoder.CreateImageDictionary(sink, info.Width, info.Height, info.Precision, RasterImageEncoder.ColorSpaceFor(info.Components, options));
-        dictionary.Set(KnownName.Filter, PdfValue.FromName(KnownName.DCTDecode));
-        if (info.Components == CmykComponents && info.HasAdobe)
-        {
-            // Adobe writes CMYK JPEGs with inverted samples; the inverse /Decode array restores them.
-            dictionary.Set(KnownName.Decode, PdfValue.FromArray(PdfArray.FromNumbers(sink.Owner, [1, 0, 1, 0, 1, 0, 1, 0])));
-        }
-
-        RasterImageEncoder.ApplyInterpolation(dictionary, options);
-        var id = sink.Add(PdfValue.FromStream(new(dictionary, jpeg.ToArray())));
+        var stream = CreateJpegStream(sink, jpeg, options, out var info);
+        var id = sink.Add(PdfValue.FromStream(stream));
         return new(id, info.Width, info.Height);
+    }
+
+    /// <summary>Adds a raster image as a JPEG, encoded with the managed encoder. A BGRA image becomes an RGB JPEG with a gray soft mask for its alpha.</summary>
+    /// <param name="sink">The document.</param>
+    /// <param name="image">The pixels: gray, RGB or BGRA.</param>
+    /// <param name="jpeg">How to code the JPEG.</param>
+    /// <param name="options">The colour space and interpolation.</param>
+    /// <param name="cancellationToken">Cancels the encoding between steps.</param>
+    /// <returns>The image.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The size is not positive.</exception>
+    /// <exception cref="ArgumentException">The pixels do not fill the image, the image is bilevel, or the colour space has a different component count.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static PdfCreatedImage AddRasterAsJpeg(IPdfObjectSink sink, PdfRasterImage image, PdfJpegOptions jpeg, PdfImageOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sink);
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(jpeg);
+        ArgumentNullException.ThrowIfNull(options);
+        image.Validate();
+        cancellationToken.ThrowIfCancellationRequested();
+        var id = RasterImageEncoder.AddJpeg(sink, image, jpeg, options, cancellationToken);
+        return new(id, image.Width, image.Height);
     }
 
     /// <summary>Reads a JPEG from a stream and adds it, keeping its bytes.</summary>
@@ -163,6 +173,32 @@ public static class PdfImageWriter
         cancellationToken.ThrowIfCancellationRequested();
         var id = RasterImageEncoder.Add(sink, image, options, cancellationToken);
         return new(id, image.Width, image.Height);
+    }
+
+    /// <summary>Creates the image stream for a JPEG file.</summary>
+    /// <param name="sink">The document.</param>
+    /// <param name="jpeg">The JPEG file's bytes.</param>
+    /// <param name="options">The colour space and interpolation.</param>
+    /// <param name="info">Receives the JPEG's headers.</param>
+    /// <returns>The stream.</returns>
+    /// <exception cref="ArgumentException">The bytes are not a JPEG that <c>/DCTDecode</c> can carry, or the colour space has a different component count.</exception>
+    internal static PdfStream CreateJpegStream(IPdfObjectSink sink, ReadOnlySpan<byte> jpeg, PdfImageOptions options, out JpegInfo info)
+    {
+        if (!JpegMarkers.TryReadInfo(jpeg, out info) || !info.IsPdfCarryable)
+        {
+            throw new ArgumentException("The bytes are not a JPEG that DCTDecode can carry.", nameof(jpeg));
+        }
+
+        var dictionary = RasterImageEncoder.CreateImageDictionary(sink, info.Width, info.Height, info.Precision, RasterImageEncoder.ColorSpaceFor(info.Components, options));
+        dictionary.Set(KnownName.Filter, PdfValue.FromName(KnownName.DCTDecode));
+        if (info.Components == CmykComponents && info.HasAdobe)
+        {
+            // Adobe writes CMYK JPEGs with inverted samples; the inverse /Decode array restores them.
+            dictionary.Set(KnownName.Decode, PdfValue.FromArray(PdfArray.FromNumbers(sink.Owner, [1, 0, 1, 0, 1, 0, 1, 0])));
+        }
+
+        RasterImageEncoder.ApplyInterpolation(dictionary, options);
+        return new(dictionary, jpeg.ToArray());
     }
 
     /// <summary>Reads how many components an ICC profile describes.</summary>

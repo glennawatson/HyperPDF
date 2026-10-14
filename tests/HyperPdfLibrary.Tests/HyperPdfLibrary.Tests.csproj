@@ -16,9 +16,19 @@
     <EmbeddedResource Include="..\..\src\HyperPdfLibrary\Graphics\Images\Jpx\JpxHtTables.cs" LogicalName="JpxHtTables.cs" />
   </ItemGroup>
 
+  <!-- The run-length code words of ITU-T T.4 tables 2, 3a and 3b, read by Optimizing/T4RunCodes.cs to check the CCITT encoder and decoder. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Optimizing\Data\T4RunCodes.txt" LogicalName="HyperPdfLibrary.Tests.T4RunCodes.txt" />
+  </ItemGroup>
+
   <!-- veraPDF's results for its PDF/A test files, recorded by scripts/RecordVeraPdfResults.cs, for the validator agreement test. -->
   <ItemGroup>
     <EmbeddedResource Include="Conformance\VeraPdf\Data\verapdf-results.tsv" LogicalName="HyperPdfLibrary.Tests.VeraPdfRecordedResults.tsv" />
+  </ItemGroup>
+
+  <!-- The allowed errors of the T.803 decoder conformance tests, for Graphics/Jpx/JpxConformanceTests.cs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Graphics\Jpx\Data\conformance-tolerances.tsv" LogicalName="HyperPdfLibrary.Tests.JpxConformanceTolerances.tsv" />
   </ItemGroup>
 
   <!-- OpenSSL's ECDH recipient envelopes and their test-only keys, read by Security/EcdhRecipients.cs. -->

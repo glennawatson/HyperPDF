@@ -18,7 +18,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jpx;
 internal sealed record JpxGeometry(JpxRectangle Image, int TileWidth, int TileHeight, int TileX0, int TileY0, JpxComponentInfo[] Components)
 {
     /// <summary>The most components decoded.</summary>
-    internal const int MaxComponents = 32;
+    internal const int MaxComponents = 16_384;
 
     /// <summary>The most tiles decoded; the tile index is a 16-bit number.</summary>
     internal const int MaxTiles = 65_535;

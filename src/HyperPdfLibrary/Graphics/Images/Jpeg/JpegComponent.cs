@@ -135,8 +135,9 @@ internal sealed class JpegComponent : IDisposable
 
     /// <summary>Runs the inverse DCT over every block that holds image data.</summary>
     /// <param name="work">A 64-int scratch buffer.</param>
+    /// <param name="sampleDrop">The bits to drop from each sample: 4 reduces a 12-bit frame to 8 bits, 0 keeps an 8-bit frame.</param>
     /// <returns><see langword="false"/> when the component has no quantization table.</returns>
-    internal bool Reconstruct(Span<int> work)
+    internal bool Reconstruct(Span<int> work, int sampleDrop)
     {
         if (!_hasQuant)
         {
@@ -150,7 +151,7 @@ internal sealed class JpegComponent : IDisposable
             for (var column = 0; column < BlocksPerLine; column++)
             {
                 var origin = (row * JpegBlock.Side * stride) + (column * JpegBlock.Side);
-                JpegIdct.Transform(GetBlock(row, column), _quantSteps, work, _plane.AsSpan(origin), stride);
+                JpegIdct.Transform(GetBlock(row, column), _quantSteps, work, _plane.AsSpan(origin), stride, sampleDrop);
             }
         }
 

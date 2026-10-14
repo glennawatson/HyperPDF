@@ -29,6 +29,9 @@ internal static class PdfAFixtures
     /// <summary>The page size in points.</summary>
     internal const int PageSize = 200;
 
+    /// <summary>The bits per component of a raw fixture image.</summary>
+    private const int Eight = 8;
+
     /// <summary>The size of the text in points.</summary>
     private const float TextSize = 14F;
 
@@ -132,7 +135,25 @@ internal static class PdfAFixtures
     /// <param name="source">The font to embed, or <see langword="null"/> for a page without text.</param>
     /// <param name="text">The text shown in the font.</param>
     /// <returns>The file bytes.</returns>
-    internal static byte[] Create(PdfAFixtureLevel level, PdfFontSource? source, string text)
+    internal static byte[] Create(PdfAFixtureLevel level, PdfFontSource? source, string text) => Create(level, source, text, null);
+
+    /// <summary>Gets the RGB monitor profile of the fixtures' output intent, a matrix-based display profile.</summary>
+    /// <returns>The profile bytes.</returns>
+    internal static byte[] RgbProfile() => OutputProfile();
+
+    /// <summary>Builds a fixture that claims a PDF/A level and draws an image over the page.</summary>
+    /// <param name="level">The level.</param>
+    /// <param name="image">The JPX file and its dictionary entries.</param>
+    /// <returns>The file bytes.</returns>
+    internal static byte[] CreateWithImage(PdfAFixtureLevel level, PdfAFixtureImage image) => Create(level, null, string.Empty, image);
+
+    /// <summary>Builds a fixture, with an optional font and an optional image.</summary>
+    /// <param name="level">The level.</param>
+    /// <param name="source">The font to embed, or <see langword="null"/> for a page without text.</param>
+    /// <param name="text">The text shown in the font.</param>
+    /// <param name="image">The JPEG 2000 image to draw, or <see langword="null"/>.</param>
+    /// <returns>The file bytes.</returns>
+    private static byte[] Create(PdfAFixtureLevel level, PdfFontSource? source, string text, PdfAFixtureImage? image)
     {
         var builder = new PdfDocumentBuilder { Version = HeaderVersion(level.Part) };
         var names = builder.Names;
@@ -156,6 +177,33 @@ internal static class PdfAFixtures
         if (source is not null)
         {
             content = AddText(builder, resources, source, text, content);
+        }
+
+        if (image is not null)
+        {
+            content = [.. content, .. "q 160 0 0 160 20 20 cm /Im1 Do Q\n"u8];
+            var entry = new PdfDictionary(null);
+            entry.Set(KnownName.Type, PdfValue.FromName(names.Intern("XObject"u8)));
+            entry.Set(KnownName.Subtype, PdfValue.FromName(names.Intern("Image"u8)));
+            entry.Set(KnownName.Width, PdfValue.FromInteger(image.Width));
+            entry.Set(KnownName.Height, PdfValue.FromInteger(image.Height));
+            if (image.IsJpx)
+            {
+                entry.Set(KnownName.Filter, PdfValue.FromName(KnownName.JPXDecode));
+            }
+            else
+            {
+                entry.Set(KnownName.BitsPerComponent, PdfValue.FromInteger(Eight));
+            }
+
+            if (image.ColorSpaceName is { } space)
+            {
+                entry.Set(names.Intern("ColorSpace"u8), PdfValue.FromName(names.Intern(Encoding.ASCII.GetBytes(space))));
+            }
+
+            var objects = new PdfDictionary(null);
+            objects.Set(names.Intern("Im1"u8), PdfValue.FromReference(builder.Add(PdfValue.FromStream(new(entry, image.Data)))));
+            resources.Set(names.Intern("XObject"u8), PdfValue.FromDictionary(objects));
         }
 
         var contentId = builder.Add(PdfValue.FromStream(new(new PdfDictionary(null), content)));

@@ -20,6 +20,21 @@ internal static class PdfAClaimReading
         return packet.Length == 0 ? 0 : XmpParser.Parse(packet).PdfAPart ?? 0;
     }
 
+    /// <summary>Determines whether the catalog's XMP claims PDF/A (<c>pdfaid:part</c>) or PDF/UA (<c>pdfuaid:part</c>).</summary>
+    /// <param name="store">The document's objects.</param>
+    /// <returns><see langword="true"/> when either claim is present.</returns>
+    internal static bool ClaimsPdfAOrPdfUa(PdfObjectStore store)
+    {
+        var packet = store.Catalog.GetStream(KnownName.Metadata).DecodeOrEmpty();
+        if (packet.Length == 0)
+        {
+            return false;
+        }
+
+        var xmp = XmpParser.Parse(packet);
+        return xmp.PdfAPart is not null || xmp.PdfUaPart is not null;
+    }
+
     /// <summary>Reads the whole claim, part and conformance letter, from the catalog's XMP.</summary>
     /// <param name="store">The document's objects.</param>
     /// <returns>The claim, or <see langword="null"/> when the document makes none.</returns>

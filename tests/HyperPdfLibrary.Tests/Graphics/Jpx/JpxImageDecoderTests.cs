@@ -4,7 +4,6 @@
 
 using System.Buffers.Binary;
 using System.Security.Cryptography;
-using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Graphics.Images;
 using HyperPdfLibrary.Graphics.Images.Jpx;
@@ -97,15 +96,6 @@ public sealed class JpxImageDecoderTests
     /// <summary>The seed of the garbage.</summary>
     private const uint GarbageSeed = 77;
 
-    /// <summary>The offset of the code-block style from the COD marker.</summary>
-    private const int CodStyleOffset = 12;
-
-    /// <summary>The high-throughput and MIXED code-block style bits.</summary>
-    private const byte MixedHighThroughputBits = 0xC0;
-
-    /// <summary>The COD marker.</summary>
-    private const ushort CodMarker = 0xFF52;
-
     /// <summary>The chroma subsampling of the sYCC test.</summary>
     private const int Halved = 2;
 
@@ -126,6 +116,36 @@ public sealed class JpxImageDecoderTests
 
     /// <summary>The sYCC blue coefficient of Cb.</summary>
     private const double BlueFromCb = 1.772;
+
+    /// <summary>The <c>/SMaskInData</c> value for premultiplied colour channels.</summary>
+    private const int PremultipliedMask = 2;
+
+    /// <summary>The largest difference allowed after dividing premultiplied colours by a small opacity and multiplying again.</summary>
+    private const int PremultipliedTolerance = 2;
+
+    /// <summary>The bytes of a channel definition entry.</summary>
+    private const int DefinitionEntry = 6;
+
+    /// <summary>The channel definition type of a channel with no stated use.</summary>
+    private const int Unspecified = 65_535;
+
+    /// <summary>The pixels in each run of the image mask pattern.</summary>
+    private const int MaskRun = 3;
+
+    /// <summary>The runs in each period of the image mask pattern: one of zeros and one of ones.</summary>
+    private const int MaskPeriod = 2;
+
+    /// <summary>Half of the largest sample, for rounding.</summary>
+    private const int HalfSample = 127;
+
+    /// <summary>The offset of the association in a channel definition entry.</summary>
+    private const int AssociationOffset = 4;
+
+    /// <summary>The version number of the ICC profile in the colour box test.</summary>
+    private const uint IccVersion = 0x0240_0000;
+
+    /// <summary>The colour method of a restricted ICC profile.</summary>
+    private const byte RestrictedIcc = 2;
 
     /// <summary>A small image width for the colour tests.</summary>
     private const int SmallWidth = 21;
@@ -235,6 +255,124 @@ public sealed class JpxImageDecoderTests
         await Assert.That(Matches(plain!, planes[..Rgb], [0, 1, RedByte])).IsTrue();
     }
 
+    /// <summary>
+    /// With <c>/SMaskInData 1</c> the colours are not changed by the opacity channel (ISO 32000-2 section 7.4.9): the pixels
+    /// are the colours multiplied by their alpha, the premultiplied form images are held in.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SoftMaskInDataLeavesTheColoursAlone()
+    {
+        var options = new JpxTestOptions { Width = SmallWidth, Height = SmallHeight, Components = RgbAlpha };
+        var planes = JpxDecoderTests.Planes(options);
+        var file = JpxTestFileWriter.Wrap(JpxTestEncoder.Encode(options, planes), RgbAlpha, SmallWidth, SmallHeight, Srgb, []);
+        var masked = Decode(file, PdfColorSpace.DeviceRgb, 1);
+
+        await Assert.That(masked).IsNotNull();
+        await Assert.That(Matches(masked!, Times(planes[..Rgb], planes[AlphaComponent]), [0, 1, RedByte], ConversionTolerance)).IsTrue();
+    }
+
+    /// <summary>With <c>/SMaskInData 2</c> the colour channels hold colour times opacity, and the image comes out the same as if they had not been multiplied.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PremultipliedSoftMaskDividesTheColoursByTheOpacity()
+    {
+        var options = new JpxTestOptions { Width = SmallWidth, Height = SmallHeight, Components = RgbAlpha };
+        var straight = JpxDecoderTests.Planes(options);
+        int[][] stored = [.. Times(straight[..Rgb], straight[AlphaComponent]), straight[AlphaComponent]];
+        var file = JpxTestFileWriter.Wrap(JpxTestEncoder.Encode(options, stored), RgbAlpha, SmallWidth, SmallHeight, Srgb, []);
+        var image = Decode(file, PdfColorSpace.DeviceRgb, PremultipliedMask);
+
+        await Assert.That(image).IsNotNull();
+        await Assert.That(Matches(image!, stored[..Rgb], [0, 1, RedByte], PremultipliedTolerance)).IsTrue();
+        await Assert.That(Matches(image!, [stored[AlphaComponent]], [AlphaByte])).IsTrue();
+    }
+
+    /// <summary>A channel definition box without an opacity channel means <c>/SMaskInData</c> finds none, even with a fourth channel.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SoftMaskInDataNeedsADeclaredOpacityChannel()
+    {
+        var options = new JpxTestOptions { Width = SmallWidth, Height = SmallHeight, Components = RgbAlpha };
+        var planes = JpxDecoderTests.Planes(options);
+
+        // Four colour-less channels: three colour (associations 1 to 3) and one of unspecified type (65535).
+        var definitions = new byte[sizeof(ushort) + (RgbAlpha * DefinitionEntry)];
+        BinaryPrimitives.WriteUInt16BigEndian(definitions, RgbAlpha);
+        for (var c = 0; c < RgbAlpha; c++)
+        {
+            var entry = definitions.AsSpan(sizeof(ushort) + (c * DefinitionEntry));
+            BinaryPrimitives.WriteUInt16BigEndian(entry, (ushort)c);
+            BinaryPrimitives.WriteUInt16BigEndian(entry[sizeof(ushort)..], (ushort)(c < Rgb ? 0 : Unspecified));
+            BinaryPrimitives.WriteUInt16BigEndian(entry[AssociationOffset..], (ushort)(c < Rgb ? c + 1 : 0));
+        }
+
+        var file = JpxTestFileWriter.Wrap(JpxTestEncoder.Encode(options, planes), RgbAlpha, SmallWidth, SmallHeight, Srgb, JpxTestFileWriter.Box("cdef", definitions));
+        var image = Decode(file, PdfColorSpace.DeviceRgb, 1);
+
+        await Assert.That(image).IsNotNull();
+        await Assert.That(Matches(image!, planes[..Rgb], [0, 1, RedByte])).IsTrue();
+        await Assert.That(Matches(image!, [Map(planes[0], static _ => MaxSample)], [AlphaByte])).IsTrue();
+    }
+
+    /// <summary>The image's /Decode array applies when the dictionary gives the colour space, and is ignored when it does not (ISO 32000-2 section 7.4.9).</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DecodeArrayAppliesOnlyWithAColourSpace()
+    {
+        var options = new JpxTestOptions { Width = SmallWidth, Height = SmallHeight, Components = Rgb, Transform = true };
+        var planes = JpxDecoderTests.Planes(options);
+        var data = JpxTestEncoder.Encode(options, planes);
+        float[] invert = [1, 0, 1, 0, 1, 0];
+        var with = JpxImageDecoder.Decode(new(1, 1, SampleBits, false, false, PdfColorSpace.DeviceRgb, invert, null), data, 0);
+        var without = JpxImageDecoder.Decode(new(1, 1, SampleBits, false, false, null, invert, null), data, 0);
+
+        await Assert.That(with).IsNotNull();
+        await Assert.That(without).IsNotNull();
+        await Assert.That(Matches(with!, [.. planes.Select(static plane => Map(plane, static sample => MaxSample - sample))], [0, 1, RedByte])).IsTrue();
+        await Assert.That(Matches(without!, planes, [0, 1, RedByte])).IsTrue();
+    }
+
+    /// <summary>An image mask reads the first channel as its 1-bit samples; zero bits paint, as for any image mask.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ImageMaskReadsTheFirstChannelAsBits()
+    {
+        var options = new JpxTestOptions { Width = SmallWidth, Height = SmallHeight };
+        var plane = new int[SmallWidth * SmallHeight];
+        for (var i = 0; i < plane.Length; i++)
+        {
+            plane[i] = (i / MaskRun) % MaskPeriod == 0 ? 0 : MaxSample;
+        }
+
+        var data = JpxTestEncoder.Encode(options, [plane]);
+        var image = JpxImageDecoder.Decode(new(SmallWidth, SmallHeight, 1, true, false, null, null, null), data, 0);
+
+        await Assert.That(image).IsNotNull();
+        await Assert.That(image!.IsStencilMask).IsTrue();
+        await Assert.That(image.Pixels.AsSpan().SequenceEqual(plane.Select(static sample => sample == 0 ? (byte)MaxSample : (byte)0).ToArray())).IsTrue();
+    }
+
+    /// <summary>An ICC profile in the colour specification boxes, with a higher precedence than the enumerated space, decides the colours.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ColourBoxProfileDecidesTheColours()
+    {
+        var options = new JpxTestOptions { Width = SmallWidth, Height = SmallHeight };
+        var planes = JpxDecoderTests.Planes(options);
+        var profile = IccTestProfileBuilder.Profile(IccVersion, "GRAY", "XYZ ", new IccTestProfileBuilder.Tag("kTRC", IccTestProfileBuilder.GammaCurve(1.0)));
+        byte[] colourBox = [.. JpxTestFileWriter.Box("colr", [RestrictedIcc, 1, 1, .. profile])];
+        var codestream = JpxTestEncoder.Encode(options, planes);
+        var withProfile = Decode(JpxTestFileWriter.Wrap(codestream, 1, SmallWidth, SmallHeight, GrayEnumerated, colourBox), null, 0);
+        var plain = Decode(JpxTestFileWriter.Wrap(codestream, 1, SmallWidth, SmallHeight, GrayEnumerated, []), null, 0);
+        var expected = Decode(JpxTestFileWriter.Wrap(codestream, 1, SmallWidth, SmallHeight, GrayEnumerated, []), JpxProfileSpace.Create(profile), 0);
+
+        await Assert.That(withProfile).IsNotNull();
+        await Assert.That(JpxProfileSpace.Create(profile)).IsNotNull();
+        await Assert.That(withProfile!.Pixels.AsSpan().SequenceEqual(expected!.Pixels)).IsTrue();
+        await Assert.That(withProfile.Pixels.AsSpan().SequenceEqual(plain!.Pixels)).IsFalse();
+    }
+
     /// <summary>A fourth component the dictionary does not read is not decoded, and the transform still gets its three.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -250,21 +388,6 @@ public sealed class JpxImageDecoderTests
         await Assert.That(masked).IsNotNull();
         await Assert.That(Matches(plain!, planes[..Rgb], [0, 1, RedByte])).IsTrue();
         await Assert.That(Matches(masked!, [planes[AlphaComponent]], [AlphaByte])).IsTrue();
-    }
-
-    /// <summary>The MIXED mode of HT and regular code-blocks is reported as unsupported, as PDFium refuses it.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task MixedHighThroughputIsUnsupported()
-    {
-        var options = new JpxTestOptions { Width = SmallWidth, Height = SmallHeight };
-        var codestream = JpxTestEncoder.Encode(options, JpxDecoderTests.Planes(options));
-        var cod = FindMarker(codestream, CodMarker);
-        codestream[cod + CodStyleOffset] |= MixedHighThroughputBits;
-        var image = Decode(codestream, null, 0);
-
-        await Assert.That(image).IsNotNull();
-        await Assert.That(image!.UnsupportedCodec).IsEqualTo(PdfImageCodec.Jpeg2000);
     }
 
     /// <summary>A truncated codestream keeps what decoded, and garbage is refused, without exceptions.</summary>
@@ -468,6 +591,25 @@ public sealed class JpxImageDecoderTests
         _ => MaxSample - (index * BlueOffset),
     };
 
+    /// <summary>Multiplies colour planes by an opacity plane of 0 to 255, rounding to nearest.</summary>
+    /// <param name="planes">The colour planes.</param>
+    /// <param name="alpha">The opacity plane.</param>
+    /// <returns>The products, from 0 to 255.</returns>
+    private static int[][] Times(int[][] planes, int[] alpha)
+    {
+        var products = new int[planes.Length][];
+        for (var p = 0; p < products.Length; p++)
+        {
+            products[p] = new int[alpha.Length];
+            for (var i = 0; i < alpha.Length; i++)
+            {
+                products[p][i] = ((planes[p][i] * alpha[i]) + HalfSample) / MaxSample;
+            }
+        }
+
+        return products;
+    }
+
     /// <summary>Maps each value of a plane.</summary>
     /// <param name="plane">The plane.</param>
     /// <param name="map">The mapping.</param>
@@ -511,22 +653,5 @@ public sealed class JpxImageDecoderTests
 
         byte[] boxes = [.. JpxTestFileWriter.Box("pclr", palette), .. JpxTestFileWriter.Box("cmap", mapping)];
         return JpxTestFileWriter.Wrap(codestream, 1, SmallWidth, SmallHeight, Srgb, boxes);
-    }
-
-    /// <summary>Finds a marker in a codestream.</summary>
-    /// <param name="data">The codestream.</param>
-    /// <param name="marker">The marker code.</param>
-    /// <returns>The marker's position.</returns>
-    private static int FindMarker(byte[] data, ushort marker)
-    {
-        for (var i = 0; i + 1 < data.Length; i++)
-        {
-            if (BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(i)) == marker)
-            {
-                return i;
-            }
-        }
-
-        return -1;
     }
 }

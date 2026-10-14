@@ -57,7 +57,7 @@ internal static class JpxBlockDecoder
             return;
         }
 
-        if ((target.Style & JpxBlockStyle.HighThroughput) != 0)
+        if (block.UsesHighThroughput(target.Style))
         {
             JpxHtBlockDecoder.DecodeHighThroughput(state, tile, block, band, data, target);
             return;
@@ -147,14 +147,17 @@ internal static class JpxBlockDecoder
     internal static void RunSegments(JpxBlockState state, JpxTile tile, JpxCodeBlock block, byte[] source, int offset, in JpxBlockTarget target)
     {
         var coder = default(JpxMqDecoder);
-        var cursor = new PassCursor(target.RoiShift + block.BitPlanes, CleanupPass);
+        var firstPlane = target.RoiShift + block.BitPlanes;
+        var cursor = new PassCursor(firstPlane, CleanupPass);
         var end = offset + block.DataLength;
         var bypass = (target.Style & JpxBlockStyle.Bypass) != 0;
         for (var segment = block.FirstSegment; segment >= 0 && cursor.Plane >= 1; segment = tile.Segments[segment].Next)
         {
             var current = tile.Segments[segment];
             var length = Math.Min(current.Length, end - offset);
-            var raw = bypass && cursor.Plane <= block.BitPlanes - BypassStartPlanes && cursor.Pass < CleanupPass;
+
+            // The raw passes start four bit-planes below the first coded one, which counts the region-of-interest shift (D.6).
+            var raw = bypass && cursor.Plane <= firstPlane - BypassStartPlanes && cursor.Pass < CleanupPass;
             if (raw)
             {
                 coder.StartRaw(source, offset, length);
@@ -174,7 +177,9 @@ internal static class JpxBlockDecoder
     /// <param name="shift">The shift.</param>
     internal static void ApplyRoi(JpxBlockState state, int shift)
     {
-        var threshold = 1 << shift;
+        // The values are at twice scale, so a coefficient of magnitude 2^shift or more (one that carries the shift)
+        // is at least 2^(shift + 1) here; background coefficients stay below that.
+        var threshold = 1 << (shift + 1);
         foreach (ref var value in state.Values.AsSpan(0, state.Length))
         {
             var magnitude = Math.Abs(value);

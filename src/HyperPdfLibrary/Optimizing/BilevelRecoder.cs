@@ -33,40 +33,27 @@ internal static class BilevelRecoder
     /// <summary>Re-encodes a 1-bit image.</summary>
     /// <param name="image">The image.</param>
     /// <param name="codec">Its codec.</param>
-    /// <param name="width">The width.</param>
-    /// <param name="height">The height.</param>
+    /// <param name="size">The width and height.</param>
+    /// <param name="codings">The codings besides Flate that may be tried.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The outcome.</returns>
-    internal static ImageOutcome Recode(PdfStream image, CodecKind codec, int width, int height, CancellationToken cancellationToken)
+    internal static ImageOutcome Recode(PdfStream image, CodecKind codec, PixelSize size, in BilevelCodings codings, CancellationToken cancellationToken)
     {
+        var (width, height, _) = size;
         var parameters = ImageFilters.CodecParameters(image.Dictionary);
-        if (codec == CodecKind.Jpeg || (codec == CodecKind.Fax && (parameters?.GetInt32(KnownName.K, 0) ?? 0) < 0))
+        if (codec == CodecKind.Jpeg || (codec == CodecKind.Fax && codings.Jbig2 == PdfJbig2Mode.Off && (parameters?.GetInt32(KnownName.K, 0) ?? 0) < 0))
         {
-            // JPEG is not 1-bit, and Group 4 is already the best fax coding.
+            // JPEG is not 1-bit, and Group 4 is already the best fax coding unless JBIG2 may beat it.
             return ImageOutcome.Unchanged;
         }
 
-        var stride = (width + BitMask) >> ByteShift;
         var decoded = default(PooledBuffer);
         var rows = default(PooledBuffer);
         try
         {
-            if (image.Decode(ref decoded, cancellationToken) == PdfImageCodec.Ccitt)
-            {
-                var target = rows.GetSpan(stride * height)[..(stride * height)];
-                CcittFaxDecoder.Decode(decoded.WrittenSpan, CcittParameters.FromDictionary(parameters), width, height, target, image.Dictionary.Owner?.ScratchPools ?? new ScratchPools());
-                rows.Advance(stride * height);
-            }
-            else if (decoded.Length >= stride * height)
-            {
-                rows.Write(decoded.WrittenSpan[..(stride * height)]);
-            }
-            else
-            {
-                return ImageOutcome.Unchanged;
-            }
-
-            return Code(image, rows.WrittenSpan, width, height, "1-bit image");
+            return TryReadRows(image, parameters, size, ref decoded, ref rows, cancellationToken)
+                ? Code(image, rows.WrittenSpan, size, "1-bit image", codings, cancellationToken)
+                : ImageOutcome.Unchanged;
         }
         finally
         {
@@ -79,14 +66,16 @@ internal static class BilevelRecoder
     /// <param name="image">The image.</param>
     /// <param name="samples">The 8-bit samples.</param>
     /// <param name="size">The size.</param>
+    /// <param name="codings">The codings besides Flate that may be tried.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The outcome.</returns>
-    internal static ImageOutcome PackAndCode(PdfStream image, ReadOnlySpan<byte> samples, PixelSize size)
+    internal static ImageOutcome PackAndCode(PdfStream image, ReadOnlySpan<byte> samples, PixelSize size, in BilevelCodings codings, CancellationToken cancellationToken)
     {
         var packed = default(PooledBuffer);
         try
         {
             BilevelEncoder.Pack(samples, size.Width, size.Height, ref packed);
-            return Code(image, packed.WrittenSpan, size.Width, size.Height, "Black-and-white greyscale image");
+            return Code(image, packed.WrittenSpan, size, "Black-and-white greyscale image", codings, cancellationToken);
         }
         finally
         {
@@ -94,21 +83,52 @@ internal static class BilevelRecoder
         }
     }
 
+    /// <summary>Reads the packed rows of a 1-bit image, decoding fax data when that is how it is stored.</summary>
+    /// <param name="image">The image.</param>
+    /// <param name="parameters">Its codec parameters.</param>
+    /// <param name="size">The width and height.</param>
+    /// <param name="decoded">Receives the image after its filters.</param>
+    /// <param name="rows">Receives the packed rows.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    /// <returns><see langword="false"/> when the image has too little data.</returns>
+    internal static bool TryReadRows(PdfStream image, PdfDictionary? parameters, PixelSize size, ref PooledBuffer decoded, ref PooledBuffer rows, CancellationToken cancellationToken)
+    {
+        var length = ((size.Width + BitMask) >> ByteShift) * size.Height;
+        if (image.Decode(ref decoded, cancellationToken) == PdfImageCodec.Ccitt)
+        {
+            var target = rows.GetSpan(length)[..length];
+            CcittFaxDecoder.Decode(decoded.WrittenSpan, CcittParameters.FromDictionary(parameters), size.Width, size.Height, target, image.Dictionary.Owner?.ScratchPools ?? new ScratchPools());
+            rows.Advance(length);
+            return true;
+        }
+
+        if (decoded.Length < length)
+        {
+            return false;
+        }
+
+        rows.Write(decoded.WrittenSpan[..length]);
+        return true;
+    }
+
     /// <summary>Codes packed rows and reports which coding won.</summary>
     /// <param name="image">The image.</param>
     /// <param name="rows">The packed rows.</param>
-    /// <param name="width">The width.</param>
-    /// <param name="height">The height.</param>
+    /// <param name="size">The width and height.</param>
     /// <param name="what">What the image was.</param>
+    /// <param name="codings">The codings besides Flate that may be tried.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The outcome.</returns>
-    private static ImageOutcome Code(PdfStream image, ReadOnlySpan<byte> rows, int width, int height, string what)
+    private static ImageOutcome Code(PdfStream image, ReadOnlySpan<byte> rows, PixelSize size, string what, in BilevelCodings codings, CancellationToken cancellationToken)
     {
-        if (BilevelEncoder.Encode(image.Dictionary, rows, width, height, image.RawLength) is not { } result)
+        if (BilevelEncoder.Encode(image.Dictionary, rows, size.Width, size.Height, image.RawLength, codings, cancellationToken) is not { } result)
         {
             return ImageOutcome.Unchanged;
         }
 
-        var coding = result.Dictionary.GetName(KnownName.Filter).Is(KnownName.CCITTFaxDecode) ? "CCITT Group 4" : "Flate";
-        return new(result, string.Create(CultureInfo.InvariantCulture, $"{what} {width}x{height} saved losslessly as {coding}."));
+        var note = result.IsLossless
+            ? string.Create(CultureInfo.InvariantCulture, $"{what} {size.Width}x{size.Height} saved losslessly as {result.Coding}.")
+            : string.Create(CultureInfo.InvariantCulture, $"{what} {size.Width}x{size.Height} saved as {result.Coding}; similar marks share one shape, so the pixels change slightly.");
+        return new(result.Stream, note);
     }
 }

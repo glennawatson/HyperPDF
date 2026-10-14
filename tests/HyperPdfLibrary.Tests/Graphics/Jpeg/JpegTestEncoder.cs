@@ -22,14 +22,26 @@ internal static class JpegTestEncoder
     /// <summary>The DC coefficient per sample level: eight times the level shift.</summary>
     private const int DcScale = 8;
 
-    /// <summary>The bits of a DC size code.</summary>
-    private const int SizeCodeBits = 4;
+    /// <summary>The bits of a DC size code: sixteen codes fill a five-bit space without using the all-ones code.</summary>
+    private const int SizeCodeBits = 5;
+
+    /// <summary>The bytes of a DNL segment including its length field.</summary>
+    private const byte DnlLength = 4;
+
+    /// <summary>The sample precision of an extended sequential frame.</summary>
+    private const int ExtendedPrecision = 12;
+
+    /// <summary>The level shift of 12-bit samples.</summary>
+    private const int ExtendedCenter = 2048;
+
+    /// <summary>The shift from an 8-bit test value to a 12-bit sample.</summary>
+    private const int ExtendedShift = 4;
 
     /// <summary>The bytes of a DRI segment including its length field.</summary>
     private const byte RestartLength = 4;
 
     /// <summary>The size categories that have a code.</summary>
-    private const int SizeCategories = 12;
+    private const int SizeCategories = 16;
 
     /// <summary>The coefficients in a quantization table.</summary>
     private const int TableLength = 64;
@@ -102,6 +114,12 @@ internal static class JpegTestEncoder
         }
 
         WriteScan(output, layout, values);
+        if (layout.UseDnl)
+        {
+            var height = layout.BlocksDown * BlockSide;
+            output.AddRange([Prefix, 0xDC, 0, DnlLength, (byte)(height >> ByteBits), (byte)(height & byte.MaxValue)]);
+        }
+
         output.AddRange([Prefix, 0xD9]);
         return [.. output];
     }
@@ -159,8 +177,8 @@ internal static class JpegTestEncoder
     {
         var length = FrameFixedLength + (layout.Components * FrameEntryLength);
         var width = layout.BlocksAcross * BlockSide;
-        var height = layout.BlocksDown * BlockSide;
-        output.AddRange([Prefix, 0xC0, 0, (byte)length, BlockSide]);
+        var height = layout.UseDnl ? 0 : layout.BlocksDown * BlockSide;
+        output.AddRange([Prefix, layout.Precision == ExtendedPrecision ? (byte)0xC1 : (byte)0xC0, 0, (byte)length, (byte)layout.Precision]);
         output.AddRange([(byte)(height >> ByteBits), (byte)(height & byte.MaxValue), (byte)(width >> ByteBits), (byte)(width & byte.MaxValue)]);
         output.Add((byte)layout.Components);
         for (var c = 0; c < layout.Components; c++)
@@ -209,7 +227,8 @@ internal static class JpegTestEncoder
 
             for (var c = 0; c < layout.Components; c++)
             {
-                var dc = (values[(block * layout.Components) + c] - Center) * DcScale;
+                var value = values[(block * layout.Components) + c];
+                var dc = (layout.Precision == ExtendedPrecision ? (value << ExtendedShift) - ExtendedCenter : value - Center) * DcScale;
                 writer.WriteDc(dc - predictors[c]);
                 predictors[c] = dc;
             }

@@ -70,6 +70,12 @@ internal record struct JpxMqDecoder
     /// <summary>The bits left before the next byte is read, CT.</summary>
     private int _count;
 
+    /// <summary>
+    /// Gets the packed transition table of table C.2, which the encoder shares: one entry per context state, the probability
+    /// state times two plus the MPS, holding <c>Qe | NMPS state &lt;&lt; 16 | NLPS state &lt;&lt; 24</c>.
+    /// </summary>
+    internal static ReadOnlySpan<uint> TransitionTable => Transitions;
+
     /// <summary>Gets the probability estimates Qe of table C.2.</summary>
     private static ReadOnlySpan<ushort> Probabilities =>
     [

@@ -120,23 +120,27 @@ internal static class JpxSampleWriter
         WriteChannelRow(source, source.Channels[channel], JpxSampleMode.Scaled, 0, 1, y, alpha);
 
     /// <summary>
-    /// Composites samples over white using their alpha. Our rule: the soft mask in the data (ISO 32000-1 section
-    /// 11.6.5.3) is meant for the backdrop, which is not known while decoding, so the colour is mixed toward white and
-    /// the alpha is applied again by the caller on the pixels.
+    /// Divides colour samples that were multiplied by their opacity (<c>/SMaskInData 2</c>, ISO 32000-2 section 7.4.9) by it
+    /// again, so every image gets straight colours and the caller applies the opacity once, to the pixels. A pixel with no
+    /// opacity keeps zero samples.
     /// </summary>
     /// <param name="samples">The samples, updated in place.</param>
-    /// <param name="alpha">The alpha of each pixel.</param>
+    /// <param name="alpha">The opacity of each pixel.</param>
     /// <param name="stride">The samples per pixel.</param>
-    internal static void BlendToWhite(Span<byte> samples, ReadOnlySpan<byte> alpha, int stride)
+    internal static void Unpremultiply(Span<byte> samples, ReadOnlySpan<byte> alpha, int stride)
     {
         for (var i = 0; i < alpha.Length; i++)
         {
             var a = alpha[i];
-            var white = MaxSample * (MaxSample - a);
+            if (a == MaxSample)
+            {
+                continue;
+            }
+
             var pixel = samples.Slice(i * stride, stride);
             for (var c = 0; c < pixel.Length; c++)
             {
-                pixel[c] = (byte)(((pixel[c] * a) + white) / MaxSample);
+                pixel[c] = a == 0 ? (byte)0 : (byte)Math.Min(MaxSample, ((pixel[c] * MaxSample) + (a >> 1)) / a);
             }
         }
     }
@@ -202,6 +206,25 @@ internal static class JpxSampleWriter
             output[pixel * RgbComponents] = (byte)first[pixel];
             output[(pixel * RgbComponents) + 1] = (byte)second[pixel];
             output[(pixel * RgbComponents) + SecondChroma] = (byte)third[pixel];
+        }
+    }
+
+    /// <summary>
+    /// Converts 8-bit YCbCr samples to RGB in place. The matrix is the full-range ITU-R BT.601 one that sYCC uses
+    /// (IEC 61966-2-1 Amd 1): R = Y + 1.402 Cr, G = Y - 0.344136 Cb - 0.714136 Cr, B = Y + 1.772 Cb, with Cb and Cr
+    /// centred on 128. Fixed-point arithmetic rounds to nearest and the results clamp to 0 to 255.
+    /// </summary>
+    /// <param name="samples">Three samples per pixel.</param>
+    internal static void ConvertYcc(Span<byte> samples)
+    {
+        for (var i = 0; i + RgbComponents <= samples.Length; i += RgbComponents)
+        {
+            int y = samples[i];
+            var cb = samples[i + 1] - ChromaCentre;
+            var cr = samples[i + SecondChroma] - ChromaCentre;
+            samples[i] = Clamp(y + (((RedFromCr * cr) + CoefficientHalf) >> CoefficientShift));
+            samples[i + 1] = Clamp(y - (((GreenFromCb * cb) + (GreenFromCr * cr) + CoefficientHalf) >> CoefficientShift));
+            samples[i + SecondChroma] = Clamp(y + (((BlueFromCb * cb) + CoefficientHalf) >> CoefficientShift));
         }
     }
 
@@ -351,25 +374,6 @@ internal static class JpxSampleWriter
             }
 
             output[(x * stride) + offset] = reading.Mode == JpxSampleMode.RawIndices ? (byte)Math.Clamp(value, 0, MaxSample) : reading.Scale.Apply(value);
-        }
-    }
-
-    /// <summary>
-    /// Converts 8-bit YCbCr samples to RGB in place. The matrix is the full-range ITU-R BT.601 one that sYCC uses
-    /// (IEC 61966-2-1 Amd 1): R = Y + 1.402 Cr, G = Y - 0.344136 Cb - 0.714136 Cr, B = Y + 1.772 Cb, with Cb and Cr
-    /// centred on 128. Fixed-point arithmetic rounds to nearest and the results clamp to 0 to 255.
-    /// </summary>
-    /// <param name="samples">Three samples per pixel.</param>
-    private static void ConvertYcc(Span<byte> samples)
-    {
-        for (var i = 0; i + RgbComponents <= samples.Length; i += RgbComponents)
-        {
-            int y = samples[i];
-            var cb = samples[i + 1] - ChromaCentre;
-            var cr = samples[i + SecondChroma] - ChromaCentre;
-            samples[i] = Clamp(y + (((RedFromCr * cr) + CoefficientHalf) >> CoefficientShift));
-            samples[i + 1] = Clamp(y - (((GreenFromCb * cb) + (GreenFromCr * cr) + CoefficientHalf) >> CoefficientShift));
-            samples[i + SecondChroma] = Clamp(y + (((BlueFromCb * cb) + CoefficientHalf) >> CoefficientShift));
         }
     }
 

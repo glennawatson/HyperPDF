@@ -52,8 +52,13 @@
     <!-- The JPEG 2000 test encoder, which writes the HTJ2K images the high-throughput parity tests compare. -->
     <Compile Include="..\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
     <Compile Include="..\HyperPdfLibrary.Tests\Graphics\Jpx\JpxFixtures.cs" Link="Jpx\JpxFixtures.cs" />
+    <!-- The images the JPEG 2000 encoder parity tests compress. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\Graphics\Jpx\JpxEncoderSamples.cs" Link="Jpx\JpxEncoderSamples.cs" />
     <Compile Include="..\..\scripts\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />
     <EmbeddedResource Include="..\..\src\HyperPdfLibrary\Graphics\Images\Jpx\Data\T814CxtVlc.txt" LogicalName="T814CxtVlc.txt" />
     <Compile Include="..\HyperPdfLibrary.Tests\Graphics\Jpeg\JpegTestRandom.cs" Link="Jpx\JpegTestRandom.cs" />
+    <!-- The test pages the JBIG2 encoder tests code, which PDFium then decodes. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\Graphics\Jbig2\Encoding\Jbig2Test*.cs" Link="Jbig2\%(Filename)%(Extension)" />
+    <Compile Include="..\HyperPdfLibrary.Tests\Robustness\SeededRandom.cs" Link="Jbig2\SeededRandom.cs" />
   </ItemGroup>
 </Project>

@@ -852,6 +852,16 @@
     "reason": "Opening a decode makes the decoder with its working objects when the scratch cache has none idle; see JpxBlockWorkers."
   },
   {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.Encoding.",
+    "reason": "One JPEG 2000 encode makes its working state once per file: the settings, the marker segments it writes (SIZ, COD, QCD), the tile layout and the tile parameters it resolves the way a decoder reads them, and the small objects that own the pooled stores (the tile encoder, block coder, packet writer, tag trees and their lists). The sample planes, code-block state, coded data and packet buffers rent from one scratch cache shared by all encodes, so they allocate only the first time a size is needed. The file itself is the owned array the caller receives. Folding this state into a reusable encoder object is not possible while the public API takes an image and options per call."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jpx.JpxList`1[HyperPdfLibrary.Graphics.Images.Jpx.Encoding.",
+    "reason": "The encoder's lists of small records (tag tree descriptors, packet pieces, packet keys, coded blocks) rent their arrays from the shared scratch cache. The first rent of a size, or a larger tile than any before, allocates the array; later encodes reuse it, which is why the figure is a fraction of an object for each encode."
+  },
+  {
     "type": "HyperPdfLibrary.Graphics.Images.Jpx.",
     "frame": "HyperPdfLibrary.Graphics.Images.Jpx.",
     "reason": "Each JPEG 2000 decode parses its header model (image geometry, coding styles, quantization, tile parts and tile coding parameters), which is the parsed file and is made once per decode. The decoder, tile streams, component streams, row sources and code-block decoders belong to the scratch cache and are built only when the cache has none idle, so a cache makes as many as it has decodes running at once (and a tiled image uses one stream for each tile column). Arrays of the tile layout rent from the document's scratch pool."
@@ -875,6 +885,16 @@
     "type": "System.Byte[]",
     "frame": "HyperPdfLibrary.Graphics.Images.Jpx.",
     "reason": "The joined tile data and a decoder's code-block buffers rent from the document's scratch pool; the first rent of a size allocates, and a page larger than the pool's retention limit (48 MiB unless the document sets another) allocates again for the next page."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jbig2.Encoding.Jbig2SharedEncoder.",
+    "reason": "Encoding several images together returns the globals array and one array per image, which the caller keeps, and holds one rented ink buffer and one components object per image while it matches marks across them. This runs once per document, not per image drawn."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdfLibrary.Graphics.Images.Jbig2.Encoding.",
+    "reason": "Each JBIG2 encode of a symbol-coded page makes five small owner objects (the runs, the component measures, the components, the symbol matcher and the symbol list), 56 to 76 bytes each, because each owns pooled arrays and must be disposed. Every bitmap, run, hash table and output buffer is rented from the shared array pool; an occasional rent that the pool trimmed shows as a one-off array. An encode runs once per image."
   },
   {
     "type": "",
