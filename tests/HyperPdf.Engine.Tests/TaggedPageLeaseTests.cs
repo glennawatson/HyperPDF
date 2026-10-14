@@ -90,7 +90,7 @@ public sealed class TaggedPageLeaseTests
     /// <param name="cancellationToken">Cancels queued execution.</param>
     /// <returns>The reader's completion task.</returns>
     private static Task StartReader(Action read, CancellationToken cancellationToken) =>
-        Task.Factory.StartNew(static state => ((Action)state!)(), read, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        DedicatedThread.Run(read, static read => read(), cancellationToken);
 
     /// <summary>Reads the stable page until the editing thread finishes.</summary>
     /// <param name="document">The document whose reading structure is parsed.</param>
