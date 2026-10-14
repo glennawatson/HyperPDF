@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.DocumentMenuView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (DocumentMenuView.axaml.cs). -->
+  <Button x:Name="DocumentMenuButton" views:ControlHelp.Text="{x:Static views:Descriptions.DocumentMenu}" AutomationProperties.Name="Document" Classes="tool" Content="Document ▾">
+    <Button.Flyout>
+      <MenuFlyout Placement="BottomEdgeAlignedRight">
+        <MenuItem x:Name="SaveItem" views:ControlHelp.Text="{x:Static views:Descriptions.Save}" Header="_Save" InputGesture="Ctrl+S" />
+        <MenuItem x:Name="SaveAsItem" views:ControlHelp.Text="{x:Static views:Descriptions.SaveAs}" Header="Save _As…" InputGesture="Ctrl+Shift+S" />
+        <MenuItem x:Name="OptimizeCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.OptimizeCopy}" Header="Save _Optimised Copy…" />
+        <MenuItem x:Name="ArchiveCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.ArchiveCopy}" Header="Save P_DF/A Copy…" />
+        <MenuItem x:Name="Pdf20CopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.Pdf20Copy}" Header="Save as PDF 2.0 _Copy…" />
+        <MenuItem x:Name="FlattenCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenCopy}" Header="Save Flat_tened Copy…" />
+        <MenuItem x:Name="ProtectItem" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectCopy}" Header="Protect with _Password…" />
+        <MenuItem x:Name="RemoveProtectionItem" views:ControlHelp.Text="{x:Static views:Descriptions.RemoveProtectionCopy}" Header="Remove Pro_tection…" />
+        <MenuItem x:Name="ApplyRedactionsItem" views:ControlHelp.Text="{x:Static views:Descriptions.ApplyRedactions}" Header="Apply _Redactions…" />
+        <MenuItem x:Name="ValidationDataItem" views:ControlHelp.Text="{x:Static views:Descriptions.ValidationData}" Header="Add _Validation Data or Timestamp…" />
+        <MenuItem x:Name="ExternalSignItem" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalSign}" Header="Sign with E_xternal Signer…" />
+        <MenuItem x:Name="SelectAllItem" views:ControlHelp.Text="{x:Static views:Descriptions.SelectAll}" Header="Select A_ll Text on Page" InputGesture="Ctrl+A" />
+        <MenuItem x:Name="ReloadItem" views:ControlHelp.Text="{x:Static views:Descriptions.Reload}" Header="Re_load" InputGesture="F5" />
+        <MenuItem x:Name="ShowInFolderItem" views:ControlHelp.Text="{x:Static views:Descriptions.ShowInFolder}" Header="Show in _Folder" />
+        <MenuItem x:Name="PropertiesItem" views:ControlHelp.Text="{x:Static views:Descriptions.Properties}" Header="_Properties" InputGesture="Alt+Enter" />
+      </MenuFlyout>
+    </Button.Flyout>
+  </Button>
+</UserControl>

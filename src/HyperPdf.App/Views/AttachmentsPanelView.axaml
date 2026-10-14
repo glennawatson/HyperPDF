@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.AttachmentsPanelView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AttachmentsPanelView.axaml.cs). -->
+  <Grid x:Name="AttachmentsPanel" RowDefinitions="*,Auto">
+    <ListBox x:Name="AttachmentList" AutomationProperties.Name="Attachments" Background="Transparent" />
+    <StackPanel Grid.Row="1" Margin="8" Spacing="6">
+      <Button x:Name="OpenAttachmentButton" views:ControlHelp.Text="{x:Static views:Descriptions.OpenAttachment}" HorizontalAlignment="Stretch" Content="Open Attachment" />
+      <Button x:Name="SaveAttachmentButton" views:ControlHelp.Text="{x:Static views:Descriptions.SaveAttachment}" HorizontalAlignment="Stretch" Content="Save Attachment…" />
+    </StackPanel>
+  </Grid>
+</UserControl>

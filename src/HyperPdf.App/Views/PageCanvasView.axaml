@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:HyperPdf.App.Controls"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.PageCanvasView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (PageCanvasView.axaml.cs). -->
+  <Panel x:Name="PageSurface">
+    <views:FocusView x:Name="FocusPane" IsVisible="False" />
+    <ScrollViewer x:Name="Scroller" Background="{DynamicResource AppCanvasBackground}"
+                  HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+      <Panel HorizontalAlignment="Left" VerticalAlignment="Top">
+        <!-- Named "Page 5 of 40" by its automation peer; the new page is announced as the reader moves. -->
+        <controls:PageCanvas x:Name="Canvas" AutomationProperties.HelpText="{x:Static views:Descriptions.Pages}" AutomationProperties.LiveSetting="Polite" HitBrush="{DynamicResource AppHitBrush}" CurrentHitOutline="{DynamicResource AppCurrentHitOutline}"
+                             SelectionBrush="{DynamicResource AppTextSelectionBrush}" SpokenBrush="{DynamicResource AppSpokenBrush}" DimBrush="{DynamicResource AppDimBrush}"
+                             LabelBackground="{DynamicResource AppWindowBackground}" LabelForeground="{DynamicResource AppForeground}" />
+        <Canvas x:Name="FieldOverlay">
+          <views:FieldEditorView x:Name="FieldEditing" />
+          <views:PageTextEditorView x:Name="PageTextEditing" />
+        </Canvas>
+      </Panel>
+    </ScrollViewer>
+    <views:DocumentLockView />
+  </Panel>
+</UserControl>

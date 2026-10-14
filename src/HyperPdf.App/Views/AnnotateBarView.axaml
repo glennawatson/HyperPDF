@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.AnnotateBarView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotateBarView.axaml.cs). -->
+  <!-- Annotate tools: shown only while annotating. Each tool has its name beside its icon. -->
+  <Border x:Name="AnnotateBar" Classes="toolbar subbar" AutomationProperties.Name="Annotate tools" AutomationProperties.ControlTypeOverride="ToolBar">
+    <Grid ColumnDefinitions="*,Auto">
+      <WrapPanel Orientation="Horizontal">
+        <ToggleButton AutomationProperties.Name="Select" x:Name="SelectTool" views:ControlHelp.Text="{x:Static views:Descriptions.SelectTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconCursor}" />
+            <TextBlock Classes="label" Text="Select" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Highlight" x:Name="HighlightTool" views:ControlHelp.Text="{x:Static views:Descriptions.HighlightTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconHighlight}" />
+            <TextBlock Classes="label" Text="Highlight" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Underline" x:Name="UnderlineTool" views:ControlHelp.Text="{x:Static views:Descriptions.UnderlineTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconUnderline}" />
+            <TextBlock Classes="label" Text="Underline" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Strike" x:Name="StrikeOutTool" views:ControlHelp.Text="{x:Static views:Descriptions.StrikeTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconStrike}" />
+            <TextBlock Classes="label" Text="Strike" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Draw" x:Name="DrawTool" views:ControlHelp.Text="{x:Static views:Descriptions.DrawTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconDraw}" />
+            <TextBlock Classes="label" Text="Draw" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Note" x:Name="NoteTool" views:ControlHelp.Text="{x:Static views:Descriptions.NoteTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon add" Data="{StaticResource IconNote}" />
+            <TextBlock Classes="label" Text="Note" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Text" x:Name="TextTool" views:ControlHelp.Text="{x:Static views:Descriptions.TextTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon add" Data="{StaticResource IconText}" />
+            <TextBlock Classes="label" Text="Text" />
+          </StackPanel>
+        </ToggleButton>
+        <Button AutomationProperties.Name="Shape" x:Name="ShapeButton" views:ControlHelp.Text="{x:Static views:Descriptions.Shape}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconShape}" />
+            <TextBlock x:Name="ShapeText" Classes="label" Text="Shape" />
+          </StackPanel>
+          <Button.Flyout>
+            <MenuFlyout>
+              <MenuItem x:Name="RectangleItem" views:ControlHelp.Text="{x:Static views:Descriptions.Rectangle}" Header="_Rectangle" />
+              <MenuItem x:Name="EllipseItem" views:ControlHelp.Text="{x:Static views:Descriptions.Ellipse}" Header="_Ellipse" />
+              <MenuItem x:Name="ArrowItem" views:ControlHelp.Text="{x:Static views:Descriptions.Arrow}" Header="_Arrow" />
+              <MenuItem x:Name="LineItem" views:ControlHelp.Text="{x:Static views:Descriptions.Line}" Header="_Line" />
+              <Separator />
+              <MenuItem x:Name="CalloutItem" views:ControlHelp.Text="{x:Static views:Descriptions.Callout}" Header="_Callout" />
+              <MenuItem x:Name="PolygonItem" views:ControlHelp.Text="{x:Static views:Descriptions.Polygon}" Header="_Polygon" />
+              <MenuItem x:Name="CloudItem" views:ControlHelp.Text="{x:Static views:Descriptions.Cloud}" Header="Cl_oud" />
+              <MenuItem x:Name="PolyLineItem" views:ControlHelp.Text="{x:Static views:Descriptions.PolyLine}" Header="Co_nnected Lines" />
+              <Separator />
+              <MenuItem x:Name="RedactAreaItem" views:ControlHelp.Text="{x:Static views:Descriptions.RedactArea}" Header="Mark Area to Re_dact" />
+              <MenuItem x:Name="RedactTextItem" views:ControlHelp.Text="{x:Static views:Descriptions.RedactText}" Header="Mark _Text to Redact" />
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
+        <Button AutomationProperties.Name="Stamp" x:Name="StampButton" views:ControlHelp.Text="{x:Static views:Descriptions.Stamp}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon add" Data="{StaticResource IconStamp}" />
+            <TextBlock x:Name="StampText" Classes="label" Text="Stamp" />
+          </StackPanel>
+          <Button.Flyout>
+            <MenuFlyout>
+              <MenuItem x:Name="ApprovedItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampApproved}" Header="_Approved" />
+              <MenuItem x:Name="ReviewedItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampReviewed}" Header="_Reviewed" />
+              <MenuItem x:Name="DraftItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampDraft}" Header="_Draft" />
+              <MenuItem x:Name="ConfidentialItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampConfidential}" Header="_Confidential" />
+              <MenuItem x:Name="FinalItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampFinal}" Header="_Final" />
+              <MenuItem x:Name="NotApprovedItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampNotApproved}" Header="_Not Approved" />
+              <Separator />
+              <MenuItem x:Name="CustomStampItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampCustom}" Header="_Your Own Words…" />
+              <MenuItem x:Name="PictureStampItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampPicture}" Header="_Picture…" />
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
+        <Rectangle Classes="separator" />
+        <views:AnnotationStyleView />
+      </WrapPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal">
+        <Button AutomationProperties.Name="Undo" x:Name="UndoButton" views:ControlHelp.Text="{x:Static views:Descriptions.Undo}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconUndo}" />
+            <TextBlock Classes="label" Text="Undo" />
+          </StackPanel>
+        </Button>
+        <Button AutomationProperties.Name="Redo" x:Name="RedoButton" views:ControlHelp.Text="{x:Static views:Descriptions.Redo}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconRedo}" />
+            <TextBlock Classes="label" Text="Redo" />
+          </StackPanel>
+        </Button>
+        <Button AutomationProperties.Name="Done" x:Name="AnnotateDoneButton" views:ControlHelp.Text="{x:Static views:Descriptions.AnnotateDone}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon nav" Data="{StaticResource IconDone}" />
+            <TextBlock Classes="label" Text="Done" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

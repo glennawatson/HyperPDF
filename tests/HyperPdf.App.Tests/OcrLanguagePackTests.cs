@@ -202,13 +202,13 @@ public sealed class OcrLanguagePackTests
         {
             _ = await UiWait.UntilAsync(() => window.GetVisualDescendants().OfType<DocumentView>().Any());
             var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
-            var bar = view.FindControl<Border>("LanguageBar")!;
+            var bar = view.FindNamed<Border>("LanguageBar")!;
             var hiddenBefore = !bar.IsVisible;
 
             _ = await main.SelectedTab!.TextRecognition.ChooseLanguageCommand.Execute().ToTask();
             var shown = await UiWait.UntilAsync(() => bar.IsVisible);
-            var button = view.FindControl<Button>("LanguageActionButton")!;
-            var box = view.FindControl<ComboBox>("LanguageBox")!;
+            var button = view.FindNamed<Button>("LanguageActionButton")!;
+            var box = view.FindNamed<ComboBox>("LanguageBox")!;
 
             await Assert.That(hiddenBefore).IsTrue();
             await Assert.That(shown).IsTrue();

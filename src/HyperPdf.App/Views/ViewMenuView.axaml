@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.ViewMenuView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (ViewMenuView.axaml.cs). -->
+  <Button x:Name="ViewMenuButton" views:ControlHelp.Text="{x:Static views:Descriptions.ViewMenu}" AutomationProperties.Name="View" Classes="tool" Content="View ▾">
+    <Button.Flyout>
+      <MenuFlyout Placement="BottomEdgeAlignedRight">
+        <MenuItem x:Name="RotateLeftItem" views:ControlHelp.Text="{x:Static views:Descriptions.RotateLeft}" Header="Rotate _Left" InputGesture="Ctrl+Left" />
+        <MenuItem x:Name="RotateRightItem" views:ControlHelp.Text="{x:Static views:Descriptions.RotateRight}" Header="Rotate _Right" InputGesture="Ctrl+Right" />
+        <Separator />
+        <MenuItem x:Name="SingleLayoutItem" views:ControlHelp.Text="{x:Static views:Descriptions.SinglePage}" Header="_Single Page" ToggleType="Radio" GroupName="PageLayout" />
+        <MenuItem x:Name="DualLayoutItem" views:ControlHelp.Text="{x:Static views:Descriptions.DualPage}" Header="_Two Pages" ToggleType="Radio" GroupName="PageLayout" />
+        <MenuItem x:Name="CoverLayoutItem" views:ControlHelp.Text="{x:Static views:Descriptions.DualPageCover}" Header="Two Pages with _Cover" ToggleType="Radio" GroupName="PageLayout" />
+        <MenuItem x:Name="ReadModeItem" views:ControlHelp.Text="{x:Static views:Descriptions.ReadMode}" Header="Rea_d Mode" InputGesture="Ctrl+H" />
+        <MenuItem x:Name="PresentItem" views:ControlHelp.Text="{x:Static views:Descriptions.Present}" Header="P_resent" InputGesture="Shift+F5" />
+        <MenuItem x:Name="CaretModeItem" views:ControlHelp.Text="{x:Static views:Descriptions.CaretNavigation}" Header="_Caret Navigation" InputGesture="F7" ToggleType="CheckBox" />
+        <MenuItem x:Name="SplitViewItem" views:ControlHelp.Text="{x:Static views:Descriptions.SplitView}" Header="Split _View" ToggleType="CheckBox" />
+        <MenuItem x:Name="PageByPageItem" views:ControlHelp.Text="{x:Static views:Descriptions.PageByPage}" Header="Page _by Page" ToggleType="CheckBox" />
+        <MenuItem x:Name="AutoScrollItem" views:ControlHelp.Text="{x:Static views:Descriptions.AutoScroll}" Header="_Auto-scroll" InputGesture="Ctrl+Shift+H" ToggleType="CheckBox" />
+        <Separator />
+        <MenuItem x:Name="FirstPageItem" views:ControlHelp.Text="{x:Static views:Descriptions.FirstPage}" Header="_First Page" InputGesture="Ctrl+Home" />
+        <MenuItem x:Name="LastPageItem" views:ControlHelp.Text="{x:Static views:Descriptions.LastPage}" Header="Last Pa_ge" InputGesture="Ctrl+End" />
+        <Separator />
+        <!-- What dragging on the pages does. -->
+        <MenuItem x:Name="SelectTextToolItem" views:ControlHelp.Text="{x:Static views:Descriptions.SelectTextTool}" Header="Select Te_xt" ToggleType="Radio" GroupName="PageTool" />
+        <MenuItem x:Name="HandToolItem" views:ControlHelp.Text="{x:Static views:Descriptions.HandTool}" Header="_Hand Tool" ToggleType="Radio" GroupName="PageTool" />
+        <MenuItem x:Name="ZoomAreaToolItem" views:ControlHelp.Text="{x:Static views:Descriptions.ZoomAreaTool}" Header="_Zoom to Area" ToggleType="Radio" GroupName="PageTool" />
+      </MenuFlyout>
+    </Button.Flyout>
+  </Button>
+</UserControl>

@@ -141,9 +141,9 @@ public sealed class DocumentTabViewModelTests
         {
             await Assert.That(await UiWait.UntilAsync(() => window.GetVisualDescendants().OfType<DocumentView>().Any())).IsTrue();
             var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
-            var panel = view.FindControl<Border>("CertificatePanel")!;
-            var file = view.FindControl<TextBox>("OpenCertificatePathBox")!;
-            var password = view.FindControl<TextBox>("OpenCertificatePasswordBox")!;
+            var panel = view.FindNamed<Border>("CertificatePanel")!;
+            var file = view.FindNamed<TextBox>("OpenCertificatePathBox")!;
+            var password = view.FindNamed<TextBox>("OpenCertificatePasswordBox")!;
 
             await Assert.That(panel.IsVisible).IsTrue();
             await Assert.That(AutomationProperties.GetName(file)).IsEqualTo("Certificate file");

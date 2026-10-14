@@ -26,6 +26,7 @@ public sealed partial class OutlinePanelView : ReactiveUI.Avalonia.ReactiveUserC
         var keys = OutlineTree.TunnelKeyDowns;
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsOutlineMode, static v => v.IsVisible));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Outline, static v => v.OutlineTree.ItemsSource));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedOutlineItem, static v => v.OutlineTree.SelectedItem, static item => item, static item => item as OutlineItemViewModel));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasOutline, static v => v.NoOutlineText.IsVisible, static has => !has));

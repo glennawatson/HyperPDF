@@ -53,6 +53,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Emits when the document must be laid out again.</summary>
     private readonly Signal<RxVoid> _documentChanges = new();
 
+    /// <summary>Emits when the keyboard focus should go to the pages.</summary>
+    private readonly Signal<RxVoid> _pageFocusRequests = new();
+
+    /// <summary>Emits when the keyboard focus should go back to the text being typed on the page.</summary>
+    private readonly Signal<RxVoid> _pageTextFocusRequests = new();
+
     /// <summary>Emits the index of each page whose content was edited.</summary>
     private readonly Signal<int> _pageEdits = new();
 
@@ -150,6 +156,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         NavigationRequests = new(_navigationRequests);
         UriRequests = new(_uriRequests);
         DocumentChanges = new(_documentChanges);
+        PageFocusRequests = new(_pageFocusRequests);
+        PageTextFocusRequests = new(_pageTextFocusRequests);
         PageEdits = new(_pageEdits);
         CopyRequests = new(_copyRequests);
         LifetimeToken = _lifetime.Token;
@@ -187,6 +195,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets notifications that the document must be laid out again (loaded or reloaded).</summary>
     public AsObservableSignal<RxVoid> DocumentChanges { get; }
+
+    /// <summary>Gets the requests to put the keyboard focus on the pages.</summary>
+    public AsObservableSignal<RxVoid> PageFocusRequests { get; }
+
+    /// <summary>Gets the requests to put the keyboard focus back on the text being typed on the page.</summary>
+    public AsObservableSignal<RxVoid> PageTextFocusRequests { get; }
 
     /// <summary>Gets the document source.</summary>
     public DocumentSource Source { get; }
@@ -770,6 +784,14 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         HasUnsavedChanges = Source.HasUnsavedChanges;
     }
 
+    /// <summary>Asks the pages to take the keyboard focus.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void FocusPages() => _pageFocusRequests.EmitIfOpen(RxVoid.Default);
+
+    /// <summary>Asks the text being typed on the page to take the keyboard focus again.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void FocusPageText() => _pageTextFocusRequests.EmitIfOpen(RxVoid.Default);
+
     /// <summary>Drops an edited page's tiles so it redraws, and tells views about it.</summary>
     /// <param name="pageIndex">The page.</param>
     public void OnPageEdited(int pageIndex)
@@ -968,6 +990,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Search.Dispose();
         _navigationRequests.Dispose();
         _uriRequests.Dispose();
+        _pageFocusRequests.Dispose();
+        _pageTextFocusRequests.Dispose();
         _documentChanges.Dispose();
         _pageEdits.Dispose();
         _copyRequests.Dispose();

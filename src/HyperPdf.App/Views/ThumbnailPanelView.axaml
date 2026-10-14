@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:HyperPdf.App.Controls"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.ThumbnailPanelView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (ThumbnailPanelView.axaml.cs). -->
+  <Grid x:Name="ThumbnailPanel" RowDefinitions="Auto,*">
+    <views:PageManagementView x:Name="PageTools" />
+    <controls:ThumbnailListBox Grid.Row="1" x:Name="ThumbnailList" AutomationProperties.Name="Page thumbnails" Classes="thumbnails" Background="Transparent" SelectionMode="Multiple" />
+  </Grid>
+</UserControl>

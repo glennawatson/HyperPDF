@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.SidebarView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (SidebarView.axaml.cs). -->
+  <Border x:Name="Sidebar" Width="220" Classes="sidebar" AutomationProperties.Name="Sidebar" AutomationProperties.LandmarkType="Navigation">
+    <DockPanel>
+      <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Center" Margin="4">
+        <ToggleButton AutomationProperties.Name="Thumbnails" x:Name="ThumbnailsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Thumbnails}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconThumbnails}" />
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Outline" x:Name="OutlineToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Outline}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconOutline}" />
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Search results" x:Name="SearchResultsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.SearchResults}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconSearch}" />
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Annotations" x:Name="AnnotationsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Annotations}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconAnnotations}" />
+        </ToggleButton>
+        <!-- Only shown when the document has embedded files. -->
+        <ToggleButton AutomationProperties.Name="Attachments" x:Name="AttachmentsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Attachments}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconAttachment}" />
+        </ToggleButton>
+        <!-- Only shown when the document has layers. -->
+        <ToggleButton AutomationProperties.Name="Layers" x:Name="LayersToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Layers}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconLayers}" />
+        </ToggleButton>
+      </StackPanel>
+      <Panel>
+        <views:ThumbnailPanelView />
+        <views:OutlinePanelView x:Name="OutlinePanel" />
+        <views:AnnotationListView />
+        <ListBox x:Name="SearchResultList" AutomationProperties.Name="Search results" Background="Transparent" />
+        <views:LayersPanelView />
+        <views:AttachmentsPanelView />
+      </Panel>
+    </DockPanel>
+  </Border>
+</UserControl>

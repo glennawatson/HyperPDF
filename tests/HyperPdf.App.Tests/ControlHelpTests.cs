@@ -60,9 +60,9 @@ public sealed class ControlHelpTests
 
             await Assert.That(string.Join(", ", Unexplained(controls))).IsEqualTo(string.Empty);
             await Assert.That(controls.Count).IsGreaterThan(MinMainWindowControls);
-            await Assert.That(controls.Contains(view.FindControl<MenuItem>("PresentItem")!)).IsTrue();
-            await Assert.That(controls.Contains(view.FindControl<CheckBox>("WordMarkCheck")!)).IsTrue();
-            await Assert.That(controls.Contains(view.FindControl<FocusView>("FocusPane")!.FindControl<Slider>("SizeSlider")!)).IsTrue();
+            await Assert.That(controls.Contains(view.FindNamed<MenuItem>("PresentItem")!)).IsTrue();
+            await Assert.That(controls.Contains(view.FindNamed<CheckBox>("WordMarkCheck")!)).IsTrue();
+            await Assert.That(controls.Contains(view.FindNamed<FocusView>("FocusPane")!.FindControl<Slider>("SizeSlider")!)).IsTrue();
         }
         finally
         {
@@ -143,9 +143,9 @@ public sealed class ControlHelpTests
         {
             _ = await UiWait.UntilAsync(() => window.GetVisualDescendants().OfType<DocumentView>().Any());
             var view = window.GetVisualDescendants().OfType<DocumentView>().Single();
-            var next = ControlAutomationPeer.CreatePeerForElement(view.FindControl<Button>("NextPageButton")!);
-            var back = ControlAutomationPeer.CreatePeerForElement(view.FindControl<Button>("BackButton")!);
-            var pageBox = ControlAutomationPeer.CreatePeerForElement(view.FindControl<TextBox>("PageBox")!);
+            var next = ControlAutomationPeer.CreatePeerForElement(view.FindNamed<Button>("NextPageButton")!);
+            var back = ControlAutomationPeer.CreatePeerForElement(view.FindNamed<Button>("BackButton")!);
+            var pageBox = ControlAutomationPeer.CreatePeerForElement(view.FindNamed<TextBox>("PageBox")!);
 
             await Assert.That(next.GetHelpText()).IsEqualTo(Descriptions.NextPage);
             await Assert.That(next.GetName()).IsEqualTo("Next page");
