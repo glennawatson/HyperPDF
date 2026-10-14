@@ -76,7 +76,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Cryptography">
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0-rc.1.26425.128" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0-rc.2.26504.105" />
   </ItemGroup>
 
   <ItemGroup Label="Packaging tools">
