@@ -12,6 +12,7 @@ using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Optimizing;
 using HyperPdfLibrary.Security;
+using HyperPdfLibrary.Tests.Signing;
 using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Tests.Security;
@@ -316,7 +317,7 @@ public sealed class PdfMacWriteTests
         var protection = MacProtection.Standard(false, MacProtection.MacRequired);
         var plain = MacPdf.AddSignedRevision(MacPdf.Create(protection, Sha256, true), protection, Signer, false);
         var contents = MacPdf.Find(plain, MacPdf.ContentsMarker) + MacPdf.ContentsMarker.Length;
-        var container = Convert.FromHexString(Encoding.ASCII.GetString(plain, contents, MacPdf.SignatureDigits)).AsSpan().TrimEnd((byte)0).ToArray();
+        var container = SigningFixtures.Container(Convert.FromHexString(Encoding.ASCII.GetString(plain, contents, MacPdf.SignatureDigits)));
         var cms = new SignedCms();
         cms.Decode(container);
         byte[] covered = [.. plain.AsSpan(0, contents - 1), .. plain.AsSpan(contents + MacPdf.SignatureDigits + 1)];
@@ -478,7 +479,7 @@ public sealed class PdfMacWriteTests
     private static bool VerifiesSignature(byte[] file)
     {
         var contents = MacPdf.Find(file, MacPdf.ContentsMarker) + MacPdf.ContentsMarker.Length;
-        var container = Convert.FromHexString(Encoding.ASCII.GetString(file, contents, MacPdf.SignatureDigits)).AsSpan().TrimEnd((byte)0).ToArray();
+        var container = SigningFixtures.Container(Convert.FromHexString(Encoding.ASCII.GetString(file, contents, MacPdf.SignatureDigits)));
         var after = contents + MacPdf.SignatureDigits + 1;
         byte[] covered = [.. file.AsSpan(0, contents - 1), .. file.AsSpan(after, MacPdf.SignedEnd(file) - after)];
         var cms = new SignedCms(new(covered), true);

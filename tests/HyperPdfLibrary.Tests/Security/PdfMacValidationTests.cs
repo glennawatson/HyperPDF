@@ -9,6 +9,7 @@ using System.Text;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Security;
+using HyperPdfLibrary.Tests.Signing;
 
 namespace HyperPdfLibrary.Tests.Security;
 
@@ -518,7 +519,7 @@ public sealed class PdfMacValidationTests
     private static byte[] Container(byte[] file)
     {
         var contents = MacPdf.Find(file, MacPdf.ContentsMarker) + MacPdf.ContentsMarker.Length;
-        return Convert.FromHexString(Encoding.ASCII.GetString(file, contents, MacPdf.SignatureDigits)).AsSpan().TrimEnd((byte)0).ToArray();
+        return SigningFixtures.Container(Convert.FromHexString(Encoding.ASCII.GetString(file, contents, MacPdf.SignatureDigits)));
     }
 
     /// <summary>Verifies the signature of a signed file as a CMS signature over its byte range, with the framework.</summary>
