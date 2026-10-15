@@ -26,6 +26,7 @@ public sealed partial class PageCanvasView : ReactiveUI.Avalonia.ReactiveUserCon
         InitializeComponent();
         FieldEditing.Pages = Canvas;
         PageTextEditing.Pages = Canvas;
+        AnnotationBubble.Pages = Canvas;
         Marks.Pages = Canvas;
         var tabs = this.WhenChanged(static v => v.ViewModel);
         _ = this.WhenActivated(disposables =>

@@ -136,6 +136,11 @@ public sealed partial class AnnotationsViewModel
             Selected = null;
         }
 
+        if (ActiveBubble is { Annotation: { } bubble } && bubble.PageIndex == annotation.PageIndex && bubble.Index == annotation.Index)
+        {
+            CloseBubble();
+        }
+
         Record(new AnnotationDeleted(annotation.PageIndex, annotation.Index));
     }
 
@@ -283,6 +288,8 @@ public sealed partial class AnnotationsViewModel
         {
             Selected = Find(annotation.PageIndex, annotation.Index);
         }
+
+        RefreshBubble(annotation);
     }
 
     /// <summary>Shows whether there is anything to undo or redo.</summary>

@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.AnnotationBubbleView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotationBubbleView.axaml.cs). -->
+  <Border x:Name="BubbleCard" IsVisible="False" Width="300" CornerRadius="6" BorderThickness="1" Padding="10"
+          Background="{DynamicResource AppWindowBackground}" BorderBrush="{DynamicResource AppBorderBrush}">
+    <StackPanel Spacing="8">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+        <Border x:Name="ColorSwatch" Width="12" Height="12" CornerRadius="3" VerticalAlignment="Center" />
+        <TextBlock x:Name="HeadingText" Grid.Column="1" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+        <Button x:Name="CloseBubbleButton" Grid.Column="2" views:ControlHelp.Text="{x:Static views:Descriptions.BubbleClose}"
+                AutomationProperties.Name="Close comment bubble" Classes="tool" Content="✕" />
+      </Grid>
+
+      <TextBox x:Name="NoteEditor" views:ControlHelp.Text="{x:Static views:Descriptions.BubbleNote}"
+               AutomationProperties.Name="Note text" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="140"
+               PlaceholderText="Write a note…" />
+
+      <SelectableTextBlock x:Name="RepliesText" TextWrapping="Wrap" Classes="secondary" IsVisible="False" />
+
+      <StackPanel x:Name="ReplyPanel" Spacing="6" IsVisible="False">
+        <TextBox x:Name="ReplyEditor" views:ControlHelp.Text="{x:Static views:Descriptions.BubbleReplyInput}"
+                 AutomationProperties.Name="Reply text" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" MaxHeight="96"
+                 PlaceholderText="Write a reply…" />
+        <Button x:Name="SendReplyButton" HorizontalAlignment="Right"
+                views:ControlHelp.Text="{x:Static views:Descriptions.BubbleSendReply}" Content="_Add Reply" />
+      </StackPanel>
+
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
+        <Button x:Name="DeleteBubbleButton" views:ControlHelp.Text="{x:Static views:Descriptions.BubbleDelete}" Content="_Delete" />
+        <Button x:Name="ReplyBubbleButton" Grid.Column="2" views:ControlHelp.Text="{x:Static views:Descriptions.BubbleReply}" Content="_Reply…" />
+        <Button x:Name="SaveBubbleButton" Grid.Column="3" views:ControlHelp.Text="{x:Static views:Descriptions.BubbleSave}" Content="_Save Note" />
+      </Grid>
+    </StackPanel>
+  </Border>
+</UserControl>

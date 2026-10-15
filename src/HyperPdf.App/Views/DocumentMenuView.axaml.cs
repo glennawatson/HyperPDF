@@ -14,7 +14,7 @@ using ReactiveUI.Binding;
 
 namespace HyperPdf.App.Views;
 
-/// <summary>The Document menu: saving, the copies that are written to a new file, reloading, and the file's folder and properties.</summary>
+/// <summary>The Document menu: saving, the copies that are written to a new file, protection and signing, reloading, and the file's folder and properties.</summary>
 [DebuggerDisplay("DocumentMenuView: {ViewModel}")]
 public sealed partial class DocumentMenuView : ReactiveUI.Avalonia.ReactiveUserControl<DocumentTabViewModel>
 {
@@ -27,17 +27,12 @@ public sealed partial class DocumentMenuView : ReactiveUI.Avalonia.ReactiveUserC
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveAsCommand, static v => v.SaveAsItem));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.SaveAsInteraction).HandleWith(SaveAsAsync));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Optimize.RunCommand, static v => v.OptimizeCopyItem));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Optimize.MenuText, static v => v.OptimizeCopyItem.Header));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.Copies.SaveCopy.RunCommand, static v => v.SaveCopyItem));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.SaveCopy.MenuText, static v => v.SaveCopyItem.Header));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.SaveCopy.Interaction).ShowDialogOver(this, static copy => new SaveCopyWindow { ViewModel = copy }));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Optimize.Interaction).ShowDialogOver(this, static copy => new OptimizeCopyWindow { ViewModel = copy }));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Archive.RunCommand, static v => v.ArchiveCopyItem));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Archive.MenuText, static v => v.ArchiveCopyItem.Header));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Archive.Interaction).ShowDialogOver(this, static copy => new ArchiveCopyWindow { ViewModel = copy }));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Pdf20.RunCommand, static v => v.Pdf20CopyItem));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Pdf20.MenuText, static v => v.Pdf20CopyItem.Header));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Pdf20.Interaction).ShowDialogOver(this, static copy => new Pdf20CopyWindow { ViewModel = copy }));
-            disposables.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Flatten.RunCommand, static v => v.FlattenCopyItem));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Flatten.MenuText, static v => v.FlattenCopyItem.Header));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Flatten.Interaction).ShowDialogOver(this, static copy => new FlattenCopyWindow { ViewModel = copy }));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Protect.RunCommand, static v => v.ProtectItem));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Protect.MenuText, static v => v.ProtectItem.Header));

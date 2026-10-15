@@ -17,6 +17,17 @@ namespace HyperPdf.App.ViewModels;
 /// <summary>The copy commands of a document tab: saving an optimised copy, saving a PDF/A copy and applying redactions.</summary>
 internal static class TabCopyActions
 {
+    /// <summary>Gets saving a copy in a chosen format, for engines that can write copies.</summary>
+    internal static TabCopyActionSpec<SaveCopyViewModel> SaveCopy { get; } = new(
+        "Save a _Copy…",
+        "Save a Copy… (needs the HyperPDF engine)",
+        static document =>
+            DocumentFeature<IDocumentOptimizer>.Get(document) is not null
+            && DocumentFeature<IArchiveCopyWriter>.Get(document) is not null
+            && DocumentFeature<IPdf20CopyWriter>.Get(document) is not null
+            && DocumentFeature<IFlattenCopyWriter>.Get(document) is not null,
+        CreateSaveCopy);
+
     /// <summary>Gets saving an optimised copy, for engines that can write one.</summary>
     internal static TabCopyActionSpec<OptimizeCopyViewModel> Optimize { get; } = new(
         "Save _Optimised Copy…",
@@ -122,5 +133,26 @@ internal static class TabCopyActions
     {
         var (areas, pages) = CountRedactions(tab);
         return new(redactor, tab.FilePath, areas, pages, tab.HasUnsavedChanges);
+    }
+
+    /// <summary>Makes the unified "Save a Copy" window view model for a tab.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <returns>The window's view model, or <see langword="null"/> when the engine cannot write copies.</returns>
+    private static SaveCopyViewModel? CreateSaveCopy(DocumentTabViewModel tab)
+    {
+        var document = tab.TryGetDocument();
+        return DocumentFeature<IDocumentOptimizer>.Get(document) is { } optimizer
+            && DocumentFeature<IArchiveCopyWriter>.Get(document) is { } archive
+            && DocumentFeature<IPdf20CopyWriter>.Get(document) is { } pdf20
+            && DocumentFeature<IFlattenCopyWriter>.Get(document) is { } flatten
+            ? new(
+                new(optimizer, tab.FilePath, CultureInfo.CurrentUICulture.Name),
+                new(archive, tab.FilePath),
+                new(pdf20, tab.FilePath),
+                new(flatten, tab.FilePath),
+                tab.FilePath,
+                DocumentFeature<IAnnotationEditor>.Get(document),
+                tab.Source)
+            : null;
     }
 }

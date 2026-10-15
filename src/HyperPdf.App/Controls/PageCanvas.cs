@@ -611,7 +611,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
         }
 
         var cursor = TryHitTestCharacter(position, out _, out _) ? TextCursor : Cursor.Default;
-        if (HitTestLink(position, out _) is not null || IsOverField(position))
+        if (HitTestLink(position, out _) is not null || IsOverField(position) || IsOverCommentTrigger(position))
         {
             cursor = HandCursor;
         }

@@ -72,7 +72,7 @@ public sealed partial class PageCanvas
     /// <param name="page">The page pressed.</param>
     /// <param name="position">The canvas point.</param>
     /// <param name="e">The event.</param>
-    /// <returns><see langword="true"/> when a drag started.</returns>
+    /// <returns><see langword="true"/> when a drag started or a comment bubble opened.</returns>
     private bool BeginEdit(DocumentTabViewModel tab, int page, Point position, PointerPressedEventArgs e)
     {
         var annotations = tab.Annotations;
@@ -82,8 +82,12 @@ public sealed partial class PageCanvas
             return true;
         }
 
-        var hit = annotations.HitTest(page, ToPage(tab, page, position));
-        annotations.Select(hit);
+        var pagePoint = ToPage(tab, page, position);
+        if (TryOpenClickedBubble(annotations, page, pagePoint, e.ClickCount, out var hit))
+        {
+            return true;
+        }
+
         InvalidateVisual();
 
         // An outline drawn around text leaves the text selectable; its handles and the arrow keys still move it.
@@ -92,8 +96,64 @@ public sealed partial class PageCanvas
             return false;
         }
 
-        StartEdit(hit, ToPage(tab, page, position), position, false, e);
+        StartEdit(hit, pagePoint, position, false, e);
         return true;
+    }
+
+    /// <summary>Opens the on-page comment bubble when a comment badge is clicked or an annotation is double-clicked, or closes it on blank page.</summary>
+    /// <param name="annotations">The annotation state.</param>
+    /// <param name="page">The page index.</param>
+    /// <param name="pagePoint">The point in page space.</param>
+    /// <param name="clickCount">The pointer click count.</param>
+    /// <param name="hit">Receives the annotation under the pointer, if any.</param>
+    /// <returns><see langword="true"/> when a comment bubble was opened.</returns>
+    private bool TryOpenClickedBubble(AnnotationsViewModel annotations, int page, PagePoint pagePoint, int clickCount, out PageAnnotation? hit)
+    {
+        if (annotations.HitTestCommentBadge(page, pagePoint) is { } badgeHit)
+        {
+            hit = badgeHit;
+            _ = annotations.OpenBubble(badgeHit);
+            InvalidateVisual();
+            return true;
+        }
+
+        hit = annotations.HitTest(page, pagePoint);
+        annotations.Select(hit);
+        if (hit is null)
+        {
+            annotations.CloseBubble();
+            return false;
+        }
+
+        if (clickCount >= DoubleClick && AnnotationsViewModel.CanShowBubble(hit))
+        {
+            _ = annotations.OpenBubble(hit);
+            InvalidateVisual();
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Determines whether the pointer is over a sticky note or a comment indicator badge, which opens a bubble when clicked.</summary>
+    /// <param name="position">The canvas point.</param>
+    /// <returns><see langword="true"/> when over a note or comment badge.</returns>
+    private bool IsOverCommentTrigger(Point position)
+    {
+        if (Tab is not { } tab)
+        {
+            return false;
+        }
+
+        var page = _layout.HitTest(position.X, position.Y);
+        if (page < 0)
+        {
+            return false;
+        }
+
+        var point = ToPage(tab, page, position);
+        return tab.Annotations.HitTestCommentBadge(page, point) is not null
+            || tab.Annotations.HitTest(page, point) is { Kind: AnnotationKind.Note };
     }
 
     /// <summary>Finds whether a press is on one of the picked annotation's corner handles.</summary>
@@ -173,7 +233,7 @@ public sealed partial class PageCanvas
         return true;
     }
 
-    /// <summary>Keeps the moved or resized annotation on release; a press without a drag only picks it.</summary>
+    /// <summary>Keeps the moved or resized annotation on release; a click without a drag opens the bubble for a note or commented annotation.</summary>
     /// <param name="tab">The tab.</param>
     /// <param name="position">The canvas point.</param>
     /// <returns><see langword="true"/> when a drag was in progress.</returns>
@@ -189,6 +249,10 @@ public sealed partial class PageCanvas
         if (Math.Abs(travel.X) >= DragThreshold || Math.Abs(travel.Y) >= DragThreshold)
         {
             _ = tab.Annotations.Move(editing, _editBounds, false);
+        }
+        else if (!_resizing && (editing.Kind == AnnotationKind.Note || editing.Contents.Length > 0))
+        {
+            _ = tab.Annotations.OpenBubble(editing);
         }
 
         InvalidateVisual();

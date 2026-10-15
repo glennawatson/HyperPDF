@@ -12,6 +12,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using HyperPdf.App.ViewModels;
+using HyperPdf.App.Views;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 
@@ -32,6 +33,21 @@ public sealed partial class PageCanvas
     /// <summary>The corner radius of colour swatches.</summary>
     private const double SwatchRadius = 2;
 
+    /// <summary>The corner radius of on-page comment indicator badges.</summary>
+    private const double BadgeRadius = 3;
+
+    /// <summary>The left inset of the ruled lines inside a comment indicator badge, as a fraction of its width.</summary>
+    private const double BadgeLineLeft = 0.25;
+
+    /// <summary>The right inset of the ruled lines inside a comment indicator badge, as a fraction of its width.</summary>
+    private const double BadgeLineRight = 0.75;
+
+    /// <summary>The vertical position of the first ruled line inside a comment indicator badge, as a fraction of its height.</summary>
+    private const double BadgeFirstLineY = 0.38;
+
+    /// <summary>The vertical position of the second ruled line inside a comment indicator badge, as a fraction of its height.</summary>
+    private const double BadgeSecondLineY = 0.64;
+
     /// <summary>How far the selected annotation outline sits outside the annotation.</summary>
     private const double OutlineInset = 2;
 
@@ -41,8 +57,14 @@ public sealed partial class PageCanvas
     /// <summary>The colour of the live stroke while drawing: the annotation ink colour.</summary>
     private static readonly ImmutablePen StrokePen = new(new ImmutableSolidColorBrush(Color.FromUInt32(0xFF000000U | AnnotationColors.Ink)), OverlayPenWidth);
 
+    /// <summary>The border and line pen for on-page comment indicator badges.</summary>
+    private static readonly ImmutablePen BadgeBorderPen = new(new ImmutableSolidColorBrush(Color.FromArgb(0xB0, 0x20, 0x20, 0x20)), 1);
+
     /// <summary>The points of the stroke being drawn, in page space.</summary>
     private readonly List<PagePoint> _stroke = [];
+
+    /// <summary>Scratch list reused while drawing comment indicator badges on visible pages.</summary>
+    private readonly List<PageAnnotation> _badgeAnnotations = [];
 
     /// <summary>The page the stroke is drawn on, or -1.</summary>
     private int _strokePage = -1;
@@ -64,7 +86,15 @@ public sealed partial class PageCanvas
         {
             case AnnotationTool.Note:
             {
-                _ = tab.Annotations.AddNoteAsync(clicked, point);
+                if (tab.Annotations.HitTest(clicked, point) is { Kind: AnnotationKind.Note } existing)
+                {
+                    _ = tab.Annotations.OpenBubble(existing);
+                }
+                else
+                {
+                    _ = tab.Annotations.BeginNoteBubble(clicked, point);
+                }
+
                 break;
             }
 
@@ -128,12 +158,12 @@ public sealed partial class PageCanvas
         }
         else
         {
-            items.Add(Item(annotation.Contents.Length > 0 ? "_Edit Note…" : "Add _Note…", null, annotations.EditNoteCommand, null, true));
+            items.Add(Item(annotation.Contents.Length > 0 ? "_Edit Note" : "Add _Note", null, annotations.OpenBubbleForCommand, null, true));
         }
 
         items.AddRange(
         [
-            Item("_Reply…", null, annotations.ReplyCommand, null, true),
+            Item("_Reply", null, annotations.ReplyInBubbleForCommand, null, true),
             new MenuItem { Header = "_Status", ItemsSource = StatusItems(annotations, annotation) },
             colour,
             new Separator(),
@@ -154,7 +184,7 @@ public sealed partial class PageCanvas
         [
             Item("_Read Aloud from Here", null, tab.ReadAloud.ReadFromPointCommand, location, true),
             new Separator(),
-            Item("Add _Note Here…", null, annotations.AddNoteHereCommand, location, editable),
+            Item("Add _Note Here", null, annotations.BeginNoteBubbleHereCommand, location, editable),
             Item("_Type Text Here", null, annotations.TypeTextHereCommand, location, editable),
             new Separator(),
             Item("_Annotate…", null, annotations.StartCommand, null, editable),
@@ -206,6 +236,21 @@ public sealed partial class PageCanvas
     /// <returns>The item.</returns>
     private static MenuItem Item(string header, string? gesture, ICommand command, object? parameter, bool enabled) =>
         new() { Header = header, Command = command, CommandParameter = parameter, IsEnabled = enabled, InputGesture = gesture is null ? null : KeyGesture.Parse(gesture) };
+
+    /// <summary>Draws a small note badge rectangle with two ruled lines inside.</summary>
+    /// <param name="context">The drawing context.</param>
+    /// <param name="rect">The badge rectangle on the canvas.</param>
+    /// <param name="color">The badge colour as 0xRRGGBB.</param>
+    private static void DrawBadgeIcon(DrawingContext context, in Rect rect, uint color)
+    {
+        context.DrawRectangle(ColourBrushes.Opaque(color), BadgeBorderPen, rect, BadgeRadius, BadgeRadius);
+        var x1 = rect.Left + (rect.Width * BadgeLineLeft);
+        var x2 = rect.Left + (rect.Width * BadgeLineRight);
+        var y1 = rect.Top + (rect.Height * BadgeFirstLineY);
+        var y2 = rect.Top + (rect.Height * BadgeSecondLineY);
+        context.DrawLine(BadgeBorderPen, new(x1, y1), new(x2, y1));
+        context.DrawLine(BadgeBorderPen, new(x1, y2), new(x2, y2));
+    }
 
     /// <summary>Handles a left press for the active annotation tool.</summary>
     /// <param name="position">The canvas point.</param>
@@ -476,6 +521,7 @@ public sealed partial class PageCanvas
         if (key == Key.Escape)
         {
             ClearSelection();
+            Tab?.Annotations.CloseBubble();
             Tab?.Annotations.Select(null);
             return false;
         }
@@ -520,11 +566,12 @@ public sealed partial class PageCanvas
     private PagePoint ToPage(DocumentTabViewModel tab, int page, Point position) =>
         new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale).ToPage(position);
 
-    /// <summary>Draws the stroke being drawn and the outline of the picked annotation.</summary>
+    /// <summary>Draws the stroke being drawn, comment badges and the outline of the picked annotation.</summary>
     /// <param name="context">The drawing context.</param>
     /// <param name="tab">The tab.</param>
     private void DrawAnnotationOverlay(DrawingContext context, DocumentTabViewModel tab)
     {
+        DrawCommentBadges(context, tab);
         DrawShapePreview(context, tab);
         DrawPolygonPreview(context, tab);
         DrawPlacement(context, tab);
@@ -546,6 +593,56 @@ public sealed partial class PageCanvas
         {
             var transform = new PageTransform(_layout.GetPageBounds(selected.PageIndex), _sizes[selected.PageIndex], tab.Rotation, _layout.Options.Scale);
             context.DrawRectangle(null, pen, transform.ToCanvas(selected.Bounds).Inflate(OutlineInset));
+        }
+    }
+
+    /// <summary>
+    /// Draws the speech-bubble badges on commented annotations on visible pages, and the icon preview of a new sticky note
+    /// being written in the on-page bubble.
+    /// </summary>
+    /// <param name="context">The drawing context.</param>
+    /// <param name="tab">The tab.</param>
+    private void DrawCommentBadges(DrawingContext context, DocumentTabViewModel tab)
+    {
+        if (_scroller is not { } scroller)
+        {
+            return;
+        }
+
+        _layout.GetVisiblePages(scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
+        for (var page = first; page <= last && page >= 0 && page < _sizes.Length; page++)
+        {
+            DrawPageCommentBadges(context, tab, page);
+        }
+
+        if (tab.Annotations.ActiveBubble is not { NewNoteLocation: not null } bubble || (uint)bubble.PageIndex >= (uint)_sizes.Length)
+        {
+            return;
+        }
+
+        var transform = new PageTransform(_layout.GetPageBounds(bubble.PageIndex), _sizes[bubble.PageIndex], tab.Rotation, _layout.Options.Scale);
+        DrawBadgeIcon(context, transform.ToCanvas(bubble.Bounds), bubble.Color);
+    }
+
+    /// <summary>Draws the speech-bubble badges on one page.</summary>
+    /// <param name="context">The drawing context.</param>
+    /// <param name="tab">The tab.</param>
+    /// <param name="page">The page index.</param>
+    private void DrawPageCommentBadges(DrawingContext context, DocumentTabViewModel tab, int page)
+    {
+        tab.Annotations.GetPageAnnotations(page, _badgeAnnotations);
+        if (_badgeAnnotations.Count == 0)
+        {
+            return;
+        }
+
+        var transform = new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale);
+        foreach (var annotation in _badgeAnnotations)
+        {
+            if (AnnotationsViewModel.HasCommentBadge(annotation))
+            {
+                DrawBadgeIcon(context, transform.ToCanvas(AnnotationsViewModel.CommentBadgeBounds(annotation)), annotation.Color);
+            }
         }
     }
 }
