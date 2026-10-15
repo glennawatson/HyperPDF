@@ -24,6 +24,7 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
     /// <param name="owner">The owning tab.</param>
     internal TabCopyActionSet(DocumentTabViewModel owner)
     {
+        SaveCopy = new(owner, TabCopyActions.SaveCopy);
         Optimize = new(owner, TabCopyActions.Optimize);
         Archive = new(owner, TabCopyActions.Archive);
         Pdf20 = new(owner, TabCopyActions.Pdf20);
@@ -33,8 +34,11 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
         Redact = new(owner, TabCopyActions.Redact);
         Validation = new(owner, TabCopyActions.Validation);
         ExternalSign = new(owner, TabCopyActions.ExternalSign);
-        _subscriptions = [Optimize, Archive, Pdf20, Flatten, Protect, Unprotect, Redact, Validation, ExternalSign];
+        _subscriptions = [SaveCopy, Optimize, Archive, Pdf20, Flatten, Protect, Unprotect, Redact, Validation, ExternalSign];
     }
+
+    /// <summary>Gets saving a copy in a chosen format, for engines that can write copies.</summary>
+    public TabCopyAction<SaveCopyViewModel> SaveCopy { get; }
 
     /// <summary>Gets saving an optimised copy, for engines that can write one.</summary>
     public TabCopyAction<OptimizeCopyViewModel> Optimize { get; }
@@ -71,7 +75,8 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
     /// <returns><see langword="true"/> when a window was open.</returns>
     internal bool CloseWindows()
     {
-        var closed = Optimize.CloseWindow();
+        var closed = SaveCopy.CloseWindow();
+        closed |= Optimize.CloseWindow();
         closed |= Archive.CloseWindow();
         closed |= Pdf20.CloseWindow();
         closed |= Flatten.CloseWindow();
@@ -87,6 +92,7 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
     /// <param name="document">The open document.</param>
     internal void Refresh(IDocument document)
     {
+        SaveCopy.Refresh(document);
         Optimize.Refresh(document);
         Archive.Refresh(document);
         Pdf20.Refresh(document);

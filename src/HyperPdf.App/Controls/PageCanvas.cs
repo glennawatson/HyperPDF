@@ -4,13 +4,12 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Input;
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
@@ -18,6 +17,7 @@ using Avalonia.VisualTree;
 using HyperPdf.App.Rendering;
 using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
+using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
@@ -28,7 +28,6 @@ using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.ObservableEvents;
-using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.App.Controls;
 
@@ -38,7 +37,7 @@ namespace HyperPdf.App.Controls;
 /// away is dropped by the scheduler before it reaches the renderer.
 /// </summary>
 [DebuggerDisplay("PageCanvas: {Tab}")]
-public sealed partial class PageCanvas : Control, IActivatableView
+public sealed class PageCanvas : Control, IActivatableView
 {
     /// <summary>Defines the <see cref="Tab"/> property.</summary>
     public static readonly StyledProperty<DocumentTabViewModel?> TabProperty = AvaloniaProperty.Register<PageCanvas, DocumentTabViewModel?>(nameof(Tab));
@@ -59,22 +58,31 @@ public sealed partial class PageCanvas : Control, IActivatableView
     public static readonly StyledProperty<IBrush?> LabelForegroundProperty = AvaloniaProperty.Register<PageCanvas, IBrush?>(nameof(LabelForeground));
 
     /// <summary>The gap between pages.</summary>
-    private const double PageSpacing = 12;
+    internal const double PageSpacing = 12;
 
     /// <summary>The margin around the pages.</summary>
-    private const double ContentMargin = 16;
+    internal const double ContentMargin = 16;
+
+    /// <summary>Half, for finding the middle of the viewport.</summary>
+    internal const double Half = 0.5;
+
+    /// <summary>The pointer travel that turns a click into a drag.</summary>
+    internal const double DragThreshold = 3;
+
+    /// <summary>The hand cursor for links and interactive triggers.</summary>
+    internal static readonly Cursor HandCursor = new(StandardCursorType.Hand);
+
+    /// <summary>The text cursor.</summary>
+    internal static readonly Cursor TextCursor = new(StandardCursorType.Ibeam);
+
+    /// <summary>The pointer while measuring or drawing.</summary>
+    internal static readonly Cursor CrossCursor = new(StandardCursorType.Cross);
 
     /// <summary>How far beyond the viewport, in viewport heights, pages are prefetched.</summary>
     private const double PrefetchViewports = 0.75;
 
     /// <summary>The smallest display scale change that needs a new tile generation.</summary>
     private const double RenderScaleTolerance = 1e-9;
-
-    /// <summary>Zoom change per wheel notch.</summary>
-    private const double WheelZoomStep = 1.1;
-
-    /// <summary>The hit tolerance for text, in points.</summary>
-    private const float TextTolerance = 4F;
 
     /// <summary>The distance kept to the left of a navigation target.</summary>
     private const double TargetPadding = 24;
@@ -88,11 +96,9 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>The page shadow offset.</summary>
     private const double ShadowOffset = 2;
 
-    /// <summary>Half, for finding the middle of the viewport.</summary>
-    private const double Half = 0.5;
-
-    /// <summary>The pointer travel that turns a click into a drag.</summary>
-    private const double DragThreshold = 3;
+    /// <summary>Defines the <see cref="WheelZoom"/> property.</summary>
+    private static readonly DirectProperty<PageCanvas, PageCanvasZoomMixins.WheelZoomEase> WheelZoomProperty =
+        AvaloniaProperty.RegisterDirect<PageCanvas, PageCanvasZoomMixins.WheelZoomEase>(nameof(WheelZoom), static canvas => canvas.WheelZoom);
 
     /// <summary>The page shadow brush.</summary>
     private static readonly IBrush ShadowBrush = new SolidColorBrush(Color.FromArgb(0x40, 0, 0, 0));
@@ -103,24 +109,6 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// faster than cubic (BitmapDrawBenchmarks), which keeps the zoom ease smooth; sharp tiles are drawn 1:1.
     /// </summary>
     private static readonly RenderOptions PageRenderOptions = new() { BitmapInterpolationMode = BitmapInterpolationMode.MediumQuality, EdgeMode = EdgeMode.Aliased };
-
-    /// <summary>The hand cursor for links.</summary>
-    private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
-
-    /// <summary>The text cursor.</summary>
-    private static readonly Cursor TextCursor = new(StandardCursorType.Ibeam);
-
-    /// <summary>The pointer while measuring.</summary>
-    private static readonly Cursor CrossCursor = new(StandardCursorType.Cross);
-
-    /// <summary>Links by page, loaded lazily.</summary>
-    private readonly Dictionary<int, IReadOnlyList<PageLink>> _links = [];
-
-    /// <summary>Selection rectangles by page, computed lazily.</summary>
-    private readonly Dictionary<int, List<PageRect>> _selectionRects = [];
-
-    /// <summary>Copies the selected text from the pages' menu.</summary>
-    private readonly ICommand _copyCommand;
 
     /// <summary>The current layout.</summary>
     private DocumentLayout _layout = DocumentLayout.Empty;
@@ -133,24 +121,6 @@ public sealed partial class PageCanvas : Control, IActivatableView
 
     /// <summary>The tab shown, which lets go of its render requests and auto-scroll when another tab replaces it.</summary>
     private DocumentTabViewModel? _shownTab;
-
-    /// <summary>A position to restore once the layout has been measured.</summary>
-    private Action? _pendingScroll;
-
-    /// <summary>The pointer position where a press started.</summary>
-    private Point _pressPoint;
-
-    /// <summary>The link under the pointer when it was pressed.</summary>
-    private PageLink? _pressedLink;
-
-    /// <summary>Whether a text selection drag is active.</summary>
-    private bool _selecting;
-
-    /// <summary>The selection anchor (page, character).</summary>
-    private (int Page, int Char) _selectionAnchor = (-1, -1);
-
-    /// <summary>The selection focus (page, character).</summary>
-    private (int Page, int Char) _selectionFocus = (-1, -1);
 
     /// <summary>The tile scale of the last frame whose visible pages were all sharp, drawn while newer tiles render.</summary>
     private float _fallbackScale;
@@ -182,6 +152,9 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>The pen outlining the current search hit, rebuilt when <see cref="CurrentHitOutline"/> changes.</summary>
     private IPen? _currentHitPen;
 
+    /// <summary>1 while an auto-scroll glide's frames are subscribed.</summary>
+    private int _autoScrollRunning;
+
     /// <summary>Initializes static members of the <see cref="PageCanvas"/> class.</summary>
     static PageCanvas()
     {
@@ -193,81 +166,53 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Initializes a new instance of the <see cref="PageCanvas"/> class.</summary>
     public PageCanvas()
     {
-        _copyCommand = ReactiveCommand.Create<string>(CopyToClipboard);
+        CopyCommand = ReactiveCommand.Create<string>(this.CopyToClipboard);
         var tabs = this.WhenChanged(static x => x.Tab);
         _ = this.WhenActivated(disposables =>
         {
-            // Deactivating releases what the canvas holds once its subscriptions have ended.
             disposables.Add(Scope.Create(this, static canvas => canvas.PutAway()));
-            _scroller = this.FindAncestorOfType<ScrollViewer>();
-            if (_scroller is { } scroller)
+            if ((_scroller = this.FindAncestorOfType<ScrollViewer>()) is { } scroller)
             {
-                // Scrolling draws the pages again, and tells the tab where the reader is unless a scroll is still to be applied.
-                var offsets = scroller.WhenChanged(static x => x.Offset).Skip(1);
-                disposables.Add(offsets.SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
-                disposables.Add(offsets.WhereWith(this, static (canvas, _) => canvas._pendingScroll is null).SubscribeSafe(_ => ReportPosition(), ErrorTrace.Write));
-                disposables.Add(scroller.WhenChanged(static x => x.Bounds).Select(static bounds => bounds.Size).DistinctUntilChanged().Skip(1).SubscribeSafe(_ => RelayoutInPlace(), ErrorTrace.Write));
-
-                // The extent changes after a layout pass; apply any pending scroll once the dispatcher is idle again. A
-                // layout whose extent did not change still finishes a layout pass, which applies the scroll too.
-                disposables.Add(scroller.WhenChanged(static x => x.Extent).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => ApplyPendingScroll(), ErrorTrace.Write));
-                disposables.Add(this.Events().LayoutUpdated
-                    .WhereWith(this, static (canvas, _) => canvas._pendingScroll is not null)
-                    .ObserveOn(RxSchedulers.MainThreadScheduler)
-                    .SubscribeSafe(_ => ApplyPendingScroll(), ErrorTrace.Write));
-
-                // Ctrl and the wheel always zoom, wherever in the scroller the pointer is. Only a tunnelling handler on the
-                // scroll viewer sees the notch before the viewer and its bars handle it.
-                disposables.Add(scroller.TunnelWheels.SubscribeSafe(e => Guard(HandleCtrlWheel, e), ErrorTrace.Write));
+                WireScroller(scroller, tabs, disposables.Add);
             }
 
-            // The tab shown; each stream below follows the tab shown now and lets go of the one before.
             disposables.Add(tabs.SubscribeSafe(ShowTab, ErrorTrace.Write));
             disposables.Add(tabs.Follow(static tab => tab.CanvasRedraws).SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
             disposables.Add(tabs.Follow(static tab => tab.LayoutSettingsChanges).SubscribeSafe(_ => RelayoutForSettings(), ErrorTrace.Write));
             disposables.Add(tabs.Follow(static tab => tab.Destinations).SubscribeSafe(ScrollTo, ErrorTrace.Write));
             disposables.Add(tabs.Follow(static tab => tab.PageReads).SubscribeSafe(_ => ReadPagesAgain(), ErrorTrace.Write));
-
-            // The selection belongs to the canvas, so it clears once a menu command has used it.
             disposables.Add(tabs.Follow(static tab => tab.SelectionUses).SubscribeSafe(_ => ClearSelection(), ErrorTrace.Write));
-
-            // Caret mode shows its caret and gives the pages the keyboard as it starts.
-            disposables.Add(tabs.Follow(static tab => tab.CaretModeStarts).Do(StartCaret).SelectWith(this, static (canvas, _) => canvas).TakeFocus());
-
-            // A new page tool drops a drag in progress and shows its own pointer.
+            disposables.Add(tabs.Follow(static tab => tab.CaretModeStarts).Do(this.StartCaret).SelectWith(this, static (canvas, _) => canvas).TakeFocus());
             disposables.Add(tabs.Follow(static tab => tab.PageToolChanges).SubscribeSafe(_ => ShowPageTool(), ErrorTrace.Write));
-
-            // A wheel zoom eases over the window's frames; a newer notch replaces the ease (PageCanvas.Zoom.cs).
-            disposables.Add(this.WhenChanged(static canvas => canvas.WheelZoom)
-                .SelectWith(this, static (canvas, ease) => canvas.ZoomFrames(ease))
-                .SwitchMap(static frames => frames)
-                .SubscribeSafe(StepZoom, ErrorTrace.Write));
-
-            // Auto-scroll glides the pages on every frame while it is on, and stops with the frames (PageCanvas.AutoScroll.cs).
-            disposables.Add(tabs.Follow(static tab => tab.AutoScrolling)
-                .DistinctUntilChanged()
-                .SelectWith(this, static (canvas, on) => on ? Signal.Defer(canvas.StartGlide) : Signal.Never<TimeSpan>())
-                .SwitchMap(static frames => frames)
-                .SubscribeSafe(_ => StepAutoScroll(), ErrorTrace.Write));
+            disposables.Add(this.WheelZoomFrames.SubscribeSafe(this.StepZoom, ErrorTrace.Write));
+            disposables.Add(this.AutoScrollFrames(tabs).SubscribeSafe(_ => this.StepAutoScroll(), ErrorTrace.Write));
             disposables.Add(this.WhenChanged(static x => x.CurrentHitOutline)
                 .SubscribeSafe(outline => _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null, ErrorTrace.Write));
 
-            // One failing gesture must not end the subscription, or the page would stop answering input.
-            disposables.Add(this.Events().PointerWheelChanged.SubscribeSafe(e => Guard(HandlePointerWheel, e), ErrorTrace.Write));
-            disposables.Add(this.Events().PointerPressed.SubscribeSafe(e => Guard(HandlePointerPressed, e), ErrorTrace.Write));
-            disposables.Add(this.Events().PointerMoved.SubscribeSafe(e => Guard(HandlePointerMoved, e), ErrorTrace.Write));
-            disposables.Add(this.Events().PointerReleased.SubscribeSafe(e => Guard(HandlePointerReleased, e), ErrorTrace.Write));
-            disposables.Add(this.Events().KeyDown.SubscribeSafe(e => Guard(HandleKeyDown, e), ErrorTrace.Write));
-
-            // Moving around: pinch zoom, and Space held to move the pages (PageCanvas.Pinch.cs, PageCanvas.Hand.cs).
-            disposables.Add(this.Events().Pinch.SubscribeSafe(e => Guard(HandlePinch, e), ErrorTrace.Write));
-            disposables.Add(this.Events().PinchEnded.SubscribeSafe(e => Guard(HandlePinchEnded, e), ErrorTrace.Write));
-            disposables.Add(this.Events().PointerTouchPadGestureMagnify.SubscribeSafe(e => Guard(HandleMagnify, e), ErrorTrace.Write));
-            disposables.Add(this.Events().KeyUp.SubscribeSafe(e => Guard(HandleKeyUp, e), ErrorTrace.Write));
-            disposables.Add(this.Events().LostFocus.SubscribeSafe(_ => ReleaseSpace(), ErrorTrace.Write));
+            // Input routing: page tools and context menus first, then select-tool editing, then drawing/fields, then text/links.
+            var selectPresses = this.SelectToolPresses(tabs).Publish().RefCount();
+            disposables.Add(this.PageToolPresses(tabs).SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
+            disposables.Add(this.RightClicks(tabs).SubscribeSafe(static step => step.OpenMenu(), ErrorTrace.Write));
+            disposables.Add(selectPresses.TextBoxDoubleClicks.SubscribeSafe(static step => step.EditText(), ErrorTrace.Write));
+            disposables.Add(selectPresses.ResizeHandleStarts.SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
+            disposables.Add(selectPresses.CommentBadgeClicks.SubscribeSafe(static step => step.OpenBubble(), ErrorTrace.Write));
+            disposables.Add(selectPresses.BubbleDoubleClicks.SubscribeSafe(static step => step.SelectAndOpenBubble(), ErrorTrace.Write));
+            disposables.Add(selectPresses.AnnotationMoveStarts.SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
+            disposables.Add(this.DrawingAndFieldPresses(tabs).SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
+            disposables.Add(this.SelectionAndLinkPresses(tabs).SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
+            disposables.Add(this.EditMoves(tabs).SubscribeSafe(static step => step.UpdatePreview(), ErrorTrace.Write));
+            disposables.Add(this.PointerMoveSteps(tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
+            disposables.Add(this.EditReleases(tabs).SubscribeSafe(static step => step.CommitOrOpenBubble(), ErrorTrace.Write));
+            disposables.Add(this.PointerReleaseSteps(tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
+            disposables.Add(this.DocumentKeys.SubscribeSafe(static e => e.Handled = true, ErrorTrace.Write));
+            disposables.Add(this.PageByPageWheels.SubscribeSafe(static e => e.Handled = true, ErrorTrace.Write));
+            disposables.Add(this.PinchZooms(tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
+            disposables.Add(this.PinchEnds.SubscribeSafe(_ => this.EndPinch(), ErrorTrace.Write));
+            disposables.Add(this.MagnifyZooms(tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
+            disposables.Add(this.SpaceKeyUps.SubscribeSafe(this.CompleteSpaceHold, ErrorTrace.Write));
+            disposables.Add(this.Events().LostFocus.SubscribeSafe(_ => this.ReleaseSpace(), ErrorTrace.Write));
         });
 
-        // Two fingers on a touch screen zoom the pages (PageCanvas.Pinch.cs).
         GestureRecognizers.Add(new PinchGestureRecognizer());
     }
 
@@ -306,12 +251,178 @@ public sealed partial class PageCanvas : Control, IActivatableView
         set => SetValue(LabelForegroundProperty, value);
     }
 
+    /// <summary>Gets the canvas units per point at the current zoom, for sizing an editor placed on a page.</summary>
+    public double PageScale => _layout.Options.Scale;
+
+    /// <summary>Gets the command that copies the selected text from the context menu.</summary>
+    internal ICommand CopyCommand { get; }
+
+    /// <summary>Gets the links by page, loaded lazily.</summary>
+    internal Dictionary<int, IReadOnlyList<PageLink>> Links { get; } = [];
+
+    /// <summary>Gets the selection rectangles by page, computed lazily.</summary>
+    internal Dictionary<int, List<PageRect>> SelectionRects { get; } = [];
+
+    /// <summary>Gets the page points of the ink stroke being drawn.</summary>
+    internal List<PagePoint> Stroke { get; } = [];
+
+    /// <summary>Gets the corners placed so far in a polygon, cloud or polyline, in page space.</summary>
+    internal List<PagePoint> Corners { get; } = [];
+
+    /// <summary>Gets the annotations list reused while drawing comment indicator badges.</summary>
+    internal List<PageAnnotation> BadgeAnnotations { get; } = [];
+
+    /// <summary>Gets the character bounds list reused for caret lookups.</summary>
+    internal List<PageRect> CaretBounds { get; } = [];
+
+    /// <summary>Gets the auto-scroll distance calculator.</summary>
+    internal AutoScroller AutoScroller { get; } = new();
+
+    /// <summary>Gets the snapshot renderer.</summary>
+    internal PageSnapshotter Snapshotter { get; } = new();
+
+    /// <summary>Gets how many snapshots have been asked for, for tests.</summary>
+    internal int SnapshotsRequested => Snapshotter.SnapshotsRequested;
+
+    /// <summary>Gets how many snapshots have taken their turn and started, for tests.</summary>
+    internal int SnapshotsStarted => Snapshotter.SnapshotsStarted;
+
+    /// <summary>Gets how many snapshots have finished, for tests.</summary>
+    internal int SnapshotsFinished => Snapshotter.SnapshotsFinished;
+
+    /// <summary>Gets the current layout.</summary>
+    internal DocumentLayout Layout => _layout;
+
+    /// <summary>Gets the page sizes the layout was built from.</summary>
+    internal PageSize[] Sizes => _sizes;
+
+    /// <summary>Gets the hosting scroll viewer.</summary>
+    internal ScrollViewer? Scroller => _scroller;
+
+    /// <summary>Gets the pen outlining the current search hit.</summary>
+    internal IPen? CurrentHitPen => _currentHitPen;
+
+    /// <summary>Gets or sets a position to restore once the layout has been measured.</summary>
+    internal Action? PendingScroll { get; set; }
+
+    /// <summary>Gets or sets the pointer position where a press started.</summary>
+    internal Point PressPoint { get; set; }
+
+    /// <summary>Gets or sets the link under the pointer when it was pressed.</summary>
+    internal PageLink? PressedLink { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether a text selection drag is active.</summary>
+    internal bool Selecting { get; set; }
+
+    /// <summary>Gets or sets the selection anchor.</summary>
+    internal PageCharacter SelectionAnchor { get; set; } = new(-1, -1);
+
+    /// <summary>Gets or sets the selection focus.</summary>
+    internal PageCharacter SelectionFocus { get; set; } = new(-1, -1);
+
+    /// <summary>Gets or sets the caret position.</summary>
+    internal PageCharacter Caret { get; set; } = new(-1, -1);
+
+    /// <summary>Gets or sets the wheel zoom easing now, or the last one once it has settled.</summary>
+    internal PageCanvasZoomMixins.WheelZoomEase WheelZoom
+    {
+        get;
+        set => SetAndRaise(WheelZoomProperty, ref field, value);
+    }
+
+    /// <summary>Gets a value indicating whether a wheel zoom is easing, so tiles at passing scales are not requested.</summary>
+    internal bool IsZoomEasing => WheelZoom.IsRunning;
+
+    /// <summary>Gets or sets a value indicating whether the canvas is moving its own scroll offset to hold a zoom anchor.</summary>
+    internal bool Anchoring { get; set; }
+
+    /// <summary>Gets or sets the zoom when the current pinch started, or 0 when there is no pinch.</summary>
+    internal double PinchStartZoom { get; set; }
+
+    /// <summary>Gets or sets the page a navigation asked for, until the next position report; -1 when none.</summary>
+    internal int RequestedPage { get; set; } = -1;
+
+    /// <summary>Gets or sets when the last auto-scroll frame ran.</summary>
+    internal long AutoScrollLast { get; set; }
+
+    /// <summary>Gets a value indicating whether auto-scroll frames are being requested, for tests.</summary>
+    internal bool IsAutoScrollRunning => Volatile.Read(ref _autoScrollRunning) != 0;
+
+    /// <summary>Gets or sets a value indicating whether the Space bar is held for temporary hand panning.</summary>
+    internal bool SpaceHeld { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether a drag moved the pages during the current Space hold.</summary>
+    internal bool SpacePanned { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether a hand pan is in progress.</summary>
+    internal bool Panning { get; set; }
+
+    /// <summary>Gets or sets where the pointer was in the scroll viewer when the pan started.</summary>
+    internal Point PanStart { get; set; }
+
+    /// <summary>Gets or sets the scroll offset when the pan started.</summary>
+    internal Vector PanOffset { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether a snapshot or marquee-zoom rectangle is being dragged.</summary>
+    internal bool AreaDragging { get; set; }
+
+    /// <summary>Gets or sets where the area drag started on the canvas.</summary>
+    internal Point AreaStart { get; set; }
+
+    /// <summary>Gets or sets where the pointer is now in the area drag.</summary>
+    internal Point AreaEnd { get; set; }
+
+    /// <summary>Gets or sets the annotation being moved or resized, or <see langword="null"/>.</summary>
+    internal PageCanvasEditMixins.AnnotationEditSession? ActiveEdit { get; set; }
+
+    /// <summary>Gets or sets the page an ink stroke is being drawn on, or -1 when not drawing.</summary>
+    internal int StrokePage { get; set; } = -1;
+
+    /// <summary>Gets or sets the shape currently being dragged on a page, or <see langword="null"/>.</summary>
+    internal PageCanvasAnnotationMixins.ShapePreview? ActiveShape { get; set; }
+
+    /// <summary>Gets or sets the page the polygon is being drawn on, or -1 when not drawing one.</summary>
+    internal int CornerPage { get; set; } = -1;
+
+    /// <summary>Gets or sets the current pointer position in page space while drawing a polygon.</summary>
+    internal PagePoint CornerHover { get; set; }
+
+    /// <summary>Gets or sets the page clicked by a click-based annotation tool, or -1 when none.</summary>
+    internal int ClickPage { get; set; } = -1;
+
+    /// <summary>Gets or sets a value indicating whether a click-based text tool snaps to a detected form region.</summary>
+    internal bool ClickSnaps { get; set; }
+
+    /// <summary>Gets or sets the cached signature mark preview.</summary>
+    internal SignatureMarkPainter? MarkPainter { get; set; }
+
+    /// <summary>Gets or sets the cached pen used to draw a signature mark preview.</summary>
+    internal Pen? MarkPen { get; set; }
+
+    /// <summary>Gets or sets the printed-form region currently hovered by the pointer.</summary>
+    internal PageCanvasAnnotationMixins.HoveredFormRegion? HoveredRegion { get; set; }
+
+    /// <summary>Gets or sets the dashed pen used to draw printed-form region suggestions.</summary>
+    internal Pen? SuggestionPen { get; set; }
+
+    /// <summary>Gets or sets the solid pen used to draw the hovered printed-form region suggestion.</summary>
+    internal Pen? HoveredSuggestionPen { get; set; }
+
+    /// <summary>Gets the canvas rectangle of a rectangle on a page, or an empty rectangle when the page is not laid out.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="bounds">The rectangle in page points.</param>
+    /// <returns>The rectangle on the canvas.</returns>
+    public Rect GetCanvasRect(int page, PageRect bounds) =>
+        Tab is not { } tab || (uint)page >= (uint)_sizes.Length
+            ? default
+            : new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale).ToCanvas(bounds);
+
     /// <summary>Gets the selected text.</summary>
     /// <returns>The text, or an empty string.</returns>
     public string GetSelectedText()
     {
         var document = Tab?.TryGetDocument();
-        if (document is null || !TryGetSelection(out var start, out var end))
+        if (document is null || !this.TryGetSelection(out var start, out var end))
         {
             return string.Empty;
         }
@@ -338,9 +449,9 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Clears the text selection.</summary>
     public void ClearSelection()
     {
-        _selectionAnchor = (-1, -1);
-        _selectionFocus = (-1, -1);
-        _selectionRects.Clear();
+        SelectionAnchor = new(-1, -1);
+        SelectionFocus = new(-1, -1);
+        SelectionRects.Clear();
         InvalidateVisual();
     }
 
@@ -359,12 +470,18 @@ public sealed partial class PageCanvas : Control, IActivatableView
         var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
         var generation = RenderGeneration(tab, document, viewport, scaling);
         DrawPages(context, new(tab, document, tab.RenderHub, viewport, scaling, generation));
-        DrawAnnotationOverlay(context, tab);
-        DrawRegions(context, tab, viewport);
-        DrawMeasurement(context, tab);
-        DrawArea(context);
-        DrawCaret(context, tab);
+        this.DrawAnnotationOverlay(context, tab);
+        this.DrawRegions(context, tab, viewport);
+        this.DrawMeasurement(context, tab);
+        this.DrawArea(context);
+        this.DrawCaret(context, tab);
     }
+
+    /// <summary>Atomically updates the auto-scroll running flag.</summary>
+    /// <param name="value">The new flag value.</param>
+    /// <returns>The previous value.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal int SetAutoScrollRunning(int value) => Interlocked.Exchange(ref _autoScrollRunning, value);
 
     /// <summary>Gets the pages laid out between two heights on the canvas.</summary>
     /// <param name="top">The upper height.</param>
@@ -373,6 +490,24 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <param name="last">The last page, or -1 when none.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void GetPagesBetween(double top, double bottom, out int first, out int last) => _layout.GetVisiblePages(top, bottom, out first, out last);
+
+    /// <summary>Converts a point on a page to canvas coordinates.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="point">The point in page space.</param>
+    /// <returns>The point on the canvas.</returns>
+    internal Point PageToCanvas(int page, PagePoint point) =>
+        Tab is { } tab && (uint)page < (uint)_sizes.Length
+            ? new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale).ToCanvas(point)
+            : default;
+
+    /// <summary>Converts a canvas point on a known page to page coordinates.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="position">The canvas position.</param>
+    /// <returns>The point in page space.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal PagePoint ToPage(DocumentTabViewModel tab, int page, Point position) =>
+        new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale).ToPage(position);
 
     /// <summary>Gets where a page is laid out on the canvas and how its points map there.</summary>
     /// <param name="page">The page.</param>
@@ -394,8 +529,40 @@ public sealed partial class PageCanvas : Control, IActivatableView
         return true;
     }
 
+    /// <summary>Reports the current position to the tab.</summary>
+    internal void ReportPosition()
+    {
+        if (_scroller is null || Tab is not { } tab || _layout.PageCount == 0)
+        {
+            return;
+        }
+
+        var top = _scroller.Offset.Y + ContentMargin;
+        this.GetCurrentPages(tab, top, _scroller.Offset.Y + (_scroller.Viewport.Height * Half), out var topPage, out var middlePage);
+        var bounds = _layout.GetPageBounds(topPage);
+        var fraction = bounds.Height > 0 ? Math.Clamp((top - bounds.Y) / bounds.Height, 0, 1) : 0;
+        tab.ReportPosition(new(topPage, fraction), middlePage);
+    }
+
+    /// <inheritdoc/>
+    protected override AutomationPeer OnCreateAutomationPeer() => new PageCanvasAutomationPeer(this);
+
     /// <inheritdoc/>
     protected override Size MeasureOverride(Size availableSize) => new(_layout.ExtentWidth, _layout.ExtentHeight);
+
+    /// <summary>Wires the scroll viewer's offset, viewport, extent and Ctrl+wheel streams to the canvas.</summary>
+    /// <param name="scroller">The hosting scroll viewer.</param>
+    /// <param name="tabs">The tab stream.</param>
+    /// <param name="register">Registers each subscription with the activation scope.</param>
+    private void WireScroller(ScrollViewer scroller, IObservable<DocumentTabViewModel?> tabs, Action<IDisposable> register)
+    {
+        var offsets = scroller.WhenChanged(static x => x.Offset).Skip(1);
+        register(offsets.SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
+        register(offsets.WhereWith(this, static (canvas, _) => canvas.PendingScroll is null).SubscribeSafe(_ => ReportPosition(), ErrorTrace.Write));
+        register(scroller.ViewportSizes.SubscribeSafe(_ => RelayoutInPlace(), ErrorTrace.Write));
+        register(scroller.PendingScrollReady(this).SubscribeSafe(_ => ApplyPendingScroll(), ErrorTrace.Write));
+        register(scroller.CtrlWheelZooms(this, tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
+    }
 
     /// <summary>Reuses the generation when a tile arrival repaints the same view.</summary>
     /// <param name="tab">The tab.</param>
@@ -482,195 +649,6 @@ public sealed partial class PageCanvas : Control, IActivatableView
         }
 
         TilePresentation.Draw(context, surface, destination, smooth: false);
-    }
-
-    /// <summary>Runs an input handler, reporting a failure instead of letting it end the input subscription.</summary>
-    /// <typeparam name="T">The routed event's argument type.</typeparam>
-    /// <param name="handler">The handler.</param>
-    /// <param name="args">The routed event's data.</param>
-    private void Guard<T>(Action<T> handler, T args)
-        where T : RoutedEventArgs
-    {
-        try
-        {
-            handler(args);
-        }
-        catch (Exception error) when (error is not OutOfMemoryException)
-        {
-            // The gesture is abandoned: release any capture so the next press starts cleanly.
-            ErrorTrace.Write(error);
-            (args as PointerEventArgs)?.Pointer.Capture(null);
-            _selecting = false;
-            _panning = false;
-            _areaDragging = false;
-            if (Tab is { } tab)
-            {
-                tab.PageTools.IsAutoScrolling = false;
-            }
-
-            InvalidateVisual();
-        }
-    }
-
-    /// <summary>Handles page stepping.</summary>
-    /// <param name="e">The routed input.</param>
-    private void HandlePointerWheel(PointerWheelEventArgs e)
-    {
-        ArgumentNullException.ThrowIfNull(e);
-        if ((e.KeyModifiers & KeyModifiers.Control) == 0 && StepPageByPage(-e.Delta.Y * LineStep))
-        {
-            e.Handled = true;
-        }
-    }
-
-    /// <summary>Zooms around the pointer on Ctrl and the wheel, and stops the scroll viewer scrolling on it.</summary>
-    /// <param name="e">The routed input, seen on its way down to the pointer's target.</param>
-    private void HandleCtrlWheel(PointerWheelEventArgs e)
-    {
-        ArgumentNullException.ThrowIfNull(e);
-        if ((e.KeyModifiers & KeyModifiers.Control) == 0 || e.Handled)
-        {
-            return;
-        }
-
-        e.Handled = true;
-        if (Tab is { } tab)
-        {
-            ZoomByWheel(tab, Math.Pow(WheelZoomStep, e.Delta.Y), e.GetPosition(this));
-        }
-    }
-
-    /// <summary>Begins a selection, measurement or annotation.</summary>
-    /// <param name="e">The routed input.</param>
-    private void HandlePointerPressed(PointerPressedEventArgs e)
-    {
-        ArgumentNullException.ThrowIfNull(e);
-        var point = e.GetCurrentPoint(this);
-
-        // Auto-scroll, the hand and area tools, and moving the pages with Space or the middle button (PageCanvas.AutoScroll.cs).
-        if (BeginPageToolPress(e, point))
-        {
-            return;
-        }
-
-        if (point.Properties.IsRightButtonPressed)
-        {
-            ShowContextMenu(point.Position);
-            e.Handled = true;
-            return;
-        }
-
-        if (!point.Properties.IsLeftButtonPressed)
-        {
-            return;
-        }
-
-        _ = Focus();
-        _pressPoint = point.Position;
-        if (BeginMeasurePress(point.Position, e) || BeginAnnotationPress(point.Position, e))
-        {
-            return;
-        }
-
-        _pressedLink = HitTestLink(point.Position, out _);
-        ClearSelection();
-        if (_pressedLink is not null || !TryHitTestCharacter(point.Position, out var page, out var character))
-        {
-            return;
-        }
-
-        _selectionAnchor = (page, character);
-        _selectionFocus = (page, character);
-        _caret = (page, character);
-        _selecting = true;
-        e.Pointer.Capture(this);
-    }
-
-    /// <summary>Updates pointer interaction and the hover cursor.</summary>
-    /// <param name="e">The routed input.</param>
-    private void HandlePointerMoved(PointerEventArgs e)
-    {
-        ArgumentNullException.ThrowIfNull(e);
-        var position = e.GetPosition(this);
-        HoverRegion(position);
-        if (ContinuePageTool(e, position) || ContinueMeasure(position) || ContinueStroke(position))
-        {
-            return;
-        }
-
-        if (_selecting)
-        {
-            if (TryHitTestCharacter(position, out var page, out var character))
-            {
-                _selectionFocus = (page, character);
-                _selectionRects.Clear();
-                InvalidateVisual();
-            }
-
-            return;
-        }
-
-        var cursor = TryHitTestCharacter(position, out _, out _) ? TextCursor : Cursor.Default;
-        if (HitTestLink(position, out _) is not null || IsOverField(position))
-        {
-            cursor = HandCursor;
-        }
-
-        Cursor = cursor;
-    }
-
-    /// <summary>Completes a pointer interaction.</summary>
-    /// <param name="e">The routed input.</param>
-    private void HandlePointerReleased(PointerReleasedEventArgs e)
-    {
-        ArgumentNullException.ThrowIfNull(e);
-        e.Pointer.Capture(null);
-        if (EndPan(e.GetPosition(this)) || EndArea(e.GetPosition(this)) || EndAnnotationPress(e.GetPosition(this)))
-        {
-            return;
-        }
-
-        if (_selecting)
-        {
-            _selecting = false;
-            ApplyMarkupTool();
-        }
-
-        var link = _pressedLink;
-        _pressedLink = null;
-        var travel = e.GetPosition(this) - _pressPoint;
-        if (link is { } pressed && Math.Abs(travel.X) < DragThreshold && Math.Abs(travel.Y) < DragThreshold)
-        {
-            Tab?.Navigate(pressed.Target);
-        }
-    }
-
-    /// <summary>Handles document keyboard actions.</summary>
-    /// <param name="e">The routed input.</param>
-    private void HandleKeyDown(KeyEventArgs e)
-    {
-        ArgumentNullException.ThrowIfNull(e);
-
-        // A focused form field takes Space and Tab before they scroll or move between pages.
-        if (HandleFormKey(e) || HandleNavigationKey(e))
-        {
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key == Key.C && (e.KeyModifiers & KeyModifiers.Control) != 0)
-        {
-            CopyToClipboard(GetSelectedText());
-            e.Handled = true;
-            return;
-        }
-
-        if (!HandlePlacementKey(e) && !HandleMeasureKey(e.Key) && !HandleAnnotationKey(e) && !HandleCaretKey(e) && !HandlePageByPageKey(e))
-        {
-            return;
-        }
-
-        e.Handled = true;
     }
 
     /// <summary>Draws the pages around the viewport, and remembers the scale once every visible page is sharp.</summary>
@@ -885,113 +863,18 @@ public sealed partial class PageCanvas : Control, IActivatableView
         }
 
         var transform = new PageTransform(bounds, _sizes[page], tab.Rotation, _layout.Options.Scale);
-        foreach (var rect in GetSelectionRects(page))
+        foreach (var rect in this.GetSelectionRects(page))
         {
             context.FillRectangle(selection, transform.ToCanvas(rect));
         }
     }
 
-    /// <summary>Gets the selection rectangles on a page, computing them on first use.</summary>
-    /// <param name="page">The page.</param>
-    /// <returns>The rectangles.</returns>
-    private List<PageRect> GetSelectionRects(int page)
-    {
-        if (_selectionRects.TryGetValue(page, out var cached))
-        {
-            return cached;
-        }
-
-        var rects = new List<PageRect>();
-        var document = Tab?.TryGetDocument();
-        if (document is not null && TryGetSelection(out var start, out var end) && page >= start.Page && page <= end.Page)
-        {
-            var first = page == start.Page ? start.Char : 0;
-            var last = page == end.Page ? end.Char : document.GetCharacterCount(page) - 1;
-            if (last >= first)
-            {
-                document.GetTextBounds(page, first, last - first + 1, rects);
-            }
-        }
-
-        _selectionRects[page] = rects;
-        return rects;
-    }
-
-    /// <summary>Gets the normalised selection.</summary>
-    /// <param name="start">The start.</param>
-    /// <param name="end">The end.</param>
-    /// <returns><see langword="true"/> when there is a selection.</returns>
-    private bool TryGetSelection(out (int Page, int Char) start, out (int Page, int Char) end)
-    {
-        start = _selectionAnchor;
-        end = _selectionFocus;
-        if (start.Page < 0 || end.Page < 0 || start == end)
-        {
-            return false;
-        }
-
-        if (end.Page < start.Page || (end.Page == start.Page && end.Char < start.Char))
-        {
-            (start, end) = (end, start);
-        }
-
-        return true;
-    }
-
-    /// <summary>Finds the character under a canvas point.</summary>
-    /// <param name="position">The canvas point.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="character">The character index.</param>
-    /// <returns><see langword="true"/> when over text.</returns>
-    private bool TryHitTestCharacter(Point position, out int page, out int character)
-    {
-        character = -1;
-        page = _layout.HitTest(position.X, position.Y);
-        var tab = Tab;
-        var document = tab?.TryGetDocument();
-        if (page < 0 || tab is null || document is null)
-        {
-            return false;
-        }
-
-        var transform = new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale);
-        character = document.GetCharacterIndexAt(page, transform.ToPage(position), TextTolerance);
-        return character >= 0;
-    }
-
-    /// <summary>Finds the link under a canvas point.</summary>
-    /// <param name="position">The canvas point.</param>
-    /// <param name="page">The page.</param>
-    /// <returns>The link, if any.</returns>
-    private PageLink? HitTestLink(Point position, out int page)
-    {
-        page = _layout.HitTest(position.X, position.Y);
-        var tab = Tab;
-        if (page < 0 || tab is null)
-        {
-            return null;
-        }
-
-        ref var links = ref CollectionsMarshal.GetValueRefOrAddDefault(_links, page, out _);
-        links ??= tab.TryGetDocument()?.GetLinks(page) ?? [];
-
-        var point = new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale).ToPage(position);
-        foreach (var link in links)
-        {
-            if (link.Bounds.Contains(point))
-            {
-                return link;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Lets go of what the canvas holds once it is put away: the signature mark preview, the scroll viewer and the tab.</summary>
+    /// <summary>Lets go of what the canvas holds once it is put away: the signature mark preview, the snapshotter, the scroll viewer and the tab.</summary>
     private void PutAway()
     {
-        _markPainter?.Dispose();
-        _markPainter = null;
+        MarkPainter?.Dispose();
+        MarkPainter = null;
+        Snapshotter.Release();
         _scroller = null;
         ShowTab(null);
     }
@@ -999,8 +882,8 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Drops a drag in progress and shows the pointer of the page tool chosen now.</summary>
     private void ShowPageTool()
     {
-        _areaDragging = false;
-        Cursor = ToolCursor();
+        AreaDragging = false;
+        Cursor = this.ToolCursor();
         InvalidateVisual();
     }
 
@@ -1020,7 +903,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
         _renderTab = null;
         _renderDocument = null;
         _shownTab = tab;
-        _links.Clear();
+        Links.Clear();
         ClearSelection();
         if (tab is null)
         {
@@ -1065,41 +948,26 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Scrolls to a remembered position once laid out.</summary>
     /// <param name="position">The position.</param>
     private void ScrollToPosition(DocumentPosition position) =>
-        _pendingScroll = () =>
+        PendingScroll = () =>
         {
             if (_scroller is null || position.PageIndex < 0 || position.PageIndex >= _layout.PageCount)
             {
                 return;
             }
 
-            _scroller.Offset = new(_scroller.Offset.X, GetPageScrollTop(position.PageIndex, position.OffsetFraction));
+            _scroller.Offset = new(_scroller.Offset.X, this.GetPageScrollTop(position.PageIndex, position.OffsetFraction));
         };
-
-    /// <summary>Reports the current position to the tab.</summary>
-    private void ReportPosition()
-    {
-        if (_scroller is null || Tab is not { } tab || _layout.PageCount == 0)
-        {
-            return;
-        }
-
-        var top = _scroller.Offset.Y + ContentMargin;
-        GetCurrentPages(tab, top, _scroller.Offset.Y + (_scroller.Viewport.Height * Half), out var topPage, out var middlePage);
-        var bounds = _layout.GetPageBounds(topPage);
-        var fraction = bounds.Height > 0 ? Math.Clamp((top - bounds.Y) / bounds.Height, 0, 1) : 0;
-        tab.ReportPosition(new(topPage, fraction), middlePage);
-    }
 
     /// <summary>Applies a pending scroll once the scroll viewer's extent matches the layout.</summary>
     private void ApplyPendingScroll()
     {
-        if (_pendingScroll is null || _scroller is null || Math.Abs(_scroller.Extent.Height - _layout.ExtentHeight) > 1)
+        if (PendingScroll is null || _scroller is null || Math.Abs(_scroller.Extent.Height - _layout.ExtentHeight) > 1)
         {
             return;
         }
 
-        var scroll = _pendingScroll;
-        _pendingScroll = null;
+        var scroll = PendingScroll;
+        PendingScroll = null;
         scroll();
         ReportPosition();
     }
@@ -1126,7 +994,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
         }
 
         var position = tab.Position;
-        var hasAnchor = _anchoring || _pendingScroll is not null;
+        var hasAnchor = Anchoring || PendingScroll is not null;
         RebuildLayout();
         if (!hasAnchor)
         {
@@ -1144,7 +1012,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
         }
 
         var bounds = _layout.GetPageBounds(request.PageIndex);
-        _requestedPage = request.PageIndex;
+        RequestedPage = request.PageIndex;
         if (request.Target is { } target)
         {
             var transform = new PageTransform(bounds, _sizes[request.PageIndex], tab.Rotation, _layout.Options.Scale);
@@ -1152,11 +1020,11 @@ public sealed partial class PageCanvas : Control, IActivatableView
             var x = area.Width > 0 && (area.X < _scroller.Offset.X || area.Right > _scroller.Offset.X + _scroller.Viewport.Width)
                 ? area.X - TargetPadding
                 : _scroller.Offset.X;
-            _scroller.Offset = new(x, ClampToSlot(request.PageIndex, area.Y - (_scroller.Viewport.Height * TargetViewportFraction)));
+            _scroller.Offset = new(x, this.ClampToSlot(request.PageIndex, area.Y - (_scroller.Viewport.Height * TargetViewportFraction)));
         }
         else
         {
-            _scroller.Offset = new(_scroller.Offset.X, GetPageScrollTop(request.PageIndex, request.OffsetFraction));
+            _scroller.Offset = new(_scroller.Offset.X, this.GetPageScrollTop(request.PageIndex, request.OffsetFraction));
         }
 
         ReportPosition();
@@ -1165,7 +1033,7 @@ public sealed partial class PageCanvas : Control, IActivatableView
     /// <summary>Lays the pages out again after the document loads, reloads or its pages change, keeping the reader's place.</summary>
     private void ReadPagesAgain()
     {
-        _links.Clear();
+        Links.Clear();
         ClearSelection();
         var position = Tab?.Position ?? default;
         RebuildLayout();

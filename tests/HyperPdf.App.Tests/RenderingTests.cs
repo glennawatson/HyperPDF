@@ -574,13 +574,13 @@ public sealed class RenderingTests
             _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Cache.Count > 0);
 
             _ = await tab.ToggleCaretModeCommand.Execute().ToTask();
-            var started = await UiWait.UntilAsync(() => canvas.Caret == (0, 0));
+            var started = await UiWait.UntilAsync(() => canvas.Caret == new PageCharacter(0, 0));
             for (var i = 0; i < CaretSteps; i++)
             {
                 window.KeyPress(Avalonia.Input.Key.Right, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.ArrowRight, null);
             }
 
-            var moved = await UiWait.UntilAsync(() => canvas.Caret == (0, CaretSteps));
+            var moved = await UiWait.UntilAsync(() => canvas.Caret == new PageCharacter(0, CaretSteps));
             window.KeyPress(Avalonia.Input.Key.Down, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.ArrowDown, null);
             var down = await UiWait.UntilAsync(() => canvas.Caret.Char > HeadingLength);
             using var frame = window.CaptureRenderedFrame();

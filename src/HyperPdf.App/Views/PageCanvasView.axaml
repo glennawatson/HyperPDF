@@ -19,6 +19,7 @@
         <Canvas x:Name="FieldOverlay">
           <views:FieldEditorView x:Name="FieldEditing" />
           <views:PageTextEditorView x:Name="PageTextEditing" />
+          <views:AnnotationBubbleView x:Name="AnnotationBubble" />
         </Canvas>
       </Panel>
     </ScrollViewer>

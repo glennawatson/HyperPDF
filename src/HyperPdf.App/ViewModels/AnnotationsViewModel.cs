@@ -644,6 +644,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     private void Done()
     {
         _ = CommitText();
+        CloseBubble();
         Tool = AnnotationTool.Select;
         IsAnnotating = false;
     }

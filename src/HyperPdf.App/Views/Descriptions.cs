@@ -1154,6 +1154,50 @@ public static class Descriptions
     /// <summary>The summary of the redaction window.</summary>
     public static readonly string RedactResult = "What was removed, where the redacted copy is saved, and what to check next.";
 
+    /// <summary>The Save a Copy menu item.</summary>
+    public static readonly string SaveCopy =
+        "Save a copy of this document as a standard PDF, an optimised smaller file, a PDF/A archive, a PDF 2.0 file or a flattened copy. Your open file is never changed.";
+
+    /// <summary>The format choices of the Save a Copy window.</summary>
+    public static readonly string SaveCopyFormats = "Choose the kind of copy to save. Use the arrow keys to move between the choices.";
+
+    /// <summary>The progress bar of the Save a Copy window.</summary>
+    public static readonly string SaveCopyProgress = "Moves while the copy is being made.";
+
+    /// <summary>The save button of the Save a Copy window.</summary>
+    public static readonly string SaveCopySave = "Choose where to save the copy, then make it. The open file is never replaced.";
+
+    /// <summary>The cancel button of the Save a Copy window.</summary>
+    public static readonly string SaveCopyCancel = "Stop making the copy. No file is saved.";
+
+    /// <summary>The summary of the Save a Copy window.</summary>
+    public static readonly string SaveCopyResult = "What the saved copy changed, what was left alone, or why it could not be made.";
+
+    /// <summary>The Protect and Sign submenu in the Document menu.</summary>
+    public static readonly string ProtectSignMenu =
+        "Open the choices to protect with a password, remove protection, apply redactions, or sign and timestamp a copy.";
+
+    /// <summary>The note text box of an on-page comment bubble.</summary>
+    public static readonly string BubbleNote = $"The note text for this comment. Type to change it.{Shortcut}Ctrl+Enter";
+
+    /// <summary>The Save Note button of an on-page comment bubble.</summary>
+    public static readonly string BubbleSave = $"Save your note text.{Shortcut}Ctrl+Enter";
+
+    /// <summary>The Reply button of an on-page comment bubble.</summary>
+    public static readonly string BubbleReply = "Write a reply to this comment.";
+
+    /// <summary>The reply text box of an on-page comment bubble.</summary>
+    public static readonly string BubbleReplyInput = $"Type your reply here.{Shortcut}Ctrl+Enter";
+
+    /// <summary>The Add Reply button of an on-page comment bubble.</summary>
+    public static readonly string BubbleSendReply = $"Add this reply to the comment.{Shortcut}Ctrl+Enter";
+
+    /// <summary>The Delete button of an on-page comment bubble.</summary>
+    public static readonly string BubbleDelete = "Delete this comment from the page. Undo can bring it back.";
+
+    /// <summary>The Close button of an on-page comment bubble.</summary>
+    public static readonly string BubbleClose = $"Close this comment bubble.{Shortcut}Esc";
+
     /// <summary>Joins an explanation to its shortcut.</summary>
     private const string Shortcut = " Shortcut: ";
 

@@ -17,11 +17,10 @@ using ReactiveUI.Primitives;
 namespace HyperPdf.App.Controls;
 
 /// <summary>
-/// The Snapshot tool: the area dragged on a page is rendered sharply by the document renderer, at twice the screen's
-/// resolution or 200 dots per inch, and put on the clipboard as a picture. Where the clipboard cannot hold pictures,
-/// the picture is saved as a PNG file where the user chooses instead, and the notice says so.
+/// Renders the area dragged on a page with the Snapshot tool at twice the screen's resolution or 200 dots per inch, and
+/// puts it on the clipboard as a picture (or saves it as a PNG file where the desktop clipboard cannot hold pictures).
 /// </summary>
-public sealed partial class PageCanvas
+internal sealed class PageSnapshotter
 {
     /// <summary>The points per inch, to give the picture its true resolution.</summary>
     private const double PointsPerInch = 72;
@@ -56,36 +55,19 @@ public sealed partial class PageCanvas
     /// <summary>Gets how many snapshots have finished.</summary>
     internal int SnapshotsFinished => Volatile.Read(ref _snapshotsFinished);
 
-    /// <summary>Renders part of a page into a new bitmap, off the user interface thread.</summary>
-    /// <param name="state">The document, page, rotation and region.</param>
-    /// <returns>The picture, or <see langword="null"/> when rendering failed.</returns>
-    private static unsafe WriteableBitmap? RenderSnapshot(object? state)
+    /// <summary>Releases the last rendered snapshot bitmap when the canvas is deactivated.</summary>
+    internal void Release()
     {
-        var (document, page, rotation, region) = ((IDocument, int, PageRotation, SnapshotRegion))state!;
-        var dpi = region.Scale * PointsPerInch;
-        var bitmap = new WriteableBitmap(new PixelSize(region.Width, region.Height), new Vector(dpi, dpi), PixelFormat.Bgra8888, AlphaFormat.Premul);
-        bool rendered;
-        using (var buffer = bitmap.Lock())
-        {
-            var pixels = new Span<byte>((void*)buffer.Address, buffer.RowBytes * buffer.Size.Height);
-            var info = new PageRenderInfo(page, region.Scale, rotation, region.OffsetX, region.OffsetY, RenderFlags.Annotations);
-            rendered = document.Render(info, new(pixels, region.Width, region.Height, buffer.RowBytes));
-        }
-
-        if (rendered)
-        {
-            return bitmap;
-        }
-
-        bitmap.Dispose();
-        return null;
+        _snapshot?.Dispose();
+        _snapshot = null;
     }
 
     /// <summary>Copies a picture of an area of the page under its middle, saying what happened.</summary>
+    /// <param name="canvas">The page canvas.</param>
     /// <param name="tab">The tab.</param>
     /// <param name="area">The area, in canvas coordinates.</param>
     /// <returns>A task.</returns>
-    private async Task SnapshotAsync(DocumentTabViewModel tab, Rect area)
+    internal async Task SnapshotAsync(PageCanvas canvas, DocumentTabViewModel tab, Rect area)
     {
         // One snapshot at a time: a second must not dispose the picture the first is still copying or saving.
         _ = Interlocked.Increment(ref _snapshotsRequested);
@@ -96,13 +78,14 @@ public sealed partial class PageCanvas
         _ = Interlocked.Increment(ref _snapshotsStarted);
         try
         {
-            if (FindSnapshotRegion(in area, out var page) is not { IsEmpty: false } region || tab.TryGetDocument() is not { } document)
+            if (FindSnapshotRegion(canvas, in area, out var page) is not { IsEmpty: false } region || tab.TryGetDocument() is not { } document)
             {
                 return;
             }
 
             await document.PreparePageAsync(page, CancellationToken.None).ConfigureAwait(true);
-            var bitmap = await Task.Factory.StartNew(RenderSnapshot, (document, page, tab.Rotation, region), CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default)
+            var job = new SnapshotRenderJob(document, page, tab.Rotation, region);
+            var bitmap = await Task.Factory.StartNew(RenderSnapshot, job, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default)
                 .ConfigureAwait(true);
             if (bitmap is null)
             {
@@ -112,7 +95,7 @@ public sealed partial class PageCanvas
 
             _snapshot?.Dispose();
             _snapshot = bitmap;
-            await CopyOrSaveAsync(tab, bitmap).ConfigureAwait(true);
+            await CopyOrSaveAsync(canvas, tab, bitmap).ConfigureAwait(true);
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
@@ -127,32 +110,34 @@ public sealed partial class PageCanvas
     }
 
     /// <summary>Works out what to render for an area: the page under its middle and the part of that page inside it.</summary>
+    /// <param name="canvas">The page canvas.</param>
     /// <param name="area">The area, in canvas coordinates.</param>
     /// <param name="page">The page.</param>
     /// <returns>The region, or <see langword="null"/> when the area is off the pages.</returns>
-    private SnapshotRegion? FindSnapshotRegion(in Rect area, out int page)
+    private static SnapshotRegion? FindSnapshotRegion(PageCanvas canvas, in Rect area, out int page)
     {
         var centre = area.Center;
-        page = _layout.HitTest(centre.X, centre.Y);
+        page = canvas.Layout.HitTest(centre.X, centre.Y);
         if (page < 0)
         {
             return null;
         }
 
-        var bounds = _layout.GetPageBounds(page);
+        var bounds = canvas.Layout.GetPageBounds(page);
         var pageRect = new Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
         var inside = area.Intersect(pageRect);
-        var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
-        return SnapshotRegion.Create(inside.X - pageRect.X, inside.Y - pageRect.Y, inside.Width, inside.Height, _layout.Options.Scale, scaling);
+        var scaling = TopLevel.GetTopLevel(canvas)?.RenderScaling ?? 1;
+        return SnapshotRegion.Create(inside.X - pageRect.X, inside.Y - pageRect.Y, inside.Width, inside.Height, canvas.Layout.Options.Scale, scaling);
     }
 
     /// <summary>Puts a picture on the clipboard, or saves it where the user chooses when the clipboard cannot hold pictures.</summary>
+    /// <param name="canvas">The page canvas.</param>
     /// <param name="tab">The tab.</param>
     /// <param name="bitmap">The picture.</param>
     /// <returns>A task.</returns>
-    private async Task CopyOrSaveAsync(DocumentTabViewModel tab, Bitmap bitmap)
+    private static async Task CopyOrSaveAsync(PageCanvas canvas, DocumentTabViewModel tab, Bitmap bitmap)
     {
-        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        if (TopLevel.GetTopLevel(canvas)?.Clipboard is { } clipboard)
         {
             try
             {
@@ -187,4 +172,36 @@ public sealed partial class PageCanvas
             tab.Notice = $"Could not save the image: {error.Message}";
         }
     }
+
+    /// <summary>Renders part of a page into a new bitmap, off the user interface thread.</summary>
+    /// <param name="state">The boxed <see cref="SnapshotRenderJob"/>.</param>
+    /// <returns>The picture, or <see langword="null"/> when rendering failed.</returns>
+    private static unsafe WriteableBitmap? RenderSnapshot(object? state)
+    {
+        var (document, page, rotation, region) = (SnapshotRenderJob)state!;
+        var dpi = region.Scale * PointsPerInch;
+        var bitmap = new WriteableBitmap(new PixelSize(region.Width, region.Height), new Vector(dpi, dpi), PixelFormat.Bgra8888, AlphaFormat.Premul);
+        bool rendered;
+        using (var buffer = bitmap.Lock())
+        {
+            var pixels = new Span<byte>((void*)buffer.Address, buffer.RowBytes * buffer.Size.Height);
+            var info = new PageRenderInfo(page, region.Scale, rotation, region.OffsetX, region.OffsetY, RenderFlags.Annotations);
+            rendered = document.Render(info, new(pixels, region.Width, region.Height, buffer.RowBytes));
+        }
+
+        if (rendered)
+        {
+            return bitmap;
+        }
+
+        bitmap.Dispose();
+        return null;
+    }
+
+    /// <summary>Describes a snapshot render job passed to the background worker.</summary>
+    /// <param name="Document">The document.</param>
+    /// <param name="Page">The page index.</param>
+    /// <param name="Rotation">The page rotation.</param>
+    /// <param name="Region">The pixel region to render.</param>
+    private readonly record struct SnapshotRenderJob(IDocument Document, int Page, PageRotation Rotation, SnapshotRegion Region);
 }

@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:HyperPdf.App.Views"
+        x:Class="HyperPdf.App.Views.SaveCopyWindow"
+        Title="Save a Copy" Width="680" Height="920" MinWidth="480" MinHeight="560" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppWindowBackground}">
+  <!-- Layout only: bindings are made in code (SaveCopyWindow.axaml.cs). The format and options scroll in Row 0; the progress, summary and buttons stay fixed at the bottom so nothing shifts. -->
+  <Grid RowDefinitions="*,Auto,Auto" Margin="20">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="12" Margin="0,0,12,0">
+        <TextBlock x:Name="HeadingText" FontSize="16" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1" />
+
+        <TextBlock Text="Format" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <ListBox x:Name="FormatList" views:ControlHelp.Text="{x:Static views:Descriptions.SaveCopyFormats}" AutomationProperties.Name="Format of the copy" />
+
+        <StackPanel x:Name="StandardPanel" Spacing="8">
+          <TextBlock TextWrapping="Wrap" Classes="secondary" Text="Writes a standard PDF copy of this document with your annotations, form entries and page changes. Your open file is never changed." />
+        </StackPanel>
+
+        <StackPanel x:Name="OptimizePanel" Spacing="12">
+          <TextBlock Text="Size" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+          <ListBox x:Name="PresetList" views:ControlHelp.Text="{x:Static views:Descriptions.OptimizePresets}" AutomationProperties.Name="Size of the copy" />
+
+          <TextBlock Text="Accessibility and clean-up" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+          <CheckBox x:Name="FixBox" views:ControlHelp.Text="{x:Static views:Descriptions.OptimizeAccessibility}" Content="Fill in missing language and title" />
+          <Grid ColumnDefinitions="Auto,*" Margin="28,0,0,0" ColumnSpacing="12">
+            <TextBlock x:Name="LanguageLabel" Text="Language" VerticalAlignment="Center" />
+            <TextBox x:Name="LanguageBox" Grid.Column="1" views:ControlHelp.Text="{x:Static views:Descriptions.OptimizeLanguage}" PlaceholderText="for example en-AU" />
+          </Grid>
+          <CheckBox x:Name="TagsBox" views:ControlHelp.Text="{x:Static views:Descriptions.OptimizeTags}" Content="Add a reading structure (tags) when missing" />
+          <CheckBox x:Name="CleanBox" views:ControlHelp.Text="{x:Static views:Descriptions.OptimizeCleanUp}" Content="Remove thumbnails and hidden extras" />
+        </StackPanel>
+
+        <StackPanel x:Name="ArchivePanel" Spacing="8">
+          <TextBlock Text="PDF/A level" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+          <ListBox x:Name="LevelList" views:ControlHelp.Text="{x:Static views:Descriptions.ArchiveLevels}" AutomationProperties.Name="PDF/A level" />
+        </StackPanel>
+
+        <StackPanel x:Name="Pdf20Panel" Spacing="8">
+          <TextBlock TextWrapping="Wrap" Classes="secondary" Text="Saves this document as a PDF 2.0 file (ISO 32000-2). Details in features that PDF 2.0 retired are moved into their PDF 2.0 places when they can be. The copy is refused with a plain-words reason when something cannot be kept." />
+        </StackPanel>
+
+        <StackPanel x:Name="FlattenPanel" Spacing="8">
+          <TextBlock Text="What to flatten" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+          <ListBox x:Name="ScopeList" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenScopes}" AutomationProperties.Name="What to flatten" />
+          <TextBlock Text="Look to keep" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+          <ListBox x:Name="LookList" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenLooks}" AutomationProperties.Name="Look to keep" />
+          <CheckBox x:Name="UprightBox" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenUpright}" Content="Save turned pages upright" />
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1" Spacing="4" Margin="0,12,0,0">
+      <TextBlock Text="Progress and summary" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <Grid>
+        <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{x:Static views:Descriptions.SaveCopyProgress}" AutomationProperties.Name="Progress of the copy" />
+        <ProgressBar x:Name="BusyProgress" IsIndeterminate="True" views:ControlHelp.Text="{x:Static views:Descriptions.SaveCopyProgress}" AutomationProperties.Name="Making the copy" />
+      </Grid>
+      <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+      <TextBlock x:Name="ErrorText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
+      <Border BorderThickness="1" Padding="10" Height="120" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static views:Descriptions.SaveCopyResult}" AutomationProperties.Name="Summary of the copy" />
+        </ScrollViewer>
+      </Border>
+    </StackPanel>
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.SaveCopyCancel}" Content="_Cancel" />
+      <Button x:Name="SaveButton" views:ControlHelp.Text="{x:Static views:Descriptions.SaveCopySave}" Content="_Save Copy…" IsDefault="True" />
+      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
+    </StackPanel>
+  </Grid>
+</Window>
