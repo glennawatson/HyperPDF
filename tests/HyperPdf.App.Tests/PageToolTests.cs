@@ -264,7 +264,7 @@ public sealed class PageToolTests
             await Assert.That(selected).IsTrue();
             await Assert.That(copied).IsEqualTo(text);
             await Assert.That(fromMenu).IsTrue();
-            await Assert.That(canvas.Caret).IsEqualTo((0, count - 1));
+            await Assert.That(canvas.Caret).IsEqualTo(new(0, count - 1));
         }
         finally
         {
