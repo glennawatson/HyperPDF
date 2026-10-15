@@ -5,21 +5,14 @@
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Filters;
-using HyperPdfLibrary.Fonts.Programs;
 
 namespace HyperPdfLibrary.Fonts.Generation;
 
-/// <summary>Builds requested engine resources from compact CMap data and real font programs.</summary>
+/// <summary>Builds requested engine CMap resources from compact binary CMap data.</summary>
 internal static class FontDataGeneration
 {
     /// <summary>The pinned PDF.js binary resource revision.</summary>
     private const string ResourceRevision = "f5e56f0af970e1fe5eb8faa9eb3212281eb97d07";
-
-    /// <summary>The pinned open font pack revision.</summary>
-    private const string FontRevision = "62e55e586fc0c29d428ee47b7c359cd33143f93d";
-
-    /// <summary>The revision containing static Arimo font programs.</summary>
-    private const string ArimoRevision = "89ade4fa7b7663aec69d3202d2eefd928e78c467";
 
     /// <summary>The longest supported inheritance chain.</summary>
     private const int MaxParents = 16;
@@ -65,21 +58,6 @@ internal static class FontDataGeneration
         var inverseName = Array.Find(collection.CMaps, static name => name.EndsWith("UTF32-H", StringComparison.Ordinal))!;
         var inverse = await ReadBinaryAsync(resources, inverseName, cancellationToken).ConfigureAwait(false);
         return PackUnicode(values, BinaryCMapReader.Parse(inverse, cancellationToken).Ranges, cancellationToken);
-    }
-
-    /// <summary>Reads one requested open font program from a font pack.</summary>
-    /// <param name="resources">The selected font resources.</param>
-    /// <param name="name">The trusted font filename without its extension.</param>
-    /// <param name="cancellationToken">Cancels resource I/O and validation.</param>
-    /// <returns>The TrueType bytes.</returns>
-    /// <exception cref="InvalidDataException">The resource is not a valid font program.</exception>
-    internal static async ValueTask<byte[]> FaceAsync(PdfFontResources resources, string name, CancellationToken cancellationToken)
-    {
-        var path = name.StartsWith("Arimo-", StringComparison.Ordinal)
-            ? $"google/fonts/{ArimoRevision}/apache/arimo/{name}.ttf"
-            : $"google/fonts/{FontRevision}/ofl/{name[..name.IndexOf('-', StringComparison.Ordinal)].ToLowerInvariant()}/{name}.ttf";
-        var data = await FontDataDownload.ReadAsync(resources.Data, path, cancellationToken).ConfigureAwait(false);
-        return ValidateFace(data, cancellationToken);
     }
 
     /// <summary>Reads and validates the binary CMap inheritance chain.</summary>
@@ -133,23 +111,6 @@ internal static class FontDataGeneration
     {
         BinaryUnicodeFallback.Fill(values, ranges, cancellationToken);
         return Compress(PackedTables.PackUnicode(values, cancellationToken), cancellationToken);
-    }
-
-    /// <summary>Checks a downloaded font while observing the caller's token.</summary>
-    /// <param name="data">The font bytes.</param>
-    /// <param name="cancellationToken">Cancels validation.</param>
-    /// <returns>The validated font bytes.</returns>
-    /// <exception cref="InvalidDataException">The font is invalid.</exception>
-    private static byte[] ValidateFace(byte[] data, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!TrueTypeProgram.TryParse(data, out var program) || program.GlyphCount == 0)
-        {
-            throw new InvalidDataException("The font pack resource is not a valid font program.");
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        return data;
     }
 
     /// <summary>Reads a compact binary mapping from the resource pack.</summary>

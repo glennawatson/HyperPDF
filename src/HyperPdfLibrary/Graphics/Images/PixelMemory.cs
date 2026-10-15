@@ -24,4 +24,15 @@ internal static class PixelMemory
         pinned = length >= PinnedFrom;
         return pinned ? GC.AllocateArray<byte>(checked((int)length), true) : new byte[length];
     }
+
+    /// <summary>Allocates a pixel array without clearing it, for a caller that writes every byte before anyone reads it.</summary>
+    /// <param name="length">The size in bytes.</param>
+    /// <param name="pinned">Receives whether the array is on the pinned object heap.</param>
+    /// <returns>The array, with undefined contents.</returns>
+    /// <exception cref="OverflowException">The size does not fit one array; callers keep images within the decoded byte budget first.</exception>
+    internal static byte[] AllocateUninitialized(long length, out bool pinned)
+    {
+        pinned = length >= PinnedFrom;
+        return GC.AllocateUninitializedArray<byte>(checked((int)length), pinned);
+    }
 }

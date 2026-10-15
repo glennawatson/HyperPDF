@@ -8,6 +8,7 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 - Do not judge performance from source code or subjective impressions. Overlapping timing error bars are inconclusive. Every feature needs a benchmark.
 - Measure allocations with EventPipe and `scripts/AllocationAudit.cs`. Never use `MemoryDiagnoser`. Remove every measured allocation. Explain one in `benchmarks/allocations-explained.json` only after removing it has been exhausted or removing it shows a dramatic time penalty. The render hot path must not allocate. The UI and ReactiveUI work is the exception: this app is a ReactiveUI technology demo, so the small allocations that ReactiveUI.Primitives observables, operators and the generated `Events()` streams make when wiring and raising UI events are allowed. Do not remove them by dropping back to `+=`, Avalonia observable helpers or hand-written handlers. Explain them in `benchmarks/allocations-explained.json` as ReactiveUI event wiring, name the chain, and still remove any allocation in that code that is not part of the Primitives or `Events()` machinery itself (for example boxing, closures that a `static` lambda avoids, or per-event collections).
 - Look for fast paths that avoid the computation in the first place (early exits, caches, skipping unchanged work) before optimising the computation itself. Then consider SIMD and the GPU.
+- Run benchmarks and allocation audits as one set. Pass every filter to one invocation (`dotnet run --file scripts/AuditAllocations.cs -- '*A*' '*B*'`, or BenchmarkDotNet's `--filter '*A*' '*B*'`) so the build and the run happen once; never loop over families with a separate `dotnet run` each.
 
 ## Implementation
 
@@ -60,23 +61,23 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 
 ## Verification
 
-Native AOT publishing needs a native compiler and zlib development files. Run the app with `dotnet run -f net11.0 --project src/HyperPdf.App -- some.pdf`; install a Linux build with `packaging/linux/install.sh`. Keep `README.md` for end users only; build, test and contributor notes belong here.
+Native AOT publishing needs a native compiler and zlib development files. Run the app with `dotnet run -f net11.0 --project src/HyperPdf.App -- some.pdf`; install a Linux build with `dotnet run --file scripts/InstallLinux.cs --`. Keep `README.md` for end users only; build, test and contributor notes belong here.
 
-```bash
+```console
 dotnet build HyperPdf.slnx
 dotnet test --solution HyperPdf.slnx
 # one test project, from the src folder; runner flags go after --; never --no-build
 dotnet test --project "$PWD/../tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0
 dotnet run -c Release -f net11.0 --project benchmarks/HyperPdf.Benchmarks -- --filter '*RelevantBenchmark*'
-scripts/audit-allocations.sh '*RelevantBenchmark*'
-scripts/publish-linux.sh linux-x64
+dotnet run --file scripts/AuditAllocations.cs -- '*RelevantBenchmark*'
+dotnet run --file scripts/Publish.cs -- linux-x64
 ```
 
 ### PDF/A output
 
 Every change to a writer, editor or the optimiser must keep PDF/A output valid. The `HyperPdfLibrary.Tests.Conformance.VeraPdf` tests check generated files and veraPDF's sample PDFs with veraPDF, which runs as a separate Java (11+) process and is never linked or shipped. They skip without veraPDF; CI's `PDF/A output validation (veraPDF)` job requires it.
 
-```bash
+```console
 dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/hyperpdf/verapdf
 dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/hyperpdf/pdfa-samples <the verapdf-pdfa* ids in the manifest>
 dotnet run --file scripts/FetchVeraPdfTestFiles.cs -- ~/.cache/hyperpdf/verapdf-test-files

@@ -25,6 +25,18 @@ internal static class TrueTypeLocations
     internal static bool TryRead(ReadOnlySpan<byte> loca, int glyfLength, int count, bool longLoca, out int[] offsets)
     {
         offsets = new int[count + 1];
+        return TryRead(loca, glyfLength, count, longLoca, offsets.AsSpan());
+    }
+
+    /// <summary>Reads the glyph offsets into a caller-owned span, checking they lie inside /glyf in order.</summary>
+    /// <param name="loca">The /loca table.</param>
+    /// <param name="glyfLength">The length of the /glyf table.</param>
+    /// <param name="count">The glyph count.</param>
+    /// <param name="longLoca">Whether entries are 32-bit offsets rather than 16-bit halves.</param>
+    /// <param name="offsets">Receives the count plus one offsets into /glyf; it must hold at least that many.</param>
+    /// <returns><see langword="true"/> when the table is whole and consistent.</returns>
+    internal static bool TryRead(ReadOnlySpan<byte> loca, int glyfLength, int count, bool longLoca, Span<int> offsets)
+    {
         var entry = longLoca ? LongEntry : ShortEntry;
         if (count == 0 || loca.Length < (count + 1) * entry)
         {

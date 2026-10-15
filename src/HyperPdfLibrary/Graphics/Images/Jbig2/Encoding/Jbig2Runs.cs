@@ -11,8 +11,9 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
 /// <summary>
 /// The runs of black pixels on a page, row by row, joined into 8-connected sets with a union-find. A run's parent is never
 /// after it, so the first run of a set in reading order is its root.
+/// Use one value through a local variable and <see langword="ref"/> parameters; copies would not share the run count.
 /// </summary>
-internal sealed class Jbig2Runs : IDisposable
+internal record struct Jbig2Runs : IDisposable
 {
     /// <summary>The most runs a page may have.</summary>
     internal const int MaximumRuns = 1 << 22;
@@ -147,7 +148,7 @@ internal sealed class Jbig2Runs : IDisposable
     /// are numbered in the order of their first run, which is reading order.
     /// </summary>
     /// <param name="measures">Receives each component's left edge, top edge, width, height and black pixel count.</param>
-    internal void Measure(Jbig2ComponentMeasures measures)
+    internal void Measure(in Jbig2ComponentMeasures measures)
     {
         var next = 0;
         var y = 0;

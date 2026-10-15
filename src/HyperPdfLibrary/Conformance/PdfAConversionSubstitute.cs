@@ -36,9 +36,9 @@ internal static class PdfAConversionSubstitute
 
         var face = PdfAFontEmbedding.FaceOf(standard);
         var faceName = BundledFaces.ResourceName(face.Family, face.Bold, face.Italic);
-        if (ReadFace(faceName) is not { } bytes || !TrueTypeProgram.TryParse(bytes, out var program))
+        if (BundledFaces.Program(PdfFontResources.For(font), face.Family, face.Bold, face.Italic) is not { } bytes || !TrueTypeProgram.TryParse(bytes, out var program))
         {
-            return "the matching open font could not be downloaded.";
+            return "the matching open font in the library is damaged.";
         }
 
         var plan = PdfAConversionGlyphPlan.Build(font, standard, program, used, usageUnknown);
@@ -59,7 +59,7 @@ internal static class PdfAConversionSubstitute
             _ = glyphs.Add(glyph);
         }
 
-        if (TrueTypeSubsetter.SubsetWithCmap(bytes, glyphs, PdfAConversionCmap.Write(plan.Glyphs)) is not { } subset)
+        if (TrueTypeSubsetter.SubsetWithCmap(bytes, glyphs, PdfAConversionCmap.Write(plan.Glyphs), session.CancellationToken) is not { } subset)
         {
             return "the matching open font could not be prepared.";
         }
@@ -67,21 +67,5 @@ internal static class PdfAConversionSubstitute
         var name = PdfAConversionFontWriter.SubsetName(faceName, plan.Glyphs);
         PdfAConversionFontWriter.Write(store, id, new(name, face, standard, program, subset, plan));
         return null;
-    }
-
-    /// <summary>Reads a bundled face's bytes from the font cache.</summary>
-    /// <param name="name">The face's resource name.</param>
-    /// <returns>The bytes, or <see langword="null"/> when the face is not on this computer.</returns>
-    private static byte[]? ReadFace(string name)
-    {
-        using var stream = FontDataResources.Open("Faces", $"{name}.ttf");
-        if (stream is null)
-        {
-            return null;
-        }
-
-        var data = new byte[(int)stream.Length];
-        stream.ReadExactly(data);
-        return data;
     }
 }

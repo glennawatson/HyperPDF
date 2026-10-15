@@ -52,6 +52,26 @@ internal sealed class ReusableSlots<T>
         return null;
     }
 
+    /// <summary>Takes an idle object that matches an operation's requirements.</summary>
+    /// <typeparam name="TState">The requirement's state.</typeparam>
+    /// <param name="state">The state passed to the predicate without a closure.</param>
+    /// <param name="matches">Tests whether an idle object can serve this operation.</param>
+    /// <returns>The matching object, or null when none is idle.</returns>
+    internal T? Take<TState>(TState state, Func<T, TState, bool> matches)
+    {
+        var slots = _slots;
+        for (var i = 0; i < slots.Length; i++)
+        {
+            var item = Volatile.Read(ref slots[i]);
+            if (item is not null && matches(item, state) && ReferenceEquals(Interlocked.CompareExchange(ref slots[i], null, item), item))
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Keeps an object the caller no longer uses.</summary>
     /// <param name="item">The object, which the caller must not use again.</param>
     /// <returns><see langword="true"/> when a slot kept it; <see langword="false"/> when every slot is full.</returns>
@@ -67,5 +87,14 @@ internal sealed class ReusableSlots<T>
         }
 
         return false;
+    }
+
+    /// <summary>Drops idle objects without affecting objects held by active callers.</summary>
+    internal void Clear()
+    {
+        for (var index = 0; index < _slots.Length; index++)
+        {
+            _ = Interlocked.Exchange(ref _slots[index], null);
+        }
     }
 }

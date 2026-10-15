@@ -4,19 +4,23 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdf.TestAssets;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images.Jbig2;
 using HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
 
 namespace HyperPdf.Benchmarks;
 
 /// <summary>
-/// Encodes three real scanned pages (decoded from the JBIG2 samples) with one shared symbol dictionary. The result is the
-/// globals array and one array per page, which the call must allocate; everything else is pooled.
+/// Encodes three real scanned pages (decoded from the JBIG2 samples) with one shared symbol dictionary. The globals and the
+/// pages go to pooled buffers, so the measured allocations are the encoder's own.
 /// </summary>
 public class HyperPdfJbig2SharedEncoderBenchmarks
 {
     /// <summary>The pages, ready for the encoder.</summary>
     private Jbig2PageInput[] _pages = [];
+
+    /// <summary>Receives the length of each page's coded stream, reused between runs.</summary>
+    private int[] _lengths = [];
 
     /// <summary>The encoder settings.</summary>
     private Jbig2EncodeOptions _options = Jbig2EncodeOptions.Default;
@@ -31,6 +35,7 @@ public class HyperPdfJbig2SharedEncoderBenchmarks
     {
         var names = new[] { nameof(Jbig2Samples.RealLibraryOfCongress), nameof(Jbig2Samples.RealGoogleBooks), nameof(Jbig2Samples.RealInternetArchiveText) };
         _pages = new Jbig2PageInput[names.Length];
+        _lengths = new int[names.Length];
         for (var i = 0; i < names.Length; i++)
         {
             var sample = Jbig2Samples.Get(names[i]);
@@ -42,18 +47,22 @@ public class HyperPdfJbig2SharedEncoderBenchmarks
         _options = new Jbig2EncodeOptions { Mode = Mode };
     }
 
-    /// <summary>Encodes the pages with a shared dictionary.</summary>
+    /// <summary>Encodes the pages with a shared dictionary into pooled buffers.</summary>
     /// <returns>The coded size in bytes.</returns>
     [Benchmark]
     public int EncodeShared()
     {
-        var coded = Jbig2Encoder.EncodeShared(_pages, _options);
-        var total = coded.Globals.Length;
-        foreach (var page in coded.Pages)
+        var globals = default(PooledBuffer);
+        var data = default(PooledBuffer);
+        try
         {
-            total += page.Length;
+            _ = Jbig2Encoder.EncodeShared(_pages, _options, ref globals, ref data, _lengths, CancellationToken.None);
+            return globals.Length + data.Length;
         }
-
-        return total;
+        finally
+        {
+            globals.Dispose();
+            data.Dispose();
+        }
     }
 }

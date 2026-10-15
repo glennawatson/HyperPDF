@@ -48,7 +48,7 @@ public sealed class LicencesTests
     [Test]
     public async Task EveryEntryHasTextAndAnAllowedLicence()
     {
-        var entries = LicenceNotices.Load().AllEntries();
+        var entries = new LicenceNotices().Load().AllEntries();
         var problems = new List<string>();
         foreach (var entry in entries)
         {
@@ -79,7 +79,7 @@ public sealed class LicencesTests
         }
 
         var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in LicenceNotices.Load().AllEntries())
+        foreach (var entry in new LicenceNotices().Load().AllEntries())
         {
             _ = listed.Add($"{entry.Name}/{entry.Version}");
         }
@@ -102,7 +102,7 @@ public sealed class LicencesTests
 
         var restored = ShippedPackages(assets!).Single(static package => package.StartsWith(TesseractRuntimePrefix, StringComparison.OrdinalIgnoreCase));
         var version = restored[(restored.IndexOf('/', StringComparison.Ordinal) + 1)..];
-        var listed = LicenceNotices.Load().AllEntries().ToDictionary(static entry => $"{entry.Name}/{entry.Version}", StringComparer.OrdinalIgnoreCase);
+        var listed = new LicenceNotices().Load().AllEntries().ToDictionary(static entry => $"{entry.Name}/{entry.Version}", StringComparer.OrdinalIgnoreCase);
         foreach (var runtime in TesseractRuntimes)
         {
             var package = $"{TesseractRuntimePrefix}{runtime}/{version}";
@@ -126,7 +126,7 @@ public sealed class LicencesTests
             Skip.Test(MissingAssets);
         }
 
-        var entries = LicenceNotices.Load().AllEntries().ToDictionary(static e => $"{e.Name}/{e.Version}", StringComparer.OrdinalIgnoreCase);
+        var entries = new LicenceNotices().Load().AllEntries().ToDictionary(static e => $"{e.Name}/{e.Version}", StringComparer.OrdinalIgnoreCase);
         var missing = new List<string>();
         var bundles = 0;
         foreach (var (package, folder) in PackageFolders(assets!))
@@ -163,7 +163,7 @@ public sealed class LicencesTests
     [Test]
     public async Task OwnLicenceComesFirst()
     {
-        var first = LicenceNotices.Load().Groups[0];
+        var first = new LicenceNotices().Load().Groups[0];
 
         await Assert.That(first.Licence).IsEqualTo("MIT");
         await Assert.That(first.Entries[0].Name).IsEqualTo("HyperPDF");
@@ -175,12 +175,12 @@ public sealed class LicencesTests
     [Test]
     public async Task ListsBundledAndDownloadedComponents()
     {
-        var entries = LicenceNotices.Load().AllEntries();
+        var entries = new LicenceNotices().Load().AllEntries();
         var fonts = entries.Single(static e => e.Name.StartsWith("Open font pack", StringComparison.Ordinal));
         var voice = entries.Single(static e => e.Name.StartsWith("Kokoro", StringComparison.Ordinal));
 
         await Assert.That(fonts.Licence).IsEqualTo("Apache-2.0 AND OFL-1.1");
-        await Assert.That(fonts.Origin).Contains("on demand");
+        await Assert.That(fonts.Origin).Contains("Embedded in the library");
         await Assert.That(voice.Origin).Contains("Downloaded when you turn this on");
     }
 
@@ -189,7 +189,7 @@ public sealed class LicencesTests
     [Test]
     public async Task DownloadedComponentsCiteVersionsAndUpstreamLicences()
     {
-        var entries = LicenceNotices.Load().AllEntries();
+        var entries = new LicenceNotices().Load().AllEntries();
         foreach (var prefix in DownloadedPrefixes)
         {
             var entry = entries.Single(e => e.Name.StartsWith(prefix, StringComparison.Ordinal));
@@ -203,7 +203,7 @@ public sealed class LicencesTests
     [Test]
     public async Task DownloadedManifestMatchesNoticesAndVoiceRelease()
     {
-        var entries = LicenceNotices.Load().AllEntries();
+        var entries = new LicenceNotices().Load().AllEntries();
         using var components = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(LicencesFolder(), "components.json")));
         foreach (var id in DownloadedIds)
         {
@@ -256,7 +256,7 @@ public sealed class LicencesTests
     [Test]
     public async Task AppListsNoTestOnlyPdfiumComponents()
     {
-        var entries = LicenceNotices.Load().AllEntries();
+        var entries = new LicenceNotices().Load().AllEntries();
         await Assert.That(entries.Exists(static entry => entry.Name.Contains("PDFium", StringComparison.OrdinalIgnoreCase))).IsFalse();
         await Assert.That(entries.Exists(static entry => entry.Name.Contains("CMYK conversion table", StringComparison.OrdinalIgnoreCase))).IsFalse();
     }
@@ -266,7 +266,7 @@ public sealed class LicencesTests
     [Test]
     public async Task WindowListsComponentsAndShowsText()
     {
-        using var licences = new LicencesViewModel(LicenceNotices.Load());
+        using var licences = new LicencesViewModel(new LicenceNotices().Load());
         var window = new LicencesWindow { ViewModel = licences };
         window.Show();
         try

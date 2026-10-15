@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media;
@@ -15,26 +16,21 @@ using ShapingBuffer = HarfBuzzSharp.Buffer;
 namespace HyperPdf.Skia.Fonts;
 
 /// <summary>Shapes text with cached OpenType fonts and a reusable thread buffer.</summary>
-internal sealed class HarfBuzzTextShaper : ITextShaperImpl
+internal sealed class HarfBuzzTextShaper : ITextShaperImpl, IDisposable
 {
     /// <summary>The default tab width in spaces.</summary>
     private const int TabSpaces = 4;
 
-    /// <summary>The shaping buffer owned by each rendering thread.</summary>
-    [ThreadStatic]
-    private static ShapingBuffer? _buffer;
+    /// <summary>The registered shaper's working buffers, separated by rendering thread.</summary>
+    private readonly ConditionalWeakTable<Thread, ShapingThreadState> _threads = new();
 
-    /// <summary>The language retained by each rendering thread.</summary>
-    [ThreadStatic]
-    private static Language? _language;
-
-    /// <summary>The name used to create the cached language.</summary>
-    [ThreadStatic]
-    private static string? _languageName;
+    /// <summary>One after the host releases the text shaper.</summary>
+    private int _disposed;
 
     /// <inheritdoc />
     public ITextShaperTypeface CreateTypeface(GlyphTypeface glyphTypeface)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         ArgumentNullException.ThrowIfNull(glyphTypeface);
         return new ShapingTypeface((SkiaTypeface)glyphTypeface.PlatformTypeface);
     }
@@ -42,21 +38,23 @@ internal sealed class HarfBuzzTextShaper : ITextShaperImpl
     /// <inheritdoc />
     public ShapedBuffer ShapeText(ReadOnlyMemory<char> text, TextShaperOptions options)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         if (text.IsEmpty)
         {
             return new(text, 0, options.GlyphTypeface, options.FontRenderingEmSize, options.BidiLevel);
         }
 
         var typeface = (ShapingTypeface)options.GlyphTypeface.TextShaperTypeface;
-        var buffer = _buffer ??= new ShapingBuffer();
+        var state = _threads.GetValue(Thread.CurrentThread, static _ => new());
+        var buffer = state.Buffer;
         buffer.Reset();
         var containing = GetContainingText(text, out var start);
         buffer.AddUtf16(containing.Span, start, text.Length);
         MergeBreakPair(buffer);
         buffer.GuessSegmentProperties();
         buffer.Direction = (options.BidiLevel & 1) == 0 ? Direction.LeftToRight : Direction.RightToLeft;
-        buffer.Language = GetLanguage(options.Culture ?? CultureInfo.CurrentCulture);
-        typeface.Font.Shape(buffer, GetFeatures(options.FontFeatures));
+        buffer.Language = state.GetLanguage(options.Culture ?? CultureInfo.CurrentCulture);
+        typeface.Font.Shape(buffer, GetFeatures(state, options.FontFeatures));
         var infos = buffer.GetGlyphInfoSpan();
         var positions = buffer.GetGlyphPositionSpan();
         var scale = options.FontRenderingEmSize / typeface.UnitsPerEm;
@@ -78,6 +76,22 @@ internal sealed class HarfBuzzTextShaper : ITextShaperImpl
         }
 
         return result;
+    }
+
+    /// <summary>Releases shaping resources after the host stops text layout.</summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        foreach (var (_, state) in _threads)
+        {
+            state.Dispose();
+        }
+
+        _threads.Clear();
     }
 
     /// <summary>Includes surrounding text when shaping a slice.</summary>
@@ -124,32 +138,19 @@ internal sealed class HarfBuzzTextShaper : ITextShaperImpl
         return text;
     }
 
-    /// <summary>Reuses the language while the thread's culture remains unchanged.</summary>
-    /// <param name="culture">The shaping culture.</param>
-    /// <returns>The cached language.</returns>
-    private static Language GetLanguage(CultureInfo culture)
-    {
-        if (_language is not null && _languageName == culture.Name)
-        {
-            return _language;
-        }
-
-        _language?.Dispose();
-        _languageName = culture.Name;
-        return _language = new(culture);
-    }
-
     /// <summary>Converts requested font features for HarfBuzz.</summary>
+    /// <param name="state">The registered shaper's thread-owned conversion storage.</param>
     /// <param name="features">The OpenType feature overrides.</param>
     /// <returns>The shaping features.</returns>
-    private static Feature[] GetFeatures(IReadOnlyList<FontFeature>? features)
+    private static Feature[] GetFeatures(ShapingThreadState state, IReadOnlyList<FontFeature>? features)
     {
         if (features is null || features.Count == 0)
         {
             return [];
         }
 
-        var result = new Feature[features.Count];
+        var result = state.GetFeatures(features.Count);
+
         for (var i = 0; i < features.Count; i++)
         {
             var feature = features[i];

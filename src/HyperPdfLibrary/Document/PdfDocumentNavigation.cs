@@ -38,6 +38,9 @@ public static class PdfDocumentNavigation
     /// <summary>The position of the top coordinate in a /FitR destination.</summary>
     private const int FitRTopSlot = 5;
 
+    /// <summary>The largest temporary outline buffer retained between reads.</summary>
+    private const int MaxKeptOutlineItems = 4096;
+
     /// <summary>Gets the outline (bookmarks), loading its entries first.</summary>
     /// <param name="document">The document.</param>
     /// <param name="cancellationToken">Cancels the loading.</param>
@@ -133,11 +136,23 @@ public static class PdfDocumentNavigation
         }
 
         var budget = PdfDocumentNavigation.MaxOutlineEntries;
-        var visited = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
-        var root = document.Catalog.GetDictionary(KnownName.Outlines);
-        var firstId = root?.GetRaw(KnownName.First).AsReference() ?? default;
-        outline = [.. PdfDocumentNavigation.ReadOutlineLevel(document, root?.GetDictionary(KnownName.First), firstId, 0, visited, ref budget, cancellationToken)];
-        return PdfDocumentCaches.Publish(document, ref document.State.Outline, outline, revision);
+        var visited = document.Objects.ScratchPools.Slots<HashSet<PdfDictionary>>().Take() ?? [with(ReferenceEqualityComparer.Instance)];
+        try
+        {
+            var root = document.Catalog.GetDictionary(KnownName.Outlines);
+            var firstId = root?.GetRaw(KnownName.First).AsReference() ?? default;
+            outline = PdfDocumentNavigation.ReadOutlineLevel(document, root?.GetDictionary(KnownName.First), firstId, 0, visited, ref budget, cancellationToken);
+            return PdfDocumentCaches.Publish(document, ref document.State.Outline, outline, revision);
+        }
+        finally
+        {
+            var keep = visited.EnsureCapacity(0) <= MaxKeptOutlineItems;
+            visited.Clear();
+            if (keep)
+            {
+                _ = document.Objects.ScratchPools.Slots<HashSet<PdfDictionary>>().Offer(visited);
+            }
+        }
     }
 
     /// <summary>Reads the outline once its objects are loaded, reporting failures through the task.</summary>
@@ -202,7 +217,7 @@ public static class PdfDocumentNavigation
     /// <param name="budget">The entries still allowed.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The entries.</returns>
-    private static List<PdfOutlineItem> ReadOutlineLevel(
+    private static PdfOutlineItem[] ReadOutlineLevel(
         PdfDocument document,
         PdfDictionary? first,
         PdfObjectId firstId,
@@ -211,23 +226,35 @@ public static class PdfDocumentNavigation
         ref int budget,
         CancellationToken cancellationToken)
     {
-        var items = new List<PdfOutlineItem>();
-        var id = firstId;
-        for (var entry = first; entry is not null && budget > 0 && depth < PdfDocumentNavigation.MaxOutlineDepth && visited.Add(entry); entry = entry.GetDictionary(KnownName.Next))
+        var items = document.Objects.ScratchPools.Slots<List<PdfOutlineItem>>().Take() ?? [];
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            budget--;
-            var childId = entry.GetRaw(KnownName.First).AsReference();
-            var children = PdfDocumentNavigation.ReadOutlineLevel(document, entry.GetDictionary(KnownName.First), childId, depth + 1, visited, ref budget, cancellationToken);
-            items.Add(new(entry.GetText(KnownName.Title) ?? string.Empty, PdfDocumentNavigation.ReadOutlineTarget(document, entry), [.. children], entry.GetInteger(KnownName.Count) > 0)
+            var id = firstId;
+            for (var entry = first; entry is not null && budget > 0 && depth < PdfDocumentNavigation.MaxOutlineDepth && visited.Add(entry); entry = entry.GetDictionary(KnownName.Next))
             {
-                Id = id,
-                Style = PdfDocumentNavigation.ReadOutlineStyle(entry),
-            });
-            id = entry.GetRaw(KnownName.Next).AsReference();
-        }
+                cancellationToken.ThrowIfCancellationRequested();
+                budget--;
+                var childId = entry.GetRaw(KnownName.First).AsReference();
+                var children = PdfDocumentNavigation.ReadOutlineLevel(document, entry.GetDictionary(KnownName.First), childId, depth + 1, visited, ref budget, cancellationToken);
+                items.Add(new(entry.GetText(KnownName.Title) ?? string.Empty, PdfDocumentNavigation.ReadOutlineTarget(document, entry), children, entry.GetInteger(KnownName.Count) > 0)
+                {
+                    Id = id,
+                    Style = PdfDocumentNavigation.ReadOutlineStyle(entry),
+                });
+                id = entry.GetRaw(KnownName.Next).AsReference();
+            }
 
-        return items;
+            return [.. items];
+        }
+        finally
+        {
+            var keep = items.Capacity <= MaxKeptOutlineItems;
+            items.Clear();
+            if (keep)
+            {
+                _ = document.Objects.ScratchPools.Slots<List<PdfOutlineItem>>().Offer(items);
+            }
+        }
     }
 
     /// <summary>Reads an outline entry's colour (<c>/C</c>) and style flags (<c>/F</c>).</summary>

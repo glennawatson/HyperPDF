@@ -197,12 +197,32 @@ public static class PdfImageDecoder
     /// <param name="colors">The output-intent substitutions and the rendering the image's ICC colours convert with.</param>
     /// <param name="cancellationToken">Cancels decoding.</param>
     /// <returns>The decoded image, or null.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PdfImageData? DecodeStream(
         PdfStream image,
         ImageRole role,
         PdfDictionary? colorSpaces,
         bool compact,
         int reductionLevels,
+        ImageColors colors,
+        CancellationToken cancellationToken) =>
+        DecodeStream(image, role, colorSpaces, compact, new ImageLevels(reductionLevels, 0), colors, cancellationToken);
+
+    /// <summary>Decodes an image stream, optionally averaging the rows down while converting them.</summary>
+    /// <param name="image">The image stream.</param>
+    /// <param name="role">The image role.</param>
+    /// <param name="colorSpaces">The colour-space resources.</param>
+    /// <param name="compact">Whether gray samples may stay compact.</param>
+    /// <param name="levels">The resolution levels the codec omits and the halvings averaged into the pixels while converting rows.</param>
+    /// <param name="colors">The output-intent substitutions and ICC rendering.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The decoded image, or null.</returns>
+    internal static PdfImageData? DecodeStream(
+        PdfStream image,
+        ImageRole role,
+        PdfDictionary? colorSpaces,
+        bool compact,
+        ImageLevels levels,
         ImageColors colors,
         CancellationToken cancellationToken)
     {
@@ -219,9 +239,10 @@ public static class PdfImageDecoder
         try
         {
             var codec = image.Decode(ref buffer, cancellationToken);
+            header = WithBoxLevels(header, role, codec, dictionary, levels.Box);
             var softMaskInData = role == ImageRole.Image ? dictionary.GetInt32(KnownName.SMaskInData, 0) : 0;
             var parameters = CodecParameters(dictionary.Get(KnownName.Filter), dictionary.Get(KnownName.DecodeParms));
-            var report = new ImageDecodeReport(dictionary.Owner?.Context, image.Id.Number, SelectReduction(role, reductionLevels), scratchPools);
+            var report = new ImageDecodeReport(dictionary.Owner?.Context, image.Id.Number, SelectReduction(role, levels.Codec), scratchPools);
             var result = DecodeData(header, codec, buffer.WrittenSpan, parameters, softMaskInData, report, cancellationToken);
             return role == ImageRole.Image && result is { IsStencilMask: false, UnsupportedCodec: PdfImageCodec.None }
                 ? ApplyMasks(result, dictionary, header.ColorSpace, colorSpaces, report, colors.Substitutes, cancellationToken)
@@ -273,6 +294,16 @@ public static class PdfImageDecoder
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PdfImageData? DecodeCompact(PdfStream image, int reductionLevels, OutputIntentColors? colors, CancellationToken cancellationToken) =>
         DecodeStream(image, ImageRole.Image, null, true, reductionLevels, colors, cancellationToken);
+
+    /// <summary>Decodes an image for drawing, averaging an opaque colour image down by area while its rows are converted.</summary>
+    /// <param name="image">The image stream.</param>
+    /// <param name="levels">The levels the codec omits and the halvings to average in, for unmasked images without a colour key; <see cref="PdfImageData.IsBoxReduced"/> reports it.</param>
+    /// <param name="colors">The output-intent substitutions and the rendering the image's ICC colours convert with.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The decoded image, or null.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfImageData? DecodeCompact(PdfStream image, ImageLevels levels, ImageColors colors, CancellationToken cancellationToken) =>
+        DecodeStream(image, ImageRole.Image, null, true, levels, colors, cancellationToken);
 
     /// <summary>Decodes a compact image with explicit output-intent colours and ICC rendering.</summary>
     /// <param name="image">The image stream.</param>
@@ -376,6 +407,24 @@ public static class PdfImageDecoder
     /// <returns><see langword="true"/> when the image has a mask stream.</returns>
     private static bool HasMask(PdfDictionary dictionary) =>
         dictionary.ContainsKey(KnownName.SMask) || dictionary.Get(KnownName.Mask).AsStream() is not null;
+
+    /// <summary>Asks the decoder to average rows while converting them, when the pixels are the image's own opaque colours.</summary>
+    /// <param name="header">The header.</param>
+    /// <param name="role">The image role.</param>
+    /// <param name="codec">The codec still to apply; only raw samples convert row by row at the image's own size.</param>
+    /// <param name="dictionary">The image dictionary.</param>
+    /// <param name="boxLevels">The halvings requested.</param>
+    /// <returns>The header, with <see cref="ImageHeader.BoxLevels"/> set when the image qualifies.</returns>
+    private static ImageHeader WithBoxLevels(in ImageHeader header, ImageRole role, PdfImageCodec codec, PdfDictionary dictionary, int boxLevels) =>
+        boxLevels > 0 && role == ImageRole.Image && codec == PdfImageCodec.None && header is { ColorKey: null, IsStencil: false } && !HasMask(dictionary)
+            ? header with { BoxLevels = boxLevels }
+            : header;
+
+    /// <summary>Determines whether the colour decoder averages rows while converting them.</summary>
+    /// <param name="header">The header.</param>
+    /// <param name="unpacker">The sample unpacker.</param>
+    /// <returns><see langword="true"/> when no colour key needs the full-size pixels.</returns>
+    private static bool ReducesWhileDecoding(in ImageHeader header, in SampleUnpacker unpacker) => header.BoxLevels > 0 && !unpacker.HasColorKey;
 
     /// <summary>Adjusts a header for the role the stream is decoded in.</summary>
     /// <param name="header">The header as the dictionary gives it.</param>
@@ -493,6 +542,20 @@ public static class PdfImageDecoder
     /// <param name="scratchPools">The bounded cache.</param>
     /// <returns>The image.</returns>
     private static PdfImageData DecodeColor<TRows>(in ImageHeader header, TRows rows, PdfColorSpace space, in SampleUnpacker unpacker, ScratchPools scratchPools)
+        where TRows : IImageRows, allows ref struct =>
+        ReducesWhileDecoding(header, unpacker)
+            ? ReducedColorDecoder.Decode(header, rows, space, unpacker, scratchPools)
+            : DecodeFullColor(header, rows, space, unpacker, scratchPools);
+
+    /// <summary>Decodes rows of samples to full-size BGRA through the colour space.</summary>
+    /// <typeparam name="TRows">The row source.</typeparam>
+    /// <param name="header">The image header.</param>
+    /// <param name="rows">The rows.</param>
+    /// <param name="space">The colour space.</param>
+    /// <param name="unpacker">Unpacks the samples.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <returns>The image.</returns>
+    private static PdfImageData DecodeFullColor<TRows>(in ImageHeader header, TRows rows, PdfColorSpace space, in SampleUnpacker unpacker, ScratchPools scratchPools)
         where TRows : IImageRows, allows ref struct
     {
         var width = header.Width;

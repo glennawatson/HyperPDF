@@ -90,7 +90,7 @@ internal sealed class MeloFrontEnd
     /// <summary>Prepares normalized, lower-case text for the model.</summary>
     /// <param name="text">The text.</param>
     /// <param name="input">Receives the model's input; cleared first.</param>
-    internal void Prepare(string text, MeloInput input)
+    internal void Prepare(ReadOnlySpan<char> text, MeloInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
         input.Clear();

@@ -122,18 +122,25 @@ internal sealed class EnglishPhonemizer
     internal string Phonemize(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
+        return new(Phonemize(text.AsSpan()));
+    }
 
+    /// <summary>Turns text into phonemes, without making a string.</summary>
+    /// <param name="text">The text, normally one sentence.</param>
+    /// <returns>The phonemes, words separated by spaces, with pause punctuation kept; valid until the next call.</returns>
+    internal ReadOnlySpan<char> Phonemize(ReadOnlySpan<char> text)
+    {
         // A curly apostrophe is read as a straight one everywhere: inside a word, and as the quote mark it makes alone.
         if (!text.Contains('’'))
         {
-            return Phonemize(text.AsSpan());
+            return PhonemizeStraight(text);
         }
 
         var straight = ArrayPool<char>.Shared.Rent(text.Length);
         try
         {
-            text.AsSpan().Replace(straight, '’', '\'');
-            return Phonemize(straight.AsSpan(0, text.Length));
+            text.Replace(straight, '’', '\'');
+            return PhonemizeStraight(straight.AsSpan(0, text.Length));
         }
         finally
         {
@@ -209,7 +216,8 @@ internal sealed class EnglishPhonemizer
             else if (char.IsAsciiDigit(c))
             {
                 var end = NumberEnd(text, i);
-                AddWords(tokens, NumberWords.Say(text.Slice(i, end - i)));
+                var words = new TokenWords(tokens);
+                NumberWords.Say(text.Slice(i, end - i), ref words);
                 i = end;
             }
             else
@@ -281,21 +289,6 @@ internal sealed class EnglishPhonemizer
     /// <returns><see langword="true"/> for a hyphen followed by a space.</returns>
     private static bool IsSpacedHyphen(char c, ReadOnlySpan<char> text, int next) => c == '-' && next < text.Length && char.IsWhiteSpace(text[next]);
 
-    /// <summary>Adds the words of a phrase, such as a number said aloud, as tokens that point into the phrase.</summary>
-    /// <param name="tokens">The tokens.</param>
-    /// <param name="phrase">The phrase.</param>
-    private static void AddWords(List<Token> tokens, string phrase)
-    {
-        foreach (var range in phrase.AsSpan().Split(' '))
-        {
-            var length = range.End.Value - range.Start.Value;
-            if (length > 0)
-            {
-                tokens.Add(new(phrase, range.Start.Value, length, false));
-            }
-        }
-    }
-
     /// <summary>Finds the end of a word: letters, with apostrophes inside it.</summary>
     /// <param name="text">The text.</param>
     /// <param name="start">The first letter.</param>
@@ -345,7 +338,7 @@ internal sealed class EnglishPhonemizer
     /// <summary>Turns tokens already read from a text into phonemes.</summary>
     /// <param name="text">The text, with straight apostrophes.</param>
     /// <returns>The phonemes.</returns>
-    private string Phonemize(ReadOnlySpan<char> text)
+    private ReadOnlySpan<char> PhonemizeStraight(ReadOnlySpan<char> text)
     {
         var tokens = _tokens;
         tokens.Clear();
@@ -370,7 +363,7 @@ internal sealed class EnglishPhonemizer
             _outputLength--;
         }
 
-        return new(_output, 0, _outputLength);
+        return _output.AsSpan(0, _outputLength);
     }
 
     /// <summary>Adds a word's phonemes to the output, after a space unless it opens the output or follows an opening mark.</summary>
@@ -636,4 +629,13 @@ internal sealed class EnglishPhonemizer
     /// <param name="Length">The number of characters.</param>
     /// <param name="IsPause">Whether it is a pause mark.</param>
     private readonly record struct Token(string? Text, int Start, int Length, bool IsPause);
+
+    /// <summary>Adds each word of a number said aloud as a token that points into the word's own string.</summary>
+    /// <param name="Tokens">The tokens.</param>
+    private readonly record struct TokenWords(List<Token> Tokens) : IWordSink
+    {
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Add(string word) => Tokens.Add(new(word, 0, word.Length, false));
+    }
 }

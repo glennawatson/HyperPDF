@@ -25,9 +25,6 @@ internal sealed class AccessibilityPageScan
     /// <summary>The most <c>/Parent</c> steps followed to find a field's label.</summary>
     private const int MaxFieldDepth = 32;
 
-    /// <summary>The <c>/Tabs</c> value that makes the tab order follow the structure.</summary>
-    private const string StructureTabs = "S";
-
     /// <summary>The document.</summary>
     private readonly PdfDocument _document;
 
@@ -68,14 +65,20 @@ internal sealed class AccessibilityPageScan
         var page = PdfDocumentPages.GetPage(_document, pageIndex);
         var content = PdfDocumentTagged.GetMarkedContent(_document, pageIndex);
         CountGlyphs(content, out var untagged, out var artifacts);
-        if (_tree is not null && untagged > 0)
+        var untaggedGraphics = content.UntaggedGraphicCount;
+        if (_tree is not null && (untagged > 0 || untaggedGraphics > 0))
         {
             _findings.Add(PdfAccessibilityCode.UntaggedContent, pageIndex);
         }
 
+        if (content.InvalidLanguageCount > 0)
+        {
+            _findings.Add(PdfAccessibilityCode.LanguageInvalid, pageIndex);
+        }
+
         var reachable = CheckAnnotations(page, pageIndex);
-        var tabs = page.Dictionary.NameText("Tabs") == StructureTabs;
-        if (reachable > 0 && !tabs)
+        var tabs = page.Dictionary.IsName(KnownName.Tabs, KnownName.S);
+        if (NeedsStructureTabs(page.Dictionary, tabs, _part, reachable))
         {
             _findings.Add(PdfAccessibilityCode.TabsNotStructure, pageIndex);
         }
@@ -85,8 +88,17 @@ internal sealed class AccessibilityPageScan
             CheckTables(pageIndex);
         }
 
-        return new(pageIndex, reachable, tabs, untagged, artifacts);
+        return new(pageIndex, reachable, tabs, untagged, artifacts, untaggedGraphics);
     }
+
+    /// <summary>Determines whether a page with reachable annotations has a tab order the claim does not allow.</summary>
+    /// <param name="page">The page's dictionary, whose <c>/Tabs</c> value is read.</param>
+    /// <param name="followsStructure">Whether <c>/Tabs</c> is <c>/S</c>.</param>
+    /// <param name="part">The claimed PDF/UA part, or <see langword="null"/>.</param>
+    /// <param name="reachable">The number of annotations the keyboard reaches.</param>
+    /// <returns><see langword="true"/> when it should be reported.</returns>
+    private static bool NeedsStructureTabs(PdfDictionary page, bool followsStructure, int? part, int reachable) =>
+        reachable > 0 && !followsStructure && !(part == PdfUaClaim.Part2 && (page.IsName(KnownName.Tabs, KnownName.W) || page.IsName(KnownName.Tabs, KnownName.A)));
 
     /// <summary>Counts the visible glyphs drawn outside marked content and outside artifacts, and those drawn as artifacts.</summary>
     /// <param name="content">What the page draws.</param>
@@ -147,23 +159,27 @@ internal sealed class AccessibilityPageScan
         };
     }
 
-    /// <summary>Reads a field's label, its <c>/TU</c>, inherited from its parents.</summary>
+    /// <summary>
+    /// Reads a widget's label: the <c>/TU</c> of its field, which is the widget itself or the nearest parent with a partial
+    /// name <c>/T</c>, or the <c>/Alt</c> of the structure element that holds the widget (ISO 14289-1 7.18.1).
+    /// </summary>
     /// <param name="widget">The widget.</param>
-    /// <returns><see langword="true"/> when the field has a label.</returns>
-    private static bool HasFieldLabel(PdfDictionary widget)
+    /// <param name="owner">The structure element that refers to the widget, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the widget has a label.</returns>
+    private static bool HasFieldLabel(PdfDictionary widget, PdfStructureElement? owner)
     {
-        var node = widget;
-        for (var depth = 0; node is not null && depth < MaxFieldDepth; depth++)
+        if (owner?.AlternateText is not null)
         {
-            if (node.GetText(KnownName.TU) is { Length: > 0 })
-            {
-                return true;
-            }
-
-            node = node.GetDictionary(KnownName.Parent);
+            return true;
         }
 
-        return false;
+        var field = widget;
+        for (var depth = 0; depth < MaxFieldDepth && !field.ContainsKey(KnownName.T) && field.GetDictionary(KnownName.Parent) is { } parent; depth++)
+        {
+            field = parent;
+        }
+
+        return field.GetText(KnownName.TU) is { Length: > 0 };
     }
 
     /// <summary>Counts a table's cells that no header cell labels, without entering nested tables.</summary>
@@ -278,7 +294,7 @@ internal sealed class AccessibilityPageScan
     private void CheckWidget(PdfDictionary widget, PdfStructureElement? owner, int pageIndex)
     {
         var id = owner?.Id ?? default;
-        if (!HasFieldLabel(widget))
+        if (!HasFieldLabel(widget, owner))
         {
             _findings.Add(PdfAccessibilityCode.FormFieldNoLabel, pageIndex, id);
         }

@@ -28,10 +28,12 @@ internal static partial class Jbig2SymbolDictionaryDecoder
         Jbig2Workspace workspace)
     {
         var inputCount = inputs.Count;
-        var created = new Jbig2SymbolStore(workspace.ScratchPools);
+        var created = Jbig2SymbolStore.Rent(workspace);
         using var integers = new Jbig2IntegerContexts(Jbig2Bits.CeilLog2((long)inputCount + settings.NewCount), workspace.ScratchPools);
-        var aggregate = Jbig2TextRegionSettings.ForAggregate(false, integers.IdCodeLength, settings.RefinementTemplate, settings.RefinementAt);
-        var context = new ArithmeticContext(settings, inputs.With(created), created, workspace, aggregate);
+        var aggregate = workspace.AggregateSettings;
+        aggregate.ConfigureAggregate(false, integers.IdCodeLength, settings.RefinementTemplate, settings.RefinementAt);
+        using var all = inputs.With(created);
+        var context = new ArithmeticContext(settings, all, created, workspace, aggregate);
         if (!DecodeArithmeticSymbols(ref decoder, context, integers, genericContexts, refinementContexts))
         {
             created.Dispose();
@@ -43,7 +45,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
         {
             var span = flags.AsSpan(0, inputCount + settings.NewCount);
             return ReadArithmeticExportFlags(ref decoder, integers, span, settings.ExportCount)
-                ? Export(inputs, created, span, settings.ExportCount)
+                ? Export(inputs, created, span, settings.ExportCount, workspace)
                 : ExportAllNew(created, settings);
         }
         finally
@@ -59,7 +61,12 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="genericContexts">The generic contexts.</param>
     /// <param name="refinementContexts">The refinement contexts.</param>
     /// <returns><see langword="false"/> when the data is damaged.</returns>
-    private static bool DecodeArithmeticSymbols(ref Jbig2ArithmeticDecoder decoder, ArithmeticContext context, Jbig2IntegerContexts integers, Span<byte> genericContexts, Span<byte> refinementContexts)
+    private static bool DecodeArithmeticSymbols(
+        ref Jbig2ArithmeticDecoder decoder,
+        in ArithmeticContext context,
+        in Jbig2IntegerContexts integers,
+        Span<byte> genericContexts,
+        Span<byte> refinementContexts)
     {
         long height = 0;
         while (context.Created.Count < context.Settings.NewCount)
@@ -86,8 +93,8 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <returns><see langword="false"/> when the data is damaged.</returns>
     private static bool DecodeArithmeticHeightClass(
         ref Jbig2ArithmeticDecoder decoder,
-        ArithmeticContext context,
-        Jbig2IntegerContexts integers,
+        in ArithmeticContext context,
+        in Jbig2IntegerContexts integers,
         Span<byte> genericContexts,
         Span<byte> refinementContexts,
         int height)
@@ -127,8 +134,8 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <returns><see langword="false"/> when the data is damaged.</returns>
     private static bool DecodeArithmeticSymbol(
         ref Jbig2ArithmeticDecoder decoder,
-        ArithmeticContext context,
-        Jbig2IntegerContexts integers,
+        in ArithmeticContext context,
+        in Jbig2IntegerContexts integers,
         Span<byte> genericContexts,
         Span<byte> refinementContexts,
         int width,
@@ -171,8 +178,8 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <returns><see langword="false"/> when the data is damaged.</returns>
     private static bool AggregateArithmetic(
         ref Jbig2ArithmeticDecoder decoder,
-        ArithmeticContext context,
-        Jbig2IntegerContexts integers,
+        in ArithmeticContext context,
+        in Jbig2IntegerContexts integers,
         Span<byte> refinementContexts,
         Jbig2Bitmap bitmap,
         long instances)
@@ -191,7 +198,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="refinementContexts">The refinement contexts.</param>
     /// <param name="bitmap">The bitmap receiving the symbol.</param>
     /// <returns><see langword="false"/> when the data is damaged.</returns>
-    private static bool RefineArithmetic(ref Jbig2ArithmeticDecoder decoder, ArithmeticContext context, Jbig2IntegerContexts integers, Span<byte> refinementContexts, Jbig2Bitmap bitmap)
+    private static bool RefineArithmetic(ref Jbig2ArithmeticDecoder decoder, in ArithmeticContext context, in Jbig2IntegerContexts integers, Span<byte> refinementContexts, Jbig2Bitmap bitmap)
     {
         var id = Jbig2IntegerDecoder.DecodeId(ref decoder, integers.Id, integers.IdCodeLength);
         if (!context.All.TryFind(id, out var store, out var index) || !store.IsPresent(index))
@@ -243,8 +250,9 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="created">The new symbols; owned by the result or disposed.</param>
     /// <param name="flags">1 for each exported symbol, inputs first.</param>
     /// <param name="exportCount">The most symbols exported.</param>
+    /// <param name="workspace">The workspace that provides the exported store.</param>
     /// <returns>The exported symbols, or <see langword="null"/> when they pass the store limit.</returns>
-    private static Jbig2SymbolStore? Export(Jbig2SymbolSet inputs, Jbig2SymbolStore created, ReadOnlySpan<byte> flags, long exportCount)
+    private static Jbig2SymbolStore? Export(Jbig2SymbolSet inputs, Jbig2SymbolStore created, ReadOnlySpan<byte> flags, long exportCount, Jbig2Workspace workspace)
     {
         var inputCount = flags.Length - created.Count;
 
@@ -254,7 +262,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             return created;
         }
 
-        var exported = new Jbig2SymbolStore(created.ScratchPools);
+        var exported = Jbig2SymbolStore.Rent(workspace);
         var copied = 0;
         for (var i = 0; i < flags.Length && copied < exportCount; i++)
         {
@@ -315,7 +323,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="Workspace">The work budget and scratch bitmaps.</param>
     /// <param name="Aggregate">The text region settings reused for every aggregate symbol.</param>
     [System.Diagnostics.DebuggerDisplay("ArithmeticContext: {Created.Count} created")]
-    private sealed record ArithmeticContext(
+    private readonly record struct ArithmeticContext(
         Jbig2SymbolDictionarySettings Settings,
         Jbig2SymbolSet All,
         Jbig2SymbolStore Created,

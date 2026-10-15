@@ -177,7 +177,7 @@ public sealed partial class AnnotationsViewModel
     /// <summary>Offers the installed font families, with or without the preview only ones as the preference says.</summary>
     public void RefreshFontFamilies()
     {
-        var catalog = FontCatalog.System;
+        var catalog = _owner.Services.FontCatalog;
         var families = _owner.ShowPreviewOnlyFonts ? catalog.AllFamilies : catalog.Families;
         if (!ReferenceEquals(families, FontFamilies))
         {
@@ -477,10 +477,10 @@ public sealed partial class AnnotationsViewModel
     {
         if (edit is not null)
         {
-            return new(EditingText, CurrentTextFormat, edit.WrapWidth, FontFamilies);
+            return new(EditingText, CurrentTextFormat, edit.WrapWidth, FontFamilies) { PageFontFamilies = _owner.Services.PageFontFamilies };
         }
 
-        return content is null ? null : new(content.Text, content.Format, content.WrapWidth, FontFamilies);
+        return content is null ? null : new(content.Text, content.Format, content.WrapWidth, FontFamilies) { PageFontFamilies = _owner.Services.PageFontFamilies };
     }
 
     /// <summary>Keeps the typed text.</summary>
@@ -508,7 +508,7 @@ public sealed partial class AnnotationsViewModel
     /// <returns>A task.</returns>
     private async Task LoadFontFamiliesAsync()
     {
-        _ = await Task.Run(static () => FontCatalog.System).ConfigureAwait(true);
+        _ = await Task.Run(() => _owner.Services.FontCatalog).ConfigureAwait(true);
         RefreshFontFamilies();
     }
 

@@ -11,6 +11,9 @@ namespace HyperPdfLibrary.Document;
 /// <summary>Reads and edits page links.</summary>
 public static class PdfDocumentLinks
 {
+    /// <summary>The largest temporary link list retained between reads.</summary>
+    private const int MaxKeptLinks = 4096;
+
     /// <summary>Gets a page's link annotations, loading the page first.</summary>
     /// <param name="document">The document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
@@ -97,7 +100,30 @@ public static class PdfDocumentLinks
             return [];
         }
 
-        var links = new List<PdfLink>();
+        var links = document.Objects.ScratchPools.Slots<List<PdfLink>>().Take() ?? [];
+        try
+        {
+            ReadLinkEntries(document, annotations, links, cancellationToken);
+            return [.. links];
+        }
+        finally
+        {
+            var keep = links.Capacity <= MaxKeptLinks;
+            links.Clear();
+            if (keep)
+            {
+                _ = document.Objects.ScratchPools.Slots<List<PdfLink>>().Offer(links);
+            }
+        }
+    }
+
+    /// <summary>Adds the link annotations from a page's annotation array.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="annotations">The page annotations.</param>
+    /// <param name="links">Receives links.</param>
+    /// <param name="cancellationToken">Cancels extraction.</param>
+    private static void ReadLinkEntries(PdfDocument document, PdfArray annotations, List<PdfLink> links, CancellationToken cancellationToken)
+    {
         for (var i = 0; i < annotations.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -113,8 +139,6 @@ public static class PdfDocumentLinks
                 links.Add(new(bounds, action));
             }
         }
-
-        return [.. links];
     }
 
     /// <summary>Reads where a link leads: its action, or else its /Dest.</summary>

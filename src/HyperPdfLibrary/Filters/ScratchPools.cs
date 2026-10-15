@@ -7,8 +7,8 @@ using System.Diagnostics;
 namespace HyperPdfLibrary.Filters;
 
 /// <summary>
-/// Owns a bounded set of reusable decoder arrays for one document or an explicitly shared drawing service. A document
-/// closes its own pool without releasing arrays kept by another document or a shared service.
+/// Owns reusable scratch arrays and cleared working objects for one document or an explicitly shared drawing service.
+/// A document closes its own pools without releasing storage kept by another document or a shared service.
 /// </summary>
 [DebuggerDisplay("Scratch pools: {RetainedBytes} of {Budget} bytes")]
 public sealed class ScratchPools
@@ -171,6 +171,36 @@ public sealed class ScratchPools
             }
 
             var created = new ScratchObjects<T>(this) { Next = _head };
+            Volatile.Write(ref _head, created);
+            return created;
+        }
+    }
+
+    /// <summary>Gets cleared working objects owned by this document or shared service.</summary>
+    /// <typeparam name="T">The working object type.</typeparam>
+    /// <returns>The owned slots.</returns>
+    internal ScratchSlots<T> Slots<T>()
+        where T : class
+    {
+        for (var pool = Volatile.Read(ref _head); pool is not null; pool = pool.Next)
+        {
+            if (pool is ScratchSlots<T> existing)
+            {
+                return existing;
+            }
+        }
+
+        lock (_gate)
+        {
+            for (var pool = _head; pool is not null; pool = pool.Next)
+            {
+                if (pool is ScratchSlots<T> existing)
+                {
+                    return existing;
+                }
+            }
+
+            var created = new ScratchSlots<T>(this) { Next = _head };
             Volatile.Write(ref _head, created);
             return created;
         }

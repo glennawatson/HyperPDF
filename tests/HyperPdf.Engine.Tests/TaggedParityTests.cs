@@ -107,7 +107,7 @@ public sealed class TaggedParityTests
         {
             using var pair = new EnginePair(await File.ReadAllBytesAsync(file));
             var expected = PdfiumReferenceStructure.IsTagged(pair.Pdfium);
-            var report = PdfDocumentAccessibility.GetAccessibilityReport(pair.Library);
+            var report = await PdfDocumentAccessibility.GetAccessibilityReportAsync(pair.Library, CancellationToken.None);
             tagged += expected ? 1 : 0;
             if (report.IsMarked != expected)
             {

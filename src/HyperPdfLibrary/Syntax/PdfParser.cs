@@ -126,7 +126,14 @@ internal ref struct PdfParser
         }
 
         ParseScratch scratch = default;
-        return ParseValue(kind, 0, ref scratch);
+        try
+        {
+            return ParseValue(kind, 0, ref scratch);
+        }
+        finally
+        {
+            scratch.Dispose();
+        }
     }
 
     /// <summary>Interns a name token, decoding its escapes.</summary>

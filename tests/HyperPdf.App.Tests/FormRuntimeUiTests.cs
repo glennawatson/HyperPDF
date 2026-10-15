@@ -7,6 +7,7 @@ using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
+using HyperPdf.Core.Rendering;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
 
@@ -100,7 +101,7 @@ public sealed class FormRuntimeUiTests
     [Test]
     public async Task OpenedDocumentsGetTheSettingsTint()
     {
-        var engine = new HighlightedHyperPdfEngine(static () => new(TintColor, TintAlpha));
+        var engine = new HighlightedHyperPdfEngine(static () => new(TintColor, TintAlpha), static () => RenderSharpness.Default);
         var path = Path.Combine(Path.GetTempPath(), $"tint-{Guid.NewGuid():N}.pdf");
         await File.WriteAllBytesAsync(path, FormSamples.CreateRichForm());
         try

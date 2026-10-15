@@ -27,7 +27,7 @@ public sealed record OcrSetup(
     Func<bool> IsEngineInstalled,
     Func<string, string, string?> FindLanguageData,
     Func<string, string, IOcrEngine> CreateEngine,
-    Func<IReadOnlyList<OcrLanguagePack>, string, IProgress<double>, CancellationToken, Task> DownloadPacks)
+    Func<IReadOnlyList<OcrLanguagePack>, string, IProgress<double>, CancellationToken, Task> DownloadPacks) : IDisposable
 {
     /// <summary>The extension of a language data file.</summary>
     private const string DataExtension = ".traineddata";
@@ -40,22 +40,29 @@ public sealed record OcrSetup(
     public static string EngineUnavailableText =>
         "Text recognition could not start on this computer, so the pages were left as they are. Please report this so it can be fixed.";
 
+    /// <summary>Gets the downloads and file facts owned by this setup.</summary>
+    private OcrLanguagePackDownloader Downloads { get; init; } = new();
+
     /// <summary>Creates the default setup: the Tesseract and English data shipped with the app, with other languages downloaded when needed.</summary>
     /// <returns>The setup.</returns>
-    public static OcrSetup CreateDefault() =>
-        new(
+    public static OcrSetup CreateDefault()
+    {
+        var downloads = new OcrLanguagePackDownloader();
+        var paths = new DataFilePaths();
+        return new(
             DefaultLanguageDirectory,
             TesseractEngine.BundledDataDirectory,
             TesseractEngine.IsLibraryAvailable,
-            TesseractEngine.FindDataDirectory,
+            paths.FindDirectory,
             static (languages, directory) => new TesseractEngine(languages, directory),
-            OcrLanguagePackDownloader.DownloadAsync);
+            downloads.DownloadAsync) { Downloads = downloads, };
+    }
 
     /// <summary>Determines whether a pack is downloaded into the pack folder.</summary>
     /// <param name="pack">The pack.</param>
     /// <returns><see langword="true"/> when it is downloaded and current.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsDownloaded(OcrLanguagePack pack) => OcrLanguagePackDownloader.IsInstalled(pack, LanguageDirectory);
+    public bool IsDownloaded(OcrLanguagePack pack) => Downloads.IsInstalled(pack, LanguageDirectory);
 
     /// <summary>Determines whether a language ships with the app.</summary>
     /// <param name="code">The language code, for example <c>eng</c>.</param>
@@ -72,7 +79,11 @@ public sealed record OcrSetup(
     /// <summary>Deletes a downloaded pack.</summary>
     /// <param name="pack">The pack.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Remove(OcrLanguagePack pack) => OcrLanguagePackDownloader.Remove(pack, LanguageDirectory);
+    public void Remove(OcrLanguagePack pack) => Downloads.Remove(pack, LanguageDirectory);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => Downloads.Dispose();
 
     /// <summary>Gets the packs to download before a language setting can be recognised.</summary>
     /// <param name="codes">The language codes.</param>

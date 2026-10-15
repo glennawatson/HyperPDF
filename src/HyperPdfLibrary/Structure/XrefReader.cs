@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Syntax;
@@ -71,28 +72,33 @@ internal static class XrefReader
 
         table.StartXref = start;
         table.OffsetBase = store.HeaderOffset;
-        var pending = new Stack<long>();
-        var visited = new HashSet<long>();
-        pending.Push(start);
-        while (pending.Count > 0 && visited.Count < PdfLimits.MaxXrefSections)
+        var walk = default(XrefWalk);
+        try
         {
-            PdfOpenContext.ThrowIfCancelled(store.Context);
-            var offset = pending.Pop();
-            if (!visited.Add(offset) || offset < 0 || offset >= file.Length)
+            walk.Push(start);
+            while (walk.TryPop(out var offset) && walk.Visited < PdfLimits.MaxXrefSections)
             {
-                continue;
-            }
+                PdfOpenContext.ThrowIfCancelled(store.Context);
+                if (!walk.TryVisit(offset) || offset < 0 || offset >= file.Length)
+                {
+                    continue;
+                }
 
-            var trailer = ReadSectionAt(file, offset, store, table, visited.Count == 1, out var isStream);
-            if (trailer is null)
-            {
-                return false;
-            }
+                var trailer = ReadSectionAt(file, offset, store, table, walk.Visited == 1, out var isStream);
+                if (trailer is null)
+                {
+                    return false;
+                }
 
-            table.UsesXrefStreams |= isStream && visited.Count == 1;
-            CommitFreeEntries(table, trailer);
-            MergeTrailer(table, trailer);
-            QueueLinked(pending, trailer, store);
+                table.UsesXrefStreams |= isStream && walk.Visited == 1;
+                CommitFreeEntries(table, trailer);
+                MergeTrailer(table, trailer);
+                QueueLinked(ref walk, trailer, store);
+            }
+        }
+        finally
+        {
+            walk.Release();
         }
 
         return table.Trailer?.ContainsKey(KnownName.Root) == true;
@@ -147,7 +153,8 @@ internal static class XrefReader
     {
         if (table.Trailer is null)
         {
-            table.Trailer = trailer.Clone();
+            // The section's trailer was parsed for this table alone, so the table keeps it and adds to it.
+            table.Trailer = trailer;
             return;
         }
 
@@ -165,16 +172,16 @@ internal static class XrefReader
     /// <param name="pending">The queue.</param>
     /// <param name="trailer">The section's trailer.</param>
     /// <param name="store">The objects being read.</param>
-    private static void QueueLinked(Stack<long> pending, PdfDictionary trailer, PdfObjectStore store)
+    private static void QueueLinked(ref XrefWalk pending, PdfDictionary trailer, PdfObjectStore store)
     {
-        PushOffset(pending, trailer.Get(KnownName.Prev));
-        PushOffset(pending, store.Context is { IgnoreXrefStreams: true } ? default : trailer.Get(KnownName.XRefStm));
+        PushOffset(ref pending, trailer.Get(KnownName.Prev));
+        PushOffset(ref pending, store.Context is { IgnoreXrefStreams: true } ? default : trailer.Get(KnownName.XRefStm));
     }
 
     /// <summary>Queues a section offset; pushed last means read first, so /XRefStm is read before /Prev.</summary>
     /// <param name="pending">The queue.</param>
     /// <param name="value">The offset value.</param>
-    private static void PushOffset(Stack<long> pending, PdfValue value)
+    private static void PushOffset(ref XrefWalk pending, PdfValue value)
     {
         if (value.Kind == PdfKind.Integer)
         {
@@ -421,19 +428,28 @@ internal static class XrefReader
         var dictionary = stream.Dictionary;
         Span<int> widths = stackalloc int[StreamFields];
         ReadWidths(dictionary.GetArray(KnownName.W), widths);
-        var data = stream.DecodeToArray();
-        var size = dictionary.GetInt32(KnownName.Size);
-        var index = dictionary.GetArray(KnownName.Index);
-        var position = 0;
-        var subsections = index is null ? 1 : index.Count / IndexPair;
-        for (var s = 0; s < subsections; s++)
+        var output = default(PooledBuffer);
+        try
         {
-            var first = index?.GetInt32(s * IndexPair) ?? 0;
-            var count = index?.GetInt32((s * IndexPair) + 1) ?? size;
-            position = ReadStreamEntries(data, position, widths, new(first, count), table);
-        }
+            _ = stream.Decode(ref output);
+            var data = output.WrittenSpan;
+            var size = dictionary.GetInt32(KnownName.Size);
+            var index = dictionary.GetArray(KnownName.Index);
+            var position = 0;
+            var subsections = index is null ? 1 : index.Count / IndexPair;
+            for (var s = 0; s < subsections; s++)
+            {
+                var first = index?.GetInt32(s * IndexPair) ?? 0;
+                var count = index?.GetInt32((s * IndexPair) + 1) ?? size;
+                position = ReadStreamEntries(data, position, widths, new(first, count), table);
+            }
 
-        return dictionary;
+            return dictionary;
+        }
+        finally
+        {
+            output.Dispose();
+        }
     }
 
     /// <summary>Reads the /W field widths, clamped to what a long can hold.</summary>

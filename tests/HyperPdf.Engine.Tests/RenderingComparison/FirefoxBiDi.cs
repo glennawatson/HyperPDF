@@ -21,7 +21,7 @@ internal sealed class FirefoxBiDi : IAsyncDisposable
     private const int ReceiveBufferLength = 65_536;
 
     /// <summary>The maximum retained browser diagnostic lines.</summary>
-    private const int DiagnosticLines = 32;
+    private const int DiagnosticLines = 256;
 
     /// <summary>The protocol property that names a browsing context.</summary>
     private const string ContextProperty = "context";
@@ -137,6 +137,8 @@ internal sealed class FirefoxBiDi : IAsyncDisposable
         Process process;
         try
         {
+            // Protocol traces identify the startup command awaiting a reply when browser initialization times out.
+            await File.WriteAllTextAsync(Path.Combine(profile, "user.js"), """user_pref("remote.log.level", "Trace");""", cancellationToken);
             process = Process.Start(start) ?? throw new IOException("Firefox could not start.");
         }
         catch

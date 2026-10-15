@@ -3,18 +3,22 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace HyperPdf.Http.Remote;
 
 /// <summary>Downloads a document from an <c>http</c> or <c>https</c> URI into a temporary file.</summary>
 [DebuggerDisplay("RemoteDocumentDownloader: {_downloadDirectory}")]
-public sealed class RemoteDocumentDownloader
+public sealed class RemoteDocumentDownloader : IDisposable
 {
     /// <summary>The largest document downloaded, guarding against runaway responses.</summary>
     private const long MaxBytes = 512L * 1024 * 1024;
 
     /// <summary>The directory downloads are written to.</summary>
     private readonly string _downloadDirectory;
+
+    /// <summary>The HTTP clients owned by this downloader.</summary>
+    private readonly DownloadClients _clients = new();
 
     /// <summary>Initializes a new instance of the <see cref="RemoteDocumentDownloader"/> class.</summary>
     /// <param name="downloadDirectory">The directory downloads are written to.</param>
@@ -40,7 +44,7 @@ public sealed class RemoteDocumentDownloader
     public async Task<string> DownloadAsync(Uri uri, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(uri);
-        using var response = await RefitClients.Download(uri, cancellationToken).ConfigureAwait(false);
+        using var response = await _clients.For(uri).DownloadAsync(RefitClients.RequestPathOf(uri), cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
         if (response.Content.Headers.ContentLength > MaxBytes)
         {
@@ -62,4 +66,8 @@ public sealed class RemoteDocumentDownloader
 
         return target;
     }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _clients.Dispose();
 }

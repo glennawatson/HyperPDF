@@ -99,4 +99,7 @@ internal enum FeatureSlot
 
     /// <summary>The certificate signer, the last service.</summary>
     Signer = 29,
+
+    /// <summary>The page sharpness choices, after the last service.</summary>
+    RenderSharpness = 30,
 }

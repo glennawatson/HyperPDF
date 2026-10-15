@@ -50,19 +50,20 @@ public sealed class GpuPageToneTests
     public async Task ShaderMatchesCpuTone(uint paper, uint ink)
     {
         var tone = new PageTone(paper, ink);
+        using var tones = new GpuPageTone();
         var source = CreateSource();
         var expected = (byte[])source.Clone();
         tone.Apply(expected);
         using var srgb = SKColorSpace.CreateSrgb();
         var info = new SKImageInfo(Side, Side, SKColorType.Bgra8888, SKAlphaType.Premul, srgb);
         using var image = SKImage.FromPixelCopy(info, source, Side * BytesPerPixel);
-        using var toned = GpuPageTone.TryApply(image, info, tone, null);
+        using var toned = tones.TryApply(image, info, tone, null);
         var actual = new byte[source.Length];
         var read = ReadPixels(toned, info, actual);
 
         using (Assert.Multiple())
         {
-            await Assert.That(GpuPageTone.CanApply(tone)).IsTrue();
+            await Assert.That(tones.CanApply(tone)).IsTrue();
             await Assert.That(toned).IsNotNull();
             await Assert.That(read).IsTrue();
             await Assert.That(actual.AsSpan().SequenceEqual(expected)).IsTrue();
@@ -74,6 +75,7 @@ public sealed class GpuPageToneTests
     [Test]
     public async Task DynamicTonesKeepGpuPathAfterCacheFills()
     {
+        using var tones = new GpuPageTone();
         using var srgb = SKColorSpace.CreateSrgb();
         var info = new SKImageInfo(Side, Side, SKColorType.Bgra8888, SKAlphaType.Premul, srgb);
         using var image = SKImage.FromPixelCopy(info, CreateSource(), Side * BytesPerPixel);
@@ -81,11 +83,33 @@ public sealed class GpuPageToneTests
         for (var index = 0; index < ToneVariants; index++)
         {
             var tone = new PageTone(0xFAF700U + (uint)index, 0x282624U);
-            using var result = GpuPageTone.TryApply(image, info, tone, null);
-            allSupported &= GpuPageTone.CanApply(tone) && result is not null;
+            using var result = tones.TryApply(image, info, tone, null);
+            allSupported &= tones.CanApply(tone) && result is not null;
         }
 
         await Assert.That(allSupported).IsTrue();
+    }
+
+    /// <summary>Closing one hub leaves another hub's tone resources usable.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ToneCachesBelongToTheirRenderHub()
+    {
+        var first = new GpuPageTone();
+        using var second = new GpuPageTone();
+        var tone = new PageTone(0xFAF7F0U, 0x282624U);
+        bool supported;
+        using (first)
+        {
+            supported = first.CanApply(tone) && second.CanApply(tone);
+        }
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(supported).IsTrue();
+            await Assert.That(first.CanApply(tone)).IsFalse();
+            await Assert.That(second.CanApply(tone)).IsTrue();
+        }
     }
 
     /// <summary>Builds opaque pixels with varied RGB combinations and every red and green byte.</summary>

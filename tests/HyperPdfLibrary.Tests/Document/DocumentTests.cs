@@ -46,6 +46,27 @@ public sealed class DocumentTests
         await Assert.That(info.IsEncrypted).IsFalse();
     }
 
+    /// <summary>Reusing page-tree scratch storage does not overwrite another open document's inherited attributes.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PageInheritanceSurvivesAnotherDocumentOpen()
+    {
+        const int narrowWidth = 100;
+        const int wideWidth = 300;
+        using var first = PdfDocumentReader.Open(Create(narrowWidth), null);
+        await Assert.That(first.PageCount).IsEqualTo(1);
+        using var second = PdfDocumentReader.Open(Create(wideWidth), null);
+        await Assert.That(second.PageCount).IsEqualTo(1);
+
+        await Assert.That(PdfDocumentPages.GetPage(first, 0).Width).IsEqualTo(narrowWidth);
+        await Assert.That(PdfDocumentPages.GetPage(second, 0).Width).IsEqualTo(wideWidth);
+
+        static byte[] Create(int width) => MiniPdf.Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            $"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 {width} 100] >>",
+            "<< /Type /Page /Parent 2 0 R >>");
+    }
+
     /// <summary>The outline lists one entry per chapter leading to its page.</summary>
     /// <returns>A task.</returns>
     [Test]

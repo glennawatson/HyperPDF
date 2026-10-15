@@ -6,7 +6,7 @@ using System.Buffers;
 
 namespace HyperPdf.Core.Licences;
 
-/// <summary>Reads the third-party notices file line by line, collecting each licence text in a pooled buffer.</summary>
+/// <summary>Reads the third-party notices file line by line, noting where each component's parts are without copying any text.</summary>
 internal ref struct NoticeReader
 {
     /// <summary>The line that opens a licence text.</summary>
@@ -27,141 +27,145 @@ internal ref struct NoticeReader
     /// <summary>The text between a field's name and its value.</summary>
     private const string FieldSeparator = ": ";
 
-    /// <summary>The characters the text buffer holds when it is first rented.</summary>
-    private const int InitialTextLength = 4096;
+    /// <summary>The rows the row buffer holds when it is first rented.</summary>
+    private const int InitialRows = 128;
 
-    /// <summary>The factor by which the text buffer grows.</summary>
+    /// <summary>The factor by which the row buffer grows.</summary>
     private const int GrowthFactor = 2;
 
-    /// <summary>The finished groups; made with the first one.</summary>
-    private List<NoticeGroup>? _groups;
+    /// <summary>The file's characters.</summary>
+    private readonly ReadOnlySpan<char> _source;
 
-    /// <summary>The entries of the current group; made with the first one.</summary>
-    private List<NoticeEntry>? _entries;
+    /// <summary>The finished rows, in a rented array.</summary>
+    private NoticeRow[]? _rows;
 
-    /// <summary>The licence text being read, in a rented array.</summary>
-    private char[]? _text;
-
-    /// <summary>The characters of the licence text read so far.</summary>
-    private int _textLength;
+    /// <summary>The rows finished so far.</summary>
+    private int _count;
 
     /// <summary>The current group's licence.</summary>
-    private string? _licence;
+    private TextRange _licence;
 
-    /// <summary>The current component's name, or <see langword="null"/> before the first component.</summary>
-    private string? _name;
+    /// <summary>The current component's name.</summary>
+    private TextRange _name;
 
     /// <summary>The current component's version field.</summary>
-    private string? _version;
+    private TextRange _version;
 
     /// <summary>The current component's origin field.</summary>
-    private string? _origin;
+    private TextRange _origin;
 
     /// <summary>The current component's copyright field.</summary>
-    private string? _copyright;
+    private TextRange _copyright;
 
     /// <summary>The current component's link field.</summary>
-    private string? _link;
+    private TextRange _link;
+
+    /// <summary>The index of the first character of the licence text being read.</summary>
+    private int _textStart;
+
+    /// <summary>Whether a component heading has been read since the last licence text.</summary>
+    private bool _hasName;
 
     /// <summary>Whether the reader is inside a licence text.</summary>
     private bool _inText;
 
+    /// <summary>Initializes a new instance of the <see cref="NoticeReader"/> struct.</summary>
+    /// <param name="source">The file's characters; the ranges the reader records point into it.</param>
+    internal NoticeReader(ReadOnlySpan<char> source) => _source = source;
+
     /// <summary>Handles one line.</summary>
-    /// <param name="line">The line.</param>
-    internal void Add(ReadOnlySpan<char> line)
+    /// <param name="start">The index of the line's first character.</param>
+    /// <param name="length">The line's length without its line break.</param>
+    /// <param name="next">The index of the first character of the next line.</param>
+    internal void Add(int start, int length, int next)
     {
+        var line = _source.Slice(start, length);
         if (_inText)
         {
-            AddTextLine(line);
+            AddTextLine(line, start);
         }
         else if (line.SequenceEqual(FenceOpen))
         {
             _inText = true;
-            _textLength = 0;
+            _textStart = next;
         }
         else if (line.StartsWith(GroupPrefix, StringComparison.Ordinal))
         {
-            CloseGroup();
-            _licence = line[GroupPrefix.Length..].Trim().ToString();
+            _licence = Trimmed(start + GroupPrefix.Length, length - GroupPrefix.Length);
         }
         else if (line.StartsWith(EntryPrefix, StringComparison.Ordinal))
         {
-            _name = line[EntryPrefix.Length..].Trim().ToString();
+            _name = Trimmed(start + EntryPrefix.Length, length - EntryPrefix.Length);
+            _hasName = true;
             ClearFields();
         }
         else if (line.StartsWith(FieldPrefix, StringComparison.Ordinal))
         {
-            AddField(line[FieldPrefix.Length..]);
+            AddField(start + FieldPrefix.Length, length - FieldPrefix.Length);
         }
     }
 
-    /// <summary>Finishes the last group and gives the text buffer back.</summary>
-    /// <returns>The groups.</returns>
-    internal List<NoticeGroup> Finish()
+    /// <summary>Gives the row buffer back and returns the rows.</summary>
+    /// <returns>The rows, in file order.</returns>
+    internal NoticeRow[] Finish()
     {
-        CloseGroup();
-        if (_text is not null)
+        if (_rows is null)
         {
-            ArrayPool<char>.Shared.Return(_text);
-            _text = null;
+            return [];
         }
 
-        return _groups ?? [];
+        var rows = _rows.AsSpan(0, _count).ToArray();
+        ArrayPool<NoticeRow>.Shared.Return(_rows);
+        _rows = null;
+        return rows;
     }
 
     /// <summary>Handles a line of licence text; the closing fence ends the component.</summary>
     /// <param name="line">The line.</param>
-    private void AddTextLine(ReadOnlySpan<char> line)
+    /// <param name="start">The index of the line's first character.</param>
+    private void AddTextLine(ReadOnlySpan<char> line, int start)
     {
         if (!line.SequenceEqual(FenceClose))
         {
-            AppendText(line);
             return;
         }
 
         _inText = false;
-        if (_name is not null)
+        if (_hasName)
         {
-            (_entries ??= []).Add(new(
-                _name,
-                _licence ?? string.Empty,
-                _version ?? string.Empty,
-                _origin ?? string.Empty,
-                _copyright ?? string.Empty,
-                _link ?? string.Empty,
-                _text.AsSpan(0, _textLength).TrimEnd().ToString()));
+            AddRow(new(_licence, _name, _version, _origin, _copyright, _link, new(_textStart, start - _textStart)));
         }
 
-        _name = null;
+        _hasName = false;
         ClearFields();
     }
 
-    /// <summary>Adds a line and a line feed to the licence text.</summary>
-    /// <param name="line">The line.</param>
-    private void AppendText(ReadOnlySpan<char> line)
+    /// <summary>Adds a finished row, growing the buffer when it is full.</summary>
+    /// <param name="row">The row.</param>
+    private void AddRow(in NoticeRow row)
     {
-        var needed = _textLength + line.Length + 1;
-        if (_text is null || needed > _text.Length)
+        if (_rows is null)
         {
-            var larger = ArrayPool<char>.Shared.Rent(Math.Max(Math.Max(InitialTextLength, needed), (_text?.Length ?? 0) * GrowthFactor));
-            _text.AsSpan(0, _textLength).CopyTo(larger);
-            if (_text is not null)
-            {
-                ArrayPool<char>.Shared.Return(_text);
-            }
-
-            _text = larger;
+            _rows = ArrayPool<NoticeRow>.Shared.Rent(InitialRows);
+        }
+        else if (_count == _rows.Length)
+        {
+            var larger = ArrayPool<NoticeRow>.Shared.Rent(_rows.Length * GrowthFactor);
+            _rows.CopyTo(larger, 0);
+            ArrayPool<NoticeRow>.Shared.Return(_rows);
+            _rows = larger;
         }
 
-        line.CopyTo(_text.AsSpan(_textLength));
-        _text[_textLength + line.Length] = '\n';
-        _textLength = needed;
+        _rows[_count] = row;
+        _count++;
     }
 
     /// <summary>Records a <c>Name: value</c> line; a name that is not one of the fields is ignored.</summary>
-    /// <param name="field">The line without its prefix.</param>
-    private void AddField(ReadOnlySpan<char> field)
+    /// <param name="start">The index of the field's first character, after its prefix.</param>
+    /// <param name="length">The length of the field.</param>
+    private void AddField(int start, int length)
     {
+        var field = _source.Slice(start, length);
         var split = field.IndexOf(FieldSeparator, StringComparison.Ordinal);
         if (split <= 0)
         {
@@ -169,42 +173,42 @@ internal ref struct NoticeReader
         }
 
         var name = field[..split];
-        var value = field[(split + FieldSeparator.Length)..].Trim();
+        var value = Trimmed(start + split + FieldSeparator.Length, length - split - FieldSeparator.Length);
         if (name.SequenceEqual(nameof(NoticeEntry.Version)))
         {
-            _version = value.ToString();
+            _version = value;
         }
         else if (name.SequenceEqual(nameof(NoticeEntry.Origin)))
         {
-            _origin = value.ToString();
+            _origin = value;
         }
         else if (name.SequenceEqual(nameof(NoticeEntry.Copyright)))
         {
-            _copyright = value.ToString();
+            _copyright = value;
         }
         else if (name.SequenceEqual(nameof(NoticeEntry.Link)))
         {
-            _link = value.ToString();
+            _link = value;
         }
+    }
+
+    /// <summary>Gets the range left after white space is trimmed from both ends of some characters.</summary>
+    /// <param name="start">The index of the first character.</param>
+    /// <param name="length">The number of characters.</param>
+    /// <returns>The trimmed range.</returns>
+    private readonly TextRange Trimmed(int start, int length)
+    {
+        var text = _source.Slice(start, length);
+        var trimmed = text.TrimStart();
+        return new(start + text.Length - trimmed.Length, trimmed.TrimEnd().Length);
     }
 
     /// <summary>Forgets the current component's fields.</summary>
     private void ClearFields()
     {
-        _version = null;
-        _origin = null;
-        _copyright = null;
-        _link = null;
-    }
-
-    /// <summary>Adds the current group to the result when it has components.</summary>
-    private void CloseGroup()
-    {
-        if (_entries is { Count: > 0 })
-        {
-            (_groups ??= []).Add(new(_licence ?? string.Empty, _entries));
-        }
-
-        _entries = null;
+        _version = default;
+        _origin = default;
+        _copyright = default;
+        _link = default;
     }
 }

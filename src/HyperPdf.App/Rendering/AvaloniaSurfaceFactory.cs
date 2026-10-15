@@ -8,7 +8,7 @@ using HyperPdf.Core.Rendering;
 namespace HyperPdf.App.Rendering;
 
 /// <summary>Creates tiles that prepare page recordings on the render worker for graphics-thread replay.</summary>
-internal sealed class AvaloniaSurfaceFactory : IRenderSurfaceFactory
+internal sealed class AvaloniaSurfaceFactory : IRenderSurfaceFactory, IDisposable
 {
     /// <summary>Shared graphics availability for this render hub.</summary>
     private readonly GpuAvailability _availability = new();
@@ -23,4 +23,8 @@ internal sealed class AvaloniaSurfaceFactory : IRenderSurfaceFactory
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IRenderSurface Create(int width, int height) => new GpuPreparedRenderSurface(width, height, _availability, _recoverSoftware);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _availability.Dispose();
 }

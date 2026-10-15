@@ -22,15 +22,16 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     internal static Jbig2SymbolStore? DecodeHuffman(ref Jbig2Reader reader, Jbig2SymbolDictionarySettings settings, Jbig2SymbolSet inputs, Span<byte> refinementContexts, Jbig2Workspace workspace)
     {
         var total = inputs.Count + settings.NewCount;
-        var created = new Jbig2SymbolStore(workspace.ScratchPools);
+        var created = Jbig2SymbolStore.Rent(workspace);
         var widths = workspace.ScratchPools.Ints.Rent(Math.Max(settings.NewCount, 1));
         var flags = workspace.ScratchPools.Bytes.Rent(Math.Max(total, 1));
+        using var all = inputs.With(created);
         try
         {
-            var context = new HuffmanContext(settings, inputs.With(created), created, workspace, widths, Math.Max(Jbig2Bits.CeilLog2(total), 1));
-            return !DecodeHuffmanSymbols(ref reader, context, refinementContexts) || !ReadHuffmanExportFlags(ref reader, flags.AsSpan(0, total), settings.ExportCount)
+            var context = new HuffmanContext(settings, all, created, workspace, widths, Math.Max(Jbig2Bits.CeilLog2(total), 1));
+            return !DecodeHuffmanSymbols(ref reader, ref context, refinementContexts) || !ReadHuffmanExportFlags(ref reader, flags.AsSpan(0, total), settings.ExportCount)
                 ? Discard(created)
-                : Export(inputs, created, flags.AsSpan(0, total), settings.ExportCount);
+                : Export(inputs, created, flags.AsSpan(0, total), settings.ExportCount, workspace);
         }
         finally
         {
@@ -44,7 +45,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="context">The decoding state.</param>
     /// <param name="refinementContexts">The refinement contexts.</param>
     /// <returns><see langword="false"/> when the data is damaged.</returns>
-    private static bool DecodeHuffmanSymbols(ref Jbig2Reader reader, HuffmanContext context, Span<byte> refinementContexts)
+    private static bool DecodeHuffmanSymbols(ref Jbig2Reader reader, ref HuffmanContext context, Span<byte> refinementContexts)
     {
         long height = 0;
         while (context.Decoded < context.Settings.NewCount)
@@ -55,7 +56,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             }
 
             height += delta;
-            if (height is < 0 or > Jbig2Limits.MaxImageSide || !DecodeHuffmanHeightClass(ref reader, context, refinementContexts, (int)height))
+            if (height is < 0 or > Jbig2Limits.MaxImageSide || !DecodeHuffmanHeightClass(ref reader, ref context, refinementContexts, (int)height))
             {
                 return false;
             }
@@ -70,7 +71,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="refinementContexts">The refinement contexts.</param>
     /// <param name="height">The class height.</param>
     /// <returns><see langword="false"/> when the data is damaged.</returns>
-    private static bool DecodeHuffmanHeightClass(ref Jbig2Reader reader, HuffmanContext context, Span<byte> refinementContexts, int height)
+    private static bool DecodeHuffmanHeightClass(ref Jbig2Reader reader, ref HuffmanContext context, Span<byte> refinementContexts, int height)
     {
         var first = context.Decoded;
         long width = 0;
@@ -90,7 +91,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             }
 
             totalWidth += width;
-            if (!DecodeHuffmanSymbol(ref reader, context, refinementContexts, (int)width, height))
+            if (!DecodeHuffmanSymbol(ref reader, ref context, refinementContexts, (int)width, height))
             {
                 return false;
             }
@@ -98,7 +99,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             context.Decoded++;
         }
 
-        return context.Settings.RefinementAggregate || ReadCollectiveBitmap(ref reader, context, first, totalWidth, height);
+        return context.Settings.RefinementAggregate || ReadCollectiveBitmap(ref reader, ref context, first, totalWidth, height);
     }
 
     /// <summary>Decodes one symbol of a height class, or records its width for the collective bitmap.</summary>
@@ -108,7 +109,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="width">The symbol width.</param>
     /// <param name="height">The symbol height.</param>
     /// <returns><see langword="false"/> when the data is damaged.</returns>
-    private static bool DecodeHuffmanSymbol(ref Jbig2Reader reader, HuffmanContext context, Span<byte> refinementContexts, int width, int height)
+    private static bool DecodeHuffmanSymbol(ref Jbig2Reader reader, ref HuffmanContext context, Span<byte> refinementContexts, int width, int height)
     {
         var empty = width == 0 || height == 0;
         if (!context.Settings.RefinementAggregate)
@@ -123,7 +124,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             return true;
         }
 
-        return DecodeHuffmanAggregate(ref reader, context, refinementContexts, width, height);
+        return DecodeHuffmanAggregate(ref reader, ref context, refinementContexts, width, height);
     }
 
     /// <summary>Decodes a refinement/aggregate symbol: its instance count, then the refined or aggregated bitmap.</summary>
@@ -133,7 +134,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="width">The symbol width.</param>
     /// <param name="height">The symbol height.</param>
     /// <returns><see langword="false"/> when the data is damaged.</returns>
-    private static bool DecodeHuffmanAggregate(ref Jbig2Reader reader, HuffmanContext context, Span<byte> refinementContexts, int width, int height)
+    private static bool DecodeHuffmanAggregate(ref Jbig2Reader reader, ref HuffmanContext context, Span<byte> refinementContexts, int width, int height)
     {
         if (context.Settings.AggregateCount.Decode(ref reader, out var count) != Jbig2HuffmanResult.Value)
         {
@@ -154,8 +155,8 @@ internal static partial class Jbig2SymbolDictionaryDecoder
         }
 
         var decoded = instances == 1
-            ? RefineHuffman(ref reader, context, refinementContexts, bitmap)
-            : AggregateHuffman(ref reader, context, refinementContexts, bitmap, instances);
+            ? RefineHuffman(ref reader, ref context, refinementContexts, bitmap)
+            : AggregateHuffman(ref reader, ref context, refinementContexts, bitmap, instances);
         return decoded && context.Created.TryAdd(bitmap.View);
     }
 
@@ -166,7 +167,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="bitmap">The bitmap receiving the symbol.</param>
     /// <param name="instances">The number of instances.</param>
     /// <returns><see langword="false"/> when the data is damaged.</returns>
-    private static bool AggregateHuffman(ref Jbig2Reader reader, HuffmanContext context, Span<byte> refinementContexts, Jbig2Bitmap bitmap, long instances)
+    private static bool AggregateHuffman(ref Jbig2Reader reader, ref HuffmanContext context, Span<byte> refinementContexts, Jbig2Bitmap bitmap, long instances)
     {
         var region = context.Aggregate;
         region.Width = bitmap.Width;
@@ -181,7 +182,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="refinementContexts">The refinement contexts.</param>
     /// <param name="bitmap">The bitmap receiving the symbol.</param>
     /// <returns><see langword="false"/> when the data is damaged.</returns>
-    private static bool RefineHuffman(ref Jbig2Reader reader, HuffmanContext context, Span<byte> refinementContexts, Jbig2Bitmap bitmap)
+    private static bool RefineHuffman(ref Jbig2Reader reader, ref HuffmanContext context, Span<byte> refinementContexts, Jbig2Bitmap bitmap)
     {
         if (!reader.TryReadBits(context.CodeLength, out var id) || !context.All.TryFind(id, out var store, out var index) || !store.IsPresent(index))
         {
@@ -215,7 +216,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="totalWidth">The sum of the class's symbol widths.</param>
     /// <param name="height">The class height.</param>
     /// <returns><see langword="false"/> when the data is damaged.</returns>
-    private static bool ReadCollectiveBitmap(ref Jbig2Reader reader, HuffmanContext context, int first, long totalWidth, int height)
+    private static bool ReadCollectiveBitmap(ref Jbig2Reader reader, ref HuffmanContext context, int first, long totalWidth, int height)
     {
         if (context.Settings.BitmapSize.Decode(ref reader, out var size) != Jbig2HuffmanResult.Value)
         {
@@ -226,10 +227,10 @@ internal static partial class Jbig2SymbolDictionaryDecoder
         if (totalWidth == 0 || height == 0)
         {
             reader.Skip((uint)size);
-            return AddEmptySymbols(context, first, height);
+            return AddEmptySymbols(ref context, first, height);
         }
 
-        using var collective = Jbig2Limits.IsValidSize(totalWidth, height) ? Jbig2Bitmap.Create((int)totalWidth, height, context.Workspace.ScratchPools) : null;
+        using var collective = Jbig2Limits.IsValidSize(totalWidth, height) ? context.Workspace.RentBitmap((int)totalWidth, height) : null;
         if (collective is null || !context.Workspace.TryCharge(totalWidth * height) || !ReadCollectiveRows(ref reader, collective, (uint)size))
         {
             return false;
@@ -298,7 +299,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
     /// <param name="first">The first symbol of the class.</param>
     /// <param name="height">The class height.</param>
     /// <returns><see langword="true"/>.</returns>
-    private static bool AddEmptySymbols(HuffmanContext context, int first, int height)
+    private static bool AddEmptySymbols(ref HuffmanContext context, int first, int height)
     {
         for (var i = first; i < context.Decoded; i++)
         {
@@ -388,9 +389,9 @@ internal static partial class Jbig2SymbolDictionaryDecoder
 
     /// <summary>The state shared while decoding a Huffman symbol dictionary.</summary>
     [DebuggerDisplay("HuffmanContext: {Decoded} decoded")]
-    private sealed class HuffmanContext
+    private struct HuffmanContext
     {
-        /// <summary>Initializes a new instance of the <see cref="HuffmanContext"/> class.</summary>
+        /// <summary>Initializes a new instance of the <see cref="HuffmanContext"/> struct.</summary>
         /// <param name="settings">The dictionary parameters.</param>
         /// <param name="all">The input symbols followed by the new symbols.</param>
         /// <param name="created">The new symbols.</param>
@@ -405,31 +406,32 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             Workspace = workspace;
             Widths = widths;
             CodeLength = codeLength;
-            Aggregate = Jbig2TextRegionSettings.ForAggregate(true, codeLength, settings.RefinementTemplate, settings.RefinementAt);
+            Aggregate = workspace.AggregateSettings;
+            Aggregate.ConfigureAggregate(true, codeLength, settings.RefinementTemplate, settings.RefinementAt);
         }
 
         /// <summary>Gets the dictionary parameters.</summary>
-        internal Jbig2SymbolDictionarySettings Settings { get; }
+        internal readonly Jbig2SymbolDictionarySettings Settings { get; }
 
         /// <summary>Gets the input symbols followed by the new symbols.</summary>
-        internal Jbig2SymbolSet All { get; }
+        internal readonly Jbig2SymbolSet All { get; }
 
         /// <summary>Gets the new symbols.</summary>
-        internal Jbig2SymbolStore Created { get; }
+        internal readonly Jbig2SymbolStore Created { get; }
 
         /// <summary>Gets the work budget and scratch bitmaps.</summary>
-        internal Jbig2Workspace Workspace { get; }
+        internal readonly Jbig2Workspace Workspace { get; }
 
         /// <summary>Gets the widths of the symbols awaiting their collective bitmap.</summary>
-        internal int[] Widths { get; }
+        internal readonly int[] Widths { get; }
 
         /// <summary>Gets the bits of a symbol ID in a refinement.</summary>
-        internal int CodeLength { get; }
+        internal readonly int CodeLength { get; }
 
         /// <summary>Gets the text region settings reused for every aggregate symbol.</summary>
-        internal Jbig2TextRegionSettings Aggregate { get; }
+        internal readonly Jbig2TextRegionSettings Aggregate { get; }
 
         /// <summary>Gets or sets the number of symbols decoded, NSYMSDECODED.</summary>
-        internal int Decoded { get; set; }
+        internal int Decoded { readonly get; set; }
     }
 }

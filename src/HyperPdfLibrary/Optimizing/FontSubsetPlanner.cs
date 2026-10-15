@@ -27,50 +27,41 @@ internal static class FontSubsetPlanner
     /// <param name = "document">The working copy.</param>
     /// <param name = "scanner">What the content analysis learned.</param>
     /// <param name = "graph">The reachable objects.</param>
-    /// <param name = "glyphs">Receives the glyphs to keep, by program number.</param>
+    /// <param name = "state">The tables the plan fills; the glyphs to keep end up in <see cref="FontPlanState.Kept"/>.</param>
     /// <param name = "report">Receives what was skipped.</param>
-    internal static void Plan(PdfDocument document, ContentUsageScanner scanner, OptimizerGraph graph, Dictionary<int, CodeBitSet> glyphs, OptimizeReportBuilder report)
+    /// <param name="cancellationToken">Stops page interpretation.</param>
+    internal static void Plan(PdfDocument document, ContentUsageScanner scanner, OptimizerGraph graph, FontPlanState state, OptimizeReportBuilder report, CancellationToken cancellationToken)
     {
-        var programs = FindPrograms(graph, report);
-        if (programs.Count == 0)
+        FindPrograms(graph, state, report);
+        if (state.Programs.Count == 0)
         {
             return;
         }
 
-        using var device = FontUsageDevice.Rent();
-        if (!RunPages(document, device))
+        using var device = FontUsageDevice.Rent(document.DrawingServices.Optimization);
+        if (!RunPages(document, device, cancellationToken))
         {
             report.Skip(PdfOptimizeCategory.Fonts, 0, "A page's content could not be read to the end, so no font was subset.");
             return;
         }
 
-        var shown = GlyphsByFont(device, scanner);
-        try
+        GlyphsByFont(device, scanner, state);
+        foreach (var (program, users) in state.Programs)
         {
-            foreach (var (program, users) in programs)
+            if (Union(program, users, state, scanner, report) is { } kept)
             {
-                if (Union(program, users, shown, scanner, report) is { } kept)
-                {
-                    glyphs[program] = kept;
-                }
-            }
-        }
-        finally
-        {
-            foreach (var set in shown.Values)
-            {
-                set.Dispose();
+                state.Kept[program] = kept;
             }
         }
     }
 
     /// <summary>Finds the embedded TrueType programs and the fonts using each.</summary>
     /// <param name = "graph">The reachable objects.</param>
+    /// <param name = "state">Receives the font numbers using each program, by program number.</param>
     /// <param name = "report">Receives the fonts that cannot be subset.</param>
-    /// <returns>The font numbers using each program, by program number.</returns>
-    private static Dictionary<int, List<int>> FindPrograms(OptimizerGraph graph, OptimizeReportBuilder report)
+    private static void FindPrograms(OptimizerGraph graph, FontPlanState state, OptimizeReportBuilder report)
     {
-        var programs = new Dictionary<int, List<int>>();
+        var programs = state.Programs;
         for (var number = 1; number <= graph.Count; number++)
         {
             if (Descriptor(graph.GetValue(number)) is not { } descriptor)
@@ -82,7 +73,7 @@ internal static class FontSubsetPlanner
             if (program.IsReference)
             {
                 ref var users = ref CollectionsMarshal.GetValueRefOrAddDefault(programs, program.AsReference().Number, out _);
-                users ??= [];
+                users ??= state.RentList();
                 users.Add(graph.GetOldNumber(number));
             }
             else if (descriptor.GetRaw(KnownName.FontFile3).IsReference)
@@ -90,8 +81,6 @@ internal static class FontSubsetPlanner
                 report.Skip(PdfOptimizeCategory.Fonts, descriptor.GetRaw(KnownName.FontFile3).AsReference().Number, "CFF and OpenType font programs are not subset yet.");
             }
         }
-
-        return programs;
     }
 
     /// <summary>
@@ -114,12 +103,13 @@ internal static class FontSubsetPlanner
     /// <summary>Runs every page's content into the device.</summary>
     /// <param name = "document">The working copy.</param>
     /// <param name = "device">The device.</param>
+    /// <param name="cancellationToken">Stops page interpretation.</param>
     /// <returns><see langword="false"/> when a page's content could not be read to the end.</returns>
-    private static bool RunPages(PdfDocument document, FontUsageDevice device)
+    private static bool RunPages(PdfDocument document, FontUsageDevice device, CancellationToken cancellationToken)
     {
         for (var i = 0; i < document.PageCount; i++)
         {
-            using var interpreter = ContentInterpreter.Rent(PdfDocumentRendering.GetRenderCache(document), device, 0);
+            using var interpreter = ContentInterpreter.Rent(PdfDocumentRendering.GetRenderCache(document), device, 0, cancellationToken);
             try
             {
                 ContentExecution.RunPage(interpreter, PdfDocumentPages.GetPage(document, i));
@@ -143,10 +133,9 @@ internal static class FontSubsetPlanner
     /// <summary>Maps each font's codes to glyphs.</summary>
     /// <param name = "device">The device that saw the codes.</param>
     /// <param name = "scanner">What the content analysis learned, including each font's object number.</param>
-    /// <returns>The glyphs each font shows, by font number.</returns>
-    private static Dictionary<int, CodeBitSet> GlyphsByFont(FontUsageDevice device, ContentUsageScanner scanner)
+    /// <param name = "state">Receives the glyphs each font shows, by font number.</param>
+    private static void GlyphsByFont(FontUsageDevice device, ContentUsageScanner scanner, FontPlanState state)
     {
-        var shown = new Dictionary<int, CodeBitSet>();
         foreach (var (font, codes) in device.Codes)
         {
             if (!scanner.FontNumbers.TryGetValue(font.Dictionary, out var number))
@@ -154,8 +143,8 @@ internal static class FontSubsetPlanner
                 continue;
             }
 
-            ref var glyphs = ref CollectionsMarshal.GetValueRefOrAddDefault(shown, number, out _);
-            glyphs ??= new(true);
+            ref var glyphs = ref CollectionsMarshal.GetValueRefOrAddDefault(state.Shown, number, out _);
+            glyphs ??= state.RentBits();
             for (var code = codes.NextBit(0); code != CodeBitSet.NoBit; code = codes.NextBit(code + 1))
             {
                 AddGlyphs(font, code, glyphs);
@@ -169,8 +158,6 @@ internal static class FontSubsetPlanner
                 }
             }
         }
-
-        return shown;
     }
 
     /// <summary>Adds the glyphs a code may be drawn with.</summary>
@@ -242,24 +229,26 @@ internal static class FontSubsetPlanner
     /// <summary>Joins the glyphs of every font using a program, or explains why the program must stay whole.</summary>
     /// <param name = "program">The program's number.</param>
     /// <param name = "users">The fonts using it.</param>
-    /// <param name = "shown">The glyphs each font shows.</param>
+    /// <param name = "state">The tables of the plan, holding the glyphs each font shows.</param>
     /// <param name = "scanner">What the content analysis learned.</param>
     /// <param name = "report">Receives the reason a program stays whole.</param>
     /// <returns>The glyphs to keep, or <see langword="null"/>.</returns>
-    private static CodeBitSet? Union(int program, List<int> users, Dictionary<int, CodeBitSet> shown, ContentUsageScanner scanner, OptimizeReportBuilder report)
+    private static CodeBitSet? Union(int program, List<int> users, FontPlanState state, ContentUsageScanner scanner, OptimizeReportBuilder report)
     {
-        var kept = new CodeBitSet();
+        var kept = state.RentBits();
         foreach (var user in users)
         {
             if (scanner.ExcludedFonts.Contains(user))
             {
                 report.Skip(PdfOptimizeCategory.Fonts, program, "The font is used by form fields, annotations, patterns or soft masks, so it keeps every glyph.");
+                state.Release(kept);
                 return null;
             }
 
-            if (!shown.TryGetValue(user, out var glyphs))
+            if (!state.Shown.TryGetValue(user, out var glyphs))
             {
                 report.Skip(PdfOptimizeCategory.Fonts, program, "No page shows text in the font, so it is left whole.");
+                state.Release(kept);
                 return null;
             }
 

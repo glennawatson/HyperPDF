@@ -12,9 +12,6 @@ namespace HyperPdf.Benchmarks;
 /// <summary>Opens benchmark documents with an owned drawing service instance.</summary>
 internal static class BenchmarkDrawing
 {
-    /// <summary>The open options without a password, one per service instance, so opening a document in a measured method does not build them.</summary>
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PdfDrawingServices, PdfOpenOptions> PlainOptions = new();
-
     /// <summary>Creates services for one document.</summary>
     /// <returns>The services.</returns>
     internal static PdfDrawingServices CreateServices() => new(new PdfRenderBackendRegistration().UseSkia());
@@ -96,6 +93,6 @@ internal static class BenchmarkDrawing
     /// <returns>The options.</returns>
     private static PdfOpenOptions OptionsFor(string? password, PdfDrawingServices drawingServices) =>
         password is null
-            ? PlainOptions.GetValue(drawingServices, static services => new() { DrawingServices = services })
+            ? drawingServices.PasswordlessOpenOptions
             : new() { Password = password, DrawingServices = drawingServices };
 }

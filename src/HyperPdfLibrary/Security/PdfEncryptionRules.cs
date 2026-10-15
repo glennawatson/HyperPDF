@@ -36,6 +36,13 @@ internal static class PdfEncryptionRules
             throw new PdfException(PdfError.Security, PdfProtectionMessages.PdfA);
         }
 
+        // PDF/UA-1 needs the accessibility permission bit set in an encrypted file (ISO 14289-1:2014, 7.16). Only AES-128 can clear it.
+        if (PdfUaClaimGuard.IsClaimed(store) && encryption.Recipients is null && encryption.Algorithm == PdfEncryptionAlgorithm.Aes128
+            && (encryption.Permissions & PdfAccessPermissions.ExtractForAccessibility) == 0)
+        {
+            throw new PdfException(PdfError.ClaimUnmet, PdfProtectionMessages.PdfUa);
+        }
+
         CheckAuthority(store, options);
     }
 

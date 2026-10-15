@@ -36,6 +36,9 @@ public sealed partial class FieldEditorView : ReactiveUI.Avalonia.ReactiveUserCo
     /// <summary>The misspelled words in the field being edited, reused between checks.</summary>
     private readonly List<Core.Reading.TextRange> _misspelled = [];
 
+    /// <summary>The corrections offered for the word the menu was asked about; reused for each request.</summary>
+    private readonly List<string> _suggestions = [];
+
     /// <summary>Initializes a new instance of the <see cref="FieldEditorView"/> class.</summary>
     public FieldEditorView()
     {
@@ -145,7 +148,7 @@ public sealed partial class FieldEditorView : ReactiveUI.Avalonia.ReactiveUserCo
             index = presenter.TextLayout.HitTestPoint(point).TextPosition;
         }
 
-        var suggestions = tab.Forms.SuggestAt(index, out var word);
+        tab.Forms.SuggestAt(index, _suggestions, out var word);
         if (word.IsEmpty || !Contains(_misspelled, word))
         {
             return;
@@ -153,7 +156,7 @@ public sealed partial class FieldEditorView : ReactiveUI.Avalonia.ReactiveUserCo
 
         var misspelled = FieldEditor.Text.Substring(word.Start, word.Length);
         List<Control> items = [];
-        foreach (var suggestion in suggestions)
+        foreach (var suggestion in _suggestions)
         {
             items.Add(new MenuItem { Header = suggestion, Command = tab.Forms.CorrectCommand, CommandParameter = new SpellingFix(word, suggestion) });
         }
@@ -208,7 +211,7 @@ public sealed partial class FieldEditorView : ReactiveUI.Avalonia.ReactiveUserCo
             return;
         }
 
-        var font = PageFonts.Get(Core.Text.StandardFontFamilies.Mono);
+        var font = PageFonts.Get(ViewModel?.Services.PageFontFamilies, Core.Text.StandardFontFamilies.Mono);
         var cell = width / field.MaxLength;
         var advance = new FormattedText("0", CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(font), FieldEditor.FontSize, null).WidthIncludingTrailingWhitespace;
         FieldEditor.FontFamily = font;

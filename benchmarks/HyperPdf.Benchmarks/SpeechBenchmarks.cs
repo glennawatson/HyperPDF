@@ -8,6 +8,7 @@ using HyperPdf.Core.Speech;
 using HyperPdf.Http.Speech;
 using HyperPdf.Speech.English;
 using HyperPdf.Speech.Kokoro;
+using HyperPdf.Speech.Melo;
 
 namespace HyperPdf.Benchmarks;
 
@@ -29,6 +30,15 @@ public class SpeechBenchmarks
 
     /// <summary>A sentence read aloud.</summary>
     private const string Sentence = "Hello world, the reader walks to the screen and writes 1984 in the box.";
+
+    /// <summary>Written English with money, a date, a time, a unit, abbreviations and a citation.</summary>
+    private const string Written = "Dr. Smith paid $1,200.50 on 2024-03-12 at 10:30 for 12 km of road, e.g. the 3rd section [4].";
+
+    /// <summary>The buffers text is normalized into, reused.</summary>
+    private readonly NormalizerBuffers _normalizing = new();
+
+    /// <summary>The preprocessing and normalization buffers owned by the Melo engine.</summary>
+    private readonly MeloNormalization _meloNormalizing = new();
 
     /// <summary>The sentences found, reused so only the library's allocations are measured.</summary>
     private readonly List<SpeechSentence> _sentences = [];
@@ -83,14 +93,19 @@ public class SpeechBenchmarks
     public string PrepareSentence() => SentenceSplitter.ToSpeech("The next line con-\r\ntinues here; does it end?");
 
     /// <summary>Turns written English with money, dates, times, units and abbreviations into the words said.</summary>
-    /// <returns>The spoken text.</returns>
+    /// <returns>The spoken character count.</returns>
     [Benchmark]
-    public string Normalize() => TextNormalizer.Normalize("Dr. Smith paid $1,200.50 on 2024-03-12 at 10:30 for 12 km of road, e.g. the 3rd section [4].", false);
+    public int Normalize() => TextNormalizer.Normalize(Written, false, _normalizing).Length;
+
+    /// <summary>Prepares written text for Melo using the buffers owned by its engine.</summary>
+    /// <returns>The prepared character count.</returns>
+    [Benchmark]
+    public int NormalizeMelo() => MeloEngine.Normalize(Written, false, _meloNormalizing).Length;
 
     /// <summary>Turns a sentence into phonemes.</summary>
-    /// <returns>The phonemes.</returns>
+    /// <returns>The phoneme count.</returns>
     [Benchmark]
-    public string Phonemize() => _phonemizer.Phonemize(Sentence);
+    public int Phonemize() => _phonemizer.Phonemize(Sentence.AsSpan()).Length;
 
     /// <summary>Turns phonemes into Kokoro tokens.</summary>
     /// <returns>The token count.</returns>
@@ -103,9 +118,13 @@ public class SpeechBenchmarks
     }
 
     /// <summary>Builds the SSML sent to Azure for a sentence.</summary>
-    /// <returns>The SSML.</returns>
+    /// <returns>The SSML length in bytes.</returns>
     [Benchmark]
-    public string BuildSsml() => AzureSpeechEngine.BuildSsml(Sentence, "en-GB-SoniaNeural", Brisk);
+    public int BuildSsml()
+    {
+        using var ssml = SsmlDocument.Build(Sentence, "en-GB-SoniaNeural", Brisk);
+        return ssml.Length;
+    }
 
     /// <summary>Converts a second of Azure's PCM into samples.</summary>
     /// <returns>The sample count.</returns>

@@ -92,7 +92,7 @@ internal sealed record PdfFlattenAppearance(PdfFlattenForm Primary, PdfFlattenFo
         reason = PdfFlattenSkipReason.NoAppearance;
         if (widget is not null)
         {
-            return GenerateWidget(session, page, widget, rect, out reason);
+            return GenerateWidget(session, page, widget.Value, rect, out reason);
         }
 
         var subtype = annotation.GetName(KnownName.Subtype).ToKnownName();
@@ -126,7 +126,7 @@ internal sealed record PdfFlattenAppearance(PdfFlattenForm Primary, PdfFlattenFo
     /// <param name="rect">The widget's rectangle.</param>
     /// <param name="reason">Why nothing was drawn.</param>
     /// <returns>The appearance, or <see langword="null"/>.</returns>
-    private static PdfFlattenAppearance? GenerateWidget(PdfFlattenSession session, PdfPage page, ResolvedWidget widget, PdfRectangle rect, out PdfFlattenSkipReason reason)
+    private static PdfFlattenAppearance? GenerateWidget(PdfFlattenSession session, PdfPage page, in ResolvedWidget widget, PdfRectangle rect, out PdfFlattenSkipReason reason)
     {
         reason = PdfFlattenSkipReason.NoAppearance;
         if (!IsDrawnFromValue(widget.Type) && !widget.IsButton)
@@ -162,7 +162,7 @@ internal sealed record PdfFlattenAppearance(PdfFlattenForm Primary, PdfFlattenFo
     /// <param name="names">The document's names.</param>
     /// <param name="widget">The widget.</param>
     /// <returns><see langword="true"/> when its state, or its field's value when it has no state, is not Off.</returns>
-    private static bool IsOn(PdfNameTable names, ResolvedWidget widget)
+    private static bool IsOn(PdfNameTable names, in ResolvedWidget widget)
     {
         var state = FieldAttributes.ReadState(widget.Widget.Get(KnownName.AS), names);
         if (state.Length > 0)

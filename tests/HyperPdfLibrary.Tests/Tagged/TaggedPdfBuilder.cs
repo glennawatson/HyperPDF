@@ -42,6 +42,9 @@ internal sealed class TaggedPdfBuilder
     /// <summary>Gets or sets extra resource entries, such as <c>/XObject</c> and <c>/Properties</c>.</summary>
     internal string Resources { get; set; } = string.Empty;
 
+    /// <summary>Gets or sets the body of the test font <c>/F1</c>; by default a Type 1 font that is not embedded.</summary>
+    internal string Font { get; set; } = "<< /Type /Font /Subtype /Type1 /BaseFont /TaggedTest >>";
+
     /// <summary>Gets or sets the page content.</summary>
     internal string Content { get; set; } = string.Empty;
 
@@ -110,7 +113,7 @@ internal sealed class TaggedPdfBuilder
         Set(PageNumber, string.Create(
             CultureInfo.InvariantCulture,
             $"<< /Type /Page /Parent {PagesNumber} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 {FontNumber} 0 R >> {Resources} >> /Contents {ContentNumber} 0 R {Page} >>"));
-        Set(FontNumber, "<< /Type /Font /Subtype /Type1 /BaseFont /TaggedTest >>");
+        Set(FontNumber, Font);
         Set(ContentNumber, MiniPdf.Stream(string.Empty, Content));
         return MiniPdf.Build([.. _objects]);
     }

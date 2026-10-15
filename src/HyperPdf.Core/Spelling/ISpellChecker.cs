@@ -15,8 +15,8 @@ public interface ISpellChecker
     /// <returns><see langword="true"/> when it is, or when it cannot be checked.</returns>
     bool IsCorrect(ReadOnlySpan<char> word);
 
-    /// <summary>Suggests corrections for a misspelled word, the likeliest first.</summary>
+    /// <summary>Adds corrections for a misspelled word to a list, the likeliest first.</summary>
     /// <param name="word">The word.</param>
-    /// <returns>The suggestions; empty when there are none.</returns>
-    IReadOnlyList<string> Suggest(string word);
+    /// <param name="suggestions">The list the corrections are added to; nothing is added when there are none.</param>
+    void Suggest(string word, List<string> suggestions);
 }

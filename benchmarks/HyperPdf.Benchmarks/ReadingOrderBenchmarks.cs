@@ -25,6 +25,9 @@ public class ReadingOrderBenchmarks
     /// <summary>The repeated margins.</summary>
     private readonly HashSet<string> _repeated = [with(StringComparer.Ordinal)];
 
+    /// <summary>The page analysis buffers retained for the benchmark's document.</summary>
+    private readonly ReadingOrderWorkspace _workspace = new();
+
     /// <summary>The tagged document's characters.</summary>
     private readonly List<PageCharacter> _taggedCharacters = [];
 
@@ -54,7 +57,7 @@ public class ReadingOrderBenchmarks
         _source = HyperPdf.Core.Documents.DocumentFeature<ITextLayoutSource>.Cast(_document.Document)!;
         _size = _document.Document.GetPageSizes()[0];
         _source.GetCharacters(0, _characters);
-        _page = ReadingOrder.Analyze(0, _size, _characters, _repeated);
+        _page = ReadingOrder.Analyze(0, _size, _characters, _repeated, _workspace);
         _tagged = new(TestPdf.CreateTagged());
         HyperPdf.Core.Documents.DocumentFeature<ITextLayoutSource>.Cast(_tagged.Document)!.GetCharacters(0, _taggedCharacters);
         _ = HyperPdf.Core.Documents.DocumentFeature<ITaggedStructureSource>.Cast(_tagged.Document)!.GetTaggedBlocks(0, _taggedBlocks);
@@ -81,7 +84,12 @@ public class ReadingOrderBenchmarks
     /// <summary>Works out the page's reading order.</summary>
     /// <returns>The block count.</returns>
     [Benchmark]
-    public int Analyze() => ReadingOrder.Analyze(0, _size, _characters, _repeated).Blocks.Count;
+    public int Analyze() => ReadingOrder.Analyze(0, _size, _characters, _repeated, _workspace).Blocks.Count;
+
+    /// <summary>Skips line analysis when a page has no text.</summary>
+    /// <returns>The block count.</returns>
+    [Benchmark]
+    public int AnalyzeEmpty() => ReadingOrder.Analyze(0, _size, [], _repeated, _workspace).Blocks.Count;
 
     /// <summary>Joins the page's blocks into text for Read Aloud.</summary>
     /// <returns>The text length.</returns>
@@ -101,5 +109,10 @@ public class ReadingOrderBenchmarks
     /// <summary>Builds a tagged page's reading blocks from its structure.</summary>
     /// <returns>The number of blocks.</returns>
     [Benchmark]
-    public int FromStructure() => ReadingOrder.FromStructure(0, _taggedCharacters, _taggedBlocks).Blocks.Count;
+    public int FromStructure() => ReadingOrder.FromStructure(0, _taggedCharacters, _taggedBlocks, _workspace).Blocks.Count;
+
+    /// <summary>Skips tagged block work when a page has no text.</summary>
+    /// <returns>The block count.</returns>
+    [Benchmark]
+    public int FromEmptyStructure() => ReadingOrder.FromStructure(0, [], _taggedBlocks, _workspace).Blocks.Count;
 }

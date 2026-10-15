@@ -3,14 +3,16 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 
 /// <summary>
 /// A JBIG2 Huffman table (T.88 annex B): lines with a prefix code, a range length and a range low value, with canonical
 /// codes assigned by prefix length. The last lines are the lower range, the upper range and, optionally, out-of-band.
-/// Instances are immutable and safe to share between threads.
+/// Standard tables are immutable. Workspace tables are leased to one decode until its workspace returns.
 /// </summary>
 [DebuggerDisplay("Jbig2HuffmanTable: {LineCount} lines, out-of-band {HasOutOfBand}")]
 internal sealed partial class Jbig2HuffmanTable
@@ -46,56 +48,42 @@ internal sealed partial class Jbig2HuffmanTable
     private const int StackLengths = 256;
 
     /// <summary>The range length of each line.</summary>
-    private readonly byte[] _rangeLengths;
+    private byte[] _rangeLengths = [];
 
     /// <summary>The range low value of each line.</summary>
-    private readonly int[] _rangeLows;
+    private int[] _rangeLows = [];
 
     /// <summary>The first code of each prefix length.</summary>
-    private readonly uint[] _firstCodes;
+    private uint[] _firstCodes = [];
 
     /// <summary>The number of codes of each prefix length.</summary>
-    private readonly int[] _codeCounts;
+    private int[] _codeCounts = [];
 
     /// <summary>The index in <see cref="_linesByLength"/> of the first line of each prefix length.</summary>
-    private readonly int[] _firstLines;
+    private int[] _firstLines = [];
 
     /// <summary>The line indices ordered by prefix length, then by line order.</summary>
-    private readonly int[] _linesByLength;
+    private int[] _linesByLength = [];
 
     /// <summary>The index of the lower range line, whose values count down.</summary>
-    private readonly int _lowerLine;
+    private int _lowerLine;
 
     /// <summary>The index of the out-of-band line, or -1.</summary>
-    private readonly int _outOfBandLine;
+    private int _outOfBandLine;
 
     /// <summary>Initializes a new instance of the <see cref="Jbig2HuffmanTable"/> class.</summary>
-    /// <param name="rangeLengths">The range length of each line.</param>
-    /// <param name="rangeLows">The range low value of each line.</param>
-    /// <param name="hasOutOfBand">Whether the last line is out-of-band.</param>
-    /// <param name="maxLength">The longest prefix code.</param>
-    private Jbig2HuffmanTable(byte[] rangeLengths, int[] rangeLows, bool hasOutOfBand, int maxLength)
+    private Jbig2HuffmanTable()
     {
-        _rangeLengths = rangeLengths;
-        _rangeLows = rangeLows;
-        HasOutOfBand = hasOutOfBand;
-        MaxLength = maxLength;
-        _firstCodes = new uint[maxLength + 1];
-        _codeCounts = new int[maxLength + 1];
-        _firstLines = new int[maxLength + 1];
-        _linesByLength = new int[rangeLengths.Length];
-        _lowerLine = rangeLengths.Length - (hasOutOfBand ? LowerOffsetWithOutOfBand : LowerOffset);
-        _outOfBandLine = hasOutOfBand ? rangeLengths.Length - 1 : -1;
     }
 
     /// <summary>Gets a value indicating whether the table has an out-of-band line.</summary>
-    internal bool HasOutOfBand { get; }
+    internal bool HasOutOfBand { get; private set; }
 
     /// <summary>Gets the longest prefix code.</summary>
-    internal int MaxLength { get; }
+    internal int MaxLength { get; private set; }
 
     /// <summary>Gets the number of lines.</summary>
-    internal int LineCount => _rangeLengths.Length;
+    internal int LineCount { get; private set; }
 
     /// <summary>Builds a table from its lines.</summary>
     /// <param name="prefixLengths">The prefix length of each line; zero means the line has no code.</param>
@@ -103,50 +91,91 @@ internal sealed partial class Jbig2HuffmanTable
     /// <param name="rangeLows">The range low value of each line.</param>
     /// <param name="hasOutOfBand">Whether the last line is out-of-band.</param>
     /// <returns>The table, or <see langword="null"/> when the codes do not fit 32 bits.</returns>
-    internal static Jbig2HuffmanTable? Create(ReadOnlySpan<int> prefixLengths, ReadOnlySpan<byte> rangeLengths, ReadOnlySpan<int> rangeLows, bool hasOutOfBand)
-    {
-        var maxLength = 0;
-        foreach (var length in prefixLengths)
-        {
-            maxLength = Math.Max(maxLength, length);
-        }
-
-        var table = new Jbig2HuffmanTable(rangeLengths.ToArray(), rangeLows.ToArray(), hasOutOfBand, maxLength);
-        return table.AssignCodes(prefixLengths) ? table : null;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Jbig2HuffmanTable? Create(ReadOnlySpan<int> prefixLengths, ReadOnlySpan<byte> rangeLengths, ReadOnlySpan<int> rangeLows, bool hasOutOfBand) =>
+        Create(prefixLengths, rangeLengths, rangeLows, hasOutOfBand, null);
 
     /// <summary>Builds a table that maps each code length's index to itself, as used for symbol IDs and run codes.</summary>
     /// <param name="codeLengths">The code length of each value.</param>
     /// <returns>The table, or <see langword="null"/> when the codes do not fit 32 bits.</returns>
-    internal static Jbig2HuffmanTable? FromCodeLengths(ReadOnlySpan<byte> codeLengths)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Jbig2HuffmanTable? FromCodeLengths(ReadOnlySpan<byte> codeLengths) =>
+        FromCodeLengths(codeLengths, null);
+
+    /// <summary>Builds a symbol-ID or run-code table for a decode.</summary>
+    /// <param name="codeLengths">The prefix length of each value.</param>
+    /// <param name="workspace">The owner, or null for a permanent table.</param>
+    /// <returns>The table, or null for invalid codes.</returns>
+    internal static Jbig2HuffmanTable? FromCodeLengths(ReadOnlySpan<byte> codeLengths, Jbig2Workspace? workspace)
     {
         var count = codeLengths.Length + DummyLines;
-        var prefixLengths = new int[count];
-        var rangeLows = new int[count];
-        for (var i = 0; i < codeLengths.Length; i++)
+        var scratch = workspace?.ScratchPools ?? new ScratchPools();
+        var prefixLengths = scratch.Ints.Rent(count);
+        var rangeLows = scratch.Ints.Rent(count);
+        var ranges = scratch.Bytes.Rent(count);
+        try
         {
-            prefixLengths[i] = codeLengths[i];
-            rangeLows[i] = i;
-        }
+            prefixLengths.AsSpan(0, count).Clear();
+            rangeLows.AsSpan(0, count).Clear();
+            ranges.AsSpan(0, count).Clear();
+            for (var i = 0; i < codeLengths.Length; i++)
+            {
+                prefixLengths[i] = codeLengths[i];
+                rangeLows[i] = i;
+            }
 
-        return Create(prefixLengths, new byte[count], rangeLows, false);
+            return Create(prefixLengths.AsSpan(0, count), ranges.AsSpan(0, count), rangeLows.AsSpan(0, count), false, workspace);
+        }
+        finally
+        {
+            scratch.Ints.Return(prefixLengths);
+            scratch.Ints.Return(rangeLows);
+            scratch.Bytes.Return(ranges);
+        }
     }
 
     /// <summary>Parses a table segment (T.88 section 7.4.13 and B.2).</summary>
     /// <param name="reader">The reader, at the segment data.</param>
     /// <returns>The table, or <see langword="null"/> when the segment is damaged.</returns>
-    internal static Jbig2HuffmanTable? Parse(ref Jbig2Reader reader)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Jbig2HuffmanTable? Parse(ref Jbig2Reader reader) =>
+        Parse(ref reader, null);
+
+    /// <summary>Parses a table segment into workspace-owned storage.</summary>
+    /// <param name="reader">The reader at the table segment.</param>
+    /// <param name="workspace">The owner, or null for a permanent table.</param>
+    /// <returns>The table, or null for damaged input.</returns>
+    internal static Jbig2HuffmanTable? Parse(ref Jbig2Reader reader, Jbig2Workspace? workspace)
     {
         if (!reader.TryReadByte(out var flags) || !reader.TryReadInt32(out var low) || !reader.TryReadInt32(out var high) || low > high)
         {
             return null;
         }
 
-        var lines = new LineList(((flags >> PrefixSizeShift) & SizeMask) + 1, ((flags >> RangeSizeShift) & SizeMask) + 1);
+        var lines = workspace?.HuffmanLines ?? new LineList();
+        lines.Begin(((flags >> PrefixSizeShift) & SizeMask) + 1, ((flags >> RangeSizeShift) & SizeMask) + 1);
         var hasOutOfBand = (flags & 1) != 0;
         return ReadLines(ref reader, lines, low, high) && ReadEndLines(ref reader, lines, low, high, hasOutOfBand)
-            ? Create(CollectionsMarshal.AsSpan(lines.PrefixLengths), CollectionsMarshal.AsSpan(lines.RangeLengths), CollectionsMarshal.AsSpan(lines.RangeLows), hasOutOfBand)
+            ? Create(CollectionsMarshal.AsSpan(lines.PrefixLengths), CollectionsMarshal.AsSpan(lines.RangeLengths), CollectionsMarshal.AsSpan(lines.RangeLows), hasOutOfBand, workspace)
             : null;
+    }
+
+    /// <summary>Returns a workspace table's arrays after all of the decode's references have expired.</summary>
+    /// <param name="scratch">The owner of the arrays.</param>
+    internal void Release(ScratchPools scratch)
+    {
+        scratch.Bytes.Return(_rangeLengths);
+        scratch.Ints.Return(_rangeLows);
+        scratch.Get<uint>().Return(_firstCodes);
+        scratch.Ints.Return(_codeCounts);
+        scratch.Ints.Return(_firstLines);
+        scratch.Ints.Return(_linesByLength);
+        _rangeLengths = [];
+        _rangeLows = [];
+        _firstCodes = [];
+        _codeCounts = [];
+        _firstLines = [];
+        _linesByLength = [];
     }
 
     /// <summary>Decodes one value.</summary>
@@ -178,6 +207,27 @@ internal sealed partial class Jbig2HuffmanTable
         }
 
         return Jbig2HuffmanResult.Error;
+    }
+
+    /// <summary>Builds a table whose working storage belongs to a decode when a workspace is supplied.</summary>
+    /// <param name="prefixLengths">The prefix lengths.</param>
+    /// <param name="rangeLengths">The range lengths.</param>
+    /// <param name="rangeLows">The range low values.</param>
+    /// <param name="hasOutOfBand">Whether the last line is out-of-band.</param>
+    /// <param name="workspace">The owner, or null for a permanent table.</param>
+    /// <returns>The table, or null for invalid codes.</returns>
+    private static Jbig2HuffmanTable? Create(ReadOnlySpan<int> prefixLengths, ReadOnlySpan<byte> rangeLengths, ReadOnlySpan<int> rangeLows, bool hasOutOfBand, Jbig2Workspace? workspace)
+    {
+        var maxLength = 0;
+        foreach (var length in prefixLengths)
+        {
+            maxLength = Math.Max(maxLength, length);
+        }
+
+        var table = workspace?.HuffmanTables.Take() ?? new();
+        workspace?.KeepHuffmanTable(table);
+        table.Initialize(rangeLengths, rangeLows, hasOutOfBand, maxLength, workspace?.ScratchPools);
+        return table.AssignCodes(prefixLengths) ? table : null;
     }
 
     /// <summary>Reads the ordinary lines of a table segment.</summary>
@@ -236,6 +286,30 @@ internal sealed partial class Jbig2HuffmanTable
 
         lines.Add((int)outOfBand, 0, 0);
         return true;
+    }
+
+    /// <summary>Copies line values and prepares cleared canonical-code indexes.</summary>
+    /// <param name="ranges">The line range lengths.</param>
+    /// <param name="lows">The line range low values.</param>
+    /// <param name="hasOutOfBand">Whether the final line is out-of-band.</param>
+    /// <param name="maxLength">The longest prefix code.</param>
+    /// <param name="scratch">The array owner, or null for permanent storage.</param>
+    private void Initialize(ReadOnlySpan<byte> ranges, ReadOnlySpan<int> lows, bool hasOutOfBand, int maxLength, ScratchPools? scratch)
+    {
+        LineCount = ranges.Length;
+        HasOutOfBand = hasOutOfBand;
+        MaxLength = maxLength;
+        _rangeLengths = scratch is null ? new byte[ranges.Length] : scratch.Bytes.Rent(ranges.Length);
+        _rangeLows = scratch is null ? new int[lows.Length] : scratch.Ints.Rent(lows.Length);
+        _firstCodes = scratch is null ? new uint[maxLength + 1] : scratch.Get<uint>().Rent(maxLength + 1);
+        _codeCounts = scratch is null ? new int[maxLength + 1] : scratch.Ints.Rent(maxLength + 1);
+        _firstLines = scratch is null ? new int[maxLength + 1] : scratch.Ints.Rent(maxLength + 1);
+        _linesByLength = scratch is null ? new int[ranges.Length] : scratch.Ints.Rent(ranges.Length);
+        ranges.CopyTo(_rangeLengths);
+        lows.CopyTo(_rangeLows);
+        _codeCounts.AsSpan(0, maxLength + 1).Clear();
+        _lowerLine = ranges.Length - (hasOutOfBand ? LowerOffsetWithOutOfBand : LowerOffset);
+        _outOfBandLine = hasOutOfBand ? ranges.Length - 1 : -1;
     }
 
     /// <summary>Assigns canonical codes by prefix length and builds the lookup index.</summary>
@@ -327,22 +401,13 @@ internal sealed partial class Jbig2HuffmanTable
 
     /// <summary>The lines of a table segment as they are read.</summary>
     [DebuggerDisplay("LineList: {PrefixLengths.Count} lines")]
-    private sealed class LineList
+    internal sealed class LineList
     {
-        /// <summary>Initializes a new instance of the <see cref="LineList"/> class.</summary>
-        /// <param name="prefixSize">The bits of a prefix length.</param>
-        /// <param name="rangeSize">The bits of a range length.</param>
-        internal LineList(int prefixSize, int rangeSize)
-        {
-            PrefixSize = prefixSize;
-            RangeSize = rangeSize;
-        }
-
         /// <summary>Gets the bits of a prefix length.</summary>
-        internal int PrefixSize { get; }
+        internal int PrefixSize { get; private set; }
 
         /// <summary>Gets the bits of a range length.</summary>
-        internal int RangeSize { get; }
+        internal int RangeSize { get; private set; }
 
         /// <summary>Gets the prefix length of each line.</summary>
         internal List<int> PrefixLengths { get; } = [];
@@ -352,6 +417,18 @@ internal sealed partial class Jbig2HuffmanTable
 
         /// <summary>Gets the range low value of each line.</summary>
         internal List<int> RangeLows { get; } = [];
+
+        /// <summary>Starts reading another table into reusable line storage.</summary>
+        /// <param name="prefixSize">The bits of a prefix length.</param>
+        /// <param name="rangeSize">The bits of a range length.</param>
+        internal void Begin(int prefixSize, int rangeSize)
+        {
+            PrefixSize = prefixSize;
+            RangeSize = rangeSize;
+            PrefixLengths.Clear();
+            RangeLengths.Clear();
+            RangeLows.Clear();
+        }
 
         /// <summary>Adds a line.</summary>
         /// <param name="prefixLength">The prefix length.</param>

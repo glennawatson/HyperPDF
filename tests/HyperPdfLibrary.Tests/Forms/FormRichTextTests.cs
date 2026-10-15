@@ -22,6 +22,53 @@ public sealed class FormRichTextTests
     private const string StyledValue =
         "(<body xmlns=\"http://www.w3.org/1999/xhtml\"><p>Hello <b>bold</b> <span style=\"color:#FF0000;font-size:14pt\">red</span> <u>under</u></p></body>)";
 
+    /// <summary>Repeated appearances observe changes to both rich XML and its default style.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RepeatedRichAppearanceObservesSourceChanges()
+    {
+        using var document = FormTestPdf.Open(FormTestPdf.Helvetica, $"/FT /Tx /T (Rich) {RichMultiline} /DS (font-size:12pt) /RV (<body xmlns=\"{XhtmlNamespace}\"><p>First</p></body>)");
+        var form = PdfDocumentForms.GetForm(document);
+        _ = PdfFormEditing.RegenerateAppearance(form, 0, FormTestPdf.Widget);
+        var first = FormTestPdf.Content(document);
+        _ = PdfFormEditing.RegenerateAppearance(form, 0, FormTestPdf.Widget);
+        await Assert.That(FormTestPdf.Content(document)).IsEqualTo(first);
+
+        FormTestPdf.Annotation(document).Set(KnownName.DS, PdfValue.FromString("font-size:18pt"u8.ToArray()));
+        _ = PdfFormEditing.RegenerateAppearance(form, 0, FormTestPdf.Widget);
+        await Assert.That(FormTestPdf.Content(document)).Contains("18 Tf");
+
+        FormTestPdf.Annotation(document).Set(document.Objects.Names.Intern("RV"u8), PdfValue.FromString(PdfText.Encode($"<body xmlns=\"{XhtmlNamespace}\"><p>Next</p></body>")));
+        _ = PdfFormEditing.RegenerateAppearance(form, 0, FormTestPdf.Widget);
+        await Assert.That(FormTestPdf.Content(document)).Contains("(Next) Tj");
+        await Assert.That(FormTestPdf.Content(document)).DoesNotContain("(First) Tj");
+    }
+
+    /// <summary>Chunked XML text keeps characters and collapsed spaces across buffer boundaries.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LongTextKeepsWhitespaceAcrossReadChunks()
+    {
+        const int prefixLength = 511;
+        var prefix = new string('a', prefixLength);
+        var xml = $"<body xmlns=\"{XhtmlNamespace}\"><p>{prefix}   tail</p><p>next</p></body>";
+
+        await Assert.That(PdfRichText.GetPlainText(xml)).IsEqualTo($"{prefix} tail\nnext");
+    }
+
+    /// <summary>An annotation's XML stream is read using its declared encoding.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PopupStreamHonorsItsXmlEncoding()
+    {
+        using var document = FormDesignDocuments.OpenPlain(1);
+        var annotation = new PdfDictionary(document.Objects);
+        var xml = System.Text.Encoding.Unicode.GetBytes($"<?xml version=\"1.0\" encoding=\"utf-16\"?><body xmlns=\"{XhtmlNamespace}\"><p>café</p></body>");
+        annotation.Set(KnownName.RC, PdfValue.FromStream(new(new(document.Objects), xml)));
+
+        await Assert.That(PdfRichText.GetPopupText(annotation)).IsEqualTo("café");
+    }
+
     /// <summary>Runs in other fonts, sizes and colours are drawn in them, and the fonts go in the appearance's resources and the form's defaults.</summary>
     /// <returns>A task.</returns>
     [Test]

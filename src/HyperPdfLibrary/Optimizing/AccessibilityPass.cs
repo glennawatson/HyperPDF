@@ -24,9 +24,8 @@ internal static class AccessibilityPass
     /// <summary>Fills in the missing entries.</summary>
     /// <param name="document">The working copy.</param>
     /// <param name="options">The options, which may give a language.</param>
-    /// <param name="names">The optimiser's names.</param>
     /// <param name="report">Receives the changes.</param>
-    internal static void Run(PdfDocument document, PdfOptimizeOptions options, OptimizerNames names, OptimizeReportBuilder report)
+    internal static void Run(PdfDocument document, in PdfOptimizeOptions options, OptimizeReportBuilder report)
     {
         var store = document.Objects;
         var root = store.Trailer.GetRaw(KnownName.Root);
@@ -36,12 +35,17 @@ internal static class AccessibilityPass
         }
 
         var xmp = PdfDocumentMetadata.GetXmp(document);
-        var copy = catalog.Clone();
-        var changed = FillLanguage(copy, options.Language, xmp, report);
-        var title = FillTitle(document, xmp, report);
-        changed |= title && ShowTitle(copy, store, names, report);
-        changed |= MarkTagged(copy, names, report);
-        if (!changed)
+
+        // The catalog is copied only when one of the steps changes it.
+        PdfDictionary? copy = null;
+        FillLanguage(catalog, ref copy, options.Language, xmp, report);
+        if (FillTitle(document, xmp, report))
+        {
+            ShowTitle(catalog, ref copy, store, report);
+        }
+
+        MarkTagged(catalog, ref copy, report);
+        if (copy is null)
         {
             return;
         }
@@ -51,16 +55,16 @@ internal static class AccessibilityPass
     }
 
     /// <summary>Sets /Lang when it is missing.</summary>
-    /// <param name="catalog">The catalog copy.</param>
+    /// <param name="catalog">The catalog.</param>
+    /// <param name="copy">The catalog copy to change, made on first use.</param>
     /// <param name="preferred">The language from the options, or <see langword="null"/>.</param>
     /// <param name="xmp">The document's XMP, or <see langword="null"/>.</param>
     /// <param name="report">Receives the change.</param>
-    /// <returns><see langword="true"/> when the catalog changed.</returns>
-    private static bool FillLanguage(PdfDictionary catalog, string? preferred, XmpMetadata? xmp, OptimizeReportBuilder report)
+    private static void FillLanguage(PdfDictionary catalog, ref PdfDictionary? copy, string? preferred, XmpMetadata? xmp, OptimizeReportBuilder report)
     {
         if (catalog.GetText(KnownName.Lang) is { Length: > 0 })
         {
-            return false;
+            return;
         }
 
         var chosen = preferred;
@@ -72,12 +76,12 @@ internal static class AccessibilityPass
         if (string.IsNullOrWhiteSpace(chosen))
         {
             report.Skip(PdfOptimizeCategory.Accessibility, 0, "The document has no /Lang and none is known; set the language option to add one.");
-            return false;
+            return;
         }
 
-        catalog.Set(KnownName.Lang, PdfValue.FromString(PdfText.Encode(chosen)));
+        copy ??= catalog.Clone();
+        copy.Set(KnownName.Lang, PdfValue.FromString(PdfText.Encode(chosen)));
         report.Noted(PdfOptimizeCategory.Accessibility, 0, $"Set the document language to {chosen}.");
-        return true;
     }
 
     /// <summary>
@@ -171,57 +175,55 @@ internal static class AccessibilityPass
     }
 
     /// <summary>Sets /ViewerPreferences /DisplayDocTitle when it is not already set.</summary>
-    /// <param name="catalog">The catalog copy.</param>
+    /// <param name="catalog">The catalog.</param>
+    /// <param name="catalogCopy">The catalog copy to change, made on first use.</param>
     /// <param name="store">The working store.</param>
-    /// <param name="names">The optimiser's names.</param>
     /// <param name="report">Receives the change.</param>
-    /// <returns><see langword="true"/> when the catalog changed.</returns>
-    private static bool ShowTitle(PdfDictionary catalog, PdfObjectStore store, OptimizerNames names, OptimizeReportBuilder report)
+    private static void ShowTitle(PdfDictionary catalog, ref PdfDictionary? catalogCopy, PdfObjectStore store, OptimizeReportBuilder report)
     {
         var raw = catalog.GetRaw(KnownName.ViewerPreferences);
         var preferences = StoreReading.Resolve(store, raw).AsDictionary();
-        if (preferences?.GetBoolean(names.DisplayDocTitle, false) == true)
+        if (preferences?.GetBoolean(OptimizerNames.DisplayDocTitle, false) == true)
         {
-            return false;
+            return;
         }
 
         var copy = preferences?.Clone() ?? new PdfDictionary(store, 1);
-        copy.Set(names.DisplayDocTitle, PdfValue.FromBoolean(true));
+        copy.Set(OptimizerNames.DisplayDocTitle, PdfValue.FromBoolean(true));
         if (raw.IsReference)
         {
             StoreEditing.Replace(store, raw.AsReference(), PdfValue.FromDictionary(copy));
         }
         else
         {
-            catalog.Set(KnownName.ViewerPreferences, PdfValue.FromDictionary(copy));
+            catalogCopy ??= catalog.Clone();
+            catalogCopy.Set(KnownName.ViewerPreferences, PdfValue.FromDictionary(copy));
         }
 
         report.Noted(PdfOptimizeCategory.Accessibility, 0, "Viewers now show the document title instead of the file name.");
-        return !raw.IsReference;
     }
 
     /// <summary>Sets /MarkInfo /Marked when the document has a structure tree and does not say it is tagged.</summary>
-    /// <param name="catalog">The catalog copy.</param>
-    /// <param name="names">The optimiser's names.</param>
+    /// <param name="catalog">The catalog.</param>
+    /// <param name="catalogCopy">The catalog copy to change, made on first use.</param>
     /// <param name="report">Receives the change.</param>
-    /// <returns><see langword="true"/> when the catalog changed.</returns>
-    private static bool MarkTagged(PdfDictionary catalog, OptimizerNames names, OptimizeReportBuilder report)
+    private static void MarkTagged(PdfDictionary catalog, ref PdfDictionary? catalogCopy, OptimizeReportBuilder report)
     {
         if (catalog.GetRaw(KnownName.StructTreeRoot).IsNull)
         {
-            return false;
+            return;
         }
 
         var markInfo = catalog.GetDictionary(KnownName.MarkInfo);
-        if (markInfo?.GetBoolean(names.Marked, false) == true)
+        if (markInfo?.GetBoolean(OptimizerNames.Marked, false) == true)
         {
-            return false;
+            return;
         }
 
         var copy = markInfo?.Clone() ?? new PdfDictionary(catalog.Owner, 1);
-        copy.Set(names.Marked, PdfValue.FromBoolean(true));
-        catalog.Set(KnownName.MarkInfo, PdfValue.FromDictionary(copy));
+        copy.Set(OptimizerNames.Marked, PdfValue.FromBoolean(true));
+        catalogCopy ??= catalog.Clone();
+        catalogCopy.Set(KnownName.MarkInfo, PdfValue.FromDictionary(copy));
         report.Noted(PdfOptimizeCategory.Accessibility, 0, "Marked the document as tagged, as it has a structure tree.");
-        return true;
     }
 }

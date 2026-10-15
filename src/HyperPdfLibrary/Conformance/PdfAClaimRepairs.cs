@@ -34,10 +34,10 @@ internal static class PdfAClaimRepairs
         }
     }
 
-    /// <summary>Converts a written file at its claimed level, downloading font data the conversion needs.</summary>
+    /// <summary>Converts a written file at its claimed level, using the fonts embedded in the library.</summary>
     /// <param name="output">The written file.</param>
     /// <param name="level">The level it claims.</param>
-    /// <param name="cancellationToken">Stops the conversion and the downloads.</param>
+    /// <param name="cancellationToken">Stops the conversion.</param>
     /// <returns>The repair; its file is <see langword="null"/> when the conversion refused.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     internal static async ValueTask<PdfAClaimRepair> RepairAsync(byte[] output, PdfALevel level, CancellationToken cancellationToken)

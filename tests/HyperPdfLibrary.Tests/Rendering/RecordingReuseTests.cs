@@ -8,6 +8,7 @@ using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Layers;
 using HyperPdfLibrary.Rendering;
 using HyperPdfLibrary.Structure.Tagged;
+using HyperPdfLibrary.Text;
 
 namespace HyperPdfLibrary.Tests.Rendering;
 
@@ -78,6 +79,51 @@ public sealed class RecordingReuseTests
         await Assert.That(second.Path.Detach().IsEmpty).IsTrue();
     }
 
+    /// <summary>Documents share interpreters only when their host supplies the same drawing service instance.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task InterpreterReuseBelongsToTheHostServices()
+    {
+        var bytes = new RenderTestPdf(Size, Size).ToBytes();
+        var shared = SkiaTestRegistration.CreateServices();
+        using var firstDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = shared });
+        using var secondDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = shared });
+        using var isolatedDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = SkiaTestRegistration.CreateServices() });
+        var device = new NullPictureDevice(new(0, 0, Size, Size));
+        var first = ContentInterpreter.Rent(PdfDocumentRendering.GetRenderCache(firstDocument), device, 0);
+        first.Dispose();
+        using var reused = ContentInterpreter.Rent(PdfDocumentRendering.GetRenderCache(secondDocument), device, 0);
+        using var isolated = ContentInterpreter.Rent(PdfDocumentRendering.GetRenderCache(isolatedDocument), device, 0);
+
+        await Assert.That(ReferenceEquals(first, reused)).IsTrue();
+        await Assert.That(ReferenceEquals(first, isolated)).IsFalse();
+    }
+
+    /// <summary>Closed documents share cleaned extraction state only within their host services.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TextBuildReuseBelongsToTheHostServices()
+    {
+        var bytes = new RenderTestPdf(Size, Size).ToBytes();
+        var shared = SkiaTestRegistration.CreateServices();
+        using var secondDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = shared });
+        using var isolatedDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = SkiaTestRegistration.CreateServices() });
+        TextPageBuildState first;
+        using (var firstDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = shared }))
+        {
+            first = TextPageBuild.Rent(firstDocument);
+            TextPageBuild.Return(firstDocument, first);
+        }
+
+        var reused = TextPageBuild.Rent(secondDocument);
+        var isolated = TextPageBuild.Rent(isolatedDocument);
+        TextPageBuild.Return(secondDocument, reused);
+        TextPageBuild.Return(isolatedDocument, isolated);
+
+        await Assert.That(ReferenceEquals(first, reused)).IsTrue();
+        await Assert.That(ReferenceEquals(first, isolated)).IsFalse();
+    }
+
     /// <summary>Renting and disposing an interpreter again and again allocates no managed memory once one is idle.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -113,10 +159,13 @@ public sealed class RecordingReuseTests
     {
         var page = new PdfRect(0, 0, Size, Size);
         var other = new PdfRect(0, 0, Size, Size + 1);
+        var clips = SkiaTestRegistration.CreateServices().PageClips;
+        var separate = SkiaTestRegistration.CreateServices().PageClips;
 
-        await Assert.That(PageClips.Get(page)).IsSameReferenceAs(PageClips.Get(page));
-        await Assert.That(PageClips.Get(other).Bounds.Bottom).IsEqualTo(Size + 1);
-        await Assert.That(PageClips.Get(page).Bounds.Bottom).IsEqualTo(Size);
+        await Assert.That(clips.Get(page)).IsSameReferenceAs(clips.Get(page));
+        await Assert.That(clips.Get(other).Bounds.Bottom).IsEqualTo(Size + 1);
+        await Assert.That(clips.Get(page).Bounds.Bottom).IsEqualTo(Size);
+        await Assert.That(clips.Get(page)).IsNotSameReferenceAs(separate.Get(page));
     }
 
     /// <summary>Recording one page's marked content twice, with another page between, gives the same result each time.</summary>

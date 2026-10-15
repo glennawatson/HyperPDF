@@ -75,13 +75,8 @@ public sealed class StreamEncodingTests
     [Test]
     public async Task Recompress_PdfUaClaim_NeverWritesLzw()
     {
-        var packet = AccessibilityPdfs.Packet(PdfUaPartOne, true);
-        var source = MiniPdf.Build(
-            "<< /Type /Catalog /Pages 2 0 R /Metadata 5 0 R >>",
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            PageObject,
-            MiniPdf.Stream(string.Empty, ContentText()),
-            MiniPdf.Stream("/Type /Metadata /Subtype /XML", packet));
+        // The save checks a PDF/UA claim, so the file is tagged and its content is an artifact.
+        var source = AccessibilityPdfs.Build(new() { Content = $"/Artifact BMC\n{ContentText()}EMC\n", Layout = static (_, _) => string.Empty });
 
         var saved = Save(source, PdfStreamEncoding.Lzw);
 

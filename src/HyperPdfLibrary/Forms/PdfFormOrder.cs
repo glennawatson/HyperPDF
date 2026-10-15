@@ -1,7 +1,9 @@
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure.Tagged;
@@ -37,11 +39,12 @@ public static class PdfFormOrder
             return;
         }
 
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var start = output.Count;
         for (var i = 0; i < order.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (order.GetDictionary(i)is { } field && FieldAttributes.GetFullName(field)is { Length: > 0 } name && seen.Add(name))
+            if (order.GetDictionary(i)is { } field && FieldAttributes.GetFullName(field)is { Length: > 0 } name
+                && !CollectionsMarshal.AsSpan(output)[start..].Contains(name))
             {
                 output.Add(name);
             }
@@ -101,32 +104,25 @@ public static class PdfFormOrder
         var order = PdfFormOrder.GetTabOrder(form, pageIndex);
         var page = PdfDocumentPages.GetPage(form.Document, pageIndex);
         var ordinals = order == PdfTabOrder.Structure ? PdfFormOrder.ReadStructureOrdinals(form, cancellationToken) : null;
-        var keys = new List<TabKey>(annotations.Count);
-        for (var i = 0; i < annotations.Count; i++)
+        if (order == PdfTabOrder.Unspecified || (order == PdfTabOrder.Structure && ordinals is null))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (PdfFormReading.Resolve(form, pageIndex, annotations, i)is { Type: not PdfFieldType.Unknown } widget)
+            AppendAnnotationOrder(form, pageIndex, annotations, output, cancellationToken);
+            return;
+        }
+
+        var keys = ArrayPool<TabKey>.Shared.Rent(annotations.Count);
+        try
+        {
+            var count = ReadKeys(form, page, pageIndex, annotations, ordinals, keys, cancellationToken);
+            SortKeys(keys.AsSpan(0, count), order);
+            for (var i = 0; i < count; i++)
             {
-                keys.Add(PdfFormOrder.CreateKey(page, widget, ordinals));
+                output.Add(keys[i].Index);
             }
         }
-
-        if (order == PdfTabOrder.Row)
+        finally
         {
-            keys.Sort(PdfFormOrder.CompareRows);
-        }
-        else if (order == PdfTabOrder.Column)
-        {
-            keys.Sort(PdfFormOrder.CompareColumns);
-        }
-        else if (ordinals is not null)
-        {
-            keys.Sort(PdfFormOrder.CompareStructure);
-        }
-
-        foreach (var key in keys)
-        {
-            output.Add(key.Index);
+            ArrayPool<TabKey>.Shared.Return(keys);
         }
     }
 
@@ -176,6 +172,78 @@ public static class PdfFormOrder
         return ordinals;
     }
 
+    /// <summary>Appends widgets in annotation order without allocating sort keys.</summary>
+    /// <param name="form">The form.</param>
+    /// <param name="pageIndex">The page.</param>
+    /// <param name="annotations">The annotations.</param>
+    /// <param name="output">Receives widget indexes.</param>
+    /// <param name="cancellationToken">Cancels the walk.</param>
+    private static void AppendAnnotationOrder(PdfForm form, int pageIndex, PdfArray annotations, List<int> output, CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < annotations.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (PdfFormReading.Resolve(form, pageIndex, annotations, i) is { Type: not PdfFieldType.Unknown })
+            {
+                output.Add(i);
+            }
+        }
+    }
+
+    /// <summary>Reads the sort keys of a page's widgets.</summary>
+    /// <param name="form">The form.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="pageIndex">The page index.</param>
+    /// <param name="annotations">The annotations.</param>
+    /// <param name="ordinals">The structure order, when present.</param>
+    /// <param name="keys">Receives keys.</param>
+    /// <param name="cancellationToken">Cancels the walk.</param>
+    /// <returns>The key count.</returns>
+    private static int ReadKeys(PdfForm form, PdfPage page, int pageIndex, PdfArray annotations, Dictionary<int, int>? ordinals, Span<TabKey> keys, CancellationToken cancellationToken)
+    {
+        var count = 0;
+        for (var i = 0; i < annotations.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (PdfFormReading.Resolve(form, pageIndex, annotations, i) is not { Type: not PdfFieldType.Unknown } widget)
+            {
+                continue;
+            }
+
+            keys[count] = CreateKey(page, widget, ordinals);
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>Sorts tab keys using the requested order.</summary>
+    /// <param name="keys">The keys.</param>
+    /// <param name="order">The requested order.</param>
+    private static void SortKeys(Span<TabKey> keys, PdfTabOrder order)
+    {
+        switch (order)
+        {
+            case PdfTabOrder.Row:
+            {
+                keys.Sort(CompareRows);
+                break;
+            }
+
+            case PdfTabOrder.Column:
+            {
+                keys.Sort(CompareColumns);
+                break;
+            }
+
+            default:
+            {
+                keys.Sort(CompareStructure);
+                break;
+            }
+        }
+    }
+
     /// <summary>Orders keys by row, then by column, then by <c>/Annots</c> position.</summary>
     /// <param name = "a">The first key.</param>
     /// <param name = "b">The second key.</param>
@@ -223,7 +291,7 @@ public static class PdfFormOrder
     /// <param name = "widget">The widget.</param>
     /// <param name = "ordinals">The structure tree places of annotation objects by object number, or <see langword="null"/>.</param>
     /// <returns>The key.</returns>
-    private static TabKey CreateKey(PdfPage page, ResolvedWidget widget, Dictionary<int, int>? ordinals)
+    private static TabKey CreateKey(PdfPage page, in ResolvedWidget widget, Dictionary<int, int>? ordinals)
     {
         // Rows and columns follow what the reader sees, so the position is in viewer space, where y grows downwards.
         var rect = widget.Widget.TryGetRectangle(KnownName.Rect, out var found) ? page.ToViewerRectangle(found) : default;

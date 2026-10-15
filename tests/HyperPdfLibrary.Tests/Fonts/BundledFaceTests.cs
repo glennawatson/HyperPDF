@@ -90,7 +90,6 @@ public sealed class BundledFaceTests
         var standard = StandardFonts.Find(System.Text.Encoding.UTF8.GetBytes(baseFont));
         var matcher = new SystemFontMatcher(null, _resources);
 
-        await matcher.EnsureAsync(new(baseFont, standard, FontFlags.Nonsymbolic, 0, CjkScript.None), CancellationToken.None);
         var face = matcher.Match(new(baseFont, standard, FontFlags.Nonsymbolic, 0, CjkScript.None));
 
         await Assert.That(face.IsBundled).IsTrue();
@@ -102,8 +101,6 @@ public sealed class BundledFaceTests
     [Test]
     public async Task AliasesUseTheBundledFace()
     {
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Sans, true, false, CancellationToken.None);
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Serif, false, false, CancellationToken.None);
         var matcher = new SystemFontMatcher(null, _resources);
 
         var arial = matcher.Match(new("Arial,Bold", StandardFont.None, FontFlags.Nonsymbolic, 0, CjkScript.None));
@@ -118,10 +115,6 @@ public sealed class BundledFaceTests
     [Test]
     public async Task FlagsChooseTheGenericFace()
     {
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Serif, false, false, CancellationToken.None);
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Fixed, false, false, CancellationToken.None);
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Sans, true, false, CancellationToken.None);
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Sans, false, true, CancellationToken.None);
         var matcher = new SystemFontMatcher(null, _resources);
 
         var serif = matcher.Match(new(UnknownFont, StandardFont.None, FontFlags.Serif | FontFlags.Nonsymbolic, RegularWeight, CjkScript.None));
@@ -140,9 +133,6 @@ public sealed class BundledFaceTests
     [Test]
     public async Task BundledFacesMatchStandardWidths()
     {
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Sans, false, false, CancellationToken.None);
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Fixed, false, false, CancellationToken.None);
-
         var sans = BundledFaces.Get(_resources, BundledFamily.Sans, false, false)!;
         var mono = BundledFaces.Get(_resources, BundledFamily.Fixed, false, false)!;
 
@@ -161,7 +151,6 @@ public sealed class BundledFaceTests
             {
                 foreach (var italic in new[] { false, true })
                 {
-                    await BundledFaces.EnsureAsync(_resources, family, bold, italic, CancellationToken.None);
                     var face = BundledFaces.Get(_resources, family, bold, italic);
                     await Assert.That(face).IsNotNull();
                     var path = face!.BuildOutline(face.GetGlyph(CodeA));
@@ -177,9 +166,6 @@ public sealed class BundledFaceTests
     [Test]
     public async Task SymbolFontsDrawFromBundledFaces()
     {
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Symbol, false, false, CancellationToken.None);
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Dingbats, false, false, CancellationToken.None);
-
         using var symbol = new FontTestDocument(new() { Subtype = Type1, BaseFont = SymbolFont, Flags = -1 }, _services);
         using var dingbats = new FontTestDocument(new() { Subtype = Type1, BaseFont = "ZapfDingbats", Flags = -1 }, _services);
 
@@ -193,8 +179,6 @@ public sealed class BundledFaceTests
     [Test]
     public async Task HelveticaDrawsFromTheBundledFace()
     {
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Sans, false, false, CancellationToken.None);
-
         using var document = new FontTestDocument(new() { Subtype = Type1, BaseFont = "Helvetica", Flags = -1 }, _services);
 
         await Assert.That(FontProbe.Bounds(document.Font, CodeA).IsEmpty).IsFalse();
@@ -207,7 +191,6 @@ public sealed class BundledFaceTests
     {
         const string cmap = "/CIDInit /ProcSet findresource begin 12 dict begin begincmap 1 begincodespacerange <00> <FF> endcodespacerange "
             + "1 beginbfchar <61> <F061> endbfchar endcmap end end";
-        await BundledFaces.EnsureAsync(_resources, BundledFamily.Symbol, false, false, CancellationToken.None);
         using var symbol = new FontTestDocument(new() { Subtype = Type1, BaseFont = SymbolFont, Flags = -1, ToUnicode = cmap }, _services);
 
         await Assert.That(FontProbe.Text(symbol.Font, CodeAlpha)).IsEqualTo("α");

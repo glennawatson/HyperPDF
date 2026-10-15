@@ -108,14 +108,14 @@ internal sealed class GpuTileDrawOperation : ICustomDrawOperation
         try
         {
             using var lease = feature.Lease();
-            if (lease.GrContext is not { } gpu)
+            if (lease.GrContext is not { } gpu || lease.ImageRetirement is not { } retirement)
             {
                 _tile.MarkGpuUnavailable();
                 return false;
             }
 
             var rect = new SKRect((float)Bounds.Left, (float)Bounds.Top, (float)Bounds.Right, (float)Bounds.Bottom);
-            return _tile.DrawGpu(lease.SkCanvas, gpu, lease.SurfaceColorType, rect, _smooth ? SmoothSampling : SharpSampling);
+            return _tile.DrawGpu(lease.SkCanvas, gpu, retirement, lease.SurfaceColorType, rect, _smooth ? SmoothSampling : SharpSampling);
         }
         catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
         {

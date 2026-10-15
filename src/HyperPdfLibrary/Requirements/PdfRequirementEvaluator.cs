@@ -50,7 +50,7 @@ internal static class PdfRequirementEvaluator
         }
 
         var decision = Decide(unmet, total);
-        return new(results, total, decision, PdfRequirementText.Summarize(results, decision));
+        return new(Array.AsReadOnly(results), total, decision, PdfRequirementText.Summarize(results, decision));
     }
 
     /// <summary>Decides what the unmet requirements allow.</summary>

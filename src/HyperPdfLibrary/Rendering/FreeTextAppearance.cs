@@ -2,9 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Buffers;
 using System.Diagnostics;
-using System.Text;
 using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
@@ -19,9 +17,9 @@ namespace HyperPdfLibrary.Rendering;
 /// <param name="Frame">The rectangle the background and border are drawn in: <c>/Rect</c> pulled in by half the border.</param>
 /// <param name="Background">The background colour, or none.</param>
 /// <param name="Border">The border width and dash.</param>
-/// <param name="StrokeColor">The text colour as a stroking colour operator, such as "0 G".</param>
+/// <param name="TextColor">The text colour, which the border is stroked in.</param>
 [DebuggerDisplay("FreeTextAppearance: {Rect}")]
-internal readonly record struct FreeTextAppearance(PdfRectangle Rect, PdfRectangle Frame, PaintColor Background, PaintStroke Border, string StrokeColor) : IAppearancePlan<FreeTextAppearance>
+internal readonly record struct FreeTextAppearance(PdfRectangle Rect, PdfRectangle Frame, PaintColor Background, PaintStroke Border, DaColor TextColor) : IAppearancePlan<FreeTextAppearance>
 {
     /// <inheritdoc/>
     public PdfRectangle Bounds => Rect;
@@ -36,7 +34,7 @@ internal readonly record struct FreeTextAppearance(PdfRectangle Rect, PdfRectang
         var border = PaintStroke.Read(annotation);
         var form = annotation.Owner is { } owner ? owner.Catalog.GetDictionary(KnownName.AcroForm) : null;
         var text = DefaultAppearance.Find(annotation, annotation, form);
-        plan = new(rect, AppearanceRects.Inset(rect, border.Width * AppearanceRects.Half), PaintColor.Read(annotation.GetArray(KnownName.C), PaintColor.None), border, text.StrokeColor);
+        plan = new(rect, AppearanceRects.Inset(rect, border.Width * AppearanceRects.Half), PaintColor.Read(annotation.GetArray(KnownName.C), PaintColor.None), border, text.Color);
         return true;
     }
 
@@ -55,7 +53,7 @@ internal readonly record struct FreeTextAppearance(PdfRectangle Rect, PdfRectang
             return;
         }
 
-        WriteOperator(ref builder, StrokeColor);
+        TextColor.WriteStroke(ref builder);
         Border.Apply(ref builder);
         builder.Rectangle(Frame.Left, Frame.Bottom, Frame.Width, Frame.Height);
         builder.Stroke();
@@ -75,26 +73,8 @@ internal readonly record struct FreeTextAppearance(PdfRectangle Rect, PdfRectang
         var annotation = context.Annotation;
         var form = context.Store.Catalog.GetDictionary(KnownName.AcroForm);
         var widget = new AppearanceContext(context.Store, annotation, annotation, PdfFieldType.Text, PdfFieldFlags.Multiline, form, context.Page.Resources) { Fonts = context.Cache.Fonts };
-        var text = FormTextAppearance.CreateText(widget, annotation.GetText(KnownName.Contents) ?? string.Empty);
+        var contents = annotation.Get(KnownName.Contents);
+        var text = FormTextAppearance.CreateText(widget, contents.Kind == PdfKind.String ? contents : default);
         return frame.Value with { Overlay = text };
-    }
-
-    /// <summary>Writes an operator the default appearance string holds, followed by a line break.</summary>
-    /// <param name="builder">The content.</param>
-    /// <param name="text">The operator, in Latin-1 characters.</param>
-    private static void WriteOperator(ref PdfContentBuilder builder, string text)
-    {
-        // The builder may keep the span it is given, so the bytes live in a pooled array rather than on the stack.
-        var rented = ArrayPool<byte>.Shared.Rent(text.Length + 1);
-        try
-        {
-            var written = Encoding.Latin1.GetBytes(text, rented);
-            rented[written] = (byte)'\n';
-            builder.WriteRaw(rented.AsSpan(0, written + 1));
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(rented);
-        }
     }
 }

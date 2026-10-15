@@ -2,7 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Fonts.Programs;
 using HyperPdfLibrary.Optimizing;
@@ -56,56 +58,81 @@ internal static class TrueTypeRenumberer
     /// <param name="font">The face; it must have TrueType outlines.</param>
     /// <param name="facts">The face's facts.</param>
     /// <param name="shown">The original glyphs to keep, which become glyphs 1 upward in this order; glyph 0 is always first.</param>
+    /// <param name="state">The document's reusable embedding buffers.</param>
     /// <returns>The new font, or <see langword="null"/> when the outlines cannot be read.</returns>
-    internal static SubsetProgram? Subset(SfntFont font, FontFacts facts, ReadOnlySpan<int> shown)
+    internal static SubsetProgram? Subset(SfntFont font, FontFacts facts, ReadOnlySpan<int> shown, PdfFontEmbeddingState state)
     {
         var glyf = font.Table(SfntTags.Glyf);
         var head = font.Table(SfntTags.Head);
         var longLoca = head.Length >= HeadSize && BinaryPrimitives.ReadInt16BigEndian(head[HeadLocaFormat..]) == 1;
-        if (!TrueTypeLocations.TryRead(font.Table(SfntTags.Loca), glyf.Length, facts.GlyphCount, longLoca, out var offsets))
+        var count = Math.Max(facts.GlyphCount, 0);
+        if (count == 0)
         {
             return null;
         }
 
-        var order = Order(glyf, offsets, shown);
-        var data = Rebuild(font, facts, glyf, offsets, order);
-        return new(data, [.. order], false);
+        var offsets = ArrayPool<int>.Shared.Rent(count + 1);
+        var order = ScratchList<int>.Rent(ref state.GlyphOrder, shown.Length + 1);
+        try
+        {
+            var used = offsets.AsSpan(0, count + 1);
+            if (!TrueTypeLocations.TryRead(font.Table(SfntTags.Loca), glyf.Length, count, longLoca, used))
+            {
+                return null;
+            }
+
+            Order(glyf, used, shown, order);
+            var data = Rebuild(font, facts, glyf, used, order, state);
+            return new(data, [.. order], false);
+        }
+        finally
+        {
+            ScratchList<int>.Return(ref state.GlyphOrder, order);
+            ArrayPool<int>.Shared.Return(offsets);
+        }
     }
 
     /// <summary>Lists the glyphs to keep: glyph 0, the shown glyphs, then the parts of composite glyphs.</summary>
     /// <param name="glyf">The /glyf table.</param>
     /// <param name="offsets">The glyph offsets into /glyf.</param>
     /// <param name="shown">The shown glyphs.</param>
-    /// <returns>The original glyph of each new glyph.</returns>
-    private static List<int> Order(ReadOnlySpan<byte> glyf, int[] offsets, ReadOnlySpan<int> shown)
+    /// <param name="order">Receives the original glyph of each new glyph.</param>
+    private static void Order(ReadOnlySpan<byte> glyf, ReadOnlySpan<int> offsets, ReadOnlySpan<int> shown, List<int> order)
     {
         var count = offsets.Length - 1;
-        var order = new List<int>(shown.Length + 1) { 0 };
-        var seen = new bool[count];
-        seen[0] = true;
-        foreach (var glyph in shown)
+        var seenBuffer = ArrayPool<bool>.Shared.Rent(count);
+        try
         {
-            Add(glyph, seen, order);
-        }
-
-        // The list grows while it is walked: each composite glyph's parts are appended once.
-        for (var i = 0; i < order.Count; i++)
-        {
-            var walker = new CompositeWalker(glyf[offsets[order[i]]..offsets[order[i] + 1]]);
-            while (walker.MoveNext())
+            var seen = seenBuffer.AsSpan(0, count);
+            seen.Clear();
+            order.Add(0);
+            seen[0] = true;
+            foreach (var glyph in shown)
             {
-                Add(walker.Glyph, seen, order);
+                Add(glyph, seen, order);
+            }
+
+            // The list grows while it is walked: each composite glyph's parts are appended once.
+            for (var i = 0; i < order.Count; i++)
+            {
+                var walker = new CompositeWalker(glyf[offsets[order[i]]..offsets[order[i] + 1]]);
+                while (walker.MoveNext())
+                {
+                    Add(walker.Glyph, seen, order);
+                }
             }
         }
-
-        return order;
+        finally
+        {
+            ArrayPool<bool>.Shared.Return(seenBuffer);
+        }
     }
 
     /// <summary>Adds a glyph to the list unless it is outside the font or already there.</summary>
     /// <param name="glyph">The glyph.</param>
     /// <param name="seen">Which glyphs are in the list.</param>
     /// <param name="order">The list.</param>
-    private static void Add(int glyph, bool[] seen, List<int> order)
+    private static void Add(int glyph, Span<bool> seen, List<int> order)
     {
         if ((uint)glyph >= (uint)seen.Length || seen[glyph])
         {
@@ -122,39 +149,67 @@ internal static class TrueTypeRenumberer
     /// <param name="glyf">The /glyf table.</param>
     /// <param name="offsets">The glyph offsets into /glyf.</param>
     /// <param name="order">The original glyph of each new glyph.</param>
+    /// <param name="state">The document's reusable embedding buffers.</param>
     /// <returns>The font file.</returns>
-    private static byte[] Rebuild(SfntFont font, FontFacts facts, ReadOnlySpan<byte> glyf, int[] offsets, List<int> order)
+    private static byte[] Rebuild(SfntFont font, FontFacts facts, ReadOnlySpan<byte> glyf, ReadOnlySpan<int> offsets, List<int> order, PdfFontEmbeddingState state)
     {
-        var map = new int[offsets.Length - 1];
-        for (var i = 0; i < order.Count; i++)
+        var mapBuffer = ArrayPool<int>.Shared.Rent(offsets.Length - 1);
+        try
         {
-            map[order[i]] = i;
-        }
-
-        var newGlyf = WriteGlyphs(glyf, offsets, order, map, out var loca);
-        var entries = new List<SfntEntry>(Tables.Length + RebuiltTables)
-        {
-            new(SfntTags.Glyf, newGlyf),
-            new(SfntTags.Loca, loca),
-            new(SfntTags.Head, HeadTable(font)),
-            new(SfntTags.Hhea, Header(font, SfntTags.Hhea, HheaMetricCount, order.Count, HheaSize)),
-            new(SfntTags.Maxp, Header(font, SfntTags.Maxp, MaxpGlyphs, order.Count, 0)),
-            new(SfntTags.Hmtx, Metrics(font, facts, order)),
-        };
-        foreach (var tag in Tables)
-        {
-            if (font.TableMemory(tag) is { IsEmpty: false } table)
+            var map = mapBuffer.AsSpan(0, offsets.Length - 1);
+            map.Clear();
+            for (var i = 0; i < order.Count; i++)
             {
-                entries.Add(new(tag, table));
+                map[order[i]] = i;
             }
-        }
 
-        if (Post(font) is { } post)
+            var newGlyf = WriteGlyphs(glyf, offsets, order, map, out var loca);
+            return WriteTables(font, facts, order, newGlyf, loca, state);
+        }
+        finally
         {
-            entries.Add(new(SfntTags.Post, post));
+            ArrayPool<int>.Shared.Return(mapBuffer);
         }
+    }
 
-        return font.Write([.. entries]);
+    /// <summary>Writes the tables of the new font using borrowed entry storage.</summary>
+    /// <param name="font">The face.</param>
+    /// <param name="facts">The face's facts.</param>
+    /// <param name="order">The original glyph of each new glyph.</param>
+    /// <param name="newGlyf">The new /glyf.</param>
+    /// <param name="loca">The new /loca.</param>
+    /// <param name="state">The document's reusable embedding buffers.</param>
+    /// <returns>The owned font bytes.</returns>
+    private static byte[] WriteTables(SfntFont font, FontFacts facts, List<int> order, byte[] newGlyf, byte[] loca, PdfFontEmbeddingState state)
+    {
+        var entries = ScratchList<SfntEntry>.Rent(ref state.FontTables, Tables.Length + RebuiltTables);
+        try
+        {
+            entries.Add(new(SfntTags.Glyf, newGlyf));
+            entries.Add(new(SfntTags.Loca, loca));
+            entries.Add(new(SfntTags.Head, HeadTable(font)));
+            entries.Add(new(SfntTags.Hhea, Header(font, SfntTags.Hhea, HheaMetricCount, order.Count, HheaSize)));
+            entries.Add(new(SfntTags.Maxp, Header(font, SfntTags.Maxp, MaxpGlyphs, order.Count, 0)));
+            entries.Add(new(SfntTags.Hmtx, Metrics(font, facts, order)));
+            foreach (var tag in Tables)
+            {
+                if (font.TableMemory(tag) is { IsEmpty: false } table)
+                {
+                    entries.Add(new(tag, table));
+                }
+            }
+
+            if (Post(font) is { } post)
+            {
+                entries.Add(new(SfntTags.Post, post));
+            }
+
+            return font.Write(CollectionsMarshal.AsSpan(entries), CancellationToken.None);
+        }
+        finally
+        {
+            ScratchList<SfntEntry>.Return(ref state.FontTables, entries);
+        }
     }
 
     /// <summary>Copies the font header with long glyph locations and a cleared checksum adjustment, which the writer sets last.</summary>
@@ -227,7 +282,7 @@ internal static class TrueTypeRenumberer
     /// <param name="map">The new number of each original glyph.</param>
     /// <param name="loca">Receives the long /loca table.</param>
     /// <returns>The new /glyf.</returns>
-    private static byte[] WriteGlyphs(ReadOnlySpan<byte> glyf, int[] offsets, List<int> order, int[] map, out byte[] loca)
+    private static byte[] WriteGlyphs(ReadOnlySpan<byte> glyf, ReadOnlySpan<int> offsets, List<int> order, ReadOnlySpan<int> map, out byte[] loca)
     {
         loca = new byte[(order.Count + 1) * TrueTypeLocations.LongEntry];
         var data = default(PooledBuffer);
@@ -259,7 +314,7 @@ internal static class TrueTypeRenumberer
     /// <param name="data">The new /glyf.</param>
     /// <param name="glyph">The original glyph's data.</param>
     /// <param name="map">The new number of each original glyph.</param>
-    private static void WriteGlyph(ref PooledBuffer data, ReadOnlySpan<byte> glyph, int[] map)
+    private static void WriteGlyph(ref PooledBuffer data, ReadOnlySpan<byte> glyph, ReadOnlySpan<int> map)
     {
         var walker = new CompositeWalker(glyph);
         if (!walker.MoveNext())
@@ -268,12 +323,13 @@ internal static class TrueTypeRenumberer
             return;
         }
 
-        var copy = glyph.ToArray();
+        var copy = data.GetSpan(glyph.Length)[..glyph.Length];
+        glyph.CopyTo(copy);
         do
         {
-            BinaryPrimitives.WriteUInt16BigEndian(copy.AsSpan(walker.GlyphOffset), (ushort)((uint)walker.Glyph < (uint)map.Length ? map[walker.Glyph] : 0));
+            BinaryPrimitives.WriteUInt16BigEndian(copy[walker.GlyphOffset..], (ushort)((uint)walker.Glyph < (uint)map.Length ? map[walker.Glyph] : 0));
         }
         while (walker.MoveNext());
-        data.Write(copy);
+        data.Advance(copy.Length);
     }
 }

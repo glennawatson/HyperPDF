@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 
@@ -77,7 +78,7 @@ internal static class PdfTextLayerPage
         var copy = current.Clone();
         copy.Set(KnownName.Resources, PdfValue.FromDictionary(WithFonts(store, Resources(store, page), fonts, numbers, used)));
         copy.Set(KnownName.Contents, PdfValue.FromArray(WrapContents(store, current, content)));
-        StoreEditing.Replace(store, page.Id, PdfValue.FromDictionary(copy));
+        StoreEditing.Replace(store, page.Id, PdfValue.FromDictionary(copy), PdfCacheScopes.PageContent);
         return true;
     }
 
@@ -153,7 +154,8 @@ internal static class PdfTextLayerPage
         new PdfDictionary(
         store,
         1),
-        content.ToArray()))));
+        content.ToArray())),
+        PdfCacheScopes.None));
 
     /// <summary>Adds a Flate-compressed stream holding some content.</summary>
     /// <param name="store">The document.</param>
@@ -167,7 +169,7 @@ internal static class PdfTextLayerPage
         try
         {
             FlateFilter.Encode(content, ref compressed);
-            return PdfValue.FromReference(StoreEditing.Add(store, PdfValue.FromStream(new(dictionary, compressed.ToArray()))));
+            return PdfValue.FromReference(StoreEditing.Add(store, PdfValue.FromStream(new(dictionary, compressed.ToArray())), PdfCacheScopes.None));
         }
         finally
         {

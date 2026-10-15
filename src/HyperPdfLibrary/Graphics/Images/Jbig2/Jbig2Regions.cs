@@ -178,10 +178,11 @@ internal static class Jbig2Regions
     /// <summary>Copies the page area under a region, as the reference for a refinement with no referred region.</summary>
     /// <param name="page">The page.</param>
     /// <param name="info">The region information.</param>
+    /// <param name="workspace">The workspace that provides the copy.</param>
     /// <returns>The copy; white when the region's corner is off the page (our rule: nothing exists there to copy).</returns>
-    internal static Jbig2Bitmap? CopyPageArea(Jbig2Bitmap page, in Jbig2RegionInfo info)
+    internal static Jbig2Bitmap? CopyPageArea(Jbig2Bitmap page, in Jbig2RegionInfo info, Jbig2Workspace workspace)
     {
-        var area = Jbig2Bitmap.Create(info.Width, info.Height, page.ScratchPools);
+        var area = workspace.RentBitmap(info.Width, info.Height);
         if (area is not null && info.X >= 0 && info.X < page.Width && info.Y >= 0 && info.Y < page.Height)
         {
             _ = Jbig2Composer.Compose(area, page.View, -(long)info.X, -(long)info.Y, Jbig2ComposeOperator.Replace);
@@ -195,9 +196,8 @@ internal static class Jbig2Regions
     /// <param name="info">The region information.</param>
     /// <param name="settings">The region parameters.</param>
     /// <returns><see langword="false"/> when the data ends or a size is invalid.</returns>
-    internal static bool TryReadHalftone(ref Jbig2Reader reader, out Jbig2RegionInfo info, out Jbig2HalftoneSettings settings)
+    internal static bool TryReadHalftone(ref Jbig2Reader reader, out Jbig2RegionInfo info, Jbig2HalftoneSettings settings)
     {
-        settings = new();
         if (!Jbig2RegionInfo.TryRead(ref reader, out info) || !reader.TryReadByte(out var flags) || !TryReadGrid(ref reader, settings))
         {
             return false;
@@ -257,7 +257,7 @@ internal static class Jbig2Regions
             return setup.Unknown && info.Height == 0 && info.Width > 0 ? Jbig2Status.Success : Jbig2Status.Failure;
         }
 
-        var region = Jbig2Bitmap.Create(info.Width, info.Height, state.Workspace.ScratchPools);
+        var region = state.Workspace.RentBitmap(info.Width, info.Height);
         if (region is null)
         {
             return Jbig2Status.Failure;
@@ -280,8 +280,8 @@ internal static class Jbig2Regions
             return Jbig2Status.Failure;
         }
 
-        using var pageArea = segment.Referred.IsEmpty ? CopyPageArea(page, info) : null;
-        if ((pageArea ?? FindReferredRegion(state, segment)) is not { } reference || Jbig2Bitmap.Create(info.Width, info.Height, state.Workspace.ScratchPools) is not { } region)
+        using var pageArea = segment.Referred.IsEmpty ? CopyPageArea(page, info, state.Workspace) : null;
+        if ((pageArea ?? FindReferredRegion(state, segment)) is not { } reference || state.Workspace.RentBitmap(info.Width, info.Height) is not { } region)
         {
             return Jbig2Status.Failure;
         }
@@ -323,13 +323,14 @@ internal static class Jbig2Regions
     /// <returns>The status.</returns>
     internal static Jbig2Status DecodeHalftoneRegion(Jbig2DecodeState state, ref Jbig2Reader reader, Jbig2Segment segment, Jbig2Bitmap page)
     {
-        if (!TryReadHalftone(ref reader, out var info, out var settings) || segment.Referred.Length != 1
+        var settings = state.Workspace.HalftoneSettings;
+        if (!TryReadHalftone(ref reader, out var info, settings) || segment.Referred.Length != 1
             || Jbig2Segments.Find(state, segment.Referred[0]) is not { Patterns: { } patterns } || patterns.Patterns.Count == 0)
         {
             return Jbig2Status.Failure;
         }
 
-        var region = Jbig2Bitmap.Create(info.Width, info.Height, state.Workspace.ScratchPools);
+        var region = state.Workspace.RentBitmap(info.Width, info.Height);
         if (region is null || !DecodeHalftone(state, ref reader, settings, patterns, region))
         {
             region?.Dispose();

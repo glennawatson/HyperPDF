@@ -102,6 +102,27 @@ public sealed class SourceDisposeTests
         }
     }
 
+    /// <summary>A window over a file loaded into pooled memory stays readable until released.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task MemoryWindowOutlivesDisposal()
+    {
+        var directory = SourceOpener.CreateDirectory();
+        try
+        {
+            var bytes = RobustnessSeeds.CreateMini();
+            var path = SourceOpener.WriteFile(bytes, directory);
+            var source = MemoryPdfByteSource.ReadFile(path);
+            var first = ReadFirstAfterDispose(source);
+            await Assert.That(first).IsEqualTo(bytes[0]);
+            await Assert.That(() => source.Lease(0, 1).Dispose()).Throws<ObjectDisposedException>();
+        }
+        finally
+        {
+            SourceOpener.DeleteDirectory(directory);
+        }
+    }
+
     /// <summary>Disposing an empty stream source or reading past the end is harmless.</summary>
     /// <returns>A task.</returns>
     [Test]

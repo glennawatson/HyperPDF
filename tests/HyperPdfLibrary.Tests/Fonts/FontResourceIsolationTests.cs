@@ -29,8 +29,6 @@ public sealed class FontResourceIsolationTests
         var rightServices = new PdfDrawingServices(new());
         var left = leftServices.FontResources;
         var right = rightServices.FontResources;
-        await BundledFaces.EnsureAsync(left, BundledFamily.Sans, false, false, CancellationToken.None);
-        await BundledFaces.EnsureAsync(right, BundledFamily.Sans, false, false, CancellationToken.None);
         var leftFace = BundledFaces.Get(left, BundledFamily.Sans, false, false);
         var rightFace = BundledFaces.Get(right, BundledFamily.Sans, false, false);
 

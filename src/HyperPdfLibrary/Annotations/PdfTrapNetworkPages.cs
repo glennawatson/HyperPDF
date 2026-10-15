@@ -13,6 +13,9 @@ namespace HyperPdfLibrary.Annotations;
 /// </summary>
 internal static class PdfTrapNetworkPages
 {
+    /// <summary>The largest temporary collection retained between walks.</summary>
+    private const int MaxKeptNodes = 4096;
+
     /// <summary>Finds the pages with a trap network annotation.</summary>
     /// <param name="store">The document's objects.</param>
     /// <param name="cancellationToken">Stops the walk.</param>
@@ -20,37 +23,55 @@ internal static class PdfTrapNetworkPages
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     internal static List<PdfTrapNetworkPage>? Find(PdfObjectStore store, CancellationToken cancellationToken)
     {
-        var walk = new Walk(store);
-        Visit(walk, store.Catalog.GetRaw(KnownName.Pages), 0);
-        while (walk.Pending.TryPop(out var cursor))
+        cancellationToken.ThrowIfCancellationRequested();
+        var slots = store.ScratchPools.Slots<Walk>();
+        var walk = slots.Take() ?? new();
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (cursor.Next >= cursor.Kids.Count)
+            Visit(store, walk, store.Catalog.GetRaw(KnownName.Pages), 0);
+            while (walk.Pending.TryPop(out var cursor))
             {
-                continue;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (cursor.Next >= cursor.Kids.Count)
+                {
+                    continue;
+                }
+
+                walk.Pending.Push(cursor with { Next = cursor.Next + 1 });
+                Visit(store, walk, cursor.Kids.GetRaw(cursor.Next), cursor.Depth);
             }
 
-            walk.Pending.Push(cursor with { Next = cursor.Next + 1 });
-            Visit(walk, cursor.Kids.GetRaw(cursor.Next), cursor.Depth);
+            return walk.Found;
         }
-
-        return walk.Found;
+        finally
+        {
+            var keep = walk.Visited.EnsureCapacity(0) <= MaxKeptNodes && walk.Pending.EnsureCapacity(0) <= MaxKeptNodes;
+            walk.Visited.Clear();
+            walk.Pending.Clear();
+            walk.Found = null;
+            walk.PageCount = 0;
+            if (keep)
+            {
+                _ = slots.Offer(walk);
+            }
+        }
     }
 
     /// <summary>Visits a page tree entry: a page is checked, a node's kids are queued.</summary>
+    /// <param name="store">The document's objects.</param>
     /// <param name="walk">The walk.</param>
     /// <param name="entry">The entry as written in its parent's <c>/Kids</c>.</param>
     /// <param name="depth">The entry's depth in the tree.</param>
-    private static void Visit(Walk walk, PdfValue entry, int depth)
+    private static void Visit(PdfObjectStore store, Walk walk, PdfValue entry, int depth)
     {
-        if (StoreReading.Resolve(walk.Store, entry).AsDictionary() is not { } node)
+        if (StoreReading.Resolve(store, entry).AsDictionary() is not { } node)
         {
             return;
         }
 
         if (node.GetArray(KnownName.Kids) is not { } kids || node.IsName(KnownName.Type, KnownName.Page))
         {
-            VisitPage(walk, entry, node);
+            VisitPage(store, walk, entry, node);
             return;
         }
 
@@ -62,16 +83,17 @@ internal static class PdfTrapNetworkPages
     }
 
     /// <summary>Counts a page and notes it when it holds a trap network.</summary>
+    /// <param name="store">The document's objects.</param>
     /// <param name="walk">The walk.</param>
     /// <param name="entry">The page as written in its parent's <c>/Kids</c>.</param>
     /// <param name="page">The page dictionary.</param>
-    private static void VisitPage(Walk walk, PdfValue entry, PdfDictionary page)
+    private static void VisitPage(PdfObjectStore store, Walk walk, PdfValue entry, PdfDictionary page)
     {
         var index = walk.PageCount;
         walk.PageCount = index + 1;
-        if (page.GetArray(KnownName.Annots) is { } annotations && PdfTrapNetworkReader.Find(walk.Store, annotations, out var last) is var count and > 0)
+        if (page.GetArray(KnownName.Annots) is { } annotations && PdfTrapNetworkReader.Find(store, annotations, out var last) is var count and > 0)
         {
-            (walk.Found ??= []).Add(new(walk.Store, index, entry.AsReference(), page, annotations, last, count));
+            (walk.Found ??= []).Add(new(store, index, entry.AsReference(), page, annotations, last, count));
         }
     }
 
@@ -83,13 +105,9 @@ internal static class PdfTrapNetworkPages
     private readonly record struct KidsCursor(PdfArray Kids, int Next, int Depth);
 
     /// <summary>The state of one walk.</summary>
-    /// <param name="store">The document's objects.</param>
     [DebuggerDisplay("Walk: {PageCount} pages")]
-    private sealed class Walk(PdfObjectStore store)
+    private sealed class Walk
     {
-        /// <summary>Gets the document's objects.</summary>
-        internal PdfObjectStore Store { get; } = store;
-
         /// <summary>Gets the page tree nodes seen, so a loop ends.</summary>
         internal HashSet<int> Visited { get; } = [];
 

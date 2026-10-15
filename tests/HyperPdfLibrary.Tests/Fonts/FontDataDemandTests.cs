@@ -68,7 +68,7 @@ public sealed class FontDataDemandTests
         var before = PdfDocumentText.GetTextPage(document, 0);
         using var cache = new FontDataTestCache();
         const string name = "external-refresh.bin";
-        await using var missing = FontDataResources.Open(cache.DirectoryPath, CacheFolder, name);
+        using var missing = FontDataResources.Open(cache.DirectoryPath, CacheFolder, name);
         await Assert.That(missing).IsNull();
         var path = Path.Combine(cache.DirectoryPath, CacheFolder, name);
         _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using HyperPdfLibrary.Document;
 
 namespace HyperPdfLibrary.Metadata;
@@ -58,5 +59,5 @@ internal static class XmpInfoResolver
     /// <summary>Joins a list into one string.</summary>
     /// <param name="values">The values.</param>
     /// <returns>The joined text, or null for an empty list.</returns>
-    private static string? Join(string[] values) => values.Length == 0 ? null : string.Join(ListSeparator, values);
+    private static string? Join(ImmutableArray<string> values) => values.IsEmpty ? null : string.Join(ListSeparator, values.AsSpan());
 }

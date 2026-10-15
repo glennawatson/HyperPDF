@@ -23,11 +23,11 @@ public ref struct PdfPageCanvas
     /// <summary>The document being created.</summary>
     private readonly PdfDocumentCreator _creator;
 
-    /// <summary>The page's resources.</summary>
-    private readonly PdfPageResources _resources;
-
     /// <summary>The page object, reserved before drawing starts.</summary>
     private readonly PdfObjectId _page;
+
+    /// <summary>The page's resources, made when the first one is added.</summary>
+    private PdfPageResources? _resources;
 
     /// <summary>The page's content.</summary>
     private PdfContentBuilder _content;
@@ -47,12 +47,16 @@ public ref struct PdfPageCanvas
     {
         _creator = creator;
         _page = page;
-        _resources = new(creator.Sink);
+        _resources = null;
         Width = width;
         Height = height;
         _content = default;
         _open = 0;
         _finished = 0;
+        if (creator.ContentCapacityHint > 0)
+        {
+            _content.Reserve(creator.ContentCapacityHint);
+        }
     }
 
     /// <summary>Gets the page width in points.</summary>
@@ -61,8 +65,19 @@ public ref struct PdfPageCanvas
     /// <summary>Gets the page height in points.</summary>
     public readonly float Height { get; }
 
-    /// <summary>Gets the page's resources, for operators written through <see cref="Content"/>.</summary>
-    public readonly PdfPageResources Resources => _resources;
+    /// <summary>
+    /// Gets the page's resources, for operators written through <see cref="Content"/>. The set is only valid until
+    /// <see cref="Finish"/> or <see cref="Dispose"/>, which hand it to the next page, so do not keep it past either call.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">The page was already finished or disposed.</exception>
+    public PdfPageResources Resources
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _finished) != 0, typeof(PdfPageCanvas));
+            return _resources ??= _creator.RentResources();
+        }
+    }
 
     /// <summary>Gets the content stream, for operators this canvas has no method for. Content written here is not checked for tagging.</summary>
     [UnscopedRef]
@@ -87,7 +102,7 @@ public ref struct PdfPageCanvas
         }
 
         RequireMarked();
-        var name = _resources.AddFont(font.Id);
+        var name = Resources.AddFont(font.Id);
         _content.BeginText();
         _content.SetFont(name.Utf8, size);
         _content.MoveText(x, y);
@@ -105,7 +120,7 @@ public ref struct PdfPageCanvas
     public void DrawImage(PdfCreatedImage image, float x, float y, float width, float height)
     {
         RequireMarked();
-        var name = _resources.AddImage(image.Id);
+        var name = Resources.AddImage(image.Id);
         _content.SaveState();
         _content.Transform(width, 0, 0, height, x, y);
         _content.DrawXObject(name.Utf8);
@@ -124,7 +139,7 @@ public ref struct PdfPageCanvas
     public void DrawForm(PdfObjectId form, float a, float b, float c, float d, float e, float f)
     {
         RequireMarked();
-        var name = _resources.AddForm(form);
+        var name = Resources.AddForm(form);
         _content.SaveState();
         _content.Transform(a, b, c, d, e, f);
         _content.DrawXObject(name.Utf8);
@@ -141,7 +156,7 @@ public ref struct PdfPageCanvas
     public void FillRectangleWithShading(PdfObjectId shading, float x, float y, float width, float height)
     {
         RequireMarked();
-        var name = _resources.AddShading(shading);
+        var name = Resources.AddShading(shading);
         _content.SaveState();
         _content.Rectangle(x, y, width, height);
         _content.Clip();
@@ -160,7 +175,7 @@ public ref struct PdfPageCanvas
     public void FillRectangleWithPattern(PdfObjectId pattern, float x, float y, float width, float height)
     {
         RequireMarked();
-        var name = _resources.AddPattern(pattern);
+        var name = Resources.AddPattern(pattern);
         _content.SaveState();
         _content.SetFillColorSpace("Pattern"u8);
         _content.SetFillColorN([], name.Utf8);
@@ -185,6 +200,78 @@ public ref struct PdfPageCanvas
         _content.SetFillRgb(red, green, blue);
         _content.Rectangle(x, y, width, height);
         _content.Fill();
+        _content.RestoreState();
+    }
+
+    /// <summary>Strokes a straight line between two points (ISO 32000-2 8.5.3).</summary>
+    /// <param name="stroke">The width and colour.</param>
+    /// <param name="x1">The start x.</param>
+    /// <param name="y1">The start y.</param>
+    /// <param name="x2">The end x.</param>
+    /// <param name="y2">The end y.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The stroke width is negative.</exception>
+    /// <exception cref="InvalidOperationException">The document is tagged and no content or artifact is open.</exception>
+    public void DrawLine(PdfStroke stroke, float x1, float y1, float x2, float y2)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(stroke.Width);
+        RequireMarked();
+        _content.SaveState();
+        _content.SetLineWidth(stroke.Width);
+        _content.SetStrokeRgb(stroke.Red, stroke.Green, stroke.Blue);
+        _content.MoveTo(x1, y1);
+        _content.LineTo(x2, y2);
+        _content.Stroke();
+        _content.RestoreState();
+    }
+
+    /// <summary>Strokes the outline of a rectangle; the line is centred on the rectangle's edges (ISO 32000-2 8.5.3).</summary>
+    /// <param name="stroke">The width and colour.</param>
+    /// <param name="x">The rectangle's left edge.</param>
+    /// <param name="y">The rectangle's bottom edge.</param>
+    /// <param name="width">The rectangle's width.</param>
+    /// <param name="height">The rectangle's height.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The stroke width is negative.</exception>
+    /// <exception cref="InvalidOperationException">The document is tagged and no content or artifact is open.</exception>
+    public void StrokeRectangle(PdfStroke stroke, float x, float y, float width, float height)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(stroke.Width);
+        RequireMarked();
+        _content.SaveState();
+        _content.SetLineWidth(stroke.Width);
+        _content.SetStrokeRgb(stroke.Red, stroke.Green, stroke.Blue);
+        _content.Rectangle(x, y, width, height);
+        _content.Stroke();
+        _content.RestoreState();
+    }
+
+    /// <summary>
+    /// Strokes the outline of a rectangle and vertical lines across it in one path, so the width and colour are set once
+    /// (ISO 32000-2 8.5.3). The result looks the same as <see cref="StrokeRectangle"/> plus a <see cref="DrawLine"/> for each divider.
+    /// </summary>
+    /// <param name="stroke">The width and colour.</param>
+    /// <param name="x">The rectangle's left edge.</param>
+    /// <param name="top">The rectangle's top edge.</param>
+    /// <param name="width">The rectangle's width.</param>
+    /// <param name="height">The rectangle's height.</param>
+    /// <param name="dividers">The x of each vertical line, drawn from the top edge to the bottom edge.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The stroke width is negative.</exception>
+    /// <exception cref="InvalidOperationException">The document is tagged and no content or artifact is open.</exception>
+    public void StrokeRectangleWithDividers(PdfStroke stroke, float x, float top, float width, float height, scoped ReadOnlySpan<float> dividers)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(stroke.Width);
+        RequireMarked();
+        var bottom = top - height;
+        _content.SaveState();
+        _content.SetLineWidth(stroke.Width);
+        _content.SetStrokeRgb(stroke.Red, stroke.Green, stroke.Blue);
+        _content.Rectangle(x, bottom, width, height);
+        foreach (var divider in dividers)
+        {
+            _content.MoveTo(divider, top);
+            _content.LineTo(divider, bottom);
+        }
+
+        _content.Stroke();
         _content.RestoreState();
     }
 
@@ -251,11 +338,14 @@ public ref struct PdfPageCanvas
 
         try
         {
+            _creator.ContentCapacityHint = _content.Length;
             _creator.CompletePage(_page, Width, Height, _resources, _content.ToArray());
         }
         finally
         {
             _content.Dispose();
+            _creator.ReturnResources(_resources);
+            _resources = null;
         }
 
         return _page;
@@ -269,7 +359,21 @@ public ref struct PdfPageCanvas
             return;
         }
 
+        // A flow that has not started a page holds a default canvas with no creator.
+        if (_creator is null)
+        {
+            return;
+        }
+
+        _creator.ContentCapacityHint = _content.Length;
         _content.Dispose();
+        if (_resources is null)
+        {
+            return;
+        }
+
+        _creator.ReturnResources(_resources);
+        _resources = null;
     }
 
     /// <summary>Checks that a tagged document's content is inside marked content.</summary>

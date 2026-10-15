@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Text;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
@@ -18,14 +19,14 @@ namespace HyperPdfLibrary.Structure.Tagged;
 /// </summary>
 internal static class MarkedContentScanner
 {
-    /// <summary>The newline written between the streams of a content array, as the interpreter writes it.</summary>
-    private const byte StreamSeparator = (byte)'\n';
-
     /// <summary>Gets the key of a marked content id.</summary>
     private static ReadOnlySpan<byte> McidKey => "/MCID"u8;
 
     /// <summary>Gets the key of replacement text.</summary>
     private static ReadOnlySpan<byte> ActualTextKey => "/ActualText"u8;
+
+    /// <summary>Gets the key of a language identifier.</summary>
+    private static ReadOnlySpan<byte> LangKey => "/Lang"u8;
 
     /// <summary>Gets the artifact tag.</summary>
     private static ReadOnlySpan<byte> ArtifactTag => "Artifact"u8;
@@ -35,52 +36,35 @@ internal static class MarkedContentScanner
     /// <param name="page">The page.</param>
     /// <param name="output">Receives the operators in running order.</param>
     /// <returns><see langword="true"/> when the page paints an image, decodable or not.</returns>
-    internal static bool Scan(PdfDocument document, PdfPage page, List<ScannedMark> output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool Scan(PdfDocument document, PdfPage page, List<ScannedMark> output) => Scan(document, page, output, out _);
+
+    /// <summary>Lists a page's marked content operators and counts the images painted outside marked content that holds real content or an artifact.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="output">Receives the operators in running order.</param>
+    /// <param name="untaggedImages">Receives the number of images painted outside marked content with an id and outside artifacts.</param>
+    /// <returns><see langword="true"/> when the page paints an image, decodable or not.</returns>
+    internal static bool Scan(PdfDocument document, PdfPage page, List<ScannedMark> output, out int untaggedImages)
     {
-        var content = default(PooledBuffer);
-        try
-        {
-            AppendContents(page.Dictionary.Get(KnownName.Contents), ref content);
-            List<PdfDictionary?> resources = [page.Resources];
-            return ScanStream(document, content.WrittenSpan, resources, 0, output);
-        }
-        finally
-        {
-            content.Dispose();
-        }
+        using var content = PdfPageContentScope.Lease(document, page, CancellationToken.None);
+        return Scan(document, page, content.Content, output, out untaggedImages);
     }
 
-    /// <summary>Decodes a page's <c>/Contents</c>, a stream or an array of streams, into one buffer.</summary>
-    /// <param name="contents">The <c>/Contents</c> value.</param>
-    /// <param name="buffer">Receives the content.</param>
-    private static void AppendContents(PdfValue contents, ref PooledBuffer buffer)
+    /// <summary>Lists the marked content operators of a page whose content is already decoded.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="content">The page's decoded content.</param>
+    /// <param name="output">Receives the operators in running order.</param>
+    /// <param name="untaggedImages">Receives the number of images painted outside marked content with an id and outside artifacts.</param>
+    /// <returns><see langword="true"/> when the page paints an image, decodable or not.</returns>
+    internal static bool Scan(PdfDocument document, PdfPage page, ReadOnlySpan<byte> content, List<ScannedMark> output, out int untaggedImages)
     {
-        if (contents.AsStream() is { } single)
-        {
-            _ = single.Decode(ref buffer);
-            return;
-        }
-
-        var array = contents.AsArray();
-        for (var i = 0; array is not null && i < array.Count; i++)
-        {
-            if (array.Get(i).AsStream() is not { } part)
-            {
-                continue;
-            }
-
-            var piece = default(PooledBuffer);
-            try
-            {
-                _ = part.Decode(ref piece);
-                buffer.Write(piece.WrittenSpan);
-                buffer.WriteByte(StreamSeparator);
-            }
-            finally
-            {
-                piece.Dispose();
-            }
-        }
+        List<PdfDictionary?> resources = [page.Resources];
+        var state = new ScanState(output);
+        state.Images |= ScanStream(document, content, resources, 0, state);
+        untaggedImages = state.UntaggedImages;
+        return state.Images;
     }
 
     /// <summary>Scans one content stream.</summary>
@@ -88,9 +72,9 @@ internal static class MarkedContentScanner
     /// <param name="content">The decoded content.</param>
     /// <param name="resources">The resource dictionaries in force, innermost last.</param>
     /// <param name="depth">The form nesting depth.</param>
-    /// <param name="output">Receives the operators.</param>
+    /// <param name="state">Receives the operators and tracks the open marked content.</param>
     /// <returns><see langword="true"/> when the stream paints an image.</returns>
-    private static bool ScanStream(PdfDocument document, ReadOnlySpan<byte> content, List<PdfDictionary?> resources, int depth, List<ScannedMark> output)
+    private static bool ScanStream(PdfDocument document, ReadOnlySpan<byte> content, List<PdfDictionary?> resources, int depth, ScanState state)
     {
         Span<ContentOperand> operands = stackalloc ContentOperand[ContentReader.OperandSlots];
         var reader = new ContentReader(content, document.Objects.Names, operands);
@@ -101,25 +85,34 @@ internal static class MarkedContentScanner
             {
                 case ContentOperator.BeginMarkedContent:
                     {
-                        output.Add(new(reader.Operand(0).Name, -1, null));
+                        var mark = new ScannedMark(reader.Operand(0).Name, -1, null);
+                        state.Open(mark, document.Objects.Names.NameEquals(mark.Tag, ArtifactTag));
                         break;
                     }
 
                 case ContentOperator.BeginMarkedContentProperties:
                     {
-                        output.Add(ReadMark(document, content, reader.Operand(0).Name, reader.Operand(1), resources));
+                        var mark = ReadMark(document, content, reader.Operand(0).Name, reader.Operand(1), resources);
+                        state.Open(mark, document.Objects.Names.NameEquals(mark.Tag, ArtifactTag));
+                        break;
+                    }
+
+                case ContentOperator.EndMarkedContent:
+                    {
+                        state.Close();
                         break;
                     }
 
                 case ContentOperator.PaintXObject:
                     {
-                        images |= ScanXObject(document, reader.Operand(0).Name, resources, depth, output);
+                        images |= ScanXObject(document, reader.Operand(0).Name, resources, depth, state);
                         break;
                     }
 
                 case ContentOperator.BeginInlineImage:
                     {
                         images = true;
+                        state.CountImage();
                         break;
                     }
 
@@ -156,8 +149,7 @@ internal static class MarkedContentScanner
         var inline = content.Slice(properties.Start, properties.Length);
 
         // Most property lists hold only an /MCID; parse in full only when the rest may matter.
-        var full = document.Objects.Names.NameEquals(tag, ArtifactTag) || inline.IndexOf(ActualTextKey) >= 0;
-        if (!full)
+        if (!NeedsFullParse(document.Objects.Names.NameEquals(tag, ArtifactTag), inline))
         {
             return new(tag, ScanMcid(inline), null);
         }
@@ -165,6 +157,13 @@ internal static class MarkedContentScanner
         var parsed = new PdfParser(inline.ToArray(), 0, document.Objects, document.Objects.Names).ParseValue().AsDictionary();
         return new(tag, parsed?.GetInt32(KnownName.MCID, -1) ?? -1, parsed);
     }
+
+    /// <summary>Determines whether an inline property list holds more than a marked content id that matters.</summary>
+    /// <param name="isArtifact">Whether the tag is <c>/Artifact</c>.</param>
+    /// <param name="inline">The property list's bytes.</param>
+    /// <returns><see langword="true"/> when the list is an artifact's, or has replacement text or a language.</returns>
+    private static bool NeedsFullParse(bool isArtifact, ReadOnlySpan<byte> inline) =>
+        isArtifact || inline.IndexOf(ActualTextKey) >= 0 || inline.IndexOf(LangKey) >= 0;
 
     /// <summary>Reads the integer after <c>/MCID</c> in an inline property list without parsing it.</summary>
     /// <param name="inline">The property list's bytes.</param>
@@ -187,9 +186,9 @@ internal static class MarkedContentScanner
     /// <param name="name">The XObject's resource name.</param>
     /// <param name="resources">The resource dictionaries in force.</param>
     /// <param name="depth">The form nesting depth.</param>
-    /// <param name="output">Receives the operators.</param>
+    /// <param name="state">Receives the operators and tracks the open marked content.</param>
     /// <returns><see langword="true"/> when the XObject is an image or a form that paints one.</returns>
-    private static bool ScanXObject(PdfDocument document, PdfName name, List<PdfDictionary?> resources, int depth, List<ScannedMark> output)
+    private static bool ScanXObject(PdfDocument document, PdfName name, List<PdfDictionary?> resources, int depth, ScanState state)
     {
         if (depth >= PdfLimits.MaxDrawDepth || FindResource(resources, KnownName.XObject, name).AsStream() is not { } xobject)
         {
@@ -203,9 +202,18 @@ internal static class MarkedContentScanner
             return false;
         }
 
-        return dictionary.IsName(KnownName.Subtype, KnownName.Form)
-            ? ScanForm(document, xobject, resources, depth, output)
-            : dictionary.IsName(KnownName.Subtype, KnownName.Image);
+        if (dictionary.IsName(KnownName.Subtype, KnownName.Form))
+        {
+            return ScanForm(document, xobject, resources, depth, state);
+        }
+
+        var isImage = dictionary.IsName(KnownName.Subtype, KnownName.Image);
+        if (isImage)
+        {
+            state.CountImage();
+        }
+
+        return isImage;
     }
 
     /// <summary>Scans a form XObject's content with its own resources.</summary>
@@ -213,16 +221,16 @@ internal static class MarkedContentScanner
     /// <param name="form">The form.</param>
     /// <param name="resources">The resource dictionaries in force.</param>
     /// <param name="depth">The form nesting depth.</param>
-    /// <param name="output">Receives the operators.</param>
+    /// <param name="state">Receives the operators and tracks the open marked content.</param>
     /// <returns><see langword="true"/> when the form paints an image.</returns>
-    private static bool ScanForm(PdfDocument document, PdfStream form, List<PdfDictionary?> resources, int depth, List<ScannedMark> output)
+    private static bool ScanForm(PdfDocument document, PdfStream form, List<PdfDictionary?> resources, int depth, ScanState state)
     {
         var content = default(PooledBuffer);
         resources.Add(form.Dictionary.GetDictionary(KnownName.Resources) ?? resources[^1]);
         try
         {
             _ = form.Decode(ref content);
-            return ScanStream(document, content.WrittenSpan, resources, depth + 1, output);
+            return ScanStream(document, content.WrittenSpan, resources, depth + 1, state);
         }
         finally
         {

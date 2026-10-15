@@ -105,6 +105,58 @@ public sealed class TrapNetworkTests
         await Assert.That(Network(reopened)).IsNotNull();
     }
 
+    /// <summary>A cached guard still checks edits in an open transaction before it writes the whole file.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LinearizedGuardChecksUncommittedEdits()
+    {
+        using var document = Open(TrapNetworkPdf.Versioned);
+        await using var output = new MemoryStream();
+        var report = new PdfSaveReport();
+        await PdfLinearizedWriter.SaveAsync(document, output, report, CancellationToken.None);
+        using var transaction = PdfDocumentEditing.BeginEdit(document, "Content");
+        ReplaceContent(document, TrapNetworkPdf.ContentObject, MovedText);
+        output.SetLength(0);
+        output.Position = 0;
+
+        await PdfLinearizedWriter.SaveAsync(document, output, report, CancellationToken.None);
+
+        await Assert.That(report.TrapNetworks).Count().IsEqualTo(1);
+        using var reopened = Reopen(output.ToArray());
+        await Assert.That(Network(reopened)).IsNull();
+    }
+
+    /// <summary>Cached linearized checks clear a reused report and rerun after a content edit.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LinearizedGuardFollowsEditsAndClearsReports()
+    {
+        using var document = Open(TrapNetworkPdf.Versioned);
+        using var other = Open(TrapNetworkPdf.Versioned);
+        await using var output = new MemoryStream();
+        var report = new PdfSaveReport();
+        await PdfLinearizedWriter.SaveAsync(document, output, report, CancellationToken.None);
+
+        ReplaceContent(other, TrapNetworkPdf.ContentObject, MovedText);
+        output.SetLength(0);
+        output.Position = 0;
+        await PdfLinearizedWriter.SaveAsync(other, output, report, CancellationToken.None);
+        await Assert.That(report.TrapNetworks).Count().IsEqualTo(1);
+
+        output.SetLength(0);
+        output.Position = 0;
+        await PdfLinearizedWriter.SaveAsync(document, output, report, CancellationToken.None);
+        await Assert.That(report.TrapNetworks).IsEmpty();
+
+        ReplaceContent(document, TrapNetworkPdf.ContentObject, MovedText);
+        output.SetLength(0);
+        output.Position = 0;
+        await PdfLinearizedWriter.SaveAsync(document, output, report, CancellationToken.None);
+        await Assert.That(report.TrapNetworks).Count().IsEqualTo(1);
+        using var reopened = Reopen(output.ToArray());
+        await Assert.That(Network(reopened)).IsNull();
+    }
+
     /// <summary>Editing a content stream the network lists removes the network before saving and says why.</summary>
     /// <param name="incremental">Whether the save is incremental rather than compact.</param>
     /// <returns>A task.</returns>

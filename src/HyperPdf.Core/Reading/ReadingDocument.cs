@@ -30,6 +30,9 @@ public sealed class ReadingDocument
     /// <summary>The page sizes.</summary>
     private readonly PageSize[] _sizes;
 
+    /// <summary>The reusable page analysis buffers owned by this document.</summary>
+    private readonly ReadingOrderWorkspace _workspace = new();
+
     /// <summary>The pages worked out so far and the sampled margins; <see cref="Clear"/> swaps in an empty one.</summary>
     private ReadingState _state;
 
@@ -85,29 +88,32 @@ public sealed class ReadingDocument
     public static string Flatten(ReadingPage page, out int[] map)
     {
         ArgumentNullException.ThrowIfNull(page);
+        var blocks = page.Blocks;
         var length = 0;
-        foreach (var block in page.Blocks)
+        for (var i = 0; i < blocks.Count; i++)
         {
-            length += block.Text.Length + BlockSeparator.Length;
+            length += blocks[i].Text.Length + BlockSeparator.Length;
         }
 
-        var text = new char[length];
-        map = new int[length];
-        var at = 0;
-        foreach (var block in page.Blocks)
+        var characterMap = new int[length];
+        map = characterMap;
+        return string.Create(length, new FlattenState(blocks, characterMap), static (text, state) =>
         {
-            block.Text.CopyTo(text.AsSpan(at));
-            block.CharIndices.CopyTo(map, at);
-            at += block.Text.Length;
-            foreach (var separator in BlockSeparator)
+            var at = 0;
+            for (var i = 0; i < state.Blocks.Count; i++)
             {
-                text[at] = separator;
-                map[at] = -1;
-                at++;
+                var block = state.Blocks[i];
+                block.Text.CopyTo(text[at..]);
+                block.CharIndices.CopyTo(state.Map, at);
+                at += block.Text.Length;
+                for (var s = 0; s < BlockSeparator.Length; s++)
+                {
+                    text[at] = BlockSeparator[s];
+                    state.Map[at] = -1;
+                    at++;
+                }
             }
-        }
-
-        return new(text);
+        });
     }
 
     /// <summary>Gets the runs of page characters behind a range of flattened text, for highlighting it on the page.</summary>
@@ -177,7 +183,7 @@ public sealed class ReadingDocument
             source.GetCharacters(pageIndex, characters);
             var tagged = new List<TaggedBlock>();
             var page = sources.Structure is { } structure && structure.GetTaggedBlocks(pageIndex, tagged)
-                ? ReadingOrder.FromStructure(pageIndex, characters, tagged)
+                ? ReadingOrder.FromStructure(pageIndex, characters, tagged, _workspace)
                 : AnalyzePage(state, pageIndex, source, characters);
             cell.Publish(page);
             return page;
@@ -196,7 +202,7 @@ public sealed class ReadingDocument
     /// <returns>The analyzed page.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ReadingPage AnalyzePage(ReadingState state, int pageIndex, ITextLayoutSource source, List<PageCharacter> characters) =>
-        ReadingOrder.Analyze(pageIndex, _sizes[pageIndex], characters, GetRepeatedMargins(state, source));
+        ReadingOrder.Analyze(pageIndex, _sizes[pageIndex], characters, GetRepeatedMargins(state, source), _workspace);
 
     /// <summary>Samples pages spread across the document for repeated header and footer lines, once per cache.</summary>
     /// <param name="state">The cache that keeps the signatures.</param>
@@ -224,12 +230,17 @@ public sealed class ReadingDocument
             characters.Clear();
             source.GetCharacters(page, characters);
             var signatures = new List<string>();
-            ReadingOrder.CollectMarginSignatures(_sizes[page], characters, signatures);
+            ReadingOrder.CollectMarginSignatures(_sizes[page], characters, signatures, _workspace);
             pages.Add(signatures);
         }
 
         return ReadingOrder.FindRepeatedMargins(pages);
     }
+
+    /// <summary>The blocks to join and the map that records where their characters came from.</summary>
+    /// <param name="Blocks">The blocks.</param>
+    /// <param name="Map">Receives the page character index of each character of the joined text.</param>
+    private readonly record struct FlattenState(IReadOnlyList<ReadingBlock> Blocks, int[] Map);
 
     /// <summary>The worked out pages and sampled margins of one generation of the cache.</summary>
     /// <param name="pageCount">The number of pages.</param>

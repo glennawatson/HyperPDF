@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Diagnostics;
 using HyperPdfLibrary.Objects;
 
@@ -24,6 +25,6 @@ public sealed record PdfReferenceXObject(
     bool IsUrl,
     int? PageIndex,
     string? PageLabel,
-    byte[]? PermanentId,
-    byte[]? ChangingId,
+    ImmutableArray<byte>? PermanentId,
+    ImmutableArray<byte>? ChangingId,
     PdfStream Proxy);

@@ -14,18 +14,16 @@ namespace HyperPdfLibrary.Forms;
 /// <param name="WidgetId">The widget's object id; not valid for a widget written directly in the array.</param>
 /// <param name="Field">The field dictionary: the widget's parent when the widget has no partial name, otherwise the widget.</param>
 /// <param name="FieldId">The field's object id.</param>
-/// <param name="Name">The field's full name; empty for a widget that belongs to no named field.</param>
 /// <param name="Type">The field type.</param>
 /// <param name="Flags">The field flags.</param>
-[DebuggerDisplay("ResolvedWidget: {Type} {Name} on page {PageIndex}")]
-internal sealed record ResolvedWidget(
+[DebuggerDisplay("ResolvedWidget: {Type} on page {PageIndex}")]
+internal readonly record struct ResolvedWidget(
     int PageIndex,
     int Index,
     PdfDictionary Widget,
     PdfObjectId WidgetId,
     PdfDictionary Field,
     PdfObjectId FieldId,
-    string Name,
     PdfFieldType Type,
     PdfFieldFlags Flags)
 {
@@ -40,4 +38,7 @@ internal sealed record ResolvedWidget(
 
     /// <summary>Gets a value indicating whether the field cannot be changed.</summary>
     internal bool IsReadOnly => (Flags & PdfFieldFlags.ReadOnly) != 0;
+
+    /// <summary>Gets the field's full name; empty for a widget that belongs to no named field. The name is built each time it is read.</summary>
+    internal string Name => FieldAttributes.GetFullName(Widget);
 }

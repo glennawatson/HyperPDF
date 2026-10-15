@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Forms;
@@ -80,13 +81,13 @@ internal static class FormDefaultResources
         copy.Set(KnownName.DR, PdfValue.FromDictionary(resources));
         if (store.Catalog.GetRaw(KnownName.AcroForm).AsReference() is { IsValid: true } formId)
         {
-            StoreEditing.Replace(store, formId, PdfValue.FromDictionary(copy));
+            StoreEditing.Replace(store, formId, PdfValue.FromDictionary(copy), PdfCacheScopes.None);
             return;
         }
 
         var catalog = store.Catalog.Clone();
         catalog.Set(KnownName.AcroForm, PdfValue.FromDictionary(copy));
-        StoreEditing.Replace(store, store.Trailer.GetRaw(KnownName.Root).AsReference(), PdfValue.FromDictionary(catalog));
+        StoreEditing.Replace(store, store.Trailer.GetRaw(KnownName.Root).AsReference(), PdfValue.FromDictionary(catalog), PdfCacheScopes.None);
 
         // The store keeps the catalog it opened with, so it is pointed at the edited copy.
         store.Catalog = catalog;

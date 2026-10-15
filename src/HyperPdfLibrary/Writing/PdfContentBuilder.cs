@@ -21,6 +21,9 @@ public ref struct PdfContentBuilder
     /// <summary>The number of entries in a matrix.</summary>
     private const int MatrixLength = 6;
 
+    /// <summary>The required Form XObject entries plus room for a compression filter.</summary>
+    private const int FormBaseEntries = 4;
+
     /// <summary>The content.</summary>
     private PooledBuffer _buffer;
 
@@ -596,6 +599,11 @@ public ref struct PdfContentBuilder
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteRaw(ReadOnlySpan<byte> content) => _buffer.Write(content);
 
+    /// <summary>Makes room for a number of bytes up front, so content of about that size does not grow the buffer and copy it.</summary>
+    /// <param name="capacity">The expected content size in bytes.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Reserve(int capacity) => _ = _buffer.GetSpan(capacity);
+
     /// <summary>Clears the content so the builder can be reused.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear() => _buffer.Length = 0;
@@ -642,7 +650,8 @@ public ref struct PdfContentBuilder
             throw new ArgumentException("A matrix has six entries.", nameof(matrix));
         }
 
-        var dictionary = new PdfDictionary(owner);
+        var capacity = FormBaseEntries + (matrix.IsEmpty ? 0 : 1) + (resources is null ? 0 : 1);
+        var dictionary = new PdfDictionary(owner, capacity);
         dictionary.Set(KnownName.Type, PdfValue.FromName(KnownName.XObject));
         dictionary.Set(KnownName.Subtype, PdfValue.FromName(KnownName.Form));
         dictionary.Set(KnownName.BBox, PdfValue.FromArray(boundingBox.ToArray(owner)));

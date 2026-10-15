@@ -6,6 +6,7 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Rendering;
 using HyperPdfLibrary.Structure;
 using HyperPdfLibrary.Writing;
 
@@ -40,26 +41,38 @@ internal sealed class OptimizedFileWriter
     /// <summary>The offset of the object count in the /ID seed.</summary>
     private const int IdCountOffset = 24;
 
+    /// <summary>Idle writers, kept so a run does not make one.</summary>
+    private readonly ReusableSlots<OptimizedFileWriter> _idle;
+
     /// <summary>The objects to write.</summary>
-    private readonly OptimizerGraph _graph;
+    private OptimizerGraph _graph = null!;
 
     /// <summary>The store they come from.</summary>
-    private readonly PdfObjectStore _store;
+    private PdfObjectStore _store = null!;
 
     /// <summary>The layout.</summary>
-    private readonly WriteSettings _settings;
+    private WriteSettings _settings;
 
     /// <summary>Changes objects as they are written.</summary>
-    private readonly IObjectTransformer _transformer;
+    private IObjectTransformer _transformer = null!;
 
-    /// <summary>The cross-reference entries, filled in as objects are written.</summary>
-    private readonly XrefRow[] _rows;
+    /// <summary>The cross-reference entries, filled in as objects are written; rented from the pool.</summary>
+    private XrefRow[]? _rowArray;
 
-    /// <summary>The objects waiting to be packed into the next object stream, by new number.</summary>
-    private readonly List<int> _group = [with(ObjectsPerStream)];
+    /// <summary>The number of cross-reference entries.</summary>
+    private int _rowCount;
+
+    /// <summary>The objects waiting to be packed into the next object stream, by new number; rented from the pool.</summary>
+    private int[]? _group;
+
+    /// <summary>The number of objects waiting.</summary>
+    private int _groupCount;
 
     /// <summary>The old number of the /Encrypt dictionary, or zero.</summary>
-    private readonly int _encryptNumber;
+    private int _encryptNumber;
+
+    /// <summary>1 once the writer has been given back, so a second dispose does not offer it twice.</summary>
+    private int _returned;
 
     /// <summary>The bytes handed out so far.</summary>
     private long _position;
@@ -74,28 +87,71 @@ internal sealed class OptimizedFileWriter
     private bool _finished;
 
     /// <summary>Initializes a new instance of the <see cref="OptimizedFileWriter"/> class.</summary>
-    /// <param name="graph">The objects to write.</param>
-    /// <param name="store">The store they come from.</param>
-    /// <param name="settings">The layout.</param>
-    /// <param name="transformer">Changes objects as they are written.</param>
-    internal OptimizedFileWriter(OptimizerGraph graph, PdfObjectStore store, WriteSettings settings, IObjectTransformer transformer)
-    {
-        _graph = graph;
-        _store = store;
-        _settings = settings;
-        _transformer = transformer;
-        _encryptNumber = settings.KeepEncryption ? PdfXrefWriter.EncryptNumber(store.Trailer) : 0;
-        var streamCount = settings.ObjectStreams ? PackedStreamCount() : 0;
-        _rows = new XrefRow[graph.Count + streamCount + 1 + (settings.ObjectStreams ? 1 : 0)];
-        _rows[0] = XrefRow.FreeHead;
-        _streamNumber = graph.Count + 1;
-    }
+    /// <param name="idle">The owning service's writer pool.</param>
+    private OptimizedFileWriter(ReusableSlots<OptimizedFileWriter> idle) => _idle = idle;
 
     /// <summary>Gets the bytes handed out so far.</summary>
     internal long Position => _position;
 
     /// <summary>Gets the store the objects come from.</summary>
     internal PdfObjectStore Store => _store;
+
+    /// <summary>Gets the registered service's reusable state.</summary>
+    internal OptimizerResources Resources => _graph.Resources;
+
+    /// <summary>Takes an idle writer, or makes one, and points it at the objects to write.</summary>
+    /// <param name="graph">The objects to write.</param>
+    /// <param name="store">The store they come from.</param>
+    /// <param name="settings">The layout.</param>
+    /// <param name="transformer">Changes objects as they are written.</param>
+    /// <returns>The writer, which the caller disposes to hand it back.</returns>
+    internal static OptimizedFileWriter Rent(OptimizerGraph graph, PdfObjectStore store, WriteSettings settings, IObjectTransformer transformer)
+    {
+        var idle = graph.Resources.Writers;
+        var writer = idle.Take() ?? new(idle);
+        _ = Interlocked.Exchange(ref writer._returned, 0);
+        try
+        {
+            writer.Begin(graph, store, settings, transformer);
+        }
+        catch
+        {
+            // The caller still owns the graph when renting the writer fails.
+            writer._graph = null!;
+            writer.Return();
+            throw;
+        }
+
+        return writer;
+    }
+
+    /// <summary>Gives the writer back to the pool, with its arrays returned.</summary>
+    internal void Return()
+    {
+        if (Interlocked.Exchange(ref _returned, 1) != 0)
+        {
+            return;
+        }
+
+        if (_rowArray is not null)
+        {
+            ArrayPool<XrefRow>.Shared.Return(_rowArray);
+            _rowArray = null;
+        }
+
+        if (_group is not null)
+        {
+            ArrayPool<int>.Shared.Return(_group);
+            _group = null;
+        }
+
+        _graph?.Return();
+        _graph = null!;
+        _store = null!;
+        _transformer = null!;
+        _settings = default;
+        _ = _idle.Offer(this);
+    }
 
     /// <summary>Writes the whole file to a stream.</summary>
     /// <param name="destination">The destination.</param>
@@ -189,11 +245,13 @@ internal sealed class OptimizedFileWriter
     /// <param name="writer">The output.</param>
     private static void Xref(OptimizedFileWriter self, ref PdfObjectWriter writer)
     {
-        var rows = self._rows;
+        var rows = self._rowArray.AsSpan(0, self._rowCount);
         var source = self._store.Trailer;
         var keep = self._settings.KeepEncryption;
         var size = rows.Length;
-        var trailer = PdfXrefWriter.CreateTrailer(source, size, -1, keep);
+        using var trailerScratch = PdfTrailerScratch.Rent(self._store);
+        var trailer = trailerScratch.Dictionary;
+        PdfXrefWriter.FillTrailer(trailer, source, size, -1, keep);
         var sectionOffset = self._position;
         Span<byte> seed = stackalloc byte[IdSeedLength];
         var ids = source.GetArray(KnownName.ID);
@@ -234,8 +292,9 @@ internal sealed class OptimizedFileWriter
         try
         {
             body.SetRenumbering(self._graph.Map);
-            foreach (var number in self._group)
+            for (var i = 0; i < self._groupCount; i++)
             {
+                var number = self._group![i];
                 packer.Add(ref body, number, self._graph.GetValue(number));
             }
 
@@ -260,19 +319,20 @@ internal sealed class OptimizedFileWriter
             ReportProgress(number);
             if (!IsPackable(number))
             {
-                _rows[number] = new(number, XrefEntryType.InFile, _position, 0);
+                _rowArray![number] = new(number, XrefEntryType.InFile, _position, 0);
                 return Produce(ChunkKind.Plain, out length);
             }
 
-            _rows[number] = new(number, XrefEntryType.Compressed, _streamNumber, _group.Count);
-            _group.Add(number);
-            if (_group.Count >= ObjectsPerStream)
+            _rowArray![number] = new(number, XrefEntryType.Compressed, _streamNumber, _groupCount);
+            _group![_groupCount] = number;
+            _groupCount++;
+            if (_groupCount >= ObjectsPerStream)
             {
                 return FlushGroup(out length);
             }
         }
 
-        if (_group.Count > 0)
+        if (_groupCount > 0)
         {
             return FlushGroup(out length);
         }
@@ -286,9 +346,9 @@ internal sealed class OptimizedFileWriter
     /// <returns>The chunk.</returns>
     private byte[] FlushGroup(out int length)
     {
-        _rows[_streamNumber] = new(_streamNumber, XrefEntryType.InFile, _position, 0);
+        _rowArray![_streamNumber] = new(_streamNumber, XrefEntryType.InFile, _position, 0);
         var chunk = Produce(ChunkKind.ObjectStream, out length);
-        _group.Clear();
+        _groupCount = 0;
         _streamNumber++;
         return chunk;
     }
@@ -348,6 +408,31 @@ internal sealed class OptimizedFileWriter
         {
             _transformer.Progress(number, _graph.Count, _position);
         }
+    }
+
+    /// <summary>Points the writer at the objects to write and sizes its tables.</summary>
+    /// <param name="graph">The objects to write.</param>
+    /// <param name="store">The store they come from.</param>
+    /// <param name="settings">The layout.</param>
+    /// <param name="transformer">Changes objects as they are written.</param>
+    private void Begin(OptimizerGraph graph, PdfObjectStore store, WriteSettings settings, IObjectTransformer transformer)
+    {
+        _graph = graph;
+        _store = store;
+        _settings = settings;
+        _transformer = transformer;
+        _position = 0;
+        _next = 0;
+        _finished = false;
+        _groupCount = 0;
+        _encryptNumber = settings.KeepEncryption ? PdfXrefWriter.EncryptNumber(store.Trailer) : 0;
+        var streamCount = settings.ObjectStreams ? PackedStreamCount() : 0;
+        _rowCount = graph.Count + streamCount + 1 + (settings.ObjectStreams ? 1 : 0);
+        _rowArray = ArrayPool<XrefRow>.Shared.Rent(_rowCount);
+        Array.Clear(_rowArray, 0, _rowCount);
+        _rowArray[0] = XrefRow.FreeHead;
+        _group = settings.ObjectStreams ? ArrayPool<int>.Shared.Rent(ObjectsPerStream) : null;
+        _streamNumber = graph.Count + 1;
     }
 
     /// <summary>Determines whether an object can go in an object stream.</summary>

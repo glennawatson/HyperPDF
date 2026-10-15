@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\..\src\HyperPdfLibrary\HyperPdfLibrary.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdfLibrary\HyperPdfLibrary.csproj" Aliases="global,PdfLibrary" />
     <ProjectReference Include="..\..\src\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
     <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
   </ItemGroup>
@@ -24,6 +24,7 @@
   <!-- veraPDF's results for its PDF/A test files, recorded by scripts/RecordVeraPdfResults.cs, for the validator agreement test. -->
   <ItemGroup>
     <EmbeddedResource Include="Conformance\VeraPdf\Data\verapdf-results.tsv" LogicalName="HyperPdfLibrary.Tests.VeraPdfRecordedResults.tsv" />
+    <EmbeddedResource Include="Conformance\VeraPdf\Data\verapdf-ua-results.tsv" LogicalName="HyperPdfLibrary.Tests.VeraPdfUaRecordedResults.tsv" />
   </ItemGroup>
 
   <!-- The allowed errors of the T.803 decoder conformance tests, for Graphics/Jpx/JpxConformanceTests.cs. -->

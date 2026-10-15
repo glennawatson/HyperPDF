@@ -19,9 +19,6 @@ namespace HyperPdfLibrary.Content;
 [DebuggerDisplay("ContentInterpreter: depth {_depth}, stack {_stack.Count}")]
 internal sealed class ContentInterpreter : IDisposable
 {
-    /// <summary>Idle interpreters, kept so a page, pattern cell or mask recorded on a busy thread reuses the state stacks and path builders.</summary>
-    private static readonly ReusableSlots<ContentInterpreter> Idle = new();
-
     /// <summary>The document's caches; null while the interpreter sits idle.</summary>
     private PdfRenderCache _cache = null!;
 
@@ -37,8 +34,8 @@ internal sealed class ContentInterpreter : IDisposable
     /// <summary>The reused path handed to devices that keep no paths; made on first use.</summary>
     private PdfPath? _scratchPath;
 
-    /// <summary>Whether a <c>Rent</c> call handed this interpreter out, so <see cref="Dispose"/> returns it to the idle slots.</summary>
-    private bool _rented;
+    /// <summary>The host-owned pool this rental returns to, or null for a directly constructed interpreter.</summary>
+    private ReusableSlots<ContentInterpreter>? _pool;
 
     /// <summary>The current graphics state.</summary>
     private GraphicsState _state = new();
@@ -193,14 +190,14 @@ internal sealed class ContentInterpreter : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (!_rented)
+        if (_pool is not { } pool)
         {
             return;
         }
 
-        _rented = false;
+        _pool = null;
         Reset();
-        _ = Idle.Offer(this);
+        _ = pool.Offer(this);
     }
 
     /// <summary>Hands out an idle interpreter that draws at full scale and cannot be cancelled. Dispose it to give it back.</summary>
@@ -231,7 +228,8 @@ internal sealed class ContentInterpreter : IDisposable
     /// <returns>An interpreter in its starting state, owned by the caller until it is disposed.</returns>
     internal static ContentInterpreter Rent(PdfRenderCache cache, IContentDevice device, int depth, float imageScale, CancellationToken cancellationToken)
     {
-        var interpreter = Idle.Take();
+        var pool = cache.Document.DrawingServices.Interpreters;
+        var interpreter = pool.Take();
         if (interpreter is null)
         {
             interpreter = new(cache, device, depth, imageScale, cancellationToken);
@@ -241,7 +239,7 @@ internal sealed class ContentInterpreter : IDisposable
             interpreter.Attach(cache, device, depth, imageScale, cancellationToken);
         }
 
-        interpreter._rented = true;
+        interpreter._pool = pool;
         return interpreter;
     }
 

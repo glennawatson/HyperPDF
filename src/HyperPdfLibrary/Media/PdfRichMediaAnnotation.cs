@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Media;
@@ -14,8 +15,8 @@ namespace HyperPdfLibrary.Media;
 /// <param name="ViewCount">The number of 3D views in <c>/Views</c>.</param>
 [DebuggerDisplay("PdfRichMediaAnnotation: {Assets.Length} assets")]
 public sealed record PdfRichMediaAnnotation(
-    PdfRichMediaAsset[] Assets,
-    PdfRichMediaConfiguration[] Configurations,
+    ImmutableArray<PdfRichMediaAsset> Assets,
+    ImmutableArray<PdfRichMediaConfiguration> Configurations,
     string? ActivationCondition,
     string? DeactivationCondition,
     int ViewCount);

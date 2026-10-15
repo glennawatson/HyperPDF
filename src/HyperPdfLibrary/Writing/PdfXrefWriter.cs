@@ -173,6 +173,18 @@ internal static class PdfXrefWriter
     internal static PdfDictionary CreateTrailer(PdfDictionary source, int size, long previous, bool keepEncrypt)
     {
         var trailer = new PdfDictionary(null);
+        FillTrailer(trailer, source, size, previous, keepEncrypt);
+        return trailer;
+    }
+
+    /// <summary>Fills cleared trailer storage with the document's structural entries.</summary>
+    /// <param name="trailer">The cleared destination.</param>
+    /// <param name="source">The original trailer.</param>
+    /// <param name="size">One more than the highest output object number.</param>
+    /// <param name="previous">The previous section offset, or a negative number for none.</param>
+    /// <param name="keepEncrypt">Whether the encryption dictionary is kept.</param>
+    internal static void FillTrailer(PdfDictionary trailer, PdfDictionary source, int size, long previous, bool keepEncrypt)
+    {
         trailer.Set(KnownName.Size, PdfValue.FromInteger(size));
         if (previous >= 0)
         {
@@ -185,8 +197,6 @@ internal static class PdfXrefWriter
         {
             trailer.Set(KnownName.Encrypt, source.GetRaw(KnownName.Encrypt));
         }
-
-        return trailer;
     }
 
     /// <summary>Copies the trailer keys that describe the document and that an update must not lose, such as custom entries.</summary>

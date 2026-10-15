@@ -123,7 +123,7 @@ public sealed class TextEditingFlowTests
 
             await Assert.That(listed).IsTrue();
             await Assert.That(families.Take(StandardFontFamilies.All.Count)).IsEquivalentTo(StandardFontFamilies.All);
-            await Assert.That(shownFamily).IsEqualTo(PageFonts.Get(family));
+            await Assert.That(shownFamily).IsEqualTo(PageFonts.Get(tab.Services.PageFontFamilies, family));
             await Assert.That(bold).IsTrue();
             await Assert.That(stillEditing).IsTrue();
             await Assert.That(format.FontFamily).IsEqualTo(family);

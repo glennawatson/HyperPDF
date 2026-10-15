@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+using HyperPdf.Skia.Gpu;
 using SkiaSharp;
 
 namespace HyperPdf.Skia;
@@ -13,6 +14,9 @@ public interface ISkiaSharpApiLease : IDisposable
 
     /// <summary>Gets the GPU context if available.</summary>
     GRContext? GrContext { get; }
+
+    /// <summary>Gets the queue owned by the leased graphics backend, or null for software drawing.</summary>
+    SkiaGpuImageRetirement? ImageRetirement { get; }
 
     /// <summary>Gets the compositor surface's channel order for compatible GPU tile storage.</summary>
     SKColorType SurfaceColorType { get; }

@@ -97,7 +97,7 @@ internal static class Jbig2Segments
         while (reader.BytesLeft >= MinSegmentSize)
         {
             state.CancellationToken.ThrowIfCancellationRequested();
-            if (Jbig2Segment.Parse(ref reader) is not { } segment)
+            if (Jbig2Segment.Parse(ref reader, state.Workspace) is not { } segment)
             {
                 return Jbig2Status.Failure;
             }
@@ -174,7 +174,7 @@ internal static class Jbig2Segments
         {
             Jbig2Segments.SegmentKind.SymbolDictionary => Jbig2Dictionaries.DecodeSymbolDictionary(state, ref reader, segment),
             Jbig2Segments.SegmentKind.PatternDictionary => Jbig2Dictionaries.DecodePatternDictionary(state, ref reader, segment),
-            Jbig2Segments.SegmentKind.Table => Jbig2Dictionaries.DecodeTable(ref reader, segment),
+            Jbig2Segments.SegmentKind.Table => Jbig2Dictionaries.DecodeTable(ref reader, segment, state.Workspace),
             Jbig2Segments.SegmentKind.PageInformation => DecodePageInformation(state, ref reader),
             Jbig2Segments.SegmentKind.End => Jbig2Status.EndReached,
             _ => Skip(ref reader, segment),

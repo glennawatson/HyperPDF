@@ -8,9 +8,12 @@ using System.Runtime.CompilerServices;
 
 namespace HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
 
-/// <summary>The bounding box and black pixel count of each component of a page, in struct-of-arrays form.</summary>
+/// <summary>
+/// The bounding box and black pixel count of each component of a page, in struct-of-arrays form. The value holds the
+/// rented arrays, so copies share them and only the owner disposes.
+/// </summary>
 [DebuggerDisplay("Jbig2ComponentMeasures: {Count} components")]
-internal sealed class Jbig2ComponentMeasures : IDisposable
+internal readonly record struct Jbig2ComponentMeasures : IDisposable
 {
     /// <summary>The left edge of each component.</summary>
     private readonly int[] _left;
@@ -27,7 +30,7 @@ internal sealed class Jbig2ComponentMeasures : IDisposable
     /// <summary>The black pixels of each component.</summary>
     private readonly int[] _ink;
 
-    /// <summary>Initializes a new instance of the <see cref="Jbig2ComponentMeasures"/> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="Jbig2ComponentMeasures"/> struct.</summary>
     /// <param name="count">The number of components.</param>
     internal Jbig2ComponentMeasures(int count)
     {
@@ -86,7 +89,7 @@ internal sealed class Jbig2ComponentMeasures : IDisposable
     /// <param name="index">The component.</param>
     /// <param name="source">The measures to copy from.</param>
     /// <param name="sourceIndex">The component in <paramref name="source"/>.</param>
-    internal void Copy(int index, Jbig2ComponentMeasures source, int sourceIndex)
+    internal void Copy(int index, in Jbig2ComponentMeasures source, int sourceIndex)
     {
         _left[index] = source._left[sourceIndex];
         _top[index] = source._top[sourceIndex];

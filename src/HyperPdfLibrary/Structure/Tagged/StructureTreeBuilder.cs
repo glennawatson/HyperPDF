@@ -148,6 +148,7 @@ internal sealed class StructureTreeBuilder
         element.RawType = GetTypeName(type);
         element.MappedType = resolved.MappedType;
         element.Type = resolved.Type;
+        element.ResolvesToMathMl = resolved.IsMathMl;
         element.Namespace = space is null ? null : _roles.GetUri(space);
         element.Depth = parent.Depth;
         element.PageIndex = ReadPage(dictionary, parent.PageIndex);

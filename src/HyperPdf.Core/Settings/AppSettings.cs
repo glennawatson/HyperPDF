@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 using HyperPdf.Core.Layout;
+using HyperPdf.Core.Rendering;
 
 namespace HyperPdf.Core.Settings;
 
@@ -54,6 +55,16 @@ public sealed class AppSettings
 
     /// <summary>Gets or sets the opacity of the tint over fillable form fields, 0 (off) to 255.</summary>
     public int FormHighlightAlpha { get; set; } = HyperPdf.Core.Forms.FormHighlight.Default.Alpha;
+
+    /// <summary>
+    /// Gets or sets how sharp pages draw: text edges, thin lines and scaled images. A value read from a file is
+    /// brought into range, and a missing value gives the defaults.
+    /// </summary>
+    public RenderSharpness Sharpness
+    {
+        get;
+        set => field = value?.Normalize() ?? RenderSharpness.Default;
+    } = RenderSharpness.Default;
 
     /// <summary>Gets or sets which voice reads documents aloud.</summary>
     public SpeechEngineChoice SpeechEngine { get; set; }

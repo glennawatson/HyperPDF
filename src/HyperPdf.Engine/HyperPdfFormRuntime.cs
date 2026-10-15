@@ -30,7 +30,11 @@ internal static class HyperPdfFormRuntime
     internal static PdfRenderOptions CreateRenderOptions(HyperPdfDocument self)
     {
         var tint = HyperPdfDocumentFormHighlight.GetHighlight(self);
-        return PdfRenderOptions.Default with { FormHighlight = new(tint.Color, tint.Alpha) };
+        return PdfRenderOptions.Default with
+        {
+            FormHighlight = new(tint.Color, tint.Alpha),
+            Quality = HyperPdfDocumentRenderSharpness.ToQuality(HyperPdfDocumentRenderSharpness.GetSharpness(self)),
+        };
     }
 
     /// <summary>Creates a runner that hands what the library cannot do to the application's host.</summary>

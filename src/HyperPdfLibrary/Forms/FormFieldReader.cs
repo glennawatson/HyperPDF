@@ -69,8 +69,8 @@ internal static class FormFieldReader
         }
 
         var form = document.Catalog.GetDictionary(KnownName.AcroForm);
-        var controls = FormControl.GetControls(field, node.Id);
-        var widgets = ReadWidgets(document, node, controls, locations);
+        using var controls = FormControls.Read(field, node.Id);
+        var widgets = ReadWidgets(document, node, controls.AsSpan(), locations);
         var values = type is PdfFieldType.ComboBox or PdfFieldType.ListBox ? ReadSelected(field) : [];
         var details = new PdfFieldDetails(
             node.Name,
@@ -97,11 +97,11 @@ internal static class FormFieldReader
     private static PdfWidgetDetails[] ReadWidgets(
         PdfDocument document,
         FormFieldNode node,
-        List<FormControl> controls,
+        ReadOnlySpan<FormControl> controls,
         Dictionary<int, PdfWidgetLocation> locations)
     {
         var form = PdfDocumentForms.GetForm(document);
-        var widgets = new PdfWidgetDetails[controls.Count];
+        var widgets = new PdfWidgetDetails[controls.Length];
         var type = FormValues.GetType(node.Dictionary, document.Objects.Names, FieldAttributes.GetFlags(node.Dictionary));
         var isButton = type is PdfFieldType.CheckBox or PdfFieldType.RadioButton;
         for (var i = 0; i < widgets.Length; i++)
@@ -109,7 +109,7 @@ internal static class FormFieldReader
             var control = controls[i];
             var location = control.Id.IsValid && locations.TryGetValue(control.Id.Number, out var found) ? found : new(-1, -1);
             var bounds = control.Dictionary.TryGetRectangle(KnownName.Rect, out var rect) ? rect : default;
-            var export = isButton ? PdfFormReading.GetExportValue(form, node.Dictionary, controls, i) : null;
+            var export = isButton ? PdfFormReading.GetExportValue(form, node.Dictionary, controls[i].Dictionary, i) : null;
             widgets[i] = new(location, bounds, export, isButton && control.IsChecked(document.Objects.Names));
         }
 

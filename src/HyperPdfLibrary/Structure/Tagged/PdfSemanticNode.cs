@@ -121,11 +121,26 @@ public sealed class PdfSemanticNode
     /// <summary>Gets the header cells that label this table cell: its <c>/Headers</c>, or inferred from the header scopes.</summary>
     public IReadOnlyList<PdfSemanticNode> Headers => _headers ?? (IReadOnlyList<PdfSemanticNode>)[];
 
-    /// <summary>Gets the alternate description (<c>/Alt</c>), or <see langword="null"/>.</summary>
-    public string? AlternateText => Element?.AlternateText;
+    /// <summary>Gets the alternate description (<c>/Alt</c>), or the description a host gave an inferred figure, or <see langword="null"/>.</summary>
+    public string? AlternateText => Element?.AlternateText ?? InferredAlternateText;
 
     /// <summary>Gets the language, or <see langword="null"/>.</summary>
     public string? Language => Element?.Language;
+
+    /// <summary>Gets the description a host gave an inferred figure, or <see langword="null"/>.</summary>
+    public string? InferredAlternateText { get; internal set; }
+
+    /// <summary>Gets the language guessed from the node's text when the guess was asked for, or <see langword="null"/>; never the document's own language.</summary>
+    public string? InferredLanguage { get; internal set; }
+
+    /// <summary>Gets how the lines of an inferred paragraph sit between its edges.</summary>
+    public PdfTextAlignment Alignment { get; internal set; }
+
+    /// <summary>Gets which pagination artifact a <see cref="PdfSemanticRole.Artifact"/> node is.</summary>
+    public PdfPaginationKind Pagination { get; internal set; }
+
+    /// <summary>Gets how an inferred list's labels are made.</summary>
+    public PdfListNumbering ListNumbering { get; internal set; }
 
     /// <summary>
     /// Gets the text a reader should speak: the replacement text, else a figure's or formula's description, else the
@@ -160,6 +175,24 @@ public sealed class PdfSemanticNode
     {
         child.Parent = this;
         (_children ??= []).Add(child);
+    }
+
+    /// <summary>Adds a paragraph to a figure or table as its caption, the first or last child.</summary>
+    /// <param name="paragraph">The paragraph that reads as a caption.</param>
+    /// <param name="first">Whether the caption comes before the rest of the node's content.</param>
+    internal void AddCaption(PdfSemanticNode paragraph, bool first)
+    {
+        var caption = new PdfSemanticNode(PdfSemanticRole.Caption, paragraph.Origin, paragraph.PageIndex)
+        {
+            Text = paragraph.Text,
+            Bounds = paragraph.Bounds,
+            Alignment = paragraph.Alignment,
+            InferredLanguage = paragraph.InferredLanguage,
+        };
+        caption._items = paragraph._items;
+        caption.Parent = this;
+        _children ??= [];
+        _children.Insert(first ? 0 : _children.Count, caption);
     }
 
     /// <summary>Makes the node's text the text of its glyphs, read when the text is first asked for.</summary>

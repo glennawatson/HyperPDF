@@ -2,10 +2,13 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Filters;
+
 namespace HyperPdfLibrary.Writing;
 
-/// <summary>Writes the bit-packed integer rows in linearization hint tables.</summary>
-internal sealed class PdfHintBitWriter
+/// <summary>Writes the bit-packed integer rows in linearization hint tables into a pooled buffer. Dispose returns the buffer.</summary>
+internal ref struct PdfHintBitWriter : IDisposable
 {
     /// <summary>The bits in one byte.</summary>
     private const int ByteBits = 8;
@@ -14,13 +17,20 @@ internal sealed class PdfHintBitWriter
     private const int MaxBits = 32;
 
     /// <summary>The encoded bytes.</summary>
-    private readonly List<byte> _bytes = [];
+    private PooledBuffer _bytes;
 
     /// <summary>The number of bits written.</summary>
     private int _bitCount;
 
     /// <summary>Gets the number of complete output bytes.</summary>
-    internal int ByteCount => _bytes.Count;
+    internal readonly int ByteCount => _bytes.Length;
+
+    /// <summary>Gets the encoded table.</summary>
+    internal readonly ReadOnlySpan<byte> WrittenSpan => _bytes.WrittenSpan;
+
+    /// <summary>Returns the buffer to the pool.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _bytes.Dispose();
 
     /// <summary>Writes the most significant bits of an unsigned value first.</summary>
     /// <param name="value">The value.</param>
@@ -32,14 +42,14 @@ internal sealed class PdfHintBitWriter
         for (var bit = width - 1; bit >= 0; bit--)
         {
             var index = _bitCount / ByteBits;
-            if (index == _bytes.Count)
+            if (index == _bytes.Length)
             {
-                _bytes.Add(0);
+                _bytes.WriteByte(0);
             }
 
             if (((value >> bit) & 1) != 0)
             {
-                _bytes[index] |= (byte)(1 << (ByteBits - 1 - (_bitCount % ByteBits)));
+                _bytes.Array![index] |= (byte)(1 << (ByteBits - 1 - (_bitCount % ByteBits)));
             }
 
             _bitCount++;
@@ -54,8 +64,4 @@ internal sealed class PdfHintBitWriter
             Write(0, 1);
         }
     }
-
-    /// <summary>Gets the written hint bytes.</summary>
-    /// <returns>The encoded table.</returns>
-    internal byte[] ToArray() => [.. _bytes];
 }

@@ -20,6 +20,15 @@ internal sealed class SkiaDrawingSession : IPdfDrawingSession
     /// <summary>The thread's reusable native wrappers.</summary>
     private RenderSurface? _surface;
 
+    /// <summary>Gets the stop arrays reused by this backend thread when creating gradients.</summary>
+    internal SkiaGradientStops GradientStops => field ??= new();
+
+    /// <summary>Gets the conversion arrays reused by this backend thread when creating mesh vertices.</summary>
+    internal SkiaVertexArrays VertexArrays => field ??= new();
+
+    /// <summary>Gets the pattern composer reused by this backend thread.</summary>
+    internal TileComposer TileComposer => field ??= new();
+
     /// <inheritdoc/>
     public unsafe bool DrawPage(IPdfRenderPicture content, IPdfRenderPicture? annotations, Matrix3x2 matrix, PdfTileTarget target, bool grayscale)
     {

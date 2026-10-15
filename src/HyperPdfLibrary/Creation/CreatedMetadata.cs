@@ -16,6 +16,12 @@ namespace HyperPdfLibrary.Creation;
 /// <summary>Writes a created document's information dictionary and XMP packet (ISO 32000-2 14.3).</summary>
 internal static class CreatedMetadata
 {
+    /// <summary>The number of PDF/UA part 2.</summary>
+    private const int PartTwo = 2;
+
+    /// <summary>The <c>pdfuaid:rev</c> of ISO 14289-2:2024.</summary>
+    private const string PartTwoRevision = "2024";
+
     /// <summary>The RDF namespace.</summary>
     private const string Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 
@@ -120,6 +126,12 @@ internal static class CreatedMetadata
             if (claimedPart > 0)
             {
                 writer.WriteElementString("pdfuaid", "part", XmpMetadata.PdfUaIdNamespace, claimedPart.ToString(CultureInfo.InvariantCulture));
+            }
+
+            if (claimedPart == PartTwo)
+            {
+                // ISO 14289-2 clause 5 names the revision of the part.
+                writer.WriteElementString("pdfuaid", "rev", XmpMetadata.PdfUaIdNamespace, PartTwoRevision);
             }
 
             writer.WriteEndElement();

@@ -39,6 +39,9 @@ public sealed record PdfRenderOptions(long ImageCacheBytes, bool SimulateOverpri
     /// <summary>Gets the tint drawn over fillable form fields when annotations are drawn; none by default.</summary>
     public PdfFormHighlight FormHighlight { get; init; }
 
+    /// <summary>Gets how edges, thin lines and scaled images are drawn; smooth edges by default.</summary>
+    public PdfRenderQuality Quality { get; init; } = PdfRenderQuality.Default;
+
     /// <summary>
     /// Gets the most memory the recorded page pictures may hold together: each picture's own operations plus the pixels of
     /// every image it drew, because a picture keeps its images alive after the image cache lets them go. When the pictures

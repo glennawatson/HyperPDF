@@ -140,6 +140,9 @@ internal static class OverlayWriter
     private static PdfName WriteMark(ref PdfContentBuilder builder, PdfPageContent content, RedactMark mark, PdfName font)
     {
         var info = mark.Info;
+
+        // The overlay is page decoration, not content to read, so it is an artifact (ISO 14289-1 7.1).
+        builder.BeginMarkedContent("Artifact"u8);
         builder.SaveState();
         try
         {
@@ -171,6 +174,7 @@ internal static class OverlayWriter
         finally
         {
             builder.RestoreState();
+            builder.EndMarkedContent();
         }
     }
 

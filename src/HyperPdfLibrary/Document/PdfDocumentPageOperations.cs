@@ -2,7 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
@@ -103,7 +105,7 @@ static (transaction, edit) => PdfDocumentPageOperations.MoveCore(edit.Document, 
         }
 
         PdfDocumentPageOperations.ValidatePages(document, order);
-        _ = PdfDocumentPageOperations.UniquePages(order, true);
+        PdfDocumentPageOperations.ValidateOrder(order);
         PdfDocumentEditing.RunEdit(
 document,
 "Reorder pages",
@@ -239,7 +241,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     {
         if (direct is not null)
         {
-            PdfDocumentPageOperations.WritePages(document, transaction, direct);
+            PdfDocumentPageOperations.WritePages(document, transaction, CollectionsMarshal.AsSpan(direct));
         }
     }
 
@@ -253,7 +255,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         var id = transaction.Add(PdfValue.FromDictionary(page));
         var slots = PdfDocumentPageOperations.CurrentSlots(document);
         slots.Insert(index, new(PdfValue.FromReference(id), -1));
-        PdfDocumentPageOperations.WritePages(document, transaction, slots);
+        PdfDocumentPageOperations.WritePages(document, transaction, CollectionsMarshal.AsSpan(slots));
     }
 
     /// <summary>Collects indexes into a set.</summary>
@@ -273,6 +275,29 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         }
 
         return set;
+    }
+
+    /// <summary>Checks a validated page permutation without retaining a set of indexes.</summary>
+    /// <param name="pages">The complete page order.</param>
+    /// <exception cref="ArgumentException">An index repeats.</exception>
+    private static void ValidateOrder(ReadOnlySpan<int> pages)
+    {
+        var seen = default(PooledBits);
+        try
+        {
+            seen.Rent(pages.Length);
+            foreach (var index in pages)
+            {
+                if (!seen.Add(index))
+                {
+                    throw new ArgumentException("A page is listed more than once.", nameof(pages));
+                }
+            }
+        }
+        finally
+        {
+            seen.Dispose();
+        }
     }
 
     /// <summary>Determines whether any inserted page brings a label.</summary>
@@ -386,7 +411,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
 
         PdfDocumentPruning.PruneDestinations(document, transaction, deleted);
         PdfCarrySeparations.RelinkAfterDelete(document, transaction, removed, report);
-        PdfDocumentPageOperations.WritePages(document, transaction, kept);
+        PdfDocumentPageOperations.WritePages(document, transaction, CollectionsMarshal.AsSpan(kept));
     }
 
     /// <summary>Moves pages so the first lands at a destination.</summary>
@@ -419,7 +444,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         }
 
         result.InsertRange(destination, insert);
-        PdfDocumentPageOperations.WritePages(document, transaction, result);
+        PdfDocumentPageOperations.WritePages(document, transaction, CollectionsMarshal.AsSpan(result));
     }
 
     /// <summary>
@@ -482,14 +507,24 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     /// <param name="order">The current index of the page at each new position.</param>
     private static void ReorderCore(PdfDocument document, PdfEditTransaction transaction, ReadOnlySpan<int> order)
     {
-        var slots = PdfDocumentPageOperations.CurrentSlots(document);
-        var result = new List<PdfPageSlot>(order.Length);
-        foreach (var index in order)
+        var entries = PdfDocumentPages.GetPageSet(document).Entries;
+        var rented = ArrayPool<PdfPageSlot>.Shared.Rent(order.Length);
+        try
         {
-            result.Add(slots[index]);
-        }
+            var result = rented.AsSpan(0, order.Length);
+            for (var position = 0; position < order.Length; position++)
+            {
+                var index = order[position];
+                var entry = entries[index];
+                result[position] = new(entry.Id.IsValid ? PdfValue.FromReference(entry.Id) : PdfValue.FromDictionary(entry.Direct!), index);
+            }
 
-        PdfDocumentPageOperations.WritePages(document, transaction, result);
+            PdfDocumentPageOperations.WritePages(document, transaction, result);
+        }
+        finally
+        {
+            ArrayPool<PdfPageSlot>.Shared.Return(rented, true);
+        }
     }
 
     /// <summary>Copies pages from a document and places them.</summary>
@@ -621,7 +656,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         {
             var slots = PdfDocumentPageOperations.CurrentSlots(document);
             slots.InsertRange(index, inserted);
-            PdfDocumentPageOperations.WritePages(document, transaction, slots);
+            PdfDocumentPageOperations.WritePages(document, transaction, CollectionsMarshal.AsSpan(slots));
             return;
         }
 
@@ -658,7 +693,7 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
 
         var slots = PdfDocumentPageOperations.CurrentSlots(document);
         slots.InsertRange(index, inserted);
-        return PdfDocumentPageOperations.CollectLabels(document, slots);
+        return PdfDocumentPageOperations.CollectLabels(document, CollectionsMarshal.AsSpan(slots));
     }
 
     /// <summary>Copies the structure elements of the inserted pages when both documents are tagged.</summary>
@@ -745,12 +780,11 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     /// <param name="document">The document.</param>
     /// <param name="transaction">The transaction.</param>
     /// <param name="slots">The pages in their new order.</param>
-    private static void WritePages(PdfDocument document, PdfEditTransaction transaction, List<PdfPageSlot> slots)
+    private static void WritePages(PdfDocument document, PdfEditTransaction transaction, ReadOnlySpan<PdfPageSlot> slots)
     {
-        var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(slots);
-        var labelled = document.Catalog.GetDictionary(KnownName.PageLabels) is not null || PdfDocumentPageOperations.HasInsertedLabels(span);
+        var labelled = document.Catalog.GetDictionary(KnownName.PageLabels) is not null || PdfDocumentPageOperations.HasInsertedLabels(slots);
         var labels = labelled ? PdfDocumentPageOperations.CollectLabels(document, slots) : null;
-        PdfPageTreeWriter.Write(transaction, document.Objects, span);
+        PdfPageTreeWriter.Write(transaction, document.Objects, slots);
         if (labels is not null)
         {
             PdfPageLabelWriter.Write(transaction, document.Objects, labels);
@@ -761,14 +795,14 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     /// <param name="document">The document.</param>
     /// <param name="slots">The pages in their new order.</param>
     /// <returns>The labels.</returns>
-    private static PdfPageLabel[] CollectLabels(PdfDocument document, List<PdfPageSlot> slots)
+    private static PdfPageLabel[] CollectLabels(PdfDocument document, ReadOnlySpan<PdfPageSlot> slots)
     {
         var ranges = PdfDocumentLabels.GetLabelRanges(document);
 
         // Pages before the first range are labelled with their decimal page number; one shared style keeps them in runs.
         var decimalStyle = new PdfDictionary(document.Objects);
         decimalStyle.Set(KnownName.S, PdfValue.FromName(KnownName.D));
-        var labels = new PdfPageLabel[slots.Count];
+        var labels = new PdfPageLabel[slots.Length];
         for (var i = 0; i < labels.Length; i++)
         {
             var old = slots[i].OldIndex;

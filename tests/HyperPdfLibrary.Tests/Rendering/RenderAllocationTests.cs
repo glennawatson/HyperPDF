@@ -46,6 +46,9 @@ public sealed class RenderAllocationTests
     private const string TextContent = "BT /F1 12 Tf 14 TL 5 90 Td (Hello, world! The quick brown fox) Tj T* 1 Tr (jumps over the lazy dog) Tj "
         + "T* 2 Tr 2 Tw [(AV) -120 (Wa) 50 (ter)] TJ T* 7 Tr (clip) Tj ET 0 0 1 rg 0 0 200 200 re f";
 
+    /// <summary>Thin lines and a box added to the text page for the quality settings.</summary>
+    private const string Lines = " 0.4 w 10 20.3 m 190 20.3 l S 10 40 50 20 re S";
+
     /// <summary>The axial shading painted behind everything.</summary>
     private const string BusyShading = "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 200 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [1 1 0] /C1 [0 1 1] /N 1 >> /Extend [true true] >>";
 
@@ -88,17 +91,46 @@ public sealed class RenderAllocationTests
         await Assert.That(MeasureTile(page, PdfRenderFlags.None)).IsEqualTo(0L);
     }
 
+    /// <summary>
+    /// The same text page drawn with sharp edges, and with thin lines fitted to pixels, renders a tile with no allocation
+    /// once warm.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task QualityTileRenderDoesNotAllocate()
+    {
+        var spec = new FontSpec { Subtype = "TrueType", Program = TestFont.Create(), Flags = TextFontFlags, Entries = "/Encoding /WinAnsiEncoding", Content = TextContent + Lines };
+        using var page = new RenderTestPage(FontTestDocument.Build(spec));
+        PdfRenderQuality[] settings =
+        [
+            PdfRenderQuality.Default with { TextEdges = PdfTextEdges.Sharp, SmoothGraphics = false },
+            PdfRenderQuality.Default with { StrokeAdjustment = PdfStrokeAdjustment.Always, MinimumLineWidth = 1, SmoothImages = false },
+        ];
+
+        foreach (var quality in settings)
+        {
+            using var renderer = new PdfPageRenderer(page.Document, PdfRenderOptions.Default with { Quality = quality });
+            await Assert.That(MeasureTile(renderer, PdfRenderFlags.None)).IsEqualTo(0L);
+        }
+    }
+
     /// <summary>Renders a tile repeatedly and returns the bytes allocated by the measured renders.</summary>
     /// <param name="page">The page.</param>
     /// <param name="flags">The render options.</param>
     /// <returns>The bytes allocated on this thread.</returns>
-    private static long MeasureTile(RenderTestPage page, PdfRenderFlags flags)
+    private static long MeasureTile(RenderTestPage page, PdfRenderFlags flags) => MeasureTile(page.Renderer, flags);
+
+    /// <summary>Renders a tile repeatedly and returns the bytes allocated by the measured renders.</summary>
+    /// <param name="renderer">The renderer.</param>
+    /// <param name="flags">The render options.</param>
+    /// <returns>The bytes allocated on this thread.</returns>
+    private static long MeasureTile(PdfPageRenderer renderer, PdfRenderFlags flags)
     {
         var pixels = new byte[TileSize * TileSize * RenderedImage.BytesPerPixel];
         var request = new PdfTileRequest(0, 1, 0, Offset, Offset, flags);
         for (var i = 0; i < Warmup; i++)
         {
-            _ = Render(page.Renderer, request, pixels);
+            _ = Render(renderer, request, pixels);
         }
 
         // One-off work can land in a measured pass on a busy machine: lazy statics first reached on a path the warm-up
@@ -110,7 +142,7 @@ public sealed class RenderAllocationTests
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var i = 0; i < Measured; i++)
             {
-                _ = Render(page.Renderer, request, pixels);
+                _ = Render(renderer, request, pixels);
             }
 
             smallest = Math.Min(smallest, GC.GetAllocatedBytesForCurrentThread() - before);

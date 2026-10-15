@@ -25,9 +25,6 @@ public sealed class FontCatalog
     /// <summary>The weight distance that outweighs any slant difference, so slant matches first.</summary>
     private const int SlantPenalty = 1000;
 
-    /// <summary>The system catalog, scanned on first use.</summary>
-    private static readonly Lazy<FontCatalog> SystemCatalog = new(static () => Scan(SystemDirectories()), LazyThreadSafetyMode.ExecutionAndPublication);
-
     /// <summary>The embeddable faces by family name.</summary>
     private readonly Dictionary<string, List<FontFace>> _byFamily;
 
@@ -74,12 +71,6 @@ public sealed class FontCatalog
         every.Sort(StringComparer.OrdinalIgnoreCase);
         AllFamilies = [.. StandardFontFamilies.All, .. every];
     }
-
-    /// <summary>Gets the installed fonts, read on first use; reading is quick but touches the disk, so call it off the UI thread first.</summary>
-    public static FontCatalog System => SystemCatalog.Value;
-
-    /// <summary>Gets a value indicating whether the installed fonts have been read, so <see cref="System"/> returns at once.</summary>
-    public static bool IsSystemLoaded => SystemCatalog.IsValueCreated;
 
     /// <summary>Gets a catalog with only the built in families.</summary>
     public static FontCatalog Empty { get; } = new([]);

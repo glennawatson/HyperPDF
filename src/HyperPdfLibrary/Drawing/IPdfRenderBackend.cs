@@ -22,6 +22,12 @@ public interface IPdfRenderBackend
     /// <returns>The owned recorder.</returns>
     IPictureDevice CreatePictureDevice(PdfRect bounds);
 
+    /// <summary>Creates a content recording device for a picture shown in a known way.</summary>
+    /// <param name="bounds">The recording bounds.</param>
+    /// <param name="style">How the picture will be shown.</param>
+    /// <returns>The owned recorder.</returns>
+    IPictureDevice CreatePictureDevice(PdfRect bounds, in PdfPictureStyle style) => CreatePictureDevice(bounds);
+
     /// <summary>Creates an image from decoded PDF pixels.</summary>
     /// <param name="data">The decoded pixels.</param>
     /// <returns>The owned image, or null for invalid input.</returns>
@@ -41,7 +47,7 @@ public interface IPdfRenderBackend
     /// <param name="positions">The stop positions.</param>
     /// <param name="mode">The edge behavior.</param>
     /// <returns>The owned shader.</returns>
-    IPdfRenderShader CreateLinearGradient(PdfPoint start, PdfPoint end, PdfColor[] colors, float[] positions, PdfShaderTileMode mode);
+    IPdfRenderShader CreateLinearGradient(PdfPoint start, PdfPoint end, ReadOnlySpan<PdfColor> colors, ReadOnlySpan<float> positions, PdfShaderTileMode mode);
 
     /// <summary>Creates a radial gradient between two circles.</summary>
     /// <param name="start">The first center.</param>
@@ -52,7 +58,14 @@ public interface IPdfRenderBackend
     /// <param name="positions">The stop positions.</param>
     /// <param name="mode">The edge behavior.</param>
     /// <returns>The owned shader.</returns>
-    IPdfRenderShader CreateTwoPointConicalGradient(PdfPoint start, float startRadius, PdfPoint end, float endRadius, PdfColor[] colors, float[] positions, PdfShaderTileMode mode);
+    IPdfRenderShader CreateTwoPointConicalGradient(
+        PdfPoint start,
+        float startRadius,
+        PdfPoint end,
+        float endRadius,
+        ReadOnlySpan<PdfColor> colors,
+        ReadOnlySpan<float> positions,
+        PdfShaderTileMode mode);
 
     /// <summary>Creates an image shader.</summary>
     /// <param name="image">The source image.</param>

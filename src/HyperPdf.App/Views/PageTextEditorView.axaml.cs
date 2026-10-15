@@ -189,7 +189,7 @@ public sealed partial class PageTextEditorView : ReactiveUI.Avalonia.ReactiveUse
         var format = tab.Annotations.CurrentTextFormat;
         var scale = pages.PageScale;
         var editor = PageTextEditor;
-        editor.FontFamily = PageFonts.Get(format.FontFamily);
+        editor.FontFamily = PageFonts.Get(tab.Services.PageFontFamilies, format.FontFamily);
         editor.FontSize = format.FontSize * scale;
         editor.FontWeight = format.IsBold ? FontWeight.Bold : FontWeight.Normal;
         editor.FontStyle = format.IsItalic ? FontStyle.Italic : FontStyle.Normal;

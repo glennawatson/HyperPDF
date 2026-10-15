@@ -26,12 +26,12 @@ internal sealed partial class OptimizeSession
             return PdfValue.FromStream(image);
         }
 
-        if (_fontGlyphs.TryGetValue(oldNumber, out var glyphs) && TransformFont(oldNumber, stream, glyphs) is { } font)
+        if (_fonts is { } fonts && fonts.Kept.TryGetValue(oldNumber, out var glyphs) && TransformFont(oldNumber, stream, glyphs) is { } font)
         {
             return PdfValue.FromStream(font);
         }
 
-        if (_options.RecompressStreams && StreamRecompressor.TryRecompress(stream, _cancellationToken) is { } smaller)
+        if (_options.RecompressStreams && StreamRecompressor.TryRecompress(stream, _source.Objects.ScratchPools, _cancellationToken) is { } smaller)
         {
             _report.Measure(PdfOptimizeCategory.Streams, stream.RawLength, smaller.RawLength);
             return PdfValue.FromStream(smaller);
@@ -51,7 +51,7 @@ internal sealed partial class OptimizeSession
     /// <returns>The new image, or <see langword="null"/> to fall back to lossless recompression.</returns>
     private PdfStream? TransformImage(int oldNumber, PdfStream image, ImageUse use)
     {
-        var outcome = _recoder!.Recode(image, use, _masks.Contains(oldNumber));
+        var outcome = _recoder.Recode(image, use, _masks.Contains(oldNumber));
         if (outcome.Stream is { } result)
         {
             _report.Changed(PdfOptimizeCategory.Images, oldNumber, outcome.Note, image.RawLength, result.RawLength);
@@ -73,7 +73,7 @@ internal sealed partial class OptimizeSession
     /// <returns>The subset program, or <see langword="null"/> when nothing was gained.</returns>
     private PdfStream? TransformFont(int oldNumber, PdfStream program, CodeBitSet glyphs)
     {
-        if (TrueTypeSubsetter.Subset(program, glyphs, Names, _cancellationToken) is not { } subset)
+        if (TrueTypeSubsetter.Subset(program, glyphs, _source.Objects.ScratchPools, _cancellationToken) is not { } subset)
         {
             _report.Skip(PdfOptimizeCategory.Fonts, oldNumber, "The font program could not be subset or subsetting saved nothing.");
             return null;

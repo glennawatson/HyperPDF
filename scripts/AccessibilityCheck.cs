@@ -1,4 +1,5 @@
 #!/usr/bin/env -S dotnet run --file
+#:property TargetFramework=net11.0
 #:property IsAotCompatible=false
 #:property PublishAot=false
 
@@ -6,7 +7,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-// Helpers for scripts/check-screen-reader.sh, which runs them:
+// Helpers for dotnet run --file scripts/CheckScreenReader.cs --, which runs them:
 //   dotnet run --file scripts/AccessibilityCheck.cs -- create-check-pdf <output PDF>
 //   dotnet run --file scripts/AccessibilityCheck.cs -- atspi-walk <bus address> <application> <minimum named controls>
 using System.Collections.Frozen;

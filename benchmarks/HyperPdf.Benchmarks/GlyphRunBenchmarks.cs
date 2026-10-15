@@ -67,6 +67,7 @@ public class GlyphRunBenchmarks
         _context.Dispose();
         _surface.Dispose();
         _typeface.Dispose();
+        _shaper.Dispose();
     }
 
     /// <summary>Shapes the text using the cached HarfBuzz font and thread buffer.</summary>

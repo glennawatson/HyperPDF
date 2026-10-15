@@ -12,6 +12,12 @@ namespace HyperPdfLibrary.Fonts;
 /// <summary>Reads name spellings for the font loaders.</summary>
 internal static class PdfNames
 {
+    /// <summary>The most base font names kept; later names are not kept.</summary>
+    private const int MaxKnownBaseFonts = 1024;
+
+    /// <summary>The characters of a base font name read on the stack; longer names are not kept.</summary>
+    private const int StackNameChars = 256;
+
     /// <summary>Gets the spelling of a name used in a dictionary.</summary>
     /// <param name="owner">The dictionary the name came from, whose document holds the name table.</param>
     /// <param name="name">The name.</param>
@@ -41,7 +47,40 @@ internal static class PdfNames
     /// <summary>Gets a font's /BaseFont without its subset tag, as text.</summary>
     /// <param name="dictionary">The font dictionary.</param>
     /// <returns>The name, or empty.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static string BaseFontOf(PdfDictionary dictionary) =>
-        Encoding.UTF8.GetString(StandardFonts.StripSubsetTag(SpellEntry(dictionary, KnownName.BaseFont)));
+    internal static string BaseFontOf(PdfDictionary dictionary)
+    {
+        // Fonts that share a name share one string, so loading a font allocates the name only the first time.
+        var spelled = StandardFonts.StripSubsetTag(SpellEntry(dictionary, KnownName.BaseFont));
+        if (spelled.IsEmpty)
+        {
+            return string.Empty;
+        }
+
+        if (Encoding.UTF8.GetMaxCharCount(spelled.Length) > StackNameChars)
+        {
+            return Encoding.UTF8.GetString(spelled);
+        }
+
+        Span<char> chars = stackalloc char[StackNameChars];
+        var name = chars[..Encoding.UTF8.GetChars(spelled, chars)];
+        if (dictionary.Owner?.Context is not { } context)
+        {
+            return new(name);
+        }
+
+        var names = context.DrawingServices.FontResources.BaseFontNames.Known;
+        var known = names.GetAlternateLookup<ReadOnlySpan<char>>();
+        if (known.TryGetValue(name, out var existing))
+        {
+            return existing;
+        }
+
+        var created = new string(name);
+        if (names.Count < MaxKnownBaseFonts)
+        {
+            _ = names.TryAdd(created, created);
+        }
+
+        return created;
+    }
 }

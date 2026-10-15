@@ -62,6 +62,26 @@ internal static class FieldAttributes
         return name;
     }
 
+    /// <summary>Determines whether a field or any of its parents has a partial name, without building the name.</summary>
+    /// <param name="field">The field or widget dictionary.</param>
+    /// <returns><see langword="true"/> when some level has a partial name that is not empty.</returns>
+    internal static bool HasName(PdfDictionary field)
+    {
+        var node = field;
+        for (var depth = 0; node is not null && depth < MaxDepth; depth++)
+        {
+            var part = node.GetStringBytes(KnownName.T);
+            if (!part.IsEmpty && PdfText.GetDecodedLength(part) > 0)
+            {
+                return true;
+            }
+
+            node = node.GetDictionary(KnownName.Parent);
+        }
+
+        return false;
+    }
+
     /// <summary>Reads a value as text the way form fields hold it: a string, or a stream of text.</summary>
     /// <param name="value">The resolved value.</param>
     /// <returns>The text; empty for other kinds.</returns>
@@ -89,25 +109,35 @@ internal static class FieldAttributes
     /// <returns>The state's name; empty when the widget has none.</returns>
     internal static string GetOnState(PdfDictionary widget, PdfNameTable names)
     {
+        var state = GetOnStateName(widget, names);
+        return state.IsNone ? string.Empty : names.GetString(state);
+    }
+
+    /// <summary>Finds the on-state of a check box or radio button widget without making a string.</summary>
+    /// <param name="widget">The widget dictionary.</param>
+    /// <param name="names">The document's names.</param>
+    /// <returns>The state's name; none when the widget has none.</returns>
+    internal static PdfName GetOnStateName(PdfDictionary widget, PdfNameTable names)
+    {
         if (widget.GetDictionary(KnownName.AP)?.GetDictionary(KnownName.N) is not { } normal)
         {
-            return string.Empty;
+            return default;
         }
 
         // Readers hold the dictionary sorted by key, so the first key in that order is the on-state.
-        var best = string.Empty;
+        var best = default(PdfName);
         for (var i = 0; i < normal.Count; i++)
         {
             var key = normal.GetKeyAt(i);
-            if (names.GetSpelling(key).SequenceEqual(OffSpelling))
+            var spelling = names.GetSpelling(key);
+            if (spelling.SequenceEqual(OffSpelling))
             {
                 continue;
             }
 
-            var spelling = names.GetString(key);
-            if (best.Length == 0 || string.CompareOrdinal(spelling, best) < 0)
+            if (best.IsNone || spelling.SequenceCompareTo(names.GetSpelling(best)) < 0)
             {
-                best = spelling;
+                best = key;
             }
         }
 

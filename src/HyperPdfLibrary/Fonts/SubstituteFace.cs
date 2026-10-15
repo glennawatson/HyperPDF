@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts.Programs;
@@ -35,6 +36,7 @@ internal sealed class SubstituteFace : GlyphSource, IDisposable
     internal SubstituteFace(IPdfFontFace font, bool isRequestedFamily)
     {
         _font = font;
+        Maps = new();
         IsRequestedFamily = isRequestedFamily;
         FamilyName = font.FamilyName;
         Ascent = font.Ascent;
@@ -45,8 +47,10 @@ internal sealed class SubstituteFace : GlyphSource, IDisposable
     /// <summary>Initializes a new instance of the <see cref="SubstituteFace"/> class from a bundled font program.</summary>
     /// <param name="program">The bundled program, decoded by the managed parser.</param>
     /// <param name="familyName">The face's name.</param>
-    internal SubstituteFace(FontProgram program, string familyName)
+    /// <param name="maps">The code maps built for faces of this program, shared by every face made from it.</param>
+    internal SubstituteFace(FontProgram program, string familyName, SubstituteMapStore maps)
     {
+        Maps = maps;
         _bundled = new(program);
         FamilyName = familyName;
         Ascent = _bundled.Ascent;
@@ -56,6 +60,9 @@ internal sealed class SubstituteFace : GlyphSource, IDisposable
 
     /// <summary>Gets a value indicating whether the face is one of the fonts bundled with the library.</summary>
     internal bool IsBundled => _bundled is not null;
+
+    /// <summary>Gets the code maps built for this face.</summary>
+    internal SubstituteMapStore Maps { get; }
 
     /// <summary>Gets the family name of the typeface.</summary>
     internal string FamilyName { get; }
@@ -117,14 +124,20 @@ internal sealed class SubstituteFace : GlyphSource, IDisposable
     }
 
     /// <inheritdoc/>
-    internal override PdfPath? BuildOutline(int glyph)
+    internal override PdfPath? BuildOutline(int glyph, Matrix3x2 transform)
     {
         if (_bundled is not null)
         {
-            return _bundled.BuildOutline(glyph);
+            return _bundled.BuildOutline(glyph, transform);
         }
 
-        return (uint)glyph >= (uint)GlyphCount ? null : _font!.BuildOutline(glyph);
+        if ((uint)glyph >= (uint)GlyphCount)
+        {
+            return null;
+        }
+
+        var path = _font!.BuildOutline(glyph);
+        return path is null || transform == Matrix3x2.Identity ? path : path.Transform(transform);
     }
 
     /// <inheritdoc/>

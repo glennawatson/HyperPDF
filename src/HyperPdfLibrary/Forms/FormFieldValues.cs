@@ -147,7 +147,7 @@ internal static class FormFieldValues
             return;
         }
 
-        var size = DefaultAppearance.Parse(spec.DefaultAppearance).FontSize;
+        var size = DefaultAppearance.ReadFontSize(spec.DefaultAppearance);
         var points = size > 0 ? size : FormFieldFonts.ReadableSize;
         var style = string.Create(CultureInfo.InvariantCulture, $"font: Helvetica {points:0.####}pt; color: #000000");
         target.Set(KnownName.DS, FormFieldBuilder.Text(store, style));

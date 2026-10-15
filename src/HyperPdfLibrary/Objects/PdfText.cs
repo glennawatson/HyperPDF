@@ -141,13 +141,14 @@ public static class PdfText
     /// <returns>The string's bytes.</returns>
     public static byte[] Encode(ReadOnlySpan<char> text, bool allowUtf8)
     {
-        var bytes = new byte[text.Length];
-        if (TryEncodeDoc(text, bytes))
+        if (!FitsDoc(text))
         {
-            return bytes;
+            return allowUtf8 ? EncodeUtf8(text) : EncodeUtf16(text);
         }
 
-        return allowUtf8 ? EncodeUtf8(text) : EncodeUtf16(text);
+        var bytes = new byte[text.Length];
+        _ = TryEncodeDoc(text, bytes);
+        return bytes;
     }
 
     /// <summary>Encodes replacement text the way the string it replaces was encoded.</summary>
@@ -288,6 +289,22 @@ public static class PdfText
         }
 
         return Utf16Size + (text.Length * Utf16Size);
+    }
+
+    /// <summary>Determines whether PDFDocEncoding has a code for every character, so the result can be sized before it is written.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns><see langword="true"/> when every character fits.</returns>
+    private static bool FitsDoc(ReadOnlySpan<char> text)
+    {
+        foreach (var value in text)
+        {
+            if (!TryEncodeDocChar(value, out _))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Encodes text as PDFDocEncoding when every character has a code.</summary>

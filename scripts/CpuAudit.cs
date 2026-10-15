@@ -1,4 +1,5 @@
 #!/usr/bin/env -S dotnet run --file
+#:property TargetFramework=net11.0
 #:package Microsoft.Diagnostics.Tracing.TraceEvent
 #:property IsAotCompatible=false
 #:property PublishAot=false
@@ -10,9 +11,9 @@
 // Reads the CPU sample traces the benchmarks write when run with BenchmarkDotNet's "--profiler EP" and reports where
 // each measured operation spends its time. Given a baseline, it flags any benchmark, or any method taking a fair share
 // of an operation, that got slower by more than the leeway: timings on shared machines move a few percent, so the
-// default leeway is 5%. scripts/compare-benchmarks.sh runs it.
+// default leeway is 5%. dotnet run --file scripts/CompareBenchmarks.cs -- runs it.
 // Several runs may be given, separated by commas, and are paired with the baseline runs in order; growth must show in
-// every pair, so drift or a spike that disturbed one run does not count. scripts/compare-benchmarks.sh runs the
+// every pair, so drift or a spike that disturbed one run does not count. dotnet run --file scripts/CompareBenchmarks.cs -- runs the
 // baseline and the change in the order A, B, B, A, so each pair ran side by side.
 // Usage: dotnet run --file scripts/CpuAudit.cs -- <traces> [--baseline <baseline traces>] [--leeway <percent>]
 using System.Diagnostics;

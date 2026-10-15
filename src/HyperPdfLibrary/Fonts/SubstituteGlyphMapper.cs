@@ -24,6 +24,34 @@ internal static class SubstituteGlyphMapper
     /// <returns>The map.</returns>
     internal static SimpleGlyphMap Map(PdfFontResources resources, SubstituteFace face, SimpleEncoding encoding, FontEncoding symbolEncoding, bool symbolic, ToUnicodeMap? toUnicode)
     {
+        // With no /Differences and no /ToUnicode map the face, the base encoding and the symbol flags decide every code, so
+        // fonts that share them copy one finished map.
+        if (encoding.Differences is not null || toUnicode is not null)
+        {
+            return Build(resources, face, encoding, symbolEncoding, symbolic, toUnicode);
+        }
+
+        var key = new SubstituteMapKey(encoding.Base, symbolEncoding, symbolic);
+        if (face.Maps.TryCopy(key, out var copy))
+        {
+            return copy;
+        }
+
+        var built = Build(resources, face, encoding, symbolEncoding, symbolic, null);
+        face.Maps.Add(key, built);
+        return built;
+    }
+
+    /// <summary>Resolves every code against the face.</summary>
+    /// <param name="resources">The selected font resources.</param>
+    /// <param name="face">The stand-in face.</param>
+    /// <param name="encoding">The font's encoding.</param>
+    /// <param name="symbolEncoding">The built-in encoding of a Symbol or ZapfDingbats font, else <see cref="FontEncoding.None"/>.</param>
+    /// <param name="symbolic">Whether the descriptor flags say symbolic.</param>
+    /// <param name="toUnicode">The /ToUnicode map, or <see langword="null"/>.</param>
+    /// <returns>The map.</returns>
+    private static SimpleGlyphMap Build(PdfFontResources resources, SubstituteFace face, SimpleEncoding encoding, FontEncoding symbolEncoding, bool symbolic, ToUnicodeMap? toUnicode)
+    {
         var map = new SimpleGlyphMap();
         var dingbats = symbolEncoding == FontEncoding.ZapfDingbats;
         for (var code = 0; code < FontEncodings.CodeCount; code++)

@@ -37,20 +37,21 @@ public sealed class TextPageBuildTests
         await Assert.That(outerText).IsEqualTo("AB");
     }
 
-    /// <summary>A closed document hands its cleaned build state to the documents opened after it.</summary>
+    /// <summary>A closed document hands its cleaned build state to later documents sharing its host services.</summary>
     /// <returns>A task.</returns>
     /// <exception cref="InvalidOperationException">The first extraction did not return its state.</exception>
     [Test]
     public async Task ClosedDocumentSharesItsBuildState()
     {
         TextPageBuildState state;
-        using (var first = TextTestDocument.Open(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td (A) Tj ET").ToBytes()))
+        var options = new PdfOpenOptions { DrawingServices = SkiaTestRegistration.CreateServices(), FontFactory = static dictionary => new TextTestFont(dictionary, false, false) };
+        using (var first = PdfDocumentReader.OpenWith(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td (A) Tj ET").ToBytes(), options))
         {
             _ = PdfDocumentText.ExtractText(first, 0);
             state = first.State.TextBuild ?? throw new InvalidOperationException("The first extraction did not return its state.");
         }
 
-        using var second = TextTestDocument.Open(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td (B) Tj ET").ToBytes());
+        using var second = PdfDocumentReader.OpenWith(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td (B) Tj ET").ToBytes(), options);
         var rented = new List<TextPageBuildState>();
         for (var i = 0; i <= SharedStateLimit; i++)
         {

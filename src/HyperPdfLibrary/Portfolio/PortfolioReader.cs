@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
@@ -156,7 +158,7 @@ internal static class PortfolioReader
     /// <param name="objects">The document's objects, which resolve references and name the keys.</param>
     /// <param name="item">The <c>/CI</c> dictionary, or null.</param>
     /// <returns>The values by key.</returns>
-    internal static Dictionary<string, string> ReadItemValues(PdfObjectStore objects, PdfDictionary? item)
+    internal static ReadOnlyDictionary<string, string> ReadItemValues(PdfObjectStore objects, PdfDictionary? item)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var i = 0; item is not null && i < item.Count; i++)
@@ -171,19 +173,19 @@ internal static class PortfolioReader
         }
 
         _ = values.Remove("Type");
-        return values;
+        return new(values);
     }
 
     /// <summary>Reads a colour as three numbers.</summary>
     /// <param name="colors">The colours dictionary.</param>
     /// <param name="key">The key.</param>
     /// <returns>The components, or null when the entry is not three numbers.</returns>
-    private static double[]? Color(PdfDictionary colors, string key) => colors.Array(key).Numbers() is { Length: ColorComponents } components ? components : null;
+    private static ImmutableArray<double>? Color(PdfDictionary colors, string key) => colors.Array(key).Numbers() is { Length: ColorComponents } components ? [.. components] : null;
 
     /// <summary>Reads the <c>/Free</c> array of id ranges.</summary>
     /// <param name="free">The array, or null.</param>
     /// <returns>The ranges.</returns>
-    private static PdfFolderIdRange[] ReadFree(PdfArray? free)
+    private static ImmutableArray<PdfFolderIdRange> ReadFree(PdfArray? free)
     {
         var ranges = new List<PdfFolderIdRange>();
         for (var i = 0; free is not null && i + 1 < free.Count; i += RangeLength)

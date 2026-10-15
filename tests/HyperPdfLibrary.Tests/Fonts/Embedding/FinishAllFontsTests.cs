@@ -56,6 +56,49 @@ public sealed class FinishAllFontsTests
         await Assert.That(font.IsFinished).IsTrue();
     }
 
+    /// <summary>A document without embedded fonts keeps its embedding state unallocated on save.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task FinishingAnEmptyDocumentDoesNotCreateState()
+    {
+        var sink = new PdfDocumentBuilder();
+        PdfEmbeddedFont.FinishAll(sink);
+
+        await Assert.That(sink.ExistingFontEmbedding).IsNull();
+    }
+
+    /// <summary>Finishing one document cannot finish fonts owned by another document.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PendingFontsStayWithTheirDocument()
+    {
+        var left = new PdfDocumentBuilder();
+        var right = new PdfDocumentBuilder();
+        var first = Create(left);
+        var second = Create(right);
+        PdfEmbeddedFont.FinishAll(left);
+
+        await Assert.That(first.IsFinished).IsTrue();
+        await Assert.That(second.IsFinished).IsFalse();
+        PdfEmbeddedFont.FinishAll(right);
+        await Assert.That(second.IsFinished).IsTrue();
+    }
+
+    /// <summary>Sinks wrapping the same open store share unfinished font state.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task StoreWrappersSharePendingFonts()
+    {
+        using var document = Forms.FormDesignDocuments.OpenPlain(1);
+        var first = new PdfObjectStoreSink(document.Objects);
+        var second = new PdfObjectStoreSink(document.Objects);
+        var font = Create(first);
+        PdfEmbeddedFont.FinishAll(second);
+
+        await Assert.That(first.FontEmbedding).IsSameReferenceAs(second.FontEmbedding);
+        await Assert.That(font.IsFinished).IsTrue();
+    }
+
     /// <summary>Creates a font in a sink.</summary>
     /// <param name="sink">The sink.</param>
     /// <returns>The font.</returns>
@@ -84,6 +127,12 @@ public sealed class FinishAllFontsTests
 
         /// <inheritdoc/>
         public PdfObjectStore? Owner => inner.Owner;
+
+        /// <inheritdoc/>
+        public PdfFontEmbeddingState FontEmbedding => inner.FontEmbedding;
+
+        /// <inheritdoc/>
+        public PdfFontEmbeddingState? ExistingFontEmbedding => inner.ExistingFontEmbedding;
 
         /// <inheritdoc/>
         public PdfObjectId Reserve() => inner.Reserve();

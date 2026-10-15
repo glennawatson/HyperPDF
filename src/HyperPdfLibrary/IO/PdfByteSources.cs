@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Filters;
 using Microsoft.Win32.SafeHandles;
 
 namespace HyperPdfLibrary.IO;
@@ -16,21 +18,12 @@ public static class PdfByteSources
     /// <returns>The source; the caller disposes it.</returns>
     /// <exception cref="IOException">The file cannot be opened, read or mapped.</exception>
     /// <exception cref="UnauthorizedAccessException">The file cannot be read.</exception>
-    public static PdfByteSource Open(string path, PdfSourceKind kind, long cacheBytes)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(path);
-        return kind switch
-        {
-            PdfSourceKind.Memory => new MemoryPdfByteSource(File.ReadAllBytes(path)),
-            PdfSourceKind.Mapped => MappedPdfByteSource.Open(path),
-            PdfSourceKind.Stream => StreamPdfByteSource.Open(path, cacheBytes),
-            _ => OpenAutomatic(path, cacheBytes),
-        };
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfByteSource Open(string path, PdfSourceKind kind, long cacheBytes) => Open(path, kind, cacheBytes, null);
 
     /// <summary>
     /// Opens a file, reading with async I/O where the kind reads the file: <see cref="PdfSourceKind.Memory"/> reads it whole
-    /// and <see cref="PdfSourceKind.Stream"/> opens it for overlapped reads. Mapped and automatic sources open as <see cref="Open"/> does.
+    /// and <see cref="PdfSourceKind.Stream"/> opens it for overlapped reads. Mapped and automatic sources open as <see cref="Open(string, PdfSourceKind, long)"/> does.
     /// </summary>
     /// <param name="path">The file path.</param>
     /// <param name="kind">How to read the file.</param>
@@ -40,7 +33,36 @@ public static class PdfByteSources
     /// <exception cref="IOException">The file cannot be opened, read or mapped.</exception>
     /// <exception cref="UnauthorizedAccessException">The file cannot be read.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public static async ValueTask<PdfByteSource> OpenAsync(string path, PdfSourceKind kind, long cacheBytes, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ValueTask<PdfByteSource> OpenAsync(string path, PdfSourceKind kind, long cacheBytes, CancellationToken cancellationToken) =>
+        OpenAsync(path, kind, cacheBytes, null, cancellationToken);
+
+    /// <summary>Opens a file with the registered host's pools.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="kind">How to read the file.</param>
+    /// <param name="cacheBytes">The cache budget.</param>
+    /// <param name="pools">The registered host's pools, when available.</param>
+    /// <returns>The source, owned by the caller.</returns>
+    internal static PdfByteSource Open(string path, PdfSourceKind kind, long cacheBytes, ScratchPools? pools)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        return kind switch
+        {
+            PdfSourceKind.Memory => MemoryPdfByteSource.ReadFile(path),
+            PdfSourceKind.Mapped => MappedPdfByteSource.Open(path),
+            PdfSourceKind.Stream => StreamPdfByteSource.Open(path, cacheBytes, pools),
+            _ => OpenAutomatic(path, cacheBytes, pools),
+        };
+    }
+
+    /// <summary>Opens a file asynchronously with the registered host's pools.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="kind">How to read the file.</param>
+    /// <param name="cacheBytes">The cache budget.</param>
+    /// <param name="pools">The registered host's pools, when available.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The source, owned by the caller.</returns>
+    internal static async ValueTask<PdfByteSource> OpenAsync(string path, PdfSourceKind kind, long cacheBytes, ScratchPools? pools, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         cancellationToken.ThrowIfCancellationRequested();
@@ -48,17 +70,17 @@ public static class PdfByteSources
         {
             case PdfSourceKind.Memory:
                 {
-                    return new MemoryPdfByteSource(await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false));
+                    return await MemoryPdfByteSource.ReadFileAsync(path, cancellationToken).ConfigureAwait(false);
                 }
 
             case PdfSourceKind.Stream:
                 {
-                    return StreamPdfByteSource.OpenAsynchronous(path, cacheBytes);
+                    return StreamPdfByteSource.OpenAsynchronous(path, cacheBytes, pools);
                 }
 
             default:
                 {
-                    return Open(path, kind, cacheBytes);
+                    return Open(path, kind, cacheBytes, pools);
                 }
         }
     }
@@ -66,8 +88,9 @@ public static class PdfByteSources
     /// <summary>Maps a file, or reads it through its handle when it is empty or cannot be mapped.</summary>
     /// <param name="path">The file path.</param>
     /// <param name="cacheBytes">The page cache budget for the fallback.</param>
+    /// <param name="pools">The registered host's pools, when available.</param>
     /// <returns>The source.</returns>
-    private static PdfByteSource OpenAutomatic(string path, long cacheBytes)
+    private static PdfByteSource OpenAutomatic(string path, long cacheBytes, ScratchPools? pools)
     {
         var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         try
@@ -79,7 +102,7 @@ public static class PdfByteSources
                 return mapped;
             }
 
-            return new StreamPdfByteSource(handle, cacheBytes, true);
+            return new StreamPdfByteSource(handle, cacheBytes, true, pools);
         }
         catch
         {

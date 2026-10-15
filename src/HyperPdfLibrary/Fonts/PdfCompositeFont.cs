@@ -40,7 +40,7 @@ internal sealed class PdfCompositeFont : PdfFont
     /// <param name="dictionary">The /Type0 font dictionary.</param>
     /// <param name="data">The loaded data.</param>
     /// <param name="resources">The selected font resources.</param>
-    internal PdfCompositeFont(PdfDictionary dictionary, CompositeFontData data, PdfFontResources resources)
+    internal PdfCompositeFont(PdfDictionary dictionary, in CompositeFontData data, PdfFontResources resources)
         : base(dictionary)
     {
         _data = data;

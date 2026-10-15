@@ -58,12 +58,13 @@ public sealed class MacSpellChecker : ISpellChecker
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> Suggest(string word)
+    public void Suggest(string word, List<string> suggestions)
     {
         ArgumentNullException.ThrowIfNull(word);
+        ArgumentNullException.ThrowIfNull(suggestions);
         if (_checker == 0 || word.Length == 0)
         {
-            return [];
+            return;
         }
 
         var pool = NativeMethods.AutoreleasePoolPush();
@@ -72,7 +73,10 @@ public sealed class MacSpellChecker : ISpellChecker
         {
             var selector = NativeMethods.Selector("guessesForWordRange:inString:language:inSpellDocumentWithTag:");
             var guesses = NativeMethods.SendGuesses(_checker, selector, new(0, word.Length), text, 0, 0);
-            return guesses == 0 ? [] : ReadStrings(guesses);
+            if (guesses != 0)
+            {
+                ReadStrings(guesses, suggestions);
+            }
         }
         finally
         {
@@ -83,17 +87,14 @@ public sealed class MacSpellChecker : ISpellChecker
 
     /// <summary>Reads up to the most suggestions offered from an NSArray of NSString.</summary>
     /// <param name="array">The array.</param>
-    /// <returns>The strings.</returns>
-    private static List<string> ReadStrings(nint array)
+    /// <param name="output">The list the strings are added to.</param>
+    private static void ReadStrings(nint array, List<string> output)
     {
         var count = (int)Math.Min(NativeMethods.SendCount(array, NativeMethods.Selector("count")), (nuint)MaxSuggestions);
-        List<string> output = [with(count)];
         var objectAt = NativeMethods.Selector("objectAtIndex:");
         for (var i = 0; i < count; i++)
         {
             output.Add(Foundation.ReadString(NativeMethods.SendIndex(array, objectAt, (nuint)i)));
         }
-
-        return output;
     }
 }

@@ -82,30 +82,55 @@ internal sealed class Jbig2TextRegionSettings
     /// <summary>Gets or sets the refinement size table, SBHUFFRSIZE.</summary>
     internal Jbig2HuffmanTable RefineSize { get; set; } = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B1);
 
+    /// <summary>Sets every parameter to the value a new text region starts with.</summary>
+    internal void Reset()
+    {
+        Huffman = false;
+        Refine = false;
+        Width = 0;
+        Height = 0;
+        InstanceCount = 0;
+        Strips = 1;
+        StripBits = 0;
+        Corner = Jbig2Corner.TopLeft;
+        Transposed = false;
+        Operator = default;
+        DefaultPixel = false;
+        SOffset = 0;
+        RefinementTemplate = 0;
+        RefinementAt = default;
+        SymbolCodes = null;
+        SymbolCodeLength = 0;
+        FirstS = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B6);
+        DeltaS = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B8);
+        DeltaT = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B11);
+        RefineWidth = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B14);
+        RefineHeight = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B14);
+        RefineX = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B14);
+        RefineY = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B14);
+        RefineSize = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B1);
+    }
+
     /// <summary>
-    /// Gets the settings of the refinement/aggregate symbols of a symbol dictionary (T.88 table 17): a refined, top-left,
-    /// OR-combined region with one strip and, when Huffman coded, the standard tables. The caller sets each symbol's
-    /// width, height and instance count.
+    /// Sets the parameters of the refinement/aggregate symbols of a symbol dictionary (T.88 table 17): a refined,
+    /// top-left, OR-combined region with one strip and, when Huffman coded, the standard tables. The caller sets each
+    /// symbol's width, height and instance count.
     /// </summary>
     /// <param name="huffman">Whether the dictionary is Huffman coded.</param>
     /// <param name="codeLength">The bits of a symbol ID.</param>
     /// <param name="template">The refinement template.</param>
     /// <param name="at">The refinement adaptive pixels.</param>
-    /// <returns>The settings.</returns>
-    internal static Jbig2TextRegionSettings ForAggregate(bool huffman, int codeLength, int template, Jbig2AtPixels at) => new()
+    internal void ConfigureAggregate(bool huffman, int codeLength, int template, Jbig2AtPixels at)
     {
-        Huffman = huffman,
-        Refine = true,
-        SymbolCodeLength = codeLength,
-        RefinementTemplate = template,
-        RefinementAt = at,
-        FirstS = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B6),
-        DeltaS = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B8),
-        DeltaT = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B11),
-        RefineWidth = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B15),
-        RefineHeight = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B15),
-        RefineX = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B15),
-        RefineY = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B15),
-        RefineSize = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B1),
-    };
+        Reset();
+        Huffman = huffman;
+        Refine = true;
+        SymbolCodeLength = codeLength;
+        RefinementTemplate = template;
+        RefinementAt = at;
+        RefineWidth = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B15);
+        RefineHeight = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B15);
+        RefineX = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B15);
+        RefineY = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B15);
+    }
 }

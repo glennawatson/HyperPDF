@@ -115,7 +115,7 @@ public sealed class PdfAOutputValidationTests
         var xmp = PdfDocumentMetadata.GetXmp(reopened);
         await Assert.That(job.IsCompliant).IsTrue().Because($"the marked PDF/A-4 file fails {job.FailureSummary}");
         await Assert.That(xmp?.GetValue(InferredTagsXmp.Namespace, InferredTagsXmp.Property)).IsEqualTo(InferredTagsXmp.Marked);
-        await Assert.That(Encoding.UTF8.GetString(xmp!.RawPacket)).DoesNotContain("pdfaExtension");
+        await Assert.That(Encoding.UTF8.GetString(xmp!.RawPacket.AsSpan())).DoesNotContain("pdfaExtension");
     }
 
     /// <summary>Checks that an output holds the edited title where its PDF/A part keeps it, and no conflict with its claim.</summary>

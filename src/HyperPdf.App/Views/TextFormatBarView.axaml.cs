@@ -29,7 +29,11 @@ public sealed partial class TextFormatBarView : ReactiveUI.Avalonia.ReactiveUser
     public TextFormatBarView()
     {
         InitializeComponent();
-        FontFamilyBox.ItemTemplate = new FuncDataTemplate<string>(static (name, _) => new TextBlock { Text = PageFonts.Label(name), FontFamily = PageFonts.Get(name) });
+        FontFamilyBox.ItemTemplate = new FuncDataTemplate<string>((name, _) => new TextBlock
+        {
+            Text = PageFonts.Label(name, ViewModel?.Services.LoadedFontCatalog),
+            FontFamily = PageFonts.Get(ViewModel?.Services.PageFontFamilies, name),
+        });
         FontSizeBox.ItemsSource = SizeChoices();
         FieldLabels.Link((FontFamilyBox, FontFamilyLabel), (FontSizeBox, FontSizeLabel));
         var tabs = this.WhenChanged(static v => v.ViewModel);

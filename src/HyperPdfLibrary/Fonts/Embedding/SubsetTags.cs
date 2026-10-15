@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Text;
 
 namespace HyperPdfLibrary.Fonts.Embedding;
@@ -24,16 +25,32 @@ internal static class SubsetTags
     /// <summary>The bits in a byte.</summary>
     private const int ByteBits = 8;
 
-    /// <summary>Gets the tag and plus sign for a font and the glyphs it holds; the same font and glyphs always give the same tag, so output is reproducible.</summary>
+    /// <summary>The bytes of a font name hashed on the stack.</summary>
+    private const int StackNameBytes = 256;
+
+    /// <summary>Gets the tag and plus sign for a font and its glyphs; the same inputs give the same tag.</summary>
     /// <param name="name">The font's PostScript name.</param>
     /// <param name="glyphs">The original glyphs the subset holds.</param>
     /// <returns>The prefix, such as <c>ABCDEF+</c>.</returns>
     internal static string Create(string name, ReadOnlySpan<int> glyphs)
     {
         var hash = OffsetBasis;
-        foreach (var b in Encoding.UTF8.GetBytes(name))
+        Span<byte> stack = stackalloc byte[StackNameBytes];
+        byte[]? rented = null;
+        var bytes = Encoding.UTF8.GetMaxByteCount(name.Length) <= StackNameBytes ? stack : (rented = ArrayPool<byte>.Shared.Rent(Encoding.UTF8.GetMaxByteCount(name.Length)));
+        try
         {
-            hash = (hash ^ b) * Prime;
+            foreach (var b in bytes[..Encoding.UTF8.GetBytes(name, bytes)])
+            {
+                hash = (hash ^ b) * Prime;
+            }
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
         }
 
         foreach (var glyph in glyphs)

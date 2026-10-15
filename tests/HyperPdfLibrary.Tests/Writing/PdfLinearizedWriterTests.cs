@@ -30,6 +30,27 @@ public sealed class PdfLinearizedWriterTests
     /// <summary>Gets the raw stream-data marker in the unfiltered writer output.</summary>
     private static ReadOnlySpan<byte> StreamKeyword => "stream\r\n"u8;
 
+    /// <summary>Repeated saves rebuild their object graph after metadata edits and undo.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task Save_CachedGraphFollowsMetadataEditAndUndo()
+    {
+        const string editedTitle = "Edited title";
+        using var source = PdfDocumentReader.Open(CreatePages(1), null);
+        var originalTitle = PdfDocumentMetadata.GetInfo(source).Title;
+        _ = PdfLinearizedWriter.Save(source);
+
+        PdfDocumentMetadataEditing.SetMetadata(source, new() { Title = editedTitle });
+        using var changed = PdfDocumentReader.Open(PdfLinearizedWriter.Save(source), null);
+        await Assert.That(PdfDocumentMetadata.GetInfo(changed).Title).IsEqualTo(editedTitle);
+        await AssertNoLinearizationFaults(changed);
+
+        await Assert.That(PdfDocumentEditing.Undo(source)).IsTrue();
+        using var restored = PdfDocumentReader.Open(PdfLinearizedWriter.Save(source), null);
+        await Assert.That(PdfDocumentMetadata.GetInfo(restored).Title).IsEqualTo(originalTitle);
+        await AssertNoLinearizationFaults(restored);
+    }
+
     /// <summary>One page and three pages with later-only shared fonts round trip with correct hints.</summary>
     /// <param name="pageCount">The number of pages to write.</param>
     /// <returns>A task.</returns>

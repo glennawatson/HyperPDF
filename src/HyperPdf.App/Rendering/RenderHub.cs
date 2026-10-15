@@ -83,7 +83,11 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _subscriptions.Dispose();
+    public void Dispose()
+    {
+        _subscriptions.Dispose();
+        _surfaceFactory.Dispose();
+    }
 
     /// <summary>Schedules a repaint so cached GPU tiles can present software pixels after device loss.</summary>
     internal void RequestSoftwareRecovery()

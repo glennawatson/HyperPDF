@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using Avalonia.Media;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Text;
 using HyperPdf.Core.Text.Fonts;
 
@@ -23,30 +24,29 @@ internal static class PageFonts
     /// <summary>The fonts with Courier's widths.</summary>
     private const string MonoStack = "Courier New, Courier, Liberation Mono, Cousine, Nimbus Mono PS, DejaVu Sans Mono";
 
-    /// <summary>The families made so far, by name.</summary>
-    private static readonly Dictionary<string, FontFamily> Families = [with(StringComparer.OrdinalIgnoreCase)];
-
     /// <summary>Gets the screen font for a family. Call on the UI thread.</summary>
+    /// <param name="state">The application's font cache, or null before a view has an owner.</param>
     /// <param name="family">The family, built in or installed.</param>
     /// <returns>The font family.</returns>
-    internal static FontFamily Get(string? family)
+    internal static FontFamily Get(PageFontFamilies? state, string? family)
     {
         var name = string.IsNullOrWhiteSpace(family) ? StandardFontFamilies.Sans : family;
-        if (Families.TryGetValue(name, out var font))
+        if (state is not null && state.TryGet(name, out var font) && font is { } existing)
         {
-            return font;
+            return existing;
         }
 
-        font = new(Stack(name));
-        Families[name] = font;
-        return font;
+        var created = new FontFamily(Stack(name));
+        state?.Add(name, created);
+        return created;
     }
 
     /// <summary>Gets the name a family is listed by: a font that cannot be saved says which built in font it is saved as.</summary>
     /// <param name="family">The family.</param>
+    /// <param name="catalog">The installed fonts, when loaded.</param>
     /// <returns>The label.</returns>
-    internal static string Label(string? family) =>
-        string.IsNullOrEmpty(family) || !FontCatalog.IsSystemLoaded || FontCatalog.System.PreviewFace(family) is not { } face
+    internal static string Label(string? family, FontCatalog? catalog) =>
+        string.IsNullOrEmpty(family) || catalog?.PreviewFace(family) is not { } face
             ? family ?? string.Empty
             : $"{family} (saved as {StandardFontFamilies.Closest(family, face.IsSerif, face.IsMonospace)})";
 

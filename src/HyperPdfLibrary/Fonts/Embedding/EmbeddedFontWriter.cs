@@ -27,7 +27,7 @@ internal static class EmbeddedFontWriter
     /// <param name="sink">The document.</param>
     /// <param name="parts">What the objects are written from.</param>
     /// <returns>The Type 0 font dictionary, not yet added to the document.</returns>
-    internal static PdfDictionary Write(IPdfObjectSink sink, EmbeddedFontParts parts)
+    internal static PdfDictionary Write(IPdfObjectSink sink, in EmbeddedFontParts parts)
     {
         var name = PdfValue.FromName(sink.Names.Intern(parts.BaseFont));
         var descendant = new PdfDictionary(sink.Owner, FontEntries);
@@ -85,7 +85,7 @@ internal static class EmbeddedFontWriter
     /// <param name="descendant">The CIDFont dictionary.</param>
     /// <param name="parts">The font's parts.</param>
     /// <param name="vertical">The vertical metrics of the CIDs.</param>
-    private static void WriteVerticalWidths(IPdfObjectSink sink, PdfDictionary descendant, EmbeddedFontParts parts, VerticalMetrics vertical)
+    private static void WriteVerticalWidths(IPdfObjectSink sink, PdfDictionary descendant, in EmbeddedFontParts parts, VerticalMetrics vertical)
     {
         var defaultAt = CidVerticalWidths.ChooseDefault(vertical);
         if (CidVerticalWidths.CreateDefault(sink.Owner, vertical, defaultAt) is { } defaults)
@@ -104,7 +104,7 @@ internal static class EmbeddedFontWriter
     /// <param name="sink">The document.</param>
     /// <param name="descendant">The CIDFont dictionary.</param>
     /// <param name="parts">The font's parts.</param>
-    private static void WriteWidths(IPdfObjectSink sink, PdfDictionary descendant, EmbeddedFontParts parts)
+    private static void WriteWidths(IPdfObjectSink sink, PdfDictionary descendant, in EmbeddedFontParts parts)
     {
         var defaultWidth = CidWidths.ChooseDefault(parts.Widths);
         if (!CidWidths.Same(defaultWidth, CidWidths.StandardDefault))
@@ -123,7 +123,7 @@ internal static class EmbeddedFontWriter
     /// <param name="sink">The document.</param>
     /// <param name="parts">The font's parts.</param>
     /// <returns>The dictionary.</returns>
-    private static PdfDictionary CreateSystemInfo(IPdfObjectSink sink, EmbeddedFontParts parts)
+    private static PdfDictionary CreateSystemInfo(IPdfObjectSink sink, in EmbeddedFontParts parts)
     {
         var info = new PdfDictionary(sink.Owner, FontEntries);
         info.Set(KnownName.Registry, PdfValue.FromString(Encoding.ASCII.GetBytes(parts.Registry)));
@@ -137,7 +137,7 @@ internal static class EmbeddedFontWriter
     /// <param name="parts">The font's parts.</param>
     /// <param name="name">The font's name.</param>
     /// <returns>The descriptor.</returns>
-    private static PdfDictionary CreateDescriptor(IPdfObjectSink sink, EmbeddedFontParts parts, PdfValue name)
+    private static PdfDictionary CreateDescriptor(IPdfObjectSink sink, in EmbeddedFontParts parts, PdfValue name)
     {
         var descriptor = new PdfDictionary(sink.Owner, DescriptorEntries);
         descriptor.Set(KnownName.Type, PdfValue.FromName(KnownName.FontDescriptor));

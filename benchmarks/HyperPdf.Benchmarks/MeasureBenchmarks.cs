@@ -12,6 +12,12 @@ namespace HyperPdf.Benchmarks;
 /// <summary>Measures the measuring tool: working out a measurement as the pointer moves, and reading a drawing's scale.</summary>
 public class MeasureBenchmarks
 {
+    /// <summary>The characters the description buffer holds.</summary>
+    private const int DescriptionCapacity = 256;
+
+    /// <summary>The scale text typed into the measuring tool.</summary>
+    private const string ScaleText = "1 cm = 2 m";
+
     /// <summary>The corners of the measured shape.</summary>
     private readonly PagePoint[] _corners = [new(100, 150), new(300, 150), new(320, 300), new(100, 310), new(80, 220)];
 
@@ -27,10 +33,20 @@ public class MeasureBenchmarks
     [Benchmark]
     public double Area() => Measurement.Area(_corners) + Measurement.Length(_corners, true);
 
-    /// <summary>Describes the measurement for the bar and the label.</summary>
-    /// <returns>The description.</returns>
+    /// <summary>Describes the measurement for the bar and the label, as happens on every pointer move.</summary>
+    /// <returns>The characters written.</returns>
     [Benchmark]
-    public string Describe() => Measurement.Describe(MeasureMode.Area, _corners, MeasureScale.Metric);
+    public int Describe()
+    {
+        Span<char> text = stackalloc char[DescriptionCapacity];
+        _ = Measurement.TryDescribe(MeasureMode.Area, _corners, MeasureScale.Metric, text, out var written);
+        return written;
+    }
+
+    /// <summary>Reads the typed scale, as happens on every pointer move.</summary>
+    /// <returns>Whether the text is a scale.</returns>
+    [Benchmark]
+    public bool ParseScale() => MeasureScale.TryParse(ScaleText, out _);
 
     /// <summary>Reads a page's declared scale from its viewport.</summary>
     /// <returns>Whether a scale was found.</returns>

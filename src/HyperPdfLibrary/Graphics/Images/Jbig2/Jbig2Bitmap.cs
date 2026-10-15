@@ -24,6 +24,9 @@ internal sealed class Jbig2Bitmap : IDisposable
     /// <summary>The rows, or <see langword="null"/> after disposal.</summary>
     private byte[]? _buffer;
 
+    /// <summary>The workspace that takes this bitmap's object back when it is disposed, or <see langword="null"/>.</summary>
+    private Jbig2Workspace? _owner;
+
     /// <summary>Initializes a new instance of the <see cref="Jbig2Bitmap"/> class.</summary>
     /// <param name="width">The width in pixels.</param>
     /// <param name="height">The height in pixels.</param>
@@ -59,7 +62,7 @@ internal sealed class Jbig2Bitmap : IDisposable
     /// <summary>Gets the buffer, which must not be used after disposal.</summary>
     private byte[] Buffer => _buffer ?? throw new ObjectDisposedException(nameof(Jbig2Bitmap));
 
-    /// <summary>Returns the buffer to the pool.</summary>
+    /// <summary>Returns the buffer to the pool and, for a bitmap taken from a workspace, the object to the workspace.</summary>
     public void Dispose()
     {
         // A bitmap belongs to one decode on one thread, so plain field access is enough.
@@ -68,8 +71,34 @@ internal sealed class Jbig2Bitmap : IDisposable
             return;
         }
 
-        _scratchPools.Bytes.Return(_buffer);
-        _buffer = null;
+        Release();
+        var owner = _owner;
+        _owner = null;
+        owner?.Bitmaps.Give(this);
+    }
+
+    /// <summary>Creates a white bitmap from a workspace's idle objects.</summary>
+    /// <param name="width">The width in pixels.</param>
+    /// <param name="height">The height in pixels.</param>
+    /// <param name="workspace">The workspace that keeps the object when the bitmap is disposed.</param>
+    /// <returns>The bitmap, or null when the size is invalid.</returns>
+    internal static Jbig2Bitmap? Rent(int width, int height, Jbig2Workspace workspace)
+    {
+        if (workspace.Bitmaps.Take() is not { } bitmap)
+        {
+            bitmap = Create(width, height, workspace.ScratchPools);
+            bitmap?._owner = workspace;
+            return bitmap;
+        }
+
+        if (!bitmap.TryReshape(width, height))
+        {
+            workspace.Bitmaps.Give(bitmap);
+            return null;
+        }
+
+        bitmap._owner = workspace;
+        return bitmap;
     }
 
     /// <summary>Creates a white bitmap.</summary>
@@ -97,6 +126,18 @@ internal sealed class Jbig2Bitmap : IDisposable
         return new(width, height, buffer, scratchPools);
     }
 
+    /// <summary>Returns the buffer to the pool but keeps the object, which takes a new buffer when it is next resized.</summary>
+    internal void Release()
+    {
+        if (_buffer is null)
+        {
+            return;
+        }
+
+        _scratchPools.Bytes.Return(_buffer);
+        _buffer = null;
+    }
+
     /// <summary>Gives the bitmap a new size and clears it, keeping the buffer when it is large enough.</summary>
     /// <param name="width">The width in pixels.</param>
     /// <param name="height">The height in pixels.</param>
@@ -109,10 +150,14 @@ internal sealed class Jbig2Bitmap : IDisposable
         }
 
         var length = Jbig2Bits.Stride(width) * height;
-        if (Buffer.Length < length)
+        if (_buffer is null)
+        {
+            _buffer = _scratchPools.Bytes.Rent(length);
+        }
+        else if (_buffer.Length < length)
         {
             var pool = _scratchPools.Bytes;
-            pool.Return(Buffer);
+            pool.Return(_buffer);
             _buffer = pool.Rent(length);
         }
 

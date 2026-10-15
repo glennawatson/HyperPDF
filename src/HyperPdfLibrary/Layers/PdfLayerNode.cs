@@ -14,7 +14,7 @@ namespace HyperPdfLibrary.Layers;
 /// <param name="LayerId">The layer's object number; 0 for a label.</param>
 /// <param name="Children">The layers listed under this entry.</param>
 [DebuggerDisplay("PdfLayerNode: {Name} id={LayerId} children={Children.Length}")]
-public sealed record PdfLayerNode(string Name, int LayerId, PdfLayerNode[] Children)
+public readonly record struct PdfLayerNode(string Name, int LayerId, PdfLayerNode[] Children)
 {
     /// <summary>Gets a value indicating whether this entry is a label rather than a layer.</summary>
     public bool IsLabel => LayerId == 0;

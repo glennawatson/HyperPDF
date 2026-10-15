@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Security.Cryptography;
+using HyperPdf.Http.Remote;
 
 namespace HyperPdf.Http;
 
@@ -16,103 +17,119 @@ internal static class VerifiedDownload
     /// <summary>The copy buffer size.</summary>
     internal const int BufferSize = 81_920;
 
-    /// <summary>The suffix of the file beside each download that records its SHA-256.</summary>
-    internal const string HashSuffix = ".sha256";
+    /// <summary>The bytes in a SHA-256 hash.</summary>
+    private const int HashBytes = 32;
 
-    /// <summary>
-    /// Determines whether a downloaded file is the one wanted: it exists at the expected size and, when its download
-    /// recorded a hash beside it, that hash matches. A new release changes the size or hash of any file it replaces, so
-    /// updated files are downloaded again without hashing large files at every start.
-    /// </summary>
-    /// <param name="path">Where the file is kept.</param>
-    /// <param name="bytes">Its expected size.</param>
+    /// <summary>The characters in a SHA-256 hash written as hexadecimal.</summary>
+    private const int HashChars = HashBytes * 2;
+
+    /// <summary>Downloads a file, checking its SHA-256 before it is kept.</summary>
+    /// <param name="api">The client for the file's host.</param>
+    /// <param name="requestPath">The file's path and query relative to the client's base address.</param>
+    /// <param name="file">Where the file is kept.</param>
     /// <param name="sha256">Its expected SHA-256 as lowercase hexadecimal.</param>
-    /// <returns><see langword="true"/> when it need not be downloaded.</returns>
-    internal static bool IsCurrent(string path, long bytes, string sha256)
-    {
-        var info = new FileInfo(path);
-        if (!info.Exists || info.Length != bytes)
-        {
-            return false;
-        }
-
-        var recorded = path + HashSuffix;
-        return !File.Exists(recorded) || string.Equals(File.ReadAllText(recorded).Trim(), sha256, StringComparison.Ordinal);
-    }
-
-    /// <summary>Gets a file's path inside a folder, refusing names that would place it outside.</summary>
-    /// <param name="directory">The folder.</param>
-    /// <param name="localName">The file's path inside the folder.</param>
-    /// <returns>The full path.</returns>
-    /// <exception cref="InvalidDataException">Thrown when the name leaves the folder.</exception>
-    internal static string TargetIn(string directory, string localName)
-    {
-        var root = Path.GetFullPath(directory);
-        var target = Path.GetFullPath(Path.Combine(root, localName));
-        if (!target.StartsWith(Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-        {
-            throw new InvalidDataException($"{localName} is outside the download folder.");
-        }
-
-        return target;
-    }
-
-    /// <summary>Downloads a file to a target path, checking its SHA-256 before it is kept.</summary>
-    /// <param name="fetch">Starts the request for an address; the response is disposed here.</param>
-    /// <param name="source">The file's address.</param>
-    /// <param name="target">Where the file is kept.</param>
-    /// <param name="sha256">Its expected SHA-256 as lowercase hexadecimal.</param>
-    /// <param name="buffer">A reusable copy buffer.</param>
+    /// <param name="copy">The reusable copy and hash resources.</param>
     /// <param name="progress">Counts the bytes received.</param>
     /// <param name="cancellationToken">Cancels the download, deleting the partial file.</param>
-    /// <returns>A task.</returns>
+    /// <returns>The bytes received.</returns>
     /// <exception cref="HttpRequestException">Thrown when the server fails the request.</exception>
     /// <exception cref="InvalidDataException">Thrown when the download does not match its SHA-256.</exception>
-    internal static async Task DownloadAsync(
-        Func<Uri, CancellationToken, Task<HttpResponseMessage>> fetch,
-        Uri source,
-        string target,
+    internal static async Task<long> DownloadAsync(
+        IRemoteDocumentApi api,
+        string requestPath,
+        DownloadFile file,
         string sha256,
-        byte[] buffer,
-        ByteProgress progress,
+        DownloadCopy copy,
+        DownloadProgress progress,
         CancellationToken cancellationToken)
     {
-        _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-        var partial = $"{target}.{Guid.NewGuid():N}.part";
+        if (!Directory.Exists(file.Folder))
+        {
+            _ = Directory.CreateDirectory(file.Folder);
+        }
+
+        string? partial = null;
+        var received = 0L;
+        var moved = false;
+        var hash = copy.Hashes.Take();
         try
         {
-            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            using (var message = await fetch(source, cancellationToken).ConfigureAwait(false))
+            partial = file.TakePartialPath();
+            using (var message = await api.DownloadAsync(requestPath, cancellationToken).ConfigureAwait(false))
             {
                 _ = message.EnsureSuccessStatusCode();
                 var input = await message.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
                 await using (input.ConfigureAwait(false))
                 {
-                    var output = File.Create(partial);
-                    await using (output.ConfigureAwait(false))
+                    using var output = File.OpenHandle(partial, FileMode.Create, FileAccess.Write, FileShare.None, FileOptions.Asynchronous);
+                    int read;
+                    while ((read = await input.ReadAsync(copy.Buffer, cancellationToken).ConfigureAwait(false)) > 0)
                     {
-                        int read;
-                        while ((read = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-                        {
-                            await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-                            hash.AppendData(buffer, 0, read);
-                            progress.Add(read);
-                        }
+                        await RandomAccess.WriteAsync(output, copy.Buffer.AsMemory(0, read), received, cancellationToken).ConfigureAwait(false);
+                        hash.AppendData(copy.Buffer, 0, read);
+                        received += read;
+                        progress.Report(received);
                     }
                 }
             }
 
-            if (!string.Equals(Convert.ToHexStringLower(hash.GetHashAndReset()), sha256, StringComparison.Ordinal))
+            if (!HashMatches(hash, sha256))
             {
-                throw new InvalidDataException($"{Path.GetFileName(target)} did not download intact; try again.");
+                throw new InvalidDataException($"{Path.GetFileName(file.Target)} did not download intact; try again.");
             }
 
-            File.Move(partial, target, true);
-            await File.WriteAllTextAsync(target + HashSuffix, sha256, CancellationToken.None).ConfigureAwait(false);
+            File.Move(partial, file.Target, true);
+            moved = true;
+            using var recorded = File.OpenHandle(file.HashTarget, FileMode.Create, FileAccess.Write, FileShare.Read, FileOptions.Asynchronous);
+            await RandomAccess.WriteAsync(recorded, file.EncodedHash(sha256), 0, CancellationToken.None).ConfigureAwait(false);
+            return received;
         }
         finally
         {
-            File.Delete(partial);
+            ReleaseDownload(file, partial, moved, copy.Hashes, hash);
         }
+    }
+
+    /// <summary>Removes unfinished output and releases its path and hash context even when deletion fails.</summary>
+    /// <param name="file">The download's file state.</param>
+    /// <param name="partial">The partial path.</param>
+    /// <param name="moved">Whether the file was already moved into place.</param>
+    /// <param name="hashes">The service's hash owner.</param>
+    /// <param name="hash">The context used by the operation.</param>
+    private static void ReleaseDownload(DownloadFile file, string? partial, bool moved, DownloadHashes hashes, IncrementalHash hash)
+    {
+        try
+        {
+            try
+            {
+                if (partial is not null && !moved)
+                {
+                    File.Delete(partial);
+                }
+            }
+            finally
+            {
+                if (partial is not null)
+                {
+                    file.ReturnPartialPath(partial);
+                }
+            }
+        }
+        finally
+        {
+            hashes.Return(hash);
+        }
+    }
+
+    /// <summary>Determines whether a finished hash is the expected one, without making a string of it.</summary>
+    /// <param name="hash">The hash, which is reset.</param>
+    /// <param name="sha256">The expected SHA-256 as lowercase hexadecimal.</param>
+    /// <returns><see langword="true"/> when they match.</returns>
+    private static bool HashMatches(IncrementalHash hash, string sha256)
+    {
+        Span<byte> digest = stackalloc byte[HashBytes];
+        Span<char> hex = stackalloc char[HashChars];
+        var written = hash.GetHashAndReset(digest);
+        return Convert.TryToHexStringLower(digest[..written], hex, out var chars) && hex[..chars].SequenceEqual(sha256);
     }
 }

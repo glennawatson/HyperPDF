@@ -164,6 +164,14 @@ internal sealed class SfntFont
     internal byte[] Write(SfntEntry[] entries) =>
         SfntWriter.Write(_version, entries, SfntTags.Head, SfntTags.HeadChecksumAdjustment, SfntTags.ChecksumMagic);
 
+    /// <summary>Writes a standalone font from borrowed entries, sorting them in place.</summary>
+    /// <param name="entries">The tables, retained only during the call.</param>
+    /// <param name="cancellationToken">Cancels table copying.</param>
+    /// <returns>The owned font bytes.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal byte[] Write(Span<SfntEntry> entries, CancellationToken cancellationToken) =>
+        SfntWriter.Write(_version, entries, SfntTags.Head, SfntTags.HeadChecksumAdjustment, SfntTags.ChecksumMagic, cancellationToken);
+
     /// <summary>Gets a copy of the face's tables as writer entries.</summary>
     /// <returns>An entry per table.</returns>
     internal SfntEntry[] Entries()

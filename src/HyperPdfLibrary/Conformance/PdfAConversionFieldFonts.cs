@@ -30,7 +30,7 @@ internal static class PdfAConversionFieldFonts
     /// <param name="form">The interactive form dictionary.</param>
     /// <param name="widget">The field's widget.</param>
     /// <returns><see langword="true"/> when the font cannot be embedded.</returns>
-    internal static bool CannotEmbedFont(PdfAConversionSession session, PdfDictionary form, ResolvedWidget widget)
+    internal static bool CannotEmbedFont(PdfAConversionSession session, PdfDictionary form, in ResolvedWidget widget)
     {
         var store = session.Store;
         var appearance = FindAppearance(store, widget, form);
@@ -55,7 +55,7 @@ internal static class PdfAConversionFieldFonts
     /// <param name="widget">The widget.</param>
     /// <param name="form">The interactive form dictionary.</param>
     /// <returns>The string's bytes, or empty.</returns>
-    private static byte[] FindAppearance(PdfObjectStore store, ResolvedWidget widget, PdfDictionary form)
+    private static byte[] FindAppearance(PdfObjectStore store, in ResolvedWidget widget, PdfDictionary form)
     {
         var own = widget.Widget.GetStringBytes(KnownName.DA);
         if (!own.IsEmpty)

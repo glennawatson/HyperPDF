@@ -20,10 +20,15 @@ public static class PdfDocumentOptimizing
     internal static PdfDocument OpenWorkingCopy(PdfDocument document)
     {
         var store = StoreRevisions.OpenRevision(document.Objects, document.Objects.Source.Length);
-        new StoreValueTranslator(document.Objects, store).ReplayEdits();
-        lock (store.Gate)
+
+        // The /Encrypt dictionary must keep the strings read before decryption was enabled.
+        if (document.IsEncrypted || StoreEditing.HasChanges(document.Objects))
         {
-            StoreTransactions.RefreshCatalogLocked(store);
+            new StoreValueTranslator(document.Objects, store).ReplayEdits();
+            lock (store.Gate)
+            {
+                StoreTransactions.RefreshCatalogLocked(store);
+            }
         }
 
         var copy = new PdfDocument(store, document.FontFactory);

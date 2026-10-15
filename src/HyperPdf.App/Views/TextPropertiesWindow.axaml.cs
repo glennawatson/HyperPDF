@@ -22,7 +22,7 @@ public sealed partial class TextPropertiesWindow : ReactiveUI.Avalonia.ReactiveW
     public TextPropertiesWindow()
     {
         InitializeComponent();
-        FamilyInput.ItemTemplate = new FuncDataTemplate<string>(static (name, _) => new TextBlock { Text = name, FontFamily = PageFonts.Get(name) });
+        FamilyInput.ItemTemplate = new FuncDataTemplate<string>((name, _) => new TextBlock { Text = name, FontFamily = PageFonts.Get(ViewModel?.PageFontFamilies, name) });
         AlignmentInput.ItemsSource = TextPropertiesViewModel.Alignments;
         ColourInput.ItemsSource = TextPropertiesViewModel.ColorNames;
         FieldLabels.Link(

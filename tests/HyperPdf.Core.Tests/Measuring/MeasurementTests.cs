@@ -34,6 +34,9 @@ public sealed class MeasurementTests
     /// <summary>Four sides of a square.</summary>
     private const int FourSides = 4;
 
+    /// <summary>A unit name longer than the normal stack buffer.</summary>
+    private const int LongUnitLength = 300;
+
     /// <summary>The paper length of a centimetre-based scale, in points: 1 cm.</summary>
     private const double Centimetre = 72 / 2.54;
 
@@ -94,5 +97,17 @@ public sealed class MeasurementTests
         await Assert.That(Measurement.Describe(MeasureMode.Perimeter, square, MeasureScale.Imperial)).IsEqualTo("Perimeter 3 in");
         await Assert.That(Measurement.Describe(MeasureMode.Area, square, MeasureScale.Metric)).IsEqualTo("Area 645.16 mm²");
         await Assert.That(Measurement.Describe(MeasureMode.Area, square.AsSpan(0, LineEnds), MeasureScale.Metric)).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>Long unit names keep the complete description.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DescribesLongUnit()
+    {
+        PagePoint[] line = [new(0, 0), new(Inch, 0)];
+        var unit = new string('x', LongUnitLength);
+        var scale = new MeasureScale(1, "in", 1, unit);
+
+        await Assert.That(Measurement.Describe(MeasureMode.Distance, line, scale)).IsEqualTo($"Distance 1 {unit} at 0°");
     }
 }

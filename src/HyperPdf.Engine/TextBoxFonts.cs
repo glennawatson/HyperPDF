@@ -36,7 +36,7 @@ internal static class TextBoxFonts
     internal static TextBoxFont? Resolve(TextBoxFontState state, FontCatalog catalog, TextFormat format, string text)
     {
         var match = StandardFontFamilies.IsStandard(format.FontFamily) ? null : catalog.Find(format.FontFamily, format.IsBold, format.IsItalic);
-        var program = match is null ? null : FontProgram.Load(match.Face);
+        var program = match is null ? null : state.Load(match.Face);
         if (program is not null && Covers(program, text))
         {
             return Installed(state, program, match!.SynthesizeBold, match.SynthesizeItalic);
@@ -110,13 +110,15 @@ internal static class TextBoxFonts
             return reused;
         }
 
-        if (Search(catalog, text, format) is not { } face || FromFace(state, face, text, format) is not { } selected)
+        if (Search(state, catalog, text, format) is not { } candidate)
         {
             return null;
         }
 
+        var face = candidate.Face;
+        var program = state.Remember(candidate);
         found[key] = face;
-        return selected;
+        return Installed(state, program, format.IsBold && face.Weight < BoldWeight, format.IsItalic && !face.IsItalic);
     }
 
     /// <summary>Uses an installed face when it covers all the requested text.</summary>
@@ -126,7 +128,7 @@ internal static class TextBoxFonts
     /// <param name="format">The requested style.</param>
     /// <returns>The font, or <see langword="null"/> when the face cannot show the text.</returns>
     private static TextBoxFont? FromFace(TextBoxFontState state, FontFace face, string text, TextFormat format) =>
-        FontProgram.Load(face) is { } program && Covers(program, text)
+        state.Load(face) is { } program && Covers(program, text)
             ? Installed(state, program, format.IsBold && face.Weight < BoldWeight, format.IsItalic && !face.IsItalic)
             : null;
 
@@ -147,19 +149,20 @@ internal static class TextBoxFonts
     }
 
     /// <summary>Tries the installed faces, those in the wanted style first.</summary>
+    /// <param name="state">The engine's retained font programs.</param>
     /// <param name="catalog">The installed fonts.</param>
     /// <param name="text">The text.</param>
     /// <param name="format">The format.</param>
     /// <returns>The first face with every character, or <see langword="null"/>.</returns>
-    private static FontFace? Search(FontCatalog catalog, string text, TextFormat format)
+    private static FontProgram? Search(TextBoxFontState state, FontCatalog catalog, string text, TextFormat format)
     {
         var faces = new List<FontFace>(catalog.Faces);
         faces.Sort((a, b) => Rank(a, format).CompareTo(Rank(b, format)));
         foreach (var face in faces)
         {
-            if (TryCovers(face, text))
+            if (ReadCovering(state, face, text) is { } program)
             {
-                return face;
+                return program;
             }
         }
 
@@ -173,30 +176,36 @@ internal static class TextBoxFonts
     private static int Rank(FontFace face, TextFormat format) =>
         (face.IsBold == format.IsBold ? 0 : WeightMismatch) + (face.IsItalic == format.IsItalic ? 0 : 1);
 
-    /// <summary>Reads a face, without keeping it, to see whether it has every character.</summary>
+    /// <summary>Reads a face, without retaining an unselected one, to see whether it has every character.</summary>
+    /// <param name="state">The engine's retained font programs.</param>
     /// <param name="face">The face.</param>
     /// <param name="text">The text.</param>
-    /// <returns><see langword="true"/> when it has them all.</returns>
-    private static bool TryCovers(FontFace face, string text)
+    /// <returns>The program when it has them all, or null.</returns>
+    private static FontProgram? ReadCovering(TextBoxFontState state, FontFace face, string text)
     {
+        if (state.TryGetLoaded(face, out var loaded) && loaded is { } retained)
+        {
+            return Covers(retained, text) ? retained : null;
+        }
+
         try
         {
             var file = new FileInfo(face.Path);
             if (!file.Exists || file.Length > MaxFileBytes)
             {
-                return false;
+                return null;
             }
 
             var program = FontProgram.FromBytes(face, File.ReadAllBytes(face.Path));
-            return program is not null && Covers(program, text);
+            return program is not null && Covers(program, text) ? program : null;
         }
         catch (IOException)
         {
-            return false;
+            return null;
         }
         catch (UnauthorizedAccessException)
         {
-            return false;
+            return null;
         }
     }
 }

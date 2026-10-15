@@ -19,6 +19,9 @@ internal static class NameTree
     /// <summary>The most entries enumerated from one tree, guarding against huge or hostile trees.</summary>
     private const int MaxEntries = 1_000_000;
 
+    /// <summary>The largest traversal retained between operations.</summary>
+    private const int MaxKeptNodes = 4096;
+
     /// <summary>Finds a value by string key.</summary>
     /// <param name="root">The tree's root node.</param>
     /// <param name="key">The key's bytes.</param>
@@ -101,8 +104,34 @@ internal static class NameTree
             return;
         }
 
-        var visited = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
-        var pending = new Stack<PendingNode>();
+        var slots = root.Owner?.ScratchPools.Slots<Walk>();
+        var walk = slots?.Take() ?? new Walk();
+        try
+        {
+            EnumerateLeaves(root, leafKey, raw, output, walk);
+        }
+        finally
+        {
+            var keep = walk.Visited.EnsureCapacity(0) <= MaxKeptNodes && walk.Pending.EnsureCapacity(0) <= MaxKeptNodes;
+            walk.Visited.Clear();
+            walk.Pending.Clear();
+            if (keep)
+            {
+                _ = slots?.Offer(walk);
+            }
+        }
+    }
+
+    /// <summary>Visits leaves using an exclusively owned traversal stack and loop guard.</summary>
+    /// <param name="root">The root node.</param>
+    /// <param name="leafKey">The leaf array key.</param>
+    /// <param name="raw">Whether references are preserved.</param>
+    /// <param name="output">Receives entries.</param>
+    /// <param name="walk">The reusable traversal storage.</param>
+    private static void EnumerateLeaves(PdfDictionary root, KnownName leafKey, bool raw, List<NameTreeEntry> output, Walk walk)
+    {
+        var visited = walk.Visited;
+        var pending = walk.Pending;
         pending.Push(new(root, 0));
         while (pending.Count > 0 && output.Count < MaxEntries)
         {
@@ -301,4 +330,14 @@ internal static class NameTree
     /// <param name="Node">The node.</param>
     /// <param name="Depth">Its depth.</param>
     private readonly record struct PendingNode(PdfDictionary Node, int Depth);
+
+    /// <summary>Mutable storage owned by one enumeration until it is cleared and returned.</summary>
+    private sealed class Walk
+    {
+        /// <summary>Gets the nodes visited by this enumeration.</summary>
+        internal HashSet<PdfDictionary> Visited { get; } = [with(ReferenceEqualityComparer.Instance)];
+
+        /// <summary>Gets the nodes awaiting enumeration.</summary>
+        internal Stack<PendingNode> Pending { get; } = [];
+    }
 }

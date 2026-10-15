@@ -24,6 +24,9 @@ internal readonly record struct FormFrame(float Width, float Height, int Rotatio
     /// <summary>The rotation of three quarter turns.</summary>
     private const int ThreeQuarterTurns = 270;
 
+    /// <summary>The entries in a matrix.</summary>
+    private const int MatrixLength = 6;
+
     /// <summary>The degrees in a full turn.</summary>
     private const int FullTurn = 360;
 
@@ -57,12 +60,47 @@ internal readonly record struct FormFrame(float Width, float Height, int Rotatio
     }
 
     /// <summary>Gets the matrix that turns the drawing area into the widget's rectangle.</summary>
-    /// <returns>The six entries; empty for no rotation.</returns>
-    internal float[] GetMatrix() => Rotation switch
+    /// <param name="buffer">Space for the six entries.</param>
+    /// <returns>The six entries, in <paramref name="buffer"/>; empty for no rotation.</returns>
+    internal ReadOnlySpan<float> GetMatrix(Span<float> buffer)
     {
-        QuarterTurn => [0, 1, -1, 0, Height, 0],
-        HalfTurn => [-1, 0, 0, -1, Width, Height],
-        ThreeQuarterTurns => [0, -1, 1, 0, 0, Width],
-        _ => [],
-    };
+        switch (Rotation)
+        {
+            case QuarterTurn:
+            {
+                return Fill(buffer, 0, 1, -1, 0, Height, 0);
+            }
+
+            case HalfTurn:
+            {
+                return Fill(buffer, -1, 0, 0, -1, Width, Height);
+            }
+
+            case ThreeQuarterTurns:
+            {
+                return Fill(buffer, 0, -1, 1, 0, 0, Width);
+            }
+
+            default:
+            {
+                return default;
+            }
+        }
+    }
+
+    /// <summary>Writes a matrix into a buffer.</summary>
+    /// <param name="buffer">The buffer.</param>
+    /// <param name="a">The a entry.</param>
+    /// <param name="b">The b entry.</param>
+    /// <param name="c">The c entry.</param>
+    /// <param name="d">The d entry.</param>
+    /// <param name="e">The e entry.</param>
+    /// <param name="f">The f entry.</param>
+    /// <returns>The six entries.</returns>
+    private static ReadOnlySpan<float> Fill(Span<float> buffer, float a, float b, float c, float d, float e, float f)
+    {
+        ReadOnlySpan<float> entries = [a, b, c, d, e, f];
+        entries.CopyTo(buffer);
+        return buffer[..MatrixLength];
+    }
 }

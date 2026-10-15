@@ -11,8 +11,8 @@ namespace HyperPdfLibrary.Layers;
 
 /// <summary>
 /// A document's layers and which are shown. Changing visibility only changes how pages are drawn; the file is not
-/// touched. The visibility set is replaced, never changed in place, so drawing threads read it without a lock, and
-/// <see cref="Version"/> tells renderers when to redraw.
+/// touched. A lock keeps visibility expressions consistent while radio groups change several bits, and
+/// <see cref="Version"/>, raised after the change, tells renderers when to redraw.
 /// </summary>
 [DebuggerDisplay("PdfOptionalContent: {Layers.Count} layers")]
 public sealed class PdfOptionalContent
@@ -26,14 +26,20 @@ public sealed class PdfOptionalContent
     /// <summary>The objects the layers were read from, which tell whether an edit changed them.</summary>
     private readonly object?[] _witness;
 
-    /// <summary>Guards writers of <see cref="_hidden"/> and <see cref="_set"/>.</summary>
+    /// <summary>Guards writers of <see cref="_set"/> and of its current visibility.</summary>
     private readonly Lock _gate = new();
+
+    /// <summary>The document's reusable configuration reader, used under the visibility lock.</summary>
+    private OptionalContentReader? _reader;
 
     /// <summary>The layers and their state under the configuration in use.</summary>
     private OptionalContentSet _set;
 
-    /// <summary>The object numbers of the hidden groups.</summary>
-    private HashSet<int> _hidden;
+    /// <summary>The layers with their visibility as of <see cref="_snapshotVersion"/>.</summary>
+    private PdfLayer[] _snapshot;
+
+    /// <summary>The version <see cref="_snapshot"/> was made at.</summary>
+    private int _snapshotVersion;
 
     /// <summary>The visibility version.</summary>
     private int _version;
@@ -47,8 +53,8 @@ public sealed class PdfOptionalContent
 
         // Taken before the read, so an edit between the two makes the layers look changed, never unchanged.
         _witness = OptionalContentReader.Witness(objects);
-        _set = OptionalContentReader.Read(objects);
-        _hidden = _set.Hidden;
+        _set = _witness.Length == 0 ? OptionalContentSet.Empty : (_reader = new()).Read(objects);
+        _snapshot = _set.Layers;
     }
 
     /// <summary>Gets a value indicating whether the document has layers.</summary>
@@ -62,18 +68,35 @@ public sealed class PdfOptionalContent
     {
         get
         {
-            var set = Volatile.Read(ref _set);
-            var hidden = Volatile.Read(ref _hidden);
-            var layers = new PdfLayer[set.Layers.Length];
-            for (var i = 0; i < layers.Length; i++)
+            var version = Volatile.Read(ref _version);
+            if (Volatile.Read(ref _snapshotVersion) == version)
             {
-                layers[i] = set.Layers[i] with
-                {
-                    IsVisible = !hidden.Contains(set.Layers[i].Id)
-                };
+                return Volatile.Read(ref _snapshot);
             }
 
-            return layers;
+            lock (_gate)
+            {
+                version = Volatile.Read(ref _version);
+                if (_snapshotVersion == version)
+                {
+                    return _snapshot;
+                }
+
+                // Visibility can change several bits together, so the snapshot shares the writers' lock.
+                var set = _set;
+                var layers = new PdfLayer[set.Layers.Length];
+                for (var i = 0; i < layers.Length; i++)
+                {
+                    layers[i] = set.Layers[i] with
+                    {
+                        IsVisible = !OptionalContentSet.Test(set.Current, set.IndexOf(set.Layers[i].Id))
+                    };
+                }
+
+                Volatile.Write(ref _snapshot, layers);
+                Volatile.Write(ref _snapshotVersion, version);
+                return layers;
+            }
         }
     }
 
@@ -106,7 +129,7 @@ public sealed class PdfOptionalContent
     /// <param name="id">The layer's object number.</param>
     /// <returns><see langword="true"/> when locked.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsLocked(int id) => Volatile.Read(ref _set).Locked.Contains(id);
+    public bool IsLocked(int id) => Volatile.Read(ref _set).IsLocked(id);
 
     /// <summary>Makes another configuration the one in use, which resets every layer to that configuration's state.</summary>
     /// <param name="index">The <see cref="PdfLayerConfiguration.Index"/>: a position in /Configs, or <see cref="PdfLayerConfiguration.DefaultIndex"/>.</param>
@@ -122,9 +145,8 @@ public sealed class PdfOptionalContent
 
         lock (_gate)
         {
-            var set = OptionalContentReader.Read(_objects, index);
+            var set = (_reader ??= new()).Read(_objects, index);
             Volatile.Write(ref _set, set);
-            Volatile.Write(ref _hidden, set.Hidden);
             _ = Interlocked.Increment(ref _version);
         }
 
@@ -137,13 +159,24 @@ public sealed class PdfOptionalContent
     {
         lock (_gate)
         {
-            var defaults = Volatile.Read(ref _set).Hidden;
-            if (_hidden.SetEquals(defaults))
+            var set = Volatile.Read(ref _set);
+            var changed = false;
+            for (var i = 0; i < set.Hidden.Length; i++)
+            {
+                if (Volatile.Read(ref set.Current[i]) == set.Hidden[i])
+                {
+                    continue;
+                }
+
+                Volatile.Write(ref set.Current[i], set.Hidden[i]);
+                changed = true;
+            }
+
+            if (!changed)
             {
                 return false;
             }
 
-            Volatile.Write(ref _hidden, defaults);
             _ = Interlocked.Increment(ref _version);
             return true;
         }
@@ -241,7 +274,17 @@ public sealed class PdfOptionalContent
     internal bool IsVisible(PdfValue value, int zoomClass)
     {
         var set = Volatile.Read(ref _set);
-        return set.Layers.Length == 0 || Evaluate(value, new(Volatile.Read(ref _hidden), set, zoomClass), 0);
+        if (set.Layers.Length == 0)
+        {
+            return true;
+        }
+
+        // A radio group changes several bits together; an expression must see the whole change.
+        lock (_gate)
+        {
+            set = _set;
+            return Evaluate(value, new(set.Current, set, zoomClass), 0);
+        }
     }
 
     /// <summary>Shows or hides a layer on behalf of an action, which may change a locked layer.</summary>
@@ -256,11 +299,8 @@ public sealed class PdfOptionalContent
     /// leaves the layers, and which are shown, as they are.
     /// </summary>
     /// <returns><see langword="true"/> when no layer object changed.</returns>
-    internal bool IsCurrent()
-    {
-        var now = OptionalContentReader.Witness(_objects);
-        return now.AsSpan().SequenceEqual(_witness.AsSpan(), ReferenceEqualityComparer.Instance);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool IsCurrent() => OptionalContentReader.IsWitnessCurrent(_objects, _witness);
 
     /// <summary>Tells renderers to redraw every page, after an edit changed what a page paints.</summary>
     internal void InvalidatePages() => _ = Interlocked.Increment(ref _version);
@@ -268,14 +308,18 @@ public sealed class PdfOptionalContent
     /// <summary>Sets the first version, before the layer set is shared, so it starts above an earlier set's versions.</summary>
     /// <param name="version">The first version.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void StartAt(int version) => Volatile.Write(ref _version, version);
+    internal void StartAt(int version)
+    {
+        Volatile.Write(ref _version, version);
+        Volatile.Write(ref _snapshotVersion, version);
+    }
 
-    /// <summary>Determines whether a group is within its zoom range.</summary>
+    /// <summary>Determines whether a layer is within its zoom range.</summary>
     /// <param name="state">The state being evaluated.</param>
-    /// <param name="id">The group's object number.</param>
-    /// <returns><see langword="true"/> when no zoom limit hides the group.</returns>
-    private static bool InZoom(in Evaluation state, int id) =>
-        state.ZoomClass < 0 || !state.Set.ZoomRanges.TryGetValue(id, out var range) || range.Contains(state.ZoomClass);
+    /// <param name="bit">The layer's bit.</param>
+    /// <returns><see langword="true"/> when no zoom limit hides the layer.</returns>
+    private static bool InZoom(in Evaluation state, int bit) =>
+        state.ZoomClass < 0 || state.Set.ZoomRanges.Length == 0 || state.Set.ZoomRanges[bit].Contains(state.ZoomClass);
 
     /// <summary>Determines whether one group is shown.</summary>
     /// <param name="group">The group reference.</param>
@@ -284,33 +328,22 @@ public sealed class PdfOptionalContent
     private static bool IsGroupShown(PdfValue group, in Evaluation state)
     {
         var id = group.AsReference();
-        return !id.IsValid || state.Set.NonView.Contains(id.Number) || (!state.Hidden.Contains(id.Number) && InZoom(state, id.Number));
-    }
-
-    /// <summary>Determines whether the document lists a layer.</summary>
-    /// <param name="set">The layers.</param>
-    /// <param name="id">The layer's object number.</param>
-    /// <returns><see langword="true"/> when listed.</returns>
-    private static bool HasLayer(OptionalContentSet set, int id)
-    {
-        foreach (var layer in set.Layers)
+        if (!id.IsValid)
         {
-            if (layer.Id == id)
-            {
-                return true;
-            }
+            return true;
         }
 
-        return false;
+        // A group the document does not list as a layer is never hidden, not for viewing and not limited by zoom.
+        var bit = state.Set.IndexOf(id.Number);
+        return bit < 0 || OptionalContentSet.Test(state.Set.NonView, bit) || (!OptionalContentSet.Test(state.Hidden, bit) && InZoom(state, bit));
     }
 
     /// <summary>Hides the other groups of every radio button set that holds a group.</summary>
     /// <param name="set">The layers.</param>
     /// <param name="id">The group just shown.</param>
-    /// <param name="hidden">The hidden set being built.</param>
     /// <param name="overrideLocks">Whether locked siblings may be hidden.</param>
     /// <returns><see langword="true"/> when a group was newly hidden.</returns>
-    private static bool HideSiblings(OptionalContentSet set, int id, HashSet<int> hidden, bool overrideLocks)
+    private static bool HideSiblings(OptionalContentSet set, int id, bool overrideLocks)
     {
         var changed = false;
         foreach (var group in set.RadioGroups)
@@ -322,7 +355,8 @@ public sealed class PdfOptionalContent
 
             foreach (var sibling in group)
             {
-                changed |= sibling != id && HasLayer(set, sibling) && (overrideLocks || !set.Locked.Contains(sibling)) && hidden.Add(sibling);
+                var bit = set.IndexOf(sibling);
+                changed |= sibling != id && bit >= 0 && (overrideLocks || !set.IsLocked(sibling)) && OptionalContentSet.Raise(set.Current, bit);
             }
         }
 
@@ -337,24 +371,29 @@ public sealed class PdfOptionalContent
     private bool SetVisible(int id, bool visible, bool overrideLocks)
     {
         var set = Volatile.Read(ref _set);
-        if (!HasLayer(set, id) || (!overrideLocks && set.Locked.Contains(id)))
+        if (set.IndexOf(id) < 0 || (!overrideLocks && set.IsLocked(id)))
         {
             return false;
         }
 
         lock (_gate)
         {
+            // A configuration change replaces the set under this lock, so the set read here is the one that stays current.
             set = Volatile.Read(ref _set);
-            var next = new HashSet<int>(_hidden);
-            var changed = visible ? next.Remove(id) : next.Add(id);
+            var bit = set.IndexOf(id);
+            if (bit < 0 || (!overrideLocks && set.IsLocked(id)))
+            {
+                return false;
+            }
+
+            var changed = visible ? OptionalContentSet.Lower(set.Current, bit) : OptionalContentSet.Raise(set.Current, bit);
             if (visible)
             {
-                changed |= HideSiblings(set, id, next, overrideLocks);
+                changed |= HideSiblings(set, id, overrideLocks);
             }
 
             if (changed)
             {
-                Volatile.Write(ref _hidden, next);
                 _ = Interlocked.Increment(ref _version);
             }
         }
@@ -470,5 +509,5 @@ public sealed class PdfOptionalContent
     /// <param name="Hidden">The hidden groups.</param>
     /// <param name="Set">The layer set.</param>
     /// <param name="ZoomClass">The zoom class, or -1 to ignore zoom limits.</param>
-    private readonly record struct Evaluation(HashSet<int> Hidden, OptionalContentSet Set, int ZoomClass);
+    private readonly record struct Evaluation(int[] Hidden, OptionalContentSet Set, int ZoomClass);
 }

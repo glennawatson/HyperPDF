@@ -35,7 +35,7 @@ internal static class OptimizeMapping
     /// <summary>Maps the library's report to the app's.</summary>
     /// <param name="report">The library report.</param>
     /// <returns>The app report.</returns>
-    internal static OptimizeReport ToReport(PdfOptimizeReport report)
+    internal static OptimizeReport ToReport(in PdfOptimizeReport report)
     {
         var skipped = new OptimizeSkip[report.Skipped.Count];
         for (var i = 0; i < skipped.Length; i++)

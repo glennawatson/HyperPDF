@@ -4,7 +4,7 @@
 
 namespace HyperPdfLibrary;
 
-/// <summary>Why a document could not be opened.</summary>
+/// <summary>Why a document could not be opened or saved.</summary>
 public enum PdfError
 {
     /// <summary>An unexpected failure.</summary>
@@ -28,4 +28,10 @@ public enum PdfError
     /// The message says which.
     /// </summary>
     Certificate = 5,
+
+    /// <summary>
+    /// A save was refused because the file claims a standard, such as PDF/UA-1, that it no longer meets and the writer cannot
+    /// repair, so writing it would make a false claim. The message says which rules fail.
+    /// </summary>
+    ClaimUnmet = 6,
 }

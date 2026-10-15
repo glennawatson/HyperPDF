@@ -24,7 +24,7 @@ internal sealed record Pdf20InfoMapping(KnownName Key, XmpProperty Property, Fun
     internal static Pdf20InfoMapping[] All { get; } =
     [
         new(KnownName.Title, XmpProperty.Title, static xmp => xmp.Title, "title"),
-        new(KnownName.Author, XmpProperty.Author, static xmp => xmp.Creators.Length == 0 ? null : string.Join(ListSeparator, xmp.Creators), "author"),
+        new(KnownName.Author, XmpProperty.Author, static xmp => xmp.Creators.IsEmpty ? null : string.Join(ListSeparator, xmp.Creators.AsSpan()), "author"),
         new(KnownName.Subject, XmpProperty.Subject, static xmp => xmp.Description, "subject"),
         new(KnownName.Keywords, XmpProperty.Keywords, static xmp => xmp.Keywords, "keywords"),
         new(KnownName.Creator, XmpProperty.Creator, static xmp => xmp.CreatorTool, "creating application"),

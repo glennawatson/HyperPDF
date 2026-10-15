@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Conformance;
+using HyperPdfLibrary.PdfUa;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -45,11 +46,32 @@ internal sealed class OptimizeReportBuilder
     /// <summary>Gets or sets the check of the written file's PDF/A claim.</summary>
     internal PdfAClaimCheck? PdfAClaim { get; set; }
 
+    /// <summary>Gets or sets the check of the written file's PDF/UA-1 claim.</summary>
+    internal PdfUaClaimCheck? PdfUaClaim { get; set; }
+
     /// <summary>Gets or sets a value indicating whether the document was signed.</summary>
     internal bool WasSigned { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the output is encrypted.</summary>
     internal bool IsEncrypted { get; set; }
+
+    /// <summary>Forgets everything recorded, so the builder can serve another run.</summary>
+    internal void Reset()
+    {
+        Array.Clear(_counts);
+        Array.Clear(_before);
+        Array.Clear(_after);
+        _actions.Clear();
+        _warnings.Clear();
+        _skipped.Clear();
+        TagsInferred = false;
+        FiguresNeedingAltText = 0;
+        PdfAPart = 0;
+        PdfAClaim = null;
+        PdfUaClaim = null;
+        WasSigned = false;
+        IsEncrypted = false;
+    }
 
     /// <summary>Records a change and its effect on stored size.</summary>
     /// <param name="category">The kind of change.</param>
@@ -101,21 +123,32 @@ internal sealed class OptimizeReportBuilder
     /// <returns>The report.</returns>
     internal PdfOptimizeReport Build(long bytesBefore, long bytesAfter, PdfOptimizeMode mode)
     {
-        var savings = new List<PdfOptimizeSaving>(CategoryCount);
-        for (var i = 0; i < CategoryCount; i++)
+        var changed = 0;
+        foreach (var count in _counts)
         {
-            if (_counts[i] > 0)
-            {
-                savings.Add(new((PdfOptimizeCategory)i, _counts[i], _before[i], _after[i]));
-            }
+            changed += count > 0 ? 1 : 0;
         }
 
-        return new(bytesBefore, bytesAfter, mode, savings, [.. _actions], [.. _warnings], [.. _skipped])
+        var savings = new PdfOptimizeSaving[changed];
+        var next = 0;
+        for (var i = 0; i < CategoryCount; i++)
+        {
+            if (_counts[i] <= 0)
+            {
+                continue;
+            }
+
+            savings[next] = new((PdfOptimizeCategory)i, _counts[i], _before[i], _after[i]);
+            next++;
+        }
+
+        return new(bytesBefore, bytesAfter, mode, savings, _actions.ToArray(), _warnings.ToArray(), _skipped.ToArray())
         {
             TagsInferred = TagsInferred,
             FiguresNeedingAltText = FiguresNeedingAltText,
             PdfAPart = PdfAPart,
             PdfAClaim = PdfAClaim,
+            PdfUaClaim = PdfUaClaim,
             WasSigned = WasSigned,
             IsEncrypted = IsEncrypted,
         };

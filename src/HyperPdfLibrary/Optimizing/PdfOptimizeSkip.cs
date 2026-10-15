@@ -11,4 +11,4 @@ namespace HyperPdfLibrary.Optimizing;
 /// <param name="ObjectNumber">The source object, or zero for the whole document.</param>
 /// <param name="Reason">Why it was left alone, in plain words.</param>
 [DebuggerDisplay("PdfOptimizeSkip: {Category} {ObjectNumber} {Reason}")]
-public sealed record PdfOptimizeSkip(PdfOptimizeCategory Category, int ObjectNumber, string Reason);
+public readonly record struct PdfOptimizeSkip(PdfOptimizeCategory Category, int ObjectNumber, string Reason);

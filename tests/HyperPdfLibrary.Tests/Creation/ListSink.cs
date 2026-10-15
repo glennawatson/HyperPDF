@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -15,11 +16,20 @@ internal sealed class ListSink : IPdfObjectSink
     /// <summary>The objects, where index <c>n - 1</c> holds object <c>n</c>.</summary>
     private readonly List<PdfValue> _values = [];
 
+    /// <summary>The optional embedding state.</summary>
+    private PdfFontEmbeddingState? _fontEmbedding;
+
     /// <inheritdoc/>
     public PdfNameTable Names { get; } = new();
 
     /// <inheritdoc/>
     public PdfObjectStore? Owner => null;
+
+    /// <inheritdoc/>
+    public PdfFontEmbeddingState FontEmbedding => _fontEmbedding ??= new();
+
+    /// <inheritdoc/>
+    public PdfFontEmbeddingState? ExistingFontEmbedding => _fontEmbedding;
 
     /// <inheritdoc/>
     public PdfObjectId Reserve()

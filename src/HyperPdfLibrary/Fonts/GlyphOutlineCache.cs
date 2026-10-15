@@ -33,8 +33,11 @@ internal sealed class GlyphOutlineCache
     /// <summary>Marks a slot whose glyph has no outline, so it is not built again.</summary>
     private static readonly PdfPath Blank = PdfPath.Empty;
 
-    /// <summary>The pages, made on first use.</summary>
-    private readonly PdfPath?[]?[] _pages = new PdfPath?[]?[PageCount];
+    /// <summary>The page of the first 256 slots, made on first use; it holds every code of a simple font.</summary>
+    private PdfPath?[]? _firstPage;
+
+    /// <summary>The pages beyond the first, made on first use along with the table that holds them.</summary>
+    private PdfPath?[]?[]? _pages;
 
     /// <summary>Gets a slot's outline, building it on first use.</summary>
     /// <typeparam name="TState">The type of the state given to the builder.</typeparam>
@@ -49,7 +52,7 @@ internal sealed class GlyphOutlineCache
             return null;
         }
 
-        var page = Volatile.Read(ref _pages[slot >> PageBits]) ?? CreatePage(slot >> PageBits);
+        var page = slot < PageSize ? Volatile.Read(ref _firstPage) ?? CreateFirstPage() : GetPage(slot >> PageBits);
         var path = Volatile.Read(ref page[slot & PageMask]);
         path ??= Publish(page, slot & PageMask, build(state, slot));
 
@@ -69,11 +72,37 @@ internal sealed class GlyphOutlineCache
     }
 
     /// <summary>Makes a page, keeping another thread's page if it won.</summary>
+    /// <param name="pages">The table of pages.</param>
     /// <param name="index">The page index.</param>
     /// <returns>The page.</returns>
-    private PdfPath?[] CreatePage(int index)
+    private static PdfPath?[] CreatePage(PdfPath?[]?[] pages, int index)
     {
         var page = new PdfPath?[PageSize];
-        return Interlocked.CompareExchange(ref _pages[index], page, null) ?? page;
+        return Interlocked.CompareExchange(ref pages[index], page, null) ?? page;
+    }
+
+    /// <summary>Gets a page beyond the first, making the table of pages and the page when they are not there.</summary>
+    /// <param name="index">The page index, from 1.</param>
+    /// <returns>The page.</returns>
+    private PdfPath?[] GetPage(int index)
+    {
+        var pages = Volatile.Read(ref _pages) ?? CreatePages();
+        return Volatile.Read(ref pages[index]) ?? CreatePage(pages, index);
+    }
+
+    /// <summary>Makes the first page, which a simple font's single-byte codes all fit in, keeping another thread's page if it won.</summary>
+    /// <returns>The page.</returns>
+    private PdfPath?[] CreateFirstPage()
+    {
+        var page = new PdfPath?[PageSize];
+        return Interlocked.CompareExchange(ref _firstPage, page, null) ?? page;
+    }
+
+    /// <summary>Makes the table of pages, keeping another thread's table if it won.</summary>
+    /// <returns>The table.</returns>
+    private PdfPath?[]?[] CreatePages()
+    {
+        var pages = new PdfPath?[]?[PageCount];
+        return Interlocked.CompareExchange(ref _pages, pages, null) ?? pages;
     }
 }

@@ -8,6 +8,6 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
 /// <param name="Region">The region's size and place on the page.</param>
 /// <param name="SymbolCount">The number of symbols in the dictionaries the region refers to, together.</param>
 /// <param name="IsLossless">Whether the instances reproduce the page exactly.</param>
-/// <param name="Components">The components that refined instances take their bitmaps from; null when no instance is refined.</param>
-/// <param name="Symbols">The symbols that refined instances refine; null when no instance is refined.</param>
-internal readonly record struct Jbig2TextPlacement(Jbig2RegionBox Region, int SymbolCount, bool IsLossless, Jbig2Components? Components, Jbig2EncoderSymbols? Symbols);
+/// <param name="Components">The components that refined instances take their bitmaps from; the default value when no instance is refined.</param>
+/// <param name="Symbols">The symbols that refined instances refine; the default value when no instance is refined.</param>
+internal readonly record struct Jbig2TextPlacement(Jbig2RegionBox Region, int SymbolCount, bool IsLossless, Jbig2Components Components, Jbig2EncoderSymbols Symbols);

@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 
 namespace HyperPdfLibrary.Requirements;
@@ -22,7 +21,7 @@ public static class PdfDocumentRequirements
     public static PdfRequirementList GetRequirements(PdfDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
-        return PdfRequirementReader.Read(document.Objects);
+        return PdfReadSnapshots.Read(document, PdfReadKind.Requirements, static document => PdfRequirementReader.Read(document.Objects));
     }
 
     /// <summary>Reads the requirements a document declares.</summary>
@@ -35,15 +34,18 @@ public static class PdfDocumentRequirements
     {
         ArgumentNullException.ThrowIfNull(document);
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(PdfRequirementReader.Read(document.Objects));
+        return ValueTask.FromResult(PdfDocumentRequirements.GetRequirements(document));
     }
 
     /// <summary>Checks a document's requirements against what HyperPDF provides.</summary>
     /// <param name="document">The document.</param>
     /// <returns>A result for each requirement, the total penalty and what it allows.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document"/> is <see langword="null"/>.</exception>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static PdfRequirementAssessment Evaluate(PdfDocument document) => Evaluate(document, PdfRequirementCapabilities.HyperPdf);
+    public static PdfRequirementAssessment Evaluate(PdfDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        return PdfReadSnapshots.Read(document, PdfReadKind.RequirementAssessment, static document => PdfDocumentRequirements.Evaluate(document, PdfRequirementCapabilities.HyperPdf));
+    }
 
     /// <summary>Checks a document's requirements against a table of capabilities.</summary>
     /// <param name="document">The document.</param>

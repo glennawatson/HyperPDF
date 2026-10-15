@@ -632,6 +632,36 @@ public static class Descriptions
     /// <summary>The form field colour strength list.</summary>
     public static readonly string FormHighlightOpacity = "Choose how strong the form field colour is. Off removes it, and a higher number makes it stronger.";
 
+    /// <summary>The sharpness set list.</summary>
+    public static readonly string SharpnessPreset =
+        "Choose a set of sharpness choices. Smooth uses soft edges. Sharp gives text hard edges. "
+        + "Crisp gives text, lines and pictures hard edges and fits lines to whole pixels. Custom shows that the choices under Advanced match none of them.";
+
+    /// <summary>The advanced sharpness group.</summary>
+    public static readonly string AdvancedSharpness = "Show or hide the individual sharpness choices. Changing one of them can move the set above to Custom.";
+
+    /// <summary>The text edges list.</summary>
+    public static readonly string TextEdges =
+        "Choose how the edges of letters are drawn. Smooth blends them into the page. Sharp gives each pixel only dark or clear.";
+
+    /// <summary>The smooth graphics box.</summary>
+    public static readonly string SmoothGraphics = "Smooth the edges of lines and shapes. Turn this off for crisp, hard edges.";
+
+    /// <summary>The smooth images box.</summary>
+    public static readonly string SmoothImages = "Blend the pixels of pictures when they are made bigger or smaller. Turn this off to show the nearest source pixel, with hard edges.";
+
+    /// <summary>The stroke adjustment list.</summary>
+    public static readonly string StrokeAdjustment =
+        "Fit lines to whole screen pixels so thin lines are drawn a whole number of pixels thick. "
+        + "Choose Off to never do it, When the page asks to follow the file, or Always.";
+
+    /// <summary>The minimum line thickness list.</summary>
+    public static readonly string MinimumLineThickness = "Make the thinnest lines at least this many screen pixels thick. Off keeps each line as the file draws it.";
+
+    /// <summary>The area image reduction box.</summary>
+    public static readonly string AreaImageReduction =
+        "When a big picture is shown much smaller, average the pixels it covers instead of picking some of them. This applies to pictures inside the page content as well as stored ones.";
+
     /// <summary>The opening zoom list.</summary>
     public static readonly string OpeningZoom = "Choose the zoom for new documents. Fit page shows the whole page. Fit width fills the width.";
 

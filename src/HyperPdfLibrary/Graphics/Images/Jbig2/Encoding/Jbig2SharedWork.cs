@@ -5,7 +5,8 @@
 namespace HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
 
 /// <summary>What a shared encode has found in its images.</summary>
+/// <param name="Pages">The images.</param>
 /// <param name="Inks">Each image's ink rows, in rented arrays at least as long as the rows.</param>
-/// <param name="Parts">Each image's components, or null for an image with no symbols to share.</param>
+/// <param name="Parts">Each image's components, or the default value for an image with no symbols to share.</param>
 /// <param name="Combined">The symbol components of all the images that have some, in image order.</param>
-internal readonly record struct Jbig2SharedWork(byte[][] Inks, Jbig2Components?[] Parts, Jbig2Components Combined);
+internal readonly record struct Jbig2SharedWork(IReadOnlyList<Jbig2PageInput> Pages, byte[][] Inks, Jbig2Components[] Parts, Jbig2Components Combined);

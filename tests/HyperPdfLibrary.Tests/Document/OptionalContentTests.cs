@@ -26,6 +26,9 @@ public sealed class OptionalContentTests
     /// <summary>The number of layers in the radio group test.</summary>
     private const int TwoLayers = 2;
 
+    /// <summary>The radio-group changes checked while another thread evaluates its membership.</summary>
+    private const int RadioChanges = 2000;
+
     /// <summary>Properties that list group A and turn it off.</summary>
     private const string GroupAOff = "<< /OCGs [4 0 R] /D << /OFF [4 0 R] >> >>";
 
@@ -147,6 +150,70 @@ public sealed class OptionalContentTests
         await Assert.That(layers[0].IsVisible).IsFalse();
         await Assert.That(layers[1].IsVisible).IsTrue();
         await Assert.That(content.Version).IsNotEqualTo(version);
+    }
+
+    /// <summary>Repeated reads reuse a visibility snapshot, and changing a layer preserves the earlier snapshot.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LayerSnapshotsStayStableAfterVisibilityChanges()
+    {
+        using var document = Open(GroupAOff, Group);
+        var content = PdfDocumentLayers.GetOptionalContent(document);
+        var before = content.Layers;
+
+        await Assert.That(ReferenceEquals(before, content.Layers)).IsTrue();
+        await Assert.That(content.SetVisible(GroupA, true)).IsTrue();
+        var after = content.Layers;
+
+        await Assert.That(before[0].IsVisible).IsFalse();
+        await Assert.That(after[0].IsVisible).IsTrue();
+        await Assert.That(ReferenceEquals(after, content.Layers)).IsTrue();
+    }
+
+    /// <summary>A membership expression sees complete radio-group changes while another thread switches the active layer.</summary>
+    /// <param name="cancellationToken">Stops the test.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RadioGroupMembershipNeverSeesBothLayersOn(CancellationToken cancellationToken)
+    {
+        using var document = Open(
+            "<< /OCGs [4 0 R 5 0 R] /D << /OFF [5 0 R] /RBGroups [[4 0 R 5 0 R]] >> >>",
+            Group,
+            OtherGroup,
+            "<< /Type /OCMD /OCGs [4 0 R 5 0 R] /P /AllOn >>");
+        var content = PdfDocumentLayers.GetOptionalContent(document);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var writer = Task.Run(
+            async () =>
+            {
+                await start.Task.WaitAsync(cancellationToken);
+                for (var i = 0; i < RadioChanges; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _ = content.SetVisible(GroupA, true);
+                    _ = content.SetVisible(GroupB, true);
+                }
+            },
+            cancellationToken);
+        var reader = Task.Run(
+            async () =>
+            {
+                await start.Task.WaitAsync(cancellationToken);
+                for (var i = 0; i < RadioChanges; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (Shown(document, MembershipAfterTwo))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            },
+            cancellationToken);
+        _ = start.TrySetResult();
+        await Task.WhenAll(writer, reader);
+        await Assert.That(await reader).IsTrue();
     }
 
     /// <summary>Hiding a layer leaves the other layers of its radio button group alone.</summary>

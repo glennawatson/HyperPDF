@@ -2,8 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
-using System.Text;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -46,27 +47,54 @@ internal static class FormTextAppearance
     /// <param name="context">The widget.</param>
     /// <param name="display">The text to show.</param>
     /// <returns>The Form XObject.</returns>
-    internal static PdfStream CreateText(in AppearanceContext context, string display)
+    internal static PdfStream CreateText(in AppearanceContext context, ReadOnlySpan<char> display) =>
+        CreateRichText(context) ?? CreatePlainText(context, display);
+
+    /// <summary>Creates a text appearance directly from a field's PDF value.</summary>
+    /// <param name="context">The widget.</param>
+    /// <param name="value">The field value.</param>
+    /// <returns>The appearance stream.</returns>
+    internal static PdfStream CreateText(in AppearanceContext context, PdfValue value)
     {
-        context.CancellationToken.ThrowIfCancellationRequested();
-        if (FormRichText.Read(context) is { } paragraphs)
+        if (CreateRichText(context) is { } rich)
         {
-            return FormRichTextAppearance.Create(context, paragraphs);
+            return rich;
         }
 
-        var frame = FormFrame.Create(context);
-        var da = context.DefaultAppearance;
-        var font = FormFont.Find(context.Store, da.FontName, context.Widget, context.Form, context.PageResources, context.Fonts);
-        var builder = default(PdfContentBuilder);
+        if (value.AsArray() is { } array)
+        {
+            value = array.Count > 0 ? array.Get(0) : default;
+        }
+
+        var decoded = default(PooledBuffer);
         try
         {
-            FormBorderAppearance.Paint(ref builder, frame, context.Characteristics, false);
-            WriteText(ref builder, context, frame, da, font, display);
-            return FormAppearanceResources.Finish(ref builder, context, frame, font);
+            var bytes = value.AsStringBytes();
+            if (value.AsStream() is { } stream)
+            {
+                _ = stream.Decode(ref decoded, context.CancellationToken);
+                bytes = decoded.WrittenSpan;
+            }
+
+            if (bytes.IsEmpty)
+            {
+                return CreatePlainText(context, default);
+            }
+
+            var characters = ArrayPool<char>.Shared.Rent(PdfText.GetDecodedLength(bytes));
+            try
+            {
+                var count = PdfText.Decode(bytes, characters);
+                return CreatePlainText(context, characters.AsSpan(0, count));
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(characters);
+            }
         }
         finally
         {
-            builder.Dispose();
+            decoded.Dispose();
         }
     }
 
@@ -109,6 +137,50 @@ internal static class FormTextAppearance
         builder.EndMarkedContent();
     }
 
+    /// <summary>Creates a rich appearance when the field has readable rich text.</summary>
+    /// <param name="context">The widget.</param>
+    /// <returns>The rich appearance, or null to use plain text.</returns>
+    private static PdfStream? CreateRichText(in AppearanceContext context)
+    {
+        context.CancellationToken.ThrowIfCancellationRequested();
+        var rich = default(RichText);
+        try
+        {
+            if (FormRichText.TryRead(context, ref rich))
+            {
+                return FormRichTextAppearance.Create(context, ref rich);
+            }
+        }
+        finally
+        {
+            rich.Dispose();
+        }
+
+        return null;
+    }
+
+    /// <summary>Creates a plain text appearance from decoded characters.</summary>
+    /// <param name="context">The widget.</param>
+    /// <param name="display">The characters.</param>
+    /// <returns>The Form XObject.</returns>
+    private static PdfStream CreatePlainText(in AppearanceContext context, ReadOnlySpan<char> display)
+    {
+        var frame = FormFrame.Create(context);
+        var da = context.DefaultAppearance;
+        var font = FormFont.Find(context.Store, da.FontName, context.Widget, context.Form, context.PageResources, context.Fonts);
+        var builder = default(PdfContentBuilder);
+        try
+        {
+            FormBorderAppearance.Paint(ref builder, frame, context.Characteristics, false);
+            WriteText(ref builder, context, frame, da, font, display);
+            return FormAppearanceResources.Finish(ref builder, context, frame, font);
+        }
+        finally
+        {
+            builder.Dispose();
+        }
+    }
+
     /// <summary>Writes a text field's or combo box's content.</summary>
     /// <param name="builder">The content.</param>
     /// <param name="context">The widget.</param>
@@ -116,16 +188,15 @@ internal static class FormTextAppearance
     /// <param name="da">The default appearance.</param>
     /// <param name="font">The font.</param>
     /// <param name="display">The text to show.</param>
-    private static void WriteText(ref PdfContentBuilder builder, in AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, string display)
+    private static void WriteText(ref PdfContentBuilder builder, in AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, ReadOnlySpan<char> display)
     {
-        if (display.Length == 0)
+        if (display.IsEmpty)
         {
             return;
         }
 
         var isText = context.Type == PdfFieldType.Text;
-        var shown = isText && (context.Flags & PdfFieldFlags.Password) != 0 ? new string('*', display.Length) : display;
-        var codes = font.Encode(shown);
+        using var codes = EncodeDisplay(context, font, display);
         var comb = isText && context.MaxLength > 0 && (context.Flags & PdfFieldFlags.Comb) != 0;
         if (comb)
         {
@@ -138,6 +209,31 @@ internal static class FormTextAppearance
         else
         {
             WriteSingleLine(ref builder, context, frame, da, font, codes);
+        }
+    }
+
+    /// <summary>Encodes displayed characters, masking password fields in rented storage.</summary>
+    /// <param name="context">The widget.</param>
+    /// <param name="font">The font.</param>
+    /// <param name="display">The text.</param>
+    /// <returns>The encoded characters, disposed after drawing.</returns>
+    private static FormCodes EncodeDisplay(in AppearanceContext context, FormFont font, ReadOnlySpan<char> display)
+    {
+        if (context.Type != PdfFieldType.Text || (context.Flags & PdfFieldFlags.Password) == 0)
+        {
+            return font.Encode(display, context.CancellationToken);
+        }
+
+        var characters = ArrayPool<char>.Shared.Rent(display.Length);
+        try
+        {
+            var masked = characters.AsSpan(0, display.Length);
+            masked.Fill('*');
+            return font.Encode(masked, context.CancellationToken);
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(characters);
         }
     }
 
@@ -170,7 +266,11 @@ internal static class FormTextAppearance
                 builder.Fill();
             }
 
-            WriteListRow(ref builder, frame, da, font, font.Encode(FormChoices.GetLabel(field, i)), size, rowBottom);
+            using (var label = font.EncodePdfText(FormChoices.GetLabelBytes(field, i), context.CancellationToken))
+            {
+                WriteListRow(ref builder, frame, da, font, label, size, rowBottom);
+            }
+
             y = rowBottom;
         }
 
@@ -202,7 +302,7 @@ internal static class FormTextAppearance
     private static void BeginText(ref PdfContentBuilder builder, DefaultAppearance da, FormFont font, float size)
     {
         builder.BeginText();
-        builder.WriteRaw(Encoding.ASCII.GetBytes($"{da.Color}\n"));
+        da.Color.WriteFill(ref builder);
         builder.SetFont(font.NameBytes, size);
     }
 
@@ -249,13 +349,13 @@ internal static class FormTextAppearance
     /// <param name="lines">Receives the lines.</param>
     /// <param name="cancellationToken">A token that cancels the layout.</param>
     /// <returns>The size.</returns>
-    private static float LayOutMultiline(FormFont font, FormCodes codes, in FormFrame frame, float requested, List<TextLine> lines, CancellationToken cancellationToken)
+    private static float LayOutMultiline(FormFont font, FormCodes codes, in FormFrame frame, float requested, ref TextLines lines, CancellationToken cancellationToken)
     {
         var size = requested > 0 ? requested : MaximumFitSize;
         while (true)
         {
             lines.Clear();
-            TextLayout.Wrap(codes, size, frame.PaddedWidth, lines, cancellationToken);
+            TextLayout.Wrap(codes, size, frame.PaddedWidth, ref lines, cancellationToken);
             var tooTall = lines.Count * font.LineHeight * size / GlyphUnits > frame.PaddedHeight;
             if (requested > 0 || !tooTall || size <= MinimumFitSize)
             {
@@ -314,26 +414,33 @@ internal static class FormTextAppearance
     /// <param name="codes">The text's codes.</param>
     private static void WriteMultiline(ref PdfContentBuilder builder, in AppearanceContext context, in FormFrame frame, DefaultAppearance da, FormFont font, FormCodes codes)
     {
-        var lines = new List<TextLine>();
-        var size = LayOutMultiline(font, codes, frame, da.FontSize, lines, context.CancellationToken);
-        var leading = font.LineHeight * size / GlyphUnits;
-        var x = 0F;
-        var y = 0F;
-        BeginTextBlock(ref builder, frame);
-        BeginText(ref builder, da, font, size);
-        for (var i = 0; i < lines.Count; i++)
+        var lines = default(TextLines);
+        try
         {
-            context.CancellationToken.ThrowIfCancellationRequested();
-            var nextX = AlignedX(context, frame, lines[i].Width);
-            var nextY = i == 0 ? frame.Height - frame.Padding - (font.Ascent * size / GlyphUnits) : y - leading;
-            builder.MoveText(nextX - x, nextY - y);
-            builder.ShowText(codes.Slice(lines[i].Start, lines[i].Length));
-            x = nextX;
-            y = nextY;
-        }
+            var size = LayOutMultiline(font, codes, frame, da.FontSize, ref lines, context.CancellationToken);
+            var leading = font.LineHeight * size / GlyphUnits;
+            var x = 0F;
+            var y = 0F;
+            BeginTextBlock(ref builder, frame);
+            BeginText(ref builder, da, font, size);
+            for (var i = 0; i < lines.Count; i++)
+            {
+                context.CancellationToken.ThrowIfCancellationRequested();
+                var nextX = AlignedX(context, frame, lines[i].Width);
+                var nextY = i == 0 ? frame.Height - frame.Padding - (font.Ascent * size / GlyphUnits) : y - leading;
+                builder.MoveText(nextX - x, nextY - y);
+                builder.ShowText(codes.Slice(lines[i].Start, lines[i].Length));
+                x = nextX;
+                y = nextY;
+            }
 
-        EndText(ref builder);
-        EndTextBlock(ref builder);
+            EndText(ref builder);
+            EndTextBlock(ref builder);
+        }
+        finally
+        {
+            lines.Dispose();
+        }
     }
 
     /// <summary>Writes a comb field: one character centred in each box, with dividers between the boxes.</summary>

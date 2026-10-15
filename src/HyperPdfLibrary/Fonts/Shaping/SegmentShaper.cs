@@ -24,20 +24,29 @@ internal static class SegmentShaper
     private const int GrowthRoom = 8;
 
     /// <summary>Shapes a run and appends its glyphs, in logical order.</summary>
-    /// <param name="source">The font.</param>
-    /// <param name="layout">The font's layout tables.</param>
+    /// <param name="session">The owning shaper's reusable work space.</param>
+    /// <param name="context">The font and its layout tables.</param>
     /// <param name="plan">The plan for the run's script.</param>
     /// <param name="request">What kind of run it is.</param>
     /// <param name="codePoints">The characters of the run.</param>
     /// <param name="clusters">The UTF-16 index of each character in the shaped text.</param>
     /// <param name="output">Receives the glyphs.</param>
-    internal static void Shape(PdfFontSource source, OtFontLayout layout, ShapePlan plan, in SegmentKind request, ReadOnlySpan<int> codePoints, ReadOnlySpan<int> clusters, List<PdfShapedGlyph> output)
+    internal static void Shape(
+        ShapingSession session,
+        ShapingContext context,
+        ShapePlan plan,
+        in SegmentKind request,
+        ReadOnlySpan<int> codePoints,
+        ReadOnlySpan<int> clusters,
+        List<PdfShapedGlyph> output)
     {
-        using var buffer = new GlyphBuffer(codePoints.Length + GrowthRoom);
+        var (source, layout) = context;
+        var buffer = session.Buffer;
+        buffer.Clear(codePoints.Length + GrowthRoom);
         Fill(buffer, source, layout.Definitions, request, codePoints, clusters);
-        Substitute(buffer, layout, plan, request);
+        Substitute(session, layout, plan, request);
         RemoveVirtual(buffer);
-        Position(buffer, source, layout, plan, request);
+        Position(session, source, layout, plan, request);
         Emit(buffer, source.UnitsPerEm, request.Vertical, output);
     }
 
@@ -129,13 +138,14 @@ internal static class SegmentShaper
         CharUnicodeInfo.GetUnicodeCategory(codePoint) is UnicodeCategory.NonSpacingMark or UnicodeCategory.EnclosingMark ? MarkClass : BaseClass;
 
     /// <summary>Runs the GSUB stages of the plan.</summary>
-    /// <param name="buffer">The glyphs.</param>
+    /// <param name="session">The run's glyphs and engines.</param>
     /// <param name="layout">The font's layout tables.</param>
     /// <param name="plan">The plan.</param>
     /// <param name="request">What kind of run it is.</param>
-    private static void Substitute(GlyphBuffer buffer, OtFontLayout layout, ShapePlan plan, in SegmentKind request)
+    private static void Substitute(ShapingSession session, OtFontLayout layout, ShapePlan plan, in SegmentKind request)
     {
-        var engine = new LayoutEngine(layout.Substitution, layout.Definitions, buffer, false, request.RightToLeft);
+        var buffer = session.Buffer;
+        var engine = session.Substitute(layout.Substitution, layout.Definitions, request.RightToLeft);
         var stages = plan.Substitution;
         if (request.Script.Kind != ShapingKind.Indic)
         {
@@ -182,13 +192,14 @@ internal static class SegmentShaper
     }
 
     /// <summary>Sets advances from the font's metrics and applies the positioning lookups.</summary>
-    /// <param name="buffer">The glyphs.</param>
+    /// <param name="session">The run's glyphs and engines.</param>
     /// <param name="source">The font.</param>
     /// <param name="layout">The font's layout tables.</param>
     /// <param name="plan">The plan.</param>
     /// <param name="request">What kind of run it is.</param>
-    private static void Position(GlyphBuffer buffer, PdfFontSource source, OtFontLayout layout, ShapePlan plan, in SegmentKind request)
+    private static void Position(ShapingSession session, PdfFontSource source, OtFontLayout layout, ShapePlan plan, in SegmentKind request)
     {
+        var buffer = session.Buffer;
         buffer.BeginPositions();
         var items = buffer.Items;
         var positions = buffer.Positions;
@@ -210,7 +221,7 @@ internal static class SegmentShaper
             PositionResolver.ZeroMarkAdvances(buffer);
         }
 
-        var engine = new LayoutEngine(layout.Positioning, layout.Definitions, buffer, true, request.RightToLeft);
+        var engine = session.Position(layout.Positioning, layout.Definitions, request.RightToLeft);
         foreach (var stage in plan.Positioning)
         {
             engine.RunStage(stage);

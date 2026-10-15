@@ -42,34 +42,6 @@ internal static SKColor ToSkColor(PdfColor color) => new(color.Red, color.Green,
     internal static SKColor ToSkColor(in ColorState color, float alpha) =>
         new(color.Red, color.Green, color.Blue, (byte)MathF.Round(Math.Clamp(alpha, 0, 1) * AlphaMax));
 
-    /// <summary>Converts managed gradient colors.</summary>
-    /// <param name="colors">The managed colors.</param>
-    /// <returns>The native colors.</returns>
-    internal static SKColor[] ToSkColors(PdfColor[] colors)
-    {
-        var result = new SKColor[colors.Length];
-        for (var index = 0; index < result.Length; index++)
-        {
-            result[index] = ToSkColor(colors[index]);
-        }
-
-        return result;
-    }
-
-    /// <summary>Converts managed mesh coordinates.</summary>
-    /// <param name="points">The managed coordinates.</param>
-    /// <returns>The native coordinates.</returns>
-    internal static SKPoint[] ToSkPoints(PdfPoint[] points)
-    {
-        var result = new SKPoint[points.Length];
-        for (var index = 0; index < result.Length; index++)
-        {
-            result[index] = new(points[index].X, points[index].Y);
-        }
-
-        return result;
-    }
-
     /// <summary>Converts a matrix; both use the row-vector convention, so the entries map across.</summary>
     /// <param name="matrix">The matrix.</param>
     /// <returns>The Skia matrix.</returns>

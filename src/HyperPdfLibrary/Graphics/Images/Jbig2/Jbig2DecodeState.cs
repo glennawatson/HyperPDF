@@ -13,14 +13,14 @@ internal sealed class Jbig2DecodeState : IDisposable
     /// <summary>The segments processed so far.</summary>
     private readonly List<Jbig2Segment> _segments = [];
 
-    /// <summary>The page bitmap, or <see langword="null"/> for the global context.</summary>
-    private readonly Jbig2Bitmap? _page;
-
-    /// <summary>The global context, or <see langword="null"/>.</summary>
-    private readonly Jbig2DecodeState? _globals;
-
     /// <summary>The work budget shared with the global context.</summary>
     private readonly Jbig2Workspace _workspace;
+
+    /// <summary>The page bitmap, or <see langword="null"/> for the global context.</summary>
+    private Jbig2Bitmap? _page;
+
+    /// <summary>The global context, or <see langword="null"/>.</summary>
+    private Jbig2DecodeState? _globals;
 
     /// <summary>Initializes a new instance of the <see cref="Jbig2DecodeState"/> class.</summary>
     /// <param name="page">The page bitmap, or <see langword="null"/> for global segments.</param>
@@ -48,7 +48,7 @@ internal sealed class Jbig2DecodeState : IDisposable
     internal Jbig2Workspace Workspace => _workspace;
 
     /// <summary>Gets the token for this page or global segment decode.</summary>
-    internal CancellationToken CancellationToken { get; }
+    internal CancellationToken CancellationToken { get; private set; }
 
     /// <summary>Gets or sets a value indicating whether a page information segment was processed or a region reached the page.</summary>
     internal bool PageSeen { get; set; }
@@ -62,5 +62,20 @@ internal sealed class Jbig2DecodeState : IDisposable
         }
 
         _segments.Clear();
+        _page = null;
+        _globals = null;
+        CancellationToken = default;
+    }
+
+    /// <summary>Starts another decode with this state, which must have been disposed.</summary>
+    /// <param name="page">The page bitmap, or <see langword="null"/> for global segments.</param>
+    /// <param name="globals">The global context, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal void Begin(Jbig2Bitmap? page, Jbig2DecodeState? globals, CancellationToken cancellationToken)
+    {
+        _page = page;
+        _globals = globals;
+        CancellationToken = cancellationToken;
+        PageSeen = false;
     }
 }

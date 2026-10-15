@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Diagnostics;
 using HyperPdfLibrary.Navigation;
 
@@ -12,4 +13,4 @@ namespace HyperPdfLibrary.Media;
 /// <param name="Action">The action run when the annotation is activated (<c>/A</c>), or null.</param>
 /// <param name="Triggers">The additional actions (<c>/AA</c>).</param>
 [DebuggerDisplay("PdfScreenAnnotation: {Title}")]
-public sealed record PdfScreenAnnotation(string? Title, PdfActionNode? Action, PdfTrigger[] Triggers);
+public sealed record PdfScreenAnnotation(string? Title, PdfActionNode? Action, ImmutableArray<PdfTrigger> Triggers);

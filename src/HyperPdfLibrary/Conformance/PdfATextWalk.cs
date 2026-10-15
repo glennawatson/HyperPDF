@@ -40,10 +40,10 @@ internal static class PdfATextWalk
             state.PageResources = page.Resources;
             if (page.Resources is { } resources)
             {
-                _ = state.Resources.Add(resources);
+                state.AddResources(resources);
             }
 
-            ReadPageContents(state, page.Dictionary.Get(KnownName.Contents), StructParents(page.Dictionary));
+            ReadPageContents(state, page);
             WalkAnnotations(state, page.Dictionary.GetArray(KnownName.Annots));
         }
 
@@ -59,7 +59,7 @@ internal static class PdfATextWalk
     {
         if (resources is not null)
         {
-            _ = state.Resources.Add(resources);
+            state.AddResources(resources);
         }
 
         if (state.Depth >= PdfLimits.MaxNesting || !state.Visited.Add(new(stream.Dictionary, state.PageResources, graphics)))
@@ -85,10 +85,23 @@ internal static class PdfATextWalk
 
     /// <summary>Reads a page's content, joining an array of streams into one stream as the standard requires.</summary>
     /// <param name="state">The walk.</param>
-    /// <param name="contents">The resolved <c>/Contents</c>.</param>
-    /// <param name="structParents">The page's /StructParents key, or -1.</param>
-    private static void ReadPageContents(PdfATextWalkState state, PdfValue contents, int structParents)
+    /// <param name="page">The page.</param>
+    private static void ReadPageContents(PdfATextWalkState state, PdfPage page)
     {
+        var structParents = StructParents(page.Dictionary);
+
+        // A check that shares decoded content serves the page's whole content; a damaged stream is read below, one part at a time.
+        if (PdfPageContentScope.TryLease(state.Validation.Document, page, state.Validation.CancellationToken, out var shared))
+        {
+            using (shared)
+            {
+                Read(state, new(null, default, structParents), shared.Content);
+            }
+
+            return;
+        }
+
+        var contents = page.Dictionary.Get(KnownName.Contents);
         if (contents.AsStream() is { } single)
         {
             if (PdfAFontStreams.TryDecode(single, state.Validation.CancellationToken, out var data))

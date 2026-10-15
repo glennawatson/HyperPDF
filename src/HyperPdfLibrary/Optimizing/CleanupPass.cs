@@ -18,10 +18,9 @@ namespace HyperPdfLibrary.Optimizing;
 /// <param name="document">The working copy.</param>
 /// <param name="scanner">What the content analysis learned.</param>
 /// <param name="items">The steps to run.</param>
-/// <param name="names">The optimiser's names.</param>
 /// <param name="report">Receives the changes.</param>
 [DebuggerDisplay("CleanupPass: {_replaced.Count} resource dictionaries replaced")]
-internal sealed class CleanupPass(PdfDocument document, ContentUsageScanner scanner, PdfCleanupItems items, OptimizerNames names, OptimizeReportBuilder report)
+internal sealed class CleanupPass(PdfDocument document, ContentUsageScanner scanner, PdfCleanupItems items, OptimizeReportBuilder report)
 {
     /// <summary>The bytes an object's header and trailer take, counted for a dropped object.</summary>
     private const int ObjectOverhead = 20;
@@ -44,11 +43,10 @@ internal sealed class CleanupPass(PdfDocument document, ContentUsageScanner scan
     /// <param name="document">The working copy.</param>
     /// <param name="scanner">What the content analysis learned.</param>
     /// <param name="items">The steps to run.</param>
-    /// <param name="names">The optimiser's names.</param>
     /// <param name="report">Receives the changes.</param>
-    internal static void Run(PdfDocument document, ContentUsageScanner scanner, PdfCleanupItems items, OptimizerNames names, OptimizeReportBuilder report)
+    internal static void Run(PdfDocument document, ContentUsageScanner scanner, PdfCleanupItems items, OptimizeReportBuilder report)
     {
-        var pass = new CleanupPass(document, scanner, items, names, report);
+        var pass = new CleanupPass(document, scanner, items, report);
         for (var i = 0; i < document.PageCount; i++)
         {
             pass.CleanPage(PdfDocumentPages.GetPage(document, i));
@@ -77,86 +75,91 @@ internal sealed class CleanupPass(PdfDocument document, ContentUsageScanner scan
             return;
         }
 
-        var copy = current.Clone();
-        var changed = RemoveEntry(copy, names.Thumb, PdfCleanupItems.Thumbnails, page, "Removed the page thumbnail.");
-        changed |= RemoveEntry(copy, names.PieceInfo, PdfCleanupItems.PieceInfo, page, "Removed private application data from the page.");
-        changed |= RemoveEmptyAnnotations(copy, page);
-        changed |= (items & PdfCleanupItems.UnusedResources) != 0 && CleanResources(copy, page);
-        if (changed)
+        // The page dictionary is copied only when a step changes it.
+        PdfDictionary? copy = null;
+        RemoveEntry(current, ref copy, OptimizerNames.Thumb, PdfCleanupItems.Thumbnails, page, "Removed the page thumbnail.");
+        RemoveEntry(current, ref copy, OptimizerNames.PieceInfo, PdfCleanupItems.PieceInfo, page, "Removed private application data from the page.");
+        RemoveEmptyAnnotations(current, ref copy, page);
+        if ((items & PdfCleanupItems.UnusedResources) != 0)
+        {
+            CleanResources(current, ref copy, page);
+        }
+
+        if (copy is not null)
         {
             StoreEditing.Replace(store, page.Id, PdfValue.FromDictionary(copy));
         }
     }
 
     /// <summary>Removes one entry when its step is on.</summary>
-    /// <param name="page">The page dictionary copy.</param>
+    /// <param name="current">The page dictionary.</param>
+    /// <param name="copy">The copy to change, made on first use.</param>
     /// <param name="key">The entry.</param>
     /// <param name="step">The step that removes it.</param>
     /// <param name="source">The page.</param>
     /// <param name="description">What was done.</param>
-    /// <returns><see langword="true"/> when the entry was removed.</returns>
-    private bool RemoveEntry(PdfDictionary page, PdfName key, PdfCleanupItems step, PdfPage source, string description)
+    private void RemoveEntry(PdfDictionary current, ref PdfDictionary? copy, PdfName key, PdfCleanupItems step, PdfPage source, string description)
     {
-        if ((items & step) == 0 || !page.ContainsKey(key))
+        if ((items & step) == 0 || !current.ContainsKey(key))
         {
-            return false;
+            return;
         }
 
-        var size = SizeOf(page.GetRaw(key));
-        _ = page.Remove(key);
+        var size = SizeOf(current.GetRaw(key));
+        copy ??= current.Clone();
+        _ = copy.Remove(key);
         report.Changed(PdfOptimizeCategory.Cleanup, source.Id.Number, description, size, 0);
-        return true;
     }
 
     /// <summary>Removes an empty /Annots array.</summary>
-    /// <param name="page">The page dictionary copy.</param>
+    /// <param name="current">The page dictionary.</param>
+    /// <param name="copy">The copy to change, made on first use.</param>
     /// <param name="source">The page.</param>
-    /// <returns><see langword="true"/> when it was removed.</returns>
-    private bool RemoveEmptyAnnotations(PdfDictionary page, PdfPage source)
+    private void RemoveEmptyAnnotations(PdfDictionary current, ref PdfDictionary? copy, PdfPage source)
     {
-        if ((items & PdfCleanupItems.EmptyAnnotations) == 0 || page.GetArray(KnownName.Annots) is not { Count: 0 })
+        if ((items & PdfCleanupItems.EmptyAnnotations) == 0 || current.GetArray(KnownName.Annots) is not { Count: 0 })
         {
-            return false;
+            return;
         }
 
-        _ = page.Remove(KnownName.Annots);
+        copy ??= current.Clone();
+        _ = copy.Remove(KnownName.Annots);
         report.Changed(PdfOptimizeCategory.Cleanup, source.Id.Number, "Removed an empty annotation array.", ObjectOverhead, 0);
-        return true;
     }
 
     /// <summary>Removes resource entries the page's content never names.</summary>
-    /// <param name="page">The page dictionary copy.</param>
+    /// <param name="current">The page dictionary.</param>
+    /// <param name="copy">The copy to change, made on first use.</param>
     /// <param name="source">The page.</param>
-    /// <returns><see langword="true"/> when the page dictionary itself changed.</returns>
-    private bool CleanResources(PdfDictionary page, PdfPage source)
+    private void CleanResources(PdfDictionary current, ref PdfDictionary? copy, PdfPage source)
     {
-        var raw = page.GetRaw(KnownName.Resources);
+        var raw = current.GetRaw(KnownName.Resources);
         if (raw.IsNull || source.Resources is not { } resources)
         {
             // Inherited resources may serve other pages; they stay whole.
-            return false;
+            return;
         }
 
         if (scanner.UnsafeResources.Contains(resources) || (raw.IsReference && _replaced.Contains(raw.AsReference().Number)))
         {
-            return false;
+            return;
         }
 
         var used = scanner.UsedNames.GetValueOrDefault(resources);
         if (Clean(resources, used, source.Id.Number) is not { } cleaned)
         {
-            return false;
+            return;
         }
 
         if (raw.IsReference)
         {
             _ = _replaced.Add(raw.AsReference().Number);
             StoreEditing.Replace(document.Objects, raw.AsReference(), PdfValue.FromDictionary(cleaned));
-            return false;
+            return;
         }
 
-        page.Set(KnownName.Resources, PdfValue.FromDictionary(cleaned));
-        return true;
+        copy ??= current.Clone();
+        copy.Set(KnownName.Resources, PdfValue.FromDictionary(cleaned));
     }
 
     /// <summary>Copies a resource dictionary without the names its content does not use.</summary>
@@ -174,7 +177,13 @@ internal sealed class CleanupPass(PdfDocument document, ContentUsageScanner scan
                 continue;
             }
 
-            var kept = new PdfDictionary(document.Objects, entries.Count);
+            var dropped = CountDropped((KnownName)category, entries, used);
+            if (dropped == 0)
+            {
+                continue;
+            }
+
+            var kept = new PdfDictionary(document.Objects, entries.Count - dropped);
             for (var i = 0; i < entries.Count; i++)
             {
                 var name = entries.GetKeyAt(i);
@@ -184,18 +193,29 @@ internal sealed class CleanupPass(PdfDocument document, ContentUsageScanner scan
                 }
             }
 
-            if (kept.Count == entries.Count)
-            {
-                continue;
-            }
-
             copy ??= resources.Clone();
             copy.Set((KnownName)category, PdfValue.FromDictionary(kept));
-            var description = string.Create(CultureInfo.InvariantCulture, $"Removed {entries.Count - kept.Count} unused /{document.Objects.Names.GetString((KnownName)category)} resources.");
+            var description = string.Create(CultureInfo.InvariantCulture, $"Removed {dropped} unused /{document.Objects.Names.GetString((KnownName)category)} resources.");
             report.Changed(PdfOptimizeCategory.Cleanup, pageNumber, description, 0, 0);
         }
 
         return copy;
+    }
+
+    /// <summary>Counts the entries of a resource category that do not stay.</summary>
+    /// <param name="category">The category.</param>
+    /// <param name="entries">The category's dictionary.</param>
+    /// <param name="used">The names used, or <see langword="null"/>.</param>
+    /// <returns>The number of unused entries.</returns>
+    private int CountDropped(KnownName category, PdfDictionary entries, HashSet<ResourceUse>? used)
+    {
+        var dropped = 0;
+        for (var i = 0; i < entries.Count; i++)
+        {
+            dropped += IsKept(category, entries.GetKeyAt(i), used) ? 0 : 1;
+        }
+
+        return dropped;
     }
 
     /// <summary>Determines whether a resource entry stays: it is used, or it is a default colour space used implicitly.</summary>
@@ -218,14 +238,14 @@ internal sealed class CleanupPass(PdfDocument document, ContentUsageScanner scan
     {
         var store = document.Objects;
         var root = store.Trailer.GetRaw(KnownName.Root);
-        if (!root.IsReference || StoreReading.Resolve(store, root).AsDictionary() is not { } catalog || !catalog.ContainsKey(names.PieceInfo))
+        if (!root.IsReference || StoreReading.Resolve(store, root).AsDictionary() is not { } catalog || !catalog.ContainsKey(OptimizerNames.PieceInfo))
         {
             return;
         }
 
         var copy = catalog.Clone();
-        var size = SizeOf(copy.GetRaw(names.PieceInfo));
-        _ = copy.Remove(names.PieceInfo);
+        var size = SizeOf(copy.GetRaw(OptimizerNames.PieceInfo));
+        _ = copy.Remove(OptimizerNames.PieceInfo);
         StoreEditing.Replace(store, root.AsReference(), PdfValue.FromDictionary(copy));
         report.Changed(PdfOptimizeCategory.Cleanup, root.AsReference().Number, "Removed private application data from the catalog.", size, 0);
     }

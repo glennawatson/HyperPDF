@@ -48,8 +48,13 @@ public static class PdfDocumentAttachments
         }
 
         var fields = document.Catalog.GetDictionary(KnownName.AcroForm)?.GetArray(KnownName.Fields);
+        if (fields is null || fields.Count == 0)
+        {
+            return PdfDocumentCaches.Publish(document, ref document.State.Signatures, [], revision);
+        }
+
         var signatures = new List<PdfSignatureField>();
-        for (var i = 0; fields is not null && i < fields.Count; i++)
+        for (var i = 0; i < fields.Count; i++)
         {
             var field = fields.GetDictionary(i);
             if (field?.IsName(KnownName.FT, KnownName.Sig) == true)

@@ -23,13 +23,35 @@ public sealed class SkiaRenderBackend : IPdfRenderBackend
     /// <summary>The reusable drawing session for each thread that uses this backend.</summary>
     private readonly ConditionalWeakTable<Thread, SkiaDrawingSession> _sessions = new();
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPdfDrawingSession GetDrawingSession() => _sessions.GetValue(Thread.CurrentThread, static _ => new());
+    /// <summary>Gets the current thread's session within this registered backend.</summary>
+    private SkiaDrawingSession Session => _sessions.GetValue(Thread.CurrentThread, static _ => new());
+
+    /// <summary>Gets the recording pool, creating it when the registered backend first records a picture.</summary>
+    private ReusableSlots<SkiaContentDevice> RecordingDevices
+    {
+        get
+        {
+            if (Volatile.Read(ref field) is { } existing)
+            {
+                return existing;
+            }
+
+            var created = new ReusableSlots<SkiaContentDevice>();
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPictureDevice CreatePictureDevice(PdfRect bounds) => SkiaContentDevice.Rent(SkiaConversions.ToSkRect(bounds), null, true);
+    public IPdfDrawingSession GetDrawingSession() => Session;
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IPictureDevice CreatePictureDevice(PdfRect bounds) => SkiaContentDevice.Rent(RecordingDevices, SkiaConversions.ToSkRect(bounds), null);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IPictureDevice CreatePictureDevice(PdfRect bounds, in PdfPictureStyle style) => SkiaContentDevice.Rent(RecordingDevices, SkiaConversions.ToSkRect(bounds), null, style);
 
     /// <inheritdoc/>
     public IPdfRenderImage? CreateImage(PdfImageData data)
@@ -76,13 +98,33 @@ public sealed class SkiaRenderBackend : IPdfRenderBackend
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-public IPdfRenderShader CreateLinearGradient(PdfPoint start, PdfPoint end, PdfColor[] colors, float[] positions, PdfShaderTileMode mode) =>
-        new SkiaRenderShader(SKShader.CreateLinearGradient(new(start.X, start.Y), new(end.X, end.Y), SkiaConversions.ToSkColors(colors), positions, TileMode(mode)));
+    public IPdfRenderShader CreateLinearGradient(PdfPoint start, PdfPoint end, ReadOnlySpan<PdfColor> colors, ReadOnlySpan<float> positions, PdfShaderTileMode mode)
+    {
+        var stops = Session.GradientStops;
+        return new SkiaRenderShader(SKShader.CreateLinearGradient(new(start.X, start.Y), new(end.X, end.Y), stops.Colors(colors), stops.Positions(positions), TileMode(mode)));
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-public IPdfRenderShader CreateTwoPointConicalGradient(PdfPoint start, float startRadius, PdfPoint end, float endRadius, PdfColor[] colors, float[] positions, PdfShaderTileMode mode) =>
-        new SkiaRenderShader(SKShader.CreateTwoPointConicalGradient(new(start.X, start.Y), startRadius, new(end.X, end.Y), endRadius, SkiaConversions.ToSkColors(colors), positions, TileMode(mode)));
+    public IPdfRenderShader CreateTwoPointConicalGradient(
+        PdfPoint start,
+        float startRadius,
+        PdfPoint end,
+        float endRadius,
+        ReadOnlySpan<PdfColor> colors,
+        ReadOnlySpan<float> positions,
+        PdfShaderTileMode mode)
+    {
+        var stops = Session.GradientStops;
+        return new SkiaRenderShader(SKShader.CreateTwoPointConicalGradient(
+            new(start.X, start.Y),
+            startRadius,
+            new(end.X, end.Y),
+            endRadius,
+            stops.Colors(colors),
+            stops.Positions(positions),
+            TileMode(mode)));
+    }
 
     /// <inheritdoc/>
     public IPdfRenderShader CreateImageShader(IPdfRenderImage image, PdfShaderTileMode x, PdfShaderTileMode y, bool linear, Matrix3x2 matrix)
@@ -93,22 +135,28 @@ public IPdfRenderShader CreateTwoPointConicalGradient(PdfPoint start, float star
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-public IPdfRenderVertices CreateVertices(PdfPoint[] positions, PdfColor[] colors) =>
-        new SkiaRenderVertices(SKVertices.CreateCopy(SKVertexMode.Triangles, SkiaConversions.ToSkPoints(positions), SkiaConversions.ToSkColors(colors)));
+    public IPdfRenderVertices CreateVertices(PdfPoint[] positions, PdfColor[] colors)
+    {
+        var arrays = Session.VertexArrays;
+        return new SkiaRenderVertices(SKVertices.CreateCopy(SKVertexMode.Triangles, arrays.Positions(positions), arrays.Colors(colors)));
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-public IPdfRenderVertices CreateVertices(PdfPoint[] positions, PdfPoint[] texture, PdfColor[]? colors) =>
-        new SkiaRenderVertices(SKVertices.CreateCopy(
+    public IPdfRenderVertices CreateVertices(PdfPoint[] positions, PdfPoint[] texture, PdfColor[]? colors)
+    {
+        var arrays = Session.VertexArrays;
+        return new SkiaRenderVertices(SKVertices.CreateCopy(
             SKVertexMode.Triangles,
-            SkiaConversions.ToSkPoints(positions),
-            SkiaConversions.ToSkPoints(texture),
-            colors is null ? null : SkiaConversions.ToSkColors(colors)));
+            arrays.Positions(positions),
+            arrays.Texture(texture),
+            colors is null ? null : arrays.Colors(colors)));
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public PatternCell ComposeTile(IPdfRenderPicture cell, PdfRectangle box, float stepX, float stepY, float scale) =>
-        TileComposer.Compose(SkiaResources.Picture(cell), box, stepX, stepY, scale);
+        Session.TileComposer.Compose(SkiaResources.Picture(cell), box, stepX, stepY, scale);
 
     /// <summary>Converts a managed raster layout.</summary>
     /// <param name="layout">The managed pixel layout.</param>

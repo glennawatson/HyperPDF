@@ -13,4 +13,4 @@ namespace HyperPdfLibrary.Optimizing;
 /// <param name="BytesBefore">The object's stored size before, or zero when not measured.</param>
 /// <param name="BytesAfter">The object's stored size after, or zero when not measured.</param>
 [DebuggerDisplay("PdfOptimizeAction: {Category} {ObjectNumber} {Description}")]
-public sealed record PdfOptimizeAction(PdfOptimizeCategory Category, int ObjectNumber, string Description, long BytesBefore, long BytesAfter);
+public readonly record struct PdfOptimizeAction(PdfOptimizeCategory Category, int ObjectNumber, string Description, long BytesBefore, long BytesAfter);

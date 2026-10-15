@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Drawing;
 
 namespace HyperPdfLibrary.Fonts;
@@ -29,7 +31,14 @@ internal abstract class GlyphSource
     /// <summary>Builds a glyph's outline in glyph space.</summary>
     /// <param name="glyph">The glyph id.</param>
     /// <returns>A new path the caller owns, or <see langword="null"/> when the glyph has no outline.</returns>
-    internal abstract PdfPath? BuildOutline(int glyph);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal PdfPath? BuildOutline(int glyph) => BuildOutline(glyph, Matrix3x2.Identity);
+
+    /// <summary>Builds a glyph's outline in glyph space and moves its points with a transform, without building the untransformed path first.</summary>
+    /// <param name="glyph">The glyph id.</param>
+    /// <param name="transform">The transform applied to the outline's points.</param>
+    /// <returns>A new path the caller owns, or <see langword="null"/> when the glyph has no outline.</returns>
+    internal abstract PdfPath? BuildOutline(int glyph, Matrix3x2 transform);
 
     /// <summary>Gets a glyph's advance width in glyph space units.</summary>
     /// <param name="glyph">The glyph id.</param>

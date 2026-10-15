@@ -11825,15 +11825,21 @@ Public License instead of this License.
 ## Apache-2.0 AND OFL-1.1
 
 ### Open font pack (Arimo, Tinos, Cousine and Noto symbols)
-- Version: Google Fonts pinned font programs
-- Origin: Downloaded individually on demand
+- Version: Google Fonts commits 62e55e586fc0c29d428ee47b7c359cd33143f93d (Tinos, Cousine, Noto) and 89ade4fa7b7663aec69d3202d2eefd928e78c467 (Arimo)
+- Origin: Embedded in the library assembly, cut down to the standard fonts' characters; never downloaded
 - Copyright: Copyright the font authors; see the font notices.
 - Link: https://github.com/google/fonts
 
 ````text
-Font programs are downloaded individually from the Google Fonts pack only when requested.
-No font programs are included in the assembly. Arimo, Tinos and Cousine are compatible substitutes for sans, serif
-and fixed-pitch standard fonts. Noto Sans Math and Noto Sans Symbols 2 supply symbol and dingbat glyphs.
+These font programs are embedded in the HyperPdfLibrary assembly. Nothing is downloaded. Arimo, Tinos and Cousine are
+compatible substitutes for the sans, serif and fixed-pitch standard fonts. Noto Sans Math and Noto Sans Symbols 2
+supply the Symbol and ZapfDingbats glyphs.
+
+The embedded copies are modified, as the licences below allow: each was cut down to the characters the standard fonts
+and their usual substitutes need (Basic Latin, Latin-1, Latin Extended-A and -B, Greek, Cyrillic, Hebrew, Vietnamese,
+punctuation, currency, arrows, mathematical operators, box drawing and geometric shapes; the symbol faces to the
+characters of Symbol and ZapfDingbats), then compressed. Glyph outlines, metrics and names of the kept characters are
+unchanged. None of these fonts declares a Reserved Font Name, so the copies keep the original names.
 
 Arimo notice:
 

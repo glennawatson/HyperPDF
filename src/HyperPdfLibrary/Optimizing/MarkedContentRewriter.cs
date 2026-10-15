@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Frozen;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
@@ -15,18 +16,46 @@ namespace HyperPdfLibrary.Optimizing;
 /// </summary>
 internal static class MarkedContentRewriter
 {
+    /// <summary>The operators that build a path (ISO 32000-2 8.5.2).</summary>
+    private static readonly FrozenSet<ContentOperator> Builders = new[]
+    {
+        ContentOperator.MoveTo,
+        ContentOperator.LineTo,
+        ContentOperator.CurveTo,
+        ContentOperator.CurveToV,
+        ContentOperator.CurveToY,
+        ContentOperator.ClosePath,
+        ContentOperator.Rectangle,
+    }.ToFrozenSet();
+
+    /// <summary>The operators that set the clipping path from the path built so far (ISO 32000-2 8.5.4).</summary>
+    private static readonly FrozenSet<ContentOperator> Clippers = new[] { ContentOperator.Clip, ContentOperator.ClipEvenOdd }.ToFrozenSet();
+
+    /// <summary>The operators that paint the path built so far (ISO 32000-2 8.5.3).</summary>
+    private static readonly FrozenSet<ContentOperator> Painters = new[]
+    {
+        ContentOperator.Stroke,
+        ContentOperator.CloseStroke,
+        ContentOperator.Fill,
+        ContentOperator.FillEvenOdd,
+        ContentOperator.FillStroke,
+        ContentOperator.FillStrokeEvenOdd,
+        ContentOperator.CloseFillStroke,
+        ContentOperator.CloseFillStrokeEvenOdd,
+    }.ToFrozenSet();
+
     /// <summary>Lists the operators to wrap, in content order.</summary>
     /// <param name="content">The page's decoded content.</param>
     /// <param name="names">The document's name table.</param>
     /// <param name="resources">The page's resources.</param>
     /// <param name="store">The store references are resolved in.</param>
-    /// <returns>The units.</returns>
-    internal static List<TagUnit> FindUnits(ReadOnlySpan<byte> content, PdfNameTable names, PdfDictionary? resources, PdfObjectStore store)
+    /// <param name="units">Receives the units.</param>
+    internal static void FindUnits(ReadOnlySpan<byte> content, PdfNameTable names, PdfDictionary? resources, PdfObjectStore store, ref RentedList<TagUnit> units)
     {
-        var units = new List<TagUnit>();
         Span<ContentOperand> operands = stackalloc ContentOperand[ContentReader.OperandSlots];
         var reader = new ContentReader(content, names, operands);
         var start = 0;
+        var pathStart = -1;
         while (reader.Next(out var op))
         {
             var end = reader.Position;
@@ -34,11 +63,14 @@ internal static class MarkedContentRewriter
             {
                 units.Add(new(start, end, kind));
             }
+            else if (TrackPath(op, start, ref pathStart))
+            {
+                units.Add(new(pathStart, end, TagUnitKind.Path));
+                pathStart = -1;
+            }
 
             start = end;
         }
-
-        return units;
     }
 
     /// <summary>Writes the content with each unit wrapped in its marked content.</summary>
@@ -47,10 +79,10 @@ internal static class MarkedContentRewriter
     /// <param name="labels">How each unit is marked.</param>
     /// <param name="names">The document's name table.</param>
     /// <param name="output">Receives the new content.</param>
-    internal static void Write(ReadOnlySpan<byte> content, List<TagUnit> units, ReadOnlySpan<TagLabel> labels, PdfNameTable names, ref PooledBuffer output)
+    internal static void Write(ReadOnlySpan<byte> content, ReadOnlySpan<TagUnit> units, ReadOnlySpan<TagLabel> labels, PdfNameTable names, ref PooledBuffer output)
     {
         var position = 0;
-        for (var i = 0; i < units.Count; i++)
+        for (var i = 0; i < units.Length; i++)
         {
             var (start, end, _) = units[i];
             output.Write(content[position..start]);
@@ -61,6 +93,36 @@ internal static class MarkedContentRewriter
         }
 
         output.Write(content[position..]);
+    }
+
+    /// <summary>
+    /// Follows path construction so a painted path can be wrapped from its first construction operator to its painting operator.
+    /// The wrapped span holds only construction and clipping operators, so it never crosses a graphics state or text object boundary.
+    /// </summary>
+    /// <param name="op">The operator.</param>
+    /// <param name="start">The offset where the operator's operands start.</param>
+    /// <param name="pathStart">The offset where the current path started, or -1 when none is open; updated.</param>
+    /// <returns><see langword="true"/> when the operator paints the path that started at <paramref name="pathStart"/>.</returns>
+    private static bool TrackPath(ContentOperator op, int start, ref int pathStart)
+    {
+        if (Painters.Contains(op))
+        {
+            return pathStart >= 0;
+        }
+
+        if (Clippers.Contains(op))
+        {
+            return false;
+        }
+
+        if (Builders.Contains(op))
+        {
+            pathStart = pathStart < 0 ? start : pathStart;
+            return false;
+        }
+
+        pathStart = -1;
+        return false;
     }
 
     /// <summary>Writes the operator that opens a unit's marked content.</summary>
@@ -95,6 +157,11 @@ internal static class MarkedContentRewriter
             case ContentOperator.ShowText or ContentOperator.ShowTextArray or ContentOperator.NextLineShowText or ContentOperator.SetSpacingNextLineShowText:
                 {
                     return TagUnitKind.Text;
+                }
+
+            case ContentOperator.PaintShading:
+                {
+                    return TagUnitKind.Path;
                 }
 
             case ContentOperator.BeginInlineImage:

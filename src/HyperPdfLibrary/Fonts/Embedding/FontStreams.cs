@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -17,20 +16,20 @@ internal static class FontStreams
 
     /// <summary>Creates a Flate-compressed stream, recording the uncompressed length when a key is given.</summary>
     /// <param name="sink">The document.</param>
-    /// <param name="data">The data.</param>
+    /// <param name="data">The immutable data, which may be retained by the document.</param>
     /// <param name="lengthKey">The key of the uncompressed length, or no name.</param>
     /// <returns>The stream.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static PdfStream Compress(IPdfObjectSink sink, ReadOnlySpan<byte> data, PdfName lengthKey) =>
+    internal static PdfStream Compress(IPdfObjectSink sink, byte[] data, PdfName lengthKey) =>
         Compress(sink, data, lengthKey, default);
 
     /// <summary>Creates a Flate-compressed stream with a subtype, recording the uncompressed length when a key is given.</summary>
     /// <param name="sink">The document.</param>
-    /// <param name="data">The data.</param>
+    /// <param name="data">The immutable data, which may be retained by the document.</param>
     /// <param name="lengthKey">The key of the uncompressed length, or no name.</param>
     /// <param name="subtype">The stream's <c>/Subtype</c>, or no name.</param>
     /// <returns>The stream.</returns>
-    internal static PdfStream Compress(IPdfObjectSink sink, ReadOnlySpan<byte> data, PdfName lengthKey, PdfName subtype)
+    internal static PdfStream Compress(IPdfObjectSink sink, byte[] data, PdfName lengthKey, PdfName subtype)
     {
         var dictionary = new PdfDictionary(sink.Owner, StreamEntries);
         dictionary.Set(KnownName.Filter, PdfValue.FromName(KnownName.FlateDecode));
@@ -44,15 +43,7 @@ internal static class FontStreams
             dictionary.Set(KnownName.Subtype, PdfValue.FromName(subtype));
         }
 
-        var compressed = default(PooledBuffer);
-        try
-        {
-            FlateFilter.Encode(data, ref compressed);
-            return new(dictionary, compressed.ToArray());
-        }
-        finally
-        {
-            compressed.Dispose();
-        }
+        // Streams in this document can share immutable compressed bytes for the same program.
+        return new(dictionary, FontStreamCache.GetOrCompress(sink.FontEmbedding, data));
     }
 }

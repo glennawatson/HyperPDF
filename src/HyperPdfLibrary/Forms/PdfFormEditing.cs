@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Editing;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Forms;
@@ -9,6 +11,9 @@ namespace HyperPdfLibrary.Forms;
 /// <summary>Editing operations over shared form state.</summary>
 public static class PdfFormEditing
 {
+    /// <summary>The most digits an <see cref="int"/> takes to write.</summary>
+    private const int MaxDigits = 11;
+
     /// <summary>Replaces the text of a text field, or of a combo box that accepts typed text.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "pageIndex">The zero based page index.</param>
@@ -27,15 +32,22 @@ public static class PdfFormEditing
             }
 
             var edit = new FormEdit(form.Document.Objects);
-            if (edit.Edit(widget.FieldId) is not { } field)
+            try
             {
-                return false;
-            }
+                if (edit.Edit(widget.FieldId) is not { } field)
+                {
+                    return false;
+                }
 
-            PdfFormEditing.WriteText(form, field, widget, text);
-            edit.Commit();
-            PdfFormEditing.RegenerateAppearances(form, widget);
-            return true;
+                PdfFormEditing.WriteText(form, field, widget, text);
+                edit.Commit();
+                PdfFormEditing.RegenerateAppearances(form, widget);
+                return true;
+            }
+            finally
+            {
+                edit.Dispose();
+            }
         }
     }
 
@@ -57,25 +69,15 @@ public static class PdfFormEditing
                 return false;
             }
 
-            var controls = FormControl.GetControls(widget.Field, widget.FieldId);
-            var position = PdfFormEditing.IndexOf(controls, widget);
-            if (position < 0)
+            var controls = FormControls.Read(widget.Field, widget.FieldId);
+            try
             {
-                return false;
+                return PdfFormEditing.SetChecked(form, widget, ref controls, isChecked);
             }
-
-            if (controls[position].IsChecked(form.Document.Objects.Names) == isChecked)
+            finally
             {
-                return true;
+                controls.Dispose();
             }
-
-            // A radio button is switched on by selecting it; selecting another one switches it off.
-            if (widget.IsReadOnly || !widget.IsEditable || (!isChecked && widget.Type == PdfFieldType.RadioButton))
-            {
-                return false;
-            }
-
-            return PdfFormEditing.ApplyCheck(form, widget, controls, position, isChecked);
         }
     }
 
@@ -105,15 +107,22 @@ public static class PdfFormEditing
             }
 
             var edit = new FormEdit(form.Document.Objects);
-            if (edit.Edit(widget.FieldId) is not { } field)
+            try
             {
-                return false;
-            }
+                if (edit.Edit(widget.FieldId) is not { } field)
+                {
+                    return false;
+                }
 
-            PdfFormEditing.WriteSelection(form, field, widget, option);
-            edit.Commit();
-            PdfFormEditing.RegenerateAppearances(form, widget);
-            return true;
+                PdfFormEditing.WriteSelection(form, field, widget, option);
+                edit.Commit();
+                PdfFormEditing.RegenerateAppearances(form, widget);
+                return true;
+            }
+            finally
+            {
+                edit.Dispose();
+            }
         }
     }
 
@@ -147,11 +156,39 @@ public static class PdfFormEditing
         }
     }
 
+    /// <summary>Switches one button of a field on or off.</summary>
+    /// <param name = "form">The shared form state.</param>
+    /// <param name = "widget">The widget.</param>
+    /// <param name = "controls">The field's buttons.</param>
+    /// <param name = "isChecked">The new state.</param>
+    /// <returns><see langword="true"/> when the button ends in that state.</returns>
+    internal static bool SetChecked(PdfForm form, in ResolvedWidget widget, ref FormControls controls, bool isChecked)
+    {
+        var position = PdfFormEditing.IndexOf(ref controls, widget);
+        if (position < 0)
+        {
+            return false;
+        }
+
+        if (controls[position].IsChecked(form.Document.Objects.Names) == isChecked)
+        {
+            return true;
+        }
+
+        // A radio button is switched on by selecting it; selecting another one switches it off.
+        if (widget.IsReadOnly || !widget.IsEditable || (!isChecked && widget.Type == PdfFieldType.RadioButton))
+        {
+            return false;
+        }
+
+        return PdfFormEditing.ApplyCheck(form, widget, ref controls, position, isChecked);
+    }
+
     /// <summary>Finds a widget among the buttons of its field.</summary>
     /// <param name = "controls">The field's buttons.</param>
     /// <param name = "widget">The widget.</param>
     /// <returns>The position, or -1.</returns>
-    internal static int IndexOf(List<FormControl> controls, ResolvedWidget widget)
+    internal static int IndexOf(ref FormControls controls, in ResolvedWidget widget)
     {
         for (var i = 0; i < controls.Count; i++)
         {
@@ -179,6 +216,11 @@ public static class PdfFormEditing
             return FormTextAppearance.CreateList(context);
         }
 
+        if (context.Type == PdfFieldType.Text)
+        {
+            return FormTextAppearance.CreateText(context, FieldAttributes.Find(context.Field, KnownName.V));
+        }
+
         var text = FormValues.ReadText(context.Field, context.Type);
         if (context.Type == PdfFieldType.ComboBox)
         {
@@ -194,10 +236,10 @@ public static class PdfFormEditing
     /// <param name = "isChecked">The switched button's new state.</param>
     /// <param name = "position">The switched button's position.</param>
     /// <param name = "current">The position of the button being considered.</param>
-    /// <param name = "exports">The export value of each button.</param>
-    /// <param name = "states">The on-state of each button.</param>
+    /// <param name = "exports">The export values of the considered button and the switched one.</param>
+    /// <param name = "states">The on-states of the considered button and the switched one.</param>
     /// <returns>The new state; <see langword="null"/> when the button is left as it is.</returns>
-    internal static bool? NextState(bool unison, bool isChecked, int position, int current, string[] exports, string[] states)
+    internal static bool? NextState(bool unison, bool isChecked, int position, int current, ButtonNames exports, ButtonNames states)
     {
         bool? others = isChecked ? false : null;
         if (!unison)
@@ -205,18 +247,18 @@ public static class PdfFormEditing
             return current == position ? isChecked : others;
         }
 
-        if (!string.Equals(exports[current], exports[position], StringComparison.Ordinal))
+        if (exports.Current != exports.Switched)
         {
             return others;
         }
 
-        return string.Equals(states[current], states[position], StringComparison.Ordinal) ? isChecked : others;
+        return states.Current == states.Switched ? isChecked : others;
     }
 
     /// <summary>Determines whether text can be put in a field.</summary>
     /// <param name = "widget">The widget.</param>
     /// <returns><see langword="true"/> for a writable text field or editable combo box.</returns>
-    internal static bool CanTypeInto(ResolvedWidget widget) =>
+    internal static bool CanTypeInto(in ResolvedWidget widget) =>
         widget.FieldId.IsValid
         && !widget.IsReadOnly
         && (widget.Type == PdfFieldType.Text
@@ -252,7 +294,7 @@ public static class PdfFormEditing
     /// <param name = "field">The field copy.</param>
     /// <param name = "widget">The widget.</param>
     /// <param name = "text">The text.</param>
-    internal static void WriteText(PdfForm form, PdfDictionary field, ResolvedWidget widget, string text)
+    internal static void WriteText(PdfForm form, PdfDictionary field, in ResolvedWidget widget, string text)
     {
         if (widget.Type == PdfFieldType.ComboBox)
         {
@@ -280,7 +322,7 @@ public static class PdfFormEditing
     /// <param name = "field">The field copy.</param>
     /// <param name = "widget">The widget.</param>
     /// <param name = "text">The text.</param>
-    internal static void WriteRichValue(PdfForm form, PdfDictionary field, ResolvedWidget widget, string text)
+    internal static void WriteRichValue(PdfForm form, PdfDictionary field, in ResolvedWidget widget, string text)
     {
         if ((widget.Flags & PdfFieldFlags.RichTextOrRadiosInUnison) == 0)
         {
@@ -297,7 +339,7 @@ public static class PdfFormEditing
     /// <param name = "field">The field copy.</param>
     /// <param name = "widget">The widget.</param>
     /// <param name = "option">The option index.</param>
-    internal static void WriteSelection(PdfForm form, PdfDictionary field, ResolvedWidget widget, int option)
+    internal static void WriteSelection(PdfForm form, PdfDictionary field, in ResolvedWidget widget, int option)
     {
         var value = FormChoices.GetValue(widget.Field, option);
         if (widget.Type == PdfFieldType.ListBox && (widget.Flags & PdfFieldFlags.MultiSelect) != 0)
@@ -342,13 +384,13 @@ public static class PdfFormEditing
     /// <param name = "form">The shared form state.</param>
     /// <param name = "widget">One widget of the field, as resolved before the change.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void RegenerateAppearances(PdfForm form, ResolvedWidget widget) =>PdfFormEditing.RegenerateAppearances(form, widget, CancellationToken.None);
+    internal static void RegenerateAppearances(PdfForm form, in ResolvedWidget widget) =>PdfFormEditing.RegenerateAppearances(form, widget, CancellationToken.None);
 
     /// <summary>Rebuilds the appearance of every widget of a field from its stored value, and puts the fonts they use in the form's <c>/DR</c>.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "widget">One widget of the field, as resolved before the change.</param>
     /// <param name = "cancellationToken">A token that cancels the drawing.</param>
-    internal static void RegenerateAppearances(PdfForm form, ResolvedWidget widget, CancellationToken cancellationToken)
+    internal static void RegenerateAppearances(PdfForm form, in ResolvedWidget widget, CancellationToken cancellationToken)
     {
         if (StoreReading.GetDictionary(form.Document.Objects, widget.FieldId) is not { } field)
         {
@@ -357,26 +399,42 @@ public static class PdfFormEditing
 
         var resources = HyperPdfLibrary.Document.PdfDocumentPages.GetPage(form.Document, widget.PageIndex).Resources;
         var edit = new FormEdit(form.Document.Objects);
-        var fonts = HyperPdfLibrary.Document.PdfDocumentRendering.GetRenderCache(form.Document).Fonts;
-        foreach (var control in FormControl.GetControls(field, widget.FieldId))
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var context = new AppearanceContext(form.Document.Objects, control.Dictionary, field, widget.Type, widget.Flags, form.Document.Catalog.GetDictionary(KnownName.AcroForm), resources)
+            var fonts = HyperPdfLibrary.Document.PdfDocumentRendering.GetRenderCache(form.Document).Fonts;
+            var acroForm = form.Document.Catalog.GetDictionary(KnownName.AcroForm);
+            var controls = FormControls.Read(field, widget.FieldId);
+            try
             {
-                Fonts = fonts,
-                CancellationToken = cancellationToken,
-            };
-            if (!control.Id.IsValid)
+                for (var i = 0; i < controls.Count; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!controls[i].Id.IsValid)
+                    {
+                        continue;
+                    }
+
+                    var context = new AppearanceContext(form.Document.Objects, controls[i].Dictionary, field, widget.Type, widget.Flags, acroForm, resources)
+                    {
+                        Fonts = fonts,
+                        CancellationToken = cancellationToken,
+                    };
+                    var appearance = PdfFormEditing.CreateAppearance(context);
+                    PdfFormEditing.StoreAppearance(form, ref edit, controls[i], appearance);
+                    FormDefaultResources.AddFonts(form.Document.Objects, appearance);
+                }
+            }
+            finally
             {
-                continue;
+                controls.Dispose();
             }
 
-            var appearance = PdfFormEditing.CreateAppearance(context);
-            PdfFormEditing.StoreAppearance(form, edit, control, appearance);
-            FormDefaultResources.AddFonts(form.Document.Objects, appearance);
+            edit.Commit();
         }
-
-        edit.Commit();
+        finally
+        {
+            edit.Dispose();
+        }
     }
 
     /// <summary>
@@ -387,12 +445,12 @@ public static class PdfFormEditing
     /// <param name = "edit">The changes being made.</param>
     /// <param name = "control">The widget.</param>
     /// <param name = "stream">The appearance.</param>
-    internal static void StoreAppearance(PdfForm form, FormEdit edit, FormControl control, PdfStream stream)
+    internal static void StoreAppearance(PdfForm form, ref FormEdit edit, FormControl control, PdfStream stream)
     {
         var current = control.Dictionary.GetDictionary(KnownName.AP)?.GetRaw(KnownName.N) ?? default;
         if (current.IsReference && form.Drawn.Contains(current.AsReference().Number))
         {
-            StoreEditing.Replace(form.Document.Objects, current.AsReference(), PdfValue.FromStream(stream));
+            StoreEditing.Replace(form.Document.Objects, current.AsReference(), PdfValue.FromStream(stream), PdfCacheScopes.None);
             return;
         }
 
@@ -401,7 +459,7 @@ public static class PdfFormEditing
             return;
         }
 
-        var id = StoreEditing.Add(form.Document.Objects, PdfValue.FromStream(stream));
+        var id = StoreEditing.Add(form.Document.Objects, PdfValue.FromStream(stream), PdfCacheScopes.None);
         _ = form.Drawn.Add(id.Number);
         var appearance = widget.GetDictionary(KnownName.AP)?.Clone() ?? new PdfDictionary(form.Document.Objects);
         appearance.Set(KnownName.N, PdfValue.FromReference(id));
@@ -415,35 +473,38 @@ public static class PdfFormEditing
     /// <param name = "position">The widget's position in the field.</param>
     /// <param name = "isChecked">The new state.</param>
     /// <returns><see langword="true"/> when the change was written.</returns>
-    internal static bool ApplyCheck(PdfForm form, ResolvedWidget widget, List<FormControl> controls, int position, bool isChecked)
+    internal static bool ApplyCheck(PdfForm form, in ResolvedWidget widget, ref FormControls controls, int position, bool isChecked)
     {
         var edit = new FormEdit(form.Document.Objects);
-        if (edit.Edit(widget.FieldId) is not { } field)
+        try
         {
-            return false;
-        }
-
-        var unison = widget.Type == PdfFieldType.CheckBox || (widget.Flags & PdfFieldFlags.RichTextOrRadiosInUnison) != 0;
-        var exports = new string[controls.Count];
-        var states = new string[controls.Count];
-        for (var i = 0; i < exports.Length; i++)
-        {
-            exports[i] = PdfFormReading.GetExportValue(form, widget.Field, controls, i);
-            states[i] = FieldAttributes.GetOnState(controls[i].Dictionary, form.Document.Objects.Names);
-        }
-
-        for (var i = 0; i < controls.Count; i++)
-        {
-            var next = PdfFormEditing.NextState(unison, isChecked, position, i, exports, states);
-            if (next is { } state)
+            if (edit.Edit(widget.FieldId) is not { } field)
             {
-                PdfFormEditing.SetControl(form, edit, widget, controls[i], state);
+                return false;
             }
-        }
 
-        PdfFormEditing.WriteButtonValue(form, field, widget.Field, exports[position], position, isChecked);
-        edit.Commit();
-        return true;
+            var names = form.Document.Objects.Names;
+            var unison = widget.Type == PdfFieldType.CheckBox || (widget.Flags & PdfFieldFlags.RichTextOrRadiosInUnison) != 0;
+            var switchedExport = PdfFormReading.GetExportName(form, widget.Field, controls[position].Dictionary, position);
+            var switchedState = FieldAttributes.GetOnStateName(controls[position].Dictionary, names);
+            for (var i = 0; i < controls.Count; i++)
+            {
+                var exports = new ButtonNames(PdfFormReading.GetExportName(form, widget.Field, controls[i].Dictionary, i), switchedExport);
+                var states = new ButtonNames(FieldAttributes.GetOnStateName(controls[i].Dictionary, names), switchedState);
+                if (PdfFormEditing.NextState(unison, isChecked, position, i, exports, states) is { } state)
+                {
+                    PdfFormEditing.SetControl(form, ref edit, widget, controls[i], state);
+                }
+            }
+
+            PdfFormEditing.WriteButtonValue(form, field, widget.Field, switchedExport, position, isChecked);
+            edit.Commit();
+            return true;
+        }
+        finally
+        {
+            edit.Dispose();
+        }
     }
 
     /// <summary>Sets a button's appearance state, drawing the appearances first when the widget has none.</summary>
@@ -452,29 +513,42 @@ public static class PdfFormEditing
     /// <param name = "widget">The widget the user acted on, whose field and flags apply to every button.</param>
     /// <param name = "control">The button.</param>
     /// <param name = "isOn">Whether it becomes on.</param>
-    internal static void SetControl(PdfForm form, FormEdit edit, ResolvedWidget widget, FormControl control, bool isOn)
+    internal static void SetControl(PdfForm form, ref FormEdit edit, in ResolvedWidget widget, FormControl control, bool isOn)
     {
         if (edit.Edit(control.Id) is not { } clone)
         {
             return;
         }
 
-        var name = isOn ? PdfFormEditing.EnsureOnState(form, clone, widget) : FormValues.OffState;
-        if (!string.Equals(FieldAttributes.ReadState(clone.Get(KnownName.AS), form.Document.Objects.Names), name, StringComparison.Ordinal))
+        var names = form.Document.Objects.Names;
+        var name = isOn ? PdfFormEditing.EnsureOnState(form, clone, widget) : names.Intern("Off"u8);
+        if (!PdfFormEditing.StateIs(clone.Get(KnownName.AS), name, names))
         {
-            clone.Set(KnownName.AS, PdfValue.FromName(form.Document.Objects.Names.Intern(name)));
+            clone.Set(KnownName.AS, PdfValue.FromName(name));
         }
     }
+
+    /// <summary>Determines whether an appearance state value names a state.</summary>
+    /// <param name = "state">The value: a name, or a string some writers use.</param>
+    /// <param name = "name">The state's name.</param>
+    /// <param name = "names">The document's names.</param>
+    /// <returns><see langword="true"/> when the value spells the name.</returns>
+    internal static bool StateIs(PdfValue state, PdfName name, PdfNameTable names) => state.Kind switch
+    {
+        PdfKind.Name => state.AsName().Equals(name),
+        PdfKind.String => string.Equals(FieldAttributes.ReadState(state, names), names.GetString(name), StringComparison.Ordinal),
+        _ => false,
+    };
 
     /// <summary>Finds the name of a button's on-state, drawing the on and off appearances when it has none.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "clone">The widget copy.</param>
     /// <param name = "widget">The widget the user acted on.</param>
     /// <returns>The on-state name.</returns>
-    internal static string EnsureOnState(PdfForm form, PdfDictionary clone, ResolvedWidget widget)
+    internal static PdfName EnsureOnState(PdfForm form, PdfDictionary clone, in ResolvedWidget widget)
     {
-        var existing = FieldAttributes.GetOnState(clone, form.Document.Objects.Names);
-        if (existing.Length > 0)
+        var existing = FieldAttributes.GetOnStateName(clone, form.Document.Objects.Names);
+        if (!existing.IsNone)
         {
             return existing;
         }
@@ -489,25 +563,16 @@ public static class PdfFormEditing
         HyperPdfLibrary.Document.PdfDocumentPages.GetPage(
         form.Document,
         widget.PageIndex).Resources);
+        var yes = form.Document.Objects.Names.Intern("Yes"u8);
         var states = new PdfDictionary(form.Document.Objects);
-        states.Set(
-        form.Document.Objects.Names.Intern(FormValues.DefaultOnState),
-        PdfValue.FromReference(StoreEditing.Add(
-        form.Document.Objects,
-        PdfValue.FromStream(FormButtonAppearance.CreateButton(
-        context,
-        true)))));
-        states.Set(
-        form.Document.Objects.Names.Intern(FormValues.OffState),
-        PdfValue.FromReference(StoreEditing.Add(
-        form.Document.Objects,
-        PdfValue.FromStream(FormButtonAppearance.CreateButton(
-        context,
-        false)))));
+        var on = StoreEditing.Add(form.Document.Objects, PdfValue.FromStream(FormButtonAppearance.CreateButton(context, true)), PdfCacheScopes.None);
+        states.Set(yes, PdfValue.FromReference(on));
+        var off = StoreEditing.Add(form.Document.Objects, PdfValue.FromStream(FormButtonAppearance.CreateButton(context, false)), PdfCacheScopes.None);
+        states.Set(form.Document.Objects.Names.Intern("Off"u8), PdfValue.FromReference(off));
         var appearance = clone.GetDictionary(KnownName.AP)?.Clone() ?? new PdfDictionary(form.Document.Objects);
         appearance.Set(KnownName.N, PdfValue.FromDictionary(states));
         clone.Set(KnownName.AP, PdfValue.FromDictionary(appearance));
-        return FormValues.DefaultOnState;
+        return yes;
     }
 
     /// <summary>Updates a button field's <c>/V</c> after one of its buttons was switched.</summary>
@@ -517,14 +582,16 @@ public static class PdfFormEditing
     /// <param name = "export">The switched button's export value.</param>
     /// <param name = "position">The switched button's position.</param>
     /// <param name = "isChecked">The new state.</param>
-    internal static void WriteButtonValue(PdfForm form, PdfDictionary field, PdfDictionary original, string export, int position, bool isChecked)
+    internal static void WriteButtonValue(PdfForm form, PdfDictionary field, PdfDictionary original, PdfName export, int position, bool isChecked)
     {
-        var hasOptions = FieldAttributes.Find(original, KnownName.Opt).AsArray() is not null;
-        if (hasOptions)
+        var names = form.Document.Objects.Names;
+        if (FieldAttributes.Find(original, KnownName.Opt).AsArray() is not null)
         {
             if (isChecked)
             {
-                field.Set(KnownName.V, PdfValue.FromName(form.Document.Objects.Names.Intern(position.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                Span<byte> digits = stackalloc byte[MaxDigits];
+                _ = position.TryFormat(digits, out var written, default, System.Globalization.CultureInfo.InvariantCulture);
+                field.Set(KnownName.V, PdfValue.FromName(names.Intern(digits[..written])));
             }
 
             return;
@@ -532,11 +599,11 @@ public static class PdfFormEditing
 
         if (isChecked)
         {
-            field.Set(KnownName.V, PdfValue.FromName(form.Document.Objects.Names.Intern(export)));
+            field.Set(KnownName.V, PdfValue.FromName(export));
         }
-        else if (string.Equals(FieldAttributes.ReadState(FieldAttributes.Find(original, KnownName.V), form.Document.Objects.Names), export, StringComparison.Ordinal))
+        else if (PdfFormEditing.StateIs(FieldAttributes.Find(original, KnownName.V), export, names))
         {
-            field.Set(KnownName.V, PdfValue.FromName(form.Document.Objects.Names.Intern(FormValues.OffState)));
+            field.Set(KnownName.V, PdfValue.FromName(names.Intern("Off"u8)));
         }
     }
 }

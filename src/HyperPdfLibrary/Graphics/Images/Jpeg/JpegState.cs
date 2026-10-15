@@ -3,13 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using HyperPdfLibrary.Rendering;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpeg;
 
 /// <summary>
-/// The tables and components a JPEG decode builds from the file's headers. The objects are the same for every image, so
-/// finished decodes hand their state back and the next decode on any thread takes it, instead of building it again.
+/// The tables and components a JPEG decode builds from the file's headers. Finished decodes return the state to their
+/// scratch owner for another image from that owner.
 /// </summary>
 [DebuggerDisplay("JpegState")]
 internal sealed class JpegState
@@ -19,9 +19,6 @@ internal sealed class JpegState
 
     /// <summary>The most components a frame can have.</summary>
     internal const int MaxComponents = 4;
-
-    /// <summary>The states waiting for the next decode.</summary>
-    private static readonly ReusableSlots<JpegState> Idle = new();
 
     /// <summary>Initializes a new instance of the <see cref="JpegState"/> class.</summary>
     private JpegState()
@@ -55,10 +52,11 @@ internal sealed class JpegState
     internal JpegComponent[] Components { get; } = new JpegComponent[MaxComponents];
 
     /// <summary>Takes a state that is ready for a new image.</summary>
+    /// <param name="scratchPools">The decoder's scratch owner.</param>
     /// <returns>The state, which the caller returns with <see cref="Return"/>.</returns>
-    internal static JpegState Rent()
+    internal static JpegState Rent(ScratchPools scratchPools)
     {
-        var state = Idle.Take() ?? new();
+        var state = scratchPools.Slots<JpegState>().Take() ?? new();
         for (var i = 0; i < TableSlots; i++)
         {
             state.DcTables[i].Undefine();
@@ -71,13 +69,14 @@ internal sealed class JpegState
 
     /// <summary>Gives a state back after releasing what its components borrowed.</summary>
     /// <param name="state">The state.</param>
-    internal static void Return(JpegState state)
+    /// <param name="scratchPools">The decoder's scratch owner.</param>
+    internal static void Return(JpegState state, ScratchPools scratchPools)
     {
         foreach (var component in state.Components)
         {
             component.Dispose();
         }
 
-        _ = Idle.Offer(state);
+        _ = scratchPools.Slots<JpegState>().Offer(state);
     }
 }

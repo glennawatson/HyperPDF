@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdfLibrary.Editing;
+using HyperPdfLibrary.Fonts.Data;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Forms;
@@ -47,7 +48,7 @@ internal static class FormAcroForm
 
         var resources = form.GetDictionary(KnownName.DR)?.Clone() ?? new PdfDictionary(store);
         var fonts = resources.GetDictionary(KnownName.Font)?.Clone() ?? new PdfDictionary(store);
-        fonts.Set(name, FormFont.CreateFallback(store).Resource);
+        fonts.Set(name, PdfValue.FromDictionary(FormFont.CreateStandardResource(store, StandardFont.Helvetica)));
         resources.Set(KnownName.Font, PdfValue.FromDictionary(fonts));
         var copy = form.Clone();
         copy.Set(KnownName.DR, PdfValue.FromDictionary(resources));

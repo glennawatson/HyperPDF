@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -20,11 +21,11 @@ namespace HyperPdfLibrary.Fonts.Embedding;
 [DebuggerDisplay("PdfEmbeddedFont: {Source.PostScriptName}, {_use.Count} glyphs, finished {_finished}")]
 public sealed class PdfEmbeddedFont
 {
-    /// <summary>The fonts embedded in each document that are not finished yet.</summary>
-    private static readonly ConditionalWeakTable<object, List<PdfEmbeddedFont>> Pending = [];
-
     /// <summary>The document.</summary>
     private readonly IPdfObjectSink _sink;
+
+    /// <summary>The document's embedding buffers and pending font state.</summary>
+    private readonly PdfFontEmbeddingState _embedding;
 
     /// <summary>The options.</summary>
     private readonly PdfEmbeddedFontOptions _options;
@@ -52,6 +53,7 @@ public sealed class PdfEmbeddedFont
     internal PdfEmbeddedFont(IPdfObjectSink sink, PdfFontSource source, PdfEmbeddedFontOptions options, PdfObjectId id)
     {
         _sink = sink;
+        _embedding = sink.FontEmbedding;
         Source = source;
         _options = options;
         Id = id;
@@ -113,10 +115,10 @@ public sealed class PdfEmbeddedFont
         ArgumentNullException.ThrowIfNull(options);
         var id = sink.Add(PdfValue.FromDictionary(EmbeddedFontWriter.CreatePlaceholder(sink, source.PostScriptName, options.WritingMode)));
         var font = new PdfEmbeddedFont(sink, source, options, id);
-        var fonts = Pending.GetOrCreateValue(KeyOf(sink));
-        lock (fonts)
+        var state = font._embedding;
+        lock (state.Gate)
         {
-            fonts.Add(font);
+            state.Pending.Add(font);
         }
 
         return font;
@@ -128,7 +130,7 @@ public sealed class PdfEmbeddedFont
     public static void FinishAll(PdfObjectStore store)
     {
         ArgumentNullException.ThrowIfNull(store);
-        FinishAll(new PdfObjectStoreSink(store));
+        FinishPending(store.ExistingFontEmbedding);
     }
 
     /// <summary>Finishes every font embedded in a document that is not finished yet; call it before saving.</summary>
@@ -137,27 +139,7 @@ public sealed class PdfEmbeddedFont
     public static void FinishAll(IPdfObjectSink sink)
     {
         ArgumentNullException.ThrowIfNull(sink);
-        if (!Pending.TryGetValue(KeyOf(sink), out var fonts))
-        {
-            return;
-        }
-
-        PdfEmbeddedFont[] snapshot;
-        lock (fonts)
-        {
-            snapshot = [.. fonts];
-        }
-
-        // A font leaves the list only once it is finished, so a font that fails stays for the next call, and a second caller
-        // waits in Finish for the first caller's font rather than returning before it is written.
-        foreach (var font in snapshot)
-        {
-            font.Finish();
-            lock (fonts)
-            {
-                _ = fonts.Remove(font);
-            }
-        }
+        FinishPending(sink.ExistingFontEmbedding);
     }
 
     /// <summary>Gets the code that shows a glyph, giving the glyph a code the first time it is used.</summary>
@@ -184,15 +166,22 @@ public sealed class PdfEmbeddedFont
     /// <returns>The advance, in the units of <paramref name="fontSize"/>.</returns>
     public float Measure(ReadOnlySpan<char> text, float fontSize)
     {
-        var glyphs = new List<PdfShapedGlyph>(text.Length);
-        _ = Shape(text, glyphs);
-        var advance = 0F;
-        foreach (var glyph in glyphs)
+        var glyphs = ScratchList<PdfShapedGlyph>.Rent(ref _embedding.Glyphs, text.Length);
+        try
         {
-            advance += glyph.Advance;
-        }
+            _ = Shape(text, glyphs);
+            var advance = 0F;
+            foreach (var glyph in CollectionsMarshal.AsSpan(glyphs))
+            {
+                advance += glyph.Advance;
+            }
 
-        return advance * fontSize;
+            return advance * fontSize;
+        }
+        finally
+        {
+            ScratchList<PdfShapedGlyph>.Return(ref _embedding.Glyphs, glyphs);
+        }
     }
 
     /// <summary>Records the text a run of shaped glyphs stands for, without writing content; used when the caller writes the codes itself.</summary>
@@ -201,8 +190,15 @@ public sealed class PdfEmbeddedFont
     /// <exception cref="InvalidOperationException">The font is finished and a glyph was not used before.</exception>
     public void Register(ReadOnlySpan<char> text, ReadOnlySpan<PdfShapedGlyph> glyphs)
     {
-        var groups = new List<ClusterGroup>();
-        RunPlanner.Plan(text, glyphs, _options.ActualText, _use, groups);
+        var groups = ScratchList<ClusterGroup>.Rent(ref _embedding.Groups, glyphs.Length);
+        try
+        {
+            RunPlanner.Plan(text, glyphs, _options.ActualText, _use, groups);
+        }
+        finally
+        {
+            ScratchList<ClusterGroup>.Return(ref _embedding.Groups, groups);
+        }
     }
 
     /// <summary>Shapes text and writes it into a content stream with the font's current text state.</summary>
@@ -212,9 +208,16 @@ public sealed class PdfEmbeddedFont
     /// <exception cref="InvalidOperationException">The font is finished and the text needs a glyph that was not used before.</exception>
     public void ShowText(ref PdfContentBuilder builder, ReadOnlySpan<char> text, float fontSize)
     {
-        var glyphs = new List<PdfShapedGlyph>(text.Length);
-        _ = Shape(text, glyphs);
-        ShowGlyphs(ref builder, text, CollectionsMarshal.AsSpan(glyphs), fontSize);
+        var glyphs = ScratchList<PdfShapedGlyph>.Rent(ref _embedding.Glyphs, text.Length);
+        try
+        {
+            _ = Shape(text, glyphs);
+            ShowGlyphs(ref builder, text, CollectionsMarshal.AsSpan(glyphs), fontSize);
+        }
+        finally
+        {
+            ScratchList<PdfShapedGlyph>.Return(ref _embedding.Glyphs, glyphs);
+        }
     }
 
     /// <summary>Writes shaped glyphs into a content stream with the font's current text state.</summary>
@@ -225,9 +228,16 @@ public sealed class PdfEmbeddedFont
     /// <exception cref="InvalidOperationException">The font is finished and a glyph was not used before.</exception>
     public void ShowGlyphs(ref PdfContentBuilder builder, ReadOnlySpan<char> text, ReadOnlySpan<PdfShapedGlyph> glyphs, float fontSize)
     {
-        var groups = new List<ClusterGroup>();
-        RunPlanner.Plan(text, glyphs, _options.ActualText, _use, groups);
-        RunWriter.Write(ref builder, new(_sink, Source, _use, _options.WritingMode), text, glyphs, groups, fontSize);
+        var groups = ScratchList<ClusterGroup>.Rent(ref _embedding.Groups, glyphs.Length);
+        try
+        {
+            RunPlanner.Plan(text, glyphs, _options.ActualText, _use, groups);
+            RunWriter.Write(ref builder, new(_sink, Source, _use, _options.WritingMode), text, glyphs, groups, fontSize);
+        }
+        finally
+        {
+            ScratchList<ClusterGroup>.Return(ref _embedding.Groups, groups);
+        }
     }
 
     /// <summary>Cuts the font program down to the glyphs used and writes the font's objects. Calling it again does nothing.</summary>
@@ -246,19 +256,56 @@ public sealed class PdfEmbeddedFont
         }
     }
 
-    /// <summary>Gets the object that identifies a document, so fonts made through different sinks of one open document are finished together.</summary>
-    /// <param name="sink">The sink.</param>
-    /// <returns>The open document for a sink onto one; the sink otherwise.</returns>
-    private static object KeyOf(IPdfObjectSink sink) => sink.Owner is { } owner ? owner : sink;
+    /// <summary>Finishes fonts recorded by one document without creating state for an empty document.</summary>
+    /// <param name="state">The document's existing embedding state.</param>
+    private static void FinishPending(PdfFontEmbeddingState? state)
+    {
+        if (state is null)
+        {
+            return;
+        }
+
+        PdfEmbeddedFont[] snapshot;
+        int count;
+        lock (state.Gate)
+        {
+            count = state.Pending.Count;
+            if (count == 0)
+            {
+                return;
+            }
+
+            snapshot = ArrayPool<PdfEmbeddedFont>.Shared.Rent(count);
+            state.Pending.CopyTo(snapshot);
+        }
+
+        // A failed font stays pending. Concurrent finishers also wait for fonts already being written.
+        try
+        {
+            for (var i = 0; i < count; i++)
+            {
+                var font = snapshot[i];
+                font.Finish();
+                lock (state.Gate)
+                {
+                    _ = state.Pending.Remove(font);
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<PdfEmbeddedFont>.Shared.Return(snapshot, clearArray: true);
+        }
+    }
 
     /// <summary>Plans the font's objects from the glyphs used.</summary>
     /// <param name="snapshot">The glyphs used.</param>
     /// <returns>The font's parts.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private EmbeddedFontParts Plan(GlyphUseSnapshot snapshot)
+    private EmbeddedFontParts Plan(in GlyphUseSnapshot snapshot)
     {
         var parts = Source.Outlines == PdfFontOutlines.TrueType
-            ? EmbeddedFontPlanner.PlanTrueType(Source, snapshot, _options.WriteCidSet)
+            ? EmbeddedFontPlanner.PlanTrueType(Source, snapshot, _options.WriteCidSet, _embedding)
             : EmbeddedFontPlanner.PlanCff(Source, snapshot, _options.WriteCidSet);
         return _options.WritingMode == PdfWritingMode.Vertical
             ? parts with { Vertical = VerticalMetrics.Create(Source, EmbeddedFontPlanner.With(0, snapshot.Glyphs)) }

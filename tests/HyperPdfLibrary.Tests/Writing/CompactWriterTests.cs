@@ -4,6 +4,8 @@
 
 using System.Text;
 using HyperPdf.TestAssets;
+using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -26,6 +28,71 @@ public sealed class CompactWriterTests
 
     /// <summary>The header object streams need.</summary>
     private const string ObjectStreamHeader = "%PDF-1.5";
+
+    /// <summary>Concurrent first saves share a completed graph while keeping independent output buffers.</summary>
+    /// <param name="objectStreams">Whether to pack objects.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ConcurrentFirstSavesKeepIndependentOutputs(bool objectStreams)
+    {
+        using var document = PdfDocumentReader.Open(TestPdf.Create(1), null);
+        var options = new PdfCompactOptions(objectStreams, false);
+        var pending = new Task<byte[]>[4];
+        for (var i = 0; i < pending.Length; i++)
+        {
+            pending[i] = Task.Run(() => PdfCompactWriter.Save(document.Objects, options), CancellationToken.None);
+        }
+
+        var outputs = await Task.WhenAll(pending);
+        foreach (var bytes in outputs)
+        {
+            await Assert.That(bytes).IsEquivalentTo(outputs[0]);
+            using var reopened = PdfDocumentReader.Open(bytes, null);
+            await Assert.That(reopened.PageCount).IsEqualTo(1);
+            await Assert.That(PdfDocumentMetadata.GetInfo(reopened).Title).IsEqualTo(TestPdf.Title);
+        }
+
+        await Assert.That(ReferenceEquals(outputs[0], outputs[1])).IsFalse();
+    }
+
+    /// <summary>Completed save graphs follow direct edits, committed edits, undo, redo and rollback.</summary>
+    /// <param name="objectStreams">Whether to pack objects.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task CachedGraphFollowsEditsAndHistory(bool objectStreams)
+    {
+        using var document = PdfDocumentReader.Open(TestPdf.Create(1), null);
+        var options = new PdfCompactOptions(objectStreams, false);
+        _ = PdfCompactWriter.Save(document.Objects, options);
+        var info = document.Objects.Trailer.GetRaw(KnownName.Info).AsReference();
+        StoreEditing.Replace(document.Objects, info, PdfValue.FromDictionary(new(document.Objects)));
+        using var replaced = PdfDocumentReader.Open(PdfCompactWriter.Save(document.Objects, options), null);
+        await Assert.That(PdfDocumentMetadata.GetInfo(replaced).Title).IsNull();
+
+        const string changed = "Changed";
+        PdfDocumentMetadataEditing.SetMetadata(document, new() { Title = changed });
+        using var edited = PdfDocumentReader.Open(PdfCompactWriter.Save(document.Objects, options), null);
+        await Assert.That(PdfDocumentMetadata.GetInfo(edited).Title).IsEqualTo(changed);
+        await Assert.That(PdfDocumentEditing.Undo(document)).IsTrue();
+        using var undone = PdfDocumentReader.Open(PdfCompactWriter.Save(document.Objects, options), null);
+        await Assert.That(PdfDocumentMetadata.GetInfo(undone).Title).IsNull();
+        await Assert.That(PdfDocumentEditing.Redo(document)).IsTrue();
+        using var redone = PdfDocumentReader.Open(PdfCompactWriter.Save(document.Objects, options), null);
+        await Assert.That(PdfDocumentMetadata.GetInfo(redone).Title).IsEqualTo(changed);
+
+        using (var transaction = PdfDocumentEditing.BeginEdit(document, "Abandoned"))
+        {
+            PdfDocumentMetadataEditing.SetMetadata(document, new() { Title = "Rolled back" });
+            _ = PdfCompactWriter.Save(document.Objects, options);
+        }
+
+        using var rolledBack = PdfDocumentReader.Open(PdfCompactWriter.Save(document.Objects, options), null);
+        await Assert.That(PdfDocumentMetadata.GetInfo(rolledBack).Title).IsEqualTo(changed);
+    }
 
     /// <summary>A compacted document keeps its pages and content, in both layouts, and every object resolves.</summary>
     /// <param name="document">The document name.</param>

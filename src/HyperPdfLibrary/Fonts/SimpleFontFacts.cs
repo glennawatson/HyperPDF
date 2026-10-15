@@ -18,7 +18,7 @@ namespace HyperPdfLibrary.Fonts;
 /// <param name="Program">The embedded program, or <see langword="null"/>.</param>
 /// <param name="IsTrueTypeSubtype">Whether the font's /Subtype is /TrueType.</param>
 [DebuggerDisplay("SimpleFontFacts: {BaseFont}")]
-internal sealed record SimpleFontFacts(
+internal readonly record struct SimpleFontFacts(
     PdfDictionary Font,
     string BaseFont,
     StandardFont Standard,

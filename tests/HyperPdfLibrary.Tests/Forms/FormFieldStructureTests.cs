@@ -68,14 +68,14 @@ public sealed class FormFieldStructureTests
         _ = PdfFormFieldCreation.CreateField(document, FormDesignDocuments.Field(PdfFieldType.CheckBox, "Agree", 1));
         _ = PdfFormFieldCreation.CreateField(document, FormDesignDocuments.Field(PdfFieldType.Signature, "Sign", ThirdRow));
 
-        var report = PdfDocumentAccessibility.GetAccessibilityReport(document);
+        var report = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, CancellationToken.None);
         await Assert.That(report.GetCount(PdfAccessibilityCode.FormFieldNoLabel)).IsEqualTo(0);
         await Assert.That(report.GetCount(PdfAccessibilityCode.FormFieldNotTagged)).IsEqualTo(0);
         var saved = await FormDesignDocuments.SaveAsync(document);
         await Assert.That(await FormDesignDocuments.PassesQpdfAsync("tagged", saved)).IsTrue();
         await Assert.That(await FormDesignDocuments.PassesQpdfAsync("tagged-compact", FormDesignDocuments.SaveCompact(document))).IsTrue();
         using var reopened = PdfDocumentReader.Open(saved, null);
-        await Assert.That(PdfDocumentAccessibility.GetAccessibilityReport(reopened).GetCount(PdfAccessibilityCode.FormFieldNotTagged)).IsEqualTo(0);
+        await Assert.That((await PdfDocumentAccessibility.GetAccessibilityReportAsync(reopened, CancellationToken.None)).GetCount(PdfAccessibilityCode.FormFieldNotTagged)).IsEqualTo(0);
     }
 
     /// <summary>The tooltip defaults to the field name and a given tooltip replaces it.</summary>

@@ -149,8 +149,8 @@ public sealed class XObjectReadingTests
         await Assert.That(reference.IsUrl).IsFalse();
         await Assert.That(reference.PageIndex).IsEqualTo(ReferencePage);
         await Assert.That(reference.PageLabel).IsNull();
-        await Assert.That(Encoding.ASCII.GetString(reference.PermanentId!)).IsEqualTo("AAAA");
-        await Assert.That(Encoding.ASCII.GetString(reference.ChangingId!)).IsEqualTo("BB");
+        await Assert.That(Encoding.ASCII.GetString(reference.PermanentId!.Value.AsSpan())).IsEqualTo("AAAA");
+        await Assert.That(Encoding.ASCII.GetString(reference.ChangingId!.Value.AsSpan())).IsEqualTo("BB");
         await Assert.That(reference.Proxy).IsSameReferenceAs(form);
         await Assert.That(File.Exists("/definitely/not/a/real/file.pdf")).IsFalse();
     }

@@ -2,11 +2,15 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
+using System.Collections.Frozen;
+using System.Runtime.CompilerServices;
 
 namespace HyperPdf.Speech.English;
 
-/// <summary>Says numbers as English words: 42 as "forty two", 1984 as "nineteen eighty four", 3.5 as "three point five".</summary>
+/// <summary>
+/// Says numbers as English words: 42 as "forty two", 1984 as "nineteen eighty four", 3.5 as "three point five". Each word is
+/// handed to a sink as it is found; the words are fixed strings, so saying a number allocates nothing.
+/// </summary>
 internal static class NumberWords
 {
     /// <summary>The number ten.</summary>
@@ -36,6 +40,12 @@ internal static class NumberWords
     /// <summary>The last year of the "two thousand ..." decade.</summary>
     private const int MillenniumEnd = 2009;
 
+    /// <summary>The word for one hundred.</summary>
+    private const string HundredWord = "hundred";
+
+    /// <summary>The scales a number is split into: ones, thousands, millions, billions and trillions.</summary>
+    private const int ScaleCount = 5;
+
     /// <summary>The words for 0 to 19.</summary>
     private static readonly string[] Ones =
     [
@@ -49,88 +59,153 @@ internal static class NumberWords
     /// <summary>The scale words, from thousand up.</summary>
     private static readonly string[] Scales = [string.Empty, "thousand", "million", "billion", "trillion"];
 
+    /// <summary>The ordinal of each word a number can end in.</summary>
+    private static readonly FrozenDictionary<string, string> Ordinals = BuildOrdinals();
+
     /// <summary>Says a number written with digits, an optional decimal point and thousands commas.</summary>
+    /// <typeparam name="TSink">The sink type.</typeparam>
     /// <param name="digits">The number as written.</param>
-    /// <returns>The words, separated by spaces.</returns>
-    internal static string Say(ReadOnlySpan<char> digits)
+    /// <param name="sink">Receives the words.</param>
+    internal static void Say<TSink>(ReadOnlySpan<char> digits, ref TSink sink)
+        where TSink : struct, IWordSink
     {
-        var builder = new StringBuilder();
         var point = digits.IndexOf('.');
         var whole = point < 0 ? digits : digits[..point];
         if (TryReadWhole(whole, out var value, out var digitCount))
         {
             var isYear = point < 0 && digitCount == YearDigits && whole.IndexOf(',') < 0 && value is >= FirstPairedYear and <= LastPairedYear;
-            Append(builder, isYear ? Year((int)value) : Cardinal(value));
+            if (isYear)
+            {
+                Year((int)value, ref sink);
+            }
+            else
+            {
+                Cardinal(value, ref sink);
+            }
         }
 
-        if (point >= 0 && point + 1 < digits.Length)
+        if (point < 0 || point + 1 >= digits.Length)
         {
-            AppendDigits(builder, digits[(point + 1)..]);
+            return;
         }
 
-        return builder.ToString();
+        AppendDigits(digits[(point + 1)..], ref sink);
     }
 
     /// <summary>Says a whole number.</summary>
+    /// <typeparam name="TSink">The sink type.</typeparam>
     /// <param name="value">The number.</param>
-    /// <returns>The words.</returns>
-    internal static string Cardinal(long value)
+    /// <param name="sink">Receives the words.</param>
+    internal static void Cardinal<TSink>(long value, ref TSink sink)
+        where TSink : struct, IWordSink
     {
         if (value == 0)
         {
-            return Ones[0];
+            sink.Add(Ones[0]);
+            return;
         }
 
-        var builder = new StringBuilder();
-        var scale = 0;
-        var parts = new Stack<string>();
-        while (value > 0 && scale < Scales.Length)
+        Span<int> groups = stackalloc int[ScaleCount];
+        var count = 0;
+        while (value > 0 && count < ScaleCount)
         {
-            var group = (int)(value % Thousand);
-            if (group > 0)
+            groups[count] = (int)(value % Thousand);
+            value /= Thousand;
+            count++;
+        }
+
+        for (var scale = count - 1; scale >= 0; scale--)
+        {
+            if (groups[scale] == 0)
             {
-                parts.Push(scale == 0 ? UnderThousand(group) : $"{UnderThousand(group)} {Scales[scale]}");
+                continue;
             }
 
-            value /= Thousand;
-            scale++;
+            UnderThousand(groups[scale], ref sink);
+            if (scale > 0)
+            {
+                sink.Add(Scales[scale]);
+            }
         }
-
-        foreach (var part in parts)
-        {
-            Append(builder, part);
-        }
-
-        return builder.ToString();
     }
 
     /// <summary>Says a whole number as an ordinal: first, twelfth, twenty first, one hundredth.</summary>
+    /// <typeparam name="TSink">The sink type.</typeparam>
     /// <param name="value">The number.</param>
-    /// <returns>The words.</returns>
-    internal static string Ordinal(long value)
+    /// <param name="sink">Receives the words.</param>
+    internal static void Ordinal<TSink>(long value, ref TSink sink)
+        where TSink : struct, IWordSink
     {
-        var cardinal = Cardinal(value);
-        var last = cardinal.LastIndexOf(' ') + 1;
-        var word = cardinal[last..];
-        var ordinal = word switch
-        {
-            "one" => "first",
-            "two" => "second",
-            "three" => "third",
-            "five" => "fifth",
-            "eight" => "eighth",
-            "nine" => "ninth",
-            "twelve" => "twelfth",
-            _ when word.EndsWith('y') => $"{word[..^1]}ieth",
-            _ => $"{word}th",
-        };
-        return cardinal[..last] + ordinal;
+        var last = new OrdinalLastWord<TSink>(sink);
+        Cardinal(value, ref last);
+        last.Finish();
+        sink = last.Inner;
     }
 
     /// <summary>Says a year the way people say years: 1999 as nineteen ninety-nine and 2005 as two thousand five.</summary>
+    /// <typeparam name="TSink">The sink type.</typeparam>
     /// <param name="year">The year.</param>
-    /// <returns>The words.</returns>
-    internal static string SayYear(int year) => year is >= FirstPairedYear and <= LastPairedYear ? Year(year) : Cardinal(year);
+    /// <param name="sink">Receives the words.</param>
+    internal static void SayYear<TSink>(int year, ref TSink sink)
+        where TSink : struct, IWordSink
+    {
+        if (year is >= FirstPairedYear and <= LastPairedYear)
+        {
+            Year(year, ref sink);
+        }
+        else
+        {
+            Cardinal(year, ref sink);
+        }
+    }
+
+    /// <summary>Gets the ordinal of the last word of a cardinal: "one" is "first", "twenty" is "twentieth", "hundred" is "hundredth".</summary>
+    /// <param name="word">One of the words a number can end in.</param>
+    /// <returns>The ordinal word.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string OrdinalOf(string word) => Ordinals[word];
+
+    /// <summary>Builds the ordinal of every word a number can end in.</summary>
+    /// <returns>The ordinals by cardinal word.</returns>
+    private static FrozenDictionary<string, string> BuildOrdinals()
+    {
+        var ordinals = new Dictionary<string, string>(StringComparer.Ordinal);
+        AddOrdinals(ordinals, Ones);
+        AddOrdinals(ordinals, Tens);
+        AddOrdinals(ordinals, Scales);
+        AddOrdinals(ordinals, [HundredWord]);
+        return ordinals.ToFrozenDictionary(StringComparer.Ordinal);
+    }
+
+    /// <summary>Adds the ordinal of each word in a list.</summary>
+    /// <param name="ordinals">Receives the ordinals by cardinal word.</param>
+    /// <param name="words">The cardinal words; empty ones are skipped.</param>
+    private static void AddOrdinals(Dictionary<string, string> ordinals, string[] words)
+    {
+        foreach (var word in words)
+        {
+            if (word.Length > 0)
+            {
+                ordinals[word] = OrdinalWord(word);
+            }
+        }
+    }
+
+    /// <summary>Makes a cardinal word an ordinal.</summary>
+    /// <param name="word">The cardinal.</param>
+    /// <returns>The ordinal.</returns>
+    private static string OrdinalWord(string word) => word switch
+    {
+        "one" => "first",
+        "two" => "second",
+        "three" => "third",
+        "five" => "fifth",
+        "eight" => "eighth",
+        "nine" => "ninth",
+        "twelve" => "twelfth",
+        _ when word.EndsWith('y') => $"{word[..^1]}ieth",
+        _ => $"{word}th",
+    };
 
     /// <summary>Reads the whole part of a number, skipping thousands commas.</summary>
     /// <param name="whole">The digits and commas.</param>
@@ -161,79 +236,92 @@ internal static class NumberWords
     }
 
     /// <summary>Says the digits after a decimal point one by one.</summary>
-    /// <param name="builder">The builder.</param>
+    /// <typeparam name="TSink">The sink type.</typeparam>
     /// <param name="fraction">The digits.</param>
-    private static void AppendDigits(StringBuilder builder, ReadOnlySpan<char> fraction)
+    /// <param name="sink">Receives the words.</param>
+    private static void AppendDigits<TSink>(ReadOnlySpan<char> fraction, ref TSink sink)
+        where TSink : struct, IWordSink
     {
-        Append(builder, "point");
+        sink.Add("point");
         foreach (var c in fraction)
         {
             if (char.IsAsciiDigit(c))
             {
-                Append(builder, Ones[c - '0']);
+                sink.Add(Ones[c - '0']);
             }
         }
     }
 
     /// <summary>Says a year in pairs, as people do: 1984 as "nineteen eighty four", 1900 as "nineteen hundred".</summary>
+    /// <typeparam name="TSink">The sink type.</typeparam>
     /// <param name="year">The year.</param>
-    /// <returns>The words.</returns>
-    private static string Year(int year)
+    /// <param name="sink">Receives the words.</param>
+    private static void Year<TSink>(int year, ref TSink sink)
+        where TSink : struct, IWordSink
     {
         if (year is >= MillenniumStart and <= MillenniumEnd)
         {
-            return Cardinal(year);
+            Cardinal(year, ref sink);
+            return;
         }
 
         var high = year / Hundred;
         var low = year % Hundred;
-        return low switch
+        UnderHundred(high, ref sink);
+        if (low == 0)
         {
-            0 => $"{UnderHundred(high)} hundred",
-            < Ten => $"{UnderHundred(high)} oh {Ones[low]}",
-            _ => $"{UnderHundred(high)} {UnderHundred(low)}",
-        };
+            sink.Add(HundredWord);
+        }
+        else if (low < Ten)
+        {
+            sink.Add("oh");
+            sink.Add(Ones[low]);
+        }
+        else
+        {
+            UnderHundred(low, ref sink);
+        }
     }
 
     /// <summary>Says 1 to 999.</summary>
+    /// <typeparam name="TSink">The sink type.</typeparam>
     /// <param name="value">The number.</param>
-    /// <returns>The words.</returns>
-    private static string UnderThousand(int value)
+    /// <param name="sink">Receives the words.</param>
+    private static void UnderThousand<TSink>(int value, ref TSink sink)
+        where TSink : struct, IWordSink
     {
         var hundreds = value / Hundred;
         var rest = value % Hundred;
-        if (hundreds == 0)
+        if (hundreds > 0)
         {
-            return UnderHundred(rest);
+            sink.Add(Ones[hundreds]);
+            sink.Add(HundredWord);
         }
 
-        return rest == 0 ? $"{Ones[hundreds]} hundred" : $"{Ones[hundreds]} hundred {UnderHundred(rest)}";
+        if (hundreds == 0 || rest > 0)
+        {
+            UnderHundred(rest, ref sink);
+        }
     }
 
     /// <summary>Says 0 to 99.</summary>
+    /// <typeparam name="TSink">The sink type.</typeparam>
     /// <param name="value">The number.</param>
-    /// <returns>The words.</returns>
-    private static string UnderHundred(int value)
+    /// <param name="sink">Receives the words.</param>
+    private static void UnderHundred<TSink>(int value, ref TSink sink)
+        where TSink : struct, IWordSink
     {
         if (value < Twenty)
         {
-            return Ones[value];
+            sink.Add(Ones[value]);
+            return;
         }
 
+        sink.Add(Tens[value / Ten]);
         var ones = value % Ten;
-        return ones == 0 ? Tens[value / Ten] : $"{Tens[value / Ten]} {Ones[ones]}";
-    }
-
-    /// <summary>Appends words with a space between.</summary>
-    /// <param name="builder">The builder.</param>
-    /// <param name="words">The words.</param>
-    private static void Append(StringBuilder builder, string words)
-    {
-        if (builder.Length > 0)
+        if (ones != 0)
         {
-            _ = builder.Append(' ');
+            sink.Add(Ones[ones]);
         }
-
-        _ = builder.Append(words);
     }
 }

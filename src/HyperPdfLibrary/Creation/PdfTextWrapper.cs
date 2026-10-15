@@ -26,8 +26,24 @@ public static class PdfTextWrapper
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="size"/> or <paramref name="maxWidth"/> is not positive.</exception>
     public static void Wrap(PdfCanvasFont font, float size, ReadOnlySpan<char> text, float maxWidth, List<PdfTextLine> lines)
     {
-        ArgumentNullException.ThrowIfNull(font);
         ArgumentNullException.ThrowIfNull(lines);
+        var sink = new ListLineSink(lines);
+        Wrap(font, size, text, maxWidth, ref sink);
+    }
+
+    /// <summary>Breaks text into lines, sending them to a sink.</summary>
+    /// <typeparam name="TSink">The sink's type.</typeparam>
+    /// <param name="font">The font the text is drawn in.</param>
+    /// <param name="size">The font size in points.</param>
+    /// <param name="text">The text.</param>
+    /// <param name="maxWidth">The widest a line may be, in points.</param>
+    /// <param name="lines">Receives the lines.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="font"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="size"/> or <paramref name="maxWidth"/> is not positive.</exception>
+    internal static void Wrap<TSink>(PdfCanvasFont font, float size, ReadOnlySpan<char> text, float maxWidth, ref TSink lines)
+        where TSink : struct, ILineSink, allows ref struct
+    {
+        ArgumentNullException.ThrowIfNull(font);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxWidth);
         var start = 0;
@@ -35,7 +51,7 @@ public static class PdfTextWrapper
         {
             var lineEnd = text[start..].IndexOfAny('\r', '\n');
             var paragraphEnd = lineEnd < 0 ? text.Length : start + lineEnd;
-            WrapParagraph(font, size, text, start, paragraphEnd, maxWidth, lines);
+            WrapParagraph(font, size, text, start, paragraphEnd, maxWidth, ref lines);
             start = SkipBreak(text, paragraphEnd);
             if (paragraphEnd == text.Length)
             {
@@ -59,6 +75,7 @@ public static class PdfTextWrapper
     }
 
     /// <summary>Breaks one paragraph, which has no line breaks, into lines.</summary>
+    /// <typeparam name="TSink">The sink's type.</typeparam>
     /// <param name="font">The font.</param>
     /// <param name="size">The font size.</param>
     /// <param name="text">The whole text.</param>
@@ -66,7 +83,8 @@ public static class PdfTextWrapper
     /// <param name="end">The index after the paragraph's last character.</param>
     /// <param name="maxWidth">The widest a line may be.</param>
     /// <param name="lines">Receives the lines.</param>
-    private static void WrapParagraph(PdfCanvasFont font, float size, ReadOnlySpan<char> text, int start, int end, float maxWidth, List<PdfTextLine> lines)
+    private static void WrapParagraph<TSink>(PdfCanvasFont font, float size, ReadOnlySpan<char> text, int start, int end, float maxWidth, ref TSink lines)
+        where TSink : struct, ILineSink, allows ref struct
     {
         var lineStart = start;
         var lineEnd = start;
@@ -84,23 +102,25 @@ public static class PdfTextWrapper
                 continue;
             }
 
-            BreakOverlong(font, size, text, new(lineStart, lineEnd - lineStart, lineWidth), maxWidth, lines);
+            BreakOverlong(font, size, text, new(lineStart, lineEnd - lineStart, lineWidth), maxWidth, ref lines);
             lineStart = position;
             lineEnd = position;
             lineWidth = 0F;
         }
 
-        BreakOverlong(font, size, text, new(lineStart, lineEnd - lineStart, lineWidth), maxWidth, lines);
+        BreakOverlong(font, size, text, new(lineStart, lineEnd - lineStart, lineWidth), maxWidth, ref lines);
     }
 
     /// <summary>Adds a line, first splitting it between text elements when it is wider than the limit.</summary>
+    /// <typeparam name="TSink">The sink's type.</typeparam>
     /// <param name="font">The font.</param>
     /// <param name="size">The font size.</param>
     /// <param name="text">The whole text.</param>
     /// <param name="line">The line.</param>
     /// <param name="maxWidth">The widest a line may be.</param>
     /// <param name="lines">Receives the lines.</param>
-    private static void BreakOverlong(PdfCanvasFont font, float size, ReadOnlySpan<char> text, PdfTextLine line, float maxWidth, List<PdfTextLine> lines)
+    private static void BreakOverlong<TSink>(PdfCanvasFont font, float size, ReadOnlySpan<char> text, PdfTextLine line, float maxWidth, ref TSink lines)
+        where TSink : struct, ILineSink, allows ref struct
     {
         if (line.Width <= maxWidth || line.Length == 0)
         {
@@ -113,11 +133,10 @@ public static class PdfTextWrapper
         var chunkStart = start;
         var chunkEnd = start;
         var chunkWidth = 0F;
-        var enumerator = StringInfo.GetTextElementEnumerator(text[start..end].ToString());
         var offset = start;
-        while (enumerator.MoveNext())
+        while (offset < end)
         {
-            var next = offset + ((string)enumerator.Current).Length;
+            var next = offset + StringInfo.GetNextTextElementLength(text[offset..end]);
             var width = font.Measure(text[chunkStart..next], size);
             if (width > maxWidth && chunkEnd > chunkStart)
             {

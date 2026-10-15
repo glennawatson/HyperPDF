@@ -26,7 +26,7 @@ internal static class EmbeddedFontLoader
     /// <param name="descriptor">The font descriptor.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The program, or <see langword="null"/> when the font is not embedded or its program cannot be read.</returns>
-    internal static FontProgram? Load(FontDescriptor descriptor, CancellationToken cancellationToken = default)
+    internal static FontProgram? Load(in FontDescriptor descriptor, CancellationToken cancellationToken = default)
     {
         if (descriptor.FontFile is not { } stream)
         {

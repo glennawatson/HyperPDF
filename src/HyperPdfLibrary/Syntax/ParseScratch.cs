@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 
@@ -41,8 +42,8 @@ internal ref struct ParseScratch
     {
         if (_values is null && Count == InlineCapacity)
         {
-            _values = new PdfValue[InlineCapacity * GrowthFactor];
-            _keys = new int[InlineCapacity * GrowthFactor];
+            _values = ArrayPool<PdfValue>.Shared.Rent(InlineCapacity * GrowthFactor);
+            _keys = ArrayPool<int>.Shared.Rent(InlineCapacity * GrowthFactor);
             Span<PdfValue> values = _inlineValues;
             Span<int> keys = _inlineKeys;
             values.CopyTo(_values);
@@ -53,8 +54,7 @@ internal ref struct ParseScratch
         {
             if (Count == _values.Length)
             {
-                Array.Resize(ref _values, Count * GrowthFactor);
-                Array.Resize(ref _keys, Count * GrowthFactor);
+                GrowOverflow();
             }
 
             _keys![Count] = key;
@@ -82,7 +82,8 @@ internal ref struct ParseScratch
     {
         if (_values is null && mark == 0 && Count == 1)
         {
-            var single = new PdfArray(owner, [_inlineValues.GetFirst()]);
+            var first = _inlineValues.GetFirst();
+            var single = new PdfArray(owner, new ReadOnlySpan<PdfValue>(in first));
             Release(0);
             return single;
         }
@@ -118,6 +119,20 @@ internal ref struct ParseScratch
         return dictionary;
     }
 
+    /// <summary>Gives the overflow arrays, if any were needed, back to the pool.</summary>
+    internal void Dispose()
+    {
+        if (_values is null)
+        {
+            return;
+        }
+
+        ArrayPool<PdfValue>.Shared.Return(_values, true);
+        ArrayPool<int>.Shared.Return(_keys!);
+        _values = null;
+        _keys = null;
+    }
+
     /// <summary>Drops the values above a mark, clearing references so they can be collected.</summary>
     /// <param name="mark">The count to return to.</param>
     internal void Release(int mark)
@@ -125,6 +140,19 @@ internal ref struct ParseScratch
         Span<PdfValue> values = _values is null ? _inlineValues : _values;
         values.Slice(mark, Count - mark).Clear();
         Count = mark;
+    }
+
+    /// <summary>Moves the overflow arrays into larger ones from the pool.</summary>
+    private void GrowOverflow()
+    {
+        var values = ArrayPool<PdfValue>.Shared.Rent(Count * GrowthFactor);
+        var keys = ArrayPool<int>.Shared.Rent(Count * GrowthFactor);
+        _values.AsSpan(0, Count).CopyTo(values);
+        _keys.AsSpan(0, Count).CopyTo(keys);
+        ArrayPool<PdfValue>.Shared.Return(_values!, true);
+        ArrayPool<int>.Shared.Return(_keys!);
+        _values = values;
+        _keys = keys;
     }
 
     /// <summary>The inline values.</summary>

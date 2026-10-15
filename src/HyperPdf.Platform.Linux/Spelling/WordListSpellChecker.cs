@@ -135,39 +135,33 @@ public sealed class WordListSpellChecker : ISpellChecker, IDisposable
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> Suggest(string word)
+    public void Suggest(string word, List<string> suggestions)
     {
         ArgumentNullException.ThrowIfNull(word);
-        if (Volatile.Read(ref _words) is not { Count: > 0 })
+        ArgumentNullException.ThrowIfNull(suggestions);
+        if (Volatile.Read(ref _words) is not { Count: > 0 } || word.Length is 0 or > CorrectionIndex.MaxWordLength)
         {
-            return [];
-        }
-
-        if (word.Length is 0 or > CorrectionIndex.MaxWordLength)
-        {
-            return [];
+            return;
         }
 
         Span<char> lower = stackalloc char[CorrectionIndex.MaxWordLength];
         lower = lower[..word.AsSpan().ToLowerInvariant(lower)];
-        List<string> suggestions = [with(MaxSuggestions)];
+        var first = suggestions.Count;
         lock (_gate)
         {
             if (Volatile.Read(ref _words) is not { } words)
             {
-                return [];
+                return;
             }
 
             Index(words).Lookup(lower, suggestions, MaxSuggestions);
         }
 
-        var corrections = CollectionsMarshal.AsSpan(suggestions);
+        var corrections = CollectionsMarshal.AsSpan(suggestions)[first..];
         foreach (ref var correction in corrections)
         {
             correction = MatchCase(word, correction);
         }
-
-        return suggestions;
     }
 
     /// <summary>Gives a correction the misspelling's capitals: a first capital, or all capitals.</summary>

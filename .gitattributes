@@ -10,3 +10,4 @@
 *.icns binary
 *.wav binary
 *.der binary
+*.z binary

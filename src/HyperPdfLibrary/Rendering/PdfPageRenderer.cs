@@ -36,14 +36,14 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <summary>The highest zoom exponent retained as a separate picture band.</summary>
     private const int MaximumScaleBand = 16;
 
+    /// <summary>The scale band of pictures recorded for one exact page matrix, which lies outside the zoom exponents.</summary>
+    private const int ExactScaleBand = int.MinValue;
+
     /// <summary>The scale multiplier between adjacent picture bands.</summary>
     private const int ScaleStep = 2;
 
     /// <summary>Guards the picture cache.</summary>
     private readonly Lock _gate = new();
-
-    /// <summary>The cached pictures, least recently used first.</summary>
-    private readonly List<PagePictures> _entries = [with(CachedPages + 1)];
 
     /// <summary>The document.</summary>
     private readonly PdfDocument _document;
@@ -53,6 +53,9 @@ public sealed partial class PdfPageRenderer : IDisposable
 
     /// <summary>The limits the renderer was made with, applied to the output intent caches too.</summary>
     private readonly PdfRenderOptions _options;
+
+    /// <summary>The cached pictures, least recently used first.</summary>
+    private PagePictureEntries _entries;
 
     /// <summary>The output-intent cache entry acquired on first use for this renderer's options.</summary>
     private PdfRenderCacheEntry? _intentEntry;
@@ -151,7 +154,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
+        var entry = Acquire(page, request, cache);
         try
         {
             var recorded = entry.Recordings;
@@ -184,7 +187,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
+        var entry = Acquire(page, request, cache);
         try
         {
             var recorded = entry.Recordings;
@@ -217,7 +220,7 @@ public sealed partial class PdfPageRenderer : IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
+        var entry = Acquire(page, request, cache);
         try
         {
             var recorded = entry.Recordings;
@@ -267,7 +270,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
+        var entry = Acquire(page, request, cache);
         try
         {
             var recorded = entry.Recordings;
@@ -313,7 +316,7 @@ public sealed partial class PdfPageRenderer : IDisposable
 
         var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
         var cache = CacheFor(request.Flags);
-        var entry = Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale));
+        var entry = Acquire(page, request, cache);
         try
         {
             var recorded = entry.Recordings;
@@ -353,9 +356,9 @@ public sealed partial class PdfPageRenderer : IDisposable
             }
 
             _disposed = true;
-            foreach (var entry in _entries)
+            for (var i = 0; i < _entries.Count; i++)
             {
-                entry.Retire();
+                _entries[i].Retire();
             }
 
             _entries.Clear();
@@ -451,6 +454,22 @@ public sealed partial class PdfPageRenderer : IDisposable
         return exponent;
     }
 
+    /// <summary>Gets the band pictures are kept under: the zoom band of a scale, or the marker band of pictures recorded for one exact page matrix.</summary>
+    /// <param name="scale">Device pixels per page point.</param>
+    /// <param name="device">The page-to-device matrix without the tile offset, or null for a zoom band.</param>
+    /// <param name="upperScale">Receives the highest scale the pictures serve; for an exact matrix, the scale itself.</param>
+    /// <returns>The band.</returns>
+    private static int GetPictureBand(float scale, Matrix3x2? device, out float upperScale)
+    {
+        if (device is null)
+        {
+            return GetScaleBand(scale, out upperScale);
+        }
+
+        upperScale = scale;
+        return ExactScaleBand;
+    }
+
     /// <summary>
     /// Chooses the caches a render records with: the output intent's when the flag asks for it, or when the document claims
     /// PDF/A and has a usable intent (ISO 19005 asks a reader to convert device colours through it).
@@ -488,12 +507,24 @@ public sealed partial class PdfPageRenderer : IDisposable
         }
     }
 
+    /// <summary>Finds or creates the entry for a tile's page, recorded for the exact page matrix when the quality settings need it.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="request">The tile request.</param>
+    /// <param name="cache">The caches the tile records with.</param>
+    /// <returns>The entry; release it when done.</returns>
+    private PagePictures Acquire(PdfPage page, in PdfTileRequest request, PdfRenderCache cache)
+    {
+        Matrix3x2? device = cache.Quality.NeedsDeviceMatrix ? GetMatrix(page, request with { OffsetX = 0, OffsetY = 0 }) : null;
+        return Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale), device);
+    }
+
     /// <summary>Finds or creates the entry for a page at the current optional content version, and marks it in use.</summary>
     /// <param name="pageIndex">The page index.</param>
     /// <param name="usesIntent">Whether the pictures convert device colours through the output intent.</param>
     /// <param name="scale">Device pixels per page point.</param>
+    /// <param name="device">The page-to-device matrix without the tile offset when pictures are recorded for it; otherwise null for a zoom band.</param>
     /// <returns>The entry; release it when done.</returns>
-    private PagePictures Acquire(int pageIndex, bool usesIntent, float scale)
+    private PagePictures Acquire(int pageIndex, bool usesIntent, float scale, Matrix3x2? device)
     {
         if (Volatile.Read(ref _registered) == 0 && Interlocked.Exchange(ref _registered, 1) == 0)
         {
@@ -504,14 +535,14 @@ public sealed partial class PdfPageRenderer : IDisposable
         var layers = PdfDocumentLayers.GetOptionalContent(_document);
         var version = layers.Version;
         var zoomClass = layers.GetZoomClass(scale);
-        var scaleBand = GetScaleBand(scale, out var upperScale);
+        var scaleBand = GetPictureBand(scale, device, out var upperScale);
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             for (var i = 0; i < _entries.Count; i++)
             {
                 var existing = _entries[i];
-                if (existing.PageIndex != pageIndex || existing.Version != version || existing.UsesIntent != usesIntent || existing.ScaleBand != scaleBand || existing.ZoomClass != zoomClass)
+                if (!existing.Serves(pageIndex, version, usesIntent, scaleBand, zoomClass, device))
                 {
                     continue;
                 }
@@ -522,7 +553,7 @@ public sealed partial class PdfPageRenderer : IDisposable
                 return existing;
             }
 
-            var created = new PagePictures(pageIndex, version, usesIntent, scaleBand, upperScale, zoomClass);
+            var created = new PagePictures(pageIndex, version, usesIntent, scaleBand, upperScale, zoomClass) { Device = device };
             _entries.Add(created);
             created.Acquire();
             EvictLocked();
@@ -556,7 +587,7 @@ public sealed partial class PdfPageRenderer : IDisposable
                 dropped++;
             }
 
-            _entries.RemoveRange(0, dropped);
+            _entries.RemoveFirst(dropped);
         }
     }
 
@@ -565,6 +596,21 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <returns>The bytes held.</returns>
     private long MeasureLocked(int first)
     {
+        if (_entries.Count - first == 1)
+        {
+            var only = _entries[first];
+            var images = only.Images;
+            if (images.Length == 0)
+            {
+                return only.HeldBytes;
+            }
+
+            if (images.Length == 1)
+            {
+                return only.HeldBytes + images[0].Bytes;
+            }
+        }
+
         _counted?.Clear();
         var total = 0L;
         for (var i = first; i < _entries.Count; i++)
@@ -590,7 +636,7 @@ public sealed partial class PdfPageRenderer : IDisposable
         var newest = _entries[last];
         for (var i = last - 1; i >= 0; i--)
         {
-            if (_entries[i].PageIndex != newest.PageIndex || _entries[i].ScaleBand != newest.ScaleBand)
+            if (_entries[i].PageIndex != newest.PageIndex || _entries[i].ScaleBand != newest.ScaleBand || _entries[i].Device != newest.Device)
             {
                 continue;
             }

@@ -118,35 +118,42 @@ public static class Jbig2Decoder
             throw new ArgumentException("The destination is smaller than the image.", nameof(destination));
         }
 
-        using var page = Jbig2Bitmap.Create(width, height, scratchPools);
-        if (page is null)
+        var workspace = Jbig2Workspace.Rent(scratchPools);
+        try
         {
-            return false;
-        }
+            using var page = workspace.RentBitmap(width, height);
+            if (page is null)
+            {
+                return false;
+            }
 
-        var decoded = Decode(StripFileHeader(data), StripFileHeader(globals), page, scratchPools, cancellationToken);
-        Jbig2Composer.CopyInverted(page.Data, destination);
-        return decoded;
+            var decoded = Decode(StripFileHeader(data), StripFileHeader(globals), page, workspace, cancellationToken);
+            Jbig2Composer.CopyInverted(page.Data, destination);
+            return decoded;
+        }
+        finally
+        {
+            workspace.Return();
+        }
     }
 
     /// <summary>Processes the global segments, then the page's.</summary>
     /// <param name="data">The page's segments.</param>
     /// <param name="globals">The global segments, or an empty span.</param>
     /// <param name="page">The white page bitmap.</param>
-    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="workspace">The work budget, scratch bitmaps and idle objects.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see langword="true"/> when the page decoded, even partly.</returns>
-    private static bool Decode(ReadOnlySpan<byte> data, ReadOnlySpan<byte> globals, Jbig2Bitmap page, ScratchPools scratchPools, CancellationToken cancellationToken)
+    private static bool Decode(ReadOnlySpan<byte> data, ReadOnlySpan<byte> globals, Jbig2Bitmap page, Jbig2Workspace workspace, CancellationToken cancellationToken)
     {
-        using var workspace = new Jbig2Workspace(scratchPools);
-        using var global = globals.IsEmpty ? null : new Jbig2DecodeState(null, workspace, null, cancellationToken);
+        using var global = globals.IsEmpty ? null : workspace.BeginGlobals(cancellationToken);
         if (global is not null)
         {
             // Damaged globals keep the segments that decoded; a page that needs a lost one fails on its own.
             _ = Jbig2Segments.DecodeSequential(global, globals);
         }
 
-        using var context = new Jbig2DecodeState(page, workspace, global, cancellationToken);
+        using var context = workspace.BeginPage(page, global, cancellationToken);
         return Jbig2Segments.DecodeSequential(context, data) == Jbig2Status.Success || context.PageSeen;
     }
 

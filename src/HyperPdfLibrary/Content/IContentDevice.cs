@@ -24,6 +24,13 @@ public interface IContentDevice
     /// </summary>
     bool RetainsPaths => true;
 
+    /// <summary>
+    /// Gets a value indicating whether the device reads the pixels of the images it draws. The default is
+    /// <see langword="true"/>. A device that only needs where an image lands returns <see langword="false"/>, and the
+    /// interpreter then calls <see cref="DrawImageArea"/> instead of decoding the image and calling <see cref="DrawImage"/>.
+    /// </summary>
+    bool ReadsImagePixels => true;
+
     /// <summary>Saves the clip, as <c>q</c> does.</summary>
     void Save();
 
@@ -53,6 +60,16 @@ public interface IContentDevice
     /// <param name="smooth">Whether the image asks for smoothing when scaled up.</param>
     /// <param name="state">The graphics state.</param>
     void DrawImage(IPdfRenderImage image, bool isMask, bool smooth, ref GraphicsState state);
+
+    /// <summary>
+    /// Reports an image drawn into the unit square of user space, without its pixels. The interpreter calls this instead of
+    /// <see cref="DrawImage"/> for a device whose <see cref="ReadsImagePixels"/> is <see langword="false"/>.
+    /// </summary>
+    /// <param name="state">The graphics state.</param>
+    void DrawImageArea(ref GraphicsState state)
+    {
+        // A device that reads pixels receives DrawImage instead and has nothing to do here.
+    }
 
     /// <summary>Reports one shown glyph; devices that draw fill, stroke or clip it according to the state's text render mode.</summary>
     /// <param name="glyph">The glyph.</param>

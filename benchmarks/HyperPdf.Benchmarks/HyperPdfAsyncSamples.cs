@@ -16,6 +16,9 @@ internal static class HyperPdfAsyncSamples
     /// <summary>The pages of the generated text report.</summary>
     internal const int ReportPages = 50;
 
+    /// <summary>The pages of the generated stand-in for the cached book.</summary>
+    internal const int BookPages = 200;
+
     /// <summary>The render scale: one pixel per point.</summary>
     internal const float Scale = 1F;
 
@@ -34,8 +37,8 @@ internal static class HyperPdfAsyncSamples
     /// <summary>The word the search benchmarks look for.</summary>
     internal const string Word = "the";
 
-    /// <summary>The cached corpus folder.</summary>
-    private static readonly string CorpusFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "hyperpdf", "reference-pdfs");
+    /// <summary>The cached reference PDF folder.</summary>
+    private static readonly string ReferenceFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "hyperpdf", "reference-pdfs");
 
     /// <summary>Gets the path of a sample document, writing generated ones to the temp folder.</summary>
     /// <param name="name">Report, Scan, Form or Book.</param>
@@ -46,17 +49,25 @@ internal static class HyperPdfAsyncSamples
         {
             case "Scan":
                 {
-                    return Path.Combine(CorpusFolder, "loc-marbury-v-madison.pdf");
+                    return Path.Combine(ReferenceFolder, "loc-marbury-v-madison.pdf");
                 }
 
             case "Book":
                 {
-                    return Path.Combine(CorpusFolder, "ia-us-reports-341.pdf");
+                    var cached = Path.Combine(ReferenceFolder, "ia-us-reports-341.pdf");
+                    if (File.Exists(cached))
+                    {
+                        return cached;
+                    }
+
+                    var generated = Path.Combine(Path.GetTempPath(), $"hyperpdf-async-{Environment.ProcessId}-Book.pdf");
+                    File.WriteAllBytes(generated, TestPdf.Create(BookPages));
+                    return generated;
                 }
 
             default:
                 {
-                    var path = Path.Combine(Path.GetTempPath(), $"hyperpdf-async-{name}.pdf");
+                    var path = Path.Combine(Path.GetTempPath(), $"hyperpdf-async-{Environment.ProcessId}-{name}.pdf");
                     File.WriteAllBytes(path, name == "Form" ? TestPdf.CreateForm() : TestPdf.Create(ReportPages));
                     return path;
                 }

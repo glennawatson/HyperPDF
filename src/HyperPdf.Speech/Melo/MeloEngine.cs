@@ -4,6 +4,7 @@
 
 using System.Buffers;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using HyperPdf.Core.Speech;
@@ -67,6 +68,9 @@ public sealed class MeloEngine : ISpeechEngine
 
     /// <summary>The stochastic share, as the model's input.</summary>
     private static readonly float[] StochasticShareValue = [StochasticShare];
+
+    /// <summary>The normalization buffers owned by this engine and used under its gate.</summary>
+    private readonly MeloNormalization _normalizing = new();
 
     /// <summary>The voice folder.</summary>
     private readonly string _directory;
@@ -151,7 +155,7 @@ public sealed class MeloEngine : ISpeechEngine
             {
                 ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
                 var frontEnd = GetFrontEnd();
-                frontEnd.Prepare(Normalize(text, MeloModel.IsBritish(voiceId)), _input);
+                frontEnd.Prepare(Normalize(text, MeloModel.IsBritish(voiceId), _normalizing), _input);
                 var names = new StringBuilder();
                 foreach (var id in _input.Phones)
                 {
@@ -177,31 +181,43 @@ public sealed class MeloEngine : ISpeechEngine
     /// <param name="text">The text.</param>
     /// <param name="british">Whether dates and spellings are British.</param>
     /// <returns>The prepared text.</returns>
-    internal static string Normalize(string text, bool british)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Normalize(string text, bool british) => new(Normalize(text, british, new()));
+
+    /// <summary>Prepares text using the caller's normalization buffers.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="british">Whether dates and spellings are British.</param>
+    /// <param name="buffers">The buffers owned by the caller.</param>
+    /// <returns>The prepared text; valid until the buffers are reused.</returns>
+    internal static ReadOnlySpan<char> Normalize(string text, bool british, MeloNormalization buffers)
     {
-        var builder = new StringBuilder(text.Length);
+        var builder = buffers.Input;
+        builder.Clear();
         for (var i = 0; i < text.Length; i++)
         {
             var c = text[i];
             if (i > 0 && char.IsAsciiLetterUpper(c) && char.IsAsciiLetterLower(text[i - 1]))
             {
-                _ = builder.Append(' ');
+                builder.Append(' ');
             }
 
             Append(builder, c);
         }
 
-        return TextNormalizer.Normalize(builder.ToString(), british).ToLowerInvariant();
+        var normalized = TextNormalizer.Normalize(builder.AsSpan(), british, buffers.Steps);
+        buffers.Output.Clear();
+        buffers.Output.AppendLowerInvariant(normalized);
+        return buffers.Output.AsSpan();
     }
 
     /// <summary>Appends a character as MeloTTS reads it: brackets and double quotes dropped, single quotes straightened.</summary>
     /// <param name="builder">The text so far.</param>
     /// <param name="c">The character.</param>
-    private static void Append(StringBuilder builder, char c)
+    private static void Append(SpokenText builder, char c)
     {
         if (!Dropped.Contains(c))
         {
-            _ = builder.Append(c is '‘' or '’' ? '\'' : c);
+            builder.Append(c is '‘' or '’' ? '\'' : c);
         }
     }
 
@@ -209,7 +225,7 @@ public sealed class MeloEngine : ISpeechEngine
     /// <param name="text">The text.</param>
     /// <param name="start">Where the next piece starts.</param>
     /// <returns>The piece's length.</returns>
-    private static int NextPiece(string text, int start)
+    private static int NextPiece(ReadOnlySpan<char> text, int start)
     {
         var remaining = text.Length - start;
         if (remaining <= MaxPieceLength)
@@ -217,8 +233,8 @@ public sealed class MeloEngine : ISpeechEngine
             return remaining;
         }
 
-        var space = text.LastIndexOf(' ', start + MaxPieceLength, MaxPieceLength);
-        return space > start ? space - start : MaxPieceLength;
+        var space = text.Slice(start + 1, MaxPieceLength).LastIndexOf(' ');
+        return space >= 0 ? space + 1 : MaxPieceLength;
     }
 
     /// <summary>
@@ -285,7 +301,7 @@ public sealed class MeloEngine : ISpeechEngine
                     speaker = symbols.Speakers[MeloModel.Voices[0].Id];
                 }
 
-                var prepared = Normalize(text, MeloModel.IsBritish(voiceId));
+                var prepared = Normalize(text, MeloModel.IsBritish(voiceId), _normalizing);
                 var samples = new List<float>();
                 for (var start = 0; start < prepared.Length;)
                 {

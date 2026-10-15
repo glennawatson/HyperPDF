@@ -120,7 +120,7 @@ public sealed class Pdf20ConverterTests
         await Assert.That(text).Contains("Info title");
         await Assert.That(text).Contains("Sales");
         await Assert.That(text).Contains("not carried over");
-        await Assert.That(Encoding.UTF8.GetString(xmp.RawPacket)).Contains("Kept as it is");
+        await Assert.That(Encoding.UTF8.GetString(xmp.RawPacket.AsSpan())).Contains("Kept as it is");
     }
 
     /// <summary>A hybrid form keeps its fields, values and appearances, loses the XFA packet, and the summary says so.</summary>

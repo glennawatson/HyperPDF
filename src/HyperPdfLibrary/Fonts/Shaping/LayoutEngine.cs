@@ -89,25 +89,23 @@ internal sealed class LayoutEngine
         Layout = layout;
         Gdef = gdef;
         Buffer = buffer;
-        IsPositioning = positioning;
-        RightToLeft = rightToLeft;
-        AlternateValue = 1;
+        Begin(layout, gdef, positioning, rightToLeft);
     }
 
     /// <summary>Gets the table.</summary>
-    internal OtLayoutTable Layout { get; }
+    internal OtLayoutTable Layout { get; private set; }
 
     /// <summary>Gets the font's glyph definitions.</summary>
-    internal OtGdef Gdef { get; }
+    internal OtGdef Gdef { get; private set; }
 
     /// <summary>Gets the glyphs.</summary>
     internal GlyphBuffer Buffer { get; }
 
     /// <summary>Gets a value indicating whether the table is GPOS.</summary>
-    internal bool IsPositioning { get; }
+    internal bool IsPositioning { get; private set; }
 
     /// <summary>Gets a value indicating whether the run reads right to left.</summary>
-    internal bool RightToLeft { get; }
+    internal bool RightToLeft { get; private set; }
 
     /// <summary>Gets the table's bytes.</summary>
     internal ReadOnlySpan<byte> Table => Layout.Span;
@@ -117,6 +115,23 @@ internal sealed class LayoutEngine
 
     /// <summary>Gets the lookup flags of the lookup being applied.</summary>
     internal int LookupFlags => _flags;
+
+    /// <summary>Points the engine at a table for a new run, so one engine serves many runs.</summary>
+    /// <param name="layout">The GSUB or GPOS table.</param>
+    /// <param name="gdef">The font's glyph definitions.</param>
+    /// <param name="positioning">Whether the table is GPOS.</param>
+    /// <param name="rightToLeft">Whether the run reads right to left.</param>
+    internal void Begin(OtLayoutTable layout, OtGdef gdef, bool positioning, bool rightToLeft)
+    {
+        Layout = layout;
+        Gdef = gdef;
+        IsPositioning = positioning;
+        RightToLeft = rightToLeft;
+        AlternateValue = 1;
+        _flags = 0;
+        _markSet = 0;
+        _depth = 0;
+    }
 
     /// <summary>Runs the lookups of a stage, each over the whole buffer.</summary>
     /// <param name="stage">The lookups, in lookup list order.</param>

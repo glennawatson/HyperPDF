@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Navigation;
@@ -15,7 +16,7 @@ public sealed record EmbeddedGoToAction(string? EmbeddedFile)
     public string? File { get; init; }
 
     /// <summary>Gets the steps from this document to the target (<c>/T</c> and the target dictionaries nested in it), first step first.</summary>
-    public PdfEmbeddedTarget[] Targets { get; init; } = [];
+    public ImmutableArray<PdfEmbeddedTarget> Targets { get; init; } = [];
 
     /// <summary>
     /// Gets a value indicating whether the target steps refer back to an earlier step, or nest more than 64 deep. ISO

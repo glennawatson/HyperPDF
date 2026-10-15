@@ -102,6 +102,39 @@ internal sealed class PdfParentTree
     /// <param name="value">The value.</param>
     internal void Set(int key, PdfValue value) => _entries[key] = value;
 
+    /// <summary>Forgets structure elements that were deleted: an entry for an object that named one goes, and a slot of a page's array that named one is cleared.</summary>
+    /// <param name="elements">The object numbers of the deleted elements.</param>
+    internal void RemoveElements(HashSet<int> elements)
+    {
+        // The entries are changed while they are walked, so the keys are copied first.
+        var keys = new List<int>(_entries.Keys);
+        foreach (var key in keys)
+        {
+            var value = _entries[key];
+            if (value.IsReference && elements.Contains(value.AsReference().Number))
+            {
+                _ = _entries.Remove(key);
+            }
+            else
+            {
+                ClearSlots(key, value, static (_, slot, deleted) => slot.IsReference && deleted.Contains(slot.AsReference().Number), elements);
+            }
+        }
+    }
+
+    /// <summary>Clears the slots of one page's array, so marked content ids that no longer exist name no element.</summary>
+    /// <param name="key">The page's <c>/StructParents</c> key.</param>
+    /// <param name="mcids">The marked content ids that are gone.</param>
+    internal void ClearMarkedContent(int key, HashSet<int> mcids)
+    {
+        if (!_entries.TryGetValue(key, out var value))
+        {
+            return;
+        }
+
+        ClearSlots(key, value, static (index, _, gone) => gone.Contains(index), mcids);
+    }
+
     /// <summary>Takes the next unused key.</summary>
     /// <returns>The key.</returns>
     internal int TakeKey()
@@ -140,6 +173,46 @@ internal sealed class PdfParentTree
         foreach (var node in _oldNodes)
         {
             _transaction.Delete(node);
+        }
+    }
+
+    /// <summary>Clears the slots of an entry's array that a test selects, writing the array back where it was stored.</summary>
+    /// <typeparam name="TState">The type of the state the test reads.</typeparam>
+    /// <param name="key">The entry's key.</param>
+    /// <param name="value">The entry as stored.</param>
+    /// <param name="selects">Decides whether a slot is cleared, from its index, its raw value and the state.</param>
+    /// <param name="state">The state the test reads.</param>
+    private void ClearSlots<TState>(int key, PdfValue value, Func<int, PdfValue, TState, bool> selects, TState state)
+    {
+        if (StoreReading.Resolve(_store, value).AsArray() is not { } array)
+        {
+            return;
+        }
+
+        PdfArray? copy = null;
+        for (var i = 0; i < array.Count; i++)
+        {
+            if (array.GetRaw(i).IsNull || !selects(i, array.GetRaw(i), state))
+            {
+                continue;
+            }
+
+            copy ??= array.Clone();
+            copy.SetAt(i, default);
+        }
+
+        if (copy is null)
+        {
+            return;
+        }
+
+        if (value.IsReference)
+        {
+            _transaction.Replace(value.AsReference(), PdfValue.FromArray(copy));
+        }
+        else
+        {
+            _entries[key] = PdfValue.FromArray(copy);
         }
     }
 

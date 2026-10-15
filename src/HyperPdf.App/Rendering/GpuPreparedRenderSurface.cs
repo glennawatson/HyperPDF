@@ -98,7 +98,7 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
     {
         cancellationToken.ThrowIfCancellationRequested();
         _request = request;
-        if (request.Document is IHyperPdfGpuRenderer renderer && !_availability.IsUnavailable && GpuPageTone.CanApply(request.Tone))
+        if (request.Document is IHyperPdfGpuRenderer renderer && !_availability.IsUnavailable && _availability.PageTone.CanApply(request.Tone))
         {
             if (!renderer.Prepare(request.Info, cancellationToken))
             {
@@ -176,11 +176,12 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
     /// <summary>Draws the retained image, creating it from the recording on this context's thread when needed.</summary>
     /// <param name="canvas">The active compositor canvas.</param>
     /// <param name="context">The graphics context shared with the compositor.</param>
+    /// <param name="retirement">The image-release queue owned by that graphics backend.</param>
     /// <param name="colorType">The compositor surface's channel order.</param>
     /// <param name="destination">The tile bounds in compositor coordinates.</param>
     /// <param name="sampling">The image sampling mode.</param>
     /// <returns>Whether the GPU image was drawn.</returns>
-    internal bool DrawGpu(SKCanvas canvas, GRContext context, SKColorType colorType, SKRect destination, SKSamplingOptions sampling)
+    internal bool DrawGpu(SKCanvas canvas, GRContext context, SkiaGpuImageRetirement retirement, SKColorType colorType, SKRect destination, SKSamplingOptions sampling)
     {
         ArgumentNullException.ThrowIfNull(canvas);
         ArgumentNullException.ThrowIfNull(context);
@@ -189,7 +190,7 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
             return false;
         }
 
-        var state = GetOrCreateImage(context, colorType);
+        var state = GetOrCreateImage(context, retirement, colorType);
         if (state is null)
         {
             return false;
@@ -218,7 +219,7 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
 
             if (_image is { } gpuImage)
             {
-                SkiaGpuImageRetirement.Enqueue(gpuImage.Context, gpuImage.Image);
+                gpuImage.Retirement.Enqueue(gpuImage.Image);
                 _image = null;
             }
 
@@ -257,7 +258,7 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
             _software = null;
             if (_image is { } image)
             {
-                SkiaGpuImageRetirement.Enqueue(image.Context, image.Image);
+                image.Retirement.Enqueue(image.Image);
                 _image = null;
             }
         }
@@ -314,9 +315,10 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
 
     /// <summary>Gets an image retained for this context, or replays the recording into a new GPU surface.</summary>
     /// <param name="context">The context that owns the image.</param>
+    /// <param name="retirement">The image-release queue owned by that graphics backend.</param>
     /// <param name="colorType">The compositor surface's channel order.</param>
     /// <returns>The retained image, or null when the context cannot create a target.</returns>
-    private GpuImageState? GetOrCreateImage(GRContext context, SKColorType colorType)
+    private GpuImageState? GetOrCreateImage(GRContext context, SkiaGpuImageRetirement retirement, SKColorType colorType)
     {
         if (colorType is not (SKColorType.Bgra8888 or SKColorType.Rgba8888))
         {
@@ -332,7 +334,7 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
 
             if (_image is { } oldImage)
             {
-                SkiaGpuImageRetirement.Enqueue(oldImage.Context, oldImage.Image);
+                oldImage.Retirement.Enqueue(oldImage.Image);
                 _image = null;
             }
 
@@ -358,7 +360,7 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
                 return null;
             }
 
-            _image = new(context, presentationColorType, image);
+            _image = new(context, retirement, presentationColorType, image);
             TileRenderingEventSource.Log.GpuSnapshot(Width, Height);
             return _image;
         }
@@ -396,7 +398,7 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
 
             using (image)
             {
-                return GpuPageTone.TryApply(image, info, _request.Tone, context);
+                return _availability.PageTone.TryApply(image, info, _request.Tone, context);
             }
         }
         catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
@@ -407,7 +409,8 @@ internal sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
 
     /// <summary>Pairs one retained image with the context that owns its GPU resources.</summary>
     /// <param name="Context">The owning context.</param>
+    /// <param name="Retirement">The owning backend's image-release queue.</param>
     /// <param name="PresentationColorType">The compositor's channel order when the image was made.</param>
     /// <param name="Image">The image.</param>
-    private sealed record GpuImageState(GRContext Context, SKColorType PresentationColorType, SKImage Image);
+    private sealed record GpuImageState(GRContext Context, SkiaGpuImageRetirement Retirement, SKColorType PresentationColorType, SKImage Image);
 }

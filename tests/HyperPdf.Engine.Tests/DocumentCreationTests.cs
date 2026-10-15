@@ -126,7 +126,7 @@ public sealed class DocumentCreationTests
         CreatedFiles.Keep("engine-accessible.pdf", pdf);
 
         using var document = PdfDocumentReader.Open(pdf, null);
-        var report = PdfDocumentAccessibility.GetAccessibilityReport(document, cancellationToken);
+        var report = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
         await Assert.That(result.IsTagged).IsTrue();
         await Assert.That(result.ClaimsPdfUa).IsTrue();
         await Assert.That(result.Notes).IsEmpty();

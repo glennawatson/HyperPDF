@@ -1,4 +1,5 @@
 #!/usr/bin/env -S dotnet run --file
+#:property TargetFramework=net11.0
 #:package Microsoft.Diagnostics.Tracing.TraceEvent
 #:property IsAotCompatible=false
 #:property PublishAot=false
@@ -10,8 +11,8 @@
 // Reads the allocation traces the benchmarks write (alloc-{pid}.nettrace, traced from start-up so every allocation is
 // sampled with its stack) and reports what HyperPDF allocates per operation of each measured benchmark. Fails on
 // any allocation benchmarks/allocations-explained.json does not explain, and, given a baseline, on any growth at all:
-// allocations are deterministic, so memory gets no leeway. scripts/audit-allocations.sh and
-// scripts/compare-benchmarks.sh run it.
+// allocations are deterministic, so memory gets no leeway. dotnet run --file scripts/AuditAllocations.cs -- and
+// dotnet run --file scripts/CompareBenchmarks.cs -- run it.
 // Usage: dotnet run --file scripts/AllocationAudit.cs -- <traces> [explained.json] [--baseline <baseline traces>]
 using System.Diagnostics;
 using System.Globalization;
@@ -46,6 +47,9 @@ namespace HyperPdf.Scripts
 
         /// <summary>The namespace prefix of the managed PDF engine under audit.</summary>
         private const string EnginePrefix = "HyperPdfLibrary.";
+
+        /// <summary>The benchmark entry point, which configures the measurement process rather than the workload.</summary>
+        private const string BenchmarkEntryPointPrefix = "HyperPdf.Benchmarks.Program.";
 
         /// <summary>How far from a whole count of objects per operation a site may measure and still be that count.</summary>
         private const double WholeSlack = 0.1;
@@ -89,19 +93,22 @@ namespace HyperPdf.Scripts
         /// <param name="path">A trace file or a folder of them.</param>
         /// <param name="explained">The expected allocations.</param>
         /// <returns>The benchmarks, by name.</returns>
+        /// <exception cref="InvalidDataException">No measured benchmark windows were found.</exception>
         private static List<BenchmarkAllocations> ReadAll(string path, List<ExplainedAllocation> explained)
         {
             var traces = Directory.Exists(path) ? Directory.GetFiles(path, "*.nettrace", SearchOption.AllDirectories) : [path];
             var result = new List<BenchmarkAllocations>(traces.Length);
             foreach (var trace in traces)
             {
-                if (Audit(trace, explained) is { } benchmark)
-                {
-                    result.Add(benchmark);
-                }
+                result.AddRange(Audit(trace, explained));
             }
 
             result.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
+            if (result.Count == 0)
+            {
+                throw new InvalidDataException("No measured benchmark windows were found; nothing was measured.");
+            }
+
             return result;
         }
 
@@ -235,53 +242,84 @@ namespace HyperPdf.Scripts
             return now.BytesPerOperation - old.BytesPerOperation > old.ResolutionPerOperation + now.ResolutionPerOperation ? "MORE BYTES" : null;
         }
 
-        /// <summary>Reads a trace and groups the library allocations of its measured iterations by type and method.</summary>
+        /// <summary>
+        /// Reads a trace and groups the library allocations of each benchmark's measured iterations by type and method. A
+        /// BenchmarkDotNet trace holds one benchmark; the allocation harness traces many in one process, each starting at
+        /// its own benchmark marker.
+        /// </summary>
         /// <param name="tracePath">The .nettrace file.</param>
         /// <param name="explained">The expected allocations.</param>
-        /// <returns>The benchmark's allocations, or <see langword="null"/> when the trace measured no benchmark.</returns>
-        private static BenchmarkAllocations? Audit(string tracePath, List<ExplainedAllocation> explained)
+        /// <returns>The allocations of each benchmark the trace measured.</returns>
+        private static List<BenchmarkAllocations> Audit(string tracePath, List<ExplainedAllocation> explained)
         {
             var etlx = TraceLog.CreateFromEventPipeDataFile(tracePath);
             try
             {
                 using var log = new TraceLog(etlx);
-                var reader = new TraceReader();
+                var typeNames = new Dictionary<ulong, string>();
+                var readers = new List<TraceReader>();
+                var reader = new TraceReader(typeNames);
                 foreach (var data in log.Events)
                 {
+                    if (reader.Name is not null && TraceReader.StartsBenchmark(data))
+                    {
+                        readers.Add(reader);
+                        reader = new(typeNames);
+                    }
+
                     reader.Read(data);
                 }
 
-                if (reader.Name is null || reader.Operations == 0)
+                readers.Add(reader);
+                var result = new List<BenchmarkAllocations>(readers.Count);
+                foreach (var finished in readers)
                 {
-                    return null;
+                    if (Summarise(finished, explained) is { } benchmark)
+                    {
+                        result.Add(benchmark);
+                    }
                 }
 
-                var sites = new List<AllocationSite>(reader.Sites.Count);
-                foreach (var ((type, frame), (count, bytes)) in reader.Sites)
-                {
-                    sites.Add(Site((type, frame), (double)count / reader.Operations, (double)bytes / reader.Operations, Explain(explained, type, frame)));
-                }
-
-                sites.Sort(static (a, b) => b.BytesPerOperation.CompareTo(a.BytesPerOperation));
-                var total = 0.0;
-                foreach (var site in sites)
-                {
-                    total += site.BytesPerOperation;
-                }
-
-                var types = new List<TypeAllocations>(reader.Types.Count);
-                foreach (var (type, (count, bytes, largest)) in reader.Types)
-                {
-                    types.Add(TypeTotal(type, (double)count / reader.Operations, (double)bytes / reader.Operations, (double)largest / reader.Operations));
-                }
-
-                types.Sort(static (a, b) => b.BytesPerOperation.CompareTo(a.BytesPerOperation));
-                return new(reader.Name, reader.Operations, total, sites, types);
+                return result;
             }
             finally
             {
                 File.Delete(etlx);
             }
+        }
+
+        /// <summary>Groups one benchmark's sampled allocations by type and method.</summary>
+        /// <param name="reader">The reader that followed the benchmark.</param>
+        /// <param name="explained">The expected allocations.</param>
+        /// <returns>The benchmark's allocations, or <see langword="null"/> when it measured nothing.</returns>
+        private static BenchmarkAllocations? Summarise(TraceReader reader, List<ExplainedAllocation> explained)
+        {
+            if (reader.Name is null || reader.Operations == 0)
+            {
+                return null;
+            }
+
+            var sites = new List<AllocationSite>(reader.Sites.Count);
+            foreach (var ((type, frame), (count, bytes)) in reader.Sites)
+            {
+                sites.Add(Site((type, frame), (double)count / reader.Operations, (double)bytes / reader.Operations, Explain(explained, type, frame)));
+            }
+
+            sites.Sort(static (a, b) => b.BytesPerOperation.CompareTo(a.BytesPerOperation));
+            var total = 0.0;
+            foreach (var site in sites)
+            {
+                total += site.BytesPerOperation;
+            }
+
+            var types = new List<TypeAllocations>(reader.Types.Count);
+            foreach (var (type, (count, bytes, largest)) in reader.Types)
+            {
+                types.Add(TypeTotal(type, (double)count / reader.Operations, (double)bytes / reader.Operations, (double)largest / reader.Operations));
+            }
+
+            types.Sort(static (a, b) => b.BytesPerOperation.CompareTo(a.BytesPerOperation));
+            return new(reader.Name, reader.Operations, total, sites, types);
         }
 
         /// <summary>
@@ -346,6 +384,11 @@ namespace HyperPdf.Scripts
             for (var frame = stack; frame is not null; frame = frame.Caller)
             {
                 var name = frame.CodeAddress.FullMethodName ?? string.Empty;
+                if (name.StartsWith(BenchmarkEntryPointPrefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 if (name.StartsWith(LibraryPrefix, StringComparison.Ordinal) || name.StartsWith(EnginePrefix, StringComparison.Ordinal))
                 {
                     return name;
@@ -355,35 +398,83 @@ namespace HyperPdf.Scripts
             return null;
         }
 
+        /// <summary>Identifies the observed wrapper costs of the two standalone Skia JPEG comparisons.</summary>
+        /// <param name="type">The allocated type.</param>
+        /// <param name="method">The attributed method.</param>
+        /// <param name="stack">The allocation stack.</param>
+        /// <returns>Whether the allocation belongs only to an external comparison.</returns>
+        private static bool IsExternalComparison(string type, string method, TraceCallStack? stack)
+        {
+            var wrapper = method switch
+            {
+                "HyperPdf.Benchmarks.HyperPdfJpegBenchmarks.Skia()" => type == "SkiaSharp.SKCodec",
+                "HyperPdf.Benchmarks.HyperPdfJpegEncodeBenchmarks.Skia()" => type is "SkiaSharp.SKDynamicMemoryWStream" or "SkiaSharp.SKData",
+                _ => false,
+            };
+            if (!wrapper)
+            {
+                return false;
+            }
+
+            // These two benchmark methods call only Skia APIs. Their measured wrapper costs are external workload
+            // costs, not HyperPDF allocations. Keep every other type and benchmark, including inlined product code.
+            // A product frame anywhere on this stack also keeps these wrappers in the audit.
+            for (var frame = stack; frame is not null; frame = frame.Caller)
+            {
+                var name = frame.CodeAddress.FullMethodName ?? string.Empty;
+                if (name.StartsWith(EnginePrefix, StringComparison.Ordinal)
+                    || (name.StartsWith(LibraryPrefix, StringComparison.Ordinal)
+                        && !name.StartsWith("HyperPdf.Benchmarks.", StringComparison.Ordinal)))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         /// <summary>Source generated JSON for the explained allocations file.</summary>
         [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true)]
         [JsonSerializable(typeof(List<ExplainedAllocation>))]
         internal sealed partial class AuditJsonContext : JsonSerializerContext;
 
         /// <summary>
-        /// Follows a trace in order: the benchmark's name, the measured iterations BenchmarkDotNet marks with its engine
-        /// events, type names, and the allocations sampled inside those iterations.
+        /// Follows a trace in order: the benchmark's name, the measured windows its markers delimit (BenchmarkDotNet's
+        /// engine events, or the allocation harness's), type names, and the allocations sampled inside those windows.
         /// </summary>
         [DebuggerDisplay("TraceReader: {Name}, {Operations} operations")]
         internal sealed class TraceReader
         {
-            /// <summary>The engine's event source.</summary>
+            /// <summary>BenchmarkDotNet's engine event source.</summary>
             private const string EngineSource = "BenchmarkDotNet.EngineEventSource";
 
-            /// <summary>The event starting a measured iteration.</summary>
+            /// <summary>The allocation harness's event source (benchmarks/HyperPdf.Benchmarks/AllocationHarness).</summary>
+            private const string HarnessSource = "HyperPdf.AllocationHarness";
+
+            /// <summary>BenchmarkDotNet's event starting a measured iteration.</summary>
             private const string ActualStart = "WorkloadActual/Start";
 
-            /// <summary>The event ending a measured iteration.</summary>
+            /// <summary>BenchmarkDotNet's event ending a measured iteration.</summary>
             private const string ActualStop = "WorkloadActual/Stop";
 
-            /// <summary>The event naming the benchmark.</summary>
+            /// <summary>The event naming the benchmark; BenchmarkDotNet and the harness use the same name.</summary>
             private const string BenchmarkStart = "Benchmark/Start";
 
-            /// <summary>The type names by id.</summary>
-            private readonly Dictionary<ulong, string> _typeNames = [];
+            /// <summary>The harness's event starting a measured window.</summary>
+            private const string WindowStart = "Window/Start";
+
+            /// <summary>The harness's event ending a measured window.</summary>
+            private const string WindowStop = "Window/Stop";
+
+            /// <summary>The type names by id, shared by every benchmark of a trace.</summary>
+            private readonly Dictionary<ulong, string> _typeNames;
 
             /// <summary>Whether a measured iteration is running.</summary>
             private bool _measuring;
+
+            /// <summary>Initializes a new instance of the <see cref="TraceReader"/> class.</summary>
+            /// <param name="typeNames">The type names by id, which later benchmarks of the same trace keep using.</param>
+            internal TraceReader(Dictionary<ulong, string> typeNames) => _typeNames = typeNames;
 
             /// <summary>Gets the benchmark's full name, or <see langword="null"/> before it starts.</summary>
             internal string? Name { get; private set; }
@@ -396,6 +487,12 @@ namespace HyperPdf.Scripts
 
             /// <summary>Gets the sampled allocations by type, with the largest single batch the runtime reported.</summary>
             internal Dictionary<string, (long Count, long Bytes, long LargestBatch)> Types { get; } = [];
+
+            /// <summary>Determines whether an event names the start of a benchmark.</summary>
+            /// <param name="data">The event.</param>
+            /// <returns><see langword="true"/> for the first event of a benchmark.</returns>
+            internal static bool StartsBenchmark(TraceEvent data) =>
+                data.ProviderName is EngineSource or HarnessSource && data.EventName == BenchmarkStart;
 
             /// <summary>Reads one event.</summary>
             /// <param name="data">The event.</param>
@@ -421,14 +518,14 @@ namespace HyperPdf.Scripts
                     }
                 }
 
-                if (data.ProviderName == EngineSource)
+                if (data.ProviderName is EngineSource or HarnessSource)
                 {
                     ReadEngine(data);
                 }
             }
 
-            /// <summary>Follows the engine's iteration events.</summary>
-            /// <param name="data">The engine event.</param>
+            /// <summary>Follows the iteration or window events.</summary>
+            /// <param name="data">The engine or harness event.</param>
             private void ReadEngine(TraceEvent data)
             {
                 switch (data.EventName)
@@ -446,9 +543,22 @@ namespace HyperPdf.Scripts
                         break;
                     }
 
+                    case WindowStart:
+                    {
+                        _measuring = true;
+                        break;
+                    }
+
                     case ActualStop:
                     {
                         _measuring = false;
+                        break;
+                    }
+
+                    case WindowStop:
+                    {
+                        _measuring = false;
+                        Operations += Convert.ToInt64(data.PayloadByName("totalOperations"), CultureInfo.InvariantCulture);
                         break;
                     }
                 }
@@ -462,6 +572,11 @@ namespace HyperPdf.Scripts
             private void Record(string type, TraceCallStack? stack, long count, long bytes)
             {
                 if (LibraryFrame(stack) is not { } frame)
+                {
+                    return;
+                }
+
+                if (IsExternalComparison(type, frame, stack))
                 {
                     return;
                 }

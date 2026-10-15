@@ -49,16 +49,25 @@ internal static class RecordVeraPdfResults
         ["PDF_A-4f"] = "4f",
     };
 
+    /// <summary>Gets the PDF/UA folders and the veraPDF flavour each is validated against.</summary>
+    private static Dictionary<string, string> UaFlavours => new(StringComparer.Ordinal) { ["PDF_UA-1"] = "ua1", ["PDF_UA-2"] = "ua2" };
+
     /// <summary>Records the results.</summary>
-    /// <param name="args">The test file checkout, the veraPDF installation directory and the output file.</param>
+    /// <param name="args">The test file checkout, the veraPDF installation directory, the output file, and optionally <c>ua</c> to record the PDF/UA folders instead of the PDF/A ones.</param>
     /// <returns>A task.</returns>
     /// <exception cref="ArgumentException">The arguments are wrong.</exception>
     internal static async Task Main(string[] args)
     {
-        if (args is not [var testFilesArgument, var homeArgument, var outputArgument])
+        var isUa = args is [_, _, _, "ua"];
+        if (args.Length != 3 && !isUa)
         {
-            throw new ArgumentException("Provide the test file checkout, the veraPDF installation directory and the output file.");
+            throw new ArgumentException("Provide the test file checkout, the veraPDF installation directory, the output file and optionally 'ua'.");
         }
+
+        var testFilesArgument = args[0];
+        var homeArgument = args[1];
+        var outputArgument = args[2];
+        var flavours = isUa ? UaFlavours : Flavours;
 
         var testFiles = Path.GetFullPath(testFilesArgument);
         var home = Path.GetFullPath(homeArgument);
@@ -68,7 +77,7 @@ internal static class RecordVeraPdfResults
         var release = (await RunAsync(FindJava(), [.. CliArguments(home), "--version"], setup.Token)).Trim().Split('\n')[0].Trim();
         var commit = (await RunAsync("git", ["-C", testFiles, "rev-parse", "HEAD"], setup.Token)).Trim();
         var lines = new List<string> { $"# {release}", $"# veraPDF test files {commit}" };
-        foreach (var (folder, flavour) in Flavours)
+        foreach (var (folder, flavour) in flavours)
         {
             var files = Directory.GetFiles(Path.Combine(testFiles, folder), "*.pdf", SearchOption.AllDirectories);
             Array.Sort(files, StringComparer.Ordinal);

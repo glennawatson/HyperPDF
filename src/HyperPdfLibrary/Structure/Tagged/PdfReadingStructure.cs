@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdfLibrary.Document;
 
@@ -23,6 +24,33 @@ public static class PdfReadingStructure
     {
         var tagged = ReadTagged(document, pageIndex);
         return tagged.Nodes.Count > 0 ? tagged : InferLayout(document, pageIndex);
+    }
+
+    /// <summary>
+    /// Reads a page like <see cref="Read(PdfDocument, int)"/>, and for a page that draws only images asks the recogniser for
+    /// its words and builds the structure from them.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="recogniser">The host's text recogniser.</param>
+    /// <param name="cancellationToken">Cancels the read and the recognition.</param>
+    /// <returns>The page's nodes; the image-only page's words when the recogniser found some.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="document"/> or <paramref name="recogniser"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pageIndex"/> is not a page.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static async ValueTask<PdfSemanticPage> ReadAsync(PdfDocument document, int pageIndex, PdfPageRecogniser recogniser, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(recogniser);
+        Validate(document, pageIndex);
+        await PdfPrefetcher.PrefetchAsync(document.Objects, PdfDocumentPages.GetPage(document, pageIndex).Dictionary, PdfPrefetchKind.Page, cancellationToken).ConfigureAwait(false);
+        var page = Read(document, pageIndex);
+        if (!page.NeedsTextRecognition)
+        {
+            return page;
+        }
+
+        var words = await recogniser(pageIndex, cancellationToken).ConfigureAwait(false);
+        return words is { Count: > 0 } ? FromOcrWords(pageIndex, words) : page;
     }
 
     /// <summary>Reads a page's tagged structure.</summary>
@@ -50,7 +78,23 @@ public static class PdfReadingStructure
     /// <returns>The page's paragraphs and headings in reading order.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pageIndex"/> is not a page.</exception>
-    public static PdfSemanticPage InferLayout(PdfDocument document, int pageIndex)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfSemanticPage InferLayout(PdfDocument document, int pageIndex) =>
+        InferLayout(document, pageIndex, PdfLayoutInference.Default, CancellationToken.None);
+
+    /// <summary>
+    /// Works out a page's reading order from its layout: tables, lists, figures with captions, sidebars, and
+    /// running headers, footers and page numbers set aside as pagination artifacts. Every node is labelled as inferred.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="options">What inference may use beyond the page's text.</param>
+    /// <param name="cancellationToken">Stops the work between regions.</param>
+    /// <returns>The page's nodes in reading order; the pagination artifacts are in <see cref="PdfSemanticPage.Artifacts"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="document"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pageIndex"/> is not a page.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static PdfSemanticPage InferLayout(PdfDocument document, int pageIndex, PdfLayoutInference options, CancellationToken cancellationToken)
     {
         Validate(document, pageIndex);
         var content = PdfDocumentTagged.GetMarkedContent(document, pageIndex);
@@ -66,8 +110,9 @@ public static class PdfReadingStructure
         }
 
         var nodes = new List<PdfSemanticNode>();
-        new InferredLayoutBuilder(PdfNodeOrigin.Inferred, pageIndex, content.Text, items).Build(nodes);
-        return new(pageIndex, PdfNodeOrigin.Inferred, nodes, content);
+        var artifacts = new List<PdfSemanticNode>();
+        new InferredLayoutBuilder(PdfNodeOrigin.Inferred, pageIndex, content.Text, items, content, options).Build(nodes, artifacts, cancellationToken);
+        return new(pageIndex, PdfNodeOrigin.Inferred, nodes, content) { Artifacts = artifacts };
     }
 
     /// <summary>
@@ -96,7 +141,7 @@ public static class PdfReadingStructure
         }
 
         var nodes = new List<PdfSemanticNode>();
-        new InferredLayoutBuilder(PdfNodeOrigin.Ocr, pageIndex, text.ToString(), items).Build(nodes);
+        new InferredLayoutBuilder(PdfNodeOrigin.Ocr, pageIndex, text.ToString(), items).Build(nodes, [], CancellationToken.None);
         return new(pageIndex, PdfNodeOrigin.Ocr, nodes, null);
     }
 

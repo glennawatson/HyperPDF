@@ -60,7 +60,8 @@ public sealed class DrawingContextImplTests
         using var context = new DrawingContextImpl(new DrawingContextCreateInfo { Surface = surface, Dpi = SkiaPlatform.DefaultDpi });
         var typeface = new GlyphTypeface(new SkiaTypeface(SKTypeface.FromFamilyName(null), FontSimulations.None));
         using var lifetime = DisposeAction.Create(typeface.Dispose);
-        using var shaped = new HarfBuzzTextShaper().ShapeText("A test".AsMemory(), new(typeface, fontSize));
+        using var shaper = new HarfBuzzTextShaper();
+        using var shaped = shaper.ShapeText("A test".AsMemory(), new(typeface, fontSize));
         using var run = new GlyphRunImpl(typeface, fontSize, shaped, new(0, fontSize));
         for (var i = 0; i < repetitions; i++)
         {

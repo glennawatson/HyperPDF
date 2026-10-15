@@ -22,7 +22,7 @@ internal sealed class PooledWriteStream : Stream
     /// <summary>The factor by which a full array grows.</summary>
     private const int GrowthFactor = 2;
 
-    /// <summary>The rented array; null once disposed.</summary>
+    /// <summary>The rented array; null while disposed.</summary>
     private byte[]? _buffer;
 
     /// <summary>The bytes written.</summary>
@@ -116,6 +116,13 @@ internal sealed class PooledWriteStream : Stream
         cancellationToken.ThrowIfCancellationRequested();
         Write(buffer.Span);
         return ValueTask.CompletedTask;
+    }
+
+    /// <summary>Empties the stream and rents storage again when it was disposed.</summary>
+    internal void Reset()
+    {
+        _buffer ??= ArrayPool<byte>.Shared.Rent(DefaultCapacity);
+        _length = 0;
     }
 
     /// <summary>Copies the bytes written into a new array.</summary>

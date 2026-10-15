@@ -64,7 +64,7 @@ public sealed class CatalogStructureTests
 
         await Assert.That(HyperPdfLibrary.Document.PdfDocumentXfa.HasXfa(array)).IsTrue();
         await Assert.That(packets.Packets.Count).IsEqualTo(PacketCount);
-        await Assert.That(System.Text.Encoding.ASCII.GetString(packets.Find("datasets")!.Data)).IsEqualTo("<data/>");
+        await Assert.That(System.Text.Encoding.ASCII.GetString(packets.Find("datasets")!.Data.AsSpan())).IsEqualTo("<data/>");
         await Assert.That(HyperPdfLibrary.Document.PdfDocumentXfa.GetXfa(single)!.IsSingleStream).IsTrue();
         await Assert.That(HyperPdfLibrary.Document.PdfDocumentXfa.GetXfa(single)!.Packets[0].Name).IsEqualTo("xdp");
         await Assert.That(HyperPdfLibrary.Document.PdfDocumentXfa.GetXfa(none)).IsNull();

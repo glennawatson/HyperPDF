@@ -52,4 +52,23 @@ public class LicenceNoticesBenchmarks
     /// <returns>The document.</returns>
     [Benchmark]
     public NoticeDocument ParseUtf8() => NoticeDocument.Parse(_utf8);
+
+    /// <summary>Reads the file and every component's licence text.</summary>
+    /// <returns>The total licence text length.</returns>
+    [Benchmark]
+    public int ReadLicenceTexts()
+    {
+        var length = 0;
+        var groups = NoticeDocument.Parse(_utf8).Groups;
+        for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+        {
+            var entries = groups[groupIndex].Entries;
+            for (var entryIndex = 0; entryIndex < entries.Count; entryIndex++)
+            {
+                length += entries[entryIndex].Text.Length;
+            }
+        }
+
+        return length;
+    }
 }

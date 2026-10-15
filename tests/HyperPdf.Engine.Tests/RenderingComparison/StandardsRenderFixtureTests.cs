@@ -8,8 +8,8 @@ namespace HyperPdf.Engine.Tests.RenderingComparison;
 [NotInParallel]
 public sealed class StandardsRenderFixtureTests
 {
-    /// <summary>The bounded time for one browser reference, including one startup retry.</summary>
-    private const int BrowserTestTimeoutMilliseconds = 180_000;
+    /// <summary>Leaves time for the browser's own 180-second deadline and bounded cleanup to report the failure.</summary>
+    private const int BrowserTestTimeoutMilliseconds = 300_000;
 
     /// <summary>Requires actual HyperPDF, PDFium and browser pdf.js output for each standards fixture.</summary>
     /// <param name="caseNumber">The graphics case.</param>

@@ -35,9 +35,10 @@ internal static class BilevelRecoder
     /// <param name="codec">Its codec.</param>
     /// <param name="size">The width and height.</param>
     /// <param name="codings">The codings besides Flate that may be tried.</param>
+    /// <param name="scratchPools">The document or registered service's compression owner.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The outcome.</returns>
-    internal static ImageOutcome Recode(PdfStream image, CodecKind codec, PixelSize size, in BilevelCodings codings, CancellationToken cancellationToken)
+    internal static ImageOutcome Recode(PdfStream image, CodecKind codec, PixelSize size, in BilevelCodings codings, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         var (width, height, _) = size;
         var parameters = ImageFilters.CodecParameters(image.Dictionary);
@@ -52,7 +53,7 @@ internal static class BilevelRecoder
         try
         {
             return TryReadRows(image, parameters, size, ref decoded, ref rows, cancellationToken)
-                ? Code(image, rows.WrittenSpan, size, "1-bit image", codings, cancellationToken)
+                ? Code(image, rows.WrittenSpan, size, "1-bit image", codings, scratchPools, cancellationToken)
                 : ImageOutcome.Unchanged;
         }
         finally
@@ -67,15 +68,16 @@ internal static class BilevelRecoder
     /// <param name="samples">The 8-bit samples.</param>
     /// <param name="size">The size.</param>
     /// <param name="codings">The codings besides Flate that may be tried.</param>
+    /// <param name="scratchPools">The document or registered service's compression owner.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The outcome.</returns>
-    internal static ImageOutcome PackAndCode(PdfStream image, ReadOnlySpan<byte> samples, PixelSize size, in BilevelCodings codings, CancellationToken cancellationToken)
+    internal static ImageOutcome PackAndCode(PdfStream image, ReadOnlySpan<byte> samples, PixelSize size, in BilevelCodings codings, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         var packed = default(PooledBuffer);
         try
         {
             BilevelEncoder.Pack(samples, size.Width, size.Height, ref packed);
-            return Code(image, packed.WrittenSpan, size, "Black-and-white greyscale image", codings, cancellationToken);
+            return Code(image, packed.WrittenSpan, size, "Black-and-white greyscale image", codings, scratchPools, cancellationToken);
         }
         finally
         {
@@ -117,11 +119,12 @@ internal static class BilevelRecoder
     /// <param name="size">The width and height.</param>
     /// <param name="what">What the image was.</param>
     /// <param name="codings">The codings besides Flate that may be tried.</param>
+    /// <param name="scratchPools">The document or registered service's compression owner.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The outcome.</returns>
-    private static ImageOutcome Code(PdfStream image, ReadOnlySpan<byte> rows, PixelSize size, string what, in BilevelCodings codings, CancellationToken cancellationToken)
+    private static ImageOutcome Code(PdfStream image, ReadOnlySpan<byte> rows, PixelSize size, string what, in BilevelCodings codings, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
-        if (BilevelEncoder.Encode(image.Dictionary, rows, size.Width, size.Height, image.RawLength, codings, cancellationToken) is not { } result)
+        if (BilevelEncoder.Encode(image.Dictionary, rows, size, image.RawLength, codings, scratchPools, cancellationToken) is not { } result)
         {
             return ImageOutcome.Unchanged;
         }

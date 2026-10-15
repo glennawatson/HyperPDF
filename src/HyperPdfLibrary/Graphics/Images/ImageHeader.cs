@@ -51,6 +51,12 @@ internal readonly record struct ImageHeader(
     /// </summary>
     internal bool Compact { get; init; }
 
+    /// <summary>
+    /// Gets the halvings the decoder averages into the pixels while converting rows, so the full-size image is never held.
+    /// Set only for opaque images that get no mask or colour key afterwards; zero decodes in full.
+    /// </summary>
+    internal int BoxLevels { get; init; }
+
     /// <summary>Gets the number of components per pixel.</summary>
     internal int Components => IsStencil ? 1 : (ColorSpace?.Components ?? 1);
 

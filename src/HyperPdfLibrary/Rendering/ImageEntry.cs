@@ -15,14 +15,11 @@ namespace HyperPdfLibrary.Rendering;
 [DebuggerDisplay("ImageEntry: {Image.Width}x{Image.Height} mask {IsMask}")]
 internal sealed class ImageEntry
 {
-    /// <summary>Guards the user count and the evicted flag.</summary>
-    private readonly Lock _gate = new();
+    /// <summary>The bit of <see cref="_state"/> set once the cache has let go of the entry; the bits below it count the users holding it.</summary>
+    private const int EvictedBit = 1 << 30;
 
-    /// <summary>The users holding the entry.</summary>
-    private int _users;
-
-    /// <summary>Whether the cache has let go of the entry.</summary>
-    private bool _evicted;
+    /// <summary>The users holding the entry, with <see cref="EvictedBit"/> set once the cache has let go of it; changed only by interlocked operations.</summary>
+    private int _state;
 
     /// <summary>Initializes a new instance of the <see cref="ImageEntry"/> class.</summary>
     /// <param name="image">The backend image, which the entry owns.</param>
@@ -61,50 +58,24 @@ internal sealed class ImageEntry
     internal ImageKey? Key { get; set; }
 
     /// <summary>Gets a value indicating whether the backend image has been disposed.</summary>
-    internal bool IsDisposed
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _evicted && _users == 0;
-            }
-        }
-    }
+    internal bool IsDisposed => Volatile.Read(ref _state) == EvictedBit;
 
     /// <summary>Marks the entry as in use.</summary>
-    internal void Acquire()
-    {
-        lock (_gate)
-        {
-            _users++;
-        }
-    }
+    internal void Acquire() => _ = Interlocked.Increment(ref _state);
 
     /// <summary>Ends a use, disposing the image when the cache has already evicted it.</summary>
     internal void Release()
     {
-        lock (_gate)
+        if (Interlocked.Decrement(ref _state) == EvictedBit)
         {
-            _users--;
-            DisposeIfUnused();
+            Image.Dispose();
         }
     }
 
     /// <summary>Marks the entry as evicted, disposing the image now if nobody uses it.</summary>
     internal void Evict()
     {
-        lock (_gate)
-        {
-            _evicted = true;
-            DisposeIfUnused();
-        }
-    }
-
-    /// <summary>Disposes the image when evicted and idle. The caller holds the lock.</summary>
-    private void DisposeIfUnused()
-    {
-        if (_evicted && _users <= 0)
+        if (Interlocked.Or(ref _state, EvictedBit) == 0)
         {
             Image.Dispose();
         }

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
 
@@ -148,13 +149,62 @@ public static class Jbig2Encoder
     public static Jbig2SharedEncoding EncodeShared(IReadOnlyList<Jbig2PageInput> pages, Jbig2EncodeOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pages);
-        ArgumentOutOfRangeException.ThrowIfZero(pages.Count);
-        foreach (var page in pages)
+        var globals = default(PooledBuffer);
+        var data = default(PooledBuffer);
+        var lengths = ArrayPool<int>.Shared.Rent(pages.Count);
+        try
         {
-            Validate(page.Rows.Span, page.Width, page.Height, options);
+            var mode = EncodeShared(pages, options, ref globals, ref data, lengths, cancellationToken);
+            var streams = new byte[pages.Count][];
+            var start = 0;
+            for (var i = 0; i < streams.Length; i++)
+            {
+                streams[i] = data.WrittenSpan.Slice(start, lengths[i]).ToArray();
+                start += lengths[i];
+            }
+
+            return new(globals.ToArray(), streams, mode, mode != Jbig2EncodeMode.LossySymbolMerging);
+        }
+        finally
+        {
+            globals.Dispose();
+            data.Dispose();
+            ArrayPool<int>.Shared.Return(lengths);
+        }
+    }
+
+    /// <summary>Encodes several images with one shared symbol dictionary into caller-owned pooled buffers.</summary>
+    /// <param name="pages">The images, each with packed rows, 0 for black.</param>
+    /// <param name="options">The settings; the mode must be a symbol mode or <see cref="Jbig2EncodeMode.Smallest"/>, and <see cref="Jbig2EncodeOptions.SeparateGlobals"/> is implied.</param>
+    /// <param name="globals">Receives the /JBIG2Globals data, replacing any contents; empty when no image has marks worth sharing.</param>
+    /// <param name="data">Receives every image's stream one after another, replacing any contents.</param>
+    /// <param name="pageLengths">Receives the length of each image's stream in <paramref name="data"/>; at least one entry for each image.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    /// <returns>The mode used: the symbol mode, the one <see cref="Jbig2EncodeMode.Smallest"/> picked, or a generic region when no image has marks worth sharing.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pages"/> or <paramref name="options"/> is null.</exception>
+    /// <exception cref="ArgumentException">The mode is not a symbol mode.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// There are no images, a size or an option is out of range, an image's rows are too short, or
+    /// <paramref name="pageLengths"/> is shorter than the image count.
+    /// </exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static Jbig2EncodeMode EncodeShared(
+        IReadOnlyList<Jbig2PageInput> pages,
+        Jbig2EncodeOptions options,
+        ref PooledBuffer globals,
+        ref PooledBuffer data,
+        scoped Span<int> pageLengths,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(pages);
+        ArgumentOutOfRangeException.ThrowIfZero(pages.Count);
+        ArgumentOutOfRangeException.ThrowIfLessThan(pageLengths.Length, pages.Count, nameof(pageLengths));
+        for (var i = 0; i < pages.Count; i++)
+        {
+            Validate(pages[i].Rows.Span, pages[i].Width, pages[i].Height, options);
         }
 
-        return Jbig2SharedEncoder.Encode(pages, options, cancellationToken);
+        return Jbig2SharedEncoder.Encode(pages, options, ref globals, ref data, pageLengths, cancellationToken);
     }
 
     /// <summary>Checks the arguments.</summary>

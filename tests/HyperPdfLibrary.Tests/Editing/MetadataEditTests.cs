@@ -35,6 +35,51 @@ public sealed class MetadataEditTests
     /// <summary>Gets the date written.</summary>
     private static DateTimeOffset Date => new(Year, Month, Day, Hour, 0, 0, TimeSpan.FromHours(OffsetHours));
 
+    /// <summary>Direct store edits refresh reads without changing another document's snapshots.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DirectStoreEditsRefreshSnapshots()
+    {
+        using var document = PdfDocumentReader.Open(TestPdf.Create(Pages), null);
+        using var other = PdfDocumentReader.Open(TestPdf.Create(Pages), null);
+        var original = PdfDocumentMetadata.GetInfo(document);
+        var otherInfo = PdfDocumentMetadata.GetInfo(other);
+        var added = StoreEditing.Add(document.Objects, PdfValue.FromInteger(Pages));
+        var afterAdd = PdfDocumentMetadata.GetInfo(document);
+        await Assert.That(ReferenceEquals(original, afterAdd)).IsFalse();
+
+        var infoId = document.Objects.Trailer.GetRaw(KnownName.Info).AsReference();
+        StoreEditing.Replace(document.Objects, infoId, PdfValue.FromDictionary(new(document.Objects)));
+        var afterReplace = PdfDocumentMetadata.GetInfo(document);
+        await Assert.That(afterReplace.Title).IsNull();
+        StoreEditing.Delete(document.Objects, added);
+        var afterDelete = PdfDocumentMetadata.GetInfo(document);
+        await Assert.That(ReferenceEquals(afterReplace, afterDelete)).IsFalse();
+        await Assert.That(PdfDocumentMetadata.GetInfo(other)).IsSameReferenceAs(otherInfo);
+        await Assert.That(otherInfo.Title).IsEqualTo(TestPdf.Title);
+    }
+
+    /// <summary>Cached information follows metadata edits and undo without changing an earlier snapshot.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CachedInformationFollowsEditAndUndo()
+    {
+        const string changedTitle = "Changed";
+        using var document = PdfDocumentReader.Open(TestPdf.Create(Pages), null);
+        var before = PdfDocumentMetadata.GetInfo(document);
+        _ = PdfDocumentMetadata.GetResolvedInfo(document);
+        _ = PdfDocumentMetadata.GetXmp(document);
+
+        PdfDocumentMetadataEditing.SetMetadata(document, new() { Title = changedTitle });
+
+        await Assert.That(PdfDocumentMetadata.GetInfo(document).Title).IsEqualTo(changedTitle);
+        await Assert.That(PdfDocumentMetadata.GetResolvedInfo(document).Title).IsEqualTo(changedTitle);
+        await Assert.That(before.Title).IsEqualTo(TestPdf.Title);
+        await Assert.That(PdfDocumentEditing.Undo(document)).IsTrue();
+        await Assert.That(PdfDocumentMetadata.GetInfo(document).Title).IsEqualTo(TestPdf.Title);
+        await Assert.That(PdfDocumentMetadata.GetResolvedInfo(document).Title).IsEqualTo(TestPdf.Title);
+    }
+
     /// <summary>/Info and XMP are both updated; untouched XMP stays byte for byte and the packet stays well-formed.</summary>
     /// <returns>A task.</returns>
     [Test]

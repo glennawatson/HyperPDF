@@ -53,7 +53,7 @@ internal static class FormSignatureAppearance
                 builder.RestoreState();
             }
 
-            return FormAppearanceResources.Finish(ref builder, context, frame, null);
+            return FormAppearanceResources.Finish(ref builder, context, frame, (FormFont?)null);
         }
         finally
         {

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Accessibility;
 using HyperPdfLibrary.Features;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Forms;
@@ -40,6 +41,15 @@ internal record struct PdfDocumentState
     /// <summary>Parsed page label ranges until structural invalidation.</summary>
     private PageLabelRange[]? _labelRanges;
 
+    /// <summary>Formatted page labels until the next edit.</summary>
+    private string?[]? _pageLabels;
+
+    /// <summary>The results of the read operations until the next edit.</summary>
+    private PdfReadSnapshots? _reads;
+
+    /// <summary>The checker of the last document check that ended.</summary>
+    private PdfDocumentChecker? _checker;
+
     /// <summary>The separation groups until structural invalidation.</summary>
     private PdfSeparationInfo? _separations;
 
@@ -63,6 +73,9 @@ internal record struct PdfDocumentState
 
     /// <summary>Page content edit count used in renderer cache keys.</summary>
     private int _pageContentEdits;
+
+    /// <summary>The scope that shares decoded page content between the readers of one check, or <see langword="null"/> when none is open.</summary>
+    private HyperPdfLibrary.Content.PdfPageContentScope? _pageContentScope;
 
     /// <summary>Counts the times the objects were reported changed; caches of values made from objects compare it to know they are stale.</summary>
     private int _objectsRevision;
@@ -99,6 +112,12 @@ internal record struct PdfDocumentState
 
     /// <summary>Independently published marked-content pages.</summary>
     private PdfMarkedContentPage?[]? _markedContent;
+
+    /// <summary>The codes of the font findings, one for each font and requirement it breaks.</summary>
+    private PdfAccessibilityCode[]? _accessibilityFonts;
+
+    /// <summary>What the accessibility report reads from the XMP packet.</summary>
+    private AccessibilityMetadata? _accessibilityMetadata;
 
     /// <summary>Extracted text pages until page content invalidation.</summary>
     private PdfTextPageCache? _textPages;
@@ -146,6 +165,18 @@ internal record struct PdfDocumentState
     [UnscopedRef]
     internal ref PageLabelRange[]? LabelRanges => ref _labelRanges;
 
+    /// <summary>Gets storage for formatted page labels until the next edit.</summary>
+    [UnscopedRef]
+    internal ref string?[]? PageLabels => ref _pageLabels;
+
+    /// <summary>Gets storage for the results of the read operations until the next edit.</summary>
+    [UnscopedRef]
+    internal ref PdfReadSnapshots? Reads => ref _reads;
+
+    /// <summary>Gets storage for the checker of the last document check that ended.</summary>
+    [UnscopedRef]
+    internal ref PdfDocumentChecker? Checker => ref _checker;
+
     /// <summary>Gets storage for the separation groups until structural invalidation.</summary>
     [UnscopedRef]
     internal ref PdfSeparationInfo? Separations => ref _separations;
@@ -178,6 +209,10 @@ internal record struct PdfDocumentState
     [UnscopedRef]
     internal ref int PageContentEdits => ref _pageContentEdits;
 
+    /// <summary>Gets storage for the scope that shares decoded page content between the readers of one check.</summary>
+    [UnscopedRef]
+    internal ref HyperPdfLibrary.Content.PdfPageContentScope? PageContentScope => ref _pageContentScope;
+
     /// <summary>Gets storage for the count of reported object changes, which <see cref="PdfDocumentEditing"/> raises with every invalidation.</summary>
     [UnscopedRef]
     internal ref int ObjectsRevision => ref _objectsRevision;
@@ -190,6 +225,9 @@ internal record struct PdfDocumentState
 
     /// <summary>Gets the weakly tracked page renderers for disposal; made on first use, and read or changed only while holding <see cref="RenderersGate"/>.</summary>
     internal List<WeakReference<PdfPageRenderer>> Renderers => _renderers ??= [];
+
+    /// <summary>Gets the tracked renderers without creating their list.</summary>
+    internal List<WeakReference<PdfPageRenderer>>? RenderersIfCreated => _renderers;
 
     /// <summary>Gets storage for normal render caches indexed by their immutable options.</summary>
     [UnscopedRef]
@@ -237,6 +275,14 @@ internal record struct PdfDocumentState
     /// <summary>Gets storage for independently published marked-content pages.</summary>
     [UnscopedRef]
     internal ref PdfMarkedContentPage?[]? MarkedContent => ref _markedContent;
+
+    /// <summary>Gets storage for the accessibility font findings until an edit.</summary>
+    [UnscopedRef]
+    internal ref PdfAccessibilityCode[]? AccessibilityFonts => ref _accessibilityFonts;
+
+    /// <summary>Gets storage for what the accessibility report reads from the XMP packet until an edit.</summary>
+    [UnscopedRef]
+    internal ref AccessibilityMetadata? AccessibilityMetadata => ref _accessibilityMetadata;
 
     /// <summary>Gets storage for extracted text pages until page content invalidation.</summary>
     [UnscopedRef]

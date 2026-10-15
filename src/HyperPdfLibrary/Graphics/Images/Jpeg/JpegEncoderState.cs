@@ -4,13 +4,13 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Rendering;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpeg;
 
 /// <summary>
-/// The tables, counts and components a JPEG encode builds. The objects are the same for every image, so finished
-/// encodes hand their state back and the next encode on any thread takes it, instead of building it again.
+/// The tables, counts and components a JPEG encode builds. Finished encodes return the state to their scratch owner
+/// for another image from that owner.
 /// </summary>
 [DebuggerDisplay("JpegEncoderState")]
 internal sealed class JpegEncoderState
@@ -20,9 +20,6 @@ internal sealed class JpegEncoderState
 
     /// <summary>The quantization table slots: luminance and chrominance.</summary>
     internal const int QuantSlots = 2;
-
-    /// <summary>The states waiting for the next encode.</summary>
-    private static readonly ReusableSlots<JpegEncoderState> Idle = new();
 
     /// <summary>Initializes a new instance of the <see cref="JpegEncoderState"/> class.</summary>
     private JpegEncoderState()
@@ -61,19 +58,21 @@ internal sealed class JpegEncoderState
     internal byte[] CorrectionBits { get; } = new byte[JpegProgressiveScan.CorrectionCapacity];
 
     /// <summary>Takes a state that is ready for a new image.</summary>
+    /// <param name="scratchPools">The encoder's scratch owner.</param>
     /// <returns>The state, which the caller returns with <see cref="Return"/>.</returns>
-    internal static JpegEncoderState Rent() => Idle.Take() ?? new();
+    internal static JpegEncoderState Rent(ScratchPools scratchPools) => scratchPools.Slots<JpegEncoderState>().Take() ?? new();
 
     /// <summary>Gives a state back after releasing what its components borrowed.</summary>
     /// <param name="state">The state.</param>
-    internal static void Return(JpegEncoderState state)
+    /// <param name="scratchPools">The encoder's scratch owner.</param>
+    internal static void Return(JpegEncoderState state, ScratchPools scratchPools)
     {
         foreach (var component in state.Components)
         {
             component.Dispose();
         }
 
-        _ = Idle.Offer(state);
+        _ = scratchPools.Slots<JpegEncoderState>().Offer(state);
     }
 
     /// <summary>Clears the symbol counts before a counting pass.</summary>

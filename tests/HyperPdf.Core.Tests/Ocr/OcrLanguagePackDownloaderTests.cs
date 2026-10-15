@@ -25,18 +25,19 @@ public sealed class OcrLanguagePackDownloaderTests
     [Test]
     public async Task DownloadsAndVerifiesAPack()
     {
+        using var downloader = new OcrLanguagePackDownloader();
         using var folder = new TemporaryFolder();
         var content = Content();
         var pack = PackFor(content);
         using var handler = new FakeHandler(content);
         var progress = new RecordingProgress();
 
-        await OcrLanguagePackDownloader.DownloadAsync(Api(handler), [pack], folder.Path, progress, CancellationToken.None);
+        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, progress, CancellationToken.None);
 
         var path = Path.Combine(folder.Path, pack.FileName);
         await Assert.That(await File.ReadAllBytesAsync(path)).IsEquivalentTo(content);
         await Assert.That(await File.ReadAllTextAsync($"{path}.sha256")).IsEqualTo(pack.Sha256);
-        await Assert.That(OcrLanguagePackDownloader.IsInstalled(pack, folder.Path)).IsTrue();
+        await Assert.That(downloader.IsInstalled(pack, folder.Path)).IsTrue();
         await Assert.That(handler.Requests).IsEquivalentTo(["/tesseract-ocr/tessdata_fast/4.1.0/tst.traineddata"]);
         await Assert.That(progress.Values.Count).IsGreaterThan(1);
         await Assert.That(progress.Values[^1]).IsEqualTo(1D);
@@ -48,23 +49,25 @@ public sealed class OcrLanguagePackDownloaderTests
     [Test]
     public async Task SkipsInstalledPacks()
     {
+        using var downloader = new OcrLanguagePackDownloader();
         using var folder = new TemporaryFolder();
         var content = Content();
         var pack = PackFor(content);
         using var handler = new FakeHandler(content);
-        await OcrLanguagePackDownloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
 
-        await OcrLanguagePackDownloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
 
         await Assert.That(handler.Requests.Count).IsEqualTo(1);
-        await Assert.That(OcrLanguagePackDownloader.Missing([pack], folder.Path)).IsEmpty();
+        await Assert.That(downloader.Missing([pack], folder.Path)).IsEmpty();
     }
 
-    /// <summary>A download that does not match its SHA-256 is thrown away.</summary>
+    /// <summary>A damaged download is removed, and its hash context is clean when the same service retries.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task DiscardsADamagedPack()
     {
+        using var downloader = new OcrLanguagePackDownloader();
         using var folder = new TemporaryFolder();
         var content = Content();
         var pack = PackFor(content);
@@ -72,11 +75,15 @@ public sealed class OcrLanguagePackDownloaderTests
         damaged[0] ^= 0xFF;
         using var handler = new FakeHandler(damaged);
 
-        var error = await Assert.ThrowsAsync<InvalidDataException>(() => OcrLanguagePackDownloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None));
 
         await Assert.That(error!.Message).Contains("did not download intact");
         await Assert.That(Directory.GetFiles(folder.Path)).IsEmpty();
-        await Assert.That(OcrLanguagePackDownloader.IsInstalled(pack, folder.Path)).IsFalse();
+        await Assert.That(downloader.IsInstalled(pack, folder.Path)).IsFalse();
+
+        damaged[0] ^= 0xFF;
+        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        await Assert.That(downloader.IsInstalled(pack, folder.Path)).IsTrue();
     }
 
     /// <summary>A server failure is reported and leaves nothing behind.</summary>
@@ -84,20 +91,22 @@ public sealed class OcrLanguagePackDownloaderTests
     [Test]
     public async Task ReportsServerFailures()
     {
+        using var downloader = new OcrLanguagePackDownloader();
         using var folder = new TemporaryFolder();
         var pack = PackFor(Content());
         using var handler = new FakeHandler(null);
 
-        _ = await Assert.ThrowsAsync<HttpRequestException>(() => OcrLanguagePackDownloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None));
+        _ = await Assert.ThrowsAsync<HttpRequestException>(() => downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None));
 
         await Assert.That(Directory.GetFiles(folder.Path)).IsEmpty();
     }
 
-    /// <summary>Cancelling stops the download and deletes the partial file.</summary>
+    /// <summary>Cancellation removes partial output and resets the reused hash before a retry.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task CancelsWithoutLeavingAPartialFile()
     {
+        using var downloader = new OcrLanguagePackDownloader();
         using var folder = new TemporaryFolder();
         var content = Content();
         var pack = PackFor(content);
@@ -105,9 +114,11 @@ public sealed class OcrLanguagePackDownloaderTests
         using var cancellation = new CancellationTokenSource();
         var progress = new RecordingProgress(cancellation.Cancel);
 
-        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => OcrLanguagePackDownloader.DownloadAsync(Api(handler), [pack], folder.Path, progress, cancellation.Token));
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => downloader.DownloadAsync(Api(handler), [pack], folder.Path, progress, cancellation.Token));
 
         await Assert.That(Directory.GetFiles(folder.Path)).IsEmpty();
+        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        await Assert.That(await File.ReadAllBytesAsync(Path.Combine(folder.Path, pack.FileName))).IsEquivalentTo(content);
     }
 
     /// <summary>Removing a pack deletes it and its recorded hash.</summary>
@@ -115,16 +126,17 @@ public sealed class OcrLanguagePackDownloaderTests
     [Test]
     public async Task RemovesAPack()
     {
+        using var downloader = new OcrLanguagePackDownloader();
         using var folder = new TemporaryFolder();
         var content = Content();
         var pack = PackFor(content);
         using var handler = new FakeHandler(content);
-        await OcrLanguagePackDownloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
 
-        OcrLanguagePackDownloader.Remove(pack, folder.Path);
+        downloader.Remove(pack, folder.Path);
 
         await Assert.That(Directory.GetFiles(folder.Path)).IsEmpty();
-        await Assert.That(OcrLanguagePackDownloader.Missing([pack], folder.Path)).IsEquivalentTo([pack]);
+        await Assert.That(downloader.Missing([pack], folder.Path)).IsEquivalentTo([pack]);
     }
 
     /// <summary>Makes the test pack's bytes.</summary>

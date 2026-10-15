@@ -81,12 +81,12 @@ internal static class Jbig2TextSegments
     /// <summary>Reads a text region's header fields.</summary>
     /// <param name="reader">The reader.</param>
     /// <param name="info">The region information.</param>
-    /// <param name="settings">The region parameters.</param>
+    /// <param name="settings">The region parameters, which are reset and then set.</param>
     /// <param name="huffmanFlags">The Huffman table selection flags.</param>
     /// <returns><see langword="false"/> when the data ends or a value is out of range.</returns>
-    internal static bool TryReadTextRegion(ref Jbig2Reader reader, out Jbig2RegionInfo info, out Jbig2TextRegionSettings settings, out ushort huffmanFlags)
+    internal static bool TryReadTextRegion(ref Jbig2Reader reader, out Jbig2RegionInfo info, Jbig2TextRegionSettings settings, out ushort huffmanFlags)
     {
-        settings = new();
+        settings.Reset();
         huffmanFlags = 0;
         if (!Jbig2RegionInfo.TryRead(ref reader, out info) || !reader.TryReadUInt16(out var flags) || !Jbig2Limits.IsValidSize(info.Width, info.Height))
         {
@@ -150,8 +150,9 @@ internal static class Jbig2TextSegments
     /// <param name="reader">The reader.</param>
     /// <param name="settings">The region parameters, which receive the table.</param>
     /// <param name="symbolCount">The number of symbols.</param>
+    /// <param name="workspace">The owner of the temporary Huffman tables.</param>
     /// <returns><see langword="false"/> when the table is damaged.</returns>
-    internal static bool TryReadSymbolCodes(ref Jbig2Reader reader, Jbig2TextRegionSettings settings, int symbolCount)
+    internal static bool TryReadSymbolCodes(ref Jbig2Reader reader, Jbig2TextRegionSettings settings, int symbolCount, Jbig2Workspace workspace)
     {
         Span<byte> runLengths = stackalloc byte[RunCodeCount];
         for (var i = 0; i < RunCodeCount; i++)
@@ -164,7 +165,7 @@ internal static class Jbig2TextSegments
             runLengths[i] = (byte)length;
         }
 
-        if (Jbig2HuffmanTable.FromCodeLengths(runLengths) is not { } runCodes)
+        if (Jbig2HuffmanTable.FromCodeLengths(runLengths, workspace) is not { } runCodes)
         {
             return false;
         }
@@ -174,7 +175,7 @@ internal static class Jbig2TextSegments
         try
         {
             var span = lengths.AsSpan(0, symbolCount);
-            settings.SymbolCodes = ReadCodeLengths(ref reader, runCodes, span) ? Jbig2HuffmanTable.FromCodeLengths(span) : null;
+            settings.SymbolCodes = ReadCodeLengths(ref reader, runCodes, span) ? Jbig2HuffmanTable.FromCodeLengths(span, workspace) : null;
             reader.AlignByte();
             return settings.SymbolCodes is not null;
         }
@@ -244,18 +245,19 @@ internal static class Jbig2TextSegments
     /// <returns>The status.</returns>
     internal static Jbig2Status DecodeTextRegion(Jbig2DecodeState state, ref Jbig2Reader reader, Jbig2Segment segment, Jbig2Bitmap page)
     {
-        if (!TryReadTextRegion(ref reader, out var info, out var settings, out var huffmanFlags) || !Jbig2Segments.AllReferredFound(state, segment))
+        var settings = state.Workspace.TextSettings;
+        if (!TryReadTextRegion(ref reader, out var info, settings, out var huffmanFlags) || !Jbig2Segments.AllReferredFound(state, segment))
         {
             return Jbig2Status.Failure;
         }
 
-        var symbols = CollectSymbols(state, segment);
+        using var symbols = CollectSymbols(state, segment);
         if (symbols.Count == 0)
         {
             // T.88 section 7.4.3.2 takes the symbols from the referred-to dictionaries. ITU's conformance streams have text
             // regions that refer to none and expect the dictionaries decoded before them, so a decoder that reads
             // leniently uses those instead of drawing nothing.
-            symbols = CollectPrecedingSymbols(state);
+            AddPrecedingSymbols(state, symbols);
         }
 
         var symbolCount = symbols.Count;
@@ -263,12 +265,12 @@ internal static class Jbig2TextSegments
         {
             settings.SymbolCodeLength = Jbig2Bits.CeilLog2(symbolCount);
         }
-        else if (!TryReadSymbolCodes(ref reader, settings, symbolCount) || !Jbig2SegmentTables.TrySelectTextTables(state, segment, settings, huffmanFlags))
+        else if (!TryReadSymbolCodes(ref reader, settings, symbolCount, state.Workspace) || !Jbig2SegmentTables.TrySelectTextTables(state, segment, settings, huffmanFlags))
         {
             return Jbig2Status.Failure;
         }
 
-        var region = Jbig2Bitmap.Create(settings.Width, settings.Height, state.Workspace.ScratchPools);
+        var region = state.Workspace.RentBitmap(settings.Width, settings.Height);
         if (region is null || !DecodeText(state, ref reader, settings, symbols, region))
         {
             region?.Dispose();
@@ -302,28 +304,26 @@ internal static class Jbig2TextSegments
         return result;
     }
 
-    /// <summary>Collects the symbols of every symbol dictionary decoded so far: the global ones first, then the page's, each in segment order.</summary>
+    /// <summary>Adds the symbols of every symbol dictionary decoded so far: the global ones first, then the page's, each in segment order.</summary>
     /// <param name="state">The decoder's mutable state.</param>
-    /// <returns>The symbols.</returns>
-    internal static Jbig2SymbolSet CollectPrecedingSymbols(Jbig2DecodeState state)
+    /// <param name="symbols">Receives the symbols.</param>
+    internal static void AddPrecedingSymbols(Jbig2DecodeState state, Jbig2SymbolSet symbols)
     {
-        var symbols = new Jbig2SymbolSet();
         if (state.Globals is not null)
         {
             AddDictionaries(state.Globals, symbols);
         }
 
         AddDictionaries(state, symbols);
-        return symbols;
     }
 
     /// <summary>Collects the symbols of the symbol dictionaries a segment refers to, in order.</summary>
     /// <param name="state">The decoder's mutable state.</param>
     /// <param name="segment">The segment.</param>
-    /// <returns>The symbols.</returns>
+    /// <returns>The symbols, which the caller disposes.</returns>
     internal static Jbig2SymbolSet CollectSymbols(Jbig2DecodeState state, Jbig2Segment segment)
     {
-        var symbols = new Jbig2SymbolSet();
+        var symbols = Jbig2SymbolSet.Rent(state.Workspace);
         foreach (var number in segment.Referred)
         {
             if (Jbig2Segments.Find(state, number) is { Symbols: { } dictionary })

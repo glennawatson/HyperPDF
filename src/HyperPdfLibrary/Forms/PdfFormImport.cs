@@ -72,7 +72,7 @@ public static class PdfFormImport
     /// <param name = "widget">The widget.</param>
     /// <param name = "values">The values.</param>
     /// <returns><see langword="true"/> when set.</returns>
-    internal static bool ImportChoice(PdfForm form, ResolvedWidget widget, string[] values)
+    internal static bool ImportChoice(PdfForm form, in ResolvedWidget widget, string[] values)
     {
         if (!widget.FieldId.IsValid)
         {
@@ -113,18 +113,25 @@ public static class PdfFormImport
     /// <param name = "widget">The widget.</param>
     /// <param name = "text">The text.</param>
     /// <returns><see langword="true"/> when written.</returns>
-    internal static bool ImportText(PdfForm form, ResolvedWidget widget, string text)
+    internal static bool ImportText(PdfForm form, in ResolvedWidget widget, string text)
     {
         var edit = new FormEdit(form.Document.Objects);
-        if (!widget.FieldId.IsValid || edit.Edit(widget.FieldId)is not { } field)
+        try
         {
-            return false;
-        }
+            if (!widget.FieldId.IsValid || edit.Edit(widget.FieldId)is not { } field)
+            {
+                return false;
+            }
 
-        PdfFormEditing.WriteText(form, field, widget, text);
-        edit.Commit();
-        PdfFormEditing.RegenerateAppearances(form, widget);
-        return true;
+            PdfFormEditing.WriteText(form, field, widget, text);
+            edit.Commit();
+            PdfFormEditing.RegenerateAppearances(form, widget);
+            return true;
+        }
+        finally
+        {
+            edit.Dispose();
+        }
     }
 
     /// <summary>Makes exactly the given options the selection. A field that allows one choice takes the first.</summary>
@@ -132,36 +139,43 @@ public static class PdfFormImport
     /// <param name = "widget">The widget.</param>
     /// <param name = "options">The option indices.</param>
     /// <returns><see langword="true"/> when written.</returns>
-    internal static bool ReplaceSelection(PdfForm form, ResolvedWidget widget, List<int> options)
+    internal static bool ReplaceSelection(PdfForm form, in ResolvedWidget widget, List<int> options)
     {
         var edit = new FormEdit(form.Document.Objects);
-        if (edit.Edit(widget.FieldId)is not { } field)
+        try
         {
-            return false;
-        }
+            if (edit.Edit(widget.FieldId)is not { } field)
+            {
+                return false;
+            }
 
-        if (widget.Type != PdfFieldType.ListBox || (widget.Flags & PdfFieldFlags.MultiSelect) == 0)
-        {
-            PdfFormEditing.WriteSelection(form, field, widget, options[0]);
+            if (widget.Type != PdfFieldType.ListBox || (widget.Flags & PdfFieldFlags.MultiSelect) == 0)
+            {
+                PdfFormEditing.WriteSelection(form, field, widget, options[0]);
+                edit.Commit();
+                PdfFormEditing.RegenerateAppearances(form, widget);
+                return true;
+            }
+
+            options.Sort();
+            var values = new PdfArray(form.Document.Objects, options.Count);
+            var indices = new PdfArray(form.Document.Objects, options.Count);
+            foreach (var option in options)
+            {
+                values.Add(PdfFormEditing.ToPdfString(form, FormChoices.GetValue(widget.Field, option)));
+                indices.Add(PdfValue.FromInteger(option));
+            }
+
+            field.Set(KnownName.V, PdfValue.FromArray(values));
+            field.Set(KnownName.I, PdfValue.FromArray(indices));
             edit.Commit();
             PdfFormEditing.RegenerateAppearances(form, widget);
             return true;
         }
-
-        options.Sort();
-        var values = new PdfArray(form.Document.Objects, options.Count);
-        var indices = new PdfArray(form.Document.Objects, options.Count);
-        foreach (var option in options)
+        finally
         {
-            values.Add(PdfFormEditing.ToPdfString(form, FormChoices.GetValue(widget.Field, option)));
-            indices.Add(PdfValue.FromInteger(option));
+            edit.Dispose();
         }
-
-        field.Set(KnownName.V, PdfValue.FromArray(values));
-        field.Set(KnownName.I, PdfValue.FromArray(indices));
-        edit.Commit();
-        PdfFormEditing.RegenerateAppearances(form, widget);
-        return true;
     }
 
     /// <summary>Switches a field's buttons so the one named by a state is on, or all are off.</summary>
@@ -169,26 +183,33 @@ public static class PdfFormImport
     /// <param name = "widget">One widget of the field.</param>
     /// <param name = "state">The export value or on-state; <c>Off</c> for none.</param>
     /// <returns><see langword="true"/> when the field ends in that state.</returns>
-    internal static bool ImportButton(PdfForm form, ResolvedWidget widget, string state)
+    internal static bool ImportButton(PdfForm form, in ResolvedWidget widget, string state)
     {
         if (!widget.IsEditable)
         {
             return false;
         }
 
-        var controls = FormControl.GetControls(widget.Field, widget.FieldId);
-        if (string.Equals(state, FormValues.OffState, StringComparison.Ordinal))
+        var controls = FormControls.Read(widget.Field, widget.FieldId);
+        try
         {
-            return PdfFormImport.SwitchAllOff(form, widget, controls);
-        }
+            if (string.Equals(state, FormValues.OffState, StringComparison.Ordinal))
+            {
+                return PdfFormImport.SwitchAllOff(form, widget, ref controls);
+            }
 
-        var target = PdfFormImport.FindButton(form, widget, controls, state);
-        if (target < 0)
+            var target = PdfFormImport.FindButton(form, widget, ref controls, state);
+            if (target < 0)
+            {
+                return false;
+            }
+
+            return controls[target].IsChecked(form.Document.Objects.Names) || PdfFormEditing.ApplyCheck(form, widget, ref controls, target, true);
+        }
+        finally
         {
-            return false;
+            controls.Dispose();
         }
-
-        return controls[target].IsChecked(form.Document.Objects.Names) || PdfFormEditing.ApplyCheck(form, widget, controls, target, true);
     }
 
     /// <summary>Finds the button whose export value or on-state is a name.</summary>
@@ -197,11 +218,11 @@ public static class PdfFormImport
     /// <param name = "controls">The field's buttons.</param>
     /// <param name = "state">The name.</param>
     /// <returns>The button's position, or -1.</returns>
-    internal static int FindButton(PdfForm form, ResolvedWidget widget, List<FormControl> controls, string state)
+    internal static int FindButton(PdfForm form, in ResolvedWidget widget, ref FormControls controls, string state)
     {
         for (var i = 0; i < controls.Count; i++)
         {
-            if (string.Equals(PdfFormReading.GetExportValue(form, widget.Field, controls, i), state, StringComparison.Ordinal)
+            if (string.Equals(PdfFormReading.GetExportValue(form, widget.Field, controls[i].Dictionary, i), state, StringComparison.Ordinal)
                 || string.Equals(FieldAttributes.GetOnState(controls[i].Dictionary, form.Document.Objects.Names), state, StringComparison.Ordinal))
             {
                 return i;
@@ -216,14 +237,14 @@ public static class PdfFormImport
     /// <param name = "widget">One widget of the field.</param>
     /// <param name = "controls">The field's buttons.</param>
     /// <returns><see langword="true"/> when all are off.</returns>
-    internal static bool SwitchAllOff(PdfForm form, ResolvedWidget widget, List<FormControl> controls)
+    internal static bool SwitchAllOff(PdfForm form, in ResolvedWidget widget, ref FormControls controls)
     {
         var done = true;
         for (var i = 0; i < controls.Count; i++)
         {
             if (controls[i].IsChecked(form.Document.Objects.Names))
             {
-                done &= PdfFormEditing.ApplyCheck(form, widget, controls, i, false);
+                done &= PdfFormEditing.ApplyCheck(form, widget, ref controls, i, false);
             }
         }
 

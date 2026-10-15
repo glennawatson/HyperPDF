@@ -23,11 +23,47 @@ namespace HyperPdfLibrary.Rendering;
 /// Reusable font, image, colour, shading and mask data for document operations or renderers with equal image and drawing settings. Each cache
 /// is safe to use from many threads.
 /// </summary>
-[DebuggerDisplay("PdfRenderCache: {Images.Count} images, {Images.Bytes} bytes")]
+[DebuggerDisplay("PdfRenderCache: {ImageCapacity} bytes of images kept")]
 internal sealed class PdfRenderCache
 {
     /// <summary>The pattern paints, made when the first pattern is selected.</summary>
     private ObjectCache<PatternPaintKey, PdfPatternPaint>? _patternPaints;
+
+    /// <summary>The decoded images, made when the first image is asked for.</summary>
+    private ImageCache? _images;
+
+    /// <summary>One once <see cref="Close"/> has run, so an image cache made afterwards starts closed.</summary>
+    private int _closed;
+
+    /// <summary>The loaded fonts, made when the first font is asked for.</summary>
+    private PdfFontCache? _fonts;
+
+    /// <summary>The transfer tables, made when the first graphics state names a transfer function.</summary>
+    private ObjectCache<PdfValue, PdfTransfer>? _transfers;
+
+    /// <summary>The black generation and undercolour removal functions, made when the first is read.</summary>
+    private ObjectCache<PdfValue, PdfFunction>? _functions;
+
+    /// <summary>The dash patterns, made when the first dash array is read.</summary>
+    private ObjectCache<PdfArray, DashPattern>? _dashes;
+
+    /// <summary>The parsed colour space arrays, made when the first array is read.</summary>
+    private ObjectCache<ResourcedKey<PdfArray>, PdfColorSpace>? _colorSpaces;
+
+    /// <summary>The parsed default colour space arrays, made when the first is read.</summary>
+    private ObjectCache<ResourcedKey<PdfArray>, PdfColorSpace>? _defaultSpaces;
+
+    /// <summary>The parsed shadings, made when the first is read.</summary>
+    private ObjectCache<ResourcedKey<PdfDictionary>, PdfShading>? _shadings;
+
+    /// <summary>The recorded tiling cells, made when the first is recorded.</summary>
+    private ObjectCache<PatternKey, PatternCell>? _cells;
+
+    /// <summary>The recorded soft masks, made when the first is recorded.</summary>
+    private ObjectCache<SoftMaskKey, PdfSoftMask>? _softMasks;
+
+    /// <summary>The generated annotation appearances, made when the first annotation without one is drawn.</summary>
+    private GeneratedAppearanceCache? _appearances;
 
     /// <summary>The newest layer version recordings have run under.</summary>
     private int _layerVersion;
@@ -45,7 +81,6 @@ internal sealed class PdfRenderCache
     internal PdfRenderCache(PdfDocument document, OutputIntentColors? deviceColors)
     {
         Document = document;
-        Fonts = new(document.FontFactory);
         DeviceColors = deviceColors;
         LowerCa = document.Objects.Names.Intern("ca");
         UseBlackPointCompensation = document.Objects.Names.Intern("UseBlackPtComp");
@@ -69,13 +104,13 @@ internal sealed class PdfRenderCache
     internal ImmutableArray<string> HiddenColorants { get; set; } = [];
 
     /// <summary>Gets the transfer tables of the function values graphics states name.</summary>
-    internal ObjectCache<PdfValue, PdfTransfer> Transfers { get; } = new();
+    internal ObjectCache<PdfValue, PdfTransfer> Transfers => LazyCaches.Get(ref _transfers);
 
     /// <summary>Gets the parsed black generation and undercolour removal functions.</summary>
-    internal ObjectCache<PdfValue, PdfFunction> Functions { get; } = new();
+    internal ObjectCache<PdfValue, PdfFunction> Functions => LazyCaches.Get(ref _functions);
 
     /// <summary>Gets the dash patterns of graphics state <c>/D</c> arrays.</summary>
-    internal ObjectCache<PdfArray, DashPattern> Dashes { get; } = new();
+    internal ObjectCache<PdfArray, DashPattern> Dashes => LazyCaches.Get(ref _dashes);
 
     /// <summary>Gets the output intent substitutes for the device colour spaces, or <see langword="null"/> when content uses the fixed conversions.</summary>
     internal OutputIntentColors? DeviceColors { get; }
@@ -92,6 +127,9 @@ internal sealed class PdfRenderCache
         get => Volatile.Read(ref field);
         set => Volatile.Write(ref field, value);
     }
+
+    /// <summary>Gets or sets how pages recorded from now on draw edges, thin lines and scaled images. Set before the cache is shared.</summary>
+    internal PdfRenderQuality Quality { get; set; } = PdfRenderQuality.Default;
 
     /// <summary>Gets or sets the tint pages recorded from now on draw over fillable form fields.</summary>
     internal PdfFormHighlight FormHighlight
@@ -113,43 +151,79 @@ internal sealed class PdfRenderCache
     internal PdfName UseBlackPointCompensation { get; }
 
     /// <summary>Gets the loaded fonts.</summary>
-    internal PdfFontCache Fonts { get; }
+    internal PdfFontCache Fonts
+    {
+        get
+        {
+            if (Volatile.Read(ref _fonts) is { } existing)
+            {
+                return existing;
+            }
 
-    /// <summary>Gets the decoded images, bounded by their pixel bytes.</summary>
-    internal ImageCache Images { get; } = new();
+            var created = new PdfFontCache(Document.FontFactory);
+            return Interlocked.CompareExchange(ref _fonts, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets or sets the most pixel bytes of decoded images kept. Set before the cache is shared.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    internal long ImageCapacity
+    {
+        get => Volatile.Read(ref field);
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            Volatile.Write(ref field, value);
+            if (Volatile.Read(ref _images) is { } existing)
+            {
+                existing.Capacity = value;
+            }
+        }
+    } = ImageCache.DefaultCapacity;
+
+    /// <summary>Gets the decoded images, bounded by their pixel bytes. The cache is made when the first image is asked for, so documents without images never make it.</summary>
+    internal ImageCache Images
+    {
+        get
+        {
+            if (Volatile.Read(ref _images) is { } existing)
+            {
+                return existing;
+            }
+
+            var created = new ImageCache { Capacity = ImageCapacity };
+            var published = Interlocked.CompareExchange(ref _images, created, null) ?? created;
+
+            // A close that ran before the cache existed must still refuse images; the check follows the publish so one of the two sees the other.
+            if (Volatile.Read(ref _closed) != 0)
+            {
+                published.Close();
+            }
+
+            return published;
+        }
+    }
 
     /// <summary>Gets the parsed colour space arrays.</summary>
-    internal ObjectCache<ResourcedKey<PdfArray>, PdfColorSpace> ColorSpaces { get; } = new();
+    internal ObjectCache<ResourcedKey<PdfArray>, PdfColorSpace> ColorSpaces => LazyCaches.Get(ref _colorSpaces);
 
     /// <summary>Gets the parsed default colour space arrays.</summary>
-    internal ObjectCache<ResourcedKey<PdfArray>, PdfColorSpace> DefaultSpaces { get; } = new();
+    internal ObjectCache<ResourcedKey<PdfArray>, PdfColorSpace> DefaultSpaces => LazyCaches.Get(ref _defaultSpaces);
 
     /// <summary>Gets the parsed shadings by dictionary and the colour space resources they were parsed with.</summary>
-    internal ObjectCache<ResourcedKey<PdfDictionary>, PdfShading> Shadings { get; } = new();
+    internal ObjectCache<ResourcedKey<PdfDictionary>, PdfShading> Shadings => LazyCaches.Get(ref _shadings);
 
     /// <summary>Gets the recorded tiling cells.</summary>
-    internal ObjectCache<PatternKey, PatternCell> Cells { get; } = new();
+    internal ObjectCache<PatternKey, PatternCell> Cells => LazyCaches.Get(ref _cells);
 
     /// <summary>
     /// Gets the pattern paints made so far, so a pattern selected again at the same place reuses its paint. The cache is
     /// made when the first pattern is selected.
     /// </summary>
-    internal ObjectCache<PatternPaintKey, PdfPatternPaint> PatternPaints
-    {
-        get
-        {
-            if (Volatile.Read(ref _patternPaints) is { } existing)
-            {
-                return existing;
-            }
-
-            var created = new ObjectCache<PatternPaintKey, PdfPatternPaint>();
-            return Interlocked.CompareExchange(ref _patternPaints, created, null) ?? created;
-        }
-    }
+    internal ObjectCache<PatternPaintKey, PdfPatternPaint> PatternPaints => LazyCaches.Get(ref _patternPaints);
 
     /// <summary>Gets the recorded soft masks.</summary>
-    internal ObjectCache<SoftMaskKey, PdfSoftMask> SoftMasks { get; } = new();
+    internal ObjectCache<SoftMaskKey, PdfSoftMask> SoftMasks => LazyCaches.Get(ref _softMasks);
 
     /// <summary>
     /// Gets the appearances generated for annotations that have none, valid for one revision of the document's objects. The
@@ -159,13 +233,13 @@ internal sealed class PdfRenderCache
     {
         get
         {
-            if (Volatile.Read(ref field) is { } existing)
+            if (Volatile.Read(ref _appearances) is { } existing)
             {
                 return existing;
             }
 
             var created = new GeneratedAppearanceCache();
-            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+            return Interlocked.CompareExchange(ref _appearances, created, null) ?? created;
         }
     }
 
@@ -189,24 +263,25 @@ internal sealed class PdfRenderCache
     /// </summary>
     internal void Close()
     {
-        Images.Close();
-        Fonts.Clear();
-        ColorSpaces.Clear();
-        DefaultSpaces.Clear();
-        Shadings.Clear();
+        Volatile.Write(ref _closed, 1);
+        Volatile.Read(ref _images)?.Close();
+        Volatile.Read(ref _fonts)?.Clear();
+        LazyCaches.Clear(ref _colorSpaces);
+        LazyCaches.Clear(ref _defaultSpaces);
+        LazyCaches.Clear(ref _shadings);
         ClearRecordedPaints();
-        Transfers.Clear();
-        Functions.Clear();
-        Dashes.Clear();
-        Appearances.Clear();
+        LazyCaches.Clear(ref _transfers);
+        LazyCaches.Clear(ref _functions);
+        LazyCaches.Clear(ref _dashes);
+        Volatile.Read(ref _appearances)?.Clear();
     }
 
     /// <summary>Drops font-dependent entries after newly requested font data becomes available.</summary>
     internal void InvalidateFonts()
     {
-        Fonts.Clear();
+        Volatile.Read(ref _fonts)?.Clear();
         ClearRecordedPaints();
-        Appearances.Clear();
+        Volatile.Read(ref _appearances)?.Clear();
     }
 
     /// <summary>
@@ -297,7 +372,7 @@ internal sealed class PdfRenderCache
     /// <returns>The entry, or null.</returns>
     private static ImageEntry? Decode(ImageKey key, ImageDecodeState state)
     {
-        var data = PdfImageDecoder.DecodeCompact(key.Stream, key.ReductionLevels, state.Colors, key.Rendering, state.CancellationToken);
+        var data = DecodeAtDisplaySize(key, state);
         if (data is null)
         {
             return null;
@@ -314,14 +389,31 @@ internal sealed class PdfRenderCache
         return converted is null ? null : new ImageEntry(converted, data.IsStencilMask, data.Interpolate);
     }
 
+    /// <summary>Decodes an image stream at its display resolution.</summary>
+    /// <param name="key">The stream and decoded resolution.</param>
+    /// <param name="state">The output intent colours and caller's cancellation token.</param>
+    /// <returns>The pixels, or null.</returns>
+    private static PdfImageData? DecodeAtDisplaySize(ImageKey key, in ImageDecodeState state)
+    {
+        var nativeLevels = ImageReduction.NativeLevels(key.Stream.Dictionary, key.ReductionLevels);
+
+        // A codec that cannot decode a lower resolution returns every pixel; raw samples are averaged down to the display
+        // size while their rows are converted, and the pixels of any other codec after decoding.
+        ImageLevels levels = new(nativeLevels, nativeLevels == 0 ? key.ReductionLevels : 0);
+        ImageColors colors = new(state.Colors, key.Rendering);
+        var data = PdfImageDecoder.DecodeCompact(key.Stream, levels, colors, state.CancellationToken);
+        return data is { IsBoxReduced: false, UnsupportedCodec: PdfImageCodec.None } && key.ReductionLevels > 0
+            ? ImageBoxReduction.Reduce(data, ImageReduction.RemainingLevels(key.Stream.Dictionary.GetInt32(KnownName.Width), data.Width, key.ReductionLevels))
+            : data;
+    }
+
     /// <summary>Empties the cells, soft masks and the pattern paints that hold the cells.</summary>
     private void ClearRecordedPaints()
     {
-        Cells.Clear();
-        SoftMasks.Clear();
-
-        // The paints are made on first use, and clearing must not make them.
-        Volatile.Read(ref _patternPaints)?.Clear();
+        // Each cache is made on first use, and clearing must not make one.
+        LazyCaches.Clear(ref _cells);
+        LazyCaches.Clear(ref _softMasks);
+        LazyCaches.Clear(ref _patternPaints);
     }
 
     /// <summary>The input to one image decode, passed to the cache leader without shared mutable state.</summary>

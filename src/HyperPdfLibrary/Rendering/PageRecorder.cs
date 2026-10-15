@@ -37,9 +37,9 @@ internal static class PageRecorder
     /// <param name="bytes">Receives picture bytes.</param>
     /// <param name="images">Receives image weights.</param>
     /// <returns>The recorded picture.</returns>
-    internal static IPdfRenderPicture RecordContent(PdfRenderCache cache, PdfPage page, bool printing, PictureScale scale, out long bytes, out ImageWeight[] images)
+    internal static IPdfRenderPicture RecordContent(PdfRenderCache cache, PdfPage page, bool printing, in PictureScale scale, out long bytes, out ImageWeight[] images)
     {
-        using var device = Begin(cache, page);
+        using var device = Begin(cache, page, scale.Device);
         using var interpreter = ContentInterpreter.Rent(cache, device, 0, scale.UpperScale, CancellationToken.None);
         interpreter.Printing = printing;
         interpreter.ZoomClass = scale.ZoomClass;
@@ -88,12 +88,12 @@ internal static class PageRecorder
         PdfRenderCache cache,
         PdfPage page,
         bool printing,
-        PictureScale scale,
+        in PictureScale scale,
         out long bytes,
         out ImageWeight[] images,
         CancellationToken cancellationToken = default)
     {
-        using var device = Begin(cache, page);
+        using var device = Begin(cache, page, scale.Device);
         using var interpreter = ContentInterpreter.Rent(cache, device, 0, scale.UpperScale, cancellationToken);
         interpreter.Printing = printing;
         interpreter.ZoomClass = scale.ZoomClass;
@@ -178,11 +178,20 @@ internal static class PageRecorder
     /// <param name="cache">The document's caches.</param>
     /// <param name = "page">The page.</param>
     /// <returns>The device.</returns>
-    internal static IPictureDevice Begin(PdfRenderCache cache, PdfPage page)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IPictureDevice Begin(PdfRenderCache cache, PdfPage page) => Begin(cache, page, null);
+
+    /// <summary>Starts a device that records the page area and clips to it, for a picture shown with one page matrix or at any scale.</summary>
+    /// <param name="cache">The document's caches.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="deviceMatrix">The page-to-device matrix without the tile offset, or null when the picture is replayed at other scales.</param>
+    /// <returns>The device.</returns>
+    internal static IPictureDevice Begin(PdfRenderCache cache, PdfPage page, Matrix3x2? deviceMatrix)
     {
         var bounds = new PdfRect(0, 0, page.Width, page.Height);
-        var device = cache.Document.DrawingServices.Backend.CreatePictureDevice(bounds);
-        device.Clip(PageClips.Get(bounds), false, Matrix3x2.Identity);
+        var style = new PdfPictureStyle(cache.Quality, deviceMatrix);
+        var device = cache.Document.DrawingServices.Backend.CreatePictureDevice(bounds, style);
+        device.Clip(cache.Document.DrawingServices.PageClips.Get(bounds), false, Matrix3x2.Identity);
         return device;
     }
 

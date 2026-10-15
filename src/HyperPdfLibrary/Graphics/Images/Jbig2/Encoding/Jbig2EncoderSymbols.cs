@@ -13,10 +13,11 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
 /// must list them (T.88 section 6.5.5). The base symbols come first and go in a plain dictionary. Repeated variants, near copies
 /// of a base symbol that occur more than once with the same bitmap, follow and go in a second dictionary coded as refinements of
 /// base symbols. A dictionary of one symbol gets a blank 1 by 1 symbol first, because a one-symbol text region would use
-/// zero-bit symbol IDs, which decoders do not agree on.
+/// zero-bit symbol IDs, which decoders do not agree on. The value holds rented arrays; copies share them and only the
+/// owner that built it disposes. The default value holds no symbols.
 /// </summary>
 [DebuggerDisplay("Jbig2EncoderSymbols: {BaseCount} base, {Count} in all")]
-internal sealed class Jbig2EncoderSymbols : IDisposable
+internal readonly record struct Jbig2EncoderSymbols : IDisposable
 {
     /// <summary>The fewest symbols a dictionary gets, so a text region never needs zero-bit symbol IDs.</summary>
     private const int MinimumSymbols = 2;
@@ -48,10 +49,10 @@ internal sealed class Jbig2EncoderSymbols : IDisposable
     /// <summary>The symbol choices for the components.</summary>
     private readonly Jbig2SymbolMatcher _matcher;
 
-    /// <summary>Initializes a new instance of the <see cref="Jbig2EncoderSymbols"/> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="Jbig2EncoderSymbols"/> struct.</summary>
     /// <param name="components">The components.</param>
     /// <param name="matcher">The matches.</param>
-    private Jbig2EncoderSymbols(Jbig2Components components, Jbig2SymbolMatcher matcher)
+    private Jbig2EncoderSymbols(in Jbig2Components components, in Jbig2SymbolMatcher matcher)
     {
         _components = components;
         _matcher = matcher;
@@ -93,7 +94,7 @@ internal sealed class Jbig2EncoderSymbols : IDisposable
     /// <param name="components">The components.</param>
     /// <param name="matcher">The matches.</param>
     /// <returns>The symbols.</returns>
-    internal static Jbig2EncoderSymbols Build(Jbig2Components components, Jbig2SymbolMatcher matcher) => new(components, matcher);
+    internal static Jbig2EncoderSymbols Build(in Jbig2Components components, in Jbig2SymbolMatcher matcher) => new(components, matcher);
 
     /// <summary>Gets the width of a symbol.</summary>
     /// <param name="rank">The symbol's dictionary position.</param>
@@ -137,7 +138,7 @@ internal sealed class Jbig2EncoderSymbols : IDisposable
     /// <param name="components">The components.</param>
     /// <param name="matcher">The matches.</param>
     /// <returns>The count.</returns>
-    private static int CountVariants(Jbig2Components components, Jbig2SymbolMatcher matcher)
+    private static int CountVariants(in Jbig2Components components, in Jbig2SymbolMatcher matcher)
     {
         var count = 0;
         for (var i = 0; i < components.Count; i++)

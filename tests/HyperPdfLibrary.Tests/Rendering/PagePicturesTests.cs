@@ -131,7 +131,7 @@ public sealed class PagePicturesTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        var failure = Capture(() => ProgressiveRecording.Start(test.Renderer.Cache, page, false, float.PositiveInfinity, 0, cancelled.Token));
+        var failure = Capture(() => ProgressiveRecording.Start(test.Renderer.Cache, page, false, new(float.PositiveInfinity, 0), cancelled.Token));
         var again = ContentInterpreter.Rent(test.Renderer.Cache, device, 0);
         var reused = ReferenceEquals(idle, again);
         again.Dispose();

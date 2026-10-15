@@ -26,6 +26,9 @@ public sealed partial class MeasureViewModel : ReactiveObject, IDisposable
     /// <summary>The points of a line: its two ends.</summary>
     private const int LineEnds = 2;
 
+    /// <summary>The characters a measurement description can use.</summary>
+    private const int ResultCapacity = 256;
+
     /// <summary>The fewest corners that enclose an area.</summary>
     private const int AreaCorners = 3;
 
@@ -228,7 +231,23 @@ public sealed partial class MeasureViewModel : ReactiveObject, IDisposable
     /// <summary>Works the result out again.</summary>
     private void Update()
     {
-        Result = Measurement.Describe(Mode, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_points), CurrentScale());
+        Span<char> text = stackalloc char[ResultCapacity];
+        var points = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_points);
+        var scale = CurrentScale();
+        if (!Measurement.TryDescribe(Mode, points, scale, text, out var written))
+        {
+            var description = Measurement.Describe(Mode, points, scale);
+            if (!string.Equals(description, Result, StringComparison.Ordinal))
+            {
+                Result = description;
+            }
+        }
+        else if (!text[..written].SequenceEqual(Result))
+        {
+            // The text is the same on most pointer moves, so a new string is made only when it changed.
+            Result = new(text[..written]);
+        }
+
         this.RaisePropertyChanged(nameof(Points));
     }
 

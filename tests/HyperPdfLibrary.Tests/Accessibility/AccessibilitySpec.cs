@@ -35,8 +35,14 @@ internal sealed record AccessibilitySpec
     /// <summary>Gets extra structure tree root entries, such as <c>/RoleMap</c>.</summary>
     internal string RootExtra { get; init; } = string.Empty;
 
+    /// <summary>Gets a value indicating whether the document element is in the PDF 2.0 structure namespace, which the tree root lists.</summary>
+    internal bool Pdf20Root { get; init; }
+
     /// <summary>Gets extra page entries.</summary>
     internal string PageExtra { get; init; } = string.Empty;
+
+    /// <summary>Gets the function that writes the test font <c>/F1</c>'s body, given the builder; <see langword="null"/> for a Type 3 font that maps every character to Unicode.</summary>
+    internal Func<TaggedPdfBuilder, string>? Font { get; init; }
 
     /// <summary>Gets the layout: adds elements and returns the document element's kids, given the builder and the document element's number.</summary>
     internal Func<TaggedPdfBuilder, int, string> Layout { get; init; } = AccessibilityPdfs.DefaultLayout;

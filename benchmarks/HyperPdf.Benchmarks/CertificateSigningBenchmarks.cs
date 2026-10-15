@@ -101,6 +101,16 @@ public class CertificateSigningBenchmarks
         return pending.SignedAttributes.Length;
     }
 
+    /// <summary>Prepares a new pending signature before each completion, because a pending signature can be completed once.</summary>
+    /// <returns>A task.</returns>
+    [IterationSetup(Target = nameof(CompleteContainer))]
+    public async Task PrepareAgain()
+    {
+        using var document = PdfDocumentReader.Open(_classic, null);
+        _pending = await PdfDocumentSigning.PrepareAsync(document, _options, PdfSignerIdentity.From(_signer), CancellationToken.None);
+        _value = await _signer.SignAsync(_pending.SignedAttributes, _pending.Digest, CancellationToken.None);
+    }
+
     /// <summary>Makes the signature container from a signature value and writes it into the reserved room.</summary>
     /// <returns>The signed length.</returns>
     [Benchmark]

@@ -13,6 +13,25 @@ namespace HyperPdf.Engine;
 /// <summary>Remembers font shapers and fallback searches for documents opened by one viewer engine.</summary>
 internal sealed class TextBoxFontState
 {
+    /// <summary>The installed faces retained for documents opened by this engine.</summary>
+    private readonly ConcurrentDictionary<FaceKey, FontProgram> _programs = new();
+
+    /// <summary>The installed font catalog for documents opened by this engine.</summary>
+    private readonly Lazy<FontCatalog> _catalog;
+
+    /// <summary>Initializes a new instance of the <see cref="TextBoxFontState"/> class with its own catalog.</summary>
+    internal TextBoxFontState()
+        : this(new Lazy<FontCatalog>(static () => FontCatalog.Scan(FontCatalog.SystemDirectories())))
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="TextBoxFontState"/> class with an engine catalog.</summary>
+    /// <param name="catalog">The installed fonts, scanned on first use.</param>
+    internal TextBoxFontState(Lazy<FontCatalog> catalog) => _catalog = catalog;
+
+    /// <summary>Gets the installed font catalog, scanning on first use.</summary>
+    internal FontCatalog Catalog => _catalog.Value;
+
     /// <summary>Gets the standard-font shapers used by this engine.</summary>
     internal StandardTextShaper?[] StandardShapers { get; } = new StandardTextShaper?[StandardTextShaper.FontCount];
 
@@ -32,9 +51,44 @@ internal sealed class TextBoxFontState
     internal PdfFontOpenResult GetSource(FontProgram program) =>
         Sources.GetOrAdd(program, static font => PdfFontSource.Open(font.Data, font.Face.FaceIndex));
 
+    /// <summary>Loads a face once within this engine's lifetime.</summary>
+    /// <param name="face">The installed face.</param>
+    /// <returns>The program, or null when its file is unreadable.</returns>
+    internal FontProgram? Load(FontFace face)
+    {
+        var key = new FaceKey(face.Path, face.FaceIndex);
+        if (_programs.TryGetValue(key, out var existing))
+        {
+            return existing;
+        }
+
+        var loaded = FontProgram.Load(face);
+        return loaded is null ? null : _programs.GetOrAdd(key, loaded);
+    }
+
+    /// <summary>Retains a face already read while searching fallback fonts.</summary>
+    /// <param name="program">The read face.</param>
+    /// <returns>The face retained by this engine.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal FontProgram Remember(FontProgram program) =>
+        _programs.GetOrAdd(new(program.Face.Path, program.Face.FaceIndex), program);
+
+    /// <summary>Finds an already loaded face without reading its file.</summary>
+    /// <param name="face">The face.</param>
+    /// <param name="program">The retained program, when present.</param>
+    /// <returns>Whether the face was already loaded.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryGetLoaded(FontFace face, out FontProgram? program) =>
+        _programs.TryGetValue(new(face.Path, face.FaceIndex), out program);
+
     /// <summary>A fallback lookup within the font catalog that owns its table.</summary>
     /// <param name="Block">The block of the first character outside Latin-1.</param>
     /// <param name="Bold">Whether bold is wanted.</param>
     /// <param name="Italic">Whether italic is wanted.</param>
     internal readonly record struct FallbackKey(int Block, bool Bold, bool Italic);
+
+    /// <summary>The file and face number of an installed font.</summary>
+    /// <param name="Path">The font file.</param>
+    /// <param name="FaceIndex">The face within it.</param>
+    private readonly record struct FaceKey(string Path, int FaceIndex);
 }

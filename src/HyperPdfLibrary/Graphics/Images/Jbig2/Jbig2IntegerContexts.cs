@@ -13,7 +13,7 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2;
 /// region, in one pooled buffer.
 /// </summary>
 [DebuggerDisplay("Jbig2IntegerContexts: {IdCodeLength} ID bits")]
-internal sealed class Jbig2IntegerContexts : IDisposable
+internal readonly record struct Jbig2IntegerContexts : IDisposable
 {
     /// <summary>The number of integer decoders.</summary>
     private const int DecoderCount = 13;
@@ -22,16 +22,16 @@ internal sealed class Jbig2IntegerContexts : IDisposable
     private readonly ScratchPools _scratchPools;
 
     /// <summary>The integer contexts, followed by the symbol ID contexts.</summary>
-    private byte[]? _buffer;
+    private readonly byte[] _buffer;
 
-    /// <summary>Initializes a new instance of the <see cref="Jbig2IntegerContexts"/> class with cleared contexts.</summary>
+    /// <summary>Initializes a new instance of the <see cref="Jbig2IntegerContexts"/> struct with cleared contexts.</summary>
     /// <param name="idCodeLength">The bits in a symbol ID, from 0 to 31.</param>
     internal Jbig2IntegerContexts(int idCodeLength)
         : this(idCodeLength, new ScratchPools())
     {
     }
 
-    /// <summary>Initializes a new instance of the <see cref="Jbig2IntegerContexts"/> class with an explicit cache.</summary>
+    /// <summary>Initializes a new instance of the <see cref="Jbig2IntegerContexts"/> struct with an explicit cache.</summary>
     /// <param name="idCodeLength">The bits in a symbol ID.</param>
     /// <param name="scratchPools">The bounded cache.</param>
     internal Jbig2IntegerContexts(int idCodeLength, ScratchPools scratchPools)
@@ -47,28 +47,16 @@ internal sealed class Jbig2IntegerContexts : IDisposable
     internal int IdCodeLength { get; }
 
     /// <summary>Gets the symbol ID contexts.</summary>
-    internal Span<byte> Id => Buffer.AsSpan(DecoderCount * Jbig2IntegerDecoder.ContextCount, 1 << IdCodeLength);
+    internal Span<byte> Id => _buffer.AsSpan(DecoderCount * Jbig2IntegerDecoder.ContextCount, 1 << IdCodeLength);
 
-    /// <summary>Gets the buffer, which must not be used after disposal.</summary>
-    private byte[] Buffer => _buffer ?? throw new ObjectDisposedException(nameof(Jbig2IntegerContexts));
-
-    /// <summary>Returns the buffer to the pool.</summary>
-    public void Dispose()
-    {
-        // A decode uses its contexts on one thread, so plain field access is enough.
-        if (_buffer is null)
-        {
-            return;
-        }
-
-        _scratchPools.Bytes.Return(_buffer);
-        _buffer = null;
-    }
+    /// <summary>Returns the buffer to the pool. Only the owner that created the contexts disposes them, once.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _scratchPools.Bytes.Return(_buffer);
 
     /// <summary>Gets the contexts of one integer decoder.</summary>
     /// <param name="kind">The decoder.</param>
     /// <returns>The contexts.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal Span<byte> Get(Jbig2IntegerKind kind) =>
-        Buffer.AsSpan((int)kind * Jbig2IntegerDecoder.ContextCount, Jbig2IntegerDecoder.ContextCount);
+        _buffer.AsSpan((int)kind * Jbig2IntegerDecoder.ContextCount, Jbig2IntegerDecoder.ContextCount);
 }

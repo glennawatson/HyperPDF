@@ -25,7 +25,7 @@ namespace HyperPdfLibrary.Optimizing;
 internal sealed class FontUsageDevice : ITextObjectDevice, IDisposable
 {
     /// <summary>The devices waiting for the next run, with the map and bit sets they grew.</summary>
-    private static readonly ReusableSlots<FontUsageDevice> Idle = new();
+    private readonly ReusableSlots<FontUsageDevice> _idle;
 
     /// <summary>The emptied bit sets of earlier runs, kept so a font that first shows a code takes one instead of making one.</summary>
     private readonly Stack<CodeBitSet> _spareSets = [];
@@ -40,9 +40,8 @@ internal sealed class FontUsageDevice : ITextObjectDevice, IDisposable
     private int _returned;
 
     /// <summary>Initializes a new instance of the <see cref="FontUsageDevice"/> class.</summary>
-    private FontUsageDevice()
-    {
-    }
+    /// <param name="idle">The registered service's font-usage device pool.</param>
+    private FontUsageDevice(ReusableSlots<FontUsageDevice> idle) => _idle = idle;
 
     /// <summary>Gets the codes each font shows, as pooled bit sets that the device disposes.</summary>
     internal Dictionary<PdfFont, CodeBitSet> Codes { get; } = [with(ReferenceEqualityComparer.Instance)];
@@ -66,7 +65,7 @@ internal sealed class FontUsageDevice : ITextObjectDevice, IDisposable
         Codes.Clear();
         _lastFont = null;
         _lastCodes = null;
-        _ = Idle.Offer(this);
+        _ = _idle.Offer(this);
     }
 
     /// <inheritdoc/>
@@ -150,10 +149,12 @@ internal sealed class FontUsageDevice : ITextObjectDevice, IDisposable
     public IPictureDevice CreatePictureDevice(PdfRect cull) => new NullPictureDevice(cull);
 
     /// <summary>Takes an idle device, or makes one when none is idle.</summary>
+    /// <param name="resources">The registered service's reusable state.</param>
     /// <returns>An empty device, which the caller disposes to hand it back.</returns>
-    internal static FontUsageDevice Rent()
+    internal static FontUsageDevice Rent(OptimizerResources resources)
     {
-        var device = Idle.Take() ?? new();
+        var idle = resources.FontDevices;
+        var device = idle.Take() ?? new(idle);
         _ = Interlocked.Exchange(ref device._returned, 0);
         return device;
     }

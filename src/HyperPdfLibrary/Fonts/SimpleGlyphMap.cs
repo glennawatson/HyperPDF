@@ -23,6 +23,16 @@ internal sealed class SimpleGlyphMap
     /// <summary>Gets the Unicode text of each code from its glyph name, or <see langword="null"/>.</summary>
     internal string?[] Texts { get; } = new string?[FontEncodings.CodeCount];
 
+    /// <summary>Makes an independent copy of the map.</summary>
+    /// <returns>The copy.</returns>
+    internal SimpleGlyphMap Copy()
+    {
+        var copy = new SimpleGlyphMap();
+        Glyphs.CopyTo(copy.Glyphs, 0);
+        Texts.CopyTo(copy.Texts, 0);
+        return copy;
+    }
+
     /// <summary>Determines whether any code has a glyph other than zero (glyph 0 is .notdef).</summary>
     /// <returns><see langword="true"/> when some code maps to a glyph.</returns>
     internal bool HasAnyGlyph()

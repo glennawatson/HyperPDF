@@ -4,6 +4,7 @@
 
 using System.Security.Cryptography;
 using HyperPdf.TestAssets;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images.Jbig2;
 
 namespace HyperPdfLibrary.Tests.Graphics.Jbig2;
@@ -96,6 +97,61 @@ public sealed class Jbig2DecoderTests
 
         await Assert.That(decoded).IsTrue();
         await Assert.That(Convert.ToHexStringLower(SHA256.HashData(rows))).IsEqualTo(sample.Sha256);
+    }
+
+    /// <summary>A scratch cache can decode different segment types after a cancelled operation.</summary>
+    /// <param name="cancellationToken">Cancels the healthy decodes.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ScratchCacheRecoversAfterCancellation(CancellationToken cancellationToken)
+    {
+        var scratch = new ScratchPools();
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        var first = Jbig2Samples.Get(nameof(Jbig2Samples.SymbolsGlobalsRefinementAggregate));
+        var firstRows = new byte[Jbig2Decoder.GetRowBytes(first.Width) * first.Height];
+        await Assert.That(() => Jbig2Decoder.TryDecode(first.Data, first.Globals, first.Width, first.Height, firstRows, scratch, cancelled.Token)).Throws<OperationCanceledException>();
+        string[] names =
+        [
+            nameof(Jbig2Samples.SymbolsGlobalsRefinementAggregate),
+            nameof(Jbig2Samples.TextHuffmanCustomTable),
+            nameof(Jbig2Samples.HalftoneArith),
+            nameof(Jbig2Samples.TextHuffmanRefineCustom),
+            nameof(Jbig2Samples.HalftoneArithSkip),
+            nameof(Jbig2Samples.TextHuffmanCustomTable),
+            nameof(Jbig2Samples.SymbolsHuffmanRefinementAggregate),
+            nameof(Jbig2Samples.GenericMmr),
+            nameof(Jbig2Samples.SymbolsGlobalsRefinementAggregate),
+        ];
+        foreach (var name in names)
+        {
+            var sample = Jbig2Samples.Get(name);
+            var rows = new byte[Jbig2Decoder.GetRowBytes(sample.Width) * sample.Height];
+            var decoded = Jbig2Decoder.TryDecode(sample.Data, sample.Globals, sample.Width, sample.Height, rows, scratch, cancellationToken);
+            await Assert.That(decoded).IsTrue();
+            await Assert.That(Convert.ToHexStringLower(SHA256.HashData(rows))).IsEqualTo(sample.Sha256);
+        }
+    }
+
+    /// <summary>Truncated custom tables leave reusable decoder storage valid for the next complete page.</summary>
+    /// <param name="name">The sample with custom Huffman tables.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(nameof(Jbig2Samples.TextHuffmanCustomTable))]
+    [Arguments(nameof(Jbig2Samples.TextHuffmanRefineCustom))]
+    public async Task ScratchCacheRecoversAfterTruncatedHuffmanTables(string name, CancellationToken cancellationToken)
+    {
+        var sample = Jbig2Samples.Get(name);
+        var scratch = new ScratchPools();
+        var rows = new byte[Jbig2Decoder.GetRowBytes(sample.Width) * sample.Height];
+        for (var length = 0; length < sample.Data.Length; length++)
+        {
+            _ = Jbig2Decoder.TryDecode(sample.Data.AsSpan(0, length), sample.Globals, sample.Width, sample.Height, rows, scratch, cancellationToken);
+            var decoded = Jbig2Decoder.TryDecode(sample.Data, sample.Globals, sample.Width, sample.Height, rows, scratch, cancellationToken);
+            await Assert.That(decoded).IsTrue();
+            await Assert.That(Convert.ToHexStringLower(SHA256.HashData(rows))).IsEqualTo(sample.Sha256);
+        }
     }
 
     /// <summary>A JBIG2 file header, which PDF forbids, is skipped as pdf.js does.</summary>

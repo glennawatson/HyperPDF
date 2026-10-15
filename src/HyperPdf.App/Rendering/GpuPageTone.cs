@@ -9,9 +9,9 @@ using SkiaSharp;
 namespace HyperPdf.App.Rendering;
 
 /// <summary>Applies the viewer's page tone to an owned Skia image before tile presentation.</summary>
-internal static class GpuPageTone
+internal sealed class GpuPageTone : IDisposable
 {
-    /// <summary>The largest number of reusable tone filters retained for the process.</summary>
+    /// <summary>The largest number of reusable tone filters retained for this render hub.</summary>
     private const int CachedTones = 8;
 
     /// <summary>The number of values in an eight-bit colour channel.</summary>
@@ -41,22 +41,47 @@ internal static class GpuPageTone
         }
         """;
 
-    /// <summary>Protects filter creation and the bounded process cache.</summary>
-    private static readonly Lock Gate = new();
+    /// <summary>Protects filter use, creation and disposal.</summary>
+    private readonly Lock _gate = new();
 
     /// <summary>Filters are immutable and reused by all tiles of the same tone.</summary>
-    private static readonly Dictionary<PageTone, SKColorFilter?> Filters = [];
+    private readonly Dictionary<PageTone, SKColorFilter?> _filters = [];
 
     /// <summary>The compiled tone effect, shared across colour settings.</summary>
-    private static SKRuntimeEffect? _effect;
+    private SKRuntimeEffect? _effect;
 
     /// <summary>Whether the native runtime cannot compile the effect.</summary>
-    private static int _compileFailed;
+    private int _compileFailed;
+
+    /// <summary>Whether the owning render hub has closed.</summary>
+    private bool _disposed;
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            foreach (var (_, filter) in _filters)
+            {
+                filter?.Dispose();
+            }
+
+            _filters.Clear();
+            _effect?.Dispose();
+            _effect = null;
+        }
+    }
 
     /// <summary>Checks whether a tone has an exact shader implementation on this Skia build.</summary>
     /// <param name="tone">The page tone.</param>
     /// <returns>Whether GPU tone rendering can be attempted.</returns>
-    internal static bool CanApply(PageTone tone)
+    internal bool CanApply(PageTone tone)
     {
         ArgumentNullException.ThrowIfNull(tone);
         if (tone.IsIdentity)
@@ -74,10 +99,59 @@ internal static class GpuPageTone
     /// <param name="tone">The page tone.</param>
     /// <param name="context">The owning GPU context, or null for raster parity tests.</param>
     /// <returns>An owned toned image, or null when the effect or target is unsupported.</returns>
-    internal static SKImage? TryApply(SKImage source, SKImageInfo info, PageTone tone, GRContext? context)
+    internal SKImage? TryApply(SKImage source, SKImageInfo info, PageTone tone, GRContext? context)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(tone);
+        lock (_gate)
+        {
+            return TryApplyLocked(source, info, tone, context);
+        }
+    }
+
+    /// <summary>Creates a GPU or raster surface with the supplied format.</summary>
+    /// <param name="context">The graphics context, or null for raster output.</param>
+    /// <param name="info">The target layout.</param>
+    /// <returns>The surface or null.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static SKSurface? TryCreateSurface(GRContext? context, SKImageInfo info)
+    {
+        try
+        {
+            return context is null ? SKSurface.Create(info) : SKSurface.Create(context, false, info);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Writes one tone's channel values into an immutable colour filter.</summary>
+    /// <param name="effect">The compiled effect.</param>
+    /// <param name="tone">The tone.</param>
+    /// <returns>The filter.</returns>
+    private static SKColorFilter? CreateFilter(SKRuntimeEffect effect, PageTone tone)
+    {
+        using var uniforms = new SKRuntimeEffectUniforms(effect);
+        uniforms["paper"] = Color(tone.Paper);
+        uniforms["ink"] = Color(tone.Ink);
+        return effect.ToColorFilter(uniforms);
+    }
+
+    /// <summary>Converts a packed RGB colour into shader channel values.</summary>
+    /// <param name="rgb">The packed colour.</param>
+    /// <returns>The channel values.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SKPoint3 Color(uint rgb) => new((rgb >> RedShift) & ChannelMax, (rgb >> GreenShift) & ChannelMax, rgb & ChannelMax);
+
+    /// <summary>Draws with a filter while disposal is excluded.</summary>
+    /// <param name="source">The untoned image.</param>
+    /// <param name="info">The target pixel layout.</param>
+    /// <param name="tone">The page tone.</param>
+    /// <param name="context">The graphics context, or null for raster output.</param>
+    /// <returns>The toned image, or null when unsupported.</returns>
+    private SKImage? TryApplyLocked(SKImage source, SKImageInfo info, PageTone tone, GRContext? context)
+    {
         using var filter = AcquireFilter(tone);
         if (filter.Value is null)
         {
@@ -102,31 +176,19 @@ internal static class GpuPageTone
         }
     }
 
-    /// <summary>Creates a GPU or raster surface with the supplied format.</summary>
-    /// <param name="context">The graphics context, or null for raster output.</param>
-    /// <param name="info">The target layout.</param>
-    /// <returns>The surface or null.</returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static SKSurface? TryCreateSurface(GRContext? context, SKImageInfo info)
-    {
-        try
-        {
-            return context is null ? SKSurface.Create(info) : SKSurface.Create(context, false, info);
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
-        {
-            return null;
-        }
-    }
-
     /// <summary>Gets a cached filter or creates a short-lived filter after the cache fills.</summary>
     /// <param name="tone">The tone.</param>
     /// <returns>The filter lease.</returns>
-    private static ToneFilterLease AcquireFilter(PageTone tone)
+    private ToneFilterLease AcquireFilter(PageTone tone)
     {
-        lock (Gate)
+        lock (_gate)
         {
-            if (Filters.TryGetValue(tone, out var existing))
+            if (_disposed)
+            {
+                return default;
+            }
+
+            if (_filters.TryGetValue(tone, out var existing))
             {
                 return new(existing, false);
             }
@@ -144,27 +206,27 @@ internal static class GpuPageTone
             }
             catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or SKRuntimeEffectBuilderException)
             {
-                if (Filters.Count < CachedTones)
+                if (_filters.Count < CachedTones)
                 {
-                    Filters.Add(tone, null);
+                    _filters.Add(tone, null);
                 }
 
                 return default;
             }
 
-            if (Filters.Count >= CachedTones)
+            if (_filters.Count >= CachedTones)
             {
                 return new(filter, true);
             }
 
-            Filters.Add(tone, filter);
+            _filters.Add(tone, filter);
             return new(filter, false);
         }
     }
 
     /// <summary>Compiles the effect once while the cache gate is held.</summary>
     /// <returns>The effect or null when unsupported.</returns>
-    private static SKRuntimeEffect? GetEffectLocked()
+    private SKRuntimeEffect? GetEffectLocked()
     {
         if (Volatile.Read(ref _compileFailed) != 0)
         {
@@ -184,24 +246,6 @@ internal static class GpuPageTone
         _ = Interlocked.Exchange(ref _compileFailed, _effect is null ? 1 : 0);
         return _effect;
     }
-
-    /// <summary>Writes one tone's channel values into an immutable colour filter.</summary>
-    /// <param name="effect">The compiled effect.</param>
-    /// <param name="tone">The tone.</param>
-    /// <returns>The filter.</returns>
-    private static SKColorFilter? CreateFilter(SKRuntimeEffect effect, PageTone tone)
-    {
-        using var uniforms = new SKRuntimeEffectUniforms(effect);
-        uniforms["paper"] = Color(tone.Paper);
-        uniforms["ink"] = Color(tone.Ink);
-        return effect.ToColorFilter(uniforms);
-    }
-
-    /// <summary>Converts a packed RGB colour into shader channel values.</summary>
-    /// <param name="rgb">The packed colour.</param>
-    /// <returns>The channel values.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static SKPoint3 Color(uint rgb) => new((rgb >> RedShift) & ChannelMax, (rgb >> GreenShift) & ChannelMax, rgb & ChannelMax);
 
     /// <summary>Owns only filters created after the bounded shared cache fills.</summary>
     /// <param name="Value">The filter, or null when unsupported.</param>

@@ -11,6 +11,9 @@ namespace HyperPdfLibrary.Document;
 /// <summary>Reads page labels.</summary>
 public static class PdfDocumentLabels
 {
+    /// <summary>The largest temporary list retained between reads.</summary>
+    private const int MaxKeptRanges = 4096;
+
     /// <summary>Gets a page's label, for example "iv".</summary>
     /// <param name="document">The document.</param>
     /// <param name="index">The zero based page index.</param>
@@ -22,18 +25,23 @@ public static class PdfDocumentLabels
             return null;
         }
 
-        var ranges = PdfDocumentLabels.GetLabelRanges(document);
-        var range = PdfDocumentLabels.FindRange(ranges, index);
-        if (range is null)
+        // An empty string stands for a label that is null, so a slot that was never read stays null.
+        var revision = PdfDocumentCaches.Revision(document);
+        var labels = PdfDocumentCaches.PerPage(document, ref document.State.PageLabels, revision);
+        if ((uint)index >= (uint)labels.Length)
         {
-            return (index + 1).ToString(CultureInfo.InvariantCulture);
+            // An edit can shrink the page set between the initial range check and cache creation.
+            return null;
         }
 
-        var dictionary = range.Value.Label;
-        var prefix = dictionary.Get(KnownName.P);
-        var number = index - range.Value.Start + dictionary.GetInt32(KnownName.St, 1);
-        var style = document.Objects.Names.GetSpelling(dictionary.GetName(KnownName.S));
-        return PageLabelText.Create(prefix.Kind == PdfKind.String ? prefix.AsStringBytes() : default, number, style.Length == 1 ? style[0] : default);
+        var cached = Volatile.Read(ref labels[index]);
+        if (cached is null)
+        {
+            cached = PdfDocumentLabels.ReadPageLabel(document, index) ?? string.Empty;
+            Volatile.Write(ref labels[index], cached);
+        }
+
+        return cached.Length == 0 ? null : cached;
     }
 
     /// <summary>Gets the labels of some pages as style and number, for pages copied into another document.</summary>
@@ -93,19 +101,69 @@ public static class PdfDocumentLabels
             return ranges;
         }
 
-        var entries = new List<NameTreeEntry>();
-        NameTree.EnumerateNumbers(document.Catalog.GetDictionary(KnownName.PageLabels), entries);
-        var list = new List<PageLabelRange>(entries.Count);
-        foreach (var entry in entries)
+        var entries = document.Objects.ScratchPools.Slots<List<NameTreeEntry>>().Take() ?? [];
+        var list = document.Objects.ScratchPools.Slots<List<PageLabelRange>>().Take() ?? [];
+        try
         {
-            if (entry.Key.IsNumber && entry.Value.AsDictionary() is { } label)
+            NameTree.EnumerateNumbers(document.Catalog.GetDictionary(KnownName.PageLabels), entries);
+            foreach (var entry in entries)
             {
-                list.Add(new(entry.Key.AsInt32(), label));
+                if (entry.Key.IsNumber && entry.Value.AsDictionary() is { } label)
+                {
+                    list.Add(new(entry.Key.AsInt32(), label));
+                }
             }
+
+            list.Sort(static (a, b) => a.Start.CompareTo(b.Start));
+            ranges = [.. list];
+            return PdfDocumentCaches.Publish(document, ref document.State.LabelRanges, ranges, revision);
+        }
+        finally
+        {
+            ReturnLists(document, entries, list);
+        }
+    }
+
+    /// <summary>Clears temporary lists and retains bounded buffers.</summary>
+    /// <param name="document">The owner of the working lists.</param>
+    /// <param name="entries">The temporary tree entries.</param>
+    /// <param name="ranges">The temporary ranges.</param>
+    private static void ReturnLists(PdfDocument document, List<NameTreeEntry> entries, List<PageLabelRange> ranges)
+    {
+        var keep = entries.Capacity <= MaxKeptRanges && ranges.Capacity <= MaxKeptRanges;
+        entries.Clear();
+        ranges.Clear();
+        if (!keep)
+        {
+            return;
         }
 
-        list.Sort(static (a, b) => a.Start.CompareTo(b.Start));
-        ranges = [.. list];
-        return PdfDocumentCaches.Publish(document, ref document.State.LabelRanges, ranges, revision);
+        _ = document.Objects.ScratchPools.Slots<List<NameTreeEntry>>().Offer(entries);
+        _ = document.Objects.ScratchPools.Slots<List<PageLabelRange>>().Offer(ranges);
+    }
+
+    /// <summary>Reads a page's label.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="index">The zero based page index.</param>
+    /// <returns>The label, or <see langword="null"/> when the document defines no labels or the label is empty.</returns>
+    private static string? ReadPageLabel(PdfDocument document, int index)
+    {
+        if (document.Catalog.GetDictionary(KnownName.PageLabels) is null)
+        {
+            return null;
+        }
+
+        var ranges = PdfDocumentLabels.GetLabelRanges(document);
+        var range = PdfDocumentLabels.FindRange(ranges, index);
+        if (range is null)
+        {
+            return (index + 1).ToString(CultureInfo.InvariantCulture);
+        }
+
+        var dictionary = range.Value.Label;
+        var prefix = dictionary.Get(KnownName.P);
+        var number = index - range.Value.Start + dictionary.GetInt32(KnownName.St, 1);
+        var style = document.Objects.Names.GetSpelling(dictionary.GetName(KnownName.S));
+        return PageLabelText.Create(prefix.Kind == PdfKind.String ? prefix.AsStringBytes() : default, number, style.Length == 1 ? style[0] : default);
     }
 }

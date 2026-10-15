@@ -39,19 +39,24 @@ public sealed partial class FormsViewModel
 
     /// <summary>Gets corrections for the misspelled word at a place in the editor's text.</summary>
     /// <param name="index">A character index in <see cref="EditText"/>.</param>
+    /// <param name="suggestions">Receives the corrections, after it is cleared; it stays empty when the word is spelled correctly or there is none.</param>
     /// <param name="word">The word found there, or an empty range.</param>
-    /// <returns>The corrections; empty when the word is spelled correctly or there is none.</returns>
-    public IReadOnlyList<string> SuggestAt(int index, out TextRange word)
+    public void SuggestAt(int index, List<string> suggestions, out TextRange word)
     {
+        ArgumentNullException.ThrowIfNull(suggestions);
+        suggestions.Clear();
         word = SpellingWords.WordAt(EditText, index);
         if (!ChecksSpelling || word.IsEmpty)
         {
-            return [];
+            return;
         }
 
         var text = EditText.Substring(word.Start, word.Length);
         var checker = _owner.Services.SpellChecker;
-        return checker.IsCorrect(text) || IgnoredWords().Contains(text) ? [] : checker.Suggest(text);
+        if (!checker.IsCorrect(text) && !IgnoredWords().Contains(text))
+        {
+            checker.Suggest(text, suggestions);
+        }
     }
 
     /// <summary>Replaces a word in the editor's text with a correction.</summary>

@@ -22,15 +22,20 @@ internal sealed class GlRenderTarget : ISkiaGpuRenderTarget
     /// <summary>The surface.</summary>
     private readonly IGlPlatformSurfaceRenderTarget _surface;
 
+    /// <summary>Serializes setup on the graphics context shared by render targets.</summary>
+    private readonly Lock _graphicsGate;
+
     /// <summary>Initializes a new instance of the <see cref = "GlRenderTarget"/> class.</summary>
     /// <param name = "graphicsContext">The Skia GPU context.</param>
+    /// <param name = "graphicsGate">The graphics context's shared setup lock.</param>
     /// <param name = "openGlContext">The OpenGL context.</param>
     /// <param name = "platformSurface">The OpenGL surface.</param>
-    public GlRenderTarget(GRContext graphicsContext, IGlContext openGlContext, IGlPlatformSurface platformSurface)
+    public GlRenderTarget(GRContext graphicsContext, Lock graphicsGate, IGlContext openGlContext, IGlPlatformSurface platformSurface)
     {
         ArgumentNullException.ThrowIfNull(openGlContext);
         ArgumentNullException.ThrowIfNull(platformSurface);
         GraphicsContext = graphicsContext;
+        _graphicsGate = graphicsGate;
         using (openGlContext.EnsureCurrent())
         {
             _surface = platformSurface.CreateGlRenderTarget(openGlContext);
@@ -65,7 +70,7 @@ internal sealed class GlRenderTarget : ISkiaGpuRenderTarget
                 throw new InvalidOperationException($"Invalid drawing context surface size {size} and scaling {scaling}");
             }
 
-            lock (GraphicsContext)
+            lock (_graphicsGate)
             {
                 GraphicsContext.ResetContext();
                 var samples = disp.SampleCount;

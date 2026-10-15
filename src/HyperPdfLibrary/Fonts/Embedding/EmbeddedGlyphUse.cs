@@ -17,17 +17,26 @@ internal sealed class EmbeddedGlyphUse
     /// <summary>The largest code a two-byte string can hold.</summary>
     internal const int MaxCode = 0xFFFF;
 
+    /// <summary>The number of glyphs the tables hold before they first grow, which covers a page of ordinary text in one allocation each.</summary>
+    private const int InitialGlyphs = 96;
+
+    /// <summary>The number of characters whose one-character string is shared.</summary>
+    private const int SharedTexts = 256;
+
+    /// <summary>The immutable one-character strings for the first <see cref="SharedTexts"/> characters.</summary>
+    private static readonly string[] OneCharacter = CreateCharacterTexts();
+
     /// <summary>Guards every field.</summary>
     private readonly Lock _gate = new();
 
     /// <summary>The code of each glyph shown.</summary>
-    private readonly Dictionary<int, int> _codes = [];
+    private readonly Dictionary<int, int> _codes = [with(InitialGlyphs)];
 
     /// <summary>The glyphs shown, in the order they were first used.</summary>
-    private readonly List<int> _order = [];
+    private readonly List<int> _order = [with(InitialGlyphs)];
 
     /// <summary>The text of each code.</summary>
-    private readonly Dictionary<int, string> _texts = [];
+    private readonly Dictionary<int, string> _texts = [with(InitialGlyphs)];
 
     /// <summary>The CID of each glyph when the font program fixes them, or <see langword="null"/> to number glyphs densely.</summary>
     private readonly int[]? _fixedCodes;
@@ -98,9 +107,9 @@ internal sealed class EmbeddedGlyphUse
     /// <param name="code">The code.</param>
     /// <param name="text">The text.</param>
     /// <returns><see langword="true"/> when the code now stands for this text; <see langword="false"/> when it already stands for different text.</returns>
-    internal bool RecordText(int code, string text)
+    internal bool RecordText(int code, ReadOnlySpan<char> text)
     {
-        if (code == 0 || text.Length == 0)
+        if (code == 0 || text.IsEmpty)
         {
             return true;
         }
@@ -109,10 +118,15 @@ internal sealed class EmbeddedGlyphUse
         {
             if (_texts.TryGetValue(code, out var existing))
             {
-                return string.Equals(existing, text, StringComparison.Ordinal);
+                return text.SequenceEqual(existing);
             }
 
-            _texts[code] = text;
+            // The snapshot shares this dictionary after freezing, so only unfrozen fonts add text.
+            if (!_frozen)
+            {
+                _texts[code] = TextOf(text);
+            }
+
             return true;
         }
     }
@@ -124,6 +138,7 @@ internal sealed class EmbeddedGlyphUse
         lock (_gate)
         {
             _frozen = true;
+
             var glyphs = _order.ToArray();
             var codes = new int[glyphs.Length];
             for (var i = 0; i < glyphs.Length; i++)
@@ -136,8 +151,27 @@ internal sealed class EmbeddedGlyphUse
                 Array.Sort(codes, glyphs);
             }
 
-            return new(glyphs, codes, new Dictionary<int, string>(_texts));
+            return new(glyphs, codes, _texts);
         }
+    }
+
+    /// <summary>Gets a string for some text, shared when it is one early character.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>The string.</returns>
+    private static string TextOf(ReadOnlySpan<char> text) =>
+        text.Length != 1 || text[0] >= SharedTexts ? text.ToString() : OneCharacter[text[0]];
+
+    /// <summary>Builds the fixed character table once; no entry is changed after initialization.</summary>
+    /// <returns>The text for each character.</returns>
+    private static string[] CreateCharacterTexts()
+    {
+        var values = new string[SharedTexts];
+        for (var i = 0; i < values.Length; i++)
+        {
+            values[i] = new((char)i, 1);
+        }
+
+        return values;
     }
 
     /// <summary>Gets the fixed code of a glyph.</summary>

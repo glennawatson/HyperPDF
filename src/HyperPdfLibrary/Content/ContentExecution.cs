@@ -61,6 +61,17 @@ internal static class ContentExecution
         ContentExecution.EndPage(self);
     }
 
+    /// <summary>Runs a page's already decoded content, then returns the device to its starting state.</summary>
+    /// <param name = "self">The owned interpreter state.</param>
+    /// <param name = "page">The page; content is drawn in viewer space.</param>
+    /// <param name = "content">The page's decoded content, as <see cref = "ContentExecution.DecodeContents(PdfPage, ref PooledBuffer, CancellationToken)"/> makes it.</param>
+    internal static void RunPage(ContentInterpreter self, PdfPage page, ReadOnlySpan<byte> content)
+    {
+        ContentExecution.BeginPage(self, page);
+        ContentExecution.Execute(self, content);
+        ContentExecution.EndPage(self);
+    }
+
     /// <summary>Starts running a page's content in slices with <see cref = "ContentExecution.RunSlice"/>; content is drawn in viewer space.</summary>
     /// <param name = "self">The owned interpreter state.</param>
     /// <param name = "page">The page.</param>

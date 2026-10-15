@@ -5,7 +5,6 @@
 using System.Buffers;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace HyperPdf.Core.Forms.Scripting;
 
@@ -61,7 +60,7 @@ internal static class FormDates
             return false;
         }
 
-        var trimmed = text.Trim();
+        var trimmed = text.AsSpan().Trim();
         return DateTime.TryParseExact(trimmed, ToPattern(format), CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out value)
             || DateTime.TryParseExact(trimmed, CommonTimePatterns, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out value);
     }
@@ -72,25 +71,65 @@ internal static class FormDates
     internal static string ToPattern(string format)
     {
         ArgumentNullException.ThrowIfNull(format);
-        var pattern = new StringBuilder(format.Length + format.Length);
+        var predefined = format switch
+        {
+            "m/d" => "M/d",
+            "m/d/yy" => "M/d/yy",
+            "mm/dd/yy" => "MM/dd/yy",
+            "mm/yy" => "MM/yy",
+            "d-mmm" => "d-MMM",
+            "d-mmm-yy" => "d-MMM-yy",
+            "dd-mmm-yy" => "dd-MMM-yy",
+            "yy-mm-dd" => "yy-MM-dd",
+            "mmm-yy" => "MMM-yy",
+            "mmmm-yy" => "MMMM-yy",
+            "mmm d, yyyy" => "MMM d, yyyy",
+            "mmmm d, yyyy" => "MMMM d, yyyy",
+            "m/d/yy h:MM tt" => "M/d/yy h:mm tt",
+            "m/d/yy HH:MM" => "M/d/yy HH:mm",
+            "HH:MM" => "HH:mm",
+            "h:MM tt" => "h:mm tt",
+            "HH:MM:ss" => "HH:mm:ss",
+            "h:MM:ss tt" => "h:mm:ss tt",
+            _ => null,
+        };
+        if (predefined is not null)
+        {
+            return predefined;
+        }
+
+        var length = format.Length;
         foreach (var c in format)
         {
-            if (c is 'm' or 'M')
+            if (c is not ('m' or 'M') && !Kept.Contains(c) && (Escaped.Contains(c) || char.IsAsciiLetter(c)))
             {
-                // PDF form month and minute letters are the other way round to .NET's.
-                _ = pattern.Append(c == 'm' ? 'M' : 'm');
-            }
-            else if (Kept.Contains(c))
-            {
-                _ = pattern.Append(c);
-            }
-            else
-            {
-                _ = Escaped.Contains(c) || char.IsAsciiLetter(c) ? pattern.Append('\\').Append(c) : pattern.Append(c);
+                length++;
             }
         }
 
-        return pattern.ToString();
+        return string.Create(length, format, static (pattern, source) =>
+        {
+            var position = 0;
+            foreach (var c in source)
+            {
+                if (c is 'm' or 'M')
+                {
+                    // PDF form month and minute letters are reversed in .NET patterns.
+                    pattern[position] = c == 'm' ? 'M' : 'm';
+                    position++;
+                    continue;
+                }
+
+                if (!Kept.Contains(c) && (Escaped.Contains(c) || char.IsAsciiLetter(c)))
+                {
+                    pattern[position] = '\\';
+                    position++;
+                }
+
+                pattern[position] = c;
+                position++;
+            }
+        });
     }
 
     /// <summary>Reads a date written in the field's format, or failing that in a common form.</summary>
@@ -106,7 +145,7 @@ internal static class FormDates
             return false;
         }
 
-        var trimmed = text.Trim();
+        var trimmed = text.AsSpan().Trim();
         return DateTime.TryParseExact(trimmed, ToPattern(format), CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out value)
             || DateTime.TryParseExact(trimmed, CommonPatterns, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out value)
             || DateTime.TryParse(trimmed, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, out value);

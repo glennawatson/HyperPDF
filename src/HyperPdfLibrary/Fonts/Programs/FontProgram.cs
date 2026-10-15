@@ -162,19 +162,7 @@ public abstract class FontProgram
             order[i] = i;
         }
 
-        Array.Sort(order, new GlyphNameComparer(this));
+        GlyphNameOrder.Sort(this, order);
         return Interlocked.CompareExchange(ref _nameOrder, order, null) ?? order;
-    }
-
-    /// <summary>Orders glyph ids by name, then by id.</summary>
-    /// <param name="program">The font program.</param>
-    private sealed class GlyphNameComparer(FontProgram program) : IComparer<int>
-    {
-        /// <inheritdoc/>
-        public int Compare(int x, int y)
-        {
-            var order = program.GetGlyphName(x).SequenceCompareTo(program.GetGlyphName(y));
-            return order != 0 ? order : x.CompareTo(y);
-        }
     }
 }

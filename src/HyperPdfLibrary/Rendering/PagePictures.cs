@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Numerics;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
 
@@ -16,11 +17,11 @@ namespace HyperPdfLibrary.Rendering;
 [DebuggerDisplay("PagePictures: page {PageIndex} version {Version}")]
 internal sealed class PagePictures
 {
+    /// <summary>The bit of <see cref="_usage"/> set once the entry has left the cache; the bits below it count the renders using the entry.</summary>
+    private const int RetiredBit = 1 << 30;
+
     /// <summary>Guards recording and the recorded pictures. It is held for a whole slice of recording.</summary>
     private readonly Lock _gate = new();
-
-    /// <summary>Guards the use count and the retired flag only, so counting never waits for a recording.</summary>
-    private readonly Lock _usage = new();
 
     /// <summary>The page content.</summary>
     private IPdfRenderPicture? _content;
@@ -37,11 +38,8 @@ internal sealed class PagePictures
     /// <summary>A content recording paused part way, or null.</summary>
     private ProgressiveRecording? _recording;
 
-    /// <summary>The renders using the entry.</summary>
-    private int _users;
-
-    /// <summary>Whether the entry has left the cache.</summary>
-    private bool _retired;
+    /// <summary>The renders using the entry, with <see cref="RetiredBit"/> set once it has left the cache; changed only by interlocked operations.</summary>
+    private int _usage;
 
     /// <summary>The memory the recorded pictures hold for themselves, without the pixels of the images they drew.</summary>
     private long _heldBytes;
@@ -97,6 +95,9 @@ internal sealed class PagePictures
         ZoomClass = zoomClass;
     }
 
+    /// <summary>Gets the page-to-device matrix, without the tile offset, the pictures were recorded for; null for pictures that serve a zoom band.</summary>
+    internal Matrix3x2? Device { get; init; }
+
     /// <summary>Gets the layer zoom class the pictures were recorded for.</summary>
     internal int ZoomClass { get; }
 
@@ -127,26 +128,24 @@ internal sealed class PagePictures
     /// <summary>Gets how many pictures have been recorded, which changes whenever <see cref="HeldBytes"/> or <see cref="Images"/> can.</summary>
     internal int Recordings => Volatile.Read(ref _recordings);
 
+    /// <summary>Determines whether the entry holds the pictures a render needs.</summary>
+    /// <param name="pageIndex">The page index.</param>
+    /// <param name="version">The optional content version.</param>
+    /// <param name="usesIntent">Whether the pictures use the output intent conversion.</param>
+    /// <param name="scaleBand">The zoom band, or the marker band of an exact page matrix.</param>
+    /// <param name="zoomClass">The layer zoom class.</param>
+    /// <param name="device">The exact page-to-device matrix, or null for a zoom band.</param>
+    /// <returns><see langword="true"/> when the pictures fit.</returns>
+    internal bool Serves(int pageIndex, int version, bool usesIntent, int scaleBand, int zoomClass, Matrix3x2? device) =>
+        PageIndex == pageIndex && Version == version && UsesIntent == usesIntent && ScaleBand == scaleBand && ZoomClass == zoomClass && Device == device;
+
     /// <summary>Marks the entry as in use.</summary>
-    internal void Acquire()
-    {
-        lock (_usage)
-        {
-            _users++;
-        }
-    }
+    internal void Acquire() => _ = Interlocked.Increment(ref _usage);
 
     /// <summary>Marks the end of a use, disposing the pictures if the entry has left the cache.</summary>
     internal void Release()
     {
-        bool dispose;
-        lock (_usage)
-        {
-            _users--;
-            dispose = _retired && _users == 0;
-        }
-
-        if (dispose)
+        if (Interlocked.Decrement(ref _usage) == RetiredBit)
         {
             DisposePictures();
         }
@@ -155,15 +154,8 @@ internal sealed class PagePictures
     /// <summary>Marks the entry as removed from the cache.</summary>
     internal void Retire()
     {
-        bool dispose;
-        lock (_usage)
-        {
-            // A recording holds a use, so an entry that is recording is disposed by the Release that ends the use.
-            dispose = !_retired && _users == 0;
-            _retired = true;
-        }
-
-        if (dispose)
+        // A recording holds a use, so an entry that is recording is disposed by the Release that ends the use.
+        if (Interlocked.Or(ref _usage, RetiredBit) == 0)
         {
             DisposePictures();
         }
@@ -189,7 +181,7 @@ internal sealed class PagePictures
                 return (printing ? _printContent : _content)!;
             }
 
-            var recorded = PageRecorder.RecordContent(cache, page, printing, new(UpperScale, ZoomClass), out var bytes, out var images);
+            var recorded = PageRecorder.RecordContent(cache, page, printing, new(UpperScale, ZoomClass) { Device = Device }, out var bytes, out var images);
             AddHeld(bytes, images);
             if (printing)
             {
@@ -246,7 +238,7 @@ internal sealed class PagePictures
                 return existing;
             }
 
-            var recorded = PageRecorder.RecordAnnotations(cache, page, printing, new(UpperScale, ZoomClass), out var bytes, out var images, cancellationToken);
+            var recorded = PageRecorder.RecordAnnotations(cache, page, printing, new(UpperScale, ZoomClass) { Device = Device }, out var bytes, out var images, cancellationToken);
             AddHeld(bytes, images);
             if (printing)
             {
@@ -308,7 +300,7 @@ internal sealed class PagePictures
             _recording = null;
         }
 
-        _recording ??= ProgressiveRecording.Start(cache, page, printing, UpperScale, ZoomClass, cancellationToken);
+        _recording ??= ProgressiveRecording.Start(cache, page, printing, new(UpperScale, ZoomClass) { Device = Device }, cancellationToken);
         PdfRenderStatus status;
         IPdfRenderPicture? picture;
         try

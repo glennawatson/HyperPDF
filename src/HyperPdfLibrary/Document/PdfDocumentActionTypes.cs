@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Objects;
 
@@ -42,7 +43,7 @@ action.Int("Flags", 0)),
     /// <summary>Reads a field name list: strings, or field dictionaries given by their qualified names.</summary>
     /// <param name="fields">The <c>/Fields</c> array, or null.</param>
     /// <returns>The names; empty when the array is missing.</returns>
-    private static string[] ReadFieldNames(PdfArray? fields)
+    private static ImmutableArray<string> ReadFieldNames(PdfArray? fields)
     {
         if (fields is null)
         {
@@ -96,7 +97,7 @@ action.Int("Flags", 0)),
     /// <summary>Reads the <c>/T</c> of a hide action: one target or an array.</summary>
     /// <param name="target">The value.</param>
     /// <returns>The target names.</returns>
-    private static string[] ReadHideTargets(PdfValue target)
+    private static ImmutableArray<string> ReadHideTargets(PdfValue target)
     {
         if (target.AsArray() is { } array)
         {
@@ -127,7 +128,7 @@ action.Int("Flags", 0)),
     /// <summary>Reads a set-OCG-state array: a mode name followed by the groups it applies to, repeated.</summary>
     /// <param name="state">The <c>/State</c> array, or null.</param>
     /// <returns>The steps.</returns>
-    private static PdfOcgStateChange[] ReadOcgStates(PdfArray? state)
+    private static ImmutableArray<PdfOcgStateChange> ReadOcgStates(PdfArray? state)
     {
         var changes = new List<PdfOcgStateChange>();
         string? mode = null;

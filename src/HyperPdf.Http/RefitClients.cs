@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using HyperPdf.Http.GitHub;
 using HyperPdf.Http.Remote;
 using HyperPdf.Http.Signatures;
@@ -17,9 +17,6 @@ namespace HyperPdf.Http;
 /// </summary>
 public static class RefitClients
 {
-    /// <summary>Refit resolves paths against a client's base address, so one download client is kept per host.</summary>
-    private static readonly ConcurrentDictionary<string, IRemoteDocumentApi> DownloadClients = new(StringComparer.OrdinalIgnoreCase);
-
     /// <summary>Gets the GitHub API base address.</summary>
     public static Uri GitHubApiAddress { get; } = new("https://api.github.com");
 
@@ -71,13 +68,9 @@ public static class RefitClients
         return RestService.ForGenerated<IRevocationApi>(httpClient, HttpJsonContext.Default);
     }
 
-    /// <summary>Starts downloading a file, sharing one client per host.</summary>
+    /// <summary>Gets the path and query of an address as the download client takes them, relative to its host.</summary>
     /// <param name="uri">The absolute address.</param>
-    /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The response; the caller disposes it.</returns>
-    internal static Task<HttpResponseMessage> Download(Uri uri, CancellationToken cancellationToken)
-    {
-        var api = DownloadClients.GetOrAdd(uri.GetLeftPart(UriPartial.Authority), static authority => CreateRemoteDocumentApi(new() { BaseAddress = new(authority) }));
-        return api.DownloadAsync(uri.PathAndQuery.TrimStart('/'), cancellationToken);
-    }
+    /// <returns>The path and query without the leading slash.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string RequestPathOf(Uri uri) => uri.PathAndQuery.TrimStart('/');
 }

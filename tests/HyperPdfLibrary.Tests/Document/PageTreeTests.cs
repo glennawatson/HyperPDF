@@ -50,6 +50,23 @@ public sealed class PageTreeTests
         await Assert.That(page.Height).IsEqualTo(InheritedWidth);
     }
 
+    /// <summary>Adding inherited attributes to one document leaves the shared empty state unchanged.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task InheritedAttributesStayWithinTheirDocument()
+    {
+        using var inherited = PdfDocumentReader.Open(
+            MiniPdf.Build(
+                "<< /Type /Catalog /Pages 2 0 R >>",
+                "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] /Rotate 90 >>",
+                "<< /Type /Page /Parent 2 0 R >>"), null);
+        using var plain = PdfDocumentReader.Open(Single(string.Empty), null);
+
+        await Assert.That(PdfDocumentPages.GetPage(inherited, 0).Rotation).IsEqualTo(QuarterTurn);
+        await Assert.That(PdfDocumentPages.GetPage(plain, 0).Rotation).IsEqualTo(0);
+        await Assert.That(PdfDocumentPages.GetPage(plain, 0).Width).IsEqualTo(LetterWidth);
+    }
+
     /// <summary>A media box of absurd size is ignored in favour of the default page size.</summary>
     /// <returns>A task.</returns>
     [Test]

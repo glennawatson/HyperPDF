@@ -39,6 +39,19 @@ public sealed class FormScriptTests
     /// <summary>The values of the fields in the calculations.</summary>
     private static readonly Dictionary<string, string> Values = new(StringComparer.Ordinal) { ["Price"] = "$12.50", ["Quantity"] = "4", ["Unit Cost"] = "3", ["Empty"] = string.Empty };
 
+    /// <summary>Date patterns swap month and minute letters and escape literal letters.</summary>
+    /// <param name="format">The PDF pattern.</param>
+    /// <param name="expected">The .NET pattern.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments("m/d/yy h:MM tt", "M/d/yy h:mm tt")]
+    [Arguments("h:MM:ss tt", "h:mm:ss tt")]
+    [Arguments("dd/mm/yyyy at HH:MM", "dd/MM/yyyy \\at HH:mm")]
+    [Arguments("yyyy%\\'\"", "yyyy\\%\\\\\\'\\\"")]
+    [Arguments("", "")]
+    public async Task ConvertsPdfDatePatterns(string format, string expected) =>
+        await Assert.That(FormDates.ToPattern(format)).IsEqualTo(expected);
+
     /// <summary>Recognised PDF calls are recognised with their arguments; anything else is not run.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -124,6 +137,26 @@ public sealed class FormScriptTests
 
         await Assert.That(script.Function).IsEqualTo(FormScriptFunction.Number);
         await Assert.That(FormScript.Parse("AFMergeChange(event);").Function).IsEqualTo(FormScriptFunction.Unknown);
+    }
+
+    /// <summary>The span recognition path agrees with parsing, including helper calls and notation.</summary>
+    /// <param name="script">The field action.</param>
+    /// <param name="recognised">Whether the viewer understands the action.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments("", false)]
+    [Arguments(" \t\n", false)]
+    [Arguments("AFMergeChange(event);", false)]
+    [Arguments("AFMergeChange(event); AFNumber_Keystroke(2, 0, 0, 0, \"\", true);", true)]
+    [Arguments("AFNumber_Format \t (2, 0, 0, 0, \"\", true);", true)]
+    [Arguments("AFNumber_Format\u0301(2, 0);", false)]
+    [Arguments("AFNumber_Format\u203F(2, 0);", false)]
+    [Arguments("/** BVCALC Price * Quantity EVCALC **/", true)]
+    [Arguments("app.launchURL(\"http://example.com\");", false)]
+    public async Task RecognisesWithoutParsing(string script, bool recognised)
+    {
+        await Assert.That(FormScript.IsRecognised(script)).IsEqualTo(recognised);
+        await Assert.That(FormScript.Parse(script).Function != FormScriptFunction.Unknown).IsEqualTo(recognised);
     }
 
     /// <summary><c>AFParseDateEx</c> and <c>AFMergeChange</c> are available as engine helpers.</summary>

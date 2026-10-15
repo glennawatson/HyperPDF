@@ -7,9 +7,11 @@ using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Structure;
+using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Objects;
 
@@ -37,6 +39,9 @@ public sealed class PdfObjectStore : IDisposable
 
     /// <summary>Scratch buffers used if this store has no document-open context.</summary>
     private ScratchPools? _scratchPools;
+
+    /// <summary>The embedding state shared by sinks writing this document.</summary>
+    private PdfFontEmbeddingState? _fontEmbedding;
 
     /// <summary>Where each object lives.</summary>
     private XrefTable _xref;
@@ -86,6 +91,9 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Called after a transaction ends or an edit is undone or redone, so readers drop cached pages.</summary>
     private IObjectsChangedListener? _changed;
 
+    /// <summary>Completed save graphs by encryption and reachability options, guarded by the store lock.</summary>
+    private PdfObjectGraph?[]? _saveGraphs;
+
     /// <summary>Initializes a new instance of the <see cref="PdfObjectStore"/> class.</summary>
     /// <param name="source">The file.</param>
     /// <param name="ownsSource">Whether disposing the store disposes the file.</param>
@@ -96,7 +104,7 @@ public sealed class PdfObjectStore : IDisposable
         _array = source.WholeArray;
         _ownsSource = ownsSource;
         _xref = xref;
-        _cache = xref.Size == 0 ? [] : new object?[xref.Size];
+        _cache = StoreCache.Rent(xref.Size);
     }
 
     /// <summary>Gets the document's name table.</summary>
@@ -158,6 +166,26 @@ public sealed class PdfObjectStore : IDisposable
 
     /// <summary>Gets the document's decoder scratch cache, or this store's fallback cache.</summary>
     internal ScratchPools ScratchPools => Context?.ScratchPools ?? (Volatile.Read(ref _scratchPools) ?? CreateScratchPools());
+
+    /// <summary>Gets font embedding state shared by sinks for this store.</summary>
+    internal PdfFontEmbeddingState FontEmbedding
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            var existing = Volatile.Read(ref _fontEmbedding);
+            if (existing is not null)
+            {
+                return existing;
+            }
+
+            var created = new PdfFontEmbeddingState();
+            return Interlocked.CompareExchange(ref _fontEmbedding, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets embedding state without creating it.</summary>
+    internal PdfFontEmbeddingState? ExistingFontEmbedding => Volatile.Read(ref _fontEmbedding);
 
     /// <summary>Gets a reference to the mutable xref state to store operations.</summary>
     internal ref XrefTable XrefState => ref _xref;
@@ -231,6 +259,9 @@ public sealed class PdfObjectStore : IDisposable
     /// <summary>Gets a reference to the mutable changed state to store operations.</summary>
     internal ref IObjectsChangedListener? ChangedState => ref _changed;
 
+    /// <summary>Gets the completed save graphs, guarded by the store lock.</summary>
+    internal ref PdfObjectGraph?[]? SaveGraphsState => ref _saveGraphs;
+
     /// <summary>Gets the lock that guards the objects and their edits.</summary>
     internal Lock Gate => _gate;
 
@@ -247,13 +278,17 @@ public sealed class PdfObjectStore : IDisposable
 
         lock (_gate)
         {
-            // A parse in progress finishes first. Readers that already hold the old array use it until they are done.
+            // A parse in progress finishes first; cached readers check the disposed state after loading a slot.
             Volatile.Read(ref _objectStreams)?.Clear();
+            var cache = _cache;
             Volatile.Write(ref _cache, []);
+            StoreCache.Return(cache);
+            _saveGraphs = null;
         }
 
         _ = Interlocked.Exchange(ref _prefetchMarks, null);
         _ = Interlocked.Exchange(ref _nameTreeTables, null);
+        _ = Interlocked.Exchange(ref _fontEmbedding, null);
 
         Context?.CloseScratchPools();
         Volatile.Read(ref _scratchPools)?.Close();

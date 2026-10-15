@@ -59,9 +59,6 @@ jobs:
         - rid: win-arm64
           runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
-    defaults:
-      run:
-        shell: bash
     env:
       RID: ${{ matrix.rid }}
       VERSION: ${{ needs.version.outputs.version }}
@@ -74,10 +71,9 @@ jobs:
         src-folder: '.'
         stamp-version: 'false'
         dotnet-versions: |
-          10.x
           11.x
     - name: Publish Native AOT
-      run: dotnet publish src/HyperPdf.App/HyperPdf.App.csproj -c Release -f net11.0 -r "$RID" -o "artifacts/$RID" "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
+      run: dotnet run --file scripts/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
     - name: Upload the published app
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
@@ -114,10 +110,9 @@ jobs:
         src-folder: '.'
         stamp-version: 'false'
         dotnet-versions: |
-          10.x
           11.x
     - name: Publish Native AOT
-      run: dotnet publish src/HyperPdf.App/HyperPdf.App.csproj -c Release -f net11.0 -r "$RID" -o "artifacts/$RID" "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
+      run: dotnet run --file scripts/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
     - name: Stage the installed tree
       run: |
         mkdir -p artifacts/stage/usr/lib artifacts/stage/usr/bin artifacts/stage/usr/share/licenses/hyperpdf
@@ -240,10 +235,9 @@ jobs:
         src-folder: '.'
         stamp-version: 'false'
         dotnet-versions: |
-          10.x
           11.x
     - name: Publish Native AOT
-      run: dotnet publish src/HyperPdf.App/HyperPdf.App.csproj -c Release -f net11.0 -r "$RID" -o "artifacts/$RID" "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
+      run: dotnet run --file scripts/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
     # The .noindex folder stops Spotlight holding files open while the image is built.
     - name: Lay out the app bundle
       uses: glennawatson/actions-common/.github/actions/macos-app-bundle@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
@@ -296,7 +290,6 @@ jobs:
         src-folder: '.'
         stamp-version: 'false'
         dotnet-versions: |
-          10.x
           11.x
     - name: Pack HyperPdfLibrary
       run: dotnet pack src/HyperPdfLibrary/HyperPdfLibrary.csproj -c Release -o artifacts/nuget "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
@@ -462,31 +455,42 @@ jobs:
       with:
         source: artifacts/win-arm64
         output: release/hyperpdf-${{ needs.version.outputs.version }}-win-arm64.zip
-    - name: Write the AUR PKGBUILD and .SRCINFO
-      uses: glennawatson/actions-common/.github/actions/aur-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+    - name: Checkout the AUR generator
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        debs: release
-        name: hyperpdf-bin
-        version: ${{ needs.version.outputs.version }}
-        description: Fast, tabbed PDF viewer
-        url: https://github.com/glennawatson/HyperPDF
-        license: MIT
-        depends: |
+        repository: glennawatson/actions-common
+        ref: 7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+        path: .actions-common
+        persist-credentials: false
+    - name: Write the AUR PKGBUILD and .SRCINFO
+      shell: sh
+      env:
+        AUR_DEBS: release
+        AUR_NAME: hyperpdf-bin
+        AUR_VERSION: ${{ needs.version.outputs.version }}
+        AUR_DESCRIPTION: Fast, tabbed PDF viewer
+        AUR_URL: https://github.com/glennawatson/HyperPDF
+        AUR_LICENSE: MIT
+        AUR_DEPENDS: |
           fontconfig
           libx11
           libice
           libsm
           gcc-libs
           glibc
-        optdepends: |
+        AUR_OPTDEPENDS: |
           wayland: native Wayland support
           libxkbcommon: Wayland keyboard input
           libegl: native Wayland rendering
           libcups: print straight to a printer
           libpulse: Read Aloud sound through PulseAudio or PipeWire
-        maintainer: Glenn Watson
-        source-url-template: https://github.com/glennawatson/HyperPDF/releases/download/${{ needs.version.outputs.tag }}/{file}
-        output: release
+        AUR_OPTIONS: |
+          !strip
+          !debug
+        AUR_MAINTAINER: Glenn Watson
+        AUR_SOURCE_URL: https://github.com/glennawatson/HyperPDF/releases/download/${{ needs.version.outputs.tag }}/{file}
+        AUR_OUTPUT: release
+      run: dotnet run --file .actions-common/.github/actions/aur-build/aur-build.cs
     - name: Sign the installers and the checksums
       uses: glennawatson/actions-common/.github/actions/certum-sign@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:

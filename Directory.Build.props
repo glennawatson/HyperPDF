@@ -45,8 +45,8 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
-  <!-- Every shipped assembly must be trim and Native AOT safe. -->
-  <PropertyGroup Condition="'$(IsTestProject)' != 'true' and '$(IsBenchmarkProject)' != 'true'">
+  <!-- Every shipped assembly must be trim and Native AOT safe. The Roslyn generator loads into the compiler as netstandard2.0. -->
+  <PropertyGroup Condition="'$(IsTestProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(MSBuildProjectName)' != 'HyperPdf.Benchmarks.Generator'">
     <IsAotCompatible>true</IsAotCompatible>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>

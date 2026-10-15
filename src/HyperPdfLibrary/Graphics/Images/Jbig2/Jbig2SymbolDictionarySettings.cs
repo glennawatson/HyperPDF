@@ -51,4 +51,23 @@ internal sealed class Jbig2SymbolDictionarySettings
 
     /// <summary>Gets or sets a value indicating whether the contexts are kept for a later dictionary.</summary>
     internal bool RetainContexts { get; set; }
+
+    /// <summary>Sets every parameter to the value a new dictionary starts with.</summary>
+    internal void Reset()
+    {
+        Huffman = false;
+        RefinementAggregate = false;
+        Template = 0;
+        RefinementTemplate = 0;
+        At = default;
+        RefinementAt = default;
+        ExportCount = 0;
+        NewCount = 0;
+        HeightDelta = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B4);
+        WidthDelta = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B2);
+        BitmapSize = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B1);
+        AggregateCount = Jbig2HuffmanTable.GetStandard(Jbig2StandardTable.B1);
+        ReuseContexts = false;
+        RetainContexts = false;
+    }
 }

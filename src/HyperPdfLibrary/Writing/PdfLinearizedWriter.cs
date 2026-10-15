@@ -29,8 +29,9 @@ public static class PdfLinearizedWriter
         ArgumentNullException.ThrowIfNull(document);
         SignaturePresence.ThrowIfSigned(document.Objects);
         PdfMacSeal.ThrowIfNeeded(document.Objects, "Linearizing");
-        PdfTrapNetworkGuard.Apply(document.Objects, true, null, CancellationToken.None);
+        PdfLinearizedWriter.CheckTrapNetworks(document, null, CancellationToken.None);
         PdfRequirementsGuard.Apply(document.Objects, null, CancellationToken.None);
+        PdfUaClaimGuard.Apply(document.Objects, true, null, CancellationToken.None);
         return BuildChecked(document, null, CancellationToken.None);
     }
 
@@ -62,10 +63,11 @@ public static class PdfLinearizedWriter
         cancellationToken.ThrowIfCancellationRequested();
         SignaturePresence.ThrowIfSigned(document.Objects);
         PdfMacSeal.ThrowIfNeeded(document.Objects, "Linearizing");
-        PdfTrapNetworkGuard.Apply(document.Objects, true, report, cancellationToken);
+        PdfLinearizedWriter.CheckTrapNetworks(document, report, cancellationToken);
         PdfRequirementsGuard.Apply(document.Objects, report, cancellationToken);
+        PdfUaClaimGuard.Apply(document.Objects, true, report, cancellationToken);
         var claimed = PdfAClaimGuard.IsClaimed(document.Objects);
-        var bytes = Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken);
+        var bytes = Build(document, cancellationToken);
         if (claimed)
         {
             var outcome = await PdfAClaimGuard.CheckOutputAsync(document.Objects, bytes, cancellationToken).ConfigureAwait(false);
@@ -86,8 +88,34 @@ public static class PdfLinearizedWriter
     private static byte[] BuildChecked(PdfDocument document, PdfSaveReport? report, CancellationToken cancellationToken)
     {
         var claimed = PdfAClaimGuard.IsClaimed(document.Objects);
-        var bytes = Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken);
+        var bytes = Build(document, cancellationToken);
         return claimed ? Settle(document, bytes, report, PdfAClaimGuard.CheckOutput(document.Objects, bytes, cancellationToken), cancellationToken) : bytes;
+    }
+
+    /// <summary>Checks trap networks once for each revision of the objects.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="report">Receives repairs made by this check.</param>
+    /// <param name="cancellationToken">Cancels the check.</param>
+    private static void CheckTrapNetworks(PdfDocument document, PdfSaveReport? report, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        report?.SetTrapNetworks([]);
+        if (StoreTransactions.GetCurrentTransaction(document.Objects) is not null)
+        {
+            PdfTrapNetworkGuard.Apply(document.Objects, true, report, cancellationToken);
+            return;
+        }
+
+        _ = PdfReadSnapshots.Read(
+            document,
+            PdfReadKind.TrapNetworksChecked,
+            report,
+            static (document, report, token) =>
+            {
+                PdfTrapNetworkGuard.Apply(document.Objects, true, report, token);
+                return true;
+            },
+            cancellationToken);
     }
 
     /// <summary>Acts on the claim check of a written file.</summary>
@@ -108,49 +136,63 @@ public static class PdfLinearizedWriter
         if (found.Repaired is { } repaired)
         {
             using var copy = PdfDocumentReader.Open(repaired, null);
-            return Build(copy.Objects, PdfLinearizationPlan.Create(copy, cancellationToken), cancellationToken);
+            return Build(copy, cancellationToken);
         }
 
-        return found.Check.Removed ? Build(document.Objects, PdfLinearizationPlan.Create(document, cancellationToken), cancellationToken) : bytes;
+        return found.Check.Removed ? Build(document, cancellationToken) : bytes;
     }
 
     /// <summary>Repeats the write until all cross-reference and hint offsets are stable.</summary>
-    /// <param name="store">The original file.</param>
-    /// <param name="plan">The object ordering.</param>
+    /// <param name="document">The document to save.</param>
     /// <param name="cancellationToken">Cancels the write.</param>
     /// <returns>A complete linearized file.</returns>
     /// <exception cref="PdfException">The file layout does not stabilize.</exception>
-    private static byte[] Build(PdfObjectStore store, PdfLinearizationPlan plan, CancellationToken cancellationToken)
+    private static byte[] Build(PdfDocument document, CancellationToken cancellationToken)
     {
-        var previous = new PdfLinearizationLayout(plan.HintNumber, plan.PageGroups.Length);
+        var store = document.Objects;
+        using var plan = PdfLinearizationPlan.Create(document, cancellationToken);
+        var first = new PdfLinearizationLayout(plan.HintNumber, plan.PageCount);
+        var second = new PdfLinearizationLayout(plan.HintNumber, plan.PageCount);
         var fileId = default(PdfValue);
-        for (var pass = 0; pass < MaxPasses; pass++)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var writer = new PdfObjectWriter(store.Names, store.Security);
-            try
+            for (var pass = 0; pass < MaxPasses; pass++)
             {
-                var current = PdfLinearizationOutput.Write(ref writer, store, plan, previous, fileId, cancellationToken);
-                if (current.Matches(previous))
-                {
-                    return writer.ToArray();
-                }
+                cancellationToken.ThrowIfCancellationRequested();
 
-                // The id is a hash written as a literal or hex string whose length follows its bytes, so a fresh id each
-                // pass would move every later offset; the first pass's id is kept for the rest.
-                if (pass == 0)
+                // Each pass measures from the pass before it, so the two layouts take turns: the one written last
+                // pass is read, and the one read last pass is written over.
+                ref var previous = ref ((pass & 1) == 0 ? ref first : ref second);
+                ref var current = ref ((pass & 1) == 0 ? ref second : ref first);
+                var writer = new PdfObjectWriter(store.Names, store.Security);
+                try
                 {
-                    fileId = current.FileId;
-                }
+                    current.Reset();
+                    PdfLinearizationOutput.Write(ref writer, store, plan, previous, fileId, ref current, cancellationToken);
+                    if (current.Matches(previous))
+                    {
+                        return writer.ToArray();
+                    }
 
-                previous = current;
+                    // The id is a hash written as a literal or hex string whose length follows its bytes, so a fresh id each
+                    // pass would move every later offset; the first pass's id is kept for the rest.
+                    if (pass == 0)
+                    {
+                        fileId = current.FileId;
+                    }
+                }
+                finally
+                {
+                    writer.Dispose();
+                }
             }
-            finally
-            {
-                writer.Dispose();
-            }
+
+            throw new PdfException(PdfError.Format, "The linearized file positions did not settle before saving.");
         }
-
-        throw new PdfException(PdfError.Format, "The linearized file positions did not settle before saving.");
+        finally
+        {
+            first.Dispose();
+            second.Dispose();
+        }
     }
 }

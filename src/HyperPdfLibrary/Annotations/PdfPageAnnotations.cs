@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Annotations;
@@ -68,7 +69,7 @@ public static class PdfPageAnnotations
             return -1;
         }
 
-        array.Add(PdfValue.FromReference(StoreEditing.Add(store, PdfValue.FromDictionary(annotation))));
+        array.Add(PdfValue.FromReference(StoreEditing.Add(store, PdfValue.FromDictionary(annotation), PdfCacheScopes.None)));
         return Publish(store, page, array) ? array.Count - 1 : -1;
     }
 
@@ -90,7 +91,7 @@ public static class PdfPageAnnotations
         var raw = current.GetRaw(index);
         if (raw.IsReference && raw.AsReference().IsValid)
         {
-            StoreEditing.Replace(store, raw.AsReference(), PdfValue.FromDictionary(annotation));
+            StoreEditing.Replace(store, raw.AsReference(), PdfValue.FromDictionary(annotation), PdfCacheScopes.None);
             return true;
         }
 
@@ -141,7 +142,7 @@ public static class PdfPageAnnotations
             return default;
         }
 
-        var id = StoreEditing.Add(store, PdfValue.FromDictionary(annotation));
+        var id = StoreEditing.Add(store, PdfValue.FromDictionary(annotation), PdfCacheScopes.None);
         var array = current.Clone();
         array.SetAt(index, PdfValue.FromReference(id));
         return Publish(store, page, array) ? id : default;
@@ -184,7 +185,7 @@ public static class PdfPageAnnotations
         var raw = dictionary.GetRaw(KnownName.Annots);
         if (raw.IsReference && raw.AsReference().IsValid)
         {
-            StoreEditing.Replace(store, raw.AsReference(), PdfValue.FromArray(array));
+            StoreEditing.Replace(store, raw.AsReference(), PdfValue.FromArray(array), PdfCacheScopes.None);
             return true;
         }
 
@@ -195,7 +196,7 @@ public static class PdfPageAnnotations
 
         var copy = dictionary.Clone();
         copy.Set(KnownName.Annots, PdfValue.FromArray(array));
-        StoreEditing.Replace(store, page.Id, PdfValue.FromDictionary(copy));
+        StoreEditing.Replace(store, page.Id, PdfValue.FromDictionary(copy), PdfCacheScopes.None);
         return true;
     }
 }

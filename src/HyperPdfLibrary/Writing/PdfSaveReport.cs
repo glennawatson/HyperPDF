@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Conformance;
+using HyperPdfLibrary.PdfUa;
 using HyperPdfLibrary.Requirements;
 
 namespace HyperPdfLibrary.Writing;
@@ -30,6 +31,21 @@ public sealed class PdfSaveReport
     /// be repaired, so the claim was removed before writing; tell the user why.
     /// </summary>
     public PdfAClaimCheck? Claim { get; internal set; }
+
+    /// <summary>
+    /// Gets or sets what the save does when the document claims PDF/UA-1 and a problem it cannot fix would make the claim
+    /// false. The default refuses the save with a <see cref="PdfException"/> whose <see cref="PdfException.Error"/> is
+    /// <see cref="PdfError.ClaimUnmet"/> and writes nothing; <see cref="PdfUaUnmetClaimAction.RemoveClaim"/> removes the claim
+    /// and saves, which the caller offers after telling the user why the claim cannot be kept.
+    /// </summary>
+    public PdfUaUnmetClaimAction UnmetUaClaim { get; set; }
+
+    /// <summary>
+    /// Gets the check of the document's PDF/UA-1 claim, or <see langword="null"/> when the saved file claims none. The
+    /// problems the save could fix are repaired in the document in memory as one undoable edit and listed as repaired; tell
+    /// the user what they were. When a save is refused, the report still holds the problems, so the caller can say why.
+    /// </summary>
+    public PdfUaClaimCheck? UaClaim { get; internal set; }
 
     /// <summary>
     /// Gets a value indicating whether the saved revision is an encrypted document's, which needs a PDF MAC (ISO/TS 32004), and
@@ -61,6 +77,7 @@ public sealed class PdfSaveReport
     internal void Reset()
     {
         Claim = null;
+        UaClaim = null;
         PdfMacWritten = false;
         Failure = null;
         _trapNetworks = [];

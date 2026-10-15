@@ -8,6 +8,7 @@ using HyperPdf.Core.Attachments;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
+using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Signatures;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Rendering;
@@ -68,8 +69,14 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
     /// <summary>The edit version the last successful save wrote.</summary>
     private long _savedVersion;
 
+    /// <summary>The reusable writer report owned by this document.</summary>
+    private HyperPdfLibrary.Writing.PdfSaveReport? _saveReport;
+
     /// <summary>The tint over fillable fields, packed by <see cref="HyperPdfFormRuntime.Pack"/> so one atomic write publishes it.</summary>
     private long _highlight = HyperPdfFormRuntime.Pack(FormHighlight.Default);
+
+    /// <summary>How sharp pages draw, published with a single reference write.</summary>
+    private RenderSharpness _sharpness = RenderSharpness.Default;
 
     /// <summary>The renderer, made on first use and replaced after each edit so no picture of the old page is replayed.</summary>
     private PdfPageRenderer? _renderer;
@@ -157,6 +164,9 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
     /// <summary>Gets the owned EditGate state.</summary>
     internal Lock EditGate => _editGate;
 
+    /// <summary>Gets the spare writer report for this document's saves.</summary>
+    internal ref HyperPdfLibrary.Writing.PdfSaveReport? SaveReport => ref _saveReport;
+
     /// <summary>Gets or sets the owned EditVersion state.</summary>
     internal ref long EditVersion => ref _editVersion;
 
@@ -165,6 +175,9 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <summary>Gets or sets the owned Highlight state.</summary>
     internal ref long Highlight => ref _highlight;
+
+    /// <summary>Gets or sets the owned Sharpness state.</summary>
+    internal ref RenderSharpness Sharpness => ref _sharpness;
 
     /// <summary>Gets or sets the owned RendererState state.</summary>
     internal ref PdfPageRenderer? RendererState => ref _renderer;

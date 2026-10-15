@@ -22,6 +22,27 @@ public static class PdfNumber
     /// <summary>The format of reals copied from a parsed file: up to ten decimals, no exponent.</summary>
     private const string PreciseFormat = "0.##########";
 
+    /// <summary>The decimals of <see cref="RealFormat"/>.</summary>
+    private const int RealDecimals = 6;
+
+    /// <summary>The factor that turns a number into millionths, 10^<see cref="RealDecimals"/>.</summary>
+    private const double RealScale = 1_000_000;
+
+    /// <summary>The magnitude below which scaling to millionths keeps its error far under <see cref="TieMargin"/>.</summary>
+    private const double ScaledLimit = 100_000;
+
+    /// <summary>How close the scaled fraction may be to one half before the general format decides the rounding.</summary>
+    private const double TieMargin = 0.001;
+
+    /// <summary>The smallest buffer the scaled formatter writes into: a sign, five whole digits, a point and six decimals.</summary>
+    private const int ScaledBufferLength = 16;
+
+    /// <summary>One half.</summary>
+    private const double Half = 0.5;
+
+    /// <summary>The base of decimal digits.</summary>
+    private const int Radix = 10;
+
     /// <summary>The length of "-0".</summary>
     private const int NegativeZeroLength = 2;
 
@@ -132,6 +153,11 @@ public static class PdfNumber
             return FormatWhole(number, destination);
         }
 
+        if (!precise && TryFormatScaled(number, destination, out var scaledWritten))
+        {
+            return scaledWritten;
+        }
+
         if (!TryFormatFraction(number, destination, precise, out var written))
         {
             return FormatWhole(Math.Round(number), destination);
@@ -160,6 +186,83 @@ public static class PdfNumber
 
         var limit = whole < 0 ? -long.MaxValue : long.MaxValue;
         return Format(limit, destination);
+    }
+
+    /// <summary>
+    /// Formats a number that has a fractional part with integer arithmetic, giving the same bytes as the six-decimal general
+    /// format. It declines the values that format could round differently: those near a rounding tie, where the format's
+    /// 15-digit intermediate rounding and a double scaling error both matter, and those too large to scale exactly enough.
+    /// </summary>
+    /// <param name="number">The finite number with a fractional part.</param>
+    /// <param name="destination">The buffer.</param>
+    /// <param name="written">The number of bytes written.</param>
+    /// <returns><see langword="true"/> when the number was formatted.</returns>
+    private static bool TryFormatScaled(double number, Span<byte> destination, out int written)
+    {
+        written = 0;
+        var magnitude = Math.Abs(number);
+        if (magnitude >= ScaledLimit || destination.Length < ScaledBufferLength)
+        {
+            return false;
+        }
+
+        var scaled = magnitude * RealScale;
+        var floor = Math.Floor(scaled);
+        var remainder = scaled - floor;
+        if (Math.Abs(remainder - Half) < TieMargin)
+        {
+            return false;
+        }
+
+        var units = (long)floor + (remainder > Half ? 1 : 0);
+        if (units == 0)
+        {
+            destination[0] = (byte)'0';
+            written = 1;
+            return true;
+        }
+
+        var index = 0;
+        if (number < 0)
+        {
+            destination[index] = (byte)'-';
+            index++;
+        }
+
+        var whole = units / (long)RealScale;
+        var fraction = (int)(units % (long)RealScale);
+        index += Format(whole, destination[index..]);
+        if (fraction != 0)
+        {
+            destination[index] = (byte)'.';
+            index++;
+            index += WriteFraction(fraction, destination[index..]);
+        }
+
+        written = index;
+        return true;
+    }
+
+    /// <summary>Writes the six decimals of a fraction without trailing zeros.</summary>
+    /// <param name="fraction">The fraction in millionths, from 1 to 999999.</param>
+    /// <param name="destination">The buffer.</param>
+    /// <returns>The number of digits written.</returns>
+    private static int WriteFraction(int fraction, Span<byte> destination)
+    {
+        var digits = RealDecimals;
+        while (fraction % Radix == 0)
+        {
+            fraction /= Radix;
+            digits--;
+        }
+
+        for (var i = digits - 1; i >= 0; i--)
+        {
+            destination[i] = (byte)('0' + (fraction % Radix));
+            fraction /= Radix;
+        }
+
+        return digits;
     }
 
     /// <summary>Formats a number that has a fractional part.</summary>
