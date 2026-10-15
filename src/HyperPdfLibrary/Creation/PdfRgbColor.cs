@@ -21,4 +21,24 @@ public readonly record struct PdfRgbColor(float Red, float Green, float Blue)
 
     /// <summary>Gets a value indicating whether every channel is zero (black).</summary>
     internal bool IsBlack => Red == 0F && Green == 0F && Blue == 0F;
+
+    /// <summary>Validates that every colour channel is between 0 and 1 inclusive.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">A channel is outside <c>[0, 1]</c> or <see cref="float.NaN"/>.</exception>
+    internal void Validate()
+    {
+        ValidateChannel(Red);
+        ValidateChannel(Green);
+        ValidateChannel(Blue);
+    }
+
+    /// <summary>Validates a single colour channel.</summary>
+    /// <param name="channel">The channel value.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The channel is outside <c>[0, 1]</c> or <see cref="float.NaN"/>.</exception>
+    private static void ValidateChannel(float channel)
+    {
+        if (float.IsNaN(channel) || channel < 0F || channel > 1F)
+        {
+            throw new ArgumentOutOfRangeException(nameof(channel), channel, "Colour channels must be between 0 and 1.");
+        }
+    }
 }

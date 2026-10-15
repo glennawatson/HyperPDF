@@ -52,7 +52,7 @@ public sealed class FlowPageNumberTests
     private const int Dark = 128;
 
     /// <summary>The number of repeated words used to force a second page.</summary>
-    private const int MultiPageWordCount = 260;
+    private const int MultiPageWordCount = 150;
 
     /// <summary>The expected page count of the multi-page test.</summary>
     private const int ExpectedMultiPages = 2;

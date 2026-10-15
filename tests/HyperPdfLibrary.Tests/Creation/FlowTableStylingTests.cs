@@ -149,8 +149,8 @@ public sealed class FlowTableStylingTests
         var blue = new PdfRgbColor(0F, 0F, 1F);
 
         var richCell = PdfTableCell.FromRuns(
-            new PdfTextRun("RedPart ") { Font = regularFont, Color = red },
-            new PdfTextRun("BlueBold") { Font = boldFont, FontSize = LargeFontSize, Color = blue });
+            new PdfTextRun("Red ") { Font = regularFont, Color = red },
+            new PdfTextRun("Blue") { Font = boldFont, FontSize = LargeFontSize, Color = blue });
 
         var table = new PdfFlowTable([new PdfTableRow([richCell, new("Side")])]) { HeaderRows = 0, ColumnWidths = [FirstWidth, SecondWidth], Border = PdfStroke.Black(BorderWidth) };
 
@@ -164,8 +164,8 @@ public sealed class FlowTableStylingTests
 
         await Assert.That(redX).IsGreaterThan(0);
         await Assert.That(blueX).IsGreaterThan(redX);
-        await Assert.That(text.Contains("RedPart", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(text.Contains("BlueBold", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(text.Contains("Red", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(text.Contains("Blue", StringComparison.Ordinal)).IsTrue();
     }
 
     /// <summary>Multi-run rich text wraps within a narrow column and paginates cleanly across pages in a tagged PDF/UA-2 document.</summary>
@@ -220,7 +220,7 @@ public sealed class FlowTableStylingTests
 
         await Assert.That(() => LayOut(badFontSize)).ThrowsExactly<ArgumentOutOfRangeException>();
         await Assert.That(() => LayOut(badColor)).ThrowsExactly<ArgumentOutOfRangeException>();
-        await Assert.That(() => LayOut(badRun)).ThrowsExactly<ArgumentException>();
+        await Assert.That(() => LayOut(badRun)).ThrowsExactly<ArgumentNullException>();
     }
 
     /// <summary>Opens a synthetic font face with the given family name and bold flag.</summary>

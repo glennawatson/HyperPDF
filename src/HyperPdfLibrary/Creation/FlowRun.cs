@@ -223,6 +223,11 @@ internal ref struct FlowRun
             return;
         }
 
+        if (_open is not null)
+        {
+            _canvas.EndContent();
+        }
+
         _canvas.BeginContent(element);
         _open = element;
     }

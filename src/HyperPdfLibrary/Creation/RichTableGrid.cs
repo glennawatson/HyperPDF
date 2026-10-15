@@ -128,6 +128,7 @@ internal sealed class RichTableGrid
     /// <param name="table">The table to validate.</param>
     internal static void ValidateTable(PdfFlowTable table)
     {
+        table.TextColor?.Validate();
         for (var r = 0; r < table.Rows.Count; r++)
         {
             var row = table.Rows[r];
@@ -231,6 +232,8 @@ internal sealed class RichTableGrid
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(fontSize);
         }
 
+        cell.TextColor?.Validate();
+        cell.BackgroundColor?.Validate();
         ValidateCellRuns(cell.Runs);
         if (cell.Image is { } image)
         {
@@ -261,6 +264,8 @@ internal sealed class RichTableGrid
             {
                 ArgumentOutOfRangeException.ThrowIfNegativeOrZero(runSize);
             }
+
+            run.Color?.Validate();
         }
     }
 
