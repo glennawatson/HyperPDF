@@ -88,15 +88,17 @@ internal sealed class WordPieceTokenizer
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(ids);
         ids.Clear();
-        var clean = Clean(text);
-        foreach (var range in clean.Split(' '))
-        {
-            var word = clean[range];
-            if (!word.IsEmpty)
-            {
-                AddWord(word, ids);
-            }
-        }
+        TokenizeClean(Clean(text), ids);
+    }
+
+    /// <summary>Cuts span text into piece ids, using the Unicode normalization path when it contains non-ASCII characters.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="ids">Receives the ids; cleared first.</param>
+    internal void Tokenize(ReadOnlySpan<char> text, List<int> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        ids.Clear();
+        TokenizeClean(Ascii.IsValid(text) ? Clean(text, true) : Clean(text.ToString()), ids);
     }
 
     /// <summary>Determines whether a character is punctuation as BERT counts it: ASCII symbols and Unicode punctuation.</summary>
@@ -118,6 +120,21 @@ internal sealed class WordPieceTokenizer
         c is '\0' or '\uFFFD'
         || CharUnicodeInfo.GetUnicodeCategory(c) is UnicodeCategory.NonSpacingMark or UnicodeCategory.Control or UnicodeCategory.Format;
 
+    /// <summary>Turns cleaned words into piece ids.</summary>
+    /// <param name="clean">The cleaned text.</param>
+    /// <param name="ids">Receives the pieces.</param>
+    private void TokenizeClean(ReadOnlySpan<char> clean, List<int> ids)
+    {
+        foreach (var range in clean.Split(' '))
+        {
+            var word = clean[range];
+            if (!word.IsEmpty)
+            {
+                AddWord(word, ids);
+            }
+        }
+    }
+
     /// <summary>
     /// Cleans text as BERT does: lower-cases it, strips accents, drops control characters, turns white space into
     /// spaces, and puts spaces around punctuation and ideographs so each is a word of its own.
@@ -127,14 +144,24 @@ internal sealed class WordPieceTokenizer
     private ReadOnlySpan<char> Clean(string text)
     {
         var decomposed = text.ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        return Clean(decomposed.AsSpan(), false);
+    }
+
+    /// <summary>Cleans ASCII text or text already in Unicode decomposition form.</summary>
+    /// <param name="decomposed">The decomposed text.</param>
+    /// <param name="lowercase">Whether ASCII text still needs lowercase casing.</param>
+    /// <returns>The cleaned text in the reused buffer.</returns>
+    private ReadOnlySpan<char> Clean(ReadOnlySpan<char> decomposed, bool lowercase)
+    {
         if (_clean.Length < decomposed.Length * SpacedLength)
         {
             _clean = new char[decomposed.Length * SpacedLength];
         }
 
         var length = 0;
-        foreach (var c in decomposed)
+        foreach (var character in decomposed)
         {
+            var c = lowercase ? char.ToLowerInvariant(character) : character;
             if (char.IsWhiteSpace(c))
             {
                 _clean[length] = ' ';

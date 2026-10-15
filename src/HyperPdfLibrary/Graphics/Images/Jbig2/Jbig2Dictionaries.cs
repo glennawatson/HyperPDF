@@ -44,18 +44,18 @@ internal static class Jbig2Dictionaries
     /// <summary>Copies contexts for a later dictionary when the dictionary asks for it.</summary>
     /// <param name="settings">The dictionary parameters.</param>
     /// <param name="contexts">The final contexts.</param>
-    /// <returns>The copy, or <see langword="null"/>.</returns>
-    internal static byte[]? Retain(Jbig2SymbolDictionarySettings settings, ReadOnlySpan<byte> contexts) =>
-        settings.RetainContexts && !contexts.IsEmpty ? contexts.ToArray() : null;
+    /// <returns>The contexts to keep, or empty when the dictionary does not ask for them.</returns>
+    internal static ReadOnlySpan<byte> Retain(Jbig2SymbolDictionarySettings settings, ReadOnlySpan<byte> contexts) =>
+        settings.RetainContexts ? contexts : default;
 
     /// <summary>Reads a symbol dictionary's header fields.</summary>
     /// <param name="reader">The reader.</param>
-    /// <param name="settings">The dictionary parameters.</param>
+    /// <param name="settings">The dictionary parameters, which are reset and then set.</param>
     /// <param name="flags">The flags.</param>
     /// <returns><see langword="false"/> when the data ends or a count is too large.</returns>
-    internal static bool TryReadSymbolDictionary(ref Jbig2Reader reader, out Jbig2SymbolDictionarySettings settings, out ushort flags)
+    internal static bool TryReadSymbolDictionary(ref Jbig2Reader reader, Jbig2SymbolDictionarySettings settings, out ushort flags)
     {
-        settings = new();
+        settings.Reset();
         if (!reader.TryReadUInt16(out flags))
         {
             return false;
@@ -103,10 +103,11 @@ internal static class Jbig2Dictionaries
     /// <summary>Processes a table segment (T.88 section 7.4.13).</summary>
     /// <param name="reader">The reader, at the segment data.</param>
     /// <param name="segment">The segment.</param>
+    /// <param name="workspace">The owner of the decoded table.</param>
     /// <returns>The status.</returns>
-    internal static Jbig2Status DecodeTable(ref Jbig2Reader reader, Jbig2Segment segment)
+    internal static Jbig2Status DecodeTable(ref Jbig2Reader reader, Jbig2Segment segment, Jbig2Workspace workspace)
     {
-        segment.Table = Jbig2HuffmanTable.Parse(ref reader);
+        segment.Table = Jbig2HuffmanTable.Parse(ref reader, workspace);
         reader.AlignByte();
         return segment.Table is null ? Jbig2Status.Failure : Jbig2Status.Success;
     }
@@ -118,7 +119,8 @@ internal static class Jbig2Dictionaries
     /// <returns>The status.</returns>
     internal static Jbig2Status DecodeSymbolDictionary(Jbig2DecodeState state, ref Jbig2Reader reader, Jbig2Segment segment)
     {
-        if (!TryReadSymbolDictionary(ref reader, out var settings, out var flags)
+        var settings = state.Workspace.DictionarySettings;
+        if (!TryReadSymbolDictionary(ref reader, settings, out var flags)
             || !Jbig2Segments.AllReferredFound(state, segment)
             || !Jbig2SegmentTables.TrySelectDictionaryTables(state, segment, settings, flags))
         {
@@ -135,12 +137,13 @@ internal static class Jbig2Dictionaries
 
         using var generic = new Jbig2ContextBuffer(genericLength, ReusedGeneric(reused), state.Workspace.ScratchPools);
         using var refinement = new Jbig2ContextBuffer(refinementLength, ReusedRefinement(reused), state.Workspace.ScratchPools);
-        if (DecodeSymbols(state, ref reader, settings, Jbig2TextSegments.CollectSymbols(state, segment), generic.Span, refinement.Span) is not { } symbols)
+        using var inputs = Jbig2TextSegments.CollectSymbols(state, segment);
+        if (DecodeSymbols(state, ref reader, settings, inputs, generic.Span, refinement.Span) is not { } symbols)
         {
             return Jbig2Status.Failure;
         }
 
-        segment.Symbols = new(symbols, Retain(settings, generic.Span), Retain(settings, refinement.Span));
+        segment.Symbols = Jbig2SymbolDictionary.Rent(state.Workspace, symbols, Retain(settings, generic.Span), Retain(settings, refinement.Span));
         return Jbig2Status.Success;
     }
 

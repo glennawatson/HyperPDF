@@ -31,6 +31,8 @@ public sealed partial class FocusBlockViewModel : ReactiveObject
         var headingLevel = block.Level > 0 ? block.Level : LayoutHeadingLevel;
         Level = block.Kind == ReadingBlockKind.Heading ? headingLevel : 0;
         Text = block.Text;
+        Row = block.Row;
+        Column = block.Column;
         Bounds = block.Bounds;
         FirstCharacter = Array.Find(block.CharIndices, static index => index >= 0);
         Offset = offset;
@@ -47,6 +49,12 @@ public sealed partial class FocusBlockViewModel : ReactiveObject
 
     /// <summary>Gets the number of items in the list the block belongs to; zero when it is not a list item.</summary>
     public int ListSize { get; init; }
+
+    /// <summary>Gets the table row of a table cell, from 1; zero otherwise.</summary>
+    public int Row { get; }
+
+    /// <summary>Gets the table column of a table cell, from 1; zero otherwise.</summary>
+    public int Column { get; }
 
     /// <summary>Gets what the block is.</summary>
     public ReadingBlockKind Kind { get; }

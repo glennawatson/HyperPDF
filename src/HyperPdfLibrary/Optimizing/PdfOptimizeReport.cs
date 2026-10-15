@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdfLibrary.Conformance;
+using HyperPdfLibrary.PdfUa;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -16,7 +17,7 @@ namespace HyperPdfLibrary.Optimizing;
 /// <param name="Warnings">Things the reader should know, such as figures that need alternative text.</param>
 /// <param name="Skipped">What was left alone, with the reason.</param>
 [DebuggerDisplay("PdfOptimizeReport: {BytesBefore} to {BytesAfter} ({Mode})")]
-public sealed record PdfOptimizeReport(
+public readonly record struct PdfOptimizeReport(
     long BytesBefore,
     long BytesAfter,
     PdfOptimizeMode Mode,
@@ -47,6 +48,14 @@ public sealed record PdfOptimizeReport(
     /// </summary>
     public PdfAClaimCheck? PdfAClaim { get; init; }
 
+    /// <summary>
+    /// Gets the check of the written file's PDF/UA-1 claim, or <see langword="null"/> when it claims none or was copied
+    /// unchanged. What the check repaired was appended to the written file as an update; tell the user what
+    /// <see cref="PdfUaClaimCheck.GetRepaired"/> lists. When <see cref="PdfUaClaimCheck.Removed"/> is set, the options asked
+    /// for the claim to be removed because the optimised file could not keep it.
+    /// </summary>
+    public PdfUaClaimCheck? PdfUaClaim { get; init; }
+
     /// <summary>Gets a value indicating whether the document was signed.</summary>
     public bool WasSigned { get; init; }
 
@@ -58,8 +67,9 @@ public sealed record PdfOptimizeReport(
     /// <returns>The saving, or an empty one when the category changed nothing.</returns>
     public PdfOptimizeSaving GetSaving(PdfOptimizeCategory category)
     {
-        foreach (var saving in Savings)
+        for (var i = 0; i < Savings.Count; i++)
         {
+            var saving = Savings[i];
             if (saving.Category == category)
             {
                 return saving;

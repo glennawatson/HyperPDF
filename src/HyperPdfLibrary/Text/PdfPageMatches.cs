@@ -10,4 +10,4 @@ namespace HyperPdfLibrary.Text;
 /// <param name="PageIndex">The zero based page index.</param>
 /// <param name="Matches">The matches, in reading order.</param>
 [DebuggerDisplay("PdfPageMatches: page {PageIndex}, {Matches.Length} matches")]
-public sealed record PdfPageMatches(int PageIndex, PdfTextMatch[] Matches);
+public readonly record struct PdfPageMatches(int PageIndex, PdfTextMatch[] Matches);

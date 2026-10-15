@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -52,28 +51,31 @@ internal static class FormRichTextAppearance
 
     /// <summary>Creates the appearance of a text field from its rich text.</summary>
     /// <param name="context">The widget.</param>
-    /// <param name="paragraphs">The rich text, read from <c>/RV</c>.</param>
+    /// <param name="text">The rich text, read from <c>/RV</c>.</param>
     /// <returns>The Form XObject.</returns>
-    internal static PdfStream Create(in AppearanceContext context, List<RichParagraph> paragraphs)
+    internal static PdfStream Create(in AppearanceContext context, ref RichText text)
     {
         var frame = FormFrame.Create(context);
         var da = context.DefaultAppearance;
         var fieldFont = FormFont.Find(context.Store, da.FontName, context.Widget, context.Form, context.PageResources, context.Fonts);
-        var used = new List<FormFont>();
-        var target = new RichTarget(context, frame, [], da.FontSize, Encoding.ASCII.GetBytes($"{da.Color}\n"));
+        var used = default(FormFontSet);
+        var rules = default(RichRules);
+        var target = new RichTarget(context, frame, da.FontSize, da.Color);
         var builder = default(PdfContentBuilder);
         try
         {
             FormBorderAppearance.Paint(ref builder, frame, context.Characteristics, false);
             FormTextAppearance.BeginTextBlock(ref builder, frame);
-            WriteParagraphs(ref builder, target, paragraphs, fieldFont, used);
-            WriteRules(ref builder, target);
+            WriteParagraphs(ref builder, target, ref rules, ref text, fieldFont, ref used);
+            WriteRules(ref builder, target, ref rules);
             FormTextAppearance.EndTextBlock(ref builder);
-            return FormAppearanceResources.Finish(ref builder, context, frame, used, default);
+            return FormAppearanceResources.Finish(ref builder, context, frame, used.AsSpan());
         }
         finally
         {
             builder.Dispose();
+            rules.Dispose();
+            used.Dispose();
         }
     }
 
@@ -82,27 +84,30 @@ internal static class FormRichTextAppearance
     /// between the top and bottom edges.
     /// </summary>
     /// <param name="builder">The content.</param>
-    /// <param name="target">The widget and where its rules go.</param>
-    /// <param name="paragraphs">The paragraphs.</param>
+    /// <param name="target">The widget.</param>
+    /// <param name="rules">Receives the underlines and strike-throughs.</param>
+    /// <param name="text">The rich text.</param>
     /// <param name="fieldFont">The field's own font.</param>
     /// <param name="used">Receives the fonts used.</param>
-    private static void WriteParagraphs(ref PdfContentBuilder builder, RichTarget target, List<RichParagraph> paragraphs, FormFont fieldFont, List<FormFont> used)
+    private static void WriteParagraphs(ref PdfContentBuilder builder, in RichTarget target, ref RichRules rules, ref RichText text, FormFont fieldFont, ref FormFontSet used)
     {
         var context = target.Context;
         var multiline = (context.Flags & PdfFieldFlags.Multiline) != 0;
         var maxWidth = multiline ? target.Frame.PaddedWidth : float.MaxValue;
         var y = target.Frame.Height - target.Frame.Padding;
         var firstLine = true;
-        foreach (var paragraph in paragraphs)
+        for (var p = 0; p < text.ParagraphCount; p++)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
-            var block = Layout(context, paragraph, fieldFont, target.FieldSize, maxWidth, used);
-            foreach (var line in block.Lines)
+            var paragraph = text.GetParagraph(p);
+            using var block = Layout(context, ref text, paragraph, fieldFont, target.FieldSize, maxWidth, ref used);
+            for (var l = 0; l < block.LineCount; l++)
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
+                var line = block.GetLine(l);
                 var extent = Measure(block, line);
                 y = NextBaseline(target.Frame, extent, y, firstLine, multiline);
-                WriteLine(ref builder, target, block, line, y, paragraph.Alignment);
+                WriteLine(ref builder, target, ref rules, block, line, y, paragraph.Alignment);
                 firstLine = false;
                 if (!multiline)
                 {
@@ -131,31 +136,39 @@ internal static class FormRichTextAppearance
 
     /// <summary>Resolves the fonts and sizes of a paragraph's runs, encodes them and breaks them into lines.</summary>
     /// <param name="context">The widget.</param>
+    /// <param name="text">The rich text.</param>
     /// <param name="paragraph">The paragraph.</param>
     /// <param name="fieldFont">The field's own font.</param>
     /// <param name="fieldSize">The size the field's default appearance sets; 0 for none.</param>
     /// <param name="maxWidth">The widest a line may be.</param>
     /// <param name="used">The fonts chosen so far.</param>
-    /// <returns>The paragraph laid out.</returns>
-    private static RichBlock Layout(in AppearanceContext context, RichParagraph paragraph, FormFont fieldFont, float fieldSize, float maxWidth, List<FormFont> used)
+    /// <returns>The paragraph laid out; dispose it when it has been written.</returns>
+    private static RichBlock Layout(in AppearanceContext context, ref RichText text, RichParagraph paragraph, FormFont fieldFont, float fieldSize, float maxWidth, ref FormFontSet used)
     {
         // An empty paragraph still takes a line, as tall as the field's text.
-        var runs = paragraph.Runs.Count == 0 ? [new RichRun(string.Empty, RichStyle.None)] : paragraph.Runs;
-        var fonts = new FormFont[runs.Count];
-        var sizes = new float[runs.Count];
-        var codes = new FormCodes[runs.Count];
-        for (var i = 0; i < runs.Count; i++)
+        var count = Math.Max(1, paragraph.RunCount);
+        var block = context.Fonts?.RentRichBlock(count) ?? RichBlock.Rent(count, null);
+        try
         {
-            var style = runs[i].Style;
-            fonts[i] = FormRichFonts.Resolve(context.Store, fieldFont, style, used);
-            sizes[i] = ChooseSize(style, fieldSize);
-            codes[i] = fonts[i].Encode(runs[i].Text);
-        }
+            for (var i = 0; i < count; i++)
+            {
+                context.CancellationToken.ThrowIfCancellationRequested();
+                var hasRun = paragraph.RunCount > 0;
+                var run = hasRun ? text.GetRun(paragraph.FirstRun + i) : default;
+                var style = hasRun ? run.Style : RichStyle.None;
+                var font = FormRichFonts.Resolve(context.Store, fieldFont, style, ref used, context.Fonts);
+                block.SetRun(i, font, ChooseSize(style, fieldSize), style, hasRun ? text.GetText(run) : default, context.CancellationToken);
+            }
 
-        var flow = new RichFlow(codes, sizes);
-        var lines = new List<TextLine>();
-        flow.Wrap(maxWidth, lines, context.CancellationToken);
-        return new(flow, fonts, sizes, runs, lines);
+            block.Flow();
+            block.Wrap(maxWidth, context.CancellationToken);
+            return block;
+        }
+        catch
+        {
+            block.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Chooses the size of a run: its own, else the field's, else the default.</summary>
@@ -180,7 +193,7 @@ internal static class FormRichTextAppearance
     {
         if (line.Length == 0)
         {
-            return ExtentOf(block, block.Fonts.Length - 1);
+            return ExtentOf(block, block.RunCount - 1);
         }
 
         var ascent = 0F;
@@ -188,7 +201,7 @@ internal static class FormRichTextAppearance
         var height = 0F;
         for (var u = line.Start; u < line.Start + line.Length; u++)
         {
-            var extent = ExtentOf(block, block.Flow.RunOf(u));
+            var extent = ExtentOf(block, block.RunOf(u));
             ascent = Math.Max(ascent, extent.Ascent);
             descent = Math.Min(descent, extent.Descent);
             height = Math.Max(height, extent.Height);
@@ -203,8 +216,9 @@ internal static class FormRichTextAppearance
     /// <returns>The extent.</returns>
     private static RichExtent ExtentOf(RichBlock block, int run)
     {
-        var size = block.Sizes[run] / GlyphUnits;
-        return new(block.Fonts[run].Ascent * size, block.Fonts[run].Descent * size, block.Fonts[run].LineHeight * size);
+        var size = block.GetSize(run) / GlyphUnits;
+        var font = block.GetFont(run);
+        return new(font.Ascent * size, font.Descent * size, font.LineHeight * size);
     }
 
     /// <summary>Gets the x position a line starts at for an alignment.</summary>
@@ -212,7 +226,7 @@ internal static class FormRichTextAppearance
     /// <param name="alignment">The paragraph's alignment, or no alignment to use the field's.</param>
     /// <param name="width">The line's width.</param>
     /// <returns>The x position.</returns>
-    private static float AlignedX(RichTarget target, int alignment, float width)
+    private static float AlignedX(in RichTarget target, int alignment, float width)
     {
         var frame = target.Frame;
         var effective = alignment == RichStyle.NoAlignment ? target.Context.Alignment : alignment;
@@ -226,29 +240,31 @@ internal static class FormRichTextAppearance
 
     /// <summary>Writes one line: a piece of text for each run on it.</summary>
     /// <param name="builder">The content.</param>
-    /// <param name="target">The widget and where its rules go.</param>
+    /// <param name="target">The widget.</param>
+    /// <param name="rules">Receives the rules.</param>
     /// <param name="block">The paragraph.</param>
     /// <param name="line">The line.</param>
     /// <param name="baseline">The line's baseline.</param>
     /// <param name="alignment">The paragraph's alignment.</param>
-    private static void WriteLine(ref PdfContentBuilder builder, RichTarget target, RichBlock block, TextLine line, float baseline, int alignment)
+    private static void WriteLine(ref PdfContentBuilder builder, in RichTarget target, ref RichRules rules, RichBlock block, TextLine line, float baseline, int alignment)
     {
         var x = AlignedX(target, alignment, line.Width);
         var unit = line.Start;
         var end = line.Start + line.Length;
         while (unit < end)
         {
-            var run = block.Flow.RunOf(unit);
+            var run = block.RunOf(unit);
             var count = 1;
-            while (unit + count < end && block.Flow.RunOf(unit + count) == run)
+            while (unit + count < end && block.RunOf(unit + count) == run)
             {
                 count++;
             }
 
-            var piece = new RichPiece(run, block.Flow.IndexOf(unit), count, x, baseline);
+            var piece = new RichPiece(run, block.IndexOf(unit), count, x, baseline);
             WritePiece(ref builder, target, block, piece);
-            AddRules(target, block, piece, block.Flow.Measure(unit, count));
-            x += block.Flow.Measure(unit, count);
+            var width = block.Measure(unit, count);
+            AddRules(ref rules, block, piece, width);
+            x += width;
             unit += count;
         }
     }
@@ -258,45 +274,47 @@ internal static class FormRichTextAppearance
     /// <param name="target">The widget and its default colour.</param>
     /// <param name="block">The paragraph.</param>
     /// <param name="piece">The piece.</param>
-    private static void WritePiece(ref PdfContentBuilder builder, RichTarget target, RichBlock block, RichPiece piece)
+    private static void WritePiece(ref PdfContentBuilder builder, in RichTarget target, RichBlock block, RichPiece piece)
     {
         builder.BeginText();
-        SetFillColor(ref builder, block.Runs[piece.Run].Style.Color, target.FieldColor);
-        builder.SetFont(block.Fonts[piece.Run].NameBytes, block.Sizes[piece.Run]);
+        SetFillColor(ref builder, block.GetStyle(piece.Run).Color, target.FieldColor);
+        builder.SetFont(block.GetFont(piece.Run).NameBytes, block.GetSize(piece.Run));
         builder.SetTextMatrix(1, 0, 0, 1, piece.X, piece.Baseline);
-        builder.ShowText(block.Flow.Slice(piece.Run, piece.First, piece.Count));
+        builder.ShowText(block.Slice(piece.Run, piece.First, piece.Count));
         builder.EndText();
     }
 
     /// <summary>Records the underline and strike-through a run asks for.</summary>
-    /// <param name="target">The widget and where the rules go.</param>
+    /// <param name="rules">Receives the rules.</param>
     /// <param name="block">The paragraph.</param>
     /// <param name="piece">The piece.</param>
     /// <param name="width">The piece's width.</param>
-    private static void AddRules(RichTarget target, RichBlock block, RichPiece piece, float width)
+    private static void AddRules(ref RichRules rules, RichBlock block, RichPiece piece, float width)
     {
-        var style = block.Runs[piece.Run].Style;
-        var size = block.Sizes[piece.Run];
+        var style = block.GetStyle(piece.Run);
+        var size = block.GetSize(piece.Run);
         var color = style.Color;
         var thickness = size * LineWeight;
         if (style.Underline)
         {
-            target.Rules.Add(new(color, piece.X, piece.Baseline - (size * UnderlineDepth), width, thickness));
+            rules.Add(new(color, piece.X, piece.Baseline - (size * UnderlineDepth), width, thickness));
         }
 
         if (style.StrikeOut)
         {
-            target.Rules.Add(new(color, piece.X, piece.Baseline + (size * StrikeHeight), width, thickness));
+            rules.Add(new(color, piece.X, piece.Baseline + (size * StrikeHeight), width, thickness));
         }
     }
 
     /// <summary>Draws the recorded underlines and strike-throughs as thin filled bars.</summary>
     /// <param name="builder">The content.</param>
-    /// <param name="target">The widget, its default colour and the recorded rules.</param>
-    private static void WriteRules(ref PdfContentBuilder builder, RichTarget target)
+    /// <param name="target">The widget and its default colour.</param>
+    /// <param name="rules">The recorded rules.</param>
+    private static void WriteRules(ref PdfContentBuilder builder, in RichTarget target, ref RichRules rules)
     {
-        foreach (var rule in target.Rules)
+        for (var i = 0; i < rules.Count; i++)
         {
+            var rule = rules.Get(i);
             builder.SaveState();
             SetFillColor(ref builder, rule.Color, target.FieldColor);
             builder.Rectangle(rule.X, rule.Y, rule.Width, rule.Thickness);
@@ -308,12 +326,12 @@ internal static class FormRichTextAppearance
     /// <summary>Sets the fill colour to a run's colour, or to the field's when the run sets none.</summary>
     /// <param name="builder">The content.</param>
     /// <param name="color">The run's colour as 0xRRGGBB, or no colour.</param>
-    /// <param name="fieldColor">The field's colour operators, ending in a line feed.</param>
-    private static void SetFillColor(ref PdfContentBuilder builder, int color, byte[] fieldColor)
+    /// <param name="fieldColor">The field's colour.</param>
+    private static void SetFillColor(ref PdfContentBuilder builder, int color, DaColor fieldColor)
     {
         if (color == RichStyle.NoColor)
         {
-            builder.WriteRaw(fieldColor);
+            fieldColor.WriteFill(ref builder);
             return;
         }
 

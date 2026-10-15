@@ -12,18 +12,17 @@ namespace HyperPdf.Engine;
 /// </summary>
 internal static class SaveReportPool
 {
-    /// <summary>The spare report, or <see langword="null"/> while a save holds it.</summary>
-    private static PdfSaveReport? _spare;
-
     /// <summary>Takes a clear report.</summary>
+    /// <param name="spare">The owning document's spare report.</param>
     /// <returns>The spare, or a new report when the spare is in use.</returns>
-    internal static PdfSaveReport Rent() => Interlocked.Exchange(ref _spare, null) ?? new();
+    internal static PdfSaveReport Rent(ref PdfSaveReport? spare) => Interlocked.Exchange(ref spare, null) ?? new();
 
     /// <summary>Clears a report and keeps it for the next save.</summary>
+    /// <param name="spare">The owning document's spare report.</param>
     /// <param name="report">The report, which nothing may read afterwards.</param>
-    internal static void Return(PdfSaveReport report)
+    internal static void Return(ref PdfSaveReport? spare, PdfSaveReport report)
     {
         report.Reset();
-        Volatile.Write(ref _spare, report);
+        Volatile.Write(ref spare, report);
     }
 }

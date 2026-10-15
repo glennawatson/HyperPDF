@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Portfolio;
 
@@ -20,8 +21,14 @@ public static class PdfDocumentPortfolio
 
     /// <summary>Gets the portfolio description and the embedded files it lists.</summary>
     /// <param name="document">The document.</param>
+    /// <returns>The portfolio, or <see langword="null"/> when the document has no <c>/Collection</c>. Read once until the next edit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfPortfolio? GetPortfolio(PdfDocument document) => PdfReadSnapshots.Read(document, PdfReadKind.Portfolio, PdfDocumentPortfolio.ReadPortfolio);
+
+    /// <summary>Reads the portfolio description and the embedded files it lists.</summary>
+    /// <param name="document">The document.</param>
     /// <returns>The portfolio, or <see langword="null"/> when the document has no <c>/Collection</c>.</returns>
-    public static PdfPortfolio? GetPortfolio(PdfDocument document)
+    private static PdfPortfolio? ReadPortfolio(PdfDocument document)
     {
         if (document.Catalog.GetDictionary(KnownName.Collection) is not { } collection)
         {
@@ -30,13 +37,13 @@ public static class PdfDocumentPortfolio
 
         var root = collection.Dict("Folders") is { } folders ? PortfolioReader.ReadFolder(folders, 0, [with(ReferenceEqualityComparer.Instance)]) : null;
         return new(
-PortfolioReader.ReadSchema(document.Objects, collection.Dict("Schema")),
-PortfolioReader.ReadSort(collection.Dict("Sort")),
+Array.AsReadOnly(PortfolioReader.ReadSchema(document.Objects, collection.Dict("Schema"))),
+Array.AsReadOnly(PortfolioReader.ReadSort(collection.Dict("Sort"))),
 collection.Text("D"),
 collection.NameText("View") ?? PdfDocumentPortfolio.DefaultPortfolioView,
 PortfolioReader.ReadColors(collection.Dict("Colors")),
 root,
-PdfDocumentPortfolio.ReadPortfolioItems(document));
+Array.AsReadOnly(PdfDocumentPortfolio.ReadPortfolioItems(document)));
     }
 
     /// <summary>Maps each embedded file to its collection item.</summary>

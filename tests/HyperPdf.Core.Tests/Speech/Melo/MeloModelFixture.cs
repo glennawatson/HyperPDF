@@ -32,7 +32,8 @@ internal static class MeloModelFixture
     /// <exception cref="TUnit.Core.Exceptions.SkipTestException">The files are missing and downloading is not allowed.</exception>
     internal static async Task EnsureAsync()
     {
-        if (SpeechModelDownloader.Missing(MeloModel.Files, Directory).Count == 0)
+        using var downloader = new SpeechModelDownloader();
+        if (downloader.Missing(MeloModel.Files, Directory).Count == 0)
         {
             return;
         }
@@ -45,7 +46,7 @@ internal static class MeloModelFixture
         await Gate.WaitAsync();
         try
         {
-            await SpeechModelDownloader.DownloadAsync(MeloModel.Files, Directory, new Progress<double>(), CancellationToken.None);
+            await downloader.DownloadAsync(MeloModel.Files, Directory, new Progress<double>(), CancellationToken.None);
         }
         finally
         {

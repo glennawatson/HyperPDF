@@ -36,14 +36,40 @@ public static class PdfDocumentMetadata
     public static XmpMetadata? ReadXmp(PdfDocument document, PdfDictionary owner)
     {
         ArgumentNullException.ThrowIfNull(owner);
-        var packet = owner.GetStream(KnownName.Metadata).DecodeOrEmpty();
-        return packet.Length == 0 ? null : XmpParser.Parse(packet);
+        return ReferenceEquals(owner, document.Catalog)
+            ? PdfReadSnapshots.Read(document, PdfReadKind.CatalogXmp, static item => PdfDocumentMetadata.ParseXmp(item.Catalog))
+            : PdfReadSnapshots.Read(document, PdfReadKind.Xmp, owner, PdfDocumentMetadata.ParseXmp);
     }
 
     /// <summary>Gets the document information.</summary>
     /// <param name="document">The document.</param>
+    /// <returns>The information, read once until the next edit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfDocumentInfo GetInfo(PdfDocument document) => PdfReadSnapshots.Read(document, PdfReadKind.Info, PdfDocumentMetadata.ReadInfo);
+
+    /// <summary>
+    /// Gets the document information a viewer shows: the information dictionary combined with the catalog's XMP. A PDF 2.0
+    /// file takes the XMP value when both exist (ISO 32000-2 §14.3.3); an earlier file uses XMP only for an entry the
+    /// dictionary lacks. <see cref="GetInfo"/> still reports the dictionary alone.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <returns>The information, read once until the next edit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfDocumentInfo GetResolvedInfo(PdfDocument document) => PdfReadSnapshots.Read(document, PdfReadKind.ResolvedInfo, PdfDocumentMetadata.ReadResolvedInfo);
+
+    /// <summary>Parses the XMP metadata stream of a dictionary.</summary>
+    /// <param name="owner">The dictionary holding a <c>/Metadata</c> entry.</param>
+    /// <returns>The metadata, or <see langword="null"/> when there is no readable metadata stream.</returns>
+    internal static XmpMetadata? ParseXmp(PdfDictionary owner)
+    {
+        var packet = owner.GetStream(KnownName.Metadata).DecodeOrEmpty();
+        return packet.Length == 0 ? null : XmpParser.Parse(packet);
+    }
+
+    /// <summary>Reads the document information.</summary>
+    /// <param name="document">The document.</param>
     /// <returns>The information.</returns>
-    public static PdfDocumentInfo GetInfo(PdfDocument document)
+    internal static PdfDocumentInfo ReadInfo(PdfDocument document)
     {
         var info = document.Objects.Trailer.GetDictionary(KnownName.Info);
         return new()
@@ -62,14 +88,10 @@ public static class PdfDocumentMetadata
         };
     }
 
-    /// <summary>
-    /// Gets the document information a viewer shows: the information dictionary combined with the catalog's XMP. A PDF 2.0
-    /// file takes the XMP value when both exist (ISO 32000-2 §14.3.3); an earlier file uses XMP only for an entry the
-    /// dictionary lacks. <see cref="GetInfo"/> still reports the dictionary alone.
-    /// </summary>
+    /// <summary>Reads the information dictionary combined with the catalog's XMP.</summary>
     /// <param name="document">The document.</param>
     /// <returns>The information.</returns>
-    public static PdfDocumentInfo GetResolvedInfo(PdfDocument document)
+    internal static PdfDocumentInfo ReadResolvedInfo(PdfDocument document)
     {
         var info = PdfDocumentMetadata.GetInfo(document);
         return PdfDocumentMetadata.GetXmp(document) is { } xmp ? XmpInfoResolver.Resolve(info, xmp) : info;

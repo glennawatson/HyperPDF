@@ -12,9 +12,10 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
 /// Chooses the symbol that stands for each symbol component. In lossless matching a component uses an earlier one with
 /// exactly its bitmap. In lossy matching it also uses an earlier one whose bitmap is similar enough: the pixels black in
 /// both are at least a set share of the pixels black in either, and every black pixel of each is within one pixel of a black pixel of the other.
+/// The value holds rented arrays; the one <see cref="Match"/> returns is the owner's, and copies share the arrays.
 /// </summary>
 [DebuggerDisplay("Jbig2SymbolMatcher: {ExemplarCount} symbols")]
-internal sealed class Jbig2SymbolMatcher : IDisposable
+internal readonly record struct Jbig2SymbolMatcher : IDisposable
 {
     /// <summary>The most earlier symbols compared for one component in one size bucket.</summary>
     private const int ChainLimit = 24;
@@ -71,12 +72,14 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     private readonly int _mask;
 
     /// <summary>Whether near copies of a symbol are grouped.</summary>
-    private bool _trackVariants;
+    private readonly bool _trackVariants;
 
-    /// <summary>Initializes a new instance of the <see cref="Jbig2SymbolMatcher"/> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="Jbig2SymbolMatcher"/> struct.</summary>
     /// <param name="components">The components to match.</param>
-    private Jbig2SymbolMatcher(Jbig2Components components)
+    /// <param name="trackVariants">Whether near copies of a symbol are grouped.</param>
+    private Jbig2SymbolMatcher(in Jbig2Components components, bool trackVariants)
     {
+        _trackVariants = trackVariants;
         var count = components.Count;
         var table = MinimumTable;
         while (table < count * TableFactor)
@@ -103,7 +106,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     }
 
     /// <summary>Gets the number of distinct symbols.</summary>
-    internal int ExemplarCount { get; private set; }
+    internal int ExemplarCount { get; init; }
 
     /// <summary>Returns the rented arrays.</summary>
     public void Dispose()
@@ -126,13 +129,12 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="trackVariants">Whether near copies of a symbol are grouped by exact bitmap, so the repeated ones can be coded once.</param>
     /// <param name="cancellationToken">Cancels the match.</param>
     /// <returns>The matches.</returns>
-    internal static Jbig2SymbolMatcher Match(Jbig2Components components, double similarity, bool trackVariants, CancellationToken cancellationToken)
+    internal static Jbig2SymbolMatcher Match(in Jbig2Components components, double similarity, bool trackVariants, CancellationToken cancellationToken)
     {
-        var matcher = new Jbig2SymbolMatcher(components) { _trackVariants = trackVariants };
+        var matcher = new Jbig2SymbolMatcher(components, trackVariants);
         try
         {
-            matcher.Run(components, similarity, cancellationToken);
-            return matcher;
+            return matcher with { ExemplarCount = matcher.Run(components, similarity, cancellationToken) };
         }
         catch
         {
@@ -168,7 +170,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <summary>Gets the largest row length of any symbol, plus one.</summary>
     /// <param name="components">The components.</param>
     /// <returns>The bytes.</returns>
-    private static int MaximumStride(Jbig2Components components)
+    private static int MaximumStride(in Jbig2Components components)
     {
         var widest = 0;
         for (var i = 0; i < components.Count; i++)
@@ -183,7 +185,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="components">The components.</param>
     /// <param name="component">The component.</param>
     /// <returns>The hash.</returns>
-    private static int ShapeHash(Jbig2Components components, int component)
+    private static int ShapeHash(in Jbig2Components components, int component)
     {
         var hash = default(HashCode);
         hash.Add(components.Width(component));
@@ -203,7 +205,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="first">The first component.</param>
     /// <param name="second">The second component.</param>
     /// <returns><see langword="true"/> when they match.</returns>
-    private static bool SameBitmap(Jbig2Components components, int first, int second) =>
+    private static bool SameBitmap(in Jbig2Components components, int first, int second) =>
         components.Width(first) == components.Width(second)
         && components.Height(first) == components.Height(second)
         && components.Rows(first).SequenceEqual(components.Rows(second));
@@ -212,7 +214,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="components">The components.</param>
     /// <param name="component">The component.</param>
     /// <returns>The view.</returns>
-    private static Jbig2BitmapView View(Jbig2Components components, int component) =>
+    private static Jbig2BitmapView View(in Jbig2Components components, int component) =>
         new(components.Rows(component), components.Width(component), components.Height(component));
 
     /// <summary>Determines whether two symbol components are similar enough to share a symbol.</summary>
@@ -222,7 +224,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="similarity">The least similarity.</param>
     /// <param name="scratch">Working space for the covering test.</param>
     /// <returns><see langword="true"/> when they can share.</returns>
-    private static bool IsSimilar(Jbig2Components components, int first, int second, double similarity, Span<byte> scratch)
+    private static bool IsSimilar(in Jbig2Components components, int first, int second, double similarity, Span<byte> scratch)
     {
         long inkFirst = components.Ink(first);
         long inkSecond = components.Ink(second);
@@ -243,9 +245,11 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="components">The components.</param>
     /// <param name="similarity">The least similarity for lossy sharing.</param>
     /// <param name="cancellationToken">Cancels the match.</param>
-    private void Run(Jbig2Components components, double similarity, CancellationToken cancellationToken)
+    /// <returns>The number of distinct symbols.</returns>
+    private int Run(in Jbig2Components components, double similarity, CancellationToken cancellationToken)
     {
         var lossy = similarity < 1.0;
+        var exemplarCount = 0;
         var scratch = ArrayPool<byte>.Shared.Rent(MaximumStride(components));
         try
         {
@@ -256,9 +260,11 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
                     cancellationToken.ThrowIfCancellationRequested();
                 }
 
-                _exemplarOf[component] = components.IsSymbol(component) ? Choose(components, component, lossy ? similarity : 1.0, scratch) : -1;
+                _exemplarOf[component] = components.IsSymbol(component) ? Choose(components, component, lossy ? similarity : 1.0, scratch, ref exemplarCount) : -1;
                 TrackVariant(components, component);
             }
+
+            return exemplarCount;
         }
         finally
         {
@@ -271,7 +277,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="component">The component.</param>
     /// <param name="bucket">The component's variant bucket.</param>
     /// <returns>The first component of the variant, or -1.</returns>
-    private int FindVariant(Jbig2Components components, int component, int bucket)
+    private int FindVariant(in Jbig2Components components, int component, int bucket)
     {
         for (var other = _variantHead[bucket]; other >= 0; other = _variantNext[other])
         {
@@ -287,7 +293,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <summary>Groups a component that shares another's symbol by its exact bitmap, unless its bitmap is the symbol's own.</summary>
     /// <param name="components">The components.</param>
     /// <param name="component">The component.</param>
-    private void TrackVariant(Jbig2Components components, int component)
+    private void TrackVariant(in Jbig2Components components, int component)
     {
         var exemplar = _exemplarOf[component];
         if (!_trackVariants || exemplar < 0 || exemplar == component || SameBitmap(components, exemplar, component))
@@ -315,8 +321,9 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="component">The component.</param>
     /// <param name="similarity">The least similarity, 1 for exact matching.</param>
     /// <param name="scratch">Working space for the covering test.</param>
+    /// <param name="exemplarCount">The distinct symbols so far, increased when the component becomes a new symbol.</param>
     /// <returns>The symbol component.</returns>
-    private int Choose(Jbig2Components components, int component, double similarity, Span<byte> scratch)
+    private int Choose(in Jbig2Components components, int component, double similarity, Span<byte> scratch, ref int exemplarCount)
     {
         var match = FindExact(components, component);
         if (match < 0 && similarity < 1.0)
@@ -329,7 +336,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
             return match;
         }
 
-        Add(components, component);
+        Add(components, component, ref exemplarCount);
         return component;
     }
 
@@ -337,7 +344,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="components">The components.</param>
     /// <param name="component">The component.</param>
     /// <returns>The symbol component, or -1.</returns>
-    private int FindExact(Jbig2Components components, int component)
+    private int FindExact(in Jbig2Components components, int component)
     {
         var rows = components.Rows(component);
         for (var other = _exactHead[ShapeHash(components, component) & _mask]; other >= 0; other = _exactNext[other])
@@ -357,7 +364,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="similarity">The least similarity.</param>
     /// <param name="scratch">Working space for the covering test.</param>
     /// <returns>The symbol component, or -1.</returns>
-    private int FindSimilar(Jbig2Components components, int component, double similarity, Span<byte> scratch)
+    private int FindSimilar(in Jbig2Components components, int component, double similarity, Span<byte> scratch)
     {
         var width = components.Width(component);
         var height = components.Height(component);
@@ -383,7 +390,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <param name="similarity">The least similarity.</param>
     /// <param name="scratch">Working space for the covering test.</param>
     /// <returns>The symbol component, or -1.</returns>
-    private int FindInBucket(Jbig2Components components, int component, Jbig2Size size, double similarity, Span<byte> scratch)
+    private int FindInBucket(in Jbig2Components components, int component, Jbig2Size size, double similarity, Span<byte> scratch)
     {
         var seen = 0;
         for (var other = _sizeHead[SizeKey(size.Width, size.Height) & _mask]; other >= 0 && seen < ChainLimit; other = _sizeNext[other])
@@ -406,7 +413,8 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
     /// <summary>Adds a component as a new symbol.</summary>
     /// <param name="components">The components.</param>
     /// <param name="component">The component.</param>
-    private void Add(Jbig2Components components, int component)
+    /// <param name="exemplarCount">The distinct symbols so far, increased by one.</param>
+    private void Add(in Jbig2Components components, int component, ref int exemplarCount)
     {
         var exact = ShapeHash(components, component) & _mask;
         _exactNext[component] = _exactHead[exact];
@@ -414,7 +422,7 @@ internal sealed class Jbig2SymbolMatcher : IDisposable
         var size = SizeKey(components.Width(component), components.Height(component)) & _mask;
         _sizeNext[component] = _sizeHead[size];
         _sizeHead[size] = component;
-        _exemplars[ExemplarCount] = component;
-        ExemplarCount++;
+        _exemplars[exemplarCount] = component;
+        exemplarCount++;
     }
 }

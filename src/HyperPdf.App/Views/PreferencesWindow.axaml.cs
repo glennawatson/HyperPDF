@@ -39,6 +39,14 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
             disposables.Add(this.Bind(ViewModel, static vm => vm.FontSize, static v => v.FontSizeBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.FormHighlightColor, static v => v.FormHighlightColorBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.FormHighlightOpacity, static v => v.FormHighlightOpacityBox.SelectedIndex));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.Preset, static v => v.SharpnessPresetBox.SelectedIndex));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Sharpness.PresetDescription, static v => v.SharpnessPresetText.Text));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.TextEdges, static v => v.TextEdgesBox.SelectedIndex));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.StrokeAdjustment, static v => v.StrokeAdjustmentBox.SelectedIndex));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.MinimumLineWidth, static v => v.MinimumLineBox.SelectedIndex));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.SmoothGraphics, static v => v.SmoothGraphicsBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.SmoothImages, static v => v.SmoothImagesBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.AreaImageReduction, static v => v.AreaImageReductionBox.IsChecked));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SpeechEngine, static v => v.SpeechEngineBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.AzureKey, static v => v.AzureKeyBox.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.AzureRegion, static v => v.AzureRegionBox.Text));
@@ -84,6 +92,10 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
         FormHighlightColorBox.ItemsSource = PreferencesViewModel.FormHighlightColorOptions;
         FormHighlightOpacityBox.ItemsSource = PreferencesViewModel.FormHighlightOpacityOptions;
         SpeechEngineBox.ItemsSource = PreferencesViewModel.SpeechEngineOptions;
+        SharpnessPresetBox.ItemsSource = SharpnessViewModel.PresetOptions;
+        TextEdgesBox.ItemsSource = SharpnessViewModel.TextEdgeOptions;
+        StrokeAdjustmentBox.ItemsSource = SharpnessViewModel.StrokeAdjustmentOptions;
+        MinimumLineBox.ItemsSource = SharpnessViewModel.MinimumLineOptions;
 
         OcrLanguageList.ItemTemplate = new FuncDataTemplate<OcrLanguageItemViewModel>(static (_, _) => new OcrLanguageItemView());
         FieldLabels.Link(
@@ -98,6 +110,10 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
             (CommentAuthorBox, CommentAuthorLabel),
             (FormHighlightColorBox, FormHighlightColorLabel),
             (FormHighlightOpacityBox, FormHighlightOpacityLabel),
+            (SharpnessPresetBox, SharpnessPresetLabel),
+            (TextEdgesBox, TextEdgesLabel),
+            (StrokeAdjustmentBox, StrokeAdjustmentLabel),
+            (MinimumLineBox, MinimumLineLabel),
             (SpeechEngineBox, SpeechEngineLabel),
             (AzureKeyBox, AzureKeyLabel),
             (AzureRegionBox, AzureRegionLabel),

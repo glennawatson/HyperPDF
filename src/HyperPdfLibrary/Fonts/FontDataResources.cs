@@ -3,10 +3,15 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Drawing;
+using Microsoft.Win32.SafeHandles;
 
 namespace HyperPdfLibrary.Fonts;
 
-/// <summary>Generates requested assets once and persists only those assets.</summary>
+/// <summary>
+/// Generates requested external assets (predefined CMaps and CID to Unicode tables) once and persists only those assets.
+/// The substitute faces are embedded in the assembly and never pass through here.
+/// </summary>
 internal static class FontDataResources
 {
     /// <summary>Gets the cache folder, created only on the first requested asset.</summary>
@@ -14,19 +19,19 @@ internal static class FontDataResources
         Environment.GetEnvironmentVariable("HYPERPDF_FONT_DATA")
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HyperPdfLibrary", "FontData"), "v3");
 
-    /// <summary>Opens a cached asset without contacting its upstream source.</summary>
+    /// <summary>Finds the path of a cached asset in the default cache, without contacting its upstream source.</summary>
     /// <param name="folder">The resource group.</param>
     /// <param name="name">The filename.</param>
-    /// <returns>The owned stream, or null.</returns>
+    /// <returns>The path, or null when the asset is not cached.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Stream? Open(string folder, string name) => Open(DirectoryPath, folder, name);
+    internal static string? Locate(string folder, string name) => Locate(DirectoryPath, folder, name);
 
-    /// <summary>Opens an asset from a supplied cache.</summary>
+    /// <summary>Finds the path of an asset in a supplied cache.</summary>
     /// <param name="directory">The cache root.</param>
     /// <param name="folder">The resource group.</param>
     /// <param name="name">The filename.</param>
-    /// <returns>The owned stream, or null.</returns>
-    internal static Stream? Open(string directory, string folder, string name)
+    /// <returns>The path, or null when the asset is not cached.</returns>
+    internal static string? Locate(string directory, string folder, string name)
     {
         if (name.Length == 0 || name.Contains('/') || name.Contains('\\') || name.Contains("..", StringComparison.Ordinal))
         {
@@ -34,8 +39,16 @@ internal static class FontDataResources
         }
 
         var path = Path.Combine(directory, folder, name);
-        return File.Exists(path) ? File.OpenRead(path) : null;
+        return File.Exists(path) ? path : null;
     }
+
+    /// <summary>Opens an asset from a supplied cache.</summary>
+    /// <param name="directory">The cache root.</param>
+    /// <param name="folder">The resource group.</param>
+    /// <param name="name">The filename.</param>
+    /// <returns>The owned handle, or null.</returns>
+    internal static SafeFileHandle? Open(string directory, string folder, string name) =>
+        Locate(directory, folder, name) is { } path ? File.OpenHandle(path) : null;
 
     /// <summary>Generates a missing asset; failed and cancelled attempts leave no cache entry.</summary>
     /// <param name="state">The selected resource cache.</param>
@@ -66,7 +79,8 @@ internal static class FontDataResources
     {
         ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
-        var path = Path.Combine(directory, folder, name);
+        var paths = state.Paths.GetOrAdd(new(directory, folder, name), FontAssetPaths.Create);
+        var path = paths.Path;
         if (state.Availability.TryGetValue(path, out var known) && known.IsAvailable && File.Exists(path))
         {
             return;
@@ -76,6 +90,13 @@ internal static class FontDataResources
         if (File.Exists(path))
         {
             entry.ObserveAvailability(state);
+            return;
+        }
+
+        // An offline service never generates, so it never reaches the network: the asset stays missing and is listed for the caller.
+        if (state.Mode == PdfFontDataMode.Offline)
+        {
+            _ = state.Missing.TryAdd(paths.MissingKey, true);
             return;
         }
 

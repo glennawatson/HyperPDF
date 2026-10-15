@@ -29,6 +29,9 @@ internal static class PredefinedCMaps
     /// <summary>The longest code, in bytes.</summary>
     private const int MaxCodeLength = 4;
 
+    /// <summary>The longest CMap name looked up; longer names are never predefined CMaps.</summary>
+    private const int MaxNameLength = 32;
+
     /// <summary>Gets Identity-H.</summary>
     private static CompositeCMap IdentityH { get; } = new(CMap.IdentityH, CidCoding.Cid, CjkScript.None);
 
@@ -82,7 +85,13 @@ internal static class PredefinedCMaps
             return IdentityV;
         }
 
-        return name.IsEmpty || !Ascii.IsValid(name) ? null : Find(resources, Encoding.ASCII.GetString(name));
+        if (name.IsEmpty || name.Length > MaxNameLength || !Ascii.IsValid(name))
+        {
+            return null;
+        }
+
+        Span<char> chars = stackalloc char[MaxNameLength];
+        return Find(resources, chars[..Encoding.ASCII.GetChars(name, chars)]);
     }
 
     /// <summary>Reads a packed CMap from disk without caching it; its base CMaps come from the cache.</summary>
@@ -106,20 +115,21 @@ internal static class PredefinedCMaps
     /// <param name="resources">The selected font resources.</param>
     /// <param name="name">The CMap name.</param>
     /// <returns>The CMap, or <see langword="null"/> when the library does not hold it.</returns>
-    private static CompositeCMap? Find(PdfFontResources resources, string name)
+    private static CompositeCMap? Find(PdfFontResources resources, ReadOnlySpan<char> name)
     {
         var cache = resources.CMaps;
         lock (cache.Gate)
         {
-            if (cache.Cache.TryGetValue(name, out var cached))
+            if (cache.Cache.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(name, out var cached))
             {
                 return cached;
             }
 
-            var map = Load(resources, name);
+            var text = new string(name);
+            var map = Load(resources, text);
             if (map is not null)
             {
-                cache.Cache[name] = map;
+                cache.Cache[text] = map;
             }
 
             return map;

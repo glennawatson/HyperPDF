@@ -182,7 +182,7 @@ public static class PdfDocumentRendering
         {
             ObjectDisposedException.ThrowIf(document.IsDisposed, document);
             var hidden = PdfRenderCacheKey.Normalize(options.HiddenColorants);
-            var key = new PdfRenderCacheKey(options.ImageCacheBytes, options.SimulateOverprint, options.FormHighlight, PdfRenderCacheKey.Join(hidden));
+            var key = new PdfRenderCacheKey(options.ImageCacheBytes, options.SimulateOverprint, options.FormHighlight, PdfRenderCacheKey.Join(hidden), options.Quality);
             var caches = outputIntent
                 ? document.State.IntentRendererCaches ??= []
                 : document.State.RendererCaches ??= [];
@@ -193,10 +193,11 @@ public static class PdfDocumentRendering
             }
 
             var cache = new PdfRenderCache(document, colors);
-            cache.Images.Capacity = key.ImageCacheBytes;
+            cache.ImageCapacity = key.ImageCacheBytes;
             cache.SimulateOverprint = key.SimulateOverprint;
             cache.FormHighlight = key.FormHighlight;
             cache.HiddenColorants = hidden;
+            cache.Quality = key.Quality;
             var created = new PdfRenderCacheEntry(key, cache, outputIntent);
             caches.Add(key, created);
             return created;

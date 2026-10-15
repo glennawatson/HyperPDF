@@ -90,8 +90,9 @@ public sealed record DocumentLayout
         var rowTops = new double[rowCount];
         var rowBottoms = new double[rowCount];
         var rowFirstPage = new int[rowCount];
-        var rowWidths = new double[rowCount];
 
+        // The row widths wait in the bottoms array until the second pass has read each one and writes the real bottom.
+        var rowWidths = rowBottoms;
         var contentWidth = 0.0;
         for (var row = 0; row < rowCount; row++)
         {

@@ -91,7 +91,7 @@ public static class PdfDocumentReader
         PdfByteSource source;
         try
         {
-            source = await PdfByteSources.OpenAsync(path, options.Source, options.CacheBytes, cancellationToken).ConfigureAwait(false);
+            source = await PdfByteSources.OpenAsync(path, options.Source, options.CacheBytes, options.DrawingServices?.SharedScratchPools, cancellationToken).ConfigureAwait(false);
         }
         catch (IOException ex)
         {
@@ -117,7 +117,7 @@ public static class PdfDocumentReader
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(options);
-        return PdfDocumentReader.OpenWithAsync(new StreamPdfByteSource(stream, options.CacheBytes, false), true, options, cancellationToken);
+        return PdfDocumentReader.OpenWithAsync(new StreamPdfByteSource(stream, options.CacheBytes, false, options.DrawingServices?.SharedScratchPools), true, options, cancellationToken);
     }
 
     /// <summary>
@@ -227,7 +227,7 @@ public static class PdfDocumentReader
         PdfByteSource source;
         try
         {
-            source = PdfByteSources.Open(path, options.Source, options.CacheBytes);
+            source = PdfByteSources.Open(path, options.Source, options.CacheBytes, options.DrawingServices?.SharedScratchPools);
         }
         catch (IOException ex)
         {
@@ -268,7 +268,7 @@ public static class PdfDocumentReader
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(options);
-        return PdfDocumentReader.OpenWith(new StreamPdfByteSource(stream, options.CacheBytes, false), true, options);
+        return PdfDocumentReader.OpenWith(new StreamPdfByteSource(stream, options.CacheBytes, false, options.DrawingServices?.SharedScratchPools), true, options);
     }
 
     /// <summary>Opens a document read from a byte source.</summary>

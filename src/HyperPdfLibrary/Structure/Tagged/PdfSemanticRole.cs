@@ -84,4 +84,7 @@ public enum PdfSemanticRole
 
     /// <summary>A run of marked content: the text and drawing of one marked content id.</summary>
     Content = 25,
+
+    /// <summary>A pagination artifact: a running header, a running footer or a page number. Readers skip it; <see cref="PdfSemanticNode.Pagination"/> says which.</summary>
+    Artifact = 26,
 }

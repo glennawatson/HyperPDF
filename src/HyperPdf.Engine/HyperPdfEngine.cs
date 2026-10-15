@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Text.Fonts;
 using HyperPdfLibrary;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
@@ -33,7 +34,7 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     private readonly TimeProvider _annotationClock;
 
     /// <summary>The annotation font cache shared by documents opened through this engine, built on first use.</summary>
-    private readonly Lazy<TextBoxFontState> _fontState = new(static () => new());
+    private readonly Lazy<TextBoxFontState> _fontState;
 
     /// <summary>Initializes a new instance of the <see cref="HyperPdfEngine"/> class.</summary>
     public HyperPdfEngine()
@@ -61,12 +62,24 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     /// <param name="annotationClock">The clock used for annotation modification dates.</param>
     /// <param name="drawingServices">The drawing services used for documents opened by this engine.</param>
     public HyperPdfEngine(Func<PdfDictionary, PdfFont?>? fontFactory, TimeProvider annotationClock, PdfDrawingServices drawingServices)
+        : this(fontFactory, annotationClock, drawingServices, new Lazy<FontCatalog>(static () => FontCatalog.Scan(FontCatalog.SystemDirectories())))
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="HyperPdfEngine"/> class with drawing services and a font catalog.</summary>
+    /// <param name="fontFactory">The loader for each document's fonts, or null to disable font loading.</param>
+    /// <param name="annotationClock">The clock used for annotation modification dates.</param>
+    /// <param name="drawingServices">The drawing services used for documents opened by this engine.</param>
+    /// <param name="catalog">The installed fonts, scanned on first use.</param>
+    public HyperPdfEngine(Func<PdfDictionary, PdfFont?>? fontFactory, TimeProvider annotationClock, PdfDrawingServices drawingServices, Lazy<FontCatalog> catalog)
     {
         ArgumentNullException.ThrowIfNull(annotationClock);
         ArgumentNullException.ThrowIfNull(drawingServices);
+        ArgumentNullException.ThrowIfNull(catalog);
         _fontFactory = fontFactory;
         _annotationClock = annotationClock;
         _drawingServices = drawingServices;
+        _fontState = new(() => new TextBoxFontState(catalog));
     }
 
     /// <inheritdoc/>
@@ -74,6 +87,12 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
 
     /// <summary>Gets the PDF file signature.</summary>
     private static ReadOnlySpan<byte> PdfSignature => "%PDF-"u8;
+
+    /// <summary>Creates an engine with a font catalog shared with its host.</summary>
+    /// <param name="catalog">The installed fonts, scanned on first use.</param>
+    /// <returns>The engine.</returns>
+    public static HyperPdfEngine WithFontCatalog(Lazy<FontCatalog> catalog) =>
+        new(PdfFontLoader.Load, TimeProvider.System, new(new PdfRenderBackendRegistration().UseSkia()) { SharedScratchPools = new() }, catalog);
 
     /// <inheritdoc/>
     public bool CanOpen(string path)

@@ -30,6 +30,21 @@ internal static class AccessibilityPdfs
     /// <summary>The XMP packet after the properties.</summary>
     private const string PacketEnd = "</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end=\"w\"?>";
 
+    /// <summary>The first character code the test font defines: the space.</summary>
+    private const int FirstCode = 32;
+
+    /// <summary>The last character code the test font defines: the letter z.</summary>
+    private const int LastCode = 122;
+
+    /// <summary>The test font's ToUnicode CMap: each code from the space to the letter z stands for the same Unicode character.</summary>
+    private const string ToUnicodeMap = """
+        /CIDInit /ProcSet findresource begin 12 dict begin begincmap
+        /CMapName /Adobe-Identity-UCS def /CMapType 2 def
+        1 begincodespacerange <00> <FF> endcodespacerange
+        1 beginbfrange <20> <7A> <0020> endbfrange
+        endcmap CMapName currentdict /CMap defineresource pop end end
+        """;
+
     /// <summary>The left edge of every line.</summary>
     private const int LeftEdge = 72;
 
@@ -66,10 +81,18 @@ internal static class AccessibilityPdfs
     /// <param name="part">The <c>pdfuaid:part</c>.</param>
     /// <param name="title">Whether to include a <c>dc:title</c>.</param>
     /// <returns>The packet.</returns>
-    internal static string Packet(int part, bool title)
+    internal static string Packet(int part, bool title) => Packet(part, title, null);
+
+    /// <summary>Writes an XMP packet with the PDF/UA part, a revision and, optionally, a title.</summary>
+    /// <param name="part">The <c>pdfuaid:part</c>.</param>
+    /// <param name="title">Whether to include a <c>dc:title</c>.</param>
+    /// <param name="revision">The <c>pdfuaid:rev</c>, or <see langword="null"/> for none.</param>
+    /// <returns>The packet.</returns>
+    internal static string Packet(int part, bool title, string? revision)
     {
         var titleXml = title ? "<dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">A title</rdf:li></rdf:Alt></dc:title>" : string.Empty;
-        return string.Create(CultureInfo.InvariantCulture, $"{PacketStart}<pdfuaid:part>{part}</pdfuaid:part>{titleXml}{PacketEnd}");
+        var revisionXml = revision is null ? string.Empty : $"<pdfuaid:rev>{revision}</pdfuaid:rev>";
+        return string.Create(CultureInfo.InvariantCulture, $"{PacketStart}<pdfuaid:part>{part}</pdfuaid:part>{revisionXml}{titleXml}{PacketEnd}");
     }
 
     /// <summary>The default layout: a level 1 heading, a paragraph and a described figure.</summary>
@@ -132,12 +155,16 @@ internal static class AccessibilityPdfs
     internal static byte[] Build(AccessibilitySpec spec)
     {
         var pdf = new TaggedPdfBuilder { Content = spec.Content, Page = spec.PageExtra };
+        pdf.Font = spec.Font?.Invoke(pdf) ?? Type3Font(pdf);
         var metadata = spec.Xmp is null ? string.Empty : string.Create(CultureInfo.InvariantCulture, $"/Metadata {pdf.Add(MiniPdf.Stream("/Type /Metadata /Subtype /XML", spec.Xmp))} 0 R");
         var root = pdf.Reserve();
         var document = pdf.Reserve();
         var kids = spec.Layout(pdf, document);
-        pdf.Set(document, string.Create(CultureInfo.InvariantCulture, $"<< /Type /StructElem /S /Document /P {root} 0 R /K [{kids}] >>"));
-        pdf.Set(root, string.Create(CultureInfo.InvariantCulture, $"<< /Type /StructTreeRoot /K {document} 0 R {spec.RootExtra} >>"));
+        var space = spec.Pdf20Root ? pdf.Add("<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>") : 0;
+        var documentSpace = spec.Pdf20Root ? string.Create(CultureInfo.InvariantCulture, $"/NS {space} 0 R") : string.Empty;
+        var rootSpaces = spec.Pdf20Root ? string.Create(CultureInfo.InvariantCulture, $"/Namespaces [{space} 0 R]") : string.Empty;
+        pdf.Set(document, string.Create(CultureInfo.InvariantCulture, $"<< /Type /StructElem /S /Document /P {root} 0 R {documentSpace} /K [{kids}] >>"));
+        pdf.Set(root, string.Create(CultureInfo.InvariantCulture, $"<< /Type /StructTreeRoot /K {document} 0 R {rootSpaces} {spec.RootExtra} >>"));
         var tree = spec.Tree ? string.Create(CultureInfo.InvariantCulture, $"/StructTreeRoot {root} 0 R") : string.Empty;
         pdf.Catalog = $"{spec.MarkInfo} {spec.Lang} {metadata} {spec.ViewerPreferences} {spec.CatalogExtra} {tree}";
         return pdf.Build();
@@ -146,9 +173,28 @@ internal static class AccessibilityPdfs
     /// <summary>Builds a PDF and reads its report.</summary>
     /// <param name="spec">The spec.</param>
     /// <returns>The report.</returns>
-    internal static PdfAccessibilityReport Report(AccessibilitySpec spec)
+    internal static async ValueTask<PdfAccessibilityReport> ReportAsync(AccessibilitySpec spec)
     {
         using var document = TaggedTestDocument.Open(Build(spec));
-        return PdfDocumentAccessibility.GetAccessibilityReport(document);
+        return await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Adds a Type 3 font that maps every character the test content shows to Unicode. A Type 3 font has no program to embed,
+    /// so it passes the font checks and keeps the default document free of findings.
+    /// </summary>
+    /// <param name="pdf">The builder.</param>
+    /// <returns>The font dictionary, to set as the builder's font.</returns>
+    internal static string Type3Font(TaggedPdfBuilder pdf)
+    {
+        var glyph = pdf.Add(MiniPdf.Stream(string.Empty, "1000 0 0 0 750 750 d1 0 0 750 750 re f"));
+        var map = pdf.Add(MiniPdf.Stream(string.Empty, ToUnicodeMap));
+        const int codes = LastCode - FirstCode + 1;
+        var names = string.Concat(Enumerable.Repeat("/g ", codes));
+        var widths = string.Concat(Enumerable.Repeat("1000 ", codes));
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 750 750] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /g {glyph} 0 R >> "
+            + $"/Encoding << /Type /Encoding /Differences [{FirstCode} {names}] >> /FirstChar {FirstCode} /LastChar {LastCode} /Widths [{widths}] /ToUnicode {map} 0 R >>");
     }
 }

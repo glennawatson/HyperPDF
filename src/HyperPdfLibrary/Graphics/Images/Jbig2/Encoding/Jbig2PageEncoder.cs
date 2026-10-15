@@ -69,7 +69,7 @@ internal static class Jbig2PageEncoder
     /// <param name="numbering">The first segment number and the page association.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
     /// <returns>The base and refined dictionary numbers (-1 when there is no refined dictionary) and the next free number.</returns>
-    internal static Jbig2HeadSegments WriteDictionaries(Jbig2EncoderSymbols symbols, int template, ref PooledBuffer target, Jbig2Point numbering, CancellationToken cancellationToken)
+    internal static Jbig2HeadSegments WriteDictionaries(in Jbig2EncoderSymbols symbols, int template, ref PooledBuffer target, Jbig2Point numbering, CancellationToken cancellationToken)
     {
         var (first, association) = numbering;
         Jbig2SymbolDictionaryWriter.Write(ref target, first, association, symbols, template, cancellationToken);
@@ -91,7 +91,7 @@ internal static class Jbig2PageEncoder
     /// <param name="cancellationToken">Cancels the encode.</param>
     internal static void WriteBody(
         in Jbig2PageSlice slice,
-        Jbig2EncoderSymbols symbols,
+        in Jbig2EncoderSymbols symbols,
         in Jbig2PageSettings settings,
         Jbig2HeadSegments head,
         ref PooledBuffer page,
@@ -103,7 +103,7 @@ internal static class Jbig2PageEncoder
         try
         {
             var count = SortInstances(slice, symbols, instances, out var refined);
-            var placement = new Jbig2TextPlacement(new(0, 0, size.Width, size.Height), symbols.Count, lossless, refined ? slice.Combined : null, refined ? symbols : null);
+            var placement = new Jbig2TextPlacement(new(0, 0, size.Width, size.Height), symbols.Count, lossless, refined ? slice.Combined : default, refined ? symbols : default);
             Span<int> referred = stackalloc int[RefinedDictionaries];
             referred[0] = head.DictionaryNumber;
             referred[1] = head.RefinedNumber;
@@ -152,17 +152,26 @@ internal static class Jbig2PageEncoder
     /// <returns><see langword="false"/> when the page has no text-like components, or too many.</returns>
     private static bool EncodeSymbols(ReadOnlySpan<byte> ink, in Jbig2PageSettings settings, ref PooledBuffer page, ref PooledBuffer globals, CancellationToken cancellationToken)
     {
-        if (!SuitsSymbols(ink, settings.Size))
+        if (!SuitsSymbols(ink, settings.Size) || !Jbig2Components.TryFind(ink, settings.Size, settings.Options.MaximumSymbolSize, cancellationToken, out var components))
         {
             return false;
         }
 
-        using var components = Jbig2Components.Find(ink, settings.Size, settings.Options.MaximumSymbolSize, cancellationToken);
-        if (components is null || components.SymbolCount == 0)
+        using (components)
         {
-            return false;
+            return components.SymbolCount != 0 && EncodeComponents(components, settings, ref page, ref globals, cancellationToken);
         }
+    }
 
+    /// <summary>Codes a page from its components.</summary>
+    /// <param name="components">The page's components, which have at least one symbol.</param>
+    /// <param name="settings">The page size, options, and whether sharing is exact only.</param>
+    /// <param name="page">Receives the page's segments.</param>
+    /// <param name="globals">Receives the dictionaries when the options ask for separate globals.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    /// <returns><see langword="true"/>.</returns>
+    private static bool EncodeComponents(in Jbig2Components components, in Jbig2PageSettings settings, ref PooledBuffer page, ref PooledBuffer globals, CancellationToken cancellationToken)
+    {
         var similarity = settings.IsLossless && !settings.Refine ? 1.0 : settings.Options.MergeSimilarity;
         using var matcher = Jbig2SymbolMatcher.Match(components, similarity, settings.Refine, cancellationToken);
         using var symbols = Jbig2EncoderSymbols.Build(components, matcher);
@@ -178,7 +187,7 @@ internal static class Jbig2PageEncoder
     /// <param name="globals">Receives the dictionaries when the options ask for separate globals.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
     /// <returns>The segment numbers used.</returns>
-    private static Jbig2HeadSegments WriteHead(Jbig2EncoderSymbols symbols, in Jbig2PageSettings settings, ref PooledBuffer page, ref PooledBuffer globals, CancellationToken cancellationToken)
+    private static Jbig2HeadSegments WriteHead(in Jbig2EncoderSymbols symbols, in Jbig2PageSettings settings, ref PooledBuffer page, ref PooledBuffer globals, CancellationToken cancellationToken)
     {
         var (size, options, lossless, _) = settings;
         if (options.SeparateGlobals)
@@ -198,7 +207,7 @@ internal static class Jbig2PageEncoder
     /// <param name="instances">Receives the instances.</param>
     /// <param name="refined">Receives whether any instance is coded as a refinement.</param>
     /// <returns>The number of instances.</returns>
-    private static int SortInstances(in Jbig2PageSlice slice, Jbig2EncoderSymbols symbols, Jbig2TextInstance[] instances, out bool refined)
+    private static int SortInstances(in Jbig2PageSlice slice, in Jbig2EncoderSymbols symbols, Jbig2TextInstance[] instances, out bool refined)
     {
         var capacity = Math.Max(slice.End - slice.First, 1);
         var keys = ArrayPool<long>.Shared.Rent(capacity);

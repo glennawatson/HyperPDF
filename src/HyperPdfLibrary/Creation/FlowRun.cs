@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 
@@ -46,6 +47,9 @@ internal ref struct FlowRun
     /// <summary>The deepest heading level.</summary>
     private const int MaxHeadingLevel = 6;
 
+    /// <summary>The structure type of each heading level, so a heading does not build its spelling.</summary>
+    private static readonly string[] HeadingTypes = ["H1", "H2", "H3", "H4", "H5", "H6"];
+
     /// <summary>The document.</summary>
     private readonly PdfDocumentCreator _creator;
 
@@ -56,7 +60,7 @@ internal ref struct FlowRun
     private readonly CancellationToken _cancellationToken;
 
     /// <summary>The wrapped lines of the block being written, reused for every block.</summary>
-    private readonly List<PdfTextLine> _lines;
+    private PooledLines _lines;
 
     /// <summary>The open page.</summary>
     private PdfPageCanvas _canvas;
@@ -91,7 +95,7 @@ internal ref struct FlowRun
         _creator = creator;
         _options = options;
         _cancellationToken = cancellationToken;
-        _lines = [];
+        _lines = default;
         _canvas = default;
         _hasPage = false;
         _top = 0;
@@ -102,32 +106,122 @@ internal ref struct FlowRun
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(TextHeight, 0F);
     }
 
+    /// <summary>Gets the options.</summary>
+    internal readonly PdfFlowOptions Options => _options;
+
+    /// <summary>Gets the document.</summary>
+    internal readonly PdfDocumentCreator Creator => _creator;
+
+    /// <summary>Gets the token that cancels the layout.</summary>
+    internal readonly CancellationToken CancellationToken => _cancellationToken;
+
+    /// <summary>Gets the width available for text.</summary>
+    internal readonly float TextWidth => _options.PageWidth - (_options.Margin * MarginSides);
+
+    /// <summary>Gets the height available for text.</summary>
+    internal readonly float TextHeight => _options.PageHeight - (_options.Margin * MarginSides);
+
+    /// <summary>Gets the top of the text area of a page.</summary>
+    internal readonly float PageTop => _options.PageHeight - _options.Margin;
+
+    /// <summary>Gets or sets the top of the space left on the open page.</summary>
+    internal float Top
+    {
+        readonly get => _top;
+        set => _top = value;
+    }
+
+    /// <summary>Gets the open page. Only valid after a page is started.</summary>
+    [UnscopedRef]
+    internal ref PdfPageCanvas Canvas => ref _canvas;
+
     /// <summary>Gets the size of each heading level as a multiple of the body size.</summary>
     private static ReadOnlySpan<float> HeadingScales => [LevelOneScale, LevelTwoScale, LevelThreeScale, LevelFourScale, LevelFiveScale, 1F];
 
-    /// <summary>Gets the width available for text.</summary>
-    private readonly float TextWidth => _options.PageWidth - (_options.Margin * MarginSides);
-
-    /// <summary>Gets the height available for text.</summary>
-    private readonly float TextHeight => _options.PageHeight - (_options.Margin * MarginSides);
-
-    /// <summary>Abandons a page that was not finished.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void Abandon() => _canvas.Dispose();
+    /// <summary>Abandons a page that was not finished and returns the pooled line storage.</summary>
+    internal void Abandon()
+    {
+        _canvas.Dispose();
+        _lines.Dispose();
+    }
 
     /// <summary>Lays out the blocks.</summary>
     /// <param name="blocks">The blocks.</param>
     /// <returns>The number of pages added.</returns>
     internal int Run(IReadOnlyList<PdfFlowBlock> blocks)
     {
-        foreach (var block in blocks)
+        for (var i = 0; i < blocks.Count; i++)
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            WriteBlock(block);
+            WriteBlock(blocks[i]);
         }
 
         EndPage();
         return _pages;
+    }
+
+    /// <summary>Adds the space before a block, unless the block starts a page.</summary>
+    /// <param name="size">The block's text size.</param>
+    internal void AddSpaceBefore(float size)
+    {
+        if (_hasPage && _top < PageTop)
+        {
+            _top -= size * SpaceBefore;
+        }
+    }
+
+    /// <summary>Adds the space after a block.</summary>
+    /// <param name="size">The block's text size.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void AddSpaceAfter(float size) => _top -= size * SpaceAfter;
+
+    /// <summary>Ends the open page, if any, and starts another.</summary>
+    internal void StartNewPage()
+    {
+        CloseContent();
+        EndPage();
+        StartPage();
+    }
+
+    /// <summary>Makes room for a block, starting a new page when the open one cannot hold it.</summary>
+    /// <param name="height">The height the block needs.</param>
+    /// <returns><see langword="true"/> when a new page was started.</returns>
+    internal bool Reserve(float height)
+    {
+        if (_hasPage && _top - height >= _options.Margin)
+        {
+            return false;
+        }
+
+        var wasOpen = _hasPage;
+        EndPage();
+        StartPage();
+        return wasOpen;
+    }
+
+    /// <summary>Opens marked content for an element, when the document is tagged and it is not open yet.</summary>
+    /// <param name="element">The element, or <see langword="null"/> for an untagged document.</param>
+    internal void OpenContent(PdfTagElement? element)
+    {
+        if (element is null || ReferenceEquals(_open, element))
+        {
+            return;
+        }
+
+        _canvas.BeginContent(element);
+        _open = element;
+    }
+
+    /// <summary>Closes the open marked content.</summary>
+    internal void CloseContent()
+    {
+        if (_open is null)
+        {
+            return;
+        }
+
+        _canvas.EndContent();
+        _open = null;
     }
 
     /// <summary>Gets the size of a heading.</summary>
@@ -160,6 +254,12 @@ internal ref struct FlowRun
                 break;
             }
 
+            case PdfFlowTable table:
+            {
+                PdfTableFlow.Write(ref this, table);
+                break;
+            }
+
             default:
             {
                 EndPage();
@@ -174,7 +274,7 @@ internal ref struct FlowRun
     {
         _headingLevel = Math.Clamp(heading.Level, 1, Math.Min(_headingLevel + 1, MaxHeadingLevel));
         var font = _options.HeadingFont ?? _options.BodyFont;
-        var type = string.Create(CultureInfo.InvariantCulture, $"H{_headingLevel}");
+        var type = HeadingTypes[_headingLevel - 1];
         WriteText(font, _options.BodySize * GetHeadingScale(_headingLevel), heading.Text, type, 1);
     }
 
@@ -187,11 +287,10 @@ internal ref struct FlowRun
     private void WriteText(PdfCanvasFont font, float size, string text, string type, int keepWith)
     {
         var leading = size * _options.LineSpacing;
-        var lines = _lines;
-        lines.Clear();
-        PdfTextWrapper.Wrap(font, size, text, TextWidth, lines);
+        _lines.Clear();
+        PdfTextWrapper.Wrap(font, size, text, TextWidth, ref _lines);
         var element = _creator.Tags is { } tags ? tags.AddElement(tags.Root, type) : null;
-        for (var i = 0; i < lines.Count; i++)
+        for (var i = 0; i < _lines.Count; i++)
         {
             var needed = i == 0 ? leading + (size * SpaceBefore) + (leading * keepWith) : leading;
             _ = Reserve(needed);
@@ -201,7 +300,7 @@ internal ref struct FlowRun
             }
 
             OpenContent(element);
-            var line = lines[i];
+            var line = _lines[i];
             if (line.Length > 0)
             {
                 var baseline = _top - ((leading - (font.GetAscent(size) - font.GetDescent(size))) * Half) - font.GetAscent(size);
@@ -250,53 +349,12 @@ internal ref struct FlowRun
         _top -= height + (_options.BodySize * SpaceAfter);
     }
 
-    /// <summary>Makes room for a block, starting a new page when the open one cannot hold it.</summary>
-    /// <param name="height">The height the block needs.</param>
-    /// <returns><see langword="true"/> when a new page was started.</returns>
-    private bool Reserve(float height)
-    {
-        if (_hasPage && _top - height >= _options.Margin)
-        {
-            return false;
-        }
-
-        var wasOpen = _hasPage;
-        EndPage();
-        StartPage();
-        return wasOpen;
-    }
-
     /// <summary>Starts a page.</summary>
     private void StartPage()
     {
         _canvas = _creator.BeginPage(_options.PageWidth, _options.PageHeight);
         _hasPage = true;
         _top = _options.PageHeight - _options.Margin;
-    }
-
-    /// <summary>Opens marked content for an element, when the document is tagged and it is not open yet.</summary>
-    /// <param name="element">The element, or <see langword="null"/> for an untagged document.</param>
-    private void OpenContent(PdfTagElement? element)
-    {
-        if (element is null || ReferenceEquals(_open, element))
-        {
-            return;
-        }
-
-        _canvas.BeginContent(element);
-        _open = element;
-    }
-
-    /// <summary>Closes the open marked content.</summary>
-    private void CloseContent()
-    {
-        if (_open is null)
-        {
-            return;
-        }
-
-        _canvas.EndContent();
-        _open = null;
     }
 
     /// <summary>Finishes the open page, adding its number first when asked.</summary>

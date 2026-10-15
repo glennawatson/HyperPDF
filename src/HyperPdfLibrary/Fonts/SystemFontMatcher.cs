@@ -65,32 +65,6 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider, PdfFontResou
     internal static SystemFontMatcher For(PdfDictionary dictionary, PdfFontResources resources) =>
         dictionary.Owner?.Context?.DrawingServices.FontMatcher ?? resources.DetachedMatcher;
 
-    /// <summary>Loads the open font program a cold request will use.</summary>
-    /// <param name="request">The font request.</param>
-    /// <param name="cancellationToken">Cancels source I/O.</param>
-    /// <returns>A task completing when the needed face is cached.</returns>
-    internal ValueTask EnsureAsync(SubstituteRequest request, CancellationToken cancellationToken)
-    {
-        var resolved = ResolveStandard(request);
-        var parsed = resolved.Standard == StandardFont.None ? ParsedFontName.Parse(resolved.BaseFont) : new ParsedFontName(string.Empty, 0, false);
-        var weight = ChooseWeight(resolved, parsed);
-        var italic = parsed.Italic || (resolved.Flags & FontFlags.Italic) != 0 || IsStandardItalic(resolved.Standard);
-        if (resolved.Standard == StandardFont.None && FindFirst(NamedCandidates(resolved, parsed), weight, italic) is not null)
-        {
-            return ValueTask.CompletedTask;
-        }
-
-        var family = resolved.Standard switch
-        {
-            StandardFont.Symbol => BundledFamily.Symbol,
-            StandardFont.ZapfDingbats => BundledFamily.Dingbats,
-            _ when IsFixed(resolved) => BundledFamily.Fixed,
-            _ when IsSerif(resolved) => BundledFamily.Serif,
-            _ => BundledFamily.Sans,
-        };
-        return BundledFaces.EnsureAsync(resources, family, weight >= BoldThreshold, italic, cancellationToken);
-    }
-
     /// <summary>Finds a system font for a request.</summary>
     /// <param name="request">The request.</param>
     /// <returns>The face; the platform default font when nothing matches.</returns>

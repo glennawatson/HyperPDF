@@ -25,7 +25,13 @@ public sealed class PdfMarkedContentPage
     private readonly Dictionary<int, McidRange> _ranges;
 
     /// <summary>The bounds of what each marked content id paints other than text: paths, images and shadings.</summary>
-    private readonly Dictionary<int, PdfViewerRect> _graphics;
+    private readonly McidGraphics _graphics;
+
+    /// <summary>The images in drawing order.</summary>
+    private readonly PdfMarkedImage[] _images;
+
+    /// <summary>The straight lines the page draws.</summary>
+    private readonly LayoutRuling[] _rulings;
 
     /// <summary>Initializes a new instance of the <see cref="PdfMarkedContentPage"/> class.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
@@ -33,11 +39,26 @@ public sealed class PdfMarkedContentPage
     /// <param name="glyphs">The glyphs in drawing order.</param>
     /// <param name="graphics">The bounds of each marked content id's paths and images.</param>
     /// <param name="hasImages">Whether the page draws any image.</param>
-    internal PdfMarkedContentPage(int pageIndex, string text, PdfMarkedGlyph[] glyphs, Dictionary<int, PdfViewerRect> graphics, bool hasImages)
+    /// <param name="drawing">The page's images, straight lines and size.</param>
+    /// <param name="counts">The counts the accessibility report reads.</param>
+    internal PdfMarkedContentPage(
+        int pageIndex,
+        string text,
+        PdfMarkedGlyph[] glyphs,
+        McidGraphics graphics,
+        bool hasImages,
+        PageDrawing drawing,
+        PageAccessibilityCounts counts)
     {
         PageIndex = pageIndex;
+        InvalidLanguageCount = counts.InvalidLanguages;
+        UntaggedGraphicCount = counts.UntaggedGraphics;
         Text = text;
         HasImages = hasImages;
+        Width = drawing.Width;
+        Height = drawing.Height;
+        _images = drawing.Images;
+        _rulings = drawing.Rulings;
         _glyphs = glyphs;
         _graphics = graphics;
         _ranges = [];
@@ -54,8 +75,23 @@ public sealed class PdfMarkedContentPage
     /// <summary>Gets the glyphs in drawing order.</summary>
     public ReadOnlySpan<PdfMarkedGlyph> Glyphs => _glyphs;
 
+    /// <summary>Gets the images the page draws, in drawing order.</summary>
+    public ReadOnlySpan<PdfMarkedImage> Images => _images;
+
+    /// <summary>Gets the displayed width of the page in points, after rotation.</summary>
+    public float Width { get; }
+
+    /// <summary>Gets the displayed height of the page in points, after rotation.</summary>
+    public float Height { get; }
+
     /// <summary>Gets the number of glyphs.</summary>
     public int GlyphCount => _glyphs.Length;
+
+    /// <summary>Gets the number of marked content property lists whose <c>/Lang</c> is not a language identifier (ISO 14289-1 7.2; ISO 14289-2 8.4.4).</summary>
+    public int InvalidLanguageCount { get; }
+
+    /// <summary>Gets the number of paths and images painted outside marked content with an id and outside artifacts.</summary>
+    public int UntaggedGraphicCount { get; }
 
     /// <summary>Gets a value indicating whether the page draws any image.</summary>
     public bool HasImages { get; }
@@ -68,6 +104,9 @@ public sealed class PdfMarkedContentPage
 
     /// <summary>Gets the number of visible characters (not white space) drawn.</summary>
     public int VisibleCharacterCount { get; private set; }
+
+    /// <summary>Gets the straight horizontal and vertical lines the page draws, such as table borders.</summary>
+    internal ReadOnlySpan<LayoutRuling> Rulings => _rulings;
 
     /// <summary>Gets a glyph's Unicode text.</summary>
     /// <param name="glyphIndex">The glyph.</param>
@@ -89,7 +128,7 @@ public sealed class PdfMarkedContentPage
     /// <returns>The box in viewer space; empty when the id draws nothing.</returns>
     public PdfViewerRect GetBounds(int mcid)
     {
-        var bounds = _graphics.GetValueOrDefault(mcid);
+        var bounds = _graphics.Find(mcid);
         foreach (var index in GetGlyphs(mcid))
         {
             bounds = bounds.Union(_glyphs[index].Bounds);
@@ -101,7 +140,7 @@ public sealed class PdfMarkedContentPage
     /// <summary>Determines whether a marked content id draws anything on the page.</summary>
     /// <param name="mcid">The marked content id.</param>
     /// <returns><see langword="true"/> when it draws text, paths or images.</returns>
-    public bool HasContent(int mcid) => _ranges.ContainsKey(mcid) || _graphics.ContainsKey(mcid);
+    public bool HasContent(int mcid) => _ranges.ContainsKey(mcid) || _graphics.Contains(mcid);
 
     /// <summary>Groups glyph indices by marked content id, keeping drawing order inside each group.</summary>
     /// <param name="glyphs">The glyphs.</param>

@@ -10,7 +10,7 @@
     <TUnitVersion>1.75.0</TUnitVersion>
     <!-- StyleSharp.Analyzers, PerformanceSharp.Analyzers and SecuritySharp.Analyzers ship from the
          same release pipeline and always share a version. -->
-    <RoslynCommonAnalyzersVersion>5.1.3</RoslynCommonAnalyzersVersion>
+    <RoslynCommonAnalyzersVersion>5.1.4</RoslynCommonAnalyzersVersion>
     <SkiaVersion>4.153.1</SkiaVersion>
     <HarfBuzzVersion>14.2.1.301</HarfBuzzVersion>
     <TesseractNativeVersion>5.5.2.200</TesseractNativeVersion>
@@ -73,6 +73,7 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.16.0-preview.2" />
     <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="4.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
   </ItemGroup>
 
   <!-- Each target framework takes the package of its own release: the .NET 11 package refers to types

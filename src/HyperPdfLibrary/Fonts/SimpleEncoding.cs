@@ -17,7 +17,7 @@ namespace HyperPdfLibrary.Fonts;
 /// <param name="Base">The base encoding, or <see cref="FontEncoding.None"/> for the built-in one.</param>
 /// <param name="Differences">The glyph name of each code /Differences sets, or <see langword="null"/> when it sets none.</param>
 [DebuggerDisplay("SimpleEncoding: {Base}")]
-internal sealed record SimpleEncoding(FontEncoding Base, byte[]?[]? Differences)
+internal readonly record struct SimpleEncoding(FontEncoding Base, byte[]?[]? Differences)
 {
     /// <summary>Reads a simple font's /Encoding.</summary>
     /// <param name="font">The font dictionary.</param>

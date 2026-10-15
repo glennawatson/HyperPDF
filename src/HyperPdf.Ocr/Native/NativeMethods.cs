@@ -66,7 +66,7 @@ internal static unsafe partial class NativeMethods
     /// <param name="handle">The engine.</param>
     /// <returns>The result iterator, or 0.</returns>
     [LibraryImport(Library)]
-    internal static partial TesseractIteratorHandle TessBaseAPIGetIterator(TesseractHandle handle);
+    internal static partial nint TessBaseAPIGetIterator(TesseractHandle handle);
 
     /// <summary>Native <c>TessBaseAPIClear</c>.</summary>
     /// <param name="handle">The engine.</param>
@@ -88,27 +88,27 @@ internal static unsafe partial class NativeMethods
     /// <param name="level">The iterator level.</param>
     /// <returns>Non-zero while there are more items.</returns>
     [LibraryImport(Library)]
-    internal static partial int TessResultIteratorNext(TesseractIteratorHandle iterator, int level);
+    internal static partial int TessResultIteratorNext(nint iterator, int level);
 
     /// <summary>Native <c>TessResultIteratorGetUTF8Text</c>.</summary>
     /// <param name="iterator">The iterator.</param>
     /// <param name="level">The iterator level.</param>
     /// <returns>The UTF-8 text, freed with <see cref="TessDeleteText"/>.</returns>
     [LibraryImport(Library)]
-    internal static partial byte* TessResultIteratorGetUTF8Text(TesseractIteratorHandle iterator, int level);
+    internal static partial byte* TessResultIteratorGetUTF8Text(nint iterator, int level);
 
     /// <summary>Native <c>TessResultIteratorConfidence</c>.</summary>
     /// <param name="iterator">The iterator.</param>
     /// <param name="level">The iterator level.</param>
     /// <returns>The confidence from 0 to 100.</returns>
     [LibraryImport(Library)]
-    internal static partial float TessResultIteratorConfidence(TesseractIteratorHandle iterator, int level);
+    internal static partial float TessResultIteratorConfidence(nint iterator, int level);
 
     /// <summary>Native <c>TessResultIteratorGetPageIterator</c>.</summary>
     /// <param name="iterator">The result iterator.</param>
     /// <returns>The page iterator, owned by the result iterator.</returns>
     [LibraryImport(Library)]
-    internal static partial nint TessResultIteratorGetPageIterator(TesseractIteratorHandle iterator);
+    internal static partial nint TessResultIteratorGetPageIterator(nint iterator);
 
     /// <summary>Native <c>TessPageIteratorBoundingBox</c>.</summary>
     /// <param name="iterator">The page iterator.</param>

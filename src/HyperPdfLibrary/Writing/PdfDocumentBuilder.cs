@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure;
 
@@ -38,6 +39,9 @@ public sealed class PdfDocumentBuilder : IPdfObjectSink
     /// <summary>The pages, in order.</summary>
     private readonly List<PdfObjectId> _pages = [];
 
+    /// <summary>The embedding state, created only when a font is embedded.</summary>
+    private PdfFontEmbeddingState? _fontEmbedding;
+
     /// <summary>Initializes a new instance of the <see cref="PdfDocumentBuilder"/> class.</summary>
     public PdfDocumentBuilder()
     {
@@ -54,6 +58,12 @@ public sealed class PdfDocumentBuilder : IPdfObjectSink
 
     /// <summary>Gets the open document the objects belong to, which is always <see langword="null"/> because a built document owns its own objects.</summary>
     public PdfObjectStore? Owner => null;
+
+    /// <inheritdoc/>
+    public PdfFontEmbeddingState FontEmbedding => _fontEmbedding ??= new();
+
+    /// <inheritdoc/>
+    public PdfFontEmbeddingState? ExistingFontEmbedding => _fontEmbedding;
 
     /// <summary>Gets the number of pages added.</summary>
     public int PageCount => _pages.Count;

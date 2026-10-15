@@ -3,17 +3,17 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdfLibrary.Document;
-using HyperPdfLibrary.Metadata;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure.Tagged;
+using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Accessibility;
 
-/// <summary>Builds a document's <see cref="PdfAccessibilityReport"/>: document entries first, then the structure tree, then each page.</summary>
+/// <summary>Builds a document's <see cref="PdfAccessibilityReport"/>: document entries first, then the structure tree, then each page, then the fonts.</summary>
 internal static class PdfAccessibilityReader
 {
-    /// <summary>The first PDF version number that is PDF 2.0.</summary>
-    private const char FirstPdf2Digit = '2';
+    /// <summary>The <c>pdfuaid:rev</c> of ISO 14289-2:2024 (ISO 14289-2, clause 5).</summary>
+    private const string Part2Revision = "2024";
 
     /// <summary>Reads a document's accessibility.</summary>
     /// <param name="document">The document.</param>
@@ -23,46 +23,28 @@ internal static class PdfAccessibilityReader
     internal static PdfAccessibilityReport Read(PdfDocument document, CancellationToken cancellation)
     {
         var findings = new AccessibilityFindings();
-        var xmp = PdfDocumentMetadata.GetXmp(document);
+        var metadata = AccessibilityMetadata.Get(document);
         var tree = PdfDocumentTagged.GetStructureTree(document);
         var markInfo = document.Catalog.GetDictionary(KnownName.MarkInfo);
-        var part = xmp?.PdfUaPart;
+        var part = metadata.Part;
         var scan = tree is null ? null : new AccessibilityStructureScan(tree, part, findings, cancellation);
 
         var isMarked = markInfo?.Flag("Marked", false) == true;
-        var language = document.Catalog.GetText(KnownName.Lang) is { Length: > 0 } text ? text : null;
-        var hasTitle = !string.IsNullOrWhiteSpace(xmp?.Title);
+        var catalogLanguage = document.Catalog.GetText(KnownName.Lang);
+        var language = catalogLanguage is { Length: > 0 } text ? text : null;
         var displayTitle = PdfDocumentViewerPreferences.GetViewerPreferences(document).DisplayDocTitle;
         var suspects = markInfo?.Flag("Suspects", false) == true;
-        var version = PdfDocumentMetadata.GetInfo(document).Version ?? string.Empty;
+        var version = PdfDocumentVersioning.GetVersion(document);
 
-        CheckDocument(findings, new(isMarked, tree is not null, language is not null, hasTitle, displayTitle, suspects), part, version);
+        var revision = metadata.Revision;
+        var hasTitle = metadata.HasTitle;
+        var state = new DocumentState(isMarked, tree is not null, catalogLanguage, metadata.HasMetadata, hasTitle, displayTitle, suspects);
+        CheckDocument(findings, state, part, version, revision);
         scan?.Run();
         var pages = CheckPages(document, scan, part, findings, cancellation);
-        var claim = new PdfUaClaim(part, ReadRevision(xmp), version, UsesPdf20Namespaces(tree, scan));
+        AccessibilityFontScan.Run(document, findings, cancellation);
+        var claim = new PdfUaClaim(part, revision, version.ToString(), UsesPdf20Namespaces(tree, scan));
         return new(claim, isMarked, tree is not null, language, hasTitle, displayTitle, suspects, pages, findings.Findings, findings.GetCounts());
-    }
-
-    /// <summary>Reads <c>pdfuaid:rev</c>.</summary>
-    /// <param name="xmp">The metadata, or <see langword="null"/>.</param>
-    /// <returns>The revision, or <see langword="null"/> when missing or empty.</returns>
-    private static string? ReadRevision(XmpMetadata? xmp) =>
-        xmp?.GetValue(XmpMetadata.PdfUaIdNamespace, "rev") is { Length: > 0 } revision ? revision : null;
-
-    /// <summary>Determines whether a version string names PDF 2.0 or later.</summary>
-    /// <param name="version">The version, for example "1.7", "2.0" or "PDF-2.0".</param>
-    /// <returns><see langword="true"/> for PDF 2.0 or later.</returns>
-    private static bool IsPdf2OrLater(string version)
-    {
-        foreach (var character in version)
-        {
-            if (char.IsAsciiDigit(character))
-            {
-                return character >= FirstPdf2Digit;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Determines whether the tree lists namespaces or uses the PDF 2.0 one.</summary>
@@ -77,16 +59,20 @@ internal static class PdfAccessibilityReader
     /// <param name="state">What the document entries say.</param>
     /// <param name="part">The claimed PDF/UA part, or <see langword="null"/>.</param>
     /// <param name="version">The file's version.</param>
-    private static void CheckDocument(AccessibilityFindings findings, in DocumentState state, int? part, string version)
+    /// <param name="revision">The claimed <c>pdfuaid:rev</c>, or <see langword="null"/>.</param>
+    private static void CheckDocument(AccessibilityFindings findings, in DocumentState state, int? part, PdfVersion version, string? revision)
     {
+        AddIf(findings, part == PdfUaClaim.Part2 && !string.Equals(revision, Part2Revision, StringComparison.Ordinal), PdfAccessibilityCode.ClaimRevisionInvalid);
         AddIf(findings, !state.IsMarked, PdfAccessibilityCode.NotMarked);
         AddIf(findings, !state.HasStructureTree, PdfAccessibilityCode.NoStructureTree);
-        AddIf(findings, !state.HasLanguage, PdfAccessibilityCode.NoLanguage);
-        AddIf(findings, !state.HasTitle, PdfAccessibilityCode.NoTitle);
+        AddIf(findings, state.Language is null, PdfAccessibilityCode.NoLanguage);
+        AddIf(findings, state.Language is not null && !AccessibilityLanguageTags.IsValid(state.Language), PdfAccessibilityCode.LanguageInvalid);
+        AddIf(findings, !state.HasMetadata, PdfAccessibilityCode.NoMetadata);
+        AddIf(findings, state.HasMetadata && !state.HasTitle, PdfAccessibilityCode.NoTitle);
         AddIf(findings, !state.DisplayDocTitle, PdfAccessibilityCode.DisplayDocTitleOff);
         AddIf(findings, state.HasSuspects, PdfAccessibilityCode.SuspectsSet);
         AddIf(findings, part is not null and not PdfUaClaim.Part1 and not PdfUaClaim.Part2, PdfAccessibilityCode.ClaimPartUnknown);
-        AddIf(findings, part == PdfUaClaim.Part2 && !IsPdf2OrLater(version), PdfAccessibilityCode.ClaimPart2NotPdf2);
+        AddIf(findings, part == PdfUaClaim.Part2 && version < PdfVersion.Pdf20, PdfAccessibilityCode.ClaimPart2NotPdf2);
     }
 
     /// <summary>Adds a document-level finding when a condition holds.</summary>
@@ -124,9 +110,10 @@ internal static class PdfAccessibilityReader
     /// <summary>What the document's own entries say.</summary>
     /// <param name="IsMarked">Whether <c>/MarkInfo /Marked</c> is true.</param>
     /// <param name="HasStructureTree">Whether there is a structure tree.</param>
-    /// <param name="HasLanguage">Whether the catalog has a language.</param>
+    /// <param name="Language">The catalog's <c>/Lang</c> text, which may be empty, or <see langword="null"/> when the entry is missing.</param>
+    /// <param name="HasMetadata">Whether the catalog has an XMP metadata stream.</param>
     /// <param name="HasTitle">Whether the metadata has a title.</param>
     /// <param name="DisplayDocTitle">Whether the viewer preferences show the title.</param>
     /// <param name="HasSuspects">Whether <c>/Suspects</c> is true.</param>
-    private readonly record struct DocumentState(bool IsMarked, bool HasStructureTree, bool HasLanguage, bool HasTitle, bool DisplayDocTitle, bool HasSuspects);
+    private readonly record struct DocumentState(bool IsMarked, bool HasStructureTree, string? Language, bool HasMetadata, bool HasTitle, bool DisplayDocTitle, bool HasSuspects);
 }

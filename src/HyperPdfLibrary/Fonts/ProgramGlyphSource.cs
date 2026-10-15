@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Numerics;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts.Programs;
 
@@ -17,6 +18,9 @@ internal sealed class ProgramGlyphSource : GlyphSource
 
     /// <summary>The transform from font units to glyph space.</summary>
     private readonly FontMatrix _toGlyphSpace;
+
+    /// <summary>A builder waiting for the next glyph; taken by one thread at a time.</summary>
+    private PdfPathBuilder? _spare;
 
     /// <summary>Initializes a new instance of the <see cref="ProgramGlyphSource"/> class.</summary>
     /// <param name="program">The font program.</param>
@@ -48,17 +52,26 @@ internal sealed class ProgramGlyphSource : GlyphSource
     internal override bool IsSubstitute => false;
 
     /// <inheritdoc/>
-    internal override PdfPath? BuildOutline(int glyph)
+    internal override PdfPath? BuildOutline(int glyph, Matrix3x2 transform)
     {
         if ((uint)glyph >= (uint)Program.GlyphCount)
         {
             return null;
         }
 
-        var builder = new PdfPathBuilder();
+        // The builder keeps the room it grew to, so only the finished path's own commands are allocated.
+        var builder = Interlocked.Exchange(ref _spare, null) ?? new PdfPathBuilder();
         var sink = new PathOutlineSink(builder, _toGlyphSpace);
         Program.DecodeGlyph(glyph, ref sink);
-        return builder.Detach();
+        if (transform != Matrix3x2.Identity)
+        {
+            builder.Transform(transform);
+        }
+
+        var path = builder.Detach();
+        builder.Reset();
+        Volatile.Write(ref _spare, builder);
+        return path;
     }
 
     /// <inheritdoc/>

@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+using System.Buffers;
+
 namespace HyperPdfLibrary.Objects;
 
 /// <summary>Finds physical object extents in the store's source.</summary>
@@ -41,19 +43,30 @@ public static class StoreExtents
             return existing;
         }
 
-        var offsets = new List<long>(self.XrefSize);
-        for (var number = 1; number < self.XrefSize; number++)
+        var size = self.XrefSize;
+        var offsets = ArrayPool<long>.Shared.Rent(size);
+        try
         {
-            var offset = StoreRevisions.GetDefinitionOffset(self, number);
-            if (offset >= 0)
+            var count = 0;
+            for (var number = 1; number < size; number++)
             {
-                offsets.Add(offset);
-            }
-        }
+                var offset = StoreRevisions.GetDefinitionOffset(self, number);
+                if (offset < 0)
+                {
+                    continue;
+                }
 
-        offsets.Sort();
-        var sorted = offsets.ToArray();
-        _ = Interlocked.CompareExchange(ref self.SortedOffsetsState, sorted, null);
-        return Volatile.Read(ref self.SortedOffsetsState)!;
+                offsets[count] = offset;
+                count++;
+            }
+
+            Array.Sort(offsets, 0, count);
+            var sorted = offsets.AsSpan(0, count).ToArray();
+            return Interlocked.CompareExchange(ref self.SortedOffsetsState, sorted, null) ?? sorted;
+        }
+        finally
+        {
+            ArrayPool<long>.Shared.Return(offsets);
+        }
     }
 }

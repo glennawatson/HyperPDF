@@ -4,26 +4,21 @@
 
 using System.Buffers;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 namespace HyperPdfLibrary.Structure.Tagged;
 
 /// <summary>
-/// Works out a reading order from geometry for pages without usable tags: items form lines, lines split at column
-/// gaps, the page is cut recursively at its widest empty band (columns left to right, bands top to bottom), and each
-/// region's lines group into paragraphs. Text much larger than the page's body text becomes a heading. Every node is
-/// labelled with the origin it was given, so readers know the order is inferred. The items sit in one array in which
+/// Works out a reading order and roles from geometry for pages without usable tags. Items form lines and lines split at
+/// column gaps. Running headers, footers and page numbers are set aside as pagination artifacts. Tables found from
+/// ruling lines or alignment, and images, join the lines as blocks of their own. The page is cut recursively at its widest
+/// empty band (columns left to right, bands top to bottom), narrow sidebars are read after the text beside them, and each
+/// region's lines group into headings, paragraphs and lists. Captions are linked to their figures and tables. Every node
+/// is labelled with the origin it was given, so readers know the order is inferred. The items sit in one array in which
 /// each line is a run, and each region a run of lines, so nothing but the nodes is allocated.
 /// </summary>
 [DebuggerDisplay("InferredLayoutBuilder: page {_pageIndex}, {_items.Count} items")]
 internal sealed class InferredLayoutBuilder
 {
-    /// <summary>How far, as a share of height, two items' centres may differ and still sit on one line.</summary>
-    private const float LineTolerance = 0.5F;
-
-    /// <summary>The gap inside a line, in line heights, that separates two columns.</summary>
-    private const float ColumnGapInLine = 1.2F;
-
     /// <summary>The least empty vertical band, in body text heights, that separates columns.</summary>
     private const float MinColumnGap = 1F;
 
@@ -36,29 +31,20 @@ internal sealed class InferredLayoutBuilder
     /// <summary>The change in line height that starts a new paragraph.</summary>
     private const float SizeChange = 1.25F;
 
-    /// <summary>The share of body text height a heading's lines reach.</summary>
-    private const float HeadingRatio = 1.3F;
-
-    /// <summary>The share of body text height a level 1 heading's lines reach.</summary>
-    private const float TopHeadingRatio = 1.8F;
-
-    /// <summary>The most lines a heading has.</summary>
-    private const int MaxHeadingLines = 3;
-
     /// <summary>The deepest recursive cut.</summary>
     private const int MaxCutDepth = 32;
 
-    /// <summary>The gap between items, in line heights, that separates words.</summary>
-    private const float WordGap = 0.15F;
-
-    /// <summary>The level of a smaller inferred heading.</summary>
-    private const int SecondLevel = 2;
-
-    /// <summary>The divisor that finds a middle.</summary>
-    private const int Halves = 2;
-
     /// <summary>The most numbers sorted on the stack before a rented array takes over.</summary>
     private const int StackNumbers = 256;
+
+    /// <summary>How far, in body text heights, a continuation line may start left of the text of a list item's first line.</summary>
+    private const float HangTolerance = 0.5F;
+
+    /// <summary>The share of the page an image must cover, under text, to be taken for a scan of the page.</summary>
+    private const float PageScanShare = 0.8F;
+
+    /// <summary>The fewest items in a list.</summary>
+    private const int MinListItems = 2;
 
     /// <summary>Where the nodes come from.</summary>
     private readonly PdfNodeOrigin _origin;
@@ -72,8 +58,20 @@ internal sealed class InferredLayoutBuilder
     /// <summary>The items.</summary>
     private readonly List<LayoutItem> _items;
 
+    /// <summary>What the page draws, or <see langword="null"/> for a page read from text recognition.</summary>
+    private readonly PdfMarkedContentPage? _content;
+
+    /// <summary>What inference may use beyond the page's text.</summary>
+    private readonly PdfLayoutInference _options;
+
     /// <summary>The median item height: the body text size.</summary>
     private float _bodyHeight;
+
+    /// <summary>The tables found; made when the page may have one.</summary>
+    private List<LayoutTable>? _tables;
+
+    /// <summary>The images that are figures; made when the page has one.</summary>
+    private List<PdfMarkedImage>? _images;
 
     /// <summary>Initializes a new instance of the <see cref="InferredLayoutBuilder"/> class.</summary>
     /// <param name="origin">Where the nodes come from.</param>
@@ -81,39 +79,67 @@ internal sealed class InferredLayoutBuilder
     /// <param name="text">The items' text, back to back.</param>
     /// <param name="items">The items.</param>
     internal InferredLayoutBuilder(PdfNodeOrigin origin, int pageIndex, string text, List<LayoutItem> items)
+        : this(origin, pageIndex, text, items, null, PdfLayoutInference.Default)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="InferredLayoutBuilder"/> class.</summary>
+    /// <param name="origin">Where the nodes come from.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="text">The items' text, back to back.</param>
+    /// <param name="items">The items.</param>
+    /// <param name="content">What the page draws, or <see langword="null"/>.</param>
+    /// <param name="options">What inference may use beyond the page's text.</param>
+    internal InferredLayoutBuilder(PdfNodeOrigin origin, int pageIndex, string text, List<LayoutItem> items, PdfMarkedContentPage? content, PdfLayoutInference options)
     {
         _origin = origin;
         _pageIndex = pageIndex;
         _text = text;
         _items = items;
+        _content = content;
+        _options = options;
     }
 
     /// <summary>Builds the nodes in reading order.</summary>
     /// <param name="output">Receives the nodes.</param>
-    internal void Build(List<PdfSemanticNode> output)
+    /// <param name="artifacts">Receives the pagination artifacts.</param>
+    /// <param name="cancellationToken">Stops the work between regions.</param>
+    internal void Build(List<PdfSemanticNode> output, List<PdfSemanticNode> artifacts, CancellationToken cancellationToken)
     {
         var count = _items.Count;
-        if (count == 0)
+        CollectImages(count);
+        var imageCount = _images?.Count ?? 0;
+        if (count == 0 && imageCount == 0)
         {
             return;
         }
 
-        var sorted = ArrayPool<LayoutItem>.Shared.Rent(count);
-        var lines = ArrayPool<LayoutLine>.Shared.Rent(count);
-        var moved = ArrayPool<LayoutLine>.Shared.Rent(count);
-        var regions = ArrayPool<LayoutRegion>.Shared.Rent(count);
-        var text = ArrayPool<char>.Shared.Rent(TextLength(count));
+        var capacity = count + imageCount + 1;
+        var sorted = ArrayPool<LayoutItem>.Shared.Rent(capacity);
+        var lines = ArrayPool<LayoutLine>.Shared.Rent(capacity);
+        var moved = ArrayPool<LayoutLine>.Shared.Rent(capacity);
+        var regions = ArrayPool<LayoutRegion>.Shared.Rent(capacity);
+        var text = ArrayPool<char>.Shared.Rent(TextLength(count) + 1);
         try
         {
             _items.CopyTo(sorted);
-            _bodyHeight = MedianHeight(sorted.AsSpan(0, count));
-            var lineCount = BuildLines(sorted, count, lines);
+            _bodyHeight = count > 0 ? MedianHeight(sorted.AsSpan(0, count)) : 1F;
+            var lineCount = LayoutLines.Build(sorted, count, lines);
+            var nodes = new LayoutNodes(_origin, _pageIndex, _text, _bodyHeight, _options.GuessLanguage);
+            SetAsidePagination(nodes, sorted, lines, ref lineCount, text, artifacts);
+            FindTables(sorted, lines, ref lineCount);
+            AddImages(lines, ref lineCount);
             var regionCount = 0;
             Cut(lines, moved, new(0, lineCount), 0, regions, ref regionCount);
+            LayoutSidebars.Order(regions, regionCount, lines);
             for (var i = 0; i < regionCount; i++)
             {
-                AddParagraphs(lines.AsSpan(regions[i].Start, regions[i].Count), sorted, text, output);
+                cancellationToken.ThrowIfCancellationRequested();
+                AddRegion(nodes, lines.AsSpan(regions[i].Start, regions[i].Count), regions[i].IsSidebar, sorted, text, output);
             }
+
+            LayoutCaptions.Link(output, _bodyHeight);
+            DescribeFigures(output);
         }
         finally
         {
@@ -139,7 +165,7 @@ internal sealed class InferredLayoutBuilder
         }
 
         heights.Sort();
-        var median = Math.Max(heights[heights.Length / Halves], float.Epsilon);
+        var median = Math.Max(heights[heights.Length / LayoutGeometry.Halves], float.Epsilon);
         if (rented is not null)
         {
             ArrayPool<float>.Shared.Return(rented);
@@ -154,7 +180,7 @@ internal sealed class InferredLayoutBuilder
     /// <returns>The band, or one of zero width.</returns>
     private static LayoutGap FindGap(ReadOnlySpan<LayoutLine> region, bool alongX)
     {
-        var rented = region.Length > StackNumbers / Halves ? ArrayPool<float>.Shared.Rent(region.Length * Halves) : null;
+        var rented = region.Length > StackNumbers / LayoutGeometry.Halves ? ArrayPool<float>.Shared.Rent(region.Length * LayoutGeometry.Halves) : null;
         Span<float> buffer = rented is null ? stackalloc float[StackNumbers] : rented;
         var starts = buffer[..region.Length];
         var ends = buffer.Slice(region.Length, region.Length);
@@ -173,7 +199,7 @@ internal sealed class InferredLayoutBuilder
             var width = starts[i] - reach;
             if (width > best.Width)
             {
-                best = new((reach + starts[i]) / Halves, width);
+                best = new((reach + starts[i]) / LayoutGeometry.Halves, width);
             }
 
             reach = Math.Max(reach, ends[i]);
@@ -197,43 +223,6 @@ internal sealed class InferredLayoutBuilder
         return top != 0 ? top : a.Bounds.Left.CompareTo(b.Bounds.Left);
     }
 
-    /// <summary>Determines whether an item sits on a line.</summary>
-    /// <param name="row">The box around the line so far.</param>
-    /// <param name="item">The item.</param>
-    /// <returns><see langword="true"/> when their centres are close for their heights.</returns>
-    private static bool SameRow(PdfViewerRect row, in LayoutItem item) =>
-        Math.Abs(item.Bounds.CenterY - row.CenterY) <= LineTolerance * Math.Min(item.Bounds.Height, row.Height);
-
-    /// <summary>Sorts a line left to right and splits it where a gap is wide enough to be between columns.</summary>
-    /// <param name="items">The array of items.</param>
-    /// <param name="start">The position of the line's first item.</param>
-    /// <param name="count">The line's items.</param>
-    /// <param name="row">The box around the line.</param>
-    /// <param name="lines">Receives the pieces.</param>
-    /// <param name="lineCount">The pieces so far; advanced past those added.</param>
-    private static void SplitColumns(LayoutItem[] items, int start, int count, PdfViewerRect row, LayoutLine[] lines, ref int lineCount)
-    {
-        items.AsSpan(start, count).Sort(static (a, b) => a.Bounds.Left.CompareTo(b.Bounds.Left));
-        var limit = ColumnGapInLine * row.Height;
-        var pieceStart = start;
-        var pieceBounds = default(PdfViewerRect);
-        for (var i = start; i < start + count; i++)
-        {
-            if (i > pieceStart && items[i].Bounds.Left - pieceBounds.Right > limit)
-            {
-                lines[lineCount] = new(pieceStart, i - pieceStart, pieceBounds);
-                lineCount++;
-                pieceStart = i;
-                pieceBounds = default;
-            }
-
-            pieceBounds = pieceBounds.Union(items[i].Bounds);
-        }
-
-        lines[lineCount] = new(pieceStart, start + count - pieceStart, pieceBounds);
-        lineCount++;
-    }
-
     /// <summary>Determines whether a line starts a new paragraph.</summary>
     /// <param name="previous">The line above.</param>
     /// <param name="line">The line.</param>
@@ -243,40 +232,6 @@ internal sealed class InferredLayoutBuilder
         var a = previous.Bounds.Height;
         var b = line.Bounds.Height;
         return (line.Bounds.Top - previous.Bounds.Bottom) > ParagraphGap * Math.Max(a, b) || Math.Max(a, b) > SizeChange * Math.Min(a, b);
-    }
-
-    /// <summary>Determines whether a space must go before text so it does not run into what came before.</summary>
-    /// <param name="written">The text so far.</param>
-    /// <param name="next">The next text.</param>
-    /// <returns><see langword="true"/> when neither side has white space.</returns>
-    private static bool NeedsSpace(ReadOnlySpan<char> written, ReadOnlySpan<char> next) =>
-        !written.IsEmpty && !char.IsWhiteSpace(written[^1]) && !next.IsEmpty && !char.IsWhiteSpace(next[0]);
-
-    /// <summary>Groups the items into lines and splits each line at its column gaps.</summary>
-    /// <param name="items">The array holding the items; sorted in place into lines.</param>
-    /// <param name="count">The number of items.</param>
-    /// <param name="lines">Receives the line pieces.</param>
-    /// <returns>The number of line pieces.</returns>
-    private static int BuildLines(LayoutItem[] items, int count, LayoutLine[] lines)
-    {
-        items.AsSpan(0, count).Sort(static (a, b) => a.Bounds.CenterY.CompareTo(b.Bounds.CenterY));
-        var lineCount = 0;
-        var rowStart = 0;
-        var rowBounds = default(PdfViewerRect);
-        for (var i = 0; i < count; i++)
-        {
-            if (i > rowStart && !SameRow(rowBounds, items[i]))
-            {
-                SplitColumns(items, rowStart, i - rowStart, rowBounds, lines, ref lineCount);
-                rowStart = i;
-                rowBounds = default;
-            }
-
-            rowBounds = rowBounds.Union(items[i].Bounds);
-        }
-
-        SplitColumns(items, rowStart, count - rowStart, rowBounds, lines, ref lineCount);
-        return lineCount;
     }
 
     /// <summary>Moves the lines before a gap to the front of a region, and the others after them, each side in its order.</summary>
@@ -322,18 +277,199 @@ internal sealed class InferredLayoutBuilder
     /// <returns>The centre.</returns>
     private static float Centre(in LayoutLine line, bool vertical) => vertical ? line.Bounds.CenterX : line.Bounds.CenterY;
 
+    /// <summary>Gets the box around some lines.</summary>
+    /// <param name="lines">The lines.</param>
+    /// <returns>The box.</returns>
+    private static PdfViewerRect BoundsOf(ReadOnlySpan<LayoutLine> lines)
+    {
+        var bounds = default(PdfViewerRect);
+        foreach (var line in lines)
+        {
+            bounds = bounds.Union(line.Bounds);
+        }
+
+        return bounds;
+    }
+
+    /// <summary>Makes lists and paragraphs from segments that start with labels: the longest runs that make a list become lists.</summary>
+    /// <param name="context">What the nodes are made from.</param>
+    /// <param name="run">The lines.</param>
+    /// <param name="labels">Each line's label.</param>
+    /// <param name="starts">Where each segment starts.</param>
+    /// <param name="first">The first segment.</param>
+    /// <param name="count">The segments, all starting with a label.</param>
+    /// <param name="output">Receives the nodes.</param>
+    private static void FlushItems(in TextContext context, ReadOnlySpan<LayoutLine> run, ListLabel[] labels, int[] starts, int first, int count, List<PdfSemanticNode> output)
+    {
+        if (count == 0)
+        {
+            return;
+        }
+
+        var spans = ArrayPool<ListItemSpan>.Shared.Rent(count);
+        var found = ArrayPool<ListLabel>.Shared.Rent(count);
+        try
+        {
+            for (var k = 0; k < count; k++)
+            {
+                found[k] = labels[starts[first + k]];
+                spans[k] = new(starts[first + k], starts[first + k + 1], found[k]);
+            }
+
+            var at = 0;
+            while (at < count)
+            {
+                var length = LongestList(found, at, count, out var numbering);
+                if (length >= MinListItems)
+                {
+                    output.Add(LayoutListNodes.Make(context.Nodes, run, spans.AsSpan(at, length), numbering, context.Items, context.Buffer));
+                    at += length;
+                    continue;
+                }
+
+                output.Add(context.Nodes.MakeText(run[spans[at].Start..spans[at].End], context.Items, context.Buffer, context.Column));
+                at++;
+            }
+        }
+        finally
+        {
+            ArrayPool<ListItemSpan>.Shared.Return(spans);
+            ArrayPool<ListLabel>.Shared.Return(found);
+        }
+    }
+
+    /// <summary>Finds the most labels from a position that make a list.</summary>
+    /// <param name="labels">The labels.</param>
+    /// <param name="at">The position to start from.</param>
+    /// <param name="count">The number of labels.</param>
+    /// <param name="numbering">Receives how the list's labels are made.</param>
+    /// <returns>The number of labels in the list; one when not even two make a list.</returns>
+    private static int LongestList(ListLabel[] labels, int at, int count, out PdfListNumbering numbering)
+    {
+        numbering = PdfListNumbering.None;
+        var low = 1;
+        var high = count - at;
+        while (low < high)
+        {
+            var middle = (low + high + 1) / LayoutGeometry.Halves;
+            if (LayoutListLabels.Resolve(labels.AsSpan(at, middle)) is not null)
+            {
+                low = middle;
+            }
+            else
+            {
+                high = middle - 1;
+            }
+        }
+
+        if (low >= MinListItems && LayoutListLabels.Resolve(labels.AsSpan(at, low)) is { } resolved)
+        {
+            numbering = resolved;
+        }
+
+        return low;
+    }
+
     /// <summary>Gets the most characters a node's text can take: all the items' text and a space before each.</summary>
     /// <param name="count">The number of items.</param>
     /// <returns>The length of the text buffer.</returns>
-    private int TextLength(int count)
+    private int TextLength(int count) => count == 0 ? 0 : LayoutText.MaxLength(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_items));
+
+    /// <summary>Lists the images that are figures: those not marked as artifacts, and not a scan of the whole page under text.</summary>
+    /// <param name="textItems">The number of text items on the page.</param>
+    private void CollectImages(int textItems)
     {
-        var length = count;
-        foreach (var item in CollectionsMarshal.AsSpan(_items))
+        if (_content is null || _content.Images.IsEmpty)
         {
-            length += item.TextLength;
+            return;
         }
 
-        return length;
+        var page = _content.Width * _content.Height;
+        foreach (var image in _content.Images)
+        {
+            var isScan = textItems > 0 && page > 0 && image.Bounds.Width * image.Bounds.Height >= PageScanShare * page;
+            if (!image.IsArtifact && !image.Bounds.IsEmpty && !isScan)
+            {
+                (_images ??= []).Add(image);
+            }
+        }
+    }
+
+    /// <summary>Takes running headers, footers and page numbers out of the lines and makes artifact nodes of them.</summary>
+    /// <param name="nodes">Makes the nodes.</param>
+    /// <param name="items">The array of items.</param>
+    /// <param name="lines">The lines.</param>
+    /// <param name="lineCount">The number of lines; updated.</param>
+    /// <param name="buffer">Room for a node's text.</param>
+    /// <param name="artifacts">Receives the artifact nodes.</param>
+    private void SetAsidePagination(LayoutNodes nodes, LayoutItem[] items, LayoutLine[] lines, ref int lineCount, char[] buffer, List<PdfSemanticNode> artifacts)
+    {
+        if (_content is null || _content.Height <= 0 || !LayoutPagination.HasMarginLine(lines, lineCount, _content.Height))
+        {
+            return;
+        }
+
+        var found = new List<PaginationLine>();
+        LayoutPagination.Extract(_text, items, lines, ref lineCount, _content.Height, _options.Pagination, found);
+        foreach (var line in found)
+        {
+            artifacts.Add(nodes.MakeArtifact(line, items, buffer));
+        }
+    }
+
+    /// <summary>Finds tables, and replaces the lines they hold with a line that stands for the table.</summary>
+    /// <param name="items">The array of items.</param>
+    /// <param name="lines">The lines.</param>
+    /// <param name="lineCount">The number of lines; updated.</param>
+    private void FindTables(LayoutItem[] items, LayoutLine[] lines, ref int lineCount)
+    {
+        var rulings = _content is null ? default : _content.Rulings;
+        if (rulings.Length < LayoutRuledTables.MinRulings && !LayoutAlignedTables.MayHaveTable(lines, lineCount))
+        {
+            return;
+        }
+
+        List<PdfViewerRect>? frames = null;
+        LayoutRuledTables.Find(rulings, _text, items, lines, ref lineCount, ref _tables, ref frames);
+        LayoutAlignedTables.Find(_text, items, lines, ref lineCount, _bodyHeight, frames, ref _tables);
+    }
+
+    /// <summary>Adds a line for each figure, so the page is cut around it like text.</summary>
+    /// <param name="lines">The lines.</param>
+    /// <param name="lineCount">The number of lines; updated.</param>
+    private void AddImages(LayoutLine[] lines, ref int lineCount)
+    {
+        if (_images is not { } images)
+        {
+            return;
+        }
+
+        for (var i = 0; i < images.Count; i++)
+        {
+            lines[lineCount] = new(-1, 0, images[i].Bounds, LayoutLineKind.Image, i);
+            lineCount++;
+        }
+    }
+
+    /// <summary>Gives each figure the description the host provides.</summary>
+    /// <param name="output">The page's nodes.</param>
+    private void DescribeFigures(List<PdfSemanticNode> output)
+    {
+        if (_options.FigureAltText is not { } provider)
+        {
+            return;
+        }
+
+        foreach (var node in output)
+        {
+            if (node.Role != PdfSemanticRole.Figure)
+            {
+                continue;
+            }
+
+            var caption = node.Children.Count > 0 ? node.Children[0].Text : null;
+            node.InferredAlternateText = provider(_pageIndex, node.Bounds, caption);
+        }
     }
 
     /// <summary>Cuts a region at its widest empty band until no band is wide enough, collecting the regions in reading order.</summary>
@@ -373,12 +509,14 @@ internal sealed class InferredLayoutBuilder
         Cut(lines, moved, new(region.Start + firstCount, region.Count - firstCount), depth + 1, output, ref outputCount);
     }
 
-    /// <summary>Groups a region's lines into paragraphs.</summary>
-    /// <param name="region">The lines; sorted in place, top to bottom.</param>
+    /// <summary>Makes the nodes of a region: its tables and figures in place, and its text as paragraphs, headings and lists.</summary>
+    /// <param name="nodes">Makes the nodes.</param>
+    /// <param name="region">The region's lines; sorted in place, top to bottom.</param>
+    /// <param name="isSidebar">Whether the region is a sidebar, which gets a node to group it.</param>
     /// <param name="items">The array of items the lines are runs of.</param>
-    /// <param name="text">Room for a node's text.</param>
-    /// <param name="output">Receives the paragraph and heading nodes.</param>
-    private void AddParagraphs(Span<LayoutLine> region, LayoutItem[] items, char[] text, List<PdfSemanticNode> output)
+    /// <param name="buffer">Room for a node's text.</param>
+    /// <param name="output">Receives the nodes.</param>
+    private void AddRegion(LayoutNodes nodes, Span<LayoutLine> region, bool isSidebar, LayoutItem[] items, char[] buffer, List<PdfSemanticNode> output)
     {
         if (region.IsEmpty)
         {
@@ -386,82 +524,119 @@ internal sealed class InferredLayoutBuilder
         }
 
         region.Sort(CompareTopDown);
-        var start = 0;
-        for (var i = 1; i < region.Length; i++)
+        var context = new TextContext(nodes, BoundsOf(region), items, buffer);
+        var target = isSidebar ? new List<PdfSemanticNode>() : output;
+        var i = 0;
+        while (i < region.Length)
         {
-            if (!Breaks(region[i - 1], region[i]))
+            var kind = region[i].Kind;
+            var end = i + 1;
+            while (kind == LayoutLineKind.Text && end < region.Length && region[end].Kind == LayoutLineKind.Text)
+            {
+                end++;
+            }
+
+            switch (kind)
+            {
+                case LayoutLineKind.Table:
+                {
+                    target.Add(LayoutTableNodes.Make(nodes, _text, _tables![region[i].Slot], buffer));
+                    break;
+                }
+
+                case LayoutLineKind.Image:
+                {
+                    target.Add(nodes.MakeFigure(_images![region[i].Slot]));
+                    break;
+                }
+
+                default:
+                {
+                    AddText(context, region[i..end], target);
+                    break;
+                }
+            }
+
+            i = end;
+        }
+
+        if (!isSidebar)
+        {
+            return;
+        }
+
+        var group = nodes.MakeGroup(PdfSemanticRole.Group);
+        foreach (var child in target)
+        {
+            LayoutNodes.Adopt(group, child);
+        }
+
+        output.Add(group);
+    }
+
+    /// <summary>Makes paragraphs, headings and lists from a run of lines of text.</summary>
+    /// <param name="context">What the nodes are made from.</param>
+    /// <param name="run">The lines, top to bottom.</param>
+    /// <param name="output">Receives the nodes.</param>
+    private void AddText(in TextContext context, ReadOnlySpan<LayoutLine> run, List<PdfSemanticNode> output)
+    {
+        var labels = ArrayPool<ListLabel>.Shared.Rent(run.Length);
+        var starts = ArrayPool<int>.Shared.Rent(run.Length + 1);
+        try
+        {
+            var segments = Segment(run, context.Items, labels, starts);
+            var pending = 0;
+            for (var s = 0; s < segments; s++)
+            {
+                if (labels[starts[s]].Exists)
+                {
+                    pending++;
+                    continue;
+                }
+
+                FlushItems(context, run, labels, starts, s - pending, pending, output);
+                pending = 0;
+                output.Add(context.Nodes.MakeText(run[starts[s]..starts[s + 1]], context.Items, context.Buffer, context.Column));
+            }
+
+            FlushItems(context, run, labels, starts, segments - pending, pending, output);
+        }
+        finally
+        {
+            ArrayPool<ListLabel>.Shared.Return(labels);
+            ArrayPool<int>.Shared.Return(starts);
+        }
+    }
+
+    /// <summary>Splits a run of lines into paragraphs, and finds the label that starts each line.</summary>
+    /// <param name="run">The lines.</param>
+    /// <param name="items">The array of items.</param>
+    /// <param name="labels">Receives each line's label.</param>
+    /// <param name="starts">Receives where each segment starts, and at the end the line count.</param>
+    /// <returns>The number of segments.</returns>
+    private int Segment(ReadOnlySpan<LayoutLine> run, LayoutItem[] items, ListLabel[] labels, int[] starts)
+    {
+        var heading = LayoutNodes.HeadingRatio * _bodyHeight;
+        var segments = 1;
+        starts[0] = 0;
+        labels[0] = run[0].Bounds.Height >= heading ? default : LayoutListLabels.Measure(_text, items, run[0]);
+        var current = 0;
+        for (var i = 1; i < run.Length; i++)
+        {
+            labels[i] = run[i].Bounds.Height >= heading ? default : LayoutListLabels.Measure(_text, items, run[i]);
+            var continues = !labels[i].Exists && !Breaks(run[i - 1], run[i]);
+            continues &= !labels[starts[current]].Exists || run[i].Bounds.Left >= labels[starts[current]].BodyLeft - (HangTolerance * _bodyHeight);
+            if (continues)
             {
                 continue;
             }
 
-            output.Add(MakeNode(region[start..i], items, text));
-            start = i;
+            starts[segments] = i;
+            current = segments;
+            segments++;
         }
 
-        output.Add(MakeNode(region[start..], items, text));
-    }
-
-    /// <summary>Makes a paragraph or heading node from lines.</summary>
-    /// <param name="lines">The lines, top to bottom.</param>
-    /// <param name="items">The array of items the lines are runs of.</param>
-    /// <param name="text">Room for the node's text.</param>
-    /// <returns>The node.</returns>
-    private PdfSemanticNode MakeNode(ReadOnlySpan<LayoutLine> lines, LayoutItem[] items, char[] text)
-    {
-        var total = 0;
-        foreach (var line in lines)
-        {
-            total += line.Count;
-        }
-
-        var indices = new int[total];
-        var bounds = default(PdfViewerRect);
-        var height = 0F;
-        var length = 0;
-        var written = 0;
-        foreach (var line in lines)
-        {
-            AppendLine(line, items, text, ref length, indices, ref written);
-            bounds = bounds.Union(line.Bounds);
-            height += line.Bounds.Height;
-        }
-
-        var ratio = height / lines.Length / _bodyHeight;
-        var heading = lines.Length <= MaxHeadingLines && ratio >= HeadingRatio;
-        var level = ratio >= TopHeadingRatio ? 1 : SecondLevel;
-        var role = heading ? PdfSemanticRole.Heading : PdfSemanticRole.Paragraph;
-        var node = new PdfSemanticNode(role, _origin, _pageIndex) { Level = heading ? level : 0, Text = new(text, 0, length), Bounds = bounds };
-        node.SetItems(indices);
-        return node;
-    }
-
-    /// <summary>Appends a line's text and items, with spaces at word gaps and between lines.</summary>
-    /// <param name="line">The line.</param>
-    /// <param name="items">The array of items the line is a run of.</param>
-    /// <param name="text">The node's text so far.</param>
-    /// <param name="length">The characters of text written; advanced past those added.</param>
-    /// <param name="indices">Receives the item indices.</param>
-    /// <param name="written">The indices written; advanced past those added.</param>
-    private void AppendLine(in LayoutLine line, LayoutItem[] items, char[] text, ref int length, int[] indices, ref int written)
-    {
-        var limit = WordGap * line.Bounds.Height;
-        var previousRight = float.NaN;
-        for (var i = line.Start; i < line.Start + line.Count; i++)
-        {
-            var item = items[i];
-            var next = _text.AsSpan(item.TextStart, item.TextLength);
-            var separated = float.IsNaN(previousRight) || item.Bounds.Left - previousRight > limit;
-            if (separated && NeedsSpace(text.AsSpan(0, length), next))
-            {
-                text[length] = ' ';
-                length++;
-            }
-
-            next.CopyTo(text.AsSpan(length));
-            length += next.Length;
-            indices[written] = item.Index;
-            written++;
-            previousRight = item.Bounds.Right;
-        }
+        starts[segments] = run.Length;
+        return segments;
     }
 }

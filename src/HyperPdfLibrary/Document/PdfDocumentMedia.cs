@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Media;
 using HyperPdfLibrary.Objects;
 
@@ -48,8 +50,15 @@ public static class PdfDocumentMedia
 
     /// <summary>Gets the multimedia annotations of every page.</summary>
     /// <param name="document">The document.</param>
+    /// <returns>An immutable snapshot of the annotations in document order, read once until the next edit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ImmutableArray<PdfMultimediaAnnotation> GetMultimediaAnnotations(PdfDocument document) =>
+        PdfReadSnapshots.Read(document, PdfReadKind.MultimediaAnnotations, PdfDocumentMedia.ReadMultimediaAnnotations);
+
+    /// <summary>Reads the multimedia annotations of every page.</summary>
+    /// <param name="document">The document.</param>
     /// <returns>The annotations in document order.</returns>
-    public static PdfMultimediaAnnotation[] GetMultimediaAnnotations(PdfDocument document)
+    internal static ImmutableArray<PdfMultimediaAnnotation> ReadMultimediaAnnotations(PdfDocument document)
     {
         var result = new List<PdfMultimediaAnnotation>();
         foreach (var page in PdfDocumentPages.GetPageSet(document).Pages)
@@ -205,7 +214,7 @@ null);
     private static PdfScreenAnnotation ReadScreen(PdfDocument document, PdfDictionary annot) => new(
 annot.GetText(KnownName.T),
 annot.GetDictionary(KnownName.A) is { } action ? PdfDocumentActions.ReadActionNode(document, action) : null,
-PdfDocumentActions.GetTriggers(document, annot));
+[.. PdfDocumentActions.GetTriggers(document, annot)]);
 
     /// <summary>Reads a movie annotation.</summary>
     /// <param name="document">The document.</param>
@@ -218,7 +227,7 @@ PdfDocumentActions.GetTriggers(document, annot));
         return new(
 annot.GetText(KnownName.T),
 movie is null ? null : PdfDocumentFileSpecs.ReadFileSpec(document, movie.Get(KnownName.F)),
-PdfDocumentMedia.ToInt32Array(movie?.Array("Aspect")),
+[.. PdfDocumentMedia.ToInt32Array(movie?.Array("Aspect"))],
 movie?.Int("Rotate", 0) ?? 0,
 !poster.IsNull && poster.AsBoolean(true),
 PdfDocumentMedia.ReadMovieActivation(document, annot.Dict("A")));
@@ -245,6 +254,6 @@ activation.Num("Volume", 1),
 activation.Flag("ShowControls", false),
 activation.NameText("Mode") ?? PdfDocumentMedia.DefaultMovieMode,
 activation.Flag("Synchronous", false),
-PdfDocumentMedia.ToInt32Array(activation.Array("FWScale")),
-activation.Array("FWPosition").Numbers());
+[.. PdfDocumentMedia.ToInt32Array(activation.Array("FWScale"))],
+[.. activation.Array("FWPosition").Numbers()]);
 }

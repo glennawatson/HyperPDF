@@ -150,6 +150,16 @@ public ref struct PdfObjectWriter
     /// </param>
     internal void SetRenumbering(int[]? map) => _renumber = map;
 
+    /// <summary>Writes a dictionary as <see cref="WriteValue(PdfValue)"/> does, without one key.</summary>
+    /// <param name="dictionary">The dictionary.</param>
+    /// <param name="skip">The key to leave out.</param>
+    internal void WriteDictionaryWithout(PdfDictionary dictionary, KnownName skip)
+    {
+        _buffer.Write("<<"u8);
+        _ = WriteEntries(dictionary, default, 1, skip);
+        _buffer.Write(">>"u8);
+    }
+
     /// <summary>Writes <c>n g obj</c> and a line end.</summary>
     /// <param name="id">The object id.</param>
     internal void WriteObjectHeader(PdfObjectId id)

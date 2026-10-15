@@ -7,7 +7,6 @@ using System.Numerics;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Text;
-using HyperPdf.Core.Text.Fonts;
 using HyperPdf.Core.Text.Layout;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Fonts.Embedding;
@@ -69,7 +68,7 @@ internal static class HyperPdfAnnotationTextBoxes
             if (HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is not { } page
                 || TextBoxFonts.Resolve(
                     annotationState.FontState,
-                    annotationState.Catalog ?? FontCatalog.System,
+                    HyperPdfAnnotationReading.GetFontCatalog(annotationState),
                     clamped,
                     text) is not { } font)
             {

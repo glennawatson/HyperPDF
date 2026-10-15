@@ -84,6 +84,20 @@ public sealed class NoticeDocumentTests
     [Test]
     public async Task EmptyTextHasNoGroups() => await Assert.That(NoticeDocument.Parse("# Title\n\nOnly an intro.").Groups.Count).IsEqualTo(0);
 
+    /// <summary>Supported line endings are normalized when licence text is first read.</summary>
+    /// <param name="lineEnding">The line ending used by the input file.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments("\r\n")]
+    [Arguments("\r")]
+    public async Task NormalizesLineEndings(string lineEnding)
+    {
+        var document = NoticeDocument.Parse(Sample.ReplaceLineEndings(lineEnding));
+
+        await Assert.That(document.Groups[0].Entries[0].Text).IsEqualTo("MIT License\n\n## not a heading");
+        await Assert.That(document.AllEntries().Count).IsEqualTo(EntryCount);
+    }
+
     /// <summary>Expressions pass only when every licence in them is on the allow list.</summary>
     /// <param name="expression">The SPDX expression.</param>
     /// <param name="allowed">Whether it passes.</param>

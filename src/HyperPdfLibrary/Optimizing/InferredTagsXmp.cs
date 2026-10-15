@@ -43,6 +43,9 @@ internal static class InferredTagsXmp
     /// <summary>The writer settings, shared because a writer only reads them.</summary>
     private static readonly XmlWriterSettings WriterSettings = new() { Encoding = new UTF8Encoding(false), OmitXmlDeclaration = true, };
 
+    /// <summary>The immutable minimal packet shared by documents without metadata.</summary>
+    private static readonly byte[] MinimalPacket = NewPacket();
+
     /// <summary>Gets the PDF/A extension schema description of the property.</summary>
     private static XmpExtensionProperty Extension => new(
         "HyperPdf optimiser",
@@ -79,7 +82,7 @@ internal static class InferredTagsXmp
         var metadata = new PdfDictionary(store, MetadataEntries);
         metadata.Set(KnownName.Type, PdfValue.FromName(KnownName.Metadata));
         metadata.Set(KnownName.Subtype, PdfValue.FromName(store.Names.Intern("XML"u8)));
-        var reference = StoreEditing.Add(store, PdfValue.FromStream(new(metadata, NewPacket())));
+        var reference = StoreEditing.Add(store, PdfValue.FromStream(new(metadata, MinimalPacket)));
         var catalogRef = store.Trailer.GetRaw(KnownName.Root);
         var catalog = StoreReading.Resolve(store, catalogRef).AsDictionary()!.Clone();
         catalog.Set(KnownName.Metadata, PdfValue.FromReference(reference));

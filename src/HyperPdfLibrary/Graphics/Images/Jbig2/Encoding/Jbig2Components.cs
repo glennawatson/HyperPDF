@@ -11,10 +11,10 @@ namespace HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
 /// <summary>
 /// The 8-connected black components of a page, found from runs of black pixels. Components small enough to be symbols
 /// keep their bitmaps; the black pixels of the others are gathered into one residual bitmap. All storage is rented from
-/// the shared pool.
+/// the shared pool; copies of the value share it and only the owner disposes. The default value holds no components.
 /// </summary>
 [DebuggerDisplay("Jbig2Components: {Count} components, {SymbolCount} symbols")]
-internal sealed class Jbig2Components : IDisposable
+internal readonly record struct Jbig2Components : IDisposable
 {
     /// <summary>The most bytes of symbol bitmaps kept.</summary>
     private const long MaximumBitmapBytes = 1L << 28;
@@ -26,30 +26,42 @@ internal sealed class Jbig2Components : IDisposable
     private readonly Jbig2ComponentMeasures _measures;
 
     /// <summary>The offset of each component's bitmap in the bitmap store, or -1 for a component too large to be a symbol.</summary>
-    private readonly int[] _offset;
+    private readonly int[]? _offset;
 
     /// <summary>The store of symbol bitmaps.</summary>
-    private byte[]? _bits;
+    private readonly byte[]? _bits;
 
     /// <summary>The bitmap of the components too large to be symbols.</summary>
-    private byte[]? _residual;
+    private readonly byte[]? _residual;
 
-    /// <summary>Initializes a new instance of the <see cref="Jbig2Components"/> class.</summary>
-    /// <param name="count">The number of components.</param>
-    private Jbig2Components(int count)
+    /// <summary>Initializes a new instance of the <see cref="Jbig2Components"/> struct.</summary>
+    /// <param name="measures">The bounding boxes and black pixel counts.</param>
+    /// <param name="offset">The offset of each component's bitmap.</param>
+    /// <param name="bits">The store of symbol bitmaps.</param>
+    /// <param name="residual">The residual bitmap, or <see langword="null"/>.</param>
+    /// <param name="symbolCount">The number of symbols.</param>
+    /// <param name="residualBox">The place and size of the residual bitmap.</param>
+    private Jbig2Components(in Jbig2ComponentMeasures measures, int[] offset, byte[] bits, byte[]? residual, int symbolCount, Jbig2RegionBox residualBox)
     {
-        _measures = new(count);
-        _offset = ArrayPool<int>.Shared.Rent(count);
+        _measures = measures;
+        _offset = offset;
+        _bits = bits;
+        _residual = residual;
+        SymbolCount = symbolCount;
+        ResidualBox = residualBox;
     }
+
+    /// <summary>Gets a value indicating whether this is the default value, which holds no components.</summary>
+    internal bool IsDefault => _offset is null;
 
     /// <summary>Gets the number of components.</summary>
     internal int Count => _measures.Count;
 
     /// <summary>Gets the number of components that are symbols.</summary>
-    internal int SymbolCount { get; private set; }
+    internal int SymbolCount { get; }
 
     /// <summary>Gets the place and size of the residual bitmap on the page; empty when no component is too large.</summary>
-    internal Jbig2RegionBox ResidualBox { get; private set; }
+    internal Jbig2RegionBox ResidualBox { get; }
 
     /// <summary>Gets the residual bitmap rows, or an empty span.</summary>
     internal ReadOnlySpan<byte> ResidualRows => _residual is null ? default : _residual.AsSpan(0, Jbig2Bits.Stride(ResidualBox.Width) * ResidualBox.Height);
@@ -57,10 +69,15 @@ internal sealed class Jbig2Components : IDisposable
     /// <summary>Returns the rented arrays.</summary>
     public void Dispose()
     {
+        if (_offset is null)
+        {
+            return;
+        }
+
         _measures.Dispose();
         ArrayPool<int>.Shared.Return(_offset);
-        ReturnBytes(ref _bits);
-        ReturnBytes(ref _residual);
+        ReturnBytes(_bits);
+        ReturnBytes(_residual);
     }
 
     /// <summary>Finds the components of a page.</summary>
@@ -68,21 +85,38 @@ internal sealed class Jbig2Components : IDisposable
     /// <param name="size">The page size.</param>
     /// <param name="maximumSymbolSize">The largest width or height of a symbol.</param>
     /// <param name="cancellationToken">Cancels the search.</param>
-    /// <returns>The components, or <see langword="null"/> when the page has too many runs to search.</returns>
-    internal static Jbig2Components? Find(ReadOnlySpan<byte> ink, Jbig2Size size, int maximumSymbolSize, CancellationToken cancellationToken)
+    /// <param name="components">Receives the components, which the caller disposes.</param>
+    /// <returns><see langword="false"/> when the page has too many runs to search.</returns>
+    internal static bool TryFind(ReadOnlySpan<byte> ink, Jbig2Size size, int maximumSymbolSize, CancellationToken cancellationToken, out Jbig2Components components)
     {
-        using var runs = new Jbig2Runs(size.Height);
-        return runs.TryFill(ink, size, cancellationToken) ? Build(runs, size.Height, maximumSymbolSize, cancellationToken) : null;
+        components = default;
+        var runs = new Jbig2Runs(size.Height);
+        try
+        {
+            if (!runs.TryFill(ink, size, cancellationToken))
+            {
+                return false;
+            }
+
+            components = Build(ref runs, size.Height, maximumSymbolSize, cancellationToken);
+            return true;
+        }
+        finally
+        {
+            runs.Dispose();
+        }
     }
 
     /// <summary>
     /// Joins the symbol components of several pages into one set, in page order, so one dictionary can serve them all. The
     /// result has no residual bitmap; each page keeps its own.
     /// </summary>
-    /// <param name="parts">The pages' components.</param>
-    /// <returns>The joined components, or <see langword="null"/> when their bitmaps are too large to keep together.</returns>
-    internal static Jbig2Components? Combine(ReadOnlySpan<Jbig2Components> parts)
+    /// <param name="parts">The pages' components; a page with none is the default value and adds nothing.</param>
+    /// <param name="combined">Receives the joined components, which the caller disposes.</param>
+    /// <returns><see langword="false"/> when no page has components or their bitmaps are too large to keep together.</returns>
+    internal static bool TryCombine(ReadOnlySpan<Jbig2Components> parts, out Jbig2Components combined)
     {
+        combined = default;
         var count = 0;
         long total = 0;
         foreach (var part in parts)
@@ -91,37 +125,17 @@ internal sealed class Jbig2Components : IDisposable
             total += part.SymbolBytes();
         }
 
-        if (total > MaximumBitmapBytes)
+        if (count == 0 || total > MaximumBitmapBytes)
         {
-            return null;
+            return false;
         }
 
-        var combined = new Jbig2Components(count) { _bits = ArrayPool<byte>.Shared.Rent((int)Math.Max(total, 1)) };
-        var next = 0;
-        var offset = 0;
-        foreach (var part in parts)
-        {
-            for (var i = 0; i < part.Count; i++)
-            {
-                combined._measures.Copy(next, part._measures, i);
-                if (part.IsSymbol(i))
-                {
-                    var rows = part.Rows(i);
-                    rows.CopyTo(combined._bits.AsSpan(offset));
-                    combined._offset[next] = offset;
-                    offset += rows.Length;
-                    combined.SymbolCount++;
-                }
-                else
-                {
-                    combined._offset[next] = -1;
-                }
-
-                next++;
-            }
-        }
-
-        return combined;
+        var measures = new Jbig2ComponentMeasures(count);
+        var offsets = ArrayPool<int>.Shared.Rent(count);
+        var bits = ArrayPool<byte>.Shared.Rent((int)Math.Max(total, 1));
+        var symbols = CopyParts(parts, measures, offsets, bits);
+        combined = new(measures, offsets, bits, null, symbols, default);
+        return true;
     }
 
     /// <summary>Gets the left edge of a component.</summary>
@@ -158,13 +172,13 @@ internal sealed class Jbig2Components : IDisposable
     /// <param name="index">The component.</param>
     /// <returns><see langword="true"/> for a symbol.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool IsSymbol(int index) => _offset[index] >= 0;
+    internal bool IsSymbol(int index) => _offset![index] >= 0;
 
     /// <summary>Gets the packed rows of a symbol component.</summary>
     /// <param name="index">The component, which must be a symbol.</param>
     /// <returns>The rows, 1 for black, with zero padding bits.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ReadOnlySpan<byte> Rows(int index) => _bits.AsSpan(_offset[index], Jbig2Bits.Stride(Width(index)) * Height(index));
+    internal ReadOnlySpan<byte> Rows(int index) => _bits.AsSpan(_offset![index], Jbig2Bits.Stride(Width(index)) * Height(index));
 
     /// <summary>Builds the components from the runs.</summary>
     /// <param name="runs">The runs, joined.</param>
@@ -172,34 +186,47 @@ internal sealed class Jbig2Components : IDisposable
     /// <param name="maximumSymbolSize">The largest width or height of a symbol.</param>
     /// <param name="cancellationToken">Cancels the build.</param>
     /// <returns>The components.</returns>
-    private static Jbig2Components Build(Jbig2Runs runs, int height, int maximumSymbolSize, CancellationToken cancellationToken)
+    private static Jbig2Components Build(ref Jbig2Runs runs, int height, int maximumSymbolSize, CancellationToken cancellationToken)
     {
-        var components = new Jbig2Components(runs.CountRoots());
+        var measures = new Jbig2ComponentMeasures(runs.CountRoots());
+        var offsets = ArrayPool<int>.Shared.Rent(measures.Count);
+        byte[]? bits = null;
+        byte[]? residual = null;
         try
         {
-            runs.Measure(components._measures);
-            components.Classify(maximumSymbolSize);
-            components.Paint(runs, height, cancellationToken);
+            runs.Measure(measures);
+            var layout = Classify(measures, offsets, maximumSymbolSize);
+            bits = ArrayPool<byte>.Shared.Rent((int)Math.Max(layout.Total, 1));
+            bits.AsSpan(0, (int)layout.Total).Clear();
+            if (layout.HasResidual)
+            {
+                var length = Jbig2Bits.Stride(layout.Residual.Width) * layout.Residual.Height;
+                residual = ArrayPool<byte>.Shared.Rent(length);
+                residual.AsSpan(0, length).Clear();
+            }
+
+            var components = new Jbig2Components(measures, offsets, bits, residual, layout.SymbolCount, layout.Residual);
+            components.Paint(ref runs, height, cancellationToken);
             return components;
         }
         catch
         {
-            components.Dispose();
+            measures.Dispose();
+            ArrayPool<int>.Shared.Return(offsets);
+            ReturnBytes(bits);
+            ReturnBytes(residual);
             throw;
         }
     }
 
     /// <summary>Returns a rented byte array.</summary>
-    /// <param name="array">The array, set to null.</param>
-    private static void ReturnBytes(ref byte[]? array)
+    /// <param name="array">The array, or <see langword="null"/>.</param>
+    private static void ReturnBytes(byte[]? array)
     {
-        if (array is null)
+        if (array is not null)
         {
-            return;
+            ArrayPool<byte>.Shared.Return(array);
         }
-
-        ArrayPool<byte>.Shared.Return(array);
-        array = null;
     }
 
     /// <summary>Sets a range of pixels black in a row.</summary>
@@ -223,6 +250,86 @@ internal sealed class Jbig2Components : IDisposable
         row[lastByte] |= last;
     }
 
+    /// <summary>Copies the components of several pages into joined storage.</summary>
+    /// <param name="parts">The pages' components.</param>
+    /// <param name="measures">Receives the measures.</param>
+    /// <param name="offsets">Receives each component's bitmap offset.</param>
+    /// <param name="bits">Receives the symbol bitmaps.</param>
+    /// <returns>The number of symbols.</returns>
+    private static int CopyParts(ReadOnlySpan<Jbig2Components> parts, in Jbig2ComponentMeasures measures, int[] offsets, byte[] bits)
+    {
+        var next = 0;
+        var offset = 0;
+        var symbols = 0;
+        foreach (var part in parts)
+        {
+            for (var i = 0; i < part.Count; i++)
+            {
+                measures.Copy(next, part._measures, i);
+                if (part.IsSymbol(i))
+                {
+                    var rows = part.Rows(i);
+                    rows.CopyTo(bits.AsSpan(offset));
+                    offsets[next] = offset;
+                    offset += rows.Length;
+                    symbols++;
+                }
+                else
+                {
+                    offsets[next] = -1;
+                }
+
+                next++;
+            }
+        }
+
+        return symbols;
+    }
+
+    /// <summary>Decides which components are symbols, lays out their bitmaps and sizes the residual bitmap.</summary>
+    /// <param name="measures">The measured components.</param>
+    /// <param name="offsets">Receives each component's bitmap offset, or -1 for a component too large to be a symbol.</param>
+    /// <param name="maximumSymbolSize">The largest width or height of a symbol.</param>
+    /// <returns>The layout.</returns>
+    private static Layout Classify(in Jbig2ComponentMeasures measures, int[] offsets, int maximumSymbolSize)
+    {
+        long total = 0;
+        var symbols = 0;
+        var residual = default(Jbig2RegionBox);
+        var hasResidual = false;
+        for (var i = 0; i < measures.Count; i++)
+        {
+            var bytes = (long)Jbig2Bits.Stride(measures.Width(i)) * measures.Height(i);
+            if (measures.Width(i) <= maximumSymbolSize && measures.Height(i) <= maximumSymbolSize && total + bytes <= MaximumBitmapBytes)
+            {
+                offsets[i] = (int)total;
+                total += bytes;
+                symbols++;
+                continue;
+            }
+
+            offsets[i] = -1;
+            residual = hasResidual ? Union(residual, measures, i) : new(measures.Left(i), measures.Top(i), measures.Width(i), measures.Height(i));
+            hasResidual = true;
+        }
+
+        return new(total, symbols, hasResidual, residual);
+    }
+
+    /// <summary>Grows a box to include a component.</summary>
+    /// <param name="box">The box.</param>
+    /// <param name="measures">The measured components.</param>
+    /// <param name="index">The component.</param>
+    /// <returns>The union.</returns>
+    private static Jbig2RegionBox Union(Jbig2RegionBox box, in Jbig2ComponentMeasures measures, int index)
+    {
+        var left = Math.Min(box.X, measures.Left(index));
+        var top = Math.Min(box.Y, measures.Top(index));
+        var right = Math.Max(box.X + box.Width, measures.Left(index) + measures.Width(index));
+        var bottom = Math.Max(box.Y + box.Height, measures.Top(index) + measures.Height(index));
+        return new(left, top, right - left, bottom - top);
+    }
+
     /// <summary>Gets the bytes the symbol bitmaps take.</summary>
     /// <returns>The byte count.</returns>
     private long SymbolBytes()
@@ -236,60 +343,11 @@ internal sealed class Jbig2Components : IDisposable
         return bytes;
     }
 
-    /// <summary>Decides which components are symbols, lays out their bitmaps and sizes the residual bitmap.</summary>
-    /// <param name="maximumSymbolSize">The largest width or height of a symbol.</param>
-    private void Classify(int maximumSymbolSize)
-    {
-        long total = 0;
-        var residual = default(Jbig2RegionBox);
-        var hasResidual = false;
-        for (var i = 0; i < Count; i++)
-        {
-            var bytes = (long)Jbig2Bits.Stride(Width(i)) * Height(i);
-            if (Width(i) <= maximumSymbolSize && Height(i) <= maximumSymbolSize && total + bytes <= MaximumBitmapBytes)
-            {
-                _offset[i] = (int)total;
-                total += bytes;
-                SymbolCount++;
-                continue;
-            }
-
-            _offset[i] = -1;
-            residual = hasResidual ? Union(residual, i) : new(Left(i), Top(i), Width(i), Height(i));
-            hasResidual = true;
-        }
-
-        _bits = ArrayPool<byte>.Shared.Rent((int)Math.Max(total, 1));
-        _bits.AsSpan(0, (int)total).Clear();
-        if (!hasResidual)
-        {
-            return;
-        }
-
-        ResidualBox = residual;
-        var length = Jbig2Bits.Stride(residual.Width) * residual.Height;
-        _residual = ArrayPool<byte>.Shared.Rent(length);
-        _residual.AsSpan(0, length).Clear();
-    }
-
-    /// <summary>Grows a box to include a component.</summary>
-    /// <param name="box">The box.</param>
-    /// <param name="index">The component.</param>
-    /// <returns>The union.</returns>
-    private Jbig2RegionBox Union(Jbig2RegionBox box, int index)
-    {
-        var left = Math.Min(box.X, Left(index));
-        var top = Math.Min(box.Y, Top(index));
-        var right = Math.Max(box.X + box.Width, Left(index) + Width(index));
-        var bottom = Math.Max(box.Y + box.Height, Top(index) + Height(index));
-        return new(left, top, right - left, bottom - top);
-    }
-
     /// <summary>Paints every run into its component's bitmap, or into the residual bitmap.</summary>
     /// <param name="runs">The runs.</param>
     /// <param name="height">The page height.</param>
     /// <param name="cancellationToken">Cancels the paint.</param>
-    private void Paint(Jbig2Runs runs, int height, CancellationToken cancellationToken)
+    private void Paint(ref Jbig2Runs runs, int height, CancellationToken cancellationToken)
     {
         var residualStride = Jbig2Bits.Stride(ResidualBox.Width);
         for (var y = 0; y < height; y++)
@@ -298,7 +356,7 @@ internal sealed class Jbig2Components : IDisposable
             for (var run = runs.RowStart(y); run < runs.RowStart(y + 1); run++)
             {
                 var component = runs.ComponentOf(run);
-                if (_offset[component] >= 0)
+                if (_offset![component] >= 0)
                 {
                     var stride = Jbig2Bits.Stride(Width(component));
                     var row = _bits.AsSpan(_offset[component] + ((y - Top(component)) * stride), stride);
@@ -311,4 +369,11 @@ internal sealed class Jbig2Components : IDisposable
             }
         }
     }
+
+    /// <summary>How the components divide into symbols and a residual bitmap.</summary>
+    /// <param name="Total">The bytes of the symbol bitmaps.</param>
+    /// <param name="SymbolCount">The number of symbols.</param>
+    /// <param name="HasResidual">Whether any component is too large to be a symbol.</param>
+    /// <param name="Residual">The place and size of the residual bitmap.</param>
+    private readonly record struct Layout(long Total, int SymbolCount, bool HasResidual, Jbig2RegionBox Residual);
 }

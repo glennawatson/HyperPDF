@@ -64,9 +64,7 @@ public static class StoreRepairs
         self.ObjectStreamsIfCreated?.Clear();
 
         // Objects already parsed stay cached; only the ones that were missing are looked up in the new table.
-        var grown = new object?[Math.Max(rebuilt.Size, self.CacheState.Length)];
-        self.CacheState.CopyTo(grown, 0);
-        Volatile.Write(ref self.CacheState, grown);
+        StoreCache.Grow(ref self.CacheState, rebuilt.Size);
     }
 
     /// <summary>
@@ -83,10 +81,7 @@ public static class StoreRepairs
 
         XrefRepair.IndexCompressed(self.XrefState, self);
         self.NextNumberState = Math.Max(self.NextNumberState, self.XrefState.Size);
-        if (self.CacheState.Length < self.XrefState.Size)
-        {
-            Array.Resize(ref self.CacheState, self.XrefState.Size);
-        }
+        StoreCache.Grow(ref self.CacheState, self.XrefState.Size);
     }
 
     /// <summary>Gets what the cross-reference table says about an object.</summary>

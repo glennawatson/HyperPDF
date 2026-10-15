@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+
 namespace HyperPdfLibrary.Text;
 
 /// <summary>
@@ -29,27 +31,41 @@ internal static class TextFolding
     /// <returns>The folded text.</returns>
     internal static FoldedText Fold(string text, PdfTextSearchOptions options)
     {
-        var buffer = new char[text.Length];
+        var buffer = ArrayPool<char>.Shared.Rent(text.Length);
         int[]? map = null;
-        var count = 0;
-        for (var i = 0; i < text.Length; i++)
+        try
         {
-            if (!TryFold(text[i], options, out var folded))
+            var count = 0;
+            for (var i = 0; i < text.Length; i++)
             {
-                map ??= IdentityMap(text.Length, count);
-                continue;
+                if (!TryFold(text[i], options, out var folded))
+                {
+                    map ??= IdentityMap(text.Length, count);
+                    continue;
+                }
+
+                buffer[count] = folded;
+                if (map is not null)
+                {
+                    map[count] = i;
+                }
+
+                count++;
             }
 
-            buffer[count] = folded;
+            // Text that folds to itself keeps its own string instead of a copy.
+            var result = buffer.AsSpan(0, count);
+            var foldedText = result.SequenceEqual(text) ? text : new string(result);
+            return new(foldedText, map is null ? null : map.AsSpan(0, count).ToArray());
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
             if (map is not null)
             {
-                map[count] = i;
+                ArrayPool<int>.Shared.Return(map);
             }
-
-            count++;
         }
-
-        return new(new(buffer, 0, count), map is null ? null : map[..count]);
     }
 
     /// <summary>Folds a query into a buffer.</summary>
@@ -139,7 +155,7 @@ internal static class TextFolding
     /// <returns>The map.</returns>
     private static int[] IdentityMap(int length, int filled)
     {
-        var map = new int[length];
+        var map = ArrayPool<int>.Shared.Rent(length);
         for (var i = 0; i < filled; i++)
         {
             map[i] = i;

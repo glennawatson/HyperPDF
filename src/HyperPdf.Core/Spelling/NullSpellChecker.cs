@@ -23,5 +23,7 @@ public sealed class NullSpellChecker : ISpellChecker
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<string> Suggest(string word) => [];
+    public void Suggest(string word, List<string> suggestions)
+    {
+    }
 }

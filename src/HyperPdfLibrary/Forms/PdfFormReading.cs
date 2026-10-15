@@ -9,6 +9,12 @@ namespace HyperPdfLibrary.Forms;
 /// <summary>Reading operations over shared form state.</summary>
 public static class PdfFormReading
 {
+    /// <summary>The longest export value that is interned without making a string first.</summary>
+    private const int MaxExportChars = 128;
+
+    /// <summary>The most UTF-8 bytes one UTF-16 code unit takes.</summary>
+    private const int Utf8BytesPerChar = 3;
+
     /// <summary>Determines whether the document has an interactive form.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <returns>True when an AcroForm dictionary is present.</returns>
@@ -76,7 +82,7 @@ public static class PdfFormReading
     /// <summary>Reads a widget's additional actions.</summary>
     /// <param name = "resolved">The widget.</param>
     /// <returns>The scripts; <see langword="null"/> when it has none.</returns>
-    internal static PdfWidgetScripts? ReadScripts(ResolvedWidget resolved)
+    internal static PdfWidgetScripts? ReadScripts(in ResolvedWidget resolved)
     {
         var actions = FieldAttributes.Find(resolved.Field, KnownName.AA).AsDictionary() ?? resolved.Widget.GetDictionary(KnownName.AA);
         if (actions is null)
@@ -140,18 +146,18 @@ public static class PdfFormReading
             fieldId = widget.GetRaw(KnownName.Parent).AsReference();
         }
 
-        var name = FieldAttributes.GetFullName(widget);
+        var named = FieldAttributes.HasName(widget);
         var source = FieldAttributes.Find(field, KnownName.FT).IsNull && widget.ContainsKey(KnownName.FT) ? widget : field;
-        var flags = name.Length == 0 ? PdfFieldFlags.None : FieldAttributes.GetFlags(source);
-        var type = name.Length == 0 ? PdfFieldType.Unknown : FormValues.GetType(source, form.Document.Objects.Names, flags);
-        return new(pageIndex, index, widget, widgetId, field, fieldId, name, type, flags);
+        var flags = named ? FieldAttributes.GetFlags(source) : PdfFieldFlags.None;
+        var type = named ? FormValues.GetType(source, form.Document.Objects.Names, flags) : PdfFieldType.Unknown;
+        return new(pageIndex, index, widget, widgetId, field, fieldId, type, flags);
     }
 
     /// <summary>Describes a widget for callers.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "resolved">The widget.</param>
     /// <returns>The description.</returns>
-    internal static PdfFormWidget Describe(PdfForm form, ResolvedWidget resolved)
+    internal static PdfFormWidget Describe(PdfForm form, in ResolvedWidget resolved)
     {
         var widget = resolved.Widget;
         var field = resolved.Field;
@@ -174,32 +180,39 @@ public static class PdfFormReading
     /// <param name = "form">The shared form state.</param>
     /// <param name = "resolved">The widget.</param>
     /// <returns>The value.</returns>
-    internal static string ReadFieldValue(PdfForm form, ResolvedWidget resolved)
+    internal static string ReadFieldValue(PdfForm form, in ResolvedWidget resolved)
     {
         if (!resolved.IsButton)
         {
             return FormValues.ReadText(resolved.Field, resolved.Type);
         }
 
-        var controls = FormControl.GetControls(resolved.Field, resolved.FieldId);
-        for (var i = 0; i < controls.Count; i++)
+        var controls = FormControls.Read(resolved.Field, resolved.FieldId);
+        try
         {
-            if (controls[i].IsChecked(form.Document.Objects.Names))
+            for (var i = 0; i < controls.Count; i++)
             {
-                return PdfFormReading.GetExportValue(form, resolved.Field, controls, i);
+                if (controls[i].IsChecked(form.Document.Objects.Names))
+                {
+                    return PdfFormReading.GetExportValue(form, resolved.Field, controls[i].Dictionary, i);
+                }
             }
-        }
 
-        return FormValues.OffState;
+            return FormValues.OffState;
+        }
+        finally
+        {
+            controls.Dispose();
+        }
     }
 
     /// <summary>Gets the value that stands for a button being on: its <c>/Opt</c> entry, or its on-state.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "field">The field dictionary.</param>
-    /// <param name = "controls">The field's buttons.</param>
+    /// <param name = "control">The button's widget dictionary.</param>
     /// <param name = "position">The button's position in the field.</param>
     /// <returns>The export value.</returns>
-    internal static string GetExportValue(PdfForm form, PdfDictionary field, List<FormControl> controls, int position)
+    internal static string GetExportValue(PdfForm form, PdfDictionary field, PdfDictionary control, int position)
     {
         var export = string.Empty;
         if (FieldAttributes.Find(field, KnownName.Opt).AsArray()is { } options)
@@ -209,19 +222,68 @@ public static class PdfFormReading
         }
         else
         {
-            export = FieldAttributes.GetOnState(controls[position].Dictionary, form.Document.Objects.Names);
+            export = FieldAttributes.GetOnState(control, form.Document.Objects.Names);
         }
 
         return export.Length == 0 ? FormValues.DefaultOnState : export;
+    }
+
+    /// <summary>Gets the value that stands for a button being on as a name, which is cheaper to compare than text.</summary>
+    /// <param name = "form">The shared form state.</param>
+    /// <param name = "field">The field dictionary.</param>
+    /// <param name = "control">The button's widget dictionary.</param>
+    /// <param name = "position">The button's position in the field.</param>
+    /// <returns>The export value as a name: its <c>/Opt</c> entry, or its on-state; <c>Yes</c> when it has neither.</returns>
+    internal static PdfName GetExportName(PdfForm form, PdfDictionary field, PdfDictionary control, int position)
+    {
+        var names = form.Document.Objects.Names;
+        var export = FieldAttributes.Find(field, KnownName.Opt).AsArray() is { } options
+            ? InternExport(options.Get(position), names)
+            : FieldAttributes.GetOnStateName(control, names);
+        return export.IsNone ? names.Intern("Yes"u8) : export;
     }
 
     /// <summary>Reads the size a text field's text is drawn at.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "resolved">The widget.</param>
     /// <returns>The size; 0 when the field fits the text to itself.</returns>
-    internal static float ReadFontSize(PdfForm form, ResolvedWidget resolved)
+    internal static float ReadFontSize(PdfForm form, in ResolvedWidget resolved)
     {
         var size = DefaultAppearance.Find(resolved.Widget, resolved.Field, form.Document.Catalog.GetDictionary(KnownName.AcroForm)).FontSize;
         return size > 0 ? size : 0;
+    }
+
+    /// <summary>Interns an <c>/Opt</c> entry as a name.</summary>
+    /// <param name = "entry">The entry: a text string, or a name.</param>
+    /// <param name = "names">The document's names.</param>
+    /// <returns>The name; none for an entry that is neither or is empty.</returns>
+    private static PdfName InternExport(PdfValue entry, PdfNameTable names)
+    {
+        if (entry.Kind == PdfKind.Name)
+        {
+            return entry.AsName();
+        }
+
+        if (entry.Kind != PdfKind.String)
+        {
+            return default;
+        }
+
+        var bytes = entry.AsStringBytes();
+        var length = PdfText.GetDecodedLength(bytes);
+        if (length == 0)
+        {
+            return default;
+        }
+
+        if (length > MaxExportChars)
+        {
+            return names.Intern(PdfText.Decode(bytes));
+        }
+
+        Span<char> text = stackalloc char[MaxExportChars];
+        var written = PdfText.Decode(bytes, text);
+        Span<byte> utf8 = stackalloc byte[MaxExportChars * Utf8BytesPerChar];
+        return names.Intern(utf8[..System.Text.Encoding.UTF8.GetBytes(text[..written], utf8)]);
     }
 }

@@ -24,10 +24,11 @@ public sealed class SpeechModelDownloaderTests
     [Test]
     public async Task KeepsAFileOfTheRightSize()
     {
+        using var downloader = new SpeechModelDownloader();
         using var folder = new TemporaryFolder();
         await File.WriteAllBytesAsync(Path.Combine(folder.Path, Name), new byte[Size]);
 
-        await Assert.That(SpeechModelDownloader.Missing([FileOf(Size, Pinned)], folder.Path)).IsEmpty();
+        await Assert.That(downloader.Missing([FileOf(Size, Pinned)], folder.Path)).IsEmpty();
     }
 
     /// <summary>A file missing, of another size, or whose recorded hash is not the pinned one is downloaded again.</summary>
@@ -35,16 +36,17 @@ public sealed class SpeechModelDownloaderTests
     [Test]
     public async Task DownloadsReplacedFilesAgain()
     {
+        using var downloader = new SpeechModelDownloader();
         using var folder = new TemporaryFolder();
         var path = Path.Combine(folder.Path, Name);
 
-        var whenMissing = SpeechModelDownloader.Missing([FileOf(Size, Pinned)], folder.Path).Count;
+        var whenMissing = downloader.Missing([FileOf(Size, Pinned)], folder.Path).Count;
         await File.WriteAllBytesAsync(path, new byte[Size]);
-        var whenResized = SpeechModelDownloader.Missing([FileOf(Size + 1, Pinned)], folder.Path).Count;
+        var whenResized = downloader.Missing([FileOf(Size + 1, Pinned)], folder.Path).Count;
         await File.WriteAllTextAsync($"{path}.sha256", "bb");
-        var whenRehashed = SpeechModelDownloader.Missing([FileOf(Size, Pinned)], folder.Path).Count;
+        var whenRehashed = downloader.Missing([FileOf(Size, Pinned)], folder.Path).Count;
         await File.WriteAllTextAsync($"{path}.sha256", Pinned);
-        var whenCurrent = SpeechModelDownloader.Missing([FileOf(Size, Pinned)], folder.Path).Count;
+        var whenCurrent = downloader.Missing([FileOf(Size, Pinned)], folder.Path).Count;
 
         await Assert.That(whenMissing).IsEqualTo(1);
         await Assert.That(whenResized).IsEqualTo(1);

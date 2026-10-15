@@ -254,8 +254,17 @@ public static class StoreOpening
             throw new PdfException(PdfError.Format, "The document is too damaged to read.");
         }
 
-        // The check of /Root may have sized the cache already; it is emptied rather than replaced when the size matches.
-        StoreOpening.ResetCache(self, self.XrefState.Size);
+        // Objects the check of /Root parsed stay cached when the table was read as written and nothing is encrypted; a
+        // rebuilt table or a key that is not known yet could make them wrong, so those start again.
+        if (self.XrefState.Repaired || self.XrefState.Trailer!.ContainsKey(KnownName.Encrypt))
+        {
+            StoreOpening.ResetCache(self, self.XrefState.Size);
+        }
+        else
+        {
+            StoreCache.Grow(ref self.CacheState, self.XrefState.Size);
+        }
+
         self.NextNumberState = self.XrefState.Size;
     }
 
@@ -279,22 +288,25 @@ public static class StoreOpening
         }
 
         StoreOpening.ResetCache(self, table.Size);
-        return StoreReading.Load(self, number).Kind == PdfKind.Dictionary;
+        var value = StoreReading.Load(self, number);
+        if (value.Kind != PdfKind.Dictionary)
+        {
+            return false;
+        }
+
+        if ((uint)number < (uint)self.CacheState.Length)
+        {
+            self.CacheState[number] = StoreReading.Box(value);
+        }
+
+        return true;
     }
 
     /// <summary>Empties the parsed object cache, or replaces it when the table has a different size.</summary>
     /// <param name = "self">The owned object-store state.</param>
     /// <param name = "size">The number of object slots wanted.</param>
-    internal static void ResetCache(PdfObjectStore self, int size)
-    {
-        if (self.CacheState.Length == size)
-        {
-            Array.Clear(self.CacheState);
-            return;
-        }
-
-        self.CacheState = new object?[size];
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ResetCache(PdfObjectStore self, int size) => StoreCache.Reset(ref self.CacheState, size);
 
     /// <summary>Creates the security handler when the document is encrypted.</summary>
     /// <param name = "self">The owned object-store state.</param>

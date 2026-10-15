@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Frozen;
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
@@ -66,7 +68,7 @@ internal static class XmpParser
             wellFormed = false;
         }
 
-        return new(packet, properties, wellFormed);
+        return new([.. packet], properties.ToFrozenDictionary(static entry => entry.Key, static entry => entry.Value.ToImmutableArray(), StringComparer.Ordinal), wellFormed);
     }
 
     /// <summary>Walks the document, reading the properties of every <c>rdf:Description</c>.</summary>

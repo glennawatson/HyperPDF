@@ -18,9 +18,6 @@ internal abstract class JpxParallelJob : IThreadPoolWorkItem
     /// <summary>The bit of <see cref="_state"/> that is set while the loop accepts helpers; the bits below it count the workers inside <see cref="RunWorker"/>.</summary>
     private const int OpenBit = 1 << 30;
 
-    /// <summary>Held only by the caller, while it waits for the last worker, and by that worker to wake it.</summary>
-    private readonly object _gate = new();
-
     /// <summary>The next item to claim.</summary>
     private int _next;
 
@@ -118,26 +115,17 @@ internal abstract class JpxParallelJob : IThreadPoolWorkItem
         }
         finally
         {
-            // Zero means the loop is closed and this was the last worker; the caller is waiting, or about to.
-            if (Interlocked.Decrement(ref _state) == 0)
-            {
-                lock (_gate)
-                {
-                    Monitor.PulseAll(_gate);
-                }
-            }
+            _ = Interlocked.Decrement(ref _state);
         }
     }
 
     /// <summary>Waits until the loop is closed and no worker is inside it.</summary>
     private void WaitForWorkers()
     {
-        lock (_gate)
+        SpinWait spinner = default;
+        while (Volatile.Read(ref _state) != 0)
         {
-            while (Volatile.Read(ref _state) != 0)
-            {
-                _ = Monitor.Wait(_gate);
-            }
+            spinner.SpinOnce();
         }
     }
 

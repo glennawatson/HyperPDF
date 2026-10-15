@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Rendering;
 using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Optimizing;
@@ -24,8 +25,11 @@ internal sealed class DuplicateFinder
     /// <summary>The bytes an object's header and trailer take, counted for a dropped object.</summary>
     private const int ObjectOverhead = 20;
 
-    /// <summary>The store the objects come from.</summary>
-    private readonly PdfObjectStore _store;
+    /// <summary>The largest number table an idle finder keeps; a bigger one is dropped when the finder is given back.</summary>
+    private const int MaxKeptTable = 1 << 20;
+
+    /// <summary>Idle finders, kept with the lists and tables they grew.</summary>
+    private readonly ReusableSlots<DuplicateFinder> _idle;
 
     /// <summary>The objects that may be merged, by old number, in the order they were reached.</summary>
     private readonly List<int> _candidates = [];
@@ -33,49 +37,84 @@ internal sealed class DuplicateFinder
     /// <summary>The digest of each candidate stream's data, by old number.</summary>
     private readonly Dictionary<int, ContentHash> _dataHashes = [];
 
+    /// <summary>The first object with each digest in the current pass.</summary>
+    private readonly Dictionary<ContentHash, int> _seen = [];
+
+    /// <summary>The store the objects come from.</summary>
+    private PdfObjectStore? _store;
+
     /// <summary>The number each object's references are written as while hashing: its original's.</summary>
-    private readonly int[] _canonical;
+    private int[] _canonical = [];
 
     /// <summary>The original of each duplicate, by old number; zero when the object is no duplicate.</summary>
-    private readonly int[] _aliases;
+    private int[] _aliases = [];
+
+    /// <summary>1 once the finder has been given back, so a second dispose does not offer it twice.</summary>
+    private int _returned;
 
     /// <summary>Initializes a new instance of the <see cref="DuplicateFinder"/> class.</summary>
-    /// <param name="store">The store.</param>
-    private DuplicateFinder(PdfObjectStore store)
-    {
-        _store = store;
-        _canonical = new int[store.Size];
-        _aliases = new int[store.Size];
-        for (var i = 1; i < _canonical.Length; i++)
-        {
-            _canonical[i] = i;
-        }
-    }
+    /// <param name="idle">The owning service's duplicate-finder pool.</param>
+    private DuplicateFinder(ReusableSlots<DuplicateFinder> idle) => _idle = idle;
+
+    /// <summary>Gets the original of each duplicate by old number, zero for objects that are not duplicates. It may be longer than the store.</summary>
+    internal int[] Aliases => _aliases;
 
     /// <summary>Finds the duplicates among the reachable objects.</summary>
     /// <param name="store">The store.</param>
     /// <param name="graph">The reachable objects.</param>
     /// <param name="report">Receives the savings.</param>
     /// <param name="cancellationToken">Stops the search.</param>
-    /// <returns>The original of each duplicate by old number, zero for objects that are not duplicates.</returns>
-    internal static int[] Find(PdfObjectStore store, OptimizerGraph graph, OptimizeReportBuilder report, CancellationToken cancellationToken)
+    /// <returns>The finder holding the duplicates, which the caller disposes when it is done with <see cref="Aliases"/>.</returns>
+    internal static DuplicateFinder Find(PdfObjectStore store, OptimizerGraph graph, OptimizeReportBuilder report, CancellationToken cancellationToken)
     {
-        var finder = new DuplicateFinder(store);
-        for (var number = 1; number <= graph.Count; number++)
+        var idle = graph.Resources.Duplicates;
+        var finder = idle.Take() ?? new(idle);
+        Volatile.Write(ref finder._returned, 0);
+        try
         {
-            if (IsCandidate(graph.GetValue(number)))
+            finder.Begin(store);
+            for (var number = 1; number <= graph.Count; number++)
             {
-                finder._candidates.Add(graph.GetOldNumber(number));
+                if (IsCandidate(graph.GetValue(number)))
+                {
+                    finder._candidates.Add(graph.GetOldNumber(number));
+                }
             }
-        }
 
-        for (var pass = 0; pass < MaxPasses && finder.MergePass(cancellationToken); pass++)
+            for (var pass = 0; pass < MaxPasses && finder.MergePass(cancellationToken); pass++)
+            {
+                // Each pass lets objects that refer to merged objects merge in turn.
+            }
+
+            finder.Report(report);
+            return finder;
+        }
+        catch
         {
-            // Each pass lets objects that refer to merged objects merge in turn.
+            finder.Return();
+            throw;
+        }
+    }
+
+    /// <summary>Gives the finder back to the pool, emptied.</summary>
+    internal void Return()
+    {
+        if (Interlocked.Exchange(ref _returned, 1) != 0)
+        {
+            return;
         }
 
-        finder.Report(report);
-        return finder._aliases;
+        _candidates.Clear();
+        _dataHashes.Clear();
+        _seen.Clear();
+        _store = null;
+        if (_aliases.Length > MaxKeptTable)
+        {
+            _aliases = [];
+            _canonical = [];
+        }
+
+        _ = _idle.Offer(this);
     }
 
     /// <summary>Determines whether an object may be merged with an identical one.</summary>
@@ -151,12 +190,33 @@ internal sealed class DuplicateFinder
         return true;
     }
 
+    /// <summary>Points the finder at a store and resets its tables.</summary>
+    /// <param name="store">The store.</param>
+    private void Begin(PdfObjectStore store)
+    {
+        _store = store;
+        if (_aliases.Length < store.Size)
+        {
+            _aliases = new int[store.Size];
+            _canonical = new int[store.Size];
+        }
+        else
+        {
+            Array.Clear(_aliases);
+        }
+
+        for (var i = 1; i < _canonical.Length; i++)
+        {
+            _canonical[i] = i;
+        }
+    }
+
     /// <summary>Runs one pass: hashes every candidate not yet merged and merges equal ones into the first.</summary>
     /// <param name="cancellationToken">Stops the search.</param>
     /// <returns><see langword="true"/> when anything merged.</returns>
     private bool MergePass(CancellationToken cancellationToken)
     {
-        var seen = new Dictionary<ContentHash, int>(_candidates.Count);
+        _seen.Clear();
         var merged = false;
         foreach (var number in _candidates)
         {
@@ -167,7 +227,7 @@ internal sealed class DuplicateFinder
             }
 
             var digest = Hash(number);
-            if (seen.TryGetValue(digest, out var original))
+            if (_seen.TryGetValue(digest, out var original))
             {
                 _aliases[number] = original;
                 _canonical[number] = original;
@@ -175,7 +235,7 @@ internal sealed class DuplicateFinder
                 continue;
             }
 
-            seen[digest] = number;
+            _seen[digest] = number;
         }
 
         Flatten();
@@ -208,8 +268,8 @@ internal sealed class DuplicateFinder
     /// <returns>The digest.</returns>
     private ContentHash Hash(int number)
     {
-        var value = StoreReading.GetObject(_store, new(number, 0));
-        var writer = new PdfObjectWriter(_store.Names);
+        var value = StoreReading.GetObject(_store!, new(number, 0));
+        var writer = new PdfObjectWriter(_store!.Names);
         try
         {
             writer.SetRenumbering(_canonical);
@@ -219,9 +279,7 @@ internal sealed class DuplicateFinder
                 return ContentHash.Of(writer.WrittenSpan);
             }
 
-            var dictionary = stream.Dictionary.Clone();
-            _ = dictionary.Remove(KnownName.Length);
-            writer.WriteValue(PdfValue.FromDictionary(dictionary));
+            writer.WriteDictionaryWithout(stream.Dictionary, KnownName.Length);
 
             // The stream's digest covers its dictionary's digest followed by its data's digest.
             Span<byte> both = stackalloc byte[ContentHash.Length + ContentHash.Length];
@@ -263,7 +321,7 @@ internal sealed class DuplicateFinder
                 continue;
             }
 
-            var value = StoreReading.GetObject(_store, new(number, 0));
+            var value = StoreReading.GetObject(_store!, new(number, 0));
             var size = value.AsStream() is { } stream ? stream.RawLength + ObjectOverhead : ObjectOverhead;
             report.Measure(PdfOptimizeCategory.Duplicates, size, 0);
         }

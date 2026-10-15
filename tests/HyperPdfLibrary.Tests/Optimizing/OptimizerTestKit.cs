@@ -24,7 +24,7 @@ internal static class OptimizerTestKit
     /// <param name="pdf">The document.</param>
     /// <param name="options">The options.</param>
     /// <returns>The output and report.</returns>
-    internal static OptimizedFile Optimize(byte[] pdf, PdfOptimizeOptions options)
+    internal static OptimizedFile Optimize(byte[] pdf, in PdfOptimizeOptions options)
     {
         using var document = SkiaTestRegistration.Open(pdf, null);
         using var output = new MemoryStream();

@@ -21,6 +21,9 @@ public ref struct PdfByteLease
     /// <summary>The mapping handle whose reference this lease holds, or <see langword="null"/>.</summary>
     private SafeHandle? _handle;
 
+    /// <summary>The pooled-file source whose lease count this lease holds, or <see langword="null"/>.</summary>
+    private MemoryPdfByteSource? _memory;
+
     /// <summary>Initializes a new instance of the <see cref="PdfByteLease"/> struct over bytes that outlive it.</summary>
     /// <param name="span">The bytes.</param>
     internal PdfByteLease(ReadOnlySpan<byte> span) => Span = span;
@@ -32,6 +35,15 @@ public ref struct PdfByteLease
     {
         _rented = rented;
         Span = rented.AsSpan(0, length);
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PdfByteLease"/> struct over a file held in a pooled array.</summary>
+    /// <param name="span">The bytes.</param>
+    /// <param name="memory">The source whose lease count this lease holds; released on disposal.</param>
+    internal PdfByteLease(ReadOnlySpan<byte> span, MemoryPdfByteSource memory)
+    {
+        _memory = memory;
+        Span = span;
     }
 
     /// <summary>Initializes a new instance of the <see cref="PdfByteLease"/> struct over mapped memory.</summary>
@@ -60,5 +72,9 @@ public ref struct PdfByteLease
         var handle = _handle;
         _handle = null;
         handle?.DangerousRelease();
+
+        var memory = _memory;
+        _memory = null;
+        memory?.ReleaseLease();
     }
 }

@@ -45,6 +45,9 @@ public sealed class KokoroEngine : ISpeechEngine
     /// <summary>The phonemizers by accent, loaded on first use.</summary>
     private readonly Dictionary<bool, EnglishPhonemizer> _phonemizers = [];
 
+    /// <summary>The buffers text is normalized into, reused under the gate.</summary>
+    private readonly NormalizerBuffers _normalizing = new();
+
     /// <summary>The token ids, reused.</summary>
     private readonly List<long> _tokens = [];
 
@@ -117,7 +120,7 @@ public sealed class KokoroEngine : ISpeechEngine
             {
                 ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
                 var british = KokoroModel.IsBritish(voiceId);
-                return GetPhonemizer(british).Phonemize(TextNormalizer.Normalize(text, british));
+                return new(GetPhonemizer(british).Phonemize(TextNormalizer.Normalize(text.AsSpan(), british, _normalizing)));
             }
         }
         finally
@@ -165,7 +168,7 @@ public sealed class KokoroEngine : ISpeechEngine
             {
                 ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
                 var british = KokoroModel.IsBritish(voiceId);
-                var phonemes = GetPhonemizer(british).Phonemize(TextNormalizer.Normalize(text, british));
+                var phonemes = GetPhonemizer(british).Phonemize(TextNormalizer.Normalize(text.AsSpan(), british, _normalizing));
                 KokoroVocabulary.Tokenize(phonemes, _tokens);
                 if (_tokens.Count == 0)
                 {

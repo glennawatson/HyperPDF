@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Writing;
@@ -29,6 +30,12 @@ public sealed class PdfObjectStoreSink : IPdfObjectSink
 
     /// <inheritdoc/>
     public PdfObjectStore? Owner => Store;
+
+    /// <inheritdoc/>
+    public PdfFontEmbeddingState FontEmbedding => Store.FontEmbedding;
+
+    /// <inheritdoc/>
+    public PdfFontEmbeddingState? ExistingFontEmbedding => Store.ExistingFontEmbedding;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

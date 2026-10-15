@@ -66,6 +66,11 @@ internal static class WidgetAppearance
             return FormTextAppearance.CreateList(context);
         }
 
+        if (context.Type == PdfFieldType.Text)
+        {
+            return FormTextAppearance.CreateText(context, FieldAttributes.Find(context.Field, KnownName.V));
+        }
+
         var text = FormValues.ReadText(context.Field, context.Type);
         if (context.Type == PdfFieldType.ComboBox)
         {

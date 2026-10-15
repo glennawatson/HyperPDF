@@ -16,6 +16,9 @@ internal static class ShadingShaders
     /// <summary>The colours sampled along a gradient.</summary>
     internal const int GradientSamples = 256;
 
+    /// <summary>The most stops a gradient has: the samples and a transparent stop at each end.</summary>
+    private const int MaxGradientStops = GradientSamples + 2;
+
     /// <summary>The width and height of the bitmap a function-based shading is rasterised to.</summary>
     private const int FunctionRaster = 256;
 
@@ -83,7 +86,8 @@ internal static class ShadingShaders
     /// <returns>The shader.</returns>
     private static IPdfRenderShader? CreateAxial(PdfShading shading)
     {
-        if (shading.Function is null || !TryReadGradient(shading, AxialCoords, out var coords, out var domain))
+        Span<float> coords = stackalloc float[AxialCoords];
+        if (shading.Function is null || !TryReadGradient(shading, coords, out var domain))
         {
             return null;
         }
@@ -95,8 +99,10 @@ internal static class ShadingShaders
             return null;
         }
 
-        var stops = CreateStops(shading, domain);
-        return PdfDrawingServices.For(shading.Dictionary).Backend.CreateLinearGradient(start, end, stops.Colors, stops.Positions, PdfShaderTileMode.Clamp);
+        Span<PdfColor> colors = stackalloc PdfColor[MaxGradientStops];
+        Span<float> positions = stackalloc float[MaxGradientStops];
+        var count = CreateStops(shading, domain, colors, positions);
+        return PdfDrawingServices.For(shading.Dictionary).Backend.CreateLinearGradient(start, end, colors[..count], positions[..count], PdfShaderTileMode.Clamp);
     }
 
     /// <summary>Creates a two-point conical gradient for a radial shading.</summary>
@@ -104,27 +110,30 @@ internal static class ShadingShaders
     /// <returns>The shader.</returns>
     private static IPdfRenderShader? CreateRadial(PdfShading shading)
     {
-        if (shading.Function is null || !TryReadGradient(shading, RadialCoords, out var coords, out var domain))
+        Span<float> coords = stackalloc float[RadialCoords];
+        if (shading.Function is null || !TryReadGradient(shading, coords, out var domain))
         {
             return null;
         }
 
-        var stops = CreateStops(shading, domain);
+        Span<PdfColor> colors = stackalloc PdfColor[MaxGradientStops];
+        Span<float> positions = stackalloc float[MaxGradientStops];
+        var count = CreateStops(shading, domain, colors, positions);
         var start = new PdfPoint(coords[0], coords[1]);
         var end = new PdfPoint(coords[AxialCoords - 1], coords[AxialCoords]);
-        return PdfDrawingServices.For(shading.Dictionary).Backend.CreateTwoPointConicalGradient(start, coords[2], end, coords[SecondRadius], stops.Colors, stops.Positions, PdfShaderTileMode.Clamp);
+        var backend = PdfDrawingServices.For(shading.Dictionary).Backend;
+        return backend.CreateTwoPointConicalGradient(start, coords[2], end, coords[SecondRadius], colors[..count], positions[..count], PdfShaderTileMode.Clamp);
     }
 
     /// <summary>Reads the coordinates and domain of a gradient.</summary>
     /// <param name="shading">The shading.</param>
-    /// <param name="count">The coordinates needed.</param>
-    /// <param name="coords">Receives the coordinates.</param>
+    /// <param name="coords">Receives the coordinates; its length is the number needed.</param>
     /// <param name="domain">Receives the start and end of the parameter.</param>
     /// <returns><see langword="true"/> when the dictionary is usable.</returns>
-    private static bool TryReadGradient(PdfShading shading, int count, out float[] coords, out Vector2 domain)
+    private static bool TryReadGradient(PdfShading shading, Span<float> coords, out Vector2 domain)
     {
         var dictionary = shading.Dictionary;
-        coords = new float[count];
+        var count = coords.Length;
         domain = new(0, 1);
         var array = dictionary.GetArray(KnownName.Coords);
         if (array is null || array.Count < count)
@@ -147,27 +156,30 @@ internal static class ShadingShaders
     /// </summary>
     /// <param name="shading">The shading.</param>
     /// <param name="domain">The start and end of the parameter.</param>
-    /// <returns>The colours and their positions.</returns>
-    private static GradientStops CreateStops(PdfShading shading, Vector2 domain)
+    /// <param name="colors">Receives the colours; at least <see cref="MaxGradientStops"/> long.</param>
+    /// <param name="positions">Receives the position of each colour; at least <see cref="MaxGradientStops"/> long.</param>
+    /// <returns>The number of stops written to both spans.</returns>
+    private static int CreateStops(PdfShading shading, Vector2 domain, Span<PdfColor> colors, Span<float> positions)
     {
         var extend = shading.Dictionary.GetArray(KnownName.Extend);
         var before = extend is not null && extend.Get(0).AsBoolean() ? 0 : 1;
         var after = extend is not null && extend.Get(1).AsBoolean() ? 0 : 1;
-        var colors = new PdfColor[GradientSamples + before + after];
-        var positions = new float[colors.Length];
-        SampleColors(shading, domain.X, domain.Y, colors.AsSpan(before, GradientSamples));
+        var count = GradientSamples + before + after;
+        colors[..count].Clear();
+        positions[..count].Clear();
+        SampleColors(shading, domain.X, domain.Y, colors.Slice(before, GradientSamples));
         for (var i = 0; i < GradientSamples; i++)
         {
             positions[before + i] = (float)i / (GradientSamples - 1);
         }
 
-        // The arrays start zeroed, so a missing extension already has a transparent stop at position 0.
+        // Cleared first, so a missing extension already has a transparent stop at position 0.
         if (after != 0)
         {
-            positions[^1] = 1;
+            positions[count - 1] = 1;
         }
 
-        return new(colors, positions);
+        return count;
     }
 
     /// <summary>Rasterises a function-based shading to a bitmap shader.</summary>

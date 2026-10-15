@@ -203,6 +203,7 @@ public static class StoreTransactions
     /// <param name = "entry">The key and value; a null value removes the key.</param>
     internal static void SetTrailerLocked(PdfObjectStore self, in PdfTrailerEntry entry)
     {
+        self.SaveGraphsState = null;
         self.TrailerEditedState = true;
         if (entry.Value.IsNull)
         {
@@ -246,6 +247,8 @@ public static class StoreTransactions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void RecordEdit(PdfObjectStore self, int number)
     {
+        self.SaveGraphsState = null;
+
         // Only the first change to an object is recorded, so a repeat skips reading its entry.
         if (self.TransactionState is { } transaction && transaction.NeedsRecordLocked(number))
         {

@@ -60,6 +60,7 @@ public static class PdfIncrementalWriter
         ArgumentNullException.ThrowIfNull(store);
         PdfTrapNetworkGuard.Apply(store, IsStandalone(store), null, CancellationToken.None);
         PdfRequirementsGuard.Apply(store, null, CancellationToken.None);
+        PdfUaClaimGuard.Apply(store, IsStandalone(store), null, CancellationToken.None);
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
@@ -101,6 +102,7 @@ public static class PdfIncrementalWriter
         ArgumentNullException.ThrowIfNull(destination);
         PdfTrapNetworkGuard.Apply(store, IsStandalone(store), report, CancellationToken.None);
         PdfRequirementsGuard.Apply(store, report, CancellationToken.None);
+        PdfUaClaimGuard.Apply(store, IsStandalone(store), report, CancellationToken.None);
         var writer = new PdfObjectWriter(store.Names, store.Security);
         try
         {
@@ -148,6 +150,7 @@ public static class PdfIncrementalWriter
         ArgumentNullException.ThrowIfNull(destination);
         PdfTrapNetworkGuard.Apply(store, IsStandalone(store), report, cancellationToken);
         PdfRequirementsGuard.Apply(store, report, cancellationToken);
+        PdfUaClaimGuard.Apply(store, IsStandalone(store), report, cancellationToken);
         var update = BuildUpdate(store, out var length, cancellationToken);
         try
         {
@@ -478,7 +481,7 @@ public static class PdfIncrementalWriter
             return count;
         }
 
-        var repairs = new PdfSaveRepairs(store, false);
+        using var repairs = new PdfSaveRepairs(store, false);
         foreach (var item in objects)
         {
             cancellationToken.ThrowIfCancellationRequested();

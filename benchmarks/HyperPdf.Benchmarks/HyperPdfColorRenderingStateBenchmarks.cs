@@ -82,7 +82,7 @@ public class HyperPdfColorRenderingStateBenchmarks
     [Benchmark]
     public uint Run()
     {
-        using var interpreter = new ContentInterpreter(_cache, _device, 0);
+        using var interpreter = ContentInterpreter.Rent(_cache, _device, 0);
         ContentExecution.RunPage(interpreter, _page);
         return interpreter.State.Fill.Rgb;
     }

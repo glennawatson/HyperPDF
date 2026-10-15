@@ -3,15 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace HyperPdf.Core.Text.Fonts;
 
 /// <summary>
-/// A font face loaded for writing text: its bytes, metrics, glyph advances, character map and pair kerning. Loaded
-/// once per face and shared, so laying text out again reads nothing from disk.
+/// A font face loaded for writing text: its bytes, metrics, glyph advances, character map and pair kerning. An owner
+/// can retain it so laying text out again reads nothing from disk.
 /// </summary>
 [DebuggerDisplay("FontProgram: {Face.Family} {Face.Style}")]
 public sealed class FontProgram
@@ -112,9 +111,6 @@ public sealed class FontProgram
     /// <summary>The share of an em the descent is when the font does not say.</summary>
     private const float DefaultDescent = -0.2F;
 
-    /// <summary>The faces loaded so far.</summary>
-    private static readonly ConcurrentDictionary<(string Path, int FaceIndex), FontProgram> Loaded = new();
-
     /// <summary>The advance of every glyph, in font units.</summary>
     private readonly ushort[] _advances;
 
@@ -180,21 +176,15 @@ public sealed class FontProgram
     /// <summary>Gets a value indicating whether glyph locations are 32-bit.</summary>
     internal bool IsLongLoca { get; }
 
-    /// <summary>Loads a face, or returns it when it was loaded before.</summary>
+    /// <summary>Loads a face from its file.</summary>
     /// <param name="face">The face.</param>
     /// <returns>The program, or <see langword="null"/> when the file cannot be read as a font.</returns>
     public static FontProgram? Load(FontFace face)
     {
         ArgumentNullException.ThrowIfNull(face);
-        if (Loaded.TryGetValue((face.Path, face.FaceIndex), out var loaded))
-        {
-            return loaded;
-        }
-
         try
         {
-            var program = FromBytes(face, File.ReadAllBytes(face.Path));
-            return program is null ? null : Loaded.GetOrAdd((face.Path, face.FaceIndex), program);
+            return FromBytes(face, File.ReadAllBytes(face.Path));
         }
         catch (IOException)
         {

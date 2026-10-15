@@ -15,9 +15,16 @@ public class HyperPdfLinearizedSaveBenchmarks
     /// <summary>The source document shared by each benchmark operation.</summary>
     private PdfDocument _document = null!;
 
+    /// <summary>The source bytes reused when measuring a cold open and save.</summary>
+    private byte[] _bytes = [];
+
     /// <summary>Opens the representative document outside the measured save operation.</summary>
     [GlobalSetup]
-    public void Setup() => _document = PdfDocumentReader.Open(CarryTestDocuments.CreateBook(), null);
+    public void Setup()
+    {
+        _bytes = CarryTestDocuments.CreateBook();
+        _document = PdfDocumentReader.Open(_bytes, null);
+    }
 
     /// <summary>Releases the source document.</summary>
     [GlobalCleanup]
@@ -32,4 +39,22 @@ public class HyperPdfLinearizedSaveBenchmarks
     /// <returns>The saved file.</returns>
     [Benchmark]
     public byte[] Linearized() => PdfLinearizedWriter.Save(_document);
+
+    /// <summary>Opens a fresh document and writes its first classic compact file.</summary>
+    /// <returns>The saved file.</returns>
+    [Benchmark]
+    public byte[] ColdCompactClassic()
+    {
+        using var document = PdfDocumentReader.Open(_bytes, null);
+        return PdfCompactWriter.Save(document.Objects, PdfCompactOptions.Classic);
+    }
+
+    /// <summary>Opens a fresh document and writes its first linearized file.</summary>
+    /// <returns>The saved file.</returns>
+    [Benchmark]
+    public byte[] ColdLinearized()
+    {
+        using var document = PdfDocumentReader.Open(_bytes, null);
+        return PdfLinearizedWriter.Save(document);
+    }
 }

@@ -16,8 +16,15 @@ public static class PdfRichText
     public static string? GetPlainText(string xhtml)
     {
         ArgumentNullException.ThrowIfNull(xhtml);
-        var paragraphs = new List<RichParagraph>();
-        return RichTextReader.TryRead(xhtml, RichStyle.None, paragraphs) ? RichTextReader.ToPlainText(paragraphs) : null;
+        var text = default(RichText);
+        try
+        {
+            return RichTextReader.TryRead(xhtml, RichStyle.None, ref text, CancellationToken.None) ? text.ToPlainText() : null;
+        }
+        finally
+        {
+            text.Dispose();
+        }
     }
 
     /// <summary>
@@ -40,7 +47,15 @@ public static class PdfRichText
     {
         if (rich.AsStream() is { } stream)
         {
-            return GetPlainText(System.Text.Encoding.UTF8.GetString(stream.DecodeToArray()));
+            var text = default(RichText);
+            try
+            {
+                return FormRichText.TryReadStream(stream, RichStyle.None, ref text, CancellationToken.None) ? text.ToPlainText() : null;
+            }
+            finally
+            {
+                text.Dispose();
+            }
         }
 
         return rich.AsStringBytes() is { Length: > 0 } bytes ? GetPlainText(PdfText.Decode(bytes)) : null;

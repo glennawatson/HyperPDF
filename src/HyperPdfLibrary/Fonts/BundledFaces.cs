@@ -2,16 +2,19 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Fonts.Generation;
+using HyperPdfLibrary.Compat;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Fonts.Programs;
 
 namespace HyperPdfLibrary.Fonts;
 
 /// <summary>
-/// The substitute faces loaded on demand from an open font pack, so text in a font the PDF does not embed looks the same on every
-/// operating system and on systems with few fonts. Each face is a TrueType font cached on
-/// first use by documents that select the same drawing services.
+/// The substitute faces embedded in the library assembly, so text in a font the PDF does not embed looks the same on every
+/// operating system and on systems with few fonts, and never needs the network. Each face is a zlib-compressed TrueType
+/// font cut down to the code points the standard fonts and their usual substitutes need. Decoded bytes and parsed programs are
+/// owned by the selected font resource set, which makes its faces on first use.
 /// </summary>
 internal static class BundledFaces
 {
@@ -39,19 +42,6 @@ internal static class BundledFaces
         "NotoSansMath-Regular", "NotoSansSymbols2-Regular",
     ];
 
-    /// <summary>Generates the requested face before its first use.</summary>
-    /// <param name="resources">The selected font resources.</param>
-    /// <param name="family">The family.</param>
-    /// <param name="bold">Whether the face is bold.</param>
-    /// <param name="italic">Whether the face slants.</param>
-    /// <param name="cancellationToken">Cancels source I/O.</param>
-    /// <returns>A task completing when the face is cached.</returns>
-    internal static ValueTask EnsureAsync(PdfFontResources resources, BundledFamily family, bool bold, bool italic, CancellationToken cancellationToken)
-    {
-        var name = Names[SlotOf(family, bold, italic)];
-        return FontDataResources.EnsureAsync(resources.Data, "Faces", $"{name}.ttf", token => FontDataGeneration.FaceAsync(resources, name, token), cancellationToken);
-    }
-
     /// <summary>Gets a bundled face.</summary>
     /// <param name="resources">The selected font resources.</param>
     /// <param name="family">The family.</param>
@@ -61,11 +51,11 @@ internal static class BundledFaces
     internal static SubstituteFace? Get(PdfFontResources resources, BundledFamily family, bool bold, bool italic)
     {
         var slot = SlotOf(family, bold, italic);
-        var faces = resources.Faces.Faces;
-        return Volatile.Read(ref faces[slot]) ?? Load(faces, slot);
+        var state = resources.Faces;
+        return Volatile.Read(ref state.Faces[slot]) ?? Load(state, slot);
     }
 
-    /// <summary>Gets the resource name of a face, without its .ttf extension.</summary>
+    /// <summary>Gets the resource name of a face, without its extension.</summary>
     /// <param name="family">The family.</param>
     /// <param name="bold">Whether the face is bold; ignored for the symbol families.</param>
     /// <param name="italic">Whether the face slants; ignored for the symbol families.</param>
@@ -73,46 +63,121 @@ internal static class BundledFaces
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string ResourceName(BundledFamily family, bool bold, bool italic) => Names[SlotOf(family, bold, italic)];
 
-    /// <summary>Reads a face from its resource without caching it, as the first use of a face does.</summary>
+    /// <summary>Gets a face's TrueType font program, decoding it on first use.</summary>
+    /// <param name="resources">The selected font resources.</param>
     /// <param name="family">The family.</param>
     /// <param name="bold">Whether the face is bold; ignored for the symbol families.</param>
     /// <param name="italic">Whether the face slants; ignored for the symbol families.</param>
-    /// <returns>A new face, or <see langword="null"/> when the resource is missing or damaged.</returns>
+    /// <returns>The program, which callers must not change, or <see langword="null"/> when the resource is damaged.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static SubstituteFace? Read(BundledFamily family, bool bold, bool italic) => Read(SlotOf(family, bold, italic));
+    internal static byte[]? Program(PdfFontResources resources, BundledFamily family, bool bold, bool italic) => Program(resources.Faces, SlotOf(family, bold, italic));
+
+    /// <summary>Decodes a face's font program from its resource without caching it.</summary>
+    /// <param name="family">The family.</param>
+    /// <param name="bold">Whether the face is bold; ignored for the symbol families.</param>
+    /// <param name="italic">Whether the face slants; ignored for the symbol families.</param>
+    /// <returns>A new copy of the program, or <see langword="null"/> when the resource is damaged.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static byte[]? Decode(BundledFamily family, bool bold, bool italic) => Decode(SlotOf(family, bold, italic));
+
+    /// <summary>Reads and parses a face from its resource without caching the parsed face, as the first use of a face does.</summary>
+    /// <param name="resources">The selected font resources.</param>
+    /// <param name="family">The family.</param>
+    /// <param name="bold">Whether the face is bold; ignored for the symbol families.</param>
+    /// <param name="italic">Whether the face slants; ignored for the symbol families.</param>
+    /// <returns>A new face, or <see langword="null"/> when the resource is damaged.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SubstituteFace? Read(PdfFontResources resources, BundledFamily family, bool bold, bool italic) => Read(resources.Faces, SlotOf(family, bold, italic));
 
     /// <summary>Finds the slot of a face.</summary>
     /// <param name="family">The family.</param>
     /// <param name="bold">Whether the face is bold.</param>
     /// <param name="italic">Whether the face slants.</param>
     /// <returns>The slot.</returns>
-    private static int SlotOf(BundledFamily family, bool bold, bool italic) => family switch
+    internal static int SlotOf(BundledFamily family, bool bold, bool italic) => family switch
     {
         BundledFamily.Symbol => SymbolSlot,
         BundledFamily.Dingbats => DingbatsSlot,
         _ => ((int)family * StylesPerFamily) + (bold ? BoldBit : 0) + (italic ? ItalicBit : 0),
     };
 
-    /// <summary>Reads a face from its resource and publishes it.</summary>
-    /// <param name="faces">The selected service's face slots.</param>
+    /// <summary>Makes a face from the shared parsed program and publishes it.</summary>
+    /// <param name="state">The selected service's face state.</param>
     /// <param name="slot">The slot.</param>
     /// <returns>The face, or <see langword="null"/>.</returns>
-    private static SubstituteFace? Load(SubstituteFace?[] faces, int slot) =>
-        Read(slot) is { } face ? Interlocked.CompareExchange(ref faces[slot], face, null) ?? face : null;
+    private static SubstituteFace? Load(BundledFaceState state, int slot)
+    {
+        if (Parsed(state, slot) is not { } program)
+        {
+            return null;
+        }
 
-    /// <summary>Reads and parses a face from its resource.</summary>
+        var face = new SubstituteFace(program.Program, Names[slot], program.Maps);
+        return Interlocked.CompareExchange(ref state.Faces[slot], face, null) ?? face;
+    }
+
+    /// <summary>
+    /// Gets the parsed font program of a slot, parsing it on first use. A parsed program never changes and builds its glyph
+    /// name index once, so documents using these resources share it, and the code maps built for it, instead of parsing it and
+    /// sorting its names again.
+    /// </summary>
+    /// <param name="state">The selected service's face state.</param>
+    /// <param name="slot">The slot.</param>
+    /// <returns>The program, or <see langword="null"/>.</returns>
+    private static BundledProgram? Parsed(BundledFaceState state, int slot)
+    {
+        var cached = Volatile.Read(ref state.ParsedPrograms[slot]);
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        if (Program(state, slot) is not { } data || !TrueTypeProgram.TryParse(data, out var program))
+        {
+            return null;
+        }
+
+        var created = new BundledProgram(program, new());
+        return Interlocked.CompareExchange(ref state.ParsedPrograms[slot], created, null) ?? created;
+    }
+
+    /// <summary>Parses a face from its shared font program.</summary>
+    /// <param name="state">The selected service's face state.</param>
     /// <param name="slot">The slot.</param>
     /// <returns>A new face, or <see langword="null"/>.</returns>
-    private static SubstituteFace? Read(int slot)
+    private static SubstituteFace? Read(BundledFaceState state, int slot) =>
+        Program(state, slot) is { } data && TrueTypeProgram.TryParse(data, out var program) ? new SubstituteFace(program, Names[slot], new()) : null;
+
+    /// <summary>Gets the shared font program of a slot, decoding it on first use.</summary>
+    /// <param name="state">The selected service's face state.</param>
+    /// <param name="slot">The slot.</param>
+    /// <returns>The program, or <see langword="null"/>.</returns>
+    private static byte[]? Program(BundledFaceState state, int slot) =>
+        Volatile.Read(ref state.Decoded[slot]) ?? (Decode(slot) is { } decoded ? Interlocked.CompareExchange(ref state.Decoded[slot], decoded, null) ?? decoded : null);
+
+    /// <summary>Decodes a slot's font program from the assembly resource.</summary>
+    /// <param name="slot">The slot.</param>
+    /// <returns>A new copy of the program, or <see langword="null"/> when the resource is missing or damaged.</returns>
+    private static byte[]? Decode(int slot)
     {
-        using var stream = FontDataResources.Open("Faces", $"{Names[slot]}.ttf");
+        using var stream = typeof(BundledFaces).Assembly.GetManifestResourceStream($"HyperPdfLibrary.Faces.{Names[slot]}.ttf.z");
         if (stream is null)
         {
             return null;
         }
 
-        var data = new byte[(int)stream.Length];
-        stream.ReadExactly(data);
-        return TrueTypeProgram.TryParse(data, out var program) ? new SubstituteFace(program, Names[slot]) : null;
+        var length = (int)stream.Length;
+        var packed = ArrayPool<byte>.Shared.Rent(length);
+        var output = new PooledBuffer(0);
+        try
+        {
+            stream.ReadExactly(packed, 0, length);
+            return ZLibCodec.Decompress(packed.AsSpan(0, length), false, ref output) ? output.ToArray() : null;
+        }
+        finally
+        {
+            output.Dispose();
+            ArrayPool<byte>.Shared.Return(packed);
+        }
     }
 }

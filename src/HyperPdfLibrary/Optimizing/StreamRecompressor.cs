@@ -35,9 +35,10 @@ internal static class StreamRecompressor
 
     /// <summary>Recompresses a stream when that makes it smaller.</summary>
     /// <param name="stream">The stream.</param>
+    /// <param name="scratchPools">The document or registered service's compression owner.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The smaller stream, or <see langword="null"/> when nothing was gained.</returns>
-    internal static PdfStream? TryRecompress(PdfStream stream, CancellationToken cancellationToken)
+    internal static PdfStream? TryRecompress(PdfStream stream, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var dictionary = stream.Dictionary;
@@ -51,23 +52,31 @@ internal static class StreamRecompressor
         var plain = dictionary.GetRaw(KnownName.DecodeParms).IsNull;
         if (count == 0)
         {
-            return plain ? Compress(stream, dictionary, default, false, cancellationToken) : null;
+            return plain ? Compress(stream, dictionary, default, false, scratchPools, cancellationToken) : null;
         }
 
         var first = ImageFilters.At(filters, 0);
         if (count == 1 && IsPredictable(first))
         {
-            return RecompressSingle(stream, first, Parameters(dictionary), cancellationToken);
+            return RecompressSingle(stream, first, Parameters(dictionary), scratchPools, cancellationToken);
         }
 
-        return plain && IsByteChain(filters, count) ? Compress(stream, dictionary, filters, true, cancellationToken) : null;
+        return plain && IsByteChain(filters, count) ? Compress(stream, dictionary, filters, true, scratchPools, cancellationToken) : null;
     }
 
     /// <summary>Compresses data at the best level.</summary>
     /// <param name="data">The data.</param>
     /// <param name="output">Receives the compressed bytes.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Deflate(ReadOnlySpan<byte> data, ref PooledBuffer output) => ZLibSmallest.Compress(data, ref output);
+    internal static void Deflate(ReadOnlySpan<byte> data, ref PooledBuffer output) => ZLibCodec.Compress(data, PdfCompressionLevel.Smallest, ref output);
+
+    /// <summary>Compresses data with state owned by the document or registered service.</summary>
+    /// <param name="data">The bytes.</param>
+    /// <param name="output">Receives the compressed bytes.</param>
+    /// <param name="scratchPools">The compression owner.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Deflate(ReadOnlySpan<byte> data, ref PooledBuffer output, ScratchPools scratchPools) =>
+        ZLibCodec.Compress(data, PdfCompressionLevel.Smallest, ref output, scratchPools);
 
     /// <summary>Determines whether a filter takes predictor parameters: Flate or LZW.</summary>
     /// <param name="filter">The filter.</param>
@@ -104,9 +113,10 @@ internal static class StreamRecompressor
     /// <param name="stream">The stream.</param>
     /// <param name="filter">The filter.</param>
     /// <param name="parameters">Its parameters, or <see langword="null"/>.</param>
+    /// <param name="scratchPools">The compression owner.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The smaller stream, or <see langword="null"/>.</returns>
-    private static PdfStream? RecompressSingle(PdfStream stream, KnownName filter, PdfDictionary? parameters, CancellationToken cancellationToken)
+    private static PdfStream? RecompressSingle(PdfStream stream, KnownName filter, PdfDictionary? parameters, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         using var raw = stream.LeaseRawData();
         var plain = PdfObjectWriter.PlainData(stream, raw.Span);
@@ -116,7 +126,7 @@ internal static class StreamRecompressor
         {
             Inflate(plain, filter, parameters, ref inflated, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            Deflate(inflated.WrittenSpan, ref deflated);
+            Deflate(inflated.WrittenSpan, ref deflated, scratchPools);
             cancellationToken.ThrowIfCancellationRequested();
             return deflated.Length < stream.RawLength ? Finish(FlateDictionary(stream.Dictionary, parameters), deflated.WrittenSpan) : null;
         }
@@ -167,9 +177,10 @@ internal static class StreamRecompressor
     /// <param name="dictionary">The stream dictionary.</param>
     /// <param name="filters">The filters to decode, or a null value for none.</param>
     /// <param name="decode">Whether to decode the filters first.</param>
+    /// <param name="scratchPools">The compression owner.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The smaller stream, or <see langword="null"/>.</returns>
-    private static PdfStream? Compress(PdfStream stream, PdfDictionary dictionary, PdfValue filters, bool decode, CancellationToken cancellationToken)
+    private static PdfStream? Compress(PdfStream stream, PdfDictionary dictionary, PdfValue filters, bool decode, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         using var raw = stream.LeaseRawData();
         var plain = PdfObjectWriter.PlainData(stream, raw.Span);
@@ -185,7 +196,7 @@ internal static class StreamRecompressor
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            Deflate(data, ref deflated);
+            Deflate(data, ref deflated, scratchPools);
             cancellationToken.ThrowIfCancellationRequested();
             if (deflated.Length >= stream.RawLength)
             {

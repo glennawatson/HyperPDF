@@ -6,6 +6,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using HyperPdfLibrary.Accessibility;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
@@ -35,9 +36,6 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <summary>Idle recorders, kept with the lists and text buffer they grew so recording another page does not grow them again.</summary>
     private static readonly ReusableSlots<MarkedContentRecorder> Idle = new();
 
-    /// <summary>Stands in for the graphics of a page that paints no path or image; shared because pages only read it.</summary>
-    private static readonly Dictionary<int, PdfViewerRect> NoGraphics = [];
-
     /// <summary>The page's marked content operators in running order.</summary>
     private readonly List<ScannedMark> _scanned = [];
 
@@ -47,14 +45,26 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <summary>The glyphs recorded.</summary>
     private readonly List<PdfMarkedGlyph> _glyphs = [];
 
+    /// <summary>The images recorded.</summary>
+    private readonly List<PdfMarkedImage> _images = [];
+
+    /// <summary>The straight lines recorded.</summary>
+    private readonly List<LayoutRuling> _rulings = [];
+
     /// <summary>The glyphs' text, back to back.</summary>
     private readonly StringBuilder _text = new();
 
+    /// <summary>Where each marked content id's bounds sit in <see cref="_graphicIds"/>; kept with the recorder and cleared for each page.</summary>
+    private readonly Dictionary<int, int> _graphicIndex = [];
+
+    /// <summary>The marked content ids that paint paths or images, in the order first painted.</summary>
+    private readonly List<int> _graphicIds = [];
+
+    /// <summary>The bounds of each id in <see cref="_graphicIds"/>.</summary>
+    private readonly List<PdfViewerRect> _graphicBounds = [];
+
     /// <summary>The document's name table; null while the recorder sits idle.</summary>
     private PdfNameTable _names = null!;
-
-    /// <summary>The bounds of each marked content id's paths and images; made with the first one, then handed to the page.</summary>
-    private Dictionary<int, PdfViewerRect>? _graphics;
 
     /// <summary>The next scanned operator to match.</summary>
     private int _next;
@@ -68,8 +78,17 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <summary>Whether the page draws an image.</summary>
     private bool _hasImages;
 
+    /// <summary>The paths and images painted outside marked content with an id and outside artifacts.</summary>
+    private int _untaggedGraphics;
+
+    /// <summary>The marked content property lists whose <c>/Lang</c> is not a language identifier.</summary>
+    private int _invalidLanguages;
+
     /// <inheritdoc/>
     public bool RetainsPaths => false;
+
+    /// <inheritdoc/>
+    public bool ReadsImagePixels => false;
 
     /// <inheritdoc/>
     public void Save()
@@ -83,11 +102,18 @@ internal sealed class MarkedContentRecorder : IContentDevice
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Fill(PdfPath path, bool evenOdd, ref GraphicsState state) => AddGraphic(path.Bounds, state.Ctm);
+    public void Fill(PdfPath path, bool evenOdd, ref GraphicsState state)
+    {
+        AddGraphic(path.Bounds, state.Ctm);
+        RulingCollector.AddFilled(path, state.Ctm, _rulings);
+    }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Stroke(PdfPath path, ref GraphicsState state) => AddGraphic(path.Bounds, state.Ctm);
+    public void Stroke(PdfPath path, ref GraphicsState state)
+    {
+        AddGraphic(path.Bounds, state.Ctm);
+        RulingCollector.AddStroked(path, state.Ctm, state.LineWidth, _rulings);
+    }
 
     /// <inheritdoc/>
     public void Clip(PdfPath path, bool evenOdd, Matrix3x2 ctm)
@@ -95,10 +121,15 @@ internal sealed class MarkedContentRecorder : IContentDevice
     }
 
     /// <inheritdoc/>
-    public void DrawImage(IPdfRenderImage image, bool isMask, bool smooth, ref GraphicsState state)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void DrawImage(IPdfRenderImage image, bool isMask, bool smooth, ref GraphicsState state) => DrawImageArea(ref state);
+
+    /// <inheritdoc/>
+    public void DrawImageArea(ref GraphicsState state)
     {
         _hasImages = true;
-        AddGraphic(new(0, 0, 1, 1), state.Ctm);
+        _images.Add(new(PdfViewerRect.Transform(0, 0, 1, 1, state.Ctm), _mcid, _artifact));
+        AddGraphic(new(0, 0, 1, 1), state.Ctm, false);
     }
 
     /// <inheritdoc/>
@@ -135,6 +166,11 @@ internal sealed class MarkedContentRecorder : IContentDevice
         var scanned = Match(tag);
         var mcid = properties?.GetInt32(KnownName.MCID, -1) ?? scanned.Mcid;
         _frames.Add(new(mcid, IsArtifactTag(tag)));
+        if ((properties ?? scanned.Properties)?.GetText(KnownName.Lang) is { } language && !AccessibilityLanguageTags.IsValid(language))
+        {
+            _invalidLanguages++;
+        }
+
         Refresh();
     }
 
@@ -164,14 +200,23 @@ internal sealed class MarkedContentRecorder : IContentDevice
         device._names = document.Objects.Names;
         try
         {
-            var images = MarkedContentScanner.Scan(document, page, device._scanned);
+            // The scan and the interpreter read the same decoded content, so it is decoded once (or taken from the check's shared scope).
+            using var content = PdfPageContentScope.Lease(document, page, CancellationToken.None);
+            var images = MarkedContentScanner.Scan(document, page, content.Content, device._scanned, out var untaggedImages);
             using (var interpreter = ContentInterpreter.Rent(PdfDocumentRendering.GetRenderCache(document), device, 0))
             {
-                ContentExecution.RunPage(interpreter, page);
+                ContentExecution.RunPage(interpreter, page, content.Content);
             }
 
             // The scan sees images the interpreter cannot decode, such as JBIG2 or JPEG 2000 scans.
-            return new(page.Index, device._text.ToString(), device._glyphs.ToArray(), device._graphics ?? NoGraphics, images || device._hasImages);
+            var untagged = device._untaggedGraphics + untaggedImages;
+            var drawing = new PageDrawing(
+                device._images.Count == 0 ? [] : device._images.ToArray(),
+                device._rulings.Count == 0 ? [] : device._rulings.ToArray(),
+                page.Width,
+                page.Height);
+            var counts = new PageAccessibilityCounts(untagged, device._invalidLanguages);
+            return new(page.Index, device._text.ToString(), device._glyphs.ToArray(), device.TakeGraphics(), images || device._hasImages, drawing, counts);
         }
         finally
         {
@@ -223,16 +268,51 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <summary>Adds what a path or image covers to the marked content id in force.</summary>
     /// <param name = "bounds">The bounds in user space.</param>
     /// <param name = "ctm">The matrix from user space to viewer space.</param>
-    private void AddGraphic(PdfRect bounds, Matrix3x2 ctm)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void AddGraphic(PdfRect bounds, Matrix3x2 ctm) => AddGraphic(bounds, ctm, true);
+
+    /// <summary>Adds what a path or image covers to the marked content id in force.</summary>
+    /// <param name = "bounds">The bounds in user space.</param>
+    /// <param name = "ctm">The matrix from user space to viewer space.</param>
+    /// <param name = "countsUntagged">Whether painting outside marked content is counted here; images are counted by the scan.</param>
+    private void AddGraphic(PdfRect bounds, Matrix3x2 ctm, bool countsUntagged)
     {
-        if (_mcid < 0 || _artifact)
+        if (_artifact)
         {
             return;
         }
 
-        _graphics ??= [];
-        ref var covered = ref CollectionsMarshal.GetValueRefOrAddDefault(_graphics, _mcid, out _);
+        if (_mcid < 0)
+        {
+            _untaggedGraphics += countsUntagged ? 1 : 0;
+            return;
+        }
+
+        ref var slot = ref CollectionsMarshal.GetValueRefOrAddDefault(_graphicIndex, _mcid, out var exists);
+        if (!exists)
+        {
+            slot = _graphicIds.Count;
+            _graphicIds.Add(_mcid);
+            _graphicBounds.Add(default);
+        }
+
+        ref var covered = ref CollectionsMarshal.AsSpan(_graphicBounds)[slot];
         covered = covered.Union(PdfViewerRect.Transform(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom, ctm));
+    }
+
+    /// <summary>Makes the bounds of each marked content id's paths and images, sorted by id, for the page.</summary>
+    /// <returns>The bounds; the shared empty value when no id painted a path or image.</returns>
+    private McidGraphics TakeGraphics()
+    {
+        if (_graphicIds.Count == 0)
+        {
+            return McidGraphics.Empty;
+        }
+
+        var ids = _graphicIds.ToArray();
+        var bounds = _graphicBounds.ToArray();
+        Array.Sort(ids, bounds);
+        return new(ids, bounds);
     }
 
     /// <summary>Forgets the page just recorded and keeps the recorder, with its grown buffers, for the next one.</summary>
@@ -241,16 +321,22 @@ internal sealed class MarkedContentRecorder : IContentDevice
         _scanned.Clear();
         _frames.Clear();
         _glyphs.Clear();
+        _images.Clear();
+        _rulings.Clear();
         _ = _text.Clear();
-        _graphics = null;
+        _graphicIndex.Clear();
+        _graphicIds.Clear();
+        _graphicBounds.Clear();
         _names = null!;
         _next = 0;
         _mcid = -1;
         _artifact = false;
         _hasImages = false;
+        _untaggedGraphics = 0;
+        _invalidLanguages = 0;
 
         // A recorder that grew for an enormous page is dropped instead of pinning that memory.
-        if (_text.Capacity <= MaxKeptCapacity && _glyphs.Capacity <= MaxKeptCapacity)
+        if (_text.Capacity <= MaxKeptCapacity && _glyphs.Capacity <= MaxKeptCapacity && _graphicIds.Capacity <= MaxKeptCapacity)
         {
             _ = Idle.Offer(this);
         }

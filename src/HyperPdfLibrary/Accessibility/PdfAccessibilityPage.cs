@@ -12,5 +12,6 @@ namespace HyperPdfLibrary.Accessibility;
 /// <param name="TabsFollowStructure">Whether the page's <c>/Tabs</c> is <c>S</c>.</param>
 /// <param name="UntaggedGlyphs">The visible glyphs drawn outside marked content and outside artifacts.</param>
 /// <param name="ArtifactGlyphs">The visible glyphs drawn as artifacts.</param>
-[DebuggerDisplay("PdfAccessibilityPage: page {PageIndex}, untagged {UntaggedGlyphs}, artifacts {ArtifactGlyphs}")]
-public sealed record PdfAccessibilityPage(int PageIndex, int AnnotationCount, bool TabsFollowStructure, int UntaggedGlyphs, int ArtifactGlyphs);
+/// <param name="UntaggedGraphics">The paths and images painted outside marked content and outside artifacts.</param>
+[DebuggerDisplay("PdfAccessibilityPage: page {PageIndex}, untagged {UntaggedGlyphs} glyphs and {UntaggedGraphics} graphics, artifacts {ArtifactGlyphs}")]
+public sealed record PdfAccessibilityPage(int PageIndex, int AnnotationCount, bool TabsFollowStructure, int UntaggedGlyphs, int ArtifactGlyphs, int UntaggedGraphics);

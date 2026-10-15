@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Diagnostics;
 using HyperPdf.Core.Speech;
 
 namespace HyperPdf.Http.Speech;
@@ -13,27 +14,17 @@ namespace HyperPdf.Http.Speech;
 /// not collide. Each download is checked against its SHA-256 before it is kept, and the hash is recorded beside it;
 /// a file already present is kept while its size and recorded hash still match the release.
 /// </summary>
-public static class SpeechModelDownloader
+[DebuggerDisplay("Speech model downloads with owned clients")]
+public sealed class SpeechModelDownloader : IDisposable
 {
-    /// <summary>Gets the files not yet downloaded, or downloaded from an older voice release.</summary>
-    /// <param name="files">The files.</param>
-    /// <param name="directory">The voice folder.</param>
-    /// <returns>The missing files.</returns>
-    public static List<SpeechModelFile> Missing(IReadOnlyList<SpeechModelFile> files, string directory)
-    {
-        ArgumentNullException.ThrowIfNull(files);
-        ArgumentException.ThrowIfNullOrEmpty(directory);
-        var missing = new List<SpeechModelFile>(files.Count);
-        foreach (var file in files)
-        {
-            if (!VerifiedDownload.IsCurrent(Path.Combine(directory, file.LocalName), file.Bytes, file.Sha256))
-            {
-                missing.Add(file);
-            }
-        }
+    /// <summary>The files checked by this service.</summary>
+    private readonly DownloadFiles _files = new();
 
-        return missing;
-    }
+    /// <summary>The HTTP clients owned by this service.</summary>
+    private readonly DownloadClients _clients = new();
+
+    /// <summary>The reusable hashes owned by this service.</summary>
+    private readonly DownloadHashes _hashes = new();
 
     /// <summary>Gets about how many bytes a set of files needs.</summary>
     /// <param name="files">The files.</param>
@@ -50,6 +41,22 @@ public static class SpeechModelDownloader
         return total;
     }
 
+    /// <summary>Gets the files not yet downloaded, or downloaded from an older voice release.</summary>
+    /// <param name="files">The files.</param>
+    /// <param name="directory">The voice folder.</param>
+    /// <returns>The missing files.</returns>
+    public List<SpeechModelFile> Missing(IReadOnlyList<SpeechModelFile> files, string directory)
+    {
+        using var snapshot = FindMissing(files, directory);
+        var missing = new List<SpeechModelFile>(snapshot.Count);
+        for (var i = 0; i < snapshot.Count; i++)
+        {
+            missing.Add(snapshot.Items[i]);
+        }
+
+        return missing;
+    }
+
     /// <summary>Downloads the missing files.</summary>
     /// <param name="files">The files.</param>
     /// <param name="directory">The voice folder.</param>
@@ -58,18 +65,32 @@ public static class SpeechModelDownloader
     /// <returns>A task.</returns>
     /// <exception cref="HttpRequestException">Thrown when a server fails a request.</exception>
     /// <exception cref="InvalidDataException">Thrown when a file's name would place it outside the voice folder, or a download does not match its SHA-256.</exception>
-    public static async Task DownloadAsync(IReadOnlyList<SpeechModelFile> files, string directory, IProgress<double> progress, CancellationToken cancellationToken)
+    public async Task DownloadAsync(IReadOnlyList<SpeechModelFile> files, string directory, IProgress<double> progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(progress);
-        var missing = Missing(files, directory);
-        var counter = new ByteProgress(TotalBytes(missing), progress);
+        using var missing = FindMissing(files, directory);
+        if (missing.Count == 0)
+        {
+            progress.Report(1D);
+            return;
+        }
+
+        var total = missing.Bytes;
+        var done = 0L;
         var buffer = ArrayPool<byte>.Shared.Rent(VerifiedDownload.BufferSize);
         try
         {
-            foreach (var file in missing)
+            for (var i = 0; i < missing.Count; i++)
             {
-                var target = VerifiedDownload.TargetIn(directory, file.LocalName);
-                await VerifiedDownload.DownloadAsync(RefitClients.Download, file.Source, target, file.Sha256, buffer, counter, cancellationToken).ConfigureAwait(false);
+                var file = missing.Items[i];
+                done += await VerifiedDownload.DownloadAsync(
+                    _clients.For(file.Source),
+                    RefitClients.RequestPathOf(file.Source),
+                    _files.For(directory, file.LocalName),
+                    file.Sha256,
+                    new(buffer, _hashes),
+                    new(progress, done, total),
+                    cancellationToken).ConfigureAwait(false);
             }
         }
         finally
@@ -77,6 +98,53 @@ public static class SpeechModelDownloader
             ArrayPool<byte>.Shared.Return(buffer);
         }
 
-        counter.Complete();
+        new DownloadProgress(progress, done, total).Complete();
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        _clients.Dispose();
+        _hashes.Dispose();
+    }
+
+    /// <summary>Snapshots missing voice files without allocating a temporary list.</summary>
+    /// <param name="files">The chosen files.</param>
+    /// <param name="directory">The download folder.</param>
+    /// <returns>The snapshot; the caller disposes it.</returns>
+    private DownloadBatch<SpeechModelFile> FindMissing(IReadOnlyList<SpeechModelFile> files, string directory)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        ArgumentException.ThrowIfNullOrEmpty(directory);
+        if (files.Count == 0)
+        {
+            return new([], 0, 0);
+        }
+
+        var items = ArrayPool<SpeechModelFile>.Shared.Rent(files.Count);
+        try
+        {
+            var count = 0;
+            var bytes = 0L;
+            for (var i = 0; i < files.Count; i++)
+            {
+                var file = files[i];
+                if (_files.For(directory, file.LocalName).IsCurrent(file.Bytes, file.Sha256))
+                {
+                    continue;
+                }
+
+                items[count] = file;
+                count++;
+                bytes += file.Bytes;
+            }
+
+            return new(items, count, bytes);
+        }
+        catch
+        {
+            ArrayPool<SpeechModelFile>.Shared.Return(items, true);
+            throw;
+        }
     }
 }

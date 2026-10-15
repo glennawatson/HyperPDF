@@ -19,6 +19,12 @@ public sealed record ReadingBlock(ReadingBlockKind Kind, string Text, int[] Char
     /// <summary>Gets the heading level, 1 to 6, for a heading; zero otherwise.</summary>
     public int Level { get; init; }
 
+    /// <summary>Gets the table row of a table cell, from 1; zero otherwise.</summary>
+    public int Row { get; init; }
+
+    /// <summary>Gets the table column of a table cell, from 1; zero otherwise.</summary>
+    public int Column { get; init; }
+
     /// <summary>Gets a value indicating whether the block comes from the document's own structure tags rather than its layout.</summary>
     public bool IsTagged { get; init; }
 }

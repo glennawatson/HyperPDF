@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
 
 namespace HyperPdfLibrary.Tests.Graphics.Jbig2.Encoding;
@@ -49,6 +50,48 @@ public sealed class Jbig2SharedEncoderTests
             await Assert.That(decoded).IsNotNull();
             await Assert.That(decoded!.AsSpan().SequenceEqual(rows[i])).IsTrue().Because($"image {i} mode {mode}");
         }
+    }
+
+    /// <summary>Reusing output buffers replaces both the streams and their page lengths.</summary>
+    /// <param name="mode">The symbol mode.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(Jbig2EncodeMode.SymbolText)]
+    [Arguments(Jbig2EncodeMode.SymbolTextRefined)]
+    [Arguments(Jbig2EncodeMode.Smallest)]
+    [Arguments(Jbig2EncodeMode.LossySymbolMerging)]
+    public async Task ReusedBuffersMatchOwnedOutput(Jbig2EncodeMode mode, CancellationToken cancellationToken)
+    {
+        var inputs = Inputs(Images(true));
+        var options = new Jbig2EncodeOptions { Mode = mode };
+        var expected = Jbig2Encoder.EncodeShared(inputs, options, cancellationToken);
+        var globals = default(PooledBuffer);
+        var data = default(PooledBuffer);
+        var lengths = new int[inputs.Length];
+        var matches = true;
+        try
+        {
+            _ = Jbig2Encoder.EncodeShared(inputs, options, ref globals, ref data, lengths, cancellationToken);
+            var actualMode = Jbig2Encoder.EncodeShared(inputs, options, ref globals, ref data, lengths, cancellationToken);
+            matches &= actualMode == expected.Mode;
+            matches &= globals.WrittenSpan.SequenceEqual(expected.Globals);
+            var offset = 0;
+            for (var i = 0; i < inputs.Length; i++)
+            {
+                matches &= data.WrittenSpan.Slice(offset, lengths[i]).SequenceEqual(expected.Pages[i]);
+                offset += lengths[i];
+            }
+
+            matches &= offset == data.Length;
+        }
+        finally
+        {
+            globals.Dispose();
+            data.Dispose();
+        }
+
+        await Assert.That(matches).IsTrue();
     }
 
     /// <summary>One shared dictionary costs less than a dictionary in every image.</summary>

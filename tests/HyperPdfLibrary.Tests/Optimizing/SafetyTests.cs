@@ -6,6 +6,7 @@ using System.Text;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Optimizing;
 using HyperPdfLibrary.Structure.Tagged;
@@ -165,6 +166,46 @@ public sealed class SafetyTests
         using var document = PdfDocumentReader.Open(TestPdf.Create(PageCount), null);
         await using var output = new MemoryStream();
         await Assert.That(() => PdfOptimizer.Optimize(document, output, PdfOptimizeOptions.Balanced, null, cancellation.Token)).Throws<OperationCanceledException>();
+    }
+
+    /// <summary>Working copies preserve current information before and after edits, including encrypted sources.</summary>
+    /// <param name="encrypted">Whether the source is encrypted.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task WorkingCopyKeepsInformationAndEdits(bool encrypted)
+    {
+        var bytes = TestPdf.Create(1);
+        using var document = PdfDocumentReader.Open(encrypted ? WritingTestDocuments.Encrypt(bytes) : bytes, null);
+        using var pristine = PdfDocumentOptimizing.OpenWorkingCopy(document);
+        await Assert.That(PdfDocumentMetadata.GetInfo(pristine).Title).IsEqualTo(TestPdf.Title);
+        await Assert.That(pristine.IsEncrypted).IsEqualTo(encrypted);
+
+        const string changed = "Changed";
+        PdfDocumentMetadataEditing.SetMetadata(document, new() { Title = changed });
+        using var edited = PdfDocumentOptimizing.OpenWorkingCopy(document);
+        await Assert.That(PdfDocumentMetadata.GetInfo(edited).Title).IsEqualTo(changed);
+    }
+
+    /// <summary>A change confined to the trailer remains in the optimizer's working copy.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task WorkingCopyKeepsTrailerOnlyEdits()
+    {
+        const string changed = "Trailer title";
+        using var document = PdfDocumentReader.Open(TestPdf.Create(1), null);
+        var info = new PdfDictionary(document.Objects);
+        info.Set(KnownName.Title, PdfValue.FromString("Trailer title"u8.ToArray()));
+        using (var transaction = PdfDocumentEditing.BeginEdit(document, "Information"))
+        {
+            transaction.SetTrailerEntry(KnownName.Info, PdfValue.FromDictionary(info));
+            transaction.Commit();
+        }
+
+        await Assert.That(StoreEditing.HasEdits(document.Objects)).IsFalse();
+        using var copy = PdfDocumentOptimizing.OpenWorkingCopy(document);
+        await Assert.That(PdfDocumentMetadata.GetInfo(copy).Title).IsEqualTo(changed);
     }
 
     /// <summary>The source document is never changed.</summary>

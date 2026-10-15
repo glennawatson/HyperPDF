@@ -54,6 +54,7 @@ internal static class FocusAccessibility
     {
         ReadingBlockKind.Heading when describeStructure => string.Create(CultureInfo.InvariantCulture, $"Heading level {block.Level}"),
         ReadingBlockKind.ListItem when describeStructure && block.ListSize > 0 => string.Create(CultureInfo.InvariantCulture, $"List item {block.PositionInList} of {block.ListSize}"),
+        ReadingBlockKind.TableCell when describeStructure && block.Row > 0 => string.Create(CultureInfo.InvariantCulture, $"Table cell, row {block.Row}, column {block.Column}"),
         ReadingBlockKind.TableCell when describeStructure => "Table cell",
         ReadingBlockKind.Figure => "Figure",
         ReadingBlockKind.Caption => "Caption",

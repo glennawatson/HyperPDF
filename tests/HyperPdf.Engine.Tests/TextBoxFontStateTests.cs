@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.Core.Text.Fonts;
 using HyperPdf.TestAssets;
 
 namespace HyperPdf.Engine.Tests;
@@ -31,5 +32,16 @@ public sealed class TextBoxFontStateTests
         var separateShaper = StandardTextShaper.For(separate.Editor.FontState, Helvetica, false, false);
         await Assert.That(ReferenceEquals(sharedShaper, reusedShaper)).IsTrue();
         await Assert.That(ReferenceEquals(sharedShaper, separateShaper)).IsFalse();
+    }
+
+    /// <summary>An engine uses the host's registered catalog for its documents.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task FontCatalogFollowsEngineRegistration()
+    {
+        var catalog = new Lazy<FontCatalog>(static () => FontCatalog.Empty);
+        using var document = new HyperPdfTestDocument(TestPdf.Create(1), HyperPdfEngine.WithFontCatalog(catalog));
+
+        await Assert.That(HyperPdfAnnotationReading.GetFontCatalog(document.Editor)).IsSameReferenceAs(FontCatalog.Empty);
     }
 }

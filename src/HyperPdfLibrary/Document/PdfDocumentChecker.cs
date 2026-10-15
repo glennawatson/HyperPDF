@@ -12,7 +12,8 @@ namespace HyperPdfLibrary.Document;
 
 /// <summary>
 /// Runs a whole-document check in steps, so a caller can pause between them: one object, the page tree, or one page's
-/// content. Each fault carries the object number and, where there is one, the offset.
+/// content. Each fault carries the object number and, where there is one, the offset. The document keeps the checker of
+/// the last check that ended, so checks run one after another make it once.
 /// </summary>
 [DebuggerDisplay("PdfDocumentChecker: {_faults.Count} faults")]
 internal sealed class PdfDocumentChecker
@@ -23,11 +24,17 @@ internal sealed class PdfDocumentChecker
     /// <summary>The document being checked.</summary>
     private readonly PdfDocument _document;
 
+    /// <summary>The callback that adds a diagnostic to <see cref="_faults"/>.</summary>
+    private readonly Action<PdfDiagnostic> _sink;
+
     /// <summary>The checks to run.</summary>
-    private readonly PdfCheckOptions _options;
+    private PdfCheckOptions _options;
 
     /// <summary>The context that receives the streams' diagnostics and the cancellation token.</summary>
-    private readonly PdfOpenContext _context;
+    private PdfOpenContext _context;
+
+    /// <summary>The context made for a check that cannot be cancelled, kept for the next one.</summary>
+    private PdfOpenContext? _quietContext;
 
     /// <summary>The objects read.</summary>
     private int _objects;
@@ -42,11 +49,12 @@ internal sealed class PdfDocumentChecker
     /// <param name = "document">The document.</param>
     /// <param name = "options">The checks to run.</param>
     /// <param name = "cancellationToken">The token that stops the check.</param>
-    internal PdfDocumentChecker(PdfDocument document, PdfCheckOptions options, CancellationToken cancellationToken)
+    private PdfDocumentChecker(PdfDocument document, PdfCheckOptions options, CancellationToken cancellationToken)
     {
         _document = document;
+        _sink = _faults.Add;
         _options = options;
-        _context = new(_faults.Add, document.DrawingServices, cancellationToken);
+        _context = CreateContext(cancellationToken);
     }
 
     /// <summary>Gets one more than the highest object number.</summary>
@@ -54,6 +62,23 @@ internal sealed class PdfDocumentChecker
 
     /// <summary>Gets the number of pages.</summary>
     internal int PageCount => _document.PageCount;
+
+    /// <summary>Takes the document's spare checker, or makes one, ready for a check.</summary>
+    /// <param name = "document">The document.</param>
+    /// <param name = "options">The checks to run.</param>
+    /// <param name = "cancellationToken">The token that stops the check.</param>
+    /// <returns>The checker, which only the caller uses until its report is built.</returns>
+    internal static PdfDocumentChecker Rent(PdfDocument document, PdfCheckOptions options, CancellationToken cancellationToken)
+    {
+        if (Interlocked.Exchange(ref document.State.Checker, null) is not { } checker)
+        {
+            return new(document, options, cancellationToken);
+        }
+
+        checker._options = options;
+        checker._context = checker.CreateContext(cancellationToken);
+        return checker;
+    }
 
     /// <summary>Runs every step.</summary>
     /// <returns>The report.</returns>
@@ -132,19 +157,22 @@ internal sealed class PdfDocumentChecker
     /// <returns>The report.</returns>
     internal PdfCheckReport Finish()
     {
-        var report = new List<PdfDiagnostic>();
-        var seen = new HashSet<FaultKey>();
-        foreach (var fault in StoreRepairs.GetDiagnostics(_document.Objects))
+        var repairs = StoreRepairs.GetDiagnostics(_document.Objects);
+        IReadOnlyList<PdfDiagnostic> faults = [];
+        if (repairs.Length != 0 || _faults.Count != 0)
         {
-            AddOnce(fault, seen, report);
+            faults = Merge(repairs);
         }
 
-        foreach (var fault in _faults)
-        {
-            AddOnce(fault, seen, report);
-        }
+        var result = new PdfCheckReport(faults, _objects, _streams, _pages);
 
-        return new(report, _objects, _streams, _pages);
+        // The checker is ready for the next check of the document.
+        _faults.Clear();
+        _objects = 0;
+        _streams = 0;
+        _pages = 0;
+        Volatile.Write(ref _document.State.Checker, this);
+        return result;
     }
 
     /// <summary>Adds a fault unless the same fault is already in the report.</summary>
@@ -158,6 +186,32 @@ internal sealed class PdfDocumentChecker
             report.Add(fault);
         }
     }
+
+    /// <summary>Lists the repairs made while reading, then the faults the steps found, each once.</summary>
+    /// <param name = "repairs">The repairs the document logged.</param>
+    /// <returns>The faults.</returns>
+    private List<PdfDiagnostic> Merge(PdfDiagnostic[] repairs)
+    {
+        var report = new List<PdfDiagnostic>();
+        var seen = new HashSet<FaultKey>();
+        foreach (var fault in repairs)
+        {
+            AddOnce(fault, seen, report);
+        }
+
+        foreach (var fault in _faults)
+        {
+            AddOnce(fault, seen, report);
+        }
+
+        return report;
+    }
+
+    /// <summary>Gets the context that collects a check's diagnostics.</summary>
+    /// <param name = "cancellationToken">The token that stops the check.</param>
+    /// <returns>The context; one that cannot be cancelled is kept for the next check.</returns>
+    private PdfOpenContext CreateContext(CancellationToken cancellationToken) =>
+        cancellationToken.CanBeCanceled ? new(_sink, _document.DrawingServices, cancellationToken) : _quietContext ??= new(_sink, _document.DrawingServices, cancellationToken);
 
     /// <summary>Reports a declared linearization header or page hint table that cannot be validated.</summary>
     private void CheckLinearization()

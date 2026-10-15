@@ -15,4 +15,7 @@ internal enum TagUnitKind
 
     /// <summary>A form XObject, tagged by the text it draws or else marked as an artifact.</summary>
     Form = 2,
+
+    /// <summary>A painted path or shading: always marked as an artifact, because it carries no text.</summary>
+    Path = 3,
 }

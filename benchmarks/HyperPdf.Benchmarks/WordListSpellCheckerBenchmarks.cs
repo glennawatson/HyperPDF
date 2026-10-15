@@ -65,6 +65,9 @@ public class WordListSpellCheckerBenchmarks
     /// <summary>A misspelling with a letter dropped and another changed.</summary>
     private const int TwoChangesKind = 2;
 
+    /// <summary>The corrections found, reused by each call.</summary>
+    private readonly List<string> _suggestions = [];
+
     /// <summary>The word used for the checks, made from the same letters as the list.</summary>
     private string _misspelled = string.Empty;
 
@@ -110,7 +113,7 @@ public class WordListSpellCheckerBenchmarks
             _mixed[i] = MakeTypo(_words[(i * MixedStride) % WordCount], i % MixedKinds);
         }
 
-        _ = _checker.Suggest(_misspelled);
+        _checker.Suggest(_misspelled, _suggestions);
     }
 
     /// <summary>Deletes the word list.</summary>
@@ -129,7 +132,12 @@ public class WordListSpellCheckerBenchmarks
     /// <summary>Finds corrections with the correction index, as the field's menu does.</summary>
     /// <returns>How many were found.</returns>
     [Benchmark]
-    public int Suggest() => _checker.Suggest(_misspelled).Count;
+    public int Suggest()
+    {
+        _suggestions.Clear();
+        _checker.Suggest(_misspelled, _suggestions);
+        return _suggestions.Count;
+    }
 
     /// <summary>Finds corrections for misspellings of every kind and length: one letter off, two off, and nothing close.</summary>
     /// <returns>How many were found.</returns>
@@ -139,7 +147,9 @@ public class WordListSpellCheckerBenchmarks
         var found = 0;
         foreach (var typo in _mixed)
         {
-            found += _checker.Suggest(typo).Count;
+            _suggestions.Clear();
+            _checker.Suggest(typo, _suggestions);
+            found += _suggestions.Count;
         }
 
         return found;
@@ -152,7 +162,9 @@ public class WordListSpellCheckerBenchmarks
     {
         // Disposing hands the index's arrays back to the pool, which is what lets the next load reuse them.
         using var checker = new WordListSpellChecker(_path);
-        return checker.Suggest(_misspelled).Count;
+        _suggestions.Clear();
+        checker.Suggest(_misspelled, _suggestions);
+        return _suggestions.Count;
     }
 
     /// <summary>Finds corrections by scanning every word, the baseline the correction index is chosen over.</summary>

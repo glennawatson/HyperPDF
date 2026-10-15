@@ -16,4 +16,4 @@ namespace HyperPdfLibrary.Fonts;
 /// <param name="Metrics">The font-wide metrics and flags.</param>
 /// <param name="Remap">The encoding private-use text is mapped through when extracted.</param>
 [DebuggerDisplay("SimpleFontData: {Source}")]
-internal sealed record SimpleFontData(GlyphSource Source, int[] Glyphs, string?[] Texts, float[] Widths, ToUnicodeMap? ToUnicode, FontMetrics Metrics, PuaRemap Remap);
+internal readonly record struct SimpleFontData(GlyphSource Source, int[] Glyphs, string?[] Texts, float[] Widths, ToUnicodeMap? ToUnicode, FontMetrics Metrics, PuaRemap Remap);

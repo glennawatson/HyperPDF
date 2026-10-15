@@ -188,7 +188,7 @@ public sealed class FormFieldRemovalTests
 
         await Assert.That(NameTree.FindNumber(document.Catalog.GetDictionary(KnownName.StructTreeRoot)!.GetDictionary(KnownName.ParentTree), key).IsNull).IsTrue();
         await Assert.That(FormDesignDocuments.FindDanglingReferences(document)).IsEmpty();
-        var report = PdfDocumentAccessibility.GetAccessibilityReport(document);
+        var report = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, CancellationToken.None);
         await Assert.That(report.GetCount(PdfAccessibilityCode.FormFieldNotTagged)).IsEqualTo(0);
         await AssertSavesCleanAsync(document, "remove-tagged", 1);
     }

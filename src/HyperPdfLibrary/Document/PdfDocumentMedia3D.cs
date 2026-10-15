@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using HyperPdfLibrary.Media;
 using HyperPdfLibrary.Objects;
 
@@ -20,12 +21,12 @@ public static class PdfDocumentMedia3D
 view.Text("XN"),
 view.Text("IN"),
 view.NameText("MS"),
-view.Array("C2W").Numbers(),
+[.. view.Array("C2W").Numbers()],
 view.Num("CO", 0),
 view.Dict("P")?.NameText(PdfDocumentMedia3D.SubtypeKey),
 view.Dict("RM")?.NameText(PdfDocumentMedia3D.SubtypeKey),
 view.Dict("LS")?.NameText(PdfDocumentMedia3D.SubtypeKey),
-view.Dict("BG")?.Array("C").Numbers() ?? [],
+[.. view.Dict("BG")?.Array("C").Numbers() ?? []],
 view.Array("SA")?.Count ?? 0,
 view.Array("NA")?.Count ?? 0);
 
@@ -64,7 +65,7 @@ initialView is null ? initial.ScalarText(document.Objects) : null);
     /// <summary>Reads the assets name tree of a rich media annotation.</summary>
     /// <param name="assets">The <c>/Assets</c> name tree root, or null.</param>
     /// <returns>The assets.</returns>
-    private static PdfRichMediaAsset[] ReadRichMediaAssets(PdfDictionary? assets)
+    private static ImmutableArray<PdfRichMediaAsset> ReadRichMediaAssets(PdfDictionary? assets)
     {
         var entries = new List<NameTreeEntry>();
         NameTree.Enumerate(assets, entries);
@@ -75,7 +76,7 @@ initialView is null ? initial.ScalarText(document.Objects) : null);
             result[i] = new(PdfText.Decode(entries[i].Key.AsStringBytes()), embedded?.GetStream(KnownName.UF) ?? embedded?.GetStream(KnownName.F));
         }
 
-        return result;
+        return [.. result];
     }
 
     /// <summary>Reads 3D activation parameters.</summary>
@@ -93,7 +94,7 @@ activation.Flag("NP", false));
     /// <param name="document">The document.</param>
     /// <param name="configurations">The <c>/Configurations</c> array, or null.</param>
     /// <returns>The configurations.</returns>
-    private static PdfRichMediaConfiguration[] ReadRichMediaConfigurations(PdfDocument document, PdfArray? configurations)
+    private static ImmutableArray<PdfRichMediaConfiguration> ReadRichMediaConfigurations(PdfDocument document, PdfArray? configurations)
     {
         var result = new List<PdfRichMediaConfiguration>();
         for (var i = 0; configurations is not null && i < configurations.Count; i++)
@@ -114,7 +115,7 @@ PdfDocumentMedia3D.ReadRichMediaInstances(document, configuration.Array("Instanc
     /// <param name="document">The document.</param>
     /// <param name="instances">The <c>/Instances</c> array, or null.</param>
     /// <returns>The instances.</returns>
-    private static PdfRichMediaInstance[] ReadRichMediaInstances(PdfDocument document, PdfArray? instances)
+    private static ImmutableArray<PdfRichMediaInstance> ReadRichMediaInstances(PdfDocument document, PdfArray? instances)
     {
         var result = new List<PdfRichMediaInstance>();
         for (var i = 0; instances is not null && i < instances.Count; i++)

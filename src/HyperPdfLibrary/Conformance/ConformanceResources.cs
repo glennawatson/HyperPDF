@@ -22,8 +22,25 @@ internal static class ConformanceResources
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     internal static ConformanceUses Read(PdfDocument document, CancellationToken cancellationToken)
     {
+        var scanner = ContentUsageScanner.Rent(document, cancellationToken);
+        try
+        {
+            return Read(document, scanner, cancellationToken);
+        }
+        finally
+        {
+            scanner.Return();
+        }
+    }
+
+    /// <summary>Collects the used resources with a leased scanner.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="scanner">The scanner for this walk.</param>
+    /// <param name="cancellationToken">Stops the walk between pages.</param>
+    /// <returns>The used resources, independent of the scanner's collections.</returns>
+    private static ConformanceUses Read(PdfDocument document, ContentUsageScanner scanner, CancellationToken cancellationToken)
+    {
         // Pages are walked one at a time, not with ScanDocument: the interactive form's default resources are not drawn.
-        var scanner = new ContentUsageScanner(document);
         for (var i = 0; i < document.PageCount; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();

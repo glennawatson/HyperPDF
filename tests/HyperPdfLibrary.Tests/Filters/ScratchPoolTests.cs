@@ -30,6 +30,26 @@ public sealed class ScratchPoolTests
     /// <summary>Four megabytes, as a budget that fits a few large buffers.</summary>
     private const long Budget = 4L * Large;
 
+    /// <summary>Working objects stay with their owner and cannot return after it closes.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task WorkingSlotsStayWithTheirOwner()
+    {
+        var first = new ScratchPools();
+        var second = new ScratchPools();
+        var slots = first.Slots<object>();
+        var value = new object();
+        await Assert.That(slots.Offer(value)).IsTrue();
+        await Assert.That(second.Slots<object>().Take()).IsNull();
+        await Assert.That(slots.Take()).IsSameReferenceAs(value);
+        await Assert.That(slots.Offer(value)).IsTrue();
+
+        first.Close();
+
+        await Assert.That(slots.Take()).IsNull();
+        await Assert.That(slots.Offer(value)).IsFalse();
+    }
+
     /// <summary>A returned large buffer is handed out again for a request of about the same size.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -179,6 +199,9 @@ public sealed class ScratchPoolTests
         var options = new PdfOpenOptions { DrawingServices = services };
         var bytes = TestPdf.Create(1);
         var pool = owner.Get<byte>();
+        var slots = owner.Slots<object>();
+        var working = new object();
+        await Assert.That(slots.Offer(working)).IsTrue();
         pool.Return(pool.Rent(Large));
         using (var first = PdfDocumentReader.OpenWith(bytes, options))
         using (var second = PdfDocumentReader.OpenWith(bytes, options))
@@ -187,8 +210,11 @@ public sealed class ScratchPoolTests
         }
 
         await Assert.That(owner.RetainedBytes).IsGreaterThan(0);
+        await Assert.That(slots.Take()).IsSameReferenceAs(working);
+        await Assert.That(slots.Offer(working)).IsTrue();
         owner.Trim();
         await Assert.That(owner.RetainedBytes).IsEqualTo(0);
+        await Assert.That(slots.Take()).IsNull();
     }
 
     /// <summary>A buffer still in use when its owner closes is dropped when returned.</summary>

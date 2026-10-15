@@ -121,7 +121,7 @@ internal static class RunPlanner
         }
 
         var characters = CountRunes(clusterText);
-        var recorded = use.RecordText(use.GetCode(glyphs[first].Glyph), clusterText.ToString());
+        var recorded = use.RecordText(use.GetCode(glyphs[first].Glyph), clusterText);
         var mark = count == 1 && characters == 1
             ? !recorded
             : count != 1 || !recorded || policy == PdfActualTextPolicy.Ligatures;

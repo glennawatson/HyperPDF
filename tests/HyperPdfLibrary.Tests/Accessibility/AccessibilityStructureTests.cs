@@ -20,9 +20,9 @@ public sealed class AccessibilityStructureTests
     [Test]
     public async Task RoleMapProblemsAreFlagged()
     {
-        var unmapped = AccessibilityPdfs.Report(Typed("Mystery", string.Empty));
-        var mapped = AccessibilityPdfs.Report(Typed("Mystery", "/RoleMap << /Mystery /P >>"));
-        var cycle = AccessibilityPdfs.Report(Typed("X", "/RoleMap << /X /Y /Y /X >>"));
+        var unmapped = await AccessibilityPdfs.ReportAsync(Typed("Mystery", string.Empty));
+        var mapped = await AccessibilityPdfs.ReportAsync(Typed("Mystery", "/RoleMap << /Mystery /P >>"));
+        var cycle = await AccessibilityPdfs.ReportAsync(Typed("X", "/RoleMap << /X /Y /Y /X >>"));
 
         await Assert.That(unmapped.GetCount(PdfAccessibilityCode.UnmappedStructureType)).IsEqualTo(1);
         await Assert.That(unmapped.Findings[0].ElementId).IsNotNull();
@@ -36,9 +36,9 @@ public sealed class AccessibilityStructureTests
     [Test]
     public async Task SkippedHeadingLevelsAreFlagged()
     {
-        var skipped = AccessibilityPdfs.Report(Headings("H1", "H3"));
-        var orderly = AccessibilityPdfs.Report(Headings("H1", "H2", "H3", "H2", "H1"));
-        var startsDeep = AccessibilityPdfs.Report(Headings("H2"));
+        var skipped = await AccessibilityPdfs.ReportAsync(Headings("H1", "H3"));
+        var orderly = await AccessibilityPdfs.ReportAsync(Headings("H1", "H2", "H3", "H2", "H1"));
+        var startsDeep = await AccessibilityPdfs.ReportAsync(Headings("H2"));
 
         await Assert.That(skipped.GetCount(PdfAccessibilityCode.HeadingLevelSkipped)).IsEqualTo(1);
         await Assert.That(orderly.GetCount(PdfAccessibilityCode.HeadingLevelSkipped)).IsEqualTo(0);
@@ -50,8 +50,8 @@ public sealed class AccessibilityStructureTests
     [Test]
     public async Task MultipleLevelOneHeadingsAreFlaggedForPart1()
     {
-        var part1 = AccessibilityPdfs.Report(Headings("H1", "H1"));
-        var part2 = AccessibilityPdfs.Report(Headings("H1", "H1") with { Xmp = AccessibilityPdfs.Packet(AccessibilityPdfs.PartTwo, true) });
+        var part1 = await AccessibilityPdfs.ReportAsync(Headings("H1", "H1"));
+        var part2 = await AccessibilityPdfs.ReportAsync(Headings("H1", "H1") with { Xmp = AccessibilityPdfs.Packet(AccessibilityPdfs.PartTwo, true) });
 
         await Assert.That(part1.GetCount(PdfAccessibilityCode.MultipleLevelOneHeadings)).IsEqualTo(1);
         await Assert.That(part2.GetCount(PdfAccessibilityCode.MultipleLevelOneHeadings)).IsEqualTo(0);
@@ -62,9 +62,9 @@ public sealed class AccessibilityStructureTests
     [Test]
     public async Task FiguresNeedADescription()
     {
-        var bare = AccessibilityPdfs.Report(Figure(string.Empty));
-        var alt = AccessibilityPdfs.Report(Figure("/Alt (A box)"));
-        var actual = AccessibilityPdfs.Report(Figure("/ActualText (A box)"));
+        var bare = await AccessibilityPdfs.ReportAsync(Figure(string.Empty));
+        var alt = await AccessibilityPdfs.ReportAsync(Figure("/Alt (A box)"));
+        var actual = await AccessibilityPdfs.ReportAsync(Figure("/ActualText (A box)"));
 
         await Assert.That(bare.GetCount(PdfAccessibilityCode.FigureNoDescription)).IsEqualTo(1);
         await Assert.That(bare.Findings[0].PageIndex).IsEqualTo(0);
@@ -77,8 +77,8 @@ public sealed class AccessibilityStructureTests
     [Test]
     public async Task ListItemsNeedAList()
     {
-        var inList = AccessibilityPdfs.Report(ListItem("L"));
-        var loose = AccessibilityPdfs.Report(ListItem("Div"));
+        var inList = await AccessibilityPdfs.ReportAsync(ListItem("L"));
+        var loose = await AccessibilityPdfs.ReportAsync(ListItem("Div"));
 
         await Assert.That(inList.Findings.Count).IsEqualTo(0);
         await Assert.That(loose.GetCount(PdfAccessibilityCode.ListItemOutsideList)).IsEqualTo(1);
@@ -89,7 +89,7 @@ public sealed class AccessibilityStructureTests
     [Test]
     public async Task TableWithoutHeadersIsFlagged()
     {
-        var report = AccessibilityPdfs.Report(Table(string.Empty, "TD", "TD"));
+        var report = await AccessibilityPdfs.ReportAsync(Table(string.Empty, "TD", "TD"));
 
         await Assert.That(report.GetCount(PdfAccessibilityCode.TableNoHeaderCells)).IsEqualTo(1);
         await Assert.That(report.GetCount(PdfAccessibilityCode.TableHeaderNoScope)).IsEqualTo(0);
@@ -100,7 +100,7 @@ public sealed class AccessibilityStructureTests
     [Test]
     public async Task HeadersWithoutScopeAreFlagged()
     {
-        var report = AccessibilityPdfs.Report(Table(string.Empty, "TH", "TD"));
+        var report = await AccessibilityPdfs.ReportAsync(Table(string.Empty, "TH", "TD"));
 
         await Assert.That(report.GetCount(PdfAccessibilityCode.TableHeaderNoScope)).IsEqualTo(1);
         await Assert.That(report.GetCount(PdfAccessibilityCode.TableNoHeaderCells)).IsEqualTo(0);
@@ -112,7 +112,7 @@ public sealed class AccessibilityStructureTests
     [Test]
     public async Task ScopedHeadersMakeACleanTable()
     {
-        var report = AccessibilityPdfs.Report(Table("/A << /O /Table /Scope /Column >>", "TH", "TD"));
+        var report = await AccessibilityPdfs.ReportAsync(Table("/A << /O /Table /Scope /Column >>", "TH", "TD"));
 
         await Assert.That(report.Findings.Count).IsEqualTo(0);
     }
@@ -122,7 +122,7 @@ public sealed class AccessibilityStructureTests
     [Test]
     public async Task UnlabelledCellsAreFlagged()
     {
-        var report = AccessibilityPdfs.Report(Table("/A << /O /Table /Scope /Column >>", "TD", "TH"));
+        var report = await AccessibilityPdfs.ReportAsync(Table("/A << /O /Table /Scope /Column >>", "TD", "TH"));
 
         await Assert.That(report.GetCount(PdfAccessibilityCode.TableCellNoHeader)).IsEqualTo(1);
         await Assert.That(report.GetCount(PdfAccessibilityCode.TableHeaderNoScope)).IsEqualTo(0);

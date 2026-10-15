@@ -6,6 +6,7 @@ using System.Buffers;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Compat;
@@ -29,9 +30,6 @@ internal static class ZLibCodec
 
     /// <summary>The zlib level of <see cref="PdfCompressionLevel.Smallest"/>.</summary>
     private const int SmallestQuality = 9;
-
-    /// <summary>The window size used when writing, as a power of two.</summary>
-    private const int WriteWindowLog2 = 15;
 #endif
 
     /// <summary>Decompresses data, keeping whatever decoded before any damage or truncation.</summary>
@@ -83,25 +81,73 @@ internal static class ZLibCodec
     /// <param name="input">The bytes.</param>
     /// <param name="level">The level.</param>
     /// <param name="output">The buffer receiving the compressed bytes.</param>
-    internal static void Compress(ReadOnlySpan<byte> input, PdfCompressionLevel level, ref PooledBuffer output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Compress(ReadOnlySpan<byte> input, PdfCompressionLevel level, ref PooledBuffer output) =>
+        Compress(input, level, ref output, null);
+
+    /// <summary>Compresses data with encoder state owned by the document or registered scratch service.</summary>
+    /// <param name="input">The bytes.</param>
+    /// <param name="level">The compression level.</param>
+    /// <param name="output">Receives the compressed bytes.</param>
+    /// <param name="scratchPools">The explicit owner, or null for operation-local encoder state.</param>
+    internal static void Compress(ReadOnlySpan<byte> input, PdfCompressionLevel level, ref PooledBuffer output, ScratchPools? scratchPools)
     {
 #if NET11_0_OR_GREATER
-        using var encoder = new ZLibEncoder(Quality(level), WriteWindowLog2);
-        var max = (int)Math.Min(int.MaxValue, ZLibEncoder.GetMaxCompressedLength(input.Length));
-        _ = encoder.Compress(input, output.GetSpan(max), out _, out var written, isFinalBlock: true);
-        output.Advance(written);
+        Compress(input, Quality(level), ref output, scratchPools);
 #else
-        using var stream = new MemoryStream();
-        using (var zlib = new ZLibStream(stream, StreamLevel(level), leaveOpen: true))
-        {
-            zlib.Write(input);
-        }
-
-        output.Write(stream.GetBuffer().AsSpan(0, (int)stream.Length));
+        CompressStream(input, level, ref output, scratchPools);
 #endif
     }
 
 #if NET11_0_OR_GREATER
+    /// <summary>Leases native encoder state from an explicit owner, or creates it for this operation.</summary>
+    /// <param name="input">The bytes.</param>
+    /// <param name="quality">The zlib level.</param>
+    /// <param name="output">Receives the compressed bytes.</param>
+    /// <param name="scratchPools">The explicit owner, or null for operation-local encoder state.</param>
+    private static void Compress(ReadOnlySpan<byte> input, int quality, ref PooledBuffer output, ScratchPools? scratchPools)
+    {
+        if (scratchPools is null)
+        {
+            using var encoder = FlateEncoderPool.Create(quality);
+            Compress(input, ref output, encoder);
+            return;
+        }
+
+        var idle = scratchPools.Objects<FlateEncoderPool>();
+        var pool = idle.Take() ?? new();
+        try
+        {
+            var encoder = pool.Rent(quality);
+            try
+            {
+                Compress(input, ref output, encoder);
+            }
+            finally
+            {
+                pool.Return(quality, encoder);
+            }
+        }
+        finally
+        {
+            if (!idle.Offer(pool))
+            {
+                pool.Dispose();
+            }
+        }
+    }
+
+    /// <summary>Writes one complete zlib stream.</summary>
+    /// <param name="input">The bytes.</param>
+    /// <param name="output">Receives the compressed bytes.</param>
+    /// <param name="encoder">The exclusively leased encoder.</param>
+    private static void Compress(ReadOnlySpan<byte> input, ref PooledBuffer output, ZLibEncoder encoder)
+    {
+        var max = (int)Math.Min(int.MaxValue, ZLibEncoder.GetMaxCompressedLength(input.Length));
+        _ = encoder.Compress(input, output.GetSpan(max), out _, out var written, isFinalBlock: true);
+        output.Advance(written);
+    }
+
     /// <summary>Gets the zlib level of a compression level.</summary>
     /// <param name="level">The level.</param>
     /// <returns>The zlib level, 1 to 9.</returns>
@@ -176,6 +222,35 @@ internal static class ZLibCodec
         return status;
     }
 #else
+    /// <summary>Compresses through the older stream API with a document-owned output wrapper when available.</summary>
+    /// <param name="input">The bytes.</param>
+    /// <param name="level">The compression level.</param>
+    /// <param name="output">Receives the compressed bytes.</param>
+    /// <param name="scratchPools">The explicit owner, or null for an operation-local wrapper.</param>
+    private static void CompressStream(ReadOnlySpan<byte> input, PdfCompressionLevel level, ref PooledBuffer output, ScratchPools? scratchPools)
+    {
+        var idle = scratchPools?.Objects<PooledWriteStream>();
+        var stream = idle?.Take() ?? new();
+        try
+        {
+            stream.Reset();
+            using (var zlib = new ZLibStream(stream, StreamLevel(level), leaveOpen: true))
+            {
+                zlib.Write(input);
+            }
+
+            output.Write(stream.WrittenSpan);
+        }
+        finally
+        {
+            stream.Dispose();
+            if (idle is not null)
+            {
+                _ = idle.Offer(stream);
+            }
+        }
+    }
+
     /// <summary>Gets the stream level of a compression level.</summary>
     /// <param name="level">The level.</param>
     /// <returns>The level <see cref="ZLibStream"/> takes.</returns>

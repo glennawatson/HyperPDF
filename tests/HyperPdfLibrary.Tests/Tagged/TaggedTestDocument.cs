@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Tests.Tagged;
@@ -15,7 +16,16 @@ internal static class TaggedTestDocument
     /// <returns>The opened document.</returns>
     internal static PdfDocument Open(byte[] bytes) => PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions
     {
+        FontFactory = static dictionary => IsTestFont(dictionary) ? new TaggedTestFont(dictionary) : PdfFontLoader.Load(dictionary),
+    });
+
+    /// <summary>Opens PDF bytes with the tagged test font and Skia drawing services, so images are decoded and their places recorded.</summary>
+    /// <param name="bytes">The PDF bytes.</param>
+    /// <returns>The opened document.</returns>
+    internal static PdfDocument OpenWithImages(byte[] bytes) => PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions
+    {
         FontFactory = static dictionary => IsTestFont(dictionary) ? new TaggedTestFont(dictionary) : null,
+        DrawingServices = SkiaTestRegistration.CreateServices(),
     });
 
     /// <summary>Determines whether a font dictionary names the test font.</summary>

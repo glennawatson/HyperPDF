@@ -30,6 +30,12 @@ public class OcrLanguagePackBenchmarks
     /// <summary>The in-memory server.</summary>
     private readonly PackHandler _handler = new();
 
+    /// <summary>The downloader owned by this benchmark lifetime.</summary>
+    private readonly OcrLanguagePackDownloader _downloads = new();
+
+    /// <summary>The data paths owned by this benchmark lifetime.</summary>
+    private readonly DataFilePaths _paths = new();
+
     /// <summary>The folder of downloaded packs.</summary>
     private string _folder = string.Empty;
 
@@ -41,6 +47,9 @@ public class OcrLanguagePackBenchmarks
 
     /// <summary>The chosen languages, as packs.</summary>
     private OcrLanguagePack[] _chosen = [];
+
+    /// <summary>The requested download, reused as the caller's selected pack list.</summary>
+    private OcrLanguagePack[] _download = [];
 
     /// <summary>Creates the pack folder with English downloaded and the client for the in-memory server.</summary>
     [GlobalSetup]
@@ -59,6 +68,7 @@ public class OcrLanguagePackBenchmarks
         RandomNumberGenerator.Fill(content);
         _handler.Content = content;
         _pack = new("bench", "Benchmark", content.Length, Convert.ToHexStringLower(SHA256.HashData(content)));
+        _download = [_pack];
         _api = RefitClients.CreateRemoteDocumentApi(new(_handler, false) { BaseAddress = new("https://raw.githubusercontent.com") });
     }
 
@@ -68,11 +78,12 @@ public class OcrLanguagePackBenchmarks
     {
         Directory.Delete(_folder, true);
         _handler.Dispose();
+        _downloads.Dispose();
     }
 
     /// <summary>Removes the pack downloaded by the last iteration, so each download starts from nothing.</summary>
     [IterationSetup(Target = nameof(DownloadPack))]
-    public void RemovePack() => OcrLanguagePackDownloader.Remove(_pack, _folder);
+    public void RemovePack() => _downloads.Remove(_pack, _folder);
 
     /// <summary>Checks a two-language setting the way Recognise Text does before starting.</summary>
     /// <returns>The packs still to download.</returns>
@@ -80,13 +91,13 @@ public class OcrLanguagePackBenchmarks
     public int CheckLanguages()
     {
         _ = OcrLanguageCatalog.Parse(Languages);
-        return TesseractEngine.FindDataDirectory(Languages, _folder) is null ? OcrLanguagePackDownloader.Missing(_chosen, _folder).Count : 0;
+        return _paths.FindDirectory(Languages, _folder) is null ? _downloads.Missing(_chosen, _folder).Count : 0;
     }
 
     /// <summary>Downloads, hashes and moves a one megabyte pack into place.</summary>
     /// <returns>A task.</returns>
     [Benchmark]
-    public Task DownloadPack() => OcrLanguagePackDownloader.DownloadAsync(_api, [_pack], _folder, NoProgress.Instance, CancellationToken.None);
+    public Task DownloadPack() => _downloads.DownloadAsync(_api, _download, _folder, NoProgress.Instance, CancellationToken.None);
 
     /// <summary>Discards progress.</summary>
     private sealed class NoProgress : IProgress<double>

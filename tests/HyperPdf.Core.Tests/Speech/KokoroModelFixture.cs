@@ -32,7 +32,8 @@ internal static class KokoroModelFixture
     /// <exception cref="TUnit.Core.Exceptions.SkipTestException">The files are missing and downloading is not allowed.</exception>
     internal static async Task EnsureAsync()
     {
-        if (SpeechModelDownloader.Missing(KokoroModel.Files, Directory).Count == 0)
+        using var downloader = new SpeechModelDownloader();
+        if (downloader.Missing(KokoroModel.Files, Directory).Count == 0)
         {
             return;
         }
@@ -45,7 +46,7 @@ internal static class KokoroModelFixture
         await Gate.WaitAsync();
         try
         {
-            await SpeechModelDownloader.DownloadAsync(KokoroModel.Files, Directory, new Progress<double>(), CancellationToken.None);
+            await downloader.DownloadAsync(KokoroModel.Files, Directory, new Progress<double>(), CancellationToken.None);
         }
         finally
         {

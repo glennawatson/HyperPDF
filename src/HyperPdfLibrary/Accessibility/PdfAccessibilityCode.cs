@@ -84,4 +84,43 @@ public enum PdfAccessibilityCode
 
     /// <summary>An annotation is tagged with a type other than Annot (PDF/UA-1).</summary>
     AnnotationWrongStructureType = 25,
+
+    /// <summary>Text is drawn with a font whose program is not embedded (ISO 14289-1 7.21.4.1; ISO 14289-2 8.4.5.5.1).</summary>
+    FontNotEmbedded = 26,
+
+    /// <summary>A font does not map every character code it shows to Unicode (ISO 14289-1 7.21.7; ISO 14289-2 8.4.5.8).</summary>
+    FontNoUnicodeMap = 27,
+
+    /// <summary>A font maps a character code to U+0000, U+FEFF or U+FFFE (ISO 14289-1 7.21.7; ISO 14289-2 8.4.5.8).</summary>
+    FontUnicodeMapInvalid = 28,
+
+    /// <summary>Text shows the <c>.notdef</c> glyph (ISO 14289-1 7.21.8; ISO 14289-2 8.4.5.9).</summary>
+    NotdefGlyphShown = 29,
+
+    /// <summary>Text shows a glyph the embedded font program does not define (ISO 14289-1 7.21.4.1; ISO 14289-2 8.4.5.5.1).</summary>
+    GlyphMissingFromFont = 30,
+
+    /// <summary>The role map remaps a standard structure type (ISO 14289-1 7.1).</summary>
+    StandardTypeRemapped = 31,
+
+    /// <summary>A namespace's role map sends a type to another type in the same namespace (ISO 14289-2 8.2.4).</summary>
+    RoleMapSameNamespace = 32,
+
+    /// <summary>The structure tree root does not hold a single Document element in the PDF 2.0 namespace (ISO 14289-2 8.2.5.2).</summary>
+    DocumentRootInvalid = 33,
+
+    /// <summary>The file uses the <c>H</c> heading type, which PDF/UA-2 does not allow (ISO 14289-2 8.2.5.12).</summary>
+    HeadingTypeNotAllowed = 34,
+
+    /// <summary>The file uses the <c>Note</c> type without role mapping it into the PDF 2.0 namespace (ISO 14289-2 8.2.5.14).</summary>
+    NoteTypeNotAllowed = 35,
+
+    /// <summary>The file claims a PDF/UA-2 revision other than 2024 (ISO 14289-2 clause 5).</summary>
+    ClaimRevisionInvalid = 36,
+
+    /// <summary>The catalog has no XMP metadata stream (ISO 14289-1 7.1; ISO 14289-2 8.11.1).</summary>
+    NoMetadata = 37,
+
+    /// <summary>A <c>/Lang</c> value, in the catalog or in a structure element, is not a language identifier (ISO 14289-1 7.2; ISO 14289-2 8.4.4).</summary>
+    LanguageInvalid = 38,
 }

@@ -89,6 +89,7 @@ internal sealed class PdfJsBrowserSession : IAsyncDisposable
     /// <exception cref="ArgumentException">The PDF is empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The page index or scale is invalid.</exception>
     /// <exception cref="IOException">The browser fails to render the page.</exception>
+    /// <exception cref="TimeoutException">The browser does not finish rendering by its deadline.</exception>
     internal async Task<PdfJsRenderResult> RenderAsync(ReadOnlyMemory<byte> pdf, int pageIndex, double scale, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
@@ -117,6 +118,10 @@ internal sealed class PdfJsBrowserSession : IAsyncDisposable
         catch (IOException exception)
         {
             throw new IOException($"pdf.js browser rendering failed: {_browser.Diagnostics}", exception);
+        }
+        catch (OperationCanceledException exception) when (bounded.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"pdf.js browser rendering did not finish within {OperationSeconds} seconds: {_browser.Diagnostics}", exception);
         }
         finally
         {

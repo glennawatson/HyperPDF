@@ -3,9 +3,10 @@
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.PreferencesWindow"
         Title="Preferences"
-        Width="520" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
+        Width="540" MaxHeight="900" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
-  <!-- Changes apply as soon as they are chosen; nothing else moves. -->
+  <!-- Changes apply as soon as they are chosen; nothing else moves. The list scrolls when the screen is short. -->
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
   <StackPanel Margin="20" Spacing="16">
     <TextBlock Classes="secondary" TextWrapping="Wrap"
                Text="Changes apply straight away and are kept for next time." />
@@ -37,6 +38,33 @@
       <CheckBox AutomationProperties.Name="Open documents at the last page read" x:Name="ReopenAtLastPageBox" views:ControlHelp.Text="{x:Static views:Descriptions.ReopenAtLastPage}" Content="Open documents at the last page read" />
       <CheckBox AutomationProperties.Name="Check spelling in form fields" x:Name="CheckSpellingBox" views:ControlHelp.Text="{x:Static views:Descriptions.CheckSpelling}" Content="Check spelling in form fields" />
       <CheckBox AutomationProperties.Name="Offer fonts that cannot be saved in PDFs" x:Name="PreviewOnlyFontsBox" views:ControlHelp.Text="{x:Static views:Descriptions.PreviewOnlyFonts}" Content="Offer fonts that cannot be saved in PDFs (shown on screen, saved as Helvetica, Times or Courier)" />
+    </StackPanel>
+    <!-- Text and image sharpness: how crisp pages look on screen. Each choice applies at once. -->
+    <StackPanel Spacing="6">
+      <TextBlock Text="Text and image sharpness" AutomationProperties.HeadingLevel="2" />
+      <TextBlock Classes="secondary" TextWrapping="Wrap"
+                 Text="Choose how text, lines and pictures are drawn. Pages draw again when you change one." />
+      <Grid ColumnDefinitions="Auto,*" RowSpacing="10" ColumnSpacing="16">
+        <TextBlock x:Name="SharpnessPresetLabel" VerticalAlignment="Center" Text="Edges" />
+        <ComboBox AutomationProperties.Name="Edges" x:Name="SharpnessPresetBox" views:ControlHelp.Text="{x:Static views:Descriptions.SharpnessPreset}" Grid.Column="1" HorizontalAlignment="Stretch" />
+      </Grid>
+      <TextBlock x:Name="SharpnessPresetText" Classes="secondary" TextWrapping="Wrap" />
+      <!-- The individual choices behind the named sets. Closed until opened, so the list stays short. -->
+      <Expander x:Name="SharpnessAdvanced" AutomationProperties.Name="Advanced sharpness choices" views:ControlHelp.Text="{x:Static views:Descriptions.AdvancedSharpness}" Header="Advanced sharpness choices" HorizontalAlignment="Stretch">
+        <StackPanel Spacing="6" Margin="0,6,0,0">
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
+            <TextBlock x:Name="TextEdgesLabel" Grid.Row="0" VerticalAlignment="Center" Text="Text edges" />
+            <ComboBox AutomationProperties.Name="Text edges" x:Name="TextEdgesBox" views:ControlHelp.Text="{x:Static views:Descriptions.TextEdges}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="StrokeAdjustmentLabel" Grid.Row="1" VerticalAlignment="Center" Text="Fit lines to pixels" />
+            <ComboBox AutomationProperties.Name="Fit lines to pixels" x:Name="StrokeAdjustmentBox" views:ControlHelp.Text="{x:Static views:Descriptions.StrokeAdjustment}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="MinimumLineLabel" Grid.Row="2" VerticalAlignment="Center" Text="Thinnest line" />
+            <ComboBox AutomationProperties.Name="Thinnest line" x:Name="MinimumLineBox" views:ControlHelp.Text="{x:Static views:Descriptions.MinimumLineThickness}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
+          </Grid>
+          <CheckBox AutomationProperties.Name="Smooth the edges of lines and shapes" x:Name="SmoothGraphicsBox" views:ControlHelp.Text="{x:Static views:Descriptions.SmoothGraphics}" Content="Smooth the edges of lines and shapes" />
+          <CheckBox AutomationProperties.Name="Smooth pictures" x:Name="SmoothImagesBox" views:ControlHelp.Text="{x:Static views:Descriptions.SmoothImages}" Content="Smooth pictures (turn off to show the nearest source pixel)" />
+          <CheckBox AutomationProperties.Name="Average pixels when shrinking big pictures" x:Name="AreaImageReductionBox" views:ControlHelp.Text="{x:Static views:Descriptions.AreaImageReduction}" Content="Average pixels when shrinking big pictures" />
+        </StackPanel>
+      </Expander>
     </StackPanel>
     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
       <TextBlock x:Name="SpeechEngineLabel" Grid.Row="0" VerticalAlignment="Center" Text="Read Aloud voice" />
@@ -71,4 +99,5 @@
     </Grid>
     <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.ClosePreferences}" HorizontalAlignment="Right" Content="Close" IsDefault="True" IsCancel="True" />
   </StackPanel>
+  </ScrollViewer>
 </Window>

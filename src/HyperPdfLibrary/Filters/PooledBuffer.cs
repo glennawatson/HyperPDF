@@ -108,6 +108,18 @@ public ref struct PooledBuffer
         }
     }
 
+    /// <summary>Hands the rented array to the caller, who must return it to <see cref="ArrayPool{T}.Shared"/>; the buffer is empty afterwards.</summary>
+    /// <param name="length">Receives the number of bytes written.</param>
+    /// <returns>The array, or <see langword="null"/> when nothing was ever rented.</returns>
+    internal byte[]? TakeArray(out int length)
+    {
+        var array = _array;
+        length = Length;
+        _array = null;
+        Length = 0;
+        return array;
+    }
+
     /// <summary>Rents a larger array and copies the written bytes into it.</summary>
     /// <param name="sizeHint">The free space needed.</param>
     /// <exception cref="InvalidDataException">The data would be larger than the supported limit.</exception>

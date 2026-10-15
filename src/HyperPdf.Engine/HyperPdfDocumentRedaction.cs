@@ -34,7 +34,7 @@ internal static class HyperPdfDocumentRedaction
             // The copy carries the marks and every unsaved edit, taken while no edit runs; the open document keeps its marks and stays as it is.
             using var copy =HyperPdfOptimization.TakeSnapshot(self);
             var report = await Task.Run(() => PdfRedactor.Apply(copy, options, cancellationToken), cancellationToken).ConfigureAwait(false);
-            var save = SaveReportPool.Rent();
+            var save = SaveReportPool.Rent(ref self.SaveReport);
             try
             {
                 await PdfCompactWriter.SaveAsync(copy.Objects, options.Layout, destination, save, cancellationToken).ConfigureAwait(false);
@@ -46,7 +46,7 @@ internal static class HyperPdfDocumentRedaction
             }
             finally
             {
-                SaveReportPool.Return(save);
+                SaveReportPool.Return(ref self.SaveReport, save);
             }
         }
         catch (PdfException ex)

@@ -45,8 +45,13 @@ internal static class HyperPdfAnnotationReading
     {
         lock (annotationState.Gate)
         {
-            return annotationState.Catalog ?? FontCatalog.System;
+            if (annotationState.Catalog is { } selected)
+            {
+                return selected;
+            }
         }
+
+        return annotationState.LazyFontState.Value.Catalog;
     }
 
     /// <summary>Sets FontCatalog.</summary>

@@ -139,7 +139,8 @@ public sealed class AzureSpeechEngineTests
     {
         var text = string.Concat(Enumerable.Repeat("a < b \"and\" 'c' > d & e. ", Repeats));
 
-        var ssml = AzureSpeechEngine.BuildSsml(text, "xx\"<-Voice", 1);
+        using var document = SsmlDocument.Build(text, "xx\"<-Voice", 1);
+        var ssml = System.Text.Encoding.UTF8.GetString(document.Bytes.Span);
 
         await Assert.That(ssml).Contains("xml:lang=\"xx&quot;&lt;-\"");
         await Assert.That(ssml).Contains("name=\"xx&quot;&lt;-Voice\"");

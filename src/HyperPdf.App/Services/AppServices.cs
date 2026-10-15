@@ -10,9 +10,11 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Ocr;
 using HyperPdf.Core.Platform;
+using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Speech;
 using HyperPdf.Core.Spelling;
+using HyperPdf.Core.Text.Fonts;
 using HyperPdf.Core.Theming;
 using HyperPdf.Http.Remote;
 using ReactiveUI;
@@ -36,6 +38,9 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
     /// <summary>Owns everything the services create, and releases it all in the order it was added.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
+    /// <summary>The installed fonts offered in this application's text controls.</summary>
+    private readonly Lazy<FontCatalog> _fontCatalog;
+
     /// <summary>The latest desktop palette, if any.</summary>
     private DesktopPalette? _palette;
 
@@ -56,9 +61,21 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
     /// <param name="engine">The document engine.</param>
     /// <param name="platform">The desktop integration.</param>
     public AppServices(SettingsStore settingsStore, IDocumentEngine engine, IDesktopPlatform platform)
+        : this(settingsStore, engine, platform, new Lazy<FontCatalog>(static () => FontCatalog.Scan(FontCatalog.SystemDirectories())))
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="AppServices"/> class with a shared font catalog.</summary>
+    /// <param name="settingsStore">The settings store.</param>
+    /// <param name="engine">The document engine.</param>
+    /// <param name="platform">The desktop integration.</param>
+    /// <param name="catalog">The installed fonts, scanned on first use.</param>
+    internal AppServices(SettingsStore settingsStore, IDocumentEngine engine, IDesktopPlatform platform, Lazy<FontCatalog> catalog)
     {
         ArgumentNullException.ThrowIfNull(settingsStore);
         ArgumentNullException.ThrowIfNull(platform);
+        ArgumentNullException.ThrowIfNull(catalog);
+        _fontCatalog = catalog;
         Platform = platform;
         SettingsStore = settingsStore;
         Settings = settingsStore.Load();
@@ -136,6 +153,12 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
     /// <summary>Gets the spell checker for form fields, made on first use.</summary>
     public ISpellChecker SpellChecker => _spellChecker ??= Own(CreateSpellChecker());
 
+    /// <summary>Gets the installed fonts, scanning on first use.</summary>
+    public FontCatalog FontCatalog => _fontCatalog.Value;
+
+    /// <summary>Gets the installed fonts if the scan has completed.</summary>
+    public FontCatalog? LoadedFontCatalog => _fontCatalog.IsValueCreated ? _fontCatalog.Value : null;
+
     /// <summary>Gets the sound output shared by every tab.</summary>
     public IAudioOutput Audio => _audio ??= Own(Speech.CreateAudio());
 
@@ -156,8 +179,17 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
     [Reactive]
     public partial int SettingsVersion { get; private set; }
 
+    /// <summary>Gets the notices owned by this application lifetime.</summary>
+    internal LicenceNotices LicenceNotices { get; } = new();
+
     /// <summary>Gets the tint over fillable form fields the settings choose.</summary>
     internal FormHighlight FormHighlight => ReadHighlight(this);
+
+    /// <summary>Gets the screen fonts retained for this application.</summary>
+    internal PageFontFamilies PageFontFamilies { get; } = new();
+
+    /// <summary>Gets the page sharpness choices the settings hold.</summary>
+    internal RenderSharpness Sharpness => Settings.Sharpness;
 
     /// <summary>Gets the speech engine in use, kept while the settings that chose it stay the same, or <see langword="null"/> before one is needed.</summary>
     [Reactive]
@@ -170,8 +202,9 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
     {
         AppServices? services = null;
 
-        var engine = new HighlightedHyperPdfEngine(() => ReadHighlight(services));
-        services = new(new SettingsStore(), engine, platform);
+        var catalog = new Lazy<FontCatalog>(static () => FontCatalog.Scan(FontCatalog.SystemDirectories()));
+        var engine = new HighlightedHyperPdfEngine(() => ReadHighlight(services), () => services?.Settings.Sharpness ?? RenderSharpness.Default, catalog);
+        services = new(new SettingsStore(), engine, platform, catalog);
         return services;
     }
 
@@ -264,8 +297,19 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _subscriptions.Dispose();
+    public void Dispose()
+    {
+        try
+        {
+            _subscriptions.Dispose();
+        }
+        finally
+        {
+            Downloader.Dispose();
+            Ocr.Dispose();
+            Speech.Dispose();
+        }
+    }
 
     /// <summary>Reads the tint over fillable form fields from the settings.</summary>
     /// <param name="services">The services, or <see langword="null"/> before they exist.</param>

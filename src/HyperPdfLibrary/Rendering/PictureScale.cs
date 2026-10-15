@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Numerics;
 
 namespace HyperPdfLibrary.Rendering;
 
@@ -10,4 +11,8 @@ namespace HyperPdfLibrary.Rendering;
 /// <param name="UpperScale">The upper device scale of the zoom band, which picks image resolution.</param>
 /// <param name="ZoomClass">The layer zoom class, which decides layers with zoom limits.</param>
 [DebuggerDisplay("PictureScale: {UpperScale} class {ZoomClass}")]
-internal readonly record struct PictureScale(float UpperScale, int ZoomClass);
+internal readonly record struct PictureScale(float UpperScale, int ZoomClass)
+{
+    /// <summary>Gets the page-to-device matrix, without the tile offset, the picture is recorded for; null when it serves a zoom band.</summary>
+    internal Matrix3x2? Device { get; init; }
+}

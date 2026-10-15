@@ -21,6 +21,11 @@
     <ProjectReference Include="..\..\tests\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
   </ItemGroup>
 
+  <!-- Lists the benchmarks for the allocation harness, so no reflection finds or calls them. -->
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Benchmarks.Generator\HyperPdf.Benchmarks.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="ReactiveUI.Avalonia" />

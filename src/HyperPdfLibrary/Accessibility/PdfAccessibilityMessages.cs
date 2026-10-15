@@ -36,6 +36,19 @@ internal static class PdfAccessibilityMessages
         "A form field is not tagged as a form field.",
         "A note, stamp or other mark is not in the tags, so screen readers may skip it.",
         "An annotation is tagged with a type other than Annot.",
+        "Text uses a font that is not stored in the file, so it may look different elsewhere.",
+        "A font does not say what text some of its characters stand for, so screen readers may not read them.",
+        "A font gives some characters an empty or invalid text value.",
+        "Text shows a character the font does not have, so readers see a blank box.",
+        "Text shows a character that the stored font does not contain.",
+        "The tag type mapping changes the meaning of a standard tag type.",
+        "A tag type is mapped to another tag type in its own namespace.",
+        "The top of the tags is not a single Document tag in the PDF 2.0 namespace.",
+        "The file uses the H heading tag, which PDF/UA-2 replaces with numbered headings.",
+        "The file uses the Note tag without a mapping, which PDF/UA-2 does not allow.",
+        "The file claims a PDF/UA-2 revision other than 2024.",
+        "The file has no metadata, so it has no title for readers to show.",
+        "A language setting is not a valid language code, so a screen reader may pick the wrong voice.",
     ];
 
     /// <summary>Gets the number of code values, counting <see cref="PdfAccessibilityCode.None"/>.</summary>

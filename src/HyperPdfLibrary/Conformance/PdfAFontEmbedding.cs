@@ -4,7 +4,6 @@
 
 using System.Globalization;
 using System.Text;
-using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Fonts.Data;
 using HyperPdfLibrary.Objects;
@@ -31,26 +30,6 @@ internal static class PdfAFontEmbedding
 
     /// <summary>The slanted style's place in a family.</summary>
     private const int SlantedStyle = 3;
-
-    /// <summary>Makes sure the open fonts a conversion will embed are on this computer, downloading them when needed.</summary>
-    /// <param name="document">The document to convert.</param>
-    /// <param name="cancellationToken">Cancels the downloads.</param>
-    /// <returns>A task that completes when the fonts are ready or cannot be had.</returns>
-    internal static async ValueTask PrepareAsync(PdfDocument document, CancellationToken cancellationToken)
-    {
-        var resources = PdfFontResources.For(document.Catalog);
-        foreach (var face in FacesNeeded(document, cancellationToken))
-        {
-            try
-            {
-                await BundledFaces.EnsureAsync(resources, face.Family, face.Bold, face.Italic, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException)
-            {
-                // The conversion reports a font it cannot embed in plain words; a failed download is one cause.
-            }
-        }
-    }
 
     /// <summary>Embeds the missing fonts, or refuses with the fonts that cannot be embedded.</summary>
     /// <param name="session">The conversion.</param>
@@ -136,29 +115,6 @@ internal static class PdfAFontEmbedding
         };
         var style = slot % StylesPerFamily;
         return new(family, style is BoldStyle or BoldSlantedStyle, style is BoldSlantedStyle or SlantedStyle);
-    }
-
-    /// <summary>Lists the open faces the document's missing fonts need.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="cancellationToken">Cancels the walk.</param>
-    /// <returns>The faces.</returns>
-    private static HashSet<PdfAConversionFace> FacesNeeded(PdfDocument document, CancellationToken cancellationToken)
-    {
-        var store = document.Objects;
-        var graph = PdfObjectGraph.Collect(store, false, cancellationToken);
-        var faces = new HashSet<PdfAConversionFace>();
-        for (var number = 1; number <= graph.Count; number++)
-        {
-            if (graph.GetValue(number).Kind == PdfKind.Dictionary
-                && graph.GetValue(number).AsDictionary() is { } font
-                && IsNotEmbedded(font)
-                && Substitutable(store, font) is not StandardFont.None and var standard)
-            {
-                _ = faces.Add(FaceOf(standard));
-            }
-        }
-
-        return faces;
     }
 
     /// <summary>

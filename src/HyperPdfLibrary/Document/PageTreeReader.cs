@@ -22,9 +22,10 @@ internal static class PageTreeReader
         // The root's /Count is the page total in a well-formed tree; it only sizes the result array, so a wrong one costs one resize.
         var expected = StoreReading.Resolve(objects, root).AsDictionary()?.GetInt32(KnownName.Count, 0) ?? 0;
         var pages = new PdfPageBuffer(Math.Clamp(expected, 0, objects.Size));
-        var walk = new PageTreeWalk(objects.Size);
+        var walk = default(PageTreeWalk);
         try
         {
+            walk = new(objects.Size);
             var node = new PendingNode(root, default, 0, 0);
             while (true)
             {
@@ -40,13 +41,19 @@ internal static class PageTreeReader
                     break;
                 }
             }
+
+            if (pages.Count > 0)
+            {
+                return pages.ToSet(objects);
+            }
         }
         finally
         {
             walk.Release();
+            pages.Dispose();
         }
 
-        return pages.Count > 0 ? pages.ToSet(objects) : ScanForPages(objects);
+        return ScanForPages(objects);
     }
 
     /// <summary>Visits one node: adds a page, or enters its first kid.</summary>
@@ -161,27 +168,34 @@ internal static class PageTreeReader
     private static PdfPageSet ScanForPages(PdfObjectStore objects)
     {
         var pages = new PdfPageBuffer(0);
-        var previous = 0;
-        for (var number = 1; number < objects.Size; number++)
+        try
         {
-            PdfOpenContext.ThrowIfCancelled(objects.Context);
-            var id = new PdfObjectId(number, 0);
-            if (StoreReading.GetObject(objects, id).AsDictionary() is not { } dictionary || !dictionary.IsName(KnownName.Type, KnownName.Page))
+            var previous = 0;
+            for (var number = 1; number < objects.Size; number++)
             {
-                continue;
+                PdfOpenContext.ThrowIfCancelled(objects.Context);
+                var id = new PdfObjectId(number, 0);
+                if (StoreReading.GetObject(objects, id).AsDictionary() is not { } dictionary || !dictionary.IsName(KnownName.Type, KnownName.Page))
+                {
+                    continue;
+                }
+
+                previous = pages.Intern(InheritFromParents(dictionary), previous);
+                PdfPage.ReportFaults(dictionary, id);
+                pages.Add(new(id, null, previous));
             }
 
-            previous = pages.Intern(InheritFromParents(dictionary), previous);
-            PdfPage.ReportFaults(dictionary, id);
-            pages.Add(new(id, null, previous));
-        }
+            if (pages.Count > 0)
+            {
+                PdfOpenContext.Report(objects.Context, PdfDiagnosticCode.PageTreeRebuilt, "The page tree was missing or broken; the pages were found by scanning.", 0, -1);
+            }
 
-        if (pages.Count > 0)
+            return pages.ToSet(objects);
+        }
+        finally
         {
-            PdfOpenContext.Report(objects.Context, PdfDiagnosticCode.PageTreeRebuilt, "The page tree was missing or broken; the pages were found by scanning.", 0, -1);
+            pages.Dispose();
         }
-
-        return pages.ToSet(objects);
     }
 
     /// <summary>Collects the attributes a page inherits by walking its /Parent chain; loops and over-deep chains are cut off.</summary>

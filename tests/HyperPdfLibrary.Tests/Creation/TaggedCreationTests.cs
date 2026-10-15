@@ -91,7 +91,7 @@ public sealed class TaggedCreationTests
         CreatedFiles.Keep("tagged-flow.pdf", pdf);
 
         using var document = PdfDocumentReader.Open(pdf, null);
-        var accessibility = PdfDocumentAccessibility.GetAccessibilityReport(document, CancellationToken.None);
+        var accessibility = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, CancellationToken.None);
         await Assert.That(accessibility.Findings.Select(static finding => finding.Code).ToArray()).IsEmpty();
         await Assert.That(accessibility.IsMarked).IsTrue();
         await Assert.That(accessibility.Claim.Part).IsEqualTo(ClaimedPart);
@@ -138,7 +138,7 @@ public sealed class TaggedCreationTests
         var pdf = creator.ToArray();
 
         using var document = PdfDocumentReader.Open(pdf, null);
-        var accessibility = PdfDocumentAccessibility.GetAccessibilityReport(document, cancellationToken);
+        var accessibility = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
         await Assert.That(added).IsEqualTo(LongPageCount);
         await Assert.That(document.PageCount).IsEqualTo(LongPageCount);
         await Assert.That(accessibility.TotalCount).IsEqualTo(0);
@@ -162,7 +162,7 @@ public sealed class TaggedCreationTests
         var paragraphs = ChildrenOf(tree.Roots[0]).Where(static element => element.RawType == "P").ToArray();
         await Assert.That(document.PageCount).IsGreaterThan(1);
         await Assert.That(paragraphs.Length).IsEqualTo(1);
-        await Assert.That(PdfDocumentAccessibility.GetAccessibilityReport(document, CancellationToken.None).TotalCount).IsEqualTo(0);
+        await Assert.That((await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, CancellationToken.None)).TotalCount).IsEqualTo(0);
     }
 
     /// <summary>A figure with no alternative text withholds the claim and says why, and the checks report it.</summary>
@@ -188,7 +188,7 @@ public sealed class TaggedCreationTests
 
         var report = creator.Finish();
         using var document = PdfDocumentReader.Open(creator.ToArray(), null);
-        var accessibility = PdfDocumentAccessibility.GetAccessibilityReport(document, CancellationToken.None);
+        var accessibility = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, CancellationToken.None);
 
         await Assert.That(report.ClaimsPdfUa).IsFalse();
         await Assert.That(report.Notes[0]).Contains("figure");
@@ -312,7 +312,7 @@ public sealed class TaggedCreationTests
         }
 
         using var document = PdfDocumentReader.Open(creator.ToArray(), null);
-        var accessibility = PdfDocumentAccessibility.GetAccessibilityReport(document, CancellationToken.None);
+        var accessibility = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, CancellationToken.None);
 
         await Assert.That(accessibility.Findings.Select(static finding => finding.Code).ToArray()).IsEmpty();
     }

@@ -2,6 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
+using System.Collections.ObjectModel;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Features;
 using HyperPdfLibrary.Objects;
 
@@ -15,8 +18,43 @@ public static class PdfDocumentWebCapture
 
     /// <summary>Gets the web capture information (<c>/SpiderInfo</c> and the <c>/IDS</c> and <c>/URLS</c> name trees).</summary>
     /// <param name="document">The document.</param>
+    /// <returns>The information, or <see langword="null"/> when the document has none. Read once until the next edit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfWebCapture? GetWebCapture(PdfDocument document) => PdfReadSnapshots.Read(document, PdfReadKind.WebCapture, PdfDocumentWebCapture.ReadWebCapture);
+
+    /// <summary>Gets the web capture content set identifier of a page (its <c>/ID</c>).</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>The identifier, or <see langword="null"/> when the page has none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="page"/> is null.</exception>
+    public static byte[]? GetWebCaptureId(PdfDocument document, PdfPage page)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        var id = page.Dictionary.Value("ID");
+        return id.Kind == PdfKind.String ? id.AsStringBytes().ToArray() : null;
+    }
+
+    /// <summary>Gets the document part hierarchy (the catalog's <c>/DPartRoot</c>).</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>The root, or <see langword="null"/> when the document has none. Read once until the next edit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfDocumentPartRoot? GetDocumentParts(PdfDocument document) => PdfReadSnapshots.Read(document, PdfReadKind.DocumentParts, PdfDocumentWebCapture.ReadDocumentParts);
+
+    /// <summary>Gets the document part node a page belongs to (its <c>/DPart</c>).</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>The node, or <see langword="null"/> when the page names none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="page"/> is null.</exception>
+    public static PdfDocumentPartNode? GetDocumentPart(PdfDocument document, PdfPage page)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        return page.Dictionary.Dict("DPart") is { } node ? PdfDocumentWebCapture.ReadPartNode(document, node, 0, [with(ReferenceEqualityComparer.Instance)]) : null;
+    }
+
+    /// <summary>Reads the web capture information.</summary>
+    /// <param name="document">The document.</param>
     /// <returns>The information, or <see langword="null"/> when the document has none.</returns>
-    public static PdfWebCapture? GetWebCapture(PdfDocument document)
+    internal static PdfWebCapture? ReadWebCapture(PdfDocument document)
     {
         var spider = document.Catalog.Dict("SpiderInfo");
         var names = document.Catalog.GetDictionary(KnownName.Names);
@@ -37,22 +75,10 @@ public static class PdfDocumentWebCapture
         return new(spider?.Num("V", 0) ?? 0, [.. sets], ids.Count, urls.Count);
     }
 
-    /// <summary>Gets the web capture content set identifier of a page (its <c>/ID</c>).</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="page">The page.</param>
-    /// <returns>The identifier, or <see langword="null"/> when the page has none.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="page"/> is null.</exception>
-    public static byte[]? GetWebCaptureId(PdfDocument document, PdfPage page)
-    {
-        ArgumentNullException.ThrowIfNull(page);
-        var id = page.Dictionary.Value("ID");
-        return id.Kind == PdfKind.String ? id.AsStringBytes().ToArray() : null;
-    }
-
-    /// <summary>Gets the document part hierarchy (the catalog's <c>/DPartRoot</c>).</summary>
+    /// <summary>Reads the document part hierarchy.</summary>
     /// <param name="document">The document.</param>
     /// <returns>The root, or <see langword="null"/> when the document has none.</returns>
-    public static PdfDocumentPartRoot? GetDocumentParts(PdfDocument document)
+    internal static PdfDocumentPartRoot? ReadDocumentParts(PdfDocument document)
     {
         if (document.Catalog.Dict("DPartRoot") is not { } root)
         {
@@ -61,18 +87,7 @@ public static class PdfDocumentWebCapture
 
         var visited = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
         var node = root.Dict("DPartRootNode") is { } top ? PdfDocumentWebCapture.ReadPartNode(document, top, 0, visited) : null;
-        return new(root.Int("RecordLevel", 0), root.Array("NodeNameList").NameTexts(), node);
-    }
-
-    /// <summary>Gets the document part node a page belongs to (its <c>/DPart</c>).</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="page">The page.</param>
-    /// <returns>The node, or <see langword="null"/> when the page names none.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="page"/> is null.</exception>
-    public static PdfDocumentPartNode? GetDocumentPart(PdfDocument document, PdfPage page)
-    {
-        ArgumentNullException.ThrowIfNull(page);
-        return page.Dictionary.Dict("DPart") is { } node ? PdfDocumentWebCapture.ReadPartNode(document, node, 0, [with(ReferenceEqualityComparer.Instance)]) : null;
+        return new(root.Int("RecordLevel", 0), [.. root.Array("NodeNameList").NameTexts()], node);
     }
 
     /// <summary>Counts the content sets a name tree's entries name, before any repeated sets are dropped.</summary>
@@ -127,7 +142,7 @@ public static class PdfDocumentWebCapture
 
         sets.Add(new(
             set.NameText("S") ?? string.Empty,
-            set.GetStringBytes(set.Key("ID")).ToArray(),
+            [.. set.GetStringBytes(set.Key("ID"))],
             set.Text("CT"),
             PdfDocumentWebCapture.ReadSources(document, set.Value("SI")),
             set.Array("O")?.Count ?? 0));
@@ -137,7 +152,7 @@ public static class PdfDocumentWebCapture
     /// <param name="document">The document.</param>
     /// <param name="info">The <c>/SI</c> value.</param>
     /// <returns>The sources.</returns>
-    private static PdfWebCaptureSource[] ReadSources(PdfDocument document, PdfValue info)
+    private static ImmutableArray<PdfWebCaptureSource> ReadSources(PdfDocument document, PdfValue info)
     {
         if (info.AsArray() is not { } array)
         {
@@ -193,7 +208,7 @@ public static class PdfDocumentWebCapture
     /// <param name="document">The document.</param>
     /// <param name="dpm">The metadata dictionary, or null.</param>
     /// <returns>The metadata.</returns>
-    private static Dictionary<string, string> ReadPartMetadata(PdfDocument document, PdfDictionary? dpm)
+    private static ReadOnlyDictionary<string, string> ReadPartMetadata(PdfDocument document, PdfDictionary? dpm)
     {
         var metadata = new Dictionary<string, string>(dpm?.Count ?? 0, StringComparer.Ordinal);
         for (var i = 0; dpm is not null && i < dpm.Count; i++)
@@ -204,7 +219,7 @@ public static class PdfDocumentWebCapture
             }
         }
 
-        return metadata;
+        return new(metadata);
     }
 
     /// <summary>Adds the children held in one element of <c>/DParts</c>: a node or an array of nodes.</summary>

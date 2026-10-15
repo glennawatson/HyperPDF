@@ -81,16 +81,15 @@ internal sealed class ProgressiveRecording : IDisposable
     /// <param name = "cache">The document's caches.</param>
     /// <param name = "page">The page.</param>
     /// <param name = "printing">Whether optional content follows print usage.</param>
-    /// <param name="imageScale">The upper device scale of the zoom band.</param>
-    /// <param name="zoomClass">The layer zoom class of the magnification.</param>
+    /// <param name="scale">The upper device scale of the zoom band, the layer zoom class, and the device matrix when the picture is recorded for one.</param>
     /// <param name="cancellationToken">Cancels content decoding and recording.</param>
     /// <returns>The recording, which the caller disposes.</returns>
-    internal static ProgressiveRecording Start(PdfRenderCache cache, PdfPage page, bool printing, float imageScale, int zoomClass, CancellationToken cancellationToken)
+    internal static ProgressiveRecording Start(PdfRenderCache cache, PdfPage page, bool printing, in PictureScale scale, CancellationToken cancellationToken)
     {
         var recording = Idle.Take() ?? new();
         try
         {
-            recording.Begin(cache, page, printing, imageScale, zoomClass, cancellationToken);
+            recording.Begin(cache, page, printing, scale, cancellationToken);
         }
         catch
         {
@@ -131,17 +130,16 @@ internal sealed class ProgressiveRecording : IDisposable
     /// <param name = "cache">The document's caches.</param>
     /// <param name = "page">The page.</param>
     /// <param name = "printing">Whether optional content follows print usage.</param>
-    /// <param name="imageScale">The upper device scale of the zoom band.</param>
-    /// <param name="zoomClass">The layer zoom class of the magnification.</param>
+    /// <param name="scale">The upper device scale of the zoom band, the layer zoom class, and the device matrix when the picture is recorded for one.</param>
     /// <param name="cancellationToken">Cancels content decoding and recording.</param>
-    private void Begin(PdfRenderCache cache, PdfPage page, bool printing, float imageScale, int zoomClass, CancellationToken cancellationToken)
+    private void Begin(PdfRenderCache cache, PdfPage page, bool printing, in PictureScale scale, CancellationToken cancellationToken)
     {
         Printing = printing;
         Volatile.Write(ref _disposed, 0);
-        _device = PageRecorder.Begin(cache, page);
-        _interpreter = ContentInterpreter.Rent(cache, _device, 0, imageScale, cancellationToken);
+        _device = PageRecorder.Begin(cache, page, scale.Device);
+        _interpreter = ContentInterpreter.Rent(cache, _device, 0, scale.UpperScale, cancellationToken);
         _interpreter.Printing = printing;
-        _interpreter.ZoomClass = zoomClass;
+        _interpreter.ZoomClass = scale.ZoomClass;
         ContentExecution.BeginPage(_interpreter, page);
         var buffer = default(PooledBuffer);
         try

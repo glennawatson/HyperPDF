@@ -52,9 +52,15 @@ public sealed class WordListSpellCheckerTests
             await Assert.That(checker.IsCorrect(Capitalised)).IsTrue();
             await Assert.That(checker.IsCorrect("britain")).IsTrue();
             await Assert.That(checker.IsCorrect(Misspelt)).IsFalse();
-            await Assert.That(checker.Suggest(Misspelt)).Contains("receive");
-            await Assert.That(checker.Suggest("Recieve")).Contains("Receive");
-            await Assert.That(checker.Suggest("RECIEVE")).Contains("RECEIVE");
+            List<string> suggestions = [];
+            checker.Suggest(Misspelt, suggestions);
+            await Assert.That(suggestions).Contains("receive");
+            suggestions.Clear();
+            checker.Suggest("Recieve", suggestions);
+            await Assert.That(suggestions).Contains("Receive");
+            suggestions.Clear();
+            checker.Suggest("RECIEVE", suggestions);
+            await Assert.That(suggestions).Contains("RECEIVE");
         }
         finally
         {

@@ -681,7 +681,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     private async Task LicencesAsync()
     {
-        using LicencesViewModel licences = new(LicenceNotices.Load());
+        using LicencesViewModel licences = new(_services.LicenceNotices.Load());
         _ = await ShowLicencesInteraction.Handle(licences).ToTask().ConfigureAwait(true);
     }
 
@@ -919,9 +919,11 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     {
         PageToneEnabled = _services.Settings.PageToneEnabled;
         var highlight = _services.FormHighlight;
+        var sharpness = _services.Sharpness;
         foreach (var tab in Tabs)
         {
             tab.ApplyFormHighlight(highlight);
+            tab.ApplyRenderSharpness(sharpness);
         }
     }
 

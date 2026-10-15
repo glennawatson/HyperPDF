@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Editing;
@@ -31,8 +32,9 @@ internal static class PdfPageTreeWriter
         var rootValue = store.Catalog.GetRaw(KnownName.Pages);
         var rootId = rootValue.AsReference();
         var oldRoot = StoreReading.Resolve(store, rootValue).AsDictionary();
-        var oldNodes = new List<PdfObjectId>();
-        CollectNodes(store, oldRoot, rootId, oldNodes);
+        using var walk = NodeWalk.Rent(store);
+        var oldNodes = walk.Nodes;
+        CollectNodes(store, oldRoot, rootId, walk);
         if (!rootId.IsValid)
         {
             // A direct root cannot be named by /Parent; it becomes an object of its own.
@@ -223,16 +225,17 @@ internal static class PdfPageTreeWriter
     /// <param name="store">The document's objects.</param>
     /// <param name="root">The root node.</param>
     /// <param name="rootId">The root's id.</param>
-    /// <param name="output">Receives the ids of indirect intermediate nodes.</param>
-    private static void CollectNodes(PdfObjectStore store, PdfDictionary? root, PdfObjectId rootId, List<PdfObjectId> output)
+    /// <param name="walk">The temporary collections, including the ids of indirect intermediate nodes.</param>
+    private static void CollectNodes(PdfObjectStore store, PdfDictionary? root, PdfObjectId rootId, NodeWalk walk)
     {
         if (root is null)
         {
             return;
         }
 
-        var visited = new HashSet<int> { rootId.Number, };
-        var pending = new Stack<NodeVisit>();
+        var visited = walk.Visited;
+        _ = visited.Add(rootId.Number);
+        var pending = walk.Pending;
         pending.Push(new(root, 0));
         while (pending.TryPop(out var visit))
         {
@@ -245,7 +248,7 @@ internal static class PdfPageTreeWriter
                     continue;
                 }
 
-                AddNode(output, raw.AsReference());
+                AddNode(walk.Nodes, raw.AsReference());
                 pending.Push(new(node, visit.Depth + 1));
             }
         }
@@ -282,4 +285,49 @@ internal static class PdfPageTreeWriter
     /// <param name="Node">The node.</param>
     /// <param name="Depth">Its depth.</param>
     private readonly record struct NodeVisit(PdfDictionary Node, int Depth);
+
+    /// <summary>Temporary traversal collections, returned after clearing every document reference.</summary>
+    private sealed class NodeWalk : IDisposable
+    {
+        /// <summary>The largest temporary collection retained between rewrites.</summary>
+        private const int MaxKeptNodes = 4096;
+
+        /// <summary>The owner while this walk is leased.</summary>
+        private ScratchSlots<NodeWalk>? _slots;
+
+        /// <summary>Gets the intermediate nodes to delete.</summary>
+        internal List<PdfObjectId> Nodes { get; } = [];
+
+        /// <summary>Gets the indirect nodes already visited.</summary>
+        internal HashSet<int> Visited { get; } = [];
+
+        /// <summary>Gets the nodes awaiting traversal.</summary>
+        internal Stack<NodeVisit> Pending { get; } = new();
+
+        /// <summary>Clears and returns bounded scratch storage.</summary>
+        public void Dispose()
+        {
+            var slots = _slots;
+            _slots = null;
+            var keep = Nodes.Capacity <= MaxKeptNodes && Visited.EnsureCapacity(0) <= MaxKeptNodes && Pending.EnsureCapacity(0) <= MaxKeptNodes;
+            Nodes.Clear();
+            Visited.Clear();
+            Pending.Clear();
+            if (keep)
+            {
+                _ = slots?.Offer(this);
+            }
+        }
+
+        /// <summary>Leases cleared traversal storage from this store's owner.</summary>
+        /// <param name="store">The document's objects.</param>
+        /// <returns>The exclusively owned walk.</returns>
+        internal static NodeWalk Rent(PdfObjectStore store)
+        {
+            var slots = store.ScratchPools.Slots<NodeWalk>();
+            var walk = slots.Take() ?? new();
+            walk._slots = slots;
+            return walk;
+        }
+    }
 }

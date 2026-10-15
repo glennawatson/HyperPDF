@@ -118,21 +118,23 @@ internal static class ImagePixels
     /// <summary>Encodes pixels as a JPEG with the managed encoder.</summary>
     /// <param name="pixels">The gray or RGBX pixels.</param>
     /// <param name="size">The source dimensions and layout.</param>
-    /// <param name="quality">The JPEG quality.</param>
+    /// <param name="options">The JPEG settings.</param>
+    /// <param name="output">Receives the JPEG candidate.</param>
+    /// <param name="scratchPools">The document or registered service's scratch owner.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
-    /// <returns>The encoded bytes.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static byte[] EncodeJpeg(ReadOnlySpan<byte> pixels, PixelSize size, int quality, CancellationToken cancellationToken) =>
-        PdfJpegEncoder.Encode(pixels, size.Components == 1 ? PdfJpegPixelFormat.Gray8 : PdfJpegPixelFormat.Rgbx32, size.Width, size.Height, new() { Quality = quality }, cancellationToken);
+    internal static void EncodeJpeg(ReadOnlySpan<byte> pixels, PixelSize size, PdfJpegOptions options, ref PooledBuffer output, ScratchPools scratchPools, CancellationToken cancellationToken) =>
+        PdfJpegEncoder.Encode(pixels, new(size.Width, size.Height, size.Components == 1 ? PdfJpegPixelFormat.Gray8 : PdfJpegPixelFormat.Rgbx32, options), ref output, scratchPools, cancellationToken);
 
     /// <summary>Decodes JPEG pixels with the managed decoder.</summary>
     /// <param name="jpeg">The JPEG bytes.</param>
     /// <param name="components">One for gray, three for RGBX.</param>
     /// <param name="pixels">Receives the decoded pixels.</param>
     /// <param name="size">Receives the JPEG dimensions.</param>
+    /// <param name="scratchPools">The document or registered service's scratch owner.</param>
     /// <param name="cancellationToken">Cancels the decode.</param>
     /// <returns>True when usable pixels were decoded.</returns>
-    internal static bool TryDecodeJpeg(ReadOnlySpan<byte> jpeg, int components, ref PooledBuffer pixels, out PixelSize size, CancellationToken cancellationToken)
+    internal static bool TryDecodeJpeg(ReadOnlySpan<byte> jpeg, int components, ref PooledBuffer pixels, out PixelSize size, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         size = default;
         if (!JpegMarkers.TryReadInfo(jpeg, out var info) || !info.IsSupported || info.Components != components)
@@ -150,7 +152,7 @@ internal static class ImagePixels
         try
         {
             var span = samples.GetSpan((int)(count * components))[..(int)(count * components)];
-            if (!JpegDecoder.TryDecode(jpeg, info.UsesColorTransform(JpegInfo.NoColorTransform), span, cancellationToken))
+            if (!JpegDecoder.TryDecode(jpeg, info.UsesColorTransform(JpegInfo.NoColorTransform), span, scratchPools, cancellationToken))
             {
                 return false;
             }

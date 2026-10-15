@@ -283,6 +283,14 @@ public sealed class PdfDictionary
         return copy;
     }
 
+    /// <summary>Clears scratch entries while retaining the owned storage.</summary>
+    internal void Clear()
+    {
+        _keys.AsSpan(0, Count).Clear();
+        _values.AsSpan(0, Count).Clear();
+        Count = 0;
+    }
+
     /// <summary>Copies the dictionary with room for more entries, so adding them does not grow the copy again.</summary>
     /// <param name="extra">The entries the caller is about to add.</param>
     /// <returns>The copy.</returns>

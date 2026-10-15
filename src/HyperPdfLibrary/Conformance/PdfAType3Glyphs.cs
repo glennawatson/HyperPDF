@@ -122,7 +122,7 @@ internal static class PdfAType3Glyphs
     /// <returns><see langword="true"/> when it does.</returns>
     private static bool GlyphUses(PdfATransparencyWalk walk, in PdfAShownFont font, int code, int depth)
     {
-        var name = font.Encoding!.GetName(code);
+        var name = font.Encoding!.Value.GetName(code);
         return !name.IsEmpty
             && font.Procedures!.Get(walk.Names.Intern(name)).AsStream() is { } glyph
             && PdfATransparencyUse.ProcedureUses(walk, glyph, font.Resources, depth);

@@ -33,7 +33,7 @@ internal static class Pdf20ConversionXmp
     /// <param name="document">The working copy.</param>
     /// <returns>The XMP.</returns>
     internal static XmpMetadata Read(PdfDocument document) =>
-        PdfDocumentMetadata.GetXmp(document) ?? new XmpMetadata([], new Dictionary<string, string[]>(StringComparer.Ordinal), true);
+        PdfDocumentMetadata.GetXmp(document) ?? XmpMetadata.Empty;
 
     /// <summary>Applies changes to the catalog's XMP packet and stores the result.</summary>
     /// <param name="document">The working copy.</param>

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
@@ -26,6 +27,9 @@ internal sealed class FormStructureWriter
     /// <summary>The structure tree root's object.</summary>
     private readonly PdfObjectId _rootId;
 
+    /// <summary>The structure type of the new elements.</summary>
+    private readonly KnownName _type;
+
     /// <summary>The widgets to tag.</summary>
     private readonly List<TaggedWidget> _widgets = [];
 
@@ -36,22 +40,33 @@ internal sealed class FormStructureWriter
     /// <param name="document">The document.</param>
     /// <param name="transaction">The transaction.</param>
     /// <param name="rootId">The structure tree root's object.</param>
-    private FormStructureWriter(PdfDocument document, PdfEditTransaction transaction, PdfObjectId rootId)
+    /// <param name="type">The structure type of the new elements.</param>
+    private FormStructureWriter(PdfDocument document, PdfEditTransaction transaction, PdfObjectId rootId, KnownName type)
     {
         _document = document;
         _transaction = transaction;
         _rootId = rootId;
+        _type = type;
         _nextKey = FormStructureTree.NextKey(StoreReading.GetDictionary(document.Objects, rootId)!);
     }
 
-    /// <summary>Creates a writer for a tagged document.</summary>
+    /// <summary>Creates a writer for a tagged document that tags widgets as <c>Form</c> elements.</summary>
     /// <param name="document">The document.</param>
     /// <param name="transaction">The transaction.</param>
     /// <returns>The writer; <see langword="null"/> when the document has no structure tree to add to.</returns>
-    internal static FormStructureWriter? Create(PdfDocument document, PdfEditTransaction transaction)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormStructureWriter? Create(PdfDocument document, PdfEditTransaction transaction) => Create(document, transaction, KnownName.Form);
+
+    /// <summary>Creates a writer for a tagged document that tags objects as elements of one structure type.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="type">The structure type of the new elements, such as <c>Form</c> for widgets or <c>Annot</c> for other annotations.</param>
+    /// <returns>The writer; <see langword="null"/> when the document has no structure tree to add to.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormStructureWriter? Create(PdfDocument document, PdfEditTransaction transaction, KnownName type)
     {
         var rootId = document.Catalog.GetRaw(KnownName.StructTreeRoot).AsReference();
-        return rootId.IsValid && StoreReading.GetDictionary(document.Objects, rootId) is not null ? new(document, transaction, rootId) : null;
+        return rootId.IsValid && StoreReading.GetDictionary(document.Objects, rootId) is not null ? new(document, transaction, rootId, type) : null;
     }
 
     /// <summary>Queues a widget to be tagged.</summary>
@@ -112,7 +127,7 @@ internal sealed class FormStructureWriter
         var store = _document.Objects;
         var element = new PdfDictionary(store);
         element.Set(KnownName.Type, PdfValue.FromName(KnownName.StructElem));
-        element.Set(KnownName.S, PdfValue.FromName(KnownName.Form));
+        element.Set(KnownName.S, PdfValue.FromName(_type));
         element.Set(KnownName.P, PdfValue.FromReference(parent));
         var reference = new PdfDictionary(store);
         reference.Set(KnownName.Type, PdfValue.FromName(KnownName.OBJR));

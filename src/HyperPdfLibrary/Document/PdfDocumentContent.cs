@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Document;
@@ -14,6 +16,9 @@ public static class PdfDocumentContent
 
     /// <summary>The array elements in one name tree pair: the name and its value.</summary>
     private const int NamePairLength = 2;
+
+    /// <summary>The longest script decoded on the stack; longer ones use a pooled buffer.</summary>
+    private const int StackScriptChars = 256;
 
     /// <summary>Finds the annotations on a page that need a media player or a 3D viewer, loading the page first.</summary>
     /// <param name="document">The document.</param>
@@ -112,6 +117,125 @@ cancellationToken);
         for (var i = 0; i < annots.Count; i++)
         {
             PdfDocumentContent.AddWidgetScripts(annots.GetDictionary(i), output);
+        }
+    }
+
+    /// <summary>Hands each field script of a page to a visitor as characters, stopping when the visitor says so.</summary>
+    /// <typeparam name="TVisitor">The visitor type.</typeparam>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="visitor">The visitor.</param>
+    /// <param name="cancellationToken">Cancels annotation walking and script decoding.</param>
+    /// <returns><see langword="true"/> when the visitor stopped the walk.</returns>
+    internal static bool VisitWidgetScripts<TVisitor>(PdfDocument document, int pageIndex, ref TVisitor visitor, CancellationToken cancellationToken)
+        where TVisitor : struct, IWidgetScriptVisitor
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if ((uint)pageIndex >= (uint)document.PageCount || PdfDocumentPages.GetPage(document, pageIndex).Dictionary.GetArray(KnownName.Annots) is not { } annots)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < annots.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (annots.GetDictionary(i) is { } annotation
+                && annotation.IsName(KnownName.Subtype, KnownName.Widget)
+                && PdfDocumentContent.GetAdditionalActions(annotation) is { } actions
+                && PdfDocumentContent.VisitActionScripts(actions, ref visitor, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Visits the keystroke, format, validate and calculate scripts of one /AA dictionary.</summary>
+    /// <typeparam name="TVisitor">The visitor type.</typeparam>
+    /// <param name="actions">The /AA dictionary.</param>
+    /// <param name="visitor">The visitor.</param>
+    /// <param name="cancellationToken">Cancels script decoding.</param>
+    /// <returns><see langword="true"/> when the visitor stopped the walk.</returns>
+    private static bool VisitActionScripts<TVisitor>(PdfDictionary actions, ref TVisitor visitor, CancellationToken cancellationToken)
+        where TVisitor : struct, IWidgetScriptVisitor =>
+        PdfDocumentContent.VisitScript(actions, KnownName.K, ref visitor, cancellationToken)
+        || PdfDocumentContent.VisitScript(actions, KnownName.F, ref visitor, cancellationToken)
+        || PdfDocumentContent.VisitScript(actions, KnownName.V, ref visitor, cancellationToken)
+        || PdfDocumentContent.VisitScript(actions, KnownName.C, ref visitor, cancellationToken);
+
+    /// <summary>Visits the JavaScript of one additional action, when it has some.</summary>
+    /// <typeparam name="TVisitor">The visitor type.</typeparam>
+    /// <param name="actions">The /AA dictionary.</param>
+    /// <param name="key">The action's key.</param>
+    /// <param name="visitor">The visitor.</param>
+    /// <param name="cancellationToken">Cancels script decoding.</param>
+    /// <returns><see langword="true"/> when the visitor stopped the walk.</returns>
+    private static bool VisitScript<TVisitor>(PdfDictionary actions, KnownName key, ref TVisitor visitor, CancellationToken cancellationToken)
+        where TVisitor : struct, IWidgetScriptVisitor
+    {
+        var script = actions.GetDictionary(key)?.Get(KnownName.JS) ?? default;
+        return script.Kind switch
+        {
+            PdfKind.String => PdfDocumentContent.VisitBytes(script.AsStringBytes(), ref visitor, cancellationToken),
+            PdfKind.Stream => PdfDocumentContent.VisitStream(script.AsStream()!, ref visitor, cancellationToken),
+            _ => false,
+        };
+    }
+
+    /// <summary>Visits a script stream while its decoded bytes are held in rented storage.</summary>
+    /// <typeparam name="TVisitor">The visitor type.</typeparam>
+    /// <param name="stream">The script stream.</param>
+    /// <param name="visitor">The visitor.</param>
+    /// <param name="cancellationToken">Cancels stream decoding.</param>
+    /// <returns>Whether the visitor stopped the walk.</returns>
+    private static bool VisitStream<TVisitor>(PdfStream stream, ref TVisitor visitor, CancellationToken cancellationToken)
+        where TVisitor : struct, IWidgetScriptVisitor
+    {
+        var output = default(PooledBuffer);
+        try
+        {
+            _ = stream.Decode(ref output, cancellationToken);
+            return PdfDocumentContent.VisitBytes(output.WrittenSpan, ref visitor, cancellationToken);
+        }
+        finally
+        {
+            output.Dispose();
+        }
+    }
+
+    /// <summary>Decodes a script's text string into a buffer and visits it.</summary>
+    /// <typeparam name="TVisitor">The visitor type.</typeparam>
+    /// <param name="bytes">The text string's bytes.</param>
+    /// <param name="visitor">The visitor.</param>
+    /// <param name="cancellationToken">Cancels before text decoding.</param>
+    /// <returns><see langword="true"/> when the visitor stopped the walk.</returns>
+    private static bool VisitBytes<TVisitor>(ReadOnlySpan<byte> bytes, ref TVisitor visitor, CancellationToken cancellationToken)
+        where TVisitor : struct, IWidgetScriptVisitor
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var length = PdfText.GetDecodedLength(bytes);
+        if (length == 0)
+        {
+            return false;
+        }
+
+        if (length <= StackScriptChars)
+        {
+            Span<char> stack = stackalloc char[StackScriptChars];
+            var written = PdfText.Decode(bytes, stack);
+            return visitor.Visit(stack[..written]);
+        }
+
+        var rented = ArrayPool<char>.Shared.Rent(length);
+        try
+        {
+            var written = PdfText.Decode(bytes, rented);
+            return visitor.Visit(rented.AsSpan(0, written));
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(rented);
         }
     }
 

@@ -54,7 +54,7 @@ public static class PdfDocumentCheck
     public static PdfCheckReport Check(PdfDocument document, PdfCheckOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return new PdfDocumentChecker(document, options, CancellationToken.None).Run();
+        return PdfDocumentChecker.Rent(document, options, CancellationToken.None).Run();
     }
 
     /// <summary>Reads a file with real asynchronous I/O, then opens and checks it with the check's recovery switches.</summary>
@@ -93,7 +93,7 @@ public static class PdfDocumentCheck
     public static async ValueTask<PdfCheckReport> CheckAsync(PdfDocument document, PdfCheckOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var checker = new PdfDocumentChecker(document, options, cancellationToken);
+        var checker = PdfDocumentChecker.Rent(document, options, cancellationToken);
         await Task.Yield();
         for (var number = 1; number < checker.ObjectLimit; number++)
         {

@@ -52,6 +52,12 @@ internal static class RichStyleReader
     /// <summary>The alignment value for right aligned text.</summary>
     private const int RightAlignment = 2;
 
+    /// <summary>The words in a CSS family name that mean a fixed width font.</summary>
+    private static readonly string[] MonoWords = ["courier", "mono", "consolas"];
+
+    /// <summary>The words in a CSS family name that mean a serif font.</summary>
+    private static readonly string[] SerifWords = ["times", "serif", "georgia", "garamond"];
+
     /// <summary>The setters by property name.</summary>
     private static readonly FrozenDictionary<string, RichStyleSetter> Setters = new Dictionary<string, RichStyleSetter>(StringComparer.OrdinalIgnoreCase)
     {
@@ -150,14 +156,51 @@ internal static class RichStyleReader
         StrikeOut = value.Contains("line-through", StringComparison.OrdinalIgnoreCase),
     };
 
-    /// <summary>Reads a font family list, keeping the first family.</summary>
+    /// <summary>Reads a font family list, keeping the kind of the first family.</summary>
     /// <param name="value">The value.</param>
-    /// <returns>The family without quotes.</returns>
-    private static string ReadFamily(ReadOnlySpan<char> value)
+    /// <returns>The kind of font the first family names.</returns>
+    private static RichFamily ReadFamily(ReadOnlySpan<char> value)
     {
         var comma = value.IndexOf(',');
         var first = comma < 0 ? value : value[..comma];
-        return first.Trim().Trim("'\"").ToString();
+        var name = first.Trim().Trim("'\"");
+        return name.IsEmpty ? RichFamily.Inherit : Classify(name, false, false, false);
+    }
+
+    /// <summary>Finds the standard family closest to a CSS family name.</summary>
+    /// <param name="family">The family name; may be empty.</param>
+    /// <param name="mono">Whether an earlier word of the name was a fixed width family.</param>
+    /// <param name="serif">Whether an earlier word of the name was a serif family.</param>
+    /// <param name="sans">Whether an earlier word of the name was a sans serif family.</param>
+    /// <returns>The family; <see cref="RichFamily.Inherit"/> when the name and the earlier words are empty.</returns>
+    private static RichFamily Classify(ReadOnlySpan<char> family, bool mono, bool serif, bool sans)
+    {
+        var isMono = mono || ContainsAny(family, MonoWords);
+        var isSerif = serif || ContainsAny(family, SerifWords);
+        var isSans = sans || family.Contains("sans", StringComparison.OrdinalIgnoreCase);
+        if (isMono)
+        {
+            return RichFamily.Mono;
+        }
+
+        return isSerif && !isSans ? RichFamily.Serif : RichFamily.Sans;
+    }
+
+    /// <summary>Determines whether a name contains any of some words, ignoring case.</summary>
+    /// <param name="name">The name.</param>
+    /// <param name="words">The words.</param>
+    /// <returns><see langword="true"/> when one is found.</returns>
+    private static bool ContainsAny(ReadOnlySpan<char> name, string[] words)
+    {
+        foreach (var word in words)
+        {
+            if (name.Contains(word, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Determines whether a font weight is bold.</summary>
@@ -199,7 +242,10 @@ internal static class RichStyleReader
     private static RichStyle ReadShorthand(RichStyle style, ReadOnlySpan<char> value)
     {
         var result = style;
-        var family = string.Empty;
+        var named = false;
+        var mono = false;
+        var serif = false;
+        var sans = false;
         foreach (var range in value.Split(' '))
         {
             var word = value[range].Trim();
@@ -222,11 +268,15 @@ internal static class RichStyleReader
             }
             else
             {
-                family = family.Length == 0 ? word.Trim("'\",").ToString() : $"{family} {word.Trim("'\",")}";
+                var part = word.Trim("'\",");
+                named |= !part.IsEmpty;
+                mono |= ContainsAny(part, MonoWords);
+                serif |= ContainsAny(part, SerifWords);
+                sans |= part.Contains("sans", StringComparison.OrdinalIgnoreCase);
             }
         }
 
-        return family.Length > 0 ? result with { Family = family } : result;
+        return named ? result with { Family = Classify(default, mono, serif, sans) } : result;
     }
 
     /// <summary>Reads the digits of a hex colour.</summary>

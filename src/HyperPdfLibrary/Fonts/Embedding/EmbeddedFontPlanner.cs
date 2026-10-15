@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Buffers.Binary;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Objects;
@@ -51,20 +52,22 @@ internal static class EmbeddedFontPlanner
     /// <param name="source">The font.</param>
     /// <param name="use">The glyphs shown.</param>
     /// <param name="writeCidSet">Whether to write a <c>/CIDSet</c>.</param>
+    /// <param name="state">The document's reusable embedding buffers.</param>
     /// <returns>The font's parts.</returns>
-    internal static EmbeddedFontParts PlanTrueType(PdfFontSource source, GlyphUseSnapshot use, bool writeCidSet)
+    internal static EmbeddedFontParts PlanTrueType(PdfFontSource source, in GlyphUseSnapshot use, bool writeCidSet, PdfFontEmbeddingState state)
     {
-        var subset = source.CanSubset ? TrueTypeRenumberer.Subset(source.Font, source.Facts, use.Glyphs) : null;
+        var subset = source.CanSubset ? TrueTypeRenumberer.Subset(source.Font, source.Facts, use.Glyphs, state) : null;
         var glyphs = With(0, use.Glyphs);
         var cids = With(0, use.Codes);
         var baseFont = subset is null ? source.PostScriptName : SubsetTags.Create(source.PostScriptName, subset.Original) + source.PostScriptName;
-        var parts = Describe(source, baseFont, EmbeddedProgramKind.TrueType, subset?.Data ?? source.Font.ToStandalone(), cids, Widths(source, glyphs), use);
-        if (subset is not null)
+        byte[]? cidSet = null;
+        if (writeCidSet)
         {
-            return parts with { CidSet = writeCidSet ? CidSets.FromCount(subset.Original.Length) : null };
+            cidSet = subset is not null ? CidSets.FromCount(subset.Original.Length) : CidSets.FromCids(cids);
         }
 
-        return parts with { CidToGidMap = CidToGidMap(cids, glyphs), CidSet = writeCidSet ? CidSets.FromCids(cids) : null };
+        var program = new EmbeddedProgramData(EmbeddedProgramKind.TrueType, subset?.Data ?? source.Font.ToStandalone(), cidSet, subset is null ? CidToGidMap(cids, glyphs) : null);
+        return Describe(source, baseFont, program, cids, Widths(source, glyphs), use);
     }
 
     /// <summary>Plans a font with CFF outlines: the glyphs shown are cut out into a CFF font of their own when the licence allows, otherwise the whole OpenType file is embedded.</summary>
@@ -72,40 +75,39 @@ internal static class EmbeddedFontPlanner
     /// <param name="use">The glyphs shown.</param>
     /// <param name="writeCidSet">Whether to write a <c>/CIDSet</c>.</param>
     /// <returns>The font's parts.</returns>
-    internal static EmbeddedFontParts PlanCff(PdfFontSource source, GlyphUseSnapshot use, bool writeCidSet)
+    internal static EmbeddedFontParts PlanCff(PdfFontSource source, in GlyphUseSnapshot use, bool writeCidSet)
     {
         var glyphs = With(0, use.Glyphs);
         var cids = With(0, use.Codes);
         var subset = source.CanSubset ? CffSubsetter.Renumber(source.Font.TableMemory(SfntTags.Cff), use.Glyphs, PlaceholderTag + source.PostScriptName) : null;
         if (subset is null)
         {
-            var whole = Describe(source, source.PostScriptName, EmbeddedProgramKind.OpenTypeCff, source.Font.ToStandalone(), cids, Widths(source, glyphs), use);
-            return whole with { CidSet = writeCidSet ? CidSets.FromCids(cids) : null };
+            var whole = new EmbeddedProgramData(EmbeddedProgramKind.OpenTypeCff, source.Font.ToStandalone(), writeCidSet ? CidSets.FromCids(cids) : null, null);
+            return Describe(source, source.PostScriptName, whole, cids, Widths(source, glyphs), use);
         }
 
         var baseFont = SubsetTags.Create(source.PostScriptName, subset.Original) + source.PostScriptName;
         CffWriting.SetName(subset.Data, baseFont);
-        var parts = Describe(source, baseFont, EmbeddedProgramKind.CompactFont, subset.Data, cids, Widths(source, glyphs), use);
 
         // A name-keyed program has no CIDs of its own for a reader to match a /CIDSet against, so none is written (it is optional, ISO 32000-2, 9.8.3).
-        return parts with { CidSet = writeCidSet && subset.IsCidKeyed ? CidSets.FromCount(subset.Original.Length) : null };
+        var program = new EmbeddedProgramData(EmbeddedProgramKind.CompactFont, subset.Data, writeCidSet && subset.IsCidKeyed ? CidSets.FromCount(subset.Original.Length) : null, null);
+        return Describe(source, baseFont, program, cids, Widths(source, glyphs), use);
     }
 
     /// <summary>Fills in the parts every kind of font shares: the descriptor values and the <c>/ToUnicode</c> map.</summary>
     /// <param name="source">The font.</param>
     /// <param name="baseFont">The name, with a subset tag if any.</param>
-    /// <param name="kind">How the program is stored.</param>
-    /// <param name="program">The font program.</param>
+    /// <param name="program">The font program and its CID maps.</param>
     /// <param name="cids">The CIDs shown, ascending.</param>
     /// <param name="widths">The width of each CID.</param>
     /// <param name="use">The glyphs shown.</param>
     /// <returns>The parts.</returns>
-    internal static EmbeddedFontParts Describe(PdfFontSource source, string baseFont, EmbeddedProgramKind kind, byte[] program, int[] cids, float[] widths, GlyphUseSnapshot use)
+    internal static EmbeddedFontParts Describe(PdfFontSource source, string baseFont, in EmbeddedProgramData program, int[] cids, float[] widths, in GlyphUseSnapshot use)
     {
         var facts = source.Facts;
         var scale = Thousand / facts.UnitsPerEm;
         var box = new PdfRectangle(facts.XMin * scale, facts.YMin * scale, facts.XMax * scale, facts.YMax * scale);
-        return new(baseFont, kind, program, box, cids, widths)
+        return new(baseFont, program.Kind, program.Data, box, cids, widths)
         {
             Flags = Flags(facts),
             ItalicAngle = facts.ItalicAngle,
@@ -114,6 +116,8 @@ internal static class EmbeddedFontPlanner
             CapHeight = facts.CapHeight * scale,
             StemV = Math.Max(MinimumStem, (int)(RegularStem + ((facts.WeightClass - RegularWeight) * StemPerWeight))),
             ToUnicode = ToUnicode(use.Texts),
+            CidSet = program.CidSet,
+            CidToGidMap = program.CidToGidMap,
         };
     }
 
@@ -167,18 +171,27 @@ internal static class EmbeddedFontPlanner
         }
 
         var last = 0;
-        foreach (var code in texts.Keys)
+        foreach (var entry in texts)
         {
-            last = Math.Max(last, code);
+            last = Math.Max(last, entry.Key);
         }
 
-        var byCode = new string?[last + 1];
-        foreach (var (code, text) in texts)
+        var rented = ArrayPool<string?>.Shared.Rent(last + 1);
+        var byCode = rented.AsSpan(0, last + 1);
+        byCode.Clear();
+        try
         {
-            byCode[code] = text;
-        }
+            foreach (var (code, text) in texts)
+            {
+                byCode[code] = text;
+            }
 
-        return PdfToUnicodeMaps.Write(byCode);
+            return PdfToUnicodeMaps.Write(byCode);
+        }
+        finally
+        {
+            ArrayPool<string?>.Shared.Return(rented, clearArray: true);
+        }
     }
 
     /// <summary>Builds the <c>/CIDToGIDMap</c> data that sends each CID to its glyph.</summary>

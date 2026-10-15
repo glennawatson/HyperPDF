@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -69,14 +68,15 @@ internal static class FormPushButtonAppearance
         var icon = position == CaptionOnly ? default : characteristics?.GetRaw(KnownName.I) ?? default;
         var iconForm = StoreReading.Resolve(context.Store, icon).AsStream();
         var font = FormFont.Find(context.Store, da.FontName, context.Widget, context.Form, context.PageResources, context.Fonts);
-        var caption = position == IconOnly ? string.Empty : characteristics?.GetText(KnownName.CA) ?? string.Empty;
-        var parts = new FormPushParts(position, iconForm, font.Encode(caption));
+        var caption = position == IconOnly ? default : characteristics?.Get(KnownName.CA) ?? default;
+        using var codes = font.EncodePdfText(caption.AsStringBytes(), context.CancellationToken);
+        var parts = new FormPushParts(position, iconForm, codes);
         var builder = default(PdfContentBuilder);
         try
         {
             FormBorderAppearance.Paint(ref builder, frame, characteristics, false);
             WriteContent(ref builder, context, da, frame, parts, font);
-            return FormAppearanceResources.Finish(ref builder, context, frame, caption.Length > 0 ? [font] : [], iconForm is null ? default : icon);
+            return FormAppearanceResources.Finish(ref builder, context, frame, codes.Length > 0 ? font : null, iconForm is null ? default : icon);
         }
         finally
         {
@@ -101,7 +101,7 @@ internal static class FormPushButtonAppearance
     /// <param name="frame">The frame.</param>
     /// <param name="parts">The position, icon and caption.</param>
     /// <param name="font">The caption's font.</param>
-    private static void WriteContent(ref PdfContentBuilder builder, in AppearanceContext context, DefaultAppearance da, in FormFrame frame, FormPushParts parts, FormFont font)
+    private static void WriteContent(ref PdfContentBuilder builder, in AppearanceContext context, DefaultAppearance da, in FormFrame frame, in FormPushParts parts, FormFont font)
     {
         var border = frame.Border.Width;
         var inner = new FormBox(border, border, frame.InnerWidth, frame.InnerHeight);
@@ -297,7 +297,7 @@ internal static class FormPushButtonAppearance
         var line = TextLayout.FirstLine(codes, size);
         builder.BeginMarkedContent("Tx"u8);
         builder.BeginText();
-        builder.WriteRaw(Encoding.ASCII.GetBytes($"{da.Color}\n"));
+        da.Color.WriteFill(ref builder);
         builder.SetFont(font.NameBytes, size);
         builder.MoveText(
             area.X + ((area.Width - Math.Min(width, line.Width)) * Half),

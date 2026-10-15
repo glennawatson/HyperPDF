@@ -32,8 +32,8 @@ internal static class FetchVeraPdfTestFiles
     /// <summary>The longest a killed process may take to exit.</summary>
     private const int ProcessCleanupSeconds = 30;
 
-    /// <summary>Gets the folders checked out: one per PDF/A level.</summary>
-    private static string[] Folders => ["PDF_A-1a", "PDF_A-1b", "PDF_A-2a", "PDF_A-2b", "PDF_A-2u", "PDF_A-3b", "PDF_A-4", "PDF_A-4e", "PDF_A-4f"];
+    /// <summary>Gets the folders checked out: one per PDF/A level, then one per PDF/UA part.</summary>
+    private static string[] Folders => ["PDF_A-1a", "PDF_A-1b", "PDF_A-2a", "PDF_A-2b", "PDF_A-2u", "PDF_A-3b", "PDF_A-4", "PDF_A-4e", "PDF_A-4f", "PDF_UA-1", "PDF_UA-2"];
 
     /// <summary>Checks out the test files into a folder, or reuses the checkout already there.</summary>
     /// <param name="args">The checkout folder.</param>
@@ -60,6 +60,11 @@ internal static class FetchVeraPdfTestFiles
             _ = await RunAsync(["clone", "--quiet", "--filter=blob:none", "--no-checkout", "--sparse", Repository, folder], timeout.Token);
             _ = await RunAsync(["-C", folder, "sparse-checkout", "set", .. Folders], timeout.Token);
             _ = await RunAsync(["-C", folder, "checkout", "--quiet", "--detach", commit], timeout.Token);
+        }
+        else
+        {
+            // A checkout made before a folder was added still gets the new folder.
+            _ = await RunAsync(["-C", folder, "sparse-checkout", "set", .. Folders], timeout.Token);
         }
 
         var githubOutput = Environment.GetEnvironmentVariable("GITHUB_OUTPUT");

@@ -29,7 +29,7 @@ internal static class TextLayout
     /// <param name="maxWidth">The widest a line may be, in points.</param>
     /// <param name="lines">Receives the lines.</param>
     /// <param name="cancellationToken">A token that cancels the layout; it is checked for every paragraph.</param>
-    internal static void Wrap(FormCodes text, float size, float maxWidth, List<TextLine> lines, CancellationToken cancellationToken)
+    internal static void Wrap(FormCodes text, float size, float maxWidth, ref TextLines lines, CancellationToken cancellationToken)
     {
         var start = 0;
         while (start <= text.Length)
@@ -37,7 +37,7 @@ internal static class TextLayout
             cancellationToken.ThrowIfCancellationRequested();
             var feed = text.IndexOfLineFeed(start);
             var end = feed < 0 ? text.Length : feed;
-            WrapParagraph(text, start, end, size, maxWidth, lines);
+            WrapParagraph(text, start, end, size, maxWidth, ref lines);
             start = end + 1;
         }
     }
@@ -49,7 +49,7 @@ internal static class TextLayout
     /// <param name="size">The font size.</param>
     /// <param name="maxWidth">The widest a line may be.</param>
     /// <param name="lines">Receives the lines.</param>
-    private static void WrapParagraph(FormCodes text, int paragraphStart, int paragraphEnd, float size, float maxWidth, List<TextLine> lines)
+    private static void WrapParagraph(FormCodes text, int paragraphStart, int paragraphEnd, float size, float maxWidth, ref TextLines lines)
     {
         var start = paragraphStart;
         var width = 0F;
@@ -59,7 +59,7 @@ internal static class TextLayout
             var advance = text.GetWidth(i) * size / GlyphUnits;
             if (width + advance > maxWidth && i > start)
             {
-                start = Break(text, start, i, breakAt, size, lines);
+                start = Break(text, start, i, breakAt, size, ref lines);
                 width = Width(text, start, i - start, size);
                 breakAt = -1;
             }
@@ -68,7 +68,7 @@ internal static class TextLayout
             breakAt = text.GetKind(i) == FormCodes.Space ? i : breakAt;
         }
 
-        Add(text, start, paragraphEnd, size, lines);
+        Add(text, start, paragraphEnd, size, ref lines);
     }
 
     /// <summary>Ends a line before the unit that no longer fits.</summary>
@@ -79,15 +79,15 @@ internal static class TextLayout
     /// <param name="size">The font size.</param>
     /// <param name="lines">Receives the line.</param>
     /// <returns>The first unit of the next line.</returns>
-    private static int Break(FormCodes text, int start, int current, int breakAt, float size, List<TextLine> lines)
+    private static int Break(FormCodes text, int start, int current, int breakAt, float size, ref TextLines lines)
     {
         if (breakAt > start)
         {
-            Add(text, start, breakAt, size, lines);
+            Add(text, start, breakAt, size, ref lines);
             return breakAt + 1;
         }
 
-        Add(text, start, current, size, lines);
+        Add(text, start, current, size, ref lines);
         return current;
     }
 
@@ -98,7 +98,7 @@ internal static class TextLayout
     /// <param name="size">The font size.</param>
     /// <param name="lines">Receives the line.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Add(FormCodes text, int start, int end, float size, List<TextLine> lines) =>
+    private static void Add(FormCodes text, int start, int end, float size, ref TextLines lines) =>
         lines.Add(new(start, end - start, Width(text, start, text.TrimmedLength(start, end - start), size)));
 
     /// <summary>Measures a run of units.</summary>

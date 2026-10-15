@@ -28,7 +28,7 @@ public sealed class SystemFontTests
     /// <exception cref="TUnit.Core.Exceptions.SkipTestException">A Linux machine has no fonts installed.</exception>
     private static FontCatalog SystemCatalog()
     {
-        var catalog = FontCatalog.System;
+        var catalog = FontCatalog.Scan(FontCatalog.SystemDirectories());
         if (catalog.Faces.Count == 0 && !OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
         {
             throw new TUnit.Core.Exceptions.SkipTestException("No embeddable fonts are installed.");

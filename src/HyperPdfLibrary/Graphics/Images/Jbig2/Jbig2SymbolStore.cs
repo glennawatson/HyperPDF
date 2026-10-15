@@ -36,6 +36,9 @@ internal sealed class Jbig2SymbolStore : IDisposable
     /// <summary>The bytes of <see cref="_data"/> in use.</summary>
     private int _used;
 
+    /// <summary>The workspace that takes this store's object back when it is disposed, or <see langword="null"/>.</summary>
+    private Jbig2Workspace? _owner;
+
     /// <summary>Initializes a new instance of the <see cref="Jbig2SymbolStore"/> class.</summary>
     internal Jbig2SymbolStore()
         : this(new ScratchPools())
@@ -47,8 +50,7 @@ internal sealed class Jbig2SymbolStore : IDisposable
     internal Jbig2SymbolStore(ScratchPools scratchPools)
     {
         _scratchPools = scratchPools;
-        _data = scratchPools.Bytes.Rent(InitialBytes);
-        _symbols = scratchPools.Get<Jbig2Symbol>().Rent(InitialSymbols);
+        Open();
     }
 
     /// <summary>Gets the number of symbols.</summary>
@@ -63,7 +65,7 @@ internal sealed class Jbig2SymbolStore : IDisposable
     /// <summary>Gets the symbol table, which must not be used after disposal.</summary>
     private Jbig2Symbol[] Symbols => _symbols ?? throw new ObjectDisposedException(nameof(Jbig2SymbolStore));
 
-    /// <summary>Returns the buffers to the pool.</summary>
+    /// <summary>Returns the buffers to the pool and, for a store taken from a workspace, the object to the workspace.</summary>
     public void Dispose()
     {
         // A store belongs to one decode on one thread, so plain field access is enough.
@@ -80,6 +82,28 @@ internal sealed class Jbig2SymbolStore : IDisposable
 
         _scratchPools.Get<Jbig2Symbol>().Return(_symbols);
         _symbols = null;
+        var owner = _owner;
+        _owner = null;
+        owner?.Stores.Give(this);
+    }
+
+    /// <summary>Creates an empty store from a workspace's idle objects.</summary>
+    /// <param name="workspace">The workspace that keeps the object when the store is disposed.</param>
+    /// <returns>The store.</returns>
+    internal static Jbig2SymbolStore Rent(Jbig2Workspace workspace)
+    {
+        var store = workspace.Stores.Take();
+        if (store is null)
+        {
+            store = new(workspace.ScratchPools);
+        }
+        else
+        {
+            store.Open();
+        }
+
+        store._owner = workspace;
+        return store;
     }
 
     /// <summary>Determines whether a symbol has a bitmap.</summary>
@@ -195,6 +219,15 @@ internal sealed class Jbig2SymbolStore : IDisposable
         {
             row[^1] &= (byte)(byte.MaxValue << padding);
         }
+    }
+
+    /// <summary>Rents the empty buffers.</summary>
+    private void Open()
+    {
+        _data = _scratchPools.Bytes.Rent(InitialBytes);
+        _symbols = _scratchPools.Get<Jbig2Symbol>().Rent(InitialSymbols);
+        _used = 0;
+        Count = 0;
     }
 
     /// <summary>Makes room for more bytes, growing the pooled buffer.</summary>

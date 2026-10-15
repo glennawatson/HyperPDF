@@ -17,6 +17,9 @@ internal sealed class GlSkiaGpu : ISkiaGpu
     /// <summary>The gr context.</summary>
     private readonly GRContext _graphicsContext;
 
+    /// <summary>Serializes render target setup on the shared graphics context.</summary>
+    private readonly Lock _graphicsGate = new();
+
     /// <summary>The gl context.</summary>
     private readonly IGlContext _openGlContext;
 
@@ -70,12 +73,12 @@ internal sealed class GlSkiaGpu : ISkiaGpu
         {
             if (customFactory?.CanRenderToSurface(_openGlContext, surface) == true)
             {
-                return new GlRenderTarget(_graphicsContext, _openGlContext, new SurfaceWrapper(surface));
+                return new GlRenderTarget(_graphicsContext, _graphicsGate, _openGlContext, new SurfaceWrapper(surface));
             }
 
             if (surface is IGlPlatformSurface platformSurface)
             {
-                return new GlRenderTarget(_graphicsContext, _openGlContext, platformSurface);
+                return new GlRenderTarget(_graphicsContext, _graphicsGate, _openGlContext, platformSurface);
             }
         }
 

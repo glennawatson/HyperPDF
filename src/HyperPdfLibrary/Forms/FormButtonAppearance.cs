@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -59,6 +58,9 @@ internal static class FormButtonAppearance
     /// <summary>The angle that points a star upwards.</summary>
     private const float QuarterTurn = MathF.PI / 2;
 
+    /// <summary>The most bytes of a caption that are decoded to find the mark style.</summary>
+    private const int StyleWindow = 64;
+
     /// <summary>The scale of the mark tables: their numbers are percentages of the box.</summary>
     private const float Percent = 100;
 
@@ -92,7 +94,7 @@ internal static class FormButtonAppearance
                 WriteMark(ref builder, frame, context.DefaultAppearance, style);
             }
 
-            return FormAppearanceResources.Finish(ref builder, context, frame, null);
+            return FormAppearanceResources.Finish(ref builder, context, frame, (FormFont?)null);
         }
         finally
         {
@@ -107,9 +109,16 @@ internal static class FormButtonAppearance
     private static char ReadMarkStyle(PdfDictionary? characteristics, bool radio)
     {
         var caption = characteristics?.Get(KnownName.CA) ?? default;
-        if (caption.Kind == PdfKind.String && PdfText.Decode(caption.AsStringBytes()) is { Length: > 0 } text)
+        if (caption.Kind == PdfKind.String)
         {
-            return text[0];
+            // Only the first character is the style, so a long caption is cut before it is decoded.
+            var bytes = caption.AsStringBytes();
+            Span<char> first = stackalloc char[StyleWindow];
+            var written = PdfText.Decode(bytes[..Math.Min(bytes.Length, StyleWindow)], first);
+            if (written > 0)
+            {
+                return first[0];
+            }
         }
 
         return radio ? CircleStyle : CheckStyle;
@@ -130,7 +139,8 @@ internal static class FormButtonAppearance
 
         builder.SaveState();
         builder.Transform(side, 0, 0, side, (frame.Width - side) * Half, (frame.Height - side) * Half);
-        builder.WriteRaw(Encoding.ASCII.GetBytes($"{da.Color}\n{da.StrokeColor}\n"));
+        da.Color.WriteFill(ref builder);
+        da.Color.WriteStroke(ref builder);
         DrawMark(ref builder, style);
         builder.RestoreState();
     }

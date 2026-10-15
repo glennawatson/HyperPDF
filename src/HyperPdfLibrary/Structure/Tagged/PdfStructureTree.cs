@@ -116,12 +116,7 @@ public sealed class PdfStructureTree
     public PdfStructureElement? GetMarkedContentParent(int pageIndex, int mcid)
     {
         var key = GetStructParents(pageIndex);
-        if (key < 0 || mcid < 0 || NameTree.FindNumber(_parentTree, key).AsArray() is not { } parents)
-        {
-            return null;
-        }
-
-        return parents.GetDictionary(mcid) is { } dictionary ? _index.Find(dictionary) : null;
+        return key < 0 || mcid < 0 || NameTree.FindNumber(_parentTree, key).AsArray() is not { } parents ? null : FindElement(parents.GetRaw(mcid));
     }
 
     /// <summary>Gets the elements a page's parent tree entry lists, indexed by marked content id.</summary>
@@ -139,7 +134,7 @@ public sealed class PdfStructureTree
 
         for (var i = 0; i < parents.Count; i++)
         {
-            output.Add(parents.GetDictionary(i) is { } dictionary ? _index.Find(dictionary) : null);
+            output.Add(FindElement(parents.GetRaw(i)));
         }
     }
 
@@ -151,11 +146,25 @@ public sealed class PdfStructureTree
     {
         ArgumentNullException.ThrowIfNull(dictionary);
         var key = dictionary.GetInt32(KnownName.StructParent, -1);
-        return key >= 0 && NameTree.FindNumber(_parentTree, key).AsDictionary() is { } parent ? _index.Find(parent) : null;
+        return key >= 0 ? FindElement(NameTree.FindNumberRaw(_parentTree, key)) : null;
     }
 
     /// <summary>Reads a boolean that some producers write as a number.</summary>
     /// <param name="value">The value.</param>
     /// <returns><see langword="true"/> for true or a non-zero number.</returns>
     private static bool IsTrue(PdfValue value) => value.Kind == PdfKind.Boolean ? value.AsBoolean() : value.AsInteger() != 0;
+
+    /// <summary>Finds the element a stored value names: by object number for a reference, else by dictionary.</summary>
+    /// <param name="raw">The value as stored, a reference or a direct dictionary.</param>
+    /// <returns>The element, or <see langword="null"/>.</returns>
+    private PdfStructureElement? FindElement(PdfValue raw)
+    {
+        if (raw.IsReference)
+        {
+            return _index.Find(raw.AsReference());
+        }
+
+        var dictionary = raw.AsDictionary();
+        return dictionary is null ? null : _index.Find(dictionary);
+    }
 }

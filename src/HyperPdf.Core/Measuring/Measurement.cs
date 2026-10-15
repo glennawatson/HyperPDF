@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Globalization;
 using HyperPdf.Core.Geometry;
 
@@ -15,6 +16,12 @@ public static class Measurement
 
     /// <summary>A half turn in degrees.</summary>
     private const double HalfTurn = 180;
+
+    /// <summary>The characters a description needs, with room for long unit names.</summary>
+    private const int DescriptionCapacity = 256;
+
+    /// <summary>Room beyond a unit name for the longest numeric descriptions.</summary>
+    private const int FallbackCapacityFactor = 2;
 
     /// <summary>Halves the shoelace sum.</summary>
     private const double Half = 0.5;
@@ -73,31 +80,130 @@ public static class Measurement
     /// <returns>The description, or an empty string when there are too few points.</returns>
     public static string Describe(MeasureMode mode, ReadOnlySpan<PagePoint> points, MeasureScale scale)
     {
-        var culture = CultureInfo.CurrentCulture;
+        if (mode switch
+        {
+            MeasureMode.Distance or MeasureMode.Perimeter => points.Length < 2,
+            MeasureMode.Area => points.Length < 3,
+            _ => true,
+        })
+        {
+            return string.Empty;
+        }
+
+        Span<char> buffer = stackalloc char[DescriptionCapacity];
+        if (TryDescribe(mode, points, scale, buffer, out var written))
+        {
+            return new(buffer[..written]);
+        }
+
+        var rented = ArrayPool<char>.Shared.Rent(scale.RealUnit.Length + (DescriptionCapacity * FallbackCapacityFactor));
+        try
+        {
+            return TryDescribe(mode, points, scale, rented, out written) ? new(rented, 0, written) : string.Empty;
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(rented);
+        }
+    }
+
+    /// <summary>Writes the description of a measurement into a caller buffer, without allocating.</summary>
+    /// <param name="mode">What is measured.</param>
+    /// <param name="points">The points, in page space.</param>
+    /// <param name="scale">The scale.</param>
+    /// <param name="destination">The buffer the text is written to.</param>
+    /// <param name="written">The characters written; zero when there are too few points or the buffer is too small.</param>
+    /// <returns>Whether a description was written.</returns>
+    public static bool TryDescribe(MeasureMode mode, ReadOnlySpan<PagePoint> points, MeasureScale scale, Span<char> destination, out int written)
+    {
+        var length = 0;
+        var described = TryWriteDescription(mode, points, in scale, destination, ref length);
+        written = described ? length : 0;
+        return described;
+    }
+
+    /// <summary>Writes a description as far as the buffer allows.</summary>
+    /// <param name="mode">What is measured.</param>
+    /// <param name="points">The points, in page space.</param>
+    /// <param name="scale">The scale.</param>
+    /// <param name="destination">The buffer the text is written to.</param>
+    /// <param name="written">The characters written so far; moved past the text.</param>
+    /// <returns>Whether the whole description was written.</returns>
+    private static bool TryWriteDescription(MeasureMode mode, ReadOnlySpan<PagePoint> points, in MeasureScale scale, Span<char> destination, ref int written)
+    {
         switch (mode)
         {
             case MeasureMode.Distance when points.Length >= 2:
             {
-                var length = scale.ToReal(Distance(points[0], points[^1]));
-                return string.Create(culture, $"Distance {length:0.##} {scale.RealUnit} at {Angle(points[0], points[^1]):0}°");
+                return TryAppendQuantity(destination, ref written, "Distance ", scale.ToReal(Distance(points[0], points[^1])), scale.RealUnit)
+                    && TryAppend(destination, ref written, " at ")
+                    && TryAppend(destination, ref written, Angle(points[0], points[^1]), "0")
+                    && TryAppend(destination, ref written, "°");
             }
 
             case MeasureMode.Perimeter when points.Length >= 2:
             {
-                return string.Create(culture, $"Perimeter {scale.ToReal(Length(points, false)):0.##} {scale.RealUnit}");
+                return TryAppendQuantity(destination, ref written, "Perimeter ", scale.ToReal(Length(points, false)), scale.RealUnit);
             }
 
             case MeasureMode.Area when points.Length >= 3:
             {
                 var perPoint = scale.RealPerPoint;
-                return string.Create(culture, $"Area {Area(points) * perPoint * perPoint:0.##} {scale.RealUnit}²");
+                return TryAppendQuantity(destination, ref written, "Area ", Area(points) * perPoint * perPoint, scale.RealUnit)
+                    && TryAppend(destination, ref written, "²");
             }
 
             default:
             {
-                return string.Empty;
+                return false;
             }
         }
+    }
+
+    /// <summary>Appends a label, a number and a unit to a description being written.</summary>
+    /// <param name="destination">The buffer.</param>
+    /// <param name="written">The characters written so far; moved past the quantity.</param>
+    /// <param name="label">The label, with its trailing space.</param>
+    /// <param name="value">The number.</param>
+    /// <param name="unit">The unit.</param>
+    /// <returns><see langword="false"/> when the buffer is full.</returns>
+    private static bool TryAppendQuantity(Span<char> destination, ref int written, string label, double value, string unit) =>
+        TryAppend(destination, ref written, label)
+        && TryAppend(destination, ref written, value, "0.##")
+        && TryAppend(destination, ref written, " ")
+        && TryAppend(destination, ref written, unit);
+
+    /// <summary>Appends text to a description being written.</summary>
+    /// <param name="destination">The buffer.</param>
+    /// <param name="written">The characters written so far; moved past the text.</param>
+    /// <param name="text">The text.</param>
+    /// <returns><see langword="false"/> when the buffer is full.</returns>
+    private static bool TryAppend(Span<char> destination, ref int written, ReadOnlySpan<char> text)
+    {
+        if (!text.TryCopyTo(destination[written..]))
+        {
+            return false;
+        }
+
+        written += text.Length;
+        return true;
+    }
+
+    /// <summary>Appends a number, in the current culture, to a description being written.</summary>
+    /// <param name="destination">The buffer.</param>
+    /// <param name="written">The characters written so far; moved past the number.</param>
+    /// <param name="value">The number.</param>
+    /// <param name="format">The numeric format.</param>
+    /// <returns><see langword="false"/> when the buffer is full.</returns>
+    private static bool TryAppend(Span<char> destination, ref int written, double value, string format)
+    {
+        if (!value.TryFormat(destination[written..], out var count, format, CultureInfo.CurrentCulture))
+        {
+            return false;
+        }
+
+        written += count;
+        return true;
     }
 
     /// <summary>Measures the straight distance between two points.</summary>

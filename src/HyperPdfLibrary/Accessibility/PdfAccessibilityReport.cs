@@ -20,7 +20,7 @@ namespace HyperPdfLibrary.Accessibility;
 /// <param name="DisplayDocTitle">Whether the viewer preferences ask for the title to show.</param>
 /// <param name="HasSuspects">Whether <c>/MarkInfo /Suspects</c> is true.</param>
 /// <param name="Pages">What was counted on each page, in page order.</param>
-/// <param name="Findings">The problems found: document entries, then the structure tree, then each page. Each code is capped; see <paramref name="Counts"/> for totals.</param>
+/// <param name="Findings">The problems found: document entries, then the structure tree, then each page, then the fonts. Each code is capped; see <paramref name="Counts"/> for totals.</param>
 /// <param name="Counts">How many times each code was found, in code order; codes never found are left out.</param>
 [DebuggerDisplay("PdfAccessibilityReport: claim {Claim.Part}, {Findings.Count} findings")]
 public sealed record PdfAccessibilityReport(

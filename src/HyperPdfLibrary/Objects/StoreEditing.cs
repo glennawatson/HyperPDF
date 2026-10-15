@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Structure;
 
 namespace HyperPdfLibrary.Objects;
@@ -28,47 +29,16 @@ public static class StoreEditing
     /// <param name = "value">The value.</param>
     /// <returns>The new object's id.</returns>
     /// <exception cref = "ArgumentOutOfRangeException">The document has no object numbers left.</exception>
-    public static PdfObjectId Add(PdfObjectStore self, PdfValue value)
-    {
-        lock (self.Gate)
-        {
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(self.NextNumberState, PdfLimits.MaxObjectNumber);
-            var id = new PdfObjectId(self.NextNumberState, 0);
-            self.NextNumberState++;
-            StoreTransactions.RecordEdit(self, id.Number);
-            self.EditsState[id.Number] = value;
-            if ((uint)id.Number < (uint)self.CacheState.Length)
-            {
-                Volatile.Write(ref self.CacheState[id.Number], null);
-            }
-
-            return id;
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfObjectId Add(PdfObjectStore self, PdfValue value) => Add(self, value, PdfCacheScopes.All);
 
     /// <summary>Replaces an indirect object, reusing the number of a deleted one.</summary>
     /// <param name = "self">The owned object-store state.</param>
     /// <param name = "id">The object id.</param>
     /// <param name = "value">The new value.</param>
     /// <exception cref = "ArgumentOutOfRangeException">The object number is zero, negative or above the limit.</exception>
-    public static void Replace(PdfObjectStore self, PdfObjectId id, PdfValue value)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id.Number);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(id.Number, PdfLimits.MaxObjectNumber);
-        lock (self.Gate)
-        {
-            StoreTransactions.RecordEdit(self, id.Number);
-            self.EditsState[id.Number] = value;
-            _ = self.DeletedIfCreated?.Remove(id.Number);
-            self.NextNumberState = Math.Max(self.NextNumberState, id.Number + 1);
-
-            // A cached copy would be answered before the edit; drop it.
-            if ((uint)id.Number < (uint)self.CacheState.Length)
-            {
-                Volatile.Write(ref self.CacheState[id.Number], null);
-            }
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Replace(PdfObjectStore self, PdfObjectId id, PdfValue value) => Replace(self, id, value, PdfCacheScopes.All);
 
     /// <summary>
     /// Deletes an indirect object. Saving incrementally records a free entry whose generation is one higher, so the number
@@ -82,6 +52,7 @@ public static class StoreEditing
         var number = id.Number;
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(number);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(number, PdfLimits.MaxObjectNumber);
+        bool notify;
         lock (self.Gate)
         {
             var existed = self.XrefState.GetType(number) != XrefEntryType.Free || self.FreedGenerationsIfCreated?.ContainsKey(number) == true;
@@ -99,6 +70,13 @@ public static class StoreEditing
                 self.FreedGenerationsState[number] = Math.Min(generation + 1, StoreEditing.MaxGeneration);
                 _ = self.DeletedState.Add(number);
             }
+
+            notify = self.TransactionState is null;
+        }
+
+        if (notify)
+        {
+            StoreTransactions.NotifyChanged(self, PdfCacheScopes.All);
         }
     }
 
@@ -112,7 +90,13 @@ public static class StoreEditing
             var edits = self.EditsIfCreated;
             var deleted = self.DeletedIfCreated;
             var editCount = edits?.Count ?? 0;
-            var numbers = new int[editCount + (deleted?.Count ?? 0)];
+            var total = editCount + (deleted?.Count ?? 0);
+            if (total == 0)
+            {
+                return [];
+            }
+
+            var numbers = new int[total];
             edits?.Keys.CopyTo(numbers, 0);
             deleted?.CopyTo(numbers, editCount);
             Array.Sort(numbers);
@@ -133,7 +117,14 @@ public static class StoreEditing
         {
             var edits = self.EditsIfCreated;
             var deleted = self.DeletedIfCreated;
-            var objects = new PdfEditedObject[(edits?.Count ?? 0) + (deleted?.Count ?? 0)];
+            var total = (edits?.Count ?? 0) + (deleted?.Count ?? 0);
+            size = self.Size;
+            if (total == 0)
+            {
+                return [];
+            }
+
+            var objects = new PdfEditedObject[total];
             var count = 0;
             if (edits is not null)
             {
@@ -155,7 +146,6 @@ public static class StoreEditing
 
             // Object numbers are unique, so an unstable sort on them gives the one order.
             objects.AsSpan().Sort(static (left, right) => left.Number.CompareTo(right.Number));
-            size = self.Size;
             return objects;
         }
     }
@@ -172,6 +162,70 @@ public static class StoreEditing
         lock (self.Gate)
         {
             return StoreEditing.GetGenerationLocked(self, number);
+        }
+    }
+
+    /// <summary>Adds an object while naming the document caches its caller changed.</summary>
+    /// <param name="self">The document's objects.</param>
+    /// <param name="value">The object value.</param>
+    /// <param name="scopes">The affected caches.</param>
+    /// <returns>The new object's id.</returns>
+    internal static PdfObjectId Add(PdfObjectStore self, PdfValue value, PdfCacheScopes scopes)
+    {
+        PdfObjectId id;
+        bool notify;
+        lock (self.Gate)
+        {
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(self.NextNumberState, PdfLimits.MaxObjectNumber);
+            id = new(self.NextNumberState, 0);
+            self.NextNumberState++;
+            StoreTransactions.RecordEdit(self, id.Number);
+            self.EditsState[id.Number] = value;
+            if ((uint)id.Number < (uint)self.CacheState.Length)
+            {
+                Volatile.Write(ref self.CacheState[id.Number], null);
+            }
+
+            notify = self.TransactionState is null;
+        }
+
+        if (notify)
+        {
+            StoreTransactions.NotifyChanged(self, scopes);
+        }
+
+        return id;
+    }
+
+    /// <summary>Replaces an object while naming the document caches its caller changed.</summary>
+    /// <param name="self">The document's objects.</param>
+    /// <param name="id">The object id.</param>
+    /// <param name="value">The replacement.</param>
+    /// <param name="scopes">The affected caches.</param>
+    internal static void Replace(PdfObjectStore self, PdfObjectId id, PdfValue value, PdfCacheScopes scopes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id.Number);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(id.Number, PdfLimits.MaxObjectNumber);
+        bool notify;
+        lock (self.Gate)
+        {
+            StoreTransactions.RecordEdit(self, id.Number);
+            self.EditsState[id.Number] = value;
+            _ = self.DeletedIfCreated?.Remove(id.Number);
+            self.NextNumberState = Math.Max(self.NextNumberState, id.Number + 1);
+
+            // A cached copy would be answered before the edit; drop it.
+            if ((uint)id.Number < (uint)self.CacheState.Length)
+            {
+                Volatile.Write(ref self.CacheState[id.Number], null);
+            }
+
+            notify = self.TransactionState is null;
+        }
+
+        if (notify)
+        {
+            StoreTransactions.NotifyChanged(self, scopes);
         }
     }
 

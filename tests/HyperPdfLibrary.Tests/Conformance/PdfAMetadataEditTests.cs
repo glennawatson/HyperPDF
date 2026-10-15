@@ -34,7 +34,7 @@ public sealed class PdfAMetadataEditTests
         using var saved = PdfDocumentReader.Open(PdfIncrementalWriter.Save(document.Objects), null);
         await Assert.That(saved.Objects.Trailer.ContainsKey(KnownName.Info)).IsFalse();
         await Assert.That(PdfDocumentMetadata.GetXmp(saved)?.Title).IsEqualTo(NewTitle);
-        await Assert.That(PdfDocumentMetadata.GetXmp(saved)?.Creators).IsEquivalentTo([InfoAuthor]);
+        await Assert.That(PdfDocumentMetadata.GetXmp(saved)!.Creators).IsEquivalentTo([InfoAuthor]);
     }
 
     /// <summary>A PDF/A-4 file with /PieceInfo keeps an /Info that holds only the modification date.</summary>
@@ -71,7 +71,7 @@ public sealed class PdfAMetadataEditTests
         using var saved = PdfDocumentReader.Open(PdfIncrementalWriter.Save(document.Objects), null);
         var xmp = PdfDocumentMetadata.GetXmp(saved);
         await Assert.That(xmp?.Title).IsEqualTo(NewTitle);
-        await Assert.That(xmp?.Creators).IsEquivalentTo([InfoAuthor]);
+        await Assert.That(xmp!.Creators).IsEquivalentTo([InfoAuthor]);
         await Assert.That(PdfDocumentMetadata.GetInfo(saved).Title).IsEqualTo(NewTitle);
     }
 

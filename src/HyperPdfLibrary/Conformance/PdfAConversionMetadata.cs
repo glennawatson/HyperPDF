@@ -171,7 +171,7 @@ internal static class PdfAConversionMetadata
     private static PdfAConversionProperties Merge(PdfDictionary? info, XmpMetadata? xmp)
     {
         var source = info ?? new PdfDictionary(null);
-        var old = xmp ?? new XmpMetadata([], new Dictionary<string, string[]>(StringComparer.Ordinal), true);
+        var old = xmp ?? XmpMetadata.Empty;
         var author = source.GetText(KnownName.Author);
         return new(
             Pick(source, KnownName.Title, old.Title),

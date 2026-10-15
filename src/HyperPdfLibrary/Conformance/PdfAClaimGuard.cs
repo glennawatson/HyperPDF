@@ -69,12 +69,12 @@ internal static class PdfAClaimGuard
 
     /// <summary>
     /// Checks a file a writer is about to write against the PDF/A level it claims. A file that breaks a rule is repaired,
-    /// downloading font data the repair needs; when it cannot be, the claim is removed from the document being written,
+    /// using the fonts embedded in the library; when it cannot be, the claim is removed from the document being written,
     /// and the writer must write again.
     /// </summary>
     /// <param name="store">The objects being written.</param>
     /// <param name="output">The file the writer produced.</param>
-    /// <param name="cancellationToken">Stops the check and the downloads.</param>
+    /// <param name="cancellationToken">Stops the check.</param>
     /// <returns>What to do, or <see langword="null"/> when the file claims no level the standards define.</returns>
     /// <exception cref="PdfException">The claim must be removed, but the document's XMP packet cannot be edited.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>

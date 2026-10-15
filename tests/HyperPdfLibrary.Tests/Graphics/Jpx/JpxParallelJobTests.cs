@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
 using HyperPdfLibrary.Graphics.Images.Jpx;
 
 namespace HyperPdfLibrary.Tests.Graphics.Jpx;
@@ -125,14 +126,14 @@ public sealed class JpxParallelJobTests
     /// <summary>A job whose second helper cannot be queued, as when the pool is out of memory.</summary>
     private sealed class FaultyQueueJob : JpxParallelJob
     {
-        /// <summary>Held by the first helper until the test releases it.</summary>
-        private readonly ManualResetEventSlim _hold = new(false);
-
         /// <summary>Set when a helper is inside the loop.</summary>
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        /// <summary>Held by the first helper until the test releases it.</summary>
+        private int _hold;
+
         /// <summary>Set when a helper is inside the loop; the failing queue call waits on it.</summary>
-        private readonly ManualResetEventSlim _enteredSignal = new(false);
+        private int _enteredSignal;
 
         /// <summary>The helpers queued so far.</summary>
         private int _queued;
@@ -153,7 +154,7 @@ public sealed class JpxParallelJobTests
         internal void NoteInside() => Volatile.Write(ref _insideAtReturn, Volatile.Read(ref _inside));
 
         /// <summary>Lets the held helper leave.</summary>
-        internal void Release() => _hold.Set();
+        internal void Release() => Volatile.Write(ref _hold, 1);
 
         /// <inheritdoc/>
         protected override void QueueHelper()
@@ -164,7 +165,7 @@ public sealed class JpxParallelJobTests
                 return;
             }
 
-            _ = _enteredSignal.Wait(Patience);
+            WaitUntilSet(ref _enteredSignal);
             throw new InvalidOperationException("The helper could not be queued.");
         }
 
@@ -174,13 +175,31 @@ public sealed class JpxParallelJobTests
             _ = Interlocked.Increment(ref _inside);
             try
             {
-                _enteredSignal.Set();
+                Volatile.Write(ref _enteredSignal, 1);
                 _ = _entered.TrySetResult();
-                _ = _hold.Wait(Patience);
+                WaitUntilSet(ref _hold);
             }
             finally
             {
                 _ = Interlocked.Decrement(ref _inside);
+            }
+        }
+
+        /// <summary>Waits for a worker handshake with a bounded timeout.</summary>
+        /// <param name="signal">The signal another thread sets.</param>
+        /// <exception cref="TimeoutException">The other thread did not signal in time.</exception>
+        private static void WaitUntilSet(ref int signal)
+        {
+            var start = Stopwatch.GetTimestamp();
+            SpinWait spinner = default;
+            while (Volatile.Read(ref signal) == 0)
+            {
+                if (Stopwatch.GetElapsedTime(start) > Patience)
+                {
+                    throw new TimeoutException("The JPX test worker did not signal in time.");
+                }
+
+                spinner.SpinOnce();
             }
         }
     }
@@ -193,6 +212,9 @@ public sealed class JpxParallelJobTests
 
         /// <summary>The threads that ran items.</summary>
         private readonly HashSet<int> _threads = [];
+
+        /// <summary>Guards the set of worker thread identifiers.</summary>
+        private readonly Lock _threadGate = new();
 
         /// <summary>The workers inside the loop.</summary>
         private int _inside;
@@ -217,7 +239,7 @@ public sealed class JpxParallelJobTests
         {
             get
             {
-                lock (_threads)
+                lock (_threadGate)
                 {
                     return _threads.Count;
                 }
@@ -228,7 +250,7 @@ public sealed class JpxParallelJobTests
         internal void Reset()
         {
             Array.Clear(_runs);
-            lock (_threads)
+            lock (_threadGate)
             {
                 _threads.Clear();
             }
@@ -263,7 +285,7 @@ public sealed class JpxParallelJobTests
                     }
 
                     _ = Interlocked.Increment(ref _runs[index]);
-                    lock (_threads)
+                    lock (_threadGate)
                     {
                         _ = _threads.Add(Environment.CurrentManagedThreadId);
                     }

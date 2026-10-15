@@ -17,29 +17,42 @@ internal sealed class Jbig2PatternDictionary : IDisposable
     /// <summary>The template whose other adaptive pixels are set for pattern dictionaries.</summary>
     private const int FullTemplate = 0;
 
+    /// <summary>The patterns owned by this dictionary while it is in use.</summary>
+    private Jbig2SymbolStore? _patterns;
+
+    /// <summary>The workspace that keeps this dictionary after disposal.</summary>
+    private Jbig2Workspace? _owner;
+
     /// <summary>Initializes a new instance of the <see cref="Jbig2PatternDictionary"/> class.</summary>
     /// <param name="patterns">The patterns, now owned by the dictionary.</param>
     /// <param name="width">The pattern width.</param>
     /// <param name="height">The pattern height.</param>
     private Jbig2PatternDictionary(Jbig2SymbolStore patterns, int width, int height)
     {
-        Patterns = patterns;
+        _patterns = patterns;
         Width = width;
         Height = height;
     }
 
     /// <summary>Gets the patterns.</summary>
-    internal Jbig2SymbolStore Patterns { get; }
+    internal Jbig2SymbolStore Patterns => _patterns ?? throw new ObjectDisposedException(nameof(Jbig2PatternDictionary));
 
     /// <summary>Gets the pattern width.</summary>
-    internal int Width { get; }
+    internal int Width { get; private set; }
 
     /// <summary>Gets the pattern height.</summary>
-    internal int Height { get; }
+    internal int Height { get; private set; }
 
     /// <summary>Returns the patterns' buffers to the pool.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => Patterns.Dispose();
+    public void Dispose()
+    {
+        _patterns?.Dispose();
+        _patterns = null;
+        var owner = _owner;
+        _owner = null;
+        owner?.Patterns.Give(this);
+    }
 
     /// <summary>Decodes an arithmetic-coded pattern dictionary.</summary>
     /// <param name="decoder">The arithmetic decoder.</param>
@@ -59,7 +72,7 @@ internal sealed class Jbig2PatternDictionary : IDisposable
         }
 
         _ = Jbig2GenericRegion.Decode(ref decoder, contexts, new(template, false, AtPixels(template, width)), collective, null);
-        return Split(collective, width, height, grayMax);
+        return Split(collective, width, height, grayMax, workspace);
     }
 
     /// <summary>
@@ -89,7 +102,7 @@ internal sealed class Jbig2PatternDictionary : IDisposable
         }
 
         _ = Jbig2GenericRegion.DecodeMmr(data, collective);
-        return Split(collective, width, height, grayMax);
+        return Split(collective, width, height, grayMax, workspace);
     }
 
     /// <summary>Creates the white collective bitmap.</summary>
@@ -102,7 +115,7 @@ internal sealed class Jbig2PatternDictionary : IDisposable
     {
         var totalWidth = ((long)grayMax + 1) * width;
         return Jbig2Limits.IsValidSize(totalWidth, height) && workspace.TryCharge(totalWidth * height)
-            ? Jbig2Bitmap.Create((int)totalWidth, height, workspace.ScratchPools)
+            ? workspace.RentBitmap((int)totalWidth, height)
             : null;
     }
 
@@ -111,10 +124,11 @@ internal sealed class Jbig2PatternDictionary : IDisposable
     /// <param name="width">The pattern width.</param>
     /// <param name="height">The pattern height.</param>
     /// <param name="grayMax">The highest pattern index.</param>
+    /// <param name="workspace">The owner of the dictionary and its patterns.</param>
     /// <returns>The dictionary, or <see langword="null"/> when the patterns pass the store limit.</returns>
-    private static Jbig2PatternDictionary? Split(Jbig2Bitmap collective, int width, int height, int grayMax)
+    private static Jbig2PatternDictionary? Split(Jbig2Bitmap collective, int width, int height, int grayMax, Jbig2Workspace workspace)
     {
-        var patterns = new Jbig2SymbolStore(collective.ScratchPools);
+        var patterns = Jbig2SymbolStore.Rent(workspace);
         for (var gray = 0; gray <= grayMax; gray++)
         {
             if (patterns.TryAddColumns(collective.View, gray * width, width))
@@ -126,6 +140,11 @@ internal sealed class Jbig2PatternDictionary : IDisposable
             return null;
         }
 
-        return new(patterns, width, height);
+        var dictionary = workspace.Patterns.Take() ?? new(patterns, width, height);
+        dictionary._patterns = patterns;
+        dictionary.Width = width;
+        dictionary.Height = height;
+        dictionary._owner = workspace;
+        return dictionary;
     }
 }

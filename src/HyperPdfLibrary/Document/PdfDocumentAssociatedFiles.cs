@@ -68,8 +68,15 @@ public static class PdfDocumentAssociatedFiles
 
     /// <summary>Gets every associated file in the document: the catalog's, then each page's with its annotations and XObjects, then the structure tree's.</summary>
     /// <param name="document">The document.</param>
+    /// <returns>The files, each file specification once, read once until the next edit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IReadOnlyList<PdfAssociatedFile> GetAllAssociatedFiles(PdfDocument document) =>
+        PdfReadSnapshots.Read(document, PdfReadKind.AssociatedFiles, PdfDocumentAssociatedFiles.ReadAllAssociatedFiles);
+
+    /// <summary>Reads every associated file in the document.</summary>
+    /// <param name="document">The document.</param>
     /// <returns>The files, each file specification once.</returns>
-    public static IReadOnlyList<PdfAssociatedFile> GetAllAssociatedFiles(PdfDocument document)
+    private static IReadOnlyList<PdfAssociatedFile> ReadAllAssociatedFiles(PdfDocument document)
     {
         var files = new List<PdfAssociatedFile>(PdfDocumentAssociatedFiles.GetAssociatedFiles(document));
         foreach (var page in PdfDocumentPages.GetPageSet(document).Pages)
@@ -82,7 +89,7 @@ public static class PdfDocumentAssociatedFiles
         PdfDocumentAssociatedFiles.AddStructureFiles(document, files);
         var seen = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
         _ = files.RemoveAll(file => !seen.Add(file.Specification));
-        return files;
+        return files.AsReadOnly();
     }
 
     /// <summary>Pushes the dictionary children of a structure element's <c>/K</c> value.</summary>

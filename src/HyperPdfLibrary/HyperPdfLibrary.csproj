@@ -59,6 +59,8 @@
   <ItemGroup>
     <EmbeddedResource Include="Fonts\Data\CMaps\LICENSE.txt" LogicalName="HyperPdfLibrary.CMaps.LICENSE.txt" />
     <EmbeddedResource Include="Fonts\Data\Faces\LICENSE.txt" LogicalName="HyperPdfLibrary.Faces.LICENSE.txt" />
+    <!-- The substitute faces: zlib-compressed TrueType fonts cut down to the characters the standard fonts need. -->
+    <EmbeddedResource Include="Fonts\Data\Faces\*.ttf.z" LogicalName="HyperPdfLibrary.Faces.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Conformance\Data\PdfARules.tsv" LogicalName="HyperPdfLibrary.Conformance.PdfARules.tsv" />
     <EmbeddedResource Include="Conformance\Data\XmpSchemas.tsv" LogicalName="HyperPdfLibrary.Conformance.XmpSchemas.tsv" />
   </ItemGroup>

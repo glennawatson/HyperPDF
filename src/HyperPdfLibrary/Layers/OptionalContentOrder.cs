@@ -6,21 +6,18 @@ using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Layers;
 
-/// <summary>
-/// Reads a configuration's /Order array into a tree (ISO 32000-2, 8.11.4.3, Table 99). A layer followed by an array
-/// without a label owns the layers of that array as sublayers; an array that starts with a text string is a labelled
-/// collection; any other array is an unlabelled collection whose layers join the level they appear in.
-/// </summary>
+/// <summary>Reads the /Order array of a layer configuration into a tree of layers and labels.</summary>
 internal static class OptionalContentOrder
 {
     /// <summary>Builds the tree of an /Order array.</summary>
     /// <param name="order">The /Order array.</param>
-    /// <param name="names">The names of the document's layers by object number; layers not listed here are left out.</param>
+    /// <param name="names">The names of the document's layers; layers not listed there are left out.</param>
+    /// <param name="stack">The scratch space that holds the entries of the levels being read.</param>
     /// <returns>The top-level entries.</returns>
-    internal static PdfLayerNode[] Build(PdfArray order, Dictionary<int, string> names)
+    internal static PdfLayerNode[] Build(PdfArray order, in LayerNames names, LayerNodeStack stack)
     {
         var budget = PdfLimits.MaxNesting * PdfLimits.MaxNesting;
-        return ReadLevel(order, 0, 0, names, ref budget);
+        return ReadLevel(order, 0, 0, names, stack, ref budget);
     }
 
     /// <summary>Builds a flat list of every layer, for a configuration without an /Order.</summary>
@@ -41,62 +38,80 @@ internal static class OptionalContentOrder
     /// <param name="array">The array.</param>
     /// <param name="start">The first index to read, after a label.</param>
     /// <param name="depth">The nesting depth.</param>
-    /// <param name="names">The names of the document's layers by object number.</param>
+    /// <param name="names">The names of the document's layers.</param>
+    /// <param name="stack">The scratch space that holds the entries of the levels being read.</param>
     /// <param name="budget">The entries that may still be read, which bounds hostile arrays.</param>
     /// <returns>The entries.</returns>
-    private static PdfLayerNode[] ReadLevel(PdfArray array, int start, int depth, Dictionary<int, string> names, ref int budget)
+    private static PdfLayerNode[] ReadLevel(PdfArray array, int start, int depth, in LayerNames names, LayerNodeStack stack, ref int budget)
     {
-        var nodes = new List<PdfLayerNode>();
-        var last = -1;
+        var levelStart = stack.Count;
+        PendingLayer? pending = null;
         for (var i = start; i < array.Count && budget > 0 && depth <= PdfLimits.MaxNesting; i++)
         {
             budget--;
-            var item = array.GetRaw(i);
-            var id = item.AsReference();
-            if (id.IsValid && names.TryGetValue(id.Number, out var name))
+            var id = array.GetRaw(i).AsReference();
+            if (id.IsValid && names.TryGetName(id.Number, out var name))
             {
-                nodes.Add(new(name, id.Number, []));
-                last = nodes.Count - 1;
+                Flush(stack, pending);
+                pending = new(name, id.Number, []);
                 continue;
             }
 
             if (array.GetArray(i) is { } nested)
             {
-                last = ReadNested(nested, depth, names, nodes, last, ref budget);
+                pending = ReadNested(nested, depth, names, stack, pending, ref budget);
             }
         }
 
-        return [.. nodes];
+        Flush(stack, pending);
+        return stack.Take(levelStart);
     }
 
     /// <summary>Reads a nested array and adds it to its level.</summary>
     /// <param name="nested">The nested array.</param>
     /// <param name="depth">The depth of the level that holds it.</param>
-    /// <param name="names">The names of the document's layers by object number.</param>
-    /// <param name="nodes">The level's entries so far.</param>
-    /// <param name="last">The index of the previous layer in the level, or -1.</param>
+    /// <param name="names">The names of the document's layers.</param>
+    /// <param name="stack">The scratch space that holds the entries of the levels being read.</param>
+    /// <param name="pending">The previous layer in the level, which has not been added yet, or <see langword="null"/>.</param>
     /// <param name="budget">The entries that may still be read.</param>
-    /// <returns>The index of the previous layer for the next entry.</returns>
-    private static int ReadNested(PdfArray nested, int depth, Dictionary<int, string> names, List<PdfLayerNode> nodes, int last, ref int budget)
+    /// <returns>The previous layer for the next entry, which has not been added yet, or <see langword="null"/>.</returns>
+    private static PendingLayer? ReadNested(PdfArray nested, int depth, in LayerNames names, LayerNodeStack stack, PendingLayer? pending, ref int budget)
     {
         var label = nested.Count > 0 && nested.Get(0).Kind == PdfKind.String ? PdfText.Decode(nested.Get(0).AsStringBytes()) : null;
-        var children = ReadLevel(nested, label is null ? 0 : 1, depth + 1, names, ref budget);
+        var children = ReadLevel(nested, label is null ? 0 : 1, depth + 1, names, stack, ref budget);
         if (label is not null)
         {
-            nodes.Add(new(label, 0, children));
-            return -1;
+            Flush(stack, pending);
+            stack.Push(new(label, 0, children));
+            return null;
         }
 
-        if (last >= 0)
+        if (pending is { } previous)
         {
-            nodes[last] = nodes[last] with
+            return previous with
             {
-                Children = [.. nodes[last].Children, .. children]
+                Children = previous.Children.Length == 0 ? children : [.. previous.Children, .. children]
             };
-            return last;
         }
 
-        nodes.AddRange(children);
-        return -1;
+        stack.PushRange(children);
+        return null;
     }
+
+    /// <summary>Adds a layer that was waiting for its children to the level.</summary>
+    /// <param name="stack">The scratch space that holds the entries of the levels being read.</param>
+    /// <param name="pending">The layer, or <see langword="null"/>.</param>
+    private static void Flush(LayerNodeStack stack, PendingLayer? pending)
+    {
+        if (pending is { } layer)
+        {
+            stack.Push(new(layer.Name, layer.Id, layer.Children));
+        }
+    }
+
+    /// <summary>A layer of an /Order level whose children, from arrays that follow it, are still being read.</summary>
+    /// <param name="Name">The layer's name.</param>
+    /// <param name="Id">The layer's object number.</param>
+    /// <param name="Children">The children found so far.</param>
+    private readonly record struct PendingLayer(string Name, int Id, PdfLayerNode[] Children);
 }

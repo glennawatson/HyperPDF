@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 
@@ -15,6 +16,15 @@ internal static class FormChoices
 
     /// <summary>The position of an option's label in an option pair.</summary>
     private const int LabelSlot = 1;
+
+    /// <summary>The selection size where bounded linear matching avoids a temporary table.</summary>
+    private const int SmallSelection = 64;
+
+    /// <summary>The decoded text length held on the stack during a comparison.</summary>
+    private const int StackCharacters = 256;
+
+    /// <summary>The number of decoded strings compared together.</summary>
+    private const int ComparedStrings = 2;
 
     /// <summary>Counts a field's options.</summary>
     /// <param name="field">The field dictionary.</param>
@@ -34,6 +44,13 @@ internal static class FormChoices
     /// <returns>The label; for an option that is a plain string, the string; empty when missing.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string GetLabel(PdfDictionary field, int index) => GetText(field, index, LabelSlot);
+
+    /// <summary>Gets an option label's original PDF text bytes.</summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The option index.</param>
+    /// <returns>The label bytes, empty when absent.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ReadOnlySpan<byte> GetLabelBytes(PdfDictionary field, int index) => GetTextBytes(field, index, LabelSlot);
 
     /// <summary>Gets every option's label.</summary>
     /// <param name="field">The field dictionary.</param>
@@ -137,8 +154,134 @@ internal static class FormChoices
             return true;
         }
 
+        var count = CountIndices(indices);
+        if (count is >= 0 and <= SmallSelection)
+        {
+            Span<bool> consumed = stackalloc bool[count];
+            consumed.Clear();
+            return MatchSelection(field, value, indices, consumed);
+        }
+
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
         return TryCountValues(value, indices, counts) && IndicesMatch(field, indices, counts);
+    }
+
+    /// <summary>Matches a small selection while retaining duplicate value counts.</summary>
+    /// <param name="field">The field.</param>
+    /// <param name="value">The values.</param>
+    /// <param name="indices">The indices.</param>
+    /// <param name="consumed">Tracks the matched values.</param>
+    /// <returns>Whether every selected index and value matches.</returns>
+    private static bool MatchSelection(PdfDictionary field, PdfValue value, PdfValue indices, Span<bool> consumed)
+    {
+        var values = value.AsArray();
+        var count = values?.Count ?? (value.Kind == PdfKind.String ? 1 : 0);
+        if (count != consumed.Length)
+        {
+            return false;
+        }
+
+        var indexArray = indices.AsArray();
+        var options = FieldAttributes.Find(field, KnownName.Opt).AsArray();
+        for (var i = 0; i < consumed.Length; i++)
+        {
+            var index = indexArray is null ? indices : indexArray.Get(i);
+            if (!TryGetOption(options, index, out var option))
+            {
+                return false;
+            }
+
+            if (!ConsumeValue(values, value, option, consumed))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Gets the export value at a valid option index.</summary>
+    /// <param name="options">The options.</param>
+    /// <param name="index">The option index value.</param>
+    /// <param name="option">Receives the export value.</param>
+    /// <returns>Whether the index names an option.</returns>
+    private static bool TryGetOption(PdfArray? options, PdfValue index, out PdfValue option)
+    {
+        option = default;
+        if (options is null || !index.IsNumber || (uint)index.AsInt32() >= (uint)options.Count)
+        {
+            return false;
+        }
+
+        option = options.Get(index.AsInt32());
+        if (option.AsArray() is { } pair)
+        {
+            option = pair.Get(ValueSlot);
+        }
+
+        return true;
+    }
+
+    /// <summary>Consumes one equal export value.</summary>
+    /// <param name="values">The value array, when present.</param>
+    /// <param name="value">The scalar value otherwise.</param>
+    /// <param name="option">The option's export value.</param>
+    /// <param name="consumed">Tracks matched entries.</param>
+    /// <returns>Whether an unmatched value was found.</returns>
+    private static bool ConsumeValue(PdfArray? values, PdfValue value, PdfValue option, Span<bool> consumed)
+    {
+        var optionBytes = option.Kind == PdfKind.String ? option.AsStringBytes() : default;
+        for (var i = 0; i < consumed.Length; i++)
+        {
+            var candidate = values is null ? value : values.Get(i);
+            if (consumed[i] || candidate.Kind != PdfKind.String || !SameText(candidate.AsStringBytes(), optionBytes))
+            {
+                continue;
+            }
+
+            consumed[i] = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Compares PDF strings across their supported text encodings.</summary>
+    /// <param name="left">The first string.</param>
+    /// <param name="right">The second string.</param>
+    /// <returns>Whether their decoded text matches.</returns>
+    private static bool SameText(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    {
+        if (left.SequenceEqual(right))
+        {
+            return true;
+        }
+
+        var length = PdfText.GetDecodedLength(left);
+        if (length != PdfText.GetDecodedLength(right))
+        {
+            return false;
+        }
+
+        char[]? rented = null;
+        Span<char> characters = length <= StackCharacters / ComparedStrings
+            ? stackalloc char[length * ComparedStrings]
+            : (rented = ArrayPool<char>.Shared.Rent(length * ComparedStrings));
+        try
+        {
+            var first = characters[..length];
+            var second = characters.Slice(length, length);
+            _ = PdfText.Decode(left, first);
+            _ = PdfText.Decode(right, second);
+            return first.SequenceEqual(second);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<char>.Shared.Return(rented);
+            }
+        }
     }
 
     /// <summary>Reads an option's text at a position.</summary>
@@ -146,11 +289,20 @@ internal static class FormChoices
     /// <param name="index">The option index.</param>
     /// <param name="slot">The position within an option pair.</param>
     /// <returns>The text; empty when missing.</returns>
-    private static string GetText(PdfDictionary field, int index, int slot)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string GetText(PdfDictionary field, int index, int slot) =>
+        PdfText.Decode(GetTextBytes(field, index, slot));
+
+    /// <summary>Reads an option's text bytes.</summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The option index.</param>
+    /// <param name="slot">The position within an option pair.</param>
+    /// <returns>The text bytes, empty when absent.</returns>
+    private static ReadOnlySpan<byte> GetTextBytes(PdfDictionary field, int index, int slot)
     {
         if (FieldAttributes.Find(field, KnownName.Opt).AsArray() is not { } options)
         {
-            return string.Empty;
+            return default;
         }
 
         var option = options.Get(index);
@@ -159,7 +311,7 @@ internal static class FormChoices
             option = pair.Get(slot);
         }
 
-        return option.Kind == PdfKind.String ? PdfText.Decode(option.AsStringBytes()) : string.Empty;
+        return option.Kind == PdfKind.String ? option.AsStringBytes() : default;
     }
 
     /// <summary>Determines whether the value names an option.</summary>

@@ -54,7 +54,7 @@ Eighteen saved UI frames were compared with an isolated working Avalonia.Skia/Sk
 
 ## Reproduce
 
-```bash
+```console
 taskset -c 2 dotnet run -c Release --project "$PWD/benchmarks/HyperPdf.Benchmarks/HyperPdf.Benchmarks.csproj" -- --filter '*GradientBenchmarks*' '*RectangleBenchmarks*' '*GlyphRunBenchmarks*' --warmupCount 5 --iterationCount 15 --artifacts /tmp/pdf-skia-benchmarks
 dotnet run --file "$PWD/scripts/AllocationAudit.cs" -- /tmp/pdf-skia-benchmarks "$PWD/benchmarks/allocations-explained.json"
 ```

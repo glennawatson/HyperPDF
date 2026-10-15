@@ -22,15 +22,14 @@ internal static class FormValues
     /// <returns>The type; unknown when the field has no recognised <c>/FT</c>.</returns>
     internal static PdfFieldType GetType(PdfDictionary field, PdfNameTable names, PdfFieldFlags flags)
     {
-        var type = FieldAttributes.ReadState(FieldAttributes.Find(field, KnownName.FT), names);
-        return type switch
+        var value = FieldAttributes.Find(field, KnownName.FT);
+        var type = value.Kind switch
         {
-            "Btn" => GetButtonType(flags),
-            "Tx" => PdfFieldType.Text,
-            "Ch" => (flags & PdfFieldFlags.Combo) != 0 ? PdfFieldType.ComboBox : PdfFieldType.ListBox,
-            "Sig" => PdfFieldType.Signature,
-            _ => PdfFieldType.Unknown,
+            PdfKind.Name => names.GetSpelling(value.AsName()),
+            PdfKind.String => value.AsStringBytes(),
+            _ => default,
         };
+        return Classify(type, flags);
     }
 
     /// <summary>Reads a field's value as text.</summary>
@@ -51,6 +50,30 @@ internal static class FormValues
         }
 
         return FieldAttributes.ReadText(value);
+    }
+
+    /// <summary>Classifies an ASCII field type without allocating a string.</summary>
+    /// <param name="type">The field type spelling.</param>
+    /// <param name="flags">The field flags.</param>
+    /// <returns>The field type.</returns>
+    private static PdfFieldType Classify(ReadOnlySpan<byte> type, PdfFieldFlags flags)
+    {
+        if (type.SequenceEqual("Btn"u8))
+        {
+            return GetButtonType(flags);
+        }
+
+        if (type.SequenceEqual("Tx"u8))
+        {
+            return PdfFieldType.Text;
+        }
+
+        if (type.SequenceEqual("Ch"u8))
+        {
+            return (flags & PdfFieldFlags.Combo) != 0 ? PdfFieldType.ComboBox : PdfFieldType.ListBox;
+        }
+
+        return type.SequenceEqual("Sig"u8) ? PdfFieldType.Signature : PdfFieldType.Unknown;
     }
 
     /// <summary>Maps a button's flags to its type.</summary>

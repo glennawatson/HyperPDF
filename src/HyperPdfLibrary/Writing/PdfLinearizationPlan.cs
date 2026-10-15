@@ -2,114 +2,129 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Writing;
 
-/// <summary>Orders reachable objects into first-page, remaining-page and shared sections.</summary>
-internal sealed class PdfLinearizationPlan
+/// <summary>
+/// Orders reachable objects into first-page, remaining-page and shared sections. The plan holds pooled memory that
+/// <see cref="Dispose"/> returns.
+/// </summary>
+internal ref struct PdfLinearizationPlan : IDisposable
 {
     /// <summary>The number of object slots after the linearization dictionary.</summary>
     private const int HintObjectOffset = 2;
 
-    /// <summary>Initializes a new instance of the <see cref="PdfLinearizationPlan"/> class.</summary>
+    /// <summary>Each page's objects in output order.</summary>
+    private PooledRows _pageGroups;
+
+    /// <summary>The objects shared by later pages but absent from the first page.</summary>
+    private PooledInts _sharedOther;
+
+    /// <summary>The objects outside the page groups and shared section.</summary>
+    private PooledInts _trailing;
+
+    /// <summary>The outline objects written consecutively before the main xref.</summary>
+    private PooledInts _outline;
+
+    /// <summary>The objects written with the catalog for opening the document.</summary>
+    private PooledInts _openDocument;
+
+    /// <summary>Each later page's indexes into the shared-object hint table.</summary>
+    private PooledRows _sharedIdentifiers;
+
+    /// <summary>The old-to-new object number map used by the value writer, rented from the shared pool.</summary>
+    private int[]? _renumbering;
+
+    /// <summary>Initializes a new instance of the <see cref="PdfLinearizationPlan"/> struct.</summary>
     /// <param name="graph">The repaired objects to write.</param>
-    /// <param name="sections">The page, shared, outline and catalog groups.</param>
-    /// <param name="outlineWithFirstPage">Whether the outline pane is requested on open.</param>
-    /// <exception cref="PdfException">The object groups do not cover the document.</exception>
-    private PdfLinearizationPlan(PdfObjectGraph graph, PlanSections sections, bool outlineWithFirstPage)
+    private PdfLinearizationPlan(PdfObjectGraph graph)
     {
-        var (pageGroups, sharedOther, trailing, outline, catalogGraphNumber, openDocument, sharedIdentifiers) = sections;
         Graph = graph;
-        PageGroups = pageGroups;
-        SharedOther = sharedOther;
-        Trailing = trailing;
-        Outline = outline;
-        CatalogGraphNumber = catalogGraphNumber;
-        OpenDocument = openDocument;
-        OutlineWithFirstPage = outlineWithFirstPage;
-        SharedIdentifiers = sharedIdentifiers;
-        Renumbering = (int[])graph.Map.Clone();
-        var next = 1;
-        for (var index = 1; index < pageGroups.Length; index++)
-        {
-            Assign(pageGroups[index], ref next);
-        }
-
-        Assign(sharedOther, ref next);
-        Assign(trailing, ref next);
-        if (!outlineWithFirstPage)
-        {
-            Assign(outline, ref next);
-        }
-
-        CatalogNumber = next;
-        Assign([catalogGraphNumber], ref next);
-        Assign(openDocument, ref next);
-        FirstPageNumber = next;
-        Assign(pageGroups[0], ref next);
-        if (next != graph.Count + 1)
-        {
-            throw new PdfException(PdfError.Format, "The linearized object groups are incomplete.");
-        }
+        _pageGroups = default;
+        _sharedOther = default;
+        _trailing = default;
+        _outline = default;
+        _openDocument = default;
+        _sharedIdentifiers = default;
+        _renumbering = null;
+        OutlineWithFirstPage = false;
+        CatalogGraphNumber = 0;
+        CatalogNumber = 0;
+        FirstPageNumber = 0;
     }
 
     /// <summary>Gets the repaired object graph.</summary>
-    internal PdfObjectGraph Graph { get; }
+    internal readonly PdfObjectGraph Graph { get; }
 
-    /// <summary>Gets the old-to-new object number map used by the value writer.</summary>
-    internal int[] Renumbering { get; }
-
-    /// <summary>Gets each page's objects in output order.</summary>
-    internal int[][] PageGroups { get; }
+    /// <summary>Gets the number of page groups.</summary>
+    internal readonly int PageCount => _pageGroups.RowCount;
 
     /// <summary>Gets the objects shared by later pages but absent from the first page.</summary>
-    internal int[] SharedOther { get; }
+    internal readonly ReadOnlySpan<int> SharedOther => _sharedOther.Span;
 
     /// <summary>Gets the objects outside the page groups and shared section.</summary>
-    internal int[] Trailing { get; }
+    internal readonly ReadOnlySpan<int> Trailing => _trailing.Span;
 
     /// <summary>Gets the outline objects written consecutively before the main xref.</summary>
-    internal int[] Outline { get; }
-
-    /// <summary>Gets the catalog's graph number.</summary>
-    internal int CatalogGraphNumber { get; }
+    internal readonly ReadOnlySpan<int> Outline => _outline.Span;
 
     /// <summary>Gets the objects written with the catalog for opening the document.</summary>
-    internal int[] OpenDocument { get; }
+    internal readonly ReadOnlySpan<int> OpenDocument => _openDocument.Span;
 
-    /// <summary>Gets whether the requested outline pane places outlines with the first page.</summary>
-    internal bool OutlineWithFirstPage { get; }
+    /// <summary>Gets a value indicating whether the requested outline pane places outlines with the first page.</summary>
+    internal bool OutlineWithFirstPage { get; private set; }
 
-    /// <summary>Gets each later page's indexes into the shared-object hint table.</summary>
-    internal int[][] SharedIdentifiers { get; }
+    /// <summary>Gets the catalog's graph number.</summary>
+    internal int CatalogGraphNumber { get; private set; }
 
     /// <summary>Gets the new catalog object number.</summary>
-    internal int CatalogNumber { get; }
+    internal int CatalogNumber { get; private set; }
 
     /// <summary>Gets the new first-page object number.</summary>
-    internal int FirstPageNumber { get; }
+    internal int FirstPageNumber { get; private set; }
+
+    /// <summary>Gets the old-to-new object number map used by the value writer.</summary>
+    internal readonly int[] Renumbering => _renumbering!;
 
     /// <summary>Gets the linearization dictionary's object number.</summary>
-    internal int HeaderNumber => Graph.Count + 1;
+    internal readonly int HeaderNumber => Graph.Count + 1;
 
     /// <summary>Gets the hint stream's object number.</summary>
-    internal int HintNumber => Graph.Count + HintObjectOffset;
+    internal readonly int HintNumber => Graph.Count + HintObjectOffset;
 
     /// <summary>Gets the output number of one graph object.</summary>
     /// <param name="graphNumber">The graph object number.</param>
-    internal int this[int graphNumber]
+    internal readonly int this[int graphNumber]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => Renumbering[Graph.GetOldNumber(graphNumber)];
+        get => _renumbering![Graph.GetOldNumber(graphNumber)];
+    }
+
+    /// <summary>Returns the pooled memory.</summary>
+    public void Dispose()
+    {
+        _pageGroups.Dispose();
+        _sharedOther.Dispose();
+        _trailing.Dispose();
+        _outline.Dispose();
+        _openDocument.Dispose();
+        _sharedIdentifiers.Dispose();
+        if (_renumbering is { } renumbering)
+        {
+            ArrayPool<int>.Shared.Return(renumbering);
+        }
+
+        _renumbering = null;
     }
 
     /// <summary>Builds page groups from the document's reachable objects.</summary>
     /// <param name="document">The document to save.</param>
     /// <param name="cancellationToken">Cancels the graph walk.</param>
-    /// <returns>The numbered layout.</returns>
+    /// <returns>The numbered layout, which the caller disposes.</returns>
     /// <exception cref="PdfException">The document has no indirect page or catalog, or page references exceed the supported depth.</exception>
     internal static PdfLinearizationPlan Create(PdfDocument document, CancellationToken cancellationToken)
     {
@@ -119,31 +134,35 @@ internal sealed class PdfLinearizationPlan
             throw new PdfException(PdfError.Format, "A linearized PDF needs at least one page.");
         }
 
-        var store = document.Objects;
-        var graph = PdfObjectGraph.Collect(store, store.Security is not null, cancellationToken);
-        var catalog = store.Trailer.GetRaw(KnownName.Root).AsReference();
-        var catalogGraphNumber = GraphNumber(graph, catalog.Number);
-        var pageNumbers = GetPageNumbers(document, graph);
-        var excluded = ExcludedObjects(graph, pageNumbers, catalogGraphNumber);
-        var openDocument = GetOpenDocumentObjects(graph, catalogGraphNumber, excluded, cancellationToken);
-        Exclude(excluded, openDocument);
-        var outline = GetOutlineObjects(graph, catalogGraphNumber, excluded, cancellationToken);
-        var catalogDictionary = graph.GetValue(catalogGraphNumber).AsDictionary()!;
-        var outlineWithFirstPage = catalogDictionary.GetName(KnownName.PageMode) == graph.Names.Intern("UseOutlines"u8);
-        Exclude(excluded, outline);
-        var pageSets = CollectPageSets(document, graph, pageNumbers, excluded, cancellationToken);
-        var uses = CountUses(graph.Count, pageSets);
-        var pageGroups = BuildPageGroups(graph.Count, pageNumbers, pageSets, uses);
-        if (outlineWithFirstPage)
+        var graph = PdfObjectGraph.CollectForSave(document.Objects, document.Objects.Security is not null, false, cancellationToken);
+        var plan = new PdfLinearizationPlan(graph);
+        var completed = false;
+        try
         {
-            pageGroups[0] = [.. pageGroups[0], .. outline];
+            plan.Fill(document, cancellationToken);
+            completed = true;
+            return plan;
         }
-
-        var sharedOther = GetSharedOther(graph.Count, pageSets[0], uses);
-        var trailing = GetTrailing(graph.Count, pageGroups, sharedOther, outline, catalogGraphNumber, openDocument);
-        var identifiers = GetSharedIdentifiers(pageSets, pageGroups[0], sharedOther);
-        return new(graph, new(pageGroups, sharedOther, trailing, outline, catalogGraphNumber, openDocument, identifiers), outlineWithFirstPage);
+        finally
+        {
+            if (!completed)
+            {
+                plan.Dispose();
+            }
+        }
     }
+
+    /// <summary>Gets a page's objects in output order.</summary>
+    /// <param name="page">The zero based page index.</param>
+    /// <returns>The graph numbers.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal readonly ReadOnlySpan<int> PageGroup(int page) => _pageGroups[page];
+
+    /// <summary>Gets the indexes of the shared objects a later page uses.</summary>
+    /// <param name="page">The zero based page index.</param>
+    /// <returns>The indexes into the shared-object table; empty for the first page.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal readonly ReadOnlySpan<int> SharedIdentifiers(int page) => _sharedIdentifiers[page];
 
     /// <summary>Maps an original object number to its graph number.</summary>
     /// <param name="graph">The repaired graph.</param>
@@ -160,137 +179,10 @@ internal sealed class PdfLinearizationPlan
         return graph.Map[number];
     }
 
-    /// <summary>Gets the graph number of each page dictionary.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="graph">The repaired graph.</param>
-    /// <returns>Page object numbers in reading order.</returns>
-    private static int[] GetPageNumbers(PdfDocument document, PdfObjectGraph graph)
-    {
-        var numbers = new int[document.PageCount];
-        for (var index = 0; index < numbers.Length; index++)
-        {
-            numbers[index] = GraphNumber(graph, PdfDocumentPages.GetPage(document, index).Id.Number);
-        }
-
-        return numbers;
-    }
-
-    /// <summary>Marks catalog, page-tree nodes and page dictionaries outside each page's private walk.</summary>
-    /// <param name="graph">The repaired graph.</param>
-    /// <param name="pages">The page graph numbers.</param>
-    /// <param name="catalog">The catalog graph number.</param>
-    /// <returns>Objects excluded from page dependency walks.</returns>
-    private static bool[] ExcludedObjects(PdfObjectGraph graph, int[] pages, int catalog)
-    {
-        var excluded = new bool[graph.Count + 1];
-        excluded[catalog] = true;
-        foreach (var page in pages)
-        {
-            excluded[page] = true;
-        }
-
-        for (var graphNumber = 1; graphNumber <= graph.Count; graphNumber++)
-        {
-            if (graph.GetValue(graphNumber).AsDictionary()?.IsName(KnownName.Type, KnownName.Pages) == true)
-            {
-                excluded[graphNumber] = true;
-            }
-        }
-
-        return excluded;
-    }
-
-    /// <summary>Finds form fields and other objects needed to open the document before page data.</summary>
-    /// <param name="graph">The repaired graph.</param>
-    /// <param name="catalogNumber">The catalog's graph number.</param>
-    /// <param name="excluded">Catalog and page-tree objects.</param>
-    /// <param name="cancellationToken">Cancels the walk.</param>
-    /// <returns>The opening objects in graph order.</returns>
-    private static int[] GetOpenDocumentObjects(PdfObjectGraph graph, int catalogNumber, bool[] excluded, CancellationToken cancellationToken)
-    {
-        var catalog = graph.GetValue(catalogNumber).AsDictionary()!;
-        var set = new HashSet<int>();
-        var walk = new WalkState(graph, excluded, set, true, new(), cancellationToken);
-        Scan(catalog.GetRaw(KnownName.AcroForm), walk);
-        Scan(catalog.GetRaw(KnownName.ViewerPreferences), walk);
-        Scan(catalog.GetRaw(KnownName.Threads), walk);
-        Scan(catalog.GetRaw(KnownName.OpenAction), walk);
-        return Ordered(graph.Count, set);
-    }
-
-    /// <summary>Finds outlines for their own contiguous hint group.</summary>
-    /// <param name="graph">The repaired graph.</param>
-    /// <param name="catalogNumber">The catalog's graph number.</param>
-    /// <param name="excluded">Objects already assigned to open or page-tree sections.</param>
-    /// <param name="cancellationToken">Cancels the walk.</param>
-    /// <returns>The outline objects in graph order.</returns>
-    private static int[] GetOutlineObjects(PdfObjectGraph graph, int catalogNumber, bool[] excluded, CancellationToken cancellationToken)
-    {
-        var catalog = graph.GetValue(catalogNumber).AsDictionary()!;
-        var set = new HashSet<int>();
-        var walk = new WalkState(graph, excluded, set, true, new(), cancellationToken);
-        Scan(catalog.GetRaw(KnownName.Outlines), walk);
-        return Ordered(graph.Count, set);
-    }
-
-    /// <summary>Excludes assigned objects from later page dependency walks.</summary>
-    /// <param name="excluded">The exclusion map.</param>
-    /// <param name="numbers">The assigned graph numbers.</param>
-    private static void Exclude(bool[] excluded, int[] numbers)
-    {
-        foreach (var number in numbers)
-        {
-            excluded[number] = true;
-        }
-    }
-
-    /// <summary>Sorts a reachability set into graph number order.</summary>
-    /// <param name="count">The graph's object count.</param>
-    /// <param name="set">The reachable objects.</param>
-    /// <returns>The ordered graph numbers.</returns>
-    private static int[] Ordered(int count, HashSet<int> set)
-    {
-        var ordered = new List<int>(set.Count);
-        for (var number = 1; number <= count; number++)
-        {
-            if (set.Contains(number))
-            {
-                ordered.Add(number);
-            }
-        }
-
-        return [.. ordered];
-    }
-
-    /// <summary>Finds the indirect objects each page needs without following page-tree and back references.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="graph">The repaired graph.</param>
-    /// <param name="pages">The page graph numbers.</param>
-    /// <param name="excluded">Catalog, page-tree and page objects.</param>
-    /// <param name="cancellationToken">Cancels the walk.</param>
-    /// <returns>One reachable set per page.</returns>
-    private static HashSet<int>[] CollectPageSets(PdfDocument document, PdfObjectGraph graph, int[] pages, bool[] excluded, CancellationToken cancellationToken)
-    {
-        var sets = new HashSet<int>[pages.Length];
-        var pending = new Stack<PdfValue>();
-        for (var index = 0; index < pages.Length; index++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var page = PdfDocumentPages.GetPage(document, index);
-            var set = new HashSet<int> { pages[index] };
-            var walk = new WalkState(graph, excluded, set, false, pending, cancellationToken);
-            Scan(graph.GetValue(pages[index]), walk);
-            ScanInheritedResources(page, walk);
-            sets[index] = set;
-        }
-
-        return sets;
-    }
-
     /// <summary>Includes the resource dictionary inherited through a page's parent chain.</summary>
     /// <param name="page">The page.</param>
     /// <param name="walk">The page's graph walk.</param>
-    private static void ScanInheritedResources(PdfPage page, WalkState walk)
+    private static void ScanInheritedResources(PdfPage page, ref PdfLinearizationWalk walk)
     {
         var node = page.Dictionary;
         for (var depth = 0; node is not null && depth < PdfLimits.MaxNesting; depth++)
@@ -298,7 +190,7 @@ internal sealed class PdfLinearizationPlan
             var resources = node.GetRaw(KnownName.Resources);
             if (!resources.IsNull)
             {
-                Scan(resources, walk);
+                walk.Scan(resources);
                 return;
             }
 
@@ -306,263 +198,293 @@ internal sealed class PdfLinearizationPlan
         }
     }
 
-    /// <summary>
-    /// Collects the indirect objects a value reaches. The walk keeps its own stack, so a long chain of references, such as
-    /// a linked list of outline items or structure elements, needs no call depth; the visited set ends cycles.
-    /// </summary>
-    /// <param name="value">The value.</param>
-    /// <param name="walk">The graph walk.</param>
-    private static void Scan(PdfValue value, WalkState walk)
-    {
-        var pending = walk.Pending;
-        pending.Push(value);
-        while (pending.TryPop(out var next))
-        {
-            switch (next.Kind)
-            {
-                case PdfKind.Reference:
-                    {
-                        PushReference(next.AsReference().Number, walk);
-                        break;
-                    }
-
-                case PdfKind.Array:
-                    {
-                        PushArray(next.AsArray()!, pending);
-                        break;
-                    }
-
-                case PdfKind.Dictionary or PdfKind.Stream:
-                    {
-                        PushDictionary(next.AsDictionary()!, next.Kind == PdfKind.Stream, walk);
-                        break;
-                    }
-
-                default:
-                    {
-                        break;
-                    }
-            }
-        }
-    }
-
-    /// <summary>Queues one indirect page dependency when it is not a page-tree or back reference and not yet visited.</summary>
-    /// <param name="number">The old object number.</param>
-    /// <param name="walk">The graph walk.</param>
-    private static void PushReference(int number, WalkState walk)
-    {
-        if (number < 1 || number >= walk.Graph.Map.Length)
-        {
-            return;
-        }
-
-        var graphNumber = walk.Graph.Map[number];
-        if (graphNumber < 1 || walk.Excluded[graphNumber] || !walk.Set.Add(graphNumber))
-        {
-            return;
-        }
-
-        walk.CancellationToken.ThrowIfCancellationRequested();
-        walk.Pending.Push(walk.Graph.GetValue(graphNumber));
-    }
-
-    /// <summary>Queues the values of a direct PDF array.</summary>
-    /// <param name="array">The array.</param>
-    /// <param name="pending">The values still to visit.</param>
-    private static void PushArray(PdfArray array, Stack<PdfValue> pending)
-    {
-        foreach (var item in array.Items)
-        {
-            pending.Push(item);
-        }
-    }
-
-    /// <summary>Queues dictionary entries other than page parents, form children and stream lengths.</summary>
-    /// <param name="dictionary">The dictionary.</param>
-    /// <param name="isStream">Whether the writer replaces its length.</param>
-    /// <param name="walk">The graph walk.</param>
-    private static void PushDictionary(PdfDictionary dictionary, bool isStream, WalkState walk)
-    {
-        for (var index = 0; index < dictionary.Count; index++)
-        {
-            var key = dictionary.GetKeyAt(index);
-            if ((!walk.IncludeFormTree && (key.Is(KnownName.Parent) || key.Is(KnownName.Kids))) || (isStream && key.Is(KnownName.Length)))
-            {
-                continue;
-            }
-
-            walk.Pending.Push(dictionary.GetValueAt(index));
-        }
-    }
-
     /// <summary>Counts the pages that use each graph object.</summary>
     /// <param name="count">The graph object count.</param>
     /// <param name="sets">Each page's dependencies.</param>
-    /// <returns>The page usage counts by graph number.</returns>
-    private static int[] CountUses(int count, HashSet<int>[] sets)
+    /// <param name="uses">Receives the page usage counts by graph number.</param>
+    private static void CountUses(int count, PooledRows sets, ref PooledInts uses)
     {
-        var uses = new int[count + 1];
-        foreach (var set in sets)
+        var counts = uses.AddZeros(count + 1);
+        for (var page = 0; page < sets.RowCount; page++)
         {
-            foreach (var graphNumber in set)
+            foreach (var graphNumber in sets[page])
             {
-                uses[graphNumber]++;
+                counts[graphNumber]++;
             }
         }
+    }
 
-        return uses;
+    /// <summary>Adds numbers to a set.</summary>
+    /// <param name="set">The set.</param>
+    /// <param name="numbers">The numbers.</param>
+    private static void AddAll(PooledBits set, ReadOnlySpan<int> numbers)
+    {
+        foreach (var number in numbers)
+        {
+            _ = set.Add(number);
+        }
+    }
+
+    /// <summary>Walks the document and places every object in a section.</summary>
+    /// <param name="document">The document to save.</param>
+    /// <param name="cancellationToken">Cancels the graph walk.</param>
+    private void Fill(PdfDocument document, CancellationToken cancellationToken)
+    {
+        var graph = Graph;
+        CatalogGraphNumber = GraphNumber(graph, document.Objects.Trailer.GetRaw(KnownName.Root).AsReference().Number);
+        var pages = default(PooledInts);
+        var sets = default(PooledRows);
+        var uses = default(PooledInts);
+        var walk = new PdfLinearizationWalk(graph, cancellationToken);
+        try
+        {
+            for (var index = 0; index < document.PageCount; index++)
+            {
+                pages.Add(GraphNumber(graph, PdfDocumentPages.GetPage(document, index).Id.Number));
+            }
+
+            ExcludeStructure(ref walk, pages.Span);
+            CollectCatalogSections(ref walk);
+            CollectPageSets(document, ref walk, pages.Span, ref sets);
+            CountUses(graph.Count, sets, ref uses);
+            CollectPageGroups(pages.Span, sets, uses.Span);
+            CollectSharedOther(sets[0], uses.Span);
+            CollectTrailing();
+            CollectSharedIdentifiers(sets);
+            Number();
+        }
+        finally
+        {
+            walk.Dispose();
+            pages.Dispose();
+            sets.Dispose();
+            uses.Dispose();
+        }
+    }
+
+    /// <summary>Leaves the catalog, page-tree nodes and pages out of the page dependency walks.</summary>
+    /// <param name="walk">The walk.</param>
+    /// <param name="pages">The page graph numbers.</param>
+    private readonly void ExcludeStructure(ref PdfLinearizationWalk walk, ReadOnlySpan<int> pages)
+    {
+        walk.Exclude(CatalogGraphNumber);
+        walk.Exclude(pages);
+        for (var graphNumber = 1; graphNumber <= Graph.Count; graphNumber++)
+        {
+            if (Graph.GetValue(graphNumber).AsDictionary()?.IsName(KnownName.Type, KnownName.Pages) == true)
+            {
+                walk.Exclude(graphNumber);
+            }
+        }
+    }
+
+    /// <summary>Finds the objects needed to open the document, and the outlines, which get their own groups.</summary>
+    /// <param name="walk">The walk.</param>
+    private void CollectCatalogSections(ref PdfLinearizationWalk walk)
+    {
+        var catalog = Graph.GetValue(CatalogGraphNumber).AsDictionary()!;
+        walk.Begin(true);
+        walk.Scan(catalog.GetRaw(KnownName.AcroForm));
+        walk.Scan(catalog.GetRaw(KnownName.ViewerPreferences));
+        walk.Scan(catalog.GetRaw(KnownName.Threads));
+        walk.Scan(catalog.GetRaw(KnownName.OpenAction));
+        walk.Reached.CopyTo(ref _openDocument);
+        walk.Exclude(_openDocument.Span);
+
+        walk.Begin(true);
+        walk.Scan(catalog.GetRaw(KnownName.Outlines));
+        walk.Reached.CopyTo(ref _outline);
+        OutlineWithFirstPage = catalog.GetName(KnownName.PageMode) == Graph.Names.Intern("UseOutlines"u8);
+        walk.Exclude(_outline.Span);
+    }
+
+    /// <summary>Finds the indirect objects each page needs without following page-tree and back references.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="walk">The walk.</param>
+    /// <param name="pages">The page graph numbers.</param>
+    /// <param name="sets">Receives one reachable row per page, smallest first.</param>
+    private readonly void CollectPageSets(PdfDocument document, ref PdfLinearizationWalk walk, ReadOnlySpan<int> pages, ref PooledRows sets)
+    {
+        var reached = default(PooledInts);
+        try
+        {
+            for (var index = 0; index < pages.Length; index++)
+            {
+                walk.Begin(false, pages[index]);
+                walk.Scan(Graph.GetValue(pages[index]));
+                ScanInheritedResources(PdfDocumentPages.GetPage(document, index), ref walk);
+                reached.Clear();
+                walk.Reached.CopyTo(ref reached);
+                foreach (var graphNumber in reached.Span)
+                {
+                    sets.Add(graphNumber);
+                }
+
+                sets.EndRow();
+            }
+        }
+        finally
+        {
+            reached.Dispose();
+        }
     }
 
     /// <summary>Places each page first in its group, followed by its private dependencies.</summary>
-    /// <param name="count">The graph object count.</param>
     /// <param name="pages">The page graph numbers.</param>
     /// <param name="sets">The page dependency sets.</param>
     /// <param name="uses">The page usage counts.</param>
-    /// <returns>The ordered page groups.</returns>
-    private static int[][] BuildPageGroups(int count, int[] pages, HashSet<int>[] sets, int[] uses)
+    private void CollectPageGroups(ReadOnlySpan<int> pages, PooledRows sets, ReadOnlySpan<int> uses)
     {
-        var groups = new int[pages.Length][];
         for (var index = 0; index < pages.Length; index++)
         {
-            var group = new List<int> { pages[index] };
-            for (var number = 1; number <= count; number++)
+            _pageGroups.Add(pages[index]);
+            foreach (var number in sets[index])
             {
-                if (number != pages[index] && sets[index].Contains(number) && (index == 0 || uses[number] == 1))
+                if (number != pages[index] && (index == 0 || uses[number] == 1))
                 {
-                    group.Add(number);
+                    _pageGroups.Add(number);
                 }
             }
 
-            groups[index] = [.. group];
-        }
+            if (index == 0 && OutlineWithFirstPage)
+            {
+                foreach (var number in _outline.Span)
+                {
+                    _pageGroups.Add(number);
+                }
+            }
 
-        return groups;
+            _pageGroups.EndRow();
+        }
     }
 
     /// <summary>Gets dependencies used by multiple later pages and absent from page one.</summary>
-    /// <param name="count">The graph object count.</param>
-    /// <param name="first">The first page's dependency set.</param>
+    /// <param name="first">The first page's dependency row, smallest first.</param>
     /// <param name="uses">The page usage counts.</param>
-    /// <returns>The shared graph objects.</returns>
-    private static int[] GetSharedOther(int count, HashSet<int> first, int[] uses)
+    private void CollectSharedOther(ReadOnlySpan<int> first, ReadOnlySpan<int> uses)
     {
-        var shared = new List<int>();
-        for (var number = 1; number <= count; number++)
+        for (var number = 1; number <= Graph.Count; number++)
         {
-            if (uses[number] > 1 && !first.Contains(number))
+            if (uses[number] > 1 && first.BinarySearch(number) < 0)
             {
-                shared.Add(number);
+                _sharedOther.Add(number);
             }
         }
-
-        return [.. shared];
     }
 
-    /// <summary>Gets objects not assigned to page groups, shared objects or the catalog.</summary>
-    /// <param name="count">The graph object count.</param>
-    /// <param name="groups">The page groups.</param>
-    /// <param name="shared">The later-page shared objects.</param>
-    /// <param name="outline">The outline objects.</param>
-    /// <param name="catalog">The catalog graph number.</param>
-    /// <param name="openDocument">The document-opening objects.</param>
-    /// <returns>The trailing graph objects.</returns>
-    private static int[] GetTrailing(int count, int[][] groups, int[] shared, int[] outline, int catalog, int[] openDocument)
+    /// <summary>Gets objects not assigned to page groups, shared objects, the outline or the catalog.</summary>
+    private void CollectTrailing()
     {
-        var assigned = new bool[count + 1];
-        assigned[catalog] = true;
-        foreach (var group in groups)
+        var assigned = default(PooledBits);
+        assigned.Rent(Graph.Count + 1);
+        try
         {
-            foreach (var number in group)
+            _ = assigned.Add(CatalogGraphNumber);
+            for (var page = 0; page < _pageGroups.RowCount; page++)
             {
-                assigned[number] = true;
+                AddAll(assigned, _pageGroups[page]);
+            }
+
+            AddAll(assigned, _sharedOther.Span);
+            AddAll(assigned, _outline.Span);
+            AddAll(assigned, _openDocument.Span);
+            for (var number = 1; number <= Graph.Count; number++)
+            {
+                if (!assigned.Contains(number))
+                {
+                    _trailing.Add(number);
+                }
             }
         }
-
-        foreach (var number in shared)
+        finally
         {
-            assigned[number] = true;
+            assigned.Dispose();
         }
-
-        foreach (var number in outline)
-        {
-            assigned[number] = true;
-        }
-
-        foreach (var number in openDocument)
-        {
-            assigned[number] = true;
-        }
-
-        var trailing = new List<int>();
-        for (var number = 1; number <= count; number++)
-        {
-            if (!assigned[number])
-            {
-                trailing.Add(number);
-            }
-        }
-
-        return [.. trailing];
     }
 
     /// <summary>Indexes page dependencies into the first-page and later shared-object sections.</summary>
     /// <param name="sets">Each page's dependencies.</param>
-    /// <param name="firstGroup">The first page's objects.</param>
-    /// <param name="sharedOther">The later-page shared objects.</param>
-    /// <returns>Shared identifiers per page, empty for the first page.</returns>
-    private static int[][] GetSharedIdentifiers(HashSet<int>[] sets, int[] firstGroup, int[] sharedOther)
+    private void CollectSharedIdentifiers(PooledRows sets)
     {
-        var shared = new int[firstGroup.Length + sharedOther.Length];
-        firstGroup.CopyTo(shared, 0);
-        sharedOther.CopyTo(shared, firstGroup.Length);
-        var identifiers = new int[sets.Length][];
-        identifiers[0] = [];
-        for (var page = 1; page < sets.Length; page++)
+        var shared = default(PooledInts);
+        try
         {
-            var needed = new List<int>();
-            for (var index = 0; index < shared.Length; index++)
+            foreach (var number in _pageGroups[0])
             {
-                if (sets[page].Contains(shared[index]))
-                {
-                    needed.Add(index);
-                }
+                shared.Add(number);
             }
 
-            identifiers[page] = [.. needed];
+            foreach (var number in _sharedOther.Span)
+            {
+                shared.Add(number);
+            }
+
+            _sharedIdentifiers.EndRow();
+            for (var page = 1; page < sets.RowCount; page++)
+            {
+                var row = sets[page];
+                for (var index = 0; index < shared.Count; index++)
+                {
+                    if (row.BinarySearch(shared[index]) >= 0)
+                    {
+                        _sharedIdentifiers.Add(index);
+                    }
+                }
+
+                _sharedIdentifiers.EndRow();
+            }
+        }
+        finally
+        {
+            shared.Dispose();
+        }
+    }
+
+    /// <summary>Gives every object its output number: later pages, shared objects, the catalog section, then the first page.</summary>
+    /// <exception cref="PdfException">The object groups do not cover the document.</exception>
+    private void Number()
+    {
+        var map = Graph.Map;
+        var renumbering = ArrayPool<int>.Shared.Rent(map.Length);
+        map.CopyTo(renumbering, 0);
+
+        // The map's own length bounds the old numbers the writer renumbers; a longer pooled array reads as unmapped beyond it.
+        renumbering.AsSpan(map.Length).Clear();
+        _renumbering = renumbering;
+        var next = 1;
+        for (var index = 1; index < _pageGroups.RowCount; index++)
+        {
+            Assign(_pageGroups[index], ref next);
         }
 
-        return identifiers;
+        Assign(_sharedOther.Span, ref next);
+        Assign(_trailing.Span, ref next);
+        if (!OutlineWithFirstPage)
+        {
+            Assign(_outline.Span, ref next);
+        }
+
+        CatalogNumber = next;
+        renumbering[Graph.GetOldNumber(CatalogGraphNumber)] = next;
+        next++;
+        Assign(_openDocument.Span, ref next);
+        FirstPageNumber = next;
+        Assign(_pageGroups[0], ref next);
+        if (next != Graph.Count + 1)
+        {
+            throw new PdfException(PdfError.Format, "The linearized object groups are incomplete.");
+        }
     }
 
     /// <summary>Assigns output numbers to one ordered group.</summary>
     /// <param name="group">The graph numbers.</param>
     /// <param name="next">The next output number.</param>
-    private void Assign(int[] group, ref int next)
+    private readonly void Assign(ReadOnlySpan<int> group, ref int next)
     {
         foreach (var graphNumber in group)
         {
-            var old = Graph.GetOldNumber(graphNumber);
-            Renumbering[old] = next;
+            _renumbering![Graph.GetOldNumber(graphNumber)] = next;
             next++;
         }
     }
-
-    /// <summary>The state of one bounded reference walk.</summary>
-    /// <param name="Graph">The repaired objects.</param>
-    /// <param name="Excluded">Objects outside this section.</param>
-    /// <param name="Set">The visited objects.</param>
-    /// <param name="IncludeFormTree">Whether to follow form parent and child links.</param>
-    /// <param name="Pending">The values still to visit; empty between scans, so walks can share it.</param>
-    /// <param name="CancellationToken">Cancels the walk.</param>
-    private sealed record WalkState(PdfObjectGraph Graph, bool[] Excluded, HashSet<int> Set, bool IncludeFormTree, Stack<PdfValue> Pending, CancellationToken CancellationToken);
-
-    /// <summary>The ordered sections placed around the two cross-reference tables.</summary>
-    /// <param name="PageGroups">The page groups.</param>
-    /// <param name="SharedOther">Objects shared by later pages.</param>
-    /// <param name="Trailing">Objects outside page and outline groups.</param>
-    /// <param name="Outline">The outline objects.</param>
-    /// <param name="CatalogGraphNumber">The catalog graph number.</param>
-    /// <param name="OpenDocument">Objects needed at document open.</param>
-    /// <param name="SharedIdentifiers">Each page's shared-object identifiers.</param>
-    private sealed record PlanSections(int[][] PageGroups, int[] SharedOther, int[] Trailing, int[] Outline, int CatalogGraphNumber, int[] OpenDocument, int[][] SharedIdentifiers);
 }

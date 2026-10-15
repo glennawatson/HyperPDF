@@ -93,6 +93,20 @@ public sealed class ArticleAndPartReadingTests
     /// <summary>The digital identifier of the first content set.</summary>
     private static readonly byte[] FirstSetId = [0x01, 0x02];
 
+    /// <summary>Changing a caller's thread list leaves the cached document snapshot intact.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ThreadSnapshotsDoNotShareMutableLists()
+    {
+        using var document = StructureDocuments.Open("/Threads [4 0 R]", "<< /Type /Thread /I << /Title (Story) >> >>");
+        var threads = PdfDocumentCatalog.GetThreads(document);
+        var changed = threads.SetItem(0, threads[0] with { Title = "Changed" });
+
+        await Assert.That(changed[0].Title).IsEqualTo("Changed");
+        await Assert.That(PdfDocumentCatalog.GetThreads(document)[0].Title).IsEqualTo("Story");
+        await Assert.That(() => ((IList<HyperPdfLibrary.Features.PdfThread>)threads).Clear()).Throws<NotSupportedException>();
+    }
+
     /// <summary>A three-bead thread keeps the /N order from /F, each bead's rectangle and its page.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -114,7 +128,7 @@ public sealed class ArticleAndPartReadingTests
         await Assert.That(thread.Beads[1].Bounds!.Value.Left).IsEqualTo(SecondLeft);
         await Assert.That(thread.Beads[Third].Bounds!.Value.Left).IsEqualTo(ThirdLeft);
         await Assert.That(thread.Beads[Third].Bounds!.Value.Bottom).IsEqualTo(ThirdBottom);
-        await Assert.That(Array.TrueForAll(thread.Beads, static bead => bead.PageIndex == 0)).IsTrue();
+        await Assert.That(thread.Beads.All(static bead => bead.PageIndex == 0)).IsTrue();
     }
 
     /// <summary>A ring whose last bead points back into the middle, a bead with no /N and a /N to a missing object all stop.</summary>
@@ -330,7 +344,7 @@ public sealed class ArticleAndPartReadingTests
         await Assert.That(first.Sources[0].Timestamp!.Value.Year).IsEqualTo(CaptureYear);
         await Assert.That(first.Sources[1].Url).IsEqualTo("http://x/form");
         await Assert.That(first.Sources[1].Type).IsEqualTo(PostSource);
-        await Assert.That(Encoding.ASCII.GetString(web.ContentSets[1].Id)).IsEqualTo("img");
+        await Assert.That(Encoding.ASCII.GetString(web.ContentSets[1].Id.AsSpan())).IsEqualTo("img");
         await Assert.That(web.ContentSets[Third].Sources.Length).IsEqualTo(0);
         await Assert.That(web.ContentSets[Third].ObjectCount).IsEqualTo(0);
         await Assert.That(PdfDocumentWebCapture.GetWebCapture(wrong)!.ContentSets.Length).IsEqualTo(0);

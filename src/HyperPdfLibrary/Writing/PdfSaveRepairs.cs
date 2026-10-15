@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Writing;
@@ -15,13 +16,16 @@ namespace HyperPdfLibrary.Writing;
 /// is reported as <see cref="PdfDiagnosticCode.FixedOnSave"/> so a viewer can tell the user.
 /// </summary>
 [DebuggerDisplay("PdfSaveRepairs: {_nodes.Count} page tree nodes")]
-internal sealed class PdfSaveRepairs
+internal record struct PdfSaveRepairs : IDisposable
 {
-    /// <summary>The page tree nodes and pages, by object number.</summary>
-    private readonly Dictionary<int, TreeNode> _nodes = [];
+    /// <summary>The largest temporary page-tree table kept between saves.</summary>
+    private const int MaxKeptNodes = 4096;
 
-    /// <summary>The pages found by scanning when the page tree led to none, in object order.</summary>
-    private readonly SortedSet<int> _scannedPages = [];
+    /// <summary>The page tree nodes and pages, by object number.</summary>
+    private readonly Dictionary<int, TreeNode> _nodes;
+
+    /// <summary>The lifetime owner of the temporary table.</summary>
+    private readonly ScratchSlots<Dictionary<int, TreeNode>> _slots;
 
     /// <summary>The objects the fixes read.</summary>
     private readonly PdfObjectStore _store;
@@ -32,32 +36,62 @@ internal sealed class PdfSaveRepairs
     /// <summary>The object number the catalog's /Pages must name when it named nothing usable; otherwise 0.</summary>
     private readonly int _catalogPages;
 
+    /// <summary>The pages found by scanning when the page tree led to none, in object order.</summary>
+    private SortedSet<int>? _scannedPages;
+
     /// <summary>The object number of the page tree root when its kids were rebuilt from a scan; otherwise 0.</summary>
     private int _scannedRoot;
 
     /// <summary>The page tree root made as a new object, or <see langword="null"/>.</summary>
     private PdfDictionary? _madeRoot;
 
-    /// <summary>Initializes a new instance of the <see cref="PdfSaveRepairs"/> class by walking the page tree once.</summary>
+    /// <summary>Initializes a new instance of the <see cref="PdfSaveRepairs"/> struct by walking the page tree once.</summary>
     /// <param name="store">The document's objects.</param>
     /// <param name="allowNewObject">Whether a page tree root may be made as a new object, which only a writer that numbers the whole file can place.</param>
     internal PdfSaveRepairs(PdfObjectStore store, bool allowNewObject)
     {
         _store = store;
-        var root = store.Trailer.GetRaw(KnownName.Root);
-        _catalogNumber = root.IsReference ? root.AsReference().Number : 0;
-        var pages = store.Catalog.GetRaw(KnownName.Pages);
-        var pagesNumber = pages.IsReference && StoreReading.Resolve(store, pages).AsDictionary() is not null ? pages.AsReference().Number : FindPagesRoot();
-        if (pagesNumber == 0)
+        _slots = store.ScratchPools.Slots<Dictionary<int, TreeNode>>();
+        _nodes = _slots.Take() ?? [];
+        try
         {
-            _catalogPages = allowNewObject ? MakeRoot() : 0;
+            var root = store.Trailer.GetRaw(KnownName.Root);
+            _catalogNumber = root.IsReference ? root.AsReference().Number : 0;
+            var pages = store.Catalog.GetRaw(KnownName.Pages);
+            var pagesNumber = pages.IsReference && StoreReading.Resolve(store, pages).AsDictionary() is not null ? pages.AsReference().Number : FindPagesRoot();
+            if (pagesNumber == 0)
+            {
+                _catalogPages = allowNewObject ? MakeRoot() : 0;
+                return;
+            }
+
+            _catalogPages = pages.IsReference && pages.AsReference().Number == pagesNumber ? 0 : pagesNumber;
+            if (Walk(pagesNumber, 0, 0) == 0)
+            {
+                RebuildFromScan(pagesNumber);
+            }
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>Returns the temporary page-tree table without recycling repaired result objects.</summary>
+    public void Dispose()
+    {
+        var nodes = _nodes;
+        if (nodes is null)
+        {
             return;
         }
 
-        _catalogPages = pages.IsReference && pages.AsReference().Number == pagesNumber ? 0 : pagesNumber;
-        if (Walk(pagesNumber, 0, 0) == 0)
+        var keep = nodes.EnsureCapacity(0) <= MaxKeptNodes;
+        nodes.Clear();
+        if (keep)
         {
-            RebuildFromScan(pagesNumber);
+            _ = _slots.Offer(nodes);
         }
     }
 
@@ -134,7 +168,7 @@ internal sealed class PdfSaveRepairs
         {
             Edit(source, ref copy, number, "The page tree listed no pages, so it was rebuilt from the pages found.").Set(KnownName.Kids, PdfValue.FromArray(ScannedKids()));
         }
-        else if (_scannedPages.Contains(number))
+        else if (_scannedPages?.Contains(number) == true)
         {
             FlattenInherited(source, ref copy, number);
         }
@@ -225,7 +259,7 @@ internal sealed class PdfSaveRepairs
         }
 
         ScanPages(root);
-        if (_scannedPages.Count == 0)
+        if (_scannedPages is not { Count: > 0 })
         {
             return;
         }
@@ -240,7 +274,7 @@ internal sealed class PdfSaveRepairs
     {
         var root = _store.Size;
         ScanPages(root);
-        if (_scannedPages.Count == 0)
+        if (_scannedPages is not { Count: > 0 })
         {
             return 0;
         }
@@ -275,7 +309,7 @@ internal sealed class PdfSaveRepairs
             return;
         }
 
-        _ = _scannedPages.Add(number);
+        _ = (_scannedPages ??= []).Add(number);
         _nodes[number] = new(true, root, 1);
     }
 
@@ -283,8 +317,14 @@ internal sealed class PdfSaveRepairs
     /// <returns>The array.</returns>
     private PdfArray ScannedKids()
     {
-        var kids = new PdfArray(_store, _scannedPages.Count);
-        foreach (var number in _scannedPages)
+        var pages = _scannedPages;
+        if (pages is null)
+        {
+            return new(_store, 0);
+        }
+
+        var kids = new PdfArray(_store, pages.Count);
+        foreach (var number in pages)
         {
             kids.Add(PdfValue.FromReference(new(number, 0)));
         }

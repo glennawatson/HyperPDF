@@ -25,22 +25,28 @@ public sealed record SpeechSetup(
     Func<AppSettings, IReadOnlyList<SpeechModelFile>> VoiceFilesFor,
     Func<AppSettings, string, ISpeechEngine> CreateEngine,
     Func<IAudioOutput> CreateAudio,
-    Func<AppSettings, IProgress<double>, CancellationToken, Task> DownloadVoice)
+    Func<AppSettings, IProgress<double>, CancellationToken, Task> DownloadVoice) : IDisposable
 {
     /// <summary>Gets the default voice folder, <c>~/.local/share/hyperpdf/voices</c> on Linux.</summary>
     public static string DefaultVoiceDirectory { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "hyperpdf", "voices");
 
+    /// <summary>Gets the downloads and file facts owned by this setup.</summary>
+    private SpeechModelDownloader Downloads { get; init; } = new();
+
     /// <summary>Creates the default setup: MeloTTS or Kokoro on this computer, or Azure with the person's key, played through the desktop's sound output.</summary>
     /// <param name="platform">The desktop integration, which provides the sound output.</param>
     /// <returns>The setup.</returns>
-    public static SpeechSetup CreateDefault(IDesktopPlatform platform) =>
-        new(
+    public static SpeechSetup CreateDefault(IDesktopPlatform platform)
+    {
+        var downloads = new SpeechModelDownloader();
+        return new(
             DefaultVoiceDirectory,
             FilesFor,
             CreateEngineFor,
             platform.CreateAudioOutput,
-            static (settings, progress, cancellationToken) => SpeechModelDownloader.DownloadAsync(FilesFor(settings), DefaultVoiceDirectory, progress, cancellationToken));
+            (settings, progress, cancellationToken) => downloads.DownloadAsync(FilesFor(settings), DefaultVoiceDirectory, progress, cancellationToken)) { Downloads = downloads, };
+    }
 
     /// <summary>Gets the files the chosen on-device voice needs: Kokoro's when Kokoro is chosen, otherwise MeloTTS's.</summary>
     /// <param name="settings">The settings.</param>
@@ -70,5 +76,9 @@ public sealed record SpeechSetup(
     /// <param name="settings">The settings, which choose the voice.</param>
     /// <returns>The approximate size.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public long MissingBytesFor(AppSettings settings) => SpeechModelDownloader.TotalBytes(SpeechModelDownloader.Missing(VoiceFilesFor(settings), VoiceDirectory));
+    public long MissingBytesFor(AppSettings settings) => SpeechModelDownloader.TotalBytes(Downloads.Missing(VoiceFilesFor(settings), VoiceDirectory));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => Downloads.Dispose();
 }

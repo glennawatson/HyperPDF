@@ -71,19 +71,27 @@ internal static class BilevelEncoder
     /// <summary>Encodes 1-bit rows as Group 4, JBIG2 or Flate, whichever is smallest, when that beats the stored size.</summary>
     /// <param name="dictionary">The image dictionary.</param>
     /// <param name="rows">The packed rows.</param>
-    /// <param name="width">The width.</param>
-    /// <param name="height">The height.</param>
+    /// <param name="size">The image dimensions.</param>
     /// <param name="storedLength">The image's stored size, which the result must beat.</param>
     /// <param name="codings">The codings besides Flate that may be tried.</param>
+    /// <param name="scratchPools">The document or registered service's compression owner.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
     /// <returns>The new image and the coding used, or <see langword="null"/> when nothing is smaller.</returns>
-    internal static BilevelResult? Encode(PdfDictionary dictionary, ReadOnlySpan<byte> rows, int width, int height, long storedLength, in BilevelCodings codings, CancellationToken cancellationToken)
+    internal static BilevelResult? Encode(
+        PdfDictionary dictionary,
+        ReadOnlySpan<byte> rows,
+        PixelSize size,
+        long storedLength,
+        in BilevelCodings codings,
+        ScratchPools scratchPools,
+        CancellationToken cancellationToken)
     {
+        var (width, height, _) = size;
         var fax = default(PooledBuffer);
         var flate = default(PooledBuffer);
         try
         {
-            StreamRecompressor.Deflate(rows, ref flate);
+            StreamRecompressor.Deflate(rows, ref flate, scratchPools);
 
             // The more common bit value is coded as white, as fax codes favour long white runs.
             var blackIs1 = CountOnes(rows) << 1 < (long)rows.Length * ByteBits;

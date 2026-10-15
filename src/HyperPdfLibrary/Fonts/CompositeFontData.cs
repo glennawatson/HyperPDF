@@ -19,7 +19,7 @@ namespace HyperPdfLibrary.Fonts;
 /// <param name="CidToUnicode">The CID-to-Unicode table of the font's character collection, or <see langword="null"/>.</param>
 /// <param name="Metrics">The font-wide metrics and flags.</param>
 [DebuggerDisplay("CompositeFontData: {Source}")]
-internal sealed record CompositeFontData(
+internal readonly record struct CompositeFontData(
     CompositeCMap CMap,
     GlyphSource Source,
     CidGlyphRoute GlyphRoute,

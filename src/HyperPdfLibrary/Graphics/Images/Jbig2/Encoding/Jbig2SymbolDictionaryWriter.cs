@@ -49,7 +49,7 @@ internal static class Jbig2SymbolDictionaryWriter
     /// <param name="symbols">The symbols, in dictionary order.</param>
     /// <param name="template">The generic template, 0 to 3, that codes the symbol bitmaps.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
-    internal static void Write(ref PooledBuffer output, int number, int page, Jbig2EncoderSymbols symbols, int template, CancellationToken cancellationToken)
+    internal static void Write(ref PooledBuffer output, int number, int page, in Jbig2EncoderSymbols symbols, int template, CancellationToken cancellationToken)
     {
         var position = Jbig2SegmentWriter.BeginSegment(ref output, number, Jbig2SegmentWriter.SymbolDictionaryType, [], page, true);
         var parameters = Jbig2GenericRegionWriter.Nominal(template, false);
@@ -89,7 +89,7 @@ internal static class Jbig2SymbolDictionaryWriter
     /// <param name="baseNumber">The segment number of the base dictionary.</param>
     /// <param name="template">The generic template, 0 to 3, written in the flags.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
-    internal static void WriteRefined(ref PooledBuffer output, int number, int page, Jbig2EncoderSymbols symbols, int baseNumber, int template, CancellationToken cancellationToken)
+    internal static void WriteRefined(ref PooledBuffer output, int number, int page, in Jbig2EncoderSymbols symbols, int baseNumber, int template, CancellationToken cancellationToken)
     {
         var variants = symbols.Count - symbols.BaseCount;
         var position = Jbig2SegmentWriter.BeginSegment(ref output, number, Jbig2SegmentWriter.SymbolDictionaryType, [baseNumber], page, true);
@@ -142,7 +142,7 @@ internal static class Jbig2SymbolDictionaryWriter
     /// <param name="cancellationToken">Cancels the encode.</param>
     private static void EncodeSymbols(
         ref Jbig2MqEncoder encoder,
-        Jbig2EncoderSymbols symbols,
+        in Jbig2EncoderSymbols symbols,
         byte[] bitmapContexts,
         byte[] integerContexts,
         in Jbig2GenericParameters parameters,
@@ -182,7 +182,7 @@ internal static class Jbig2SymbolDictionaryWriter
     /// <param name="symbols">The symbols.</param>
     /// <param name="state">The integer contexts followed by the symbol ID contexts, the refinement contexts and the symbol ID length.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
-    private static void EncodeVariants(ref Jbig2MqEncoder encoder, Jbig2EncoderSymbols symbols, in Jbig2TextCoding state, CancellationToken cancellationToken)
+    private static void EncodeVariants(ref Jbig2MqEncoder encoder, in Jbig2EncoderSymbols symbols, in Jbig2TextCoding state, CancellationToken cancellationToken)
     {
         var integerContexts = state.Contexts;
         var classHeight = 0;
@@ -216,7 +216,7 @@ internal static class Jbig2SymbolDictionaryWriter
     /// <param name="index">The variant's dictionary position.</param>
     /// <param name="state">The contexts.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
-    private static void EncodeVariant(ref Jbig2MqEncoder encoder, Jbig2EncoderSymbols symbols, int index, in Jbig2TextCoding state, CancellationToken cancellationToken)
+    private static void EncodeVariant(ref Jbig2MqEncoder encoder, in Jbig2EncoderSymbols symbols, int index, in Jbig2TextCoding state, CancellationToken cancellationToken)
     {
         var integerContexts = state.Contexts;
         var codeLength = state.CodeLength;

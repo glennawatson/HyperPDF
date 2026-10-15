@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Text;
 
 namespace HyperPdf.Core.Documents;
@@ -15,27 +16,13 @@ public static class ContentWarnings
     /// <summary>Every unsupported part's bit.</summary>
     private const int AllParts = (int)(UnsupportedContent.XfaForm | UnsupportedContent.JavaScript | UnsupportedContent.Multimedia | UnsupportedContent.ThreeD | UnsupportedContent.Portfolio);
 
-    /// <summary>The message for each combination of parts, built on first use.</summary>
-    private static readonly string?[] Messages = new string?[AllParts + 1];
-
-    /// <summary>The parts, in the order they are listed.</summary>
-    private static readonly (UnsupportedContent Part, string Words)[] Parts =
-    [
-        (UnsupportedContent.XfaForm, "an XFA form"),
-        (UnsupportedContent.JavaScript, "form scripts"),
-        (UnsupportedContent.Multimedia, "sound or video"),
-        (UnsupportedContent.ThreeD, "3D models"),
-        (UnsupportedContent.Portfolio, "a PDF portfolio"),
-    ];
-
     /// <summary>Describes what cannot be shown, and what to do about it.</summary>
     /// <param name="content">The unsupported parts.</param>
     /// <returns>The message, or <see langword="null"/> when everything can be shown.</returns>
     public static string? Describe(UnsupportedContent content)
     {
-        // Each combination's message is built once; documents opened later reuse it.
         var key = (int)content & AllParts;
-        return key == 0 ? null : Messages[key] ??= Build((UnsupportedContent)key);
+        return key == 0 ? null : Descriptions.Messages[key];
     }
 
     /// <summary>Determines whether a document looks like a PDF portfolio: attached files behind a cover page that says so.</summary>
@@ -45,39 +32,70 @@ public static class ContentWarnings
     public static bool LooksLikePortfolio(int attachmentCount, string firstPageText) =>
         attachmentCount > 0 && firstPageText.Contains(PortfolioWord, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Builds the message for a combination of unsupported parts.</summary>
-    /// <param name="content">The unsupported parts.</param>
-    /// <returns>The message.</returns>
-    private static string Build(UnsupportedContent content)
+    /// <summary>Initializes immutable messages only when a description is requested.</summary>
+    private static class Descriptions
     {
-        var names = new List<string>(Parts.Length);
-        foreach (var (part, words) in Parts)
+        /// <summary>The parts, in the order they are listed.</summary>
+        private static readonly ImmutableArray<(UnsupportedContent Part, string Words)> Parts =
+        [
+            (UnsupportedContent.XfaForm, "an XFA form"),
+            (UnsupportedContent.JavaScript, "form scripts"),
+            (UnsupportedContent.Multimedia, "sound or video"),
+            (UnsupportedContent.ThreeD, "3D models"),
+            (UnsupportedContent.Portfolio, "a PDF portfolio"),
+        ];
+
+        /// <summary>Gets the message for every supported combination of flags.</summary>
+        internal static ImmutableArray<string?> Messages { get; } = Create();
+
+        /// <summary>Builds the message for a combination of unsupported parts.</summary>
+        /// <param name="content">The unsupported parts.</param>
+        /// <returns>The message.</returns>
+        private static string Build(UnsupportedContent content)
         {
-            if ((content & part) != 0)
+            var names = new List<string>(Parts.Length);
+            foreach (var (part, words) in Parts)
             {
-                names.Add(words);
+                if ((content & part) != 0)
+                {
+                    names.Add(words);
+                }
             }
+
+            var builder = new StringBuilder("This document uses ");
+            _ = builder.Append(Join(names)).Append(", which HyperPDF cannot show or run. ");
+            if ((content & UnsupportedContent.XfaForm) != 0)
+            {
+                _ = builder.Append("The pages shown are the version made for other viewers and may be empty or out of date. ");
+            }
+
+            if ((content & UnsupportedContent.Portfolio) != 0)
+            {
+                _ = builder.Append("Its files are listed under Attachments. ");
+            }
+
+            return builder.Append("To use everything, open it in Adobe Acrobat Reader.").ToString();
         }
 
-        var builder = new StringBuilder("This document uses ");
-        _ = builder.Append(Join(names)).Append(", which HyperPDF cannot show or run. ");
-        if ((content & UnsupportedContent.XfaForm) != 0)
+        /// <summary>Joins names as "a", "a and b" or "a, b and c".</summary>
+        /// <param name="names">The names.</param>
+        /// <returns>The joined names.</returns>
+        private static string Join(List<string> names) => names.Count == 1
+            ? names[0]
+            : $"{string.Join(", ", names.GetRange(0, names.Count - 1))} and {names[^1]}";
+
+        /// <summary>Builds the immutable lookup.</summary>
+        /// <returns>All messages indexed by their flags.</returns>
+        private static ImmutableArray<string?> Create()
         {
-            _ = builder.Append("The pages shown are the version made for other viewers and may be empty or out of date. ");
-        }
+            var messages = ImmutableArray.CreateBuilder<string?>(AllParts + 1);
+            messages.Add(null);
+            for (var key = 1; key <= AllParts; key++)
+            {
+                messages.Add(Build((UnsupportedContent)key));
+            }
 
-        if ((content & UnsupportedContent.Portfolio) != 0)
-        {
-            _ = builder.Append("Its files are listed under Attachments. ");
+            return messages.MoveToImmutable();
         }
-
-        return builder.Append("To use everything, open it in Adobe Acrobat Reader.").ToString();
     }
-
-    /// <summary>Joins names as "a", "a and b" or "a, b and c".</summary>
-    /// <param name="names">The names.</param>
-    /// <returns>The joined names.</returns>
-    private static string Join(List<string> names) => names.Count == 1
-        ? names[0]
-        : $"{string.Join(", ", names.GetRange(0, names.Count - 1))} and {names[^1]}";
 }

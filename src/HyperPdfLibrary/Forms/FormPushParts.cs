@@ -12,4 +12,4 @@ namespace HyperPdfLibrary.Forms;
 /// <param name="Icon">The icon form, or <see langword="null"/> when the button shows none.</param>
 /// <param name="Codes">The encoded caption; empty when the button shows none.</param>
 [DebuggerDisplay("FormPushParts: position {Position}")]
-internal sealed record FormPushParts(int Position, PdfStream? Icon, FormCodes Codes);
+internal readonly record struct FormPushParts(int Position, PdfStream? Icon, FormCodes Codes);

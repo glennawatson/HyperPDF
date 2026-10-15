@@ -60,6 +60,8 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         _services = services;
         OcrLanguages = new(services);
         _subscriptions.Add(OcrLanguages);
+        Sharpness = new(services);
+        _subscriptions.Add(Sharpness);
         Load();
         Follow();
     }
@@ -104,6 +106,9 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the text recognition languages: which are used, and their packs to download or remove.</summary>
     public OcrLanguagesViewModel OcrLanguages { get; }
+
+    /// <summary>Gets the text and image sharpness choices.</summary>
+    public SharpnessViewModel Sharpness { get; }
 
     /// <summary>Gets or sets the Read Aloud engine index.</summary>
     [Reactive(nameof(UsesAzure))]

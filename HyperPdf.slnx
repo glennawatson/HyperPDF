@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/HyperPdf.Benchmarks/HyperPdf.Benchmarks.csproj" />
+    <Project Path="benchmarks/HyperPdf.Benchmarks.Generator/HyperPdf.Benchmarks.Generator.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj" />

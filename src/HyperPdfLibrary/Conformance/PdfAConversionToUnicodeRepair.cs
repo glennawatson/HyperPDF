@@ -45,6 +45,24 @@ internal static class PdfAConversionToUnicodeRepair
         }
     }
 
+    /// <summary>
+    /// Builds a ToUnicode CMap for a font from the text the library finds for each of its codes. A code that an existing map
+    /// already maps keeps that text.
+    /// </summary>
+    /// <param name="font">The font dictionary.</param>
+    /// <param name="existing">The font's current map, whose text wins, or <see langword="null"/>.</param>
+    /// <returns>The CMap bytes, or <see langword="null"/> when the font's codes have no known width or the font cannot be loaded.</returns>
+    internal static byte[]? Build(PdfDictionary font, PdfAToUnicode? existing)
+    {
+        if (CodeCount(font) is not (> 0 and var codes) || PdfFontLoader.Load(font) is not { } loaded)
+        {
+            return null;
+        }
+
+        var texts = ReadTexts(loaded, codes, existing);
+        return codes == OneByteCodes ? PdfAConversionToUnicode.Write(OneByte(texts)) : PdfToUnicodeMaps.Write(texts);
+    }
+
     /// <summary>Rewrites one font's map when it is broken and the font's codes have a known width.</summary>
     /// <param name="session">The conversion.</param>
     /// <param name="id">The font object.</param>
@@ -54,18 +72,16 @@ internal static class PdfAConversionToUnicodeRepair
     {
         var store = session.Store;
         var raw = font.GetRaw(KnownName.ToUnicode);
-        if (StoreReading.Resolve(store, raw).AsStream() is not { } map || CodeCount(font) is not (> 0 and var codes))
+        if (StoreReading.Resolve(store, raw).AsStream() is not { } map || CodeCount(font) == 0)
         {
             return false;
         }
 
-        if (!PdfAConversionBfRanges.HasCrossingRange(map.DecodeToArray(session.CancellationToken)) || PdfFontLoader.Load(font) is not { } loaded)
+        if (!PdfAConversionBfRanges.HasCrossingRange(map.DecodeToArray(session.CancellationToken)) || Build(font, null) is not { } bytes)
         {
             return false;
         }
 
-        var texts = ReadTexts(loaded, codes);
-        var bytes = codes == OneByteCodes ? PdfAConversionToUnicode.Write(OneByte(texts)) : PdfToUnicodeMaps.Write(texts);
         var stream = PdfValue.FromStream(new(new PdfDictionary(store, 0), bytes));
         if (raw.IsReference)
         {
@@ -73,8 +89,9 @@ internal static class PdfAConversionToUnicodeRepair
             return true;
         }
 
+        // A stream is an indirect object, so a map held directly in the font dictionary moves into an object of its own.
         var copy = font.Clone();
-        copy.Set(KnownName.ToUnicode, stream);
+        copy.Set(KnownName.ToUnicode, PdfValue.FromReference(StoreEditing.Add(store, stream)));
         StoreEditing.Replace(store, id, PdfValue.FromDictionary(copy));
         return true;
     }
@@ -82,15 +99,16 @@ internal static class PdfAConversionToUnicodeRepair
     /// <summary>Reads the text the library finds for each code, leaving out characters a ToUnicode map may not hold.</summary>
     /// <param name="font">The loaded font.</param>
     /// <param name="codes">The number of codes.</param>
+    /// <param name="existing">The font's current map, whose text wins, or <see langword="null"/>.</param>
     /// <returns>The text of each code, or <see langword="null"/>.</returns>
-    private static string?[] ReadTexts(PdfFont font, int codes)
+    private static string?[] ReadTexts(PdfFont font, int codes, PdfAToUnicode? existing)
     {
         var texts = new string?[codes];
         Span<char> text = stackalloc char[MaxText];
         for (var code = 0; code < codes; code++)
         {
             var length = Math.Min(font.GetUnicode(code, text), MaxText);
-            texts[code] = length > 0 && text[..length].IndexOfAny('\0', '￾', '﻿') < 0 ? text[..length].ToString() : null;
+            texts[code] = existing?.Text(code) ?? (length > 0 && text[..length].IndexOfAny('\0', '￾', '﻿') < 0 ? text[..length].ToString() : null);
         }
 
         return texts;

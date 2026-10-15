@@ -17,7 +17,7 @@ internal static class MediaDataDescription
     /// <summary>Hashes bytes.</summary>
     /// <param name="bytes">The bytes.</param>
     /// <returns>The hash as hexadecimal text.</returns>
-    internal static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
+    internal static string Hash(ReadOnlySpan<byte> bytes) => Convert.ToHexString(SHA256.HashData(bytes));
 
     /// <summary>Describes a multimedia annotation.</summary>
     /// <param name="text">The description.</param>
@@ -67,7 +67,7 @@ internal static class MediaDataDescription
         _ = text.Append(CultureInfo.InvariantCulture, $"xfa={xfa.IsSingleStream};");
         foreach (var packet in xfa.Packets)
         {
-            _ = text.Append(CultureInfo.InvariantCulture, $"xfaPacket={packet.Name}:{packet.Data.Length}:{Hash(packet.Data)};");
+            _ = text.Append(CultureInfo.InvariantCulture, $"xfaPacket={packet.Name}:{packet.Data.Length}:{Hash(packet.Data.AsSpan())};");
         }
     }
 

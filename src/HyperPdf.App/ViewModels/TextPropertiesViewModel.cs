@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.App.Services;
 using HyperPdf.Core.Text;
 using ReactiveUI;
 using ReactiveUI.Primitives.Signals;
@@ -102,6 +103,9 @@ public sealed partial class TextPropertiesViewModel : ReactiveObject
     /// <summary>Gets or sets the colour, as an index into <see cref="ColorNames"/>, or -1 for another colour.</summary>
     [Reactive]
     public partial int ColorIndex { get; set; }
+
+    /// <summary>Gets the application font families used by the dialog's previews.</summary>
+    internal PageFontFamilies? PageFontFamilies { get; init; }
 
     /// <summary>Gets the colour as 0xRRGGBB, kept when it is not one of the colours offered.</summary>
     private uint Color { get; }

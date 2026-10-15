@@ -42,7 +42,7 @@ internal static class Jbig2HalftoneRegion
     {
         var count = PlaneCount(patterns.Patterns.Count);
         var planes = RentPlanes(count, workspace.ScratchPools);
-        using var skip = settings.EnableSkip ? CreateSkip(settings, patterns, workspace.ScratchPools) : null;
+        using var skip = settings.EnableSkip ? CreateSkip(settings, patterns, workspace) : null;
         try
         {
             var parameters = new Jbig2GenericParameters(settings.Template, false, Jbig2AtPixels.ForTemplate(settings.Template));
@@ -121,7 +121,7 @@ internal static class Jbig2HalftoneRegion
     /// <returns>The plane, or <see langword="null"/>.</returns>
     private static Jbig2Bitmap? CreatePlane(Jbig2HalftoneSettings settings, Jbig2Workspace workspace) =>
         workspace.TryCharge((long)settings.GridWidth * settings.GridHeight)
-            ? Jbig2Bitmap.Create(settings.GridWidth, settings.GridHeight, workspace.ScratchPools)
+            ? workspace.RentBitmap(settings.GridWidth, settings.GridHeight)
             : null;
 
     /// <summary>Turns a decoded plane from Gray code into binary by XORing the plane above it.</summary>
@@ -152,11 +152,11 @@ internal static class Jbig2HalftoneRegion
     /// <summary>Builds the mask of grid cells whose pattern would fall wholly outside the region.</summary>
     /// <param name="settings">The region parameters.</param>
     /// <param name="patterns">The pattern dictionary.</param>
-    /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="workspace">The bitmap owner.</param>
     /// <returns>The mask, or <see langword="null"/> when it cannot be made.</returns>
-    private static Jbig2Bitmap? CreateSkip(Jbig2HalftoneSettings settings, Jbig2PatternDictionary patterns, ScratchPools scratchPools)
+    private static Jbig2Bitmap? CreateSkip(Jbig2HalftoneSettings settings, Jbig2PatternDictionary patterns, Jbig2Workspace workspace)
     {
-        var skip = Jbig2Bitmap.Create(settings.GridWidth, settings.GridHeight, scratchPools);
+        var skip = workspace.RentBitmap(settings.GridWidth, settings.GridHeight);
         if (skip is null)
         {
             return null;

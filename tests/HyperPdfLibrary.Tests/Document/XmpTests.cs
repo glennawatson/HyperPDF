@@ -5,6 +5,7 @@
 using System.Text;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Tests.Document;
 
@@ -76,7 +77,7 @@ public sealed class XmpTests
         await Assert.That(xmp.PdfAPart).IsEqualTo(PdfAPart);
         await Assert.That(xmp.PdfAConformance).IsEqualTo("B");
         await Assert.That(xmp.PdfUaPart).IsEqualTo(1);
-        await Assert.That(Encoding.Latin1.GetString(xmp.RawPacket)).IsEqualTo(Packet);
+        await Assert.That(Encoding.Latin1.GetString(xmp.RawPacket.AsSpan())).IsEqualTo(Packet);
     }
 
     /// <summary>A UTF-16 packet with a byte order mark reads the same.</summary>
@@ -124,6 +125,39 @@ public sealed class XmpTests
 
         await Assert.That(PdfDocumentMetadata.GetXmp(document)).IsNull();
         await Assert.That(PdfDocumentMetadata.GetXmp(document, PdfDocumentPages.GetPage(document, 0))!.Title).IsEqualTo(SampleTitle);
+    }
+
+    /// <summary>Catalog and page metadata keep separate snapshots across edits and undo.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CatalogAndPageSnapshotsFollowEdits()
+    {
+        using var document = OpenWith(Packet);
+        var page = PdfDocumentPages.GetPage(document, 0);
+        var catalog = PdfDocumentMetadata.GetXmp(document);
+        await Assert.That(PdfDocumentMetadata.ReadXmp(document, document.Catalog)).IsSameReferenceAs(catalog);
+        await Assert.That(PdfDocumentMetadata.GetXmp(document, page)).IsNull();
+
+        using (var transaction = PdfDocumentEditing.BeginEdit(document, "Page metadata"))
+        {
+            var dictionary = page.Dictionary.Clone();
+            dictionary.Set(KnownName.Metadata, document.Catalog.GetRaw(KnownName.Metadata));
+            transaction.Replace(page.Id, PdfValue.FromDictionary(dictionary));
+            transaction.Commit();
+        }
+
+        var changedPage = PdfDocumentPages.GetPage(document, 0);
+        var pageMetadata = PdfDocumentMetadata.GetXmp(document, changedPage);
+        var catalogMetadata = PdfDocumentMetadata.GetXmp(document);
+        await Assert.That(pageMetadata!.Title).IsEqualTo(SampleTitle);
+        await Assert.That(pageMetadata).IsNotSameReferenceAs(catalogMetadata);
+        await Assert.That(PdfDocumentMetadata.GetXmp(document, changedPage)).IsSameReferenceAs(pageMetadata);
+        await Assert.That(PdfDocumentMetadata.ReadXmp(document, document.Catalog)).IsSameReferenceAs(catalogMetadata);
+        await Assert.That(PdfDocumentEditing.Undo(document)).IsTrue();
+        await Assert.That(PdfDocumentMetadata.GetXmp(document, PdfDocumentPages.GetPage(document, 0))).IsNull();
+        await Assert.That(PdfDocumentMetadata.GetXmp(document)!.Title).IsEqualTo(SampleTitle);
+        await Assert.That(catalog!.Title).IsEqualTo(SampleTitle);
+        await Assert.That(pageMetadata.Title).IsEqualTo(SampleTitle);
     }
 
     /// <summary>Opens a document whose catalog metadata stream holds a packet.</summary>

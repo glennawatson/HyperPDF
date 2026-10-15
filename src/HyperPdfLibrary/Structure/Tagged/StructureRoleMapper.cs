@@ -90,22 +90,23 @@ internal sealed class StructureRoleMapper
             var flags = space is null ? PdfStructureTypes.AnyStandardFlag : PdfStructureTypes.GetNamespaceFlags(GetUri(space));
             if (!MapOnce(ref type, ref space, standard, flags))
             {
-                return Finish(type, standard, flags);
+                return Finish(type, standard, flags, space);
             }
         }
 
-        return new(PdfStructureType.Unknown, _table.GetString(type));
+        return new(PdfStructureType.Unknown, _table.GetString(type), false);
     }
 
     /// <summary>Makes the result once no map applies.</summary>
     /// <param name="type">The last type reached.</param>
     /// <param name="standard">Its standard type, if any.</param>
     /// <param name="flags">The namespaces it is in.</param>
+    /// <param name="space">The namespace it is in, or <see langword="null"/> for the default.</param>
     /// <returns>The resolved type.</returns>
-    private ResolvedType Finish(PdfName type, PdfStructureType standard, int flags)
+    private ResolvedType Finish(PdfName type, PdfStructureType standard, int flags, PdfDictionary? space)
     {
         var known = flags != 0 && PdfStructureTypes.IsStandardIn(standard, flags) ? standard : PdfStructureType.Unknown;
-        return new(known, _table.GetString(type));
+        return new(known, _table.GetString(type), space is not null && string.Equals(GetUri(space), PdfStructureTypes.MathMlUri, StringComparison.Ordinal));
     }
 
     /// <summary>Takes one role map step.</summary>

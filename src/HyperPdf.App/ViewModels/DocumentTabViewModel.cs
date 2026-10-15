@@ -573,6 +573,19 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         TabTiles.InvalidateBoth(RenderHub, Source.Id);
     }
 
+    /// <summary>Applies new page sharpness choices to the open document and draws its pages again.</summary>
+    /// <param name="sharpness">The choices.</param>
+    public void ApplyRenderSharpness(RenderSharpness sharpness)
+    {
+        if (!IsLoaded || TryGetDocument() is not { } document || DocumentFeature<IRenderSharpness>.Get(document) is not { } sharp || sharp.Sharpness == sharpness)
+        {
+            return;
+        }
+
+        sharp.Sharpness = sharpness;
+        TabTiles.InvalidateBoth(RenderHub, Source.Id);
+    }
+
     /// <summary>Gets the open document, opening it if needed.</summary>
     /// <returns>The document, or <see langword="null"/> when it cannot be opened.</returns>
     public IDocument? TryGetDocument()

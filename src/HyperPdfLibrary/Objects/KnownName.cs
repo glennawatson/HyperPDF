@@ -1607,4 +1607,94 @@ public enum KnownName
 
     /// <summary>The <c>/AESV4</c> name.</summary>
     AESV4 = 532,
+
+    /// <summary>The <c>/Matte</c> name.</summary>
+    Matte = 533,
+
+    /// <summary>The <c>/Thumb</c> name.</summary>
+    Thumb = 534,
+
+    /// <summary>The <c>/PieceInfo</c> name.</summary>
+    PieceInfo = 535,
+
+    /// <summary>The <c>/Marked</c> name.</summary>
+    Marked = 536,
+
+    /// <summary>The <c>/DisplayDocTitle</c> name.</summary>
+    DisplayDocTitle = 537,
+
+    /// <summary>The <c>/Length1</c> name.</summary>
+    Length1 = 538,
+
+    /// <summary>The <c>/OutputIntents</c> name.</summary>
+    OutputIntents = 539,
+
+    /// <summary>The <c>/Figure</c> name.</summary>
+    Figure = 540,
+
+    /// <summary>The <c>/Sect</c> name.</summary>
+    Sect = 541,
+
+    /// <summary>The <c>/Document</c> name.</summary>
+    Document = 542,
+
+    /// <summary>The <c>/LI</c> name.</summary>
+    LI = 543,
+
+    /// <summary>The <c>/LBody</c> name.</summary>
+    LBody = 544,
+
+    /// <summary>The <c>/Lbl</c> name.</summary>
+    Lbl = 545,
+
+    /// <summary>The <c>/Table</c> name.</summary>
+    Table = 546,
+
+    /// <summary>The <c>/TH</c> name.</summary>
+    TH = 547,
+
+    /// <summary>The <c>/TD</c> name.</summary>
+    TD = 548,
+
+    /// <summary>The <c>/Caption</c> name.</summary>
+    Caption = 549,
+
+    /// <summary>The <c>/Div</c> name.</summary>
+    Div = 550,
+
+    /// <summary>The <c>/Scope</c> name.</summary>
+    Scope = 551,
+
+    /// <summary>The <c>/RowSpan</c> name.</summary>
+    RowSpan = 552,
+
+    /// <summary>The <c>/ColSpan</c> name.</summary>
+    ColSpan = 553,
+
+    /// <summary>The <c>/Column</c> name.</summary>
+    Column = 554,
+
+    /// <summary>The <c>/Row</c> name.</summary>
+    Row = 555,
+
+    /// <summary>The <c>/Both</c> name.</summary>
+    Both = 556,
+
+    /// <summary>The <c>/H1</c> name.</summary>
+    H1 = 557,
+
+    /// <summary>The <c>/H2</c> name.</summary>
+    H2 = 558,
+
+    /// <summary>The <c>/H3</c> name.</summary>
+    H3 = 559,
+
+    /// <summary>The <c>/H4</c> name.</summary>
+    H4 = 560,
+
+    /// <summary>The <c>/H5</c> name.</summary>
+    H5 = 561,
+
+    /// <summary>The <c>/H6</c> name.</summary>
+    H6 = 562,
 }

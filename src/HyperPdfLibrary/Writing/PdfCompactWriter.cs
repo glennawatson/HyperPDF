@@ -163,6 +163,7 @@ public static class PdfCompactWriter
         SignaturePresence.ThrowIfSigned(store);
         PdfTrapNetworkGuard.Apply(store, true, report, cancellationToken);
         PdfRequirementsGuard.Apply(store, report, cancellationToken);
+        PdfUaClaimGuard.Apply(store, true, report, cancellationToken);
         var claimed = PdfAClaimGuard.IsClaimed(store);
         var file = Build(store, options, plan, out var length, cancellationToken);
         try
@@ -331,6 +332,7 @@ public static class PdfCompactWriter
         SignaturePresence.ThrowIfSigned(store);
         PdfTrapNetworkGuard.Apply(store, true, report, cancellationToken);
         PdfRequirementsGuard.Apply(store, report, cancellationToken);
+        PdfUaClaimGuard.Apply(store, true, report, cancellationToken);
         var claimed = PdfAClaimGuard.IsClaimed(store);
         WriteFile(store, options, plan, ref writer, cancellationToken);
         if (!claimed || PdfAClaimGuard.CheckOutput(store, writer.WrittenSpan.ToArray(), cancellationToken) is not { } outcome)
@@ -370,7 +372,7 @@ public static class PdfCompactWriter
 
         var keepEncrypt = KeepsOwnEncryption(store, options, plan);
         var seal = keepEncrypt ? PdfMacSeal.Create(store) : null;
-        var graph = PdfObjectGraph.Collect(store, keepEncrypt, options.KeepUnreferenced, cancellationToken);
+        var graph = PdfObjectGraph.CollectForSave(store, keepEncrypt, options.KeepUnreferenced, cancellationToken);
         WriteHeader(ref writer, PdfVersionRules.Resolve(store, MinimumVersion(options, plan), objectStreams).ToString(), false);
         writer.SetRenumbering(graph.Map);
         var encryptNumber = keepEncrypt ? PdfXrefWriter.EncryptNumber(store.Trailer) : 0;
@@ -378,22 +380,32 @@ public static class PdfCompactWriter
         var policy = StreamPolicy.Of(options, StreamEncoder.UsesLzw(options.RecompressEncoding) && PdfAClaimReading.ClaimsPdfAOrPdfUa(store));
 
         // Entry 0, the objects, the object streams and, with object streams, the cross-reference stream.
-        var rows = new XrefRow[graph.Count + streamCount + 1 + (objectStreams ? 1 : 0)];
-        rows[0] = XrefRow.FreeHead;
-        if (objectStreams)
+        var rentedRows = ArrayPool<XrefRow>.Shared.Rent(graph.Count + streamCount + 1 + (objectStreams ? 1 : 0));
+        try
         {
-            WritePacked(ref writer, graph, encryptNumber, rows, policy, cancellationToken);
+            var rows = rentedRows.AsSpan(0, graph.Count + streamCount + 1 + (objectStreams ? 1 : 0));
+            rows.Clear();
+            rows[0] = XrefRow.FreeHead;
+            if (objectStreams)
+            {
+                WritePacked(ref writer, graph, encryptNumber, rows, policy, cancellationToken);
+            }
+            else
+            {
+                WritePlain(ref writer, graph, encryptNumber, rows, policy, cancellationToken);
+            }
+
+            using var scratch = PdfTrailerScratch.Rent(store);
+            var trailer = CreateTrailer(scratch.Dictionary, store, rows.Length, keepEncrypt, plan, writer.WrittenSpan);
+
+            // The new file is encrypted and needs a PDF MAC, so its single revision gets a fresh one; without one the save stops.
+            seal?.AddTo(trailer);
+            WriteSection(ref writer, rows, trailer, new(seal, null, cancellationToken), objectStreams);
         }
-        else
+        finally
         {
-            WritePlain(ref writer, graph, encryptNumber, rows, policy, cancellationToken);
+            ArrayPool<XrefRow>.Shared.Return(rentedRows);
         }
-
-        var trailer = CreateTrailer(store, rows.Length, keepEncrypt, plan, writer.WrittenSpan);
-
-        // The new file is encrypted and needs a PDF MAC, so its single revision gets a fresh one; without one the save stops.
-        seal?.AddTo(trailer);
-        WriteSection(ref writer, rows, trailer, new(seal, null, cancellationToken), objectStreams);
     }
 
     /// <summary>
@@ -433,15 +445,16 @@ public static class PdfCompactWriter
     }
 
     /// <summary>Makes the trailer of the new file: the old document's, or with the new encryption's dictionary and id.</summary>
+    /// <param name="trailer">The cleared destination.</param>
     /// <param name="store">The document.</param>
     /// <param name="size">The /Size.</param>
     /// <param name="keepEncrypt">Whether the document's own /Encrypt is kept.</param>
     /// <param name="plan">The new encryption, or <see langword="null"/>.</param>
     /// <param name="written">The bytes written so far, which the second part of /ID hashes.</param>
     /// <returns>The trailer.</returns>
-    private static PdfDictionary CreateTrailer(PdfObjectStore store, int size, bool keepEncrypt, PdfEncryptionPlan? plan, ReadOnlySpan<byte> written)
+    private static PdfDictionary CreateTrailer(PdfDictionary trailer, PdfObjectStore store, int size, bool keepEncrypt, PdfEncryptionPlan? plan, ReadOnlySpan<byte> written)
     {
-        var trailer = PdfXrefWriter.CreateTrailer(store.Trailer, size, -1, keepEncrypt);
+        PdfXrefWriter.FillTrailer(trailer, store.Trailer, size, -1, keepEncrypt);
         if (plan is null)
         {
             PdfXrefWriter.SetFileId(trailer, store.Trailer, written, keepEncrypt);
@@ -460,7 +473,7 @@ public static class PdfCompactWriter
     /// <param name="trailer">The trailer.</param>
     /// <param name="sealing">The PDF MAC of the file.</param>
     /// <param name="objectStreams">Whether the section is a cross-reference stream.</param>
-    private static void WriteSection(ref PdfObjectWriter writer, XrefRow[] rows, PdfDictionary trailer, in PdfMacSealing sealing, bool objectStreams)
+    private static void WriteSection(ref PdfObjectWriter writer, Span<XrefRow> rows, PdfDictionary trailer, in PdfMacSealing sealing, bool objectStreams)
     {
         var size = rows.Length;
         var sectionOffset = writer.Length;
@@ -526,7 +539,7 @@ public static class PdfCompactWriter
     /// <param name="rows">The cross-reference entries, filled in.</param>
     /// <param name="policy">What to do with stream data.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void WritePlain(ref PdfObjectWriter writer, PdfObjectGraph graph, int encryptNumber, XrefRow[] rows, StreamPolicy policy, CancellationToken cancellationToken)
+    private static void WritePlain(ref PdfObjectWriter writer, PdfObjectGraph graph, int encryptNumber, Span<XrefRow> rows, StreamPolicy policy, CancellationToken cancellationToken)
     {
         for (var number = 1; number <= graph.Count; number++)
         {
@@ -543,7 +556,7 @@ public static class PdfCompactWriter
     /// <param name="rows">The cross-reference entries, filled in.</param>
     /// <param name="policy">What to do with stream data.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void WritePacked(ref PdfObjectWriter writer, PdfObjectGraph graph, int encryptNumber, XrefRow[] rows, StreamPolicy policy, CancellationToken cancellationToken)
+    private static void WritePacked(ref PdfObjectWriter writer, PdfObjectGraph graph, int encryptNumber, Span<XrefRow> rows, StreamPolicy policy, CancellationToken cancellationToken)
     {
         var body = new PdfObjectWriter(graph.Names);
         var packer = default(ObjectStreamPacker);
@@ -591,7 +604,7 @@ public static class PdfCompactWriter
     /// <param name="streamNumber">The object stream's number.</param>
     /// <param name="rows">The cross-reference entries.</param>
     /// <param name="policy">How the object stream is compressed.</param>
-    private static void FlushPacker(ref PdfObjectWriter writer, ref PdfObjectWriter body, ref ObjectStreamPacker packer, int streamNumber, XrefRow[] rows, StreamPolicy policy)
+    private static void FlushPacker(ref PdfObjectWriter writer, ref PdfObjectWriter body, ref ObjectStreamPacker packer, int streamNumber, Span<XrefRow> rows, StreamPolicy policy)
     {
         rows[streamNumber] = new(streamNumber, XrefEntryType.InFile, writer.Length, 0);
         packer.Flush(ref body, ref writer, new(streamNumber, 0), policy);

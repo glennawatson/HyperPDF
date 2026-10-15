@@ -22,7 +22,7 @@ public sealed class AccessibilityAnnotationTests
     [Test]
     public async Task TaggedLinkWithContentsIsClean()
     {
-        var report = AccessibilityPdfs.Report(Spec(static (pdf, document) => AddLink(pdf, document, "/Contents (Go)", string.Empty)));
+        var report = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) => AddLink(pdf, document, "/Contents (Go)", string.Empty)));
 
         await Assert.That(report.Findings.Count).IsEqualTo(0);
         await Assert.That(report.Pages[0].AnnotationCount).IsEqualTo(1);
@@ -33,7 +33,7 @@ public sealed class AccessibilityAnnotationTests
     [Test]
     public async Task UntaggedLinkIsFlagged()
     {
-        var report = AccessibilityPdfs.Report(Spec(static (pdf, document) =>
+        var report = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) =>
         {
             _ = AccessibilityPdfs.AddLink(pdf, string.Empty);
             return AccessibilityPdfs.DefaultLayout(pdf, document);
@@ -49,8 +49,8 @@ public sealed class AccessibilityAnnotationTests
     [Test]
     public async Task LinkAltTextDescribesTheLink()
     {
-        var described = AccessibilityPdfs.Report(Spec(static (pdf, document) => AddLink(pdf, document, string.Empty, "/Alt (Go)")));
-        var bare = AccessibilityPdfs.Report(Spec(static (pdf, document) => AddLink(pdf, document, string.Empty, string.Empty)));
+        var described = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) => AddLink(pdf, document, string.Empty, "/Alt (Go)")));
+        var bare = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) => AddLink(pdf, document, string.Empty, string.Empty)));
 
         await Assert.That(described.Findings.Count).IsEqualTo(0);
         await Assert.That(bare.GetCount(PdfAccessibilityCode.LinkNoDescription)).IsEqualTo(1);
@@ -62,7 +62,7 @@ public sealed class AccessibilityAnnotationTests
     [Test]
     public async Task TaggedLabelledWidgetIsClean()
     {
-        var report = AccessibilityPdfs.Report(Spec(static (pdf, document) => AddWidget(pdf, document, LabelledWidget, "Form")));
+        var report = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) => AddWidget(pdf, document, LabelledWidget, "Form")));
 
         await Assert.That(report.Findings.Count).IsEqualTo(0);
     }
@@ -72,18 +72,18 @@ public sealed class AccessibilityAnnotationTests
     [Test]
     public async Task WidgetProblemsAreFlagged()
     {
-        var noLabel = AccessibilityPdfs.Report(Spec(static (pdf, document) => AddWidget(pdf, document, "/Subtype /Widget /FT /Tx /T (n) /Rect [72 500 200 520]", "Form")));
-        var untagged = AccessibilityPdfs.Report(Spec(static (pdf, document) =>
+        var noLabel = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) => AddWidget(pdf, document, "/Subtype /Widget /FT /Tx /T (n) /Rect [72 500 200 520]", "Form")));
+        var untagged = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) =>
         {
             _ = AccessibilityPdfs.AddAnnotation(pdf, LabelledWidget);
             return AccessibilityPdfs.DefaultLayout(pdf, document);
         }));
-        var inherited = AccessibilityPdfs.Report(Spec(static (pdf, document) =>
+        var inherited = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) =>
         {
             var field = pdf.Add("<< /FT /Tx /T (n) /TU (Parent label) >>");
             return AddWidget(pdf, document, $"/Subtype /Widget /Parent {field} 0 R /Rect [72 500 200 520]", "Form");
         }));
-        var wrongType = AccessibilityPdfs.Report(Spec(static (pdf, document) => AddWidget(pdf, document, LabelledWidget, "Span")));
+        var wrongType = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) => AddWidget(pdf, document, LabelledWidget, "Span")));
 
         await Assert.That(noLabel.GetCount(PdfAccessibilityCode.FormFieldNoLabel)).IsEqualTo(1);
         await Assert.That(untagged.GetCount(PdfAccessibilityCode.FormFieldNotTagged)).IsEqualTo(1);
@@ -97,14 +97,15 @@ public sealed class AccessibilityAnnotationTests
     public async Task OtherAnnotationsNeedAnAnnotElement()
     {
         const string note = "/Subtype /Text /Contents (Note) /Rect [72 400 90 418]";
-        var tagged = AccessibilityPdfs.Report(Spec(static (pdf, document) => AddObject(pdf, document, note, "Annot")));
-        var untagged = AccessibilityPdfs.Report(Spec(static (pdf, document) =>
+        var tagged = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) => AddObject(pdf, document, note, "Annot")));
+        var untagged = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) =>
         {
             _ = AccessibilityPdfs.AddAnnotation(pdf, note);
             return AccessibilityPdfs.DefaultLayout(pdf, document);
         }));
-        var wrongType = AccessibilityPdfs.Report(Spec(static (pdf, document) => AddObject(pdf, document, note, "Span")));
-        var part2 = AccessibilityPdfs.Report(Spec(static (pdf, document) => AddObject(pdf, document, note, "Span")) with { Xmp = AccessibilityPdfs.Packet(AccessibilityPdfs.PartTwo, true) });
+        var wrongType = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) => AddObject(pdf, document, note, "Span")));
+        var part2 = await AccessibilityPdfs.ReportAsync(
+            Spec(static (pdf, document) => AddObject(pdf, document, note, "Span")) with { Xmp = AccessibilityPdfs.Packet(AccessibilityPdfs.PartTwo, true) });
 
         await Assert.That(tagged.Findings.Count).IsEqualTo(0);
         await Assert.That(untagged.GetCount(PdfAccessibilityCode.AnnotationNotTagged)).IsEqualTo(1);
@@ -117,7 +118,7 @@ public sealed class AccessibilityAnnotationTests
     [Test]
     public async Task UntaggedDocumentSkipsTaggingChecks()
     {
-        var report = AccessibilityPdfs.Report(Spec(static (pdf, document) =>
+        var report = await AccessibilityPdfs.ReportAsync(Spec(static (pdf, document) =>
         {
             _ = AccessibilityPdfs.AddLink(pdf, "/Contents (Go)");
             _ = AccessibilityPdfs.AddAnnotation(pdf, "/Subtype /Text /Rect [72 400 90 418]");

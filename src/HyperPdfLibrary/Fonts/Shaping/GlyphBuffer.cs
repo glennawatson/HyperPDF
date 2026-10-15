@@ -28,6 +28,9 @@ internal sealed class GlyphBuffer : IDisposable
     /// <summary>Gets the number of glyphs.</summary>
     internal int Count { get; private set; }
 
+    /// <summary>Gets the number of glyphs the buffer has room for.</summary>
+    internal int Capacity => _items.Length;
+
     /// <summary>Gets the glyphs.</summary>
     internal Span<GlyphRecord> Items => _items.AsSpan(0, Count);
 
@@ -41,6 +44,20 @@ internal sealed class GlyphBuffer : IDisposable
         _items = [];
         Return(ref _positions);
         Count = 0;
+    }
+
+    /// <summary>Empties the buffer for a new run, keeping the arrays it has rented when they are large enough.</summary>
+    /// <param name="capacity">The number of glyphs to make room for.</param>
+    internal void Clear(int capacity)
+    {
+        Count = 0;
+        if (_items.Length >= capacity)
+        {
+            return;
+        }
+
+        ArrayPool<GlyphRecord>.Shared.Return(_items);
+        _items = ArrayPool<GlyphRecord>.Shared.Rent(Math.Max(capacity, 1));
     }
 
     /// <summary>Adds a glyph at the end.</summary>

@@ -35,7 +35,7 @@ internal static class PdfATextNameRules
             context.Require(IsFontObjectName(store, primary), PdfARule.NameUtf8, PdfAFontFacts.Context(store, primary));
         }
 
-        foreach (var resources in walk.Resources)
+        foreach (var resources in walk.GetDistinctResources())
         {
             CheckResources(context, store, resources);
         }

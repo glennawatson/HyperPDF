@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Annotations;
@@ -23,7 +24,7 @@ public static partial class PdfAnnotations
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(annotation);
         ArgumentNullException.ThrowIfNull(form);
-        var id = StoreEditing.Add(store, PdfValue.FromStream(form));
+        var id = StoreEditing.Add(store, PdfValue.FromStream(form), PdfCacheScopes.None);
         var appearances = new PdfDictionary(annotation.Owner, 1);
         appearances.Set(KnownName.N, PdfValue.FromReference(id));
         annotation.Set(KnownName.AP, PdfValue.FromDictionary(appearances));

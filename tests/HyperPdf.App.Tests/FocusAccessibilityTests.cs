@@ -11,6 +11,8 @@ using HyperPdf.App.Views;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Reading;
 using HyperPdf.TestAssets;
+using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Optimizing;
 
 namespace HyperPdf.App.Tests;
 
@@ -34,6 +36,12 @@ public sealed class FocusAccessibilityTests
 
     /// <summary>A list's size.</summary>
     private const int ListSize = 5;
+
+    /// <summary>The blocks of the table and list document: a heading, four cells and two list items.</summary>
+    private const int ExpectedBlocks = 7;
+
+    /// <summary>The place of the first data cell among the blocks.</summary>
+    private const int CellIndex = 3;
 
     /// <summary>A heading level on a block that is not a heading.</summary>
     private const int StrayLevel = 4;
@@ -73,6 +81,37 @@ public sealed class FocusAccessibilityTests
         }
     }
 
+    /// <summary>A tagged table is read cell by cell with its row and column, and a tagged list item by item with its place in the list.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TaggedTablesAndListsReachTheScreenReader()
+    {
+        using var test = new TestServices();
+        var path = Path.Combine(test.Directory, "structured.pdf");
+        await File.WriteAllBytesAsync(path, StructuredTestPdf.CreateTagged());
+
+        await AssertTableAndListAsync(test, path);
+    }
+
+    /// <summary>
+    /// An untagged page that the optimiser tagged from its layout reads the same way: the ruled table is read cell by cell
+    /// and the numbered list item by item.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task OptimisedTablesAndListsReachTheScreenReader()
+    {
+        using var test = new TestServices();
+        var path = Path.Combine(test.Directory, "optimised.pdf");
+        using (var source = PdfDocumentReader.Open(StructuredTestPdf.CreateUntagged(), null))
+        await using (var output = File.Create(path))
+        {
+            _ = PdfOptimizer.Optimize(source, output, PdfOptimizeOptions.KeepQuality with { AddInferredTags = true });
+        }
+
+        await AssertTableAndListAsync(test, path);
+    }
+
     /// <summary>Where the platform bridge ignores heading levels and list positions, the description says them.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -99,6 +138,50 @@ public sealed class FocusAccessibilityTests
         await Assert.That(Block(ReadingBlockKind.Paragraph, StrayLevel).Level).IsEqualTo(0);
         await Assert.That(FocusAccessibility.ControlType(ReadingBlockKind.TableCell)).IsEqualTo(AutomationControlType.DataItem);
         await Assert.That(FocusAccessibility.ControlType(ReadingBlockKind.ListItem)).IsEqualTo(AutomationControlType.ListItem);
+    }
+
+    /// <summary>Opens a document with a heading, a two by two table and a list of two items, and checks how Focus Mode tells assistive technology about them.</summary>
+    /// <param name="test">The test services.</param>
+    /// <param name="path">The document's path.</param>
+    /// <returns>A task.</returns>
+    private static async Task AssertTableAndListAsync(TestServices test, string path)
+    {
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [path]);
+        await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.IsLoaded)).IsTrue();
+        var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
+        window.Show();
+        try
+        {
+            main.SelectedTab!.FocusMode.IsOn = true;
+            _ = await UiWait.UntilAsync(() => Blocks(window).Count >= ExpectedBlocks);
+            var blocks = Blocks(window);
+            ReadingBlockKind[] kinds =
+            [
+                ReadingBlockKind.Heading,
+                ReadingBlockKind.TableCell,
+                ReadingBlockKind.TableCell,
+                ReadingBlockKind.TableCell,
+                ReadingBlockKind.TableCell,
+                ReadingBlockKind.ListItem,
+                ReadingBlockKind.ListItem,
+            ];
+            await Assert.That(blocks.Select(static block => block.ViewModel!.Kind)).IsEquivalentTo(kinds);
+            var cell = blocks[CellIndex].ViewModel!;
+            await Assert.That(cell.Text).IsEqualTo(StructuredTestPdf.DataCell);
+            await Assert.That(cell.Row).IsEqualTo(Position);
+            await Assert.That(cell.Column).IsEqualTo(1);
+            await Assert.That(FocusAccessibility.Description(cell, true)).IsEqualTo("Table cell, row 2, column 1");
+            await Assert.That(ControlAutomationPeer.CreatePeerForElement(blocks[CellIndex].BodyText).GetAutomationControlType()).IsEqualTo(AutomationControlType.DataItem);
+            var second = blocks[^1].ViewModel!;
+            await Assert.That(FocusAccessibility.Description(second, true)).IsEqualTo("List item 2 of 2");
+            await Assert.That(AutomationProperties.GetPositionInSet(blocks[^1].BodyText)).IsEqualTo(Position);
+            await Assert.That(AutomationProperties.GetSizeOfSet(blocks[^1].BodyText)).IsEqualTo(Position);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     /// <summary>Makes a block view model.</summary>

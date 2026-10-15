@@ -64,7 +64,7 @@ public class HyperPdfOptimizerBenchmarks
         var text = Path.Combine(folder, TextFile);
         _scan = File.Exists(scan) ? PdfDocumentReader.Open(scan, null) : PdfDocumentReader.Open(TestPdf.CreateScan(new byte[PhotoPixels * PhotoPixels], PhotoPixels, PhotoPixels), null);
         _text = File.Exists(text) ? PdfDocumentReader.Open(text, null) : PdfDocumentReader.Open(TestPdf.CreateArticle(StandInPages), null);
-        _photo = PdfDocumentReader.Open(PhotoPage(), null);
+        _photo = BenchmarkDrawing.Open(PhotoPage(), null);
     }
 
     /// <summary>Closes the documents.</summary>

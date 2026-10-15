@@ -92,6 +92,20 @@ public static class PdfJpegEncoder
         await destination.WriteAsync(jpeg, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Encodes pixels into caller-owned pooled storage.</summary>
+    /// <param name="pixels">The packed pixels.</param>
+    /// <param name="request">The image dimensions, pixel layout and coding options.</param>
+    /// <param name="output">Receives the JPEG file, replacing its contents.</param>
+    /// <param name="scratchPools">The document or registered service's scratch owner.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    internal static void Encode(ReadOnlySpan<byte> pixels, in JpegEncodeRequest request, ref PooledBuffer output, ScratchPools scratchPools, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request.Options);
+        output.Length = 0;
+        _ = output.GetSpan(EstimateBytes(request.Width, request.Height));
+        JpegEncoder.Encode(pixels, request, ref output, scratchPools, cancellationToken);
+    }
+
     /// <summary>Encodes pixels with working arrays from a given cache.</summary>
     /// <param name="pixels">The pixels, rows packed with no padding.</param>
     /// <param name="format">The layout of the pixels.</param>

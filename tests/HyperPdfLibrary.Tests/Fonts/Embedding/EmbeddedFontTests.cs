@@ -45,6 +45,17 @@ public sealed class EmbeddedFontTests
     /// <summary>A line of text with capitals, a composite glyph and a space.</summary>
     private const string Line = "Hello World é";
 
+    /// <summary>A font with no glyphs cannot be subset, so damaged metadata is refused without indexing glyph zero.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ZeroGlyphSubsetIsRefused()
+    {
+        var source = PdfFontSource.Open(TestFont.Create()).Source!;
+        var subset = TrueTypeRenumberer.Subset(source.Font, source.Facts with { GlyphCount = 0 }, [], new());
+
+        await Assert.That(subset).IsNull();
+    }
+
     /// <summary>Text shown with an embedded font extracts as typed and can be found.</summary>
     /// <returns>A task.</returns>
     [Test]

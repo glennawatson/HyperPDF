@@ -12,4 +12,4 @@ namespace HyperPdfLibrary.Optimizing;
 /// <param name="Coding">A description of the coding that won, for the report.</param>
 /// <param name="IsLossless">Whether every pixel is kept.</param>
 [DebuggerDisplay("BilevelResult: {Coding}")]
-internal sealed record BilevelResult(PdfStream Stream, string Coding, bool IsLossless);
+internal readonly record struct BilevelResult(PdfStream Stream, string Coding, bool IsLossless);

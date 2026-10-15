@@ -27,7 +27,7 @@ internal sealed class PostNames
     private const int IndicesOffset = 34;
 
     /// <summary>The names of a table with none.</summary>
-    private static readonly PostNames Empty = new(0, 0, 0, []);
+    private static readonly PostNames Empty = new(0, 0, 0, default, 0);
 
     /// <summary>The absolute offset of the name indices.</summary>
     private readonly int _indices;
@@ -35,20 +35,28 @@ internal sealed class PostNames
     /// <summary>The number of name indices.</summary>
     private readonly int _count;
 
+    /// <summary>The table whose names are indexed on demand.</summary>
+    private readonly TableRange _table;
+
+    /// <summary>The first Pascal string within the table.</summary>
+    private readonly int _stringsStart;
+
     /// <summary>The absolute offset of each Pascal string's length byte.</summary>
-    private readonly int[] _strings;
+    private int[]? _strings;
 
     /// <summary>Initializes a new instance of the <see cref="PostNames"/> class.</summary>
     /// <param name="format">The format version.</param>
     /// <param name="indices">The absolute offset of the name indices.</param>
     /// <param name="count">The number of name indices.</param>
-    /// <param name="strings">The offsets of the Pascal strings.</param>
-    private PostNames(uint format, int indices, int count, int[] strings)
+    /// <param name="table">The table containing Pascal strings.</param>
+    /// <param name="stringsStart">The first Pascal string within the table.</param>
+    private PostNames(uint format, int indices, int count, TableRange table, int stringsStart)
     {
         Format = format;
         _indices = indices;
         _count = count;
-        _strings = strings;
+        _table = table;
+        _stringsStart = stringsStart;
     }
 
     /// <summary>Gets the format version.</summary>
@@ -64,7 +72,7 @@ internal sealed class PostNames
         var format = FontBytes.U32(table, 0);
         if (format == Format1)
         {
-            return new(format, 0, CffStandardData.MacGlyphCount, []);
+            return new(format, 0, CffStandardData.MacGlyphCount, default, 0);
         }
 
         if (format != Format2 || table.Length < IndicesOffset)
@@ -74,7 +82,7 @@ internal sealed class PostNames
 
         var count = Math.Min(FontBytes.U16(table, GlyphCountOffset), (table.Length - IndicesOffset) / FontBytes.U16Size);
         var stringsStart = IndicesOffset + (count * FontBytes.U16Size);
-        return new(format, post.Offset + IndicesOffset, count, IndexStrings(table, stringsStart, post.Offset));
+        return new(format, post.Offset + IndicesOffset, count, post, stringsStart);
     }
 
     /// <summary>Gets a glyph's name.</summary>
@@ -100,12 +108,13 @@ internal sealed class PostNames
         }
 
         index -= CffStandardData.MacGlyphCount;
-        if (index >= _strings.Length)
+        var strings = Volatile.Read(ref _strings) ?? CreateStrings(data);
+        if (index >= strings.Length)
         {
             return [];
         }
 
-        var offset = _strings[index];
+        var offset = strings[index];
         return FontBytes.Slice(data, offset + 1, FontBytes.U8(data, offset));
     }
 
@@ -131,5 +140,14 @@ internal sealed class PostNames
         }
 
         return strings;
+    }
+
+    /// <summary>Indexes custom names only when a glyph requests one.</summary>
+    /// <param name="data">The font bytes.</param>
+    /// <returns>The published string index.</returns>
+    private int[] CreateStrings(ReadOnlySpan<byte> data)
+    {
+        var strings = IndexStrings(_table.Of(data), _stringsStart, _table.Offset);
+        return Interlocked.CompareExchange(ref _strings, strings, null) ?? strings;
     }
 }

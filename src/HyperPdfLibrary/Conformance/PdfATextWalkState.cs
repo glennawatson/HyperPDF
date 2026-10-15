@@ -11,6 +11,12 @@ namespace HyperPdfLibrary.Conformance;
 [DebuggerDisplay("PdfATextWalkState: {Fonts.Count} fonts, {Visited.Count} streams")]
 internal sealed class PdfATextWalkState
 {
+    /// <summary>The number of latest resources a new one is compared with before it is recorded.</summary>
+    private const int RecentWindow = 8;
+
+    /// <summary>The resources read, in order, without repeats of the latest few.</summary>
+    private readonly List<PdfDictionary> _read = [];
+
     /// <summary>Initializes a new instance of the <see cref="PdfATextWalkState"/> class.</summary>
     /// <param name="validation">The validation the walk serves.</param>
     internal PdfATextWalkState(PdfAValidationContext validation)
@@ -40,9 +46,41 @@ internal sealed class PdfATextWalkState
     /// <summary>Gets the streams already read with a given starting state.</summary>
     internal HashSet<PdfAContentVisit> Visited { get; } = [];
 
-    /// <summary>Gets the page resources and the own resources of every stream read.</summary>
-    internal HashSet<PdfDictionary> Resources { get; } = [with(ReferenceEqualityComparer.Instance)];
-
     /// <summary>Gets or sets a value indicating whether a marked-content <c>/ActualText</c> holds a private use character.</summary>
     internal bool PrivateUseActualText { get; set; }
+
+    /// <summary>
+    /// Gets the page resources and the own resources of every stream read, each once, in the order first read. The set is
+    /// built when asked for: giving each new dictionary an identity hash is costly, and a walk that only reports font
+    /// facts never needs the set.
+    /// </summary>
+    /// <returns>A new set.</returns>
+    internal HashSet<PdfDictionary> GetDistinctResources()
+    {
+        var distinct = new HashSet<PdfDictionary>(_read.Count, ReferenceEqualityComparer.Instance);
+        foreach (var resources in _read)
+        {
+            _ = distinct.Add(resources);
+        }
+
+        return distinct;
+    }
+
+    /// <summary>Records resources the walk read.</summary>
+    /// <param name="resources">The resource dictionary.</param>
+    internal void AddResources(PdfDictionary resources)
+    {
+        // Pages and streams that share a dictionary come close together, so a repeat of a recent one is dropped here; the
+        // set drops the rest.
+        var start = Math.Max(0, _read.Count - RecentWindow);
+        for (var i = _read.Count - 1; i >= start; i--)
+        {
+            if (ReferenceEquals(_read[i], resources))
+            {
+                return;
+            }
+        }
+
+        _read.Add(resources);
+    }
 }

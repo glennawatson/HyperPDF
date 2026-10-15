@@ -31,11 +31,17 @@ public sealed class PdfDocumentCreator
     /// <summary>The options.</summary>
     private readonly PdfDocumentCreatorOptions _options;
 
-    /// <summary>The fonts added, to check that all are embedded.</summary>
-    private readonly List<PdfCanvasFont> _fonts = [];
+    /// <summary>The first font, kept without a collection when it is the only one.</summary>
+    private PdfCanvasFont? _firstFont;
+
+    /// <summary>Fonts after the first, for checking that all are embedded.</summary>
+    private List<PdfCanvasFont>? _otherFonts;
 
     /// <summary>The importers of pages from other documents, one for each source so shared objects are copied once.</summary>
-    private readonly Dictionary<PdfDocument, PdfPageImporter> _importers = [with(ReferenceEqualityComparer.Instance)];
+    private Dictionary<PdfDocument, PdfPageImporter>? _importers;
+
+    /// <summary>The resource set of the last page that finished, kept for the next page to reuse.</summary>
+    private PdfPageResources? _spareResources;
 
     /// <summary>The report once the document is finished.</summary>
     private PdfCreationReport? _report;
@@ -53,7 +59,7 @@ public sealed class PdfDocumentCreator
         _builder.Version = options.UaClaim == PdfUaConformance.Part1 ? PdfHeaderVersion.Pdf17 : PdfHeaderVersion.Pdf20;
         if (options.Tagged)
         {
-            Tags = new(_builder);
+            Tags = new(_builder, options.UaClaim == PdfUaConformance.Part2);
         }
     }
 
@@ -68,6 +74,9 @@ public sealed class PdfDocumentCreator
 
     /// <summary>Gets the document being built.</summary>
     internal PdfDocumentBuilder Builder => _builder;
+
+    /// <summary>Gets or sets the content size of the last page that ended, which the next page's buffer starts at so it does not grow and copy; zero before any page ends.</summary>
+    internal int ContentCapacityHint { get; set; }
 
     /// <summary>Starts embedding a font; text drawn with it is shaped and its glyphs are recorded.</summary>
     /// <param name="source">The font, opened with <see cref="PdfFontSource.Open(byte[], int)"/>.</param>
@@ -87,7 +96,7 @@ public sealed class PdfDocumentCreator
     {
         ThrowIfFinished();
         var font = PdfCanvasFont.FromEmbedded(PdfEmbeddedFont.Create(_builder, source, options));
-        _fonts.Add(font);
+        TrackFont(font);
         return font;
     }
 
@@ -99,7 +108,7 @@ public sealed class PdfDocumentCreator
     {
         ThrowIfFinished();
         var added = PdfCanvasFont.FromBuiltIn(_builder, font);
-        _fonts.Add(added);
+        TrackFont(added);
         return added;
     }
 
@@ -156,7 +165,8 @@ public sealed class PdfDocumentCreator
         ArgumentNullException.ThrowIfNull(source);
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, source.PageCount);
-        ref var importer = ref CollectionsMarshal.GetValueRefOrAddDefault(_importers, source, out _);
+        var importers = _importers ??= [with(ReferenceEqualityComparer.Instance)];
+        ref var importer = ref CollectionsMarshal.GetValueRefOrAddDefault(importers, source, out _);
         importer ??= new(_builder, source);
         _importedPages++;
         return importer.ImportPage(PdfDocumentPages.GetPage(source, pageIndex), PdfAnnotationFilter.All);
@@ -232,19 +242,46 @@ public sealed class PdfDocumentCreator
         return report;
     }
 
+    /// <summary>Gets a resource set for a page, reusing the one a finished page gave back.</summary>
+    /// <returns>An empty resource set.</returns>
+    internal PdfPageResources RentResources()
+    {
+        var spare = _spareResources;
+        if (spare is null)
+        {
+            return new(_builder);
+        }
+
+        _spareResources = null;
+        return spare;
+    }
+
+    /// <summary>Takes back the resources of a page that is finished or abandoned, so the next page reuses them.</summary>
+    /// <param name="resources">The page's resources, or <see langword="null"/>.</param>
+    internal void ReturnResources(PdfPageResources? resources)
+    {
+        if (resources is null)
+        {
+            return;
+        }
+
+        resources.Clear();
+        _spareResources = resources;
+    }
+
     /// <summary>Writes a finished page's content and dictionary and adds the page.</summary>
     /// <param name="page">The page object reserved by <see cref="BeginPage(float, float)"/>.</param>
     /// <param name="width">The page width.</param>
     /// <param name="height">The page height.</param>
-    /// <param name="resources">The page's resources.</param>
+    /// <param name="resources">The page's resources, or <see langword="null"/> when nothing was added to them.</param>
     /// <param name="content">The content stream's bytes.</param>
-    internal void CompletePage(PdfObjectId page, float width, float height, PdfPageResources resources, byte[] content)
+    internal void CompletePage(PdfObjectId page, float width, float height, PdfPageResources? resources, byte[] content)
     {
         ThrowIfFinished();
         var owner = _builder.Owner;
         var dictionary = new PdfDictionary(owner, PageEntries);
         dictionary.Set(KnownName.MediaBox, PdfValue.FromArray(PdfArray.FromNumbers(owner, [0F, 0F, width, height])));
-        dictionary.Set(KnownName.Resources, PdfValue.FromDictionary(resources.ToDictionary()));
+        dictionary.Set(KnownName.Resources, PdfValue.FromDictionary(resources?.ToDictionary() ?? new PdfDictionary(owner)));
         var stream = new PdfStream(new(owner), content);
         dictionary.Set(KnownName.Contents, PdfValue.FromReference(_builder.Add(PdfValue.FromStream(stream))));
         if (Tags is not null)
@@ -271,6 +308,20 @@ public sealed class PdfDocumentCreator
         }
     }
 
+    /// <summary>Retains a font so the PDF/UA claim can check it when the document is finished.</summary>
+    /// <param name="font">The font used by this document.</param>
+    private void TrackFont(PdfCanvasFont font)
+    {
+        if (_firstFont is null)
+        {
+            _firstFont = font;
+        }
+        else
+        {
+            (_otherFonts ??= []).Add(font);
+        }
+    }
+
     /// <summary>Decides which PDF/UA part, if any, the document can claim, and notes why it cannot claim one.</summary>
     /// <param name="notes">Receives the reasons.</param>
     /// <returns>The part to claim, or <see cref="PdfUaConformance.None"/>.</returns>
@@ -285,7 +336,7 @@ public sealed class PdfDocumentCreator
         AddIf(reasons, Tags is null, "The document is not tagged.");
         AddIf(reasons, string.IsNullOrWhiteSpace(_options.Title), "The document has no title.");
         AddIf(reasons, string.IsNullOrWhiteSpace(_options.Language), "The document has no language.");
-        AddIf(reasons, _fonts.Exists(static font => !font.IsEmbedded), "A built-in font is used, and PDF/UA needs every font embedded.");
+        AddIf(reasons, _firstFont is { IsEmbedded: false } || _otherFonts?.Exists(static font => !font.IsEmbedded) == true, "A built-in font is used, and PDF/UA needs every font embedded.");
         AddIf(reasons, _importedPages > 0, "Pages copied from other documents are not tagged by this document.");
         AddIf(reasons, Tags?.CountFiguresWithoutDescription() > 0, "A figure has no alternative text.");
         if (reasons.Count == 0)

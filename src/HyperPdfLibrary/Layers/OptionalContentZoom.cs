@@ -14,20 +14,33 @@ internal static class OptionalContentZoom
     internal const int NoZoom = -1;
 
     /// <summary>Collects the distinct finite limits above zero, ascending.</summary>
-    /// <param name="limits">The zoom range of each zoom-managed group.</param>
+    /// <param name="limits">The zoom range of each group; a group that no entry manages by zoom has an unlimited range.</param>
+    /// <param name="scratch">Room for two values per group.</param>
     /// <returns>The limits.</returns>
-    internal static double[] CollectLimits(Dictionary<int, ZoomLimit> limits)
+    internal static double[] CollectLimits(ReadOnlySpan<ZoomLimit> limits, Span<double> scratch)
     {
-        var values = new SortedSet<double>();
-        foreach (var limit in limits.Values)
+        var count = 0;
+        foreach (var limit in limits)
         {
-            AddLimit(values, limit.Min);
-            AddLimit(values, limit.Max);
+            count = AddLimit(scratch, count, limit.Min);
+            count = AddLimit(scratch, count, limit.Max);
         }
 
-        var result = new double[values.Count];
-        values.CopyTo(result);
-        return result;
+        var values = scratch[..count];
+        values.Sort();
+        var distinct = 0;
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (i > 0 && values[i].CompareTo(values[i - 1]) == 0)
+            {
+                continue;
+            }
+
+            values[distinct] = values[i];
+            distinct++;
+        }
+
+        return distinct == 0 ? [] : values[..distinct].ToArray();
     }
 
     /// <summary>Gets the classes in which a range shows its group.</summary>
@@ -62,13 +75,18 @@ internal static class OptionalContentZoom
     }
 
     /// <summary>Adds a limit that can split the magnifications.</summary>
-    /// <param name="values">The limits so far.</param>
+    /// <param name="values">Receives the limits.</param>
+    /// <param name="count">The limits so far.</param>
     /// <param name="value">The candidate.</param>
-    private static void AddLimit(SortedSet<double> values, double value)
+    /// <returns>The number of limits after the candidate.</returns>
+    private static int AddLimit(Span<double> values, int count, double value)
     {
-        if (value > 0 && double.IsFinite(value))
+        if (!(value > 0) || !double.IsFinite(value))
         {
-            _ = values.Add(value);
+            return count;
         }
+
+        values[count] = value;
+        return count + 1;
     }
 }

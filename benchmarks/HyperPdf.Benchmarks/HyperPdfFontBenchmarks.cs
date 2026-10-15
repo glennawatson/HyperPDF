@@ -108,8 +108,6 @@ public class HyperPdfFontBenchmarks
         await PredefinedCMaps.EnsureAsync(_fontResources, ColdCMapName, CancellationToken.None);
         await PredefinedCMaps.EnsureAsync(_fontResources, "90ms-RKSJ-H", CancellationToken.None);
         await CidToUnicodeTable.EnsureAsync(_fontResources, CjkScript.Japanese, CancellationToken.None);
-        await BundledFaces.EnsureAsync(_fontResources, BundledFamily.Sans, false, false, CancellationToken.None);
-        await BundledFaces.EnsureAsync(_fontResources, BundledFamily.Sans, true, false, CancellationToken.None);
         _renderer = new(_document);
         var fonts = PdfDocumentPages.GetPage(_document, 0).Resources?.GetDictionary(KnownName.Font) ?? throw new InvalidOperationException("No fonts.");
         _fontDictionary = fonts.Get(fonts.GetKeyAt(0)).AsDictionary() ?? throw new InvalidOperationException("No font.");
@@ -182,10 +180,15 @@ public class HyperPdfFontBenchmarks
         return total;
     }
 
-    /// <summary>Reads a cached open font program from disk and parses it, as on first use of a substituted font.</summary>
+    /// <summary>Parses the embedded open font program, as on first use of a substituted font by a new set of font resources.</summary>
     /// <returns>The face.</returns>
     [Benchmark]
-    public object? LoadBundledFace() => BundledFaces.Read(BundledFamily.Sans, false, false);
+    public object? LoadBundledFace() => BundledFaces.Read(_fontResources, BundledFamily.Sans, false, false);
+
+    /// <summary>Decompresses the embedded open font program, as on the first use of a face in the process.</summary>
+    /// <returns>The font program.</returns>
+    [Benchmark]
+    public object? DecodeBundledFace() => BundledFaces.Decode(BundledFamily.Sans, false, false);
 
     /// <summary>Chooses the substitute for Helvetica-Bold once the bundled face is cached, as every non-embedded font load does.</summary>
     /// <returns>The face.</returns>

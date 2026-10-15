@@ -49,7 +49,8 @@ public sealed class FormSpellingTests
 
         forms.FindMisspelled(forms.EditText, found);
         await Assert.That(found.Count).IsEqualTo(TwoMistakes);
-        var suggestions = forms.SuggestAt(InsideSecondWord, out var word);
+        List<string> suggestions = [];
+        forms.SuggestAt(InsideSecondWord, suggestions, out var word);
         await Assert.That(suggestions).IsEquivalentTo(["receive", "relieve"]);
 
         SpellingFix fix = new(word, suggestions[0]);
@@ -70,7 +71,8 @@ public sealed class FormSpellingTests
         await Assert.That(test.Services.Settings.CheckSpelling).IsFalse();
         forms.FindMisspelled("recieve", found);
         await Assert.That(found).IsEmpty();
-        await Assert.That(forms.SuggestAt(1, out _)).IsEmpty();
+        forms.SuggestAt(1, suggestions, out _);
+        await Assert.That(suggestions).IsEmpty();
     }
 
     /// <summary>Verifies the editor marks misspelled words, tells screen readers about them, and offers corrections in its menu.</summary>

@@ -140,23 +140,24 @@ public sealed unsafe class WindowsSpellChecker : ISpellChecker, IDisposable
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> Suggest(string word)
+    public void Suggest(string word, List<string> suggestions)
     {
         ArgumentNullException.ThrowIfNull(word);
+        ArgumentNullException.ThrowIfNull(suggestions);
         if (_checker is null)
         {
-            return [];
+            return;
         }
 
         var strings = Invoke(_checker, SuggestSlot, word);
         if (strings is null)
         {
-            return [];
+            return;
         }
 
         try
         {
-            return ReadStrings(strings);
+            ReadStrings(strings, suggestions);
         }
         finally
         {
@@ -235,11 +236,10 @@ public sealed unsafe class WindowsSpellChecker : ISpellChecker, IDisposable
 
     /// <summary>Reads up to the most suggestions offered from an IEnumString, freeing each string.</summary>
     /// <param name="strings">The enumeration.</param>
-    /// <returns>The strings.</returns>
-    private static List<string> ReadStrings(void* strings)
+    /// <param name="output">The list the strings are added to.</param>
+    private static void ReadStrings(void* strings, List<string> output)
     {
-        List<string> output = [with(MaxSuggestions)];
-        while (output.Count < MaxSuggestions)
+        for (var read = 0; read < MaxSuggestions; read++)
         {
             char* value = null;
             uint fetched = 0;
@@ -251,8 +251,6 @@ public sealed unsafe class WindowsSpellChecker : ISpellChecker, IDisposable
             output.Add(new(value));
             Marshal.FreeCoTaskMem((nint)value);
         }
-
-        return output;
     }
 
     /// <summary>Releases the checker once.</summary>

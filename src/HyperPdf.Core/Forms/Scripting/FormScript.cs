@@ -63,6 +63,34 @@ public sealed partial record FormScript(FormScriptFunction Function, IReadOnlyLi
             : FindCall(javaScript);
     }
 
+    /// <summary>Determines whether <see cref="Parse"/> would recognise a script, without creating the script.</summary>
+    /// <param name="javaScript">The field action's JavaScript.</param>
+    /// <returns><see langword="true"/> when the script is field notation or calls a built-in form function.</returns>
+    public static bool IsRecognised(ReadOnlySpan<char> javaScript)
+    {
+        if (javaScript.IsWhiteSpace())
+        {
+            return false;
+        }
+
+        if (NotationPattern().IsMatch(javaScript))
+        {
+            return true;
+        }
+
+        var lookup = Functions.GetAlternateLookup<ReadOnlySpan<char>>();
+        foreach (var match in CallPattern().EnumerateMatches(javaScript))
+        {
+            var call = javaScript.Slice(match.Index, match.Length);
+            if (lookup.TryGetValue(call[..CallNameLength(call)], out var function) && function != FormScriptFunction.Unknown)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Gets an argument as a number, or a fallback when it is missing or not a number.</summary>
     /// <param name="index">The argument's position.</param>
     /// <param name="fallback">The fallback.</param>
@@ -101,6 +129,12 @@ public sealed partial record FormScript(FormScriptFunction Function, IReadOnlyLi
 
         return None;
     }
+
+    /// <summary>Gets the length of the function name a call match starts with.</summary>
+    /// <param name="call">The text of a <see cref="CallPattern"/> match.</param>
+    /// <returns>The name's length.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int CallNameLength(ReadOnlySpan<char> call) => call[..call.IndexOf('(')].TrimEnd().Length;
 
     /// <summary>Reads the arguments of a recognised call.</summary>
     /// <param name="function">The function.</param>

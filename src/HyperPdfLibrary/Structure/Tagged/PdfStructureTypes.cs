@@ -15,6 +15,9 @@ public static class PdfStructureTypes
     /// <summary>The standard structure namespace of PDF 2.0.</summary>
     internal const string Pdf20Uri = "http://iso.org/pdf2/ssn";
 
+    /// <summary>The MathML 3 namespace, whose element names a PDF 2.0 file may use as structure types (ISO 32000-2 14.8.6).</summary>
+    internal const string MathMlUri = "http://www.w3.org/1998/Math/MathML";
+
     /// <summary>The flag of a type that is standard in PDF 1.7.</summary>
     internal const int Pdf17Flag = 1;
 

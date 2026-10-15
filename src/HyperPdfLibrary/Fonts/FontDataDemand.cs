@@ -1,7 +1,6 @@
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
-using System.Text;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
@@ -193,9 +192,16 @@ internal static class FontDataDemand
         var store = page.Dictionary.Owner!;
         var form = store.Catalog.GetDictionary(KnownName.AcroForm);
         var appearance = DefaultAppearance.Find(annotation, annotation, form);
-        var name = store.Names.Intern(Encoding.UTF8.GetBytes(appearance.FontName));
+        if (appearance.FontName.IsEmpty)
+        {
+            return;
+        }
+
+        var name = store.Names.Intern(appearance.FontName);
         var scope = new FontResourceScope(FieldAttributes.Find(annotation, KnownName.DR).AsDictionary(), new(form?.GetDictionary(KnownName.DR), new(page.Resources, null)));
-        var font = scope.Find(KnownName.Font, name).AsDictionary() ?? FormFont.CreateFallback(store).Resource.AsDictionary();
+
+        // A missing font uses bundled Helvetica, which has no external CMap data to prefetch.
+        var font = scope.Find(KnownName.Font, name).AsDictionary();
         AddFont(font, scope, fonts, queue);
     }
 }

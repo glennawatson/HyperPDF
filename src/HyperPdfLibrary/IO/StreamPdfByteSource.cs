@@ -5,6 +5,7 @@
 using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Filters;
 using Microsoft.Win32.SafeHandles;
 
 namespace HyperPdfLibrary.IO;
@@ -44,11 +45,17 @@ public sealed class StreamPdfByteSource : PdfByteSource
     /// <summary>The shortest read that bypasses the cache, so scans and large streams do not flush it.</summary>
     private const int DirectReadLength = PageLength * DirectReadPages;
 
+    /// <summary>The cache tables, which go back to the pool when the source is closed.</summary>
+    private readonly StreamPageCache _cache;
+
+    /// <summary>The host's cache pool, when the source was opened with registered services.</summary>
+    private readonly ScratchSlots<StreamPageCache>? _cachePool;
+
     /// <summary>Guards the cache, and the stream's position when reading a stream.</summary>
     private readonly Lock _gate = new();
 
-    /// <summary>Lets one reader at a time move and read the stream, across awaits too.</summary>
-    private readonly SemaphoreSlim _streamAccess = new(1, 1);
+    /// <summary>Serialises stream positions across awaits; file handles use independent offsets and need no semaphore.</summary>
+    private readonly SemaphoreSlim? _streamAccess;
 
     /// <summary>The stream, or <see langword="null"/> when reading a file handle.</summary>
     private readonly Stream? _stream;
@@ -100,7 +107,27 @@ public sealed class StreamPdfByteSource : PdfByteSource
     /// <param name="ownsStream">Whether disposing the source disposes the stream.</param>
     /// <exception cref="ArgumentException">The stream cannot read or seek.</exception>
     public StreamPdfByteSource(Stream stream, long cacheBytes, bool ownsStream)
-        : this(cacheBytes, ownsStream)
+        : this(stream, cacheBytes, ownsStream, null)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="StreamPdfByteSource"/> class over a file handle.</summary>
+    /// <param name="handle">A handle opened for reading.</param>
+    /// <param name="cacheBytes">The most bytes the page cache holds; at least one page is kept.</param>
+    /// <param name="ownsHandle">Whether disposing the source closes the handle.</param>
+    public StreamPdfByteSource(SafeFileHandle handle, long cacheBytes, bool ownsHandle)
+        : this(handle, cacheBytes, ownsHandle, null)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="StreamPdfByteSource"/> class using the host's cache pool.</summary>
+    /// <param name="stream">The readable input.</param>
+    /// <param name="cacheBytes">The cache budget.</param>
+    /// <param name="ownsStream">Whether disposal closes the input.</param>
+    /// <param name="pools">The registered host's pools, when available.</param>
+    /// <exception cref="ArgumentException">The stream cannot read or seek.</exception>
+    internal StreamPdfByteSource(Stream stream, long cacheBytes, bool ownsStream, ScratchPools? pools)
+        : this(cacheBytes, ownsStream, pools)
     {
         ArgumentNullException.ThrowIfNull(stream);
         if (!stream.CanRead || !stream.CanSeek)
@@ -109,15 +136,17 @@ public sealed class StreamPdfByteSource : PdfByteSource
         }
 
         _stream = stream;
+        _streamAccess = new(1, 1);
         Length = stream.Length;
     }
 
-    /// <summary>Initializes a new instance of the <see cref="StreamPdfByteSource"/> class over a file handle.</summary>
-    /// <param name="handle">A handle opened for reading.</param>
-    /// <param name="cacheBytes">The most bytes the page cache holds; at least one page is kept.</param>
-    /// <param name="ownsHandle">Whether disposing the source closes the handle.</param>
-    public StreamPdfByteSource(SafeFileHandle handle, long cacheBytes, bool ownsHandle)
-        : this(cacheBytes, ownsHandle)
+    /// <summary>Initializes a new instance of the <see cref="StreamPdfByteSource"/> class using the host's cache pool.</summary>
+    /// <param name="handle">The readable input.</param>
+    /// <param name="cacheBytes">The cache budget.</param>
+    /// <param name="ownsHandle">Whether disposal closes the input.</param>
+    /// <param name="pools">The registered host's pools, when available.</param>
+    internal StreamPdfByteSource(SafeFileHandle handle, long cacheBytes, bool ownsHandle, ScratchPools? pools)
+        : this(cacheBytes, ownsHandle, pools)
     {
         ArgumentNullException.ThrowIfNull(handle);
         _file = handle;
@@ -127,17 +156,19 @@ public sealed class StreamPdfByteSource : PdfByteSource
     /// <summary>Initializes a new instance of the <see cref="StreamPdfByteSource"/> class with an empty cache.</summary>
     /// <param name="cacheBytes">The cache budget.</param>
     /// <param name="ownsInput">Whether disposal closes the input.</param>
-    private StreamPdfByteSource(long cacheBytes, bool ownsInput)
+    /// <param name="pools">The registered host's pools, when available.</param>
+    private StreamPdfByteSource(long cacheBytes, bool ownsInput, ScratchPools? pools)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(cacheBytes);
         var slots = (int)Math.Clamp(cacheBytes / PageLength, 1, int.MaxValue / PageLength);
         _ownsInput = ownsInput;
-        _pages = new byte[slots][];
-        _pageNumbers = new long[slots];
-        _pageLengths = new int[slots];
-        _lastUse = new long[slots];
-        _slots = [with(slots)];
-        _pageNumbers.AsSpan().Fill(-1);
+        _cachePool = pools?.Slots<StreamPageCache>();
+        _cache = StreamPageCache.Rent(slots, _cachePool);
+        _pages = _cache.Pages;
+        _pageNumbers = _cache.PageNumbers;
+        _pageLengths = _cache.PageLengths;
+        _lastUse = _cache.LastUse;
+        _slots = _cache.Slots;
     }
 
     /// <summary>Gets the size of a cached page.</summary>
@@ -175,20 +206,8 @@ public sealed class StreamPdfByteSource : PdfByteSource
     /// <returns>The source, which owns the file handle.</returns>
     /// <exception cref="IOException">The file cannot be opened.</exception>
     /// <exception cref="UnauthorizedAccessException">The file cannot be read.</exception>
-    public static StreamPdfByteSource Open(string path, long cacheBytes)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(path);
-        var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, FileOptions.RandomAccess);
-        try
-        {
-            return new(handle, cacheBytes, true);
-        }
-        catch
-        {
-            handle.Dispose();
-            throw;
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static StreamPdfByteSource Open(string path, long cacheBytes) => Open(path, cacheBytes, null);
 
     /// <summary>Opens a file for async reads (the handle is opened for overlapped I/O).</summary>
     /// <param name="path">The file path.</param>
@@ -196,20 +215,8 @@ public sealed class StreamPdfByteSource : PdfByteSource
     /// <returns>The source, which owns the file handle.</returns>
     /// <exception cref="IOException">The file cannot be opened.</exception>
     /// <exception cref="UnauthorizedAccessException">The file cannot be read.</exception>
-    public static StreamPdfByteSource OpenAsynchronous(string path, long cacheBytes)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(path);
-        var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, FileOptions.RandomAccess | FileOptions.Asynchronous);
-        try
-        {
-            return new(handle, cacheBytes, true);
-        }
-        catch
-        {
-            handle.Dispose();
-            throw;
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static StreamPdfByteSource OpenAsynchronous(string path, long cacheBytes) => OpenAsynchronous(path, cacheBytes, null);
 
     /// <inheritdoc/>
     public override async ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
@@ -266,6 +273,46 @@ public sealed class StreamPdfByteSource : PdfByteSource
         }
     }
 
+    /// <summary>Opens a file using the host's cache pool.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="cacheBytes">The cache budget.</param>
+    /// <param name="pools">The registered host's pools, when available.</param>
+    /// <returns>The source, which owns its handle.</returns>
+    internal static StreamPdfByteSource Open(string path, long cacheBytes, ScratchPools? pools)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, FileOptions.RandomAccess);
+        try
+        {
+            return new(handle, cacheBytes, true, pools);
+        }
+        catch
+        {
+            handle.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>Opens a file using the host's cache pool.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="cacheBytes">The cache budget.</param>
+    /// <param name="pools">The registered host's pools, when available.</param>
+    /// <returns>The source, which owns its handle.</returns>
+    internal static StreamPdfByteSource OpenAsynchronous(string path, long cacheBytes, ScratchPools? pools)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, FileOptions.RandomAccess | FileOptions.Asynchronous);
+        try
+        {
+            return new(handle, cacheBytes, true, pools);
+        }
+        catch
+        {
+            handle.Dispose();
+            throw;
+        }
+    }
+
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
@@ -275,10 +322,10 @@ public sealed class StreamPdfByteSource : PdfByteSource
             {
                 _closed = true;
                 ReturnPages();
-                _slots.Clear();
+                StreamPageCache.Return(_cache, _cachePool);
             }
 
-            _streamAccess.Dispose();
+            _streamAccess?.Dispose();
             if (_ownsInput)
             {
                 _stream?.Dispose();
@@ -404,6 +451,7 @@ public sealed class StreamPdfByteSource : PdfByteSource
 
         lock (_gate)
         {
+            ObjectDisposedException.ThrowIf(_closed, this);
             for (var page = offset >> PageShift; page <= (offset + length - 1) >> PageShift; page++)
             {
                 if (!_slots.ContainsKey(page))
@@ -423,6 +471,7 @@ public sealed class StreamPdfByteSource : PdfByteSource
     {
         lock (_gate)
         {
+            ObjectDisposedException.ThrowIf(_closed, this);
             return _slots.ContainsKey(page);
         }
     }
@@ -539,7 +588,7 @@ public sealed class StreamPdfByteSource : PdfByteSource
     private async ValueTask EnterStreamAsync(CancellationToken cancellationToken)
     {
         // A wait that outlives the semaphore would never wake, so each wait is bounded and re-checks disposal.
-        while (!await _streamAccess.WaitAsync(StreamPollMilliseconds, cancellationToken).ConfigureAwait(false))
+        while (!await _streamAccess!.WaitAsync(StreamPollMilliseconds, cancellationToken).ConfigureAwait(false))
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
         }
@@ -548,7 +597,7 @@ public sealed class StreamPdfByteSource : PdfByteSource
     /// <summary>Waits for the stream's turn without async I/O; gives up with <see cref="ObjectDisposedException"/> once the source is disposed.</summary>
     private void EnterStream()
     {
-        while (!_streamAccess.Wait(StreamPollMilliseconds))
+        while (!_streamAccess!.Wait(StreamPollMilliseconds))
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
         }
@@ -559,7 +608,7 @@ public sealed class StreamPdfByteSource : PdfByteSource
     {
         try
         {
-            _ = _streamAccess.Release();
+            _ = _streamAccess!.Release();
         }
         catch (ObjectDisposedException)
         {

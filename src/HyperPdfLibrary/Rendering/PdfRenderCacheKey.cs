@@ -12,7 +12,8 @@ namespace HyperPdfLibrary.Rendering;
 /// <param name="SimulateOverprint">Whether overprint is previewed.</param>
 /// <param name="FormHighlight">The tint drawn over fillable form fields.</param>
 /// <param name="HiddenColorants">The hidden colorant names, sorted and joined by a line feed; empty for none.</param>
-internal readonly record struct PdfRenderCacheKey(long ImageCacheBytes, bool SimulateOverprint, PdfFormHighlight FormHighlight, string HiddenColorants)
+/// <param name="Quality">How edges, thin lines and scaled images are drawn.</param>
+internal readonly record struct PdfRenderCacheKey(long ImageCacheBytes, bool SimulateOverprint, PdfFormHighlight FormHighlight, string HiddenColorants, PdfRenderQuality Quality)
 {
     /// <summary>The character that separates the hidden colorant names in the key.</summary>
     private const char Separator = '\n';

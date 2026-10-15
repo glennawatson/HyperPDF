@@ -17,6 +17,11 @@ internal static class PdfProtectionMessages
         "This document claims to be a PDF/A archive file, and PDF/A does not allow encryption. "
         + "Leave it unencrypted, or remove the PDF/A claim first.";
 
+    /// <summary>Why a PDF/UA-1 document is not encrypted in a way that stops screen readers.</summary>
+    internal const string PdfUa =
+        "This document claims to be PDF/UA-1, an accessibility standard, and PDF/UA-1 needs an encrypted file to let screen readers read it (clause 7.16). "
+        + "Allow screen readers in the permissions, or remove the PDF/UA claim first.";
+
     /// <summary>Why a document opened with a user password is not changed.</summary>
     internal const string NeedsOwner =
         "This document was opened with its user password, which limits what may be done with it. "

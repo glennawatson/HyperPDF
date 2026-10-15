@@ -10,6 +10,12 @@ namespace HyperPdf.Core.Ocr;
 /// </summary>
 public static class OcrLanguageCatalog
 {
+    /// <summary>The path of the packs' folder on the host without a leading slash, which a pack's request path continues.</summary>
+    internal const string RequestBase = "tesseract-ocr/tessdata_fast/4.1.0/";
+
+    /// <summary>The host the packs are downloaded from, with a trailing slash.</summary>
+    private const string Host = "https://raw.githubusercontent.com/";
+
     /// <summary>The language used when none is chosen.</summary>
     private const string English = "eng";
 
@@ -58,7 +64,7 @@ public static class OcrLanguageCatalog
     public static string DefaultLanguage => English;
 
     /// <summary>Gets the folder the packs are downloaded from, ending in a slash.</summary>
-    public static Uri BaseAddress { get; } = new("https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/4.1.0/");
+    public static Uri BaseAddress { get; } = new(Host + RequestBase);
 
     /// <summary>Gets every pack offered, English first.</summary>
     public static IReadOnlyList<OcrLanguagePack> Packs { get; } = Array.ConvertAll(Table, static row => new OcrLanguagePack(row.Code, row.Name, row.Bytes, row.Sha256));
@@ -94,7 +100,7 @@ public static class OcrLanguageCatalog
             var part = text[range].Trim();
             if (!part.IsEmpty && !Contains(codes, part))
             {
-                codes.Add(part.ToString());
+                codes.Add(CodeOf(part));
             }
         }
 
@@ -119,6 +125,23 @@ public static class OcrLanguageCatalog
     /// <param name="bytes">The size in bytes.</param>
     /// <returns>The description.</returns>
     public static string DescribeSize(long bytes) => $"about {Math.Max(1, (bytes + BytesPerMegabyte - 1) / BytesPerMegabyte)} MB";
+
+    /// <summary>Gets a code as a string, using the offered pack's own string when it is one, so a known code makes no new string.</summary>
+    /// <param name="code">The code as written.</param>
+    /// <returns>The code.</returns>
+    private static string CodeOf(ReadOnlySpan<char> code)
+    {
+        for (var i = 0; i < Packs.Count; i++)
+        {
+            var pack = Packs[i];
+            if (pack.Code.AsSpan().SequenceEqual(code))
+            {
+                return pack.Code;
+            }
+        }
+
+        return code.ToString();
+    }
 
     /// <summary>Determines whether a list already holds a code.</summary>
     /// <param name="codes">The codes so far.</param>

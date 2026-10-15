@@ -3,13 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.PdfUa;
 using HyperPdfLibrary.Structure.Tagged;
 
 namespace HyperPdfLibrary.Optimizing;
 
 /// <summary>What <see cref="PdfOptimizer"/> may change; start from a preset and override settings with <c>with</c>.</summary>
 [DebuggerDisplay("PdfOptimizeOptions: {ColorImageDpi} dpi, quality {JpegQuality}, lossy {AllowLossyImages}")]
-public sealed record PdfOptimizeOptions
+public readonly record struct PdfOptimizeOptions
 {
     /// <summary>The image resolution the balanced preset keeps.</summary>
     private const int BalancedDpi = 200;
@@ -25,6 +26,11 @@ public sealed record PdfOptimizeOptions
 
     /// <summary>How far above the target an image's resolution must be before it is downsampled.</summary>
     private const float DefaultThreshold = 1.5F;
+
+    /// <summary>Initializes a new instance of the <see cref="PdfOptimizeOptions"/> struct with the balanced defaults.</summary>
+    public PdfOptimizeOptions()
+    {
+    }
 
     /// <summary>Gets the preset for the smallest file: colour and grey images at 150 dpi, JPEG quality 70.</summary>
     public static PdfOptimizeOptions Smaller { get; } = new() { ColorImageDpi = SmallerDpi, GrayImageDpi = SmallerDpi, JpegQuality = SmallerQuality };
@@ -109,6 +115,18 @@ public sealed record PdfOptimizeOptions
     public bool AddInferredTags { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether inferred tags carry a <c>/Lang</c> guessed from each element's own text. A guess is
+    /// a hint: the tree is marked as inferred in the XMP, and the document language is not changed.
+    /// </summary>
+    public bool GuessLanguage { get; init; }
+
+    /// <summary>
+    /// Gets the hook that describes an inferred figure from its page, box and caption text, or <see langword="null"/> to
+    /// leave figures without alternative text for a person to write.
+    /// </summary>
+    public PdfFigureAltTextProvider? FigureAltText { get; init; }
+
+    /// <summary>
     /// Gets the text recognition hook: given a page index, returns the words found on that page, or
     /// <see langword="null"/>. It is called only for pages that draw images and no text, and the words are added as an
     /// invisible text layer.
@@ -123,4 +141,11 @@ public sealed record PdfOptimizeOptions
     /// incremental update. When off, a signed document is copied unchanged.
     /// </summary>
     public bool AllowIncrementalWhenSigned { get; init; } = true;
+
+    /// <summary>
+    /// Gets what the optimiser does when the document claims PDF/UA-1 and the optimised file would break the claim in a way
+    /// the optimiser cannot repair: refuse with a <see cref="PdfException"/> (<see cref="PdfError.ClaimUnmet"/>) and write
+    /// nothing, which is the default, or remove the claim and write the file.
+    /// </summary>
+    public PdfUaUnmetClaimAction UnmetPdfUaClaim { get; init; }
 }

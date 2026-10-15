@@ -36,7 +36,7 @@ internal static class HyperPdfAnnotationTextLayer
                 return 0;
             }
 
-            var fonts = new TextLayerFonts(annotationState.Store, annotationState.Catalog ?? FontCatalog.System, annotationState.LazyFontState);
+            var fonts = new TextLayerFonts(annotationState.Store, HyperPdfAnnotationReading.GetFontCatalog(annotationState), annotationState.LazyFontState);
             var layer = ArrayPool<PdfTextLayerWord>.Shared.Rent(words.Length);
             try
             {

@@ -11,4 +11,4 @@ namespace HyperPdfLibrary.Fonts.Embedding;
 /// <param name="Codes">The code of each glyph in <paramref name="Glyphs"/>.</param>
 /// <param name="Texts">The text of each code that has any.</param>
 [DebuggerDisplay("GlyphUseSnapshot: {Glyphs.Length} glyphs")]
-internal sealed record GlyphUseSnapshot(int[] Glyphs, int[] Codes, Dictionary<int, string> Texts);
+internal readonly record struct GlyphUseSnapshot(int[] Glyphs, int[] Codes, Dictionary<int, string> Texts);

@@ -14,6 +14,9 @@ namespace HyperPdfLibrary.Structure.Tagged;
 [DebuggerDisplay("PdfSemanticPage: page {PageIndex} {Origin}, {Nodes.Count} nodes")]
 public sealed record PdfSemanticPage(int PageIndex, PdfNodeOrigin Origin, IReadOnlyList<PdfSemanticNode> Nodes, PdfMarkedContentPage? Content)
 {
+    /// <summary>Gets the pagination artifacts found on an inferred page: running headers, footers and page numbers, which are not part of the reading order.</summary>
+    public IReadOnlyList<PdfSemanticNode> Artifacts { get; init; } = [];
+
     /// <summary>Gets a value indicating whether the page shows only images, so text recognition should read it.</summary>
     public bool NeedsTextRecognition => Content is { IsImageOnly: true } && Origin != PdfNodeOrigin.Ocr;
 }

@@ -21,20 +21,30 @@ internal static class PdfLinearizationHintWriter
     /// <summary>Writes the hint stream and returns the shared-table byte offset.</summary>
     /// <param name="plan">The page and shared-object groups.</param>
     /// <param name="layout">The measured offsets of a preceding pass.</param>
+    /// <param name="bits">Receives the uncompressed hint stream.</param>
     /// <param name="sharedOffset">The byte offset of the shared-object table.</param>
     /// <param name="outlineOffset">The byte offset of the outlines table, or zero when absent.</param>
-    /// <returns>The uncompressed hint stream.</returns>
-    internal static byte[] Build(PdfLinearizationPlan plan, PdfLinearizationLayout layout, out int sharedOffset, out int outlineOffset)
+    internal static void Build(PdfLinearizationPlan plan, PdfLinearizationLayout layout, ref PdfHintBitWriter bits, out int sharedOffset, out int outlineOffset)
     {
-        var lengths = PageLengths(layout);
-        var shared = SharedObjectNumbers(plan);
-        var sharedLengths = SharedLengths(plan, layout, shared);
-        var bits = new PdfHintBitWriter();
-        WritePageTable(bits, plan, layout, lengths, shared.Length);
-        sharedOffset = bits.ByteCount;
-        WriteSharedTable(bits, plan, layout, sharedLengths);
-        outlineOffset = WriteOutlineTable(bits, plan, layout);
-        return bits.ToArray();
+        var lengths = default(PooledInts);
+        var shared = default(PooledInts);
+        var sharedLengths = default(PooledInts);
+        try
+        {
+            PageLengths(layout, ref lengths);
+            SharedObjectNumbers(plan, ref shared);
+            SharedLengths(plan, layout, shared.Span, ref sharedLengths);
+            WritePageTable(ref bits, plan, layout, lengths.Span, shared.Count);
+            sharedOffset = bits.ByteCount;
+            WriteSharedTable(ref bits, plan, layout, sharedLengths.Span);
+            outlineOffset = WriteOutlineTable(ref bits, plan, layout);
+        }
+        finally
+        {
+            lengths.Dispose();
+            shared.Dispose();
+            sharedLengths.Dispose();
+        }
     }
 
     /// <summary>Writes the optional outline group location after the shared-object table.</summary>
@@ -42,68 +52,69 @@ internal static class PdfLinearizationHintWriter
     /// <param name="plan">The outline object group.</param>
     /// <param name="layout">The preceding pass.</param>
     /// <returns>The table offset, or zero when the document has no indirect outlines.</returns>
-    private static int WriteOutlineTable(PdfHintBitWriter writer, PdfLinearizationPlan plan, PdfLinearizationLayout layout)
+    private static int WriteOutlineTable(ref PdfHintBitWriter writer, PdfLinearizationPlan plan, PdfLinearizationLayout layout)
     {
-        if (plan.Outline.Length == 0)
+        var outline = plan.Outline;
+        if (outline.IsEmpty)
         {
             return 0;
         }
 
         var offset = writer.ByteCount;
-        var first = plan[plan.Outline[0]];
+        var first = plan[outline[0]];
         var length = 0L;
-        foreach (var graphNumber in plan.Outline)
+        foreach (var graphNumber in outline)
         {
             length += layout.ObjectLengths[plan[graphNumber]];
         }
 
         writer.Write((uint)first, IntBits);
         writer.Write(PositiveField(layout.ObjectOffsets[first] - layout.HintLength), IntBits);
-        writer.Write((uint)plan.Outline.Length, IntBits);
+        writer.Write((uint)outline.Length, IntBits);
         writer.Write(PositiveField(length), IntBits);
         return offset;
     }
 
     /// <summary>Gets each page group's measured byte length, using placeholders before the first pass.</summary>
     /// <param name="layout">The preceding pass.</param>
-    /// <returns>Page group lengths.</returns>
-    private static uint[] PageLengths(PdfLinearizationLayout layout)
+    /// <param name="lengths">Receives the page group lengths.</param>
+    private static void PageLengths(PdfLinearizationLayout layout, ref PooledInts lengths)
     {
-        var lengths = new uint[layout.PageStarts.Length];
-        for (var index = 0; index < lengths.Length; index++)
+        var starts = layout.PageStarts;
+        var ends = layout.PageEnds;
+        for (var index = 0; index < starts.Length; index++)
         {
-            lengths[index] = PositiveField(layout.PageEnds[index] - layout.PageStarts[index]);
+            lengths.Add((int)PositiveField(ends[index] - starts[index]));
         }
-
-        return lengths;
     }
 
     /// <summary>Gets all shared-table objects: the first-page group, then shared objects of later pages.</summary>
     /// <param name="plan">The planned groups.</param>
-    /// <returns>Graph object numbers in shared-table order.</returns>
-    private static int[] SharedObjectNumbers(PdfLinearizationPlan plan)
+    /// <param name="numbers">Receives the graph object numbers in shared-table order.</param>
+    private static void SharedObjectNumbers(PdfLinearizationPlan plan, ref PooledInts numbers)
     {
-        var first = plan.PageGroups[0];
-        var numbers = new int[first.Length + plan.SharedOther.Length];
-        first.CopyTo(numbers, 0);
-        plan.SharedOther.CopyTo(numbers, first.Length);
-        return numbers;
+        foreach (var number in plan.PageGroup(0))
+        {
+            numbers.Add(number);
+        }
+
+        foreach (var number in plan.SharedOther)
+        {
+            numbers.Add(number);
+        }
     }
 
     /// <summary>Gets each shared object's measured byte length.</summary>
     /// <param name="plan">The planned numbering.</param>
     /// <param name="layout">The preceding pass.</param>
     /// <param name="shared">The shared-table graph numbers.</param>
-    /// <returns>Object lengths in table order.</returns>
-    private static uint[] SharedLengths(PdfLinearizationPlan plan, PdfLinearizationLayout layout, int[] shared)
+    /// <param name="lengths">Receives the object lengths in table order.</param>
+    private static void SharedLengths(PdfLinearizationPlan plan, PdfLinearizationLayout layout, ReadOnlySpan<int> shared, ref PooledInts lengths)
     {
-        var lengths = new uint[shared.Length];
-        for (var index = 0; index < shared.Length; index++)
+        foreach (var number in shared)
         {
-            lengths[index] = PositiveField(layout.ObjectLengths[plan[shared[index]]]);
+            lengths.Add((int)PositiveField(layout.ObjectLengths[plan[number]]));
         }
-
-        return lengths;
     }
 
     /// <summary>Writes the page header and its six packed rows.</summary>
@@ -112,28 +123,25 @@ internal static class PdfLinearizationHintWriter
     /// <param name="layout">The preceding pass.</param>
     /// <param name="lengths">The page byte lengths.</param>
     /// <param name="sharedCount">The number of shared-table entries.</param>
-    private static void WritePageTable(PdfHintBitWriter writer, PdfLinearizationPlan plan, PdfLinearizationLayout layout, uint[] lengths, int sharedCount)
+    private static void WritePageTable(ref PdfHintBitWriter writer, PdfLinearizationPlan plan, PdfLinearizationLayout layout, ReadOnlySpan<int> lengths, int sharedCount)
     {
         var leastObjects = int.MaxValue;
         var mostObjects = 0;
         var mostShared = 0;
-        foreach (var group in plan.PageGroups)
+        for (var page = 0; page < plan.PageCount; page++)
         {
-            leastObjects = Math.Min(leastObjects, group.Length);
-            mostObjects = Math.Max(mostObjects, group.Length);
+            var count = plan.PageGroup(page).Length;
+            leastObjects = Math.Min(leastObjects, count);
+            mostObjects = Math.Max(mostObjects, count);
+            mostShared = Math.Max(mostShared, plan.SharedIdentifiers(page).Length);
         }
 
-        foreach (var identifiers in plan.SharedIdentifiers)
-        {
-            mostShared = Math.Max(mostShared, identifiers.Length);
-        }
-
-        var leastLength = lengths[0];
-        var mostLength = lengths[0];
+        var leastLength = (uint)lengths[0];
+        var mostLength = leastLength;
         foreach (var length in lengths)
         {
-            leastLength = Math.Min(leastLength, length);
-            mostLength = Math.Max(mostLength, length);
+            leastLength = Math.Min(leastLength, (uint)length);
+            mostLength = Math.Max(mostLength, (uint)length);
         }
 
         var objectBits = Width((uint)(mostObjects - leastObjects));
@@ -142,14 +150,14 @@ internal static class PdfLinearizationHintWriter
         var identifierBits = Width((uint)sharedCount);
         var firstPosition = PositiveField(layout.PageStarts[0] - layout.HintLength);
         var stats = new PageHintStats((uint)leastObjects, firstPosition, objectBits, leastLength, lengthBits, sharedBits, identifierBits);
-        WritePageHeader(writer, stats);
-        WritePageRows(writer, plan, lengths, stats);
+        WritePageHeader(ref writer, stats);
+        WritePageRows(ref writer, plan, lengths, stats);
     }
 
     /// <summary>Writes the fixed page-offset table header.</summary>
     /// <param name="writer">The bit writer.</param>
     /// <param name="stats">The measured bounds and field widths.</param>
-    private static void WritePageHeader(PdfHintBitWriter writer, PageHintStats stats)
+    private static void WritePageHeader(ref PdfHintBitWriter writer, in PageHintStats stats)
     {
         writer.Write(stats.LeastObjects, IntBits);
         writer.Write(stats.FirstPosition, IntBits);
@@ -171,31 +179,31 @@ internal static class PdfLinearizationHintWriter
     /// <param name="plan">The page groups and identifiers.</param>
     /// <param name="lengths">The page lengths.</param>
     /// <param name="stats">The measured bounds and field widths.</param>
-    private static void WritePageRows(PdfHintBitWriter writer, PdfLinearizationPlan plan, uint[] lengths, PageHintStats stats)
+    private static void WritePageRows(ref PdfHintBitWriter writer, PdfLinearizationPlan plan, ReadOnlySpan<int> lengths, in PageHintStats stats)
     {
-        foreach (var group in plan.PageGroups)
+        for (var page = 0; page < plan.PageCount; page++)
         {
-            writer.Write((uint)(group.Length - stats.LeastObjects), stats.ObjectBits);
+            writer.Write((uint)(plan.PageGroup(page).Length - stats.LeastObjects), stats.ObjectBits);
         }
 
         writer.Align();
-        WriteLengthDeltas(writer, lengths, stats.LeastLength, stats.LengthBits);
-        foreach (var identifiers in plan.SharedIdentifiers)
+        WriteLengthDeltas(ref writer, lengths, stats.LeastLength, stats.LengthBits);
+        for (var page = 0; page < plan.PageCount; page++)
         {
-            writer.Write((uint)identifiers.Length, stats.SharedBits);
+            writer.Write((uint)plan.SharedIdentifiers(page).Length, stats.SharedBits);
         }
 
         writer.Align();
-        foreach (var identifiers in plan.SharedIdentifiers)
+        for (var page = 0; page < plan.PageCount; page++)
         {
-            foreach (var identifier in identifiers)
+            foreach (var identifier in plan.SharedIdentifiers(page))
             {
                 writer.Write((uint)identifier, stats.IdentifierBits);
             }
         }
 
         writer.Align();
-        WriteLengthDeltas(writer, lengths, stats.LeastLength, stats.LengthBits);
+        WriteLengthDeltas(ref writer, lengths, stats.LeastLength, stats.LengthBits);
     }
 
     /// <summary>Writes the shared-object table and one length entry for each object.</summary>
@@ -203,26 +211,27 @@ internal static class PdfLinearizationHintWriter
     /// <param name="plan">The shared-object groups.</param>
     /// <param name="layout">The preceding pass.</param>
     /// <param name="lengths">The shared-object byte lengths.</param>
-    private static void WriteSharedTable(PdfHintBitWriter writer, PdfLinearizationPlan plan, PdfLinearizationLayout layout, uint[] lengths)
+    private static void WriteSharedTable(ref PdfHintBitWriter writer, PdfLinearizationPlan plan, PdfLinearizationLayout layout, ReadOnlySpan<int> lengths)
     {
-        var leastLength = lengths[0];
-        var mostLength = lengths[0];
+        var leastLength = (uint)lengths[0];
+        var mostLength = leastLength;
         foreach (var length in lengths)
         {
-            leastLength = Math.Min(leastLength, length);
-            mostLength = Math.Max(mostLength, length);
+            leastLength = Math.Min(leastLength, (uint)length);
+            mostLength = Math.Max(mostLength, (uint)length);
         }
 
         var lengthBits = Width(mostLength - leastLength);
-        var hasOther = plan.SharedOther.Length > 0;
-        writer.Write(hasOther ? (uint)plan[plan.SharedOther[0]] : 0, IntBits);
-        writer.Write(hasOther ? PositiveField(layout.ObjectOffsets[plan[plan.SharedOther[0]]] - layout.HintLength) : 0, IntBits);
-        writer.Write((uint)plan.PageGroups[0].Length, IntBits);
+        var sharedOther = plan.SharedOther;
+        var hasOther = !sharedOther.IsEmpty;
+        writer.Write(hasOther ? (uint)plan[sharedOther[0]] : 0, IntBits);
+        writer.Write(hasOther ? PositiveField(layout.ObjectOffsets[plan[sharedOther[0]]] - layout.HintLength) : 0, IntBits);
+        writer.Write((uint)plan.PageGroup(0).Length, IntBits);
         writer.Write((uint)lengths.Length, IntBits);
         writer.Write(0, ShortBits);
         writer.Write(leastLength, IntBits);
         writer.Write((uint)lengthBits, ShortBits);
-        WriteLengthDeltas(writer, lengths, leastLength, lengthBits);
+        WriteLengthDeltas(ref writer, lengths, leastLength, lengthBits);
         for (var index = 0; index < lengths.Length; index++)
         {
             writer.Write(0, 1);
@@ -236,11 +245,11 @@ internal static class PdfLinearizationHintWriter
     /// <param name="lengths">The lengths.</param>
     /// <param name="least">The row minimum.</param>
     /// <param name="width">The encoded delta width.</param>
-    private static void WriteLengthDeltas(PdfHintBitWriter writer, uint[] lengths, uint least, int width)
+    private static void WriteLengthDeltas(ref PdfHintBitWriter writer, ReadOnlySpan<int> lengths, uint least, int width)
     {
         foreach (var length in lengths)
         {
-            writer.Write(length - least, width);
+            writer.Write((uint)length - least, width);
         }
 
         writer.Align();

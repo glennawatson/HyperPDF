@@ -110,15 +110,15 @@ internal sealed class CidToUnicodeTable
     {
         var name = collection switch
         {
-            CjkScript.Japanese => "Adobe-Japan1-UCS2",
-            CjkScript.SimplifiedChinese => "Adobe-GB1-UCS2",
-            CjkScript.TraditionalChinese => "Adobe-CNS1-UCS2",
-            _ => "Adobe-Korea1-UCS2",
+            CjkScript.Japanese => "Adobe-Japan1-UCS2-v2",
+            CjkScript.SimplifiedChinese => "Adobe-GB1-UCS2-v2",
+            CjkScript.TraditionalChinese => "Adobe-CNS1-UCS2-v2",
+            _ => "Adobe-Korea1-UCS2-v2",
         };
         var data = new PooledBuffer(0);
         try
         {
-            return CMapResources.TryRead($"{name}-v2", ref data) ? Parse(data.WrittenSpan) : Empty;
+            return CMapResources.TryRead(name, ref data) ? Parse(data.WrittenSpan) : Empty;
         }
         finally
         {

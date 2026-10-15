@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Fonts.CMaps;
-using HyperPdfLibrary.Fonts.Data;
 using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Fonts;
 
@@ -107,15 +106,6 @@ internal static class FontDataPrefetcher
         {
             await CidToUnicodeTable.EnsureAsync(resources, collection, cancellationToken).ConfigureAwait(false);
         }
-
-        if (descriptor.IsEmbedded || font.GetName(KnownName.Subtype).Is(KnownName.Type3))
-        {
-            return;
-        }
-
-        var baseFont = PdfNames.BaseFontOf(source);
-        var standard = StandardFonts.Find(Encoding.UTF8.GetBytes(baseFont));
-        await SystemFontMatcher.For(font, resources).EnsureAsync(new(baseFont, standard, descriptor.Flags, descriptor.Weight, collection), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Checks whether a font needs the collection's Unicode fallback.</summary>
@@ -123,7 +113,7 @@ internal static class FontDataPrefetcher
     /// <param name="collection">The Adobe collection.</param>
     /// <param name="descriptor">The font descriptor.</param>
     /// <returns>Whether the fallback is needed.</returns>
-    private static bool NeedsUnicode(PdfDictionary font, CjkScript collection, FontDescriptor descriptor)
+    private static bool NeedsUnicode(PdfDictionary font, CjkScript collection, in FontDescriptor descriptor)
     {
         if (collection == CjkScript.None)
         {

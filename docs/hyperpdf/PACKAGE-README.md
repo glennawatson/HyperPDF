@@ -43,9 +43,27 @@ await renderer.RenderAsync(new PdfTileRequest(0, scale, 0, 0, 0, PdfRenderFlags.
 
 A document can be used from many render threads at once.
 
-## Font data on demand
+## Fonts, offline use and external data
 
-The engine generates predefined CJK mappings and substitute faces only when a requested page needs them. It reads compact binary CMap resources and real TrueType fonts from pinned resource packs, builds the needed engine tables, and caches only the requested assets under `HyperPdfLibrary/FontData/v3` in the user's local application data folder.
+The fonts that stand in for the 14 standard PDF fonts are embedded in the library assembly: Arimo (Helvetica, Arial), Tinos (Times), Cousine (Courier), Noto Sans Math (Symbol) and Noto Sans Symbols 2 (ZapfDingbats). Each is cut down to Latin, Greek, Cyrillic, Hebrew, Vietnamese, punctuation, currency, arrows, mathematical operators, box drawing and geometric shapes (the two symbol faces to the characters of Symbol and ZapfDingbats), and adds about 2 MB to the package. They are never downloaded. Creating documents, saving, PDF/A conversion and substituting a non-embedded standard font make no network request.
+
+Create a document with an embedded font from the library:
+
+```csharp
+var creator = new PdfDocumentCreator(PdfDocumentCreatorOptions.Default);
+var font = creator.EmbedFont(PdfBundledFonts.Open(PdfBundledFontFamily.Sans, bold: false, italic: false).Source!);
+```
+
+Text outside the cut-down ranges draws the font's missing glyph; embed your own font for other scripts.
+
+Creating a document never contacts the network. `PdfDocumentCreator`, `PdfBundledFonts` and font embedding have no network code, and the embedded fonts are inside the assembly. The font data setting below applies only when you open, read or render a page.
+
+Only the predefined CJK CMaps and the CID to Unicode tables are external. A page needs them when a composite font names a predefined CMap (such as `90ms-RKSJ-H` or `UniJIS-UCS2-H`) instead of embedding it, or when a non-embedded CJK font needs text. The engine generates them from compact binary resources of the PDF.js CMap pack, only when a requested page needs them, and caches only the requested assets under `HyperPdfLibrary/FontData/v3` in the user's local application data folder. CJK text in a non-embedded font is drawn with a system font from your font provider; the library embeds no CJK font.
+
+Set `PdfDrawingServices.FontDataMode` to choose what happens when that data is not cached:
+
+- `PdfFontDataMode.OnDemand` (the default) downloads the missing data the first time a page needs it. A failed download throws from the asynchronous methods.
+- `PdfFontDataMode.Offline` never contacts the network. Cached data is used. Missing data is skipped, and `GetMissingFontData()` lists it (for example `CMaps/90ms-RKSJ-H.bin`) in ordinal order. A composite font whose predefined CMap is missing reads its two-byte codes as CIDs and has no extracted text of its own; a non-embedded CJK font without its Unicode table has no text. The same inputs always give the same result. To supply the data, copy the listed files into the font data folder from a machine that is online, or run once in `OnDemand` mode.
 
 Use `PdfDocumentText.GetTextPageAsync`, `PdfDocumentPages.PrefetchPageAsync`, `PdfFontLoader.LoadAsync` or the renderer's `RenderAsync` for first use. These await missing font data before the synchronous core runs. The synchronous APIs use cached resources. Documents using the same `PdfDrawingServices` reuse parsed font data in memory; later runs reuse the generated files without downloading them again. The first request for an uncached resource needs internet access. Set `HYPERPDF_FONT_DATA` before first use to choose a different cache root.
 
@@ -53,6 +71,6 @@ Identity CMaps and fonts embedded in the PDF need no substitute font downloads. 
 
 ## Licence
 
-HyperPdfLibrary is MIT licensed. CJK mappings use the PDF.js binary CMap resource pack under Adobe's BSD licence. Substitute faces use the Google Fonts pack: Arimo, Tinos, Cousine and Noto symbols. Their Apache and SIL notices ship in this package and are copied alongside cached fonts.
+HyperPdfLibrary is MIT licensed. CJK mappings use the PDF.js binary CMap resource pack under Adobe's BSD licence. The embedded substitute faces are Arimo (Apache-2.0), Tinos and Cousine (SIL OFL 1.1), and Noto Sans Math and Noto Sans Symbols 2 (SIL OFL 1.1), cut down to the characters the standard fonts need. Their notices ship in this package (`Faces-LICENSE.txt`, `THIRD-PARTY-NOTICES.md`).
 
 Report problems at [GitHub issues](https://github.com/glennawatson/HyperPDF/issues).

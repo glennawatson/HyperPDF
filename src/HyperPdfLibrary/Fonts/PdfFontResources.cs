@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Fonts;
@@ -12,8 +13,29 @@ namespace HyperPdfLibrary.Fonts;
 [DebuggerDisplay("Font resources, generation {Generation}")]
 internal sealed class PdfFontResources
 {
+    /// <summary>Whether missing data may be downloaded.</summary>
+    private readonly PdfFontDataMode _mode;
+
+    /// <summary>The transport to download with, or <see langword="null"/> for the default.</summary>
+    private readonly HttpMessageHandler? _handler;
+
     /// <summary>The resource availability and download state, created on first use.</summary>
     private FontDataResourceState? _data;
+
+    /// <summary>Initializes a new instance of the <see cref="PdfFontResources"/> class that may download missing data.</summary>
+    internal PdfFontResources()
+        : this(PdfFontDataMode.OnDemand, null)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PdfFontResources"/> class.</summary>
+    /// <param name="mode">Whether missing data may be downloaded.</param>
+    /// <param name="handler">The transport to download with, or <see langword="null"/> for the default.</param>
+    internal PdfFontResources(PdfFontDataMode mode, HttpMessageHandler? handler)
+    {
+        _mode = mode;
+        _handler = handler;
+    }
 
     /// <summary>Gets the parsed bundled faces.</summary>
     internal BundledFaceState Faces
@@ -74,7 +96,7 @@ internal sealed class PdfFontResources
                 return cached;
             }
 
-            var created = new FontDataResourceState();
+            var created = new FontDataResourceState(_mode, _handler);
             return Interlocked.CompareExchange(ref _data, created, null) ?? created;
         }
     }
@@ -91,6 +113,22 @@ internal sealed class PdfFontResources
             }
 
             var created = new GlyphNameTextState();
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets font names shared by documents using these drawing services.</summary>
+    internal BaseFontNameState BaseFontNames
+    {
+        get
+        {
+            var cached = Volatile.Read(ref field);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
+            var created = new BaseFontNameState();
             return Interlocked.CompareExchange(ref field, created, null) ?? created;
         }
     }
@@ -122,4 +160,23 @@ internal sealed class PdfFontResources
     /// <summary>Closes any client created while preparing a detached font.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void CloseDownloadClient() => Volatile.Read(ref _data)?.CloseDownloadClient();
+
+    /// <summary>Lists the assets an offline service needed but did not have, without creating resource state.</summary>
+    /// <returns>The group and file name of each, in ordinal order.</returns>
+    internal string[] GetMissing()
+    {
+        if (Volatile.Read(ref _data) is not { } state)
+        {
+            return [];
+        }
+
+        var missing = new List<string>(state.Missing.Count);
+        foreach (var (name, _) in state.Missing)
+        {
+            missing.Add(name);
+        }
+
+        missing.Sort(StringComparer.Ordinal);
+        return [.. missing];
+    }
 }

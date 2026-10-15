@@ -44,14 +44,21 @@ public static class PdfFormActions
                 return 0;
             }
 
-            var done = new HashSet<int>();
-            var count = 0;
-            for (var page = 0; page < form.Document.PageCount; page++)
+            var done = default(IntSet);
+            try
             {
-                count += PdfFormActions.ResetPage(form, page, action, done, cancellationToken);
-            }
+                var count = 0;
+                for (var page = 0; page < form.Document.PageCount; page++)
+                {
+                    count += PdfFormActions.ResetPage(form, page, action, ref done, cancellationToken);
+                }
 
-            return count;
+                return count;
+            }
+            finally
+            {
+                done.Dispose();
+            }
         }
     }
 
@@ -75,7 +82,7 @@ public static class PdfFormActions
         lock (form.Gate)
         {
             var count = 0;
-            for (var page = 0; page < form.Document.PageCount && action.Targets.Length > 0; page++)
+            for (var page = 0; page < form.Document.PageCount && !action.Targets.IsEmpty; page++)
             {
                 count += PdfFormActions.HidePage(form, page, action, cancellationToken);
             }
@@ -126,9 +133,9 @@ public static class PdfFormActions
     /// <param name = "listed">The listed names; empty means every field.</param>
     /// <param name = "exclude">Whether the list names the fields to leave out.</param>
     /// <returns><see langword="true"/> when the field is chosen.</returns>
-    internal static bool IsChosen(string name, string[] listed, bool exclude)
+    internal static bool IsChosen(string name, ReadOnlySpan<string> listed, bool exclude)
     {
-        if (listed.Length == 0)
+        if (listed.IsEmpty)
         {
             return true;
         }
@@ -140,7 +147,7 @@ public static class PdfFormActions
     /// <param name = "name">The full name.</param>
     /// <param name = "listed">The listed names.</param>
     /// <returns><see langword="true"/> when listed.</returns>
-    internal static bool IsListed(string name, string[] listed)
+    internal static bool IsListed(string name, ReadOnlySpan<string> listed)
     {
         foreach (var entry in listed)
         {
@@ -165,7 +172,7 @@ public static class PdfFormActions
         }
 
         var hasValue = widget.Value.Length > 0;
-        return PdfFormActions.IsChosen(widget.Name, action.Fields, (action.Flags & ExcludeFlag) != 0) && (hasValue || (action.Flags & IncludeNoValueFlag) != 0);
+        return PdfFormActions.IsChosen(widget.Name, action.Fields.AsSpan(), (action.Flags & ExcludeFlag) != 0) && (hasValue || (action.Flags & IncludeNoValueFlag) != 0);
     }
 
     /// <summary>Sets or clears the Hidden flag of an annotation.</summary>
@@ -174,7 +181,7 @@ public static class PdfFormActions
     /// <param name = "annotation">The annotation as it is now.</param>
     /// <param name = "hide">Whether to hide it.</param>
     /// <returns><see langword="true"/> when the flag changed.</returns>
-    internal static bool SetHiddenFlag(FormEdit edit, PdfObjectId id, PdfDictionary annotation, bool hide)
+    internal static bool SetHiddenFlag(ref FormEdit edit, PdfObjectId id, PdfDictionary annotation, bool hide)
     {
         var flags = annotation.GetInt32(KnownName.F);
         var next = hide ? flags | (int)PdfAnnotationFlags.Hidden : flags & ~(int)PdfAnnotationFlags.Hidden;
@@ -194,7 +201,7 @@ public static class PdfFormActions
     /// <param name = "done">The object numbers of the fields already reset.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The number of fields reset.</returns>
-    internal static int ResetPage(PdfForm form, int page, ResetFormAction action, HashSet<int> done, CancellationToken cancellationToken)
+    internal static int ResetPage(PdfForm form, int page, ResetFormAction action, ref IntSet done, CancellationToken cancellationToken)
     {
         if (PdfFormReading.GetAnnotations(form, page)is not { } annotations)
         {
@@ -206,9 +213,9 @@ public static class PdfFormActions
         for (var i = 0; i < annotations.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (PdfFormReading.Resolve(form, page, annotations, i) is { FieldId.IsValid: true } widget
-                && widget.Type is not (PdfFieldType.Unknown or PdfFieldType.PushButton or PdfFieldType.Signature)
-                && PdfFormActions.IsChosen(widget.Name, action.Fields, exclude) && done.Add(widget.FieldId.Number)
+            if (PdfFormReading.Resolve(form, page, annotations, i) is { } widget
+                && PdfFormActions.IsResettable(widget, action, exclude)
+                && done.Add(widget.FieldId.Number)
                 && PdfFormActions.ResetField(form, widget))
             {
                 count++;
@@ -218,40 +225,57 @@ public static class PdfFormActions
         return count;
     }
 
+    /// <summary>Determines whether a reset action resets a field: it has a type that holds a value, and the action chooses it.</summary>
+    /// <param name = "widget">One widget of the field.</param>
+    /// <param name = "action">The action.</param>
+    /// <param name = "exclude">Whether the action's field list names the fields to leave out.</param>
+    /// <returns><see langword="true"/> when the field is reset.</returns>
+    internal static bool IsResettable(in ResolvedWidget widget, ResetFormAction action, bool exclude) =>
+        widget.FieldId.IsValid
+        && widget.Type is not (PdfFieldType.Unknown or PdfFieldType.PushButton or PdfFieldType.Signature)
+        && (action.Fields.IsEmpty || PdfFormActions.IsChosen(widget.Name, action.Fields.AsSpan(), exclude));
+
     /// <summary>Resets one field to its default value.</summary>
     /// <param name = "form">The shared form state.</param>
     /// <param name = "widget">One widget of the field.</param>
     /// <returns><see langword="true"/> when the field was reset.</returns>
-    internal static bool ResetField(PdfForm form, ResolvedWidget widget)
+    internal static bool ResetField(PdfForm form, in ResolvedWidget widget)
     {
         var edit = new FormEdit(form.Document.Objects);
-        if (edit.Edit(widget.FieldId)is not { } field)
+        try
         {
-            return false;
-        }
+            if (edit.Edit(widget.FieldId)is not { } field)
+            {
+                return false;
+            }
 
-        var defaultValue = FieldAttributes.Find(widget.Field, KnownName.DV);
-        if (widget.IsButton)
-        {
-            PdfFormActions.ResetButtons(form, edit, widget, field, defaultValue);
+            var defaultValue = FieldAttributes.Find(widget.Field, KnownName.DV);
+            if (widget.IsButton)
+            {
+                PdfFormActions.ResetButtons(form, ref edit, widget, field, defaultValue);
+                edit.Commit();
+                return true;
+            }
+
+            if (defaultValue.IsNull)
+            {
+                _ = field.Remove(KnownName.V);
+            }
+            else
+            {
+                field.Set(KnownName.V, defaultValue);
+            }
+
+            _ = field.Remove(KnownName.I);
+            _ = field.Remove(form.Document.Objects.Names.Intern("RV"u8));
             edit.Commit();
+            PdfFormEditing.RegenerateAppearances(form, widget);
             return true;
         }
-
-        if (defaultValue.IsNull)
+        finally
         {
-            _ = field.Remove(KnownName.V);
+            edit.Dispose();
         }
-        else
-        {
-            field.Set(KnownName.V, defaultValue);
-        }
-
-        _ = field.Remove(KnownName.I);
-        _ = field.Remove(form.Document.Objects.Names.Intern("RV"));
-        edit.Commit();
-        PdfFormEditing.RegenerateAppearances(form, widget);
-        return true;
     }
 
     /// <summary>Puts every button of a field into the state its default value names, and sets the field's value to match.</summary>
@@ -260,17 +284,31 @@ public static class PdfFormActions
     /// <param name = "widget">One widget of the field.</param>
     /// <param name = "field">The field copy.</param>
     /// <param name = "defaultValue">The field's <c>/DV</c>, or null.</param>
-    internal static void ResetButtons(PdfForm form, FormEdit edit, ResolvedWidget widget, PdfDictionary field, PdfValue defaultValue)
+    internal static void ResetButtons(PdfForm form, ref FormEdit edit, in ResolvedWidget widget, PdfDictionary field, PdfValue defaultValue)
     {
-        var state = FieldAttributes.ReadState(defaultValue, form.Document.Objects.Names);
-        var wanted = state.Length == 0 ? FormValues.OffState : state;
-        foreach (var control in FormControl.GetControls(widget.Field, widget.FieldId))
+        var names = form.Document.Objects.Names;
+        var wanted = defaultValue.Kind switch
         {
-            var on = FieldAttributes.GetOnState(control.Dictionary, form.Document.Objects.Names);
-            PdfFormEditing.SetControl(form, edit, widget, control, on.Length > 0 && string.Equals(on, wanted, StringComparison.Ordinal));
+            PdfKind.Name => defaultValue.AsName(),
+            PdfKind.String when !defaultValue.AsStringBytes().IsEmpty => names.Intern(FieldAttributes.ReadState(defaultValue, names)),
+            _ => default,
+        };
+        wanted = wanted.IsNone ? names.Intern("Off"u8) : wanted;
+        var controls = FormControls.Read(widget.Field, widget.FieldId);
+        try
+        {
+            for (var i = 0; i < controls.Count; i++)
+            {
+                var on = FieldAttributes.GetOnStateName(controls[i].Dictionary, names);
+                PdfFormEditing.SetControl(form, ref edit, widget, controls[i], !on.IsNone && on.Equals(wanted));
+            }
+        }
+        finally
+        {
+            controls.Dispose();
         }
 
-        field.Set(KnownName.V, PdfValue.FromName(form.Document.Objects.Names.Intern(wanted)));
+        field.Set(KnownName.V, PdfValue.FromName(wanted));
     }
 
     /// <summary>Shows or hides the named annotations on one page.</summary>
@@ -287,19 +325,26 @@ public static class PdfFormActions
         }
 
         var edit = new FormEdit(form.Document.Objects);
-        var count = 0;
-        for (var i = 0; i < annotations.Count; i++)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (annotations.GetDictionary(i) is { } annotation
-                && PdfFormActions.IsListed(FieldAttributes.GetFullName(annotation), action.Targets)
-                && PdfFormActions.SetHiddenFlag(edit, annotations.GetRaw(i).AsReference(), annotation, action.Hide))
+            var count = 0;
+            for (var i = 0; i < annotations.Count; i++)
             {
-                count++;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (annotations.GetDictionary(i) is { } annotation
+                    && PdfFormActions.IsListed(FieldAttributes.GetFullName(annotation), action.Targets.AsSpan())
+                    && PdfFormActions.SetHiddenFlag(ref edit, annotations.GetRaw(i).AsReference(), annotation, action.Hide))
+                {
+                    count++;
+                }
             }
-        }
 
-        edit.Commit();
-        return count;
+            edit.Commit();
+            return count;
+        }
+        finally
+        {
+            edit.Dispose();
+        }
     }
 }

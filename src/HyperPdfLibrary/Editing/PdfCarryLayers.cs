@@ -99,7 +99,7 @@ internal sealed class PdfCarryLayers
     {
         var source = _context.Source;
         var groups = new List<CopiedGroup>();
-        HashSet<int>? hidden = null;
+        OptionalContentSet? set = null;
         for (var number = 1; number < source.Size; number++)
         {
             if (!IsCopiedGroup(number))
@@ -107,8 +107,8 @@ internal sealed class PdfCarryLayers
                 continue;
             }
 
-            hidden ??= OptionalContentReader.Read(source).Hidden;
-            groups.Add(new(number, hidden.Contains(number)));
+            set ??= new OptionalContentReader().Read(source);
+            groups.Add(new(number, set.IsHiddenByDefault(number)));
         }
 
         return groups;

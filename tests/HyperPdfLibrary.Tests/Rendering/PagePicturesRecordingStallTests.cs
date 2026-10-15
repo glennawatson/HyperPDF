@@ -151,11 +151,18 @@ public sealed class PagePicturesRecordingStallTests
         public IPdfRenderImage CreateImage(PdfImagePixelLayout layout, ReadOnlySpan<byte> pixels, int rowBytes) => _inner.CreateImage(layout, pixels, rowBytes);
 
         /// <inheritdoc/>
-        public IPdfRenderShader CreateLinearGradient(PdfPoint start, PdfPoint end, PdfColor[] colors, float[] positions, PdfShaderTileMode mode) =>
+        public IPdfRenderShader CreateLinearGradient(PdfPoint start, PdfPoint end, ReadOnlySpan<PdfColor> colors, ReadOnlySpan<float> positions, PdfShaderTileMode mode) =>
             _inner.CreateLinearGradient(start, end, colors, positions, mode);
 
         /// <inheritdoc/>
-        public IPdfRenderShader CreateTwoPointConicalGradient(PdfPoint start, float startRadius, PdfPoint end, float endRadius, PdfColor[] colors, float[] positions, PdfShaderTileMode mode) =>
+        public IPdfRenderShader CreateTwoPointConicalGradient(
+            PdfPoint start,
+            float startRadius,
+            PdfPoint end,
+            float endRadius,
+            ReadOnlySpan<PdfColor> colors,
+            ReadOnlySpan<float> positions,
+            PdfShaderTileMode mode) =>
             _inner.CreateTwoPointConicalGradient(start, startRadius, end, endRadius, colors, positions, mode);
 
         /// <inheritdoc/>

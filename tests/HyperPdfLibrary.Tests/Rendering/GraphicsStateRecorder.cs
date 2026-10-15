@@ -20,6 +20,9 @@ internal sealed class GraphicsStateRecorder : IContentDevice
     /// <summary>The page size in points.</summary>
     private const int Size = 100;
 
+    /// <summary>Gets a value indicating whether the device reads the pixels of the images it draws; the default is <see langword="true"/>.</summary>
+    public bool ReadsImagePixels { get; init; } = true;
+
     /// <summary>Gets the graphics states, in the order the paints arrived.</summary>
     internal List<GraphicsState> Paints { get; } = [];
 
@@ -29,8 +32,11 @@ internal sealed class GraphicsStateRecorder : IContentDevice
     /// <summary>Gets the groups begun, in order.</summary>
     internal List<GroupInfo> Groups { get; } = [];
 
-    /// <summary>Gets the number of images drawn.</summary>
+    /// <summary>Gets the number of images drawn with their pixels.</summary>
     internal int Images { get; private set; }
+
+    /// <summary>Gets the number of images reported by their area only.</summary>
+    internal int ImageAreas { get; private set; }
 
     /// <inheritdoc/>
     public void Fill(PdfPath path, bool evenOdd, ref GraphicsState state) => Paints.Add(state);
@@ -45,6 +51,13 @@ internal sealed class GraphicsStateRecorder : IContentDevice
     public void DrawImage(IPdfRenderImage image, bool isMask, bool smooth, ref GraphicsState state)
     {
         Images++;
+        Paints.Add(state);
+    }
+
+    /// <inheritdoc/>
+    public void DrawImageArea(ref GraphicsState state)
+    {
+        ImageAreas++;
         Paints.Add(state);
     }
 
@@ -115,7 +128,25 @@ internal sealed class GraphicsStateRecorder : IContentDevice
     internal static GraphicsStateRecorder Run(RenderTestPdf pdf)
     {
         using var document = PdfDocumentReader.OpenWith(pdf.ToBytes(), new PdfOpenOptions { FontFactory = static dictionary => new SquareFont(dictionary) });
-        var recorder = new GraphicsStateRecorder();
+        return Run(document, new());
+    }
+
+    /// <summary>Runs a prepared test document's first page with Skia drawing services, so images decode, and records what it paints.</summary>
+    /// <param name="pdf">The document.</param>
+    /// <param name="readsPixels">Whether the recorder reads image pixels.</param>
+    /// <returns>The recorder.</returns>
+    internal static GraphicsStateRecorder RunWithImages(RenderTestPdf pdf, bool readsPixels)
+    {
+        using var document = PdfDocumentReader.OpenWith(pdf.ToBytes(), new PdfOpenOptions { DrawingServices = SkiaTestRegistration.CreateServices() });
+        return Run(document, new() { ReadsImagePixels = readsPixels });
+    }
+
+    /// <summary>Plays the first page of an opened document into a recorder.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="recorder">The recorder that receives the page.</param>
+    /// <returns>The same recorder, after the page has played.</returns>
+    private static GraphicsStateRecorder Run(PdfDocument document, GraphicsStateRecorder recorder)
+    {
         using (var interpreter = new ContentInterpreter(PdfDocumentRendering.GetRenderCache(document), recorder, 0))
         {
             ContentExecution.RunPage(interpreter, PdfDocumentPages.GetPage(document, 0));

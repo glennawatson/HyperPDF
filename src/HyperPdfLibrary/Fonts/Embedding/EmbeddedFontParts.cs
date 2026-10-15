@@ -15,7 +15,7 @@ namespace HyperPdfLibrary.Fonts.Embedding;
 /// <param name="Cids">The CIDs the widths are for, in ascending order.</param>
 /// <param name="Widths">The advance of each CID in <paramref name="Cids"/>.</param>
 [DebuggerDisplay("EmbeddedFontParts: {BaseFont}")]
-internal sealed record EmbeddedFontParts(string BaseFont, EmbeddedProgramKind Kind, byte[] Program, PdfRectangle FontBox, int[] Cids, float[] Widths)
+internal readonly record struct EmbeddedFontParts(string BaseFont, EmbeddedProgramKind Kind, byte[] Program, PdfRectangle FontBox, int[] Cids, float[] Widths)
 {
     /// <summary>Gets the font descriptor flags.</summary>
     internal int Flags { get; init; }

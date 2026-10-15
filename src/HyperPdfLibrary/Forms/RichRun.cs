@@ -6,8 +6,9 @@ using System.Diagnostics;
 
 namespace HyperPdfLibrary.Forms;
 
-/// <summary>A stretch of rich text in one style. A line feed in the text is a line break.</summary>
-/// <param name="Text">The text.</param>
+/// <summary>A stretch of rich text in one style; its characters are a range of the <see cref="RichText"/> they were read into.</summary>
+/// <param name="Start">The first character's place in the text.</param>
+/// <param name="Length">The number of characters.</param>
 /// <param name="Style">The style.</param>
-[DebuggerDisplay("RichRun: {Text}")]
-internal sealed record RichRun(string Text, RichStyle Style);
+[DebuggerDisplay("RichRun: {Start}+{Length}")]
+internal readonly record struct RichRun(int Start, int Length, RichStyle Style);

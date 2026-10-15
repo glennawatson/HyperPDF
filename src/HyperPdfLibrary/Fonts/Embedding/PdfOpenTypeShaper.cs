@@ -31,6 +31,9 @@ public sealed class PdfOpenTypeShaper : IPdfGlyphShaper
     /// <summary>The font's layout tables.</summary>
     private readonly OtFontLayout _layout;
 
+    /// <summary>The reusable glyph buffer and layout engines for this font.</summary>
+    private ShapingSession? _spare;
+
     /// <summary>Initializes a new instance of the <see cref="PdfOpenTypeShaper"/> class.</summary>
     /// <param name="source">The font to take glyphs, metrics and layout tables from.</param>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
@@ -51,6 +54,7 @@ public sealed class PdfOpenTypeShaper : IPdfGlyphShaper
             return false;
         }
 
+        var session = ShapingSession.Rent(ref _spare);
         var vertical = options.WritingMode == PdfWritingMode.Vertical;
         var codePoints = ArrayPool<int>.Shared.Rent(text.Length);
         var clusters = ArrayPool<int>.Shared.Rent(text.Length);
@@ -67,7 +71,7 @@ public sealed class PdfOpenTypeShaper : IPdfGlyphShaper
             }
 
             ResolveScripts(codePoints.AsSpan(0, count), options.Script, scripts.AsSpan(0, count));
-            ShapeSegments(new(codePoints, clusters, levels, scripts, count), options, vertical, output);
+            ShapeSegments(session, new(codePoints, clusters, levels, scripts, count), options, vertical, output);
             return baseLevel == Bidi.RightToLeft;
         }
         finally
@@ -76,6 +80,7 @@ public sealed class PdfOpenTypeShaper : IPdfGlyphShaper
             ArrayPool<int>.Shared.Return(clusters);
             ArrayPool<byte>.Shared.Return(levels);
             ArrayPool<ShapingScript>.Shared.Return(scripts, true);
+            session.Return(ref _spare);
         }
     }
 
@@ -232,11 +237,12 @@ public sealed class PdfOpenTypeShaper : IPdfGlyphShaper
     }
 
     /// <summary>Shapes each run of one script and level and puts the runs in visual order.</summary>
+    /// <param name="session">The shaping work space retained by this font.</param>
     /// <param name="text">The characters, with their clusters, levels and scripts.</param>
     /// <param name="options">The shaping options.</param>
     /// <param name="vertical">Whether the text is written vertically.</param>
     /// <param name="output">Receives the glyphs.</param>
-    private void ShapeSegments(in RunText text, PdfShapingOptions options, bool vertical, List<PdfShapedGlyph> output)
+    private void ShapeSegments(ShapingSession session, in RunText text, PdfShapingOptions options, bool vertical, List<PdfShapedGlyph> output)
     {
         var first = output.Count;
         var language = OtLanguages.TagFor(options.Language);
@@ -256,7 +262,7 @@ public sealed class PdfOpenTypeShaper : IPdfGlyphShaper
                 var before = output.Count;
                 var kind = new SegmentKind(text.Scripts[start], (text.Levels[start] & 1) != 0, vertical);
                 var plan = _layout.PlanFor(kind.Script, language, kind.RightToLeft, vertical, options.Features);
-                SegmentShaper.Shape(_source, _layout, plan, kind, text.CodePoints.AsSpan(start, end - start), text.Clusters.AsSpan(start, end - start), output);
+                SegmentShaper.Shape(session, new(_source, _layout), plan, kind, text.CodePoints.AsSpan(start, end - start), text.Clusters.AsSpan(start, end - start), output);
                 segments[segmentCount] = new(before, output.Count - before, text.Levels[start]);
                 segmentCount++;
                 start = end;

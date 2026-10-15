@@ -28,8 +28,9 @@ public static class Program
     /// Passing <c>--profiler EP</c> instead traces CPU samples with BenchmarkDotNet's EventPipe profiler, read by
     /// <c>scripts/CpuAudit.cs</c>; allocations are not traced then, so they do not disturb the timing.
     /// </summary>
-    /// <param name="args">The arguments.</param>
-    public static void Main(string[] args)
+    /// <param name="args">The arguments; <c>--alloc</c> runs the allocation harness instead of BenchmarkDotNet.</param>
+    /// <returns>The exit code: 0 for success.</returns>
+    public static Task<int> Main(string[] args)
     {
         Environment.SetEnvironmentVariable("DISPLAY", null);
         Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", null);
@@ -37,7 +38,16 @@ public static class Program
         Environment.SetEnvironmentVariable("DBUS_STARTER_ADDRESS", null);
         Environment.SetEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS", "unix:path=/dev/null");
         Environment.SetEnvironmentVariable("XDG_RUNTIME_DIR", Path.Combine(Path.GetTempPath(), $"hyperpdf-benchmark-{Environment.ProcessId}"));
+        return Array.IndexOf(args, "--alloc") >= 0 ? AllocationHarness.Harness.RunAsync(args, Console.Out) : Task.FromResult(RunBenchmarkDotNet(args));
+    }
+
+    /// <summary>Runs the benchmarks with BenchmarkDotNet.</summary>
+    /// <param name="args">The BenchmarkDotNet arguments.</param>
+    /// <returns>The exit code.</returns>
+    private static int RunBenchmarkDotNet(string[] args)
+    {
         _ = BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, CreateConfig(args));
+        return 0;
     }
 
     /// <summary>Creates the configuration: the default jobs, traced for allocations unless a profiler was asked for.</summary>

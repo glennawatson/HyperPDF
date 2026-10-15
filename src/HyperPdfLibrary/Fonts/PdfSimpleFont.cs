@@ -39,7 +39,7 @@ internal sealed class PdfSimpleFont : PdfFont
     /// <param name="dictionary">The font dictionary.</param>
     /// <param name="data">The loaded data.</param>
     /// <param name="resources">The font resources.</param>
-    internal PdfSimpleFont(PdfDictionary dictionary, SimpleFontData data, PdfFontResources resources)
+    internal PdfSimpleFont(PdfDictionary dictionary, in SimpleFontData data, PdfFontResources resources)
         : base(dictionary)
     {
         _data = data;
@@ -99,16 +99,15 @@ internal sealed class PdfSimpleFont : PdfFont
     /// Fits a substituted glyph to the advance the PDF gives it: a wider glyph is compressed horizontally and a
     /// noticeably narrower one is centred, so text keeps the spacing its author laid out (ISO 32000-2, 9.2.4).
     /// </summary>
-    /// <param name="path">The outline.</param>
     /// <param name="fontWidth">The glyph's own advance in glyph units.</param>
     /// <param name="pdfWidth">The PDF width in glyph units.</param>
-    /// <returns>The adjusted outline.</returns>
-    private static PdfPath FitToWidth(PdfPath path, float fontWidth, float pdfWidth) => pdfWidth switch
+    /// <returns>The transform that fits the outline, or the identity when it fits already.</returns>
+    private static Matrix3x2 FitToWidth(float fontWidth, float pdfWidth) => pdfWidth switch
     {
-        _ when fontWidth <= 0 || pdfWidth <= 0 => path,
-        _ when pdfWidth < fontWidth => path.Transform(Matrix3x2.CreateScale(pdfWidth / fontWidth, 1)),
-        _ when pdfWidth - fontWidth > pdfWidth * CentreThreshold => path.Transform(Matrix3x2.CreateTranslation((pdfWidth - fontWidth) * Half, 0)),
-        _ => path,
+        _ when fontWidth <= 0 || pdfWidth <= 0 => Matrix3x2.Identity,
+        _ when pdfWidth < fontWidth => Matrix3x2.CreateScale(pdfWidth / fontWidth, 1),
+        _ when pdfWidth - fontWidth > pdfWidth * CentreThreshold => Matrix3x2.CreateTranslation((pdfWidth - fontWidth) * Half, 0),
+        _ => Matrix3x2.Identity,
     };
 
     /// <summary>Builds a code's outline: its glyph, or a system fallback for a substituted font's missing character.</summary>
@@ -130,12 +129,7 @@ internal sealed class PdfSimpleFont : PdfFont
             glyph = fallback.GetGlyph(codePoint);
         }
 
-        var path = source.BuildOutline(glyph);
-        if (path is not null && _data.Metrics.AdjustSpacing)
-        {
-            path = FitToWidth(path, source.GetAdvance(glyph), _data.Widths[code] * GlyphUnits);
-        }
-
-        return path;
+        var fit = _data.Metrics.AdjustSpacing ? FitToWidth(source.GetAdvance(glyph), _data.Widths[code] * GlyphUnits) : Matrix3x2.Identity;
+        return source.BuildOutline(glyph, fit);
     }
 }

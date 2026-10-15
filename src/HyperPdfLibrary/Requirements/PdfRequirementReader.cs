@@ -91,7 +91,7 @@ internal static class PdfRequirementReader
             }
         }
 
-        return new(requirements, skipped, array.Count > count);
+        return new(requirements.AsReadOnly(), skipped, array.Count > count);
     }
 
     /// <summary>Compares two versions written as dotted numbers, padding the shorter with zeros.</summary>
@@ -135,7 +135,7 @@ internal static class PdfRequirementReader
         var version = ReadVersion(store, dictionary.Get(names.Intern(VersionKey)));
         var handlers = ReadHandlers(store, dictionary.Get(names.Intern(HandlersKey)));
         var encryption = string.Equals(type, EncryptionType, StringComparison.Ordinal) ? ReadEncryption(store, dictionary.GetDictionary(names.Intern(EncryptKey))) : null;
-        return new(type, version, penalty, handlers, encryption);
+        return new(type, version, penalty, Array.AsReadOnly(handlers), encryption);
     }
 
     /// <summary>Reads a penalty, keeping it in the range the standard allows.</summary>

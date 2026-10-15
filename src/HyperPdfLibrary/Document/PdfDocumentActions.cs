@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Objects;
@@ -95,8 +96,14 @@ public static class PdfDocumentActions
 
     /// <summary>Gets the document-level scripts of the <c>/Names /JavaScript</c> name tree. The text is data; nothing runs.</summary>
     /// <param name="document">The document.</param>
+    /// <returns>An immutable snapshot of the scripts in name tree order, read once until the next edit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ImmutableArray<PdfNamedScript> GetDocumentScripts(PdfDocument document) => PdfReadSnapshots.Read(document, PdfReadKind.DocumentScripts, PdfDocumentActions.ReadDocumentScripts);
+
+    /// <summary>Reads the document-level scripts of the <c>/Names /JavaScript</c> name tree.</summary>
+    /// <param name="document">The document.</param>
     /// <returns>The scripts in name tree order.</returns>
-    public static PdfNamedScript[] GetDocumentScripts(PdfDocument document)
+    internal static ImmutableArray<PdfNamedScript> ReadDocumentScripts(PdfDocument document)
     {
         var entries = new List<NameTreeEntry>();
         NameTree.Enumerate(document.Catalog.GetDictionary(KnownName.Names)?.Dict("JavaScript"), entries);
@@ -134,7 +141,7 @@ public static class PdfDocumentActions
     /// <param name="depth">The depth of <paramref name="action"/>.</param>
     /// <param name="budget">The actions still allowed.</param>
     /// <returns>The following actions.</returns>
-    private static PdfActionNode[] ReadNext(PdfDocument document, PdfDictionary action, HashSet<PdfDictionary> visited, int depth, ref int budget)
+    private static ImmutableArray<PdfActionNode> ReadNext(PdfDocument document, PdfDictionary action, HashSet<PdfDictionary> visited, int depth, ref int budget)
     {
         var next = action.Get(KnownName.Next);
         if (depth + 1 >= PdfLimits.MaxNesting || next.IsNull)

@@ -27,11 +27,28 @@ public sealed class FakeSpellChecker : ISpellChecker
     public bool IsCorrect(ReadOnlySpan<char> word) => Words.GetAlternateLookup<ReadOnlySpan<char>>().Contains(word);
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> Suggest(string word) => word.ToUpperInvariant() switch
+    public void Suggest(string word, List<string> suggestions)
     {
-        "RECIEVE" => ["receive", "relieve"],
-        "TEH" => ["the"],
-        "ADRESS" => ["address"],
-        _ => [],
-    };
+        ArgumentNullException.ThrowIfNull(suggestions);
+        switch (word.ToUpperInvariant())
+        {
+            case "RECIEVE":
+            {
+                suggestions.AddRange(["receive", "relieve"]);
+                break;
+            }
+
+            case "TEH":
+            {
+                suggestions.Add("the");
+                break;
+            }
+
+            case "ADRESS":
+            {
+                suggestions.Add("address");
+                break;
+            }
+        }
+    }
 }

@@ -2,12 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts;
@@ -15,6 +13,7 @@ using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Graphics.Shadings;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Render.Skia.Images;
 using SkiaSharp;
 
 namespace HyperPdfLibrary.Rendering;
@@ -69,34 +68,8 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// </summary>
     private const float ThinLineLimit = 1;
 
-    /// <summary>
-    /// The length, in device pixels, given to a zero-length dash. ISO 32000-2 8.4.3.6 says a zero-length dash paints a dot
-    /// with round or square caps and nothing with butt caps. Skia draws a cap only on a dash of some length, and a tenth
-    /// of a pixel gives the full dot (a hundredth drew visibly smaller dots in a render comparison) while a butt-capped
-    /// dash of that length stays under 10% coverage.
-    /// </summary>
-    private const float DotLength = 0.1F;
-
-    /// <summary>
-    /// The shortest dash cycle, in device pixels, that is dashed. A pattern repeating faster than a sixteenth of a pixel
-    /// reads as an even tone, so it is drawn solid instead of building an enormous number of segments.
-    /// </summary>
-    private const float MinDashCycle = 0.0625F;
-
-    /// <summary>The smallest scale used when dividing by a matrix scale.</summary>
-    private const float MinScale = 1e-6F;
-
     /// <summary>The most converted glyph outlines retained while recording one picture.</summary>
     private const int MaxCachedGlyphPaths = 512;
-
-    /// <summary>The most separate glyphs drawn as one filled path.</summary>
-    private const int MaxBatchedGlyphs = 4;
-
-    /// <summary>The largest page-space side of a grouped path, keeping it suitable for Skia's path atlas at common zooms.</summary>
-    private const float MaxGlyphBatchSide = 128;
-
-    /// <summary>The page-space gap required so separate anti-aliased glyph edges cannot darken each other.</summary>
-    private const float GlyphBatchGap = 0.5F;
 
     /// <summary>The colour channel table that leaves a channel unchanged.</summary>
     private static readonly byte[] IdentityTable = CreateIdentityTable();
@@ -107,8 +80,8 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>The cull rectangle of a group recording that has no bounds.</summary>
     private static readonly SKRect UnboundedCull = new(-UnboundedExtent, -UnboundedExtent, UnboundedExtent, UnboundedExtent);
 
-    /// <summary>Idle devices, kept with their native recorder, builders and paints so the next recording on a busy thread starts without creating them.</summary>
-    private static readonly ReusableSlots<SkiaContentDevice> Idle = new();
+    /// <summary>The style of a picture shown at any scale with the default quality: no page matrix.</summary>
+    private static readonly PdfPictureStyle Plain = new(PdfRenderQuality.Default, null);
 
     /// <summary>The recorder, ended by <see cref="Finish"/>.</summary>
     private readonly SKPictureRecorder _recorder = new();
@@ -116,8 +89,8 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>The native builder reused only while this device records path operations.</summary>
     private readonly SKPathBuilder _pathBuilder = new();
 
-    /// <summary>Accumulates only compatible, non-overlapping solid-colour glyph paths.</summary>
-    private readonly SKPathBuilder _glyphBatchBuilder = new();
+    /// <summary>The native path a stroked glyph outline is transformed into.</summary>
+    private readonly SKPath _strokedGlyphPath = new();
 
     /// <summary>Repeated glyphs share one converted path during page recording.</summary>
     private readonly Dictionary<GlyphOutlineKey, SKPath> _glyphPaths = [];
@@ -143,8 +116,23 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>The count of the images drawn, including those drawn into nested pictures.</summary>
     private PictureWeight _weight;
 
-    /// <summary>Whether compatible glyphs are collected into short filled paths.</summary>
-    private bool _batchGlyphs;
+    /// <summary>How edges, thin lines and scaled images are drawn into this recording.</summary>
+    private PdfRenderQuality _quality = PdfRenderQuality.Default;
+
+    /// <summary>The matrix from the recording's space to device pixels, without the tile offset; valid when <see cref="_hasDevice"/>.</summary>
+    private Matrix3x2 _device = Matrix3x2.Identity;
+
+    /// <summary>The matrix from device pixels back to the recording's space; valid when <see cref="_hasDevice"/>.</summary>
+    private SKMatrix _deviceInverse = SKMatrix.Identity;
+
+    /// <summary>Whether the recording serves one page matrix, so sizes in device pixels are known.</summary>
+    private bool _hasDevice;
+
+    /// <summary>Whether paths, strokes and clips have smoothed edges.</summary>
+    private bool _smoothGraphics = true;
+
+    /// <summary>The line width the next stroke uses instead of the graphics state's, or NaN for the state's.</summary>
+    private float _strokeWidth = float.NaN;
 
     /// <summary>The canvas the interpreter draws on now: the recording canvas, or a knockout child group's.</summary>
     private SKCanvas _canvas;
@@ -152,26 +140,11 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>Turns any non-zero alpha into full alpha, which marks the pixels a group painted.</summary>
     private SKColorFilter? _shapeFilter;
 
-    /// <summary>The first path held until another glyph makes a batch worthwhile.</summary>
-    private SKPath? _firstBatchedGlyph;
-
-    /// <summary>The first glyph's transform, used unchanged when a batch contains only one glyph.</summary>
-    private Matrix3x2 _firstBatchedMatrix;
-
-    /// <summary>The solid colour shared by a pending batch.</summary>
-    private ColorState _batchColor;
-
-    /// <summary>The page-space bounds of all glyphs in a pending batch.</summary>
-    private SKRect _batchBounds;
-
-    /// <summary>The number of glyphs waiting to be drawn.</summary>
-    private int _batchCount;
-
     /// <summary>Whether <see cref="Finish"/> has run.</summary>
     private bool _finished;
 
-    /// <summary>Whether <see cref="Rent"/> handed this device out, so <see cref="Dispose"/> keeps it for reuse.</summary>
-    private bool _rented;
+    /// <summary>The registered backend's pool that owns this rental, or null for a directly constructed device.</summary>
+    private ReusableSlots<SkiaContentDevice>? _pool;
 
     /// <summary>One once <see cref="Dispose"/> has run since the recording began.</summary>
     private int _disposed;
@@ -179,23 +152,14 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>Initializes a new instance of the <see cref="SkiaContentDevice"/> class.</summary>
     /// <param name="cull">The area the picture covers.</param>
     internal SkiaContentDevice(SKRect cull)
-        : this(cull, null, true)
-    {
-    }
-
-    /// <summary>Initializes a new instance of the <see cref="SkiaContentDevice"/> class.</summary>
-    /// <param name="cull">The recording bounds.</param>
-    /// <param name="batchGlyphs">Whether to group compatible glyphs.</param>
-    internal SkiaContentDevice(SKRect cull, bool batchGlyphs)
-        : this(cull, null, batchGlyphs)
+        : this(cull, null)
     {
     }
 
     /// <summary>Initializes a new instance of the <see cref="SkiaContentDevice"/> class.</summary>
     /// <param name="cull">The area the picture covers.</param>
     /// <param name="weight">Counts the images drawn; pictures nested in another recording share its count. Null counts them in the device itself.</param>
-    /// <param name="batchGlyphs">Whether compatible glyphs are grouped.</param>
-    private SkiaContentDevice(SKRect cull, PictureWeight? weight, bool batchGlyphs) => Begin(cull, weight, batchGlyphs);
+    private SkiaContentDevice(SKRect cull, PictureWeight? weight) => Begin(cull, weight);
 
     /// <summary>Gets the count of the pixel memory of the images drawn, including those drawn into nested pictures.</summary>
     public PictureWeight Weight => _weight;
@@ -203,42 +167,42 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public bool RetainsPaths => false;
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Save()
-    {
-        FlushGlyphBatch();
-        _ = _canvas.Save();
-    }
+    /// <summary>Gets or sets a value indicating whether scaled images are smoothed; when false they use the nearest source pixel and unsmoothed edges.</summary>
+    internal bool SmoothImages { get; set; } = true;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Restore()
-    {
-        FlushGlyphBatch();
-        _canvas.Restore();
-    }
+    public void Save() => _ = _canvas.Save();
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Restore() => _canvas.Restore();
 
     /// <inheritdoc/>
     public void Clip(PdfPath path, bool evenOdd, Matrix3x2 ctm)
     {
-        FlushGlyphBatch();
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(ctm));
         if (SkiaPathConversion.TryGetRectangle(path, out var rectangle))
         {
             // Skia clips to a rectangle path exactly as it clips to the rectangle, and this needs no native path.
-            _canvas.ClipRect(rectangle, SKClipOperation.Intersect, true);
+            _canvas.ClipRect(rectangle, SKClipOperation.Intersect, _smoothGraphics);
             return;
         }
 
         using var native = SkiaPathConversion.Create(_pathBuilder, path, evenOdd);
-        _canvas.ClipPath(native, SKClipOperation.Intersect, true);
+        _canvas.ClipPath(native, SKClipOperation.Intersect, _smoothGraphics);
     }
 
     /// <inheritdoc/>
     public void Fill(PdfPath path, bool evenOdd, ref GraphicsState state)
     {
-        FlushGlyphBatch();
+        // A plain colour fill of an axis-aligned rectangle (re f) draws the rectangle, which needs no native path.
+        if (state.Fill.Pattern is null && SkiaPathConversion.TryGetRectangle(path, out var rectangle))
+        {
+            FillRectangle(rectangle, ref state);
+            return;
+        }
+
         using var native = SkiaPathConversion.Create(_pathBuilder, path, evenOdd);
         var masked = BeginMask(ref state, native.Bounds, state.Ctm);
         FillShape(native, state.Ctm, state.Fill, state.FillAlpha, state.BlendMode);
@@ -248,12 +212,15 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void Stroke(PdfPath path, ref GraphicsState state)
     {
-        FlushGlyphBatch();
+        if (_hasDevice && TryStrokeFitted(path, ref state))
+        {
+            return;
+        }
 
         // One straight segment in a plain colour is drawn as a line, which needs no native path.
         if (state.Stroke.Pattern is null && SkiaPathConversion.TryGetLine(path, out var from, out var to))
         {
-            StrokeMasked(new(null, from, to), ref state);
+            StrokeMasked(new(from, to), ref state);
             return;
         }
 
@@ -264,17 +231,16 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void DrawImage(IPdfRenderImage image, bool isMask, bool smooth, ref GraphicsState state)
     {
-        FlushGlyphBatch();
         Weight.Add(image);
         var native = SkiaResources.Image(image);
         var matrix = new Matrix3x2(1F / image.Width, 0, 0, -1F / image.Height, 0, 1) * state.Ctm;
         var masked = BeginMask(ref state, new(0, 0, 1, 1), state.Ctm);
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
         _paint.Reset();
-        _paint.IsAntialias = true;
+        _paint.IsAntialias = SmoothImages;
         _paint.BlendMode = ElementBlend(state.BlendMode);
         _paint.Color = isMask ? SkiaConversions.ToSkColor(state.Fill, state.FillAlpha) : WhiteWithAlpha(state.FillAlpha);
-        var sampling = ChooseSampling(native, smooth, state.Ctm);
+        var sampling = SkiaImageSampling.Choose(native.Width, state.Ctm, smooth, SmoothImages);
         _canvas.DrawImage(native, new SKRect(0, 0, image.Width, image.Height), sampling, _paint);
         EndMask(ref state, masked);
     }
@@ -291,16 +257,10 @@ internal sealed class SkiaContentDevice : IPictureDevice
         var matrix = glyph.GlyphMatrix * state.Ctm;
         using var pathLease = GetGlyphPath(glyph.Font, glyph.Code, outline);
         var path = pathLease.Path;
-        if (CanBatchGlyph(mode, pathLease.Owns, ref state) && QueueGlyph(path, matrix, state.Fill))
-        {
-            return;
-        }
-
-        FlushGlyphBatch();
         var masked = BeginMask(ref state, path.Bounds, matrix);
         if (IsMode(FillModes, mode) && !state.Fill.PaintsNothing)
         {
-            FillShape(path, matrix, state.Fill, state.FillAlpha, state.BlendMode);
+            FillTextShape(path, matrix, state.Fill, state.FillAlpha, state.BlendMode);
         }
 
         if (IsMode(StrokeModes, mode) && !state.Stroke.PaintsNothing)
@@ -314,13 +274,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void PaintShading(PdfShading shading, ref GraphicsState state)
     {
-        FlushGlyphBatch();
         var masked = BeginMask(ref state, SKRect.Empty, state.Ctm);
         _ = _canvas.Save();
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
         if (shading.BBox is { } box)
         {
-            _canvas.ClipRect(new(box.Left, box.Bottom, box.Right, box.Top), SKClipOperation.Intersect, true);
+            _canvas.ClipRect(new(box.Left, box.Bottom, box.Right, box.Top), SKClipOperation.Intersect, _smoothGraphics);
         }
 
         DrawShadingPaint(shading, state.FillAlpha, state.BlendMode, MatrixScale(state.Ctm));
@@ -331,7 +290,6 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void BeginGroup(in GroupInfo group)
     {
-        FlushGlyphBatch();
         var parentKnocksOut = _knockout.Count > 0 && _knockout[^1];
         if (parentKnocksOut && group.Blend == PdfBlendMode.Normal)
         {
@@ -365,7 +323,6 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <inheritdoc/>
     public void EndGroup(in GroupInfo group)
     {
-        FlushGlyphBatch();
         var frame = _frames.Count > 0 ? _frames[^1] : null;
         if (_frames.Count > 0)
         {
@@ -406,12 +363,23 @@ internal sealed class SkiaContentDevice : IPictureDevice
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPictureDevice CreatePictureDevice(PdfRect cull) => Rent(SkiaConversions.ToSkRect(cull), Weight, _batchGlyphs);
+    public IPictureDevice CreatePictureDevice(PdfRect cull)
+    {
+        var bounds = SkiaConversions.ToSkRect(cull);
+        var style = new PdfPictureStyle(_quality, null);
+        if (_pool is { } pool)
+        {
+            return Rent(pool, bounds, Weight, style);
+        }
+
+        var created = new SkiaContentDevice(bounds, Weight);
+        created.Configure(style);
+        return created;
+    }
 
     /// <inheritdoc/>
     public IPdfRenderPicture Finish()
     {
-        FlushGlyphBatch();
         _finished = true;
         return new SkiaRenderPicture(_recorder.EndRecording());
     }
@@ -431,7 +399,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
             _finished = true;
         }
 
-        if (_rented && Recycle())
+        if (_pool is not null && Recycle())
         {
             return;
         }
@@ -444,7 +412,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
         }
 
         _pathBuilder.Dispose();
-        _glyphBatchBuilder.Dispose();
+        _strokedGlyphPath.Dispose();
         _layerPaint.Dispose();
         _rootCanvas.Dispose();
         _canvas.Dispose();
@@ -452,23 +420,33 @@ internal sealed class SkiaContentDevice : IPictureDevice
     }
 
     /// <summary>Hands out an idle device, or makes one when none is idle. Dispose it to give it back.</summary>
+    /// <param name="pool">The registered backend's idle devices.</param>
     /// <param name="cull">The area the picture covers.</param>
     /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
-    /// <param name="batchGlyphs">Whether compatible glyphs are grouped.</param>
     /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
-    internal static SkiaContentDevice Rent(SKRect cull, PictureWeight? weight, bool batchGlyphs)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight) => Rent(pool, cull, weight, Plain);
+
+    /// <summary>Hands out an idle device, or makes one when none is idle, for a picture shown in a known way. Dispose it to give it back.</summary>
+    /// <param name="pool">The registered backend's idle devices.</param>
+    /// <param name="cull">The area the picture covers.</param>
+    /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
+    /// <param name="style">How the picture is shown: the quality settings and the page matrix.</param>
+    /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight, in PdfPictureStyle style)
     {
-        var device = Idle.Take();
+        var device = pool.Take();
         if (device is null)
         {
-            device = new(cull, weight, batchGlyphs);
+            device = new(cull, weight);
         }
         else
         {
-            device.Begin(cull, weight, batchGlyphs);
+            device.Begin(cull, weight);
         }
 
-        device._rented = true;
+        device.Configure(style);
+        device._pool = pool;
         return device;
     }
 
@@ -535,66 +513,6 @@ internal sealed class SkiaContentDevice : IPictureDevice
 private static SKColor WhiteWithAlpha(float alpha) =>
         new(byte.MaxValue, byte.MaxValue, byte.MaxValue, (byte)MathF.Round(Math.Clamp(alpha, 0, 1) * AlphaMax));
 
-    /// <summary>Chooses how an image is resampled.</summary>
-    /// <param name="image">The image.</param>
-    /// <param name="smooth">Whether the image asks for smoothing.</param>
-    /// <param name="ctm">The matrix from the image's unit square to the page.</param>
-    /// <returns>The sampling options.</returns>
-    private static SKSamplingOptions ChooseSampling(SKImage image, bool smooth, Matrix3x2 ctm)
-    {
-        var width = MathF.Sqrt((ctm.M11 * ctm.M11) + (ctm.M12 * ctm.M12));
-        return smooth || image.Width >= width
-            ? new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)
-            : new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None);
-    }
-
-    /// <summary>
-    /// Creates a dash effect (ISO 32000-2 8.4.3.6). A zero-length dash becomes a tenth of a device pixel so round or
-    /// square caps still draw a dot, negative lengths (invalid) count as zero, and an array that is all zero or whose cycle
-    /// is finer than a sixteenth of a pixel is drawn solid.
-    /// </summary>
-    /// <param name="lengths">The dash lengths; empty for a solid line.</param>
-    /// <param name="phase">The phase.</param>
-    /// <param name="scale">The device units one unit of the path's space spans.</param>
-    /// <returns>The effect, or null for a solid line.</returns>
-    private static SKPathEffect? CreateDash(ImmutableArray<float> lengths, float phase, float scale)
-    {
-        if (lengths.IsDefaultOrEmpty)
-        {
-            return null;
-        }
-
-        var source = ImmutableCollectionsMarshal.AsArray(lengths)!;
-        var cycle = 0F;
-        foreach (var length in source)
-        {
-            if (!float.IsFinite(length))
-            {
-                return null;
-            }
-
-            cycle += Math.Max(0, length);
-        }
-
-        scale = Math.Max(scale, MinScale);
-        if (cycle <= 0 || cycle * scale < MinDashCycle)
-        {
-            return null;
-        }
-
-        var dot = DotLength / scale;
-
-        var count = source.Length % PairLength == 0 ? source.Length : source.Length * PairLength;
-        var array = new float[count];
-        for (var i = 0; i < count; i++)
-        {
-            var length = source[i % source.Length];
-            array[i] = length <= dot ? dot : length;
-        }
-
-        return SKPathEffect.CreateDash(array, phase);
-    }
-
     /// <summary>Creates the repeating shader of a tiling pattern's period.</summary>
     /// <param name="tile">The period.</param>
     /// <param name="local">The matrix from pattern space to the space the shape is drawn in.</param>
@@ -617,22 +535,6 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <returns>The scale.</returns>
     private static float MatrixScale(Matrix3x2 matrix) =>
         (MathF.Sqrt((matrix.M11 * matrix.M11) + (matrix.M12 * matrix.M12)) + MathF.Sqrt((matrix.M21 * matrix.M21) + (matrix.M22 * matrix.M22))) / PairLength;
-
-    /// <summary>Rejects glyph bounds that cannot fit in a modest page-space path batch.</summary>
-    /// <param name="bounds">The transformed glyph bounds.</param>
-    /// <returns>True when the bounds can be batched.</returns>
-    private static bool AreBatchBoundsUsable(SKRect bounds) =>
-        !bounds.IsEmpty && float.IsFinite(bounds.Left) && float.IsFinite(bounds.Top)
-        && float.IsFinite(bounds.Right) && float.IsFinite(bounds.Bottom)
-        && bounds.Width <= MaxGlyphBatchSide && bounds.Height <= MaxGlyphBatchSide;
-
-    /// <summary>Keeps the anti-aliased edges of separate glyphs from blending differently as one path.</summary>
-    /// <param name="first">The pending group.</param>
-    /// <param name="next">The next glyph.</param>
-    /// <returns>True when their padded bounds do not overlap.</returns>
-    private static bool AreGlyphsSeparated(SKRect first, SKRect next) =>
-        next.Left >= first.Right + GlyphBatchGap || next.Right <= first.Left - GlyphBatchGap
-        || next.Top >= first.Bottom + GlyphBatchGap || next.Bottom <= first.Top - GlyphBatchGap;
 
     /// <summary>
     /// Starts a group that is one object of a knockout group. The group records into its own picture, so that when it
@@ -687,9 +589,8 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <summary>Starts a recording on the device's own recorder, which can record again once the previous picture has been taken.</summary>
     /// <param name="cull">The area the picture covers.</param>
     /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
-    /// <param name="batchGlyphs">Whether compatible glyphs are grouped.</param>
     [MemberNotNull(nameof(_rootCanvas), nameof(_canvas), nameof(_weight))]
-    private void Begin(SKRect cull, PictureWeight? weight, bool batchGlyphs)
+    private void Begin(SKRect cull, PictureWeight? weight)
     {
         if (weight is null)
         {
@@ -697,11 +598,30 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         }
 
         _weight = weight ?? _ownWeight;
-        _batchGlyphs = batchGlyphs;
         _finished = false;
         Volatile.Write(ref _disposed, 0);
         _rootCanvas = _recorder.BeginRecording(cull, true);
         _canvas = _rootCanvas;
+    }
+
+    /// <summary>Sets how this recording draws edges, thin lines and scaled images.</summary>
+    /// <param name="style">How the picture will be shown.</param>
+    private void Configure(in PdfPictureStyle style)
+    {
+        _quality = style.Quality;
+        _smoothGraphics = _quality.SmoothGraphics;
+        SmoothImages = _quality.SmoothImages;
+        _strokeWidth = float.NaN;
+        _hasDevice = style.Device is { } device && Matrix3x2.Invert(device, out _);
+        if (!_hasDevice)
+        {
+            _device = Matrix3x2.Identity;
+            _deviceInverse = SKMatrix.Identity;
+            return;
+        }
+
+        _device = style.Device!.Value;
+        _ = SkiaConversions.ToSkMatrix(_device).TryInvert(out _deviceInverse);
     }
 
     /// <summary>
@@ -721,17 +641,16 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _glyphPaths.Clear();
         _knockout.Clear();
         _pathBuilder.Reset();
-        _glyphBatchBuilder.Reset();
         _paint.Reset();
         _paint.IsAntialias = true;
         _layerPaint.Reset();
-        _firstBatchedGlyph = null;
-        _batchCount = 0;
-        _batchColor = default;
+        Configure(Plain);
         _weight = _ownWeight;
         _ownWeight.Reset();
-        _rented = false;
-        return Idle.Offer(this);
+        SmoothImages = true;
+        var pool = _pool;
+        _pool = null;
+        return pool!.Offer(this);
     }
 
     /// <summary>Closes the pictures of groups still open when the device is disposed.</summary>
@@ -796,9 +715,8 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <param name="state">The graphics state.</param>
     private void StrokeGlyph(SKPath outline, Matrix3x2 glyphMatrix, ref GraphicsState state)
     {
-        using var transformed = new SKPath();
-        outline.Transform(SkiaConversions.ToSkMatrix(glyphMatrix), transformed);
-        StrokeShape(new(transformed), state.Ctm, ref state);
+        outline.Transform(SkiaConversions.ToSkMatrix(glyphMatrix), _strokedGlyphPath);
+        StrokeShape(new(_strokedGlyphPath), state.Ctm, ref state);
     }
 
     /// <summary>Opens a layer when the state has a soft mask.</summary>
@@ -906,7 +824,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         if (color.Pattern?.Shading?.Background is { } background)
         {
             _paint.Reset();
-            _paint.IsAntialias = true;
+            _paint.IsAntialias = _smoothGraphics;
             _paint.BlendMode = ElementBlend(blend);
             _paint.Color = SkiaConversions.ToSkColor(new(PdfColorSpace.DeviceRgb, background, null, false), alpha);
             _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
@@ -925,7 +843,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         }
 
         _paint.Reset();
-        _paint.IsAntialias = true;
+        _paint.IsAntialias = _smoothGraphics;
         _paint.BlendMode = ElementBlend(blend);
         var clipped = ClipShadingBox(color);
         using var shader = ApplyColor(color, alpha, matrix);
@@ -935,6 +853,21 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         {
             _canvas.Restore();
         }
+    }
+
+    /// <summary>Fills an axis-aligned rectangle with the state's plain fill colour, as <see cref="FillShape"/> fills a path of the same outline.</summary>
+    /// <param name="rectangle">The rectangle in user space.</param>
+    /// <param name="state">The graphics state.</param>
+    private void FillRectangle(SKRect rectangle, ref GraphicsState state)
+    {
+        var masked = BeginMask(ref state, rectangle, state.Ctm);
+        _paint.Reset();
+        _paint.IsAntialias = _smoothGraphics;
+        _paint.BlendMode = ElementBlend(state.BlendMode);
+        _paint.Color = SkiaConversions.ToSkColor(state.Fill, state.FillAlpha);
+        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
+        _canvas.DrawRect(rectangle, _paint);
+        EndMask(ref state, masked);
     }
 
     /// <summary>
@@ -959,7 +892,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
         _ = _canvas.Save();
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
-        _canvas.ClipPath(path, SKClipOperation.Intersect, true);
+        _canvas.ClipPath(path, SKClipOperation.Intersect, _smoothGraphics);
         var clip = _canvas.DeviceClipBounds;
         var reach = inverse.MapRect(SKRect.Create(clip.Left, clip.Top, clip.Width, clip.Height));
         var range = TileRange.Create(reach, tile);
@@ -1005,7 +938,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     private bool TryStrokeTileCopies(SKPath path, Matrix3x2 matrix, PdfPatternPaint pattern, float scale, ref GraphicsState state)
     {
         ConfigureStroke(ref state);
-        using var dash = CreateDash(state.Dash, state.DashPhase, scale);
+        using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
         _paint.PathEffect = dash;
         using var builder = new SKPathBuilder();
         if (!_paint.GetFillPath(path, builder))
@@ -1029,7 +962,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
         _ = _canvas.Save();
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(pattern.Matrix));
-        _canvas.ClipRect(new(box.Left, box.Bottom, box.Right, box.Top), SKClipOperation.Intersect, true);
+        _canvas.ClipRect(new(box.Left, box.Bottom, box.Right, box.Top), SKClipOperation.Intersect, _smoothGraphics);
         return true;
     }
 
@@ -1050,6 +983,73 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <param name="state">The graphics state.</param>
     private void StrokeShape(in StrokeGeometry shape, Matrix3x2 matrix, ref GraphicsState state)
     {
+        // A caller that fitted a line to the pixel grid has already set the width, in the space the shape is drawn in.
+        var width = float.IsNaN(_strokeWidth) ? ResolveWidth(matrix, ref state) : new(_strokeWidth, true);
+        _strokeWidth = width.Fitted ? width.Width : float.NaN;
+        StrokeSized(shape, matrix, width.Fitted, ref state);
+        _strokeWidth = float.NaN;
+    }
+
+    /// <summary>Gets the width a stroke is drawn with after stroke adjustment and the thinnest line setting.</summary>
+    /// <param name="matrix">The matrix from the shape's space to the page.</param>
+    /// <param name="state">The graphics state.</param>
+    /// <returns>The width in the shape's space, and whether it was fitted.</returns>
+    private SkiaStrokeFit.FittedWidth ResolveWidth(Matrix3x2 matrix, ref GraphicsState state) =>
+        _hasDevice
+            ? SkiaStrokeFit.Resolve(_quality, state.StrokeAdjustment, state.LineWidth, SkiaStrokeFit.DeviceScale(matrix * _device))
+            : new(state.LineWidth, false);
+
+    /// <summary>
+    /// Fits a horizontal or vertical line, or a rectangle, to whole pixels when stroke adjustment applies (ISO 32000-2
+    /// 10.7.5), and strokes it. Dashed, patterned, masked and turned shapes keep the general path.
+    /// </summary>
+    /// <param name="path">The path in user space.</param>
+    /// <param name="state">The graphics state.</param>
+    /// <returns><see langword="true"/> when the stroke was drawn.</returns>
+    private bool TryStrokeFitted(PdfPath path, ref GraphicsState state)
+    {
+        if (!SkiaStrokeFit.IsAdjusting(_quality, state.StrokeAdjustment) || state.Stroke.Pattern is not null || state.SoftMask is not null || !state.Dash.IsDefaultOrEmpty)
+        {
+            return false;
+        }
+
+        var toDevice = state.Ctm * _device;
+        var userScale = SkiaStrokeFit.DeviceScale(toDevice);
+        var fit = SkiaStrokeFit.Resolve(_quality, state.StrokeAdjustment, state.LineWidth, userScale);
+        var pixels = (int)MathF.Round(fit.Width * userScale);
+        if (SkiaPathConversion.TryGetLine(path, out var from, out var to))
+        {
+            return SkiaStrokeFit.TryFitLine(from, to, toDevice, _deviceInverse, pixels, out var line)
+                && StrokeFittedShape(new(line.From, line.To), pixels, ref state);
+        }
+
+        if (!SkiaPathConversion.TryGetRectangle(path, out var rectangle) || !SkiaStrokeFit.TryFitRectangle(rectangle, toDevice, _deviceInverse, pixels, out var fitted))
+        {
+            return false;
+        }
+
+        return StrokeFittedShape(StrokeGeometry.Rectangle(fitted), pixels, ref state);
+    }
+
+    /// <summary>Strokes a shape that is already in the space the picture is recorded in, at a whole-pixel width.</summary>
+    /// <param name="shape">The fitted shape.</param>
+    /// <param name="pixels">The line width in device pixels.</param>
+    /// <param name="state">The graphics state.</param>
+    /// <returns><see langword="true"/>, always.</returns>
+    private bool StrokeFittedShape(in StrokeGeometry shape, int pixels, ref GraphicsState state)
+    {
+        _strokeWidth = pixels / SkiaStrokeFit.DeviceScale(_device);
+        StrokeShape(shape, Matrix3x2.Identity, ref state);
+        return true;
+    }
+
+    /// <summary>Strokes a shape with a width already resolved.</summary>
+    /// <param name="shape">The shape.</param>
+    /// <param name="matrix">The matrix from the shape's space to the page.</param>
+    /// <param name="fitted">Whether the width was fitted to the pixel grid or the thinnest line setting, so it needs no hairline.</param>
+    /// <param name="state">The graphics state.</param>
+    private void StrokeSized(in StrokeGeometry shape, Matrix3x2 matrix, bool fitted, ref GraphicsState state)
+    {
         var scale = MatrixScale(matrix);
         if (shape.Path is { } path && TryStrokeOutline(path, matrix, scale, ref state))
         {
@@ -1059,13 +1059,22 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         // Lines stay visible at low zoom: ISO 32000-2 8.4.3.2 draws a zero width as the thinnest line the device can make,
         // and a very thin line is kept as readable. The picture is replayed at any scale, so a line that could fall below
         // a pixel is drawn twice: at its width, and as a hairline, which Skia keeps one pixel wide.
-        var thin = state.LineWidth > 0 && state.LineWidth * scale < ThinLineLimit;
-        if (!thin)
+        if (fitted || state.LineWidth <= 0 || state.LineWidth * scale >= ThinLineLimit)
         {
             DrawStroke(shape, matrix, scale, ref state, new(state.StrokeAlpha, ElementBlend(state.BlendMode), false));
             return;
         }
 
+        DrawThinStroke(shape, matrix, scale, ref state);
+    }
+
+    /// <summary>Strokes a line that could fall below a pixel at its width and again as a hairline, in a layer when it is translucent or blended.</summary>
+    /// <param name="shape">The shape.</param>
+    /// <param name="matrix">The matrix from the shape's space to the page.</param>
+    /// <param name="scale">The matrix's average scale.</param>
+    /// <param name="state">The graphics state.</param>
+    private void DrawThinStroke(in StrokeGeometry shape, Matrix3x2 matrix, float scale, ref GraphicsState state)
+    {
         var layered = state.StrokeAlpha < 1 || state.BlendMode != PdfBlendMode.Normal;
         if (layered)
         {
@@ -1108,7 +1117,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     {
         ConfigureStroke(ref state);
         _paint.BlendMode = pass.Blend;
-        using var dash = CreateDash(state.Dash, state.DashPhase, scale);
+        using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
         _paint.PathEffect = dash;
         var clipped = ClipShadingBox(state.Stroke);
         using var shader = ApplyColor(state.Stroke, pass.Alpha, matrix);
@@ -1131,9 +1140,9 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     private void ConfigureStroke(ref GraphicsState state)
     {
         _paint.Reset();
-        _paint.IsAntialias = true;
+        _paint.IsAntialias = _smoothGraphics;
         _paint.Style = SKPaintStyle.Stroke;
-        _paint.StrokeWidth = state.LineWidth;
+        _paint.StrokeWidth = float.IsNaN(_strokeWidth) ? state.LineWidth : _strokeWidth;
 
         // Skia ignores a negative limit and keeps its default, so clamp. ISO 32000-2 8.4.3.5 defines the miter length over the
         // line width as 1 / sin(angle / 2), which is at least 1, so a limit below 1 bevels every corner.
@@ -1175,8 +1184,8 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     private void StrokeMesh(SKPath path, Matrix3x2 matrix, PdfPatternPaint pattern, float scale, ref GraphicsState state)
     {
         ConfigureStroke(ref state);
-        _paint.StrokeWidth = Math.Max(state.LineWidth, 1 / Math.Max(scale, MinScale));
-        using var dash = CreateDash(state.Dash, state.DashPhase, scale);
+        _paint.StrokeWidth = Math.Max(state.LineWidth, 1 / Math.Max(scale, SkiaDash.MinScale));
+        using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
         _paint.PathEffect = dash;
         using var builder = new SKPathBuilder();
         if (!_paint.GetFillPath(path, builder))
@@ -1204,11 +1213,11 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
         _ = _canvas.Save();
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
-        _canvas.ClipPath(path, SKClipOperation.Intersect, true);
+        _canvas.ClipPath(path, SKClipOperation.Intersect, _smoothGraphics);
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(pattern.Matrix));
         if (pattern.Shading!.BBox is { } box)
         {
-            _canvas.ClipRect(new(box.Left, box.Bottom, box.Right, box.Top), SKClipOperation.Intersect, true);
+            _canvas.ClipRect(new(box.Left, box.Bottom, box.Right, box.Top), SKClipOperation.Intersect, _smoothGraphics);
         }
 
         DrawMesh(mesh, alpha, blend, pattern.Shading.AntiAlias);
@@ -1265,90 +1274,18 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _canvas.DrawPaint(_paint);
     }
 
-    /// <summary>Groups a solid glyph with earlier separate glyphs of the same colour.</summary>
-    /// <param name="path">The cached glyph outline.</param>
-    /// <param name="matrix">The glyph-to-page transform.</param>
-    /// <param name="color">The fill colour.</param>
-    /// <returns>True when drawing has been deferred into the batch.</returns>
-    private bool QueueGlyph(SKPath path, Matrix3x2 matrix, in ColorState color)
+    /// <summary>Fills glyph outlines with the text edge setting rather than the graphics one.</summary>
+    /// <param name="path">The outlines.</param>
+    /// <param name="matrix">The matrix from the outlines' space to the page.</param>
+    /// <param name="color">The colour.</param>
+    /// <param name="alpha">The alpha.</param>
+    /// <param name="blend">The blend mode.</param>
+    private void FillTextShape(SKPath path, Matrix3x2 matrix, in ColorState color, float alpha, PdfBlendMode blend)
     {
-        var nativeMatrix = SkiaConversions.ToSkMatrix(matrix);
-        var bounds = nativeMatrix.MapRect(path.Bounds);
-        if (!AreBatchBoundsUsable(bounds))
-        {
-            return false;
-        }
-
-        if (_batchCount > 0 && !CanJoinGlyphBatch(bounds, color))
-        {
-            FlushGlyphBatch();
-        }
-
-        if (_batchCount == 0)
-        {
-            _firstBatchedGlyph = path;
-            _firstBatchedMatrix = matrix;
-            _batchColor = color;
-            _batchBounds = bounds;
-            _batchCount = 1;
-            return true;
-        }
-
-        if (_batchCount == 1)
-        {
-            var firstMatrix = SkiaConversions.ToSkMatrix(_firstBatchedMatrix);
-            _glyphBatchBuilder.AddPath(_firstBatchedGlyph!, in firstMatrix);
-        }
-
-        _glyphBatchBuilder.AddPath(path, in nativeMatrix);
-        _batchBounds = new(
-            MathF.Min(_batchBounds.Left, bounds.Left),
-            MathF.Min(_batchBounds.Top, bounds.Top),
-            MathF.Max(_batchBounds.Right, bounds.Right),
-            MathF.Max(_batchBounds.Bottom, bounds.Bottom));
-        _batchCount++;
-        return true;
-    }
-
-    /// <summary>Checks whether a glyph can use the same page-space path as a pending group.</summary>
-    /// <param name="bounds">The candidate bounds.</param>
-    /// <param name="color">The candidate colour.</param>
-    /// <returns>True when it can join the group.</returns>
-    private bool CanJoinGlyphBatch(SKRect bounds, in ColorState color) =>
-        _batchCount < MaxBatchedGlyphs && color == _batchColor && AreGlyphsSeparated(_batchBounds, bounds)
-        && MathF.Max(bounds.Right, _batchBounds.Right) - MathF.Min(bounds.Left, _batchBounds.Left) <= MaxGlyphBatchSide
-        && MathF.Max(bounds.Bottom, _batchBounds.Bottom) - MathF.Min(bounds.Top, _batchBounds.Top) <= MaxGlyphBatchSide;
-
-    /// <summary>Uses grouped drawing only when per-glyph transparency, effects and strokes are absent.</summary>
-    /// <param name="mode">The PDF text mode.</param>
-    /// <param name="ownsPath">Whether the path ends with this glyph's call.</param>
-    /// <param name="state">The graphics state.</param>
-    /// <returns>True when the glyph may enter a batch.</returns>
-    private bool CanBatchGlyph(int mode, bool ownsPath, ref GraphicsState state) =>
-        _batchGlyphs && mode == 0 && !ownsPath && !state.Fill.PaintsNothing && state.Fill.Pattern is null
-        && state.FillAlpha >= 1F && state.BlendMode == PdfBlendMode.Normal && state.SoftMask is null
-        && _knockout.Count == 0;
-
-    /// <summary>Records a pending glyph group before any later drawing or clip change.</summary>
-    private void FlushGlyphBatch()
-    {
-        var count = _batchCount;
-        if (count == 0)
-        {
-            return;
-        }
-
-        _batchCount = 0;
-        var first = _firstBatchedGlyph;
-        _firstBatchedGlyph = null;
-        if (count == 1)
-        {
-            FillShape(first!, _firstBatchedMatrix, _batchColor, 1, PdfBlendMode.Normal);
-            return;
-        }
-
-        using var combined = _glyphBatchBuilder.Detach();
-        FillShape(combined, Matrix3x2.Identity, _batchColor, 1, PdfBlendMode.Normal);
+        var smooth = _smoothGraphics;
+        _smoothGraphics = _quality.TextEdges != PdfTextEdges.Sharp;
+        FillShape(path, matrix, color, alpha, blend);
+        _smoothGraphics = smooth;
     }
 
     /// <summary>Converts a glyph once per recording when it repeats.</summary>
@@ -1374,16 +1311,25 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         return new(created, false);
     }
 
-    /// <summary>What a stroke draws: a native path, or, with no path, one straight segment.</summary>
-    /// <param name="Path">The native path, or <see langword="null"/> for a segment.</param>
-    /// <param name="From">The start of the segment.</param>
-    /// <param name="To">The end of the segment.</param>
-    private readonly record struct StrokeGeometry(SKPath? Path, SKPoint From, SKPoint To)
+    /// <summary>What a stroke draws: a native path, or, with no path, one straight segment or a rectangle.</summary>
+    /// <param name="Path">The native path, or <see langword="null"/> for a segment or rectangle.</param>
+    /// <param name="From">The start of the segment, or one corner of the rectangle.</param>
+    /// <param name="To">The end of the segment, or the opposite corner of the rectangle.</param>
+    /// <param name="IsRectangle">Whether the points are the corners of a rectangle rather than the ends of a segment.</param>
+    private readonly record struct StrokeGeometry(SKPath? Path, SKPoint From, SKPoint To, bool IsRectangle)
     {
         /// <summary>Initializes a new instance of the <see cref="StrokeGeometry"/> struct for a path.</summary>
         /// <param name="path">The native path.</param>
         internal StrokeGeometry(SKPath path)
-            : this(path, default, default)
+            : this(path, default, default, false)
+        {
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="StrokeGeometry"/> struct for a straight segment.</summary>
+        /// <param name="from">The start of the segment.</param>
+        /// <param name="to">The end of the segment.</param>
+        internal StrokeGeometry(SKPoint from, SKPoint to)
+            : this(null, from, to, false)
         {
         }
 
@@ -1391,6 +1337,11 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         internal SKRect Bounds => Path is { } path
             ? path.Bounds
             : new(MathF.Min(From.X, To.X), MathF.Min(From.Y, To.Y), MathF.Max(From.X, To.X), MathF.Max(From.Y, To.Y));
+
+        /// <summary>Gets the geometry of a rectangle.</summary>
+        /// <param name="rectangle">The rectangle.</param>
+        /// <returns>The geometry.</returns>
+        internal static StrokeGeometry Rectangle(SKRect rectangle) => new(null, new(rectangle.Left, rectangle.Top), new(rectangle.Right, rectangle.Bottom), true);
 
         /// <summary>Draws the shape with a paint.</summary>
         /// <param name="canvas">The canvas.</param>
@@ -1400,6 +1351,12 @@ private static SKColor WhiteWithAlpha(float alpha) =>
             if (Path is { } path)
             {
                 canvas.DrawPath(path, paint);
+                return;
+            }
+
+            if (IsRectangle)
+            {
+                canvas.DrawRect(Bounds, paint);
                 return;
             }
 

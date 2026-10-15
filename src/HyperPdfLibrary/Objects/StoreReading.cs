@@ -42,6 +42,8 @@ public static class StoreReading
         var cache = Volatile.Read(ref self.CacheState);
         if ((uint)number < (uint)cache.Length && Volatile.Read(ref cache[number]) is { } cached)
         {
+            // Disposal returns the array to the pool; an object read from an array that was recycled meanwhile must not be handed out.
+            ObjectDisposedException.ThrowIf(self.IsDisposed, self);
             return StoreReading.Unbox(cached);
         }
 

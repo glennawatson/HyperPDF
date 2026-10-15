@@ -73,7 +73,7 @@ internal static class ImageMasks
     /// <returns>The matte colour, or <see langword="null"/> when absent or not matching the colour space.</returns>
     internal static MatteColor? ReadMatte(PdfDictionary softMask, PdfColorSpace? space)
     {
-        var array = ColorSpaceParser.FindByName(softMask, "Matte"u8).AsArray();
+        var array = softMask.GetArray(KnownName.Matte);
         if (array is null || space is null || space.Kind == PdfColorSpaceKind.Indexed || array.Count != space.Components)
         {
             return null;

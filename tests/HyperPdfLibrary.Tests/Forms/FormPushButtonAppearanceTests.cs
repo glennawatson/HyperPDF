@@ -124,16 +124,20 @@ public sealed class FormPushButtonAppearanceTests
     }
 
     /// <summary>With only the caption shown, no icon is drawn and the appearance has no XObject resources.</summary>
+    /// <param name="caption">The encoded PDF caption.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CaptionOnlyDrawsNoIcon()
+    [Arguments("(Push)")]
+    [Arguments("<FEFF0050007500730068>")]
+    public async Task CaptionOnlyDrawsNoIcon(string caption)
     {
-        using var document = Open("/MK << /CA (Push) /TP 0 /I 7 0 R /BC [0 0 0] >>");
+        using var document = Open($"/MK << /CA {caption} /TP 0 /I 7 0 R /BC [0 0 0] >>");
 
         _ = PdfFormEditing.RegenerateAppearance(PdfDocumentForms.GetForm(document), 0, FormTestPdf.Widget);
         var resources = FormTestPdf.Stream(document).Dictionary.GetDictionary(KnownName.Resources)!;
 
         await Assert.That(FormTestPdf.Content(document)).DoesNotContain(" Do");
+        await Assert.That(FormTestPdf.Content(document)).Contains("(Push) Tj");
         await Assert.That(resources.ContainsKey(KnownName.XObject)).IsFalse();
     }
 

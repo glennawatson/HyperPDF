@@ -73,13 +73,19 @@ public static class PdfDocumentEditing
 
         // An edit that changed the page tree in place left the pages it produced; any other change reads the tree again.
         Volatile.Write(ref document.State.PageSet, Interlocked.Exchange(ref document.State.NextPageSet, null));
+        Volatile.Write(ref document.State.Reads, null);
         Volatile.Write(ref document.State.LabelRanges, null);
+        Volatile.Write(ref document.State.PageLabels, null);
         Volatile.Write(ref document.State.Separations, null);
         Volatile.Write(ref document.State.Outline, null);
         Volatile.Write(ref document.State.Signatures, null);
         Volatile.Write(ref document.State.Attachments, null);
         Volatile.Write(ref document.State.SignatureDetails, null);
         Volatile.Write(ref document.State.SecurityStore, null);
+
+        // The font findings come from the content, resources and font objects of any page, so any edit drops them.
+        Volatile.Write(ref document.State.AccessibilityFonts, null);
+        Volatile.Write(ref document.State.AccessibilityMetadata, null);
 
         // The text of a page and its marked content come from the page's content, resources and boxes, and sit at the page's index.
         if ((scopes & (PdfCacheScopes.PageSet | PdfCacheScopes.PageContent)) != PdfCacheScopes.None)

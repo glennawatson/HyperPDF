@@ -65,6 +65,9 @@ public sealed class AtSpiFocusAnnouncementCheck : IFocusAnnouncementCheck
     /// <summary>Event registrations that make the bridge send object events, as bus name and event.</summary>
     private readonly HashSet<(string Bus, string Event)> _listeners = [];
 
+    /// <summary>Guards the event registrations.</summary>
+    private readonly Lock _listenersGate = new();
+
     /// <summary>Stops the background start.</summary>
     private readonly CancellationTokenSource _stop = new();
 
@@ -76,6 +79,9 @@ public sealed class AtSpiFocusAnnouncementCheck : IFocusAnnouncementCheck
 
     /// <summary>Subscriptions to the bus, released on dispose.</summary>
     private readonly List<IDisposable> _subscriptions = [];
+
+    /// <summary>Guards the subscriptions.</summary>
+    private readonly Lock _subscriptionsGate = new();
 
     /// <summary>The accessibility bus connection.</summary>
     private DBusConnection? _connection;
@@ -142,7 +148,7 @@ public sealed class AtSpiFocusAnnouncementCheck : IFocusAnnouncementCheck
     public void Dispose()
     {
         _stop.Cancel();
-        lock (_subscriptions)
+        lock (_subscriptionsGate)
         {
             foreach (var subscription in _subscriptions)
             {
@@ -449,7 +455,7 @@ public sealed class AtSpiFocusAnnouncementCheck : IFocusAnnouncementCheck
             return;
         }
 
-        lock (_listeners)
+        lock (_listenersGate)
         {
             _ = registered ? _listeners.Add(registration) : _listeners.Remove(registration);
             _hasListeners = _listeners.Count > 0;
@@ -488,7 +494,7 @@ public sealed class AtSpiFocusAnnouncementCheck : IFocusAnnouncementCheck
     /// <param name="subscription">The subscription.</param>
     private void Track(IDisposable subscription)
     {
-        lock (_subscriptions)
+        lock (_subscriptionsGate)
         {
             _subscriptions.Add(subscription);
         }

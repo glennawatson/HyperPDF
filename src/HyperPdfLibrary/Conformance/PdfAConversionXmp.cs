@@ -112,9 +112,9 @@ internal static class PdfAConversionXmp
     {
         writer.WriteElementString("dc", "format", XmpMetadata.DublinCoreNamespace, "application/pdf");
         WriteAlternative(writer, "title", properties.Title);
-        WriteList(writer, "creator", "Seq", properties.Creators);
+        WriteList(writer, "creator", "Seq", properties.Creators.AsSpan());
         WriteAlternative(writer, "description", properties.Description);
-        WriteList(writer, "subject", "Bag", properties.Subjects);
+        WriteList(writer, "subject", "Bag", properties.Subjects.AsSpan());
     }
 
     /// <summary>Writes the Adobe PDF and XMP basic properties.</summary>
@@ -199,9 +199,9 @@ internal static class PdfAConversionXmp
     /// <param name="name">The local name.</param>
     /// <param name="container">Seq or Bag.</param>
     /// <param name="values">The values; nothing is written when empty.</param>
-    private static void WriteList(XmlWriter writer, string name, string container, string[] values)
+    private static void WriteList(XmlWriter writer, string name, string container, ReadOnlySpan<string> values)
     {
-        if (values.Length == 0)
+        if (values.IsEmpty)
         {
             return;
         }

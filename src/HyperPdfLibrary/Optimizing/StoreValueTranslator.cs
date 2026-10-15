@@ -15,7 +15,7 @@ namespace HyperPdfLibrary.Optimizing;
 /// <param name="source">The store the values come from.</param>
 /// <param name="target">The store they go into.</param>
 [DebuggerDisplay("StoreValueTranslator")]
-internal sealed class StoreValueTranslator(PdfObjectStore source, PdfObjectStore target)
+internal readonly ref struct StoreValueTranslator(PdfObjectStore source, PdfObjectStore target)
 {
     /// <summary>Copies the source's unsaved edits and its trailer's /Root and /Info into the target.</summary>
     internal void ReplayEdits()

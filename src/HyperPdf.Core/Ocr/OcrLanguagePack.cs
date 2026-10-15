@@ -22,4 +22,7 @@ public sealed record OcrLanguagePack(string Code, string Name, long Bytes, strin
 
     /// <summary>Gets where the pack is downloaded from.</summary>
     public Uri Source { get; } = new(OcrLanguageCatalog.BaseAddress, Code + Extension);
+
+    /// <summary>Gets the path and query of <see cref="Source"/> without the leading slash, as a client for the host takes them.</summary>
+    public string RequestPath { get; } = OcrLanguageCatalog.RequestBase + Code + Extension;
 }

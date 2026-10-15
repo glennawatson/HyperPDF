@@ -66,4 +66,7 @@ public sealed class PdfImageData
     /// its pixel memory without a copy.
     /// </summary>
     public bool IsPinned { get; internal init; }
+
+    /// <summary>Gets a value indicating whether the decoder already averaged the pixels down to the display size, so no further area reduction applies.</summary>
+    internal bool IsBoxReduced { get; init; }
 }

@@ -40,7 +40,7 @@ internal static class TextRecognitionCheck
     internal static int Run(TextWriter output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        var setup = OcrSetup.CreateDefault();
+        using var setup = OcrSetup.CreateDefault();
         using var engine = new TesseractEngine(OcrLanguageCatalog.DefaultLanguage, setup.LanguageDirectory);
         output.WriteLine($"Tesseract: {TesseractEngine.LibraryPath ?? "not found"}");
         output.WriteLine($"Language data: {engine.DataDirectory ?? "not found"}");

@@ -12,4 +12,11 @@ namespace HyperPdf.Core.Reading;
 /// <param name="Characters">The page characters the element covers, in logical order.</param>
 /// <param name="ReplacementText">The element's <c>/ActualText</c>, or a figure's <c>/Alt</c> text, read instead of its characters.</param>
 [DebuggerDisplay("TaggedBlock: {Kind} {Level}: {Characters.Length} characters")]
-public sealed record TaggedBlock(ReadingBlockKind Kind, int Level, int[] Characters, string? ReplacementText);
+public sealed record TaggedBlock(ReadingBlockKind Kind, int Level, int[] Characters, string? ReplacementText)
+{
+    /// <summary>Gets the table row of a table cell, from 1; zero when the block is not a table cell or its row is not known.</summary>
+    public int Row { get; init; }
+
+    /// <summary>Gets the table column of a table cell, from 1; zero when the block is not a table cell or its column is not known.</summary>
+    public int Column { get; init; }
+}

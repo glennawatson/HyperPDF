@@ -14,7 +14,7 @@ Download a package from [GitHub releases](https://github.com/glennawatson/HyperP
 |---|---|
 | Windows (x64 and ARM64) | MSI installer, MSIX package, portable zip, and the bare `.exe`. The MSIX needs Windows 10 version 2004 or later. |
 | macOS 12 or later (Apple silicon and Intel) | Disk image (`.dmg`) and app zip. |
-| Linux (x64 and ARM64) | AppImage, `.deb`, `.rpm` and `.tar.gz`. Each release also has a PKGBUILD for Arch Linux (`hyperpdf-bin`). |
+| Linux (x64 and ARM64) | AppImage, `.deb`, `.rpm` and `.tar.gz`. |
 
 1. Choose **Open**, or drop a PDF onto the window.
 2. Use the page box, thumbnails or bookmarks to move through it.
@@ -41,7 +41,7 @@ If a PDF needs a recipient certificate, choose your `.p12` or `.pfx` file and en
 | Protect | **Protect with Password** sets a reading password and an owner password, and lets you allow or stop printing, copying, editing, forms and screen readers. Choose AES-256, AES-128 or AES-256 with change detection (AES-GCM). **Remove Protection** saves a copy with no password and no limits. |
 | Manage pages | Delete, duplicate, rotate and reorder pages. Extract pages to a new file, insert another PDF before a page, or merge PDFs at the end. Undo and redo each change. |
 | Redact | Mark text or areas, then **Apply Redactions** to remove what is under them for good. Choose what happens to pictures and drawings, and whether to remove hidden text, links, comments and metadata. |
-| Save a copy | Optimised (smaller file), flattened (forms and markup become part of the page), PDF/A for long-term keeping, and PDF 2.0. Each copy window says what changed, or why a copy could not be made. Your open file is not changed. |
+| Save a copy | Optimised (smaller file), flattened (forms and markup become part of the page), PDF/A, and PDF 2.0. Each copy window says what changed, or why a copy could not be made. Your open file is not changed. |
 | Recognise text | Add searchable text to scanned pages. Tesseract and English come with the app; other languages download in one click when needed. |
 | Measure | Distance, perimeter and area. Use the drawing's scale or enter your own. Keep measurements on the page. |
 | Use the desktop | Recent documents, Show in Folder and opening files in the running window. Reload changed files automatically or when asked. |
@@ -86,6 +86,8 @@ Preferences offers Calm, High contrast, Dark and Light themes. PDF pages can fol
 
 Adjust interface text size, motion and cursor blinking. Focus Mode adds reading text controls. Main actions have text labels. Messages stay until dismissed. Closing several tabs asks first.
 
+**Text and image sharpness** in Preferences changes how pages are drawn. Choose Smooth, Sharp or Crisp edges. Smooth uses soft edges. Sharp gives text hard edges. Crisp gives text, lines and pictures hard edges and fits lines to whole pixels. The advanced group has the individual choices: text edges, the thinnest line, line fitting, and smoothing of lines and pictures. Pages draw again when you change one.
+
 No single theme suits everyone. Choose the appearance that works for you.
 
 ## Shortcuts
@@ -122,7 +124,7 @@ No single theme suits everyone. Choose the appearance that works for you.
 
 Arbitrary form JavaScript, XFA forms, multimedia, 3D and portfolio layouts are not supported; the app says when a document uses them.
 
-Copies you save are checked and say so when something could not be made to fit, for example a PDF/A level the file cannot meet. Programs that follow older PDF rules may not open AES-256 with change detection (AES-GCM) files yet.
+When you save a copy, the viewer tells you if something could not be made to fit, for example a PDF/A level it could not apply. Programs that follow older PDF rules may not open AES-256 with change detection (AES-GCM) files yet.
 
 Spell checking uses the Windows and macOS spell checkers. On Linux it uses the installed word lists in `/usr/share/dict`, such as the `wbritish` or `wamerican` package, or a list of your own in `~/.local/share/hyperpdf/dictionaries`.
 

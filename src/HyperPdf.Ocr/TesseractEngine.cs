@@ -37,14 +37,8 @@ public sealed unsafe class TesseractEngine : IOcrEngine
     /// <summary>The folder name Tesseract's language data is kept in.</summary>
     private const string DataFolder = "tessdata";
 
-    /// <summary>The extension of a language data file.</summary>
-    private const string DataExtension = ".traineddata";
-
-    /// <summary>The directory separator as a string, joined between a folder and a file name.</summary>
-    private static readonly string DirectorySeparator = Path.DirectorySeparatorChar.ToString();
-
-    /// <summary>Where distributions and installers put the language data.</summary>
-    private static readonly string[] DataDirectories =
+    /// <summary>Where distributions and installers put the language data, on this kind of computer.</summary>
+    private static readonly string[] DataDirectories = FullyQualifiedDirectories(
     [
         "/usr/share/tesseract-ocr/5/tessdata",
         "/usr/share/tesseract/tessdata",
@@ -53,7 +47,7 @@ public sealed unsafe class TesseractEngine : IOcrEngine
         "/usr/local/share/tessdata",
         "/opt/homebrew/share/tessdata",
         @"C:\Program Files\Tesseract-OCR\tessdata",
-    ];
+    ]);
 
     /// <summary>Serialises use of the engine.</summary>
     private readonly Lock _gate = new();
@@ -135,35 +129,9 @@ public sealed unsafe class TesseractEngine : IOcrEngine
     /// <param name="language">The language, for example <c>eng+deu</c>.</param>
     /// <param name="packDirectory">The folder of downloaded language packs, or <see langword="null"/>.</param>
     /// <returns>The directory, or <see langword="null"/> when the data is not installed.</returns>
-    public static string? FindDataDirectory(string language, string? packDirectory)
-    {
-        ArgumentNullException.ThrowIfNull(language);
-        if (!string.IsNullOrEmpty(packDirectory) && HasLanguages(packDirectory, language))
-        {
-            return packDirectory;
-        }
-
-        if (BundledDataDirectory is { } bundled && HasLanguages(bundled, language))
-        {
-            return bundled;
-        }
-
-        var configured = Environment.GetEnvironmentVariable(DataVariable);
-        if (!string.IsNullOrEmpty(configured) && HasLanguages(configured, language))
-        {
-            return configured;
-        }
-
-        foreach (var directory in DataDirectories)
-        {
-            if (HasLanguages(directory, language))
-            {
-                return directory;
-            }
-        }
-
-        return null;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string? FindDataDirectory(string language, string? packDirectory) =>
+        FindDataDirectory(language, packDirectory, new());
 
     /// <inheritdoc/>
     public void Dispose()
@@ -209,18 +177,69 @@ public sealed unsafe class TesseractEngine : IOcrEngine
         }
     }
 
+    /// <summary>Finds installed language data using paths held by the caller.</summary>
+    /// <param name="language">The languages separated by a plus sign.</param>
+    /// <param name="packDirectory">The downloaded pack folder, or null.</param>
+    /// <param name="paths">The caller's path cache.</param>
+    /// <returns>The folder, or null when none holds every language.</returns>
+    internal static string? FindDataDirectory(string language, string? packDirectory, DataFilePaths paths)
+    {
+        ArgumentNullException.ThrowIfNull(language);
+        if (!string.IsNullOrEmpty(packDirectory) && HasLanguages(packDirectory, language, paths))
+        {
+            return packDirectory;
+        }
+
+        if (BundledDataDirectory is { } bundled && HasLanguages(bundled, language, paths))
+        {
+            return bundled;
+        }
+
+        var configured = Environment.GetEnvironmentVariable(DataVariable);
+        if (!string.IsNullOrEmpty(configured) && HasLanguages(configured, language, paths))
+        {
+            return configured;
+        }
+
+        foreach (var directory in DataDirectories)
+        {
+            if (HasLanguages(directory, language, paths))
+            {
+                return directory;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Reads the recognised words.</summary>
     /// <param name="handle">The engine, after recognition.</param>
     /// <param name="pixelsPerPoint">The image resolution.</param>
     /// <param name="output">The list receiving the words.</param>
     private static void ReadWords(TesseractHandle handle, float pixelsPerPoint, List<OcrWord> output)
     {
-        using var iterator = NativeMethods.TessBaseAPIGetIterator(handle);
-        if (iterator.IsInvalid)
+        var iterator = NativeMethods.TessBaseAPIGetIterator(handle);
+        if (iterator == 0)
         {
             return;
         }
 
+        try
+        {
+            ReadWords(iterator, pixelsPerPoint, output);
+        }
+        finally
+        {
+            NativeMethods.TessResultIteratorDelete(iterator);
+        }
+    }
+
+    /// <summary>Reads the words an iterator walks.</summary>
+    /// <param name="iterator">The result iterator.</param>
+    /// <param name="pixelsPerPoint">The image resolution.</param>
+    /// <param name="output">The list receiving the words.</param>
+    private static void ReadWords(nint iterator, float pixelsPerPoint, List<OcrWord> output)
+    {
         var page = NativeMethods.TessResultIteratorGetPageIterator(iterator);
         do
         {
@@ -296,17 +315,37 @@ public sealed unsafe class TesseractEngine : IOcrEngine
     private static bool Initialize(TesseractHandle handle, string directory, string language) =>
         NativeMethods.TessBaseAPIInit3(handle, directory, language) == 0;
 
+    /// <summary>
+    /// Keeps the folders that are complete paths on this kind of computer. A Windows path on Linux or macOS is a name
+    /// relative to the current folder, so checking it would build a full path from the current folder on every check.
+    /// </summary>
+    /// <param name="candidates">The folders.</param>
+    /// <returns>The ones that are complete paths here.</returns>
+    private static string[] FullyQualifiedDirectories(string[] candidates)
+    {
+        var kept = new List<string>(candidates.Length);
+        foreach (var candidate in candidates)
+        {
+            if (Path.IsPathFullyQualified(candidate))
+            {
+                kept.Add(candidate);
+            }
+        }
+
+        return [.. kept];
+    }
+
     /// <summary>Determines whether a directory holds the data for every language in a language string.</summary>
     /// <param name="directory">The directory.</param>
     /// <param name="language">The languages separated by <c>+</c>.</param>
+    /// <param name="paths">The caller's cached paths.</param>
     /// <returns><see langword="true"/> when all are present.</returns>
-    private static bool HasLanguages(string directory, string language)
+    private static bool HasLanguages(string directory, string language, DataFilePaths paths)
     {
-        var separator = Path.EndsInDirectorySeparator(directory) ? ReadOnlySpan<char>.Empty : DirectorySeparator.AsSpan();
         foreach (var range in language.AsSpan().Split('+'))
         {
-            // One string per file checked: File.Exists has no span overload.
-            if (!File.Exists(string.Concat(directory, separator, language.AsSpan()[range], DataExtension)))
+            // File.Exists takes a string, so each path is built once and kept.
+            if (!File.Exists(paths.Of(directory, language.AsSpan()[range])))
             {
                 return false;
             }

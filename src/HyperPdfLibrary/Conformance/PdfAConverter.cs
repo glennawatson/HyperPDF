@@ -53,13 +53,13 @@ public static class PdfAConverter
     }
 
     /// <summary>
-    /// Saves a copy of a document as PDF/A. Font data the conversion needs is downloaded first when it is not on this
-    /// computer yet.
+    /// Saves a copy of a document as PDF/A. The fonts the conversion embeds come from the library assembly, so the
+    /// conversion makes no network request.
     /// </summary>
     /// <param name="document">The document.</param>
     /// <param name="level">The level to meet.</param>
     /// <param name="destination">Receives the file when the conversion succeeds; nothing is written otherwise.</param>
-    /// <param name="cancellationToken">Cancels the conversion and the downloads.</param>
+    /// <param name="cancellationToken">Cancels the conversion and the write.</param>
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
@@ -67,7 +67,6 @@ public static class PdfAConverter
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(destination);
-        await PdfAFontEmbedding.PrepareAsync(document, cancellationToken).ConfigureAwait(false);
         var output = Convert(document, level, cancellationToken);
         if (output.File is { } file)
         {

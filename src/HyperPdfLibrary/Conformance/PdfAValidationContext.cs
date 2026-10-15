@@ -11,11 +11,11 @@ namespace HyperPdfLibrary.Conformance;
 /// The state of one PDF/A validation: the document, the level, and the failures the rule areas record. Areas record a
 /// failure for any rule they detect; the report keeps only the rules the level applies.
 /// </summary>
-[DebuggerDisplay("PdfAValidationContext: {Level}, {_failures.Count} rules failed")]
+[DebuggerDisplay("PdfAValidationContext: {Level}, {_failures?.Count} rules failed")]
 internal sealed class PdfAValidationContext
 {
-    /// <summary>The failures by rule.</summary>
-    private readonly Dictionary<PdfARule, PdfAFailure> _failures = [];
+    /// <summary>The failures by rule, made when the first rule fails.</summary>
+    private Dictionary<PdfARule, PdfAFailure>? _failures;
 
     /// <summary>Initializes a new instance of the <see cref="PdfAValidationContext"/> class.</summary>
     /// <param name="document">The document.</param>
@@ -58,8 +58,11 @@ internal sealed class PdfAValidationContext
     /// <summary>Records one failure of a rule.</summary>
     /// <param name="rule">The rule broken.</param>
     /// <param name="context">Where, such as "object 12"; <see langword="null"/> when the place has no name.</param>
-    internal void Fail(PdfARule rule, string? context) =>
-        _failures[rule] = _failures.TryGetValue(rule, out var failure) ? failure with { Count = failure.Count + 1 } : new(1, context);
+    internal void Fail(PdfARule rule, string? context)
+    {
+        var failures = _failures ??= [];
+        failures[rule] = failures.TryGetValue(rule, out var failure) ? failure with { Count = failure.Count + 1 } : new(1, context);
+    }
 
     /// <summary>Records a failure when a condition does not hold.</summary>
     /// <param name="holds">Whether the rule holds.</param>
@@ -76,5 +79,5 @@ internal sealed class PdfAValidationContext
     /// <summary>Gets the failures recorded for a rule.</summary>
     /// <param name="rule">The rule.</param>
     /// <returns>The failure, or <see langword="null"/> when the rule held.</returns>
-    internal PdfAFailure? FailureOf(PdfARule rule) => _failures.TryGetValue(rule, out var failure) ? failure : null;
+    internal PdfAFailure? FailureOf(PdfARule rule) => _failures is not null && _failures.TryGetValue(rule, out var failure) ? failure : null;
 }

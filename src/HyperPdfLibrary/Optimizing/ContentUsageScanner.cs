@@ -8,6 +8,7 @@ using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Rendering;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -20,6 +21,9 @@ namespace HyperPdfLibrary.Optimizing;
 [DebuggerDisplay("ContentUsageScanner: {Images.Count} images")]
 internal sealed partial class ContentUsageScanner
 {
+    /// <summary>The most entries an idle scanner keeps in a collection; a scanner that grew past it is dropped when given back.</summary>
+    private const int MaxKeptEntries = 4096;
+
     /// <summary>Points per inch.</summary>
     private const float PointsPerInch = 72;
 
@@ -44,8 +48,11 @@ internal sealed partial class ContentUsageScanner
     /// <summary>The index of a matrix's sixth number.</summary>
     private const int MatrixF = 5;
 
-    /// <summary>The document read.</summary>
-    private readonly PdfDocument _document;
+    /// <summary>Idle scanners, kept with the collections they grew.</summary>
+    private readonly ReusableSlots<ContentUsageScanner> _idle;
+
+    /// <summary>The emptied name sets of earlier scans, so a resource dictionary's first name takes one instead of making one.</summary>
+    private readonly Stack<HashSet<ResourceUse>> _spareSets = [];
 
     /// <summary>The saved matrices of every stream being walked.</summary>
     private readonly List<Matrix3x2> _stack = [];
@@ -56,12 +63,18 @@ internal sealed partial class ContentUsageScanner
     /// <summary>The forms, patterns and appearance streams already walked as fixed.</summary>
     private readonly HashSet<int> _fixedWalked = [];
 
+    /// <summary>The document read.</summary>
+    private PdfDocument _document = null!;
+
     /// <summary>The token of the current document scan.</summary>
     private CancellationToken _cancellationToken;
 
-    /// <summary>Initializes a new instance of the <see cref = "ContentUsageScanner"/> class.</summary>
-    /// <param name = "document">The document to read.</param>
-    internal ContentUsageScanner(PdfDocument document) => _document = document;
+    /// <summary>1 once the scanner has been given back, so a second dispose does not offer it twice.</summary>
+    private int _returned;
+
+    /// <summary>Initializes a new instance of the <see cref = "ContentUsageScanner"/> class for the pool.</summary>
+    /// <param name="idle">The owning service's scanner pool.</param>
+    private ContentUsageScanner(ReusableSlots<ContentUsageScanner> idle) => _idle = idle;
 
     /// <summary>Gets how each image is used, by object number.</summary>
     internal Dictionary<int, ImageUse> Images { get; } = [];
@@ -84,17 +97,65 @@ internal sealed partial class ContentUsageScanner
     /// <summary>Gets a value indicating whether walked content sets a device colour or selects a device colour space.</summary>
     internal bool UsesDeviceColor { get; private set; }
 
+    /// <summary>Takes an idle scanner, or makes one when none is idle.</summary>
+    /// <param name = "document">The document to read.</param>
+    /// <param name="cancellationToken">Stops content decoding and scanning.</param>
+    /// <returns>An empty scanner, which the caller disposes to hand it back.</returns>
+    internal static ContentUsageScanner Rent(PdfDocument document, CancellationToken cancellationToken)
+    {
+        var idle = document.DrawingServices.Optimization.Scanners;
+        var scanner = idle.Take() ?? new(idle);
+        scanner._document = document;
+        scanner._cancellationToken = cancellationToken;
+        _ = Interlocked.Exchange(ref scanner._returned, 0);
+        return scanner;
+    }
+
+    /// <summary>Empties the scanner and gives it back to the pool.</summary>
+    internal void Return()
+    {
+        if (Interlocked.Exchange(ref _returned, 1) != 0)
+        {
+            return;
+        }
+
+        var grew = UsedNames.Count > MaxKeptEntries || Images.Count > MaxKeptEntries;
+        foreach (var used in UsedNames.Values)
+        {
+            used.Clear();
+            _spareSets.Push(used);
+        }
+
+        Images.Clear();
+        UsedNames.Clear();
+        UnsafeResources.Clear();
+        PageFonts.Clear();
+        ExcludedFonts.Clear();
+        FontNumbers.Clear();
+        _stack.Clear();
+        _formWalks.Clear();
+        _fixedWalked.Clear();
+        _document = null!;
+        _cancellationToken = default;
+        UsesDeviceColor = false;
+        if (!grew)
+        {
+            _ = _idle.Offer(this);
+        }
+    }
+
     /// <summary>Reads every page.</summary>
-    /// <param name = "pageDone">Called after each page with the number of pages read.</param>
+    /// <param name = "progress">Receives the number of pages read after each page, or <see langword="null"/>.</param>
     /// <param name = "cancellationToken">Stops the scan.</param>
-    internal void ScanDocument(Action<int>? pageDone, CancellationToken cancellationToken)
+    internal void ScanDocument(IProgress<PdfOptimizeProgress>? progress, CancellationToken cancellationToken)
     {
         _cancellationToken = cancellationToken;
-        for (var i = 0; i < _document.PageCount; i++)
+        var pages = _document.PageCount;
+        for (var i = 0; i < pages; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ScanPage(PdfDocumentPages.GetPage(_document, i));
-            pageDone?.Invoke(i + 1);
+            progress?.Report(new(PdfOptimizePhase.Analysing, i + 1, pages, 0));
         }
 
         ScanAcroForm();
@@ -356,7 +417,7 @@ internal sealed partial class ContentUsageScanner
         }
 
         ref var names = ref CollectionsMarshal.GetValueRefOrAddDefault(UsedNames, resources, out _);
-        names ??= [];
+        names ??= _spareSets.TryPop(out var spare) ? spare : [];
         _ = names.Add(new(category, name));
     }
 

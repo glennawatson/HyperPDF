@@ -149,6 +149,12 @@ internal sealed class TaggedBlockWalker
         return false;
     }
 
+    /// <summary>Gets a table cell's row or column as a position counted from 1.</summary>
+    /// <param name="kind">What the block reads as.</param>
+    /// <param name="index">The node's row or column, from zero, or -1 when it has none.</param>
+    /// <returns>The position; zero for a block that is not a table cell.</returns>
+    private static int Place(ReadingBlockKind kind, int index) => kind == ReadingBlockKind.TableCell && index >= 0 ? index + 1 : 0;
+
     /// <summary>Makes a block from a node and everything inside it.</summary>
     /// <param name="node">The node.</param>
     /// <param name="kind">What it reads as.</param>
@@ -170,6 +176,6 @@ internal sealed class TaggedBlockWalker
         }
 
         Covered += characters.Count;
-        Blocks.Add(new(kind, node.Element?.HeadingLevel ?? 0, [.. characters], replacement));
+        Blocks.Add(new(kind, node.Element?.HeadingLevel ?? 0, [.. characters], replacement) { Row = Place(kind, node.Row), Column = Place(kind, node.Column) });
     }
 }

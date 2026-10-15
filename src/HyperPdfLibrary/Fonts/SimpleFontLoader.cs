@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using System.Text;
 using HyperPdfLibrary.Fonts.CMaps;
 using HyperPdfLibrary.Fonts.Data;
 using HyperPdfLibrary.Fonts.Programs;
@@ -89,7 +88,7 @@ internal static class SimpleFontLoader
     private static SimpleFontFacts ReadFacts(PdfDictionary font, bool trueType, CancellationToken cancellationToken)
     {
         var baseFont = PdfNames.BaseFontOf(font);
-        var standard = trueType ? StandardFont.None : StandardFonts.Find(Encoding.UTF8.GetBytes(baseFont));
+        var standard = trueType ? StandardFont.None : StandardFonts.Find(StandardFonts.StripSubsetTag(PdfNames.SpellEntry(font, KnownName.BaseFont)));
         var descriptor = FontDescriptor.Read(font.GetDictionary(KnownName.FontDescriptor));
         var program = EmbeddedFontLoader.Load(descriptor, cancellationToken);
         var flags = descriptor.Flags;
@@ -104,7 +103,7 @@ internal static class SimpleFontLoader
     /// <summary>Chooses the base encoding before /Encoding is read: symbolic fonts start from the font program's own encoding, others from StandardEncoding (ISO 32000-2, 9.6.5.1).</summary>
     /// <param name="facts">The facts.</param>
     /// <returns>The encoding; <see cref="FontEncoding.None"/> for built-in.</returns>
-    private static FontEncoding InitialEncoding(SimpleFontFacts facts)
+    private static FontEncoding InitialEncoding(in SimpleFontFacts facts)
     {
         var symbolEncoding = facts.SymbolEncoding;
         if (symbolEncoding != FontEncoding.None)
@@ -118,7 +117,7 @@ internal static class SimpleFontLoader
     /// <summary>Determines whether the font is named Symbol, which changes how /Encoding is read.</summary>
     /// <param name="facts">The facts.</param>
     /// <returns><see langword="true"/> for the Symbol font.</returns>
-    private static bool IsSymbolName(SimpleFontFacts facts) =>
+    private static bool IsSymbolName(in SimpleFontFacts facts) =>
         facts.Standard == StandardFont.Symbol || string.Equals(facts.BaseFont, "Symbol", StringComparison.Ordinal);
 
     /// <summary>Reads the widths: /Widths with /MissingWidth, else standard metrics or the glyph advances.</summary>
@@ -127,7 +126,7 @@ internal static class SimpleFontLoader
     /// <param name="map">The glyph map.</param>
     /// <param name="source">The glyph source.</param>
     /// <returns>The widths in text space units.</returns>
-    private static float[] ReadWidths(SimpleFontFacts facts, SimpleEncoding encoding, SimpleGlyphMap map, GlyphSource source)
+    private static float[] ReadWidths(in SimpleFontFacts facts, SimpleEncoding encoding, SimpleGlyphMap map, GlyphSource source)
     {
         var widths = new float[FontEncodings.CodeCount];
         if (facts.Standard is >= StandardFont.Courier and <= StandardFont.CourierOblique)
@@ -166,7 +165,7 @@ internal static class SimpleFontLoader
     /// <param name="facts">The facts.</param>
     /// <param name="array">The /Widths array.</param>
     /// <param name="widths">The widths to fill.</param>
-    private static void ReadWidthArray(SimpleFontFacts facts, PdfArray array, float[] widths)
+    private static void ReadWidthArray(in SimpleFontFacts facts, PdfArray array, float[] widths)
     {
         if (facts.Descriptor.MissingWidth is { } missing)
         {
@@ -199,7 +198,7 @@ internal static class SimpleFontLoader
     /// <param name="source">The glyph source.</param>
     /// <param name="code">The code.</param>
     /// <returns>The width.</returns>
-    private static float FontWidth(SimpleFontFacts facts, SimpleEncoding encoding, SimpleGlyphMap map, GlyphSource source, int code)
+    private static float FontWidth(in SimpleFontFacts facts, SimpleEncoding encoding, SimpleGlyphMap map, GlyphSource source, int code)
     {
         if (facts.Program is null && facts.Standard != StandardFont.None)
         {
@@ -219,7 +218,7 @@ internal static class SimpleFontLoader
     /// <param name="facts">The facts.</param>
     /// <param name="map">The glyph map.</param>
     /// <param name="widths">The widths.</param>
-    private static void ApplyAllCaps(SimpleFontFacts facts, SimpleGlyphMap map, float[] widths)
+    private static void ApplyAllCaps(in SimpleFontFacts facts, SimpleGlyphMap map, float[] widths)
     {
         if ((facts.Flags & FontFlags.AllCap) == 0)
         {
@@ -249,7 +248,7 @@ internal static class SimpleFontLoader
     /// <param name="facts">The facts.</param>
     /// <param name="source">The glyph source.</param>
     /// <returns>The ascent in text space units.</returns>
-    private static float ChooseAscent(SimpleFontFacts facts, GlyphSource source)
+    private static float ChooseAscent(in SimpleFontFacts facts, GlyphSource source)
     {
         if (facts.Descriptor.Ascent != 0)
         {
@@ -263,7 +262,7 @@ internal static class SimpleFontLoader
     /// <param name="facts">The facts.</param>
     /// <param name="source">The glyph source.</param>
     /// <returns>The descent in text space units.</returns>
-    private static float ChooseDescent(SimpleFontFacts facts, GlyphSource source)
+    private static float ChooseDescent(in SimpleFontFacts facts, GlyphSource source)
     {
         if (facts.Descriptor.Descent != 0)
         {
@@ -279,11 +278,11 @@ internal static class SimpleFontLoader
     /// </summary>
     /// <param name="facts">The facts.</param>
     /// <returns><see langword="true"/> for a standard font drawn with a standard face.</returns>
-    private static bool DrawnWithStandardFace(SimpleFontFacts facts) => facts.Standard != StandardFont.None && facts.Program is null;
+    private static bool DrawnWithStandardFace(in SimpleFontFacts facts) => facts.Standard != StandardFont.None && facts.Program is null;
 
     /// <summary>Determines whether the font is bold, from its flags, weight or name.</summary>
     /// <param name="facts">The facts.</param>
     /// <returns><see langword="true"/> when bold.</returns>
-    private static bool IsBold(SimpleFontFacts facts) => FontStyle.IsBold(facts.Flags, facts.Descriptor.Weight, facts.BaseFont)
+    private static bool IsBold(in SimpleFontFacts facts) => FontStyle.IsBold(facts.Flags, facts.Descriptor.Weight, facts.BaseFont)
         || (facts.Standard != StandardFont.None && StandardFonts.IsBold(facts.Standard));
 }

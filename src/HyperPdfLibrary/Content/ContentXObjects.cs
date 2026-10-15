@@ -129,7 +129,13 @@ internal static class ContentXObjects
             return;
         }
 
-        var reduction = ImageReduction.Select(image.Dictionary, self.State.Ctm, self.ImageScale);
+        if (ContentXObjects.SkipsPixels(self))
+        {
+            self.Device.DrawImageArea(ref self.State);
+            return;
+        }
+
+        var reduction = ImageReduction.Select(image.Dictionary, self.State.Ctm, self.ImageScale, self.Cache.Quality is { AreaImageReduction: true, SmoothImages: true });
         var entry = self.Cache.AcquireImage(image, reduction, ContentColorRendering.ImageRendering(self, image.Dictionary), self.State.Transfer, self.CancellationToken);
         if (entry is null)
         {
@@ -240,6 +246,12 @@ internal static class ContentXObjects
     /// <param name = "reader">The reader.</param>
     internal static void DrawInlineImage(ContentInterpreter self, ref ContentReader reader)
     {
+        if (ContentXObjects.SkipsPixels(self))
+        {
+            self.Device.DrawImageArea(ref self.State);
+            return;
+        }
+
         var content = reader.Content;
         var range = reader.InlineImageDictionary;
         var offset = range.Start.GetOffset(content.Length);
@@ -266,6 +278,12 @@ internal static class ContentXObjects
         if (data is null || data.UnsupportedCodec != PdfImageCodec.None)
         {
             return;
+        }
+
+        // Shrinks the pixels like the same image stored as an XObject, so both give the same picture.
+        if (self.Cache.Quality is { AreaImageReduction: true, SmoothImages: true })
+        {
+            data = ImageBoxReduction.Reduce(data, ImageReduction.Select(data.Width, data.Height, self.State.Ctm, self.ImageScale));
         }
 
         self.State.Transfer?.ApplyTo(data);
@@ -431,4 +449,17 @@ internal static class ContentXObjects
         self.State.SoftMask = null;
         return info;
     }
+
+    /// <summary>
+    /// Determines whether an image can be reported by where it lands, without decoding it: the device does not read pixels,
+    /// and nothing else (a locked colour, an unpainted stencil, colorant previews) needs the image itself.
+    /// </summary>
+    /// <param name = "self">The owned interpreter state.</param>
+    /// <returns><see langword="true"/> when decoding can be skipped.</returns>
+    private static bool SkipsPixels(ContentInterpreter self) =>
+        !self.Device.ReadsImagePixels
+        && !self.ColorLocked
+        && !self.State.Fill.PaintsNothing
+        && self.Colorants is null
+        && self.Cache.HiddenColorants.IsEmpty;
 }

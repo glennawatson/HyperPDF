@@ -190,8 +190,8 @@ internal static class Jbig2TextRegionWriter
             return;
         }
 
-        var components = placement.Components!;
-        var symbols = placement.Symbols!;
+        var components = placement.Components;
+        var symbols = placement.Symbols;
         var source = new Jbig2BitmapView(symbols.Rows(instance.Rank), symbols.Width(instance.Rank), symbols.Height(instance.Rank));
         var bitmap = new Jbig2BitmapView(components.Rows(instance.Component), components.Width(instance.Component), components.Height(instance.Component));
         var deltaWidth = bitmap.Width - source.Width;

@@ -43,7 +43,7 @@ internal static class FormFieldFonts
     /// <returns>The font dictionary; <see langword="null"/> when the string names no font or the resources lack it.</returns>
     internal static PdfDictionary? FindInForm(PdfDocument document, string? appearance)
     {
-        var name = appearance is null ? FormFont.FallbackName : DefaultAppearance.Parse(appearance).FontName;
+        var name = appearance is null ? FormFont.FallbackName : DefaultAppearance.ReadFontName(appearance);
         if (name.Length == 0)
         {
             return null;
@@ -77,7 +77,7 @@ internal static class FormFieldFonts
     /// <exception cref="ArgumentException">The string names a font that is not in the form's default resources.</exception>
     internal static void RequireFont(PdfDocument document, string appearance)
     {
-        var name = DefaultAppearance.Parse(appearance).FontName;
+        var name = DefaultAppearance.ReadFontName(appearance);
         if (name.Length > 0 && name != FormFont.FallbackName && FindInForm(document, appearance) is null)
         {
             throw new ArgumentException($"The default appearance names the font '{name}', which is not in the form's default resources (/DR).", nameof(appearance));

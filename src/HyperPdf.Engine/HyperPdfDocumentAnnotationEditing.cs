@@ -366,7 +366,7 @@ internal static class HyperPdfDocumentAnnotationEditing
             }
 
             var version = Volatile.Read(ref self.EditVersion);
-            var save = SaveReportPool.Rent();
+            var save = SaveReportPool.Rent(ref self.SaveReport);
             try
             {
                 if (!HyperPdfAnnotationSaving.Save(HyperPdfAnnotationStateAccess.GetAnnotations(self), destination, save))
@@ -385,7 +385,7 @@ internal static class HyperPdfDocumentAnnotationEditing
             }
             finally
             {
-                SaveReportPool.Return(save);
+                SaveReportPool.Return(ref self.SaveReport, save);
             }
         }
     }
@@ -400,10 +400,10 @@ internal static class HyperPdfDocumentAnnotationEditing
     {
         ArgumentNullException.ThrowIfNull(destination);
         cancellationToken.ThrowIfCancellationRequested();
-        var save = SaveReportPool.Rent();
+        var save = SaveReportPool.Rent(ref self.SaveReport);
         if (!TryStartSave(self, destination, new(save, report), cancellationToken, out var state, out var version, out var write))
         {
-            SaveReportPool.Return(save);
+            SaveReportPool.Return(ref self.SaveReport, save);
             return ValueTask.FromResult(false);
         }
 
@@ -528,7 +528,7 @@ internal static class HyperPdfDocumentAnnotationEditing
         }
         finally
         {
-            SaveReportPool.Return(reports.Writer);
+            SaveReportPool.Return(ref self.SaveReport, reports.Writer);
         }
     }
 }

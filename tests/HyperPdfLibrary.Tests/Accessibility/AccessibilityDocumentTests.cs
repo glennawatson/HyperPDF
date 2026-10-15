@@ -32,7 +32,7 @@ public sealed class AccessibilityDocumentTests
     [Test]
     public async Task GoodDocumentHasNoFindings()
     {
-        var report = AccessibilityPdfs.Report(new());
+        var report = await AccessibilityPdfs.ReportAsync(new());
 
         await Assert.That(report.Findings.Count).IsEqualTo(0);
         await Assert.That(report.TotalCount).IsEqualTo(0);
@@ -52,7 +52,7 @@ public sealed class AccessibilityDocumentTests
     [Test]
     public async Task Part2On20FileIsClaim2()
     {
-        var report = AccessibilityPdfs.Report(new() { Xmp = AccessibilityPdfs.Packet(PartTwo, true), CatalogExtra = "/Version /2.0", RootExtra = "/Namespaces []" });
+        var report = await AccessibilityPdfs.ReportAsync(new() { Xmp = AccessibilityPdfs.Packet(PartTwo, true), CatalogExtra = "/Version /2.0", RootExtra = "/Namespaces []" });
 
         await Assert.That(report.Claim.Part).IsEqualTo(PartTwo);
         await Assert.That(report.Claim.PdfVersion).IsEqualTo("2.0");
@@ -64,7 +64,7 @@ public sealed class AccessibilityDocumentTests
     [Test]
     public async Task Pdf20NamespaceUseIsReported()
     {
-        var report = AccessibilityPdfs.Report(new()
+        var report = await AccessibilityPdfs.ReportAsync(new()
         {
             Xmp = AccessibilityPdfs.Packet(PartTwo, true),
             CatalogExtra = "/Version /2.0",
@@ -84,15 +84,16 @@ public sealed class AccessibilityDocumentTests
     [Test]
     public async Task ClaimProblemsAreFlagged()
     {
-        var wrongVersion = AccessibilityPdfs.Report(new() { Xmp = AccessibilityPdfs.Packet(PartTwo, true) });
-        var unknown = AccessibilityPdfs.Report(new() { Xmp = AccessibilityPdfs.Packet(PartNine, true) });
-        var none = AccessibilityPdfs.Report(new() { Xmp = null });
+        var wrongVersion = await AccessibilityPdfs.ReportAsync(new() { Xmp = AccessibilityPdfs.Packet(PartTwo, true) });
+        var unknown = await AccessibilityPdfs.ReportAsync(new() { Xmp = AccessibilityPdfs.Packet(PartNine, true) });
+        var none = await AccessibilityPdfs.ReportAsync(new() { Xmp = null });
 
         await Assert.That(wrongVersion.GetCount(PdfAccessibilityCode.ClaimPart2NotPdf2)).IsEqualTo(1);
         await Assert.That(unknown.GetCount(PdfAccessibilityCode.ClaimPartUnknown)).IsEqualTo(1);
         await Assert.That(unknown.Claim.IsClaimed).IsFalse();
         await Assert.That(none.Claim.Part).IsNull();
-        await Assert.That(none.GetCount(PdfAccessibilityCode.NoTitle)).IsEqualTo(1);
+        await Assert.That(none.GetCount(PdfAccessibilityCode.NoMetadata)).IsEqualTo(1);
+        await Assert.That(none.GetCount(PdfAccessibilityCode.NoTitle)).IsEqualTo(0);
     }
 
     /// <summary>Missing entries are each flagged once, at document level.</summary>
@@ -100,7 +101,7 @@ public sealed class AccessibilityDocumentTests
     [Test]
     public async Task MissingDocumentEntriesAreFlagged()
     {
-        var report = AccessibilityPdfs.Report(new()
+        var report = await AccessibilityPdfs.ReportAsync(new()
         {
             MarkInfo = "/MarkInfo << /Marked false /Suspects true >>",
             Lang = string.Empty,
@@ -135,9 +136,9 @@ public sealed class AccessibilityDocumentTests
     [Test]
     public async Task TabsAreCheckedOnPagesWithAnnotations()
     {
-        var bad = AccessibilityPdfs.Report(new() { Layout = LinkLayout });
-        var good = AccessibilityPdfs.Report(new() { Layout = LinkLayout, PageExtra = "/Tabs /S" });
-        var popup = AccessibilityPdfs.Report(new()
+        var bad = await AccessibilityPdfs.ReportAsync(new() { Layout = LinkLayout });
+        var good = await AccessibilityPdfs.ReportAsync(new() { Layout = LinkLayout, PageExtra = "/Tabs /S" });
+        var popup = await AccessibilityPdfs.ReportAsync(new()
         {
             Layout = static (pdf, document) =>
             {
@@ -163,8 +164,8 @@ public sealed class AccessibilityDocumentTests
     {
         const string loose = "BT /F1 12 Tf 72 300 Td (Loose) Tj ET\n";
         const string decoration = "/Artifact BMC BT /F1 9 Tf 72 760 Td (Header) Tj ET EMC\n";
-        var untagged = AccessibilityPdfs.Report(new() { Content = new AccessibilitySpec().Content + loose });
-        var artifact = AccessibilityPdfs.Report(new() { Content = new AccessibilitySpec().Content + decoration });
+        var untagged = await AccessibilityPdfs.ReportAsync(new() { Content = new AccessibilitySpec().Content + loose });
+        var artifact = await AccessibilityPdfs.ReportAsync(new() { Content = new AccessibilitySpec().Content + decoration });
 
         await Assert.That(untagged.GetCount(PdfAccessibilityCode.UntaggedContent)).IsEqualTo(1);
         await Assert.That(untagged.Findings[0].PageIndex).IsEqualTo(0);
@@ -179,7 +180,7 @@ public sealed class AccessibilityDocumentTests
     [Test]
     public async Task FindingsAreCappedButCountsAreNot()
     {
-        var report = AccessibilityPdfs.Report(new()
+        var report = await AccessibilityPdfs.ReportAsync(new()
         {
             Layout = static (pdf, document) =>
             {
@@ -207,7 +208,7 @@ public sealed class AccessibilityDocumentTests
         using var source = new CancellationTokenSource();
         await source.CancelAsync();
 
-        await Assert.That(() => PdfDocumentAccessibility.GetAccessibilityReport(document, source.Token)).Throws<OperationCanceledException>();
+        await Assert.That(async () => await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, source.Token)).Throws<OperationCanceledException>();
     }
 
     /// <summary>Every code has a short sentence.</summary>
@@ -241,5 +242,5 @@ public sealed class AccessibilityDocumentTests
 
     /// <summary>Reads the default document's report.</summary>
     /// <returns>The report.</returns>
-    private static Task<PdfAccessibilityReport> Plain() => Task.FromResult(AccessibilityPdfs.Report(new()));
+    private static Task<PdfAccessibilityReport> Plain() => AccessibilityPdfs.ReportAsync(new()).AsTask();
 }

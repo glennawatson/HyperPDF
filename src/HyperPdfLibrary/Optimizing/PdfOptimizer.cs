@@ -46,10 +46,16 @@ public static class PdfOptimizer
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
-        ArgumentNullException.ThrowIfNull(options);
-        using var session = new OptimizeSession(source, options, progress, cancellationToken);
-        var plan = session.Prepare();
-        return session.Finish(plan.WriteTo(destination, cancellationToken), plan);
+        var session = OptimizeSession.Rent(source, options, progress, cancellationToken);
+        try
+        {
+            var plan = session.Prepare();
+            return session.Finish(plan.WriteTo(destination, cancellationToken), plan);
+        }
+        finally
+        {
+            session.Return();
+        }
     }
 
     /// <summary>Optimises a document into a stream asynchronously, writing to the destination with asynchronous I/O.</summary>
@@ -71,8 +77,7 @@ public static class PdfOptimizer
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
-        ArgumentNullException.ThrowIfNull(options);
-        return await RunAsync(new(source, options, progress, cancellationToken), destination, cancellationToken).ConfigureAwait(false);
+        return await RunAsync(OptimizeSession.Rent(source, options, progress, cancellationToken), destination, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Optimises a private working copy in place, so no second copy is made; the copy is left changed.</summary>
@@ -91,8 +96,7 @@ public static class PdfOptimizer
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(destination);
-        ArgumentNullException.ThrowIfNull(options);
-        return await RunAsync(new(snapshot, options, progress, true, cancellationToken), destination, cancellationToken).ConfigureAwait(false);
+        return await RunAsync(OptimizeSession.Rent(snapshot, options, progress, true, cancellationToken), destination, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Plans and writes one session.</summary>
@@ -102,9 +106,15 @@ public static class PdfOptimizer
     /// <returns>What was done.</returns>
     private static async Task<PdfOptimizeReport> RunAsync(OptimizeSession session, Stream destination, CancellationToken cancellationToken)
     {
-        using var owned = session;
-        var plan = session.Prepare();
-        var written = await plan.WriteToAsync(destination, cancellationToken).ConfigureAwait(false);
-        return session.Finish(written, plan);
+        try
+        {
+            var plan = session.Prepare();
+            var written = await plan.WriteToAsync(destination, cancellationToken).ConfigureAwait(false);
+            return session.Finish(written, plan);
+        }
+        finally
+        {
+            session.Return();
+        }
     }
 }

@@ -53,6 +53,9 @@ public sealed class PdfStructureElement
     /// <summary>Gets the URI of the namespace the element's type belongs to, or <see langword="null"/> for the default.</summary>
     public string? Namespace { get; internal set; }
 
+    /// <summary>Gets a value indicating whether the role maps lead the element's type into the MathML namespace, whose types need no further mapping.</summary>
+    public bool ResolvesToMathMl { get; internal set; }
+
     /// <summary>Gets the page the element's content is on, from its <c>/Pg</c> or its parent's; -1 when unknown.</summary>
     public int PageIndex { get; internal set; } = -1;
 

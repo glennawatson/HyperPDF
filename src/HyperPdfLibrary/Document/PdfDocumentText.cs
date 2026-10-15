@@ -14,6 +14,9 @@ public static class PdfDocumentText
     /// <summary>The most text pages kept per document.</summary>
     private const int TextPageCapacity = 16;
 
+    /// <summary>The largest search builder kept after an enumeration.</summary>
+    private const int MaxKeptMatches = 4096;
+
     /// <summary>Gets a page's text, extracting it on first use and stopping at the token's cancellation.</summary>
     /// <param name = "document">The document.</param>
     /// <param name = "pageIndex">The zero based page index.</param>
@@ -128,15 +131,32 @@ public static class PdfDocumentText
     /// <returns>One entry per page with at least one match.</returns>
     private static async IAsyncEnumerable<PdfPageMatches> FindPagesAsync(PdfDocument document, string query, PdfTextSearchOptions options, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var found = new List<PdfTextMatch>();
-        for (var i = 0; i < document.PageCount; i++)
+        cancellationToken.ThrowIfCancellationRequested();
+        if (query.Length == 0)
         {
-            var text = await PdfDocumentText.GetTextPageAsync(document, i, cancellationToken).ConfigureAwait(false);
-            found.Clear();
-            text.Find(query, options, found);
-            if (found.Count > 0)
+            yield break;
+        }
+
+        var found = document.Objects.ScratchPools.Slots<List<PdfTextMatch>>().Take() ?? [];
+        try
+        {
+            for (var i = 0; i < document.PageCount; i++)
             {
-                yield return new(i, [.. found]);
+                var text = await PdfDocumentText.GetTextPageAsync(document, i, cancellationToken).ConfigureAwait(false);
+                found.Clear();
+                text.Find(query, options, found);
+                if (found.Count > 0)
+                {
+                    yield return new(i, [.. found]);
+                }
+            }
+        }
+        finally
+        {
+            found.Clear();
+            if (found.Capacity <= MaxKeptMatches)
+            {
+                _ = document.Objects.ScratchPools.Slots<List<PdfTextMatch>>().Offer(found);
             }
         }
     }

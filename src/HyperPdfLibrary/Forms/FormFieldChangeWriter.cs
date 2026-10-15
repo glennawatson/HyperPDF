@@ -57,7 +57,7 @@ internal static class FormFieldChangeWriter
         var built = new PdfDictionary(store);
         FormFieldBuilder.WriteField(store, built, change.Spec);
         CopyFieldEntries(store, field, built, change, details.Type);
-        var controls = FormControl.GetControls(node.Dictionary, node.Id);
+        using var controls = FormControls.Read(node.Dictionary, node.Id);
         var characteristics = FormFieldBuilder.BuildCharacteristics(store, change.Spec.Definition);
         var border = FormFieldBuilder.BuildBorder(store, change.Spec.Definition);
         var activation = FormFieldActionData.BuildActivation(store, change.Spec.Definition.Actions);
@@ -96,7 +96,8 @@ internal static class FormFieldChangeWriter
         CancellationToken cancellationToken)
     {
         var store = document.Objects;
-        var control = FormControl.GetControls(node.Dictionary, node.Id)[position];
+        using var controls = FormControls.Read(node.Dictionary, node.Id);
+        var control = controls[position];
         var widget = control.Dictionary.Clone();
         widget.Set(KnownName.Rect, PdfValue.FromArray(bounds.ToArray(store)));
         var field = control.Id == node.Id ? widget : node.Dictionary;

@@ -20,7 +20,7 @@ namespace HyperPdfLibrary.Fonts;
 /// <param name="FontFile">The embedded font program stream, or <see langword="null"/>.</param>
 /// <param name="FileKind">The key the program came from.</param>
 [DebuggerDisplay("FontDescriptor: {Flags} {FileKind}")]
-internal sealed record FontDescriptor(
+internal readonly record struct FontDescriptor(
     FontFlags Flags,
     bool HasFlags,
     float ItalicAngle,

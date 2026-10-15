@@ -2,14 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
-using System.Globalization;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using HyperPdf.Core.Speech;
 
 namespace HyperPdf.Http.Speech;
@@ -27,20 +23,8 @@ public sealed class AzureSpeechEngine : ISpeechEngine
     /// <summary>Scales 16 bit samples to the range -1 to 1.</summary>
     private const float SampleScale = 1F / 32_768F;
 
-    /// <summary>Converts a speed to a percentage.</summary>
-    private const float Percent = 100F;
-
-    /// <summary>The length of a voice id's language prefix, for example <c>en-GB</c>.</summary>
-    private const int LanguageLength = 5;
-
     /// <summary>The longest region name accepted.</summary>
     private const int MaxRegionLength = 40;
-
-    /// <summary>The characters of SSML built on the stack before a longer document spills to the pool.</summary>
-    private const int SsmlStackChars = 512;
-
-    /// <summary>The characters XML text and attribute values escape.</summary>
-    private static readonly SearchValues<char> XmlSpecials = SearchValues.Create("<>&\"'");
 
     /// <summary>The settings.</summary>
     private readonly AzureSpeechSettings _settings;
@@ -129,31 +113,6 @@ public sealed class AzureSpeechEngine : ISpeechEngine
     public static Uri EndpointFor(string region) =>
         IsValidRegion(region) ? new($"https://{region}.tts.speech.microsoft.com") : throw new ArgumentException("The region is not valid.", nameof(region));
 
-    /// <summary>Builds the SSML for a sentence.</summary>
-    /// <param name="text">The text.</param>
-    /// <param name="voiceId">The voice.</param>
-    /// <param name="speed">The speed, 1 for normal.</param>
-    /// <returns>The SSML document.</returns>
-    public static string BuildSsml(string text, string voiceId, float speed)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        ArgumentNullException.ThrowIfNull(voiceId);
-        var language = voiceId.Length > LanguageLength ? voiceId.AsSpan(0, LanguageLength) : "en-US".AsSpan();
-
-        // The document is built in a stack buffer, so the result string is the only allocation unless the text is long.
-        var handler = new DefaultInterpolatedStringHandler(0, 0, CultureInfo.InvariantCulture, stackalloc char[SsmlStackChars]);
-        handler.AppendLiteral("<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"");
-        AppendEscaped(ref handler, language);
-        handler.AppendLiteral("\"><voice name=\"");
-        AppendEscaped(ref handler, voiceId);
-        handler.AppendLiteral("\"><prosody rate=\"");
-        handler.AppendFormatted((speed - 1F) * Percent, "+0;-0;+0");
-        handler.AppendLiteral("%\">");
-        AppendEscaped(ref handler, text);
-        handler.AppendLiteral("</prosody></voice></speak>");
-        return handler.ToStringAndClear();
-    }
-
     /// <summary>Converts 16 bit little endian PCM into samples.</summary>
     /// <param name="pcm">The PCM bytes.</param>
     /// <returns>The samples.</returns>
@@ -183,7 +142,9 @@ public sealed class AzureSpeechEngine : ISpeechEngine
         }
 
         _api ??= RefitClients.CreateAzureSpeechApi(_httpClient, _settings.Region);
-        using var content = new StringContent(BuildSsml(text, voiceId, speed), Encoding.UTF8);
+        ArgumentNullException.ThrowIfNull(text);
+        using var ssml = SsmlDocument.Build(text, voiceId, speed);
+        using var content = new ReadOnlyMemoryContent(ssml.Bytes);
         content.Headers.ContentType = new("application/ssml+xml");
         using var response = await _api.SynthesizeAsync(_settings.Key, content, cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
@@ -212,33 +173,6 @@ public sealed class AzureSpeechEngine : ISpeechEngine
         for (; done < samples.Length; done++)
         {
             samples[done] = BinaryPrimitives.ReadInt16LittleEndian(pcm[(done * sizeof(short))..]) * SampleScale;
-        }
-    }
-
-    /// <summary>Appends text with the five XML special characters escaped.</summary>
-    /// <param name="handler">The document being built.</param>
-    /// <param name="text">The text.</param>
-    private static void AppendEscaped(ref DefaultInterpolatedStringHandler handler, ReadOnlySpan<char> text)
-    {
-        while (!text.IsEmpty)
-        {
-            var special = text.IndexOfAny(XmlSpecials);
-            if (special < 0)
-            {
-                handler.AppendFormatted(text);
-                return;
-            }
-
-            handler.AppendFormatted(text[..special]);
-            handler.AppendLiteral(text[special] switch
-            {
-                '<' => "&lt;",
-                '>' => "&gt;",
-                '&' => "&amp;",
-                '"' => "&quot;",
-                _ => "&apos;",
-            });
-            text = text[(special + 1)..];
         }
     }
 }

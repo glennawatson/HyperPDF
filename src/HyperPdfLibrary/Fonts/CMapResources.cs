@@ -5,6 +5,7 @@
 using System.Buffers;
 using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Filters;
+using Microsoft.Win32.SafeHandles;
 
 namespace HyperPdfLibrary.Fonts;
 
@@ -23,28 +24,39 @@ internal static class CMapResources
     /// <returns><see langword="true"/> when the resource exists.</returns>
     internal static bool TryRead(string name, ref PooledBuffer output)
     {
-        if (name.Length is 0 or > MaxNameLength)
+        if (name.Length is 0 or > MaxNameLength || FontDataResources.Locate("CMaps", $"{name}.bin") is not { } path)
         {
             return false;
         }
 
-        using var stream = FontDataResources.Open("CMaps", $"{name}.bin");
-        if (stream is null)
-        {
-            return false;
-        }
-
-        var length = (int)stream.Length;
+        using var handle = File.OpenHandle(path);
+        var length = (int)RandomAccess.GetLength(handle);
         var packed = ArrayPool<byte>.Shared.Rent(length);
         try
         {
-            stream.ReadExactly(packed, 0, length);
+            ReadAll(handle, packed.AsSpan(0, length));
             _ = ZLibCodec.Decompress(packed.AsSpan(0, length), false, ref output);
             return true;
         }
         finally
         {
             ArrayPool<byte>.Shared.Return(packed);
+        }
+    }
+
+    /// <summary>Fills a buffer from the start of a file.</summary>
+    /// <param name="handle">The file.</param>
+    /// <param name="buffer">The buffer; the file holds at least this many bytes.</param>
+    /// <exception cref="EndOfStreamException">The file ended early.</exception>
+    private static void ReadAll(SafeFileHandle handle, Span<byte> buffer)
+    {
+        for (int read = 0, count = 0; read < buffer.Length; read += count)
+        {
+            count = RandomAccess.Read(handle, buffer[read..], read);
+            if (count == 0)
+            {
+                throw new EndOfStreamException("The font data file ended early.");
+            }
         }
     }
 }

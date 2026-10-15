@@ -18,7 +18,7 @@ namespace HyperPdfLibrary.Optimizing;
 /// each image, font and stream as it is written. Used by one thread.
 /// </summary>
 [DebuggerDisplay("OptimizeSession")]
-internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
+internal sealed partial class OptimizeSession : IObjectTransformer
 {
     /// <summary>The version written when the document has none.</summary>
     private const string DefaultVersion = "1.4";
@@ -29,20 +29,11 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
     /// <summary>The PDF/A part based on PDF 1.4, which forbids object streams.</summary>
     private const int PdfA1 = 1;
 
-    /// <summary>The source document, never changed.</summary>
-    private readonly PdfDocument _source;
+    /// <summary>The largest number of entries an idle session keeps in a collection; a session that grew past it is dropped when given back.</summary>
+    private const int MaxKeptEntries = 4096;
 
-    /// <summary>Whether the source is a private copy the session changes in place.</summary>
-    private readonly bool _ownsSource;
-
-    /// <summary>The options.</summary>
-    private readonly PdfOptimizeOptions _options;
-
-    /// <summary>Receives progress, or <see langword="null"/>.</summary>
-    private readonly IProgress<PdfOptimizeProgress>? _progress;
-
-    /// <summary>Stops the run.</summary>
-    private readonly CancellationToken _cancellationToken;
+    /// <summary>The registered service that owns this session's reusable state.</summary>
+    private readonly OptimizerResources _resources;
 
     /// <summary>Collects what the run does.</summary>
     private readonly OptimizeReportBuilder _report = new();
@@ -53,74 +44,111 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
     /// <summary>The images other images use as soft or stencil masks, by old number.</summary>
     private readonly HashSet<int> _masks = [];
 
+    /// <summary>Re-encodes images.</summary>
+    private readonly ImageRecoder _recoder = new();
+
     /// <summary>The glyphs to keep in each embedded font program, by the program's old number.</summary>
-    private readonly Dictionary<int, CodeBitSet> _fontGlyphs = [];
+    private FontPlanState? _fonts;
+
+    /// <summary>The source document, never changed.</summary>
+    private PdfDocument _source = null!;
+
+    /// <summary>Whether the source is a private copy the session changes in place.</summary>
+    private bool _ownsSource;
+
+    /// <summary>The options.</summary>
+    private PdfOptimizeOptions _options;
+
+    /// <summary>Receives progress, or <see langword="null"/>.</summary>
+    private IProgress<PdfOptimizeProgress>? _progress;
+
+    /// <summary>Stops the run.</summary>
+    private CancellationToken _cancellationToken;
 
     /// <summary>The private working copy, or <see langword="null"/> before it is opened.</summary>
     private PdfDocument? _working;
 
     /// <summary>1 once the session is disposed.</summary>
-    private int _disposed;
-
-    /// <summary>The names the optimiser uses, interned in the working copy.</summary>
-    private OptimizerNames? _names;
-
-    /// <summary>Re-encodes images.</summary>
-    private ImageRecoder? _recoder;
+    private int _disposed = 1;
 
     /// <summary>What JBIG2 coding may be tried, after the PDF/A claim is taken into account.</summary>
     private PdfJbig2Mode _jbig2;
 
+    /// <summary>What the analysis learned; leased for the run.</summary>
+    private ContentUsageScanner? _scanner;
+
+    /// <summary>The duplicates found; leased for the run.</summary>
+    private DuplicateFinder? _duplicates;
+
+    /// <summary>How the file is written; leased for the run.</summary>
+    private WritePlan? _plan;
+
+    /// <summary>The graph being planned, until ownership passes to the writer.</summary>
+    private OptimizerGraph? _pendingGraph;
+
     /// <summary>Initializes a new instance of the <see cref="OptimizeSession"/> class.</summary>
+    /// <param name="resources">The registered service's reusable state.</param>
+    private OptimizeSession(OptimizerResources resources) => _resources = resources;
+
+    /// <summary>Gets the working copy.</summary>
+    private PdfDocument Working => _working!;
+
+    /// <summary>Takes an idle session, or makes one, and points it at a document.</summary>
     /// <param name="source">The document.</param>
     /// <param name="options">The options.</param>
     /// <param name="progress">Receives progress, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Stops the run.</param>
-    internal OptimizeSession(
-        PdfDocument source,
-        PdfOptimizeOptions options,
-        IProgress<PdfOptimizeProgress>? progress,
-        CancellationToken cancellationToken)
+    /// <returns>The session, which the caller disposes.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static OptimizeSession Rent(PdfDocument source, in PdfOptimizeOptions options, IProgress<PdfOptimizeProgress>? progress, CancellationToken cancellationToken) =>
+        Rent(source, options, progress, false, cancellationToken);
 
-        : this(
-        source,
-        options,
-        progress,
-        false,
-        cancellationToken)
-    {
-    }
-
-    /// <summary>Initializes a new instance of the <see cref="OptimizeSession"/> class.</summary>
+    /// <summary>Takes an idle session, or makes one, and points it at a document.</summary>
     /// <param name="source">The document, or a private copy the session may change.</param>
     /// <param name="options">The options.</param>
     /// <param name="progress">Receives progress, or <see langword="null"/>.</param>
     /// <param name="ownsSource">Whether <paramref name="source"/> is already a private copy to change in place, so no second copy is made.</param>
     /// <param name="cancellationToken">Stops the run.</param>
-    internal OptimizeSession(PdfDocument source, PdfOptimizeOptions options, IProgress<PdfOptimizeProgress>? progress, bool ownsSource, CancellationToken cancellationToken)
+    /// <returns>The session, which the caller disposes.</returns>
+    internal static OptimizeSession Rent(PdfDocument source, in PdfOptimizeOptions options, IProgress<PdfOptimizeProgress>? progress, bool ownsSource, CancellationToken cancellationToken)
     {
-        _ownsSource = ownsSource;
-        _source = source;
-        _options = options;
-        _progress = progress;
-        _cancellationToken = cancellationToken;
+        var resources = source.DrawingServices.Optimization;
+        var session = resources.Sessions.Take() ?? new(resources);
+        session._ownsSource = ownsSource;
+        session._source = source;
+        session._options = options;
+        session._progress = progress;
+        session._cancellationToken = cancellationToken;
+        _ = Interlocked.Exchange(ref session._disposed, 0);
+        return session;
     }
 
-    /// <summary>Gets the working copy.</summary>
-    private PdfDocument Working => _working!;
-
-    /// <summary>Gets the optimiser's names.</summary>
-    private OptimizerNames Names => _names!;
-
     /// <summary>
-    /// Disposes the working copy the session opened, once. A copy the caller supplied is the caller's to dispose, and the
-    /// copy borrows the source's security handler and file, so the source stays usable.
+    /// Disposes the working copy the session opened, once, and gives the session back to the pool. A copy the caller
+    /// supplied is the caller's to dispose, and the copy borrows the source's security handler and file, so the source stays usable.
     /// </summary>
-    public void Dispose()
+    internal void Return()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) == 0 && !_ownsSource)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
-            _working?.Dispose();
+            return;
+        }
+
+        var grew = _images.Count > MaxKeptEntries;
+        try
+        {
+            if (!_ownsSource)
+            {
+                _working?.Dispose();
+            }
+        }
+        finally
+        {
+            ReleaseRun();
+            if (!grew)
+            {
+                _ = _resources.Sessions.Offer(this);
+            }
         }
     }
 
@@ -131,21 +159,22 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
     {
         Report(PdfOptimizePhase.Checking, 0, 0);
         _working = _ownsSource ? _source : PdfDocumentOptimizing.OpenWorkingCopy(_source);
-        _names = new(Working.Objects.Names);
         _report.PdfAPart = PdfDocumentMetadata.GetXmp(Working)?.PdfAPart ?? 0;
         _jbig2 = Jbig2Mode();
 
         // PDF/A-1 forbids JPEG 2000 images (ISO 19005-1 6.1.10).
-        _recoder = new(_options, Names, Working.DrawingServices, _report.PdfAPart != PdfA1, _jbig2, _cancellationToken);
+        _recoder.Configure(_options, Working.DrawingServices, _source.Objects, _report.PdfAPart != PdfA1, _jbig2, _cancellationToken);
         _report.WasSigned = IsSigned(Working);
         if (_report.WasSigned)
         {
-            return PrepareSigned();
+            _plan = PrepareSigned();
+            return _plan;
         }
 
         var scanner = Analyse();
         Edit(scanner);
-        return PlanRewrite(scanner);
+        _plan = PlanRewrite(scanner);
+        return _plan;
     }
 
     /// <summary>Builds the report once the file is written.</summary>
@@ -156,6 +185,7 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
     {
         Report(PdfOptimizePhase.Done, 1, 1);
         _report.PdfAClaim = plan.Claim;
+        _report.PdfUaClaim = plan.UaClaim;
         return _report.Build(_source.Objects.Source.Length, written, plan.Mode);
     }
 
@@ -190,27 +220,29 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
         _report.IsEncrypted = Working.IsEncrypted;
         if (!_options.AllowIncrementalWhenSigned)
         {
-            return WritePlan.Copy(_source.Objects.Source);
+            return WritePlan.Copy(_source.Objects.Source, _resources);
         }
 
         AddTextLayers();
         if (!StoreEditing.HasEdits(Working.Objects))
         {
-            return WritePlan.Copy(_source.Objects.Source);
+            return WritePlan.Copy(_source.Objects.Source, _resources);
         }
 
         _report.Noted(PdfOptimizeCategory.Safety, 0, "Additions were appended as an incremental update, so existing signatures stay valid.");
-        return WritePlan.Incremental(Working.Objects);
+        var plan = WritePlan.Incremental(Working.Objects, _resources);
+        plan.SetUnmetUaClaim(_options.UnmetPdfUaClaim);
+        return plan;
     }
 
     /// <summary>Reads the pages to learn how images and fonts are used.</summary>
     /// <returns>The scanner holding what was learned.</returns>
     private ContentUsageScanner Analyse()
     {
-        var scanner = new ContentUsageScanner(Working);
-        var pages = Working.PageCount;
-        Report(PdfOptimizePhase.Analysing, 0, pages);
-        scanner.ScanDocument(page => Report(PdfOptimizePhase.Analysing, page, pages), _cancellationToken);
+        var scanner = ContentUsageScanner.Rent(Working, _cancellationToken);
+        _scanner = scanner;
+        Report(PdfOptimizePhase.Analysing, 0, Working.PageCount);
+        scanner.ScanDocument(_progress, _cancellationToken);
         return scanner;
     }
 
@@ -221,18 +253,18 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
         Report(PdfOptimizePhase.Editing, 0, 0);
         if (_options.Cleanup != PdfCleanupItems.None)
         {
-            CleanupPass.Run(Working, scanner, _options.Cleanup, Names, _report);
+            CleanupPass.Run(Working, scanner, _options.Cleanup, _report);
         }
 
         AddTextLayers();
         if (_options.AddInferredTags)
         {
-            InferredTagger.Run(Working, Names, _report, _cancellationToken);
+            InferredTagger.Run(Working, _options, _report, _source.Objects.ScratchPools, _cancellationToken);
         }
 
         if (_options.FixAccessibility)
         {
-            AccessibilityPass.Run(Working, _options, Names, _report);
+            AccessibilityPass.Run(Working, _options, _report);
         }
 
         ShareJbig2Dictionary(scanner);
@@ -287,11 +319,13 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
             _report.Noted(PdfOptimizeCategory.Safety, 0, "Encryption was removed, as the options asked.");
         }
 
-        var reached = OptimizerGraph.Collect(store, keepEncryption, null);
+        var reached = OptimizerGraph.Collect(store, keepEncryption, null, _resources);
+        _pendingGraph = reached;
         PlanImages(scanner, reached);
         if (_options.SubsetFonts)
         {
-            FontSubsetPlanner.Plan(Working, scanner, reached, _fontGlyphs, _report);
+            _fonts = FontPlanState.Rent(_resources);
+            FontSubsetPlanner.Plan(Working, scanner, reached, _fonts, _report, _cancellationToken);
         }
 
         CountUnused(reached);
@@ -299,14 +333,19 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
         var graph = reached;
         if (_options.RemoveDuplicates)
         {
-            var aliases = DuplicateFinder.Find(store, reached, _report, _cancellationToken);
-            MergeAliasedPlans(aliases);
-            graph = OptimizerGraph.Collect(store, keepEncryption, aliases);
+            _duplicates = DuplicateFinder.Find(store, reached, _report, _cancellationToken);
+            MergeAliasedPlans(_duplicates.Aliases);
+            graph = OptimizerGraph.Collect(store, keepEncryption, _duplicates.Aliases, _resources);
+            _pendingGraph = graph;
+            reached.Return();
         }
 
         var settings = new WriteSettings(UseObjectStreams(), keepEncryption, Version(store));
         Report(PdfOptimizePhase.Writing, 0, graph.Count);
-        return WritePlan.Rewrite(new(graph, store, settings, this));
+        var plan = WritePlan.Rewrite(OptimizedFileWriter.Rent(graph, store, settings, this));
+        _pendingGraph = null;
+        plan.SetUnmetUaClaim(_options.UnmetPdfUaClaim);
+        return plan;
     }
 
     /// <summary>Decides how JBIG2 may be used: not at all in a PDF/A-1 file, which forbids it.</summary>
@@ -442,8 +481,13 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
     /// <param name="target">The original.</param>
     private void MergeFont(int number, int target)
     {
-        var hasDuplicate = _fontGlyphs.TryGetValue(number, out var glyphs);
-        if (!_fontGlyphs.TryGetValue(target, out var kept))
+        if (_fonts is not { } fonts)
+        {
+            return;
+        }
+
+        var hasDuplicate = fonts.Kept.TryGetValue(number, out var glyphs);
+        if (!fonts.Kept.TryGetValue(target, out var kept))
         {
             return;
         }
@@ -455,7 +499,10 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
         }
 
         // The duplicate's fonts were not planned, so the shared program must keep every glyph.
-        _ = _fontGlyphs.Remove(target);
+        if (fonts.Kept.Remove(target, out var dropped))
+        {
+            fonts.Release(dropped);
+        }
     }
 
     /// <summary>Records an image used as a mask.</summary>
@@ -486,6 +533,30 @@ internal sealed partial class OptimizeSession : IObjectTransformer, IDisposable
                 _report.Measure(PdfOptimizeCategory.UnusedObjects, value.AsStream()?.RawLength ?? 0, 0);
             }
         }
+    }
+
+    /// <summary>Gives back everything the run leased and forgets the run's document and results.</summary>
+    private void ReleaseRun()
+    {
+        _plan?.Dispose();
+        _pendingGraph?.Return();
+        _pendingGraph = null;
+        _duplicates?.Return();
+        _scanner?.Return();
+        _plan = null;
+        _duplicates = null;
+        _scanner = null;
+        _fonts?.Dispose();
+        _fonts = null;
+        _images.Clear();
+        _masks.Clear();
+        _report.Reset();
+        _recoder.Clear();
+        _working = null;
+        _source = null!;
+        _options = default;
+        _progress = null;
+        _cancellationToken = default;
     }
 
     /// <summary>Reports progress.</summary>
