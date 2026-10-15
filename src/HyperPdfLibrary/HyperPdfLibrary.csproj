@@ -35,7 +35,7 @@
        build it references keeps the runtime async that Directory.Build.props turns on for net11.0.
        `dotnet pack` sets _IsPacking; HyperPdfPackageBuild=true forces the package codegen in any other build, and the
        NuGet release workflow (which builds before it packs) is detected from GITHUB_WORKFLOW_REF. -->
-  <PropertyGroup Condition="'$(_IsPacking)' == 'true' or '$(HyperPdfPackageBuild)' == 'true' or $(GITHUB_WORKFLOW_REF.Contains('/release-nuget.yml'))">
+  <PropertyGroup Condition="'$(_IsPacking)' == 'true' or '$(HyperPdfPackageBuild)' == 'true' or $(GITHUB_WORKFLOW_REF.Contains('/release.yml'))">
     <Features>$(Features.Replace('runtime-async=on', 'runtime-async=off'))</Features>
   </PropertyGroup>
 
