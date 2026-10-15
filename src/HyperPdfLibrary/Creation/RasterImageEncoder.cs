@@ -89,7 +89,7 @@ internal static class RasterImageEncoder
             return AddBgraAsJpeg(sink, image, jpeg, options, cancellationToken);
         }
 
-        var bytes = PdfJpegEncoder.Encode(image, jpeg, cancellationToken);
+        var bytes = PdfJpegEncoder.Encode(image, jpeg, ScratchFor(sink), cancellationToken);
         return sink.Add(PdfValue.FromStream(PdfImageWriter.CreateJpegStream(sink, bytes, options, out _)));
     }
 
@@ -246,6 +246,24 @@ internal static class RasterImageEncoder
         }
     }
 
+    /// <summary>Gets scratch storage owned by the document that receives this image.</summary>
+    /// <param name="sink">The destination for the image stream.</param>
+    /// <returns>The owner's scratch storage, or private storage for an external sink.</returns>
+    private static ScratchPools ScratchFor(IPdfObjectSink sink)
+    {
+        if (sink.Owner is { } owner)
+        {
+            return owner.ScratchPools;
+        }
+
+        if (sink is PdfDocumentBuilder builder)
+        {
+            return builder.ImageScratchPools;
+        }
+
+        return new();
+    }
+
     /// <summary>Adds a BGRA image as an RGB JPEG with a gray soft mask when any pixel is not opaque.</summary>
     /// <param name="sink">The document.</param>
     /// <param name="image">The image.</param>
@@ -261,7 +279,7 @@ internal static class RasterImageEncoder
         try
         {
             var opaque = Split(image.Pixels.Span[..(count * BgraBytes)], rgb, alpha);
-            var bytes = PdfJpegEncoder.Encode(rgb.AsSpan(0, count * RgbComponents), PdfJpegPixelFormat.Rgb24, image.Width, image.Height, jpeg, cancellationToken);
+            var bytes = PdfJpegEncoder.Encode(rgb.AsSpan(0, count * RgbComponents), PdfJpegPixelFormat.Rgb24, image.Width, image.Height, jpeg, ScratchFor(sink), cancellationToken);
             var color = PdfImageWriter.CreateJpegStream(sink, bytes, options, out _);
             if (!opaque)
             {

@@ -65,7 +65,7 @@ internal static class JpegEncoder
     internal static void Encode(ReadOnlySpan<byte> pixels, in JpegEncodeRequest request, ref PooledBuffer output, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         Validate(pixels, request);
-        var state = JpegEncoderState.Rent();
+        var state = JpegEncoderState.Rent(scratchPools);
         try
         {
             var geometry = Prepare(request, state, scratchPools);
@@ -75,7 +75,7 @@ internal static class JpegEncoder
         }
         finally
         {
-            JpegEncoderState.Return(state);
+            JpegEncoderState.Return(state, scratchPools);
         }
     }
 

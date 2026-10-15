@@ -151,7 +151,7 @@ internal ref partial struct JpegDecoder
         _data = data;
         _scratchPools = scratchPools;
         _cancellationToken = cancellationToken;
-        _state = JpegState.Rent();
+        _state = JpegState.Rent(scratchPools);
     }
 
     /// <summary>What to do after a marker segment.</summary>
@@ -218,7 +218,7 @@ internal ref partial struct JpegDecoder
         }
 
         _componentCount = 0;
-        JpegState.Return(_state);
+        JpegState.Return(_state, _scratchPools);
     }
 
     /// <summary>Maps a success flag to a step.</summary>

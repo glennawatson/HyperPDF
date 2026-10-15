@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images.Jpeg;
 
@@ -24,9 +23,6 @@ public static class PdfJpegEncoder
     /// <summary>The largest starting capacity.</summary>
     private const int MaxCapacity = 1 << 24;
 
-    /// <summary>The working arrays that calls without a document share, so repeated calls reuse them.</summary>
-    private static readonly ScratchPools SharedPools = new();
-
     /// <summary>Encodes pixels as a JPEG.</summary>
     /// <param name="pixels">The pixels, rows packed with no padding.</param>
     /// <param name="format">The layout of the pixels.</param>
@@ -39,9 +35,11 @@ public static class PdfJpegEncoder
     /// <exception cref="ArgumentOutOfRangeException">The size is not from 1 to 65535, or the format is not known.</exception>
     /// <exception cref="ArgumentException">The pixels do not fill the image.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static byte[] Encode(ReadOnlySpan<byte> pixels, PdfJpegPixelFormat format, int width, int height, PdfJpegOptions options, CancellationToken cancellationToken) =>
-        Encode(pixels, format, width, height, options, SharedPools, cancellationToken);
+    public static byte[] Encode(ReadOnlySpan<byte> pixels, PdfJpegPixelFormat format, int width, int height, PdfJpegOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return Encode(pixels, format, width, height, options, new(), cancellationToken);
+    }
 
     /// <summary>Encodes a raster image as a JPEG. A BGRA image is composited over white, because JPEG has no alpha.</summary>
     /// <param name="image">The pixels: gray, RGB or BGRA.</param>
@@ -55,8 +53,22 @@ public static class PdfJpegEncoder
     public static byte[] Encode(PdfRasterImage image, PdfJpegOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(options);
         image.Validate();
-        return Encode(image.Pixels.Span, FormatOf(image.Format), image.Width, image.Height, options, SharedPools, cancellationToken);
+        return Encode(image, options, new(), cancellationToken);
+    }
+
+    /// <summary>Encodes a raster image with scratch storage owned by its document.</summary>
+    /// <param name="image">The pixels: gray, RGB or BGRA.</param>
+    /// <param name="options">The coding options.</param>
+    /// <param name="scratchPools">The document's scratch storage.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    /// <returns>The JPEG file's bytes.</returns>
+    internal static byte[] Encode(PdfRasterImage image, PdfJpegOptions options, ScratchPools scratchPools, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        image.Validate();
+        return Encode(image.Pixels.Span, FormatOf(image.Format), image.Width, image.Height, options, scratchPools, cancellationToken);
     }
 
     /// <summary>Encodes pixels as a JPEG.</summary>
@@ -71,9 +83,11 @@ public static class PdfJpegEncoder
     /// <exception cref="ArgumentOutOfRangeException">The size is not from 1 to 65535, or the format is not known.</exception>
     /// <exception cref="ArgumentException">The pixels do not fill the image.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ValueTask<byte[]> EncodeAsync(ReadOnlyMemory<byte> pixels, PdfJpegPixelFormat format, int width, int height, PdfJpegOptions options, CancellationToken cancellationToken) =>
-        ValueTask.FromResult(Encode(pixels.Span, format, width, height, options, SharedPools, cancellationToken));
+    public static ValueTask<byte[]> EncodeAsync(ReadOnlyMemory<byte> pixels, PdfJpegPixelFormat format, int width, int height, PdfJpegOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return ValueTask.FromResult(Encode(pixels.Span, format, width, height, options, new(), cancellationToken));
+    }
 
     /// <summary>Encodes a raster image as a JPEG and writes it to a stream.</summary>
     /// <param name="image">The pixels: gray, RGB or BGRA.</param>
