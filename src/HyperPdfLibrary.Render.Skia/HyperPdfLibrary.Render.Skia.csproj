@@ -6,6 +6,11 @@
     <PackageId>HyperPdfLibrary.Render.Skia</PackageId>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+  <!-- HyperPdfLibrary depends on .NET 11 release-candidate packages under the go-live licence, so a stable pack of this
+       package trips NU5104 for the same reason. -->
+  <PropertyGroup Condition="$(TargetFrameworks.Contains('net11.0'))">
+    <NoWarn>$(NoWarn);NU5104</NoWarn>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../HyperPdfLibrary/HyperPdfLibrary.csproj" />
     <PackageReference Include="SkiaSharp" />
