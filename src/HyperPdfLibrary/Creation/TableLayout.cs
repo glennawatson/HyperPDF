@@ -26,17 +26,22 @@ internal ref struct TableLayout
     /// <param name="left">The left edge of the table.</param>
     internal TableLayout(PdfFlowTable table, PdfFlowOptions options, int columns, float left)
     {
+        var size = table.FontSize ?? options.BodySize;
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
+        var bodyFont = table.BodyFont ?? options.BodyFont;
+        var headerFont = table.HeaderFont ?? options.HeadingFont ?? bodyFont;
         Table = table;
         Columns = columns;
         HeaderRows = Math.Clamp(table.HeaderRows, 0, table.Rows.Count);
         Padding = table.CellPadding;
         Inset = table.CellPadding + table.CellPadding;
-        Size = options.BodySize;
-        Leading = options.BodySize * options.LineSpacing;
+        Size = size;
+        LineSpacing = options.LineSpacing;
+        Leading = size * options.LineSpacing;
         Margin = options.Margin;
         PageTop = options.PageHeight - options.Margin;
-        BodyFont = options.BodyFont;
-        HeaderFont = options.HeadingFont ?? options.BodyFont;
+        BodyFont = bodyFont;
+        HeaderFont = headerFont;
         Lefts = ArrayPool<float>.Shared.Rent(columns + 1);
         Lefts[0] = left;
         Starts = ArrayPool<int>.Shared.Rent(columns);
@@ -66,10 +71,13 @@ internal ref struct TableLayout
     /// <summary>Gets the padding on both sides of a cell together.</summary>
     internal readonly float Inset { get; }
 
-    /// <summary>Gets the font size.</summary>
+    /// <summary>Gets the default font size of the table.</summary>
     internal readonly float Size { get; }
 
-    /// <summary>Gets the line pitch.</summary>
+    /// <summary>Gets the line spacing multiplier of the flow.</summary>
+    internal readonly float LineSpacing { get; }
+
+    /// <summary>Gets the default line pitch of the table.</summary>
     internal readonly float Leading { get; }
 
     /// <summary>Gets the page margin, the lowest a row may reach.</summary>
@@ -78,10 +86,10 @@ internal ref struct TableLayout
     /// <summary>Gets the top of the text area of a page.</summary>
     internal readonly float PageTop { get; }
 
-    /// <summary>Gets the font of body rows.</summary>
+    /// <summary>Gets the default font of body rows.</summary>
     internal readonly PdfCanvasFont BodyFont { get; }
 
-    /// <summary>Gets the font of header rows.</summary>
+    /// <summary>Gets the default font of header rows.</summary>
     internal readonly PdfCanvasFont HeaderFont { get; }
 
     /// <summary>Gets the x of each column's left edge, then the right edge of the last column.</summary>
@@ -115,15 +123,36 @@ internal ref struct TableLayout
     /// <summary>Gets or sets a value indicating whether an artifact is open around the content being drawn.</summary>
     internal bool InArtifact { get; set; }
 
-    /// <summary>Gets the font of a row.</summary>
+    /// <summary>Gets the default font of a row.</summary>
     /// <param name="header">Whether the row is a header row.</param>
     /// <returns>The font.</returns>
     internal readonly PdfCanvasFont GetFont(bool header) => header ? HeaderFont : BodyFont;
+
+    /// <summary>Gets the font of a specific cell, falling back to the row's default font.</summary>
+    /// <param name="row">The row.</param>
+    /// <param name="column">The column.</param>
+    /// <param name="header">Whether the row is a header row.</param>
+    /// <returns>The font.</returns>
+    internal readonly PdfCanvasFont GetCellFont(PdfTableRow row, int column, bool header) =>
+        (column < row.Cells.Count ? row.Cells[column].Font : null) ?? GetFont(header);
+
+    /// <summary>Gets the text colour of a specific cell, falling back to the table's default text colour.</summary>
+    /// <param name="row">The row.</param>
+    /// <param name="column">The column.</param>
+    /// <returns>The RGB colour.</returns>
+    internal readonly PdfRgbColor GetCellColor(PdfTableRow row, int column) =>
+        (column < row.Cells.Count ? row.Cells[column].TextColor : null) ?? Table.TextColor;
 
     /// <summary>Gets the width of a column.</summary>
     /// <param name="column">The column.</param>
     /// <returns>The width including padding.</returns>
     internal readonly float GetWidth(int column) => Lefts[column + 1] - Lefts[column];
+
+    /// <summary>Gets the combined width of a range of columns.</summary>
+    /// <param name="column">The start column.</param>
+    /// <param name="span">The number of spanned columns.</param>
+    /// <returns>The combined width including padding.</returns>
+    internal readonly float GetSpanWidth(int column, int span) => Lefts[column + span] - Lefts[column];
 
     /// <summary>Gets how the text of a cell lines up.</summary>
     /// <param name="row">The row.</param>
@@ -132,6 +161,20 @@ internal ref struct TableLayout
     internal readonly PdfTableAlignment GetAlignment(PdfTableRow row, int column)
     {
         if (column < row.Cells.Count && row.Cells[column].Alignment is { } own)
+        {
+            return own;
+        }
+
+        return column < Table.ColumnAlignments.Count ? Table.ColumnAlignments[column] : PdfTableAlignment.Left;
+    }
+
+    /// <summary>Gets how a specific cell's content lines up.</summary>
+    /// <param name="cell">The cell, or <see langword="null"/>.</param>
+    /// <param name="column">The starting column of the cell.</param>
+    /// <returns>The alignment.</returns>
+    internal readonly PdfTableAlignment GetCellAlignment(PdfTableCell? cell, int column)
+    {
+        if (cell?.Alignment is { } own)
         {
             return own;
         }

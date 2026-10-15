@@ -31,4 +31,16 @@ public sealed record PdfFlowOptions(PdfCanvasFont BodyFont)
 
     /// <summary>Gets a value indicating whether each page gets its number at the bottom, as a pagination artifact.</summary>
     public bool PageNumbers { get; init; }
+
+    /// <summary>Gets how the page number lines up between the left and right page margins; the default is <see cref="PdfTableAlignment.Center"/>.</summary>
+    public PdfTableAlignment PageNumberAlignment { get; init; } = PdfTableAlignment.Center;
+
+    /// <summary>Gets the distance in points from the bottom of the page to the page number's baseline, or <see langword="null"/> to place it halfway up the bottom margin.</summary>
+    public float? PageNumberOffset { get; init; }
+
+    /// <summary>Gets text placed immediately before the page number when <see cref="PageNumbers"/> is <see langword="true"/>.</summary>
+    public string PageNumberPrefix { get; init; } = string.Empty;
+
+    /// <summary>Gets text placed immediately after the page number when <see cref="PageNumbers"/> is <see langword="true"/>.</summary>
+    public string PageNumberSuffix { get; init; } = string.Empty;
 }
