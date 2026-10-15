@@ -256,12 +256,7 @@ internal static class RasterImageEncoder
             return owner.ScratchPools;
         }
 
-        if (sink is PdfDocumentBuilder builder)
-        {
-            return builder.ImageScratchPools;
-        }
-
-        return new();
+        return sink is PdfDocumentBuilder builder ? builder.ImageScratchPools : new();
     }
 
     /// <summary>Adds a BGRA image as an RGB JPEG with a gray soft mask when any pixel is not opaque.</summary>

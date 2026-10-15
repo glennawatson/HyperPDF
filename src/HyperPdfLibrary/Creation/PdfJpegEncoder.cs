@@ -58,19 +58,6 @@ public static class PdfJpegEncoder
         return Encode(image, options, new(), cancellationToken);
     }
 
-    /// <summary>Encodes a raster image with scratch storage owned by its document.</summary>
-    /// <param name="image">The pixels: gray, RGB or BGRA.</param>
-    /// <param name="options">The coding options.</param>
-    /// <param name="scratchPools">The document's scratch storage.</param>
-    /// <param name="cancellationToken">Cancels the encode.</param>
-    /// <returns>The JPEG file's bytes.</returns>
-    internal static byte[] Encode(PdfRasterImage image, PdfJpegOptions options, ScratchPools scratchPools, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(image);
-        image.Validate();
-        return Encode(image.Pixels.Span, FormatOf(image.Format), image.Width, image.Height, options, scratchPools, cancellationToken);
-    }
-
     /// <summary>Encodes pixels as a JPEG.</summary>
     /// <param name="pixels">The pixels, rows packed with no padding.</param>
     /// <param name="format">The layout of the pixels.</param>
@@ -104,6 +91,19 @@ public static class PdfJpegEncoder
         ArgumentNullException.ThrowIfNull(destination);
         var jpeg = Encode(image, options, cancellationToken);
         await destination.WriteAsync(jpeg, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Encodes a raster image with scratch storage owned by its document.</summary>
+    /// <param name="image">The pixels: gray, RGB or BGRA.</param>
+    /// <param name="options">The coding options.</param>
+    /// <param name="scratchPools">The document's scratch storage.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    /// <returns>The JPEG file's bytes.</returns>
+    internal static byte[] Encode(PdfRasterImage image, PdfJpegOptions options, ScratchPools scratchPools, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        image.Validate();
+        return Encode(image.Pixels.Span, FormatOf(image.Format), image.Width, image.Height, options, scratchPools, cancellationToken);
     }
 
     /// <summary>Encodes pixels into caller-owned pooled storage.</summary>

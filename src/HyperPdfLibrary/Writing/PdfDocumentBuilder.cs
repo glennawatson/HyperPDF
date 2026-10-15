@@ -68,14 +68,14 @@ public sealed class PdfDocumentBuilder : IPdfObjectSink
     /// <inheritdoc/>
     public PdfFontEmbeddingState? ExistingFontEmbedding => _fontEmbedding;
 
-    /// <summary>Gets scratch storage owned by this builder's image encoders.</summary>
-    internal ScratchPools ImageScratchPools => _imageScratchPools ??= new();
-
     /// <summary>Gets the number of pages added.</summary>
     public int PageCount => _pages.Count;
 
     /// <summary>Gets the number of objects, including the catalog and page tree.</summary>
     public int ObjectCount => _objects.Count;
+
+    /// <summary>Gets scratch storage owned by this builder's image encoders.</summary>
+    internal ScratchPools ImageScratchPools => _imageScratchPools ??= new();
 
     /// <summary>Gets or sets the catalog entries besides /Type and /Pages, such as /AcroForm, /Outlines and /PageLabels.</summary>
     internal PdfDictionary CatalogEntries { get; set; } = new(null);
