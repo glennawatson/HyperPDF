@@ -281,11 +281,39 @@ jobs:
           artifacts/hyperpdf-*.app.zip
         if-no-files-found: error
 
+  pack-nuget:
+    name: Pack the NuGet libraries
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - name: Setup .NET Environment
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      with:
+        src-folder: '.'
+        stamp-version: 'false'
+        dotnet-versions: |
+          10.x
+          11.x
+    - name: Pack HyperPdfLibrary
+      run: dotnet pack src/HyperPdfLibrary/HyperPdfLibrary.csproj -c Release -o artifacts/nuget "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
+    - name: Pack HyperPdfLibrary.Render.Skia
+      run: dotnet pack src/HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj -c Release -o artifacts/nuget "-p:Version=$VERSION" "-p:MinVerVersionOverride=$VERSION"
+    - name: Upload the packages
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: nuget-unsigned
+        path: artifacts/nuget/*.nupkg
+        if-no-files-found: error
+
   # One Linux job signs in to the token once and signs everything. The Windows installers are built here so they
   # hold the signed executables.
   sign:
     name: Sign everything
-    needs: [version, publish-windows, package-linux, package-macos]
+    needs: [version, publish-windows, package-linux, package-macos, pack-nuget]
     runs-on: ubuntu-latest
     environment:
       name: release
@@ -321,6 +349,11 @@ jobs:
         pattern: packages-*
         merge-multiple: true
         path: release
+    - name: Download the unsigned NuGet packages
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: nuget-unsigned
+        path: artifacts/nuget
     # certum-sign matches wildcards in file names only, so both executables share one folder while they are signed.
     - name: Gather the executables
       run: |
@@ -332,6 +365,7 @@ jobs:
       with:
         authenticode: 'artifacts/exe/*.exe'
         rpm: 'release/*.rpm'
+        nuget: 'artifacts/nuget/*.nupkg'
     - name: Return the executables
       run: |
         mv artifacts/exe/hyperpdf-win-x64.exe artifacts/win-x64/hyperpdf.exe
@@ -466,6 +500,12 @@ jobs:
         path: release
         include-hidden-files: true
         if-no-files-found: error
+    - name: Upload the signed NuGet packages
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: nuget-signed
+        path: artifacts/nuget/*.nupkg
+        if-no-files-found: error
 
   verify-linux:
     name: Verify ${{ matrix.rid }} DEB and AppImage
@@ -589,9 +629,40 @@ jobs:
         app: Hyper PDF Viewer.app
         signed: 'true'
 
+  publish-nuget:
+    name: Publish to NuGet
+    needs: [version, verify-linux, verify-rpm, verify-windows, verify-macos]
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+    - name: Setup .NET Environment
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      with:
+        stamp-version: 'false'
+        dotnet-versions: |
+          11.x
+    - name: Download signed packages
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: nuget-signed
+        path: signed
+    - name: NuGet login (OIDC trusted publishing)
+      id: nuget-login
+      uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+      with:
+        user: ${{ secrets.NUGET_USER }}
+    - name: Push to NuGet
+      env:
+        NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+      run: dotnet nuget push "signed/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
+
   release:
     name: Create release (${{ needs.version.outputs.version }})
-    needs: [version, verify-linux, verify-rpm, verify-windows, verify-macos]
+    needs: [version, verify-linux, verify-rpm, verify-windows, verify-macos, publish-nuget]
     permissions:
       contents: write
     uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
