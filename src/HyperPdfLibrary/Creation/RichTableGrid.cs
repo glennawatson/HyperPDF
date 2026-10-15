@@ -128,7 +128,7 @@ internal sealed class RichTableGrid
     /// <param name="table">The table to validate.</param>
     internal static void ValidateTable(PdfFlowTable table)
     {
-        table.TextColor?.Validate();
+        table.TextColor.Validate();
         for (var r = 0; r < table.Rows.Count; r++)
         {
             var row = table.Rows[r];
