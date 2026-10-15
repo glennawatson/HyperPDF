@@ -72,13 +72,13 @@ public sealed class FlowCodeBlockTests
     private const int Dark = 128;
 
     /// <summary>The red channel of the code block background.</summary>
-    private const float BgRed = 0.92F;
+    private const float FillRed = 0.92F;
 
     /// <summary>The green channel of the code block background.</summary>
-    private const float BgGreen = 0.94F;
+    private const float FillGreen = 0.94F;
 
     /// <summary>The blue channel of the code block background.</summary>
-    private const float BgBlue = 0.98F;
+    private const float FillBlue = 0.98F;
 
     /// <summary>The number of spaces per tab in the custom tab test.</summary>
     private const int CustomTabSpaces = 4;
@@ -108,14 +108,7 @@ public sealed class FlowCodeBlockTests
     {
         var creator = CreateCreator(tagged: false);
         var font = creator.EmbedFont(CreationTestKit.OpenFont());
-        var code = new PdfFlowCodeBlock("Alpha\n\n\tBeta")
-        {
-            Font = font,
-            FontSize = CodeFontSize,
-            Padding = BoxPadding,
-            Indent = 0F,
-            TabSpaces = CustomTabSpaces,
-        };
+        var code = new PdfFlowCodeBlock("Alpha\n\n\tBeta") { Font = font, FontSize = CodeFontSize, Padding = BoxPadding, Indent = 0F, TabSpaces = CustomTabSpaces };
 
         _ = PdfTextFlow.Add(creator, [code], CreateOptions(font), CancellationToken.None);
         var pdf = creator.ToArray();
@@ -138,24 +131,16 @@ public sealed class FlowCodeBlockTests
     {
         var creator = CreateCreator(tagged: false);
         var font = creator.EmbedFont(CreationTestKit.OpenFont());
-        var bg = new PdfRgbColor(BgRed, BgGreen, BgBlue);
-        var code = new PdfFlowCodeBlock("int x = 1;")
-        {
-            Font = font,
-            FontSize = CodeFontSize,
-            Padding = BoxPadding,
-            Indent = BoxIndent,
-            BackgroundColor = bg,
-            Border = PdfStroke.Black(BorderWidth),
-        };
+        var fill = new PdfRgbColor(FillRed, FillGreen, FillBlue);
+        var code = new PdfFlowCodeBlock("int x = 1;") { Font = font, FontSize = CodeFontSize, Padding = BoxPadding, Indent = BoxIndent, BackgroundColor = fill, Border = PdfStroke.Black(BorderWidth) };
 
         _ = PdfTextFlow.Add(creator, [code], CreateOptions(font), CancellationToken.None);
         var render = RenderAt(creator.ToArray(), 0);
-        var bgPixel = CreationTestKit.PixelAt(render, BoxSampleCol, BoxSampleRow);
+        var fillPixel = CreationTestKit.PixelAt(render, BoxSampleCol, BoxSampleRow);
 
         await Assert.That(IsDark(render, IndentedLeftEdge, BoxSampleRow)).IsTrue();
         await Assert.That(IsDark(render, BeforeIndentedBox, BoxSampleRow)).IsFalse();
-        await Assert.That(bgPixel.Red < byte.MaxValue && bgPixel.Red > Dark).IsTrue();
+        await Assert.That(fillPixel.Red < byte.MaxValue && fillPixel.Red > Dark).IsTrue();
     }
 
     /// <summary><see cref="PdfCodeOverflow.Wrap"/>, <see cref="PdfCodeOverflow.WrapCharacters"/> and <see cref="PdfCodeOverflow.Clip"/> handle overlong lines as configured.</summary>
@@ -185,16 +170,7 @@ public sealed class FlowCodeBlockTests
         var manyLines = string.Join('\n', Enumerable.Range(0, LongCodeLines).Select(static i => $"line_{i:D3} = {i};"));
         var standaloneCode = new PdfFlowCodeBlock(manyLines) { Font = font, FontSize = CodeFontSize, Border = PdfStroke.Black(1F) };
         var cellCode = new PdfFlowCodeBlock("return 0;") { Font = font, FontSize = CodeFontSize };
-        var table = new PdfFlowTable(
-        [
-            PdfTableRow.FromText("Snippet", "Code"),
-            new PdfTableRow([new PdfTableCell("Main"), new PdfTableCell(cellCode)]),
-        ])
-        {
-            HeaderRows = 1,
-            ColumnWidths = [FirstColWidth, SecondColWidth],
-            Border = PdfStroke.Black(1F),
-        };
+        var table = new PdfFlowTable([PdfTableRow.FromText("Key", "Code"), new([new("Main"), new(cellCode)])]) { ColumnWidths = [FirstColWidth, SecondColWidth], Border = PdfStroke.Black(1F) };
 
         var pages = PdfTextFlow.Add(creator, [new PdfFlowHeading(1, "Code Report"), table, standaloneCode], CreateOptions(font), cancellationToken);
         var report = creator.Finish();
@@ -249,13 +225,7 @@ public sealed class FlowCodeBlockTests
     {
         var creator = CreateCreator(tagged: false);
         var font = creator.EmbedFont(CreationTestKit.OpenFont());
-        var block = new PdfFlowCodeBlock(text)
-        {
-            Font = font,
-            FontSize = CodeFontSize,
-            Overflow = overflow,
-            Border = PdfStroke.Black(BorderWidth),
-        };
+        var block = new PdfFlowCodeBlock(text) { Font = font, FontSize = CodeFontSize, Overflow = overflow, Border = PdfStroke.Black(BorderWidth) };
         _ = PdfTextFlow.Add(creator, [block], CreateOptions(font), CancellationToken.None);
         var render = RenderAt(creator.ToArray(), 0);
         bottom = LastDarkRow(render, (int)Margin);

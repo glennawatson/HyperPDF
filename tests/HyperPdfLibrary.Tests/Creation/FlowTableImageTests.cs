@@ -11,7 +11,7 @@ using HyperPdfLibrary.Tests.Rendering;
 
 namespace HyperPdfLibrary.Tests.Creation;
 
-/// <summary>Inline images inside flow table cells (<see cref="PdfTableCell"/> with <see cref="PdfFlowImage"/>): scaling, aspect ratio, alignment, mixed text+image cells, pagination and tagging.</summary>
+/// <summary>Inline images inside flow table cells (<see cref="PdfFlowImage"/>): scaling, aspect ratio, alignment, pagination and tagging.</summary>
 public sealed class FlowTableImageTests
 {
     /// <summary>The width of the test pages.</summary>
@@ -97,15 +97,7 @@ public sealed class FlowTableImageTests
         var createdImage = creator.AddRaster(CreateRedRectangle(), PdfImageOptions.Default, cancellationToken);
         var flowImage = new PdfFlowImage(createdImage, "Red rectangle", OversizedImagePoints);
 
-        var table = new PdfFlowTable(
-        [
-            new PdfTableRow([new PdfTableCell(flowImage), new PdfTableCell("Short")]),
-        ])
-        {
-            HeaderRows = 0,
-            ColumnWidths = [NarrowColWidth, NarrowColWidth],
-            Border = PdfStroke.Black(BorderWidth),
-        };
+        var table = new PdfFlowTable([new PdfTableRow([new(flowImage), new("Short")])]) { HeaderRows = 0, ColumnWidths = [NarrowColWidth, NarrowColWidth], Border = PdfStroke.Black(BorderWidth) };
 
         _ = PdfTextFlow.Add(creator, [table], CreateOptions(font), cancellationToken);
         var render = RenderAt(creator.ToArray(), 0);
@@ -149,15 +141,10 @@ public sealed class FlowTableImageTests
         for (var i = 0; i < MultiPageImageRows; i++)
         {
             var img = new PdfFlowImage(createdImage, $"Diagram {i:D2}", SmallImagePoints);
-            rows.Add(new([new PdfTableCell($"Row{i:D2}"), new PdfTableCell(img, $"Caption{i:D2}")]));
+            rows.Add(new([new($"Row{i:D2}"), new(img, $"Caption{i:D2}")]));
         }
 
-        var table = new PdfFlowTable(rows)
-        {
-            HeaderRows = 1,
-            ColumnWidths = [NarrowColWidth, WideColWidth],
-            Border = PdfStroke.Black(1F),
-        };
+        var table = new PdfFlowTable(rows) { HeaderRows = 1, ColumnWidths = [NarrowColWidth, WideColWidth], Border = PdfStroke.Black(1F) };
 
         var pages = PdfTextFlow.Add(creator, [new PdfFlowHeading(1, "Visual Table"), table], CreateOptions(font), cancellationToken);
         var report = creator.Finish();
@@ -188,12 +175,7 @@ public sealed class FlowTableImageTests
         var createdImage = creator.AddRaster(CreateRedRectangle(), PdfImageOptions.Default, cancellationToken);
         var flowImage = new PdfFlowImage(createdImage, "Icon", SmallImagePoints);
         var cell = new PdfTableCell(flowImage) { Alignment = alignment };
-        var table = new PdfFlowTable([new PdfTableRow([cell])])
-        {
-            HeaderRows = 0,
-            ColumnWidths = [WideColWidth],
-            Border = PdfStroke.Black(BorderWidth),
-        };
+        var table = new PdfFlowTable([new PdfTableRow([cell])]) { HeaderRows = 0, ColumnWidths = [WideColWidth], Border = PdfStroke.Black(BorderWidth) };
 
         _ = PdfTextFlow.Add(creator, [table], CreateOptions(font), cancellationToken);
         var render = RenderAt(creator.ToArray(), 0);

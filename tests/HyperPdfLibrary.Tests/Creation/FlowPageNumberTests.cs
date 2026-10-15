@@ -109,7 +109,7 @@ public sealed class FlowPageNumberTests
             PageHeight = PortraitHeight,
             Margin = Margin,
             BodySize = BodySize,
-            NumberPages = true,
+            PageNumbers = true,
             PageNumberAlignment = PdfTableAlignment.Right,
             PageNumberPrefix = "Page ",
             PageNumberSuffix = " of 2",
@@ -130,8 +130,8 @@ public sealed class FlowPageNumberTests
     [Test]
     public async Task InvalidPageNumberOffsetThrows()
     {
-        await Assert.That(() => RenderWithOffset(NegativeOffset)).ThrowsExactly<ArgumentOutOfRangeException>();
-        await Assert.That(() => RenderWithOffset(PortraitHeight)).ThrowsExactly<ArgumentOutOfRangeException>();
+        await Assert.That(static () => RenderWithOffset(NegativeOffset)).ThrowsExactly<ArgumentOutOfRangeException>();
+        await Assert.That(static () => RenderWithOffset(PortraitHeight)).ThrowsExactly<ArgumentOutOfRangeException>();
     }
 
     /// <summary>Renders a single page with the given page-number alignment and returns the horizontal ink span in the footer band.</summary>
@@ -151,7 +151,7 @@ public sealed class FlowPageNumberTests
             PageHeight = height,
             Margin = Margin,
             BodySize = BodySize,
-            NumberPages = true,
+            PageNumbers = true,
             PageNumberAlignment = alignment,
             PageNumberPrefix = "P",
         };
@@ -204,15 +204,7 @@ public sealed class FlowPageNumberTests
     {
         var creator = new PdfDocumentCreator(PdfDocumentCreatorOptions.Default);
         var font = creator.EmbedFont(CreationTestKit.OpenFont());
-        var options = new PdfFlowOptions(font)
-        {
-            PageWidth = PortraitWidth,
-            PageHeight = PortraitHeight,
-            Margin = Margin,
-            BodySize = BodySize,
-            NumberPages = true,
-            PageNumberOffset = offset,
-        };
+        var options = new PdfFlowOptions(font) { PageWidth = PortraitWidth, PageHeight = PortraitHeight, Margin = Margin, BodySize = BodySize, PageNumbers = true, PageNumberOffset = offset };
 
         _ = PdfTextFlow.Add(creator, [new PdfFlowParagraph("Body")], options, CancellationToken.None);
         return RenderAt(creator.ToArray(), 0);
