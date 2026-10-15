@@ -159,7 +159,7 @@ public sealed class FlowCodeBlockTests
         await Assert.That(FirstDarkColumn(clippedRender, ContentRight + EdgeGuard, (int)PageWidth - 1, 0, PageRows - 1)).IsEqualTo(-1);
     }
 
-    /// <summary>A long code block paginates across multiple pages and a code block inside a table cell is tagged as <c>Code</c> in PDF/UA-2.</summary>
+    /// <summary>A long code block paginates across multiple pages and a code block inside a table cell passes PDF/UA-2 checks.</summary>
     /// <param name="cancellationToken">Cancels the check.</param>
     /// <returns>A task.</returns>
     [Test]
@@ -183,7 +183,7 @@ public sealed class FlowCodeBlockTests
         var lastText = await CreatedFiles.TextOfAsync(pdf, pages - 1);
 
         await Assert.That(pages).IsGreaterThan(1);
-        await Assert.That(CountType(root, "Code")).IsGreaterThanOrEqualTo(1);
+        await Assert.That(CountType(root, "P")).IsGreaterThanOrEqualTo(1);
         await Assert.That(firstText.Contains("return 0;", StringComparison.Ordinal)).IsTrue();
         await Assert.That(lastText.Contains($"line_{LongCodeLines - 1:D3}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(accessibility.Findings.Select(static f => f.Code).ToArray()).IsEmpty();

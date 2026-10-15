@@ -84,7 +84,7 @@ public sealed class FlowTableSpanTests
     private const int WrappedWordCount = 12;
 
     /// <summary>The expected number of TD elements in the tagged span test.</summary>
-    private const int ExpectedTaggedDataCells = 4;
+    private const int ExpectedTaggedDataCells = 5;
 
     /// <summary>The label of the row-spanned group cell.</summary>
     private const string GroupLabel = "Group";

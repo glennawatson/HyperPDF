@@ -35,7 +35,7 @@ internal static class PdfCodeFlow
         try
         {
             WrapCode(font, block.FontSize, expanded, innerWidth, block.Overflow, ref lines);
-            var element = run.Creator.Tags is { } tags ? tags.AddElement(tags.Root, "Code") : null;
+            var element = run.Creator.Tags is { } tags ? tags.AddElement(tags.Root, "P") : null;
             WritePages(ref run, block, expanded, ref lines, element);
         }
         finally
@@ -57,6 +57,8 @@ internal static class PdfCodeFlow
         ArgumentOutOfRangeException.ThrowIfNegative(block.Padding);
         ArgumentOutOfRangeException.ThrowIfNegative(block.Indent);
         ArgumentOutOfRangeException.ThrowIfNegative(block.TabSpaces);
+        block.TextColor.Validate();
+        block.BackgroundColor?.Validate();
     }
 
     /// <summary>Expands tab characters into spaces when any tab is present.</summary>
