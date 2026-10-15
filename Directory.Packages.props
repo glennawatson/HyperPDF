@@ -72,7 +72,7 @@
     <PackageVersion Include="TUnit" Version="$(TUnitVersion)" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.16.0-preview.2" />
-    <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.2.8" />
+    <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="4.0.0" />
   </ItemGroup>
 
   <!-- Each target framework takes the package of its own release: the .NET 11 package refers to types
