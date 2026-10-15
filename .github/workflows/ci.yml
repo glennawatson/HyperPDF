@@ -20,63 +20,6 @@ jobs:
       dotnetVersions: |
         11.x
         10.x
-  macos-test-diagnostics:
-    name: Mac test diagnostics (${{ matrix.project }})
-    runs-on: macos-latest
-    timeout-minutes: 50
-    strategy:
-      fail-fast: false
-      matrix:
-        project: [HyperPdf.App.Tests, HyperPdf.Engine.Tests]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@b824c637960b1886a6a30a2526856bbf017661cf
-        with:
-          src-folder: '.'
-          stamp-version: 'false'
-          dotnet-versions: '11.x'
-      - name: Build the test project
-        run: dotnet build "tests/${{ matrix.project }}/${{ matrix.project }}.csproj" --configuration Release --framework net11.0
-      - name: Run tests with a process deadline
-        run: dotnet run --file scripts/RunBoundedTests.cs -- "tests/${{ matrix.project }}/${{ matrix.project }}.csproj" net11.0 "${{ runner.temp }}/macos-test-diagnostics/${{ matrix.project }}" 25m 00:28:00
-      - name: Upload test diagnostics
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: macos-test-diagnostics-${{ matrix.project }}
-          path: ${{ runner.temp }}/macos-test-diagnostics/${{ matrix.project }}
-          if-no-files-found: warn
-  macos-solution-diagnostics:
-    name: Mac solution test diagnostics
-    if: github.event_name == 'pull_request'
-    runs-on: macos-latest
-    timeout-minutes: 50
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@b824c637960b1886a6a30a2526856bbf017661cf
-        with:
-          src-folder: '.'
-          stamp-version: 'false'
-          dotnet-versions: |
-            11.x
-            10.x
-      - name: Build the solution
-        run: dotnet build HyperPdf.slnx --configuration Release
-      - name: Run solution tests with a process deadline
-        run: dotnet run --file scripts/RunBoundedTests.cs -- HyperPdf.slnx all "${{ runner.temp }}/macos-solution-diagnostics" 25m 00:28:00
-      - name: Upload solution test diagnostics
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: macos-solution-test-diagnostics
-          path: |
-            **/TestResults/**
-            ${{ runner.temp }}/macos-solution-diagnostics
-          if-no-files-found: warn
   rendering-comparison:
     name: Standards and reference rendering
     runs-on: ubuntu-26.04
