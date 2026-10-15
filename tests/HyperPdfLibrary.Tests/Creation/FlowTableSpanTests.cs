@@ -86,6 +86,9 @@ public sealed class FlowTableSpanTests
     /// <summary>The expected number of TD elements in the tagged span test.</summary>
     private const int ExpectedTaggedDataCells = 4;
 
+    /// <summary>The label of the row-spanned group cell.</summary>
+    private const string GroupLabel = "Group";
+
     /// <summary>A cell with <c>ColumnSpan &gt; 1</c> spans the combined width of the covered columns and omits the interior vertical border.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -93,12 +96,7 @@ public sealed class FlowTableSpanTests
     {
         var row0 = new PdfTableRow([new PdfTableCell("Merged") { ColumnSpan = SpanTwo }, new("C")]);
         var row1 = PdfTableRow.FromText("A", "B", "C");
-        var table = new PdfFlowTable([row0, row1])
-        {
-            HeaderRows = 0,
-            ColumnWidths = [ColWidth, ColWidth, ColWidth],
-            Border = PdfStroke.Black(BorderWidth),
-        };
+        var table = new PdfFlowTable([row0, row1]) { HeaderRows = 0, ColumnWidths = [ColWidth, ColWidth, ColWidth], Border = PdfStroke.Black(BorderWidth) };
 
         var render = RenderFirstPage(table);
 
@@ -118,16 +116,11 @@ public sealed class FlowTableSpanTests
     {
         var sectionRow = new PdfTableRow([new PdfTableCell("Section") { ColumnSpan = ThreeColumns, Alignment = PdfTableAlignment.Center }]);
         var dataRow = PdfTableRow.FromText("One", "Two", "Three");
-        var table = new PdfFlowTable([sectionRow, dataRow])
-        {
-            HeaderRows = 0,
-            ColumnWidths = [ColWidth, ColWidth, ColWidth],
-            Border = PdfStroke.Black(BorderWidth),
-        };
+        var table = new PdfFlowTable([sectionRow, dataRow]) { HeaderRows = 0, ColumnWidths = [ColWidth, ColWidth, ColWidth], Border = PdfStroke.Black(BorderWidth) };
 
         var render = RenderFirstPage(table);
         var ink = FindHorizontalInk(render, TableLeft + ScanInset, TableRight - ScanInset, RowZeroTextTop, RowZeroTextBottom);
-        var expectedCenter = (TableLeft + TableRight) * Half;
+        const float expectedCenter = (TableLeft + TableRight) * Half;
         var actualCenter = (ink.First + ink.Last) * Half;
 
         await Assert.That(IsDark(render, FirstDivider, RowZeroGapY)).IsFalse();
@@ -140,14 +133,9 @@ public sealed class FlowTableSpanTests
     [Test]
     public async Task RowSpanCoversMultipleRowsAndShiftsSubsequentCells()
     {
-        var row0 = new PdfTableRow([new PdfTableCell("Group") { RowSpan = SpanTwo }, new("R0C1"), new("R0C2")]);
+        var row0 = new PdfTableRow([new PdfTableCell(GroupLabel) { RowSpan = SpanTwo }, new("R0C1"), new("R0C2")]);
         var row1 = new PdfTableRow([new("R1C1"), new("R1C2")]);
-        var table = new PdfFlowTable([row0, row1])
-        {
-            HeaderRows = 0,
-            ColumnWidths = [ColWidth, ColWidth, ColWidth],
-            Border = PdfStroke.Black(BorderWidth),
-        };
+        var table = new PdfFlowTable([row0, row1]) { HeaderRows = 0, ColumnWidths = [ColWidth, ColWidth, ColWidth], Border = PdfStroke.Black(BorderWidth) };
 
         var pdf = CreatePdf(table, out _);
         var render = RenderAt(pdf, 0);
@@ -158,7 +146,7 @@ public sealed class FlowTableSpanTests
         await Assert.That(IsDark(render, TableLeft + (int)(ColWidth * Half), boundaryY)).IsFalse();
         await Assert.That(IsDark(render, FirstDivider + (int)(ColWidth * Half), boundaryY)).IsTrue();
         await Assert.That(IsDark(render, SecondDivider + (int)(ColWidth * Half), boundaryY)).IsTrue();
-        await Assert.That(text).Contains("Group");
+        await Assert.That(text).Contains(GroupLabel);
         await Assert.That(text).Contains("R0C1");
         await Assert.That(text).Contains("R1C1");
         await Assert.That(text).Contains("R1C2");
@@ -176,12 +164,7 @@ public sealed class FlowTableSpanTests
             new([new PdfTableCell("Side") { RowSpan = SpanTwo }, new PdfTableCell(wrapped) { ColumnSpan = SpanTwo }]),
             new([new("LeftVal"), new("RightVal")]),
         ];
-        var table = new PdfFlowTable(rows)
-        {
-            HeaderRows = 1,
-            ColumnWidths = [ColWidth, ColWidth, ColWidth],
-            Border = PdfStroke.Black(BorderWidth),
-        };
+        var table = new PdfFlowTable(rows) { HeaderRows = 1, ColumnWidths = [ColWidth, ColWidth, ColWidth], Border = PdfStroke.Black(BorderWidth) };
 
         var pdf = CreatePdf(table, out var pages);
         var text = await CreatedFiles.TextOfAsync(pdf, 0);
@@ -202,10 +185,7 @@ public sealed class FlowTableSpanTests
     [Test]
     public async Task SpannedTableAcrossPageBreaksPreservesAllTextWithoutDuplication()
     {
-        var rows = new List<PdfTableRow>
-        {
-            new([new("Group"), new PdfTableCell("Details") { ColumnSpan = SpanTwo }]),
-        };
+        var rows = new List<PdfTableRow> { new([new(GroupLabel), new PdfTableCell("Details") { ColumnSpan = SpanTwo }]) };
         for (var g = 0; g < MultiPageGroups; g++)
         {
             rows.Add(new([new PdfTableCell($"Grp{g:D2}") { RowSpan = SpanTwo }, new($"KeyA{g:D2}"), new($"ValA{g:D2}")]));
