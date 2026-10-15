@@ -53,5 +53,5 @@ internal readonly record struct PdfRenderCacheKey(long ImageCacheBytes, bool Sim
     /// <param name="hidden">The normalized names.</param>
     /// <returns>The text; empty for none.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static string Join(ImmutableArray<string> hidden) => string.Join(PdfRenderCacheKey.Separator, hidden);
+    internal static string Join(ImmutableArray<string> hidden) => hidden.IsDefaultOrEmpty ? string.Empty : string.Join(Separator, hidden.AsSpan());
 }

@@ -3,11 +3,15 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Content;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Optimizing;
+using HyperPdfLibrary.Rendering;
+using HyperPdfLibrary.Text;
 
 namespace HyperPdfLibrary.Drawing;
 
@@ -15,6 +19,9 @@ namespace HyperPdfLibrary.Drawing;
 [DebuggerDisplay("Drawing {ConfiguredBackend}, fonts {Fonts}, images {Images}")]
 public sealed class PdfDrawingServices
 {
+    /// <summary>The cleaned text extraction states retained between documents for this host.</summary>
+    private const int TextBuildSlots = 4;
+
     /// <summary>The font resources shared by documents using this service.</summary>
     private PdfFontResources? _fontResources;
 
@@ -54,6 +61,81 @@ public sealed class PdfDrawingServices
 
     /// <summary>Gets the optional drawing backend for rendering resources.</summary>
     internal IPdfRenderBackend? ConfiguredBackend { get; }
+
+    /// <summary>Gets reusable default open options bound to these host services.</summary>
+    internal PdfOpenOptions PasswordlessOpenOptions
+    {
+        get
+        {
+            if (Volatile.Read(ref field) is { } existing)
+            {
+                return existing;
+            }
+
+            var created = new PdfOpenOptions { DrawingServices = this };
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets the idle content interpreters shared by documents using these host services.</summary>
+    internal ReusableSlots<ContentInterpreter> Interpreters
+    {
+        get
+        {
+            if (Volatile.Read(ref field) is { } existing)
+            {
+                return existing;
+            }
+
+            var created = new ReusableSlots<ContentInterpreter>();
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets idle progressive recordings shared by documents using these host services.</summary>
+    internal ReusableSlots<ProgressiveRecording> ProgressiveRecordings
+    {
+        get
+        {
+            if (Volatile.Read(ref field) is { } existing)
+            {
+                return existing;
+            }
+
+            var created = new ReusableSlots<ProgressiveRecording>();
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets the page rectangle paths shared by documents using these host services.</summary>
+    internal PageClips PageClips
+    {
+        get
+        {
+            if (Volatile.Read(ref field) is { } existing)
+            {
+                return existing;
+            }
+
+            var created = new PageClips();
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets the bounded text extraction state pool for documents using these host services.</summary>
+    internal ReusableSlots<TextPageBuildState> TextBuildStates
+    {
+        get
+        {
+            if (Volatile.Read(ref field) is { } existing)
+            {
+                return existing;
+            }
+
+            var created = new ReusableSlots<TextPageBuildState>(TextBuildSlots);
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
 
     /// <summary>Gets the transport that font data downloads use, or <see langword="null"/> for the default; tests supply one.</summary>
     internal HttpMessageHandler? FontDataHandler { get; init; }

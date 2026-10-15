@@ -226,6 +226,9 @@ internal record struct PdfDocumentState
     /// <summary>Gets the weakly tracked page renderers for disposal; made on first use, and read or changed only while holding <see cref="RenderersGate"/>.</summary>
     internal List<WeakReference<PdfPageRenderer>> Renderers => _renderers ??= [];
 
+    /// <summary>Gets the tracked renderers without creating their list.</summary>
+    internal List<WeakReference<PdfPageRenderer>>? RenderersIfCreated => _renderers;
+
     /// <summary>Gets storage for normal render caches indexed by their immutable options.</summary>
     [UnscopedRef]
     internal ref Dictionary<PdfRenderCacheKey, PdfRenderCacheEntry>? RendererCaches => ref _rendererCaches;

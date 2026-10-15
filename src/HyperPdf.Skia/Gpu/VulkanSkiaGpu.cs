@@ -63,6 +63,9 @@ internal sealed class VulkanSkiaGpu : ISkiaGpu
     public bool IsLost => _platform.IsLost;
 
     /// <inheritdoc/>
+    public SkiaGpuImageRetirement ImageRetirement { get; } = new();
+
+    /// <inheritdoc/>
     public IPlatformGraphicsContext PlatformGraphicsContext => _platform;
 
     /// <summary>Gets the context shared with the compositor.</summary>
@@ -125,7 +128,7 @@ internal sealed class VulkanSkiaGpu : ISkiaGpu
             _graphicsContext.AbandonContext(true);
         }
 
-        SkiaGpuImageRetirement.Retire(_graphicsContext);
+        ImageRetirement.Retire();
         _graphicsContext.Dispose();
         _backend.Dispose();
         _platform.Dispose();

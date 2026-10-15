@@ -44,7 +44,7 @@ internal sealed class SkiaGpuRenderTarget(ISkiaGpu skiaGpu, ISkiaGpuRenderTarget
 
         try
         {
-            SkiaGpuImageRetirement.Drain(session.GrContext);
+            SkiaGpu.ImageRetirement.Drain();
             var createInfo = new DrawingContextCreateInfo
             {
                 GrContext = session.GrContext,

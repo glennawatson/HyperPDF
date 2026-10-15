@@ -13,19 +13,13 @@ internal static class TextPageBuild
     /// <summary>The font size reported for characters that have no run.</summary>
     private const float DefaultFontSize = 1;
 
-    /// <summary>The cleaned states kept for any document once their document is closed.</summary>
-    private const int SharedSlots = 4;
-
     /// <summary>The most glyphs or characters a state's lists may have grown to and still be kept for other documents: 64 Ki.</summary>
     private const int MaxSharedItems = 1 << 16;
-
-    /// <summary>The cleaned states of closed documents, so the next document starts with lists already grown.</summary>
-    private static readonly TextPageBuildState?[] SharedStates = new TextPageBuildState?[SharedSlots];
 
     /// <summary>Gets a cleaned state from the document, then from closed documents, or makes one when none is free.</summary>
     /// <param name="document">The document that owns the reusable state.</param>
     /// <returns>The state exclusively owned by this extraction.</returns>
-    internal static TextPageBuildState Rent(PdfDocument document) => Interlocked.Exchange(ref document.State.TextBuild, null) ?? RentShared() ?? new();
+    internal static TextPageBuildState Rent(PdfDocument document) => Interlocked.Exchange(ref document.State.TextBuild, null) ?? document.DrawingServices.TextBuildStates.Take() ?? new();
 
     /// <summary>Offers a cleaned state to its document for another extraction.</summary>
     /// <param name="document">The document that owns the reusable state.</param>
@@ -34,13 +28,13 @@ internal static class TextPageBuild
     {
         if (document.IsDisposed || Interlocked.CompareExchange(ref document.State.TextBuild, state, null) is not null)
         {
-            Share(state);
+            Share(document, state);
             return;
         }
 
         if (document.IsDisposed && Interlocked.CompareExchange(ref document.State.TextBuild, null, state) == state)
         {
-            Share(state);
+            Share(document, state);
         }
     }
 
@@ -50,7 +44,7 @@ internal static class TextPageBuild
     {
         if (Interlocked.Exchange(ref document.State.TextBuild, null) is { } state)
         {
-            Share(state);
+            Share(document, state);
         }
     }
 
@@ -73,37 +67,17 @@ internal static class TextPageBuild
         }
     }
 
-    /// <summary>Takes a cleaned state from the closed documents.</summary>
-    /// <returns>The state, or <see langword="null"/> when none is free.</returns>
-    private static TextPageBuildState? RentShared()
-    {
-        for (var i = 0; i < SharedStates.Length; i++)
-        {
-            if (Volatile.Read(ref SharedStates[i]) is not null && Interlocked.Exchange(ref SharedStates[i], null) is { } state)
-            {
-                return state;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>Keeps a cleaned state for other documents unless its lists grew very large or every slot is full.</summary>
+    /// <param name="document">The document whose host owns the shared states.</param>
     /// <param name="state">The cleaned state.</param>
-    private static void Share(TextPageBuildState state)
+    private static void Share(PdfDocument document, TextPageBuildState state)
     {
         if (state.Glyphs.Capacity > MaxSharedItems || state.Unicode.Capacity > MaxSharedItems || state.Chars.Capacity > MaxSharedItems)
         {
             return;
         }
 
-        for (var i = 0; i < SharedStates.Length; i++)
-        {
-            if (Interlocked.CompareExchange(ref SharedStates[i], state, null) is null)
-            {
-                return;
-            }
-        }
+        _ = document.DrawingServices.TextBuildStates.Offer(state);
     }
 
     /// <summary>Makes the finished page from the characters the build collected.</summary>

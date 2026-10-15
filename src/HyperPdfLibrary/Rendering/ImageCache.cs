@@ -31,11 +31,11 @@ internal sealed class ImageCache
     /// <summary>The cached images by stream.</summary>
     private readonly Dictionary<ImageKey, ImageEntry> _map = [];
 
-    /// <summary>The streams that could not be decoded.</summary>
-    private readonly HashSet<ImageKey> _failed = [];
-
     /// <summary>The decodes in progress by stream, so a second thread that needs the image waits instead of decoding it again.</summary>
     private readonly Dictionary<ImageKey, ImageDecode> _decoding = [];
+
+    /// <summary>The streams that could not be decoded.</summary>
+    private HashSet<ImageKey>? _failed;
 
     /// <summary>The most recently used cached image; the entries link to each other, so listing one makes no node.</summary>
     private ImageEntry? _newest;
@@ -313,7 +313,7 @@ internal sealed class ImageCache
 
             if (created is null)
             {
-                _ = _failed.Add(key);
+                _ = (_failed ??= []).Add(key);
                 return null;
             }
 
@@ -339,7 +339,7 @@ internal sealed class ImageCache
         }
 
         _map.Clear();
-        _failed.Clear();
+        _failed?.Clear();
         _bytes = 0;
     }
 
@@ -372,7 +372,7 @@ internal sealed class ImageCache
         }
 
         entry = null;
-        return _failed.Contains(key);
+        return _failed?.Contains(key) == true;
     }
 
     /// <summary>Evicts the least recently used images until the bytes fit. The caller holds the lock.</summary>

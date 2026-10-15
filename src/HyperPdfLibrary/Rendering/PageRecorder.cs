@@ -191,7 +191,7 @@ internal static class PageRecorder
         var bounds = new PdfRect(0, 0, page.Width, page.Height);
         var style = new PdfPictureStyle(cache.Quality, deviceMatrix);
         var device = cache.Document.DrawingServices.Backend.CreatePictureDevice(bounds, style);
-        device.Clip(PageClips.Get(bounds), false, Matrix3x2.Identity);
+        device.Clip(cache.Document.DrawingServices.PageClips.Get(bounds), false, Matrix3x2.Identity);
         return device;
     }
 

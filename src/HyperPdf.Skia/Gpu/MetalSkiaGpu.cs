@@ -43,6 +43,9 @@ internal sealed class MetalSkiaGpu : ISkiaGpu
     public bool IsLost => _device.IsLost;
 
     /// <inheritdoc/>
+    public SkiaGpuImageRetirement ImageRetirement { get; } = new();
+
+    /// <inheritdoc/>
     public IPlatformGraphicsContext PlatformGraphicsContext => _device;
 
     /// <summary>Gets the context shared with the compositor.</summary>
@@ -107,7 +110,7 @@ internal sealed class MetalSkiaGpu : ISkiaGpu
             _graphicsContext.AbandonContext(true);
         }
 
-        SkiaGpuImageRetirement.Retire(_graphicsContext);
+        ImageRetirement.Retire();
         _graphicsContext.Dispose();
     }
 

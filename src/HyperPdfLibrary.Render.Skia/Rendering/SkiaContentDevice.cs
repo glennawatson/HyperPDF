@@ -140,6 +140,9 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>Turns any non-zero alpha into full alpha, which marks the pixels a group painted.</summary>
     private SKColorFilter? _shapeFilter;
 
+    /// <summary>The device's reusable luminosity-to-alpha filter.</summary>
+    private SKColorFilter? _lumaFilter;
+
     /// <summary>Whether <see cref="Finish"/> has run.</summary>
     private bool _finished;
 
@@ -405,6 +408,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
         }
 
         _shapeFilter?.Dispose();
+        _lumaFilter?.Dispose();
         _paint.Dispose();
         foreach (var path in _glyphPaths.Values)
         {
@@ -467,21 +471,14 @@ internal sealed class SkiaContentDevice : IPictureDevice
     }
 
     /// <summary>Creates the filter that turns a colour's luminosity into alpha.</summary>
-    /// <param name="transfer">The transfer table, or null.</param>
+    /// <param name="luma">The device-owned luminosity filter.</param>
+    /// <param name="transfer">The transfer table.</param>
     /// <returns>The filter.</returns>
-    private static SKColorFilter CreateLumaFilter(byte[]? transfer)
+    private static SKColorFilter CreateLumaFilter(SKColorFilter luma, byte[] transfer)
     {
-        var luma = SKColorFilter.CreateLumaColor();
-        if (transfer is null)
-        {
-            return luma;
-        }
-
         // SkiaSharp rejects null channel tables, so the colour channels get the identity table.
         using var table = SKColorFilter.CreateTable(transfer, IdentityTable, IdentityTable, IdentityTable);
-        var composed = SKColorFilter.CreateCompose(table, luma);
-        luma.Dispose();
-        return composed;
+        return SKColorFilter.CreateCompose(table, luma);
     }
 
     /// <summary>Creates the alpha table that marks painted pixels.</summary>
@@ -758,10 +755,11 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     private void ApplyMask(PdfSoftMask mask, SKRect bounds)
     {
         _canvas.SetMatrix(SKMatrix.Identity);
-        using var filter = mask.IsLuminosity ? CreateLumaFilter(mask.Transfer) : null;
+        var luma = mask.IsLuminosity ? _lumaFilter ??= SKColorFilter.CreateLumaColor() : null;
+        using var filter = luma is not null && mask.Transfer is { } transfer ? CreateLumaFilter(luma, transfer) : null;
         _layerPaint.Reset();
         _layerPaint.BlendMode = SKBlendMode.DstIn;
-        _layerPaint.ColorFilter = filter;
+        _layerPaint.ColorFilter = filter ?? luma;
         SaveLayer(bounds, _layerPaint);
         if (mask.IsLuminosity && SkiaConversions.ToSkColor(mask.Backdrop) != SKColors.Black)
         {
@@ -940,13 +938,13 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         ConfigureStroke(ref state);
         using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
         _paint.PathEffect = dash;
-        using var builder = new SKPathBuilder();
-        if (!_paint.GetFillPath(path, builder))
+        _pathBuilder.Reset();
+        if (!_paint.GetFillPath(path, _pathBuilder))
         {
             return false;
         }
 
-        using var outline = builder.Detach();
+        using var outline = _pathBuilder.Detach();
         return TryFillTileCopies(outline, matrix, pattern, state.StrokeAlpha, state.BlendMode);
     }
 
@@ -1187,13 +1185,13 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _paint.StrokeWidth = Math.Max(state.LineWidth, 1 / Math.Max(scale, SkiaDash.MinScale));
         using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
         _paint.PathEffect = dash;
-        using var builder = new SKPathBuilder();
-        if (!_paint.GetFillPath(path, builder))
+        _pathBuilder.Reset();
+        if (!_paint.GetFillPath(path, _pathBuilder))
         {
             return;
         }
 
-        using var outline = builder.Detach();
+        using var outline = _pathBuilder.Detach();
         FillMesh(outline, matrix, pattern, state.StrokeAlpha, state.BlendMode);
     }
 

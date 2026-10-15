@@ -21,7 +21,8 @@ public sealed class HarfBuzzTextShaperTests
         const int fontSize = 16;
         var typeface = new GlyphTypeface(new SkiaTypeface(SKTypeface.FromFamilyName(null), FontSimulations.None));
         using var lifetime = DisposeAction.Create(typeface.Dispose);
-        using var shaped = new HarfBuzzTextShaper().ShapeText("\r\n".AsMemory(), new(typeface, fontSize));
+        using var shaper = new HarfBuzzTextShaper();
+        using var shaped = shaper.ShapeText("\r\n".AsMemory(), new(typeface, fontSize));
         await Assert.That(shaped.Sum(static glyph => glyph.GlyphAdvance)).IsEqualTo(0);
         await Assert.That(shaped.All(static glyph => glyph.GlyphCluster == 0)).IsTrue();
     }
@@ -36,8 +37,30 @@ public sealed class HarfBuzzTextShaperTests
         const int sliceLength = 2;
         var typeface = new GlyphTypeface(new SkiaTypeface(SKTypeface.FromFamilyName(null), FontSimulations.None));
         using var lifetime = DisposeAction.Create(typeface.Dispose);
-        using var shaped = new HarfBuzzTextShaper().ShapeText("___ab___".AsMemory(sliceStart, sliceLength), new(typeface, fontSize));
+        using var shaper = new HarfBuzzTextShaper();
+        using var shaped = shaper.ShapeText("___ab___".AsMemory(sliceStart, sliceLength), new(typeface, fontSize));
         await Assert.That(shaped[0].GlyphCluster).IsEqualTo(0);
         await Assert.That(shaped[1].GlyphCluster).IsEqualTo(1);
+    }
+
+    /// <summary>Releasing one registered shaper leaves another shaper's thread state usable.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ShaperResourcesBelongToTheirRegisteredInstance()
+    {
+        const int fontSize = 16;
+        const int characters = 2;
+        var typeface = new GlyphTypeface(new SkiaTypeface(SKTypeface.FromFamilyName(null), FontSimulations.None));
+        using var lifetime = DisposeAction.Create(typeface.Dispose);
+        using var second = new HarfBuzzTextShaper();
+        using (var first = new HarfBuzzTextShaper())
+        {
+            using var firstResult = first.ShapeText("ab".AsMemory(), new(typeface, fontSize));
+            using var secondResult = second.ShapeText("ab".AsMemory(), new(typeface, fontSize));
+        }
+
+        using var retained = second.ShapeText("ab".AsMemory(), new(typeface, fontSize));
+
+        await Assert.That(retained.Length).IsEqualTo(characters);
     }
 }

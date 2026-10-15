@@ -21,8 +21,8 @@ internal sealed class ProgressiveRecording : IDisposable
     /// <summary>The top-level operators run between pause checks.</summary>
     internal const int SliceOperators = 256;
 
-    /// <summary>Idle recordings, kept so a page recorded in slices reuses the object that tracks its progress.</summary>
-    private static readonly ReusableSlots<ProgressiveRecording> Idle = new();
+    /// <summary>The host-owned pool this active recording returns to.</summary>
+    private ReusableSlots<ProgressiveRecording>? _pool;
 
     /// <summary>The recording device; null while the recording sits idle.</summary>
     private IPictureDevice _device = null!;
@@ -74,7 +74,9 @@ internal sealed class ProgressiveRecording : IDisposable
             ArrayPool<byte>.Shared.Return(content);
         }
 
-        _ = Idle.Offer(this);
+        var pool = _pool;
+        _pool = null;
+        _ = pool?.Offer(this);
     }
 
     /// <summary>Starts recording a page, using an idle recording when there is one.</summary>
@@ -86,7 +88,9 @@ internal sealed class ProgressiveRecording : IDisposable
     /// <returns>The recording, which the caller disposes.</returns>
     internal static ProgressiveRecording Start(PdfRenderCache cache, PdfPage page, bool printing, in PictureScale scale, CancellationToken cancellationToken)
     {
-        var recording = Idle.Take() ?? new();
+        var pool = cache.Document.DrawingServices.ProgressiveRecordings;
+        var recording = pool.Take() ?? new();
+        recording._pool = pool;
         try
         {
             recording.Begin(cache, page, printing, scale, cancellationToken);

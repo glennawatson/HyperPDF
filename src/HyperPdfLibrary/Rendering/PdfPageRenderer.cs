@@ -45,9 +45,6 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <summary>Guards the picture cache.</summary>
     private readonly Lock _gate = new();
 
-    /// <summary>The cached pictures, least recently used first.</summary>
-    private readonly List<PagePictures> _entries = [];
-
     /// <summary>The document.</summary>
     private readonly PdfDocument _document;
 
@@ -56,6 +53,9 @@ public sealed partial class PdfPageRenderer : IDisposable
 
     /// <summary>The limits the renderer was made with, applied to the output intent caches too.</summary>
     private readonly PdfRenderOptions _options;
+
+    /// <summary>The cached pictures, least recently used first.</summary>
+    private PagePictureEntries _entries;
 
     /// <summary>The output-intent cache entry acquired on first use for this renderer's options.</summary>
     private PdfRenderCacheEntry? _intentEntry;
@@ -356,9 +356,9 @@ public sealed partial class PdfPageRenderer : IDisposable
             }
 
             _disposed = true;
-            foreach (var entry in _entries)
+            for (var i = 0; i < _entries.Count; i++)
             {
-                entry.Retire();
+                _entries[i].Retire();
             }
 
             _entries.Clear();
@@ -587,7 +587,7 @@ public sealed partial class PdfPageRenderer : IDisposable
                 dropped++;
             }
 
-            _entries.RemoveRange(0, dropped);
+            _entries.RemoveFirst(dropped);
         }
     }
 
@@ -596,6 +596,21 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <returns>The bytes held.</returns>
     private long MeasureLocked(int first)
     {
+        if (_entries.Count - first == 1)
+        {
+            var only = _entries[first];
+            var images = only.Images;
+            if (images.Length == 0)
+            {
+                return only.HeldBytes;
+            }
+
+            if (images.Length == 1)
+            {
+                return only.HeldBytes + images[0].Bytes;
+            }
+        }
+
         _counted?.Clear();
         var total = 0L;
         for (var i = first; i < _entries.Count; i++)

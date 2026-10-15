@@ -1148,6 +1148,9 @@ PopClip();
             /// <summary>Gets the gr context.</summary>
             public GRContext? GrContext => _context.GrContext;
 
+            /// <inheritdoc/>
+            public SkiaGpuImageRetirement? ImageRetirement => _context._gpu?.ImageRetirement;
+
             /// <summary>Gets the surface channel order.</summary>
             public SKColorType SurfaceColorType => _context.SurfaceColorType;
 

@@ -8,23 +8,23 @@ namespace HyperPdfLibrary.Rendering;
 
 /// <summary>
 /// Keeps the clip path of recently recorded page sizes. Every page recording clips to its page rectangle, and most pages of
-/// a document share a size, so the immutable path is made once and shared across pages, documents and threads.
+/// a document share a size, so one host's documents share immutable paths across pages and threads.
 /// </summary>
-internal static class PageClips
+internal sealed class PageClips
 {
     /// <summary>The page sizes kept; sizes that hash to the same slot replace each other.</summary>
     private const int Slots = 8;
 
     /// <summary>The most recent clip in each slot.</summary>
-    private static readonly PageClip?[] Recent = new PageClip?[Slots];
+    private readonly PageClip?[] _recent = new PageClip?[Slots];
 
     /// <summary>Gets the path of a page rectangle.</summary>
     /// <param name="bounds">The page rectangle.</param>
     /// <returns>The shared path, which is never changed.</returns>
-    internal static PdfPath Get(PdfRect bounds)
+    internal PdfPath Get(PdfRect bounds)
     {
         var slot = (int)((uint)HashCode.Combine(bounds.Right, bounds.Bottom) % Slots);
-        if (Volatile.Read(ref Recent[slot]) is { } kept && kept.Bounds == bounds)
+        if (Volatile.Read(ref _recent[slot]) is { } kept && kept.Bounds == bounds)
         {
             return kept.Path;
         }
@@ -32,7 +32,7 @@ internal static class PageClips
         var builder = new PdfPathBuilder();
         builder.AddRect(bounds);
         var created = new PageClip(bounds, builder.Detach());
-        Volatile.Write(ref Recent[slot], created);
+        Volatile.Write(ref _recent[slot], created);
         return created.Path;
     }
 

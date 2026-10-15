@@ -55,6 +55,9 @@ internal sealed class GlSkiaGpu : ISkiaGpu
     public bool IsLost => _openGlContext.IsLost;
 
     /// <inheritdoc/>
+    public SkiaGpuImageRetirement ImageRetirement { get; } = new();
+
+    /// <inheritdoc/>
     public IPlatformGraphicsContext? PlatformGraphicsContext => _openGlContext;
 
     /// <inheritdoc/>
@@ -120,7 +123,7 @@ internal sealed class GlSkiaGpu : ISkiaGpu
             _graphicsContext.AbandonContext(true);
         }
 
-        SkiaGpuImageRetirement.Retire(_graphicsContext);
+        ImageRetirement.Retire();
         _graphicsContext.Dispose();
     }
 

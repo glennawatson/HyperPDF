@@ -15,6 +15,9 @@ internal interface ISkiaGpu : IDisposable
     /// <summary>Gets whether the GPU context is lost.</summary>
     bool IsLost { get; }
 
+    /// <summary>Gets this graphics backend's retired-image queue.</summary>
+    SkiaGpuImageRetirement ImageRetirement { get; }
+
     /// <summary>Gets the platform graphics context.</summary>
     IPlatformGraphicsContext? PlatformGraphicsContext { get; }
 

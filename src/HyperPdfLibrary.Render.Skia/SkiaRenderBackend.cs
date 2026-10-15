@@ -135,22 +135,28 @@ public sealed class SkiaRenderBackend : IPdfRenderBackend
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-public IPdfRenderVertices CreateVertices(PdfPoint[] positions, PdfColor[] colors) =>
-        new SkiaRenderVertices(SKVertices.CreateCopy(SKVertexMode.Triangles, SkiaConversions.ToSkPoints(positions), SkiaConversions.ToSkColors(colors)));
+    public IPdfRenderVertices CreateVertices(PdfPoint[] positions, PdfColor[] colors)
+    {
+        var arrays = Session.VertexArrays;
+        return new SkiaRenderVertices(SKVertices.CreateCopy(SKVertexMode.Triangles, arrays.Positions(positions), arrays.Colors(colors)));
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-public IPdfRenderVertices CreateVertices(PdfPoint[] positions, PdfPoint[] texture, PdfColor[]? colors) =>
-        new SkiaRenderVertices(SKVertices.CreateCopy(
+    public IPdfRenderVertices CreateVertices(PdfPoint[] positions, PdfPoint[] texture, PdfColor[]? colors)
+    {
+        var arrays = Session.VertexArrays;
+        return new SkiaRenderVertices(SKVertices.CreateCopy(
             SKVertexMode.Triangles,
-            SkiaConversions.ToSkPoints(positions),
-            SkiaConversions.ToSkPoints(texture),
-            colors is null ? null : SkiaConversions.ToSkColors(colors)));
+            arrays.Positions(positions),
+            arrays.Texture(texture),
+            colors is null ? null : arrays.Colors(colors)));
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public PatternCell ComposeTile(IPdfRenderPicture cell, PdfRectangle box, float stepX, float stepY, float scale) =>
-        TileComposer.Compose(SkiaResources.Picture(cell), box, stepX, stepY, scale);
+        Session.TileComposer.Compose(SkiaResources.Picture(cell), box, stepX, stepY, scale);
 
     /// <summary>Converts a managed raster layout.</summary>
     /// <param name="layout">The managed pixel layout.</param>

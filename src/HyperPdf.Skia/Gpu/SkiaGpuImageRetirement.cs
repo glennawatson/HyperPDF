@@ -2,83 +2,71 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
+using System.Diagnostics;
 using SkiaSharp;
 
 namespace HyperPdf.Skia.Gpu;
 
-/// <summary>Releases retired GPU images while their owning graphics context is current.</summary>
-public static class SkiaGpuImageRetirement
+/// <summary>Owns a graphics backend's queue of images released while its context is current.</summary>
+[DebuggerDisplay("Image retirement: retired={_retired}")]
+public sealed class SkiaGpuImageRetirement
 {
-    /// <summary>Per-context queues that vanish after their context has no managed owners.</summary>
-    private static readonly ConditionalWeakTable<GRContext, ContextState> States = new();
+    /// <summary>Serializes retirement and image enqueueing for this backend.</summary>
+    private readonly Lock _gate = new();
 
-    /// <summary>Queues an image for release on the context that created it.</summary>
-    /// <param name="context">The graphics context that owns the image.</param>
-    /// <param name="image">The image to release.</param>
-    public static void Enqueue(GRContext context, SKImage image)
+    /// <summary>The images awaiting the graphics thread.</summary>
+    private Queue<SKImage>? _pending;
+
+    /// <summary>Whether the owning context has been abandoned.</summary>
+    private bool _retired;
+
+    /// <summary>Queues an image owned by this graphics backend.</summary>
+    /// <param name="image">The image whose last tile owner released it.</param>
+    public void Enqueue(SKImage image)
     {
-        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(image);
-        var state = States.GetValue(context, static _ => new ContextState());
-        lock (state.Gate)
+        lock (_gate)
         {
-            if (state.Retired)
+            if (_retired)
             {
-                // Abandoned contexts no longer have live GPU commands that refer to the image.
                 image.Dispose();
                 return;
             }
 
-            state.Pending.Enqueue(image);
+            (_pending ??= new()).Enqueue(image);
         }
     }
 
-    /// <summary>Releases queued images while the given context is current.</summary>
-    /// <param name="context">The current graphics context.</param>
-    public static void Drain(GRContext context)
+    /// <summary>Releases queued images while the owning context is current.</summary>
+    public void Drain()
     {
-        ArgumentNullException.ThrowIfNull(context);
-        if (!States.TryGetValue(context, out var state))
+        if (Volatile.Read(ref _pending) is null)
         {
             return;
         }
 
-        lock (state.Gate)
+        lock (_gate)
         {
-            while (state.Pending.TryDequeue(out var image))
-            {
-                image.Dispose();
-            }
+            DrainLocked();
         }
     }
 
-    /// <summary>Closes a context and releases any images queued before abandonment.</summary>
-    /// <param name="context">The context about to be abandoned.</param>
-    public static void Retire(GRContext context)
+    /// <summary>Closes the abandoned context's queue and releases its remaining images.</summary>
+    public void Retire()
     {
-        ArgumentNullException.ThrowIfNull(context);
-        var state = States.GetValue(context, static _ => new ContextState());
-        lock (state.Gate)
+        lock (_gate)
         {
-            state.Retired = true;
-            while (state.Pending.TryDequeue(out var image))
-            {
-                image.Dispose();
-            }
+            _retired = true;
+            DrainLocked();
         }
     }
 
-    /// <summary>Serializes image release for one graphics context.</summary>
-    private sealed class ContextState
+    /// <summary>Releases pending images under the backend's queue lock.</summary>
+    private void DrainLocked()
     {
-        /// <summary>Gets the gate for this context's release queue.</summary>
-        internal Lock Gate { get; } = new();
-
-        /// <summary>Gets the images waiting for the graphics thread.</summary>
-        internal Queue<SKImage> Pending { get; } = new();
-
-        /// <summary>Gets or sets whether the context can no longer submit GPU work.</summary>
-        internal bool Retired { get; set; }
+        while (_pending is not null && _pending.TryDequeue(out var image))
+        {
+            image.Dispose();
+        }
     }
 }

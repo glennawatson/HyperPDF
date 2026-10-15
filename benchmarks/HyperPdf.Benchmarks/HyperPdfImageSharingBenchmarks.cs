@@ -53,8 +53,36 @@ public class HyperPdfImageSharingBenchmarks
     /// <summary>The drawing services reused across benchmark invocations.</summary>
     private readonly PdfDrawingServices _drawingServices = BenchmarkDrawing.CreateServices();
 
+    /// <summary>The first caller's output pixels, reused while documents and image caches remain cold.</summary>
+    private readonly byte[] _firstPixels = new byte[Tile * Tile * BytesPerPixel];
+
+    /// <summary>The second concurrent caller's independent output pixels.</summary>
+    private readonly byte[] _secondPixels = new byte[Tile * Tile * BytesPerPixel];
+
+    /// <summary>The fixed cache limits supplied by the benchmark caller.</summary>
+    private readonly PdfRenderOptions _options = PdfRenderOptions.Default with { ImageCacheBytes = ImageLimit, PictureCacheBytes = PictureLimit };
+
+    /// <summary>The first caller's reusable queue callback.</summary>
+    private readonly Func<Task<bool>> _firstRender;
+
+    /// <summary>The second caller's reusable queue callback.</summary>
+    private readonly Func<Task<bool>> _secondRender;
+
+    /// <summary>The active operation's gate; null while no render pair is running.</summary>
+    private TaskCompletionSource _activeGate = null!;
+
+    /// <summary>The active operation's renderer; null while no render pair is running.</summary>
+    private PdfPageRenderer _activeRenderer = null!;
+
     /// <summary>The PDF bytes.</summary>
     private byte[] _pdf = [];
+
+    /// <summary>Initializes a new instance of the <see cref="HyperPdfImageSharingBenchmarks"/> class.</summary>
+    public HyperPdfImageSharingBenchmarks()
+    {
+        _firstRender = RenderFirst;
+        _secondRender = RenderSecond;
+    }
 
     /// <summary>Builds the document once.</summary>
     [GlobalSetup]
@@ -76,41 +104,28 @@ public class HyperPdfImageSharingBenchmarks
     public bool TwoPassesOverSharedImage()
     {
         using var document = BenchmarkDrawing.Open(_pdf, null, _drawingServices);
-        using var renderer = new PdfPageRenderer(document, PdfRenderOptions.Default with { ImageCacheBytes = ImageLimit, PictureCacheBytes = PictureLimit });
+        using var renderer = new PdfPageRenderer(document, _options);
         var all = true;
-        var pixels = new byte[Tile * Tile * BytesPerPixel];
         for (var pass = 0; pass < Passes; pass++)
         {
             for (var page = 0; page < Pages; page++)
             {
-                all &= renderer.Render(new(page, Scale, 0, 0, 0, PdfRenderFlags.None), new(pixels, Tile, Tile, Tile * BytesPerPixel));
+                all &= renderer.Render(new(page, Scale, 0, 0, 0, PdfRenderFlags.None), new(_firstPixels, Tile, Tile, Tile * BytesPerPixel));
             }
         }
 
         return all;
     }
 
-    /// <summary>Starts two threads that draw pages 0 and 1 together.</summary>
-    /// <param name="renderer">The renderer.</param>
-    /// <returns>Whether both tiles rendered.</returns>
-    private static async Task<bool> RenderBoth(PdfPageRenderer renderer)
-    {
-        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var results = Task.WhenAll(Task.Run(() => RenderAfter(gate, renderer, 0)), Task.Run(() => RenderAfter(gate, renderer, 1)));
-        gate.SetResult();
-        var rendered = await results;
-        return rendered[0] && rendered[1];
-    }
-
     /// <summary>Waits for the gate and draws one tile of a page.</summary>
     /// <param name="gate">Opens when both threads are ready.</param>
     /// <param name="renderer">The renderer.</param>
     /// <param name="page">The page index.</param>
+    /// <param name="pixels">The caller-owned tile buffer.</param>
     /// <returns>Whether the tile rendered.</returns>
-    private static async Task<bool> RenderAfter(TaskCompletionSource gate, PdfPageRenderer renderer, int page)
+    private static async Task<bool> RenderAfter(TaskCompletionSource gate, PdfPageRenderer renderer, int page, byte[] pixels)
     {
         await gate.Task.ConfigureAwait(false);
-        var pixels = new byte[Tile * Tile * BytesPerPixel];
         return renderer.Render(new(page, Scale, 0, 0, 0, PdfRenderFlags.None), new(pixels, Tile, Tile, Tile * BytesPerPixel));
     }
 
@@ -154,4 +169,35 @@ public class HyperPdfImageSharingBenchmarks
         objects[1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{kids}] /Count {Pages} >>");
         return MiniPdf.Build([.. objects]);
     }
+
+    /// <summary>Starts two threads that draw pages 0 and 1 together.</summary>
+    /// <param name="renderer">The renderer.</param>
+    /// <returns>Whether both tiles rendered.</returns>
+    private async Task<bool> RenderBoth(PdfPageRenderer renderer)
+    {
+        _activeGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _activeRenderer = renderer;
+        try
+        {
+            var first = Task.Run(_firstRender);
+            var second = Task.Run(_secondRender);
+            var results = Task.WhenAll((ReadOnlySpan<Task>)[first, second]);
+            _activeGate.SetResult();
+            await results;
+            return await first && await second;
+        }
+        finally
+        {
+            _activeGate = null!;
+            _activeRenderer = null!;
+        }
+    }
+
+    /// <summary>Queues the first caller using this operation's explicit gate and renderer.</summary>
+    /// <returns>The first tile's result.</returns>
+    private Task<bool> RenderFirst() => RenderAfter(_activeGate, _activeRenderer, 0, _firstPixels);
+
+    /// <summary>Queues the second caller using this operation's explicit gate and renderer.</summary>
+    /// <returns>The second tile's result.</returns>
+    private Task<bool> RenderSecond() => RenderAfter(_activeGate, _activeRenderer, 1, _secondPixels);
 }

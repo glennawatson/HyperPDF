@@ -14,7 +14,7 @@ namespace HyperPdfLibrary.Rendering;
 /// and a smaller one leaves gaps (ISO 32000-2 8.7.3.1). Small periods are rasterised at a bounded resolution, so the
 /// result does not depend on how Skia's picture shader picks its tile resolution; large ones stay a picture.
 /// </summary>
-internal static class TileComposer
+internal sealed class TileComposer
 {
     /// <summary>How many device pixels per page unit a rasterised period gets: enough to stay sharp up to 400% zoom.</summary>
     private const float Oversample = 4;
@@ -28,6 +28,9 @@ internal static class TileComposer
     /// <summary>The most cell copies along each direction that can reach one period.</summary>
     private const int MaxCopies = 64;
 
+    /// <summary>The recording wrapper reused for large periods on this backend thread.</summary>
+    private SKPictureRecorder? _recorder;
+
     /// <summary>Composes one period of a tiling pattern.</summary>
     /// <param name="cell">The cell's content in pattern space.</param>
     /// <param name="box">The pattern's /BBox.</param>
@@ -35,7 +38,7 @@ internal static class TileComposer
     /// <param name="stepY">The vertical step, not zero.</param>
     /// <param name="scale">The page units one pattern unit spans where the pattern is used.</param>
     /// <returns>The period; the caller owns it.</returns>
-    internal static PatternCell Compose(SKPicture cell, PdfRectangle box, float stepX, float stepY, float scale)
+    internal PatternCell Compose(SKPicture cell, PdfRectangle box, float stepX, float stepY, float scale)
     {
         var tile = SKRect.Create(box.Left, box.Bottom, Math.Abs(stepX), Math.Abs(stepY));
         var pixelScale = Math.Max(scale, 0) * Oversample;
@@ -57,19 +60,6 @@ internal static class TileComposer
         var image = surface.Snapshot();
         var toPattern = Matrix3x2.CreateScale(tile.Width / pixelWidth, tile.Height / pixelHeight) * Matrix3x2.CreateTranslation(tile.Left, tile.Top);
         return new(null, new SkiaRenderImage(image), SkiaConversions.ToPdfRect(tile), toPattern);
-    }
-
-    /// <summary>Records one period as a picture.</summary>
-    /// <param name="cell">The cell.</param>
-    /// <param name="box">The pattern's /BBox.</param>
-    /// <param name="tile">The period's rectangle.</param>
-    /// <returns>The picture.</returns>
-    private static SKPicture Record(SKPicture cell, PdfRectangle box, SKRect tile)
-    {
-        using var recorder = new SKPictureRecorder();
-        var canvas = recorder.BeginRecording(tile);
-        DrawCopies(canvas, cell, box, tile);
-        return recorder.EndRecording();
     }
 
     /// <summary>Draws every copy of the cell that reaches the period, clipped to the period.</summary>
@@ -108,5 +98,18 @@ internal static class TileComposer
         var index = distance / step;
         var rounded = last ? MathF.Ceiling(index) : MathF.Floor(index);
         return float.IsFinite(rounded) ? (int)Math.Clamp(rounded, -MaxCopies, MaxCopies) : 0;
+    }
+
+    /// <summary>Records one period as a picture.</summary>
+    /// <param name="cell">The cell.</param>
+    /// <param name="box">The pattern's /BBox.</param>
+    /// <param name="tile">The period's rectangle.</param>
+    /// <returns>The picture.</returns>
+    private SKPicture Record(SKPicture cell, PdfRectangle box, SKRect tile)
+    {
+        var recorder = _recorder ??= new();
+        var canvas = recorder.BeginRecording(tile);
+        DrawCopies(canvas, cell, box, tile);
+        return recorder.EndRecording();
     }
 }

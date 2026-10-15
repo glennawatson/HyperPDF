@@ -100,7 +100,7 @@ public static class PdfDocumentRendering
             Volatile.Read(ref document.State.IntentRenderCache)?.InvalidateFonts();
             if (document.State.RendererCaches is { } normalCaches)
             {
-                foreach (var entry in normalCaches.Values)
+                foreach (var (_, entry) in normalCaches)
                 {
                     entry.Cache.InvalidateFonts();
                 }
@@ -108,7 +108,7 @@ public static class PdfDocumentRendering
 
             if (document.State.IntentRendererCaches is { } intentCaches)
             {
-                foreach (var entry in intentCaches.Values)
+                foreach (var (_, entry) in intentCaches)
                 {
                     entry.Cache.InvalidateFonts();
                 }
@@ -124,24 +124,35 @@ public static class PdfDocumentRendering
     internal static void ReleaseRendering(PdfDocument document)
     {
         var (renderers, normalCaches, intentCaches) = DetachRendering(document);
-        foreach (var reference in renderers)
+        if (renderers is not null)
         {
-            if (reference.TryGetTarget(out var renderer))
+            foreach (var reference in renderers)
             {
-                renderer.Dispose();
+                if (reference.TryGetTarget(out var renderer))
+                {
+                    renderer.Dispose();
+                }
             }
+
+            renderers.Clear();
         }
 
         Volatile.Read(ref document.State.RenderCache)?.Close();
         Volatile.Read(ref document.State.IntentRenderCache)?.Close();
-        foreach (var entry in normalCaches)
+        if (normalCaches is not null)
         {
-            entry.Cache.Close();
+            foreach (var (_, entry) in normalCaches)
+            {
+                entry.Cache.Close();
+            }
         }
 
-        foreach (var entry in intentCaches)
+        if (intentCaches is not null)
         {
-            entry.Cache.Close();
+            foreach (var (_, entry) in intentCaches)
+            {
+                entry.Cache.Close();
+            }
         }
 
         Volatile.Read(ref document.State.TextPages)?.Clear();
@@ -155,15 +166,14 @@ public static class PdfDocumentRendering
         // The disposed flag is set before this runs, so no renderer registers while the lock does not exist.
         if (document.State.RenderersGateIfCreated is not { } gate)
         {
-            return new([], [], []);
+            return default;
         }
 
         lock (gate)
         {
-            var renderers = document.State.Renderers.ToArray();
-            document.State.Renderers.Clear();
-            var normalCaches = document.State.RendererCaches is { } normal ? [.. normal.Values] : Array.Empty<PdfRenderCacheEntry>();
-            var intentCaches = document.State.IntentRendererCaches is { } intent ? [.. intent.Values] : Array.Empty<PdfRenderCacheEntry>();
+            var renderers = document.State.RenderersIfCreated;
+            var normalCaches = document.State.RendererCaches;
+            var intentCaches = document.State.IntentRendererCaches;
             document.State.RendererCaches = null;
             document.State.IntentRendererCaches = null;
             return new(renderers, normalCaches, intentCaches);
@@ -208,5 +218,8 @@ public static class PdfDocumentRendering
     /// <param name="Renderers">The weakly tracked page renderers.</param>
     /// <param name="NormalCaches">The caches of the normal renderers.</param>
     /// <param name="IntentCaches">The caches of the output-intent renderers.</param>
-    private readonly record struct DetachedRendering(WeakReference<PdfPageRenderer>[] Renderers, PdfRenderCacheEntry[] NormalCaches, PdfRenderCacheEntry[] IntentCaches);
+    private readonly record struct DetachedRendering(
+        List<WeakReference<PdfPageRenderer>>? Renderers,
+        Dictionary<PdfRenderCacheKey, PdfRenderCacheEntry>? NormalCaches,
+        Dictionary<PdfRenderCacheKey, PdfRenderCacheEntry>? IntentCaches);
 }
