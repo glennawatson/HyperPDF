@@ -286,7 +286,7 @@ internal sealed class AccessibilityStructureScan
         ref var problem = ref CollectionsMarshal.GetValueRefOrAddDefault(_namespaceMaps, new(space, element.RawType), out var exists);
         if (!exists)
         {
-            problem = AccessibilityNamespaceMap.Read(space, element.RawType);
+            problem = AccessibilityNamespaceMap.Read(space, element.RawType, _cancellation);
         }
 
         return problem;

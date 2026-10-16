@@ -72,8 +72,10 @@ internal static class PdfUaReportChecks
     internal static void Check(PdfDocument document, List<PdfUaFinding> findings, CancellationToken cancellationToken)
     {
         var report = PdfDocumentAccessibility.GetAccessibilityReport(document, cancellationToken);
-        foreach (var finding in report.Findings)
+        var reportFindings = report.Findings;
+        for (var index = 0; index < reportFindings.Count; index++)
         {
+            var finding = reportFindings[index];
             var requirement = RequirementOf(finding.Code);
             if (requirement != PdfUaRequirement.None)
             {

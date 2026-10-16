@@ -43,7 +43,7 @@ public class SignedPageRevisionBenchmarks
     /// <summary>Compares current object definitions with the signed revision.</summary>
     /// <returns>The classified changes.</returns>
     [Benchmark]
-    public List<PdfObjectChange> CompareSignedRevision() => PdfRevisionComparer.Compare(_document.Objects, _signed, _signedEnd);
+    public PdfObjectChange[] CompareSignedRevision() => PdfRevisionComparer.Compare(_document.Objects, _signed, _signedEnd);
 
     /// <summary>Reads fresh cross-reference section offsets without using the revision snapshot cache.</summary>
     /// <returns>The number of section offsets written to caller-owned working storage.</returns>
