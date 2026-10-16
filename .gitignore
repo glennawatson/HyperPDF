@@ -75,6 +75,7 @@ nunit-*.xml
 
 # Approval Tests result files
 *.received.*
+*.snap
 
 # Build Results of an ATL Project
 [Dd]ebugPS/

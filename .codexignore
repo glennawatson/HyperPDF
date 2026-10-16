@@ -1,0 +1,44 @@
+# Build and test outputs
+**/[Bb]in/
+**/[Oo]bj/
+**/[Tt]est[Rr]esult*/
+BenchmarkDotNet.Artifacts/
+BenchmarkDotNet.Comparison/
+.bdn/
+artifacts/
+.artifacts/
+publish/
+*.binlog
+*.trx
+*.coverage
+*.coveragexml
+*.snap
+*.received.*
+
+# Binary fixtures, fonts, images, and cryptographic test assets
+*.pdf
+*.ttf
+*.otf
+*.woff
+*.woff2
+*.cmap
+*.z
+*.onnx
+*.png
+*.ico
+*.icns
+*.p7s
+*.crt
+*.der
+*.key
+*.pfx
+
+# Large static data tables, generated notices, and external fixture sets
+tests/reference-pdfs/*.pdf
+tests/listening/
+tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-results.tsv
+src/HyperPdfLibrary/Conformance/Data/PdfARules.tsv
+src/HyperPdfLibrary/Fonts/Data/
+src/HyperPdfLibrary/Annotations/AppearanceFontMetricsData.cs
+src/HyperPdfLibrary/Text/TextUnicodeData.cs
+licenses/notices/

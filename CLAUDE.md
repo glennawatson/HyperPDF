@@ -49,6 +49,21 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 ## HyperPdfLibrary
 
 - `src/HyperPdfLibrary` is the managed PDF engine; `src/HyperPdf.Engine` adapts it to the app's interfaces. The app always opens documents with HyperPDF.
+- Codebase layout:
+  - `src/HyperPdfLibrary/Syntax/` (`PdfLexer`, `PdfParser`, `PdfStringDecoder`) — Tokenizers, lexing, string decoding.
+  - `src/HyperPdfLibrary/Objects/` (`PdfObjectStore`, `PdfDictionary`, `PdfStream`, `PdfValue`) — Core PDF object model, revisions, repairs.
+  - `src/HyperPdfLibrary/Structure/` (`XrefReader`, `XrefRepair`, `ObjectStreamIndex`) — Cross-reference tables/streams and object streams.
+  - `src/HyperPdfLibrary/Structure/Tagged/` (`PdfStructureTree`, `PdfPageRecogniser`, `LayoutRuledTables`, `LayoutAlignedTables`, `LayoutTableBuilder`) — Tagged PDF structure & table/layout inference.
+  - `src/HyperPdfLibrary/Content/` & `Graphics/` — Content stream parser, operators, graphics state, color spaces.
+  - `src/HyperPdfLibrary/Filters/` — Stream codecs (`Flate`, `Lzw`, `RunLength`, `Jbig2`, `Jpx`, `Ccitt`, `Dct`).
+  - `src/HyperPdfLibrary/Fonts/` — Simple, composite (CID), and Type 3 fonts, CMap/ToUnicode parsing, glyph mapping.
+  - `src/HyperPdfLibrary/Text/` & `TextLayer/` (`PdfTextPage`, `TextDevice`, `TextSearch`, `PdfTextLayer`) — Text extraction, BiDi, hit-testing, search.
+  - `src/HyperPdfLibrary/Rendering/` (`PdfPageRenderer`, `PageRecorder`, `AnnotationAppearances`) — Display-list recording and appearance streams.
+  - `src/HyperPdfLibrary/Creation/` (`PdfDocumentBuilder`, `PdfFlowDocument`, `PdfTableFlow`, `PdfRichTableFlow`, `TableLayout`) — Document & flow-layout builder (tables, text wrapping, rules, images).
+  - `src/HyperPdfLibrary/Writing/`, `Editing/`, `Optimizing/`, `Redaction/`, `Signing/`, `Signatures/`, `Security/`, `Conformance/` (`PdfAValidator`), `PdfUa/`, `Xfa/`, `Forms/`, `Annotations/`.
+  - `src/HyperPdfLibrary.Render.Skia` — SkiaSharp rasterizer (`SkiaPageRasterizer`, `SkiaContentDevice`).
+  - `src/HyperPdf.Core` — Viewer domain logic, layout, navigation, search, reading, settings.
+  - `src/HyperPdf.App` — Avalonia + ReactiveUI viewer (`Views/`, `ViewModels/`, `Controls/`).
 - Read leniently, write strictly. Open and recover malformed files where possible, but every file the library writes must conform to ISO 32000 (and to any PDF/A or PDF/UA level the file claims). Saving fixes what can be fixed in the parts it writes, such as wrong `/Length`, broken cross-reference data, missing required keys and invalid boxes. The viewer tells the user in plain words when a file was damaged and repaired on open, and what saving will fix. Never add a feature that needs non-conforming output.
 - Never copy from a PDF engine.
 - Tests, committed scripts and docs never contain paths or assumptions specific to one machine (home folders, installed fonts, tools or profiles, local clones). Optional inputs come from an environment variable or PATH and skip with a reason when absent.
@@ -63,11 +78,14 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 
 Native AOT publishing needs a native compiler and zlib development files. Run the app with `dotnet run -f net11.0 --project src/HyperPdf.App -- some.pdf`; install a Linux build with `dotnet run --file scripts/InstallLinux.cs --`. Keep `README.md` for end users only; build, test and contributor notes belong here.
 
+Always pass `-v q --nologo` (and `--no-restore` after the first build) to `dotnet build` and `dotnet test` to avoid console log bloat. Always filter tests to the single class or method being worked on (`--treenode-filter`) rather than running the full test suite until final verification. Never read raw `.pdf` fixtures, `.ttf.z` fonts, `verapdf-results.tsv`, `PdfARules.tsv`, `Fonts/Data/*Data.cs`, `licenses/notices/*`, or full `benchmarks/allocations-explained.json` into context—query specific lines with `git grep` or `rg`.
+
 ```console
-dotnet build HyperPdf.slnx
-dotnet test --solution HyperPdf.slnx
-# one test project, from the src folder; runner flags go after --; never --no-build
-dotnet test --project "$PWD/../tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0
+dotnet build HyperPdf.slnx -v q --nologo
+dotnet test --solution HyperPdf.slnx -v q --nologo
+# one test project or filtered test, from the repo root; runner flags go after --; never --no-build
+dotnet test --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -v q --nologo --no-restore -- --treenode-filter '/*/*/ClassName/*'
+dotnet test --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -v q --nologo --no-restore -- --treenode-filter '/*/*/ClassName/MethodName'
 dotnet run -c Release -f net11.0 --project benchmarks/HyperPdf.Benchmarks -- --filter '*RelevantBenchmark*'
 dotnet run --file scripts/AuditAllocations.cs -- '*RelevantBenchmark*'
 dotnet run --file scripts/Publish.cs -- linux-x64
