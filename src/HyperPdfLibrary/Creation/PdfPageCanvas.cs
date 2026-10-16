@@ -92,7 +92,21 @@ public ref struct PdfPageCanvas
     /// <exception cref="ArgumentNullException"><paramref name="font"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">The text has a line break.</exception>
     /// <exception cref="InvalidOperationException">The document is tagged and no content or artifact is open, or the font was finished before the text needing a new glyph.</exception>
-    public void DrawText(PdfCanvasFont font, float size, float x, float y, ReadOnlySpan<char> text)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void DrawText(PdfCanvasFont font, float size, float x, float y, ReadOnlySpan<char> text) =>
+        DrawText(font, size, PdfRgbColor.Black, x, y, text);
+
+    /// <summary>Draws one line of text with its baseline starting at a point, in the given RGB colour.</summary>
+    /// <param name="font">The font; an embedded font is cut down to the glyphs drawn when the document is saved.</param>
+    /// <param name="size">The font size in points.</param>
+    /// <param name="color">The fill colour of the text.</param>
+    /// <param name="x">The baseline's start x.</param>
+    /// <param name="y">The baseline's y.</param>
+    /// <param name="text">The text, without line breaks.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="font"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">The text has a line break.</exception>
+    /// <exception cref="InvalidOperationException">The document is tagged and no content or artifact is open, or the font was finished before the text needing a new glyph.</exception>
+    public void DrawText(PdfCanvasFont font, float size, PdfRgbColor color, float x, float y, ReadOnlySpan<char> text)
     {
         ArgumentNullException.ThrowIfNull(font);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
@@ -103,11 +117,22 @@ public ref struct PdfPageCanvas
 
         RequireMarked();
         var name = Resources.AddFont(font.Id);
+        var colored = !color.IsBlack;
+        if (colored)
+        {
+            _content.SaveState();
+            _content.SetFillRgb(color.Red, color.Green, color.Blue);
+        }
+
         _content.BeginText();
         _content.SetFont(name.Utf8, size);
         _content.MoveText(x, y);
         font.Show(ref _content, text, size);
         _content.EndText();
+        if (colored)
+        {
+            _content.RestoreState();
+        }
     }
 
     /// <summary>Draws an image scaled to a rectangle.</summary>

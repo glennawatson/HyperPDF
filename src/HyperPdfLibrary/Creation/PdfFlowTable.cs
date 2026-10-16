@@ -39,4 +39,16 @@ public sealed record PdfFlowTable(IReadOnlyList<PdfTableRow> Rows) : PdfFlowBloc
 
     /// <summary>Gets the stroke of the cell borders, or <see langword="null"/> for a table with no borders.</summary>
     public PdfStroke? Border { get; init; } = PdfStroke.Black(DefaultBorderWidth);
+
+    /// <summary>Gets the default font for body cells, or <see langword="null"/> to use <see cref="PdfFlowOptions.BodyFont"/>.</summary>
+    public PdfCanvasFont? BodyFont { get; init; }
+
+    /// <summary>Gets the default font for header cells, or <see langword="null"/> to use <see cref="PdfFlowOptions.HeadingFont"/> (or the body font).</summary>
+    public PdfCanvasFont? HeaderFont { get; init; }
+
+    /// <summary>Gets the default font size in points for cells in this table, or <see langword="null"/> to use <see cref="PdfFlowOptions.BodySize"/>.</summary>
+    public float? FontSize { get; init; }
+
+    /// <summary>Gets the default text colour for cells in this table; the default is black.</summary>
+    public PdfRgbColor TextColor { get; init; } = PdfRgbColor.Black;
 }

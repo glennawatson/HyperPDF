@@ -52,6 +52,70 @@ internal static class PdfTableWidths
         }
     }
 
+    /// <summary>Finds the widest of a set of lines.</summary>
+    /// <param name="lines">The lines.</param>
+    /// <returns>The widest advance.</returns>
+    internal static float WidestLine(ref PooledLines lines)
+    {
+        var widest = 0F;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            widest = Math.Max(widest, lines[i].Width);
+        }
+
+        return widest;
+    }
+
+    /// <summary>Gives the unsized columns the space left: a column that wants less than an equal share keeps what it wants and the rest split what remains.</summary>
+    /// <param name="widths">The column widths; a zero marks a column to size.</param>
+    /// <param name="natural">The wanted width of each column.</param>
+    /// <param name="remaining">The space to share.</param>
+    internal static void Share(scoped Span<float> widths, scoped ReadOnlySpan<float> natural, float remaining)
+    {
+        var pending = 0;
+        foreach (var width in widths)
+        {
+            pending += width > 0F ? 0 : 1;
+        }
+
+        while (pending > 0)
+        {
+            var share = remaining / pending;
+            var taken = TakeWanted(widths, natural, share, ref remaining);
+            if (taken == 0)
+            {
+                SetRemaining(widths, share);
+                return;
+            }
+
+            pending -= taken;
+        }
+    }
+
+    /// <summary>Scales the columns down when they are wider than the page's text.</summary>
+    /// <param name="widths">The column widths.</param>
+    /// <param name="textWidth">The width the page leaves for text.</param>
+    /// <param name="minimum">The narrowest a column may be.</param>
+    internal static void FitToText(scoped Span<float> widths, float textWidth, float minimum)
+    {
+        var total = 0F;
+        foreach (var width in widths)
+        {
+            total += width;
+        }
+
+        if (total <= textWidth)
+        {
+            return;
+        }
+
+        var scale = textWidth / total;
+        for (var c = 0; c < widths.Length; c++)
+        {
+            widths[c] = Math.Max(widths[c] * scale, minimum);
+        }
+    }
+
     /// <summary>Fills in the width of every column.</summary>
     /// <param name="layout">The table's layout.</param>
     /// <param name="textWidth">The width the page leaves for text.</param>
@@ -104,8 +168,9 @@ internal static class PdfTableWidths
                     continue;
                 }
 
+                var cellFont = cells[c].Font ?? font;
                 layout.Lines.Clear();
-                PdfTextWrapper.Wrap(font, layout.Size, cells[c].Text, float.MaxValue, ref layout.Lines);
+                PdfTextWrapper.Wrap(cellFont, layout.Size, cells[c].Text, float.MaxValue, ref layout.Lines);
                 natural[c] = Math.Max(natural[c], WidestLine(ref layout.Lines) + layout.Inset + RoundingSlack);
             }
         }
@@ -113,46 +178,6 @@ internal static class PdfTableWidths
         for (var c = 0; c < natural.Length; c++)
         {
             natural[c] = Math.Max(natural[c], minimum);
-        }
-    }
-
-    /// <summary>Finds the widest of a set of lines.</summary>
-    /// <param name="lines">The lines.</param>
-    /// <returns>The widest advance.</returns>
-    private static float WidestLine(ref PooledLines lines)
-    {
-        var widest = 0F;
-        for (var i = 0; i < lines.Count; i++)
-        {
-            widest = Math.Max(widest, lines[i].Width);
-        }
-
-        return widest;
-    }
-
-    /// <summary>Gives the unsized columns the space left: a column that wants less than an equal share keeps what it wants and the rest split what remains.</summary>
-    /// <param name="widths">The column widths; a zero marks a column to size.</param>
-    /// <param name="natural">The wanted width of each column.</param>
-    /// <param name="remaining">The space to share.</param>
-    private static void Share(scoped Span<float> widths, scoped ReadOnlySpan<float> natural, float remaining)
-    {
-        var pending = 0;
-        foreach (var width in widths)
-        {
-            pending += width > 0F ? 0 : 1;
-        }
-
-        while (pending > 0)
-        {
-            var share = remaining / pending;
-            var taken = TakeWanted(widths, natural, share, ref remaining);
-            if (taken == 0)
-            {
-                SetRemaining(widths, share);
-                return;
-            }
-
-            pending -= taken;
         }
     }
 
@@ -188,30 +213,6 @@ internal static class PdfTableWidths
         for (var c = 0; c < widths.Length; c++)
         {
             widths[c] = widths[c] > 0F ? widths[c] : share;
-        }
-    }
-
-    /// <summary>Scales the columns down when they are wider than the page's text.</summary>
-    /// <param name="widths">The column widths.</param>
-    /// <param name="textWidth">The width the page leaves for text.</param>
-    /// <param name="minimum">The narrowest a column may be.</param>
-    private static void FitToText(scoped Span<float> widths, float textWidth, float minimum)
-    {
-        var total = 0F;
-        foreach (var width in widths)
-        {
-            total += width;
-        }
-
-        if (total <= textWidth)
-        {
-            return;
-        }
-
-        var scale = textWidth / total;
-        for (var c = 0; c < widths.Length; c++)
-        {
-            widths[c] = Math.Max(widths[c] * scale, minimum);
         }
     }
 }

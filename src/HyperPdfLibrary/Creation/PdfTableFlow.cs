@@ -28,13 +28,20 @@ internal static class PdfTableFlow
     /// <summary>Writes a table.</summary>
     /// <param name="run">The flow being written.</param>
     /// <param name="table">The table.</param>
-    /// <exception cref="ArgumentOutOfRangeException">The padding is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The padding or font size is invalid.</exception>
     internal static void Write(ref FlowRun run, PdfFlowTable table)
     {
         ArgumentNullException.ThrowIfNull(table.Rows);
         ArgumentNullException.ThrowIfNull(table.ColumnWidths);
         ArgumentNullException.ThrowIfNull(table.ColumnAlignments);
         ArgumentOutOfRangeException.ThrowIfNegative(table.CellPadding);
+        RichTableGrid.ValidateTable(table);
+        if (NeedsRichLayout(table.Rows))
+        {
+            PdfRichTableFlow.Write(ref run, table);
+            return;
+        }
+
         var columns = CountColumns(table.Rows);
         if (columns == 0)
         {
@@ -50,6 +57,26 @@ internal static class PdfTableFlow
         {
             layout.Dispose();
         }
+    }
+
+    /// <summary>Determines whether any cell in the table requires the rich layout engine.</summary>
+    /// <param name="rows">The table rows.</param>
+    /// <returns><see langword="true"/> when any cell uses spans, custom font size, runs, images, code blocks or flow blocks.</returns>
+    private static bool NeedsRichLayout(IReadOnlyList<PdfTableRow> rows)
+    {
+        for (var r = 0; r < rows.Count; r++)
+        {
+            var cells = rows[r].Cells;
+            for (var c = 0; c < cells.Count; c++)
+            {
+                if (cells[c].UsesRichLayout)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Resolves the columns, then writes every row.</summary>
@@ -94,7 +121,7 @@ internal static class PdfTableFlow
         var height = 0F;
         for (var r = 0; r < layout.HeaderRows; r++)
         {
-            height += layout.GetHeight(Math.Max(WrapRow(ref layout, layout.Table.Rows[r], layout.HeaderFont), 1));
+            height += layout.GetHeight(Math.Max(WrapRow(ref layout, layout.Table.Rows[r], header: true), 1));
         }
 
         layout.HeaderHeight = height;
@@ -104,15 +131,16 @@ internal static class PdfTableFlow
     /// <summary>Wraps the text of every cell of a row to its column.</summary>
     /// <param name="layout">The table's layout; its lines and cell ranges receive the result.</param>
     /// <param name="row">The row.</param>
-    /// <param name="font">The row's font.</param>
+    /// <param name="header">Whether the row is a header row.</param>
     /// <returns>The most lines in any cell.</returns>
-    private static int WrapRow(ref TableLayout layout, PdfTableRow row, PdfCanvasFont font)
+    private static int WrapRow(ref TableLayout layout, PdfTableRow row, bool header)
     {
         layout.Lines.Clear();
         var most = 0;
         for (var c = 0; c < layout.Columns; c++)
         {
             var text = c < row.Cells.Count ? row.Cells[c].Text : string.Empty;
+            var font = layout.GetCellFont(row, c, header);
             layout.Starts[c] = layout.Lines.Count;
             PdfTextWrapper.Wrap(font, layout.Size, text, layout.GetWidth(c) - layout.Inset, ref layout.Lines);
             layout.Counts[c] = layout.Lines.Count - layout.Starts[c];
@@ -129,8 +157,7 @@ internal static class PdfTableFlow
     /// <param name="header">Whether it is a header row.</param>
     private static void WriteRow(ref FlowRun run, ref TableLayout layout, PdfTableRow row, bool header)
     {
-        var font = layout.GetFont(header);
-        var total = Math.Max(WrapRow(ref layout, row, font), 1);
+        var total = Math.Max(WrapRow(ref layout, row, header), 1);
         CreateElements(ref run, ref layout, header);
         var done = 0;
         while (done < total)
@@ -139,11 +166,11 @@ internal static class PdfTableFlow
             if (take == 0)
             {
                 StartContinuation(ref run, ref layout, header);
-                _ = WrapRow(ref layout, row, font);
+                _ = WrapRow(ref layout, row, header);
                 continue;
             }
 
-            DrawSegment(ref run, ref layout, row, font, done, take);
+            DrawSegment(ref run, ref layout, row, header, done, take);
             done += take;
         }
     }
@@ -226,8 +253,8 @@ internal static class PdfTableFlow
         for (var r = 0; r < layout.HeaderRows; r++)
         {
             var row = layout.Table.Rows[r];
-            var lines = Math.Max(WrapRow(ref layout, row, layout.HeaderFont), 1);
-            DrawSegment(ref run, ref layout, row, layout.HeaderFont, 0, lines);
+            var lines = Math.Max(WrapRow(ref layout, row, header: true), 1);
+            DrawSegment(ref run, ref layout, row, header: true, 0, lines);
         }
 
         if (tagged)
@@ -243,12 +270,14 @@ internal static class PdfTableFlow
     /// <param name="run">The flow being written.</param>
     /// <param name="layout">The table's layout.</param>
     /// <param name="row">The row.</param>
-    /// <param name="font">The row's font.</param>
+    /// <param name="header">Whether the row is a header row.</param>
     /// <param name="done">The lines already drawn on earlier pages.</param>
     /// <param name="take">The lines to draw.</param>
-    private static void DrawSegment(ref FlowRun run, ref TableLayout layout, PdfTableRow row, PdfCanvasFont font, int done, int take)
+    private static void DrawSegment(ref FlowRun run, ref TableLayout layout, PdfTableRow row, bool header, int done, int take)
     {
         var top = run.Top;
+        var height = layout.GetHeight(take);
+        DrawBackgrounds(ref run, ref layout, row, top, height);
         for (var c = 0; c < layout.Columns; c++)
         {
             var last = Math.Min(done + take, layout.Counts[c]);
@@ -258,26 +287,57 @@ internal static class PdfTableFlow
             }
 
             run.OpenContent(layout.InArtifact ? null : layout.Cells[c]);
-            DrawCell(ref run, ref layout, row, font, c, done, last);
+            DrawCell(ref run, ref layout, row, header, c, done, last);
             run.CloseContent();
         }
 
-        var height = layout.GetHeight(take);
         DrawBorders(ref run, ref layout, top, height);
         run.Top = top - height;
+    }
+
+    /// <summary>Draws the background colour of any cells in the row that specify one.</summary>
+    /// <param name="run">The flow being written.</param>
+    /// <param name="layout">The table's layout.</param>
+    /// <param name="row">The row.</param>
+    /// <param name="top">The top of the row slice.</param>
+    /// <param name="height">The height of the row slice.</param>
+    private static void DrawBackgrounds(ref FlowRun run, ref TableLayout layout, PdfTableRow row, float top, float height)
+    {
+        for (var c = 0; c < layout.Columns && c < row.Cells.Count; c++)
+        {
+            if (row.Cells[c].BackgroundColor is not { } bg)
+            {
+                continue;
+            }
+
+            run.CloseContent();
+            var wrap = run.Creator.Tags is not null && !layout.InArtifact;
+            if (wrap)
+            {
+                run.Canvas.BeginArtifact(PdfArtifactKind.Layout);
+            }
+
+            run.Canvas.FillRectangle(bg.Red, bg.Green, bg.Blue, layout.Lefts[c], top - height, layout.GetWidth(c), height);
+            if (wrap)
+            {
+                run.Canvas.EndArtifact();
+            }
+        }
     }
 
     /// <summary>Draws some lines of one cell.</summary>
     /// <param name="run">The flow being written.</param>
     /// <param name="layout">The table's layout.</param>
     /// <param name="row">The row.</param>
-    /// <param name="font">The row's font.</param>
+    /// <param name="header">Whether the row is a header row.</param>
     /// <param name="column">The column.</param>
     /// <param name="first">The first line to draw, counted from the cell's first.</param>
     /// <param name="last">The index after the last line to draw.</param>
-    private static void DrawCell(ref FlowRun run, ref TableLayout layout, PdfTableRow row, PdfCanvasFont font, int column, int first, int last)
+    private static void DrawCell(ref FlowRun run, ref TableLayout layout, PdfTableRow row, bool header, int column, int first, int last)
     {
         var text = column < row.Cells.Count ? row.Cells[column].Text : string.Empty;
+        var font = layout.GetCellFont(row, column, header);
+        var color = layout.GetCellColor(row, column);
         var alignment = layout.GetAlignment(row, column);
         var ascent = font.GetAscent(layout.Size);
         var offset = ((layout.Leading - (ascent - font.GetDescent(layout.Size))) * Half) + ascent;
@@ -288,7 +348,7 @@ internal static class PdfTableFlow
             if (line.Length > 0)
             {
                 var x = GetLeft(ref layout, column, alignment, line.Width);
-                run.Canvas.DrawText(font, layout.Size, x, lineTop - offset, text.AsSpan(line.Start, line.Length));
+                run.Canvas.DrawText(font, layout.Size, color, x, lineTop - offset, text.AsSpan(line.Start, line.Length));
             }
 
             lineTop -= layout.Leading;

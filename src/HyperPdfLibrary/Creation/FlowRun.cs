@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -46,6 +47,9 @@ internal ref struct FlowRun
 
     /// <summary>The deepest heading level.</summary>
     private const int MaxHeadingLevel = 6;
+
+    /// <summary>The maximum digits of a 32-bit page number.</summary>
+    private const int MaxPageDigits = 11;
 
     /// <summary>The structure type of each heading level, so a heading does not build its spelling.</summary>
     private static readonly string[] HeadingTypes = ["H1", "H2", "H3", "H4", "H5", "H6"];
@@ -92,6 +96,14 @@ internal ref struct FlowRun
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.BodySize);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.LineSpacing);
         ArgumentNullException.ThrowIfNull(options.BodyFont);
+        ArgumentNullException.ThrowIfNull(options.PageNumberPrefix);
+        ArgumentNullException.ThrowIfNull(options.PageNumberSuffix);
+        if (options.PageNumberOffset is { } offset)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(offset);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(offset, options.PageHeight);
+        }
+
         _creator = creator;
         _options = options;
         _cancellationToken = cancellationToken;
@@ -130,6 +142,9 @@ internal ref struct FlowRun
         readonly get => _top;
         set => _top = value;
     }
+
+    /// <summary>Gets the zero-based index of the open page.</summary>
+    internal readonly int PageNumber => _pages;
 
     /// <summary>Gets the open page. Only valid after a page is started.</summary>
     [UnscopedRef]
@@ -208,6 +223,11 @@ internal ref struct FlowRun
             return;
         }
 
+        if (_open is not null)
+        {
+            _canvas.EndContent();
+        }
+
         _canvas.BeginContent(element);
         _open = element;
     }
@@ -229,6 +249,21 @@ internal ref struct FlowRun
     /// <returns>The size as a multiple of the body size.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static float GetHeadingScale(int level) => HeadingScales[Math.Clamp(level, 1, MaxHeadingLevel) - 1];
+
+    /// <summary>Formats the page number with its prefix and suffix.</summary>
+    /// <param name="pageNumber">The 1-based page number.</param>
+    /// <param name="prefix">The prefix string.</param>
+    /// <param name="suffix">The suffix string.</param>
+    /// <param name="buffer">A caller-supplied rented buffer.</param>
+    /// <returns>The formatted characters.</returns>
+    private static ReadOnlySpan<char> FormatPageLabel(int pageNumber, string prefix, string suffix, char[] buffer)
+    {
+        var span = buffer.AsSpan();
+        prefix.AsSpan().CopyTo(span);
+        _ = pageNumber.TryFormat(span[prefix.Length..], out var digits, default, CultureInfo.InvariantCulture);
+        suffix.AsSpan().CopyTo(span[(prefix.Length + digits)..]);
+        return span[..(prefix.Length + digits + suffix.Length)];
+    }
 
     /// <summary>Writes one block.</summary>
     /// <param name="block">The block.</param>
@@ -257,6 +292,12 @@ internal ref struct FlowRun
             case PdfFlowTable table:
             {
                 PdfTableFlow.Write(ref this, table);
+                break;
+            }
+
+            case PdfFlowCodeBlock codeBlock:
+            {
+                PdfCodeFlow.Write(ref this, codeBlock);
                 break;
             }
 
@@ -380,18 +421,46 @@ internal ref struct FlowRun
     private void WritePageNumber()
     {
         var size = _options.BodySize * PageNumberScale;
-        var label = (_pages + 1).ToString(CultureInfo.InvariantCulture);
-        var tagged = _creator.Tags is not null;
-        if (tagged)
+        var prefix = _options.PageNumberPrefix;
+        var suffix = _options.PageNumberSuffix;
+        var rented = ArrayPool<char>.Shared.Rent(prefix.Length + suffix.Length + MaxPageDigits);
+        try
         {
-            _canvas.BeginArtifact(PdfArtifactKind.Pagination);
-        }
+            var label = FormatPageLabel(_pages + 1, prefix, suffix, rented);
+            var tagged = _creator.Tags is not null;
+            if (tagged)
+            {
+                _canvas.BeginArtifact(PdfArtifactKind.Pagination);
+            }
 
-        var x = (_options.PageWidth - _options.BodyFont.Measure(label, size)) * Half;
-        _canvas.DrawText(_options.BodyFont, size, x, _options.Margin * Half, label);
-        if (tagged)
-        {
-            _canvas.EndArtifact();
+            var width = _options.BodyFont.Measure(label, size);
+            var x = GetPageNumberX(width);
+            var y = Math.Clamp(_options.PageNumberOffset ?? (_options.Margin * Half), 0F, Math.Max(0F, _options.PageHeight - size));
+            _canvas.DrawText(_options.BodyFont, size, x, y, label);
+            if (tagged)
+            {
+                _canvas.EndArtifact();
+            }
         }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(rented);
+        }
+    }
+
+    /// <summary>Calculates the horizontal start position of a page number within the content margins.</summary>
+    /// <param name="width">The measured advance of the page number label.</param>
+    /// <returns>The baseline start x in points.</returns>
+    private readonly float GetPageNumberX(float width)
+    {
+        var left = _options.Margin;
+        var right = Math.Max(left, _options.PageWidth - _options.Margin - width);
+        var raw = _options.PageNumberAlignment switch
+        {
+            PdfTableAlignment.Left => left,
+            PdfTableAlignment.Right => right,
+            _ => (_options.PageWidth - width) * Half,
+        };
+        return Math.Clamp(raw, left, right);
     }
 }
