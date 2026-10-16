@@ -346,19 +346,19 @@ jobs:
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
       with:
         name: nuget-unsigned
-        path: artifacts/nuget
+        path: release
     # certum-sign matches wildcards in file names only, so both executables share one folder while they are signed.
     - name: Gather the executables
       run: |
         mkdir -p artifacts/exe
         mv artifacts/win-x64/hyperpdf.exe artifacts/exe/hyperpdf-win-x64.exe
         mv artifacts/win-arm64/hyperpdf.exe artifacts/exe/hyperpdf-win-arm64.exe
-    - name: Sign the executables and RPMs
+    - name: Sign the executables, RPMs and NuGet packages
       uses: glennawatson/actions-common/.github/actions/certum-sign@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
       with:
         authenticode: 'artifacts/exe/*.exe'
         rpm: 'release/*.rpm'
-        nuget: 'artifacts/nuget/*.nupkg'
+        nuget: 'release/*.nupkg'
     - name: Return the executables
       run: |
         mv artifacts/exe/hyperpdf-win-x64.exe artifacts/win-x64/hyperpdf.exe
@@ -508,7 +508,7 @@ jobs:
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
         name: nuget-signed
-        path: artifacts/nuget/*.nupkg
+        path: release/*.nupkg
         if-no-files-found: error
 
   verify-linux:
