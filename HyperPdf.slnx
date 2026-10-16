@@ -17,6 +17,7 @@
     <Project Path="src/HyperPdf.Platform.MacOS/HyperPdf.Platform.MacOS.csproj" />
     <Project Path="src/HyperPdf.Platform.Windows/HyperPdf.Platform.Windows.csproj" />
     <Project Path="src/HyperPdf.Skia/HyperPdf.Skia.csproj" />
+    <Project Path="src/examples/HyperPdf.Examples.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" />

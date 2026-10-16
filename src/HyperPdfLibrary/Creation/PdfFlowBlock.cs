@@ -14,4 +14,12 @@ public abstract record PdfFlowBlock
     private protected PdfFlowBlock()
     {
     }
+
+    /// <summary>
+    /// Gets a value indicating whether this block must stay on the same page as the start of the following block.
+    /// When enabled and the block together with the opening content of the next block (or chain of keep-with-next
+    /// blocks) does not fit in the remaining space on the current page, a new page is started before this block.
+    /// <see cref="PdfFlowHeading"/> enables this by default.
+    /// </summary>
+    public bool KeepWithNext { get; init; }
 }

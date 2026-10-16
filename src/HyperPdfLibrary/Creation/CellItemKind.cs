@@ -15,4 +15,7 @@ internal enum CellItemKind
 
     /// <summary>A line of a preformatted code block.</summary>
     Code = 2,
+
+    /// <summary>A horizontal rule divider.</summary>
+    Rule = 3,
 }

@@ -124,16 +124,31 @@ internal sealed class RichTableGrid
     /// <summary>Gets or sets a value indicating whether drawing is currently inside a layout artifact.</summary>
     internal bool InArtifact { get; set; }
 
-    /// <summary>Validates a table's rows and cells.</summary>
+    /// <summary>Validates a table's column sizing, rows and cells.</summary>
     /// <param name="table">The table to validate.</param>
+    /// <exception cref="ArgumentNullException">A required table or row collection is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A column sizing or row height value is invalid.</exception>
     internal static void ValidateTable(PdfFlowTable table)
     {
+        ArgumentNullException.ThrowIfNull(table.ColumnWidths);
+        ArgumentNullException.ThrowIfNull(table.ColumnSizing);
+        ArgumentNullException.ThrowIfNull(table.ColumnAlignments);
         table.TextColor.Validate();
+        for (var c = 0; c < table.ColumnSizing.Count; c++)
+        {
+            table.ColumnSizing[c].Validate();
+        }
+
         for (var r = 0; r < table.Rows.Count; r++)
         {
             var row = table.Rows[r];
             ArgumentNullException.ThrowIfNull(row);
             ArgumentNullException.ThrowIfNull(row.Cells);
+            if (row.Height is { } rowHeight && (float.IsNaN(rowHeight) || float.IsInfinity(rowHeight) || rowHeight <= 0F))
+            {
+                throw new ArgumentOutOfRangeException(nameof(table), rowHeight, "Row Height must be a finite positive number.");
+            }
+
             for (var c = 0; c < row.Cells.Count; c++)
             {
                 ValidateCell(row.Cells[c]);
@@ -201,6 +216,13 @@ internal sealed class RichTableGrid
     /// <returns>The width in points.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal float GetSpanWidth(int startCol, int colSpan) => Lefts[startCol + colSpan] - Lefts[startCol];
+
+    /// <summary>Gets the minimum single-line content height for a row.</summary>
+    /// <param name="rowIndex">The zero-based row index.</param>
+    /// <returns>The minimum content height in points.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal float GetRowMinLeading(int rowIndex) =>
+        Math.Min(Leading, Math.Max(MinContent, RowHeights[rowIndex] - Inset));
 
     /// <summary>Gets the horizontal alignment for a placed cell.</summary>
     /// <param name="cell">The placed cell.</param>
@@ -272,7 +294,7 @@ internal sealed class RichTableGrid
     /// <summary>Validates the nested flow blocks of a cell.</summary>
     /// <param name="blocks">The flow blocks.</param>
     /// <exception cref="ArgumentNullException"><paramref name="blocks"/> or a block is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">An image width is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">An image width or rule dimension is invalid.</exception>
     private static void ValidateCellBlocks(IReadOnlyList<PdfFlowBlock> blocks)
     {
         ArgumentNullException.ThrowIfNull(blocks);
@@ -295,6 +317,10 @@ internal sealed class RichTableGrid
             else if (block is PdfFlowHeading heading)
             {
                 ArgumentNullException.ThrowIfNull(heading.Text);
+            }
+            else if (block is PdfFlowRule rule)
+            {
+                FlowRun.ValidateRule(rule);
             }
         }
     }
@@ -440,7 +466,7 @@ internal sealed class RichTableGrid
     /// <returns>The established column count.</returns>
     private static int ResolveColumnCount(PdfFlowTable table, int[] rowWidths, bool[] rowHasColSpan)
     {
-        var established = table.ColumnWidths.Count;
+        var established = Math.Max(table.ColumnWidths.Count, table.ColumnSizing.Count);
         for (var r = 0; r < rowWidths.Length; r++)
         {
             if (!rowHasColSpan[r])
@@ -499,54 +525,71 @@ internal sealed class RichTableGrid
         return slots;
     }
 
+    /// <summary>Gets the effective font size of a cell for minimum row height calculation.</summary>
+    /// <param name="cell">The table cell.</param>
+    /// <param name="tableSize">The table's default font size.</param>
+    /// <returns>The effective font size in points.</returns>
+    private static float GetEffectiveCellFontSize(PdfTableCell cell, float tableSize)
+    {
+        var baseSize = cell.FontSize ?? tableSize;
+        if (cell.Runs.Count == 0)
+        {
+            return baseSize;
+        }
+
+        var maxRunSize = 0F;
+        for (var i = 0; i < cell.Runs.Count; i++)
+        {
+            maxRunSize = Math.Max(maxRunSize, cell.Runs[i].FontSize ?? baseSize);
+        }
+
+        return maxRunSize;
+    }
+
     /// <summary>Resolves the width of every column and populates <see cref="Lefts"/>.</summary>
     /// <param name="textWidth">The page's available text width.</param>
     /// <param name="lines">Scratch pooled lines.</param>
     private void ResolveColumnWidths(float textWidth, ref PooledLines lines)
     {
         var minimum = Inset + MinContent;
-        var widths = new float[Columns];
-        var natural = new float[Columns];
-        var fixedTotal = 0F;
-        var automatic = 0;
-        for (var c = 0; c < Columns; c++)
+        var widthsArray = System.Buffers.ArrayPool<float>.Shared.Rent(Columns);
+        var naturalArray = System.Buffers.ArrayPool<float>.Shared.Rent(Columns);
+        try
         {
-            var requested = c < Table.ColumnWidths.Count ? Table.ColumnWidths[c] : 0F;
-            if (requested > 0F)
+            var widths = widthsArray.AsSpan(0, Columns);
+            var natural = naturalArray.AsSpan(0, Columns);
+            widths.Clear();
+            natural.Clear();
+            PdfTableWidths.ApplyFixedWidths(Table, minimum, widths, out var fixedTotal, out var autoCount);
+            if (autoCount > 0)
             {
-                widths[c] = Math.Max(requested, minimum);
-                fixedTotal += widths[c];
+                MeasureNaturalWidths(widths, natural, minimum, ref lines);
             }
-            else
+
+            PdfTableWidths.CompleteWidths(Table, textWidth, minimum, fixedTotal, autoCount, widths, natural);
+            for (var c = 0; c < Columns; c++)
             {
-                automatic++;
+                Lefts[c + 1] = Lefts[c] + widths[c];
             }
         }
-
-        if (automatic > 0)
+        finally
         {
-            MeasureNaturalWidths(widths, natural, minimum, ref lines);
-            PdfTableWidths.Share(widths, natural, Math.Max(textWidth - fixedTotal, automatic * minimum));
-        }
-
-        PdfTableWidths.FitToText(widths, textWidth, minimum);
-        for (var c = 0; c < Columns; c++)
-        {
-            Lefts[c + 1] = Lefts[c] + widths[c];
+            System.Buffers.ArrayPool<float>.Shared.Return(widthsArray);
+            System.Buffers.ArrayPool<float>.Shared.Return(naturalArray);
         }
     }
 
-    /// <summary>Measures the natural width of single-column and multi-column cells for unsized columns.</summary>
-    /// <param name="widths">The fixed column widths (zero for automatic columns).</param>
+    /// <summary>Measures the natural width of single-column and multi-column cells for automatic columns.</summary>
+    /// <param name="widths">The fixed column widths (zero for non-fixed columns).</param>
     /// <param name="natural">Receives the natural width of each automatic column.</param>
     /// <param name="minimum">The minimum column width.</param>
     /// <param name="lines">Scratch pooled lines.</param>
-    private void MeasureNaturalWidths(float[] widths, float[] natural, float minimum, ref PooledLines lines)
+    private void MeasureNaturalWidths(ReadOnlySpan<float> widths, Span<float> natural, float minimum, ref PooledLines lines)
     {
         for (var i = 0; i < Cells.Count; i++)
         {
             var placed = Cells[i];
-            if (placed.ColumnSpan != 1 || widths[placed.StartCol] > 0F)
+            if (placed.ColumnSpan != 1 || PdfTableWidths.GetColumnSpec(Table, placed.StartCol).Kind != PdfTableColumnWidthKind.Auto)
             {
                 continue;
             }
@@ -571,12 +614,12 @@ internal sealed class RichTableGrid
         }
     }
 
-    /// <summary>Distributes any excess natural width of a column-spanning cell across the unsized columns it covers.</summary>
+    /// <summary>Distributes any excess natural width of a column-spanning cell across the automatic columns it covers.</summary>
     /// <param name="placed">The spanning cell.</param>
     /// <param name="widths">The fixed column widths.</param>
     /// <param name="natural">The natural widths of automatic columns.</param>
     /// <param name="lines">Scratch pooled lines.</param>
-    private void DistributeSpanNaturalWidth(PlacedCell placed, float[] widths, float[] natural, ref PooledLines lines)
+    private void DistributeSpanNaturalWidth(PlacedCell placed, ReadOnlySpan<float> widths, Span<float> natural, ref PooledLines lines)
     {
         var want = RichCellWrapper.MeasureNaturalWidth(placed.Cell, GetFont(placed.IsHeader), Size, Table.TextColor, LineSpacing, ref lines)
             + Inset + RoundingSlack;
@@ -584,8 +627,9 @@ internal sealed class RichTableGrid
         var unsized = 0;
         for (var c = placed.StartCol; c < placed.StartCol + placed.ColumnSpan; c++)
         {
-            current += widths[c] > 0F ? widths[c] : natural[c];
-            unsized += widths[c] > 0F ? 0 : 1;
+            var isAuto = PdfTableWidths.GetColumnSpec(Table, c).Kind == PdfTableColumnWidthKind.Auto;
+            current += isAuto ? natural[c] : widths[c];
+            unsized += isAuto ? 1 : 0;
         }
 
         if (want <= current || unsized == 0)
@@ -596,7 +640,7 @@ internal sealed class RichTableGrid
         var extra = (want - current) / unsized;
         for (var c = placed.StartCol; c < placed.StartCol + placed.ColumnSpan; c++)
         {
-            if (widths[c] <= 0F)
+            if (PdfTableWidths.GetColumnSpec(Table, c).Kind == PdfTableColumnWidthKind.Auto)
             {
                 natural[c] += extra;
             }
@@ -608,15 +652,13 @@ internal sealed class RichTableGrid
     private void WrapAndMeasureRows(ref PooledLines lines)
     {
         var maxImageHeight = Math.Max(Leading, PageTop - Margin - Inset);
-        for (var r = 0; r < Rows; r++)
-        {
-            RowHeights[r] = Inset + Leading;
-        }
-
+        Array.Clear(RowHeights);
         for (var i = 0; i < Cells.Count; i++)
         {
             var placed = Cells[i];
             var cell = placed.Cell;
+            var cellSize = GetEffectiveCellFontSize(cell, Size);
+            var cellLeading = cellSize * LineSpacing;
             var innerWidth = Math.Max(MinContent, GetSpanWidth(placed.StartCol, placed.ColumnSpan) - Inset);
             var style = new CellStyleContext(
                 cell.Font ?? GetFont(placed.IsHeader),
@@ -628,11 +670,46 @@ internal sealed class RichTableGrid
             RichCellWrapper.WrapCell(placed, in style, ref lines);
             if (placed.RowSpan == 1)
             {
-                RowHeights[placed.StartRow] = Math.Max(RowHeights[placed.StartRow], Inset + Math.Max(placed.ContentHeight, Leading));
+                RowHeights[placed.StartRow] = Math.Max(RowHeights[placed.StartRow], Inset + Math.Max(placed.ContentHeight, cellLeading));
             }
         }
 
+        FinalizeBaseRowHeights();
         ApplyRowSpanHeights();
+    }
+
+    /// <summary>Applies fallback heights for empty rows and explicit <see cref="PdfTableRow.Height"/> overrides.</summary>
+    private void FinalizeBaseRowHeights()
+    {
+        for (var r = 0; r < Rows; r++)
+        {
+            if (RowHeights[r] <= 0F)
+            {
+                RowHeights[r] = Inset + GetFallbackRowLeading(r);
+            }
+
+            if (Table.Rows[r].Height is { } explicitHeight)
+            {
+                RowHeights[r] = Math.Max(RowHeights[r], explicitHeight);
+            }
+        }
+    }
+
+    /// <summary>Gets the fallback single-line leading for a row that has no single-row cells.</summary>
+    /// <param name="rowIndex">The row index.</param>
+    /// <returns>The fallback leading in points.</returns>
+    private float GetFallbackRowLeading(int rowIndex)
+    {
+        var maxLeading = 0F;
+        for (var c = 0; c < Columns; c++)
+        {
+            if (GetCell(rowIndex, c) is { } placed)
+            {
+                maxLeading = Math.Max(maxLeading, GetEffectiveCellFontSize(placed.Cell, Size) * LineSpacing);
+            }
+        }
+
+        return maxLeading > 0F ? maxLeading : Leading;
     }
 
     /// <summary>Distributes any excess content height of row-spanning cells to the last row of their span.</summary>
@@ -646,7 +723,8 @@ internal sealed class RichTableGrid
                 continue;
             }
 
-            var needed = Inset + Math.Max(placed.ContentHeight, Leading);
+            var cellLeading = GetEffectiveCellFontSize(placed.Cell, Size) * LineSpacing;
+            var needed = Inset + Math.Max(placed.ContentHeight, cellLeading);
             var current = 0F;
             for (var r = placed.StartRow; r < placed.StartRow + placed.RowSpan; r++)
             {

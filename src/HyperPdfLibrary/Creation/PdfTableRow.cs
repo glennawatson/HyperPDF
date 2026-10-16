@@ -11,6 +11,12 @@ namespace HyperPdfLibrary.Creation;
 [DebuggerDisplay("PdfTableRow: {Cells.Count} cells")]
 public sealed record PdfTableRow(IReadOnlyList<PdfTableCell> Cells)
 {
+    /// <summary>
+    /// Gets the explicit minimum height of the row in points (including top and bottom cell padding), or
+    /// <see langword="null"/> to size the row solely from its cells' effective font sizes, content and padding.
+    /// </summary>
+    public float? Height { get; init; }
+
     /// <summary>Makes a row from the text of each cell.</summary>
     /// <param name="cells">The text of each cell, from the first column.</param>
     /// <returns>The row.</returns>

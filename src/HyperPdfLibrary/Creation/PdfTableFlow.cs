@@ -33,6 +33,7 @@ internal static class PdfTableFlow
     {
         ArgumentNullException.ThrowIfNull(table.Rows);
         ArgumentNullException.ThrowIfNull(table.ColumnWidths);
+        ArgumentNullException.ThrowIfNull(table.ColumnSizing);
         ArgumentNullException.ThrowIfNull(table.ColumnAlignments);
         ArgumentOutOfRangeException.ThrowIfNegative(table.CellPadding);
         RichTableGrid.ValidateTable(table);
@@ -59,13 +60,62 @@ internal static class PdfTableFlow
         }
     }
 
-    /// <summary>Determines whether any cell in the table requires the rich layout engine.</summary>
+    /// <summary>Measures the vertical height required by the table's opening band (headers plus first body row) for keep-with-next pagination.</summary>
+    /// <param name="run">The active flow run.</param>
+    /// <param name="table">The table.</param>
+    /// <returns>The opening band height in points, or zero when the table is empty.</returns>
+    internal static float MeasureOpeningHeight(ref FlowRun run, PdfFlowTable table)
+    {
+        ArgumentNullException.ThrowIfNull(table.Rows);
+        ArgumentNullException.ThrowIfNull(table.ColumnWidths);
+        ArgumentNullException.ThrowIfNull(table.ColumnSizing);
+        ArgumentNullException.ThrowIfNull(table.ColumnAlignments);
+        ArgumentOutOfRangeException.ThrowIfNegative(table.CellPadding);
+        RichTableGrid.ValidateTable(table);
+        if (NeedsRichLayout(table.Rows))
+        {
+            return PdfRichTableFlow.MeasureOpeningHeight(ref run, table);
+        }
+
+        var options = run.Options;
+        var textWidth = run.TextWidth;
+        var textHeight = run.TextHeight;
+
+        var columns = CountColumns(table.Rows);
+        if (columns == 0)
+        {
+            return 0F;
+        }
+
+        var layout = new TableLayout(table, options, columns, options.Margin);
+        try
+        {
+            PdfTableWidths.Resolve(ref layout, textWidth);
+            MeasureHeaders(ref layout);
+            var firstBodyLines = layout.HeaderRows < table.Rows.Count
+                ? Math.Max(WrapRow(ref layout, table.Rows[layout.HeaderRows], header: false), 1)
+                : 0;
+            var firstBodyHeight = firstBodyLines > 0 ? layout.GetHeight(firstBodyLines) : 0F;
+            return Math.Min(layout.HeaderHeight + firstBodyHeight, textHeight);
+        }
+        finally
+        {
+            layout.Dispose();
+        }
+    }
+
+    /// <summary>Determines whether any row or cell in the table requires the rich layout engine.</summary>
     /// <param name="rows">The table rows.</param>
-    /// <returns><see langword="true"/> when any cell uses spans, custom font size, runs, images, code blocks or flow blocks.</returns>
+    /// <returns><see langword="true"/> when any row has an explicit height or any cell uses spans, custom font size, runs, images, code blocks or flow blocks.</returns>
     private static bool NeedsRichLayout(IReadOnlyList<PdfTableRow> rows)
     {
         for (var r = 0; r < rows.Count; r++)
         {
+            if (rows[r].Height is not null)
+            {
+                return true;
+            }
+
             var cells = rows[r].Cells;
             for (var c = 0; c < cells.Count; c++)
             {
@@ -86,7 +136,8 @@ internal static class PdfTableFlow
     {
         PdfTableWidths.Resolve(ref layout, run.TextWidth);
         MeasureHeaders(ref layout);
-        _ = run.Reserve(Math.Min(layout.HeaderHeight + layout.GetHeight(1), run.TextHeight));
+        var spaceBefore = run.GetPendingSpaceBefore(layout.Size);
+        _ = run.Reserve(Math.Min(layout.HeaderHeight + layout.GetHeight(1) + spaceBefore, run.TextHeight));
         run.AddSpaceBefore(layout.Size);
         layout.TableElement = run.Creator.Tags is { } tags ? tags.AddElement(tags.Root, "Table") : null;
         var rows = layout.Table.Rows;

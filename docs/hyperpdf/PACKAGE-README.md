@@ -47,12 +47,35 @@ A document can be used from many render threads at once.
 
 The fonts that stand in for the 14 standard PDF fonts are embedded in the library assembly: Arimo (Helvetica, Arial), Tinos (Times), Cousine (Courier), Noto Sans Math (Symbol) and Noto Sans Symbols 2 (ZapfDingbats). Each is cut down to Latin, Greek, Cyrillic, Hebrew, Vietnamese, punctuation, currency, arrows, mathematical operators, box drawing and geometric shapes (the two symbol faces to the characters of Symbol and ZapfDingbats), and adds about 2 MB to the package. They are never downloaded. Creating documents, saving, PDF/A conversion and substituting a non-embedded standard font make no network request.
 
-Create a document with an embedded font from the library:
+Create a document with an embedded font, a SkiaSharp raster image, and flowed content:
 
 ```csharp
+using HyperPdfLibrary.Creation;
+using SkiaSharp;
+
 var creator = new PdfDocumentCreator(PdfDocumentCreatorOptions.Default);
 var font = creator.EmbedFont(PdfBundledFonts.Open(PdfBundledFontFamily.Sans, bold: false, italic: false).Source!);
+
+using var bitmap = new SKBitmap(new SKImageInfo(240, 80, SKColorType.Bgra8888, SKAlphaType.Premul));
+var raster = new PdfRasterImage(PdfRasterFormat.Bgra32, bitmap.Width, bitmap.Height, bitmap.Bytes);
+var image = creator.AddRaster(raster, PdfImageOptions.Default, CancellationToken.None);
+
+PdfTextFlow.Add(
+    creator,
+    [
+        new PdfFlowHeading(1, "Report"),
+        new PdfFlowRule(),
+        new PdfFlowParagraph("Body text flowed across pages."),
+        new PdfFlowImage(image, "Banner", 240f),
+    ],
+    new PdfFlowOptions(font),
+    CancellationToken.None);
+
+creator.Finish();
+File.WriteAllBytes("output.pdf", creator.ToArray());
 ```
+
+See [`src/examples`](https://github.com/glennawatson/HyperPDF/tree/main/src/examples) for a complete end-to-end document creation and SkiaSharp rendering example.
 
 Text outside the cut-down ranges draws the font's missing glyph; embed your own font for other scripts.
 

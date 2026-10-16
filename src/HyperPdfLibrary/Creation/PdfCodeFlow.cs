@@ -61,6 +61,39 @@ internal static class PdfCodeFlow
         block.BackgroundColor?.Validate();
     }
 
+    /// <summary>Measures the vertical height required by the start (or full single-page box) of a code block for keep-with-next pagination.</summary>
+    /// <param name="block">The code block.</param>
+    /// <param name="options">The flow options.</param>
+    /// <param name="textWidth">The available content width.</param>
+    /// <param name="textHeight">The available content height.</param>
+    /// <param name="fullBlock">Whether to return the full block height rather than the opening slice height.</param>
+    /// <returns>The height in points.</returns>
+    internal static float MeasureHeight(PdfFlowCodeBlock block, PdfFlowOptions options, float textWidth, float textHeight, bool fullBlock)
+    {
+        Validate(block);
+        var innerWidth = textWidth - block.Indent - (block.Padding * PaddingSides);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(innerWidth, 0F);
+
+        var font = block.Font ?? options.BodyFont;
+        var expanded = ExpandTabs(block.Code, block.TabSpaces);
+        var lines = default(PooledLines);
+        try
+        {
+            WrapCode(font, block.FontSize, expanded, innerWidth, block.Overflow, ref lines);
+            var inset = block.Padding * PaddingSides;
+            var leading = block.FontSize * block.LineSpacing;
+            var total = Math.Max(lines.Count, 1);
+            var full = inset + (total * leading);
+            return fullBlock || total <= FitLines(textHeight, inset, leading)
+                ? full
+                : Math.Min(inset + leading, textHeight);
+        }
+        finally
+        {
+            lines.Dispose();
+        }
+    }
+
     /// <summary>Expands tab characters into spaces when any tab is present.</summary>
     /// <param name="code">The source text.</param>
     /// <param name="tabSpaces">The spaces per tab stop.</param>
@@ -173,7 +206,8 @@ internal static class PdfCodeFlow
         var inset = block.Padding * PaddingSides;
         var leading = block.FontSize * block.LineSpacing;
         var total = Math.Max(lines.Count, 1);
-        _ = run.Reserve(Math.Min(inset + leading, run.TextHeight));
+        var spaceBefore = run.GetPendingSpaceBefore(block.FontSize);
+        _ = run.Reserve(Math.Min(inset + leading + spaceBefore, run.TextHeight));
         run.AddSpaceBefore(block.FontSize);
         var done = 0;
         while (done < total)
