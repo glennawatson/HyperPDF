@@ -39,8 +39,12 @@ internal sealed class RichTableGrid
         float[] rowHeights)
     {
         var size = table.FontSize ?? options.BodySize;
-        var bodyFont = table.BodyFont ?? options.BodyFont;
-        var headerFont = table.HeaderFont ?? options.HeadingFont ?? bodyFont;
+        var defaultBodyFont = FontFallbackResolver.ApplyFallbacks(options.BodyFont, options.FallbackFonts);
+        var defaultHeadingFont = options.HeadingFont is { } heading
+            ? FontFallbackResolver.ResolveScopedFont(heading, options.FallbackFonts, defaultBodyFont)
+            : defaultBodyFont;
+        var bodyFont = FontFallbackResolver.ResolveScopedFont(table.BodyFont, table.FallbackFonts, defaultBodyFont);
+        var headerFont = FontFallbackResolver.ResolveScopedFont(table.HeaderFont, table.FallbackFonts, defaultHeadingFont);
         Table = table;
         Columns = columns;
         Rows = table.Rows.Count;
@@ -661,7 +665,7 @@ internal sealed class RichTableGrid
             var cellLeading = cellSize * LineSpacing;
             var innerWidth = Math.Max(MinContent, GetSpanWidth(placed.StartCol, placed.ColumnSpan) - Inset);
             var style = new CellStyleContext(
-                cell.Font ?? GetFont(placed.IsHeader),
+                FontFallbackResolver.ResolveScopedFont(cell.Font, cell.FallbackFonts, GetFont(placed.IsHeader)),
                 cell.FontSize ?? Size,
                 cell.TextColor ?? Table.TextColor,
                 LineSpacing,

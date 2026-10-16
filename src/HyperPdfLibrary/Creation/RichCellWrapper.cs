@@ -50,7 +50,7 @@ internal static class RichCellWrapper
         float lineSpacing,
         ref PooledLines lines)
     {
-        var font = cell.Font ?? defaultFont;
+        var font = FontFallbackResolver.ResolveScopedFont(cell.Font, cell.FallbackFonts, defaultFont);
         var size = cell.FontSize ?? defaultSize;
         var color = cell.TextColor ?? defaultColor;
         var widest = 0F;
@@ -155,7 +155,7 @@ internal static class RichCellWrapper
     /// <returns>The widest unwrapped code line plus code indent and padding.</returns>
     private static float MeasureCodeNatural(PdfFlowCodeBlock code, PdfCanvasFont defaultFont, ref PooledLines lines)
     {
-        var font = code.Font ?? defaultFont;
+        var font = FontFallbackResolver.ResolveScopedFont(code.Font, code.FallbackFonts, defaultFont);
         var expanded = PdfCodeFlow.ExpandTabs(code.Code, code.TabSpaces);
         lines.Clear();
         PdfCodeFlow.WrapCode(font, code.FontSize, expanded, float.MaxValue, PdfCodeOverflow.Wrap, ref lines);
@@ -291,7 +291,7 @@ internal static class RichCellWrapper
         ref PooledLines lines,
         List<CellVisualItem> items)
     {
-        var font = block.Font ?? defaultFont;
+        var font = FontFallbackResolver.ResolveScopedFont(block.Font, block.FallbackFonts, defaultFont);
         var expanded = PdfCodeFlow.ExpandTabs(block.Code, block.TabSpaces);
         var boxWidth = Math.Max(1F, innerWidth - block.Indent);
         var codeInnerWidth = Math.Max(1F, boxWidth - (block.Padding * PaddingSides));
@@ -368,7 +368,8 @@ internal static class RichCellWrapper
         for (var r = 0; r < runs.Count; r++)
         {
             var run = runs[r];
-            builder.AppendRun(run.Text, run.Font ?? style.Font, run.FontSize ?? style.Size, run.Color ?? style.Color, style.InnerWidth);
+            var runFont = FontFallbackResolver.ResolveScopedFont(run.Font, run.FallbackFonts, style.Font);
+            builder.AppendRun(run.Text, runFont, run.FontSize ?? style.Size, run.Color ?? style.Color, style.InnerWidth);
         }
 
         builder.Finish();

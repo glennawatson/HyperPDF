@@ -39,6 +39,9 @@ public sealed record PdfFlowCodeBlock(string Code) : PdfFlowBlock
     /// <summary>Gets the monospaced font, or <see langword="null"/> to use the flow's body font.</summary>
     public PdfCanvasFont? Font { get; init; }
 
+    /// <summary>Gets the ordered fallback fonts for this code block, or <see langword="null"/> to inherit <see cref="PdfFlowOptions.FallbackFonts"/>.</summary>
+    public IReadOnlyList<PdfCanvasFont>? FallbackFonts { get; init; }
+
     /// <summary>Gets the font size in points; the default is 9.5 pt.</summary>
     public float FontSize { get; init; } = DefaultFontSize;
 

@@ -178,13 +178,13 @@ internal static class SegmentShaper
         IndicShaper.MergeClusters(buffer);
     }
 
-    /// <summary>Drops the glyphs of invisible characters the font has no glyph for.</summary>
+    /// <summary>Drops the glyphs of invisible characters that substitution did not consume.</summary>
     /// <param name="buffer">The glyphs.</param>
     private static void RemoveVirtual(GlyphBuffer buffer)
     {
         for (var i = buffer.Count - 1; i >= 0; i--)
         {
-            if ((buffer.Items[i].Flags & GlyphFlags.Virtual) != 0)
+            if ((buffer.Items[i].Flags & (GlyphFlags.Virtual | GlyphFlags.Hidden)) != 0)
             {
                 buffer.Remove(i, 1);
             }

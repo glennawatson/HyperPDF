@@ -33,13 +33,16 @@ internal static class BundledFaces
     /// <summary>The slot of the ZapfDingbats face.</summary>
     private const int DingbatsSlot = 13;
 
-    /// <summary>The resource names, family by family in regular, bold, italic, bold italic order, then Symbol and Dingbats.</summary>
+    /// <summary>The slot of the Emoji face.</summary>
+    private const int EmojiSlot = 14;
+
+    /// <summary>The resource names, family by family in regular, bold, italic, bold italic order, then Symbol, Dingbats and Emoji.</summary>
     private static readonly string[] Names =
     [
         "Arimo-Regular", "Arimo-Bold", "Arimo-Italic", "Arimo-BoldItalic",
         "Tinos-Regular", "Tinos-Bold", "Tinos-Italic", "Tinos-BoldItalic",
         "Cousine-Regular", "Cousine-Bold", "Cousine-Italic", "Cousine-BoldItalic",
-        "NotoSansMath-Regular", "NotoSansSymbols2-Regular",
+        "NotoSansMath-Regular", "NotoSansSymbols2-Regular", "NotoEmoji-Regular",
     ];
 
     /// <summary>Gets a bundled face.</summary>
@@ -98,6 +101,7 @@ internal static class BundledFaces
     {
         BundledFamily.Symbol => SymbolSlot,
         BundledFamily.Dingbats => DingbatsSlot,
+        BundledFamily.Emoji => EmojiSlot,
         _ => ((int)family * StylesPerFamily) + (bold ? BoldBit : 0) + (italic ? ItalicBit : 0),
     };
 

@@ -29,6 +29,12 @@ public sealed record PdfFlowOptions(PdfCanvasFont BodyFont)
     /// <summary>Gets the font of headings, or <see langword="null"/> to use <see cref="BodyFont"/>.</summary>
     public PdfCanvasFont? HeadingFont { get; init; }
 
+    /// <summary>
+    /// Gets the ordered fallback fonts inherited by body paragraphs, headings, tables, cells, rich text runs, and code blocks
+    /// when not overridden at a narrower scope.
+    /// </summary>
+    public IReadOnlyList<PdfCanvasFont>? FallbackFonts { get; init; }
+
     /// <summary>Gets a value indicating whether each page gets its number at the bottom, as a pagination artifact.</summary>
     public bool PageNumbers { get; init; }
 

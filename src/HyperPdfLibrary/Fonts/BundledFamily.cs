@@ -21,4 +21,7 @@ internal enum BundledFamily
 
     /// <summary>The ZapfDingbats face.</summary>
     Dingbats = 4,
+
+    /// <summary>The monochrome emoji face.</summary>
+    Emoji = 5,
 }

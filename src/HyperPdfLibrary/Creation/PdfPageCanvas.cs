@@ -116,7 +116,6 @@ public ref struct PdfPageCanvas
         }
 
         RequireMarked();
-        var name = Resources.AddFont(font.Id);
         var colored = !color.IsBlack;
         if (colored)
         {
@@ -124,11 +123,7 @@ public ref struct PdfPageCanvas
             _content.SetFillRgb(color.Red, color.Green, color.Blue);
         }
 
-        _content.BeginText();
-        _content.SetFont(name.Utf8, size);
-        _content.MoveText(x, y);
-        font.Show(ref _content, text, size);
-        _content.EndText();
+        DrawFallbackRuns(font, size, x, y, text);
         if (colored)
         {
             _content.RestoreState();
@@ -441,5 +436,51 @@ public ref struct PdfPageCanvas
 
         _content.EndMarkedContent();
         _open = 0;
+    }
+
+    /// <summary>Draws one or more resolved font runs along the baseline starting at (<paramref name="x"/>, <paramref name="y"/>).</summary>
+    /// <param name="font">The primary font.</param>
+    /// <param name="size">The font size in points.</param>
+    /// <param name="x">The starting baseline x coordinate.</param>
+    /// <param name="y">The baseline y coordinate.</param>
+    /// <param name="text">The single-line text to draw.</param>
+    private void DrawFallbackRuns(PdfCanvasFont font, float size, float x, float y, ReadOnlySpan<char> text)
+    {
+        if (text.IsEmpty || !FontFallbackResolver.HasFallbackCandidates(font))
+        {
+            DrawSingleRun(font, size, x, y, text);
+            return;
+        }
+
+        var currentX = x;
+        var offset = 0;
+        while (offset < text.Length)
+        {
+            var remaining = text.Slice(offset);
+            var runLength = FontFallbackResolver.ResolveNextRun(font, remaining, out var runFont);
+            var slice = remaining.Slice(0, runLength);
+            DrawSingleRun(runFont, size, currentX, y, slice);
+            offset += runLength;
+            if (offset < text.Length)
+            {
+                currentX += runFont.MeasurePrimary(slice, size);
+            }
+        }
+    }
+
+    /// <summary>Draws a single resolved font run at (<paramref name="x"/>, <paramref name="y"/>).</summary>
+    /// <param name="font">The resolved font for this run.</param>
+    /// <param name="size">The font size in points.</param>
+    /// <param name="x">The run's baseline x coordinate.</param>
+    /// <param name="y">The baseline y coordinate.</param>
+    /// <param name="text">The text slice for this run.</param>
+    private void DrawSingleRun(PdfCanvasFont font, float size, float x, float y, ReadOnlySpan<char> text)
+    {
+        var name = Resources.AddFont(font.Id);
+        _content.BeginText();
+        _content.SetFont(name.Utf8, size);
+        _content.MoveText(x, y);
+        font.Show(ref _content, text, size);
+        _content.EndText();
     }
 }

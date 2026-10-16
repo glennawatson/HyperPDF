@@ -80,4 +80,7 @@ public sealed record PdfFlowTable(IReadOnlyList<PdfTableRow> Rows) : PdfFlowBloc
 
     /// <summary>Gets the default text colour for cells in this table; the default is black.</summary>
     public PdfRgbColor TextColor { get; init; } = PdfRgbColor.Black;
+
+    /// <summary>Gets the ordered fallback fonts for cells in this table, or <see langword="null"/> to inherit <see cref="PdfFlowOptions.FallbackFonts"/>.</summary>
+    public IReadOnlyList<PdfCanvasFont>? FallbackFonts { get; init; }
 }

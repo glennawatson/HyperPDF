@@ -162,6 +162,7 @@ internal static class GsubLookups
         }
 
         record.GlyphClass = ClassOfSubstitute(run, record.Glyph, record.GlyphClass);
+        record.Flags &= ~GlyphFlags.Hidden;
         return true;
     }
 
@@ -201,7 +202,12 @@ internal static class GsubLookups
         for (var i = 0; i < count; i++)
         {
             var glyph = FontBytes.U16(table, sequence + SetGlyphs + (i * FontBytes.U16Size));
-            produced[i] = original with { Glyph = glyph, GlyphClass = ClassOfSubstitute(run, glyph, original.GlyphClass), Flags = original.Flags | GlyphFlags.Multiplied };
+            produced[i] = original with
+            {
+                Glyph = glyph,
+                GlyphClass = ClassOfSubstitute(run, glyph, original.GlyphClass),
+                Flags = (original.Flags | GlyphFlags.Multiplied) & ~GlyphFlags.Hidden,
+            };
         }
 
         run.Buffer.Replace(index, 1, produced);
@@ -228,6 +234,7 @@ internal static class GsubLookups
 
         record.Glyph = FontBytes.U16(table, set + SetGlyphs + (pick * FontBytes.U16Size));
         record.GlyphClass = ClassOfSubstitute(run, record.Glyph, record.GlyphClass);
+        record.Flags &= ~GlyphFlags.Hidden;
         return true;
     }
 
@@ -332,7 +339,7 @@ internal static class GsubLookups
         ref var first = ref run.Buffer.Items[index];
         first.Glyph = FontBytes.U16(table, ligature);
         first.GlyphClass = run.Gdef.HasGlyphClasses ? run.Gdef.GlyphClass(first.Glyph) : LigatureClass;
-        first.Flags = (flags | GlyphFlags.Ligated) & ~GlyphFlags.Multiplied;
+        first.Flags = (flags | GlyphFlags.Ligated) & ~(GlyphFlags.Multiplied | GlyphFlags.Hidden);
         first.LigatureId = id;
         first.LigatureComponent = 0;
         first.LigatureComponents = FontBytes.U16(table, ligature + LigatureCountField);
@@ -369,6 +376,7 @@ internal static class GsubLookups
 
         record.Glyph = FontBytes.U16(table, glyphCountAt + FontBytes.U16Size + (covered * FontBytes.U16Size));
         record.GlyphClass = ClassOfSubstitute(run, record.Glyph, record.GlyphClass);
+        record.Flags &= ~GlyphFlags.Hidden;
         return true;
     }
 }

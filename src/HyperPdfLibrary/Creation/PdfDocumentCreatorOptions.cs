@@ -47,6 +47,13 @@ public sealed record PdfDocumentCreatorOptions
     /// <summary>Gets how fonts are embedded when none are given to <see cref="PdfDocumentCreator.EmbedFont(PdfFontSource, PdfEmbeddedFontOptions)"/>.</summary>
     public PdfEmbeddedFontOptions FontOptions { get; init; } = PdfEmbeddedFontOptions.Default;
 
+    /// <summary>
+    /// Gets a value indicating whether fonts created in this document automatically fall back to the bundled
+    /// symbol, dingbats, and monochrome emoji fonts when a glyph is missing from both the primary font and any
+    /// explicit fallback fonts. Default backup fonts are embedded lazily only when a missing glyph is encountered.
+    /// </summary>
+    public bool UseDefaultFallbackFonts { get; init; } = true;
+
     /// <summary>Gets the clock that dates the document, or <see langword="null"/> for the system clock.</summary>
     public TimeProvider? Clock { get; init; }
 }

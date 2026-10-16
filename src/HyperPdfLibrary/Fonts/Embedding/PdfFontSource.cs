@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using HyperPdfLibrary.Fonts.Programs;
 
 namespace HyperPdfLibrary.Fonts.Embedding;
@@ -161,6 +162,18 @@ public sealed class PdfFontSource
         var program = GetProgram();
         return program is null ? 0 : program.LookupUnicodeCmap(codePoint);
     }
+
+    /// <summary>Determines whether the font maps the given Unicode code point to a non-missing glyph.</summary>
+    /// <param name="codePoint">The Unicode code point.</param>
+    /// <returns><see langword="true"/> when the font has a non-zero glyph for <paramref name="codePoint"/>; otherwise, <see langword="false"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool HasGlyph(int codePoint) => GetGlyph(codePoint) != 0;
+
+    /// <summary>Determines whether the font maps the given Unicode scalar value to a non-missing glyph.</summary>
+    /// <param name="rune">The Unicode scalar value.</param>
+    /// <returns><see langword="true"/> when the font has a non-zero glyph for <paramref name="rune"/>; otherwise, <see langword="false"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool HasGlyph(Rune rune) => GetGlyph(rune.Value) != 0;
 
     /// <summary>Gets a glyph's horizontal advance.</summary>
     /// <param name="glyph">The glyph.</param>

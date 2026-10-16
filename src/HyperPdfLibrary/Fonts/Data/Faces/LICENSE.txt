@@ -1,12 +1,13 @@
 These font programs are embedded in the HyperPdfLibrary assembly. Nothing is downloaded. Arimo, Tinos and Cousine are
-compatible substitutes for the sans, serif and fixed-pitch standard fonts. Noto Sans Math and Noto Sans Symbols 2
-supply the Symbol and ZapfDingbats glyphs.
+compatible substitutes for the sans, serif and fixed-pitch standard fonts. Noto Sans Math, Noto Sans Symbols 2 and Noto
+Emoji supply the Symbol, ZapfDingbats and monochrome emoji fallback glyphs.
 
-The embedded copies are modified, as the licences below allow: each was cut down to the characters the standard fonts
-and their usual substitutes need (Basic Latin, Latin-1, Latin Extended-A and -B, Greek, Cyrillic, Hebrew, Vietnamese,
-punctuation, currency, arrows, mathematical operators, box drawing and geometric shapes; the symbol faces to the
-characters of Symbol and ZapfDingbats), then compressed. Glyph outlines, metrics and names of the kept characters are
-unchanged. None of these fonts declares a Reserved Font Name, so the copies keep the original names.
+The embedded copies are modified or compressed, as the licences below allow: the text and symbol faces were cut down to
+the characters the standard fonts and their usual substitutes need (Basic Latin, Latin-1, Latin Extended-A and -B, Greek,
+Cyrillic, Hebrew, Vietnamese, punctuation, currency, arrows, mathematical operators, box drawing and geometric shapes; the
+symbol faces to the characters of Symbol and ZapfDingbats), and all faces are compressed. Glyph outlines, metrics and
+names of the kept characters are unchanged. None of these fonts declares a Reserved Font Name, so the copies keep the
+original names.
 
 Arimo notice:
 
@@ -225,6 +226,10 @@ Noto Sans Symbols 2 notice:
 
 Copyright 2022 The Noto Project Authors (https://github.com/notofonts/symbols)
 
+Noto Emoji notice:
+
+Copyright 2013-2026 Google LLC (https://github.com/googlefonts/noto-emoji)
+
 Tinos notice:
 
 Copyright 2026 The Tinos Project Authors (https://github.com/googlefonts/tinos)
@@ -233,7 +238,7 @@ Cousine notice:
 
 Copyright 2026 The Cousine Project Authors (https://github.com/googlefonts/cousine)
 
-SIL Open Font License for Noto Sans Math, Noto Sans Symbols 2, Tinos and Cousine:
+SIL Open Font License for Noto Sans Math, Noto Sans Symbols 2, Noto Emoji, Tinos and Cousine:
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
