@@ -40,12 +40,16 @@ public sealed class SpeechModelDownloaderTests
         using var folder = new TemporaryFolder();
         var path = Path.Combine(folder.Path, Name);
 
+        var hashPath = $"{path}.sha256";
+        var timestamp = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var whenMissing = downloader.Missing([FileOf(Size, Pinned)], folder.Path).Count;
         await File.WriteAllBytesAsync(path, new byte[Size]);
         var whenResized = downloader.Missing([FileOf(Size + 1, Pinned)], folder.Path).Count;
-        await File.WriteAllTextAsync($"{path}.sha256", "bb");
+        await File.WriteAllTextAsync(hashPath, "bb");
+        File.SetLastWriteTimeUtc(hashPath, timestamp);
         var whenRehashed = downloader.Missing([FileOf(Size, Pinned)], folder.Path).Count;
-        await File.WriteAllTextAsync($"{path}.sha256", Pinned);
+        await File.WriteAllTextAsync(hashPath, Pinned);
+        File.SetLastWriteTimeUtc(hashPath, timestamp);
         var whenCurrent = downloader.Missing([FileOf(Size, Pinned)], folder.Path).Count;
 
         await Assert.That(whenMissing).IsEqualTo(1);

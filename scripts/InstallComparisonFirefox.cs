@@ -20,6 +20,10 @@ const long maximumArchiveBytes = 256L * 1024 * 1024;
 
 const int setupMinutes = 5;
 
+const int downloadAttempts = 3;
+
+const int retryMilliseconds = 500;
+
 if (args is not [var destinationArgument])
 {
     throw new ArgumentException("Provide a fresh browser installation directory.");
@@ -47,31 +51,7 @@ const string url = $"https://archive.mozilla.org/pub/firefox/releases/{firefoxVe
 
 var archive = Path.Combine(destination, archiveName);
 
-using (var response = await client.GetAsync(new Uri(url), HttpCompletionOption.ResponseHeadersRead, timeout.Token))
-{
-    _ = response.EnsureSuccessStatusCode();
-    if (response.Content.Headers.ContentLength is > maximumArchiveBytes)
-    {
-        throw new InvalidDataException("Firefox archive exceeds the download limit.");
-    }
-
-    await using var input = await response.Content.ReadAsStreamAsync(timeout.Token);
-    await using var output = File.Create(archive);
-    const int bufferSize = 65_536;
-    var buffer = new byte[bufferSize];
-    long length = 0;
-    int read;
-    while ((read = await input.ReadAsync(buffer, timeout.Token)) != 0)
-    {
-        length = checked(length + read);
-        if (length > maximumArchiveBytes)
-        {
-            throw new InvalidDataException("Firefox archive exceeds the download limit.");
-        }
-
-        await output.WriteAsync(buffer.AsMemory(0, read), timeout.Token);
-    }
-}
+await DownloadArchiveAsync(client, new(url), archive, timeout.Token);
 
 await using (var input = File.OpenRead(archive))
 {
@@ -113,6 +93,46 @@ if (!string.IsNullOrWhiteSpace(githubOutput))
 Console.WriteLine(versionOutput.Trim());
 
 Console.WriteLine($"Verified Firefox executable: {executable}");
+
+static async Task DownloadArchiveAsync(HttpClient client, Uri uri, string archive, CancellationToken cancellationToken)
+{
+    for (var attempt = 0; attempt < downloadAttempts; attempt++)
+    {
+        try
+        {
+            using var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            _ = response.EnsureSuccessStatusCode();
+            if (response.Content.Headers.ContentLength is > maximumArchiveBytes)
+            {
+                throw new InvalidDataException("Firefox archive exceeds the download limit.");
+            }
+
+            await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using var output = File.Create(archive);
+            const int bufferSize = 65_536;
+            var buffer = new byte[bufferSize];
+            long length = 0;
+            int read;
+            while ((read = await input.ReadAsync(buffer, cancellationToken)) != 0)
+            {
+                length = checked(length + read);
+                if (length > maximumArchiveBytes)
+                {
+                    throw new InvalidDataException("Firefox archive exceeds the download limit.");
+                }
+
+                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+            }
+
+            return;
+        }
+        catch (Exception exception) when (attempt < downloadAttempts - 1 && !cancellationToken.IsCancellationRequested && exception is HttpRequestException or IOException)
+        {
+            File.Delete(archive);
+            await Task.Delay(TimeSpan.FromMilliseconds(retryMilliseconds * (attempt + 1)), cancellationToken);
+        }
+    }
+}
 
 static async Task RunAsync(string executable, string[] arguments, string logPath, CancellationToken cancellationToken)
 {
