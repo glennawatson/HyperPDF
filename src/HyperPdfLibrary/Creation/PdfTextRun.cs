@@ -14,6 +14,9 @@ public sealed record PdfTextRun(string Text)
     /// <summary>Gets the font of this run, or <see langword="null"/> to inherit the cell's font.</summary>
     public PdfCanvasFont? Font { get; init; }
 
+    /// <summary>Gets the ordered fallback fonts of this run, or <see langword="null"/> to inherit the cell's, table's, or flow's fallback fonts.</summary>
+    public IReadOnlyList<PdfCanvasFont>? FallbackFonts { get; init; }
+
     /// <summary>Gets the point size of this run, or <see langword="null"/> to inherit the cell's font size.</summary>
     public float? FontSize { get; init; }
 

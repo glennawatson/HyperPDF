@@ -12,7 +12,7 @@ namespace HyperPdfLibrary.Tests.Fonts;
 public sealed class EmbeddedFaceResourceTests
 {
     /// <summary>The number of embedded faces.</summary>
-    private const int FaceCount = 14;
+    private const int FaceCount = 15;
 
     /// <summary>A family number no family has.</summary>
     private const PdfBundledFontFamily UndefinedFamily = (PdfBundledFontFamily)99;
@@ -35,10 +35,10 @@ public sealed class EmbeddedFaceResourceTests
         "Arimo-Regular", "Arimo-Bold", "Arimo-Italic", "Arimo-BoldItalic",
         "Tinos-Regular", "Tinos-Bold", "Tinos-Italic", "Tinos-BoldItalic",
         "Cousine-Regular", "Cousine-Bold", "Cousine-Italic", "Cousine-BoldItalic",
-        "NotoSansMath-Regular", "NotoSansSymbols2-Regular",
+        "NotoSansMath-Regular", "NotoSansSymbols2-Regular", "NotoEmoji-Regular",
     ];
 
-    /// <summary>Gets every family with its four styles (the symbol families have one).</summary>
+    /// <summary>Gets every family with its four styles (the symbol and emoji families have one).</summary>
     /// <returns>The cases.</returns>
     public static IEnumerable<Func<FaceCase>> Faces() =>
     [
@@ -56,6 +56,7 @@ public sealed class EmbeddedFaceResourceTests
         static () => new(PdfBundledFontFamily.Fixed, true, true),
         static () => new(PdfBundledFontFamily.Symbol, false, false),
         static () => new(PdfBundledFontFamily.Dingbats, false, false),
+        static () => new(PdfBundledFontFamily.Emoji, false, false),
     ];
 
     /// <summary>Every face is an assembly resource, so loading it needs no file or network.</summary>

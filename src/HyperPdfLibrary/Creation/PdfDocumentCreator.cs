@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
@@ -25,6 +26,14 @@ public sealed class PdfDocumentCreator
     /// <summary>The entries of a page dictionary.</summary>
     private const int PageEntries = 8;
 
+    /// <summary>The bundled font families consulted in order for automatic backup glyph resolution.</summary>
+    private static readonly PdfBundledFontFamily[] DefaultFallbackFamilies =
+    [
+        PdfBundledFontFamily.Symbol,
+        PdfBundledFontFamily.Dingbats,
+        PdfBundledFontFamily.Emoji,
+    ];
+
     /// <summary>The document being built.</summary>
     private readonly PdfDocumentBuilder _builder = new();
 
@@ -36,6 +45,12 @@ public sealed class PdfDocumentCreator
 
     /// <summary>Fonts after the first, for checking that all are embedded.</summary>
     private List<PdfCanvasFont>? _otherFonts;
+
+    /// <summary>Shared font resources for opening bundled default backup fonts.</summary>
+    private PdfFontResources? _defaultFallbackResources;
+
+    /// <summary>Lazily embedded default backup fonts indexed by <see cref="DefaultFallbackFamilies"/>.</summary>
+    private PdfCanvasFont?[]? _defaultFallbackFonts;
 
     /// <summary>The importers of pages from other documents, one for each source so shared objects are copied once.</summary>
     private Dictionary<PdfDocument, PdfPageImporter>? _importers;
@@ -96,9 +111,48 @@ public sealed class PdfDocumentCreator
     {
         ThrowIfFinished();
         var font = PdfCanvasFont.FromEmbedded(PdfEmbeddedFont.Create(_builder, source, options));
+        if (_options.UseDefaultFallbackFonts)
+        {
+            font = font.WithFallbackHost(this);
+        }
+
         TrackFont(font);
         return font;
     }
+
+    /// <summary>
+    /// Embeds the bundled license-compatible backup fonts (<see cref="PdfBundledFontFamily.Symbol"/>,
+    /// <see cref="PdfBundledFontFamily.Dingbats"/>, and <see cref="PdfBundledFontFamily.Emoji"/>) for math, symbols,
+    /// dingbats, and monochrome emoji fallback.
+    /// </summary>
+    /// <returns>The ordered list of embedded default fallback fonts.</returns>
+    /// <exception cref="InvalidOperationException">The document is finished.</exception>
+    public IReadOnlyList<PdfCanvasFont> EmbedDefaultFallbacks()
+    {
+        ThrowIfFinished();
+        _defaultFallbackFonts ??= new PdfCanvasFont?[DefaultFallbackFamilies.Length];
+        var resources = _defaultFallbackResources ??= new();
+        var result = new PdfCanvasFont[DefaultFallbackFamilies.Length];
+        for (var i = 0; i < DefaultFallbackFamilies.Length; i++)
+        {
+            var source = PdfBundledFonts.Open(resources, DefaultFallbackFamilies[i], false, false).Source!;
+            result[i] = _defaultFallbackFonts[i] ??= EmbedFallbackFontWithoutDefaultHost(source);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Starts embedding a primary font configured with the bundled symbol, dingbats, and monochrome emoji backup fonts
+    /// in its explicit <see cref="PdfCanvasFont.Fallbacks"/> list.
+    /// </summary>
+    /// <param name="source">The primary font source.</param>
+    /// <returns>The primary font configured with the bundled default fallback chain.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The document is finished.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public PdfCanvasFont EmbedFontWithDefaultFallbacks(PdfFontSource source) =>
+        EmbedFont(source).WithFallbacks(EmbedDefaultFallbacks());
 
     /// <summary>Adds one of the 14 built-in fonts. A document that uses one cannot claim PDF/UA, which needs every font embedded.</summary>
     /// <param name="font">The font.</param>
@@ -108,6 +162,11 @@ public sealed class PdfDocumentCreator
     {
         ThrowIfFinished();
         var added = PdfCanvasFont.FromBuiltIn(_builder, font);
+        if (_options.UseDefaultFallbackFonts)
+        {
+            added = added.WithFallbackHost(this);
+        }
+
         TrackFont(added);
         return added;
     }
@@ -296,6 +355,43 @@ public sealed class PdfDocumentCreator
         _ = _builder.AddPage(page, dictionary);
     }
 
+    /// <summary>Resolves and lazily embeds the first bundled default backup font that supports <paramref name="cluster"/>.</summary>
+    /// <param name="cluster">The UTF-16 grapheme cluster slice.</param>
+    /// <param name="fallbackFont">Receives the embedded fallback font when resolved.</param>
+    /// <returns><see langword="true"/> when a bundled backup font supports <paramref name="cluster"/>.</returns>
+    internal bool TryResolveDefaultFallback(ReadOnlySpan<char> cluster, out PdfCanvasFont fallbackFont)
+    {
+        var resources = _defaultFallbackResources ??= new();
+        for (var i = 0; i < DefaultFallbackFamilies.Length; i++)
+        {
+            var source = PdfBundledFonts.Open(resources, DefaultFallbackFamilies[i], false, false).Source!;
+            if (!FontFallbackResolver.SupportsCluster(source, cluster))
+            {
+                continue;
+            }
+
+            if (_defaultFallbackFonts?[i] is { } existing)
+            {
+                fallbackFont = existing;
+                return true;
+            }
+
+            if (_report is not null)
+            {
+                break;
+            }
+
+            _defaultFallbackFonts ??= new PdfCanvasFont?[DefaultFallbackFamilies.Length];
+            var embedded = EmbedFallbackFontWithoutDefaultHost(source);
+            _defaultFallbackFonts[i] = embedded;
+            fallbackFont = embedded;
+            return true;
+        }
+
+        fallbackFont = null!;
+        return false;
+    }
+
     /// <summary>Adds a reason when a condition holds.</summary>
     /// <param name="reasons">Receives the reason.</param>
     /// <param name="condition">Whether the reason applies.</param>
@@ -306,6 +402,16 @@ public sealed class PdfDocumentCreator
         {
             reasons.Add(reason);
         }
+    }
+
+    /// <summary>Embeds a bundled default fallback font without attaching a recursive default fallback host.</summary>
+    /// <param name="source">The bundled font source.</param>
+    /// <returns>The embedded canvas font.</returns>
+    private PdfCanvasFont EmbedFallbackFontWithoutDefaultHost(PdfFontSource source)
+    {
+        var font = PdfCanvasFont.FromEmbedded(PdfEmbeddedFont.Create(_builder, source, _options.FontOptions));
+        TrackFont(font);
+        return font;
     }
 
     /// <summary>Retains a font so the PDF/UA claim can check it when the document is finished.</summary>

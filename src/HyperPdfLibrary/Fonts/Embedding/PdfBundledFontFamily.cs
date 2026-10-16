@@ -21,4 +21,7 @@ public enum PdfBundledFontFamily
 
     /// <summary>Noto Sans Symbols 2, cut down to the characters of ZapfDingbats; it has one style.</summary>
     Dingbats = 4,
+
+    /// <summary>Noto Emoji, a monochrome outline font covering Unicode emoji and composite sequences; it has one style.</summary>
+    Emoji = 5,
 }

@@ -57,6 +57,9 @@ public sealed record PdfTableCell(string Text)
     /// <summary>Gets the font for this cell, or <see langword="null"/> to inherit the table's header or body font.</summary>
     public PdfCanvasFont? Font { get; init; }
 
+    /// <summary>Gets the ordered fallback fonts for this cell, or <see langword="null"/> to inherit the table's or flow's fallback fonts.</summary>
+    public IReadOnlyList<PdfCanvasFont>? FallbackFonts { get; init; }
+
     /// <summary>Gets the font size in points for this cell, or <see langword="null"/> to inherit the table's font size.</summary>
     public float? FontSize { get; init; }
 

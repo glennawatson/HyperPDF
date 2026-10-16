@@ -12,7 +12,7 @@ namespace HyperPdfLibrary.Fonts;
 internal sealed class BundledFaceState
 {
     /// <summary>The number of open font faces.</summary>
-    internal const int FaceCount = 14;
+    internal const int FaceCount = 15;
 
     /// <summary>The substitute face slots.</summary>
     private SubstituteFace?[]? _faces;

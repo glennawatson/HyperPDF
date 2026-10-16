@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
-
 namespace HyperPdfLibrary.Creation;
 
 /// <summary>Accumulates inline styled segments onto wrapped lines.</summary>
@@ -254,7 +252,7 @@ internal sealed class RichLineAccumulator
         var offset = start;
         while (offset < end)
         {
-            var next = offset + StringInfo.GetNextTextElementLength(span[offset..end]);
+            var next = offset + FontFallbackResolver.GetNextClusterLength(span[offset..end]);
             var width = font.Measure(span[chunkStart..next], size);
             if (width > maxWidth && chunkEnd > chunkStart)
             {

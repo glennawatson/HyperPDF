@@ -6,6 +6,7 @@ using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -148,6 +149,18 @@ public sealed class PdfEmbeddedFont
     /// <exception cref="InvalidOperationException">The font is finished and the glyph was not used before.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int GetCode(int glyph) => _use.GetCode(glyph);
+
+    /// <summary>Determines whether the underlying font source maps the given Unicode code point to a non-missing glyph.</summary>
+    /// <param name="codePoint">The Unicode code point.</param>
+    /// <returns><see langword="true"/> when the font has a non-zero glyph for <paramref name="codePoint"/>; otherwise, <see langword="false"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool HasGlyph(int codePoint) => Source.HasGlyph(codePoint);
+
+    /// <summary>Determines whether the underlying font source maps the given Unicode scalar value to a non-missing glyph.</summary>
+    /// <param name="rune">The Unicode scalar value.</param>
+    /// <returns><see langword="true"/> when the font has a non-zero glyph for <paramref name="rune"/>; otherwise, <see langword="false"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool HasGlyph(Rune rune) => Source.HasGlyph(rune.Value);
 
     /// <summary>Shapes text with the font's shaper.</summary>
     /// <param name="text">The text in logical order.</param>

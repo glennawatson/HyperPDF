@@ -107,8 +107,14 @@ internal ref struct FlowRun
             ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(offset, options.PageHeight);
         }
 
+        var bodyFont = FontFallbackResolver.ApplyFallbacks(options.BodyFont, options.FallbackFonts);
+        var headingFont = options.HeadingFont is { } heading
+            ? FontFallbackResolver.ResolveScopedFont(heading, options.FallbackFonts, bodyFont)
+            : null;
         _creator = creator;
-        _options = options;
+        _options = ReferenceEquals(bodyFont, options.BodyFont) && ReferenceEquals(headingFont, options.HeadingFont)
+            ? options
+            : options with { BodyFont = bodyFont, HeadingFont = headingFont };
         _cancellationToken = cancellationToken;
         _lines = default;
         _canvas = default;

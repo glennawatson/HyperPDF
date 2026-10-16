@@ -380,7 +380,7 @@ internal static class PdfTableWidths
         var rows = layout.Table.Rows;
         for (var r = 0; r < rows.Count; r++)
         {
-            var font = layout.GetFont(r < layout.HeaderRows);
+            var isHeader = r < layout.HeaderRows;
             var cells = rows[r].Cells;
             for (var c = 0; c < cells.Count && c < natural.Length; c++)
             {
@@ -389,7 +389,7 @@ internal static class PdfTableWidths
                     continue;
                 }
 
-                var cellFont = cells[c].Font ?? font;
+                var cellFont = layout.GetCellFont(rows[r], c, isHeader);
                 layout.Lines.Clear();
                 PdfTextWrapper.Wrap(cellFont, layout.Size, cells[c].Text, float.MaxValue, ref layout.Lines);
                 natural[c] = Math.Max(natural[c], WidestLine(ref layout.Lines) + layout.Inset + RoundingSlack);

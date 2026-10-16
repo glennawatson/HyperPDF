@@ -28,8 +28,12 @@ internal ref struct TableLayout
     {
         var size = table.FontSize ?? options.BodySize;
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
-        var bodyFont = table.BodyFont ?? options.BodyFont;
-        var headerFont = table.HeaderFont ?? options.HeadingFont ?? bodyFont;
+        var defaultBodyFont = FontFallbackResolver.ApplyFallbacks(options.BodyFont, options.FallbackFonts);
+        var defaultHeadingFont = options.HeadingFont is { } heading
+            ? FontFallbackResolver.ResolveScopedFont(heading, options.FallbackFonts, defaultBodyFont)
+            : defaultBodyFont;
+        var bodyFont = FontFallbackResolver.ResolveScopedFont(table.BodyFont, table.FallbackFonts, defaultBodyFont);
+        var headerFont = FontFallbackResolver.ResolveScopedFont(table.HeaderFont, table.FallbackFonts, defaultHeadingFont);
         Table = table;
         Columns = columns;
         HeaderRows = Math.Clamp(table.HeaderRows, 0, table.Rows.Count);
@@ -128,13 +132,22 @@ internal ref struct TableLayout
     /// <returns>The font.</returns>
     internal readonly PdfCanvasFont GetFont(bool header) => header ? HeaderFont : BodyFont;
 
-    /// <summary>Gets the font of a specific cell, falling back to the row's default font.</summary>
+    /// <summary>Gets the font of a specific cell, falling back to the row's default font and inheriting or overriding fallback fonts.</summary>
     /// <param name="row">The row.</param>
     /// <param name="column">The column.</param>
     /// <param name="header">Whether the row is a header row.</param>
     /// <returns>The font.</returns>
-    internal readonly PdfCanvasFont GetCellFont(PdfTableRow row, int column, bool header) =>
-        (column < row.Cells.Count ? row.Cells[column].Font : null) ?? GetFont(header);
+    internal readonly PdfCanvasFont GetCellFont(PdfTableRow row, int column, bool header)
+    {
+        var rowFont = GetFont(header);
+        if (column >= row.Cells.Count)
+        {
+            return rowFont;
+        }
+
+        var cell = row.Cells[column];
+        return FontFallbackResolver.ResolveScopedFont(cell.Font, cell.FallbackFonts, rowFont);
+    }
 
     /// <summary>Gets the text colour of a specific cell, falling back to the table's default text colour.</summary>
     /// <param name="row">The row.</param>

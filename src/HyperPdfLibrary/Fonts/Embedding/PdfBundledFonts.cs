@@ -18,8 +18,8 @@ public static class PdfBundledFonts
 {
     /// <summary>Opens an embedded font without retaining global state. Reuse the returned source across documents.</summary>
     /// <param name="family">The family.</param>
-    /// <param name="bold">Whether to use the bold style; ignored for <see cref="PdfBundledFontFamily.Symbol"/> and <see cref="PdfBundledFontFamily.Dingbats"/>.</param>
-    /// <param name="italic">Whether to use the italic style; ignored for <see cref="PdfBundledFontFamily.Symbol"/> and <see cref="PdfBundledFontFamily.Dingbats"/>.</param>
+    /// <param name="bold">Whether to use the bold style; ignored for symbol, dingbats, and emoji families.</param>
+    /// <param name="italic">Whether to use the italic style; ignored for symbol, dingbats, and emoji families.</param>
     /// <returns>The font, or the reason it cannot be embedded.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="family"/> is not a defined family.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -40,16 +40,46 @@ public static class PdfBundledFonts
         return Open(services.FontResources, family, bold, italic);
     }
 
+    /// <summary>Opens the default license-compatible bundled backup fonts (Symbol, Dingbats, and Emoji) in fallback order.</summary>
+    /// <returns>The ordered list of bundled fallback font sources.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IReadOnlyList<PdfFontSource> OpenDefaultFallbacks() =>
+        OpenDefaultFallbacks(new PdfFontResources());
+
+    /// <summary>
+    /// Opens the default license-compatible bundled backup fonts (<see cref="PdfBundledFontFamily.Symbol"/>,
+    /// <see cref="PdfBundledFontFamily.Dingbats"/>, and <see cref="PdfBundledFontFamily.Emoji"/>) in fallback order,
+    /// shared by documents using the supplied drawing services.
+    /// </summary>
+    /// <param name="services">The host's drawing services.</param>
+    /// <returns>The ordered list of bundled fallback font sources.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="services"/> is null.</exception>
+    public static IReadOnlyList<PdfFontSource> OpenDefaultFallbacks(PdfDrawingServices services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return OpenDefaultFallbacks(services.FontResources);
+    }
+
+    /// <summary>Opens the default bundled fallback font sources using explicitly owned resources.</summary>
+    /// <param name="resources">The owning resources.</param>
+    /// <returns>The ordered list of bundled fallback font sources.</returns>
+    internal static IReadOnlyList<PdfFontSource> OpenDefaultFallbacks(PdfFontResources resources) =>
+    [
+        Open(resources, PdfBundledFontFamily.Symbol, false, false).Source!,
+        Open(resources, PdfBundledFontFamily.Dingbats, false, false).Source!,
+        Open(resources, PdfBundledFontFamily.Emoji, false, false).Source!,
+    ];
+
     /// <summary>Opens an embedded font using explicitly owned resources.</summary>
     /// <param name="resources">The owning resources.</param>
     /// <param name="family">The font family.</param>
     /// <param name="bold">Whether to use the bold style.</param>
     /// <param name="italic">Whether to use the italic style.</param>
     /// <returns>The cached font result.</returns>
-    private static PdfFontOpenResult Open(PdfFontResources resources, PdfBundledFontFamily family, bool bold, bool italic)
+    internal static PdfFontOpenResult Open(PdfFontResources resources, PdfBundledFontFamily family, bool bold, bool italic)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan((int)family, (int)PdfBundledFontFamily.Sans);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan((int)family, (int)PdfBundledFontFamily.Dingbats);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((int)family, (int)PdfBundledFontFamily.Emoji);
 
         // The public and internal families share their numbering.
         var internalFamily = (BundledFamily)(int)family;

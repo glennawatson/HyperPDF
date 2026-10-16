@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using System.Text;
 
 namespace HyperPdfLibrary.Creation;
@@ -29,7 +28,7 @@ internal static class PdfCodeFlow
         var innerWidth = run.TextWidth - block.Indent - (block.Padding * PaddingSides);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(innerWidth, 0F);
 
-        var font = block.Font ?? run.Options.BodyFont;
+        var font = FontFallbackResolver.ResolveScopedFont(block.Font, block.FallbackFonts, run.Options.BodyFont);
         var expanded = ExpandTabs(block.Code, block.TabSpaces);
         var lines = default(PooledLines);
         try
@@ -74,7 +73,8 @@ internal static class PdfCodeFlow
         var innerWidth = textWidth - block.Indent - (block.Padding * PaddingSides);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(innerWidth, 0F);
 
-        var font = block.Font ?? options.BodyFont;
+        var baseBodyFont = FontFallbackResolver.ApplyFallbacks(options.BodyFont, options.FallbackFonts);
+        var font = FontFallbackResolver.ResolveScopedFont(block.Font, block.FallbackFonts, baseBodyFont);
         var expanded = ExpandTabs(block.Code, block.TabSpaces);
         var lines = default(PooledLines);
         try
@@ -250,7 +250,7 @@ internal static class PdfCodeFlow
         int done,
         int take)
     {
-        var font = block.Font ?? run.Options.BodyFont;
+        var font = FontFallbackResolver.ResolveScopedFont(block.Font, block.FallbackFonts, run.Options.BodyFont);
         var size = block.FontSize;
         var leading = size * block.LineSpacing;
         var boxLeft = run.Options.Margin + block.Indent;
@@ -388,7 +388,7 @@ internal static class PdfCodeFlow
         var offset = 0;
         while (offset < text.Length)
         {
-            var next = offset + StringInfo.GetNextTextElementLength(text[offset..]);
+            var next = offset + FontFallbackResolver.GetNextClusterLength(text[offset..]);
             var candidate = font.Measure(text[..next], size);
             if (candidate > maxWidth && bestEnd > 0)
             {
