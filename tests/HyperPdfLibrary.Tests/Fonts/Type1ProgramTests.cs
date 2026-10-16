@@ -273,6 +273,26 @@ public sealed class Type1ProgramTests
     public async Task MissingEexecIsRejected() =>
         await Assert.That(Type1Program.TryParse(Cleartext.AsSpan(0, Cleartext.Length - "currentfile eexec\n"u8.Length), out _)).IsFalse();
 
+    /// <summary>Oversized charstring lengths are rejected before overflow can reach a span slice.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RejectsMaximumCharstringLength()
+    {
+        byte[] secret = [.. new byte[RandomPrefix], .. "/lenIV -1 def /CharStrings 1 dict dup begin /.notdef 2147483647 RD x ND end"u8];
+        byte[] font = [.. Cleartext, .. Encrypt(secret, EexecKey)];
+        await Assert.That(() => Type1Program.TryParse(font, out _)).Throws<PdfException>();
+    }
+
+    /// <summary>Negative charstring lengths are rejected as an unreadable font.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RejectsNegativeCharstringLength()
+    {
+        byte[] secret = [.. new byte[RandomPrefix], .. "/lenIV -1 def /CharStrings 1 dict dup begin /.notdef -1 RD x ND end"u8];
+        byte[] font = [.. Cleartext, .. Encrypt(secret, EexecKey)];
+        await Assert.That(() => Type1Program.TryParse(font, out _)).Throws<PdfException>();
+    }
+
     /// <summary>Parses a font.</summary>
     /// <param name="data">The font bytes.</param>
     /// <returns>The program.</returns>

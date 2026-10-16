@@ -1,5 +1,45 @@
 [
   {
+    "type": "HyperPdfLibrary.Signatures.PdfSignatureDetails[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfSignatureHistory.Read",
+    "reason": "The final historical signature snapshot is returned to callers and cached by document revision. Scratch lists are reused and cleared, and already retained signatures are skipped before copying their bytes. Renting the returned array was rejected because callers can retain this snapshot after another read, edit or document disposal."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentAttachments.ReadSignature",
+    "reason": "The returned signature owns its detached Contents bytes, including signatures read from disposed historical stores. Duplicate retained signatures are checked against raw bytes before copying. Returning a span into revision parsing storage or pooling these output bytes would invalidate signature snapshots retained by callers."
+  },
+  {
+    "type": "System.Int64[]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentAttachments.ReadSignature",
+    "reason": "The returned signature retains its variable-length ByteRange independently of the parsed revision and scratch. Known signatures are skipped before materialising the range. Reusing this result array would let later reads change the offsets a retained signature validates."
+  },
+  {
+    "type": "HyperPdfLibrary.Document.PdfSignatureField",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentAttachments.ReadSignature",
+    "reason": "This positional record is the detached signature result retained by historical signature snapshots and public readers. Duplicate results are avoided before construction. Pooling or mutating its identity would change a caller's previously read signature."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentAttachments.ReadSignature",
+    "reason": "The signature result retains its SubFilter string. Previously retained signatures are rejected before decoding duplicate metadata, and missing names reuse String.Empty. Replacing the output with transient character storage would break its immutable string API and lifetime."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Fonts.Generation.BinaryCMapStream.ReadString()",
+    "reason": "The metadata reader returns an immutable string that callers retain independently of the input and scratch buffer. Temporary character storage is rented and returned. Returning a scratch span or reusing mutable storage would not preserve that result lifetime; empty metadata returns the shared empty string."
+  },
+  {
+    "type": "HyperPdfLibrary.PdfException",
+    "frame": "HyperPdfLibrary.Filters.PooledBuffer.ThrowSizeLimit()",
+    "reason": "A rejected decompression bomb must throw a fresh domain exception before further output allocation. Returning a status would break that contract; sharing an exception would share mutable throw and stack state across concurrent readers. Successful bounded Flate, LZW and chained decoding sampled zero library bytes on .NET 11; .NET 10 Flate uses allocating framework streams."
+  },
+  {
+    "type": "System.SByte[]",
+    "frame": "HyperPdfLibrary.Filters.PooledBuffer.ThrowSizeLimit()",
+    "reason": "EventPipe attributes exception-dispatch storage to the required decompression-limit throw. This method creates only the domain exception with a constant message. Removing the throw would break rejection semantics, and reusing an exception cannot safely remove per-throw runtime stack state across concurrent readers."
+  },
+  {
     "type": "System.Int32[]",
     "frame": "HyperPdfLibrary.Objects.PdfDictionary..ctor(class HyperPdfLibrary.Objects.PdfObjectStore,int32)",
     "reason": "Mutable PDF object storage is retained by parsed results or independent edit copies. The arena-recycling attempt was rejected after finding escaped arrays/spans and concurrent readers that could outlive document disposal. Nested values already share their stable backing data."

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Numerics;
 
 namespace HyperPdfLibrary.Fonts.Generation;
@@ -36,12 +37,12 @@ internal ref struct BinaryCMapStream
 
     /// <summary>Reads one byte.</summary>
     /// <returns>The byte.</returns>
-    /// <exception cref="InvalidDataException">The resource ends early.</exception>
+    /// <exception cref="PdfException">The resource ends early.</exception>
     internal byte ReadByte()
     {
         if (_data.IsEmpty)
         {
-            throw new InvalidDataException("The binary CMap ended early.");
+            throw new PdfException("The binary CMap ended early.");
         }
 
         var value = _data[0];
@@ -51,7 +52,7 @@ internal ref struct BinaryCMapStream
 
     /// <summary>Reads a big-endian base-128 number.</summary>
     /// <returns>The number.</returns>
-    /// <exception cref="InvalidDataException">The encoded number is too long.</exception>
+    /// <exception cref="PdfException">The encoded number is too long.</exception>
     internal BigInteger ReadNumber()
     {
         var value = BigInteger.Zero;
@@ -65,7 +66,7 @@ internal ref struct BinaryCMapStream
             }
         }
 
-        throw new InvalidDataException("The binary CMap number is too long.");
+        throw new PdfException("The binary CMap number is too long.");
     }
 
     /// <summary>Reads a zigzag signed number.</summary>
@@ -79,12 +80,12 @@ internal ref struct BinaryCMapStream
     /// <summary>Reads a fixed-width unsigned value.</summary>
     /// <param name="length">The number of bytes.</param>
     /// <returns>The value.</returns>
-    /// <exception cref="InvalidDataException">The resource ends early.</exception>
+    /// <exception cref="PdfException">The resource ends early.</exception>
     internal BigInteger ReadHex(int length)
     {
-        if (length > _data.Length)
+        if (length < 0 || length > _data.Length)
         {
-            throw new InvalidDataException("The binary CMap value ended early.");
+            throw new PdfException("The binary CMap value ended early.");
         }
 
         var value = new BigInteger(_data[..length], isUnsigned: true, isBigEndian: true);
@@ -94,21 +95,40 @@ internal ref struct BinaryCMapStream
 
     /// <summary>Reads a metadata string.</summary>
     /// <returns>The text.</returns>
-    /// <exception cref="InvalidDataException">The metadata string is too long.</exception>
+    /// <exception cref="PdfException">The metadata string is too long.</exception>
     internal string ReadString()
     {
-        var length = (int)ReadNumber();
-        if (length > MaxStringLength)
+        var encodedLength = ReadNumber();
+        if (encodedLength > MaxStringLength || encodedLength > _data.Length)
         {
-            throw new InvalidDataException("The binary CMap metadata is too long.");
+            throw new PdfException("The binary CMap metadata is too long.");
         }
 
-        var characters = new char[length];
-        for (var index = 0; index < length; index++)
+        var length = (int)encodedLength;
+        if (length == 0)
         {
-            characters[index] = (char)ReadNumber();
+            return string.Empty;
         }
 
-        return new(characters);
+        var characters = ArrayPool<char>.Shared.Rent(length);
+        try
+        {
+            for (var index = 0; index < length; index++)
+            {
+                var value = ReadNumber();
+                if (value > char.MaxValue)
+                {
+                    throw new PdfException(PdfError.Format, "The binary CMap metadata character exceeds UTF-16.");
+                }
+
+                characters[index] = (char)value;
+            }
+
+            return new(characters.AsSpan(0, length));
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(characters);
+        }
     }
 }

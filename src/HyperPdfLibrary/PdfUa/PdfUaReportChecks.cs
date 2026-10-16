@@ -10,7 +10,7 @@ namespace HyperPdfLibrary.PdfUa;
 /// <summary>
 /// Turns the accessibility report's findings into PDF/UA-1 findings. The report already reads the catalog, the metadata,
 /// the structure tree and each page's content; this table keeps the findings that ISO 14289-1:2014 states as "shall"
-/// rules and drops the advice (multiple level 1 headings, table headers, which the standard words as "should").
+/// rules and drops advice such as recommended table headers. Font findings come from the separate font preflight.
 /// </summary>
 internal static class PdfUaReportChecks
 {
@@ -43,6 +43,25 @@ internal static class PdfUaReportChecks
         PdfUaRequirement.FormFieldTagged,
         PdfUaRequirement.AnnotationTagged,
         PdfUaRequirement.AnnotationStructureType,
+
+        // The font preflight checks embedding, glyphs and Unicode mappings separately.
+        PdfUaRequirement.None,
+        PdfUaRequirement.None,
+        PdfUaRequirement.None,
+        PdfUaRequirement.None,
+        PdfUaRequirement.None,
+        PdfUaRequirement.StructureTypes,
+
+        // These namespace, root, heading-type and revision findings apply only to PDF/UA-2.
+        PdfUaRequirement.None,
+        PdfUaRequirement.None,
+        PdfUaRequirement.None,
+        PdfUaRequirement.None,
+        PdfUaRequirement.None,
+
+        // A missing metadata stream already produces the required title finding.
+        PdfUaRequirement.None,
+        PdfUaRequirement.Language,
     ];
 
     /// <summary>Reads the accessibility report and adds the findings that are PDF/UA-1 rules.</summary>

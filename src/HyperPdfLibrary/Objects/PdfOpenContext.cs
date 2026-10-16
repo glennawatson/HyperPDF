@@ -16,9 +16,18 @@ namespace HyperPdfLibrary.Objects;
 /// </summary>
 /// <param name="sink">The diagnostics callback, or <see langword="null"/>.</param>
 /// <param name="drawingServices">The drawing services selected for this document, or <see langword="null"/> to make empty ones when first used.</param>
+/// <param name="recovery">Whether damaged objects may be recovered.</param>
+/// <param name="ignoreXrefStreams">Whether cross-reference streams are ignored.</param>
+/// <param name="maxDecompressedBytes">The validated stream-filter output limit.</param>
 /// <param name="token">The cancellation token.</param>
 [DebuggerDisplay("PdfOpenContext: {HasRepairs} repairs")]
-internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServices? drawingServices, CancellationToken token)
+internal sealed class PdfOpenContext(
+    Action<PdfDiagnostic>? sink,
+    PdfDrawingServices? drawingServices,
+    bool recovery,
+    bool ignoreXrefStreams,
+    int maxDecompressedBytes,
+    CancellationToken token)
 {
     /// <summary>The most distinct reports kept; later ones still reach the sink.</summary>
     private const int MaxLogged = 1024;
@@ -44,11 +53,23 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <summary>1 once document close has ended scratch retention.</summary>
     private int _scratchClosed;
 
+    /// <summary>Initializes a new instance of the <see cref="PdfOpenContext"/> class.</summary>
+    /// <param name="sink">The diagnostics callback.</param>
+    /// <param name="drawingServices">The drawing services.</param>
+    /// <param name="token">The cancellation token.</param>
+    internal PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServices? drawingServices, CancellationToken token)
+        : this(sink, drawingServices, true, false, PdfLimits.MaxDecodedLength, token)
+    {
+    }
+
     /// <summary>Gets a value indicating whether recovery from a damaged structure is allowed.</summary>
-    internal bool Recovery { get; init; } = true;
+    internal bool Recovery => recovery;
 
     /// <summary>Gets a value indicating whether cross-reference streams are ignored.</summary>
-    internal bool IgnoreXrefStreams { get; init; }
+    internal bool IgnoreXrefStreams => ignoreXrefStreams;
+
+    /// <summary>Gets the maximum output bytes allowed for each stream filter.</summary>
+    internal int MaxDecompressedBytes => maxDecompressedBytes;
 
     /// <summary>Gets a value indicating whether any report of repaired damage has been logged.</summary>
     internal bool HasRepairs => Volatile.Read(ref _hasRepairs) != 0;
@@ -73,8 +94,12 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <param name="options">The options.</param>
     /// <param name="cancellationToken">The token.</param>
     /// <returns>The context.</returns>
-    internal static PdfOpenContext Create(PdfOpenOptions options, CancellationToken cancellationToken) =>
-        new(options.Diagnostics, options.DrawingServices, cancellationToken) { Recovery = options.Recovery, IgnoreXrefStreams = options.IgnoreXrefStreams };
+    internal static PdfOpenContext Create(PdfOpenOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxDecompressedBytes);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaxDecompressedBytes, PdfLimits.MaxDecodedLength);
+        return new(options.Diagnostics, options.DrawingServices, options.Recovery, options.IgnoreXrefStreams, options.MaxDecompressedBytes, cancellationToken);
+    }
 
     /// <summary>Throws when the open was cancelled.</summary>
     /// <param name="context">The context, or <see langword="null"/>.</param>

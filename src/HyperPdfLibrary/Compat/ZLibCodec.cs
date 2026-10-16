@@ -167,15 +167,21 @@ internal static class ZLibCodec
     /// <returns>Whether the data ended cleanly.</returns>
     private static bool Decompress(ReadOnlySpan<byte> input, ref PooledBuffer output, int hint, DeflateDecoder decoder, CancellationToken cancellationToken)
     {
-        OperationStatus status;
-        while ((status = Step(
-            decoder.Decompress(input, output.GetSpan(hint), out var consumed, out var written),
-            consumed,
-            written,
-            ref input,
-            ref output,
-            cancellationToken)) == OperationStatus.DestinationTooSmall)
+        // At the exact cap the decoder can consume its checksum without output; only another output byte exceeds the limit.
+        Span<byte> probe = stackalloc byte[1];
+        var status = OperationStatus.DestinationTooSmall;
+        while (status == OperationStatus.DestinationTooSmall)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var remaining = output.MaximumLength - output.Length;
+            var destination = remaining == 0 ? probe : output.GetSpan(Math.Min(hint, remaining));
+            status = Step(
+                decoder.Decompress(input, destination, out var consumed, out var written),
+                consumed,
+                written,
+                ref input,
+                ref output,
+                cancellationToken);
             hint = Math.Max(hint, output.Length);
         }
 
@@ -191,15 +197,21 @@ internal static class ZLibCodec
     /// <returns>Whether the data ended cleanly.</returns>
     private static bool Decompress(ReadOnlySpan<byte> input, ref PooledBuffer output, int hint, ZLibDecoder decoder, CancellationToken cancellationToken)
     {
-        OperationStatus status;
-        while ((status = Step(
-            decoder.Decompress(input, output.GetSpan(hint), out var consumed, out var written),
-            consumed,
-            written,
-            ref input,
-            ref output,
-            cancellationToken)) == OperationStatus.DestinationTooSmall)
+        // At the exact cap the decoder can consume its checksum without output; only another output byte exceeds the limit.
+        Span<byte> probe = stackalloc byte[1];
+        var status = OperationStatus.DestinationTooSmall;
+        while (status == OperationStatus.DestinationTooSmall)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var remaining = output.MaximumLength - output.Length;
+            var destination = remaining == 0 ? probe : output.GetSpan(Math.Min(hint, remaining));
+            status = Step(
+                decoder.Decompress(input, destination, out var consumed, out var written),
+                consumed,
+                written,
+                ref input,
+                ref output,
+                cancellationToken);
             hint = Math.Max(hint, output.Length);
         }
 
@@ -277,9 +289,16 @@ internal static class ZLibCodec
 
             // GetSpan stays outside the catch: its decode-size cap error must reach the caller, as on .NET 11.
             var clean = true;
-            for (var read = ReadSome(inflater, output.GetSpan(hint), ref clean); read > 0; read = ReadSome(inflater, output.GetSpan(hint), ref clean))
+
+            // A one-byte read distinguishes an exact-length stream from an expansion beyond the configured cap.
+            Span<byte> probe = stackalloc byte[1];
+            var read = 1;
+            while (read > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                var remaining = output.MaximumLength - output.Length;
+                var destination = remaining == 0 ? probe : output.GetSpan(Math.Min(hint, remaining));
+                read = ReadSome(inflater, destination, ref clean);
                 output.Advance(read);
             }
 

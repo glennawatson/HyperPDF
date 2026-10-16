@@ -50,20 +50,18 @@ public static class Program
         return 0;
     }
 
-    /// <summary>Creates the configuration: the default jobs, traced for allocations unless a profiler was asked for.</summary>
+    /// <summary>Traces benchmark allocations unless a CPU profiler was requested.</summary>
     /// <param name="args">The arguments.</param>
     /// <returns>The configuration.</returns>
     private static ManualConfig CreateConfig(string[] args)
     {
-        // The project targets several frameworks; each run builds the benchmarks for the runtime it was started on.
-        var targetFramework = string.Create(CultureInfo.InvariantCulture, $"/p:TargetFramework=net{Environment.Version.Major}.0");
-        var job = Job.Default.WithArguments([new MsBuildArgument(targetFramework)]);
+        var job = new Job("AllocationTrace");
         if (Array.IndexOf(args, "--profiler") < 0)
         {
             job = job.WithEnvironmentVariables(AllocationTrace(ArtifactsPath(args)));
         }
 
-        return DefaultConfig.Instance.AddJob(job.AsMutator());
+        return DefaultConfig.Instance.AddJob(job);
     }
 
     /// <summary>

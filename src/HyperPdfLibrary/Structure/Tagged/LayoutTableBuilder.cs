@@ -42,7 +42,9 @@ internal static class LayoutTableBuilder
 
             var items = new LayoutItem[placed.Length];
             var cells = Cells(anchors, columns, rowEnd, columnEnd, counts);
-            Fill(placed, anchors, cells, columns, items);
+            var filled = counts.AsSpan(0, cells.Length);
+            filled.Clear();
+            Fill(placed, anchors, cells, columns, items, filled);
             foreach (var cell in cells)
             {
                 LayoutGeometry.SortReading(items.AsSpan(cell.ItemStart, cell.ItemCount));
@@ -114,9 +116,9 @@ internal static class LayoutTableBuilder
     /// <param name="cells">The cells.</param>
     /// <param name="columns">The number of columns.</param>
     /// <param name="items">Receives the items.</param>
-    private static void Fill(ReadOnlySpan<PlacedItem> placed, int[] anchors, LayoutCell[] cells, int columns, LayoutItem[] items)
+    /// <param name="filled">Cleared scratch tracking the items already placed in each cell.</param>
+    private static void Fill(ReadOnlySpan<PlacedItem> placed, int[] anchors, LayoutCell[] cells, int columns, LayoutItem[] items, Span<int> filled)
     {
-        var filled = new int[cells.Length];
         foreach (var (item, square) in placed)
         {
             var anchor = anchors[square];

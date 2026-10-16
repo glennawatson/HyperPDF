@@ -5,14 +5,15 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Structure;
 
 namespace HyperPdfLibrary.Signatures;
 
 /// <summary>
 /// Finds the objects later revisions added, changed or removed after a signed revision, and classifies each change.
-/// An object is a candidate when its current definition lies after the signed bytes; it is a change when its value
-/// differs from the signed revision's. Objects that only serve another change, such as an annotation's appearance
-/// stream or the /DSS store's streams, take that change's kind.
+/// An object is a candidate when its cross-reference selection differs or its definition lies after the signed bytes;
+/// it is a change when its value differs from the signed revision's. Objects that only serve another change, such as
+/// an annotation's appearance stream or the /DSS store's streams, take that change's kind.
 /// </summary>
 [DebuggerDisplay("PdfRevisionComparer")]
 internal sealed partial class PdfRevisionComparer
@@ -39,7 +40,7 @@ internal sealed partial class PdfRevisionComparer
     private readonly int _acroForm;
 
     /// <summary>Objects that serve another change, with that change.</summary>
-    private readonly Dictionary<int, PdfObjectChange> _owned = [];
+    private Dictionary<int, PdfObjectChange>? _owned;
 
     /// <summary>Initializes a new instance of the <see cref="PdfRevisionComparer"/> class.</summary>
     /// <param name="current">The document as it is now.</param>
@@ -89,7 +90,7 @@ internal sealed partial class PdfRevisionComparer
     private List<PdfObjectChange> Run(long signedEnd)
     {
         var changes = new List<PdfObjectChange>();
-        var unresolved = new List<int>();
+        List<int>? unresolved = null;
         for (var number = 1; number < _current.XrefSize; number++)
         {
             if (!TryGetCandidate(number, signedEnd, out var now, out var before) || (!now.IsNull && !before.IsNull && PdfValueComparer.Equal(now, _tables.Left, before, _tables.Right)))
@@ -99,7 +100,7 @@ internal sealed partial class PdfRevisionComparer
 
             if (Classify(number, now, before) is not { } change)
             {
-                unresolved.Add(number);
+                (unresolved ??= []).Add(number);
             }
             else if (change.Kind != PdfModificationKinds.None)
             {
@@ -108,13 +109,35 @@ internal sealed partial class PdfRevisionComparer
             }
         }
 
-        foreach (var number in unresolved)
-        {
-            changes.Add(_owned.TryGetValue(number, out var owner) ? owner with { ObjectNumber = number } : new(number, PdfModificationKinds.Other, null, false));
-        }
-
+        CompleteUnresolved(unresolved, changes);
         changes.Sort(static (left, right) => left.ObjectNumber.CompareTo(right.ObjectNumber));
         return changes;
+    }
+
+    /// <summary>Classifies deferred objects after all their potential owners have been visited.</summary>
+    /// <param name="unresolved">Deferred object numbers, or null when every candidate was classified.</param>
+    /// <param name="changes">The classified changes.</param>
+    private void CompleteUnresolved(List<int>? unresolved, List<PdfObjectChange> changes)
+    {
+        if (unresolved is null)
+        {
+            return;
+        }
+
+        foreach (var number in unresolved)
+        {
+            changes.Add(TryGetOwner(number, out var owner) ? owner with { ObjectNumber = number } : new(number, PdfModificationKinds.Other, null, false));
+        }
+    }
+
+    /// <summary>Reads a change's ownership only when a reachable-object walk created the index.</summary>
+    /// <param name="number">The object number.</param>
+    /// <param name="owner">The change that owns the object.</param>
+    /// <returns>Whether an owner is recorded.</returns>
+    private bool TryGetOwner(int number, out PdfObjectChange owner)
+    {
+        owner = default;
+        return _owned is { } owned && owned.TryGetValue(number, out owner);
     }
 
     /// <summary>Reads an object's current and signed values when a later revision defined or freed it.</summary>
@@ -129,7 +152,7 @@ internal sealed partial class PdfRevisionComparer
         before = default;
         var offset = StoreRevisions.GetDefinitionOffset(_current, number);
         var signedOffset = number < _signed.XrefSize ? StoreRevisions.GetDefinitionOffset(_signed, number) : -1;
-        if (offset < signedEnd && (offset >= 0 || signedOffset < 0))
+        if (offset < signedEnd && SameDefinition(number, offset, signedOffset))
         {
             return false;
         }
@@ -139,6 +162,36 @@ internal sealed partial class PdfRevisionComparer
         return !now.IsNull || !before.IsNull;
     }
 
+    /// <summary>Checks whether both tables select the same definition, including an object-stream member's index.</summary>
+    /// <param name="number">The object number.</param>
+    /// <param name="offset">The current definition's file offset.</param>
+    /// <param name="signedOffset">The signed definition's file offset.</param>
+    /// <returns>Whether the selected definitions match.</returns>
+    private bool SameDefinition(int number, long offset, long signedOffset)
+    {
+        if (offset != signedOffset)
+        {
+            return false;
+        }
+
+        if (offset < 0)
+        {
+            return true;
+        }
+
+        var current = _current.XrefState;
+        var signed = _signed.XrefState;
+        var type = current.GetType(number);
+        if (type != signed.GetType(number))
+        {
+            return false;
+        }
+
+        // Direct entries with the same physical offset select the same bytes; generations are ignored when reading.
+        return type != XrefEntryType.Compressed
+            || (current.GetLocation(number) == signed.GetLocation(number) && current.GetDetail(number) == signed.GetDetail(number));
+    }
+
     /// <summary>Classifies a changed object by what it is.</summary>
     /// <param name="number">The object number.</param>
     /// <param name="now">The current value, or null when freed.</param>
@@ -146,6 +199,12 @@ internal sealed partial class PdfRevisionComparer
     /// <returns>The change, a change of kind None for file structure, or <see langword="null"/> when the object is not recognised.</returns>
     private PdfObjectChange? Classify(int number, PdfValue now, PdfValue before)
     {
+        if (before.AsDictionary() is { } signedPage && KindOfTarget(signedPage, _tables.Right) == PdfModificationKinds.Pages)
+        {
+            // An unsigned replacement cannot change a signed page's role to gain annotation or metadata permissions.
+            return new(number, SignedPageKind(now.AsDictionary(), signedPage), null, false);
+        }
+
         if (number == _root)
         {
             return new(number, ClassifyCatalog(now.AsDictionary(), before.AsDictionary()), null, false);
@@ -156,7 +215,7 @@ internal sealed partial class PdfRevisionComparer
             return new(number, PdfModificationKinds.Metadata, null, false);
         }
 
-        if (_owned.TryGetValue(number, out var owner) && owner.Kind == PdfModificationKinds.SecurityStore)
+        if (TryGetOwner(number, out var owner) && owner.Kind == PdfModificationKinds.SecurityStore)
         {
             return owner with
             {
@@ -175,6 +234,15 @@ internal sealed partial class PdfRevisionComparer
             _ => null,
         };
     }
+
+    /// <summary>Classifies a signed page without trusting the replacement's object type.</summary>
+    /// <param name="now">The replacement dictionary, or null when removed or replaced with a scalar.</param>
+    /// <param name="before">The signed page or page-tree dictionary.</param>
+    /// <returns>Page changes, or the annotation changes of an otherwise unchanged page.</returns>
+    private PdfModificationKinds SignedPageKind(PdfDictionary? now, PdfDictionary before) =>
+        now is not null && now.IsName(KnownName.Type, KnownName.Page) && before.IsName(KnownName.Type, KnownName.Page)
+            ? ClassifyPage(now, before)
+            : PdfModificationKinds.Pages;
 
     /// <summary>Classifies a changed dictionary.</summary>
     /// <param name="number">The object number.</param>

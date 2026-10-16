@@ -76,11 +76,17 @@ internal static class TrueTypeCmap
     /// <param name="table">The subtable offset, or -1.</param>
     /// <param name="code">The code.</param>
     /// <returns>The glyph id, or zero when unmapped.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     internal static int Lookup(ReadOnlySpan<byte> data, int table, int code)
     {
         if (table < 0 || code < 0)
         {
             return 0;
+        }
+
+        if (table > data.Length - FontBytes.U16Size)
+        {
+            throw new PdfException(PdfError.Format, "The TrueType cmap offset exceeds its data.");
         }
 
         return FontBytes.U16(data, table) switch
@@ -181,10 +187,17 @@ internal static class TrueTypeCmap
     /// <param name="code">The code.</param>
     /// <param name="constant">Whether every code in a group maps to the same glyph (format 13).</param>
     /// <returns>The glyph id, or zero.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     private static int LookupGroups(ReadOnlySpan<byte> data, int table, int code, bool constant)
     {
-        var available = (data.Length - table - GroupsOffset) / GroupSize;
-        var count = (int)Math.Min(FontBytes.U32(data, table + GroupCountOffset), (uint)Math.Max(available, 0));
+        var available = Math.Max((data.Length - table - GroupsOffset) / GroupSize, 0);
+        var encodedCount = FontBytes.U32(data, table + GroupCountOffset);
+        if (encodedCount > available)
+        {
+            throw new PdfException(PdfError.Format, "The TrueType cmap group count exceeds its data.");
+        }
+
+        var count = (int)encodedCount;
         var low = 0;
         var high = count - 1;
         while (low <= high)
@@ -202,8 +215,13 @@ internal static class TrueTypeCmap
             }
             else
             {
-                var glyph = FontBytes.U32(data, group + GroupGlyph) + (constant ? 0 : (uint)code - first);
-                return glyph > int.MaxValue ? 0 : (int)glyph;
+                var glyph = (ulong)FontBytes.U32(data, group + GroupGlyph) + (constant ? 0 : (uint)code - first);
+                if (glyph > int.MaxValue)
+                {
+                    throw new PdfException(PdfError.Format, "The TrueType cmap glyph range exceeds its signed width.");
+                }
+
+                return (int)glyph;
             }
         }
 

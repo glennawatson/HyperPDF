@@ -66,6 +66,23 @@ internal static class FontBytes
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int Offset32(ReadOnlySpan<byte> data, int offset) => (int)Math.Min(U32(data, offset), int.MaxValue);
 
+    /// <summary>Adds a parsed unsigned relative offset after bounding it against the data.</summary>
+    /// <param name="data">The font bytes.</param>
+    /// <param name="basis">The start the parsed offset is relative to.</param>
+    /// <param name="relative">The parsed offset.</param>
+    /// <returns>The absolute offset.</returns>
+    /// <exception cref="PdfException">The relative offset exceeds the font bytes.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int AddOffset(ReadOnlySpan<byte> data, int basis, uint relative)
+    {
+        if (basis < 0 || basis > data.Length || relative > data.Length - basis)
+        {
+            throw new PdfException(PdfError.Format, "The font relative offset exceeds its data.");
+        }
+
+        return basis + (int)relative;
+    }
+
     /// <summary>Reads a signed 2.14 fixed-point number.</summary>
     /// <param name="data">The data.</param>
     /// <param name="offset">The offset.</param>
@@ -73,12 +90,20 @@ internal static class FontBytes
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static float F2Dot14(ReadOnlySpan<byte> data, int offset) => S16(data, offset) / F2Dot14Scale;
 
-    /// <summary>Takes a slice, or an empty span when the range is outside the data.</summary>
+    /// <summary>Takes a slice after validating the range against the data.</summary>
     /// <param name="data">The data.</param>
     /// <param name="offset">The start.</param>
     /// <param name="length">The length.</param>
     /// <returns>The slice.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ReadOnlySpan<byte> Slice(ReadOnlySpan<byte> data, int offset, int length) =>
-        offset >= 0 && length >= 0 && (long)offset + length <= data.Length ? data.Slice(offset, length) : [];
+    internal static ReadOnlySpan<byte> Slice(ReadOnlySpan<byte> data, int offset, int length)
+    {
+        if (offset < 0 || length < 0 || offset > data.Length || length > data.Length - offset)
+        {
+            throw new PdfException(PdfError.Format, "The font byte range exceeds its data.");
+        }
+
+        return data.Slice(offset, length);
+    }
 }

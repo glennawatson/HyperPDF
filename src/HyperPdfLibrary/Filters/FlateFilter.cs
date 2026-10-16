@@ -92,6 +92,7 @@ internal static class FlateFilter
     private static bool PreferLongerSkippingHeader(ReadOnlySpan<byte> input, int start, bool firstClean, ref PooledBuffer output, CancellationToken cancellationToken)
     {
         var second = default(PooledBuffer);
+        second.MaximumLength = output.MaximumLength;
         try
         {
             var secondClean = ZLibCodec.Decompress(input[ZLibHeaderLength..], raw: true, ref second, cancellationToken);

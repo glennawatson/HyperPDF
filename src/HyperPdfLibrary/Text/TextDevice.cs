@@ -16,8 +16,8 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdfLibrary.Text;
 
 /// <summary>
-/// A content device that collects the glyphs a page shows into runs (ISO 32000-2, 9.4 and 9.7). Paths, images and
-/// shadings are ignored. Each active extraction owns a device, which its document may reuse later.
+/// A content device that collects glyphs into runs (ISO 32000-2, 9.4 and 9.7). Opt-in visibility filtering tracks
+/// clipping bounds and transparency groups; images and shadings are ignored. Each extraction owns a reusable device.
 /// </summary>
 [DebuggerDisplay("TextDevice: {Runs.Count} runs, {Glyphs.Count} glyphs")]
 internal sealed class TextDevice : ITextObjectDevice
@@ -39,6 +39,12 @@ internal sealed class TextDevice : ITextObjectDevice
 
     /// <summary>The replacement text of each open marked-content level, innermost last; null for levels without any.</summary>
     private readonly List<TextMarks?> _levels = [];
+
+    /// <summary>The saved clipping bounds, reused with this device.</summary>
+    private readonly List<PdfRect> _clips = [];
+
+    /// <summary>The parent group opacities, reused with this device.</summary>
+    private readonly List<float> _groupAlphas = [];
 
     /// <summary>The matrix from the device space the interpreter draws in back to user space.</summary>
     private Matrix3x2 _userTransform = Matrix3x2.Identity;
@@ -82,6 +88,18 @@ internal sealed class TextDevice : ITextObjectDevice
     /// <summary>Where the next glyph of the open run would start if nothing moved the text position.</summary>
     private float _nextPen;
 
+    /// <summary>The conservative clipping bounds in device space.</summary>
+    private PdfRect _clip;
+
+    /// <summary>The cumulative transparency group opacity.</summary>
+    private float _groupAlpha = 1;
+
+    /// <summary>Gets the opt-in filters for this extraction.</summary>
+    internal PdfTextExtractionOptions Options { get; private set; }
+
+    /// <summary>Gets the explicit token for this extraction.</summary>
+    internal CancellationToken CancellationToken { get; private set; }
+
     /// <summary>Gets the runs, in content order.</summary>
     internal List<TextRun> Runs { get; } = [with(RunCapacity)];
 
@@ -94,11 +112,22 @@ internal sealed class TextDevice : ITextObjectDevice
     /// <inheritdoc/>
     public void Save()
     {
+        if (Options.SkipNonVisibleText)
+        {
+            _clips.Add(_clip);
+        }
     }
 
     /// <inheritdoc/>
     public void Restore()
     {
+        if (_clips.Count == 0)
+        {
+            return;
+        }
+
+        _clip = _clips[^1];
+        _clips.RemoveAt(_clips.Count - 1);
     }
 
     /// <inheritdoc/>
@@ -114,6 +143,10 @@ internal sealed class TextDevice : ITextObjectDevice
     /// <inheritdoc/>
     public void Clip(PdfPath path, bool evenOdd, Matrix3x2 ctm)
     {
+        if (Options.SkipNonVisibleText)
+        {
+            _clip = TextVisibility.Intersect(_clip, path, ctm, CancellationToken);
+        }
     }
 
     /// <inheritdoc/>
@@ -129,11 +162,25 @@ internal sealed class TextDevice : ITextObjectDevice
     /// <inheritdoc/>
     public void BeginGroup(in GroupInfo group)
     {
+        if (!Options.SkipNonVisibleText)
+        {
+            return;
+        }
+
+        _groupAlphas.Add(_groupAlpha);
+        _groupAlpha *= group.Alpha;
     }
 
     /// <inheritdoc/>
     public void EndGroup(in GroupInfo group)
     {
+        if (_groupAlphas.Count == 0)
+        {
+            return;
+        }
+
+        _groupAlpha = _groupAlphas[^1];
+        _groupAlphas.RemoveAt(_groupAlphas.Count - 1);
     }
 
     /// <inheritdoc/>
@@ -174,6 +221,12 @@ internal sealed class TextDevice : ITextObjectDevice
     {
         var textToUser = Matrix3x2.CreateTranslation(0, state.Rise) * glyph.TextMatrix * state.Ctm * _userTransform;
         var matrix = Matrix3x2.CreateScale(state.HorizontalScaling, 1) * textToUser;
+        if (Options.SkipNonVisibleText && (_groupAlpha <= 0 || !TextVisibility.CanPaint(glyph, ref state, _clip, matrix)))
+        {
+            CloseRun();
+            return;
+        }
+
         if (!Continues(glyph.Font, glyph.FontSize, matrix, state.RenderMode))
         {
             CloseRun();
@@ -185,9 +238,19 @@ internal sealed class TextDevice : ITextObjectDevice
 
     /// <summary>Prepares the device for a page.</summary>
     /// <param name="page">The page; the interpreter draws it in viewer space, which the device maps back to user space.</param>
-    internal void Reset(PdfPage page)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Reset(PdfPage page) => Reset(page, default, CancellationToken.None);
+
+    /// <summary>Prepares the device with explicit filtering and cancellation.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="options">The opt-in filters.</param>
+    /// <param name="cancellationToken">Cancels extraction.</param>
+    internal void Reset(PdfPage page, PdfTextExtractionOptions options, CancellationToken cancellationToken)
     {
         Clear();
+        Options = options;
+        CancellationToken = cancellationToken;
+        _clip = new(float.NegativeInfinity, float.NegativeInfinity, float.PositiveInfinity, float.PositiveInfinity);
         _drawingServices = PdfDrawingServices.For(page.Dictionary);
         _userTransform = page.UserTransform;
     }
@@ -203,6 +266,11 @@ internal sealed class TextDevice : ITextObjectDevice
         Glyphs.Clear();
         Unicode.Clear();
         _levels.Clear();
+        _clips.Clear();
+        _groupAlphas.Clear();
+        _groupAlpha = 1;
+        Options = default;
+        CancellationToken = default;
         _currentMarks = TextMarks.None;
         _sequences = 0;
         _drawingServices = null;

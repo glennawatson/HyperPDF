@@ -52,13 +52,13 @@ public sealed class BinaryCMapReaderTests
     /// <returns>A task.</returns>
     [Test]
     public async Task RejectsTruncatedResource() =>
-        await Assert.That(static () => BinaryCMapReader.Parse([0, 0x41, 1, 0x82])).Throws<InvalidDataException>();
+        await Assert.That(static () => BinaryCMapReader.Parse([0, 0x41, 1, 0x82])).Throws<PdfException>();
 
     /// <summary>Unknown block kinds are rejected.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task RejectsUnknownBlock() =>
-        await Assert.That(static () => BinaryCMapReader.Parse([0, 0xC0, 1])).Throws<InvalidDataException>();
+        await Assert.That(static () => BinaryCMapReader.Parse([0, 0xC0, 1])).Throws<PdfException>();
 
     /// <summary>Inverse Unicode mappings fill gaps without replacing explicit values.</summary>
     /// <returns>A task.</returns>

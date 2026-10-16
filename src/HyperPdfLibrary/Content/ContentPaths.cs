@@ -239,6 +239,11 @@ internal static class ContentPaths
     {
         if (self.PathPoints == 0)
         {
+            if (self.PendingClip)
+            {
+                self.Device.Clip(PdfPath.Empty, self.PendingClipEvenOdd, self.State.Ctm);
+            }
+
             self.PendingClip = false;
             return;
         }

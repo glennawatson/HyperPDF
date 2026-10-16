@@ -99,6 +99,6 @@ measurements set `DisableRuntimeAsync=true` for the whole build, which also turn
   invocation.
 - The operating system's file cache was warm, and cold-disk reads cannot be measured without root. The throttled
   stream tests stand in for slow I/O.
-- The `FileStream` rows with 10 iterations are less precise than the default job.
+- The `FileStream` rows with 10 iterations are less precise than the longer measurement runs.
 - Large images (over 1 MB) and stream bodies over 1 MB are not loaded ahead; they are read when decoded.
 

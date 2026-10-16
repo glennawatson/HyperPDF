@@ -55,7 +55,7 @@ internal static class BinaryCMapReader
     /// <param name="data">The binary mapping bytes.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The decoded mapping.</returns>
-    /// <exception cref="InvalidDataException">The resource has an invalid block or mapping.</exception>
+    /// <exception cref="PdfException">The resource has an invalid block or mapping.</exception>
     internal static BinaryCMapData Parse(ReadOnlySpan<byte> data, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -79,13 +79,13 @@ internal static class BinaryCMapReader
             }
 
             var width = (header & WidthMask) + 1;
-            var count = (int)stream.ReadNumber();
-            if (count is < 1 or > MaxItems || kind > UnicodeRange)
+            var encodedCount = stream.ReadNumber();
+            if (encodedCount < 1 || encodedCount > MaxItems || kind > UnicodeRange)
             {
-                throw new InvalidDataException("The binary CMap has an invalid block.");
+                throw new PdfException("The binary CMap has an invalid block.");
             }
 
-            ReadBlock(ref stream, map, new(kind, width, count, (header & SequenceFlag) != 0), cancellationToken);
+            ReadBlock(ref stream, map, new(kind, width, (int)encodedCount, (header & SequenceFlag) != 0), cancellationToken);
         }
 
         return map;
@@ -147,12 +147,12 @@ internal static class BinaryCMapReader
     /// <param name="high">The last code.</param>
     /// <param name="destination">The first destination.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    /// <exception cref="InvalidDataException">A code range is invalid.</exception>
+    /// <exception cref="PdfException">A code range is invalid.</exception>
     private static void AddMapping(BinaryCMapData map, BinaryCMapBlock block, BigInteger low, BigInteger high, BigInteger destination, CancellationToken cancellationToken)
     {
         if (low < 0 || high > uint.MaxValue || high < low)
         {
-            throw new InvalidDataException("The binary CMap has an invalid code range.");
+            throw new PdfException("The binary CMap has an invalid code range.");
         }
 
         switch (block.Kind)
@@ -165,6 +165,11 @@ internal static class BinaryCMapReader
 
             case CidCharacter or CidRangeKind:
                 {
+                    if (destination < 0 || destination + high - low > int.MaxValue)
+                    {
+                        throw new PdfException(PdfError.Format, "The binary CMap destination exceeds its signed width.");
+                    }
+
                     map.Ranges.Add(new((uint)low, (uint)high, (int)destination));
                     break;
                 }

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Structure;
 
 namespace HyperPdfLibrary.Objects;
@@ -16,6 +17,7 @@ public static class StoreObjectStreams
     /// <param name = "index">The object's index in the stream.</param>
     /// <param name = "value">The value; null when missing.</param>
     /// <returns><see langword="true"/> when the object stream holds the object.</returns>
+    /// <exception cref="PdfException">Object-stream headers resolve through a recursive chain beyond the parsing limit.</exception>
     internal static bool TryLoadFromObjectStream(PdfObjectStore self, int number, int container, int index, out PdfValue value)
     {
         if (self.ObjectStreamsState.TryGetValue(container, out var cached))
@@ -30,9 +32,24 @@ public static class StoreObjectStreams
             return false;
         }
 
-        var objects = ObjectStreamIndex.Read(stream);
-        self.ObjectStreamsState.Add(container, objects);
-        return objects.TryParse(number, index, self, out value);
+        // Reading the header and filters can resolve compressed references while this container's index is not cached.
+        if (self.ParseDepthState >= StoreParsing.MaxParseDepth)
+        {
+            PdfOpenContext.Report(self.Context, PdfDiagnosticCode.RecursionLimit, "Object stream headers referred to each other too deeply.", container, -1);
+            throw new PdfException(PdfError.Format, "Object stream headers contain a recursive reference chain.");
+        }
+
+        self.ParseDepthState++;
+        try
+        {
+            var objects = ObjectStreamIndex.Read(stream);
+            self.ObjectStreamsState.Add(container, objects);
+            return objects.TryParse(number, index, self, out value);
+        }
+        finally
+        {
+            self.ParseDepthState--;
+        }
     }
 
     /// <summary>Changes how many decoded object streams are kept.</summary>

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+using System.Buffers;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Signatures;
@@ -17,6 +18,9 @@ public static class StoreRevisions
 
     /// <summary>The bytes read at a section's start to find its first token.</summary>
     internal const int SectionTokenWindow = 1024;
+
+    /// <summary>The revision snapshots kept on the stack before leasing bounded pooled storage.</summary>
+    private const int StackRevisions = 16;
 
     /// <summary>Gets the end-of-file marker that closes each revision.</summary>
     private static ReadOnlySpan<byte> EndMarker => "%%EOF"u8;
@@ -103,18 +107,35 @@ public static class StoreRevisions
     /// <returns>The revisions.</returns>
     internal static PdfRevision[] ReadRevisions(PdfObjectStore self)
     {
-        var sections = StoreRevisions.ReadSectionOffsets(self);
-        var revisions = new List<PdfRevision>(sections.Count);
-        if (sections.Count > 0)
+        Span<long> storage = stackalloc long[PdfLimits.MaxXrefSections];
+        var count = StoreRevisions.ReadSectionOffsets(self, storage);
+        var sections = storage[..count];
+        var capacity = count == 0 ? PdfLimits.MaxXrefSections : count;
+        var rented = capacity > StackRevisions ? ArrayPool<PdfRevision>.Shared.Rent(capacity) : null;
+        Span<PdfRevision> revisions = rented is null ? stackalloc PdfRevision[StackRevisions] : rented;
+        revisions = revisions[..capacity];
+        try
         {
-            sections.Sort();
-            foreach (var offset in sections)
+            var revisionCount = 0;
+            if (!sections.IsEmpty)
             {
-                StoreRevisions.AddRevision(self, revisions, offset);
+                sections.Sort();
+                foreach (var offset in sections)
+                {
+                    PdfOpenContext.ThrowIfCancelled(self.Context);
+                    revisionCount = StoreRevisions.AddRevision(self, revisions, revisionCount, offset);
+                }
+            }
+
+            return revisionCount > 0 ? revisions[..revisionCount].ToArray() : StoreRevisions.ReadMarkerRevisions(self, revisions);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<PdfRevision>.Shared.Return(rented);
             }
         }
-
-        return revisions.Count > 0 ? [.. revisions] : StoreRevisions.ReadMarkerRevisions(self);
     }
 
     /// <summary>Gets the end of the line that follows a position: one CR, LF or CRLF.</summary>
@@ -138,31 +159,36 @@ public static class StoreRevisions
 
     /// <summary>Adds the revision whose cross-reference section starts at an offset, unless it ends where the last one did.</summary>
     /// <param name = "self">The owned object-store state.</param>
-    /// <param name = "revisions">The revisions so far.</param>
+    /// <param name = "revisions">The caller-owned working storage.</param>
+    /// <param name="count">The revisions stored so far.</param>
     /// <param name = "offset">The section's position.</param>
-    internal static void AddRevision(PdfObjectStore self, List<PdfRevision> revisions, long offset)
+    /// <returns>The stored revision count.</returns>
+    internal static int AddRevision(PdfObjectStore self, Span<PdfRevision> revisions, int count, long offset)
     {
         var length = self.Source.Length;
         var marker = PdfByteSearch.IndexOf(self.Source, StoreRevisions.EndMarker, Math.Clamp(offset, 0, length));
         var markerEnd = marker < 0 ? length : marker + StoreRevisions.EndMarkerLength;
         var end = marker < 0 ? length : StoreRevisions.SkipLineEnd(self, markerEnd);
-        if (revisions.Count > 0 && revisions[^1].MarkerEnd >= markerEnd)
+        if (count > 0 && revisions[count - 1].MarkerEnd >= markerEnd)
         {
-            return;
+            return count;
         }
 
-        revisions.Add(new(revisions.Count, offset, markerEnd, end));
+        revisions[count] = new(count, offset, markerEnd, end);
+        return count + 1;
     }
 
     /// <summary>Lists a revision for every <c>%%EOF</c> marker, for files whose chain cannot be followed.</summary>
     /// <param name = "self">The owned object-store state.</param>
+    /// <param name="revisions">The caller-owned working storage.</param>
     /// <returns>The revisions.</returns>
-    internal static PdfRevision[] ReadMarkerRevisions(PdfObjectStore self)
+    internal static PdfRevision[] ReadMarkerRevisions(PdfObjectStore self, Span<PdfRevision> revisions)
     {
-        var revisions = new List<PdfRevision>();
+        var count = 0;
         var position = 0L;
-        while (revisions.Count < PdfLimits.MaxXrefSections)
+        while (count < revisions.Length)
         {
+            PdfOpenContext.ThrowIfCancelled(self.Context);
             var marker = PdfByteSearch.IndexOf(self.Source, StoreRevisions.EndMarker, position);
             if (marker < 0)
             {
@@ -170,35 +196,47 @@ public static class StoreRevisions
             }
 
             var markerEnd = marker + StoreRevisions.EndMarkerLength;
-            revisions.Add(new(revisions.Count, -1, markerEnd, StoreRevisions.SkipLineEnd(self, markerEnd)));
+            revisions[count] = new(count, -1, markerEnd, StoreRevisions.SkipLineEnd(self, markerEnd));
+            count++;
             position = markerEnd;
         }
 
-        return revisions.Count > 0 ? [.. revisions] : [new(0, -1, self.Source.Length, self.Source.Length)];
+        return count > 0 ? revisions[..count].ToArray() : [new(0, -1, self.Source.Length, self.Source.Length)];
     }
 
     /// <summary>Follows /Prev from the newest cross-reference section, collecting each section's position.</summary>
     /// <param name = "self">The owned object-store state.</param>
-    /// <returns>The positions, newest first; empty when the chain cannot be followed.</returns>
-    internal static List<long> ReadSectionOffsets(PdfObjectStore self)
+    /// <param name="sections">Storage for at least the maximum supported cross-reference section count.</param>
+    /// <returns>The number of positions written, newest first; zero when the chain cannot be followed.</returns>
+    /// <exception cref="PdfException">A section offset exceeds the available file bytes.</exception>
+    internal static int ReadSectionOffsets(PdfObjectStore self, Span<long> sections)
     {
-        var sections = new List<long>();
+        ArgumentOutOfRangeException.ThrowIfLessThan(sections.Length, PdfLimits.MaxXrefSections);
+        var count = 0;
         var offset = self.StartXref;
-        var visited = new HashSet<long>();
-        while (offset >= 0 && sections.Count < PdfLimits.MaxXrefSections)
+        while (offset >= 0 && count < PdfLimits.MaxXrefSections)
         {
+            PdfOpenContext.ThrowIfCancelled(self.Context);
+            if (offset >= self.Source.Length - self.XrefState.OffsetBase)
+            {
+                throw new PdfException(PdfError.Format, "The previous cross-reference section points outside the file.");
+            }
+
             var position = offset + self.XrefState.OffsetBase;
-            if (!visited.Add(position) || position >= self.Source.Length || StoreRevisions.ReadSectionTrailer(self, position) is not { } trailer)
+
+            // The output span also forms the bounded visited set.
+            if (sections[..count].Contains(position) || StoreRevisions.ReadSectionTrailer(self, position) is not { } trailer)
             {
                 break;
             }
 
-            sections.Add(position);
+            sections[count] = position;
+            count++;
             var previous = trailer.GetRaw(KnownName.Prev);
             offset = previous.Kind == PdfKind.Integer ? previous.AsInteger() : -1;
         }
 
-        return sections;
+        return count;
     }
 
     /// <summary>Reads the trailer of the cross-reference section at a position: a classic table's trailer or a stream's dictionary.</summary>
@@ -238,7 +276,9 @@ public static class StoreRevisions
         {
             HeaderOffset = self.HeaderOffset,
             Version = self.Version,
-            Context = self.Context is { } context ? new PdfOpenContext(null, context.DrawingServices, CancellationToken.None) : null,
+            Context = self.Context is { } context
+                ? new PdfOpenContext(null, context.DrawingServices, context.Recovery, context.IgnoreXrefStreams, context.MaxDecompressedBytes, context.CancellationToken)
+                : null,
             Security = security,
         };
 }

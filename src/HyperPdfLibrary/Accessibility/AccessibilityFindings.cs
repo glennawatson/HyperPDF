@@ -61,15 +61,25 @@ internal sealed class AccessibilityFindings
     /// <returns>The counts.</returns>
     internal PdfAccessibilityCount[] GetCounts()
     {
-        var counts = new List<PdfAccessibilityCount>();
+        var length = 0;
         for (var i = 1; i < _counts.Length; i++)
         {
-            if (_counts[i] > 0)
-            {
-                counts.Add(new((PdfAccessibilityCode)i, _counts[i]));
-            }
+            length += _counts[i] > 0 ? 1 : 0;
         }
 
-        return [.. counts];
+        var counts = new PdfAccessibilityCount[length];
+        var next = 0;
+        for (var i = 1; i < _counts.Length; i++)
+        {
+            if (_counts[i] == 0)
+            {
+                continue;
+            }
+
+            counts[next] = new((PdfAccessibilityCode)i, _counts[i]);
+            next++;
+        }
+
+        return counts;
     }
 }

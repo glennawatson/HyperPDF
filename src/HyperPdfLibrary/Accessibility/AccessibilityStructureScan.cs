@@ -67,9 +67,6 @@ internal sealed class AccessibilityStructureScan
     /// <summary>The level of the last heading, or zero before the first.</summary>
     private int _lastHeading;
 
-    /// <summary>The number of level 1 headings seen.</summary>
-    private int _levelOneCount;
-
     /// <summary>Initializes a new instance of the <see cref="AccessibilityStructureScan"/> class.</summary>
     /// <param name="tree">The structure tree.</param>
     /// <param name="part">The claimed PDF/UA part, or <see langword="null"/>.</param>
@@ -101,9 +98,10 @@ internal sealed class AccessibilityStructureScan
     internal void Run()
     {
         CheckRoots();
-        foreach (var root in _tree.Roots)
+        var roots = _tree.Roots;
+        for (var index = 0; index < roots.Count; index++)
         {
-            Visit(root);
+            Visit(roots[index]);
         }
     }
 
@@ -126,8 +124,10 @@ internal sealed class AccessibilityStructureScan
         }
 
         flags |= element.Attributes.Headers.Length > 0 ? HasHeadersList : 0;
-        foreach (var kid in element.Kids)
+        var kids = element.Kids;
+        for (var index = 0; index < kids.Count; index++)
         {
+            var kid = kids[index];
             if (kid.Kind == PdfStructureKidKind.Element && kid.Element is { } child)
             {
                 flags |= CollectTableFlags(child, false);
@@ -164,8 +164,10 @@ internal sealed class AccessibilityStructureScan
         CheckLanguage(element);
         CheckPart2Type(element);
         CheckType(element);
-        foreach (var kid in element.Kids)
+        var kids = element.Kids;
+        for (var index = 0; index < kids.Count; index++)
         {
+            var kid = kids[index];
             if (kid.Kind == PdfStructureKidKind.Element && kid.Element is { } child)
             {
                 Visit(child);
@@ -338,7 +340,11 @@ internal sealed class AccessibilityStructureScan
         }
 
         var roots = _tree.Roots;
-        var valid = roots.Count == 1 && roots[0].Type == PdfStructureType.Document && roots[0].Namespace == PdfStructureTypes.Pdf20Uri;
+
+        // The reading tree drops malformed and repeated children during recovery; count the raw /K as well.
+        var children = _tree.Root.GetArray(KnownName.K);
+        var valid = (children is null || children.Count == 1)
+            && roots.Count == 1 && roots[0].Type == PdfStructureType.Document && roots[0].Namespace == PdfStructureTypes.Pdf20Uri;
         if (!valid)
         {
             _findings.Add(PdfAccessibilityCode.DocumentRootInvalid);
@@ -385,7 +391,7 @@ internal sealed class AccessibilityStructureScan
         }
     }
 
-    /// <summary>Reports a heading that skips a level, and a second level 1 heading.</summary>
+    /// <summary>Reports a heading that skips a level.</summary>
     /// <param name="element">The heading.</param>
     private void CheckHeading(PdfStructureElement element)
     {
@@ -393,15 +399,6 @@ internal sealed class AccessibilityStructureScan
         if (level > _lastHeading + 1)
         {
             _findings.Add(PdfAccessibilityCode.HeadingLevelSkipped, element.PageIndex, element.Id);
-        }
-
-        if (level == 1)
-        {
-            _levelOneCount++;
-            if (_levelOneCount > 1 && _part != PdfUaClaim.Part2)
-            {
-                _findings.Add(PdfAccessibilityCode.MultipleLevelOneHeadings, element.PageIndex, element.Id);
-            }
         }
 
         _lastHeading = level;

@@ -45,16 +45,40 @@ public sealed class AccessibilityStructureTests
         await Assert.That(startsDeep.GetCount(PdfAccessibilityCode.HeadingLevelSkipped)).IsEqualTo(1);
     }
 
-    /// <summary>More than one level 1 heading is flagged for UA-1 and left alone for UA-2.</summary>
+    /// <summary>Repeated level 1 headings are allowed by both PDF/UA parts.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task MultipleLevelOneHeadingsAreFlaggedForPart1()
+    public async Task RepeatedLevelOneHeadingsAreAllowed()
     {
         var part1 = await AccessibilityPdfs.ReportAsync(Headings("H1", "H1"));
         var part2 = await AccessibilityPdfs.ReportAsync(Headings("H1", "H1") with { Xmp = AccessibilityPdfs.Packet(AccessibilityPdfs.PartTwo, true) });
 
-        await Assert.That(part1.GetCount(PdfAccessibilityCode.MultipleLevelOneHeadings)).IsEqualTo(1);
+        await Assert.That(part1.GetCount(PdfAccessibilityCode.MultipleLevelOneHeadings)).IsEqualTo(0);
         await Assert.That(part2.GetCount(PdfAccessibilityCode.MultipleLevelOneHeadings)).IsEqualTo(0);
+    }
+
+    /// <summary>Strongly structured PDF/UA-1 sections may each contain a generic heading.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SeparateSectionsMayHaveGenericHeadings()
+    {
+        var report = await AccessibilityPdfs.ReportAsync(new()
+        {
+            Layout = static (pdf, document) =>
+            {
+                var first = pdf.Reserve();
+                var second = pdf.Reserve();
+                var firstHeading = pdf.Element("H", first, "/K 0");
+                var secondHeading = pdf.Element("H", second, "/K 1");
+                pdf.SetElement(first, "Sect", document, $"/K [{firstHeading} 0 R]");
+                pdf.SetElement(second, "Sect", document, $"/K [{secondHeading} 0 R]");
+                return AccessibilityPdfs.Kids(first, second);
+            },
+        });
+
+        await Assert.That(report.GetCount(PdfAccessibilityCode.MultipleLevelOneHeadings)).IsEqualTo(0);
+        await Assert.That(report.GetCount(PdfAccessibilityCode.HeadingLevelSkipped)).IsEqualTo(0);
+        await Assert.That(report.GetCount(PdfAccessibilityCode.HeadingTypeNotAllowed)).IsEqualTo(0);
     }
 
     /// <summary>A figure needs <c>/Alt</c> or <c>/ActualText</c>.</summary>

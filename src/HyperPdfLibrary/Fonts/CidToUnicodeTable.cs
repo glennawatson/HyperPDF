@@ -14,8 +14,10 @@ namespace HyperPdfLibrary.Fonts;
 /// A flat UTF-16 array stores BMP characters and indices into a supplementary scalar side table.
 /// Each selected service reads a collection from disk once, on first use.
 /// </summary>
-[DebuggerDisplay("CidToUnicodeTable: {_values.Length} CIDs")]
-internal sealed class CidToUnicodeTable
+/// <param name="Values">The BMP values and supplementary indices of each CID.</param>
+/// <param name="Supplementary">The supplementary Unicode scalars.</param>
+[DebuggerDisplay("CidToUnicodeTable: {Values.Length} CIDs")]
+internal sealed record CidToUnicodeTable(char[] Values, int[] Supplementary)
 {
     /// <summary>The format version of the packed resource.</summary>
     private const byte Version = 2;
@@ -31,21 +33,6 @@ internal sealed class CidToUnicodeTable
 
     /// <summary>The empty table used when optional mappings are absent.</summary>
     private static readonly CidToUnicodeTable Empty = new([], []);
-
-    /// <summary>The Unicode value of each CID; zero when none.</summary>
-    private readonly char[] _values;
-
-    /// <summary>The supplementary scalars referenced by surrogate values in the flat array.</summary>
-    private readonly int[] _supplementary;
-
-    /// <summary>Initializes a new instance of the <see cref="CidToUnicodeTable"/> class.</summary>
-    /// <param name="values">The BMP values and supplementary indices of each CID.</param>
-    /// <param name="supplementary">The supplementary Unicode scalars.</param>
-    private CidToUnicodeTable(char[] values, int[] supplementary)
-    {
-        _values = values;
-        _supplementary = supplementary;
-    }
 
     /// <summary>Generates only the requested collection's Unicode table.</summary>
     /// <param name="resources">The selected font resources.</param>
@@ -69,7 +56,7 @@ internal sealed class CidToUnicodeTable
         var cache = resources.Unicode;
         lock (cache.Gate)
         {
-            if (cache.Tables[(int)collection] == Empty)
+            if (ReferenceEquals(cache.Tables[(int)collection], Empty))
             {
                 Volatile.Write(ref cache.Tables[(int)collection], Read(collection));
             }
@@ -105,7 +92,7 @@ internal sealed class CidToUnicodeTable
     /// <summary>Reads a collection's table from disk without caching it.</summary>
     /// <param name="collection">The collection.</param>
     /// <returns>The table.</returns>
-    /// <exception cref="InvalidDataException">The resource is missing or damaged.</exception>
+    /// <exception cref="PdfException">The resource is missing or damaged.</exception>
     internal static CidToUnicodeTable Read(CjkScript collection)
     {
         var name = collection switch
@@ -129,14 +116,14 @@ internal sealed class CidToUnicodeTable
     /// <summary>Reads packed BMP values and validates every supplementary scalar reference.</summary>
     /// <param name="data">The decompressed resource.</param>
     /// <returns>The table.</returns>
-    /// <exception cref="InvalidDataException">The data is damaged.</exception>
+    /// <exception cref="PdfException">The data is damaged.</exception>
     internal static CidToUnicodeTable Parse(ReadOnlySpan<byte> data)
     {
         var reader = new PackedDataReader(data);
         var count = reader.ReadByte() == Version ? reader.ReadNumber() : uint.MaxValue;
-        if (count > MaxCids)
+        if (count > MaxCids || count > reader.Remaining)
         {
-            throw new InvalidDataException("The CID-to-Unicode table is damaged.");
+            throw new PdfException("The CID-to-Unicode table is damaged.");
         }
 
         var values = ReadValues(ref reader, (int)count);
@@ -151,21 +138,21 @@ internal sealed class CidToUnicodeTable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal int Lookup(int cid)
     {
-        if ((uint)cid >= (uint)_values.Length)
+        if ((uint)cid >= (uint)Values.Length)
         {
             return 0;
         }
 
-        var value = _values[cid];
+        var value = Values[cid];
         var index = value - SupplementaryStart;
-        return (uint)index < SupplementaryCapacity ? _supplementary[index] : value;
+        return (uint)index < SupplementaryCapacity ? Supplementary[index] : value;
     }
 
     /// <summary>Reads the flat CID-indexed UTF-16 array.</summary>
     /// <param name="reader">The packed resource reader.</param>
     /// <param name="count">The number of CIDs.</param>
     /// <returns>The BMP values and supplementary indices.</returns>
-    /// <exception cref="InvalidDataException">A value is outside the packed range.</exception>
+    /// <exception cref="PdfException">A value is outside the packed range.</exception>
     private static char[] ReadValues(ref PackedDataReader reader, int count)
     {
         var values = new char[count];
@@ -175,7 +162,7 @@ internal sealed class CidToUnicodeTable
             previous += reader.ReadSigned();
             if ((ulong)previous > char.MaxValue)
             {
-                throw new InvalidDataException("The CID-to-Unicode table contains an invalid value.");
+                throw new PdfException("The CID-to-Unicode table contains an invalid value.");
             }
 
             values[cid] = (char)previous;
@@ -187,13 +174,13 @@ internal sealed class CidToUnicodeTable
     /// <summary>Reads a bounded side table of supplementary Unicode scalars.</summary>
     /// <param name="reader">The packed resource reader.</param>
     /// <returns>The supplementary scalars.</returns>
-    /// <exception cref="InvalidDataException">The side table is too large or contains an invalid scalar.</exception>
+    /// <exception cref="PdfException">The side table is too large or contains an invalid scalar.</exception>
     private static int[] ReadSupplementary(ref PackedDataReader reader)
     {
         var count = reader.ReadNumber();
-        if (count > SupplementaryCapacity)
+        if (count > SupplementaryCapacity || count > reader.Remaining)
         {
-            throw new InvalidDataException("The CID-to-Unicode supplementary table is too large.");
+            throw new PdfException("The CID-to-Unicode supplementary table is too large.");
         }
 
         var supplementary = new int[count];
@@ -202,7 +189,7 @@ internal sealed class CidToUnicodeTable
             var scalar = reader.ReadNumber();
             if (scalar is <= char.MaxValue or > 0x10FFFF)
             {
-                throw new InvalidDataException("The CID-to-Unicode supplementary scalar is invalid.");
+                throw new PdfException("The CID-to-Unicode supplementary scalar is invalid.");
             }
 
             supplementary[index] = (int)scalar;
@@ -214,7 +201,7 @@ internal sealed class CidToUnicodeTable
     /// <summary>Rejects side-table references outside the decoded supplementary array.</summary>
     /// <param name="values">The flat values.</param>
     /// <param name="count">The side-table length.</param>
-    /// <exception cref="InvalidDataException">A supplementary index is invalid.</exception>
+    /// <exception cref="PdfException">A supplementary index is invalid.</exception>
     private static void ValidateIndices(char[] values, int count)
     {
         foreach (var value in values)
@@ -222,7 +209,7 @@ internal sealed class CidToUnicodeTable
             var index = value - SupplementaryStart;
             if ((uint)index < SupplementaryCapacity && index >= count)
             {
-                throw new InvalidDataException("The CID-to-Unicode supplementary index is invalid.");
+                throw new PdfException("The CID-to-Unicode supplementary index is invalid.");
             }
         }
     }

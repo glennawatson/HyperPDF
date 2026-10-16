@@ -195,14 +195,20 @@ internal sealed partial class PdfRevisionComparer
     /// <param name="change">The change.</param>
     private void Own(PdfValue start, PdfObjectChange change)
     {
+        if (start.IsNull)
+        {
+            return;
+        }
+
+        var owned = _owned ??= [];
         var pending = new Stack<PdfValue>();
         pending.Push(start);
-        while (pending.Count > 0 && _owned.Count < MaxOwnedObjects)
+        while (pending.Count > 0 && owned.Count < MaxOwnedObjects)
         {
             var value = pending.Pop();
             if (value.IsReference)
             {
-                if (_owned.TryAdd(value.AsReference().Number, change))
+                if (owned.TryAdd(value.AsReference().Number, change))
                 {
                     pending.Push(StoreReading.GetObject(_current, value.AsReference()));
                 }

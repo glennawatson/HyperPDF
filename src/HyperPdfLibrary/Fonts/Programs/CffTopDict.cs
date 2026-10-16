@@ -91,18 +91,34 @@ internal readonly record struct CffTopDict(
         return top;
     }
 
+    /// <summary>Reads a declared length or offset without accepting a negative value.</summary>
+    /// <param name="reader">The operand reader.</param>
+    /// <param name="index">The operand index.</param>
+    /// <returns>The nonnegative integer.</returns>
+    /// <exception cref="PdfException">The declared length or offset is negative.</exception>
+    private static int ReadOffset(ref CffDictReader reader, int index)
+    {
+        var value = reader.GetInt(index);
+        if (value < 0)
+        {
+            throw new PdfException(PdfError.Format, "The CFF dictionary length or offset is negative.");
+        }
+
+        return value;
+    }
+
     /// <summary>Applies an entry that holds an offset.</summary>
     /// <param name="op">The operator.</param>
     /// <param name="reader">The reader holding the operands.</param>
     /// <returns>The updated DICT.</returns>
     private CffTopDict ApplyOffset(int op, ref CffDictReader reader) => op switch
     {
-        CharsetOperator => this with { Charset = reader.GetInt(0) },
-        EncodingOperator => this with { Encoding = reader.GetInt(0) },
-        CharStringsOperator => this with { CharStrings = reader.GetInt(0) },
-        PrivateOperator => this with { PrivateSize = reader.GetInt(0), PrivateOffset = reader.GetInt(1) },
-        FdArrayOperator => this with { FdArray = reader.GetInt(0) },
-        FdSelectOperator => this with { FdSelect = reader.GetInt(0) },
+        CharsetOperator => this with { Charset = ReadOffset(ref reader, 0) },
+        EncodingOperator => this with { Encoding = ReadOffset(ref reader, 0) },
+        CharStringsOperator => this with { CharStrings = ReadOffset(ref reader, 0) },
+        PrivateOperator => this with { PrivateSize = ReadOffset(ref reader, 0), PrivateOffset = ReadOffset(ref reader, 1) },
+        FdArrayOperator => this with { FdArray = ReadOffset(ref reader, 0) },
+        FdSelectOperator => this with { FdSelect = ReadOffset(ref reader, 0) },
         _ => this,
     };
 

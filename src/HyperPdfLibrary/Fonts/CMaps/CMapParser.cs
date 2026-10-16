@@ -158,13 +158,13 @@ internal static class CMapParser
 
             case Section.CidRange or Section.NotdefRange:
             {
-                ReadCidEntries(ref lexer, section == Section.CidRange ? content.Cids : content.Notdefs, true);
+                ReadCidEntries(ref lexer, section == Section.CidRange ? content.Cids : content.Notdefs, true, section == Section.CidRange);
                 break;
             }
 
             case Section.CidChar or Section.NotdefChar:
             {
-                ReadCidEntries(ref lexer, section == Section.CidChar ? content.Cids : content.Notdefs, false);
+                ReadCidEntries(ref lexer, section == Section.CidChar ? content.Cids : content.Notdefs, false, false);
                 break;
             }
 
@@ -208,18 +208,37 @@ internal static class CMapParser
     /// <param name="lexer">The lexer.</param>
     /// <param name="target">The ranges to add to.</param>
     /// <param name="ranges">Whether entries are ranges rather than single codes.</param>
-    private static void ReadCidEntries(ref PdfLexer lexer, CodeRangeMapBuilder target, bool ranges)
+    /// <param name="sequential">Whether the destination CID increases through each range.</param>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
+    private static void ReadCidEntries(ref PdfLexer lexer, CodeRangeMapBuilder target, bool ranges, bool sequential)
     {
         for (var kind = lexer.Next(); IsString(kind); kind = lexer.Next())
         {
             var hasLow = TryReadCode(ref lexer, kind, out var low, out _);
             var high = low;
             var hasHigh = !ranges || TryReadCode(ref lexer, lexer.Next(), out high, out _);
-            if (lexer.Next() == PdfTokenKind.Number && hasLow && hasHigh
-                && int.TryParse(lexer.Lexeme, NumberStyles.Integer, CultureInfo.InvariantCulture, out var cid))
+            if (lexer.Next() != PdfTokenKind.Number || !hasLow || !hasHigh
+                || !int.TryParse(lexer.Lexeme, NumberStyles.Integer, CultureInfo.InvariantCulture, out var cid))
             {
-                target.Add(low, high, cid);
+                continue;
             }
+
+            ValidateCidRange(low, high, cid, sequential);
+            target.Add(low, high, cid);
+        }
+    }
+
+    /// <summary>Checks the destination width without treating constant notdef ranges as sequential CID ranges.</summary>
+    /// <param name="low">The first code.</param>
+    /// <param name="high">The last code.</param>
+    /// <param name="cid">The first CID.</param>
+    /// <param name="sequential">Whether the CID increases with each code.</param>
+    /// <exception cref="PdfException">The range is inverted, negative or exceeds the signed CID width.</exception>
+    private static void ValidateCidRange(uint low, uint high, int cid, bool sequential)
+    {
+        if (cid < 0 || high < low || (sequential && (ulong)cid + high - low > int.MaxValue))
+        {
+            throw new PdfException(PdfError.Format, "The CMap CID range exceeds its signed width.");
         }
     }
 
@@ -258,12 +277,12 @@ internal static class CMapParser
     /// <param name="high">The last code.</param>
     private static void ReadBfArray(ref PdfLexer lexer, CMapContent content, uint low, uint high)
     {
-        var code = low;
+        ulong code = low;
         for (var kind = lexer.Next(); kind is not (PdfTokenKind.ArrayEnd or PdfTokenKind.EndOfData); kind = lexer.Next())
         {
             if (TryReadText(ref lexer, kind, content, out var start) && code <= high)
             {
-                content.Unicode.Add(code, code, start);
+                content.Unicode.Add((uint)code, (uint)code, start);
             }
 
             code++;

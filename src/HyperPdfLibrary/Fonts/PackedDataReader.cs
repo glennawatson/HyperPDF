@@ -19,6 +19,9 @@ internal ref struct PackedDataReader
     /// <summary>The largest shift of a 32-bit LEB128 number.</summary>
     private const int MaxShift = 28;
 
+    /// <summary>The value bits available in the last group of a 32-bit number.</summary>
+    private const int LastGroupMask = 0x0F;
+
     /// <summary>The data.</summary>
     private readonly ReadOnlySpan<byte> _data;
 
@@ -29,14 +32,17 @@ internal ref struct PackedDataReader
     /// <param name="data">The decompressed resource.</param>
     internal PackedDataReader(ReadOnlySpan<byte> data) => _data = data;
 
+    /// <summary>Gets the number of unread bytes.</summary>
+    internal readonly int Remaining => _data.Length - _position;
+
     /// <summary>Reads one byte.</summary>
     /// <returns>The byte.</returns>
-    /// <exception cref="InvalidDataException">The data ended early.</exception>
+    /// <exception cref="PdfException">The data ended early.</exception>
     internal byte ReadByte()
     {
         if ((uint)_position >= (uint)_data.Length)
         {
-            throw new InvalidDataException("The packed CMap data ended early.");
+            throw new PdfException("The packed CMap data ended early.");
         }
 
         var value = _data[_position];
@@ -47,12 +53,12 @@ internal ref struct PackedDataReader
     /// <summary>Reads bytes.</summary>
     /// <param name="count">The number of bytes.</param>
     /// <returns>The bytes.</returns>
-    /// <exception cref="InvalidDataException">The data ended early.</exception>
+    /// <exception cref="PdfException">The data ended early.</exception>
     internal ReadOnlySpan<byte> ReadBytes(int count)
     {
-        if (count > _data.Length - _position)
+        if (count < 0 || count > _data.Length - _position)
         {
-            throw new InvalidDataException("The packed CMap data ended early.");
+            throw new PdfException("The packed CMap data ended early.");
         }
 
         var bytes = _data.Slice(_position, count);
@@ -62,13 +68,18 @@ internal ref struct PackedDataReader
 
     /// <summary>Reads an unsigned LEB128 number.</summary>
     /// <returns>The number.</returns>
-    /// <exception cref="InvalidDataException">The data ended early or the number is too long.</exception>
+    /// <exception cref="PdfException">The data ended early or the number is too long.</exception>
     internal uint ReadNumber()
     {
         uint value = 0;
         for (var shift = 0; shift <= MaxShift; shift += GroupBits)
         {
             var b = ReadByte();
+            if (shift == MaxShift && (b & GroupMask) > LastGroupMask)
+            {
+                throw new PdfException(PdfError.Format, "A packed CMap number exceeds its unsigned width.");
+            }
+
             value |= (uint)(b & GroupMask) << shift;
             if ((b & MoreFlag) == 0)
             {
@@ -76,7 +87,7 @@ internal ref struct PackedDataReader
             }
         }
 
-        throw new InvalidDataException("A packed CMap number is too long.");
+        throw new PdfException("A packed CMap number is too long.");
     }
 
     /// <summary>Reads a zigzag-encoded signed LEB128 number.</summary>

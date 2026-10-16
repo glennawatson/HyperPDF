@@ -141,15 +141,22 @@ internal static class Type1Parser
     /// <param name="clear">The ASCII segments.</param>
     /// <param name="encrypted">The binary segments.</param>
     /// <returns><see langword="true"/> when there was a binary segment.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     private static bool ReadPfb(ReadOnlySpan<byte> data, out byte[] clear, out byte[] encrypted)
     {
         var ascii = new ArrayBufferWriter<byte>();
         var binary = new ArrayBufferWriter<byte>();
         var length = 0;
-        for (var position = 0; position + PfbHeaderSize <= data.Length && data[position] == PfbMarker; position += PfbHeaderSize + length)
+        for (var position = 0; position <= data.Length - PfbHeaderSize && data[position] == PfbMarker; position += PfbHeaderSize + length)
         {
             var type = data[position + 1];
-            length = (int)Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(data[(position + PfbLengthOffset)..]), (uint)(data.Length - position - PfbHeaderSize));
+            var encodedLength = BinaryPrimitives.ReadUInt32LittleEndian(data[(position + PfbLengthOffset)..]);
+            if (encodedLength > data.Length - position - PfbHeaderSize)
+            {
+                throw new PdfException(PdfError.Format, "The Type 1 segment length exceeds its data.");
+            }
+
+            length = (int)encodedLength;
             var target = type switch
             {
                 PfbAscii => ascii,
@@ -424,23 +431,28 @@ internal static class Type1Parser
     /// <param name="lenIV">The charstring lenIV.</param>
     /// <param name="charData">Receives the decrypted charstring.</param>
     /// <returns>The charstring's range, or a range with length -1 when the data is truncated.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     private static TableRange ReadBinary(ref PdfLexer lexer, int lenIV, ArrayBufferWriter<byte> charData)
     {
-        if (lexer.Lexeme.IsEmpty || !TryParseInt(lexer.Lexeme, out var length) || length < 0)
+        if (lexer.Lexeme.IsEmpty || !TryParseInt(lexer.Lexeme, out var length))
         {
             return new(0, -1);
+        }
+
+        if (length < 0)
+        {
+            throw new PdfException(PdfError.Format, "The Type 1 charstring length is negative.");
         }
 
         _ = lexer.Next();
 
         // Exactly one space separates the RD token from the binary data.
-        var start = lexer.Position + 1;
-        if (start + length > lexer.Data.Length)
+        if (lexer.Position >= lexer.Data.Length || length > lexer.Data.Length - lexer.Position - 1)
         {
-            lexer.Position = lexer.Data.Length;
-            return new(0, -1);
+            throw new PdfException(PdfError.Format, "The Type 1 charstring length exceeds its data.");
         }
 
+        var start = lexer.Position + 1;
         lexer.Position = start + length;
         return AppendCharstring(charData, lexer.Data.Slice(start, length), lenIV);
     }
