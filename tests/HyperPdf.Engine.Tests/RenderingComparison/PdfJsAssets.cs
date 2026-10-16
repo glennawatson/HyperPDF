@@ -89,7 +89,7 @@ internal static class PdfJsAssets
 
                 return archive;
             }
-            catch (HttpRequestException) when (attempt < DownloadAttempts - 1)
+            catch (Exception exception) when (attempt < DownloadAttempts - 1 && !cancellationToken.IsCancellationRequested && exception is HttpRequestException or IOException)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(RetryMilliseconds), cancellationToken);
             }

@@ -21,6 +21,11 @@ internal static class FirefoxBrowserDiscovery
             return File.Exists(configured) ? Path.GetFullPath(configured) : throw new FileNotFoundException("PVL_FIREFOX_PATH does not identify an existing Firefox executable.", configured);
         }
 
+        if (Environment.GetEnvironmentVariable("PVL_REQUIRE_PDFJS") != "1")
+        {
+            throw new FileNotFoundException("Firefox is required for pdf.js rendering comparisons. Set PVL_FIREFOX_PATH to its executable.");
+        }
+
         var executable = OperatingSystem.IsWindows() ? WindowsExecutable : "firefox";
         foreach (var folder in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator))
         {

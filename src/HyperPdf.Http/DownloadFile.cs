@@ -102,7 +102,7 @@ internal sealed class DownloadFile
             }
 
             _hashInfo.Refresh();
-            return !_hashInfo.Exists || string.Equals(Recorded(), sha256, StringComparison.Ordinal);
+            return !_hashInfo.Exists || string.Equals(Recorded(sha256), sha256, StringComparison.Ordinal);
         }
     }
 
@@ -127,8 +127,13 @@ internal sealed class DownloadFile
     /// <summary>Deletes the file and the one recording its hash.</summary>
     internal void Delete()
     {
-        File.Delete(Target);
-        File.Delete(HashTarget);
+        lock (_gate)
+        {
+            File.Delete(Target);
+            File.Delete(HashTarget);
+            _recorded = string.Empty;
+            _recordedLength = -1;
+        }
     }
 
     /// <summary>Gets the expected hash as UTF-8, encoding it only when the expected value changes.</summary>
@@ -138,6 +143,8 @@ internal sealed class DownloadFile
     {
         lock (_gate)
         {
+            _recorded = string.Empty;
+            _recordedLength = -1;
             if (!CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes(_encodedHash.AsSpan()), MemoryMarshal.AsBytes(sha256.AsSpan())))
             {
                 _encodedBytes = Encoding.UTF8.GetBytes(sha256);
@@ -160,11 +167,12 @@ internal sealed class DownloadFile
             PartialExtension.CopyTo(span[^PartialExtension.Length..]);
         });
 
-    /// <summary>Gets the recorded hash, reading the recording file again only when it has changed.</summary>
+    /// <summary>Gets the recorded hash, reading the recording file again only when it has changed or the previous read did not match.</summary>
+    /// <param name="sha256">The expected hash.</param>
     /// <returns>The hash.</returns>
-    private string Recorded()
+    private string Recorded(string sha256)
     {
-        if (_recordedLength != _hashInfo.Length || _recordedWritten != _hashInfo.LastWriteTimeUtc)
+        if (_recordedLength != _hashInfo.Length || _recordedWritten != _hashInfo.LastWriteTimeUtc || !string.Equals(_recorded, sha256, StringComparison.Ordinal))
         {
             _recorded = File.ReadAllText(HashTarget).Trim();
             _recordedLength = _hashInfo.Length;
