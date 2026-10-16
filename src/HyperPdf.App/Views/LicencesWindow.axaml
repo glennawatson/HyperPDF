@@ -8,6 +8,7 @@
   <Grid RowDefinitions="Auto,*,Auto" Margin="16" RowSpacing="12">
     <StackPanel Spacing="4">
       <TextBlock Text="About and Licences" AutomationProperties.HeadingLevel="1" FontWeight="SemiBold" FontSize="20" />
+      <TextBlock x:Name="VersionText" Classes="secondary" AutomationProperties.Name="Application version" />
       <TextBlock Classes="secondary" TextWrapping="Wrap"
                  Text="HyperPDF is free software under the MIT licence, shown first. The components below are grouped by licence. Some are downloaded only when you turn a feature on." />
     </StackPanel>

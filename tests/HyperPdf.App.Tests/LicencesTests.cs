@@ -271,11 +271,16 @@ public sealed class LicencesTests
         window.Show();
         try
         {
+            var versionText = window.FindControl<TextBlock>("VersionText")!;
             var tree = window.FindControl<TreeView>("LicenceTree")!;
             var text = window.FindControl<TextBox>("LicenceTextBox")!;
             var search = window.FindControl<TextBox>("SearchBox")!;
             await Assert.That(await UiWait.UntilAsync(() => window.IsLoaded && tree.ItemCount > 1 && text.Text!.Contains("Permission is hereby granted", StringComparison.Ordinal))).IsTrue();
+            await Assert.That(licences.Version.Length).IsGreaterThan(0);
+            await Assert.That(versionText.Text).IsEqualTo($"Version {licences.Version}");
             await Assert.That(licences.DetailTitle).IsEqualTo("HyperPDF");
+            await Assert.That(licences.SelectedNode!.Title).IsEqualTo($"HyperPDF {licences.Version}");
+            await Assert.That(licences.Details).Contains($"Version: {licences.Version}");
 
             search.Text = "avalonia";
             await Assert.That(await UiWait.UntilAsync(() => licences.DetailTitle.StartsWith("Avalonia", StringComparison.Ordinal))).IsTrue();

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using System.Reflection;
 using System.Text;
 using HyperPdf.App.Services;
 using HyperPdf.Core.Licences;
@@ -20,9 +21,12 @@ namespace HyperPdf.App.ViewModels;
 /// narrows the components by name, version, licence, origin and copyright; the chosen component's full licence text
 /// can be copied.
 /// </summary>
-[DebuggerDisplay("LicencesViewModel: {Search}: {Nodes.Count} licences")]
+[DebuggerDisplay("LicencesViewModel: {Version}: {Search}: {Nodes.Count} licences")]
 public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
 {
+    /// <summary>The origin text of this application's own entry.</summary>
+    private const string ThisApplication = "This application";
+
     /// <summary>The text shown when no component is chosen.</summary>
     private const string NothingChosen = "Choose a component to read its licence.";
 
@@ -41,13 +45,24 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
     /// <summary>Initializes a new instance of the <see cref="LicencesViewModel"/> class.</summary>
     /// <param name="document">The notices to show.</param>
     public LicencesViewModel(NoticeDocument document)
+        : this(document, ReadAppVersion())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="LicencesViewModel"/> class.</summary>
+    /// <param name="document">The notices to show.</param>
+    /// <param name="version">The application version to show.</param>
+    public LicencesViewModel(NoticeDocument document, string version)
     {
         ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(version);
         _document = document;
-        Nodes = Build(document, string.Empty);
+        Version = version;
+        VersionHeading = Version.Length == 0 ? "HyperPDF" : $"Version {Version}";
+        Nodes = Build(document, string.Empty, Version);
         SelectedNode = FirstEntry(Nodes);
         _detailTitleHelper = this.WhenChanged(static vm => vm.SelectedNode).Select(TitleOf).ToProperty(this, static vm => vm.DetailTitle);
-        _detailsHelper = this.WhenChanged(static vm => vm.SelectedNode).Select(DetailsOf).ToProperty(this, static vm => vm.Details);
+        _detailsHelper = this.WhenChanged(static vm => vm.SelectedNode).Select(node => DetailsOf(node, Version)).ToProperty(this, static vm => vm.Details);
         _licenceTextHelper = this.WhenChanged(static vm => vm.SelectedNode).Select(static node => node?.Entry?.Text ?? NothingChosen).ToProperty(this, static vm => vm.LicenceText);
         _subscriptions.Add(_detailTitleHelper);
         _subscriptions.Add(_detailsHelper);
@@ -57,6 +72,12 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the interaction that puts text on the clipboard.</summary>
     public Interaction<string, RxVoid> CopyInteraction { get; } = new();
+
+    /// <summary>Gets this application's version, such as <c>2.4.0</c>.</summary>
+    public string Version { get; }
+
+    /// <summary>Gets the version line shown under the window heading, such as <c>Version 2.4.0</c>.</summary>
+    public string VersionHeading { get; }
 
     /// <summary>Gets or sets the words the components are narrowed by.</summary>
     [Reactive]
@@ -93,11 +114,27 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <summary>Reads this application's informational version without the commit hash suffix.</summary>
+    /// <returns>The version string.</returns>
+    internal static string ReadAppVersion()
+    {
+        var assembly = typeof(LicencesViewModel).Assembly;
+        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrEmpty(informational))
+        {
+            var plus = informational.IndexOf('+', StringComparison.Ordinal);
+            return plus >= 0 ? informational[..plus] : informational;
+        }
+
+        return assembly.GetName().Version?.ToString() ?? string.Empty;
+    }
+
     /// <summary>Builds the tree of rows for a search.</summary>
     /// <param name="document">The notices.</param>
     /// <param name="search">The words to match; empty matches everything.</param>
+    /// <param name="appVersion">The application version used for this application's own entry.</param>
     /// <returns>The licence rows that have at least one matching component.</returns>
-    internal static List<LicenceNode> Build(NoticeDocument document, string search)
+    internal static List<LicenceNode> Build(NoticeDocument document, string search, string appVersion)
     {
         var words = search.Split([' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var nodes = new List<LicenceNode>();
@@ -106,9 +143,9 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
             var children = new List<LicenceNode>();
             foreach (var entry in group.Entries)
             {
-                if (Matches(entry, words))
+                if (Matches(entry, words, appVersion))
                 {
-                    children.Add(new(Describe(entry), entry, []));
+                    children.Add(new(Describe(entry, appVersion), entry, []));
                 }
             }
 
@@ -147,21 +184,35 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
         return string.Create(CultureInfo.CurrentCulture, $"{count} {(count == 1 ? "component" : "components")}");
     }
 
+    /// <summary>Gets a component's version, using the application version for this application's own entry.</summary>
+    /// <param name="entry">The component.</param>
+    /// <param name="appVersion">The application version.</param>
+    /// <returns>The version, or empty.</returns>
+    private static string EffectiveVersion(NoticeEntry entry, string appVersion) =>
+        entry.Version.Length == 0 && string.Equals(entry.Origin, ThisApplication, StringComparison.Ordinal) ? appVersion : entry.Version;
+
     /// <summary>Names a component with its version, such as "Avalonia 12.0.0".</summary>
     /// <param name="entry">The component.</param>
+    /// <param name="appVersion">The application version.</param>
     /// <returns>The name.</returns>
-    private static string Describe(NoticeEntry entry) => entry.Version.Length == 0 ? entry.Name : $"{entry.Name} {entry.Version}";
+    private static string Describe(NoticeEntry entry, string appVersion)
+    {
+        var version = EffectiveVersion(entry, appVersion);
+        return version.Length == 0 ? entry.Name : $"{entry.Name} {version}";
+    }
 
     /// <summary>Determines whether a component contains every search word in its name, version, licence, origin or copyright.</summary>
     /// <param name="entry">The component.</param>
     /// <param name="words">The search words.</param>
+    /// <param name="appVersion">The application version.</param>
     /// <returns><see langword="true"/> when every word is found.</returns>
-    private static bool Matches(NoticeEntry entry, string[] words)
+    private static bool Matches(NoticeEntry entry, string[] words, string appVersion)
     {
+        var version = EffectiveVersion(entry, appVersion);
         foreach (var word in words)
         {
             var found = entry.Name.Contains(word, StringComparison.OrdinalIgnoreCase)
-                || entry.Version.Contains(word, StringComparison.OrdinalIgnoreCase)
+                || version.Contains(word, StringComparison.OrdinalIgnoreCase)
                 || entry.Licence.Contains(word, StringComparison.OrdinalIgnoreCase)
                 || entry.Origin.Contains(word, StringComparison.OrdinalIgnoreCase)
                 || entry.Copyright.Contains(word, StringComparison.OrdinalIgnoreCase);
@@ -206,8 +257,9 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
 
     /// <summary>Lists the facts about the chosen row, one per line.</summary>
     /// <param name="node">The row.</param>
+    /// <param name="appVersion">The application version.</param>
     /// <returns>The lines.</returns>
-    private static string DetailsOf(LicenceNode? node)
+    private static string DetailsOf(LicenceNode? node, string appVersion)
     {
         if (node?.Entry is not { } entry)
         {
@@ -216,7 +268,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
 
         var text = new StringBuilder();
         _ = text.Append("Licence: ").Append(entry.Licence);
-        Append(text, "Version", entry.Version);
+        Append(text, "Version", EffectiveVersion(entry, appVersion));
         Append(text, "Comes from", entry.Origin);
         Append(text, "Copyright", entry.Copyright);
         Append(text, "Link", entry.Link);
@@ -253,7 +305,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
     private void Refresh()
     {
         var previous = SelectedNode?.Entry;
-        Nodes = Build(_document, Search);
+        Nodes = Build(_document, Search, Version);
         SelectedNode = (previous is null ? null : Find(Nodes, previous)) ?? FirstEntry(Nodes);
     }
 }

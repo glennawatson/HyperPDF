@@ -4,7 +4,15 @@
     <Description>Skia drawing services for HyperPdfLibrary.</Description>
     <IsPackable>true</IsPackable>
     <PackageId>HyperPdfLibrary.Render.Skia</PackageId>
+    <Title>HyperPdfLibrary.Render.Skia</Title>
+    <PackageTags>pdf;pdf-renderer;skia;skiasharp;aot</PackageTags>
+    <PackageProjectUrl>https://github.com/glennawatson/HyperPDF</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>false</IncludeSymbols>
+    <EnablePackageValidation>true</EnablePackageValidation>
   </PropertyGroup>
   <!-- HyperPdfLibrary depends on .NET 11 release-candidate packages under the go-live licence, so a stable pack of this
        package trips NU5104 for the same reason. -->
@@ -32,5 +40,6 @@
   <ItemGroup>
     <None Include="$(NoticesFile)" Pack="true" PackagePath="THIRD-PARTY-NOTICES.md" Visible="false" />
     <None Include="$(MSBuildThisFileDirectory)../../docs/hyperpdf/PACKAGE-README.md" Pack="true" PackagePath="README.md" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../../HyperPDFViewerIcon.png" Pack="true" PackagePath="icon.png" Visible="false" />
   </ItemGroup>
 </Project>

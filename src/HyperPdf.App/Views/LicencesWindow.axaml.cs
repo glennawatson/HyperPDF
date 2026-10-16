@@ -29,6 +29,7 @@ public sealed partial class LicencesWindow : ReactiveUI.Avalonia.ReactiveWindow<
         FieldLabels.Link((SearchBox, SearchLabel));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.VersionHeading, static v => v.VersionText.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Search, static v => v.SearchBox.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Nodes, static v => v.LicenceTree.ItemsSource));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedNode, static v => v.LicenceTree.SelectedItem, static node => node, static item => item as LicenceNode));
