@@ -42,6 +42,15 @@ internal sealed class CellVisualItem
     /// <summary>Gets the image block when <see cref="Kind"/> is <see cref="CellItemKind.Image"/>.</summary>
     internal PdfFlowImage? Image { get; private init; }
 
+    /// <summary>Gets the unclipped image width in points when <see cref="Kind"/> is <see cref="CellItemKind.Image"/>.</summary>
+    internal float ImageDrawnWidth { get; private init; }
+
+    /// <summary>Gets the unclipped image height in points when <see cref="Kind"/> is <see cref="CellItemKind.Image"/>.</summary>
+    internal float ImageDrawnHeight { get; private init; }
+
+    /// <summary>Gets the horizontal rule block when <see cref="Kind"/> is <see cref="CellItemKind.Rule"/>.</summary>
+    internal PdfFlowRule? Rule { get; private init; }
+
     /// <summary>Gets the code block when <see cref="Kind"/> is <see cref="CellItemKind.Code"/>.</summary>
     internal PdfFlowCodeBlock? CodeBlock { get; private init; }
 
@@ -69,11 +78,21 @@ internal sealed class CellVisualItem
 
     /// <summary>Creates an inline image item.</summary>
     /// <param name="image">The flow image.</param>
-    /// <param name="width">The drawn width in points.</param>
-    /// <param name="height">The drawn height in points.</param>
+    /// <param name="width">The layout box width in points.</param>
+    /// <param name="height">The layout box height in points.</param>
+    /// <param name="drawnWidth">The unclipped image width in points.</param>
+    /// <param name="drawnHeight">The unclipped image height in points.</param>
     /// <returns>The visual item.</returns>
-    internal static CellVisualItem CreateImage(PdfFlowImage image, float width, float height) =>
-        new(CellItemKind.Image, width, height) { Image = image };
+    internal static CellVisualItem CreateImage(PdfFlowImage image, float width, float height, float drawnWidth, float drawnHeight) =>
+        new(CellItemKind.Image, width, height) { Image = image, ImageDrawnWidth = drawnWidth, ImageDrawnHeight = drawnHeight };
+
+    /// <summary>Creates a horizontal rule item.</summary>
+    /// <param name="rule">The flow rule.</param>
+    /// <param name="width">The rule width in points.</param>
+    /// <param name="height">The total vertical height of the rule including its spacing.</param>
+    /// <returns>The visual item.</returns>
+    internal static CellVisualItem CreateRule(PdfFlowRule rule, float width, float height) =>
+        new(CellItemKind.Rule, width, height) { Rule = rule };
 
     /// <summary>Creates a code block line item.</summary>
     /// <param name="block">The code block.</param>

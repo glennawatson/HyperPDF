@@ -64,11 +64,23 @@ public class HyperPdfTableFlowBenchmarks
     /// <summary>The cell text that fits on one line.</summary>
     private const string ShortDescription = "A short description";
 
+    /// <summary>The proportional weight of the description column.</summary>
+    private const float DescriptionWeight = 3F;
+
     /// <summary>The text of the header cells.</summary>
     private static readonly string[] HeaderCells = ["Item", "Description", "Amount", "Status"];
 
     /// <summary>The column widths.</summary>
     private static readonly float[] Widths = [FirstColumn, DescriptionColumn, NumberColumn, StatusColumn];
+
+    /// <summary>The mixed column sizing specification.</summary>
+    private static readonly PdfTableColumnWidth[] MixedSizing =
+    [
+        PdfTableColumnWidth.Fixed(FirstColumn),
+        PdfTableColumnWidth.Proportional(DescriptionWeight),
+        PdfTableColumnWidth.Auto,
+        PdfTableColumnWidth.Fixed(StatusColumn),
+    ];
 
     /// <summary>The text of each row, header first.</summary>
     private string[][] _cells = [];
@@ -78,6 +90,9 @@ public class HyperPdfTableFlowBenchmarks
 
     /// <summary>The table block measured by the flow benchmark.</summary>
     private PdfFlowBlock[] _tableBlocks = [];
+
+    /// <summary>The flow blocks with headings, rules, keep-with-next labels, and proportional/available-width table sizing.</summary>
+    private PdfFlowBlock[] _sizedFlowBlocks = [];
 
     /// <summary>The paragraphs of the same text.</summary>
     private PdfFlowBlock[] _paragraphs = [];
@@ -107,6 +122,13 @@ public class HyperPdfTableFlowBenchmarks
         }
 
         _tableBlocks = [new PdfFlowTable(_tableRows) { ColumnWidths = Widths, CellPadding = Padding, Border = PdfStroke.Black(BorderWidth) }];
+        _sizedFlowBlocks =
+        [
+            new PdfFlowHeading(1, "Section Summary"),
+            new PdfFlowRule(),
+            new PdfFlowParagraph("Lead-in label before table:") { KeepWithNext = true },
+            new PdfFlowTable(_tableRows) { FillAvailableWidth = true, ColumnSizing = MixedSizing, CellPadding = Padding, Border = PdfStroke.Black(BorderWidth) },
+        ];
     }
 
     /// <summary>Draws the grid by hand: each cell is measured and drawn by the caller, pages are broken by the caller and borders are thin filled rectangles.</summary>
@@ -163,6 +185,16 @@ public class HyperPdfTableFlowBenchmarks
         var creator = new PdfDocumentCreator(PdfDocumentCreatorOptions.Default);
         var options = new PdfFlowOptions(creator.AddBuiltInFont(AppearanceFont.Helvetica));
         return PdfTextFlow.Add(creator, _tableBlocks, options, CancellationToken.None);
+    }
+
+    /// <summary>Lays out a heading, rule, keep-with-next label, and table with mixed column sizing and available-width fill.</summary>
+    /// <returns>The number of pages.</returns>
+    [Benchmark]
+    public int SizedTableAndRuleFlow()
+    {
+        var creator = new PdfDocumentCreator(PdfDocumentCreatorOptions.Default);
+        var options = new PdfFlowOptions(creator.AddBuiltInFont(AppearanceFont.Helvetica));
+        return PdfTextFlow.Add(creator, _sizedFlowBlocks, options, CancellationToken.None);
     }
 
     /// <summary>Lays the same text out as paragraphs, to show what the text flow costs without the table.</summary>

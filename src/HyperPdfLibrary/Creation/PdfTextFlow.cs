@@ -5,9 +5,11 @@
 namespace HyperPdfLibrary.Creation;
 
 /// <summary>
-/// Lays headings, paragraphs and images out on pages. Text wraps to the page width and runs onto new pages; in a tagged
-/// document headings become <c>H1</c> to <c>H6</c>, paragraphs <c>P</c> and images <c>Figure</c> with their alternative text,
-/// in reading order, and page numbers are artifacts.
+/// Lays headings, paragraphs, horizontal rules, images, tables and code blocks out on pages. Text wraps to the page width
+/// and runs onto new pages; blocks with <see cref="PdfFlowBlock.KeepWithNext"/> stay with the start of the following block;
+/// oversized images follow their <see cref="PdfFlowImage.Fit"/> policy; in a tagged document headings become <c>H1</c> to
+/// <c>H6</c>, paragraphs <c>P</c>, tables <c>Table</c> and images <c>Figure</c> with their alternative text, in reading
+/// order, while rules, decorative images and page numbers are artifacts.
 /// </summary>
 public static class PdfTextFlow
 {

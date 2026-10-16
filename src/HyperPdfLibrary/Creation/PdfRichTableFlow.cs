@@ -27,14 +27,15 @@ internal static class PdfRichTableFlow
     /// <param name="table">The table to write.</param>
     internal static void Write(ref FlowRun run, PdfFlowTable table)
     {
-        if (RichTableGrid.Build(table, run.Options, run.TextWidth) is not { } grid)
+        if (run.ConsumeRichGrid(table) is not { } grid)
         {
             return;
         }
 
         MeasureHeaders(grid);
-        var firstRowHeight = grid.HeaderRows < grid.Rows ? grid.RowHeights[grid.HeaderRows] : grid.Inset + grid.Leading;
-        _ = run.Reserve(Math.Min(grid.HeaderHeight + firstRowHeight, run.TextHeight));
+        var firstRowHeight = grid.HeaderRows < grid.Rows ? grid.RowHeights[grid.HeaderRows] : 0F;
+        var spaceBefore = run.GetPendingSpaceBefore(grid.Size);
+        _ = run.Reserve(Math.Min(grid.HeaderHeight + firstRowHeight + spaceBefore, run.TextHeight));
         run.AddSpaceBefore(grid.Size);
         CreateStructureTree(ref run, grid);
         for (var r = 0; r < grid.Rows; r++)
@@ -45,6 +46,22 @@ internal static class PdfRichTableFlow
 
         run.CloseContent();
         run.AddSpaceAfter(grid.Size);
+    }
+
+    /// <summary>Measures the vertical height required by the table's opening band (headers plus first body row) for keep-with-next pagination.</summary>
+    /// <param name="run">The active flow run.</param>
+    /// <param name="table">The table.</param>
+    /// <returns>The opening band height in points, or zero when the table is empty.</returns>
+    internal static float MeasureOpeningHeight(ref FlowRun run, PdfFlowTable table)
+    {
+        if (run.GetOrBuildRichGrid(table) is not { } grid)
+        {
+            return 0F;
+        }
+
+        MeasureHeaders(grid);
+        var firstBodyHeight = grid.HeaderRows < grid.Rows ? GetSpanBandHeight(grid, grid.HeaderRows) : 0F;
+        return Math.Min(grid.HeaderHeight + firstBodyHeight, run.TextHeight);
     }
 
     /// <summary>Measures the combined height of the header rows and decides whether they repeat on continuation pages.</summary>
@@ -250,8 +267,13 @@ internal static class PdfRichTableFlow
     /// <returns><see langword="true"/> when a slice of the row can fit.</returns>
     private static bool CanFitAnySlice(RichTableGrid grid, int rowIndex, float available)
     {
+        if (grid.RowHeights[rowIndex] <= available + Tolerance)
+        {
+            return true;
+        }
+
         var innerAvailable = available - grid.Inset;
-        if (innerAvailable < grid.Leading - Tolerance)
+        if (innerAvailable < grid.GetRowMinLeading(rowIndex) - Tolerance)
         {
             return false;
         }
@@ -283,7 +305,8 @@ internal static class PdfRichTableFlow
             return remainingHeight;
         }
 
-        var innerAvailable = Math.Max(grid.Leading, available - grid.Inset);
+        var rowMinLeading = grid.GetRowMinLeading(rowIndex);
+        var innerAvailable = Math.Max(rowMinLeading, available - grid.Inset);
         var maxContent = 0F;
         for (var c = 0; c < grid.Columns; c++)
         {
@@ -293,7 +316,7 @@ internal static class PdfRichTableFlow
             }
         }
 
-        return Math.Min(remainingHeight, grid.Inset + Math.Max(maxContent, grid.Leading));
+        return Math.Min(remainingHeight, grid.Inset + Math.Max(maxContent, rowMinLeading));
     }
 
     /// <summary>Measures the height of the consecutive items in a cell that fit within <paramref name="innerAvailable"/>.</summary>
@@ -555,10 +578,58 @@ internal static class PdfRichTableFlow
         }
         else if (item.Kind == CellItemKind.Image)
         {
-            DrawImageItem(ref run, grid, cell, item, x, cursorY - item.Height);
+            DrawImageItem(ref run, grid, cell, item, x, cursorY);
+        }
+        else if (item.Kind == CellItemKind.Rule)
+        {
+            DrawRuleItem(ref run, grid, item, innerLeft, innerWidth, cursorY);
         }
 
         cursorY -= item.Height;
+    }
+
+    /// <summary>Draws a horizontal rule item inside a cell as a layout artifact.</summary>
+    /// <param name="run">The active flow run.</param>
+    /// <param name="grid">The table grid.</param>
+    /// <param name="item">The rule visual item.</param>
+    /// <param name="innerLeft">The cell's inner left X.</param>
+    /// <param name="innerWidth">The cell's inner width.</param>
+    /// <param name="cursorY">The top Y of the rule item.</param>
+    private static void DrawRuleItem(
+        ref FlowRun run,
+        RichTableGrid grid,
+        CellVisualItem item,
+        float innerLeft,
+        float innerWidth,
+        float cursorY)
+    {
+        if (item.Rule is not { } rule)
+        {
+            return;
+        }
+
+        run.CloseContent();
+        var wrapArtifact = run.Creator.Tags is not null && !grid.InArtifact;
+        if (wrapArtifact)
+        {
+            run.Canvas.BeginArtifact(PdfArtifactKind.Layout);
+        }
+
+        var slack = Math.Max(0F, innerWidth - item.Width);
+        var x = rule.Alignment switch
+        {
+            PdfTableAlignment.Right => innerLeft + slack,
+            PdfTableAlignment.Center => innerLeft + (slack * Half),
+            _ => innerLeft,
+        };
+        var lineY = cursorY - (rule.SpaceBefore ?? 0F) - (rule.Thickness * Half);
+        var stroke = new PdfStroke(rule.Color.Red, rule.Color.Green, rule.Color.Blue, rule.Thickness);
+        run.Canvas.DrawLine(stroke, x, lineY, x + item.Width, lineY);
+
+        if (wrapArtifact)
+        {
+            run.Canvas.EndArtifact();
+        }
     }
 
     /// <summary>Draws a wrapped line of styled text segments inside a cell.</summary>
@@ -596,15 +667,15 @@ internal static class PdfRichTableFlow
     /// <param name="grid">The table grid.</param>
     /// <param name="cell">The placed cell.</param>
     /// <param name="item">The image visual item.</param>
-    /// <param name="x">The left X of the image.</param>
-    /// <param name="bottomY">The bottom Y of the image.</param>
+    /// <param name="x">The left X of the image box.</param>
+    /// <param name="topY">The top Y of the image box.</param>
     private static void DrawImageItem(
         ref FlowRun run,
         RichTableGrid grid,
         PlacedCell cell,
         CellVisualItem item,
         float x,
-        float bottomY)
+        float topY)
     {
         if (item.Image is not { } block)
         {
@@ -614,7 +685,7 @@ internal static class PdfRichTableFlow
         var tags = run.Creator.Tags;
         if (tags is null || grid.InArtifact)
         {
-            run.Canvas.DrawImage(block.Image, x, bottomY, item.Width, item.Height);
+            EmitCellImage(ref run.Canvas, block.Image, item, x, topY);
             return;
         }
 
@@ -622,15 +693,41 @@ internal static class PdfRichTableFlow
         if (string.IsNullOrWhiteSpace(block.AlternativeText) || cell.TagElement is null)
         {
             run.Canvas.BeginArtifact(PdfArtifactKind.Layout);
-            run.Canvas.DrawImage(block.Image, x, bottomY, item.Width, item.Height);
+            EmitCellImage(ref run.Canvas, block.Image, item, x, topY);
             run.Canvas.EndArtifact();
             return;
         }
 
         var figure = tags.AddElement(cell.TagElement, "Figure", new PdfTagOptions { AlternativeText = block.AlternativeText });
         run.OpenContent(figure);
-        run.Canvas.DrawImage(block.Image, x, bottomY, item.Width, item.Height);
+        EmitCellImage(ref run.Canvas, block.Image, item, x, topY);
         run.CloseContent();
+    }
+
+    /// <summary>Emits the image operator for a cell image item, clipping when the image exceeds its cell box.</summary>
+    /// <param name="canvas">The page canvas.</param>
+    /// <param name="image">The image resource.</param>
+    /// <param name="item">The image visual item.</param>
+    /// <param name="x">The left X of the image box.</param>
+    /// <param name="topY">The top Y of the image box.</param>
+    private static void EmitCellImage(ref PdfPageCanvas canvas, PdfCreatedImage image, CellVisualItem item, float x, float topY)
+    {
+        if (item.ImageDrawnWidth > item.Width + Tolerance || item.ImageDrawnHeight > item.Height + Tolerance)
+        {
+            var box = new ClippedImageBox(
+                x,
+                topY - item.ImageDrawnHeight,
+                item.ImageDrawnWidth,
+                item.ImageDrawnHeight,
+                x,
+                topY - item.Height,
+                item.Width,
+                item.Height);
+            canvas.DrawImageClipped(image, in box);
+            return;
+        }
+
+        canvas.DrawImage(image, x, topY - item.Height, item.Width, item.Height);
     }
 
     /// <summary>Draws a contiguous slice of code block lines inside a cell.</summary>

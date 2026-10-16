@@ -401,6 +401,23 @@ public ref struct PdfPageCanvas
         _resources = null;
     }
 
+    /// <summary>Draws an image scaled to a rectangle and clipped to a bounding box.</summary>
+    /// <param name="image">The image.</param>
+    /// <param name="box">The image destination rectangle and clip box.</param>
+    /// <exception cref="InvalidOperationException">The document is tagged and no content or artifact is open.</exception>
+    internal void DrawImageClipped(PdfCreatedImage image, in ClippedImageBox box)
+    {
+        RequireMarked();
+        var name = Resources.AddImage(image.Id);
+        _content.SaveState();
+        _content.Rectangle(box.ClipX, box.ClipY, box.ClipWidth, box.ClipHeight);
+        _content.Clip();
+        _content.EndPath();
+        _content.Transform(box.Width, 0, 0, box.Height, box.X, box.Y);
+        _content.DrawXObject(name.Utf8);
+        _content.RestoreState();
+    }
+
     /// <summary>Checks that a tagged document's content is inside marked content.</summary>
     /// <exception cref="InvalidOperationException">The document is tagged and no content or artifact is open.</exception>
     private readonly void RequireMarked()

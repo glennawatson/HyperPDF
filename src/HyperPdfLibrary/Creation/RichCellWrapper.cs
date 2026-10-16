@@ -197,6 +197,11 @@ internal static class RichCellWrapper
                 return PdfTableWidths.WidestLine(ref lines);
             }
 
+            case PdfFlowRule rule:
+            {
+                return rule.Width ?? 0F;
+            }
+
             default:
             {
                 return 0F;
@@ -210,7 +215,7 @@ internal static class RichCellWrapper
     private static float GetImageDesiredWidth(PdfFlowImage image) =>
         image.WidthPoints > 0F ? image.WidthPoints : image.Image.Width * PointsPerPixel;
 
-    /// <summary>Adds a scaled image item to a cell's item list.</summary>
+    /// <summary>Adds a scaled or clipped image item to a cell's item list according to <see cref="PdfFlowImage.Fit"/>.</summary>
     /// <param name="block">The image block.</param>
     /// <param name="innerWidth">The cell's available inner width.</param>
     /// <param name="maxImageHeight">The tallest an image may be on a single page.</param>
@@ -218,15 +223,31 @@ internal static class RichCellWrapper
     private static void AddImageItem(PdfFlowImage block, float innerWidth, float maxImageHeight, List<CellVisualItem> items)
     {
         var desired = GetImageDesiredWidth(block);
+        if (block.Fit == PdfFlowImageFit.ClipOverflow)
+        {
+            var rawHeight = desired * block.Image.AspectRatio;
+            var boxWidth = Math.Min(desired, innerWidth);
+            var boxHeight = maxImageHeight > 0F ? Math.Min(rawHeight, maxImageHeight) : rawHeight;
+            items.Add(CellVisualItem.CreateImage(block, boxWidth, boxHeight, desired, rawHeight));
+            return;
+        }
+
         var width = Math.Min(desired, innerWidth);
         var height = width * block.Image.AspectRatio;
+        if (block.Fit == PdfFlowImageFit.ScaleToWidth)
+        {
+            var boxHeight = maxImageHeight > 0F ? Math.Min(height, maxImageHeight) : height;
+            items.Add(CellVisualItem.CreateImage(block, width, boxHeight, width, height));
+            return;
+        }
+
         if (height > maxImageHeight && maxImageHeight > 0F)
         {
             height = maxImageHeight;
             width = height / block.Image.AspectRatio;
         }
 
-        items.Add(CellVisualItem.CreateImage(block, width, height));
+        items.Add(CellVisualItem.CreateImage(block, width, height, width, height));
     }
 
     /// <summary>Wraps plain text into visual text line items.</summary>
@@ -321,6 +342,14 @@ internal static class RichCellWrapper
             {
                 var scale = HeadingScales[Math.Clamp(heading.Level, 1, MaxHeadingLevel) - 1];
                 WrapPlainText(heading.Text, style.Font, style.Size * scale, in style, ref lines, items);
+                break;
+            }
+
+            case PdfFlowRule rule:
+            {
+                var ruleWidth = rule.Width is { } requested ? Math.Min(requested, style.InnerWidth) : style.InnerWidth;
+                var ruleHeight = rule.Thickness + (rule.SpaceBefore ?? 0F) + (rule.SpaceAfter ?? 0F);
+                items.Add(CellVisualItem.CreateRule(rule, ruleWidth, ruleHeight));
                 break;
             }
         }

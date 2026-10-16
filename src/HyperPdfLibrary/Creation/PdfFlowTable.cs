@@ -13,6 +13,20 @@ namespace HyperPdfLibrary.Creation;
 /// borders are artifacts.
 /// </summary>
 /// <param name="Rows">The rows from top to bottom; the first <see cref="HeaderRows"/> are header rows.</param>
+/// <remarks>
+/// <para>
+/// By default (<see cref="FillAvailableWidth"/> is <see langword="false"/> and no proportional columns are configured),
+/// automatic columns shrink to fit their widest unwrapped line plus cell padding, only sharing or scaling down when the
+/// table would exceed the page's available content width (<c>PageWidth - 2 * Margin</c>). Set
+/// <see cref="FillAvailableWidth"/> to <see langword="true"/> or configure <see cref="ColumnSizing"/> with
+/// <see cref="PdfTableColumnWidth.Proportional(float)"/> / <see cref="PdfTableColumnWidth.Relative(float)"/> weights so the
+/// table expands across the full available content width.
+/// </para>
+/// <para>
+/// Each row's height is at least its effective single-line pitch plus top and bottom <see cref="CellPadding"/>, taking into
+/// account cell-level <see cref="PdfTableCell.FontSize"/> overrides and optional <see cref="PdfTableRow.Height"/> minimums.
+/// </para>
+/// </remarks>
 [DebuggerDisplay("PdfFlowTable: {Rows.Count} rows, {HeaderRows} header rows")]
 public sealed record PdfFlowTable(IReadOnlyList<PdfTableRow> Rows) : PdfFlowBlock
 {
@@ -28,8 +42,23 @@ public sealed record PdfFlowTable(IReadOnlyList<PdfTableRow> Rows) : PdfFlowBloc
     /// <summary>
     /// Gets the width of each column in points, from the first. A column with no entry, or an entry of zero or less, is sized to its
     /// text and shares what the explicit widths leave. When the columns are wider than the page's text they are scaled to fit.
+    /// For mixed fixed, proportional and automatic column sizing, use <see cref="ColumnSizing"/>.
     /// </summary>
     public IReadOnlyList<float> ColumnWidths { get; init; } = [];
+
+    /// <summary>
+    /// Gets the sizing specification of each column (<see cref="PdfTableColumnWidth.Auto"/>,
+    /// <see cref="PdfTableColumnWidth.Fixed(float)"/>, or <see cref="PdfTableColumnWidth.Proportional(float)"/>), from the
+    /// first column. When an entry is present for a column index, it takes precedence over <see cref="ColumnWidths"/>.
+    /// </summary>
+    public IReadOnlyList<PdfTableColumnWidth> ColumnSizing { get; init; } = [];
+
+    /// <summary>
+    /// Gets a value indicating whether the table expands to fill the full available content width
+    /// (<c>PageWidth - 2 * Margin</c>) even when its cells contain short text. When <see langword="false"/> (the default),
+    /// automatic columns shrink to fit their content unless proportional columns are used or the content exceeds the page width.
+    /// </summary>
+    public bool FillAvailableWidth { get; init; }
 
     /// <summary>Gets how the text of each column lines up, from the first; a column with no entry is left aligned.</summary>
     public IReadOnlyList<PdfTableAlignment> ColumnAlignments { get; init; } = [];

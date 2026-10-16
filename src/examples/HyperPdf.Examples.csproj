@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>HyperPdf.Examples</RootNamespace>
+    <Description>End-to-end document creation and SkiaSharp rendering example for HyperPdfLibrary.</Description>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../HyperPdfLibrary/HyperPdfLibrary.csproj" />
+    <ProjectReference Include="../HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
+  </ItemGroup>
+</Project>
