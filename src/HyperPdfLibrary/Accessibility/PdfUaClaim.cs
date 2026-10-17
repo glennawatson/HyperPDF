@@ -12,7 +12,7 @@ namespace HyperPdfLibrary.Accessibility;
 /// <param name="PdfVersion">The file's format version, for example "1.7" or "2.0"; empty when unknown.</param>
 /// <param name="UsesPdf20Namespaces">Whether the structure tree lists namespaces or uses the PDF 2.0 structure namespace.</param>
 [DebuggerDisplay("PdfUaClaim: part {Part} (PDF {PdfVersion})")]
-public sealed record PdfUaClaim(int? Part, string? Revision, string PdfVersion, bool UsesPdf20Namespaces)
+public readonly record struct PdfUaClaim(int? Part, string? Revision, string PdfVersion, bool UsesPdf20Namespaces)
 {
     /// <summary>The part number of ISO 14289-1 (PDF/UA-1).</summary>
     internal const int Part1 = 1;

@@ -61,6 +61,9 @@ internal enum PdfReadKind
     /// <summary>The catalog's XMP metadata.</summary>
     CatalogXmp = 17,
 
+    /// <summary>The document accessibility reading report.</summary>
+    AccessibilityReport = 18,
+
     /// <summary>The number of kinds; keep last.</summary>
-    Count = 18,
+    Count = 19,
 }

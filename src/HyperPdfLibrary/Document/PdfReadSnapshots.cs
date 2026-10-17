@@ -21,6 +21,17 @@ internal sealed class PdfReadSnapshots
     /// </summary>
     private readonly object?[] _reads = new object?[KindCount];
 
+    /// <summary>Returns a published document-wide result without starting a read.</summary>
+    /// <typeparam name="T">The reference result type.</typeparam>
+    /// <param name="document">The document.</param>
+    /// <param name="kind">The kind of read.</param>
+    /// <returns>The published result, or null when none is available.</returns>
+    internal static T? GetCached<T>(PdfDocument document, PdfReadKind kind)
+        where T : class =>
+        Volatile.Read(ref document.State.Reads) is { } reads && Volatile.Read(ref reads._reads[(int)kind]) is Held<T> hit
+            ? hit.Value
+            : null;
+
     /// <summary>Reads a document-wide result once and keeps it.</summary>
     /// <typeparam name="T">The type of the result.</typeparam>
     /// <param name="document">The document.</param>
@@ -148,10 +159,6 @@ internal sealed class PdfReadSnapshots
 
     /// <summary>A kept result, which may be <see langword="null"/>.</summary>
     /// <typeparam name="T">The type of the result.</typeparam>
-    /// <param name="value">The result.</param>
-    private sealed class Held<T>(T value)
-    {
-        /// <summary>Gets the result.</summary>
-        internal T Value { get; } = value;
-    }
+    /// <param name="Value">The result.</param>
+    private sealed record Held<T>(T Value);
 }

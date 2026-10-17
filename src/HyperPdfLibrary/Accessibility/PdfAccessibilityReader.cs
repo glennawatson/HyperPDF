@@ -22,37 +22,105 @@ internal static class PdfAccessibilityReader
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     internal static PdfAccessibilityReport Read(PdfDocument document, CancellationToken cancellation)
     {
-        var findings = new AccessibilityFindings();
+        ArgumentNullException.ThrowIfNull(document);
+        ObjectDisposedException.ThrowIf(document.IsDisposed, document);
+
+        // An open transaction can replace objects again before it commits.
+        return StoreTransactions.GetCurrentTransaction(document.Objects) is null
+            ? PdfReadSnapshots.Read(document, PdfReadKind.AccessibilityReport, Build, cancellation)
+            : Build(document, cancellation);
+    }
+
+    /// <summary>Builds a report for the current document objects.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="cancellation">Cancels the report's walks.</param>
+    /// <returns>The independently owned report.</returns>
+    private static PdfAccessibilityReport Build(PdfDocument document, CancellationToken cancellation)
+    {
+        cancellation.ThrowIfCancellationRequested();
+        var pools = document.Objects.ScratchPools;
+        var findings = AccessibilityFindingCollection.Rent(pools);
+        try
+        {
+            return Build(document, findings, cancellation);
+        }
+        finally
+        {
+            AccessibilityFindingCollection.Release(pools, findings);
+        }
+    }
+
+    /// <summary>Builds a detached report using the operation's leased finding storage.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="findings">The operation's working storage.</param>
+    /// <param name="cancellation">Cancels the report's walks.</param>
+    /// <returns>The independently owned report.</returns>
+    private static PdfAccessibilityReport Build(PdfDocument document, AccessibilityFindings findings, CancellationToken cancellation)
+    {
         var metadata = AccessibilityMetadata.Get(document);
         var tree = PdfDocumentTagged.GetStructureTree(document);
         var markInfo = document.Catalog.GetDictionary(KnownName.MarkInfo);
         var part = metadata.Part;
-        var scan = tree is null ? null : new AccessibilityStructureScan(tree, part, findings, cancellation);
+        var scan = tree is null ? default : new AccessibilityStructureState(
+            tree,
+            tree.Root.GetDictionary(KnownName.RoleMap),
+            part,
+            findings,
+            document.Objects.ScratchPools,
+            null,
+            null,
+            null,
+            null,
+            0,
+            false,
+            cancellation);
+        try
+        {
+            var isMarked = markInfo?.Flag("Marked", false) == true;
+            var catalogLanguage = document.Catalog.GetText(KnownName.Lang);
+            var language = catalogLanguage is { Length: > 0 } text ? text : null;
+            var displayTitle = PdfDocumentViewerPreferences.GetViewerPreferences(document).DisplayDocTitle;
+            var suspects = markInfo?.Flag("Suspects", false) == true;
+            var version = PdfDocumentVersioning.GetVersion(document);
+            var revision = metadata.Revision;
+            var hasTitle = metadata.HasTitle;
+            var state = new DocumentState(isMarked, tree is not null, catalogLanguage, metadata.HasMetadata, hasTitle, displayTitle, suspects);
+            CheckDocument(findings, state, part, version, revision);
+            if (tree is not null)
+            {
+                AccessibilityStructureScan.Run(ref scan);
+            }
 
-        var isMarked = markInfo?.Flag("Marked", false) == true;
-        var catalogLanguage = document.Catalog.GetText(KnownName.Lang);
-        var language = catalogLanguage is { Length: > 0 } text ? text : null;
-        var displayTitle = PdfDocumentViewerPreferences.GetViewerPreferences(document).DisplayDocTitle;
-        var suspects = markInfo?.Flag("Suspects", false) == true;
-        var version = PdfDocumentVersioning.GetVersion(document);
-
-        var revision = metadata.Revision;
-        var hasTitle = metadata.HasTitle;
-        var state = new DocumentState(isMarked, tree is not null, catalogLanguage, metadata.HasMetadata, hasTitle, displayTitle, suspects);
-        CheckDocument(findings, state, part, version, revision);
-        scan?.Run();
-        var pages = CheckPages(document, scan, part, findings, cancellation);
-        AccessibilityFontScan.Run(document, findings, cancellation);
-        var claim = new PdfUaClaim(part, revision, version.ToString(), UsesPdf20Namespaces(tree, scan));
-        return new(claim, isMarked, tree is not null, language, hasTitle, displayTitle, suspects, pages, findings.Findings, findings.GetCounts());
+            var pages = CheckPages(document, tree, scan, part, findings, cancellation);
+            AccessibilityFontScan.Run(document, findings, cancellation);
+            var claim = new PdfUaClaim(part, revision, version.ToString(), UsesPdf20Namespaces(tree, scan.UsesPdf20Namespace));
+            return new(
+                claim,
+                isMarked,
+                tree is not null,
+                language,
+                hasTitle,
+                displayTitle,
+                suspects,
+                pages,
+                findings.Findings.ToArray(),
+                AccessibilityFindingCollection.GetCounts(findings));
+        }
+        finally
+        {
+            if (tree is not null)
+            {
+                AccessibilityStructureScan.Release(scan);
+            }
+        }
     }
 
     /// <summary>Determines whether the tree lists namespaces or uses the PDF 2.0 one.</summary>
     /// <param name="tree">The tree, or <see langword="null"/>.</param>
-    /// <param name="scan">The structure walk, or <see langword="null"/>.</param>
+    /// <param name="usesPdf20Namespace">Whether the structure walk found the PDF 2.0 namespace.</param>
     /// <returns><see langword="true"/> when it does.</returns>
-    private static bool UsesPdf20Namespaces(PdfStructureTree? tree, AccessibilityStructureScan? scan) =>
-        scan?.UsesPdf20Namespace == true || tree?.Root.Array("Namespaces") is { Count: > 0 };
+    private static bool UsesPdf20Namespaces(PdfStructureTree? tree, bool usesPdf20Namespace) =>
+        usesPdf20Namespace || tree?.Root.Array("Namespaces") is { Count: > 0 };
 
     /// <summary>Reports what the catalog, the metadata and the claim say.</summary>
     /// <param name="findings">Receives the findings.</param>
@@ -83,28 +151,51 @@ internal static class PdfAccessibilityReader
     {
         if (condition)
         {
-            findings.Add(code);
+            AccessibilityFindingCollection.Add(findings, code);
         }
     }
 
     /// <summary>Checks every page.</summary>
     /// <param name="document">The document.</param>
-    /// <param name="scan">The structure walk, or <see langword="null"/> for an untagged document.</param>
+    /// <param name="tree">The document's structure tree, when present.</param>
+    /// <param name="scan">The structure walk's collected page facts.</param>
     /// <param name="part">The claimed PDF/UA part, or <see langword="null"/>.</param>
     /// <param name="findings">Receives the findings.</param>
     /// <param name="cancellation">The cancellation token.</param>
     /// <returns>What was counted on each page.</returns>
-    private static PdfAccessibilityPage[] CheckPages(PdfDocument document, AccessibilityStructureScan? scan, int? part, AccessibilityFindings findings, CancellationToken cancellation)
+    private static PdfAccessibilityPage[] CheckPages(
+        PdfDocument document,
+        PdfStructureTree? tree,
+        in AccessibilityStructureState scan,
+        int? part,
+        AccessibilityFindings findings,
+        CancellationToken cancellation)
     {
-        var pageScan = new AccessibilityPageScan(document, scan, part, findings);
-        var pages = new PdfAccessibilityPage[document.PageCount];
-        for (var i = 0; i < pages.Length; i++)
+        if (document.PageCount == 0)
         {
-            cancellation.ThrowIfCancellationRequested();
-            pages[i] = pageScan.Check(i);
+            return [];
         }
 
-        return pages;
+        var state = new AccessibilityPageState(document, tree, scan.Owners, scan.TablePages, part, findings, null, cancellation);
+        try
+        {
+            var pages = new PdfAccessibilityPage[document.PageCount];
+            for (var index = 0; index < pages.Length; index++)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                pages[index] = AccessibilityPageScan.Check(ref state, index);
+            }
+
+            return pages;
+        }
+        finally
+        {
+            if (state.CheckedTables is { } checkedTables)
+            {
+                checkedTables.Clear();
+                _ = document.Objects.ScratchPools.Slots<HashSet<PdfStructureElement>>().Offer(checkedTables);
+            }
+        }
     }
 
     /// <summary>What the document's own entries say.</summary>

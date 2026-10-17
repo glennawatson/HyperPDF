@@ -48,7 +48,7 @@ internal static class AccessibilityFontScan
             ?? PdfDocumentCaches.PublishFirst(document, ref document.State.AccessibilityFonts, Scan(document, cancellation), revision);
         foreach (var code in codes)
         {
-            findings.Add(code);
+            AccessibilityFindingCollection.Add(findings, code);
         }
     }
 
