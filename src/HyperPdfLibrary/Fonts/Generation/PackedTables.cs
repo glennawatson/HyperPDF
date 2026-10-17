@@ -56,7 +56,7 @@ internal static class PackedTables
     /// <param name="values">The scalar value of each CID.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The packed bytes.</returns>
-    internal static byte[] PackUnicode(int[] values, CancellationToken cancellationToken = default)
+    internal static byte[] PackUnicode(ReadOnlySpan<int> values, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var output = new MemoryStream();
@@ -168,7 +168,7 @@ internal static class PackedTables
             AddCodespaces(maps, map.Parent, output, cancellationToken);
         }
 
-        for (var index = 0; index < map.Codespaces.Count; index++)
+        for (var index = 0; index < map.Codespaces.Length; index++)
         {
             if (index % CancellationChunk == 0)
             {
@@ -187,7 +187,7 @@ internal static class PackedTables
     /// <param name="ranges">The ranges.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The sorted ranges.</returns>
-    private static List<CidRange> Sort(List<CidRange> ranges, CancellationToken cancellationToken)
+    private static List<CidRange> Sort(CidRange[] ranges, CancellationToken cancellationToken)
     {
         var sorted = new List<CidRange>(ranges);
         var order = new int[sorted.Count];

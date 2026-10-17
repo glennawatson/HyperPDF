@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace HyperPdfLibrary.Fonts.Generation;
@@ -15,16 +17,44 @@ internal static class BinaryUnicodeFallback
     /// <summary>The number of mappings between cancellation checks.</summary>
     private const int CancellationChunk = 256;
 
+    /// <summary>The largest candidate table kept on the stack.</summary>
+    private const int StackCandidates = 256;
+
+    /// <summary>Fills unmapped CIDs while preserving every explicit Unicode mapping.</summary>
+    /// <param name="values">The preferred CID-to-Unicode values.</param>
+    /// <param name="ranges">The collection's Unicode-to-CID ranges.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Fill(Span<int> values, ReadOnlySpan<CidRange> ranges) => Fill(values, ranges, CancellationToken.None);
+
     /// <summary>Fills unmapped CIDs while preserving every explicit Unicode mapping.</summary>
     /// <param name="values">The preferred CID-to-Unicode values.</param>
     /// <param name="ranges">The collection's Unicode-to-CID ranges.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    internal static void Fill(int[] values, List<CidRange> ranges, CancellationToken cancellationToken = default)
+    internal static void Fill(Span<int> values, ReadOnlySpan<CidRange> ranges, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var candidates = new int[values.Length];
-        FillCandidates(values, ranges, candidates, cancellationToken);
-        ApplyCandidates(values, candidates, cancellationToken);
+        if (values.IsEmpty || ranges.IsEmpty || !values.Contains(0))
+        {
+            return;
+        }
+
+        int[]? rented = null;
+        Span<int> candidates = values.Length <= StackCandidates
+            ? stackalloc int[values.Length]
+            : (rented = ArrayPool<int>.Shared.Rent(values.Length)).AsSpan(0, values.Length);
+        try
+        {
+            candidates.Clear();
+            FillCandidates(values, ranges, candidates, cancellationToken);
+            ApplyCandidates(values, candidates, cancellationToken);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<int>.Shared.Return(rented);
+            }
+        }
     }
 
     /// <summary>Collects canonical fallback values from Unicode ranges.</summary>
@@ -32,9 +62,9 @@ internal static class BinaryUnicodeFallback
     /// <param name="ranges">The inverse ranges.</param>
     /// <param name="candidates">Receives fallback candidates.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void FillCandidates(int[] values, List<CidRange> ranges, int[] candidates, CancellationToken cancellationToken)
+    private static void FillCandidates(ReadOnlySpan<int> values, ReadOnlySpan<CidRange> ranges, Span<int> candidates, CancellationToken cancellationToken)
     {
-        for (var rangeIndex = 0; rangeIndex < ranges.Count; rangeIndex++)
+        for (var rangeIndex = 0; rangeIndex < ranges.Length; rangeIndex++)
         {
             if (rangeIndex % CancellationChunk == 0)
             {
@@ -50,7 +80,7 @@ internal static class BinaryUnicodeFallback
     /// <param name="range">The inverse range.</param>
     /// <param name="candidates">Receives fallback candidates.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void FillRangeCandidates(int[] values, CidRange range, int[] candidates, CancellationToken cancellationToken)
+    private static void FillRangeCandidates(ReadOnlySpan<int> values, CidRange range, Span<int> candidates, CancellationToken cancellationToken)
     {
         var high = Math.Min(range.High, MaxScalar);
         for (var code = range.Low; code <= high; code++)
@@ -66,7 +96,7 @@ internal static class BinaryUnicodeFallback
                 continue;
             }
 
-            var candidate = Canonical((int)code);
+            var candidate = UnicodeCanonicalScalars.Resolve((int)code);
             if (candidates[cid] == 0 || IsSpecial(candidates[cid]))
             {
                 candidates[cid] = candidate;
@@ -78,7 +108,7 @@ internal static class BinaryUnicodeFallback
     /// <param name="values">The explicit mappings to fill.</param>
     /// <param name="candidates">The fallback candidates.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void ApplyCandidates(int[] values, int[] candidates, CancellationToken cancellationToken)
+    private static void ApplyCandidates(Span<int> values, ReadOnlySpan<int> candidates, CancellationToken cancellationToken)
     {
         for (var cid = 0; cid < values.Length; cid++)
         {
@@ -92,17 +122,6 @@ internal static class BinaryUnicodeFallback
                 values[cid] = candidates[cid];
             }
         }
-    }
-
-    /// <summary>Normalizes a candidate to its canonical scalar when normalization preserves one character.</summary>
-    /// <param name="value">The Unicode scalar.</param>
-    /// <returns>The canonical scalar.</returns>
-    private static int Canonical(int value)
-    {
-        var normalized = char.ConvertFromUtf32(value).Normalize(NormalizationForm.FormC);
-        return Rune.DecodeFromUtf16(normalized, out var rune, out var consumed) == System.Buffers.OperationStatus.Done && consumed == normalized.Length
-            ? rune.Value
-            : value;
     }
 
     /// <summary>Checks whether a candidate is a radical, presentation form or private-use glyph.</summary>

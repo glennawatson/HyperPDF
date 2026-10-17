@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Metadata;
 using HyperPdfLibrary.Objects;
 
@@ -15,7 +16,7 @@ public static class PdfDocumentMetadata
     /// <param name="document">The document.</param>
     /// <returns>The metadata, or <see langword="null"/> when the document has none.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static XmpMetadata? GetXmp(PdfDocument document) => PdfDocumentMetadata.ReadXmp(document, document.Catalog);
+    public static XmpMetadata? GetXmp(PdfDocument document) => ReadOwnerXmp(document, document.Catalog, CancellationToken.None);
 
     /// <summary>Gets a page's XMP metadata.</summary>
     /// <param name="document">The document.</param>
@@ -25,7 +26,7 @@ public static class PdfDocumentMetadata
     public static XmpMetadata? GetXmp(PdfDocument document, PdfPage page)
     {
         ArgumentNullException.ThrowIfNull(page);
-        return PdfDocumentMetadata.ReadXmp(document, page.Dictionary);
+        return ReadOwnerXmp(document, page.Dictionary, CancellationToken.None);
     }
 
     /// <summary>Reads the XMP metadata of any object (a page, XObject, font, colour space or annotation dictionary, or a stream's dictionary).</summary>
@@ -33,13 +34,8 @@ public static class PdfDocumentMetadata
     /// <param name="owner">The dictionary holding a <c>/Metadata</c> entry.</param>
     /// <returns>The metadata, or <see langword="null"/> when there is no readable metadata stream.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="owner"/> is null.</exception>
-    public static XmpMetadata? ReadXmp(PdfDocument document, PdfDictionary owner)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        return ReferenceEquals(owner, document.Catalog)
-            ? PdfReadSnapshots.Read(document, PdfReadKind.CatalogXmp, static item => PdfDocumentMetadata.ParseXmp(item.Catalog))
-            : PdfReadSnapshots.Read(document, PdfReadKind.Xmp, owner, PdfDocumentMetadata.ParseXmp);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static XmpMetadata? ReadXmp(PdfDocument document, PdfDictionary owner) => ReadOwnerXmp(document, owner, CancellationToken.None);
 
     /// <summary>Gets the document information.</summary>
     /// <param name="document">The document.</param>
@@ -57,13 +53,50 @@ public static class PdfDocumentMetadata
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PdfDocumentInfo GetResolvedInfo(PdfDocument document) => PdfReadSnapshots.Read(document, PdfReadKind.ResolvedInfo, PdfDocumentMetadata.ReadResolvedInfo);
 
+    /// <summary>Reads owner XMP with the operation's token, sharing the synchronous read cache.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="owner">The dictionary holding a metadata entry.</param>
+    /// <param name="cancellationToken">Cancels decoding and parsing.</param>
+    /// <returns>The metadata, or null when unreadable or absent.</returns>
+    /// <exception cref="ArgumentNullException">The owner is null.</exception>
+    internal static XmpMetadata? ReadOwnerXmp(PdfDocument document, PdfDictionary owner, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        return ReferenceEquals(owner, document.Catalog)
+            ? PdfReadSnapshots.Read(document, PdfReadKind.CatalogXmp, owner, static (_, dictionary, token) => ParseXmp(dictionary, token), cancellationToken)
+            : PdfReadSnapshots.Read(document, PdfReadKind.Xmp, owner, ParseXmp, cancellationToken);
+    }
+
     /// <summary>Parses the XMP metadata stream of a dictionary.</summary>
     /// <param name="owner">The dictionary holding a <c>/Metadata</c> entry.</param>
+    /// <param name="cancellationToken">Cancels decoding and parsing.</param>
     /// <returns>The metadata, or <see langword="null"/> when there is no readable metadata stream.</returns>
-    internal static XmpMetadata? ParseXmp(PdfDictionary owner)
+    internal static XmpMetadata? ParseXmp(PdfDictionary owner, CancellationToken cancellationToken)
     {
-        var packet = owner.GetStream(KnownName.Metadata).DecodeOrEmpty();
-        return packet.Length == 0 ? null : XmpParser.Parse(packet);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (owner.GetStream(KnownName.Metadata) is not { } stream)
+        {
+            return null;
+        }
+
+        var output = default(PooledBuffer);
+        try
+        {
+            try
+            {
+                _ = stream.Decode(ref output, cancellationToken);
+            }
+            catch (PdfException)
+            {
+                return null;
+            }
+
+            return output.Length == 0 ? null : XmpParser.Parse(output.Array.AsMemory(0, output.Length), cancellationToken);
+        }
+        finally
+        {
+            output.Dispose();
+        }
     }
 
     /// <summary>Reads the document information.</summary>

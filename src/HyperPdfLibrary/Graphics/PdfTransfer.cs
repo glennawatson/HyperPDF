@@ -55,9 +55,6 @@ public sealed class PdfTransfer
     /// <summary>The bytes of a BGRA pixel.</summary>
     private const int PixelBytes = 4;
 
-    /// <summary>The source of <see cref="Id"/>.</summary>
-    private static int _nextId;
-
     /// <summary>The red, green and blue tables back to back.</summary>
     private readonly byte[] _tables;
 
@@ -66,7 +63,6 @@ public sealed class PdfTransfer
     internal PdfTransfer(byte[] tables)
     {
         _tables = tables;
-        Id = Interlocked.Increment(ref _nextId);
         IsIdentity = true;
         for (var i = 0; i < tables.Length && IsIdentity; i++)
         {
@@ -88,9 +84,6 @@ public sealed class PdfTransfer
 
     /// <summary>Gets a value indicating whether the three tables are equal, as they are when one function applies to every channel.</summary>
     public bool IsUniform => Red.SequenceEqual(Green) && Green.SequenceEqual(Blue);
-
-    /// <summary>Gets a number that is unique to this transfer within the process, which keeps cache keys small.</summary>
-    internal int Id { get; }
 
     /// <summary>Applies the transfer function to a colour.</summary>
     /// <param name="rgb">The colour as 0xRRGGBB.</param>

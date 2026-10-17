@@ -141,14 +141,62 @@ public class FontBinaryParsingBenchmarks
     }
 
     /// <summary>Parses one Unicode mapping through the complete resource parser.</summary>
-    /// <returns>The decoded map.</returns>
+    /// <returns>The decoded scalar.</returns>
     [Benchmark]
-    public object ParseBinaryCMap() => BinaryCMapReader.Parse(UnicodeData, CancellationToken.None);
+    public int ParseBinaryCMap() => BinaryCMapReader.Parse(UnicodeData, CancellationToken.None).Unicode[1];
+
+    /// <summary>Parses an empty resource without reserving mapping storage.</summary>
+    /// <returns>The number of Unicode mappings.</returns>
+    [Benchmark]
+    public int ParseEmptyBinaryCMap() => BinaryCMapReader.Parse([0], CancellationToken.None).Unicode.Length;
+
+    /// <summary>Parses a CID-only resource without reserving a Unicode table.</summary>
+    /// <returns>The mapped CID.</returns>
+    [Benchmark]
+    public int ParseCidBinaryCMap() => BinaryCMapReader.Parse([0, 0x41, 1, 0, 0x41, 1], CancellationToken.None).Ranges[0].Cid;
+
+    /// <summary>Parses a supplementary Unicode scalar with only its retained output table.</summary>
+    /// <returns>The Unicode scalar.</returns>
+    [Benchmark]
+    public int ParseSupplementaryBinaryCMap() =>
+        BinaryCMapReader.Parse([0, 0x83, 1, 0, 1, 0xD8, 0x40, 0xDC, 0], CancellationToken.None).Unicode[1];
+
+    /// <summary>Consumes a multi-character Unicode string without reserving a usable scalar table.</summary>
+    /// <returns>The number of usable scalar mappings.</returns>
+    [Benchmark]
+    public int ParseWideBinaryCMap() =>
+        BinaryCMapReader.Parse(
+        [
+            0, 0x8F, 1, 0, 1,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        ],
+        CancellationToken.None).Unicode.Length;
+
+    /// <summary>Fills a canonical fallback without decoding a normalized string.</summary>
+    /// <returns>The canonical Unicode scalar.</returns>
+    [Benchmark]
+    public int FillCanonicalUnicodeFallback()
+    {
+        Span<int> values = stackalloc int[LocationEntries];
+        values.Clear();
+        BinaryUnicodeFallback.Fill(values, [new(0x212B, 0x212B, 1)], CancellationToken.None);
+        return values[1];
+    }
 
     /// <summary>Reads range counts, relative codes and CID deltas in a packed CMap.</summary>
     /// <returns>The decoded map.</returns>
     [Benchmark]
     public object ParsePackedCMap() => PredefinedCMaps.Parse(_fontResources, RangeData);
+
+    /// <summary>Starts ligature identifier state in a caller-owned glyph buffer.</summary>
+    /// <returns>The first identifier of the run.</returns>
+    [Benchmark]
+    public int BeginLigatureRun()
+    {
+        _extensionGlyphs.Clear(1);
+        return GsubLookups.NextLigatureId(ref _extensionGlyphs.LigatureIds);
+    }
 
     /// <summary>Parses the binary charstring's length and copies its bytes.</summary>
     /// <returns>Whether the font parsed.</returns>

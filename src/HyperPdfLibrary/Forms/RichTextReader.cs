@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
-using System.Collections.Frozen;
 using System.Xml;
 
 namespace HyperPdfLibrary.Forms;
@@ -41,23 +40,6 @@ internal static class RichTextReader
         IgnoreProcessingInstructions = true,
         CloseInput = false,
     };
-
-    /// <summary>The elements that start a new paragraph.</summary>
-    private static readonly FrozenSet<string> ParagraphElements =
-        new HashSet<string>(StringComparer.Ordinal) { "p", "div", "li", "h1", "h2", "h3", "h4", "h5", "h6" }.ToFrozenSet(StringComparer.Ordinal);
-
-    /// <summary>The elements that change the style, by name.</summary>
-    private static readonly FrozenDictionary<string, Func<RichStyle, RichStyle>> ElementStyles = new Dictionary<string, Func<RichStyle, RichStyle>>(StringComparer.Ordinal)
-    {
-        ["b"] = static style => style with { Bold = true },
-        ["strong"] = static style => style with { Bold = true },
-        ["i"] = static style => style with { Italic = true },
-        ["em"] = static style => style with { Italic = true },
-        ["u"] = static style => style with { Underline = true },
-        ["s"] = static style => style with { StrikeOut = true },
-        ["strike"] = static style => style with { StrikeOut = true },
-        ["del"] = static style => style with { StrikeOut = true },
-    }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>Reads rich text held as a string.</summary>
     /// <param name="xhtml">The XHTML.</param>
@@ -170,7 +152,7 @@ internal static class RichTextReader
 
                 case XmlNodeType.EndElement:
                 {
-                    state.EndElement(ParagraphElements.Contains(reader.LocalName), ref text);
+                    state.EndElement(IsParagraph(reader.LocalName), ref text);
                     break;
                 }
 
@@ -201,11 +183,7 @@ internal static class RichTextReader
     {
         var name = reader.LocalName;
         var empty = reader.IsEmptyElement;
-        var style = state.Style;
-        if (ElementStyles.TryGetValue(name, out var change))
-        {
-            style = change(style);
-        }
+        var style = ElementStyle(name, state.Style);
 
         if (reader.HasAttributes && reader.MoveToAttribute(StyleAttribute))
         {
@@ -225,7 +203,7 @@ internal static class RichTextReader
             return;
         }
 
-        var paragraph = ParagraphElements.Contains(name);
+        var paragraph = IsParagraph(name);
         if (paragraph)
         {
             state.StartParagraph(style.Alignment, ref text);
@@ -311,4 +289,22 @@ internal static class RichTextReader
         ArrayPool<char>.Shared.Return(buffer);
         buffer = larger;
     }
+
+    /// <summary>Identifies elements that start paragraphs.</summary>
+    /// <param name="name">The element's local name.</param>
+    /// <returns>Whether it starts a paragraph.</returns>
+    private static bool IsParagraph(string name) => name is "p" or "div" or "li" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6";
+
+    /// <summary>Applies an element's text style.</summary>
+    /// <param name="name">The element's local name.</param>
+    /// <param name="style">The inherited style.</param>
+    /// <returns>The element's style.</returns>
+    private static RichStyle ElementStyle(string name, RichStyle style) => name switch
+    {
+        "b" or "strong" => style with { Bold = true },
+        "i" or "em" => style with { Italic = true },
+        "u" => style with { Underline = true },
+        "s" or "strike" or "del" => style with { StrikeOut = true },
+        _ => style,
+    };
 }

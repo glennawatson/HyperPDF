@@ -136,15 +136,19 @@ public sealed class Jbig2GenericEncoderTests
     }
 
     /// <summary>A cancelled token stops the encode.</summary>
+    /// <param name="mode">The requested coding.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CancelledTokenStopsEncoding()
+    [Arguments(Jbig2EncodeMode.GenericRegion)]
+    [Arguments(Jbig2EncodeMode.GenericRegionMmr)]
+    [Arguments(Jbig2EncodeMode.Smallest)]
+    public async Task CancelledTokenStopsEncoding(Jbig2EncodeMode mode)
     {
         using var source = new CancellationTokenSource();
         await source.CancelAsync();
         var rows = Jbig2TestPages.Create(Jbig2TestPageKind.Noise, MovedPixelPage);
 
-        var options = new Jbig2EncodeOptions { Mode = Jbig2EncodeMode.GenericRegion };
+        var options = new Jbig2EncodeOptions { Mode = mode };
 
         await Assert.That(() => Jbig2Encoder.Encode(rows, MovedPixelPage.Width, MovedPixelPage.Height, options, source.Token)).Throws<OperationCanceledException>();
     }
@@ -162,7 +166,7 @@ public sealed class Jbig2GenericEncoderTests
             Jbig2SegmentWriter.WritePageInformation(ref page, 0, MovedPixelPage.Width, MovedPixelPage.Height, true);
             Jbig2Ink.FromSamples(rows, MovedPixelPage.Width, MovedPixelPage.Height, ref ink);
             var bitmap = new Jbig2BitmapView(ink.WrittenSpan, MovedPixelPage.Width, MovedPixelPage.Height);
-            Jbig2GenericRegionWriter.Write(ref page, 1, bitmap, default, parameters, false, CancellationToken.None);
+            Jbig2GenericRegionWriter.WriteArithmetic(ref page, 1, bitmap, default, parameters, CancellationToken.None);
             return page.ToArray();
         }
         finally

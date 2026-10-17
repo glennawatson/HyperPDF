@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Document;
 
@@ -20,11 +21,11 @@ internal static class AccessibilityFontScan
     /// <summary>The PDF/A level whose glyph rules apply: the Unicode rules of PDF/A-2 and later.</summary>
     private const PdfALevel Level = PdfALevel.PdfA2U;
 
-    /// <summary>The number of PDF/A rules in <see cref="Rules"/>.</summary>
+    /// <summary>The number of PDF/A rules checked for each font.</summary>
     private const int RuleCount = 5;
 
-    /// <summary>The PDF/A rules that match the PDF/UA font requirements, and the codes they report.</summary>
-    private static readonly FontRule[] Rules =
+    /// <summary>The fixed PDF/A font rules and their accessibility findings.</summary>
+    private static readonly ImmutableArray<FontRule> Rules =
     [
         new(PdfARule.FontEmbedded, PdfAccessibilityCode.FontNotEmbedded),
         new(PdfARule.GlyphPresent, PdfAccessibilityCode.GlyphMissingFromFont),
@@ -33,35 +34,22 @@ internal static class AccessibilityFontScan
         new(PdfARule.GlyphNotdef, PdfAccessibilityCode.NotdefGlyphShown),
     ];
 
-    /// <summary>
-    /// Checks the fonts a document shows. The walk over every page's content is the costly part, so its result is kept
-    /// with the document until an edit, and a later report adds the same findings without walking again.
-    /// </summary>
+    /// <summary>Checks the fonts a document shows, adding each failure directly to the report's findings.</summary>
     /// <param name="document">The document.</param>
     /// <param name="findings">Receives the findings.</param>
     /// <param name="cancellation">The cancellation token, checked for every font.</param>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     internal static void Run(PdfDocument document, AccessibilityFindings findings, CancellationToken cancellation)
     {
-        var revision = PdfDocumentCaches.Revision(document);
-        var codes = Volatile.Read(ref document.State.AccessibilityFonts)
-            ?? PdfDocumentCaches.PublishFirst(document, ref document.State.AccessibilityFonts, Scan(document, cancellation), revision);
-        foreach (var code in codes)
+        cancellation.ThrowIfCancellationRequested();
+        if (document.PageCount == 0)
         {
-            AccessibilityFindingCollection.Add(findings, code);
+            return;
         }
-    }
 
-    /// <summary>Walks the document's content and checks each font it shows.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="cancellation">The cancellation token, checked for every font.</param>
-    /// <returns>The code of each finding, in the order found.</returns>
-    private static PdfAccessibilityCode[] Scan(PdfDocument document, CancellationToken cancellation)
-    {
-        var found = new List<PdfAccessibilityCode>();
         var context = new PdfAValidationContext(document, Level, cancellation);
         var walk = PdfATextWalk.Run(context);
-        var rules = Rules;
+        var rules = Rules.AsSpan();
         Span<int> before = stackalloc int[RuleCount];
         foreach (var font in walk.Used)
         {
@@ -73,19 +61,17 @@ internal static class AccessibilityFontScan
             {
                 if (context.FailureOf(rules[i].Rule)?.Count > before[i])
                 {
-                    found.Add(rules[i].Code);
+                    AccessibilityFindingCollection.Add(findings, rules[i].Code);
                 }
             }
         }
-
-        return [.. found];
     }
 
     /// <summary>Reads how many times each rule has failed so far.</summary>
     /// <param name="context">The validation.</param>
     /// <param name="rules">The rules.</param>
     /// <param name="counts">Receives the counts, in rule order.</param>
-    private static void Count(PdfAValidationContext context, FontRule[] rules, Span<int> counts)
+    private static void Count(PdfAValidationContext context, ReadOnlySpan<FontRule> rules, Span<int> counts)
     {
         for (var i = 0; i < rules.Length; i++)
         {

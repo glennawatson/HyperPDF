@@ -33,18 +33,44 @@ internal static class FlateFilter
     /// <summary>Decodes zlib data, or raw deflate data when the zlib header is missing.</summary>
     /// <param name="input">The compressed bytes.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Decode(ReadOnlySpan<byte> input, ref PooledBuffer output) =>
+        Decode(input, ref output, CancellationToken.None);
+
+    /// <summary>Decodes with operation-local decoder state.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Decode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken = default) =>
+    internal static void Decode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken) =>
         _ = TryDecode(input, ref output, cancellationToken);
+
+    /// <summary>Decodes with operation-local state and reports whether the data ended cleanly.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
+    /// <returns>Whether the stream ended cleanly.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output) =>
+        TryDecode(input, ref output, null, CancellationToken.None);
+
+    /// <summary>Decodes with operation-local state and explicit cancellation.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels decompression.</param>
+    /// <returns>Whether the stream ended cleanly.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken) =>
+        TryDecode(input, ref output, null, cancellationToken);
 
     /// <summary>Decodes zlib data, or raw deflate data when the zlib header is missing, and says whether the data ended cleanly.</summary>
     /// <param name="input">The compressed bytes.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="scratchPools">The explicit decoder owner, or null for operation-local state.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see langword="true"/> when the data ended cleanly; <see langword="false"/> when it was truncated or damaged and the part before the fault was kept.</returns>
-    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken = default)
+    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output, ScratchPools? scratchPools, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (input.IsEmpty)
         {
             return true;
@@ -54,13 +80,13 @@ internal static class FlateFilter
         if (HasZLibHeader(input))
         {
             // A missing or wrong Adler-32 checksum is harmless: the deflate data itself ended properly, which the raw decoder sees.
-            return ZLibCodec.Decompress(input, raw: false, ref output, cancellationToken) || PreferLongerSkippingHeader(input, start, false, ref output, cancellationToken);
+            return ZLibCodec.Decompress(input, raw: false, ref output, scratchPools, cancellationToken) || PreferLongerSkippingHeader(input, start, false, ref output, scratchPools, cancellationToken);
         }
 
-        var clean = ZLibCodec.Decompress(input, raw: true, ref output, cancellationToken);
+        var clean = ZLibCodec.Decompress(input, raw: true, ref output, scratchPools, cancellationToken);
         if (input.Length > ZLibHeaderLength && (input[0] & MethodMask) == DeflateMethod)
         {
-            clean = PreferLongerSkippingHeader(input, start, clean, ref output, cancellationToken);
+            clean = PreferLongerSkippingHeader(input, start, clean, ref output, scratchPools, cancellationToken);
         }
 
         return clean;
@@ -87,15 +113,16 @@ internal static class FlateFilter
     /// <param name="start">Where this decode began in the output.</param>
     /// <param name="firstClean">Whether the first attempt ended cleanly.</param>
     /// <param name="output">The output, holding the first attempt.</param>
+    /// <param name="scratchPools">The explicit decoder owner, or null for operation-local state.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>Whether the attempt kept ended cleanly.</returns>
-    private static bool PreferLongerSkippingHeader(ReadOnlySpan<byte> input, int start, bool firstClean, ref PooledBuffer output, CancellationToken cancellationToken)
+    private static bool PreferLongerSkippingHeader(ReadOnlySpan<byte> input, int start, bool firstClean, ref PooledBuffer output, ScratchPools? scratchPools, CancellationToken cancellationToken)
     {
         var second = default(PooledBuffer);
         second.MaximumLength = output.MaximumLength;
         try
         {
-            var secondClean = ZLibCodec.Decompress(input[ZLibHeaderLength..], raw: true, ref second, cancellationToken);
+            var secondClean = ZLibCodec.Decompress(input[ZLibHeaderLength..], raw: true, ref second, scratchPools, cancellationToken);
             if (second.Length > output.Length - start || (secondClean && second.Length == output.Length - start))
             {
                 output.Length = start;

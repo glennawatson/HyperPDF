@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
@@ -27,16 +26,12 @@ internal static class PdfAContentScan
     /// <summary>The byte veraPDF puts between the parts of a <c>/Contents</c> array: a carriage return.</summary>
     private const byte PartSeparator = (byte)'\r';
 
-    /// <summary>The filters veraPDF decodes.</summary>
-    private static readonly FrozenSet<KnownName> ReadableFilters = new[]
-    {
-        KnownName.FlateDecode,
-        KnownName.ASCIIHexDecode,
-        KnownName.ASCII85Decode,
-        KnownName.LZWDecode,
-        KnownName.RunLengthDecode,
-        KnownName.Crypt,
-    }.ToFrozenSet();
+    /// <summary>Recognises the filters decoded by the PDF/A content checker.</summary>
+    /// <param name="name">The parsed filter name.</param>
+    /// <returns>Whether the checker reads this filter's decoded operators.</returns>
+    internal static bool IsReadableFilter(KnownName name) =>
+        name is KnownName.FlateDecode or KnownName.ASCIIHexDecode or KnownName.ASCII85Decode
+            or KnownName.LZWDecode or KnownName.RunLengthDecode or KnownName.Crypt;
 
     /// <summary>Reads a content stream, or an array of them, once.</summary>
     /// <param name="walk">The walk.</param>
@@ -206,19 +201,26 @@ internal static class PdfAContentScan
     /// Crypt filter; any other filter, including the abbreviated names, gives it empty data.
     /// </summary>
     /// <param name="stream">The stream.</param>
+    /// <param name="cancellationToken">Cancels a long filter list.</param>
     /// <returns><see langword="true"/> when every filter is one veraPDF decodes.</returns>
-    private static bool HasReadableFilters(PdfStream stream)
+    private static bool HasReadableFilters(PdfStream stream, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var filter = stream.Dictionary.Get(KnownName.Filter);
         if (filter.TryGetName(out var name))
         {
-            return ReadableFilters.Contains(name.ToKnownName());
+            return IsReadableFilter(name.ToKnownName());
         }
 
         var filters = filter.AsArray();
         for (var i = 0; filters is not null && i < filters.Count; i++)
         {
-            if (!ReadableFilters.Contains(filters.GetName(i).ToKnownName()))
+            if (i % CancelInterval == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            if (!IsReadableFilter(filters.GetName(i).ToKnownName()))
             {
                 return false;
             }
@@ -233,7 +235,7 @@ internal static class PdfAContentScan
     /// <param name="cancellationToken">Cancels decoding.</param>
     private static void AppendDecoded(PdfStream stream, ref PooledBuffer buffer, CancellationToken cancellationToken)
     {
-        if (!HasReadableFilters(stream))
+        if (!HasReadableFilters(stream, cancellationToken))
         {
             return;
         }

@@ -9,6 +9,115 @@ namespace HyperPdfLibrary.Tests.Fonts;
 /// <summary>Checks compact resource decoding without network or generated files.</summary>
 public sealed class BinaryCMapReaderTests
 {
+    /// <summary>A supplementary scalar requires only its independently owned output table.</summary>
+    /// <param name="cancellationToken">Cancels parsing.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task Parse_SupplementaryMapping_AllocatesOnlyResult(CancellationToken cancellationToken)
+    {
+        const int TableLength = 2;
+        ReadOnlySpan<byte> data = [0, 0x83, 1, 0, 1, 0xD8, 0x40, 0xDC, 0];
+        _ = BinaryCMapReader.Parse(data, cancellationToken);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var expected = new int[TableLength];
+        var resultBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        before = GC.GetAllocatedBytesForCurrentThread();
+        var map = BinaryCMapReader.Parse(data, cancellationToken);
+        var actualBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        GC.KeepAlive(expected);
+
+        await Assert.That(map.Unicode[1]).IsEqualTo(0x20000);
+        await Assert.That(actualBytes).IsEqualTo(resultBytes);
+    }
+
+    /// <summary>Unused sixteen-byte Unicode strings consume no decoded-number storage.</summary>
+    /// <param name="cancellationToken">Cancels parsing.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task Parse_WideUnicodeMapping_DoesNotAllocate(CancellationToken cancellationToken)
+    {
+        ReadOnlySpan<byte> data = [0, 0x8F, 1, 0, 1,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
+        _ = BinaryCMapReader.Parse(data, cancellationToken);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var map = BinaryCMapReader.Parse(data, cancellationToken);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(map.Unicode.Length).IsEqualTo(0);
+        await Assert.That(allocated).IsEqualTo(0);
+    }
+
+    /// <summary>A signed CID decrease cannot wrap into a valid positive destination.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task Parse_NegativeCidDestination_ThrowsDomainException() =>
+        await Assert.That(static () => BinaryCMapReader.Parse([0, 0x41, 0x02, 0, 1, 0, 0, 0x05])).Throws<PdfException>();
+
+    /// <summary>A CID-only resource does not reserve an unused Unicode table.</summary>
+    /// <param name="cancellationToken">Cancels parsing.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task Parse_CidOnly_DoesNotAllocateUnicodeStorage(CancellationToken cancellationToken)
+    {
+        const long MaximumResultBytes = 1024;
+        ReadOnlySpan<byte> data = [0, 0x41, 1, 0, 0x41, 1];
+        _ = BinaryCMapReader.Parse(data, cancellationToken);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var map = BinaryCMapReader.Parse(data, cancellationToken);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(map.Ranges).IsEquivalentTo([new CidRange(0x41, 0x41, 1)]);
+        await Assert.That(map.Unicode.Length).IsEqualTo(0);
+        await Assert.That(allocated).IsLessThan(MaximumResultBytes);
+    }
+
+    /// <summary>An empty resource needs no mapping storage or result wrapper.</summary>
+    /// <param name="cancellationToken">Cancels parsing.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task Parse_Empty_DoesNotAllocate(CancellationToken cancellationToken)
+    {
+        _ = BinaryCMapReader.Parse([0], cancellationToken);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var map = BinaryCMapReader.Parse([0], cancellationToken);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(map.Unicode.Length).IsEqualTo(0);
+        await Assert.That(allocated).IsEqualTo(0);
+    }
+
+    /// <summary>Unused description metadata is validated without creating a string.</summary>
+    /// <param name="cancellationToken">Cancels parsing.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task Parse_Description_DoesNotAllocate(CancellationToken cancellationToken)
+    {
+        _ = BinaryCMapReader.Parse([0, 0xE0, 1, 0x41], cancellationToken);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var map = BinaryCMapReader.Parse([0, 0xE0, 1, 0x41], cancellationToken);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(map.Parent).IsEqualTo(string.Empty);
+        await Assert.That(allocated).IsEqualTo(0);
+    }
+
+    /// <summary>A later parse cannot overwrite a retained result's pooled-source data.</summary>
+    /// <param name="cancellationToken">Cancels parsing.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task Parse_SequentialResults_RemainIndependent(CancellationToken cancellationToken)
+    {
+        const int TableLength = 2;
+        var first = BinaryCMapReader.Parse([0, 0x81, 1, 0, 1, 0x30, 0x42], cancellationToken);
+        var next = BinaryCMapReader.Parse([0, 0x81, 1, 0, 1, 0x30, 0x43], cancellationToken);
+
+        await Assert.That(first.Unicode.Length).IsEqualTo(TableLength);
+        await Assert.That(first.Unicode[0]).IsEqualTo(0);
+        await Assert.That(first.Unicode[1]).IsEqualTo(0x3042);
+        await Assert.That(next.Unicode[1]).IsEqualTo(0x3043);
+    }
+
     /// <summary>Decodes two differential CID entries.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -90,7 +199,7 @@ public sealed class BinaryCMapReaderTests
     public async Task CancelledFallbackPreservesMappings()
     {
         int[] values = [0, 0];
-        List<CidRange> ranges = [new(0x41, 0x41, 1)];
+        CidRange[] ranges = [new(0x41, 0x41, 1)];
         using var source = new CancellationTokenSource();
         await source.CancelAsync();
 

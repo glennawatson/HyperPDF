@@ -84,6 +84,9 @@ var build = await ScriptProcess.RunAsync(
         "-m:1",
         "/nr:false",
         "/p:UseSharedCompilation=false",
+        "-v",
+        "q",
+        "-clp:ErrorsOnly",
         "--nologo"],
     root,
     token);

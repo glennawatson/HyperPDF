@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 
@@ -22,18 +21,6 @@ internal static class PdfAColorSpaces
 
     /// <summary>How many names a colour space may refer through before the chain is treated as broken.</summary>
     private const int MaxNameChain = 16;
-
-    /// <summary>The colour space families, other than Pattern and CalCMYK, that veraPDF accepts in an array.</summary>
-    private static readonly FrozenSet<KnownName> Families = new[]
-    {
-        KnownName.CalGray,
-        KnownName.CalRGB,
-        KnownName.Lab,
-        KnownName.ICCBased,
-        KnownName.Separation,
-        KnownName.DeviceN,
-        KnownName.Indexed,
-    }.ToFrozenSet();
 
     /// <summary>Gets the Default colour space that replaces a device space in a resource dictionary.</summary>
     /// <param name="walk">The walk.</param>
@@ -66,20 +53,33 @@ internal static class PdfAColorSpaces
 
     /// <summary>Determines whether a pattern resource is a pattern veraPDF accepts.</summary>
     /// <param name="value">The resolved resource.</param>
+    /// <param name="cancellationToken">Cancels resource traversal.</param>
     /// <returns><see langword="true"/> for the Pattern space, a pattern colour space array, or a tiling or shading pattern.</returns>
-    internal static bool IsPattern(PdfValue value)
+    /// <exception cref="OperationCanceledException">Traversal was cancelled.</exception>
+    internal static bool IsPattern(PdfValue value, CancellationToken cancellationToken)
     {
-        if (value.IsName(KnownName.Pattern))
+        for (var depth = 0; depth < MaxNameChain; depth++)
         {
-            return true;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (value.IsName(KnownName.Pattern))
+            {
+                return true;
+            }
+
+            if (value.AsArray() is not { Count: > 0 } array)
+            {
+                return value.AsDictionary() is { } dictionary && dictionary.Get(KnownName.PatternType).AsInteger(0) is TilingPattern or ShadingPattern;
+            }
+
+            if (array.Count != 1)
+            {
+                return array.Get(0).IsName(KnownName.Pattern);
+            }
+
+            value = array.Get(0);
         }
 
-        if (value.AsArray() is { Count: > 0 } array)
-        {
-            return array.Count == 1 ? IsPattern(array.Get(0)) : array.Get(0).IsName(KnownName.Pattern);
-        }
-
-        return value.AsDictionary() is { } dictionary && dictionary.Get(KnownName.PatternType).AsInteger(0) is TilingPattern or ShadingPattern;
+        return false;
     }
 
     /// <summary>Resolves a colour space name through a resource dictionary, following at most a few names.</summary>
@@ -89,8 +89,10 @@ internal static class PdfAColorSpaces
     /// <param name="wasDefault">Whether Default spaces were already applied.</param>
     /// <param name="depth">How many names were followed.</param>
     /// <returns>The kind of colour space.</returns>
+    /// <exception cref="OperationCanceledException">Traversal was cancelled.</exception>
     private static PdfAColorSpaceKind FromResource(PdfAGraphicsWalk walk, PdfDictionary? resources, PdfName name, bool wasDefault, int depth)
     {
+        walk.Context.CancellationToken.ThrowIfCancellationRequested();
         if (depth > MaxNameChain)
         {
             return PdfAColorSpaceKind.Invalid;
@@ -109,8 +111,15 @@ internal static class PdfAColorSpaces
     /// <param name="wasDefault">Whether Default spaces were already applied.</param>
     /// <param name="depth">How many names were followed.</param>
     /// <returns>The kind of colour space.</returns>
+    /// <exception cref="OperationCanceledException">Traversal was cancelled.</exception>
     private static PdfAColorSpaceKind FromValue(PdfAGraphicsWalk walk, PdfDictionary? resources, PdfValue value, bool wasDefault, int depth)
     {
+        walk.Context.CancellationToken.ThrowIfCancellationRequested();
+        if (depth > MaxNameChain)
+        {
+            return PdfAColorSpaceKind.Invalid;
+        }
+
         if (value.TryGetName(out var name))
         {
             return FromName(walk, resources, name, wasDefault, depth);
@@ -142,7 +151,7 @@ internal static class PdfAColorSpaces
 
         if (array.Count == 1)
         {
-            return FromValue(walk, resources, array.Get(0), wasDefault, depth);
+            return FromValue(walk, resources, array.Get(0), wasDefault, depth + 1);
         }
 
         var family = array.Get(0).AsName();
@@ -155,7 +164,9 @@ internal static class PdfAColorSpaces
     private static PdfAColorSpaceKind FamilyKind(PdfName family) => family.ToKnownName() switch
     {
         KnownName.Pattern => PdfAColorSpaceKind.Pattern,
-        _ => Families.Contains(family.ToKnownName()) ? PdfAColorSpaceKind.Other : PdfAColorSpaceKind.Invalid,
+        KnownName.CalGray or KnownName.CalRGB or KnownName.Lab or KnownName.ICCBased
+            or KnownName.Separation or KnownName.DeviceN or KnownName.Indexed => PdfAColorSpaceKind.Other,
+        _ => PdfAColorSpaceKind.Invalid,
     };
 
     /// <summary>Classifies a colour space name: a Default replacement, a device space, the Pattern space, or another resource.</summary>

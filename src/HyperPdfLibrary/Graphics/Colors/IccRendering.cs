@@ -16,7 +16,7 @@ internal readonly record struct IccRendering(IccIntent Intent, bool Compensate)
     /// Gets the rendering of the initial graphics state: relative colorimetric (ISO 32000-2 Table 51) with the
     /// compensation /Default gives.
     /// </summary>
-    internal static IccRendering Default { get; } = From(IccIntent.RelativeColorimetric, BlackPointCompensationMode.Default);
+    internal static IccRendering Default => From(IccIntent.RelativeColorimetric, BlackPointCompensationMode.Default);
 
     /// <summary>Gets the index of this rendering, from 0 to <see cref="Count"/> - 1.</summary>
     internal int Slot => ((int)Intent << 1) | (Compensate ? 1 : 0);

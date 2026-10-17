@@ -32,12 +32,12 @@ internal static class PdfSignatureObjects
     /// <param name="document">The document.</param>
     /// <param name="transaction">The open edit.</param>
     /// <param name="plan">The plan.</param>
-    /// <param name="capacity">The room reserved for the signature value, in bytes.</param>
+    /// <param name="contents">The workspace-owned zero-filled reservation.</param>
     /// <returns>The object ids of the signature and its widget.</returns>
     /// <exception cref="PdfSigningRefusedException">The page cannot take the widget.</exception>
-    internal static PdfCreatedSignature Create(PdfDocument document, PdfEditTransaction transaction, PdfSigningPlan plan, int capacity)
+    internal static PdfCreatedSignature Create(PdfDocument document, PdfEditTransaction transaction, PdfSigningPlan plan, in PdfSignatureContents contents)
     {
-        var dictionary = PdfSignatureDictionaryBuilder.Build(document, plan, capacity);
+        var dictionary = PdfSignatureDictionaryBuilder.Build(document, plan, contents);
         var signature = transaction.Add(PdfValue.FromDictionary(dictionary));
         var form = plan.Appearance.IsVisible ? PdfSignatureAppearances.Add(document, transaction, plan) : default;
         var widget = plan.Field is null

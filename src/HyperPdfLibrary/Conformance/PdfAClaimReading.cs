@@ -17,7 +17,7 @@ internal static class PdfAClaimReading
     internal static int ReadPart(PdfObjectStore store)
     {
         var packet = store.Catalog.GetStream(KnownName.Metadata).DecodeOrEmpty();
-        return packet.Length == 0 ? 0 : XmpParser.Parse(packet).PdfAPart ?? 0;
+        return packet.Length == 0 ? 0 : XmpParser.Parse(packet, CancellationToken.None).PdfAPart ?? 0;
     }
 
     /// <summary>Determines whether the catalog's XMP claims PDF/A (<c>pdfaid:part</c>) or PDF/UA (<c>pdfuaid:part</c>).</summary>
@@ -31,7 +31,7 @@ internal static class PdfAClaimReading
             return false;
         }
 
-        var xmp = XmpParser.Parse(packet);
+        var xmp = XmpParser.Parse(packet, CancellationToken.None);
         return xmp.PdfAPart is not null || xmp.PdfUaPart is not null;
     }
 
@@ -41,6 +41,6 @@ internal static class PdfAClaimReading
     internal static PdfAClaim? ReadClaim(PdfObjectStore store)
     {
         var packet = store.Catalog.GetStream(KnownName.Metadata).DecodeOrEmpty();
-        return packet.Length == 0 ? null : PdfDocumentConformance.ReadPdfAClaim(XmpParser.Parse(packet));
+        return packet.Length == 0 ? null : PdfDocumentConformance.ReadPdfAClaim(XmpParser.Parse(packet, CancellationToken.None));
     }
 }

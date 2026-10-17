@@ -50,18 +50,18 @@ public static class Program
         return 0;
     }
 
-    /// <summary>Traces benchmark allocations unless a CPU profiler was requested.</summary>
+    /// <summary>Applies allocation tracing to selected runtime jobs unless a CPU profiler was requested.</summary>
     /// <param name="args">The arguments.</param>
     /// <returns>The configuration.</returns>
     private static ManualConfig CreateConfig(string[] args)
     {
-        var job = new Job("AllocationTrace");
+        var config = ManualConfig.Create(DefaultConfig.Instance);
         if (Array.IndexOf(args, "--profiler") < 0)
         {
-            job = job.WithEnvironmentVariables(AllocationTrace(ArtifactsPath(args)));
+            _ = config.AddJob(new Job().WithEnvironmentVariables(AllocationTrace(ArtifactsPath(args))).AsMutator());
         }
 
-        return DefaultConfig.Instance.AddJob(job);
+        return config;
     }
 
     /// <summary>

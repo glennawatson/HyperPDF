@@ -412,7 +412,7 @@ internal sealed class ImageRecoder
 
             var shape = new PdfJpxImage(target.Width, target.Height, target.Components, ByteBits, ReadOnlyMemory<byte>.Empty);
             var jpxOptions = new PdfJpxOptions { Mode = job.Lossy ? PdfJpxMode.Lossy : PdfJpxMode.Lossless, Quality = _options.JpegQuality };
-            JpxEncoder.Encode(shape, source, jpxOptions, ref file, _cancellationToken);
+            JpxEncoder.Encode(shape, source, jpxOptions, ref file, _scratchStore.ScratchPools, _cancellationToken);
             return file.Length >= job.Image.RawLength ? ImageOutcome.Unchanged : JpxOutcome(job, target, ref file);
         }
         finally

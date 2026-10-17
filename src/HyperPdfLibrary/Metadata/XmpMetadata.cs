@@ -2,8 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -18,7 +18,7 @@ namespace HyperPdfLibrary.Metadata;
 /// <param name="Properties">The property values by key. Arrays list their items in order; a language alternative lists its default first.</param>
 /// <param name="IsWellFormed">Whether the packet parsed as XML to the end. A damaged packet keeps the properties read before the damage.</param>
 [DebuggerDisplay("XmpMetadata: {Title}")]
-public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, FrozenDictionary<string, ImmutableArray<string>> Properties, bool IsWellFormed)
+public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, ReadOnlyDictionary<string, ImmutableArray<string>> Properties, bool IsWellFormed)
 {
     /// <summary>The Dublin Core namespace.</summary>
     public static readonly string DublinCoreNamespace = "http://purl.org/dc/elements/1.1/";
@@ -63,7 +63,7 @@ public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, FrozenDictionar
     private static readonly string[] PartialDateFormats = ["yyyy", "yyyy-MM"];
 
     /// <summary>Gets an empty well-formed packet.</summary>
-    public static XmpMetadata Empty { get; } = new([], FrozenDictionary<string, ImmutableArray<string>>.Empty, true);
+    public static XmpMetadata Empty { get; } = new([], new XmpPropertyDictionary([with(StringComparer.Ordinal)]), true);
 
     /// <summary>Gets the title (the default language).</summary>
     public string? Title => GetValue(DublinCoreNamespace, "title");
@@ -169,7 +169,8 @@ public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, FrozenDictionar
     private bool TryGetProperty(string namespaceUri, string localName, out ImmutableArray<string> values)
     {
         var length = namespaceUri.Length + localName.Length + KeyDelimiters;
-        if (length <= StackKeyChars && Properties.TryGetAlternateLookup<ReadOnlySpan<char>>(out var lookup))
+        if (length <= StackKeyChars && Properties is XmpPropertyDictionary parsed
+            && parsed.Lookup.TryGetAlternateLookup<ReadOnlySpan<char>>(out var lookup))
         {
             Span<char> key = stackalloc char[length];
             key[0] = '{';

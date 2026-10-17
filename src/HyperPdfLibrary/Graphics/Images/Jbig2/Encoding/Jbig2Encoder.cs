@@ -70,17 +70,16 @@ public static class Jbig2Encoder
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     public static Jbig2EncodedImage Encode(ReadOnlySpan<byte> rows, int width, int height, Jbig2EncodeOptions options, CancellationToken cancellationToken)
     {
-        var data = default(PooledBuffer);
-        var globals = default(PooledBuffer);
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(options);
+        var pools = options.Mode is Jbig2EncodeMode.GenericRegionMmr or Jbig2EncodeMode.Smallest ? new ScratchPools() : null;
         try
         {
-            var mode = Encode(rows, width, height, options, ref data, ref globals, cancellationToken);
-            return new(data.ToArray(), globals.Length == 0 ? null : globals.ToArray(), mode, mode != Jbig2EncodeMode.LossySymbolMerging);
+            return EncodeBytes(rows, new(new(width, height), options), pools, cancellationToken);
         }
         finally
         {
-            data.Dispose();
-            globals.Dispose();
+            pools?.Close();
         }
     }
 
@@ -105,21 +104,16 @@ public static class Jbig2Encoder
         ref PooledBuffer globals,
         CancellationToken cancellationToken)
     {
-        Validate(rows, width, height, options);
-        data.Length = 0;
-        globals.Length = 0;
-        var ink = default(PooledBuffer);
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(options);
+        var pools = options.Mode is Jbig2EncodeMode.GenericRegionMmr or Jbig2EncodeMode.Smallest ? new ScratchPools() : null;
         try
         {
-            Jbig2Ink.FromSamples(rows, width, height, ref ink);
-            var size = new Jbig2Size(width, height);
-            return options.Mode == Jbig2EncodeMode.Smallest
-                ? EncodeSmallest(ink.WrittenSpan, size, options, ref data, ref globals, cancellationToken)
-                : EncodeMode(options.Mode, ink.WrittenSpan, size, options, ref data, ref globals, cancellationToken);
+            return EncodeInto(rows, new(new(width, height), options), ref data, ref globals, pools, cancellationToken);
         }
         finally
         {
-            ink.Dispose();
+            pools?.Close();
         }
     }
 
@@ -207,6 +201,63 @@ public static class Jbig2Encoder
         return Jbig2SharedEncoder.Encode(pages, options, ref globals, ref data, pageLengths, cancellationToken);
     }
 
+    /// <summary>Encodes an image using its caller's reusable MMR scratch.</summary>
+    /// <param name="rows">The packed rows, 0 for black.</param>
+    /// <param name="input">The page size and settings.</param>
+    /// <param name="pools">The original caller's MMR line-buffer owner.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    /// <returns>The detached image bytes and selected mode.</returns>
+    internal static Jbig2EncodedImage EncodeBytes(ReadOnlySpan<byte> rows, in Jbig2EncodingInput input, ScratchPools? pools, CancellationToken cancellationToken)
+    {
+        var data = default(PooledBuffer);
+        var globals = default(PooledBuffer);
+        try
+        {
+            var mode = EncodeInto(rows, input, ref data, ref globals, pools, cancellationToken);
+            return new(data.ToArray(), globals.Length == 0 ? null : globals.ToArray(), mode, mode != Jbig2EncodeMode.LossySymbolMerging);
+        }
+        finally
+        {
+            data.Dispose();
+            globals.Dispose();
+        }
+    }
+
+    /// <summary>Encodes into pooled buffers using its caller's reusable MMR scratch.</summary>
+    /// <param name="rows">The packed rows, 0 for black.</param>
+    /// <param name="input">The page size and settings.</param>
+    /// <param name="data">Receives the image stream, replacing its contents.</param>
+    /// <param name="globals">Receives the globals, replacing their contents.</param>
+    /// <param name="pools">The original caller's MMR line-buffer owner.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    /// <returns>The selected coding mode.</returns>
+    internal static Jbig2EncodeMode EncodeInto(
+        ReadOnlySpan<byte> rows,
+        in Jbig2EncodingInput input,
+        ref PooledBuffer data,
+        ref PooledBuffer globals,
+        ScratchPools? pools,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var (size, options) = input;
+        Validate(rows, size.Width, size.Height, options);
+        data.Length = 0;
+        globals.Length = 0;
+        var ink = default(PooledBuffer);
+        try
+        {
+            Jbig2Ink.FromSamples(rows, size.Width, size.Height, ref ink);
+            return options.Mode == Jbig2EncodeMode.Smallest
+                ? EncodeSmallest(ink.WrittenSpan, input, ref data, ref globals, pools, cancellationToken)
+                : EncodeMode(options.Mode, ink.WrittenSpan, input, ref data, ref globals, pools, cancellationToken);
+        }
+        finally
+        {
+            ink.Dispose();
+        }
+    }
+
     /// <summary>Checks the arguments.</summary>
     /// <param name="rows">The rows.</param>
     /// <param name="width">The width.</param>
@@ -228,28 +279,28 @@ public static class Jbig2Encoder
 
     /// <summary>Tries each lossless coding and keeps the smallest.</summary>
     /// <param name="ink">The packed rows, 1 for black.</param>
-    /// <param name="size">The page size.</param>
-    /// <param name="options">The options.</param>
+    /// <param name="input">The page size and settings.</param>
     /// <param name="data">Receives the smallest coding's page data.</param>
     /// <param name="globals">Receives the smallest coding's globals.</param>
+    /// <param name="pools">The caller's MMR line-buffer owner.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
     /// <returns>The mode of the smallest coding.</returns>
     private static Jbig2EncodeMode EncodeSmallest(
         ReadOnlySpan<byte> ink,
-        Jbig2Size size,
-        Jbig2EncodeOptions options,
+        in Jbig2EncodingInput input,
         ref PooledBuffer data,
         ref PooledBuffer globals,
+        ScratchPools? pools,
         CancellationToken cancellationToken)
     {
-        var best = EncodeMode(Jbig2EncodeMode.GenericRegion, ink, size, options, ref data, ref globals, cancellationToken);
+        var best = EncodeMode(Jbig2EncodeMode.GenericRegion, ink, input, ref data, ref globals, pools, cancellationToken);
         foreach (var mode in (ReadOnlySpan<Jbig2EncodeMode>)[Jbig2EncodeMode.GenericRegionMmr, Jbig2EncodeMode.SymbolText, Jbig2EncodeMode.SymbolTextRefined])
         {
             var page = new PooledBuffer(Math.Max(MinimumOutput, ink.Length / OutputDivisor));
             var extra = default(PooledBuffer);
             try
             {
-                if (!Jbig2PageEncoder.TryEncode(mode, ink, size, options, ref page, ref extra, cancellationToken) || page.Length + extra.Length >= data.Length + globals.Length)
+                if (!Jbig2PageEncoder.TryEncode(mode, ink, input, ref page, ref extra, pools, cancellationToken) || page.Length + extra.Length >= data.Length + globals.Length)
                 {
                     continue;
                 }
@@ -271,27 +322,27 @@ public static class Jbig2Encoder
     /// <summary>Encodes with one mode, falling back to a generic region when the mode does not suit the page.</summary>
     /// <param name="mode">The mode, not <see cref="Jbig2EncodeMode.Smallest"/>.</param>
     /// <param name="ink">The packed rows, 1 for black.</param>
-    /// <param name="size">The page size.</param>
-    /// <param name="options">The options.</param>
+    /// <param name="input">The page size and settings.</param>
     /// <param name="data">Receives the page data.</param>
     /// <param name="globals">Receives the globals.</param>
+    /// <param name="pools">The caller's MMR line-buffer owner.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
     /// <returns>The mode used.</returns>
     private static Jbig2EncodeMode EncodeMode(
         Jbig2EncodeMode mode,
         ReadOnlySpan<byte> ink,
-        Jbig2Size size,
-        Jbig2EncodeOptions options,
+        in Jbig2EncodingInput input,
         ref PooledBuffer data,
         ref PooledBuffer globals,
+        ScratchPools? pools,
         CancellationToken cancellationToken)
     {
-        if (Jbig2PageEncoder.TryEncode(mode, ink, size, options, ref data, ref globals, cancellationToken))
+        if (Jbig2PageEncoder.TryEncode(mode, ink, input, ref data, ref globals, pools, cancellationToken))
         {
             return mode;
         }
 
-        _ = Jbig2PageEncoder.TryEncode(Jbig2EncodeMode.GenericRegion, ink, size, options, ref data, ref globals, cancellationToken);
+        _ = Jbig2PageEncoder.EncodeArithmetic(ink, input.Size, input.Options, ref data, cancellationToken);
         return Jbig2EncodeMode.GenericRegion;
     }
 }

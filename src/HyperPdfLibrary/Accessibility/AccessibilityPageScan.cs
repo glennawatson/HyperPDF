@@ -55,6 +55,20 @@ internal static class AccessibilityPageScan
         return new(pageIndex, reachable, tabs, untagged, artifacts, untaggedGraphics);
     }
 
+    /// <summary>Determines which accessibility checks apply without decoding an annotation's subtype.</summary>
+    /// <param name="annotation">The annotation.</param>
+    /// <returns>The annotation kind.</returns>
+    internal static AnnotationKind Classify(PdfDictionary annotation) =>
+        (annotation.GetInt32(KnownName.F, 0) & (HiddenFlag | NoViewFlag)) != 0
+            ? AnnotationKind.Skipped
+            : annotation.GetName(KnownName.Subtype).ToKnownName() switch
+        {
+            KnownName.Popup or KnownName.PrinterMark or KnownName.TrapNet => AnnotationKind.Skipped,
+            KnownName.Link => AnnotationKind.Link,
+            KnownName.Widget => AnnotationKind.Widget,
+            _ => AnnotationKind.Other,
+        };
+
     /// <summary>Determines whether a page with reachable annotations has a tab order the claim does not allow.</summary>
     /// <param name="page">The page's dictionary, whose <c>/Tabs</c> value is read.</param>
     /// <param name="followsStructure">Whether <c>/Tabs</c> is <c>/S</c>.</param>
@@ -107,21 +121,6 @@ internal static class AccessibilityPageScan
         }
 
         return false;
-    }
-
-    /// <summary>Determines whether an annotation is one a reader can reach, and which checks apply to it.</summary>
-    /// <param name="annotation">The annotation.</param>
-    /// <returns>The kind.</returns>
-    private static AnnotationKind Classify(PdfDictionary annotation)
-    {
-        var hidden = (annotation.GetInt32(KnownName.F, 0) & (HiddenFlag | NoViewFlag)) != 0;
-        return hidden ? AnnotationKind.Skipped : annotation.NameText("Subtype") switch
-        {
-            "Popup" or "PrinterMark" or "TrapNet" => AnnotationKind.Skipped,
-            "Link" => AnnotationKind.Link,
-            "Widget" => AnnotationKind.Widget,
-            _ => AnnotationKind.Other,
-        };
     }
 
     /// <summary>

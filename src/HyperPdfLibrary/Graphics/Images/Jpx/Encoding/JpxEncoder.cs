@@ -20,12 +20,14 @@ internal static class JpxEncoder
     /// <param name="samples">The interleaved samples.</param>
     /// <param name="options">The options.</param>
     /// <param name="output">Receives the file; bytes already in it stay.</param>
+    /// <param name="pools">The caller's reusable storage.</param>
     /// <param name="cancellationToken">Cancels between code-blocks and tiles.</param>
     /// <exception cref="ArgumentOutOfRangeException">An image or option value is out of range.</exception>
     /// <exception cref="ArgumentException">The samples do not fill the image, or the colour description does not fit it.</exception>
     /// <exception cref="InvalidOperationException">The samples need more magnitude bit-planes than a codestream can declare, or a tile is too finely divided.</exception>
-    internal static void Encode(PdfJpxImage image, ReadOnlySpan<byte> samples, PdfJpxOptions options, ref PooledBuffer output, CancellationToken cancellationToken)
+    internal static void Encode(PdfJpxImage image, ReadOnlySpan<byte> samples, PdfJpxOptions options, ref PooledBuffer output, ScratchPools pools, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         image.ValidateShape();
         if (samples.Length < (long)image.Width * image.Height * image.Components * image.BytesPerSample)
         {
@@ -43,7 +45,7 @@ internal static class JpxEncoder
         {
             // Another guard bit gives every sub-band one more magnitude bit-plane.
             output.Length = start;
-            if (EncodeWithGuardBits(image, samples, options.WriteFileFormat, settings with { GuardBits = guard }, ref output, cancellationToken))
+            if (EncodeWithGuardBits(image, samples, options.WriteFileFormat, settings with { GuardBits = guard }, ref output, pools, cancellationToken))
             {
                 return;
             }
@@ -58,10 +60,18 @@ internal static class JpxEncoder
     /// <param name="wrap">Whether to write the JP2 boxes.</param>
     /// <param name="settings">The coding parameters.</param>
     /// <param name="output">The file.</param>
+    /// <param name="pools">The caller's reusable storage.</param>
     /// <param name="cancellationToken">Cancels between code-blocks and tiles.</param>
     /// <returns><see langword="false"/> when a code-block has more bit-planes than its sub-band allows.</returns>
     /// <exception cref="InvalidOperationException">A segment the encoder wrote is invalid, or a tile is too finely divided.</exception>
-    private static bool EncodeWithGuardBits(PdfJpxImage image, ReadOnlySpan<byte> samples, bool wrap, JpxEncodeSettings settings, ref PooledBuffer output, CancellationToken cancellationToken)
+    private static bool EncodeWithGuardBits(
+        PdfJpxImage image,
+        ReadOnlySpan<byte> samples,
+        bool wrap,
+        JpxEncodeSettings settings,
+        ref PooledBuffer output,
+        ScratchPools pools,
+        CancellationToken cancellationToken)
     {
         var box = 0;
         if (wrap)
@@ -79,12 +89,12 @@ internal static class JpxEncoder
         JpxEncodeHeaders.WriteSegment(ref output, JpxMarkers.CodingStyle, cod);
         JpxEncodeHeaders.WriteSegment(ref output, JpxMarkers.Quantization, qcd);
         var geometry = JpxGeometry.Read(siz) ?? throw new InvalidOperationException("The SIZ segment the encoder wrote is invalid.");
-        using var tiles = new JpxTileEncoder(settings, geometry, ResolveParameters(settings, cod, qcd), quantization);
+        using var tiles = JpxTileEncoding.Create(settings, geometry, ResolveParameters(settings, cod, qcd), quantization, pools);
         var count = settings.TilesAcross * settings.TilesDown;
         for (var tile = 0; tile < count; tile++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!tiles.Encode(samples, tile, ref output, cancellationToken))
+            if (!JpxTileEncoding.Encode(tiles, samples, tile, ref output, cancellationToken))
             {
                 return false;
             }

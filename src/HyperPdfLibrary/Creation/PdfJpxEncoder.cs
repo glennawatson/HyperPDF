@@ -46,15 +46,18 @@ public static class PdfJpxEncoder
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(options);
+        cancellationToken.ThrowIfCancellationRequested();
+        var pools = new ScratchPools();
         var output = new PooledBuffer(InitialCapacity(image));
         try
         {
-            JpxEncoder.Encode(image, image.Samples.Span, options, ref output, cancellationToken);
+            JpxEncoder.Encode(image, image.Samples.Span, options, ref output, pools, cancellationToken);
             return output.ToArray();
         }
         finally
         {
             output.Dispose();
+            pools.Close();
         }
     }
 

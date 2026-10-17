@@ -95,10 +95,10 @@ internal static class BilevelEncoder
 
             // The more common bit value is coded as white, as fax codes favour long white runs.
             var blackIs1 = CountOnes(rows) << 1 < (long)rows.Length * ByteBits;
-            var faxWins = codings.UseFax && TryFax(dictionary, rows, width, height, blackIs1, flate.Length, ref fax);
+            var faxWins = codings.UseFax && TryFax(rows, size, blackIs1, flate.Length, ref fax, scratchPools, cancellationToken);
             var best = faxWins ? fax.Length : flate.Length;
             var limit = Math.Min(best, storedLength);
-            var jbig2 = codings.Jbig2 == PdfJbig2Mode.Off ? null : BilevelJbig2.Choose(rows, width, height, codings.Jbig2, limit, cancellationToken);
+            var jbig2 = codings.Jbig2 == PdfJbig2Mode.Off ? null : BilevelJbig2.Choose(rows, width, height, codings.Jbig2, limit, scratchPools, cancellationToken);
             if (jbig2 is not null)
             {
                 var coding = jbig2.IsLossless ? "JBIG2" : "JBIG2 with lossy symbol merging";
@@ -141,17 +141,17 @@ internal static class BilevelEncoder
     }
 
     /// <summary>Encodes Group 4 and compares it with the Flate size.</summary>
-    /// <param name="dictionary">The image dictionary.</param>
     /// <param name="rows">The packed rows.</param>
-    /// <param name="width">The width.</param>
-    /// <param name="height">The height.</param>
+    /// <param name="size">The image dimensions.</param>
     /// <param name="blackIs1">Whether 1 bits are black.</param>
     /// <param name="flateLength">The Flate size.</param>
     /// <param name="fax">Receives the Group 4 data.</param>
+    /// <param name="scratchPools">The original caller's line-buffer owner.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
     /// <returns><see langword="true"/> when Group 4 is no larger than Flate.</returns>
-    private static bool TryFax(PdfDictionary dictionary, ReadOnlySpan<byte> rows, int width, int height, bool blackIs1, int flateLength, ref PooledBuffer fax)
+    private static bool TryFax(ReadOnlySpan<byte> rows, PixelSize size, bool blackIs1, int flateLength, ref PooledBuffer fax, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
-        CcittEncoder.EncodeGroup4(rows, width, height, blackIs1, ref fax, dictionary.Owner?.ScratchPools ?? new ScratchPools());
+        CcittEncoder.EncodeGroup4(rows, size.Width, size.Height, blackIs1, ref fax, scratchPools, cancellationToken);
         return fax.Length <= flateLength;
     }
 

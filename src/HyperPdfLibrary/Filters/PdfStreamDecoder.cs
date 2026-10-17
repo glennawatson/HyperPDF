@@ -262,7 +262,7 @@ internal static class PdfStreamDecoder
     private static FilterResult ApplyDictionaryCoder(KnownName known, ReadOnlySpan<byte> input, PdfDictionary? parms, ref PooledBuffer output, in DecodeSource source)
     {
         var clean = known is KnownName.FlateDecode or KnownName.Fl
-            ? FlateFilter.TryDecode(input, ref output, source.CancellationToken)
+            ? FlateFilter.TryDecode(input, ref output, input.IsEmpty ? null : source.Context?.ScratchPools, source.CancellationToken)
             : LzwFilter.TryDecode(input, parms?.GetInt32(KnownName.EarlyChange, 1) ?? 1, ref output, source.CancellationToken);
         PredictorFilter.Apply(parms, ref output, source.CancellationToken);
         return clean ? FilterResult.Applied : FilterResult.Damaged;

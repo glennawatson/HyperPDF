@@ -21,6 +21,9 @@ internal sealed class GlyphBuffer : IDisposable
     /// <summary>The positions, parallel to the glyphs; empty until positioning starts.</summary>
     private GlyphPosition[] _positions = [];
 
+    /// <summary>The identifiers assigned while this buffer's run is shaped.</summary>
+    private int _ligatureIds;
+
     /// <summary>Initializes a new instance of the <see cref="GlyphBuffer"/> class.</summary>
     /// <param name="capacity">The number of glyphs to make room for.</param>
     internal GlyphBuffer(int capacity) => _items = ArrayPool<GlyphRecord>.Shared.Rent(Math.Max(capacity, 1));
@@ -37,6 +40,9 @@ internal sealed class GlyphBuffer : IDisposable
     /// <summary>Gets the positions of the glyphs.</summary>
     internal Span<GlyphPosition> Positions => _positions.AsSpan(0, Count);
 
+    /// <summary>Gets the identifier state passed explicitly to ligature substitution.</summary>
+    internal ref int LigatureIds => ref _ligatureIds;
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -51,6 +57,7 @@ internal sealed class GlyphBuffer : IDisposable
     internal void Clear(int capacity)
     {
         Count = 0;
+        _ligatureIds = 0;
         if (_items.Length >= capacity)
         {
             return;

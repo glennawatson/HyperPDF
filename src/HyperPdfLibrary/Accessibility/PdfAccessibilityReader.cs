@@ -24,11 +24,13 @@ internal static class PdfAccessibilityReader
     {
         ArgumentNullException.ThrowIfNull(document);
         ObjectDisposedException.ThrowIf(document.IsDisposed, document);
+        cancellation.ThrowIfCancellationRequested();
 
         // An open transaction can replace objects again before it commits.
-        return StoreTransactions.GetCurrentTransaction(document.Objects) is null
-            ? PdfReadSnapshots.Read(document, PdfReadKind.AccessibilityReport, Build, cancellation)
-            : Build(document, cancellation);
+        return StoreTransactions.GetCurrentTransaction(document.Objects) is not null
+            ? Build(document, cancellation)
+            : PdfReadSnapshots.GetCached<PdfAccessibilityReport>(document, PdfReadKind.AccessibilityReport)
+                ?? PdfReadSnapshots.Read(document, PdfReadKind.AccessibilityReport, Build, cancellation);
     }
 
     /// <summary>Builds a report for the current document objects.</summary>
@@ -57,7 +59,7 @@ internal static class PdfAccessibilityReader
     /// <returns>The independently owned report.</returns>
     private static PdfAccessibilityReport Build(PdfDocument document, AccessibilityFindings findings, CancellationToken cancellation)
     {
-        var metadata = AccessibilityMetadata.Get(document);
+        var metadata = AccessibilityMetadataReader.Read(PdfDocumentMetadata.ReadOwnerXmp(document, document.Catalog, cancellation));
         var tree = PdfDocumentTagged.GetStructureTree(document);
         var markInfo = document.Catalog.GetDictionary(KnownName.MarkInfo);
         var part = metadata.Part;

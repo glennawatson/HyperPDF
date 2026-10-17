@@ -15,10 +15,10 @@ namespace HyperPdfLibrary.Editing;
 internal readonly record struct PdfFlattenDecision(PdfFlattenAction Action, bool HasReason, PdfFlattenSkipReason Reason)
 {
     /// <summary>Gets the decision to draw the annotation.</summary>
-    internal static PdfFlattenDecision Draw { get; } = new(PdfFlattenAction.Draw, false, default);
+    internal static PdfFlattenDecision Draw => new(PdfFlattenAction.Draw, false, default);
 
     /// <summary>Gets the decision to leave an annotation alone that flattening was not asked to touch.</summary>
-    internal static PdfFlattenDecision OutOfScope { get; } = new(PdfFlattenAction.Keep, false, default);
+    internal static PdfFlattenDecision OutOfScope => new(PdfFlattenAction.Keep, false, default);
 
     /// <summary>Makes the decision to leave an annotation on the page.</summary>
     /// <param name="reason">Why it is not drawn.</param>

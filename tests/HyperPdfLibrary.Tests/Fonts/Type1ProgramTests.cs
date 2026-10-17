@@ -216,6 +216,22 @@ public sealed class Type1ProgramTests
     /// <summary>The commands the acute accent draws inside Aacute.</summary>
     private static readonly string[] OutlineAccent = ["M 150 650", "L 200 750", "Z"];
 
+    /// <summary>A rejected font does not retain decoded segments or allocate unused parse builders.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task TryParse_MissingCharStrings_DoesNotAllocate()
+    {
+        var encrypted = Encrypt([.. new byte[RandomPrefix], .. "/lenIV -1 def end"u8], EexecKey);
+        byte[] font = [.. "currentfile eexec\n"u8, .. encrypted];
+        _ = Type1Parser.TryParse(font, 0, out _);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var parsed = Type1Parser.TryParse(font, 0, out _);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(parsed).IsFalse();
+        await Assert.That(allocated).IsEqualTo(0);
+    }
+
     /// <summary>The binary font parses, with its matrix, box, encoding and names.</summary>
     /// <returns>A task.</returns>
     [Test]

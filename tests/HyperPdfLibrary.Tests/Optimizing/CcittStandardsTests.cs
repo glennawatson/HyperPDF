@@ -240,7 +240,7 @@ public sealed class CcittStandardsTests
         var output = default(PooledBuffer);
         try
         {
-            CcittEncoder.Encode(rows, width, options.Rows, options, ref output, new());
+            CcittEncoder.Encode(rows, width, options.Rows, options, ref output, new(), CancellationToken.None);
             return output.ToArray();
         }
         finally

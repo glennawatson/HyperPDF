@@ -10,4 +10,4 @@ namespace HyperPdfLibrary.Fonts.Generation;
 /// <param name="Codespaces">The codespace ranges in file order.</param>
 /// <param name="Ranges">The CID ranges in file order.</param>
 /// <param name="Unicode">Single-character CID-to-Unicode values.</param>
-internal sealed record BinaryCMapData(string Parent, bool Vertical, List<Codespace> Codespaces, List<CidRange> Ranges, int[] Unicode);
+internal readonly record struct BinaryCMapData(string Parent, bool Vertical, Codespace[] Codespaces, CidRange[] Ranges, int[] Unicode);

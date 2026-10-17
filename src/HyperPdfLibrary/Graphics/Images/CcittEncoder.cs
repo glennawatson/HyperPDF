@@ -51,10 +51,11 @@ internal static class CcittEncoder
     /// <param name="blackIs1">Whether 1 bits are black; otherwise 0 bits are.</param>
     /// <param name="output">Receives the encoded data.</param>
     /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels between rows.</param>
     /// <exception cref="ArgumentOutOfRangeException">The size is not positive or the rows are too short.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void EncodeGroup4(ReadOnlySpan<byte> rows, int width, int height, bool blackIs1, ref PooledBuffer output, ScratchPools scratchPools) =>
-        Encode(rows, width, height, new(-1, width, height, blackIs1, false, false, true), ref output, scratchPools);
+    internal static void EncodeGroup4(ReadOnlySpan<byte> rows, int width, int height, bool blackIs1, ref PooledBuffer output, ScratchPools scratchPools, CancellationToken cancellationToken) =>
+        Encode(rows, width, height, new(-1, width, height, blackIs1, false, false, true), ref output, scratchPools, cancellationToken);
 
     /// <summary>Encodes rows as CCITT data under the filter parameters.</summary>
     /// <param name="rows">The packed rows, most significant bit first, each <c>(width + 7) / 8</c> bytes.</param>
@@ -63,9 +64,11 @@ internal static class CcittEncoder
     /// <param name="parameters">The scheme (<c>K</c>) and options; the columns and rows in it are not used.</param>
     /// <param name="output">Receives the encoded data.</param>
     /// <param name="scratchPools">The bounded cache.</param>
+    /// <param name="cancellationToken">Cancels between rows.</param>
     /// <exception cref="ArgumentOutOfRangeException">The size is not positive or the rows are too short.</exception>
-    internal static void Encode(ReadOnlySpan<byte> rows, int width, int height, in CcittParameters parameters, ref PooledBuffer output, ScratchPools scratchPools)
+    internal static void Encode(ReadOnlySpan<byte> rows, int width, int height, in CcittParameters parameters, ref PooledBuffer output, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
         var stride = (width + BitMask) >> ByteShift;
@@ -83,6 +86,8 @@ internal static class CcittEncoder
             odd.Fill(width);
             for (var row = 0; row < height; row++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Rows alternate between the two buffers, so the previous row is always the reference.
                 var current = (row & 1) == 0 ? even : odd;
                 var reference = (row & 1) == 0 ? odd : even;

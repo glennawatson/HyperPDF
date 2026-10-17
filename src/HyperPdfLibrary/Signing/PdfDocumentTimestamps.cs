@@ -32,7 +32,8 @@ internal static class PdfDocumentTimestamps
         await PdfSigningEngine.PrefetchAsync(document, cancellationToken).ConfigureAwait(false);
         var plan = PlanFor(document, options);
         var withMac = PdfSigningMac.IsNeeded(document.Objects);
-        var capacity = PdfContentsSizing.RoundUp(PdfContentsSizing.TimestampSize(client) + ContainerOverhead + options.Headroom + (withMac ? PdfSigningMac.AttachedSize() + ContainerOverhead : 0));
+        var macAllowance = withMac ? PdfSigningMac.AttachedSize() + ContainerOverhead : 0;
+        var capacity = PdfContentsSizing.RoundUp((long)PdfContentsSizing.TimestampSize(client) + ContainerOverhead + options.Headroom + macAllowance);
         var needed = 0;
         using var workspace = PdfSigningWorkspace.Open(document);
         for (var attempt = 1; attempt <= PdfSigningEngine.MaxAttempts; attempt++)
@@ -41,10 +42,10 @@ internal static class PdfDocumentTimestamps
             var token = await client.TimestampAsync(Hash(prepared, options.TimestampDigest), options.TimestampDigest, cancellationToken).ConfigureAwait(false);
             if (prepared.Mac is { } mac)
             {
-                token = PdfSigningMac.Attach(mac, prepared.File, token);
+                token = PdfSigningMac.Attach(mac, prepared.File, token, prepared.ScratchPools, cancellationToken);
             }
 
-            if (PdfSigningEngine.TryFinish(prepared, token, attempt, out needed) is { } result)
+            if (PdfSigningEngine.TryFinish(prepared, token, attempt, out needed, cancellationToken) is { } result)
             {
                 return result;
             }
@@ -64,7 +65,7 @@ internal static class PdfDocumentTimestamps
     private static byte[] Hash(PdfPreparedSignature prepared, PdfDigestMethod digest)
     {
         Span<byte> hash = stackalloc byte[CmsDigests.MaxLength];
-        var length = prepared.File.HashSigned(PdfSigningDigests.ToCms(digest), hash);
+        var length = PdfSigningFileWriter.HashSigned(prepared.File, PdfSigningDigests.ToCms(digest), hash, prepared.ScratchPools, prepared.CancellationToken);
         return length == 0 ? throw new NotSupportedException($"This computer cannot compute the {PdfSigningDigests.DisplayName(digest)} digest.") : hash[..length].ToArray();
     }
 
