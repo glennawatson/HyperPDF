@@ -92,12 +92,13 @@ internal static class PdfSigningEngine
         var store = working.Objects;
         var workingPlan = OnCopy(working, plan);
         using var attempt = workspace.BeginAttempt("Sign");
-        var created = PdfSignatureObjects.Create(working, attempt.Transaction, workingPlan, capacity);
+        var contents = workspace.Reserve(capacity, cancellationToken);
+        var created = PdfSignatureObjects.Create(working, attempt.Transaction, workingPlan, contents);
         PdfSigningDeclarations.DeclareFor(working, plan.Format, plan.Digest, ellipticCurve, options.Timestamp is not null);
         var keys = PdfSigningMac.IsNeeded(store) ? PdfSigningMac.Keys(store) : null;
         var authCode = keys is null ? null : PdfSigningMac.AuthCode(store, created.Signature);
         var bytes = PdfIncrementalWriter.BuildSigningFile(store, authCode, out var updateStart, cancellationToken);
-        return new(PdfSigningFile.Prepare(bytes, updateStart, capacity), plan, keys, options, notes);
+        return new(PdfSigningFileWriter.Prepare(bytes, updateStart, capacity, cancellationToken), plan, keys, options, notes, workspace.ScratchPools, cancellationToken);
     }
 
     /// <summary>Gets the room to reserve for the signature value.</summary>
@@ -121,7 +122,7 @@ internal static class PdfSigningEngine
         var digest = PdfSigningDigests.ToCms(plan.Digest);
         var spec = new PdfCmsSpec(digest, identity.Algorithm, plan.Format, identity.Certificates as byte[][] ?? [.. identity.Certificates], plan.Time);
         Span<byte> hash = stackalloc byte[CmsDigests.MaxLength];
-        var length = prepared.File.HashSigned(digest, hash);
+        var length = PdfSigningFileWriter.HashSigned(prepared.File, digest, hash, prepared.ScratchPools, prepared.CancellationToken);
         var documentDigest = hash[..length].ToArray();
         return new(spec, documentDigest, PdfCmsAttributes.Build(spec, documentDigest));
     }
@@ -152,11 +153,12 @@ internal static class PdfSigningEngine
     /// <param name="container">The DER container.</param>
     /// <param name="attempts">The times the file was built.</param>
     /// <param name="needed">Receives the size the container needs when it does not fit.</param>
+    /// <param name="cancellationToken">Cancels before writing the signature.</param>
     /// <returns>The result, or <see langword="null"/> when the container does not fit the space reserved for it.</returns>
-    internal static PdfSigningResult? TryFinish(PdfPreparedSignature prepared, byte[] container, int attempts, out int needed)
+    internal static PdfSigningResult? TryFinish(PdfPreparedSignature prepared, byte[] container, int attempts, out int needed, CancellationToken cancellationToken)
     {
         needed = container.Length;
-        if (!prepared.File.TryWriteContents(container))
+        if (!PdfSigningFileWriter.TryWriteContents(prepared.File, container, cancellationToken))
         {
             return null;
         }
@@ -181,7 +183,7 @@ internal static class PdfSigningEngine
     /// <param name="headroom">The extra bytes to add.</param>
     /// <returns>The new size.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int Grow(int needed, int headroom) => PdfContentsSizing.RoundUp(needed + Math.Max(headroom, 0));
+    internal static int Grow(int needed, int headroom) => PdfContentsSizing.RoundUp((long)needed + Math.Max(headroom, 0));
 
     /// <summary>Makes the exception for a signature that did not fit even after the file was built again with more room.</summary>
     /// <param name="needed">The size the signature needs.</param>

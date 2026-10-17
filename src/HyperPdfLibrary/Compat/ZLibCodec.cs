@@ -14,7 +14,7 @@ namespace HyperPdfLibrary.Compat;
 /// <summary>
 /// Compresses and decompresses zlib and raw deflate data through the best API each runtime has. On .NET 11 the span-based <c>ZLibDecoder</c>,
 /// <c>DeflateDecoder</c> and <c>ZLibEncoder</c> run straight over the input with no stream objects. Each decode leases an
-/// idle decoder from a shared pool until it finishes. On .NET 10 the same calls use <see cref="ZLibStream"/> and <see cref="DeflateStream"/>.
+/// idle decoder from its caller's scratch owner until it finishes. On .NET 10 the same calls use <see cref="ZLibStream"/> and <see cref="DeflateStream"/>.
 /// </summary>
 internal static class ZLibCodec
 {
@@ -32,42 +32,47 @@ internal static class ZLibCodec
     private const int SmallestQuality = 9;
 #endif
 
+    /// <summary>Decompresses with operation-local decoder state.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="raw">Whether the data is raw deflate.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
+    /// <returns>Whether the data ended cleanly.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool Decompress(ReadOnlySpan<byte> input, bool raw, ref PooledBuffer output) =>
+        Decompress(input, raw, ref output, null, CancellationToken.None);
+
+    /// <summary>Decompresses with operation-local state and explicit cancellation.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="raw">Whether the data is raw deflate.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels decompression.</param>
+    /// <returns>Whether the data ended cleanly.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool Decompress(ReadOnlySpan<byte> input, bool raw, ref PooledBuffer output, CancellationToken cancellationToken) =>
+        Decompress(input, raw, ref output, null, cancellationToken);
+
     /// <summary>Decompresses data, keeping whatever decoded before any damage or truncation.</summary>
     /// <param name="input">The compressed bytes.</param>
     /// <param name="raw">Whether the data is raw deflate rather than zlib.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="scratchPools">The explicit owner, or null for operation-local decoder state.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see langword="true"/> when the data ended cleanly; <see langword="false"/> when it was truncated or damaged and the part before the fault was kept.</returns>
-    internal static bool Decompress(ReadOnlySpan<byte> input, bool raw, ref PooledBuffer output, CancellationToken cancellationToken = default)
+    internal static bool Decompress(ReadOnlySpan<byte> input, bool raw, ref PooledBuffer output, ScratchPools? scratchPools, CancellationToken cancellationToken)
     {
-        var hint = (int)Math.Min(PdfLimits.MaxDecodedLength, (long)input.Length * ExpectedRatio);
-#if NET11_0_OR_GREATER
-        if (raw)
+        cancellationToken.ThrowIfCancellationRequested();
+        if (input.IsEmpty)
         {
-            var deflate = FlateDecoderPool.RentDeflate();
-            try
-            {
-                deflate.Reset();
-                return Decompress(input, ref output, hint, deflate, cancellationToken);
-            }
-            finally
-            {
-                FlateDecoderPool.Return(deflate);
-            }
+            return false;
         }
 
-        var zlib = FlateDecoderPool.RentZlib();
-        try
-        {
-            zlib.Reset();
-            return Decompress(input, ref output, hint, zlib, cancellationToken);
-        }
-        finally
-        {
-            FlateDecoderPool.Return(zlib);
-        }
+        var hint = (int)Math.Min(PdfLimits.MaxDecodedLength, (long)input.Length * ExpectedRatio);
+#if NET11_0_OR_GREATER
+        return raw
+            ? DecompressRaw(input, ref output, hint, scratchPools?.Objects<DeflateDecoder>(), cancellationToken)
+            : DecompressZlib(input, ref output, hint, scratchPools?.Objects<ZLibDecoder>(), cancellationToken);
 #else
-        return DecompressStream(input, raw, hint, ref output, cancellationToken);
+        return DecompressStream(input, raw, hint, ref output, scratchPools, cancellationToken);
 #endif
     }
 
@@ -100,6 +105,54 @@ internal static class ZLibCodec
     }
 
 #if NET11_0_OR_GREATER
+    /// <summary>Leases raw decoder state for one operation and returns it to the same owner.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
+    /// <param name="hint">The initial output size hint.</param>
+    /// <param name="idle">The owner's idle decoders, or null for operation-local state.</param>
+    /// <param name="cancellationToken">Cancels decompression.</param>
+    /// <returns>Whether the stream ended cleanly.</returns>
+    private static bool DecompressRaw(ReadOnlySpan<byte> input, ref PooledBuffer output, int hint, ScratchObjects<DeflateDecoder>? idle, CancellationToken cancellationToken)
+    {
+        var decoder = idle?.Take() ?? new();
+        try
+        {
+            decoder.Reset();
+            return Decompress(input, ref output, hint, decoder, cancellationToken);
+        }
+        finally
+        {
+            if (idle is null || !idle.Offer(decoder))
+            {
+                decoder.Dispose();
+            }
+        }
+    }
+
+    /// <summary>Leases zlib decoder state for one operation and returns it to the same owner.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
+    /// <param name="hint">The initial output size hint.</param>
+    /// <param name="idle">The owner's idle decoders, or null for operation-local state.</param>
+    /// <param name="cancellationToken">Cancels decompression.</param>
+    /// <returns>Whether the stream ended cleanly.</returns>
+    private static bool DecompressZlib(ReadOnlySpan<byte> input, ref PooledBuffer output, int hint, ScratchObjects<ZLibDecoder>? idle, CancellationToken cancellationToken)
+    {
+        var decoder = idle?.Take() ?? new();
+        try
+        {
+            decoder.Reset();
+            return Decompress(input, ref output, hint, decoder, cancellationToken);
+        }
+        finally
+        {
+            if (idle is null || !idle.Offer(decoder))
+            {
+                decoder.Dispose();
+            }
+        }
+    }
+
     /// <summary>Leases native encoder state from an explicit owner, or creates it for this operation.</summary>
     /// <param name="input">The bytes.</param>
     /// <param name="quality">The zlib level.</param>
@@ -167,15 +220,21 @@ internal static class ZLibCodec
     /// <returns>Whether the data ended cleanly.</returns>
     private static bool Decompress(ReadOnlySpan<byte> input, ref PooledBuffer output, int hint, DeflateDecoder decoder, CancellationToken cancellationToken)
     {
-        OperationStatus status;
-        while ((status = Step(
-            decoder.Decompress(input, output.GetSpan(hint), out var consumed, out var written),
-            consumed,
-            written,
-            ref input,
-            ref output,
-            cancellationToken)) == OperationStatus.DestinationTooSmall)
+        // At the exact cap the decoder can consume its checksum without output; only another output byte exceeds the limit.
+        Span<byte> probe = stackalloc byte[1];
+        var status = OperationStatus.DestinationTooSmall;
+        while (status == OperationStatus.DestinationTooSmall)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var remaining = output.MaximumLength - output.Length;
+            var destination = remaining == 0 ? probe : output.GetSpan(Math.Min(hint, remaining));
+            status = Step(
+                decoder.Decompress(input, destination, out var consumed, out var written),
+                consumed,
+                written,
+                ref input,
+                ref output,
+                cancellationToken);
             hint = Math.Max(hint, output.Length);
         }
 
@@ -191,15 +250,21 @@ internal static class ZLibCodec
     /// <returns>Whether the data ended cleanly.</returns>
     private static bool Decompress(ReadOnlySpan<byte> input, ref PooledBuffer output, int hint, ZLibDecoder decoder, CancellationToken cancellationToken)
     {
-        OperationStatus status;
-        while ((status = Step(
-            decoder.Decompress(input, output.GetSpan(hint), out var consumed, out var written),
-            consumed,
-            written,
-            ref input,
-            ref output,
-            cancellationToken)) == OperationStatus.DestinationTooSmall)
+        // At the exact cap the decoder can consume its checksum without output; only another output byte exceeds the limit.
+        Span<byte> probe = stackalloc byte[1];
+        var status = OperationStatus.DestinationTooSmall;
+        while (status == OperationStatus.DestinationTooSmall)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var remaining = output.MaximumLength - output.Length;
+            var destination = remaining == 0 ? probe : output.GetSpan(Math.Min(hint, remaining));
+            status = Step(
+                decoder.Decompress(input, destination, out var consumed, out var written),
+                consumed,
+                written,
+                ref input,
+                ref output,
+                cancellationToken);
             hint = Math.Max(hint, output.Length);
         }
 
@@ -266,27 +331,78 @@ internal static class ZLibCodec
     /// <param name="raw">Whether the data is raw deflate.</param>
     /// <param name="hint">The first output buffer size.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="scratchPools">The explicit source-wrapper owner, or null for local state.</param>
     /// <param name="cancellationToken">Cancels decompression.</param>
     /// <returns><see langword="false"/> when the data was damaged or ended early.</returns>
-    private static unsafe bool DecompressStream(ReadOnlySpan<byte> input, bool raw, int hint, ref PooledBuffer output, CancellationToken cancellationToken)
+    private static bool DecompressStream(ReadOnlySpan<byte> input, bool raw, int hint, ref PooledBuffer output, ScratchPools? scratchPools, CancellationToken cancellationToken)
+    {
+        var idle = scratchPools?.Objects<EndTrackingStream>();
+        var source = idle?.Take() ?? new();
+        try
+        {
+            return DecompressStream(input, raw, hint, ref output, source, cancellationToken);
+        }
+        finally
+        {
+            if (idle is null || !idle.Offer(source))
+            {
+                source.Dispose();
+            }
+        }
+    }
+
+    /// <summary>Decodes while the input stays pinned and the wrapper is exclusively leased.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="raw">Whether the bytes are raw deflate.</param>
+    /// <param name="hint">The initial output size.</param>
+    /// <param name="output">Receives decoded bytes.</param>
+    /// <param name="source">The exclusively leased input wrapper.</param>
+    /// <param name="cancellationToken">Cancels decompression.</param>
+    /// <returns>Whether the compressed input ended cleanly.</returns>
+    private static unsafe bool DecompressStream(ReadOnlySpan<byte> input, bool raw, int hint, ref PooledBuffer output, EndTrackingStream source, CancellationToken cancellationToken)
     {
         fixed (byte* pointer = input)
         {
-            using var source = new EndTrackingStream(pointer, input.Length);
-            using Stream inflater = raw ? new DeflateStream(source, CompressionMode.Decompress) : new ZLibStream(source, CompressionMode.Decompress);
-
-            // GetSpan stays outside the catch: its decode-size cap error must reach the caller, as on .NET 11.
-            var clean = true;
-            for (var read = ReadSome(inflater, output.GetSpan(hint), ref clean); read > 0; read = ReadSome(inflater, output.GetSpan(hint), ref clean))
+            source.Reset(pointer, input.Length);
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                output.Advance(read);
+                return DecompressStream(raw, hint, ref output, source, cancellationToken);
             }
-
-            // The inflater asks its source for more bytes only while it has not finished (final block, plus the checksum for zlib),
-            // so running into the end of the input means the stream was cut short. The stream itself just stops reading.
-            return clean && !source.EndReached;
+            finally
+            {
+                source.Release();
+            }
         }
+    }
+
+    /// <summary>Reads one exclusively leased stream with a bounded output buffer.</summary>
+    /// <param name="raw">Whether to decode raw deflate.</param>
+    /// <param name="hint">The initial output size.</param>
+    /// <param name="output">Receives decoded bytes.</param>
+    /// <param name="source">The attached input wrapper.</param>
+    /// <param name="cancellationToken">Cancels decompression.</param>
+    /// <returns>Whether the input ended cleanly.</returns>
+    private static bool DecompressStream(bool raw, int hint, ref PooledBuffer output, EndTrackingStream source, CancellationToken cancellationToken)
+    {
+        using Stream inflater = raw ? new DeflateStream(source, CompressionMode.Decompress, leaveOpen: true) : new ZLibStream(source, CompressionMode.Decompress, leaveOpen: true);
+
+        // GetSpan stays outside the catch: its decode-size cap error must reach the caller, as on .NET 11.
+        var clean = true;
+
+        // A one-byte read distinguishes an exact-length stream from an expansion beyond the configured cap.
+        Span<byte> probe = stackalloc byte[1];
+        var read = 1;
+        while (read > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var remaining = output.MaximumLength - output.Length;
+            var destination = remaining == 0 ? probe : output.GetSpan(Math.Min(hint, remaining));
+            read = ReadSome(inflater, destination, ref clean);
+            output.Advance(read);
+        }
+
+        // The inflater asks for more input only until the final block and checksum are complete.
+        return clean && !source.EndReached;
     }
 
     /// <summary>Reads decoded bytes, treating damaged data as the end of the stream.</summary>

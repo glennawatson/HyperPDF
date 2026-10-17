@@ -2,9 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace HyperPdfLibrary.Conformance;
 
@@ -17,84 +15,60 @@ internal static class PdfASyntaxOperators
     /// <summary>The bits of one byte.</summary>
     private const int ByteBits = 8;
 
-    /// <summary>The operators whose operands are checked, keyed by <see cref="Key"/>.</summary>
-    private static readonly FrozenDictionary<int, PdfASyntaxLink> Links = new Dictionary<int, PdfASyntaxLink>
-    {
-        [Key("i"u8)] = PdfASyntaxLink.LastNumber,
-        [Key("M"u8)] = PdfASyntaxLink.LastNumber,
-        [Key("w"u8)] = PdfASyntaxLink.LastNumber,
-        [Key("Tc"u8)] = PdfASyntaxLink.LastNumber,
-        [Key("Tw"u8)] = PdfASyntaxLink.LastNumber,
-        [Key("TL"u8)] = PdfASyntaxLink.LastNumber,
-        [Key("Ts"u8)] = PdfASyntaxLink.LastNumber,
-        [Key("Tz"u8)] = PdfASyntaxLink.LastNumber,
-        [Key("Td"u8)] = PdfASyntaxLink.LastTwoNumbers,
-        [Key("TD"u8)] = PdfASyntaxLink.LastTwoNumbers,
-        [Key("d0"u8)] = PdfASyntaxLink.LastTwoNumbers,
-        [Key("J"u8)] = PdfASyntaxLink.LastInteger,
-        [Key("j"u8)] = PdfASyntaxLink.LastInteger,
-        [Key("c"u8)] = PdfASyntaxLink.AllNumbers,
-        [Key("l"u8)] = PdfASyntaxLink.AllNumbers,
-        [Key("m"u8)] = PdfASyntaxLink.AllNumbers,
-        [Key("re"u8)] = PdfASyntaxLink.AllNumbers,
-        [Key("v"u8)] = PdfASyntaxLink.AllNumbers,
-        [Key("y"u8)] = PdfASyntaxLink.AllNumbers,
-        [Key("cm"u8)] = PdfASyntaxLink.AllNumbers,
-        [Key("Tm"u8)] = PdfASyntaxLink.AllNumbers,
-        [Key("d1"u8)] = PdfASyntaxLink.AllNumbers,
-        [Key("d"u8)] = PdfASyntaxLink.Dash,
-        [Key("Tj"u8)] = PdfASyntaxLink.LastString,
-        [Key("'"u8)] = PdfASyntaxLink.LastString,
-        [Key("\""u8)] = PdfASyntaxLink.LastString,
-        [Key("TJ"u8)] = PdfASyntaxLink.LastArray,
-        [Key("Tf"u8)] = PdfASyntaxLink.Font,
-        [Key("cs"u8)] = PdfASyntaxLink.LastName,
-        [Key("CS"u8)] = PdfASyntaxLink.LastName,
-        [Key("sc"u8)] = PdfASyntaxLink.LastName,
-        [Key("SC"u8)] = PdfASyntaxLink.LastName,
-        [Key("scn"u8)] = PdfASyntaxLink.LastName,
-        [Key("SCN"u8)] = PdfASyntaxLink.LastName,
-        [Key("BMC"u8)] = PdfASyntaxLink.LastName,
-        [Key("MP"u8)] = PdfASyntaxLink.LastName,
-        [Key("BDC"u8)] = PdfASyntaxLink.TagAndProperties,
-        [Key("DP"u8)] = PdfASyntaxLink.TagAndProperties,
-    }.ToFrozenDictionary();
-
-    /// <summary>Every standard operator, keyed by <see cref="Key"/>.</summary>
-    private static readonly FrozenSet<int> Standard = StandardKeys(
-    [
-        "b", "B", "b*", "B*", "BDC", "BI", "BMC", "BT", "BX", "c", "cm", "CS", "cs", "d", "d0", "d1", "Do", "DP", "EI", "EMC",
-        "ET", "EX", "f", "F", "f*", "G", "g", "gs", "h", "i", "ID", "j", "J", "K", "k", "l", "m", "M", "MP", "n", "q", "Q",
-        "re", "RG", "rg", "ri", "s", "S", "SC", "sc", "SCN", "scn", "sh", "T*", "Tc", "Td", "TD", "Tf", "Tj", "TJ", "TL",
-        "Tm", "Tr", "Ts", "Tw", "Tz", "v", "w", "W", "W*", "y", "'", "\"",
-    ]);
-
     /// <summary>Gets the operands an operator links to the implementation limits.</summary>
     /// <param name="word">The operator.</param>
     /// <returns>The link.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static PdfASyntaxLink LinkOf(ReadOnlySpan<byte> word) => Links.GetValueOrDefault(Key(word));
+    internal static PdfASyntaxLink LinkOf(ReadOnlySpan<byte> word)
+    {
+        ReadOnlySpan<int> keys =
+        [
+            0x127, 0x14A, 0x14D, 0x15C, 0x163, 0x164, 0x169, 0x16A,
+            0x16C, 0x16D, 0x176, 0x177, 0x179, 0x24353, 0x24450, 0x24D50,
+            0x25343, 0x25444, 0x2544A, 0x2544C, 0x25463, 0x25464, 0x25466, 0x2546A,
+            0x2546D, 0x25473, 0x25477, 0x2547A, 0x2636D, 0x26373, 0x26430, 0x26431,
+            0x27265, 0x27363, 0x3424443, 0x3424D43, 0x353434E, 0x373636E,
+        ];
+        ReadOnlySpan<PdfASyntaxLink> values =
+        [
+            PdfASyntaxLink.LastString, PdfASyntaxLink.LastInteger, PdfASyntaxLink.LastNumber,
+            PdfASyntaxLink.LastString, PdfASyntaxLink.AllNumbers, PdfASyntaxLink.Dash,
+            PdfASyntaxLink.LastNumber, PdfASyntaxLink.LastInteger, PdfASyntaxLink.AllNumbers,
+            PdfASyntaxLink.AllNumbers, PdfASyntaxLink.AllNumbers, PdfASyntaxLink.LastNumber,
+            PdfASyntaxLink.AllNumbers, PdfASyntaxLink.LastName, PdfASyntaxLink.TagAndProperties,
+            PdfASyntaxLink.LastName, PdfASyntaxLink.LastName, PdfASyntaxLink.LastTwoNumbers,
+            PdfASyntaxLink.LastArray, PdfASyntaxLink.LastNumber, PdfASyntaxLink.LastNumber,
+            PdfASyntaxLink.LastTwoNumbers, PdfASyntaxLink.Font, PdfASyntaxLink.LastString,
+            PdfASyntaxLink.AllNumbers, PdfASyntaxLink.LastNumber, PdfASyntaxLink.LastNumber,
+            PdfASyntaxLink.LastNumber, PdfASyntaxLink.AllNumbers, PdfASyntaxLink.LastName,
+            PdfASyntaxLink.LastTwoNumbers, PdfASyntaxLink.AllNumbers, PdfASyntaxLink.AllNumbers,
+            PdfASyntaxLink.LastName, PdfASyntaxLink.TagAndProperties, PdfASyntaxLink.LastName,
+            PdfASyntaxLink.LastName, PdfASyntaxLink.LastName,
+        ];
+        var index = keys.BinarySearch(Key(word));
+        return index < 0 ? default : values[index];
+    }
 
     /// <summary>Determines whether a word is a standard operator.</summary>
     /// <param name="word">The word.</param>
     /// <returns><see langword="true"/> when it is.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsStandard(ReadOnlySpan<byte> word) => Standard.Contains(Key(word));
-
-    /// <summary>Builds the keys of the standard operators.</summary>
-    /// <param name="names">The operators, which are ASCII.</param>
-    /// <returns>The keys.</returns>
-    private static FrozenSet<int> StandardKeys(string[] names)
+    internal static bool IsStandard(ReadOnlySpan<byte> word)
     {
-        var keys = new HashSet<int>(names.Length);
-        Span<byte> bytes = stackalloc byte[MaxLength];
-        foreach (var name in names)
-        {
-            var length = Encoding.ASCII.GetBytes(name, bytes);
-            _ = keys.Add(Key(bytes[..length]));
-        }
-
-        return keys.ToFrozenSet();
+        ReadOnlySpan<int> keys =
+        [
+            0x122, 0x127, 0x142, 0x146, 0x147, 0x14A, 0x14B, 0x14D,
+            0x151, 0x153, 0x157, 0x162, 0x163, 0x164, 0x166, 0x167,
+            0x168, 0x169, 0x16A, 0x16B, 0x16C, 0x16D, 0x16E, 0x171,
+            0x173, 0x176, 0x177, 0x179, 0x2422A, 0x24249, 0x24254, 0x24258,
+            0x24353, 0x24450, 0x2446F, 0x24549, 0x24554, 0x24558, 0x24944, 0x24D50,
+            0x25247, 0x25343, 0x2542A, 0x25444, 0x2544A, 0x2544C, 0x25463, 0x25464,
+            0x25466, 0x2546A, 0x2546D, 0x25472, 0x25473, 0x25477, 0x2547A, 0x2572A,
+            0x2622A, 0x2636D, 0x26373, 0x26430, 0x26431, 0x2662A, 0x26773, 0x27265,
+            0x27267, 0x27269, 0x27363, 0x27368, 0x3424443, 0x3424D43, 0x3454D43, 0x353434E,
+            0x373636E,
+        ];
+        return keys.BinarySearch(Key(word)) >= 0;
     }
 
     /// <summary>Packs an operator of up to three bytes and its length into one integer.</summary>

@@ -282,12 +282,18 @@ public static class StoreParsing
     /// <param name = "start">The offset of the data.</param>
     /// <param name = "id">The stream's object id, for diagnostics.</param>
     /// <returns>The length of the data.</returns>
+    /// <exception cref="PdfException">The declared length is invalid and recovery is disabled.</exception>
     internal static int StreamLength(PdfObjectStore self, PdfDictionary dictionary, long start, PdfObjectId id)
     {
         var declared = dictionary.Get(KnownName.Length).AsInteger(-1);
-        if (declared is >= 0 and <= int.MaxValue && start + declared <= self.Source.Length && StoreParsing.EndsAt(self, start + declared))
+        if (declared is >= 0 and <= int.MaxValue && declared <= self.Source.Length - start && StoreParsing.EndsAt(self, start + declared))
         {
             return (int)declared;
+        }
+
+        if (self.Context is { Recovery: false })
+        {
+            throw new PdfException(PdfError.Format, "A stream's declared length does not match its data.");
         }
 
         PdfOpenContext.Report(self.Context, PdfDiagnosticCode.BadStreamLength, "A stream's /Length was missing or wrong.", id.Number, start);

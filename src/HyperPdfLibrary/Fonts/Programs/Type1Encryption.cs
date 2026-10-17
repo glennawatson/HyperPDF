@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Syntax;
 
 namespace HyperPdfLibrary.Fonts.Programs;
@@ -55,10 +56,10 @@ internal static class Type1Encryption
 
     /// <summary>Decodes hexadecimal text, skipping white space and stopping at any other byte.</summary>
     /// <param name="text">The text.</param>
-    /// <returns>The bytes.</returns>
-    internal static byte[] DecodeHex(ReadOnlySpan<byte> text)
+    /// <param name="output">Receives the decoded bytes.</param>
+    internal static void DecodeHex(ReadOnlySpan<byte> text, ref PooledBuffer output)
     {
-        var output = new byte[(text.Length + 1) / DigitsPerByte];
+        var target = output.GetSpan((text.Length / DigitsPerByte) + 1);
         var count = 0;
         var high = -1;
         foreach (var c in text)
@@ -80,11 +81,11 @@ internal static class Type1Encryption
                 continue;
             }
 
-            output[count] = (byte)((high << NibbleBits) | nibble);
+            target[count] = (byte)((high << NibbleBits) | nibble);
             count++;
             high = -1;
         }
 
-        return output.AsSpan(0, count).ToArray();
+        output.Advance(count);
     }
 }

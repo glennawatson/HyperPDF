@@ -69,8 +69,10 @@ internal static class CffCharsets
     /// <param name="glyphCount">The number of glyphs.</param>
     /// <param name="isCid">Whether the font is CID-keyed, which has no predefined charsets.</param>
     /// <returns>The SID or CID of each glyph.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     internal static ushort[] ReadCharset(ReadOnlySpan<byte> data, int offset, int glyphCount, bool isCid)
     {
+        ValidateCharsetOffset(data, offset, isCid);
         var charset = new ushort[glyphCount];
         if (!isCid && offset <= ExpertSubsetCharset)
         {
@@ -125,8 +127,14 @@ internal static class CffCharsets
     /// <param name="glyphCount">The number of glyphs.</param>
     /// <param name="fontDictCount">The number of Font DICTs; larger indexes are replaced by zero.</param>
     /// <returns>The Font DICT of each glyph.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     internal static byte[] ReadFdSelect(ReadOnlySpan<byte> data, int offset, int glyphCount, int fontDictCount)
     {
+        if (offset < -1 || (offset > 0 && offset >= data.Length))
+        {
+            throw new PdfException(PdfError.Format, "The CFF font dictionary selection offset exceeds its data.");
+        }
+
         var select = new byte[glyphCount];
         var format = offset > 0 ? FontBytes.U8(data, offset) : -1;
         if (format == FdListFormat)
@@ -151,8 +159,14 @@ internal static class CffCharsets
     /// <param name="offset">The encoding offset, or a predefined encoding id.</param>
     /// <param name="program">The program, used to name glyphs.</param>
     /// <returns>The glyph of each code, -1 when unmapped.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     internal static short[] ReadEncoding(ReadOnlySpan<byte> data, int offset, CffProgram program)
     {
+        if (offset < 0 || (offset > ExpertEncodingId && offset >= data.Length))
+        {
+            throw new PdfException(PdfError.Format, "The CFF encoding offset exceeds its data.");
+        }
+
         var encoding = new short[FontEncodings.CodeCount];
         encoding.AsSpan().Fill(FontProgram.NotFound);
         if (offset is StandardEncodingId or ExpertEncodingId)
@@ -171,6 +185,19 @@ internal static class CffCharsets
         }
 
         return encoding;
+    }
+
+    /// <summary>Bounds a charset offset without confusing predefined charset IDs with file offsets.</summary>
+    /// <param name="data">The CFF bytes.</param>
+    /// <param name="offset">The charset offset or predefined ID.</param>
+    /// <param name="isCid">Whether the font is CID-keyed.</param>
+    /// <exception cref="PdfException">The offset is negative or exceeds the CFF bytes.</exception>
+    private static void ValidateCharsetOffset(ReadOnlySpan<byte> data, int offset, bool isCid)
+    {
+        if (offset < 0 || ((offset > ExpertSubsetCharset || isCid) && offset >= data.Length))
+        {
+            throw new PdfException(PdfError.Format, "The CFF charset offset exceeds its data.");
+        }
     }
 
     /// <summary>Fills a predefined charset.</summary>

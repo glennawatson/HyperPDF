@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
@@ -16,14 +15,6 @@ namespace HyperPdfLibrary.Editing;
 /// </summary>
 internal static class PdfFlattenSelection
 {
-    /// <summary>The subtypes of markup annotations (ISO 32000-2 12.5.6.2).</summary>
-    private static readonly FrozenSet<KnownName> MarkupSubtypes = new HashSet<KnownName>
-    {
-        KnownName.Text, KnownName.FreeText, KnownName.Line, KnownName.Square, KnownName.Circle, KnownName.Polygon,
-        KnownName.PolyLine, KnownName.Highlight, KnownName.Underline, KnownName.Squiggly, KnownName.StrikeOut,
-        KnownName.Caret, KnownName.Stamp, KnownName.Ink, KnownName.FileAttachment, KnownName.Sound, KnownName.Redact,
-    }.ToFrozenSet();
-
     /// <summary>Decides what flattening does with an annotation, before its appearance is looked at.</summary>
     /// <param name="options">What to flatten.</param>
     /// <param name="annotation">The annotation.</param>
@@ -76,7 +67,22 @@ internal static class PdfFlattenSelection
     /// <param name="subtype">The annotation's subtype.</param>
     /// <returns><see langword="true"/> for a markup annotation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsMarkup(KnownName subtype) => MarkupSubtypes.Contains(subtype);
+    private static bool IsMarkup(KnownName subtype) =>
+        IsTextMarkup(subtype) || IsGeometricMarkup(subtype) || subtype is KnownName.FileAttachment or KnownName.Sound or KnownName.Redact;
+
+    /// <summary>Recognises notes and text-markup subtypes.</summary>
+    /// <param name="subtype">The parsed subtype.</param>
+    /// <returns>Whether it belongs to this markup group.</returns>
+    private static bool IsTextMarkup(KnownName subtype) =>
+        subtype is KnownName.Text or KnownName.FreeText or KnownName.Highlight or KnownName.Underline
+            or KnownName.Squiggly or KnownName.StrikeOut or KnownName.Caret;
+
+    /// <summary>Recognises line, shape, ink and stamp markup.</summary>
+    /// <param name="subtype">The parsed subtype.</param>
+    /// <returns>Whether it belongs to this markup group.</returns>
+    private static bool IsGeometricMarkup(KnownName subtype) =>
+        subtype is KnownName.Line or KnownName.Square or KnownName.Circle or KnownName.Polygon
+            or KnownName.PolyLine or KnownName.Ink or KnownName.Stamp;
 
     /// <summary>Works out whether an annotation's flags keep it from being drawn.</summary>
     /// <param name="mode">Whether the page is drawn for the screen or for printing.</param>

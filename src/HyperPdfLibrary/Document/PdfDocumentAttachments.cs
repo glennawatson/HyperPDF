@@ -59,12 +59,41 @@ public static class PdfDocumentAttachments
             var field = fields.GetDictionary(i);
             if (field?.IsName(KnownName.FT, KnownName.Sig) == true)
             {
-                signatures.Add(PdfDocumentAttachments.ReadSignature(document, signatures.Count, field.GetDictionary(KnownName.V)));
+                signatures.Add(PdfDocumentAttachments.ReadSignature(document.Objects.Names, signatures.Count, field.GetDictionary(KnownName.V)));
             }
         }
 
         var result = signatures.ToArray();
         return PdfDocumentCaches.Publish(document, ref document.State.Signatures, result, revision);
+    }
+
+    /// <summary>Reads a signature dictionary into detached signature bytes.</summary>
+    /// <param name="names">The signature's name table.</param>
+    /// <param name="index">The signature's index.</param>
+    /// <param name="value">The field's /V signature dictionary, if signed.</param>
+    /// <returns>The signature.</returns>
+    internal static PdfSignatureField ReadSignature(PdfNameTable names, int index, PdfDictionary? value)
+    {
+        if (value is null)
+        {
+            return new(index, [], [], string.Empty, string.Empty, null);
+        }
+
+        var range = value.GetArray(KnownName.ByteRange);
+        var byteRange = new long[range?.Count ?? 0];
+        for (var i = 0; i < byteRange.Length; i++)
+        {
+            byteRange[i] = range!.Get(i).AsInteger();
+        }
+
+        var subFilter = value.GetName(KnownName.SubFilter);
+        return new(
+            index,
+            value.GetStringBytes(KnownName.Contents).ToArray(),
+            byteRange,
+            subFilter.IsNone ? string.Empty : Encoding.ASCII.GetString(names.GetSpelling(subFilter)),
+            value.GetText(KnownName.Reason) ?? string.Empty,
+            PdfDate.Parse(value.GetStringBytes(KnownName.M)));
     }
 
     /// <summary>Reads one entry of the <c>/EmbeddedFiles</c> name tree.</summary>
@@ -114,33 +143,4 @@ public static class PdfDocumentAttachments
     /// <returns>The date, or <see langword="null"/> when there is none.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DateTimeOffset? ReadDate(PdfDictionary parameters, KnownName key) => PdfDate.Parse(parameters.GetStringBytes(key));
-
-    /// <summary>Reads a signature dictionary.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="index">The signature's index.</param>
-    /// <param name="value">The field's /V signature dictionary, if signed.</param>
-    /// <returns>The signature.</returns>
-    private static PdfSignatureField ReadSignature(PdfDocument document, int index, PdfDictionary? value)
-    {
-        if (value is null)
-        {
-            return new(index, [], [], string.Empty, string.Empty, null);
-        }
-
-        var range = value.GetArray(KnownName.ByteRange);
-        var byteRange = new long[range?.Count ?? 0];
-        for (var i = 0; i < byteRange.Length; i++)
-        {
-            byteRange[i] = range!.Get(i).AsInteger();
-        }
-
-        var subFilter = value.GetName(KnownName.SubFilter);
-        return new(
-index,
-value.GetStringBytes(KnownName.Contents).ToArray(),
-byteRange,
-subFilter.IsNone ? string.Empty : Encoding.ASCII.GetString(document.Objects.Names.GetSpelling(subFilter)),
-value.GetText(KnownName.Reason) ?? string.Empty,
-PdfDate.Parse(value.GetStringBytes(KnownName.M)));
-    }
 }

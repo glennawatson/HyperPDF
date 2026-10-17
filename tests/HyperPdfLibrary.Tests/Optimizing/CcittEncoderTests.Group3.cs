@@ -292,7 +292,7 @@ public sealed partial class CcittEncoderTests
         var output = default(PooledBuffer);
         try
         {
-            CcittEncoder.Encode(rows, width, height, parameters, ref output, new());
+            CcittEncoder.Encode(rows, width, height, parameters, ref output, new(), CancellationToken.None);
             return output.ToArray();
         }
         finally

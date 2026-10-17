@@ -11,8 +11,13 @@ using HyperPdfLibrary.Optimizing;
 namespace HyperPdfLibrary.Fonts.Embedding;
 
 /// <summary>One face of an sfnt font file: TrueType or OpenType, alone or inside a collection (.ttc).</summary>
-[DebuggerDisplay("SfntFont: face {FaceIndex} of {FaceCount}, {_tables.Length} tables")]
-internal sealed class SfntFont
+/// <param name="Data">The whole file.</param>
+/// <param name="Version">The directory version.</param>
+/// <param name="Tables">The face's table ranges.</param>
+/// <param name="FaceIndex">The index of this face.</param>
+/// <param name="FaceCount">The collection's face count.</param>
+[DebuggerDisplay("SfntFont: face {FaceIndex} of {FaceCount}, {Tables.Length} tables")]
+internal sealed record SfntFont(byte[] Data, uint Version, SfntTable[] Tables, int FaceIndex, int FaceCount)
 {
     /// <summary>The size of the directory header.</summary>
     private const int HeaderSize = 12;
@@ -38,41 +43,8 @@ internal sealed class SfntFont
     /// <summary>The most faces a collection may list.</summary>
     private const int MaxFaces = 4096;
 
-    /// <summary>The whole file.</summary>
-    private readonly byte[] _data;
-
-    /// <summary>The tables of this face, as ranges of the file.</summary>
-    private readonly SfntTable[] _tables;
-
-    /// <summary>The face's directory version.</summary>
-    private readonly uint _version;
-
-    /// <summary>Initializes a new instance of the <see cref="SfntFont"/> class.</summary>
-    /// <param name="data">The whole file.</param>
-    /// <param name="version">The directory version.</param>
-    /// <param name="tables">The face's tables.</param>
-    /// <param name="faceIndex">The face's index.</param>
-    /// <param name="faceCount">The number of faces in the file.</param>
-    private SfntFont(byte[] data, uint version, SfntTable[] tables, int faceIndex, int faceCount)
-    {
-        _data = data;
-        _version = version;
-        _tables = tables;
-        FaceIndex = faceIndex;
-        FaceCount = faceCount;
-    }
-
-    /// <summary>Gets the face's index in the file.</summary>
-    internal int FaceIndex { get; }
-
-    /// <summary>Gets the number of faces in the file; one unless the file is a collection.</summary>
-    internal int FaceCount { get; }
-
     /// <summary>Gets a value indicating whether the file is a collection.</summary>
-    internal bool IsCollection => FaceCount > 1 || FontBytes.U32(_data, 0) == SfntTags.Collection;
-
-    /// <summary>Gets the directory version of the face.</summary>
-    internal uint Version => _version;
+    internal bool IsCollection => FaceCount > 1 || FontBytes.U32(Data, 0) == SfntTags.Collection;
 
     /// <summary>Reads one face.</summary>
     /// <param name="data">The font file.</param>
@@ -89,14 +61,14 @@ internal sealed class SfntFont
         var faces = 1;
         if (FontBytes.U32(span, 0) == SfntTags.Collection)
         {
-            faces = Math.Min(FontBytes.Offset32(span, CollectionCountOffset), MaxFaces);
+            faces = CollectionFaces(span);
             if ((uint)faceIndex >= (uint)faces)
             {
                 refusal = $"The font collection has {faces} faces, so face {faceIndex} does not exist.";
                 return false;
             }
 
-            directory = FontBytes.Offset32(span, CollectionFacesOffset + (faceIndex * FontBytes.U32Size));
+            directory = CollectionDirectory(span, faceIndex);
         }
         else if (faceIndex != 0)
         {
@@ -121,11 +93,11 @@ internal sealed class SfntFont
     /// <returns>The table, or an empty span when the face has none.</returns>
     internal ReadOnlySpan<byte> Table(uint tag)
     {
-        foreach (var table in _tables)
+        foreach (var table in Tables)
         {
             if (table.Tag == tag)
             {
-                return _data.AsSpan(table.Offset, table.Length);
+                return Data.AsSpan(table.Offset, table.Length);
             }
         }
 
@@ -137,11 +109,11 @@ internal sealed class SfntFont
     /// <returns>The table, or an empty memory when the face has none.</returns>
     internal ReadOnlyMemory<byte> TableMemory(uint tag)
     {
-        foreach (var table in _tables)
+        foreach (var table in Tables)
         {
             if (table.Tag == tag)
             {
-                return _data.AsMemory(table.Offset, table.Length);
+                return Data.AsMemory(table.Offset, table.Length);
             }
         }
 
@@ -155,14 +127,14 @@ internal sealed class SfntFont
 
     /// <summary>Writes the face as a font file of its own, which a collection's face needs before it can be embedded.</summary>
     /// <returns>The font file; the original bytes for a font that is not a collection.</returns>
-    internal byte[] ToStandalone() => IsCollection ? Write(Entries()) : _data;
+    internal byte[] ToStandalone() => IsCollection ? Write(Entries()) : Data;
 
     /// <summary>Writes a standalone font from this face's tables with some replaced or dropped.</summary>
     /// <param name="entries">The tables to write.</param>
     /// <returns>The font file.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal byte[] Write(SfntEntry[] entries) =>
-        SfntWriter.Write(_version, entries, SfntTags.Head, SfntTags.HeadChecksumAdjustment, SfntTags.ChecksumMagic);
+        SfntWriter.Write(Version, entries, SfntTags.Head, SfntTags.HeadChecksumAdjustment, SfntTags.ChecksumMagic);
 
     /// <summary>Writes a standalone font from borrowed entries, sorting them in place.</summary>
     /// <param name="entries">The tables, retained only during the call.</param>
@@ -170,25 +142,57 @@ internal sealed class SfntFont
     /// <returns>The owned font bytes.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal byte[] Write(Span<SfntEntry> entries, CancellationToken cancellationToken) =>
-        SfntWriter.Write(_version, entries, SfntTags.Head, SfntTags.HeadChecksumAdjustment, SfntTags.ChecksumMagic, cancellationToken);
+        SfntWriter.Write(Version, entries, SfntTags.Head, SfntTags.HeadChecksumAdjustment, SfntTags.ChecksumMagic, cancellationToken);
 
     /// <summary>Gets a copy of the face's tables as writer entries.</summary>
     /// <returns>An entry per table.</returns>
     internal SfntEntry[] Entries()
     {
-        var entries = new SfntEntry[_tables.Length];
+        var entries = new SfntEntry[Tables.Length];
         for (var i = 0; i < entries.Length; i++)
         {
-            entries[i] = new(_tables[i].Tag, _data.AsMemory(_tables[i].Offset, _tables[i].Length));
+            entries[i] = new(Tables[i].Tag, Data.AsMemory(Tables[i].Offset, Tables[i].Length));
         }
 
         return entries;
     }
 
-    /// <summary>Reads a face's table records, leaving out any that point outside the file.</summary>
+    /// <summary>Reads the bounded number of faces in a collection.</summary>
+    /// <param name="data">The font bytes.</param>
+    /// <returns>The face count.</returns>
+    /// <exception cref="PdfException">The face count exceeds the directory bytes or the parser limit.</exception>
+    private static int CollectionFaces(ReadOnlySpan<byte> data)
+    {
+        var count = FontBytes.U32(data, CollectionCountOffset);
+        if (count > MaxFaces || count > Math.Max((data.Length - CollectionFacesOffset) / FontBytes.U32Size, 0))
+        {
+            throw new PdfException(PdfError.Format, "The font collection face count exceeds its data.");
+        }
+
+        return (int)count;
+    }
+
+    /// <summary>Reads a face directory offset without overflowing the directory header.</summary>
+    /// <param name="data">The font bytes.</param>
+    /// <param name="face">The validated face index.</param>
+    /// <returns>The directory offset.</returns>
+    /// <exception cref="PdfException">The face directory lies outside the font.</exception>
+    private static int CollectionDirectory(ReadOnlySpan<byte> data, int face)
+    {
+        var directory = FontBytes.Offset32(data, CollectionFacesOffset + (face * FontBytes.U32Size));
+        if (directory > data.Length - HeaderSize)
+        {
+            throw new PdfException(PdfError.Format, "The font collection face offset exceeds its data.");
+        }
+
+        return directory;
+    }
+
+    /// <summary>Reads a face's table records after bounding their byte ranges.</summary>
     /// <param name="data">The file.</param>
     /// <param name="directory">The offset of the face's directory.</param>
     /// <returns>The tables.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     private static SfntTable[] ReadTables(ReadOnlySpan<byte> data, int directory)
     {
         var count = Math.Min(FontBytes.U16(data, directory + TableCountOffset), Math.Max((data.Length - directory - HeaderSize) / RecordSize, 0));
@@ -200,7 +204,7 @@ internal sealed class SfntFont
             var length = FontBytes.U32(data, record + RecordLength);
             if (offset > (uint)data.Length || length > (uint)data.Length - offset)
             {
-                continue;
+                throw new PdfException(PdfError.Format, "The font table range exceeds its data.");
             }
 
             tables.Add(new(FontBytes.U32(data, record), (int)offset, (int)length));

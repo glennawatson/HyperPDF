@@ -341,7 +341,7 @@ internal sealed class PdfRenderCache
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ImageEntry? AcquireImage(PdfStream stream, int reductionLevels, IccRendering rendering, PdfTransfer? transfer, CancellationToken cancellationToken) =>
         Images.Acquire(
-            new(stream, reductionLevels, rendering, transfer?.Id ?? 0),
+            new(stream, reductionLevels, rendering, transfer),
             new ImageDecodeState(this, DeviceColors, transfer, cancellationToken),
             Decode,
             cancellationToken);
@@ -393,7 +393,7 @@ internal sealed class PdfRenderCache
     /// <param name="key">The stream and decoded resolution.</param>
     /// <param name="state">The output intent colours and caller's cancellation token.</param>
     /// <returns>The pixels, or null.</returns>
-    private static PdfImageData? DecodeAtDisplaySize(ImageKey key, in ImageDecodeState state)
+    private static PdfImageData? DecodeAtDisplaySize(in ImageKey key, in ImageDecodeState state)
     {
         var nativeLevels = ImageReduction.NativeLevels(key.Stream.Dictionary, key.ReductionLevels);
 

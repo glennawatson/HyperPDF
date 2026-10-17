@@ -175,8 +175,15 @@ internal static class PdfDictionaryExtensions
     {
         /// <summary>Decodes the stream's data, or gives an empty array when it cannot be decoded.</summary>
         /// <returns>The decoded bytes.</returns>
-        internal byte[] DecodeOrEmpty()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal byte[] DecodeOrEmpty() => stream.DecodeOrEmpty(CancellationToken.None);
+
+        /// <summary>Decodes readable bytes without swallowing cancellation.</summary>
+        /// <param name="cancellationToken">Cancels decoding.</param>
+        /// <returns>The decoded bytes, or an empty array when the stream is absent or damaged.</returns>
+        internal byte[] DecodeOrEmpty(CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (stream is null)
             {
                 return [];
@@ -184,7 +191,7 @@ internal static class PdfDictionaryExtensions
 
             try
             {
-                return stream.DecodeToArray();
+                return stream.DecodeToArray(cancellationToken);
             }
             catch (PdfException)
             {

@@ -4,6 +4,7 @@
 
 using System.Security.Cryptography;
 using HyperPdf.Cms;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Signatures;
 
 namespace HyperPdfLibrary.Signing;
@@ -11,14 +12,8 @@ namespace HyperPdfLibrary.Signing;
 /// <summary>Maps the digests a PDF signature may use to the CMS digests and hashes the signed bytes.</summary>
 internal static class PdfSigningDigests
 {
-    /// <summary>The slots in the pool: one for every <see cref="CmsDigestAlgorithm"/> value.</summary>
-    private const int PoolSize = (int)CmsDigestAlgorithm.Shake128 + 1;
-
-    /// <summary>The idle hash objects, by <see cref="CmsDigestAlgorithm"/> value; a signature takes one out and puts it back.</summary>
-    private static readonly IncrementalHash?[] Pool = new IncrementalHash?[PoolSize];
-
-    /// <summary>The idle SHAKE256 object, or <see langword="null"/>.</summary>
-    private static Shake256? _pooledShake256;
+    /// <summary>The maximum signed bytes hashed between cancellation checks.</summary>
+    private const int HashChunkBytes = 64 * 1024;
 
     /// <summary>Gets the CMS digest for a digest method.</summary>
     /// <param name="method">The method.</param>
@@ -76,49 +71,100 @@ internal static class PdfSigningDigests
     /// <param name="first">The bytes before the signature value.</param>
     /// <param name="second">The bytes after it.</param>
     /// <param name="destination">A buffer of at least <see cref="CmsDigests.MaxLength"/> bytes.</param>
+    /// <param name="scratchPools">The caller's native-context owner.</param>
+    /// <param name="cancellationToken">Cancels hashing before leasing native state.</param>
     /// <returns>The digest length, or 0 when the digest is not available on this computer.</returns>
-    internal static int Hash(CmsDigestAlgorithm digest, ReadOnlySpan<byte> first, ReadOnlySpan<byte> second, Span<byte> destination)
+    internal static int Hash(CmsDigestAlgorithm digest, ReadOnlySpan<byte> first, ReadOnlySpan<byte> second, Span<byte> destination, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (CmsDigests.Status(digest) != CmsDigestStatus.Available)
         {
             return 0;
         }
 
-        if (digest == CmsDigestAlgorithm.Shake256)
+        var pool = scratchPools.Objects<PdfSigningHashState>();
+        var state = pool.Take() ?? new PdfSigningHashState();
+        var reusable = false;
+        try
         {
-            return HashShake256(first, second, destination);
+            var length = digest == CmsDigestAlgorithm.Shake256
+                ? HashShake256(state, first, second, destination, cancellationToken)
+                : HashFixed(state, digest, first, second, destination, cancellationToken);
+            reusable = true;
+            return length;
         }
-
-        // A hash object is a native context; the pool keeps one per algorithm for the next signature to take.
-        var slot = (int)digest;
-        var hash = Interlocked.Exchange(ref Pool[slot], null) ?? IncrementalHash.CreateHash(CmsDigests.HashName(digest));
-        hash.AppendData(first);
-        hash.AppendData(second);
-        var length = hash.GetHashAndReset(destination);
-        if (Interlocked.CompareExchange(ref Pool[slot], hash, null) is not null)
+        finally
         {
-            hash.Dispose();
+            // A failed or cancelled hash may hold partial input and must not enter another operation.
+            if (!reusable || !pool.Offer(state))
+            {
+                state.Dispose();
+            }
         }
+    }
 
-        return length;
+    /// <summary>Hashes two ranges using an exclusively leased fixed-length context.</summary>
+    /// <param name="state">The native-context lease.</param>
+    /// <param name="digest">The digest algorithm.</param>
+    /// <param name="first">The first range.</param>
+    /// <param name="second">The second range.</param>
+    /// <param name="destination">Receives the digest.</param>
+    /// <param name="cancellationToken">Cancels between ranges.</param>
+    /// <returns>The written length.</returns>
+    private static int HashFixed(PdfSigningHashState state, CmsDigestAlgorithm digest, ReadOnlySpan<byte> first, ReadOnlySpan<byte> second, Span<byte> destination, CancellationToken cancellationToken)
+    {
+        ref var slot = ref state.Hash(digest);
+        var hash = slot ??= IncrementalHash.CreateHash(CmsDigests.HashName(digest));
+        Append(hash, first, cancellationToken);
+        Append(hash, second, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return hash.GetHashAndReset(destination);
     }
 
     /// <summary>Hashes two ranges with SHAKE256, taking its 64-byte output.</summary>
+    /// <param name="state">The exclusively leased native contexts.</param>
     /// <param name="first">The first range.</param>
     /// <param name="second">The second range.</param>
     /// <param name="destination">A buffer of at least <see cref="CmsDigests.MaxLength"/> bytes.</param>
+    /// <param name="cancellationToken">Cancels between ranges.</param>
     /// <returns>The length written.</returns>
-    private static int HashShake256(ReadOnlySpan<byte> first, ReadOnlySpan<byte> second, Span<byte> destination)
+    private static int HashShake256(PdfSigningHashState state, ReadOnlySpan<byte> first, ReadOnlySpan<byte> second, Span<byte> destination, CancellationToken cancellationToken)
     {
-        var shake = Interlocked.Exchange(ref _pooledShake256, null) ?? new Shake256();
-        shake.AppendData(first);
-        shake.AppendData(second);
+        var shake = state.Shake ??= new Shake256();
+        Append(shake, first, cancellationToken);
+        Append(shake, second, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         shake.GetHashAndReset(destination[..CmsDigests.MaxLength]);
-        if (Interlocked.CompareExchange(ref _pooledShake256, shake, null) is not null)
-        {
-            shake.Dispose();
-        }
-
         return CmsDigests.MaxLength;
+    }
+
+    /// <summary>Appends fixed-length digest input in cancellable chunks.</summary>
+    /// <param name="hash">The exclusively leased native context.</param>
+    /// <param name="bytes">The signed input.</param>
+    /// <param name="cancellationToken">Cancels between chunks.</param>
+    private static void Append(IncrementalHash hash, ReadOnlySpan<byte> bytes, CancellationToken cancellationToken)
+    {
+        while (!bytes.IsEmpty)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var length = Math.Min(bytes.Length, HashChunkBytes);
+            hash.AppendData(bytes[..length]);
+            bytes = bytes[length..];
+        }
+    }
+
+    /// <summary>Appends variable-length digest input in cancellable chunks.</summary>
+    /// <param name="shake">The exclusively leased native context.</param>
+    /// <param name="bytes">The signed input.</param>
+    /// <param name="cancellationToken">Cancels between chunks.</param>
+    private static void Append(Shake256 shake, ReadOnlySpan<byte> bytes, CancellationToken cancellationToken)
+    {
+        while (!bytes.IsEmpty)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var length = Math.Min(bytes.Length, HashChunkBytes);
+            shake.AppendData(bytes[..length]);
+            bytes = bytes[length..];
+        }
     }
 }

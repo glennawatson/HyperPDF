@@ -22,9 +22,6 @@ internal ref struct RentedList<T>
     /// <summary>The factor by which a full array grows.</summary>
     private const int GrowthFactor = 2;
 
-    /// <summary>Whether entries hold references, so the array is cleared when it goes back to the pool.</summary>
-    private static readonly bool HoldsReferences = RuntimeHelpers.IsReferenceOrContainsReferences<T>();
-
     /// <summary>The rented array, or <see langword="null"/> before the first entry.</summary>
     private T[]? _array;
 
@@ -70,7 +67,7 @@ internal ref struct RentedList<T>
     /// <summary>Removes every entry and keeps the array.</summary>
     internal void Clear()
     {
-        if (HoldsReferences)
+        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
         {
             Span.Clear();
         }
@@ -86,7 +83,7 @@ internal ref struct RentedList<T>
         Count = 0;
         if (array is not null)
         {
-            ArrayPool<T>.Shared.Return(array, HoldsReferences);
+            ArrayPool<T>.Shared.Return(array, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
         }
     }
 
@@ -103,7 +100,7 @@ internal ref struct RentedList<T>
         if (_array is not null)
         {
             _array.AsSpan(0, Count).CopyTo(larger);
-            ArrayPool<T>.Shared.Return(_array, HoldsReferences);
+            ArrayPool<T>.Shared.Return(_array, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
         }
 
         _array = larger;

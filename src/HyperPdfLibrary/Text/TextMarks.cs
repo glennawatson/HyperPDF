@@ -13,7 +13,7 @@ namespace HyperPdfLibrary.Text;
 /// <param name="Id">Numbers the sequence in content order, so every run of one sequence shares it; 0 when no sequence supplies text.</param>
 /// <param name="ActualText">The replacement text; empty when there is none.</param>
 [DebuggerDisplay("TextMarks: sequence {Id}")]
-internal sealed record TextMarks(int Id, string ActualText)
+internal readonly record struct TextMarks(int Id, string ActualText)
 {
     /// <summary>Gets the marks of text that no /ActualText covers.</summary>
     internal static TextMarks None { get; } = new(0, string.Empty);

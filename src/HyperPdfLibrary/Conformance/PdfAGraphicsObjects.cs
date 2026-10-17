@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
+using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Conformance;
@@ -22,28 +22,6 @@ internal static class PdfAGraphicsObjects
 
     /// <summary>The value veraPDF gives an alpha that is not a number, so the check fails.</summary>
     private const double NotANumberAlpha = 2;
-
-    /// <summary>The blend modes ISO 32000-1 defines.</summary>
-    private static readonly FrozenSet<KnownName> BlendModes = new[]
-    {
-        KnownName.Normal,
-        KnownName.Compatible,
-        KnownName.Multiply,
-        KnownName.Screen,
-        KnownName.Overlay,
-        KnownName.Darken,
-        KnownName.Lighten,
-        KnownName.ColorDodge,
-        KnownName.ColorBurn,
-        KnownName.HardLight,
-        KnownName.SoftLight,
-        KnownName.Difference,
-        KnownName.Exclusion,
-        KnownName.Hue,
-        KnownName.Saturation,
-        KnownName.Color,
-        KnownName.Luminosity,
-    }.ToFrozenSet();
 
     /// <summary>Checks a graphics state parameter dictionary named by a <c>gs</c> operator.</summary>
     /// <param name="walk">The walk.</param>
@@ -80,7 +58,8 @@ internal static class PdfAGraphicsObjects
             return;
         }
 
-        walk.Context.Require(BlendModes.Contains(name.ToKnownName()), PdfARule.BlendModeName, where);
+        var known = name.ToKnownName();
+        walk.Context.Require(known == KnownName.Compatible || PdfBlendModeNames.IsStandard(known), PdfARule.BlendModeName, where);
     }
 
     /// <summary>Checks the dictionary keys of an XObject: the rules every image, form and PostScript XObject follows.</summary>

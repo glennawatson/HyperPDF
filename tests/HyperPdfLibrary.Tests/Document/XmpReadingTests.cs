@@ -337,7 +337,7 @@ public sealed class XmpReadingTests
         _ = builder.Append($"<!ENTITY ext SYSTEM \"file:///etc/passwd\">]><x:xmpmeta xmlns:x=\"adobe:ns:meta/\">&e{BombLevels - 1};&ext;</x:xmpmeta>");
         var start = Stopwatch.GetTimestamp();
 
-        var xmp = XmpParser.Parse(Encoding.UTF8.GetBytes(builder.ToString()));
+        var xmp = XmpParser.Parse(Encoding.UTF8.GetBytes(builder.ToString()), CancellationToken.None);
 
         await Assert.That(xmp.IsWellFormed).IsFalse();
         await Assert.That(xmp.Properties.Count).IsEqualTo(0);
@@ -355,7 +355,7 @@ public sealed class XmpReadingTests
     [Arguments("")]
     public async Task MalformedPacketsDoNotThrow(string packet)
     {
-        var xmp = XmpParser.Parse(Encoding.UTF8.GetBytes(packet));
+        var xmp = XmpParser.Parse(Encoding.UTF8.GetBytes(packet), CancellationToken.None);
 
         await Assert.That(xmp.IsWellFormed).IsFalse();
     }
@@ -429,7 +429,7 @@ public sealed class XmpReadingTests
     /// <summary>Parses packet text as UTF-8.</summary>
     /// <param name="packet">The packet text.</param>
     /// <returns>The metadata.</returns>
-    private static XmpMetadata Parse(string packet) => XmpParser.Parse(Encoding.UTF8.GetBytes(packet));
+    private static XmpMetadata Parse(string packet) => XmpParser.Parse(Encoding.UTF8.GetBytes(packet), CancellationToken.None);
 
     /// <summary>Builds the sample catalog.</summary>
     /// <param name="entries">Extra catalog entries.</param>

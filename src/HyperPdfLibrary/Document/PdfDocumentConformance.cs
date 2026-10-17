@@ -94,7 +94,7 @@ public static class PdfDocumentConformance
     /// <returns>The report.</returns>
     private static PdfConformanceReport Read(PdfDocument document, CancellationToken cancellationToken)
     {
-        var xmp = PdfDocumentMetadata.GetXmp(document);
+        var xmp = PdfDocumentMetadata.ReadOwnerXmp(document, document.Catalog, cancellationToken);
         var intents = PdfDocumentCatalog.GetOutputIntents(document);
         var summaries = new PdfOutputIntentSummary[intents.Length];
         for (var i = 0; i < intents.Length; i++)

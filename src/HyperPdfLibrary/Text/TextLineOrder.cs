@@ -31,6 +31,11 @@ internal static class TextLineOrder
     /// <param name="state">The build state.</param>
     internal static void Complete(TextPageBuildState state)
     {
+        if (state.Device.Options.StripFormattingControls)
+        {
+            TextFormattingControls.Strip(state.LineChars, state.Device.CancellationToken);
+        }
+
         if (state.LineChars.Count == 0)
         {
             return;

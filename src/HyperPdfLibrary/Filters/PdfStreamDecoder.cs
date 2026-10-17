@@ -65,6 +65,9 @@ internal static class PdfStreamDecoder
         var count = Math.Min(declared, PdfLimits.MaxFilters);
         ReportExtraFilters(declared, count, source);
         var scratch = default(PooledBuffer);
+        var maximumLength = ConfiguredOutputLength(source);
+        output.MaximumLength = maximumLength;
+        scratch.MaximumLength = maximumLength;
         try
         {
             var current = data;
@@ -118,6 +121,13 @@ internal static class PdfStreamDecoder
         _ => PdfImageCodec.None,
     };
 
+    /// <summary>Gets the output byte bound for this decoding operation.</summary>
+    /// <param name="source">The context carrying the configured byte bound.</param>
+    /// <returns>A narrower configured bound, or zero for the recoverable general-purpose limit.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ConfiguredOutputLength(in DecodeSource source) =>
+        source.Context is { MaxDecompressedBytes: < PdfLimits.MaxDecodedLength } context ? context.MaxDecompressedBytes : 0;
+
     /// <summary>Gets one filter's parameters.</summary>
     /// <param name="filterArray">The filter array, or <see langword="null"/> for a single filter.</param>
     /// <param name="parameters">The /DecodeParms value.</param>
@@ -167,21 +177,31 @@ internal static class PdfStreamDecoder
         switch (result)
         {
             case FilterResult.Unknown:
-            {
-                PdfOpenContext.Report(source.Context, PdfDiagnosticCode.UnknownFilter, "A stream uses a filter this library does not know; its data passed through.", source.ObjectNumber, -1);
-                break;
-            }
+                {
+                    PdfOpenContext.Report(
+                        source.Context,
+                        PdfDiagnosticCode.UnknownFilter,
+                        "A stream uses a filter this library does not know; its data passed through.",
+                        source.ObjectNumber,
+                        -1);
+                    break;
+                }
 
             case FilterResult.Damaged:
-            {
-                PdfOpenContext.Report(source.Context, PdfDiagnosticCode.TruncatedStream, "A stream's data ended early or was damaged; the part that could be read is used.", source.ObjectNumber, -1);
-                break;
-            }
+                {
+                    PdfOpenContext.Report(
+                        source.Context,
+                        PdfDiagnosticCode.TruncatedStream,
+                        "A stream's data ended early or was damaged; the part that could be read is used.",
+                        source.ObjectNumber,
+                        -1);
+                    break;
+                }
 
             default:
-            {
-                break;
-            }
+                {
+                    break;
+                }
         }
     }
 
@@ -198,33 +218,33 @@ internal static class PdfStreamDecoder
         switch (known)
         {
             case KnownName.FlateDecode or KnownName.Fl or KnownName.LZWDecode or KnownName.LZW:
-            {
-                return ApplyDictionaryCoder(known, input, parms, ref output, source);
-            }
+                {
+                    return ApplyDictionaryCoder(known, input, parms, ref output, source);
+                }
 
             case KnownName.ASCIIHexDecode or KnownName.AHx or KnownName.ASCII85Decode or KnownName.A85:
-            {
-                return ApplyText(known, input, ref output);
-            }
+                {
+                    return ApplyText(known, input, ref output, source.CancellationToken);
+                }
 
             case KnownName.RunLengthDecode or KnownName.RL:
-            {
-                RunLengthFilter.Decode(input, ref output);
-                break;
-            }
+                {
+                    RunLengthFilter.Decode(input, ref output, source.CancellationToken);
+                    break;
+                }
 
             case KnownName.BrotliDecode:
-            {
-                BrotliFilter.Decode(input, ref output);
-                PredictorFilter.Apply(parms, ref output);
-                break;
-            }
+                {
+                    BrotliFilter.Decode(input, ref output, source.CancellationToken);
+                    PredictorFilter.Apply(parms, ref output, source.CancellationToken);
+                    break;
+                }
 
             default:
-            {
-                output.Write(input);
-                return known == KnownName.Crypt ? FilterResult.Applied : FilterResult.Unknown;
-            }
+                {
+                    output.Write(input);
+                    return known == KnownName.Crypt ? FilterResult.Applied : FilterResult.Unknown;
+                }
         }
 
         return FilterResult.Applied;
@@ -234,12 +254,13 @@ internal static class PdfStreamDecoder
     /// <param name="known">The filter, which is one of the two ASCII filters in full or abbreviated form.</param>
     /// <param name="input">The encoded text.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns><see cref="FilterResult.Damaged"/> when the text broke the filter's rules.</returns>
-    private static FilterResult ApplyText(KnownName known, ReadOnlySpan<byte> input, ref PooledBuffer output)
+    private static FilterResult ApplyText(KnownName known, ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken)
     {
         var clean = known is KnownName.ASCIIHexDecode or KnownName.AHx
-            ? AsciiHexFilter.TryDecode(input, ref output)
-            : Ascii85Filter.TryDecode(input, ref output);
+            ? AsciiHexFilter.TryDecode(input, ref output, cancellationToken)
+            : Ascii85Filter.TryDecode(input, ref output, cancellationToken);
         return clean ? FilterResult.Applied : FilterResult.Damaged;
     }
 
@@ -253,9 +274,9 @@ internal static class PdfStreamDecoder
     private static FilterResult ApplyDictionaryCoder(KnownName known, ReadOnlySpan<byte> input, PdfDictionary? parms, ref PooledBuffer output, in DecodeSource source)
     {
         var clean = known is KnownName.FlateDecode or KnownName.Fl
-            ? FlateFilter.TryDecode(input, ref output, source.CancellationToken)
+            ? FlateFilter.TryDecode(input, ref output, input.IsEmpty ? null : source.Context?.ScratchPools, source.CancellationToken)
             : LzwFilter.TryDecode(input, parms?.GetInt32(KnownName.EarlyChange, 1) ?? 1, ref output, source.CancellationToken);
-        PredictorFilter.Apply(parms, ref output);
+        PredictorFilter.Apply(parms, ref output, source.CancellationToken);
         return clean ? FilterResult.Applied : FilterResult.Damaged;
     }
 

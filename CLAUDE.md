@@ -1,5 +1,7 @@
 # Project rules
 
+- **Frozen collections are banned throughout this project.** Use `Dictionary` or `HashSet`, never `System.Collections.Frozen`, `FrozenDictionary`, `FrozenSet`, `ToFrozenDictionary`, or `ToFrozenSet`. The reusable library may run in a short-lived host. The global long-running-application exception does not apply here.
+
 HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are people with ADHD or autism. Improve low-vision access alongside those needs. Follow the [comfort rules](../docs/PdViewerLite/COMFORT.md). Use the [research](docs/research/README.md) to guide choices. Keep controls clear, stable and adjustable.
 
 ## Performance
@@ -13,7 +15,9 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 ## Implementation
 
 - Put behaviour in focused static classes with helper methods that operate on records holding the state. Never grow one type and split it across partial files; `partial` is only for source generators. Callers compose the focused helpers directly; change the downstream code instead of adding a facade.
-- Prefer sealed records for data snapshots. Prefer readonly record structs for small values. Use classes for mutable state, services and owned lifetimes. Record collection equality follows the collection's own equality.
+- **Static fields are allowed if, and only if, their state never changes after initialisation.** Keep fixed rule data and immutable lookup tables static rather than rebuilding them for every operation. A `readonly` reference does not make a mutable cache, pool or counter immutable. Mutable reusable state belongs to the caller's lifetime owner and is passed explicitly to helpers.
+- Use sealed positional records for data snapshots and positional readonly record structs for small values. Refactor data-only classes and verbose property-only records into these shapes when touching them. Do not replace them with raw-field data containers. Use classes for genuinely mutable state, services and owned lifetimes, with encapsulated state and proper methods. Raw fields require a concrete need, such as native layout. Record collection equality follows the collection's own equality.
+- Pass only the state each focused helper needs. Keep reusable buffers and mutable working state in the caller's owner; do not hide them in global storage or ambient state.
 - Never use value tuple types: not as return types, fields, parameters, collection elements, or `(a, b) = (b, a)` swaps. Name the shape with a positional record (`record struct` for small values, `record` for reference data). Prefer positional syntax. On hot paths, use readonly record structs that stay on the stack or in pooled arrays, so they allocate nothing.
 - Keep deconstruction. Positional records deconstruct, so write `var (key, value) = entry;` and `foreach (var (key, value) in entries)` wherever it reads better than member access.
 - Every project targets `net10.0;net11.0`: libraries, the app, tests and benchmarks. Native AOT publishes from `net11.0`. Use `global.json`. Package versions belong in `Directory.Packages.props`.

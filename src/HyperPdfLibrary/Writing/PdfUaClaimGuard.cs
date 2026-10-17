@@ -62,7 +62,7 @@ internal static class PdfUaClaimGuard
         }
 
         var packet = stream.DecodeOrEmpty();
-        return packet.Length > 0 && XmpParser.Parse(packet).PdfUaPart == PdfUaClaim.Part1;
+        return packet.Length > 0 && XmpParser.Parse(packet, CancellationToken.None).PdfUaPart == PdfUaClaim.Part1;
     }
 
     /// <summary>

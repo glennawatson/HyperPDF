@@ -50,11 +50,14 @@ public sealed class XrefBoundsTests
     }
 
     /// <summary>A cross-reference stream subsection beyond the object number limit is skipped without growing the table.</summary>
+    /// <param name="skippedInMiddle">Whether valid entries follow the invalid subsection.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task StreamSubsectionBeyondLimitIsSkipped()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task StreamSubsectionBeyondLimitIsSkipped(bool skippedInMiddle)
     {
-        var file = StreamFile();
+        var file = StreamFile(skippedInMiddle);
         using var store = StoreOpening.Open(file, null);
         await Assert.That(store.WasRepaired).IsFalse();
         await Assert.That(store.UsesXrefStreams).IsTrue();
@@ -76,12 +79,28 @@ public sealed class XrefBoundsTests
     }
 
     /// <summary>Builds a file whose cross-reference stream has a real subsection and one that starts far beyond the limit.</summary>
+    /// <param name="skippedInMiddle">Whether valid entries follow the invalid subsection.</param>
     /// <returns>The file.</returns>
-    private static byte[] StreamFile()
+    private static byte[] StreamFile(bool skippedInMiddle)
     {
         var pdf = new RawPdf().Object(1, Catalog).Object(ObjectCount, Pages);
         var self = pdf.Position;
-        List<RawPdf.XrefStreamEntry> entries = [new(0, 0, FreeGeneration), new(1, pdf.OffsetOf(1), 0), new(1, pdf.OffsetOf(ObjectCount), 0), new(1, self, 0), new(1, 0, 0),];
-        return pdf.XrefStream(XrefObject, StreamSize, $"[0 {StreamSize} {OverLimitCount} 1]", "/Root 1 0 R", entries).ToArray();
+        List<RawPdf.XrefStreamEntry> entries = [new(0, 0, FreeGeneration), new(1, pdf.OffsetOf(1), 0),];
+        if (skippedInMiddle)
+        {
+            entries.Add(new(1, 0, 0));
+        }
+
+        entries.Add(new(1, pdf.OffsetOf(ObjectCount), 0));
+        entries.Add(new(1, self, 0));
+        if (!skippedInMiddle)
+        {
+            entries.Add(new(1, 0, 0));
+        }
+
+        var index = skippedInMiddle
+            ? $"[0 {ObjectCount} {OverLimitCount} 1 {ObjectCount} {StreamSize - ObjectCount}]"
+            : $"[0 {StreamSize} {OverLimitCount} 1]";
+        return pdf.XrefStream(XrefObject, StreamSize, index, "/Root 1 0 R", entries).ToArray();
     }
 }

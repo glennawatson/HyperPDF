@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace HyperPdfLibrary.Filters;
 
 /// <summary>Decodes and encodes RunLengthDecode data.</summary>
@@ -18,6 +20,9 @@ internal static class RunLengthFilter
 
     /// <summary>The fewest equal bytes worth a repeat run: two equal bytes cost the same as literal bytes and would split the literal run.</summary>
     private const int MinRepeat = 3;
+
+    /// <summary>Checks cancellation after each 256 runs.</summary>
+    private const int CancellationCheckMask = 255;
 
     /// <summary>
     /// Encodes runs (ISO 32000-2 7.4.5): three or more equal bytes become a repeat run of up to 128, other bytes are copied in
@@ -52,11 +57,26 @@ internal static class RunLengthFilter
     /// <summary>Decodes literal and repeated runs.</summary>
     /// <param name="input">The encoded data.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
-    internal static void Decode(ReadOnlySpan<byte> input, ref PooledBuffer output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Decode(ReadOnlySpan<byte> input, ref PooledBuffer output) => Decode(input, ref output, CancellationToken.None);
+
+    /// <summary>Decodes runs with cancellation between run batches.</summary>
+    /// <param name="input">The encoded data.</param>
+    /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal static void Decode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var index = 0;
+        var runs = 0;
         while (index < input.Length)
         {
+            if ((runs & CancellationCheckMask) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            runs++;
             var length = input[index];
             index++;
             if (length == EndOfData)

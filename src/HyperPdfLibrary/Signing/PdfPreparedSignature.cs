@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Signing;
 
@@ -12,5 +13,14 @@ namespace HyperPdfLibrary.Signing;
 /// <param name="Mac">The keys of the PDF MAC the signature carries, or <see langword="null"/> when the document needs none.</param>
 /// <param name="Options">The options.</param>
 /// <param name="Notes">What the user should know.</param>
+/// <param name="ScratchPools">The original caller's native-context owner.</param>
+/// <param name="CancellationToken">Cancels the signature operation.</param>
 [DebuggerDisplay("PdfPreparedSignature: {Plan.FieldName}")]
-internal sealed record PdfPreparedSignature(PdfSigningFile File, PdfSigningPlan Plan, PdfMacKeyMaterial? Mac, PdfSigningOptions Options, IReadOnlyList<string> Notes);
+internal sealed record PdfPreparedSignature(
+    PdfSigningFile File,
+    PdfSigningPlan Plan,
+    PdfMacKeyMaterial? Mac,
+    PdfSigningOptions Options,
+    IReadOnlyList<string> Notes,
+    ScratchPools ScratchPools,
+    CancellationToken CancellationToken);

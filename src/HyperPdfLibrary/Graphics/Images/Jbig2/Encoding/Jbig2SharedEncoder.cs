@@ -201,10 +201,8 @@ internal static class Jbig2SharedEncoder
     /// <param name="cancellationToken">Cancels the encode.</param>
     private static void EncodeGeneric(Jbig2PageInput page, byte[] ink, Jbig2EncodeOptions options, ref PooledBuffer data, CancellationToken cancellationToken)
     {
-        // A generic region has no globals, so this buffer stays empty.
-        var globals = default(PooledBuffer);
         var length = Jbig2Bits.Stride(page.Width) * page.Height;
-        _ = Jbig2PageEncoder.TryEncode(Jbig2EncodeMode.GenericRegion, ink.AsSpan(0, length), new(page.Width, page.Height), options, ref data, ref globals, cancellationToken);
+        _ = Jbig2PageEncoder.EncodeArithmetic(ink.AsSpan(0, length), new(page.Width, page.Height), options, ref data, cancellationToken);
     }
 
     /// <summary>Matches the marks of all the images, writes the shared dictionaries and each image's stream.</summary>

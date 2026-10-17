@@ -167,7 +167,7 @@ public sealed partial class CcittEncoderTests
         var output = default(PooledBuffer);
         try
         {
-            CcittEncoder.EncodeGroup4(rows, width, height, blackIs1, ref output, new());
+            CcittEncoder.EncodeGroup4(rows, width, height, blackIs1, ref output, new(), CancellationToken.None);
             return output.ToArray();
         }
         finally

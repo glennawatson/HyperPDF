@@ -2,8 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
-using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Pdf20;
@@ -15,27 +14,6 @@ namespace HyperPdfLibrary.Pdf20;
 /// </summary>
 internal static class Pdf20ConversionGraphicsFixes
 {
-    /// <summary>The blend modes ISO 32000-2 11.3.5 defines, other than the deprecated /Compatible.</summary>
-    private static readonly FrozenSet<KnownName> StandardModes = FrozenSet.ToFrozenSet(
-    [
-        KnownName.Normal,
-        KnownName.Multiply,
-        KnownName.Screen,
-        KnownName.Overlay,
-        KnownName.Darken,
-        KnownName.Lighten,
-        KnownName.ColorDodge,
-        KnownName.ColorBurn,
-        KnownName.HardLight,
-        KnownName.SoftLight,
-        KnownName.Difference,
-        KnownName.Exclusion,
-        KnownName.Hue,
-        KnownName.Saturation,
-        KnownName.Color,
-        KnownName.Luminosity,
-    ]);
-
     /// <summary>Fixes one dictionary.</summary>
     /// <param name="tally">The counts.</param>
     /// <param name="dictionary">The dictionary.</param>
@@ -86,7 +64,7 @@ internal static class Pdf20ConversionGraphicsFixes
         for (var i = 0; i < modes.Count; i++)
         {
             var name = modes.GetName(i);
-            if (IsStandardMode(name.ToKnownName()))
+            if (PdfBlendModeNames.IsStandard(name.ToKnownName()))
             {
                 return name;
             }
@@ -94,12 +72,6 @@ internal static class Pdf20ConversionGraphicsFixes
 
         return KnownName.Normal;
     }
-
-    /// <summary>Determines whether a name is a blend mode ISO 32000-2 11.3.5 defines, other than the deprecated /Compatible.</summary>
-    /// <param name="name">The name.</param>
-    /// <returns><see langword="true"/> when it is.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsStandardMode(KnownName name) => StandardModes.Contains(name);
 
     /// <summary>Removes identity transfer functions, and counts the ones that change colours.</summary>
     /// <param name="tally">The counts.</param>

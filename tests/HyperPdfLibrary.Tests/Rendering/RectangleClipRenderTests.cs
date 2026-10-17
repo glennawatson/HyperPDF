@@ -45,6 +45,29 @@ public sealed class RectangleClipRenderTests
         await Assert.That(paths.Pixels).IsEquivalentTo(rectangles.Pixels);
     }
 
+    /// <summary>An empty clipping path leaves no paintable pixels.</summary>
+    /// <param name="clip">The winding or even-odd clipping operators.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments("W n")]
+    [Arguments("W* n")]
+    public async Task EmptyClipMatchesBlankPage(string clip)
+    {
+        var clipped = Render($"{clip} {Paint}", 0);
+        var blank = Render(string.Empty, 0);
+        await Assert.That(clipped.Pixels).IsEquivalentTo(blank.Pixels);
+    }
+
+    /// <summary>Restoring the graphics state removes an empty clip.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RestoreRemovesEmptyClip()
+    {
+        var restored = Render($"q W n {Paint} Q {Paint}", 0);
+        var painted = Render(Paint, 0);
+        await Assert.That(restored.Pixels).IsEquivalentTo(painted.Pixels);
+    }
+
     /// <summary>Renders a page of the content.</summary>
     /// <param name="content">The page content.</param>
     /// <param name="turns">The quarter turns.</param>

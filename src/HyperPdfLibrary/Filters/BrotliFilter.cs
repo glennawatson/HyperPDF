@@ -4,6 +4,7 @@
 
 using System.Buffers;
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
 
 namespace HyperPdfLibrary.Filters;
 
@@ -19,7 +20,14 @@ internal static class BrotliFilter
     /// <summary>Decodes Brotli data.</summary>
     /// <param name="input">The compressed bytes.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
-    internal static void Decode(ReadOnlySpan<byte> input, ref PooledBuffer output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Decode(ReadOnlySpan<byte> input, ref PooledBuffer output) => Decode(input, ref output, CancellationToken.None);
+
+    /// <summary>Decodes Brotli data with cancellation between output chunks.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    internal static void Decode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken)
     {
         if (input.IsEmpty)
         {
@@ -33,8 +41,14 @@ internal static class BrotliFilter
         var decoder = default(BrotliDecoder);
         try
         {
-            while (Step(decoder.Decompress(input, output.GetSpan(hint), out var consumed, out var written), consumed, written, ref input, ref output))
+            Span<byte> probe = stackalloc byte[1];
+            var status = OperationStatus.DestinationTooSmall;
+            while (status == OperationStatus.DestinationTooSmall)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                var remaining = output.MaximumLength - output.Length;
+                var destination = remaining == 0 ? probe : output.GetSpan(Math.Min(hint, remaining));
+                status = Step(decoder.Decompress(input, destination, out var consumed, out var written), consumed, written, ref input, ref output);
                 hint = Math.Max(hint, output.Length);
             }
         }
@@ -50,11 +64,11 @@ internal static class BrotliFilter
     /// <param name="written">The output bytes written.</param>
     /// <param name="input">The remaining input.</param>
     /// <param name="output">The output buffer.</param>
-    /// <returns><see langword="true"/> when the output was full and decoding should continue; done, truncated (NeedMoreData) and damaged (InvalidData) all stop, keeping what decoded.</returns>
-    private static bool Step(OperationStatus status, int consumed, int written, ref ReadOnlySpan<byte> input, ref PooledBuffer output)
+    /// <returns>The decoder status; only DestinationTooSmall continues decoding.</returns>
+    private static OperationStatus Step(OperationStatus status, int consumed, int written, ref ReadOnlySpan<byte> input, ref PooledBuffer output)
     {
         output.Advance(written);
         input = input[consumed..];
-        return status == OperationStatus.DestinationTooSmall;
+        return status;
     }
 }

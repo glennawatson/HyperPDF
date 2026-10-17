@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Globalization;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Metadata;
@@ -23,29 +22,6 @@ internal static class PdfAConversionMetadata
 
     /// <summary>The entries of a metadata stream dictionary.</summary>
     private const int MetadataEntries = 2;
-
-    /// <summary>The XMP properties the new packet carries, as namespace-qualified keys.</summary>
-    private static readonly FrozenSet<string> KeptProperties = FrozenSet.ToFrozenSet(
-    [
-        XmpMetadata.Key(XmpMetadata.DublinCoreNamespace, "format"),
-        XmpMetadata.Key(XmpMetadata.DublinCoreNamespace, "title"),
-        XmpMetadata.Key(XmpMetadata.DublinCoreNamespace, "creator"),
-        XmpMetadata.Key(XmpMetadata.DublinCoreNamespace, "description"),
-        XmpMetadata.Key(XmpMetadata.DublinCoreNamespace, "subject"),
-        XmpMetadata.Key(XmpMetadata.PdfNamespace, "Keywords"),
-        XmpMetadata.Key(XmpMetadata.PdfNamespace, "Producer"),
-        XmpMetadata.Key(XmpMetadata.PdfNamespace, "Trapped"),
-        XmpMetadata.Key(XmpMetadata.XmpNamespace, "CreatorTool"),
-        XmpMetadata.Key(XmpMetadata.XmpNamespace, "CreateDate"),
-        XmpMetadata.Key(XmpMetadata.XmpNamespace, "ModifyDate"),
-        XmpMetadata.Key(XmpMetadata.XmpNamespace, "MetadataDate"),
-        XmpMetadata.Key(XmpMetadata.PdfAIdNamespace, "part"),
-        XmpMetadata.Key(XmpMetadata.PdfAIdNamespace, "conformance"),
-        XmpMetadata.Key(XmpMetadata.PdfAIdNamespace, "rev"),
-        XmpMetadata.Key(XmpMetadata.PdfAIdNamespace, "amd"),
-        XmpMetadata.Key(XmpMetadata.PdfAIdNamespace, "corr"),
-        XmpMetadata.Key(XmpMetadata.PdfUaIdNamespace, "part"),
-    ], StringComparer.Ordinal);
 
     /// <summary>Writes the metadata.</summary>
     /// <param name="session">The conversion.</param>
@@ -229,10 +205,15 @@ internal static class PdfAConversionMetadata
     /// <param name="xmp">The old XMP, or <see langword="null"/>.</param>
     private static void ReportDropped(PdfAConversionSession session, XmpMetadata? xmp)
     {
-        var dropped = 0;
-        foreach (var key in xmp?.Properties.Keys ?? [])
+        if (xmp is null)
         {
-            dropped += KeptProperties.Contains(key) ? 0 : 1;
+            return;
+        }
+
+        var dropped = 0;
+        foreach (var key in xmp.Properties.Keys)
+        {
+            dropped += IsKeptProperty(key) ? 0 : 1;
         }
 
         if (dropped > 0)
@@ -285,4 +266,75 @@ internal static class PdfAConversionMetadata
             store.Trailer.Set(KnownName.Info, PdfValue.FromReference(StoreEditing.Add(store, PdfValue.FromDictionary(info))));
         }
     }
+
+    /// <summary>Recognises metadata properties retained by conversion.</summary>
+    /// <param name="key">The namespace-qualified property key.</param>
+    /// <returns>Whether conversion retains the property.</returns>
+    private static bool IsKeptProperty(ReadOnlySpan<char> key)
+    {
+        if (key.IsEmpty || key[0] != '{')
+        {
+            return false;
+        }
+
+        var end = key.IndexOf('}');
+        if (end < 0)
+        {
+            return false;
+        }
+
+        var space = key[1..end];
+        var name = key[(end + 1)..];
+        if (space.SequenceEqual(XmpMetadata.DublinCoreNamespace))
+        {
+            return IsKeptDublinCore(name);
+        }
+
+        if (space.SequenceEqual(XmpMetadata.PdfNamespace))
+        {
+            return IsKeptPdf(name);
+        }
+
+        if (space.SequenceEqual(XmpMetadata.XmpNamespace))
+        {
+            return IsKeptXmp(name);
+        }
+
+        if (space.SequenceEqual(XmpMetadata.PdfAIdNamespace))
+        {
+            return IsKeptPdfAId(name);
+        }
+
+        if (space.SequenceEqual(XmpMetadata.PdfUaIdNamespace))
+        {
+            return IsKeptPdfUaId(name);
+        }
+
+        return false;
+    }
+
+    /// <summary>Checks the retained DublinCore property names.</summary>
+    /// <param name="name">The exact property name.</param>
+    /// <returns>Whether conversion retains it.</returns>
+    private static bool IsKeptDublinCore(ReadOnlySpan<char> name) => name is "format" or "title" or "creator" or "description" or "subject";
+
+    /// <summary>Checks the retained Pdf property names.</summary>
+    /// <param name="name">The exact property name.</param>
+    /// <returns>Whether conversion retains it.</returns>
+    private static bool IsKeptPdf(ReadOnlySpan<char> name) => name is "Keywords" or "Producer" or "Trapped";
+
+    /// <summary>Checks the retained Xmp property names.</summary>
+    /// <param name="name">The exact property name.</param>
+    /// <returns>Whether conversion retains it.</returns>
+    private static bool IsKeptXmp(ReadOnlySpan<char> name) => name is "CreatorTool" or "CreateDate" or "ModifyDate" or "MetadataDate";
+
+    /// <summary>Checks the retained PdfAId property names.</summary>
+    /// <param name="name">The exact property name.</param>
+    /// <returns>Whether conversion retains it.</returns>
+    private static bool IsKeptPdfAId(ReadOnlySpan<char> name) => name is "part" or "conformance" or "rev" or "amd" or "corr";
+
+    /// <summary>Checks the retained PdfUaId property names.</summary>
+    /// <param name="name">The exact property name.</param>
+    /// <returns>Whether conversion retains it.</returns>
+    private static bool IsKeptPdfUaId(ReadOnlySpan<char> name) => name is "part";
 }

@@ -17,6 +17,9 @@ namespace HyperPdf.Benchmarks;
 /// </summary>
 public class HyperPdfJbig2EncoderBenchmarks
 {
+    /// <summary>The caller's reusable encoding scratch.</summary>
+    private readonly ScratchPools _pools = new();
+
     /// <summary>The page's samples, 0 for black.</summary>
     private byte[] _rows = [];
 
@@ -58,7 +61,7 @@ public class HyperPdfJbig2EncoderBenchmarks
         var globals = default(PooledBuffer);
         try
         {
-            _ = Jbig2Encoder.Encode(_rows, _width, _height, _options, ref data, ref globals, CancellationToken.None);
+            _ = Jbig2Encoder.EncodeInto(_rows, new(new(_width, _height), _options), ref data, ref globals, _pools, CancellationToken.None);
             return data.Length + globals.Length;
         }
         finally
@@ -67,4 +70,8 @@ public class HyperPdfJbig2EncoderBenchmarks
             globals.Dispose();
         }
     }
+
+    /// <summary>Releases the encoder's retained scratch.</summary>
+    [GlobalCleanup]
+    public void Cleanup() => _pools.Close();
 }

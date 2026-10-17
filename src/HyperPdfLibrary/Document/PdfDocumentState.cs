@@ -6,12 +6,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Accessibility;
 using HyperPdfLibrary.Features;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Layers;
 using HyperPdfLibrary.Navigation;
+using HyperPdfLibrary.PdfUa;
 using HyperPdfLibrary.Rendering;
 using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Signatures;
@@ -113,17 +113,14 @@ internal record struct PdfDocumentState
     /// <summary>Independently published marked-content pages.</summary>
     private PdfMarkedContentPage?[]? _markedContent;
 
-    /// <summary>The codes of the font findings, one for each font and requirement it breaks.</summary>
-    private PdfAccessibilityCode[]? _accessibilityFonts;
-
-    /// <summary>What the accessibility report reads from the XMP packet.</summary>
-    private AccessibilityMetadata? _accessibilityMetadata;
-
     /// <summary>Extracted text pages until page content invalidation.</summary>
     private PdfTextPageCache? _textPages;
 
     /// <summary>A cleaned text build state available for another extraction.</summary>
     private TextPageBuildState? _textBuild;
+
+    /// <summary>A cleaned PDF/UA reference scan available for this document.</summary>
+    private PdfUaStructureReferenceBuffers? _structureReferences;
 
     /// <summary>1 once the owning document is disposed.</summary>
     private int _disposed;
@@ -276,14 +273,6 @@ internal record struct PdfDocumentState
     [UnscopedRef]
     internal ref PdfMarkedContentPage?[]? MarkedContent => ref _markedContent;
 
-    /// <summary>Gets storage for the accessibility font findings until an edit.</summary>
-    [UnscopedRef]
-    internal ref PdfAccessibilityCode[]? AccessibilityFonts => ref _accessibilityFonts;
-
-    /// <summary>Gets storage for what the accessibility report reads from the XMP packet until an edit.</summary>
-    [UnscopedRef]
-    internal ref AccessibilityMetadata? AccessibilityMetadata => ref _accessibilityMetadata;
-
     /// <summary>Gets storage for extracted text pages until page content invalidation.</summary>
     [UnscopedRef]
     internal ref PdfTextPageCache? TextPages => ref _textPages;
@@ -291,6 +280,10 @@ internal record struct PdfDocumentState
     /// <summary>Gets storage for one reusable text build state.</summary>
     [UnscopedRef]
     internal ref TextPageBuildState? TextBuild => ref _textBuild;
+
+    /// <summary>Gets storage for a reusable PDF/UA reference scan.</summary>
+    [UnscopedRef]
+    internal ref PdfUaStructureReferenceBuffers? StructureReferences => ref _structureReferences;
 
     /// <summary>Makes a lock once and publishes it.</summary>
     /// <param name="slot">The field that holds the lock.</param>

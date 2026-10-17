@@ -114,7 +114,7 @@ public class HyperPdfSyntaxBenchmarks
         return parser.ParseValue().AsDictionary()!.Count;
     }
 
-    /// <summary>Decodes Flate-compressed content into a pooled buffer.</summary>
+    /// <summary>Decodes Flate-compressed content with explicitly supplied scratch ownership.</summary>
     /// <returns>The decoded length.</returns>
     [Benchmark]
     public int DecodeFlate()
@@ -122,7 +122,7 @@ public class HyperPdfSyntaxBenchmarks
         var output = default(PooledBuffer);
         try
         {
-            FlateFilter.Decode(_compressed, ref output);
+            _ = FlateFilter.TryDecode(_compressed, ref output, _ownedDocument!.Objects.ScratchPools, CancellationToken.None);
             return output.Length;
         }
         finally

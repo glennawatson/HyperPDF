@@ -31,26 +31,37 @@ internal readonly record struct CffIndex(int Count, int OffsetSize, int OffsetsS
     /// <param name="position">The offset of the INDEX.</param>
     /// <param name="end">The offset just after the INDEX, or the data length when it is damaged.</param>
     /// <returns>The INDEX; empty when damaged.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     internal static CffIndex Read(ReadOnlySpan<byte> data, int position, out int end)
     {
-        var count = FontBytes.U16(data, position);
-        if (count == 0 || position < 0)
+        if (position < 0 || position > data.Length - FontBytes.U16Size)
         {
-            end = Math.Min(Math.Max(position, 0) + FontBytes.U16Size, data.Length);
+            throw new PdfException(PdfError.Format, "The CFF INDEX header exceeds its data.");
+        }
+
+        var count = FontBytes.U16(data, position);
+        if (count == 0)
+        {
+            end = position + FontBytes.U16Size;
             return default;
         }
 
         var offsetSize = FontBytes.U8(data, position + OffsetSizeOffset);
-        var offsetsStart = position + HeaderSize;
+        var offsetsStart = (long)position + HeaderSize;
         var dataBase = offsetsStart + ((count + 1) * offsetSize) - 1;
         if (offsetSize is < 1 or > MaxOffsetSize || dataBase >= data.Length)
         {
-            end = data.Length;
-            return default;
+            throw new PdfException(PdfError.Format, "The CFF INDEX offset array exceeds its data.");
         }
 
-        var index = new CffIndex(count, offsetSize, offsetsStart, dataBase);
-        end = (int)Math.Min((long)dataBase + index.ReadOffset(data, count), data.Length);
+        var index = new CffIndex(count, offsetSize, (int)offsetsStart, (int)dataBase);
+        var last = index.ReadOffset(data, count);
+        if (index.ReadOffset(data, 0) != 1 || last < 1 || dataBase + last > data.Length)
+        {
+            throw new PdfException(PdfError.Format, "The CFF INDEX object range exceeds its data.");
+        }
+
+        end = (int)(dataBase + last);
         return index;
     }
 
@@ -58,6 +69,7 @@ internal readonly record struct CffIndex(int Count, int OffsetSize, int OffsetsS
     /// <param name="data">The CFF data.</param>
     /// <param name="index">The object's index.</param>
     /// <returns>The object's bytes, or empty when out of range or damaged.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     internal ReadOnlySpan<byte> Get(ReadOnlySpan<byte> data, int index)
     {
         if ((uint)index >= (uint)Count)
@@ -67,7 +79,12 @@ internal readonly record struct CffIndex(int Count, int OffsetSize, int OffsetsS
 
         var start = (long)DataBase + ReadOffset(data, index);
         var end = (long)DataBase + ReadOffset(data, index + 1);
-        return start <= end && end <= data.Length ? data[(int)start..(int)end] : [];
+        if (start < DataBase + 1L || start > end || end > data.Length)
+        {
+            throw new PdfException(PdfError.Format, "The CFF INDEX object offsets are invalid.");
+        }
+
+        return data[(int)start..(int)end];
     }
 
     /// <summary>Reads one entry of the offset array.</summary>

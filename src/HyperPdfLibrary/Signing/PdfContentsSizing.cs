@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 
 namespace HyperPdfLibrary.Signing;
@@ -36,6 +37,12 @@ internal static class PdfContentsSizing
     /// <summary>The multiple the estimate is rounded up to.</summary>
     private const int Granularity = 64;
 
+    /// <summary>The hexadecimal characters written for one reserved byte.</summary>
+    private const int DigitsPerByte = 2;
+
+    /// <summary>The hexadecimal string delimiters.</summary>
+    private const int ContentsDelimiters = 2;
+
     /// <summary>The bytes a PDF MAC token and its attribute add (ISO/TS 32004:2024 6.5.2).</summary>
     private const int MacAllowance = 256;
 
@@ -48,15 +55,15 @@ internal static class PdfContentsSizing
     /// <returns>The size in bytes, rounded up.</returns>
     internal static int Estimate(IReadOnlyList<byte[]> certificates, in PdfSignerCertificate signer, int timestampSize, bool withMac, int headroom)
     {
-        var size = FixedOverhead + SignatureSize(signer) + Math.Max(0, headroom);
+        var size = (long)FixedOverhead + SignatureSize(signer) + Math.Max(0, headroom);
         for (var i = 0; i < certificates.Count; i++)
         {
-            size += certificates[i].Length + CertificateOverhead;
+            size += (long)certificates[i].Length + CertificateOverhead;
         }
 
         if (timestampSize > 0)
         {
-            size += timestampSize + TimestampOverhead;
+            size += (long)timestampSize + TimestampOverhead;
         }
 
         if (withMac)
@@ -83,7 +90,25 @@ internal static class PdfContentsSizing
     /// <summary>Rounds a size up to the granularity.</summary>
     /// <param name="size">The size.</param>
     /// <returns>The rounded size.</returns>
-    internal static int RoundUp(int size) => ((size + Granularity - 1) / Granularity) * Granularity;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int RoundUp(int size) => RoundUp((long)size);
+
+    /// <summary>Checks an accumulated reservation before narrowing or allocating it.</summary>
+    /// <param name="size">The requested bytes.</param>
+    /// <returns>The aligned, representable reservation.</returns>
+    /// <exception cref="PdfException">The reservation cannot fit hexadecimal contents in a PDF byte buffer.</exception>
+    internal static int RoundUp(long size)
+    {
+        // A signature byte needs two hexadecimal digits in the output buffer.
+        var maximumContents = (Array.MaxLength - ContentsDelimiters) / DigitsPerByte;
+        var maximumAligned = maximumContents / Granularity * Granularity;
+        if (size < 0 || size > maximumAligned)
+        {
+            throw new PdfException(PdfError.Format, "The signature reservation is too large for a PDF byte buffer.");
+        }
+
+        return (int)(((size + Granularity - 1) / Granularity) * Granularity);
+    }
 
     /// <summary>Gets the size of the signature value a key makes.</summary>
     /// <param name="signer">The signing certificate.</param>
@@ -91,7 +116,7 @@ internal static class PdfContentsSizing
     private static int SignatureSize(in PdfSignerCertificate signer) => signer switch
     {
         { KeyKind: PdfSignerKeyKind.Rsa, KeyBits: > 0 } => signer.KeyBits / BitsPerByte,
-        { KeyKind: PdfSignerKeyKind.EllipticCurve, KeyBits: > 0 } => (CoordinatesPerSignature * ((signer.KeyBits + BitsPerByte - 1) / BitsPerByte)) + EcdsaOverhead,
+        { KeyKind: PdfSignerKeyKind.EllipticCurve, KeyBits: > 0 } => (int)((CoordinatesPerSignature * (((long)signer.KeyBits + BitsPerByte - 1) / BitsPerByte)) + EcdsaOverhead),
         _ => PlatformSignatureSize(signer.Der),
     };
 

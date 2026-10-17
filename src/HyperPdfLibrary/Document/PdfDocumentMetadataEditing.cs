@@ -242,7 +242,7 @@ public static class PdfDocumentMetadataEditing
 
         var original = stream.DecodeToArray();
         var edited = XmpEditor.TryApply(original, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(changes), out var packet);
-        if (part > 0 && (!edited || !PdfAMetadataCrosswalk.Holds(XmpParser.Parse(packet ?? original), changes)))
+        if (part > 0 && (!edited || !PdfAMetadataCrosswalk.Holds(XmpParser.Parse(packet ?? original, CancellationToken.None), changes)))
         {
             throw new PdfException(
                 "The document claims PDF/A-" + part.ToString(CultureInfo.InvariantCulture)

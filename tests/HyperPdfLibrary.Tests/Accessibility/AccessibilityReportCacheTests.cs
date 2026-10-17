@@ -85,30 +85,22 @@ public sealed class AccessibilityReportCacheTests
         await Assert.That(second.HasTitle).IsTrue();
     }
 
-    /// <summary>The report keeps its font and XMP results with the document, and an edit drops both.</summary>
+    /// <summary>The document retains its report snapshot until an edit changes its metadata.</summary>
     /// <param name="cancellationToken">Cancels the test.</param>
     /// <returns>A task.</returns>
     [Test]
     public async Task ResultsStayWithTheDocumentUntilAnEdit(CancellationToken cancellationToken)
     {
         using var document = TaggedTestDocument.Open(AccessibilityPdfs.Build(new()));
-        await Assert.That(document.State.AccessibilityFonts).IsNull();
-        await Assert.That(document.State.AccessibilityMetadata).IsNull();
+        var first = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
+        var second = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
 
-        _ = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
-        var fonts = document.State.AccessibilityFonts;
-        var metadata = document.State.AccessibilityMetadata;
-        _ = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
-
-        await Assert.That(fonts).IsNotNull();
-        await Assert.That(metadata).IsNotNull();
-        await Assert.That(document.State.AccessibilityFonts).IsSameReferenceAs(fonts);
-        await Assert.That(document.State.AccessibilityMetadata).IsSameReferenceAs(metadata);
+        await Assert.That(second).IsSameReferenceAs(first);
 
         PdfDocumentMetadataEditing.SetMetadata(document, new() { Title = "Edited" });
 
-        await Assert.That(document.State.AccessibilityFonts).IsNull();
-        await Assert.That(document.State.AccessibilityMetadata).IsNull();
+        var edited = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
+        await Assert.That(edited).IsNotSameReferenceAs(first);
     }
 
     /// <summary>Removing a font's Unicode map adds the finding on the next report, and putting the font back removes it.</summary>

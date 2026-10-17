@@ -24,6 +24,9 @@ public ref struct PooledBuffer
     /// <summary>The rented array.</summary>
     private byte[]? _array;
 
+    /// <summary>The configured decode bound, or zero for the general-purpose buffer limit.</summary>
+    private int _maximumLength;
+
     /// <summary>Initializes a new instance of the <see cref="PooledBuffer"/> struct.</summary>
     /// <param name="capacity">The initial capacity.</param>
     public PooledBuffer(int capacity) => _array = ArrayPool<byte>.Shared.Rent(Math.Max(capacity, MinimumCapacity));
@@ -37,6 +40,13 @@ public ref struct PooledBuffer
     /// <summary>Gets the rented array, which may be longer than <see cref="Length"/>.</summary>
     internal readonly byte[]? Array => _array;
 
+    /// <summary>Gets or sets the logical output bound, independent of the rented array's capacity.</summary>
+    internal int MaximumLength
+    {
+        readonly get => _maximumLength == 0 ? PdfLimits.MaxDecodedLength : _maximumLength;
+        set => _maximumLength = value;
+    }
+
     /// <summary>Gets space to write at least a number of bytes.</summary>
     /// <param name="sizeHint">The bytes needed.</param>
     /// <returns>The free space after the written bytes.</returns>
@@ -44,18 +54,24 @@ public ref struct PooledBuffer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Span<byte> GetSpan(int sizeHint)
     {
+        CheckRoom(sizeHint);
         if (_array is null || _array.Length - Length < sizeHint)
         {
             Grow(sizeHint);
         }
 
-        return _array.AsSpan(Length);
+        var array = _array!;
+        return array.AsSpan(Length, Math.Min(array.Length - Length, MaximumLength - Length));
     }
 
     /// <summary>Records bytes written into the span from <see cref="GetSpan"/>.</summary>
     /// <param name="count">The number of bytes.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Advance(int count) => Length += count;
+    public void Advance(int count)
+    {
+        CheckRoom(count);
+        Length += count;
+    }
 
     /// <summary>Appends bytes.</summary>
     /// <param name="bytes">The bytes.</param>
@@ -70,6 +86,7 @@ public ref struct PooledBuffer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteByte(byte value)
     {
+        CheckRoom(1);
         if (_array is null || Length == _array.Length)
         {
             Grow(1);
@@ -126,13 +143,13 @@ public ref struct PooledBuffer
     private void Grow(int sizeHint)
     {
         var required = (long)Length + Math.Max(sizeHint, 1);
-        if (required > PdfLimits.MaxDecodedLength)
+        if (required > MaximumLength)
         {
-            throw new InvalidDataException("The decoded data is larger than the supported limit.");
+            ThrowSizeLimit();
         }
 
         var doubled = (long)(_array?.Length ?? 0) * GrowthFactor;
-        var capacity = (int)Math.Min(PdfLimits.MaxDecodedLength, Math.Max(required, Math.Max(MinimumCapacity, doubled)));
+        var capacity = (int)Math.Min(MaximumLength, Math.Max(required, Math.Max(MinimumCapacity, doubled)));
         var larger = ArrayPool<byte>.Shared.Rent(capacity);
         if (_array is not null)
         {
@@ -141,5 +158,29 @@ public ref struct PooledBuffer
         }
 
         _array = larger;
+    }
+
+    /// <summary>Rejects a write before a pool rental or a write into unused pool capacity.</summary>
+    /// <param name="count">The bytes requested.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private readonly void CheckRoom(int count)
+    {
+        if ((uint)count > (uint)(MaximumLength - Length))
+        {
+            ThrowSizeLimit();
+        }
+    }
+
+    /// <summary>Throws the domain error for bounded stream decoding or the general-purpose buffer error.</summary>
+    /// <exception cref="PdfException">Stream decoding exceeds its configured byte bound.</exception>
+    /// <exception cref="InvalidDataException">A general-purpose buffer exceeds the supported byte bound.</exception>
+    private readonly void ThrowSizeLimit()
+    {
+        if (_maximumLength != 0)
+        {
+            throw new PdfException("A stream exceeds the maximum decompressed byte count.");
+        }
+
+        throw new InvalidDataException("The decoded data is larger than the supported limit.");
     }
 }

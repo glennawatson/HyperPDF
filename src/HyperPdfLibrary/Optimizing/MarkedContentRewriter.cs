@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
@@ -16,34 +15,6 @@ namespace HyperPdfLibrary.Optimizing;
 /// </summary>
 internal static class MarkedContentRewriter
 {
-    /// <summary>The operators that build a path (ISO 32000-2 8.5.2).</summary>
-    private static readonly FrozenSet<ContentOperator> Builders = new[]
-    {
-        ContentOperator.MoveTo,
-        ContentOperator.LineTo,
-        ContentOperator.CurveTo,
-        ContentOperator.CurveToV,
-        ContentOperator.CurveToY,
-        ContentOperator.ClosePath,
-        ContentOperator.Rectangle,
-    }.ToFrozenSet();
-
-    /// <summary>The operators that set the clipping path from the path built so far (ISO 32000-2 8.5.4).</summary>
-    private static readonly FrozenSet<ContentOperator> Clippers = new[] { ContentOperator.Clip, ContentOperator.ClipEvenOdd }.ToFrozenSet();
-
-    /// <summary>The operators that paint the path built so far (ISO 32000-2 8.5.3).</summary>
-    private static readonly FrozenSet<ContentOperator> Painters = new[]
-    {
-        ContentOperator.Stroke,
-        ContentOperator.CloseStroke,
-        ContentOperator.Fill,
-        ContentOperator.FillEvenOdd,
-        ContentOperator.FillStroke,
-        ContentOperator.FillStrokeEvenOdd,
-        ContentOperator.CloseFillStroke,
-        ContentOperator.CloseFillStrokeEvenOdd,
-    }.ToFrozenSet();
-
     /// <summary>Lists the operators to wrap, in content order.</summary>
     /// <param name="content">The page's decoded content.</param>
     /// <param name="names">The document's name table.</param>
@@ -105,17 +76,17 @@ internal static class MarkedContentRewriter
     /// <returns><see langword="true"/> when the operator paints the path that started at <paramref name="pathStart"/>.</returns>
     private static bool TrackPath(ContentOperator op, int start, ref int pathStart)
     {
-        if (Painters.Contains(op))
+        if (PaintsPath(op))
         {
             return pathStart >= 0;
         }
 
-        if (Clippers.Contains(op))
+        if (op is ContentOperator.Clip or ContentOperator.ClipEvenOdd)
         {
             return false;
         }
 
-        if (Builders.Contains(op))
+        if (BuildsPath(op))
         {
             pathStart = pathStart < 0 ? start : pathStart;
             return false;
@@ -124,6 +95,20 @@ internal static class MarkedContentRewriter
         pathStart = -1;
         return false;
     }
+
+    /// <summary>Identifies path construction operators from ISO 32000-2 8.5.2.</summary>
+    /// <param name="op">The operator.</param>
+    /// <returns>Whether the operator extends the current path.</returns>
+    private static bool BuildsPath(ContentOperator op) =>
+        op is ContentOperator.MoveTo or ContentOperator.LineTo or ContentOperator.CurveTo or ContentOperator.CurveToV
+            or ContentOperator.CurveToY or ContentOperator.ClosePath or ContentOperator.Rectangle;
+
+    /// <summary>Identifies path painting operators from ISO 32000-2 8.5.3.</summary>
+    /// <param name="op">The operator.</param>
+    /// <returns>Whether the operator paints the current path.</returns>
+    private static bool PaintsPath(ContentOperator op) =>
+        op is ContentOperator.Stroke or ContentOperator.CloseStroke or ContentOperator.Fill or ContentOperator.FillEvenOdd
+            or ContentOperator.FillStroke or ContentOperator.FillStrokeEvenOdd or ContentOperator.CloseFillStroke or ContentOperator.CloseFillStrokeEvenOdd;
 
     /// <summary>Writes the operator that opens a unit's marked content.</summary>
     /// <param name="label">How the unit is marked.</param>

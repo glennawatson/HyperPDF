@@ -6,6 +6,7 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Syntax;
 
@@ -68,13 +69,38 @@ internal static class Type1Parser
     internal static bool TryParse(ReadOnlySpan<byte> data, int length1, out Type1Parts? parts)
     {
         parts = null;
-        if (!TrySplit(data, length1, out var clear, out var encrypted) || encrypted.Length <= Type1Encryption.EexecPrefix)
+        var clear = default(PooledBuffer);
+        var encrypted = default(PooledBuffer);
+        try
+        {
+            if (!TrySplit(data, length1, ref clear, ref encrypted) || encrypted.Length <= Type1Encryption.EexecPrefix)
+            {
+                return false;
+            }
+
+            Type1Encryption.Decrypt(encrypted.Array.AsSpan(0, encrypted.Length), Type1Encryption.EexecKey);
+            return TryReadParts(clear.WrittenSpan, encrypted.WrittenSpan[Type1Encryption.EexecPrefix..], out parts);
+        }
+        finally
+        {
+            encrypted.Dispose();
+            clear.Dispose();
+        }
+    }
+
+    /// <summary>Reads the decrypted font, rejecting a missing charstring section before creating parse builders.</summary>
+    /// <param name="clear">The cleartext header.</param>
+    /// <param name="secret">The decrypted private section without its random prefix.</param>
+    /// <param name="parts">The owned parsed pieces.</param>
+    /// <returns>True when at least one glyph was read.</returns>
+    private static bool TryReadParts(ReadOnlySpan<byte> clear, ReadOnlySpan<byte> secret, out Type1Parts? parts)
+    {
+        parts = null;
+        if (secret.IndexOf("/CharStrings"u8) < 0)
         {
             return false;
         }
 
-        Type1Encryption.Decrypt(encrypted, Type1Encryption.EexecKey);
-        ReadOnlySpan<byte> secret = encrypted.AsSpan(Type1Encryption.EexecPrefix);
         var names = new ArrayBufferWriter<byte>();
         var header = ReadCleartext(clear, names);
         var lenIV = FindLenIV(secret);
@@ -99,18 +125,16 @@ internal static class Type1Parser
     /// <summary>Splits a font into its cleartext and its still-encrypted eexec part.</summary>
     /// <param name="data">The font data.</param>
     /// <param name="length1">The cleartext length from /Length1, or zero.</param>
-    /// <param name="clear">The cleartext.</param>
-    /// <param name="encrypted">A copy of the encrypted part, in binary.</param>
+    /// <param name="clear">Receives the cleartext.</param>
+    /// <param name="encrypted">Receives the encrypted part, in binary.</param>
     /// <returns><see langword="true"/> when an eexec part was found.</returns>
-    private static bool TrySplit(ReadOnlySpan<byte> data, int length1, out byte[] clear, out byte[] encrypted)
+    private static bool TrySplit(ReadOnlySpan<byte> data, int length1, ref PooledBuffer clear, ref PooledBuffer encrypted)
     {
         if (!data.IsEmpty && data[0] == PfbMarker)
         {
-            return ReadPfb(data, out clear, out encrypted);
+            return ReadPfb(data, ref clear, ref encrypted);
         }
 
-        clear = [];
-        encrypted = [];
         var eexec = data.IndexOf("eexec"u8);
         if (eexec < 0)
         {
@@ -118,7 +142,7 @@ internal static class Type1Parser
         }
 
         var clearEnd = eexec + "eexec"u8.Length;
-        clear = data[..clearEnd].ToArray();
+        clear.Write(data[..clearEnd]);
         var start = clearEnd;
         var trustLength = length1 >= clearEnd && length1 - clearEnd <= MaxEexecGap && length1 < data.Length && !data[clearEnd..length1].ContainsAnyExcept(PdfCharacters.Whitespace);
         if (trustLength)
@@ -132,7 +156,15 @@ internal static class Type1Parser
         }
 
         var body = data[start..];
-        encrypted = Type1Encryption.IsHex(body) ? Type1Encryption.DecodeHex(body) : body.ToArray();
+        if (Type1Encryption.IsHex(body))
+        {
+            Type1Encryption.DecodeHex(body, ref encrypted);
+        }
+        else
+        {
+            encrypted.Write(body);
+        }
+
         return true;
     }
 
@@ -141,32 +173,42 @@ internal static class Type1Parser
     /// <param name="clear">The ASCII segments.</param>
     /// <param name="encrypted">The binary segments.</param>
     /// <returns><see langword="true"/> when there was a binary segment.</returns>
-    private static bool ReadPfb(ReadOnlySpan<byte> data, out byte[] clear, out byte[] encrypted)
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
+    private static bool ReadPfb(ReadOnlySpan<byte> data, ref PooledBuffer clear, ref PooledBuffer encrypted)
     {
-        var ascii = new ArrayBufferWriter<byte>();
-        var binary = new ArrayBufferWriter<byte>();
         var length = 0;
-        for (var position = 0; position + PfbHeaderSize <= data.Length && data[position] == PfbMarker; position += PfbHeaderSize + length)
+        for (var position = 0; position <= data.Length - PfbHeaderSize && data[position] == PfbMarker; position += PfbHeaderSize + length)
         {
             var type = data[position + 1];
-            length = (int)Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(data[(position + PfbLengthOffset)..]), (uint)(data.Length - position - PfbHeaderSize));
-            var target = type switch
+            var encodedLength = BinaryPrimitives.ReadUInt32LittleEndian(data[(position + PfbLengthOffset)..]);
+            if (encodedLength > data.Length - position - PfbHeaderSize)
             {
-                PfbAscii => ascii,
-                PfbBinary => binary,
-                _ => null,
-            };
-
-            if (target is null)
-            {
-                break;
+                throw new PdfException(PdfError.Format, "The Type 1 segment length exceeds its data.");
             }
 
-            target.Write(data.Slice(position + PfbHeaderSize, length));
+            length = (int)encodedLength;
+            var segment = data.Slice(position + PfbHeaderSize, length);
+            switch (type)
+            {
+                case PfbAscii:
+                    {
+                        clear.Write(segment);
+                        break;
+                    }
+
+                case PfbBinary:
+                    {
+                        encrypted.Write(segment);
+                        break;
+                    }
+
+                default:
+                    {
+                        return encrypted.Length > 0;
+                    }
+            }
         }
 
-        clear = ascii.WrittenSpan.ToArray();
-        encrypted = binary.WrittenSpan.ToArray();
         return encrypted.Length > 0;
     }
 
@@ -424,23 +466,28 @@ internal static class Type1Parser
     /// <param name="lenIV">The charstring lenIV.</param>
     /// <param name="charData">Receives the decrypted charstring.</param>
     /// <returns>The charstring's range, or a range with length -1 when the data is truncated.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     private static TableRange ReadBinary(ref PdfLexer lexer, int lenIV, ArrayBufferWriter<byte> charData)
     {
-        if (lexer.Lexeme.IsEmpty || !TryParseInt(lexer.Lexeme, out var length) || length < 0)
+        if (lexer.Lexeme.IsEmpty || !TryParseInt(lexer.Lexeme, out var length))
         {
             return new(0, -1);
+        }
+
+        if (length < 0)
+        {
+            throw new PdfException(PdfError.Format, "The Type 1 charstring length is negative.");
         }
 
         _ = lexer.Next();
 
         // Exactly one space separates the RD token from the binary data.
-        var start = lexer.Position + 1;
-        if (start + length > lexer.Data.Length)
+        if (lexer.Position >= lexer.Data.Length || length > lexer.Data.Length - lexer.Position - 1)
         {
-            lexer.Position = lexer.Data.Length;
-            return new(0, -1);
+            throw new PdfException(PdfError.Format, "The Type 1 charstring length exceeds its data.");
         }
 
+        var start = lexer.Position + 1;
         lexer.Position = start + length;
         return AppendCharstring(charData, lexer.Data.Slice(start, length), lenIV);
     }

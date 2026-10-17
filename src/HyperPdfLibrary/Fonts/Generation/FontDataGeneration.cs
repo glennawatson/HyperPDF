@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Filters;
@@ -107,10 +108,22 @@ internal static class FontDataGeneration
     /// <param name="ranges">The fallback Unicode ranges.</param>
     /// <param name="cancellationToken">Cancels generation.</param>
     /// <returns>The compressed table.</returns>
-    private static byte[] PackUnicode(int[] values, List<CidRange> ranges, CancellationToken cancellationToken)
+    private static byte[] PackUnicode(int[] values, CidRange[] ranges, CancellationToken cancellationToken)
     {
-        BinaryUnicodeFallback.Fill(values, ranges, cancellationToken);
-        return Compress(PackedTables.PackUnicode(values, cancellationToken), cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        var rented = ArrayPool<int>.Shared.Rent(BinaryCMapReader.MaxItems);
+        try
+        {
+            var table = rented.AsSpan(0, BinaryCMapReader.MaxItems);
+            table.Clear();
+            values.CopyTo(table);
+            BinaryUnicodeFallback.Fill(table, ranges, cancellationToken);
+            return Compress(PackedTables.PackUnicode(table, cancellationToken), cancellationToken);
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(rented);
+        }
     }
 
     /// <summary>Reads a compact binary mapping from the resource pack.</summary>

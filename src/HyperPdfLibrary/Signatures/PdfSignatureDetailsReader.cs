@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 
@@ -11,34 +12,44 @@ namespace HyperPdfLibrary.Signatures;
 internal static class PdfSignatureDetailsReader
 {
     /// <summary>Reads the details of every signature field.</summary>
-    /// <param name="document">The document.</param>
-    /// <returns>The details, one per entry of <see cref="PdfDocumentAttachments.GetSignatures"/>.</returns>
-    internal static PdfSignatureDetails[] Read(PdfDocument document)
+    /// <param name="store">The document revision's objects.</param>
+    /// <param name="result">Reusable scratch receiving the current revision's details.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Read(PdfObjectStore store, List<PdfSignatureDetails> result) => Read(store, result, []);
+
+    /// <summary>Reads fields not already retained from a signed revision.</summary>
+    /// <param name="store">The document revision's objects.</param>
+    /// <param name="result">Reusable scratch receiving the current revision's details.</param>
+    /// <param name="retained">Signed snapshots whose bytes and permissions are already retained.</param>
+    internal static void Read(PdfObjectStore store, List<PdfSignatureDetails> result, ReadOnlySpan<PdfSignatureDetails> retained)
     {
-        var signatures = PdfDocumentAttachments.GetSignatures(document);
-        if (signatures.Count == 0)
+        result.Clear();
+        var fields = store.Catalog.GetDictionary(KnownName.AcroForm)?.GetArray(KnownName.Fields);
+        if (fields is null || fields.Count == 0)
         {
-            return [];
+            return;
         }
 
-        var names = document.Objects.Names;
-        var fields = document.Catalog.GetDictionary(KnownName.AcroForm)?.GetArray(KnownName.Fields);
-        var certification = document.Catalog.GetDictionary(KnownName.Perms)?.GetRaw(KnownName.DocMDP) ?? default;
-        var result = new PdfSignatureDetails[signatures.Count];
-        var index = 0;
-        for (var i = 0; fields is not null && i < fields.Count && index < result.Length; i++)
+        var names = store.Names;
+        var certification = store.Catalog.GetDictionary(KnownName.Perms)?.GetRaw(KnownName.DocMDP) ?? default;
+        for (var i = 0; i < fields.Count; i++)
         {
+            PdfOpenContext.ThrowIfCancelled(store.Context);
             var field = fields.GetDictionary(i);
             if (field?.IsName(KnownName.FT, KnownName.Sig) != true)
             {
                 continue;
             }
 
-            result[index] = Read(signatures[index], field, certification, names);
-            index++;
-        }
+            var value = field.GetDictionary(KnownName.V);
+            if (IsRetained(value, retained))
+            {
+                continue;
+            }
 
-        return result;
+            var signature = PdfDocumentAttachments.ReadSignature(names, result.Count, value);
+            result.Add(Read(signature, field, certification, names));
+        }
     }
 
     /// <summary>Gets the format a /SubFilter names.</summary>
@@ -53,6 +64,48 @@ internal static class PdfSignatureDetailsReader
         "adbe.x509.rsa_sha1" => PdfSignatureFormat.X509RsaSha1,
         _ => PdfSignatureFormat.Unknown,
     };
+
+    /// <summary>Checks raw signature identity before copying bytes or decoding discarded metadata.</summary>
+    /// <param name="value">The candidate signature dictionary.</param>
+    /// <param name="retained">Previously retained signed snapshots.</param>
+    /// <returns>Whether the same signature's bytes and ranges are already retained.</returns>
+    private static bool IsRetained(PdfDictionary? value, ReadOnlySpan<PdfSignatureDetails> retained)
+    {
+        if (value?.GetArray(KnownName.ByteRange) is not { } range)
+        {
+            return false;
+        }
+
+        var contents = value.GetStringBytes(KnownName.Contents);
+        foreach (var detail in retained)
+        {
+            var field = detail.Field;
+            if (detail.IsSigned && range.Count == field.ByteRange.Length && contents.SequenceEqual(field.Contents)
+                && HasSameRange(range, field.ByteRange))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Compares an unmaterialised signature byte range with a retained range.</summary>
+    /// <param name="range">The raw range.</param>
+    /// <param name="retained">The retained range of the same length.</param>
+    /// <returns>Whether every offset and length matches.</returns>
+    private static bool HasSameRange(PdfArray range, ReadOnlySpan<long> retained)
+    {
+        for (var index = 0; index < retained.Length; index++)
+        {
+            if (range.Get(index).AsInteger() != retained[index])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Reads one signature field.</summary>
     /// <param name="signature">The stored signature.</param>
@@ -75,11 +128,9 @@ internal static class PdfSignatureDetailsReader
             references.UsageRights,
             value?.GetText(KnownName.Name) ?? string.Empty,
             value?.GetText(KnownName.Location) ?? string.Empty,
-            value?.GetText(KnownName.ContactInfo) ?? string.Empty)
-        {
-            SeedDigest = PdfSignatureDictionaries.ReadSeedDigest(field.GetDictionary(KnownName.SV), names),
-            ReferenceDigestMethods = references.DigestMethods,
-        };
+            value?.GetText(KnownName.ContactInfo) ?? string.Empty,
+            PdfSignatureDictionaries.ReadSeedDigest(field.GetDictionary(KnownName.SV), names),
+            references.DigestMethods);
     }
 
     /// <summary>Determines whether the catalog's /Perms /DocMDP names a field's signature.</summary>
