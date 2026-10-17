@@ -11,7 +11,7 @@
                 "SkipAutoProperties": true,
                 "ModulePaths": {
                     "Include": [
-                        "HyperPdf\\..*"
+                        "HyperPdf.*"
                     ],
                     "Exclude": [
                         ".*Tests\\.dll$",

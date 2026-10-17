@@ -436,7 +436,7 @@ internal static class XrefReader
         try
         {
             _ = stream.Decode(ref output);
-            ReadStreamSubsections(output.WrittenSpan, widths, size, index, table, store.Context?.CancellationToken ?? CancellationToken.None);
+            ReadStreamSubsections(output.WrittenSpan, widths, size, index, table, store.Context is not { Recovery: false }, store.Context?.CancellationToken ?? CancellationToken.None);
 
             return dictionary;
         }
@@ -464,16 +464,17 @@ internal static class XrefReader
     /// <param name="size">The number of object slots.</param>
     /// <param name="index">The optional subsection array.</param>
     /// <param name="table">The cross-reference table.</param>
+    /// <param name="recovery">Whether invalid object ranges may be skipped.</param>
     /// <param name="cancellationToken">Cancels entry parsing.</param>
     /// <exception cref="PdfException">A subsection extends beyond the object slots.</exception>
-    private static void ReadStreamSubsections(ReadOnlySpan<byte> data, ReadOnlySpan<int> widths, long size, PdfArray? index, XrefTable table, CancellationToken cancellationToken)
+    private static void ReadStreamSubsections(ReadOnlySpan<byte> data, ReadOnlySpan<int> widths, long size, PdfArray? index, XrefTable table, bool recovery, CancellationToken cancellationToken)
     {
         var position = 0;
         var subsections = index is null ? 1 : index.Count / IndexPair;
         for (var s = 0; s < subsections; s++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            position = ReadStreamEntries(data, position, widths, ReadStreamSubsection(index, s, size), table, cancellationToken);
+            position = ReadStreamEntries(data, position, widths, ReadStreamSubsection(index, s, size, recovery), table, cancellationToken);
         }
     }
 
@@ -481,18 +482,38 @@ internal static class XrefReader
     /// <param name="index">The optional subsection array.</param>
     /// <param name="section">The subsection index.</param>
     /// <param name="size">The number of object slots.</param>
+    /// <param name="recovery">Whether invalid object ranges may be skipped.</param>
     /// <returns>The bounded object range.</returns>
     /// <exception cref="PdfException">The subsection extends beyond the object slots.</exception>
-    private static Subsection ReadStreamSubsection(PdfArray? index, int section, long size)
+    private static Subsection ReadStreamSubsection(PdfArray? index, int section, long size, bool recovery)
     {
         var first = index?.Get(section * IndexPair).AsInteger() ?? 0;
         var count = index?.Get((section * IndexPair) + 1).AsInteger() ?? size;
-        if (first < 0 || count < 0 || first > size || count > size - first)
+        ValidateStreamRange(first, count);
+
+        if (first > size || count > size - first)
+        {
+            if (!recovery)
+            {
+                throw new PdfException(PdfError.Format, "The xref stream index range exceeds its size.");
+            }
+
+            return new(0, (int)count, true);
+        }
+
+        return new((int)first, (int)count, false);
+    }
+
+    /// <summary>Rejects negative ranges and counts beyond the parser's object limit.</summary>
+    /// <param name="first">The first object number.</param>
+    /// <param name="count">The number of entries.</param>
+    /// <exception cref="PdfException">The range cannot be consumed safely.</exception>
+    private static void ValidateStreamRange(long first, long count)
+    {
+        if (first < 0 || count < 0 || count > PdfLimits.MaxObjectNumber)
         {
             throw new PdfException(PdfError.Format, "The xref stream index range exceeds its size.");
         }
-
-        return new((int)first, (int)count);
     }
 
     /// <summary>Reads the /W field widths after validating their encoded range.</summary>
@@ -531,6 +552,12 @@ internal static class XrefReader
     {
         var entryLength = widths[0] + widths[1] + widths[ThirdField];
         var count = StreamEntryCount(data, position, entryLength, subsection);
+
+        if (subsection.Skip)
+        {
+            // Consume the skipped range's bytes so later valid subsections keep their entry alignment.
+            return position + (count * entryLength);
+        }
 
         table.EnsureSize(subsection.First + count);
         for (var i = 0; i < count; i++)
@@ -617,5 +644,6 @@ internal static class XrefReader
     /// <summary>A cross-reference stream subsection.</summary>
     /// <param name="First">The first object number.</param>
     /// <param name="Count">The number of entries.</param>
-    private readonly record struct Subsection(int First, int Count);
+    /// <param name="Skip">Whether the range lies outside the document's object slots.</param>
+    private readonly record struct Subsection(int First, int Count, bool Skip);
 }

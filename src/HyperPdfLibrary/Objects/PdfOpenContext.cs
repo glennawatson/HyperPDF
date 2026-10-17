@@ -35,6 +35,9 @@ internal sealed class PdfOpenContext(
     /// <summary>The diagnostics callback.</summary>
     private readonly Action<PdfDiagnostic>? _sink = sink;
 
+    /// <summary>The operation token while opening, then the document-lifetime token before publication.</summary>
+    private CancellationToken _cancellationToken = token;
+
     /// <summary>Guards the log; made with the first report, so a document that reports nothing never allocates it.</summary>
     private Lock? _gate;
 
@@ -75,7 +78,7 @@ internal sealed class PdfOpenContext(
     internal bool HasRepairs => Volatile.Read(ref _hasRepairs) != 0;
 
     /// <summary>Gets the token passed to this document-open or check operation.</summary>
-    internal CancellationToken CancellationToken => token;
+    internal CancellationToken CancellationToken => _cancellationToken;
 
     /// <summary>Gets the drawing services selected for this open.</summary>
     internal PdfDrawingServices DrawingServices => Volatile.Read(ref _drawingServices) ?? CreateDrawingServices();
@@ -117,6 +120,10 @@ internal sealed class PdfOpenContext(
     internal static void Report(PdfOpenContext? context, PdfDiagnosticCode code, string message, int objectNumber, long offset) =>
         context?.Add(new(code, message, objectNumber, offset));
 
+    /// <summary>Retains the document token after opening finishes and before the document is published.</summary>
+    /// <param name="documentCancellationToken">Cancels later document operations.</param>
+    internal void CompleteOpen(CancellationToken documentCancellationToken) => _cancellationToken = documentCancellationToken;
+
     /// <summary>Releases this document's idle scratch buffers, leaving an explicitly shared cache alone.</summary>
     internal void CloseScratchPools()
     {
@@ -149,7 +156,7 @@ internal sealed class PdfOpenContext(
     /// <summary>Throws when the open was cancelled.</summary>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void ThrowIfCancelled() => token.ThrowIfCancellationRequested();
+    internal void ThrowIfCancelled() => _cancellationToken.ThrowIfCancellationRequested();
 
     /// <summary>Logs a diagnostic when it is new, then passes it to the sink.</summary>
     /// <param name="diagnostic">The diagnostic.</param>

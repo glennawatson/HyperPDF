@@ -63,6 +63,15 @@ public sealed class Type1ProgramTests
     /// <summary>The values of one relative point.</summary>
     private const int PointValues = 2;
 
+    /// <summary>A font with binary eexec data.</summary>
+    private const int BinaryForm = 0;
+
+    /// <summary>A font with hexadecimal eexec data.</summary>
+    private const int HexForm = 1;
+
+    /// <summary>A font with PFB segments.</summary>
+    private const int PfbForm = 2;
+
     /// <summary>The initial eexec key.</summary>
     private const ushort EexecKey = 55_665;
 
@@ -216,13 +225,25 @@ public sealed class Type1ProgramTests
     /// <summary>The commands the acute accent draws inside Aacute.</summary>
     private static readonly string[] OutlineAccent = ["M 150 650", "L 200 750", "Z"];
 
+    /// <summary>Gets the header that starts an encrypted private section.</summary>
+    private static ReadOnlySpan<byte> EexecStart => "currentfile eexec\n"u8;
+
     /// <summary>A rejected font does not retain decoded segments or allocate unused parse builders.</summary>
+    /// <param name="form">The encrypted font's container format.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task TryParse_MissingCharStrings_DoesNotAllocate()
+    [Arguments(BinaryForm)]
+    [Arguments(HexForm)]
+    [Arguments(PfbForm)]
+    public async Task TryParse_MissingCharStrings_DoesNotAllocate(int form)
     {
         var encrypted = Encrypt([.. new byte[RandomPrefix], .. "/lenIV -1 def end"u8], EexecKey);
-        byte[] font = [.. "currentfile eexec\n"u8, .. encrypted];
+        byte[] font = form switch
+        {
+            HexForm => [.. EexecStart, .. Encoding.ASCII.GetBytes(Convert.ToHexString(encrypted))],
+            PfbForm => [.. Segment(PfbAscii, EexecStart.ToArray()), .. Segment(PfbBinary, encrypted), PfbMarker, PfbEnd],
+            _ => [.. EexecStart, .. encrypted],
+        };
         _ = Type1Parser.TryParse(font, 0, out _);
         var before = GC.GetAllocatedBytesForCurrentThread();
         var parsed = Type1Parser.TryParse(font, 0, out _);

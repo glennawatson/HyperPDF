@@ -79,9 +79,30 @@ public sealed class AsyncCancellationTests
             CancellationToken.None);
         await opening.CancelAsync();
 
+        using var snapshot = PdfDocumentOptimizing.OpenWorkingCopy(document);
         var page = await PdfDocumentPages.GetPageAsync(document, 0, CancellationToken.None);
+        await Assert.That(snapshot.PageCount).IsEqualTo(SamplePages);
         await Assert.That(page.Index).IsEqualTo(0);
         await Assert.That(document.PageCount).IsEqualTo(SamplePages);
+    }
+
+    /// <summary>The retained document token cancels snapshots independently of the completed open's token.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DocumentCancellationStopsSnapshots()
+    {
+        using var opening = new CancellationTokenSource();
+        using var lifetime = new CancellationTokenSource();
+        using var document = await PdfDocumentReader.OpenWithAsync(
+            new MemoryPdfByteSource(Sample),
+            true,
+            PdfOpenOptions.Default,
+            opening.Token,
+            lifetime.Token);
+        await lifetime.CancelAsync();
+
+        await Assert.That(() => PdfDocumentOptimizing.OpenWorkingCopy(document)).Throws<OperationCanceledException>();
+        await Assert.That(opening.IsCancellationRequested).IsFalse();
     }
 
     /// <summary>Warm page, text and outline reads complete inline without creating managed objects.</summary>
