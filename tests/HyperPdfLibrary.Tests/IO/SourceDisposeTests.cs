@@ -58,6 +58,34 @@ public sealed class SourceDisposeTests
         await Assert.That(problems).IsEmpty();
     }
 
+    /// <summary>A reader releases its worker between reads and stops on cancellation without disposing the document.</summary>
+    /// <param name="cancellationToken">Cancels the test.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DisposalReader_YieldsAndStopsOnCancellation(CancellationToken cancellationToken)
+    {
+        using var document = PdfDocumentReader.Open(RobustnessSeeds.CreateMini(), null);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var started = new CountdownEvent(1);
+        var allStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var problems = new ConcurrentQueue<string>();
+        var job = new ReadJob(document, started, allStarted, problems, "mini", "memory", cancellation.Token);
+        var reader = ReadUntilDisposedAsync(job);
+        try
+        {
+            await Assert.That(reader.IsCompleted).IsFalse();
+            await allStarted.Task.WaitAsync(cancellationToken);
+        }
+        finally
+        {
+            await cancellation.CancelAsync();
+            await reader;
+        }
+
+        await Assert.That(problems).IsEmpty();
+        await Assert.That(document.IsDisposed).IsFalse();
+    }
+
     /// <summary>After disposal, objects and streams held from before throw ObjectDisposedException, and the file is released.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -169,15 +197,13 @@ public sealed class SourceDisposeTests
         var tasks = new Task[Readers];
         var job = new ReadJob(document, started, allStarted, problems, seed.Name, kind, cancellationToken);
 
-        // The readers spin until the dispose, so they run on their own threads and never starve this method's continuations.
         for (var i = 0; i < Readers; i++)
         {
-            tasks[i] = DedicatedThread.Run(job, ReadUntilDisposed, CancellationToken.None);
+            tasks[i] = ReadUntilDisposedAsync(job);
         }
 
         try
         {
-            // Leave the CPU free for the below-normal reader threads to reach their startup signal.
             await allStarted.Task.WaitAsync(cancellationToken);
 
             for (var i = 0; i < round; i++)
@@ -194,8 +220,11 @@ public sealed class SourceDisposeTests
 
     /// <summary>Reads until the document is disposed; only ObjectDisposedException may stop the loop.</summary>
     /// <param name="job">The document and what the reader signals and reports to.</param>
-    private static void ReadUntilDisposed(ReadJob job)
+    /// <returns>A task that completes when reading stops.</returns>
+    private static async Task ReadUntilDisposedAsync(ReadJob job)
     {
+        // Yield between reads instead of creating a spinning OS thread for every reader in every round.
+        await Task.Yield();
         var (document, started, allStarted, problems, name, kind, cancellationToken) = job;
         if (started.Signal())
         {
@@ -207,6 +236,7 @@ public sealed class SourceDisposeTests
             while (!cancellationToken.IsCancellationRequested)
             {
                 _ = DocumentExerciser.Read(document);
+                await Task.Yield();
             }
         }
         catch (ObjectDisposedException)
