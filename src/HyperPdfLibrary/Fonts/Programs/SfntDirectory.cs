@@ -76,6 +76,7 @@ internal readonly record struct SfntDirectory(int Offset, int TableCount)
     /// <param name="data">The font data.</param>
     /// <param name="directory">The directory.</param>
     /// <returns><see langword="true"/> when the data starts with a known sfnt or collection tag.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     internal static bool TryRead(ReadOnlySpan<byte> data, out SfntDirectory directory)
     {
         directory = default;
@@ -84,6 +85,11 @@ internal readonly record struct SfntDirectory(int Offset, int TableCount)
         if (tag == CollectionTag)
         {
             offset = FontBytes.Offset32(data, CollectionFirstFace);
+            if (offset > data.Length - HeaderSize)
+            {
+                throw new PdfException(PdfError.Format, "The font collection face offset exceeds its data.");
+            }
+
             tag = FontBytes.U32(data, offset);
         }
 
@@ -102,15 +108,25 @@ internal readonly record struct SfntDirectory(int Offset, int TableCount)
     /// <param name="data">The font data.</param>
     /// <param name="tag">The table tag.</param>
     /// <returns>The table's range, clamped to the data; empty when missing.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     internal TableRange Find(ReadOnlySpan<byte> data, uint tag)
     {
         for (var i = 0; i < TableCount; i++)
         {
             var record = Offset + HeaderSize + (i * RecordSize);
-            if (FontBytes.U32(data, record) == tag)
+            if (FontBytes.U32(data, record) != tag)
             {
-                return TableRange.Clamp(FontBytes.U32(data, record + RecordOffset), FontBytes.U32(data, record + RecordLength), data.Length);
+                continue;
             }
+
+            var offset = FontBytes.U32(data, record + RecordOffset);
+            var length = FontBytes.U32(data, record + RecordLength);
+            if (offset > data.Length || length > data.Length - offset)
+            {
+                throw new PdfException(PdfError.Format, "The font table range exceeds its data.");
+            }
+
+            return new((int)offset, (int)length);
         }
 
         return default;

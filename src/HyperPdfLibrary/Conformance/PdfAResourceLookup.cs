@@ -26,14 +26,14 @@ internal static class PdfAResourceLookup
         var found = false;
         if (!scope.IsPage)
         {
-            found = TryGet(scope.Local, category, name, out value);
-            if (!found && scope.HasPage && TryGet(scope.Page, category, name, out value))
+            found = TryGet(scope.Local, category, name, walk.Context.CancellationToken, out value);
+            if (!found && scope.HasPage && TryGet(scope.Page, category, name, walk.Context.CancellationToken, out value))
             {
                 found = true;
                 FailInherited(walk, state);
             }
         }
-        else if (scope.HasPage && TryGet(scope.Page, category, name, out value))
+        else if (scope.HasPage && TryGet(scope.Page, category, name, walk.Context.CancellationToken, out value))
         {
             found = true;
             if (scope.PageInherited)
@@ -128,10 +128,13 @@ internal static class PdfAResourceLookup
     /// <param name="resources">The resources, or null.</param>
     /// <param name="category">The category.</param>
     /// <param name="name">The name.</param>
+    /// <param name="cancellationToken">Cancels resource reads.</param>
     /// <param name="value">The resource.</param>
     /// <returns><see langword="true"/> when the resource is defined and usable.</returns>
-    private static bool TryGet(PdfDictionary? resources, KnownName category, PdfName name, out PdfValue value)
+    /// <exception cref="OperationCanceledException">Resource lookup was cancelled.</exception>
+    private static bool TryGet(PdfDictionary? resources, KnownName category, PdfName name, CancellationToken cancellationToken, out PdfValue value)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         value = default;
         if (resources?.GetDictionary(category) is not { } entries || entries.GetRaw(name).IsNull)
         {
@@ -143,7 +146,7 @@ internal static class PdfAResourceLookup
         {
             KnownName.Font => IsFont(value),
             KnownName.XObject => IsXObject(value),
-            KnownName.Pattern => PdfAColorSpaces.IsPattern(value),
+            KnownName.Pattern => PdfAColorSpaces.IsPattern(value, cancellationToken),
             _ => true,
         };
     }

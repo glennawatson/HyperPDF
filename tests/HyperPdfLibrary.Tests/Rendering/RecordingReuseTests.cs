@@ -184,4 +184,30 @@ public sealed class RecordingReuseTests
         await Assert.That(second.GetBounds(0)).IsEqualTo(first.GetBounds(0));
         await Assert.That(first.HasContent(0)).IsTrue();
     }
+
+    /// <summary>Marked-content recorders return only to the drawing services that supplied them.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MarkedContentReuseBelongsToTheHostServices()
+    {
+        var bytes = new RenderTestPdf(Size, Size) { Content = "/Span << /MCID 0 >> BDC 0 0 50 50 re f EMC" }.ToBytes();
+        var shared = SkiaTestRegistration.CreateServices();
+        using var firstDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = shared });
+        using var secondDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = shared });
+        var isolated = SkiaTestRegistration.CreateServices();
+        using var isolatedDocument = PdfDocumentReader.OpenWith(bytes, new PdfOpenOptions { DrawingServices = isolated });
+        _ = MarkedContentRecorder.Record(firstDocument, PdfDocumentPages.GetPage(firstDocument, 0));
+        var first = shared.MarkedContentRecorders.Take();
+        await Assert.That(first).IsNotNull();
+        _ = shared.MarkedContentRecorders.Offer(first!);
+        _ = MarkedContentRecorder.Record(secondDocument, PdfDocumentPages.GetPage(secondDocument, 0));
+        var reused = shared.MarkedContentRecorders.Take();
+        _ = MarkedContentRecorder.Record(isolatedDocument, PdfDocumentPages.GetPage(isolatedDocument, 0));
+        var separate = isolated.MarkedContentRecorders.Take();
+
+        await Assert.That(reused).IsSameReferenceAs(first);
+        await Assert.That(separate).IsNotSameReferenceAs(first);
+        _ = shared.MarkedContentRecorders.Offer(reused!);
+        _ = isolated.MarkedContentRecorders.Offer(separate!);
+    }
 }

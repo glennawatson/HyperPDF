@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace HyperPdfLibrary.Compat;
 
@@ -17,6 +18,8 @@ internal static class MemoryStreams
 #if NET11_0_OR_GREATER
         new ReadOnlyMemoryStream(bytes);
 #else
-        new MemoryStream(bytes.ToArray(), false);
+        MemoryMarshal.TryGetArray(bytes, out var segment)
+            ? new MemoryStream(segment.Array!, segment.Offset, segment.Count, writable: false, publiclyVisible: false)
+            : new MemoryStream(bytes.ToArray(), false);
 #endif
 }

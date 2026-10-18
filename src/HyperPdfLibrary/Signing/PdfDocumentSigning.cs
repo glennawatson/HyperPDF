@@ -82,8 +82,8 @@ public static class PdfDocumentSigning
             var prepared = BuildPrepared(workspace, planned, identity, options, capacity, CancellationToken.None);
             var attributes = PdfSigningEngine.Attributes(prepared, identity);
             var signature = signer.Sign(attributes.SignedAttributes, planned.Plan.Digest);
-            var container = Assemble(prepared, attributes, signature, []);
-            if (PdfSigningEngine.TryFinish(prepared, container, attempt, out needed) is { } result)
+            var container = Assemble(prepared, attributes, signature, [], CancellationToken.None);
+            if (PdfSigningEngine.TryFinish(prepared, container, attempt, out needed, CancellationToken.None) is { } result)
             {
                 return result;
             }
@@ -122,8 +122,8 @@ public static class PdfDocumentSigning
             var attributes = PdfSigningEngine.Attributes(prepared, identity);
             var signature = await provider.SignAsync(attributes.SignedAttributes, planned.Plan.Digest, cancellationToken).ConfigureAwait(false);
             var token = await PdfSigningEngine.StampAsync(options.Timestamp, options.TimestampDigest, signature, cancellationToken).ConfigureAwait(false);
-            var container = Assemble(prepared, attributes, signature, token);
-            if (PdfSigningEngine.TryFinish(prepared, container, attempt, out needed) is { } result)
+            var container = Assemble(prepared, attributes, signature, token, cancellationToken);
+            if (PdfSigningEngine.TryFinish(prepared, container, attempt, out needed, cancellationToken) is { } result)
             {
                 return result;
             }
@@ -174,11 +174,12 @@ public static class PdfDocumentSigning
     public static async ValueTask<PdfSigningResult> CompleteAsync(PdfPendingSignature pending, ReadOnlyMemory<byte> signature, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pending);
+        cancellationToken.ThrowIfCancellationRequested();
         var work = pending.Work;
         var value = signature.ToArray();
         var token = await PdfSigningEngine.StampAsync(work.Options.Timestamp, work.Options.TimestampDigest, value, cancellationToken).ConfigureAwait(false);
         var attributes = new PdfSignedAttributes(pending.Spec, pending.DocumentDigest, pending.SignedAttributes);
-        return FinishPending(pending, Assemble(work, attributes, value, token));
+        return FinishPending(pending, Assemble(work, attributes, value, token, cancellationToken), cancellationToken);
     }
 
     /// <summary>
@@ -196,6 +197,7 @@ public static class PdfDocumentSigning
     public static async ValueTask<PdfSigningResult> CompleteWithContainerAsync(PdfPendingSignature pending, ReadOnlyMemory<byte> container, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pending);
+        cancellationToken.ThrowIfCancellationRequested();
         var work = pending.Work;
         var value = container.ToArray();
         if (work.Options.Timestamp is not null)
@@ -207,10 +209,10 @@ public static class PdfDocumentSigning
 
         if (work.Mac is { } mac)
         {
-            value = PdfSigningMac.Attach(mac, work.File, value);
+            value = PdfSigningMac.Attach(mac, work.File, value, work.ScratchPools, cancellationToken);
         }
 
-        return FinishPending(pending, value);
+        return FinishPending(pending, value, cancellationToken);
     }
 
     /// <summary>
@@ -299,23 +301,39 @@ public static class PdfDocumentSigning
     /// <param name="attributes">The signed attributes.</param>
     /// <param name="signature">The signature value.</param>
     /// <param name="token">The timestamp token, or empty.</param>
+    /// <param name="cancellationToken">Cancels container assembly and MAC hashing.</param>
     /// <returns>The container.</returns>
-    private static byte[] Assemble(PdfPreparedSignature prepared, in PdfSignedAttributes attributes, byte[] signature, byte[] token)
+    private static byte[] Assemble(PdfPreparedSignature prepared, in PdfSignedAttributes attributes, byte[] signature, byte[] token, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var container = PdfCmsBuilder.Assemble(attributes.Spec, attributes.SignedAttributes, signature, token);
-        return prepared.Mac is { } mac ? PdfSigningMac.Attach(mac, prepared.File, container) : container;
+        return prepared.Mac is { } mac ? PdfSigningMac.Attach(mac, prepared.File, container, prepared.ScratchPools, cancellationToken) : container;
     }
 
     /// <summary>Writes a container into a pending signature's file.</summary>
     /// <param name="pending">The pending signature.</param>
     /// <param name="container">The container.</param>
+    /// <param name="cancellationToken">Cancels before contents are written.</param>
     /// <returns>The result.</returns>
     /// <exception cref="PdfException">The container does not fit the room reserved.</exception>
-    private static PdfSigningResult FinishPending(PdfPendingSignature pending, byte[] container)
+    private static PdfSigningResult FinishPending(PdfPendingSignature pending, byte[] container, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Only one completion writes into the file, and a result is handed out once, because it is the file's own array.
         pending.Claim();
-        var result = PdfSigningEngine.TryFinish(pending.Work, container, pending.Attempts, out var needed);
+        PdfSigningResult? result;
+        int needed;
+        try
+        {
+            result = PdfSigningEngine.TryFinish(pending.Work, container, pending.Attempts, out needed, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            pending.Release();
+            throw;
+        }
+
         if (result is null)
         {
             // Nothing was written, so a smaller value can still finish the signature.

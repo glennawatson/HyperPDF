@@ -21,6 +21,17 @@ internal sealed class PdfReadSnapshots
     /// </summary>
     private readonly object?[] _reads = new object?[KindCount];
 
+    /// <summary>Returns a published non-null document-wide reference result without starting a read.</summary>
+    /// <typeparam name="T">The reference result type.</typeparam>
+    /// <param name="document">The document.</param>
+    /// <param name="kind">The kind of read.</param>
+    /// <returns>The published result, or null when none is available.</returns>
+    internal static T? GetCached<T>(PdfDocument document, PdfReadKind kind)
+        where T : class =>
+        Volatile.Read(ref document.State.Reads) is { } reads && Volatile.Read(ref reads._reads[(int)kind]) is T hit
+            ? hit
+            : null;
+
     /// <summary>Reads a document-wide result once and keeps it.</summary>
     /// <typeparam name="T">The type of the result.</typeparam>
     /// <param name="document">The document.</param>
@@ -39,24 +50,25 @@ internal sealed class PdfReadSnapshots
         return ((Held<T>)(Interlocked.CompareExchange(ref reads._reads[(int)kind], held, null) ?? held)).Value;
     }
 
-    /// <summary>Reads and keeps a result whose initial construction can be cancelled.</summary>
-    /// <typeparam name="T">The type of the result.</typeparam>
+    /// <summary>Reads and keeps a non-null reference result whose initial construction can be cancelled.</summary>
+    /// <typeparam name="T">The reference result type.</typeparam>
     /// <param name="document">The document.</param>
     /// <param name="kind">The kind of read.</param>
     /// <param name="read">Constructs the result.</param>
     /// <param name="cancellationToken">Cancels construction.</param>
     /// <returns>The kept result.</returns>
     internal static T Read<T>(PdfDocument document, PdfReadKind kind, Func<PdfDocument, CancellationToken, T> read, CancellationToken cancellationToken)
+        where T : class
     {
         cancellationToken.ThrowIfCancellationRequested();
         var reads = PdfReadSnapshots.Current(document);
-        if (Volatile.Read(ref reads._reads[(int)kind]) is Held<T> hit)
+        if (Volatile.Read(ref reads._reads[(int)kind]) is T hit)
         {
-            return hit.Value;
+            return hit;
         }
 
-        var held = new Held<T>(read(document, cancellationToken));
-        return ((Held<T>)(Interlocked.CompareExchange(ref reads._reads[(int)kind], held, null) ?? held)).Value;
+        var result = read(document, cancellationToken);
+        return (T)(Interlocked.CompareExchange(ref reads._reads[(int)kind], result, null) ?? result);
     }
 
     /// <summary>Reads and keeps a cancellable result with explicitly passed operation state.</summary>
@@ -111,6 +123,23 @@ internal sealed class PdfReadSnapshots
         return results.TryGetValue(owner, out var hit) ? hit.Value : results.GetOrAdd(owner, new Held<T>(read(owner))).Value;
     }
 
+    /// <summary>Reads one object's result with cancellation and retains it in the shared owner cache.</summary>
+    /// <typeparam name="TOwner">The owner type, compared by reference.</typeparam>
+    /// <typeparam name="T">The result type.</typeparam>
+    /// <param name="document">The document.</param>
+    /// <param name="kind">The read kind.</param>
+    /// <param name="owner">The owner object.</param>
+    /// <param name="read">Constructs the result.</param>
+    /// <param name="cancellationToken">Cancels construction.</param>
+    /// <returns>The retained result.</returns>
+    internal static T Read<TOwner, T>(PdfDocument document, PdfReadKind kind, TOwner owner, Func<TOwner, CancellationToken, T> read, CancellationToken cancellationToken)
+        where TOwner : class
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var results = PdfReadSnapshots.Results<TOwner, T>(document, kind);
+        return results.TryGetValue(owner, out var hit) ? hit.Value : results.GetOrAdd(owner, new Held<T>(read(owner, cancellationToken))).Value;
+    }
+
     /// <summary>Gets the table of per-object results of a kind, starting it when there is none.</summary>
     /// <typeparam name="TOwner">The type of the object the results are read from.</typeparam>
     /// <typeparam name="T">The type of the results.</typeparam>
@@ -148,10 +177,6 @@ internal sealed class PdfReadSnapshots
 
     /// <summary>A kept result, which may be <see langword="null"/>.</summary>
     /// <typeparam name="T">The type of the result.</typeparam>
-    /// <param name="value">The result.</param>
-    private sealed class Held<T>(T value)
-    {
-        /// <summary>Gets the result.</summary>
-        internal T Value { get; } = value;
-    }
+    /// <param name="Value">The result.</param>
+    private sealed record Held<T>(T Value);
 }

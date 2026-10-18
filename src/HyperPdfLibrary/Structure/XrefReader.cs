@@ -55,6 +55,9 @@ internal static class XrefReader
     /// <summary>The base of decimal digits.</summary>
     private const int Ten = 10;
 
+    /// <summary>The mask for checking cancellation every 256 xref stream entries.</summary>
+    private const int StreamCancellationMask = 0xFF;
+
     /// <summary>The bytes read after <c>startxref</c> or at a section's start to find its first token.</summary>
     private const int TokenWindow = 1024;
 
@@ -272,14 +275,8 @@ internal static class XrefReader
     private static bool ReadEntries(ReadOnlySpan<byte> entries, XrefTable table)
     {
         var lexer = new PdfLexer(entries);
-        while (true)
+        for (var kind = lexer.Next(); kind != PdfTokenKind.EndOfData; kind = lexer.Next())
         {
-            var kind = lexer.Next();
-            if (kind == PdfTokenKind.EndOfData)
-            {
-                return true;
-            }
-
             if (kind != PdfTokenKind.Number
         || !PdfNumber.TryParse(
         lexer.Lexeme,
@@ -295,6 +292,8 @@ internal static class XrefReader
                 return false;
             }
         }
+
+        return true;
     }
 
     /// <summary>Reads the entries of one subsection.</summary>
@@ -418,6 +417,7 @@ internal static class XrefReader
     /// <param name="store">The objects being read.</param>
     /// <param name="table">The table.</param>
     /// <returns>The stream dictionary, which is the section's trailer, or <see langword="null"/> when damaged.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     private static PdfDictionary? ReadStream(long offset, PdfObjectStore store, XrefTable table)
     {
         if (!StoreParsing.TryParseObjectAt(store, offset, out _, out var value) || value.AsStream() is not { } stream)
@@ -428,21 +428,15 @@ internal static class XrefReader
         var dictionary = stream.Dictionary;
         Span<int> widths = stackalloc int[StreamFields];
         ReadWidths(dictionary.GetArray(KnownName.W), widths);
+        var size = dictionary.Get(KnownName.Size).AsInteger();
+        var index = dictionary.GetArray(KnownName.Index);
+        ValidateStreamHeader(size, index);
+
         var output = default(PooledBuffer);
         try
         {
             _ = stream.Decode(ref output);
-            var data = output.WrittenSpan;
-            var size = dictionary.GetInt32(KnownName.Size);
-            var index = dictionary.GetArray(KnownName.Index);
-            var position = 0;
-            var subsections = index is null ? 1 : index.Count / IndexPair;
-            for (var s = 0; s < subsections; s++)
-            {
-                var first = index?.GetInt32(s * IndexPair) ?? 0;
-                var count = index?.GetInt32((s * IndexPair) + 1) ?? size;
-                position = ReadStreamEntries(data, position, widths, new(first, count), table);
-            }
+            ReadStreamSubsections(output.WrittenSpan, widths, size, index, table, store.Context is not { Recovery: false }, store.Context?.CancellationToken ?? CancellationToken.None);
 
             return dictionary;
         }
@@ -452,14 +446,96 @@ internal static class XrefReader
         }
     }
 
-    /// <summary>Reads the /W field widths, clamped to what a long can hold.</summary>
+    /// <summary>Validates the xref stream's total object slots and subsection shape.</summary>
+    /// <param name="size">The number of object slots.</param>
+    /// <param name="index">The optional subsection array.</param>
+    /// <exception cref="PdfException">The header exceeds the parser limits.</exception>
+    private static void ValidateStreamHeader(long size, PdfArray? index)
+    {
+        if (size is < 0 or > PdfLimits.MaxObjectNumber || (index is not null && index.Count % IndexPair != 0))
+        {
+            throw new PdfException(PdfError.Format, "The xref stream size or index is invalid.");
+        }
+    }
+
+    /// <summary>Reads each subsection after bounding its count and object number.</summary>
+    /// <param name="data">The decoded stream bytes.</param>
+    /// <param name="widths">The field widths.</param>
+    /// <param name="size">The number of object slots.</param>
+    /// <param name="index">The optional subsection array.</param>
+    /// <param name="table">The cross-reference table.</param>
+    /// <param name="recovery">Whether invalid object ranges may be skipped.</param>
+    /// <param name="cancellationToken">Cancels entry parsing.</param>
+    /// <exception cref="PdfException">A subsection extends beyond the object slots.</exception>
+    private static void ReadStreamSubsections(ReadOnlySpan<byte> data, ReadOnlySpan<int> widths, long size, PdfArray? index, XrefTable table, bool recovery, CancellationToken cancellationToken)
+    {
+        var position = 0;
+        var subsections = index is null ? 1 : index.Count / IndexPair;
+        for (var s = 0; s < subsections; s++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            position = ReadStreamEntries(data, position, widths, ReadStreamSubsection(index, s, size, recovery), table, cancellationToken);
+        }
+    }
+
+    /// <summary>Reads one validated object range from the subsection array.</summary>
+    /// <param name="index">The optional subsection array.</param>
+    /// <param name="section">The subsection index.</param>
+    /// <param name="size">The number of object slots.</param>
+    /// <param name="recovery">Whether invalid object ranges may be skipped.</param>
+    /// <returns>The bounded object range.</returns>
+    /// <exception cref="PdfException">The subsection extends beyond the object slots.</exception>
+    private static Subsection ReadStreamSubsection(PdfArray? index, int section, long size, bool recovery)
+    {
+        var first = index?.Get(section * IndexPair).AsInteger() ?? 0;
+        var count = index?.Get((section * IndexPair) + 1).AsInteger() ?? size;
+        ValidateStreamRange(first, count);
+
+        if (first > size || count > size - first)
+        {
+            if (!recovery)
+            {
+                throw new PdfException(PdfError.Format, "The xref stream index range exceeds its size.");
+            }
+
+            return new(0, (int)count, true);
+        }
+
+        return new((int)first, (int)count, false);
+    }
+
+    /// <summary>Rejects negative ranges and counts beyond the parser's object limit.</summary>
+    /// <param name="first">The first object number.</param>
+    /// <param name="count">The number of entries.</param>
+    /// <exception cref="PdfException">The range cannot be consumed safely.</exception>
+    private static void ValidateStreamRange(long first, long count)
+    {
+        if (first < 0 || count < 0 || count > PdfLimits.MaxObjectNumber)
+        {
+            throw new PdfException(PdfError.Format, "The xref stream index range exceeds its size.");
+        }
+    }
+
+    /// <summary>Reads the /W field widths after validating their encoded range.</summary>
     /// <param name="array">The /W array.</param>
     /// <param name="widths">The three widths.</param>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     private static void ReadWidths(PdfArray? array, Span<int> widths)
     {
+        if (array is null || array.Count != StreamFields)
+        {
+            throw new PdfException(PdfError.Format, "The xref stream must contain three field widths.");
+        }
+
         for (var i = 0; i < StreamFields; i++)
         {
-            widths[i] = Math.Clamp(array?.GetInt32(i) ?? 0, 0, MaxFieldWidth);
+            var width = array.Get(i).AsInteger();
+            if (width is < 0 or > MaxFieldWidth)
+            {
+                throw new PdfException(PdfError.Format, "The xref stream field width is invalid.");
+            }
+
+            widths[i] = (int)width;
         }
     }
 
@@ -469,40 +545,80 @@ internal static class XrefReader
     /// <param name="widths">The field widths.</param>
     /// <param name="subsection">The first object number and entry count.</param>
     /// <param name="table">The table.</param>
+    /// <param name="cancellationToken">Cancels entry parsing.</param>
     /// <returns>The offset after the entries.</returns>
-    private static int ReadStreamEntries(ReadOnlySpan<byte> data, int position, ReadOnlySpan<int> widths, Subsection subsection, XrefTable table)
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
+    private static int ReadStreamEntries(ReadOnlySpan<byte> data, int position, ReadOnlySpan<int> widths, Subsection subsection, XrefTable table, CancellationToken cancellationToken)
     {
         var entryLength = widths[0] + widths[1] + widths[ThirdField];
-        if (entryLength == 0 || subsection.First < 0 || subsection.Count < 0)
-        {
-            return position;
-        }
+        var count = StreamEntryCount(data, position, entryLength, subsection);
 
-        var count = Math.Min(subsection.Count, (data.Length - position) / entryLength);
-        if ((long)subsection.First + count > PdfLimits.MaxObjectNumber)
+        if (subsection.Skip)
         {
-            return position;
+            // Consume the skipped range's bytes so later valid subsections keep their entry alignment.
+            return position + (count * entryLength);
         }
 
         table.EnsureSize(subsection.First + count);
         for (var i = 0; i < count; i++)
         {
+            if ((i & StreamCancellationMask) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
             var entry = data.Slice(position, entryLength);
             position += entryLength;
             var type = widths[0] == 0 ? 1 : ReadField(entry[..widths[0]]);
             var location = ReadField(entry.Slice(widths[0], widths[1]));
             var detail = ReadField(entry.Slice(widths[0] + widths[1], widths[ThirdField]));
-            if (type is (long)XrefEntryType.InFile or (long)XrefEntryType.Compressed)
-            {
-                table.SetIfMissing(subsection.First + i, (XrefEntryType)type, location, (int)detail);
-            }
-            else if (type == (long)XrefEntryType.Free)
-            {
-                table.NoteFree(subsection.First + i, (int)detail);
-            }
+            CommitStreamEntry(table, subsection.First + i, type, location, detail);
         }
 
         return position;
+    }
+
+    /// <summary>Checks that announced entries fit before growing the object table.</summary>
+    /// <param name="data">The decoded stream.</param>
+    /// <param name="position">The subsection byte offset.</param>
+    /// <param name="entryLength">The bytes per entry.</param>
+    /// <param name="subsection">The object range.</param>
+    /// <returns>The number of entries.</returns>
+    /// <exception cref="PdfException">The entries exceed the data or the object limit.</exception>
+    private static int StreamEntryCount(ReadOnlySpan<byte> data, int position, int entryLength, Subsection subsection)
+    {
+        if (entryLength == 0 || subsection.First < 0 || subsection.Count < 0
+            || subsection.Count > (data.Length - position) / entryLength
+            || (long)subsection.First + subsection.Count > PdfLimits.MaxObjectNumber)
+        {
+            throw new PdfException(PdfError.Format, "The xref stream entries exceed its data or object limit.");
+        }
+
+        return subsection.Count;
+    }
+
+    /// <summary>Stores an entry after validating its unsigned fields against their signed destinations.</summary>
+    /// <param name="table">The cross-reference table.</param>
+    /// <param name="number">The object number.</param>
+    /// <param name="type">The entry type.</param>
+    /// <param name="location">The file offset or object stream number.</param>
+    /// <param name="detail">The generation or object stream index.</param>
+    /// <exception cref="PdfException">A field exceeds its signed destination.</exception>
+    private static void CommitStreamEntry(XrefTable table, int number, long type, long location, long detail)
+    {
+        if (location < 0 || detail is < 0 or > int.MaxValue)
+        {
+            throw new PdfException(PdfError.Format, "The xref stream entry offset or detail exceeds its signed width.");
+        }
+
+        if (type is (long)XrefEntryType.InFile or (long)XrefEntryType.Compressed)
+        {
+            table.SetIfMissing(number, (XrefEntryType)type, location, (int)detail);
+        }
+        else if (type == (long)XrefEntryType.Free)
+        {
+            table.NoteFree(number, (int)detail);
+        }
     }
 
     /// <summary>Reads a big-endian field.</summary>
@@ -528,5 +644,6 @@ internal static class XrefReader
     /// <summary>A cross-reference stream subsection.</summary>
     /// <param name="First">The first object number.</param>
     /// <param name="Count">The number of entries.</param>
-    private readonly record struct Subsection(int First, int Count);
+    /// <param name="Skip">Whether the range lies outside the document's object slots.</param>
+    private readonly record struct Subsection(int First, int Count, bool Skip);
 }

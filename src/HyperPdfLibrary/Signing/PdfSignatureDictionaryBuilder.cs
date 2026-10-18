@@ -36,9 +36,6 @@ internal static class PdfSignatureDictionaryBuilder
     /// <summary>The most signature reference dictionaries a signature carries: DocMDP and FieldMDP.</summary>
     private const int MaxReferences = 2;
 
-    /// <summary>The most recent placeholder for the signature value: the same room is asked for again by the next signature of the same signer.</summary>
-    private static byte[]? _zeroContents;
-
     /// <summary>Gets the name of the signature handler (ISO 32000-2, Table 255).</summary>
     private static ReadOnlySpan<byte> Handler => "Adobe.PPKLite"u8;
 
@@ -48,9 +45,9 @@ internal static class PdfSignatureDictionaryBuilder
     /// <summary>Builds the dictionary of a signature or a document timestamp.</summary>
     /// <param name="document">The document.</param>
     /// <param name="plan">The plan.</param>
-    /// <param name="capacity">The room reserved for the signature value, in bytes.</param>
+    /// <param name="contents">The workspace-owned zero-filled reservation.</param>
     /// <returns>The dictionary; every value in it is direct (ISO 32000-2, Table 255, /ByteRange).</returns>
-    internal static PdfDictionary Build(PdfDocument document, PdfSigningPlan plan, int capacity)
+    internal static PdfDictionary Build(PdfDocument document, PdfSigningPlan plan, in PdfSignatureContents contents)
     {
         var store = document.Objects;
         var names = store.Names;
@@ -71,23 +68,8 @@ internal static class PdfSignatureDictionaryBuilder
         range.Add(PdfValue.FromInteger(PlaceholderSecond));
         range.Add(PdfValue.FromInteger(PlaceholderThird));
         dictionary.Set(KnownName.ByteRange, PdfValue.FromArray(range));
-        dictionary.Set(KnownName.Contents, PdfValue.FromString(ZeroContents(capacity)));
+        dictionary.Set(KnownName.Contents, PdfValue.FromString(contents.Buffer, 0, contents.Length));
         return dictionary;
-    }
-
-    /// <summary>Gets the placeholder for the signature value: zeros that the writer writes out and the signer later writes over in the file, so the array itself is never changed.</summary>
-    /// <param name="capacity">The room reserved, in bytes.</param>
-    /// <returns>The zeros; the array of the last signature is reused when the room is the same.</returns>
-    private static byte[] ZeroContents(int capacity)
-    {
-        if (Volatile.Read(ref _zeroContents) is { } cached && cached.Length == capacity)
-        {
-            return cached;
-        }
-
-        var zeros = new byte[capacity];
-        Volatile.Write(ref _zeroContents, zeros);
-        return zeros;
     }
 
     /// <summary>Counts the entries the dictionary will hold, so it is made at its final size.</summary>

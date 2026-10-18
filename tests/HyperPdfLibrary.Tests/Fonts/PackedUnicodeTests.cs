@@ -30,25 +30,25 @@ public sealed class PackedUnicodeTests
     /// <returns>A task.</returns>
     [Test]
     public async Task RejectsMissingSupplementaryIndex() =>
-        await Assert.That(static () => CidToUnicodeTable.Parse([0x02, 0x02, 0, 0x80, 0xE0, 0x06, 0])).Throws<InvalidDataException>();
+        await Assert.That(static () => CidToUnicodeTable.Parse([0x02, 0x02, 0, 0x80, 0xE0, 0x06, 0])).Throws<PdfException>();
 
     /// <summary>A side table cannot hold more indices than the surrogate range provides.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task RejectsOversizedSideTable() =>
-        await Assert.That(static () => CidToUnicodeTable.Parse([0x02, 0, 0x81, 0x10])).Throws<InvalidDataException>();
+        await Assert.That(static () => CidToUnicodeTable.Parse([0x02, 0, 0x81, 0x10])).Throws<PdfException>();
 
     /// <summary>BMP values belong in the flat array, not the supplementary side table.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task RejectsBmpValueInSideTable() =>
-        await Assert.That(static () => CidToUnicodeTable.Parse([0x02, 0, 1, 0xFF, 0x7F])).Throws<InvalidDataException>();
+        await Assert.That(static () => CidToUnicodeTable.Parse([0x02, 0, 1, 0xFF, 0x7F])).Throws<PdfException>();
 
     /// <summary>Incomplete packed resources are rejected before publication.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task RejectsTruncatedSideTable() =>
-        await Assert.That(static () => CidToUnicodeTable.Parse([0x02, 1, 0])).Throws<InvalidDataException>();
+        await Assert.That(static () => CidToUnicodeTable.Parse([0x02, 1, 0])).Throws<PdfException>();
 
     /// <summary>UTF-16 surrogates are not valid input scalar values.</summary>
     /// <returns>A task.</returns>

@@ -204,18 +204,21 @@ public sealed class CffProgramTests
         await Assert.That(commands).IsEquivalentTo([.. OutlineA, .. OutlineAccent]);
     }
 
-    /// <summary>Damaged data is rejected or decodes partly rather than throwing.</summary>
+    /// <summary>A truncated Private DICT produces a PDF format error, not a runtime bounds error.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task DamagedDataIsSafe()
+    public async Task TruncatedPrivateDictionaryThrowsPdfException()
     {
         var font = BuildFont();
         var truncated = font.AsSpan(0, font.Length - DamagedTail).ToArray();
-        var commands = CffProgram.TryParse(truncated, out var program) ? Decode(program, GlyphAacute) : [];
-
-        await Assert.That(CffProgram.TryParse(Header, out _)).IsFalse();
-        await Assert.That(commands.Count).IsLessThanOrEqualTo(OutlineA.Length + OutlineAccent.Length);
+        await Assert.That(() => CffProgram.TryParse(truncated, out _)).Throws<PdfException>();
     }
+
+    /// <summary>A header without font indexes produces a PDF format error.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task HeaderWithoutIndexesThrowsPdfException() =>
+        await Assert.That(static () => CffProgram.TryParse(Header, out _)).Throws<PdfException>();
 
     /// <summary>Parses the hand-assembled font.</summary>
     /// <returns>The program.</returns>

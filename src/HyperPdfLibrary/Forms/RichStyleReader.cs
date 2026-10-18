@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Globalization;
 
 namespace HyperPdfLibrary.Forms;
@@ -13,6 +12,36 @@ namespace HyperPdfLibrary.Forms;
 /// </summary>
 internal static class RichStyleReader
 {
+    /// <summary>The length of a 4-character lookup name.</summary>
+    private const int NameLength4 = 4;
+
+    /// <summary>The length of a 5-character lookup name.</summary>
+    private const int NameLength5 = 5;
+
+    /// <summary>The length of a 9-character lookup name.</summary>
+    private const int NameLength9 = 9;
+
+    /// <summary>The length of a 10-character lookup name.</summary>
+    private const int NameLength10 = 10;
+
+    /// <summary>The length of a 11-character lookup name.</summary>
+    private const int NameLength11 = 11;
+
+    /// <summary>The length of a 12-character lookup name.</summary>
+    private const int NameLength12 = 12;
+
+    /// <summary>The length of a 15-character lookup name.</summary>
+    private const int NameLength15 = 15;
+
+    /// <summary>The length of a 3-character lookup name.</summary>
+    private const int NameLength3 = 3;
+
+    /// <summary>The length of a 6-character lookup name.</summary>
+    private const int NameLength6 = 6;
+
+    /// <summary>The length of a 7-character lookup name.</summary>
+    private const int NameLength7 = 7;
+
     /// <summary>The points in a CSS pixel.</summary>
     private const float PointsPerPixel = 0.75F;
 
@@ -58,58 +87,20 @@ internal static class RichStyleReader
     /// <summary>The words in a CSS family name that mean a serif font.</summary>
     private static readonly string[] SerifWords = ["times", "serif", "georgia", "garamond"];
 
-    /// <summary>The setters by property name.</summary>
-    private static readonly FrozenDictionary<string, RichStyleSetter> Setters = new Dictionary<string, RichStyleSetter>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["font-family"] = static (style, value) => style with { Family = ReadFamily(value) },
-        ["font-size"] = static (style, value) => TryReadSize(value, out var size) ? style with { Size = size } : style,
-        ["font-weight"] = static (style, value) => style with { Bold = IsBold(value) },
-        ["font-style"] = static (style, value) => style with { Italic = IsItalic(value) },
-        ["text-decoration"] = ReadDecoration,
-        ["text-align"] = static (style, value) => style with { Alignment = ReadAlignment(value, style.Alignment) },
-        ["color"] = static (style, value) => TryReadColor(value, out var color) ? style with { Color = color } : style,
-        ["xfa-spacerun"] = static (style, value) => style with { KeepSpaces = value.Equals("yes", StringComparison.OrdinalIgnoreCase) },
-        ["font"] = ReadShorthand,
-    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>The colour keywords the subset uses.</summary>
-    private static readonly FrozenDictionary<string, int> NamedColors = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["black"] = 0x000000,
-        ["white"] = 0xFFFFFF,
-        ["red"] = 0xFF0000,
-        ["green"] = 0x008000,
-        ["blue"] = 0x0000FF,
-        ["yellow"] = 0xFFFF00,
-        ["gray"] = 0x808080,
-        ["grey"] = 0x808080,
-        ["silver"] = 0xC0C0C0,
-        ["maroon"] = 0x800000,
-        ["navy"] = 0x000080,
-        ["purple"] = 0x800080,
-        ["teal"] = 0x008080,
-        ["olive"] = 0x808000,
-        ["lime"] = 0x00FF00,
-        ["aqua"] = 0x00FFFF,
-        ["fuchsia"] = 0xFF00FF,
-        ["orange"] = 0xFFA500,
-    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
-
     /// <summary>Applies a list of CSS declarations to a style.</summary>
     /// <param name="css">The declarations, such as <c>font-size:12pt; color:#FF0000</c>; may be empty.</param>
     /// <param name="style">The style to start from.</param>
     /// <returns>The style with the declarations applied.</returns>
     internal static RichStyle Apply(ReadOnlySpan<char> css, RichStyle style)
     {
-        var lookup = Setters.GetAlternateLookup<ReadOnlySpan<char>>();
         var result = style;
         foreach (var range in css.Split(';'))
         {
             var declaration = css[range];
             var colon = declaration.IndexOf(':');
-            if (colon > 0 && lookup.TryGetValue(declaration[..colon].Trim(), out var setter))
+            if (colon > 0)
             {
-                result = setter(result, declaration[(colon + 1)..].Trim());
+                result = ApplyDeclaration(declaration[..colon].Trim(), declaration[(colon + 1)..].Trim(), result);
             }
         }
 
@@ -141,9 +132,19 @@ internal static class RichStyleReader
             return TryReadHexColor(value[1..], out color);
         }
 
-        return value.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase) && value.EndsWith(")", StringComparison.Ordinal)
-            ? TryReadFunctionalColor(value[FunctionPrefixLength..^1], out color)
-            : NamedColors.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(value, out color);
+        if (value.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase) && value.EndsWith(")", StringComparison.Ordinal))
+        {
+            return TryReadFunctionalColor(value[FunctionPrefixLength..^1], out color);
+        }
+
+        var named = FindColor(value);
+        if (named < 0)
+        {
+            return false;
+        }
+
+        color = named;
+        return true;
     }
 
     /// <summary>Reads the text decoration: underline and line-through.</summary>
@@ -324,4 +325,171 @@ internal static class RichStyleReader
 
         return count == Channels;
     }
+
+    /// <summary>Applies one CSS declaration.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <param name="value">The CSS value.</param>
+    /// <param name="style">The inherited style.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static RichStyle ApplyDeclaration(ReadOnlySpan<char> name, ReadOnlySpan<char> value, RichStyle style) => name.Length switch
+    {
+        NameLength4 => ApplyDeclarationLength4(name, value, style),
+        NameLength5 => ApplyDeclarationLength5(name, value, style),
+        NameLength9 => ApplyDeclarationLength9(name, value, style),
+        NameLength10 => ApplyDeclarationLength10(name, value, style),
+        NameLength11 => ApplyDeclarationLength11(name, value, style),
+        NameLength12 => ApplyDeclarationLength12(name, value, style),
+        NameLength15 => ApplyDeclarationLength15(name, value, style),
+        _ => style,
+    };
+
+    /// <summary>Applies one CSS declaration.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <param name="value">The CSS value.</param>
+    /// <param name="style">The inherited style.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static RichStyle ApplyDeclarationLength4(ReadOnlySpan<char> name, ReadOnlySpan<char> value, RichStyle style) => name switch
+    {
+        var key when key.Equals("font", StringComparison.OrdinalIgnoreCase) => ReadShorthand(style, value),
+        _ => style,
+    };
+
+    /// <summary>Applies one CSS declaration.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <param name="value">The CSS value.</param>
+    /// <param name="style">The inherited style.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static RichStyle ApplyDeclarationLength5(ReadOnlySpan<char> name, ReadOnlySpan<char> value, RichStyle style) => name switch
+    {
+        var key when key.Equals("color", StringComparison.OrdinalIgnoreCase) => TryReadColor(value, out var color) ? style with { Color = color } : style,
+        _ => style,
+    };
+
+    /// <summary>Applies one CSS declaration.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <param name="value">The CSS value.</param>
+    /// <param name="style">The inherited style.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static RichStyle ApplyDeclarationLength9(ReadOnlySpan<char> name, ReadOnlySpan<char> value, RichStyle style) => name switch
+    {
+        var key when key.Equals("font-size", StringComparison.OrdinalIgnoreCase) => TryReadSize(value, out var size) ? style with { Size = size } : style,
+        _ => style,
+    };
+
+    /// <summary>Applies one CSS declaration.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <param name="value">The CSS value.</param>
+    /// <param name="style">The inherited style.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static RichStyle ApplyDeclarationLength10(ReadOnlySpan<char> name, ReadOnlySpan<char> value, RichStyle style) => name switch
+    {
+        var key when key.Equals("font-style", StringComparison.OrdinalIgnoreCase) => style with { Italic = IsItalic(value) },
+        var key when key.Equals("text-align", StringComparison.OrdinalIgnoreCase) => style with { Alignment = ReadAlignment(value, style.Alignment) },
+        _ => style,
+    };
+
+    /// <summary>Applies one CSS declaration.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <param name="value">The CSS value.</param>
+    /// <param name="style">The inherited style.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static RichStyle ApplyDeclarationLength11(ReadOnlySpan<char> name, ReadOnlySpan<char> value, RichStyle style) => name switch
+    {
+        var key when key.Equals("font-family", StringComparison.OrdinalIgnoreCase) => style with { Family = ReadFamily(value) },
+        var key when key.Equals("font-weight", StringComparison.OrdinalIgnoreCase) => style with { Bold = IsBold(value) },
+        _ => style,
+    };
+
+    /// <summary>Applies one CSS declaration.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <param name="value">The CSS value.</param>
+    /// <param name="style">The inherited style.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static RichStyle ApplyDeclarationLength12(ReadOnlySpan<char> name, ReadOnlySpan<char> value, RichStyle style) => name switch
+    {
+        var key when key.Equals("xfa-spacerun", StringComparison.OrdinalIgnoreCase) => style with { KeepSpaces = value.Equals("yes", StringComparison.OrdinalIgnoreCase) },
+        _ => style,
+    };
+
+    /// <summary>Applies one CSS declaration.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <param name="value">The CSS value.</param>
+    /// <param name="style">The inherited style.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static RichStyle ApplyDeclarationLength15(ReadOnlySpan<char> name, ReadOnlySpan<char> value, RichStyle style) => name switch
+    {
+        var key when key.Equals("text-decoration", StringComparison.OrdinalIgnoreCase) => ReadDecoration(style, value),
+        _ => style,
+    };
+
+    /// <summary>Finds a named CSS colour.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static int FindColor(ReadOnlySpan<char> name) => name.Length switch
+    {
+        NameLength3 => FindColorLength3(name),
+        NameLength4 => FindColorLength4(name),
+        NameLength5 => FindColorLength5(name),
+        NameLength6 => FindColorLength6(name),
+        NameLength7 => FindColorLength7(name),
+        _ => -1,
+    };
+
+    /// <summary>Finds a named CSS colour.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static int FindColorLength3(ReadOnlySpan<char> name) => name switch
+    {
+        var key when key.Equals("red", StringComparison.OrdinalIgnoreCase) => 0xFF0000,
+        _ => -1,
+    };
+
+    /// <summary>Finds a named CSS colour.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static int FindColorLength4(ReadOnlySpan<char> name) => name switch
+    {
+        var key when key.Equals("blue", StringComparison.OrdinalIgnoreCase) => 0x0000FF,
+        var key when key.Equals("gray", StringComparison.OrdinalIgnoreCase) => 0x808080,
+        var key when key.Equals("grey", StringComparison.OrdinalIgnoreCase) => 0x808080,
+        var key when key.Equals("navy", StringComparison.OrdinalIgnoreCase) => 0x000080,
+        var key when key.Equals("teal", StringComparison.OrdinalIgnoreCase) => 0x008080,
+        var key when key.Equals("lime", StringComparison.OrdinalIgnoreCase) => 0x00FF00,
+        var key when key.Equals("aqua", StringComparison.OrdinalIgnoreCase) => 0x00FFFF,
+        _ => -1,
+    };
+
+    /// <summary>Finds a named CSS colour.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static int FindColorLength5(ReadOnlySpan<char> name) => name switch
+    {
+        var key when key.Equals("black", StringComparison.OrdinalIgnoreCase) => 0x000000,
+        var key when key.Equals("white", StringComparison.OrdinalIgnoreCase) => 0xFFFFFF,
+        var key when key.Equals("green", StringComparison.OrdinalIgnoreCase) => 0x008000,
+        var key when key.Equals("olive", StringComparison.OrdinalIgnoreCase) => 0x808000,
+        _ => -1,
+    };
+
+    /// <summary>Finds a named CSS colour.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static int FindColorLength6(ReadOnlySpan<char> name) => name switch
+    {
+        var key when key.Equals("yellow", StringComparison.OrdinalIgnoreCase) => 0xFFFF00,
+        var key when key.Equals("silver", StringComparison.OrdinalIgnoreCase) => 0xC0C0C0,
+        var key when key.Equals("maroon", StringComparison.OrdinalIgnoreCase) => 0x800000,
+        var key when key.Equals("purple", StringComparison.OrdinalIgnoreCase) => 0x800080,
+        var key when key.Equals("orange", StringComparison.OrdinalIgnoreCase) => 0xFFA500,
+        _ => -1,
+    };
+
+    /// <summary>Finds a named CSS colour.</summary>
+    /// <param name="name">The local name, compared without regard to case.</param>
+    /// <returns>The matched value or the fallback.</returns>
+    private static int FindColorLength7(ReadOnlySpan<char> name) => name switch
+    {
+        var key when key.Equals("fuchsia", StringComparison.OrdinalIgnoreCase) => 0xFF00FF,
+        _ => -1,
+    };
 }

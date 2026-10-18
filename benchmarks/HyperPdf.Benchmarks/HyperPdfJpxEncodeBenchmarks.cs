@@ -4,9 +4,11 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdfLibrary.Creation;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Graphics.Images;
 using HyperPdfLibrary.Graphics.Images.Jpx;
+using HyperPdfLibrary.Graphics.Images.Jpx.Encoding;
 
 namespace HyperPdf.Benchmarks;
 
@@ -43,6 +45,9 @@ public class HyperPdfJpxEncodeBenchmarks
 
     /// <summary>The quality of the lossy options.</summary>
     private const int Quality = 80;
+
+    /// <summary>The caller-owned encoder scratch.</summary>
+    private readonly ScratchPools _scratchPools = new();
 
     /// <summary>The square to encode.</summary>
     private PdfJpxImage _image = null!;
@@ -98,4 +103,25 @@ public class HyperPdfJpxEncodeBenchmarks
     /// <returns>The file.</returns>
     [Benchmark]
     public byte[] LosslessTiledLayered() => PdfJpxEncoder.Encode(_image, _tiled, default);
+
+    /// <summary>Encodes into a pooled output buffer with caller-owned scratch.</summary>
+    /// <returns>The encoded length.</returns>
+    [Benchmark]
+    public int CallerOwnedLossless()
+    {
+        var output = default(PooledBuffer);
+        try
+        {
+            JpxEncoder.Encode(_image, _image.Samples.Span, _lossless, ref output, _scratchPools, CancellationToken.None);
+            return output.Length;
+        }
+        finally
+        {
+            output.Dispose();
+        }
+    }
+
+    /// <summary>Releases the caller's encoding storage.</summary>
+    [GlobalCleanup]
+    public void Cleanup() => _scratchPools.Close();
 }

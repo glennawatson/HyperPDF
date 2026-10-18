@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
+using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Conformance;
@@ -16,16 +16,57 @@ namespace HyperPdfLibrary.Conformance;
 /// </summary>
 internal static class PdfAConversionResources
 {
-    /// <summary>The bit depths every part allows.</summary>
-    private static readonly int[] BitDepths = [1, 2, 4, 8, 16];
+    /// <summary>The two-bit image component depth.</summary>
+    private const int PairBits = 2;
 
-    /// <summary>The blend modes the PDF specification defines.</summary>
-    private static readonly FrozenSet<string> BlendModes = FrozenSet.ToFrozenSet(
-        [
-            "Normal", "Compatible", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "ColorDodge", "ColorBurn", "HardLight", "SoftLight",
-            "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity",
-        ],
-        StringComparer.Ordinal);
+    /// <summary>The four-bit image component depth.</summary>
+    private const int QuarterBits = 4;
+
+    /// <summary>The byte-sized image component depth.</summary>
+    private const int ByteBits = 8;
+
+    /// <summary>The image component depth available after PDF/A-1.</summary>
+    private const int WideBits = 16;
+
+    /// <summary>The array entries inspected between cancellation checks.</summary>
+    private const int CancelInterval = 1024;
+
+    /// <summary>Checks an image component depth for the active PDF/A part.</summary>
+    /// <param name="depth">The bits per component.</param>
+    /// <param name="wideAllowed">Whether the sixteen-bit form is permitted.</param>
+    /// <returns>Whether the part allows this component depth.</returns>
+    internal static bool IsAllowedBitDepth(int depth, bool wideAllowed) =>
+        depth is 1 or PairBits or QuarterBits or ByteBits || (depth == WideBits && wideAllowed);
+
+    /// <summary>Recognises a blend-mode name or array, including legacy Compatible.</summary>
+    /// <param name="value">The resolved blend-mode entry.</param>
+    /// <param name="cancellationToken">Cancels an array scan.</param>
+    /// <returns>Whether every mode has a standard spelling.</returns>
+    internal static bool IsKnownBlend(PdfValue value, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (value.AsArray() is { } modes)
+        {
+            for (var i = 0; i < modes.Count; i++)
+            {
+                if (i % CancelInterval == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                var name = modes.GetName(i).ToKnownName();
+                if (name != KnownName.Compatible && !PdfBlendModeNames.IsStandard(name))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        var single = value.AsName().ToKnownName();
+        return single == KnownName.Compatible || PdfBlendModeNames.IsStandard(single);
+    }
 
     /// <summary>Applies the fixes.</summary>
     /// <param name="session">The conversion.</param>
@@ -70,7 +111,7 @@ internal static class PdfAConversionResources
                 }
         }
 
-        if (dictionary.ContainsKey(KnownName.BM) && !IsKnownBlend(session, dictionary.Get(KnownName.BM)))
+        if (dictionary.ContainsKey(KnownName.BM) && !IsKnownBlend(dictionary.Get(KnownName.BM), session.CancellationToken))
         {
             tally.UnknownBlendModes++;
         }
@@ -140,7 +181,7 @@ internal static class PdfAConversionResources
 
         // One rule allows 1, 2, 4 and 8 bits; the other adds 16. The level applies one of them.
         var depth = image.GetInt32(KnownName.BitsPerComponent);
-        var allowed = BitDepths.AsSpan(0, BitDepths.Length - 1).Contains(depth) || (depth == BitDepths[^1] && !session.Applies(PdfARule.ImageBitsPerComponent));
+        var allowed = IsAllowedBitDepth(depth, !session.Applies(PdfARule.ImageBitsPerComponent));
         tally.BadBitDepths += allowed ? 0 : 1;
     }
 
@@ -173,28 +214,5 @@ internal static class PdfAConversionResources
         Drop(halftone, names.Intern("HalftoneName"u8), ref copy);
         var type = halftone.GetInt32(names.Intern("HalftoneType"u8));
         tally.BadHalftones += type is 1 or PdfAConversionResourceTally.ThresholdHalftone ? 0 : 1;
-    }
-
-    /// <summary>Determines whether a /BM value names only blend modes the specification defines.</summary>
-    /// <param name="session">The conversion.</param>
-    /// <param name="value">A name or an array of names.</param>
-    /// <returns><see langword="true"/> when it does.</returns>
-    private static bool IsKnownBlend(PdfAConversionSession session, PdfValue value)
-    {
-        var names = session.Store.Names;
-        if (value.AsArray() is { } modes)
-        {
-            for (var i = 0; i < modes.Count; i++)
-            {
-                if (!BlendModes.Contains(names.GetString(modes.GetName(i))))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        return BlendModes.Contains(names.GetString(value.AsName()));
     }
 }

@@ -2,19 +2,14 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure.Tagged;
 
 namespace HyperPdfLibrary.Accessibility;
 
-/// <summary>
-/// Checks one page at a time: its tab order, the text it draws outside any tag, its tables as the reader sees them,
-/// and each annotation's tag, description and label.
-/// </summary>
-[DebuggerDisplay("AccessibilityPageScan: {_document.PageCount} pages")]
-internal sealed class AccessibilityPageScan
+/// <summary>Checks page content, annotations, tab order and table cell labels.</summary>
+internal static class AccessibilityPageScan
 {
     /// <summary>The annotation flag bit for Hidden.</summary>
     private const int HiddenFlag = 1 << 1;
@@ -25,71 +20,54 @@ internal sealed class AccessibilityPageScan
     /// <summary>The most <c>/Parent</c> steps followed to find a field's label.</summary>
     private const int MaxFieldDepth = 32;
 
-    /// <summary>The document.</summary>
-    private readonly PdfDocument _document;
-
-    /// <summary>The structure tree, or <see langword="null"/> for an untagged document.</summary>
-    private readonly PdfStructureTree? _tree;
-
-    /// <summary>The structure walk, or <see langword="null"/> for an untagged document.</summary>
-    private readonly AccessibilityStructureScan? _structure;
-
-    /// <summary>The claimed PDF/UA part, or <see langword="null"/>.</summary>
-    private readonly int? _part;
-
-    /// <summary>The findings.</summary>
-    private readonly AccessibilityFindings _findings;
-
-    /// <summary>The tables already checked, so a table that spans pages is judged once.</summary>
-    private readonly HashSet<PdfStructureElement> _checkedTables = [with(ReferenceEqualityComparer.Instance)];
-
-    /// <summary>Initializes a new instance of the <see cref="AccessibilityPageScan"/> class.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="structure">The structure walk, or <see langword="null"/> for an untagged document.</param>
-    /// <param name="part">The claimed PDF/UA part, or <see langword="null"/>.</param>
-    /// <param name="findings">Receives the findings.</param>
-    internal AccessibilityPageScan(PdfDocument document, AccessibilityStructureScan? structure, int? part, AccessibilityFindings findings)
-    {
-        _document = document;
-        _tree = PdfDocumentTagged.GetStructureTree(document);
-        _structure = structure;
-        _part = part;
-        _findings = findings;
-    }
-
     /// <summary>Checks a page.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>What was counted on the page.</returns>
-    internal PdfAccessibilityPage Check(int pageIndex)
+    internal static PdfAccessibilityPage Check(ref AccessibilityPageState state, int pageIndex)
     {
-        var page = PdfDocumentPages.GetPage(_document, pageIndex);
-        var content = PdfDocumentTagged.GetMarkedContent(_document, pageIndex);
+        var page = PdfDocumentPages.GetPage(state.Document, pageIndex);
+        var content = PdfDocumentTagged.GetMarkedContent(state.Document, pageIndex);
         CountGlyphs(content, out var untagged, out var artifacts);
         var untaggedGraphics = content.UntaggedGraphicCount;
-        if (_tree is not null && (untagged > 0 || untaggedGraphics > 0))
+        if (state.Tree is not null && (untagged > 0 || untaggedGraphics > 0))
         {
-            _findings.Add(PdfAccessibilityCode.UntaggedContent, pageIndex);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.UntaggedContent, pageIndex);
         }
 
         if (content.InvalidLanguageCount > 0)
         {
-            _findings.Add(PdfAccessibilityCode.LanguageInvalid, pageIndex);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.LanguageInvalid, pageIndex);
         }
 
-        var reachable = CheckAnnotations(page, pageIndex);
+        var reachable = CheckAnnotations(ref state, page, pageIndex);
         var tabs = page.Dictionary.IsName(KnownName.Tabs, KnownName.S);
-        if (NeedsStructureTabs(page.Dictionary, tabs, _part, reachable))
+        if (NeedsStructureTabs(page.Dictionary, tabs, state.Part, reachable))
         {
-            _findings.Add(PdfAccessibilityCode.TabsNotStructure, pageIndex);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.TabsNotStructure, pageIndex);
         }
 
-        if (_structure?.MayHoldTable(pageIndex) == true)
+        if (state.TablePages is { } tables && (tables.Contains(pageIndex) || tables.Contains(-1)))
         {
-            CheckTables(pageIndex);
+            CheckTables(ref state, pageIndex);
         }
 
         return new(pageIndex, reachable, tabs, untagged, artifacts, untaggedGraphics);
     }
+
+    /// <summary>Determines which accessibility checks apply without decoding an annotation's subtype.</summary>
+    /// <param name="annotation">The annotation.</param>
+    /// <returns>The annotation kind.</returns>
+    internal static AnnotationKind Classify(PdfDictionary annotation) =>
+        (annotation.GetInt32(KnownName.F, 0) & (HiddenFlag | NoViewFlag)) != 0
+            ? AnnotationKind.Skipped
+            : annotation.GetName(KnownName.Subtype).ToKnownName() switch
+        {
+            KnownName.Popup or KnownName.PrinterMark or KnownName.TrapNet => AnnotationKind.Skipped,
+            KnownName.Link => AnnotationKind.Link,
+            KnownName.Widget => AnnotationKind.Widget,
+            _ => AnnotationKind.Other,
+        };
 
     /// <summary>Determines whether a page with reachable annotations has a tab order the claim does not allow.</summary>
     /// <param name="page">The page's dictionary, whose <c>/Tabs</c> value is read.</param>
@@ -98,7 +76,8 @@ internal sealed class AccessibilityPageScan
     /// <param name="reachable">The number of annotations the keyboard reaches.</param>
     /// <returns><see langword="true"/> when it should be reported.</returns>
     private static bool NeedsStructureTabs(PdfDictionary page, bool followsStructure, int? part, int reachable) =>
-        reachable > 0 && !followsStructure && !(part == PdfUaClaim.Part2 && (page.IsName(KnownName.Tabs, KnownName.W) || page.IsName(KnownName.Tabs, KnownName.A)));
+        reachable > 0 && !followsStructure
+        && !(part == PdfUaClaim.Part2 && (page.IsName(KnownName.Tabs, KnownName.W) || page.IsName(KnownName.Tabs, KnownName.A)));
 
     /// <summary>Counts the visible glyphs drawn outside marked content and outside artifacts, and those drawn as artifacts.</summary>
     /// <param name="content">What the page draws.</param>
@@ -142,21 +121,6 @@ internal sealed class AccessibilityPageScan
         }
 
         return false;
-    }
-
-    /// <summary>Determines whether an annotation is one a reader can reach, and which checks apply to it.</summary>
-    /// <param name="annotation">The annotation.</param>
-    /// <returns>The kind.</returns>
-    private static AnnotationKind Classify(PdfDictionary annotation)
-    {
-        var hidden = (annotation.GetInt32(KnownName.F, 0) & (HiddenFlag | NoViewFlag)) != 0;
-        return hidden ? AnnotationKind.Skipped : annotation.NameText("Subtype") switch
-        {
-            "Popup" or "PrinterMark" or "TrapNet" => AnnotationKind.Skipped,
-            "Link" => AnnotationKind.Link,
-            "Widget" => AnnotationKind.Widget,
-            _ => AnnotationKind.Other,
-        };
     }
 
     /// <summary>
@@ -205,10 +169,11 @@ internal sealed class AccessibilityPageScan
     }
 
     /// <summary>Checks every annotation on a page.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="page">The page.</param>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>The number of annotations a reader can reach.</returns>
-    private int CheckAnnotations(PdfPage page, int pageIndex)
+    private static int CheckAnnotations(ref AccessibilityPageState state, PdfPage page, int pageIndex)
     {
         var annotations = page.Dictionary.GetArray(KnownName.Annots);
         var reachable = 0;
@@ -226,132 +191,150 @@ internal sealed class AccessibilityPageScan
             }
 
             reachable++;
-            CheckAnnotation(annotation, annotations.GetRaw(i).AsReference(), kind, pageIndex);
+            CheckAnnotation(ref state, annotation, annotations.GetRaw(i).AsReference(), kind, pageIndex);
         }
 
         return reachable;
     }
 
     /// <summary>Checks one annotation.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="annotation">The annotation.</param>
     /// <param name="id">Its object id.</param>
     /// <param name="kind">Which checks apply.</param>
     /// <param name="pageIndex">The zero based page index.</param>
-    private void CheckAnnotation(PdfDictionary annotation, PdfObjectId id, AnnotationKind kind, int pageIndex)
+    private static void CheckAnnotation(ref AccessibilityPageState state, PdfDictionary annotation, PdfObjectId id, AnnotationKind kind, int pageIndex)
     {
-        var owner = FindOwner(annotation, id);
+        var owner = FindOwner(ref state, annotation, id);
         switch (kind)
         {
             case AnnotationKind.Link:
                 {
-                    CheckLink(annotation, owner, pageIndex);
+                    CheckLink(ref state, annotation, owner, pageIndex);
                     break;
                 }
 
             case AnnotationKind.Widget:
                 {
-                    CheckWidget(annotation, owner, pageIndex);
+                    CheckWidget(ref state, annotation, owner, pageIndex);
                     break;
                 }
 
             default:
                 {
-                    CheckOther(owner, pageIndex);
+                    CheckOther(ref state, owner, pageIndex);
                     break;
                 }
         }
     }
 
     /// <summary>Finds the structure element that refers to an annotation.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="annotation">The annotation.</param>
     /// <param name="id">Its object id.</param>
     /// <returns>The element, or <see langword="null"/>.</returns>
-    private PdfStructureElement? FindOwner(PdfDictionary annotation, PdfObjectId id) =>
-        _structure?.FindOwner(id) ?? _tree?.GetObjectParent(annotation);
+    private static PdfStructureElement? FindOwner(ref AccessibilityPageState state, PdfDictionary annotation, PdfObjectId id) =>
+        id.IsValid && state.Owners is { } owners && owners.TryGetValue(id.Number, out var owner) ? owner : state.Tree?.GetObjectParent(annotation);
 
     /// <summary>Checks that a link is tagged as a link and has a description.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="link">The link annotation.</param>
     /// <param name="owner">The element that refers to it, or <see langword="null"/>.</param>
     /// <param name="pageIndex">The zero based page index.</param>
-    private void CheckLink(PdfDictionary link, PdfStructureElement? owner, int pageIndex)
+    private static void CheckLink(ref AccessibilityPageState state, PdfDictionary link, PdfStructureElement? owner, int pageIndex)
     {
         var id = owner?.Id ?? default;
-        if (_tree is not null && owner?.Type != PdfStructureType.Link)
+        if (state.Tree is not null && owner?.Type != PdfStructureType.Link)
         {
-            _findings.Add(PdfAccessibilityCode.LinkNotTagged, pageIndex, id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.LinkNotTagged, pageIndex, id);
         }
 
         if (link.GetText(KnownName.Contents) is not { Length: > 0 } && owner?.AlternateText is null)
         {
-            _findings.Add(PdfAccessibilityCode.LinkNoDescription, pageIndex, id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.LinkNoDescription, pageIndex, id);
         }
     }
 
     /// <summary>Checks that a form field has a label and is tagged as a form field.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="widget">The widget annotation.</param>
     /// <param name="owner">The element that refers to it, or <see langword="null"/>.</param>
     /// <param name="pageIndex">The zero based page index.</param>
-    private void CheckWidget(PdfDictionary widget, PdfStructureElement? owner, int pageIndex)
+    private static void CheckWidget(ref AccessibilityPageState state, PdfDictionary widget, PdfStructureElement? owner, int pageIndex)
     {
         var id = owner?.Id ?? default;
         if (!HasFieldLabel(widget, owner))
         {
-            _findings.Add(PdfAccessibilityCode.FormFieldNoLabel, pageIndex, id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.FormFieldNoLabel, pageIndex, id);
         }
 
-        if (_tree is not null && owner?.Type != PdfStructureType.Form)
+        if (state.Tree is not null && owner?.Type != PdfStructureType.Form)
         {
-            _findings.Add(PdfAccessibilityCode.FormFieldNotTagged, pageIndex, id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.FormFieldNotTagged, pageIndex, id);
         }
     }
 
     /// <summary>Checks that any other annotation is referred to from the tree, as an Annot for PDF/UA-1.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="owner">The element that refers to it, or <see langword="null"/>.</param>
     /// <param name="pageIndex">The zero based page index.</param>
-    private void CheckOther(PdfStructureElement? owner, int pageIndex)
+    private static void CheckOther(ref AccessibilityPageState state, PdfStructureElement? owner, int pageIndex)
     {
-        if (_tree is null)
+        if (state.Tree is null)
         {
             return;
         }
 
         if (owner is null)
         {
-            _findings.Add(PdfAccessibilityCode.AnnotationNotTagged, pageIndex);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.AnnotationNotTagged, pageIndex);
         }
-        else if (_part != PdfUaClaim.Part2 && owner.Type != PdfStructureType.Annotation)
+        else if (state.Part != PdfUaClaim.Part2 && owner.Type != PdfStructureType.Annotation)
         {
-            _findings.Add(PdfAccessibilityCode.AnnotationWrongStructureType, pageIndex, owner.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.AnnotationWrongStructureType, pageIndex, owner.Id);
         }
     }
 
     /// <summary>Checks the tables on a page as the reader sees them, once the header cells are linked to the cells they label.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="pageIndex">The zero based page index.</param>
-    private void CheckTables(int pageIndex)
+    private static void CheckTables(ref AccessibilityPageState state, int pageIndex)
     {
-        foreach (var node in PdfReadingStructure.ReadTagged(_document, pageIndex).Nodes)
+        foreach (var node in PdfReadingStructure.ReadTagged(state.Document, pageIndex).Nodes)
         {
-            CheckTableNodes(node, pageIndex);
+            CheckTableNodes(ref state, node, pageIndex);
         }
     }
 
     /// <summary>Walks a node and its descendants for tables.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="node">The node.</param>
     /// <param name="pageIndex">The zero based page index.</param>
-    private void CheckTableNodes(PdfSemanticNode node, int pageIndex)
+    private static void CheckTableNodes(ref AccessibilityPageState state, PdfSemanticNode node, int pageIndex)
     {
-        if (node.Role == PdfSemanticRole.Table && node.Element is { } element && _checkedTables.Add(element))
+        if (node.Role == PdfSemanticRole.Table && node.Element is { } element)
         {
-            var hasHeader = false;
-            if (CountUnlabelledCells(node, true, ref hasHeader) > 0 && hasHeader)
+            if (state.CheckedTables is null)
             {
-                _findings.Add(PdfAccessibilityCode.TableCellNoHeader, pageIndex, element.Id);
+                state = state with
+                {
+                    CheckedTables = state.Document.Objects.ScratchPools.Slots<HashSet<PdfStructureElement>>().Take() ?? [with(ReferenceEqualityComparer.Instance)]
+                };
+            }
+
+            if (state.CheckedTables.Add(element))
+            {
+                var hasHeader = false;
+                if (CountUnlabelledCells(node, true, ref hasHeader) > 0 && hasHeader)
+                {
+                    AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.TableCellNoHeader, pageIndex, element.Id);
+                }
             }
         }
 
         foreach (var child in node.Children)
         {
-            CheckTableNodes(child, pageIndex);
+            CheckTableNodes(ref state, child, pageIndex);
         }
     }
 }

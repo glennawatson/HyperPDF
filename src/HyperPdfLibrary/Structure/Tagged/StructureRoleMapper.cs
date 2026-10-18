@@ -94,7 +94,7 @@ internal sealed class StructureRoleMapper
             }
         }
 
-        return new(PdfStructureType.Unknown, _table.GetString(type), false);
+        return new(PdfStructureType.Unknown, PdfStructureTypes.GetSpelling(_table.GetSpelling(type)), false);
     }
 
     /// <summary>Makes the result once no map applies.</summary>
@@ -106,7 +106,7 @@ internal sealed class StructureRoleMapper
     private ResolvedType Finish(PdfName type, PdfStructureType standard, int flags, PdfDictionary? space)
     {
         var known = flags != 0 && PdfStructureTypes.IsStandardIn(standard, flags) ? standard : PdfStructureType.Unknown;
-        return new(known, _table.GetString(type), space is not null && string.Equals(GetUri(space), PdfStructureTypes.MathMlUri, StringComparison.Ordinal));
+        return new(known, PdfStructureTypes.GetSpelling(_table.GetSpelling(type)), space is not null && string.Equals(GetUri(space), PdfStructureTypes.MathMlUri, StringComparison.Ordinal));
     }
 
     /// <summary>Takes one role map step.</summary>

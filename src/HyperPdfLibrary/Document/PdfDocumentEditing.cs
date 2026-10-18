@@ -83,10 +83,6 @@ public static class PdfDocumentEditing
         Volatile.Write(ref document.State.SignatureDetails, null);
         Volatile.Write(ref document.State.SecurityStore, null);
 
-        // The font findings come from the content, resources and font objects of any page, so any edit drops them.
-        Volatile.Write(ref document.State.AccessibilityFonts, null);
-        Volatile.Write(ref document.State.AccessibilityMetadata, null);
-
         // The text of a page and its marked content come from the page's content, resources and boxes, and sit at the page's index.
         if ((scopes & (PdfCacheScopes.PageSet | PdfCacheScopes.PageContent)) != PdfCacheScopes.None)
         {

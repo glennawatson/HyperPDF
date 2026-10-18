@@ -80,6 +80,7 @@ public sealed class PdfDocument : IDisposable, IObjectsChangedListener
         _ = Interlocked.Exchange(ref State.FontPreparations, null);
         _ = Interlocked.Exchange(ref State.Reads, null);
         _ = Interlocked.Exchange(ref State.PageLabels, null);
+        _ = Interlocked.Exchange(ref State.StructureReferences, null);
     }
 
     /// <summary>Invalidates document caches when the owned object store changes.</summary>

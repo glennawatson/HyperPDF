@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using HyperPdf.Cms;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Writing;
@@ -54,13 +55,16 @@ internal static class PdfSigningMac
     /// <param name="keys">The keys that make the token.</param>
     /// <param name="file">The file, with the byte range patched in.</param>
     /// <param name="container">The DER signature container.</param>
+    /// <param name="scratchPools">The caller's native-context owner.</param>
+    /// <param name="cancellationToken">Cancels hashing and attachment.</param>
     /// <returns>The container with the token as an unsigned attribute of its signer.</returns>
-    internal static byte[] Attach(PdfMacKeyMaterial keys, PdfSigningFile file, byte[] container)
+    internal static byte[] Attach(PdfMacKeyMaterial keys, PdfSigningFile file, byte[] container, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var cms = new SignedCms();
         cms.Decode(container);
         Span<byte> data = stackalloc byte[CmsDigests.MaxLength];
-        var dataLength = PdfSigningDigests.Hash(CmsDigestAlgorithm.Sha256, file.Head(), file.Tail(), data);
+        var dataLength = PdfSigningFileWriter.HashSigned(file, CmsDigestAlgorithm.Sha256, data, scratchPools, cancellationToken);
         var signatureDigest = SHA256.HashData(cms.SignerInfos[0].GetSignature());
         var token = PdfMacTokenWriter.Create(keys.FileKey, keys.Salt, CmsDigestAlgorithm.Sha256, data[..dataLength], signatureDigest);
         return PdfMacSignatureAttachment.Attach(container, token);

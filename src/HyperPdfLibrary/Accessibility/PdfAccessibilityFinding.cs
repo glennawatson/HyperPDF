@@ -13,4 +13,4 @@ namespace HyperPdfLibrary.Accessibility;
 /// <param name="PageIndex">The zero based page the finding is on, or -1 when it is about the whole document.</param>
 /// <param name="ElementId">The object id of the structure element, or <see langword="null"/> when there is none or it is written directly in its parent.</param>
 [DebuggerDisplay("PdfAccessibilityFinding: {Code} page {PageIndex}")]
-public sealed record PdfAccessibilityFinding(PdfAccessibilityCode Code, string Message, int PageIndex, PdfObjectId? ElementId);
+public readonly record struct PdfAccessibilityFinding(PdfAccessibilityCode Code, string Message, int PageIndex, PdfObjectId? ElementId);

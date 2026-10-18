@@ -47,6 +47,12 @@ public sealed class TextDeviceTests
     /// <summary>The runs when the interpreter reports a text object for each glyph pair.</summary>
     private const int HookedRuns = 2;
 
+    /// <summary>The run after leaving the inner replacement sequence.</summary>
+    private const int RestoredRunIndex = 2;
+
+    /// <summary>The run after leaving all replacement sequences.</summary>
+    private const int UnmarkedRunIndex = 3;
+
     /// <summary>Without text object starts, glyphs moving forward along one baseline form one run, and a gap leaves the next glyph's pen further along.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -67,6 +73,44 @@ public sealed class TextDeviceTests
 
         await Assert.That(device.Runs.Count).IsEqualTo(HookedRuns);
         await Assert.That(device.Runs[1].GlyphCount).IsEqualTo(SecondRunGlyphs);
+    }
+
+    /// <summary>Nested replacement sequences retain their identities and restore the outer replacement on exit.</summary>
+    /// <param name="cancellationToken">Cancels extraction.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MarkedContent_RestoresOuterSequence(CancellationToken cancellationToken)
+    {
+        using var document = await PdfDocumentReader.OpenAsync(TextTestDocument.Create(string.Empty).ToBytes(), null, cancellationToken);
+        var page = await PdfDocumentPages.GetPageAsync(document, 0, cancellationToken);
+        var font = new TextTestFont(new PdfDictionary(document.Objects), false, false);
+        var outer = new PdfDictionary(document.Objects);
+        var inner = new PdfDictionary(document.Objects);
+        outer.Set(KnownName.ActualText, PdfValue.FromString("outer"u8.ToArray()));
+        inner.Set(KnownName.ActualText, PdfValue.FromString("inner"u8.ToArray()));
+        var device = new TextDevice();
+        device.Reset(page, default, cancellationToken);
+        var state = new GraphicsState { Ctm = page.ViewerTransform, FontSize = FontSize };
+        device.BeginMarkedContent("Span"u8, outer);
+        Draw(device, font, FirstX, ref state);
+        device.BeginTextObject();
+        device.BeginMarkedContent("Span"u8, inner);
+        Draw(device, font, FirstX, ref state);
+        device.BeginTextObject();
+        device.EndMarkedContent();
+        Draw(device, font, FirstX, ref state);
+        device.BeginTextObject();
+        device.EndMarkedContent();
+        Draw(device, font, FirstX, ref state);
+        device.Finish();
+
+        var first = device.Runs[0].Marks;
+        var nested = device.Runs[1].Marks;
+        await Assert.That(first.ActualText).IsEqualTo("outer");
+        await Assert.That(nested.ActualText).IsEqualTo("inner");
+        await Assert.That(nested.Id).IsNotEqualTo(first.Id);
+        await Assert.That(device.Runs[RestoredRunIndex].Marks).IsEqualTo(first);
+        await Assert.That(device.Runs[UnmarkedRunIndex].Marks).IsEqualTo(TextMarks.None);
     }
 
     /// <summary>Draws three glyphs, the third after a kerning gap, and returns the device.</summary>

@@ -13,7 +13,7 @@ internal static class PdfSignatureValidator
     /// <summary>Checks every signature.</summary>
     /// <param name="document">The document.</param>
     /// <param name="options">How to check.</param>
-    /// <returns>One report per entry of <see cref="PdfDocumentAttachments.GetSignatures"/>.</returns>
+    /// <returns>One report per entry of <see cref="PdfDocumentSignatureValidation.GetSignatureDetails"/>.</returns>
     internal static PdfSignatureValidationReport[] Validate(PdfDocument document, PdfSignatureValidationOptions options)
     {
         var details = PdfDocumentSignatureValidation.GetSignatureDetails(document);
@@ -50,7 +50,7 @@ internal static class PdfSignatureValidator
         {
             // The earlier revision borrows the document's security handler, so disposing it frees only its own caches.
             using var signed = StoreRevisions.OpenRevision(document.Objects, signedEnd);
-            return [.. PdfRevisionComparer.Compare(document.Objects, signed, signedEnd)];
+            return PdfRevisionComparer.Compare(document.Objects, signed, signedEnd);
         }
         catch (PdfException)
         {

@@ -2,31 +2,18 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
-
 namespace HyperPdfLibrary.Conformance;
 
 /// <summary>The annotation types each PDF/A level allows (ISO 19005-1 §6.5.2; ISO 19005-2 and -3 §6.3.1; ISO 19005-4:2020 §6.3.1).</summary>
 internal static class PdfAConversionAnnotationTypes
 {
-    /// <summary>The types every level allows.</summary>
-    private static readonly FrozenSet<string> Common = FrozenSet.ToFrozenSet(
-        [
-            "Text", "Link", "FreeText", "Line", "Square", "Circle", "Highlight", "Underline", "Squiggly", "StrikeOut", "Stamp", "Ink", "Popup", "Widget",
-            "PrinterMark", "TrapNet",
-        ],
-        StringComparer.Ordinal);
-
-    /// <summary>The types parts 2 to 4 add.</summary>
-    private static readonly FrozenSet<string> Later = FrozenSet.ToFrozenSet(["Polygon", "PolyLine", "Caret", "Watermark", "Redact"], StringComparer.Ordinal);
-
     /// <summary>Determines whether a level allows an annotation type.</summary>
     /// <param name="level">The level.</param>
     /// <param name="subtype">The annotation's /Subtype.</param>
     /// <returns><see langword="true"/> when it does.</returns>
     internal static bool IsAllowed(PdfALevel level, string subtype)
     {
-        if (Common.Contains(subtype))
+        if (IsCommon(subtype))
         {
             return true;
         }
@@ -37,7 +24,7 @@ internal static class PdfAConversionAnnotationTypes
             return false;
         }
 
-        if (Later.Contains(subtype))
+        if (IsLaterMarkup(subtype))
         {
             return true;
         }
@@ -50,4 +37,28 @@ internal static class PdfAConversionAnnotationTypes
             _ => false,
         };
     }
+
+    /// <summary>Recognises annotation types shared by every PDF/A part.</summary>
+    /// <param name="subtype">The annotation's case-sensitive subtype.</param>
+    /// <returns>Whether all parts allow the type.</returns>
+    private static bool IsCommon(string subtype) =>
+        IsBasic(subtype) || IsMarkupOrControl(subtype);
+
+    /// <summary>Recognises markup annotation types excluded by PDF/A-1.</summary>
+    /// <param name="subtype">The annotation subtype.</param>
+    /// <returns>Whether a later part adds the type.</returns>
+    private static bool IsLaterMarkup(string subtype) =>
+        subtype is "Polygon" or "PolyLine" or "Caret" or "Watermark" or "Redact";
+
+    /// <summary>Recognises text, links, geometry and highlights.</summary>
+    /// <param name="subtype">The annotation subtype.</param>
+    /// <returns>Whether it is a basic annotation type.</returns>
+    private static bool IsBasic(string subtype) =>
+        subtype is "Text" or "Link" or "FreeText" or "Line" or "Square" or "Circle" or "Highlight" or "Underline";
+
+    /// <summary>Recognises markup, form controls and production annotations.</summary>
+    /// <param name="subtype">The annotation subtype.</param>
+    /// <returns>Whether it is a shared markup or control type.</returns>
+    private static bool IsMarkupOrControl(string subtype) =>
+        subtype is "Squiggly" or "StrikeOut" or "Stamp" or "Ink" or "Popup" or "Widget" or "PrinterMark" or "TrapNet";
 }

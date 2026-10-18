@@ -25,13 +25,13 @@ public enum PdfUaRequirement
     /// <summary><c>/ViewerPreferences /DisplayDocTitle</c> is not true (7.1).</summary>
     DisplayDocTitle = 5,
 
-    /// <summary>The catalog has no <c>/Lang</c> entry (7.2).</summary>
+    /// <summary>A catalog or element language is missing or invalid (7.2).</summary>
     Language = 6,
 
     /// <summary>A page draws content that is neither tagged nor marked as an artifact (7.1).</summary>
     UntaggedContent = 7,
 
-    /// <summary>A structure type is not standard and does not map to a standard type (7.1).</summary>
+    /// <summary>A structure type or its role mapping is invalid (7.1).</summary>
     StructureTypes = 8,
 
     /// <summary>A heading skips a level (7.4.2).</summary>

@@ -8,7 +8,7 @@ using HyperPdfLibrary.Document;
 namespace HyperPdfLibrary.Signatures;
 
 /// <summary>A signature field and the modification-detection data its signature dictionary holds, read as data.</summary>
-/// <param name="Field">The stored signature, as <see cref="PdfDocumentAttachments.GetSignatures"/> lists it.</param>
+/// <param name="Field">The stored signature from its original document revision.</param>
 /// <param name="FieldName">The field's fully qualified name.</param>
 /// <param name="Format">The /Contents encoding, from /SubFilter.</param>
 /// <param name="IsCertification">Whether the catalog's /Perms /DocMDP names this signature.</param>
@@ -19,6 +19,8 @@ namespace HyperPdfLibrary.Signatures;
 /// <param name="SignerName">The /Name entry, or an empty string.</param>
 /// <param name="Location">The /Location entry, or an empty string.</param>
 /// <param name="ContactInfo">The /ContactInfo entry, or an empty string.</param>
+/// <param name="SeedDigest">The digests the field's seed value dictionary accepts, or null when it names none.</param>
+/// <param name="ReferenceDigestMethods">The digest method of each signature reference dictionary, in order.</param>
 [DebuggerDisplay("PdfSignatureDetails: {FieldName} {Format}")]
 public sealed record PdfSignatureDetails(
     PdfSignatureField Field,
@@ -31,17 +33,10 @@ public sealed record PdfSignatureDetails(
     PdfUsageRights? UsageRights,
     string SignerName,
     string Location,
-    string ContactInfo)
+    string ContactInfo,
+    PdfSeedValueDigest? SeedDigest,
+    PdfDigestMethod[] ReferenceDigestMethods)
 {
-    /// <summary>Gets the digests the field's seed value dictionary accepts, or <see langword="null"/> when it names none.</summary>
-    public PdfSeedValueDigest? SeedDigest { get; init; }
-
-    /// <summary>
-    /// Gets the /DigestMethod of each signature reference dictionary in /Reference (ISO 32000-2, Table 256), in order;
-    /// <see cref="PdfDigestMethod.Unknown"/> where a reference has none.
-    /// </summary>
-    public PdfDigestMethod[] ReferenceDigestMethods { get; init; } = [];
-
     /// <summary>Gets a value indicating whether this is a document timestamp rather than a person's signature.</summary>
     public bool IsDocumentTimestamp => Format == PdfSignatureFormat.Rfc3161;
 

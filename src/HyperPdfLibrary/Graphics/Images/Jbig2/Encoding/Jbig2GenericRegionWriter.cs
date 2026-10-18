@@ -28,9 +28,6 @@ internal static class Jbig2GenericRegionWriter
     /// <summary>The smallest first size guess.</summary>
     private const int MinimumOutput = 256;
 
-    /// <summary>The scratch cache the MMR coder rents its line buffers from; it is thread-safe and bounded.</summary>
-    private static readonly ScratchPools MmrScratch = new();
-
     /// <summary>Gets the parameters of a generic region with nominal adaptive pixels.</summary>
     /// <param name="template">The template, 0 to 3.</param>
     /// <param name="typical">Whether typical prediction is on.</param>
@@ -42,23 +39,29 @@ internal static class Jbig2GenericRegionWriter
     /// <param name="number">The segment number.</param>
     /// <param name="bitmap">The region's pixels, 1 for black, with zero padding bits.</param>
     /// <param name="place">The region's left and top edges on the page.</param>
-    /// <param name="parameters">The arithmetic coding parameters; unused for MMR.</param>
-    /// <param name="mmr">Whether to code with MMR instead of arithmetic coding.</param>
+    /// <param name="parameters">The arithmetic coding parameters.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
-    internal static void Write(ref PooledBuffer output, int number, in Jbig2BitmapView bitmap, Jbig2Point place, in Jbig2GenericParameters parameters, bool mmr, CancellationToken cancellationToken)
+    internal static void WriteArithmetic(ref PooledBuffer output, int number, in Jbig2BitmapView bitmap, Jbig2Point place, in Jbig2GenericParameters parameters, CancellationToken cancellationToken)
     {
-        var position = Jbig2SegmentWriter.BeginSegment(ref output, number, Jbig2SegmentWriter.ImmediateLosslessGenericType, [], 1, false);
-        Jbig2SegmentWriter.WriteRegionInformation(ref output, new(place.X, place.Y, bitmap.Width, bitmap.Height));
-        if (mmr)
-        {
-            output.WriteByte(MmrFlag);
-            CcittEncoder.EncodeGroup4(bitmap.Data, bitmap.Width, bitmap.Height, true, ref output, MmrScratch);
-        }
-        else
-        {
-            WriteArithmetic(ref output, bitmap, parameters, cancellationToken);
-        }
+        cancellationToken.ThrowIfCancellationRequested();
+        var position = BeginRegion(ref output, number, bitmap, place);
+        WriteArithmeticData(ref output, bitmap, parameters, cancellationToken);
+        Jbig2SegmentWriter.EndSegment(ref output, position);
+    }
 
+    /// <summary>Writes a generic region with MMR coding.</summary>
+    /// <param name="output">The stream.</param>
+    /// <param name="number">The segment number.</param>
+    /// <param name="bitmap">The region's packed pixels, 1 for black.</param>
+    /// <param name="place">The region's position.</param>
+    /// <param name="pools">The caller's line-buffer owner.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    internal static void WriteMmr(ref PooledBuffer output, int number, in Jbig2BitmapView bitmap, Jbig2Point place, ScratchPools pools, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var position = BeginRegion(ref output, number, bitmap, place);
+        output.WriteByte(MmrFlag);
+        CcittEncoder.EncodeGroup4(bitmap.Data, bitmap.Width, bitmap.Height, true, ref output, pools, cancellationToken);
         Jbig2SegmentWriter.EndSegment(ref output, position);
     }
 
@@ -76,12 +79,25 @@ internal static class Jbig2GenericRegionWriter
         }
     }
 
+    /// <summary>Writes the common generic-region header.</summary>
+    /// <param name="output">The stream.</param>
+    /// <param name="number">The segment number.</param>
+    /// <param name="bitmap">The region shape.</param>
+    /// <param name="place">The region's position.</param>
+    /// <returns>The segment's length placeholder.</returns>
+    private static int BeginRegion(ref PooledBuffer output, int number, in Jbig2BitmapView bitmap, Jbig2Point place)
+    {
+        var position = Jbig2SegmentWriter.BeginSegment(ref output, number, Jbig2SegmentWriter.ImmediateLosslessGenericType, [], 1, false);
+        Jbig2SegmentWriter.WriteRegionInformation(ref output, new(place.X, place.Y, bitmap.Width, bitmap.Height));
+        return position;
+    }
+
     /// <summary>Writes the flags, adaptive pixels and arithmetic-coded data of a generic region.</summary>
     /// <param name="output">The stream.</param>
     /// <param name="bitmap">The pixels.</param>
     /// <param name="parameters">The coding parameters.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
-    private static void WriteArithmetic(ref PooledBuffer output, in Jbig2BitmapView bitmap, in Jbig2GenericParameters parameters, CancellationToken cancellationToken)
+    private static void WriteArithmeticData(ref PooledBuffer output, in Jbig2BitmapView bitmap, in Jbig2GenericParameters parameters, CancellationToken cancellationToken)
     {
         output.WriteByte((byte)((parameters.Template << TemplateShift) | (parameters.TypicalPrediction ? TypicalFlag : 0)));
         WriteAdaptivePixels(ref output, parameters);

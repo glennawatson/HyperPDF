@@ -2,28 +2,18 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure.Tagged;
 
 namespace HyperPdfLibrary.Accessibility;
 
-/// <summary>
-/// Walks the structure tree once, in logical order, and reports what the element types alone show: types that mean
-/// nothing, heading order, figures, tables and lists. It also notes which element owns each annotation, so the page
-/// checks can tell whether an annotation is tagged.
-/// </summary>
-[DebuggerDisplay("AccessibilityStructureScan: {_elementCount} elements")]
-internal sealed class AccessibilityStructureScan
+/// <summary>Checks structure types and records annotation owners and table pages in one logical walk.</summary>
+internal static class AccessibilityStructureScan
 {
     /// <summary>The most role map steps followed when looking for a loop.</summary>
     private const int MaxRoleMapSteps = 32;
-
-    /// <summary>The longest type spelling checked against the standard types.</summary>
-    private const int MaxTypeSpelling = 64;
 
     /// <summary>Set in a table's flags when it has a header cell.</summary>
     private const int HasHeaderCell = 1;
@@ -34,77 +24,47 @@ internal sealed class AccessibilityStructureScan
     /// <summary>Set in a table's flags when a cell lists its headers.</summary>
     private const int HasHeadersList = 4;
 
-    /// <summary>The findings.</summary>
-    private readonly AccessibilityFindings _findings;
-
-    /// <summary>The structure tree.</summary>
-    private readonly PdfStructureTree _tree;
-
-    /// <summary>The role map, or <see langword="null"/>.</summary>
-    private readonly PdfDictionary? _roleMap;
-
-    /// <summary>The claimed PDF/UA part, or <see langword="null"/>.</summary>
-    private readonly int? _part;
-
-    /// <summary>The cancellation token.</summary>
-    private readonly CancellationToken _cancellation;
-
-    /// <summary>What the namespace role maps do to each type in each explicitly provided namespace.</summary>
-    private readonly Dictionary<NamespaceType, NamespaceMapProblem> _namespaceMaps = [];
-
-    /// <summary>What the root role map does to each raw type, by spelling.</summary>
-    private readonly Dictionary<string, RoleMapFacts> _roleMapFacts = [with(StringComparer.Ordinal)];
-
-    /// <summary>The elements that refer to each object, by object number.</summary>
-    private readonly Dictionary<int, PdfStructureElement> _owners = [];
-
-    /// <summary>The pages tables start on; -1 stands for a table whose page is unknown.</summary>
-    private readonly HashSet<int> _tablePages = [];
-
-    /// <summary>The number of elements visited.</summary>
-    private int _elementCount;
-
-    /// <summary>The level of the last heading, or zero before the first.</summary>
-    private int _lastHeading;
-
-    /// <summary>The number of level 1 headings seen.</summary>
-    private int _levelOneCount;
-
-    /// <summary>Initializes a new instance of the <see cref="AccessibilityStructureScan"/> class.</summary>
-    /// <param name="tree">The structure tree.</param>
-    /// <param name="part">The claimed PDF/UA part, or <see langword="null"/>.</param>
-    /// <param name="findings">Receives the findings.</param>
-    /// <param name="cancellation">The cancellation token.</param>
-    internal AccessibilityStructureScan(PdfStructureTree tree, int? part, AccessibilityFindings findings, CancellationToken cancellation)
+    /// <summary>Walks the whole tree.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
+    internal static void Run(ref AccessibilityStructureState state)
     {
-        _tree = tree;
-        _part = part;
-        _findings = findings;
-        _cancellation = cancellation;
-        _roleMap = tree.Root.GetDictionary(KnownName.RoleMap);
+        CheckRoots(ref state);
+        var roots = state.Tree.Roots;
+        for (var index = 0; index < roots.Count; index++)
+        {
+            Visit(ref state, roots[index]);
+        }
     }
 
-    /// <summary>Gets a value indicating whether the tree uses the PDF 2.0 structure namespace.</summary>
-    internal bool UsesPdf20Namespace { get; private set; }
-
-    /// <summary>Determines whether a page may hold part of a table, so its reading nodes are worth building.</summary>
-    /// <param name="pageIndex">The zero based page index.</param>
-    /// <returns><see langword="true"/> when a table starts on the page, or starts on a page the file does not name.</returns>
-    internal bool MayHoldTable(int pageIndex) => _tablePages.Contains(pageIndex) || _tablePages.Contains(-1);
-
-    /// <summary>Finds the element that refers to an annotation or other object.</summary>
-    /// <param name="id">The object's id.</param>
-    /// <returns>The element, or <see langword="null"/>.</returns>
-    internal PdfStructureElement? FindOwner(PdfObjectId id) => id.IsValid && _owners.TryGetValue(id.Number, out var owner) ? owner : null;
-
-    /// <summary>Walks the whole tree.</summary>
-    internal void Run()
+    /// <summary>Clears and returns the walk's lazily leased storage.</summary>
+    /// <param name="state">The completed or interrupted walk.</param>
+    internal static void Release(in AccessibilityStructureState state)
     {
-        CheckRoots();
-        foreach (var root in _tree.Roots)
+        if (state.NamespaceMaps is { } namespaces)
         {
-            Visit(root);
+            namespaces.Clear();
+            _ = state.Pools.Slots<Dictionary<NamespaceType, NamespaceMapProblem>>().Offer(namespaces);
         }
+
+        if (state.RoleMapFacts is { } facts)
+        {
+            facts.Clear();
+            _ = state.Pools.Slots<Dictionary<PdfName, RoleMapFacts>>().Offer(facts);
+        }
+
+        if (state.Owners is { } owners)
+        {
+            owners.Clear();
+            _ = state.Pools.Slots<Dictionary<int, PdfStructureElement>>().Offer(owners);
+        }
+
+        if (state.TablePages is not { } pages)
+        {
+            return;
+        }
+
+        pages.Clear();
+        _ = state.Pools.Slots<HashSet<int>>().Offer(pages);
     }
 
     /// <summary>Reads what a table's cells state, without entering tables nested inside it.</summary>
@@ -126,8 +86,10 @@ internal sealed class AccessibilityStructureScan
         }
 
         flags |= element.Attributes.Headers.Length > 0 ? HasHeadersList : 0;
-        foreach (var kid in element.Kids)
+        var kids = element.Kids;
+        for (var index = 0; index < kids.Count; index++)
         {
+            var kid = kids[index];
             if (kid.Kind == PdfStructureKidKind.Element && kid.Element is { } child)
             {
                 flags |= CollectTableFlags(child, false);
@@ -138,79 +100,86 @@ internal sealed class AccessibilityStructureScan
     }
 
     /// <summary>Determines whether a spelling is a standard structure type.</summary>
+    /// <param name="dictionary">The dictionary whose owner interns the type name.</param>
     /// <param name="type">The type's spelling.</param>
     /// <param name="namespaces">The standard namespaces to look in: <see cref="PdfStructureTypes.Pdf17Flag"/>, <see cref="PdfStructureTypes.Pdf20Flag"/> or both.</param>
     /// <returns><see langword="true"/> when it is.</returns>
-    private static bool IsStandard(string type, int namespaces)
-    {
-        if (type.Length > MaxTypeSpelling)
-        {
-            return false;
-        }
-
-        Span<byte> bytes = stackalloc byte[MaxTypeSpelling];
-        return Encoding.Latin1.GetBytes(type, bytes) == type.Length
-            && PdfStructureTypes.IsStandardIn(PdfStructureTypes.Find(bytes[..type.Length]), namespaces);
-    }
+    private static bool IsStandard(PdfDictionary dictionary, PdfName type, int namespaces) =>
+        dictionary.Owner is { } owner
+        && PdfStructureTypes.IsStandardIn(PdfStructureTypes.Find(owner.Names.GetSpelling(type)), namespaces);
 
     /// <summary>Visits an element, then its kids.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The element.</param>
-    private void Visit(PdfStructureElement element)
+    private static void Visit(ref AccessibilityStructureState state, PdfStructureElement element)
     {
-        _cancellation.ThrowIfCancellationRequested();
-        _elementCount++;
-        UsesPdf20Namespace |= element.Namespace == PdfStructureTypes.Pdf20Uri;
-        CheckRoleMap(element);
-        CheckLanguage(element);
-        CheckPart2Type(element);
-        CheckType(element);
-        foreach (var kid in element.Kids)
+        state.Cancellation.ThrowIfCancellationRequested();
+        state = state with
         {
+            UsesPdf20Namespace = state.UsesPdf20Namespace || (element.Namespace == PdfStructureTypes.Pdf20Uri)
+        };
+        CheckRoleMap(ref state, element);
+        CheckLanguage(ref state, element);
+        CheckPart2Type(ref state, element);
+        CheckType(ref state, element);
+        var kids = element.Kids;
+        for (var index = 0; index < kids.Count; index++)
+        {
+            var kid = kids[index];
             if (kid.Kind == PdfStructureKidKind.Element && kid.Element is { } child)
             {
-                Visit(child);
+                Visit(ref state, child);
             }
             else if (kid.Kind == PdfStructureKidKind.Object && kid.Object.IsValid)
             {
-                _ = _owners.TryAdd(kid.Object.Number, element);
+                if (state.Owners is null)
+                {
+                    state = state with
+                    {
+                        Owners = state.Pools.Slots<Dictionary<int, PdfStructureElement>>().Take() ?? []
+                    };
+                }
+
+                _ = state.Owners.TryAdd(kid.Object.Number, element);
             }
         }
     }
 
     /// <summary>Runs the check that belongs to an element's type.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The element.</param>
-    private void CheckType(PdfStructureElement element)
+    private static void CheckType(ref AccessibilityStructureState state, PdfStructureElement element)
     {
         switch (element.Type)
         {
             case PdfStructureType.Figure:
-            {
-                CheckFigure(element);
-                break;
-            }
+                {
+                    CheckFigure(ref state, element);
+                    break;
+                }
 
             case PdfStructureType.Table:
-            {
-                CheckTable(element);
-                break;
-            }
+                {
+                    CheckTable(ref state, element);
+                    break;
+                }
 
             case PdfStructureType.ListItem:
-            {
-                CheckListItem(element);
-                break;
-            }
+                {
+                    CheckListItem(ref state, element);
+                    break;
+                }
 
             case >= PdfStructureType.Heading1 and <= PdfStructureType.Heading6:
-            {
-                CheckHeading(element);
-                break;
-            }
+                {
+                    CheckHeading(ref state, element);
+                    break;
+                }
 
             default:
-            {
-                break;
-            }
+                {
+                    break;
+                }
         }
     }
 
@@ -219,217 +188,260 @@ internal sealed class AccessibilityStructureScan
     /// a standard type the role map remaps (ISO 14289-1 7.1), a type that reaches no standard type, or a namespace role map that
     /// maps a type within its own namespace (ISO 14289-2 8.2.4).
     /// </summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The element.</param>
-    private void CheckRoleMap(PdfStructureElement element)
+    private static void CheckRoleMap(ref AccessibilityStructureState state, PdfStructureElement element)
     {
-        var problem = ReadNamespaceProblem(element);
+        var problem = ReadNamespaceProblem(ref state, element);
         var cycles = problem == NamespaceMapProblem.Cycle;
-        if (element.Namespace is null && _roleMap is not null)
+        if (element.Namespace is null && state.RoleMap is not null)
         {
-            var facts = GetRoleMapFacts(element.RawType);
+            var facts = GetRoleMapFacts(ref state, element.RawType);
             cycles |= facts.Cycles;
             if (facts.RemapsStandard)
             {
-                _findings.Add(PdfAccessibilityCode.StandardTypeRemapped, element.PageIndex, element.Id);
+                AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.StandardTypeRemapped, element.PageIndex, element.Id);
             }
         }
 
         if (cycles)
         {
-            _findings.Add(PdfAccessibilityCode.RoleMapCycle, element.PageIndex, element.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.RoleMapCycle, element.PageIndex, element.Id);
         }
 
         if (problem == NamespaceMapProblem.SameNamespace)
         {
-            _findings.Add(PdfAccessibilityCode.RoleMapSameNamespace, element.PageIndex, element.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.RoleMapSameNamespace, element.PageIndex, element.Id);
         }
 
         if (!cycles)
         {
-            CheckMapped(element);
+            CheckMapped(ref state, element);
         }
     }
 
     /// <summary>Reports a type that reaches no standard type.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The element.</param>
-    private void CheckMapped(PdfStructureElement element)
+    private static void CheckMapped(ref AccessibilityStructureState state, PdfStructureElement element)
     {
-        // A standard type the role map remaps is still a standard type, so only the remapping is reported.
-        if (element.Type == PdfStructureType.Unknown && !element.ResolvesToMathMl && !(element.Namespace is null && IsStandard(element.RawType, PdfStructureTypes.AnyStandardFlag)))
+        // Remapped standard types have their own finding, rather than an unmapped-type finding.
+        if (element.Type == PdfStructureType.Unknown && !element.ResolvesToMathMl
+        && !(element.Namespace is null
+        && IsStandard(element.Dictionary, element.Dictionary.GetName(KnownName.S), PdfStructureTypes.AnyStandardFlag)))
         {
-            _findings.Add(PdfAccessibilityCode.UnmappedStructureType, element.PageIndex, element.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.UnmappedStructureType, element.PageIndex, element.Id);
         }
     }
 
     /// <summary>Reports an element's own <c>/Lang</c> when it is not a language identifier (ISO 14289-1 7.2; ISO 14289-2 8.4.4).</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The element.</param>
-    private void CheckLanguage(PdfStructureElement element)
+    private static void CheckLanguage(ref AccessibilityStructureState state, PdfStructureElement element)
     {
         if (element.Dictionary.GetText(KnownName.Lang) is { } language && !AccessibilityLanguageTags.IsValid(language))
         {
-            _findings.Add(PdfAccessibilityCode.LanguageInvalid, element.PageIndex, element.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.LanguageInvalid, element.PageIndex, element.Id);
         }
     }
 
     /// <summary>Follows the namespace role maps from an element's type, once for each namespace and type.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The element.</param>
     /// <returns>The problem found.</returns>
-    private NamespaceMapProblem ReadNamespaceProblem(PdfStructureElement element)
+    private static NamespaceMapProblem ReadNamespaceProblem(ref AccessibilityStructureState state, PdfStructureElement element)
     {
-        if (element.Namespace is null || element.Dictionary.Dict("NS") is not { } space)
+        if (element.Namespace is null || element.Dictionary.Dict("NS") is not { } space || space.Dict("RoleMapNS") is not { } roleMap
+        || roleMap.Array(element.RawType) is not { Count: > 1 })
         {
             return NamespaceMapProblem.None;
         }
 
-        ref var problem = ref CollectionsMarshal.GetValueRefOrAddDefault(_namespaceMaps, new(space, element.RawType), out var exists);
+        if (state.NamespaceMaps is null)
+        {
+            state = state with
+            {
+                NamespaceMaps = state.Pools.Slots<Dictionary<NamespaceType, NamespaceMapProblem>>().Take() ?? []
+            };
+        }
+
+        ref var problem = ref CollectionsMarshal.GetValueRefOrAddDefault(state.NamespaceMaps, new(space, space.Key(element.RawType)), out var exists);
         if (!exists)
         {
-            problem = AccessibilityNamespaceMap.Read(space, element.RawType);
+            problem = AccessibilityNamespaceMap.Read(space, element.RawType, state.Cancellation);
         }
 
         return problem;
     }
 
     /// <summary>Reads what the root role map does to a type, once for each spelling.</summary>
-    /// <param name="type">The type's spelling.</param>
+    /// <param name="state">The operation's exclusively owned state.</param>
+    /// <param name="spelling">The structure type's raw spelling.</param>
     /// <returns>The facts.</returns>
-    private RoleMapFacts GetRoleMapFacts(string type)
+    private static RoleMapFacts GetRoleMapFacts(ref AccessibilityStructureState state, string spelling)
     {
-        ref var facts = ref CollectionsMarshal.GetValueRefOrAddDefault(_roleMapFacts, type, out var exists);
+        var map = state.RoleMap!;
+        var type = map.Key(spelling);
+        var first = map.GetName(type);
+        if (first.IsNone)
+        {
+            return default;
+        }
+
+        if (state.RoleMapFacts is null)
+        {
+            state = state with
+            {
+                RoleMapFacts = state.Pools.Slots<Dictionary<PdfName, RoleMapFacts>>().Take() ?? []
+            };
+        }
+
+        ref var facts = ref CollectionsMarshal.GetValueRefOrAddDefault(state.RoleMapFacts, type, out var exists);
         if (!exists)
         {
-            facts = ReadRoleMapFacts(type);
+            facts = ReadRoleMapFacts(map, type, first, state.Cancellation);
         }
 
         return facts;
     }
 
     /// <summary>Follows the root role map from a type.</summary>
+    /// <param name="map">The root role map.</param>
     /// <param name="type">The type's spelling.</param>
+    /// <param name="first">The first mapped name, known to be present.</param>
+    /// <param name="cancellation">Cancels the bounded role-map walk.</param>
     /// <returns>Whether the map loops back on a type already seen, and whether it remaps a standard type.</returns>
-    private RoleMapFacts ReadRoleMapFacts(string type)
+    private static RoleMapFacts ReadRoleMapFacts(PdfDictionary map, PdfName type, PdfName first, CancellationToken cancellation)
     {
-        var map = _roleMap!;
-        var first = map.NameText(type);
-        if (first is null)
-        {
-            return default;
-        }
-
-        var seen = new HashSet<string>(StringComparer.Ordinal) { type };
+        Span<PdfName> seen = stackalloc PdfName[MaxRoleMapSteps + 1];
+        seen[0] = type;
         var current = first;
         var loops = false;
-        for (var step = 0; step < MaxRoleMapSteps && current is not null && !loops; step++)
+        for (var step = 0; step < MaxRoleMapSteps && !current.IsNone && !loops; step++)
         {
-            loops = !seen.Add(current);
-            current = map.NameText(current);
+            cancellation.ThrowIfCancellationRequested();
+            loops = seen[..(step + 1)].Contains(current);
+            seen[step + 1] = current;
+            current = map.GetName(current);
         }
 
-        var remaps = !string.Equals(first, type, StringComparison.Ordinal) && IsStandard(type, PdfStructureTypes.Pdf17Flag);
+        var remaps = first != type && IsStandard(map, type, PdfStructureTypes.Pdf17Flag);
         return new(loops, remaps);
     }
 
     /// <summary>Checks the top of the tree for PDF/UA-2: a single Document element in the PDF 2.0 namespace (ISO 14289-2 8.2.5.2).</summary>
-    private void CheckRoots()
+    /// <param name="state">The operation's exclusively owned state.</param>
+    private static void CheckRoots(ref AccessibilityStructureState state)
     {
-        if (_part != PdfUaClaim.Part2)
+        if (state.Part != PdfUaClaim.Part2)
         {
             return;
         }
 
-        var roots = _tree.Roots;
-        var valid = roots.Count == 1 && roots[0].Type == PdfStructureType.Document && roots[0].Namespace == PdfStructureTypes.Pdf20Uri;
+        var roots = state.Tree.Roots;
+
+        // The reading tree drops malformed and repeated children during recovery; count the raw /K as well.
+        var children = state.Tree.Root.GetArray(KnownName.K);
+        var valid = (children is null || children.Count == 1) && roots.Count == 1 && roots[0].Type == PdfStructureType.Document
+        && roots[0].Namespace == PdfStructureTypes.Pdf20Uri;
         if (!valid)
         {
-            _findings.Add(PdfAccessibilityCode.DocumentRootInvalid);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.DocumentRootInvalid);
         }
     }
 
     /// <summary>Reports the types PDF/UA-2 does not allow: <c>H</c> (ISO 14289-2 8.2.5.12) and an unmapped <c>Note</c> (8.2.5.14).</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The element.</param>
-    private void CheckPart2Type(PdfStructureElement element)
+    private static void CheckPart2Type(ref AccessibilityStructureState state, PdfStructureElement element)
     {
-        if (_part != PdfUaClaim.Part2)
+        if (state.Part != PdfUaClaim.Part2)
         {
             return;
         }
 
         if (element.Type == PdfStructureType.Heading)
         {
-            _findings.Add(PdfAccessibilityCode.HeadingTypeNotAllowed, element.PageIndex, element.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.HeadingTypeNotAllowed, element.PageIndex, element.Id);
         }
         else if (element.Type == PdfStructureType.Note)
         {
-            _findings.Add(PdfAccessibilityCode.NoteTypeNotAllowed, element.PageIndex, element.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.NoteTypeNotAllowed, element.PageIndex, element.Id);
         }
     }
 
     /// <summary>Reports a figure with no description.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The figure.</param>
-    private void CheckFigure(PdfStructureElement element)
+    private static void CheckFigure(ref AccessibilityStructureState state, PdfStructureElement element)
     {
         // An empty /ActualText still replaces the figure's content with nothing, which ISO 14289 accepts as a description.
         if (element.AlternateText is null && element.ActualText is null && !element.Dictionary.Has("ActualText"))
         {
-            _findings.Add(PdfAccessibilityCode.FigureNoDescription, element.PageIndex, element.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.FigureNoDescription, element.PageIndex, element.Id);
         }
     }
 
     /// <summary>Reports a list item outside a list.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The list item.</param>
-    private void CheckListItem(PdfStructureElement element)
+    private static void CheckListItem(ref AccessibilityStructureState state, PdfStructureElement element)
     {
         if (element.Parent is not { Type: PdfStructureType.List })
         {
-            _findings.Add(PdfAccessibilityCode.ListItemOutsideList, element.PageIndex, element.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.ListItemOutsideList, element.PageIndex, element.Id);
         }
     }
 
-    /// <summary>Reports a heading that skips a level, and a second level 1 heading.</summary>
+    /// <summary>Reports a heading that skips a level.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="element">The heading.</param>
-    private void CheckHeading(PdfStructureElement element)
+    private static void CheckHeading(ref AccessibilityStructureState state, PdfStructureElement element)
     {
         var level = element.HeadingLevel;
-        if (level > _lastHeading + 1)
+        if (level > state.LastHeading + 1)
         {
-            _findings.Add(PdfAccessibilityCode.HeadingLevelSkipped, element.PageIndex, element.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.HeadingLevelSkipped, element.PageIndex, element.Id);
         }
 
-        if (level == 1)
+        state = state with
         {
-            _levelOneCount++;
-            if (_levelOneCount > 1 && _part != PdfUaClaim.Part2)
-            {
-                _findings.Add(PdfAccessibilityCode.MultipleLevelOneHeadings, element.PageIndex, element.Id);
-            }
-        }
-
-        _lastHeading = level;
+            LastHeading = level
+        };
     }
 
     /// <summary>Reports a table with no header cells, or with header cells that say nothing about what they head.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
     /// <param name="table">The table.</param>
-    private void CheckTable(PdfStructureElement table)
+    private static void CheckTable(ref AccessibilityStructureState state, PdfStructureElement table)
     {
-        _ = _tablePages.Add(table.PageIndex);
+        if (state.TablePages is null)
+        {
+            state = state with
+            {
+                TablePages = state.Pools.Slots<HashSet<int>>().Take() ?? []
+            };
+        }
+
+        _ = state.TablePages.Add(table.PageIndex);
         var flags = CollectTableFlags(table, true);
         if ((flags & HasHeaderCell) == 0)
         {
-            _findings.Add(PdfAccessibilityCode.TableNoHeaderCells, table.PageIndex, table.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.TableNoHeaderCells, table.PageIndex, table.Id);
         }
         else if ((flags & (HasScope | HasHeadersList)) == 0)
         {
-            _findings.Add(PdfAccessibilityCode.TableHeaderNoScope, table.PageIndex, table.Id);
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.TableHeaderNoScope, table.PageIndex, table.Id);
         }
     }
 
-    /// <summary>A structure type in a namespace dictionary.</summary>
+    /// <summary>A structure type interned by its namespace dictionary's owner.</summary>
     /// <param name="Space">The namespace dictionary.</param>
-    /// <param name="Type">The type's spelling.</param>
-    private readonly record struct NamespaceType(PdfDictionary Space, string Type);
+    /// <param name="Type">The interned structure type.</param>
+    internal readonly record struct NamespaceType(PdfDictionary Space, PdfName Type);
 
-    /// <summary>What the root role map does to one type.</summary>
-    /// <param name="Cycles">Whether following the map comes back to a type already seen, which includes a type mapped to itself.</param>
-    /// <param name="RemapsStandard">Whether a standard type is mapped to a different type.</param>
-    private readonly record struct RoleMapFacts(bool Cycles, bool RemapsStandard);
+    /// <summary>Whether a root role map loops or remaps a standard structure type.</summary>
+    /// <param name="Cycles">Whether the chain revisits a type.</param>
+    /// <param name="RemapsStandard">Whether a standard type maps to a different type.</param>
+    internal readonly record struct RoleMapFacts(bool Cycles, bool RemapsStandard);
 }

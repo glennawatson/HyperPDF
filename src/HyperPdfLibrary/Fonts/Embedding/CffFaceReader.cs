@@ -218,7 +218,7 @@ internal static class CffFaceReader
     /// <returns>The Font DICT's parts.</returns>
     private static CffFontDict ReadPrivate(ReadOnlySpan<byte> data, byte[] kept, int size, int offset)
     {
-        var dict = FontBytes.Slice(data, offset, size);
+        var dict = size == 0 ? [] : FontBytes.Slice(data, offset, size);
         var entries = CffDictScanner.Scan(dict);
         var privateKept = new List<byte>(dict.Length);
         var subrs = default(CffIndex);
@@ -226,7 +226,7 @@ internal static class CffFaceReader
         {
             if (entry.Operator == SubrsOperator)
             {
-                subrs = CffIndex.Read(data, offset + CffDictScanner.GetInt(dict, entry, 0), out _);
+                subrs = CffIndex.Read(data, CffPrivate.RelativeOffset(data, offset, CffDictScanner.GetInt(dict, entry, 0)), out _);
             }
             else
             {

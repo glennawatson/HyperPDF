@@ -1,5 +1,90 @@
 [
   {
+    "type": "HyperPdfLibrary.Signatures.PdfObjectChange[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfRevisionComparer.SnapshotChanges",
+    "reason": "The detached change result must outlive its leased builder. Returning pooled or mutable storage would let a later comparison overwrite a retained report; repeated-comparison tests verify distinct result identities. Empty comparisons share the empty array. The allocation may be attributed here or to Run when this helper is inlined."
+  },
+  {
+    "type": "HyperPdfLibrary.Signatures.PdfObjectChange[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfRevisionComparer.Run",
+    "reason": "The returned changes are a detached result retained by signature reports and callers. Ownership maps, traversal stacks, deferred numbers and result builders are cleared and returned to document-owned scratch slots. Empty comparisons return the shared empty array. Returning the builder's storage was rejected because a later comparison would overwrite an earlier report; the repeated-comparison test verifies distinct result identities."
+  },
+  {
+    "type": "HyperPdfLibrary.Signatures.PdfSignatureDetails",
+    "frame": "HyperPdfLibrary.Signatures.PdfSignatureDetailsReader.Read",
+    "reason": "Detached positional records retain signed permissions after historical stores are disposed. Previously retained signatures are skipped before constructing duplicate details; scratch lists are reused. Reusing mutable details or renting the returned records would change authority already retained by callers."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfObjectStore",
+    "frame": "HyperPdfLibrary.Objects.StoreRevisions.CreateRevision",
+    "reason": "A historical revision needs its own object identity and mutable parse state. The file bytes are borrowed through a bounded prefix, not copied. Pooling the store identity was rejected because dictionaries and streams can retain their owner after store disposal; resetting that owner would redirect retained values to another revision."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfOpenContext",
+    "frame": "HyperPdfLibrary.Objects.StoreRevisions.CreateRevision",
+    "reason": "A historical store keeps the caller's cancellation and decoding limits with independent parsing depth and diagnostic state. Sharing the parent's mutable context would mix concurrent resolution depths, and pooling the context through retained store identities would change a previous revision's limits."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.XrefTable",
+    "frame": "HyperPdfLibrary.Objects.StoreRevisions.CreateRevision",
+    "reason": "Historical object lookup requires revision-specific cross-reference state. Internal transient and entry buffers already have their own reuse; sharing or resetting the table identity would let retained dictionaries resolve through the next revision instead of their original owner."
+  },
+  {
+    "type": "HyperPdfLibrary.IO.PrefixPdfByteSource",
+    "frame": "HyperPdfLibrary.Objects.StoreRevisions.CreateRevision",
+    "reason": "This source borrows the original bytes and caps reads at a genuine historical revision boundary. A retained historical store can still own its source reference after disposal; resetting a pooled prefix would expose another revision's unsigned bytes through that old identity."
+  },
+  {
+    "type": "HyperPdfLibrary.Signatures.PdfRevision[]",
+    "frame": "HyperPdfLibrary.Objects.StoreRevisions.ReadRevisions",
+    "reason": "The final revision-boundary snapshot is returned and cached. Section traversal uses a stack span, and temporary revision storage uses the stack or ArrayPool. Returning pooled result storage was rejected because callers retain the snapshot across reads and disposal. The stack/pool rewrite reduced the unchanged-file timing from 760.0 +/- 26.66 ns to 643.4 +/- 11.76 ns on .NET 11; changed-file intervals overlap."
+  },
+  {
+    "type": "HyperPdfLibrary.Signatures.PdfRevision[]",
+    "frame": "HyperPdfLibrary.Objects.StoreRevisions.ReadMarkerRevisions",
+    "reason": "Recovery returns a detached bounded revision snapshot. Temporary recovery storage is caller-owned stack or pooled storage and cannot escape. Returning that storage would make previously returned revision boundaries change when a later read reuses it."
+  },
+  {
+    "type": "HyperPdfLibrary.Signatures.PdfSignatureDetails[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfSignatureHistory.Read",
+    "reason": "The final historical signature snapshot is returned to callers and cached by document revision. Scratch lists are reused and cleared, and already retained signatures are skipped before copying their bytes. Renting the returned array was rejected because callers can retain this snapshot after another read, edit or document disposal."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentAttachments.ReadSignature",
+    "reason": "The returned signature owns its detached Contents bytes, including signatures read from disposed historical stores. Duplicate retained signatures are checked against raw bytes before copying. Returning a span into revision parsing storage or pooling these output bytes would invalidate signature snapshots retained by callers."
+  },
+  {
+    "type": "System.Int64[]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentAttachments.ReadSignature",
+    "reason": "The returned signature retains its variable-length ByteRange independently of the parsed revision and scratch. Known signatures are skipped before materialising the range. Reusing this result array would let later reads change the offsets a retained signature validates."
+  },
+  {
+    "type": "HyperPdfLibrary.Document.PdfSignatureField",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentAttachments.ReadSignature",
+    "reason": "This positional record is the detached signature result retained by historical signature snapshots and public readers. Duplicate results are avoided before construction. Pooling or mutating its identity would change a caller's previously read signature."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentAttachments.ReadSignature",
+    "reason": "The signature result retains its SubFilter string. Previously retained signatures are rejected before decoding duplicate metadata, and missing names reuse String.Empty. Replacing the output with transient character storage would break its immutable string API and lifetime."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Fonts.Generation.BinaryCMapStream.ReadString()",
+    "reason": "The metadata reader returns an immutable string that callers retain independently of the input and scratch buffer. Temporary character storage is rented and returned. Returning a scratch span or reusing mutable storage would not preserve that result lifetime; empty metadata returns the shared empty string."
+  },
+  {
+    "type": "HyperPdfLibrary.PdfException",
+    "frame": "HyperPdfLibrary.Filters.PooledBuffer.ThrowSizeLimit()",
+    "reason": "A rejected decompression bomb must throw a fresh domain exception before further output allocation. Returning a status would break that contract; sharing an exception would share mutable throw and stack state across concurrent readers. Successful bounded Flate, LZW and chained decoding sampled zero library bytes on .NET 11; .NET 10 Flate uses allocating framework streams."
+  },
+  {
+    "type": "System.SByte[]",
+    "frame": "HyperPdfLibrary.Filters.PooledBuffer.ThrowSizeLimit()",
+    "reason": "EventPipe attributes exception-dispatch storage to the required decompression-limit throw. This method creates only the domain exception with a constant message. Removing the throw would break rejection semantics, and reusing an exception cannot safely remove per-throw runtime stack state across concurrent readers."
+  },
+  {
     "type": "System.Int32[]",
     "frame": "HyperPdfLibrary.Objects.PdfDictionary..ctor(class HyperPdfLibrary.Objects.PdfObjectStore,int32)",
     "reason": "Mutable PDF object storage is retained by parsed results or independent edit copies. The arena-recycling attempt was rejected after finding escaped arrays/spans and concurrent readers that could outlive document disposal. Nested values already share their stable backing data."

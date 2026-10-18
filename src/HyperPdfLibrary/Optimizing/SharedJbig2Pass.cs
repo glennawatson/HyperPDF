@@ -19,6 +19,12 @@ internal static class SharedJbig2Pass
     /// <summary>The fewest images worth sharing a dictionary.</summary>
     private const int MinimumImages = 2;
 
+    /// <summary>The fixed settings for lossless shared symbol selection.</summary>
+    private static readonly Jbig2EncodeOptions SharedOptions = new() { Mode = Jbig2EncodeMode.Smallest };
+
+    /// <summary>The fixed settings for explicitly requested lossy sharing.</summary>
+    private static readonly Jbig2EncodeOptions LossyOptions = new() { Mode = Jbig2EncodeMode.LossySymbolMerging };
+
     /// <summary>Codes the document's 1-bit images with a shared dictionary when that is smaller.</summary>
     /// <param name="store">The working copy's objects.</param>
     /// <param name="scanner">What the analysis learned, including which images pages draw.</param>
@@ -33,19 +39,11 @@ internal static class SharedJbig2Pass
             return;
         }
 
-        var inputs = new Jbig2PageInput[candidates.Count];
-        long separate = 0;
-        for (var i = 0; i < inputs.Length; i++)
-        {
-            var (_, stream, rows, width, height) = candidates[i];
-            inputs[i] = new(rows, width, height);
-            separate += Math.Min(stream.RawLength, Jbig2Encoder.Encode(rows, width, height, Jbig2EncodeOptions.Default, cancellationToken).Data.Length);
-        }
-
-        var best = Jbig2Encoder.EncodeShared(inputs, new() { Mode = Jbig2EncodeMode.Smallest }, cancellationToken);
+        var (inputs, separate) = CreateInputs(candidates, store.ScratchPools, cancellationToken);
+        var best = Jbig2Encoder.EncodeShared(inputs, SharedOptions, cancellationToken);
         if (mode == PdfJbig2Mode.Lossy)
         {
-            var lossy = Jbig2Encoder.EncodeShared(inputs, new() { Mode = Jbig2EncodeMode.LossySymbolMerging }, cancellationToken);
+            var lossy = Jbig2Encoder.EncodeShared(inputs, LossyOptions, cancellationToken);
             best = Total(lossy) < Total(best) ? lossy : best;
         }
 
@@ -55,6 +53,37 @@ internal static class SharedJbig2Pass
         }
 
         Apply(store, candidates, best, report);
+    }
+
+    /// <summary>Builds shared inputs and measures separate codings without keeping unused output copies.</summary>
+    /// <param name="candidates">The source images and their decoded rows.</param>
+    /// <param name="pools">The document's original encoding owner.</param>
+    /// <param name="cancellationToken">Cancels between images and encoding segments.</param>
+    /// <returns>The shared inputs and their separate byte cost.</returns>
+    private static SharedInputs CreateInputs(List<SharedCandidate> candidates, ScratchPools pools, CancellationToken cancellationToken)
+    {
+        var inputs = new Jbig2PageInput[candidates.Count];
+        var data = default(PooledBuffer);
+        var globals = default(PooledBuffer);
+        long separate = 0;
+        try
+        {
+            for (var i = 0; i < inputs.Length; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var (_, stream, rows, width, height) = candidates[i];
+                inputs[i] = new(rows, width, height);
+                _ = Jbig2Encoder.EncodeInto(rows, new(new(width, height), Jbig2EncodeOptions.Default), ref data, ref globals, pools, cancellationToken);
+                separate += Math.Min(stream.RawLength, data.Length);
+            }
+
+            return new(inputs, separate);
+        }
+        finally
+        {
+            data.Dispose();
+            globals.Dispose();
+        }
     }
 
     /// <summary>Gets the bytes of a shared coding.</summary>
@@ -184,4 +213,9 @@ internal static class SharedJbig2Pass
             report.Changed(PdfOptimizeCategory.Images, number, note, stream.RawLength, after);
         }
     }
+
+    /// <summary>The page inputs and cost of coding them independently.</summary>
+    /// <param name="Pages">The shared page inputs.</param>
+    /// <param name="SeparateBytes">The total separate byte cost.</param>
+    private readonly record struct SharedInputs(Jbig2PageInput[] Pages, long SeparateBytes);
 }

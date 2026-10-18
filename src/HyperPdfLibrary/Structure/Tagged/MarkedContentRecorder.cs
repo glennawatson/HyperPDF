@@ -33,9 +33,6 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <summary>The most glyphs or characters an idle recorder keeps room for.</summary>
     private const int MaxKeptCapacity = 1 << 16;
 
-    /// <summary>Idle recorders, kept with the lists and text buffer they grew so recording another page does not grow them again.</summary>
-    private static readonly ReusableSlots<MarkedContentRecorder> Idle = new();
-
     /// <summary>The page's marked content operators in running order.</summary>
     private readonly List<ScannedMark> _scanned = [];
 
@@ -196,7 +193,8 @@ internal sealed class MarkedContentRecorder : IContentDevice
     /// <returns>The page's marked content.</returns>
     internal static PdfMarkedContentPage Record(PdfDocument document, PdfPage page)
     {
-        var device = Idle.Take() ?? new();
+        var idle = document.DrawingServices.MarkedContentRecorders;
+        var device = idle.Take() ?? new();
         device._names = document.Objects.Names;
         try
         {
@@ -220,7 +218,7 @@ internal sealed class MarkedContentRecorder : IContentDevice
         }
         finally
         {
-            device.Release();
+            device.Release(idle);
         }
     }
 
@@ -316,7 +314,8 @@ internal sealed class MarkedContentRecorder : IContentDevice
     }
 
     /// <summary>Forgets the page just recorded and keeps the recorder, with its grown buffers, for the next one.</summary>
-    private void Release()
+    /// <param name="idle">The host-owned slots that receive the cleaned recorder.</param>
+    private void Release(ReusableSlots<MarkedContentRecorder> idle)
     {
         _scanned.Clear();
         _frames.Clear();
@@ -338,7 +337,7 @@ internal sealed class MarkedContentRecorder : IContentDevice
         // A recorder that grew for an enormous page is dropped instead of pinning that memory.
         if (_text.Capacity <= MaxKeptCapacity && _glyphs.Capacity <= MaxKeptCapacity && _graphicIds.Capacity <= MaxKeptCapacity)
         {
-            _ = Idle.Offer(this);
+            _ = idle.Offer(this);
         }
     }
 }

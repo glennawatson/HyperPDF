@@ -310,7 +310,7 @@ internal sealed class LayoutEngine
             if (type == (IsPositioning ? GposExtension : GsubExtension))
             {
                 subtableType = FontBytes.U16(table, subtable + ExtensionTypeOffset);
-                subtable += FontBytes.Offset32(table, subtable + ExtensionOffsetOffset);
+                subtable = FontBytes.AddOffset(table, subtable, FontBytes.U32(table, subtable + ExtensionOffsetOffset));
             }
 
             if (Dispatch(subtableType, subtable, index, out next))

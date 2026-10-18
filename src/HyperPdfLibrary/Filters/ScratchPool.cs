@@ -32,19 +32,6 @@ internal sealed class ScratchPool<T> : ScratchPoolBase
     /// <summary>The share of the wanted length a kept array may exceed it by, as a shift: one quarter.</summary>
     private const int WasteShift = 2;
 
-    /// <summary>The bytes in one element.</summary>
-    private static readonly int ElementBytes = Math.Max(Unsafe.SizeOf<T>(), 1);
-
-    /// <summary>
-    /// The most elements the shared pool serves: the largest power of two that fits <see cref="LargeBytes"/>. A request
-    /// of that many or fewer gets an array of a power of two at most that long, and an array that long or shorter goes
-    /// back to the shared pool, so a rented array always returns to the pool it came from.
-    /// </summary>
-    private static readonly int SharedElements = 1 << BitOperations.Log2((uint)(LargeBytes / ElementBytes));
-
-    /// <summary>Whether the elements hold references, so arrays must be cleared before they are kept.</summary>
-    private static readonly bool HoldsReferences = RuntimeHelpers.IsReferenceOrContainsReferences<T>();
-
     /// <summary>The budget and lifetime owner of this element pool.</summary>
     private readonly ScratchPools _owner;
 
@@ -57,6 +44,15 @@ internal sealed class ScratchPool<T> : ScratchPoolBase
     /// <summary>Initializes a new instance of the <see cref="ScratchPool{T}"/> class.</summary>
     /// <param name="owner">The budget and lifetime owner.</param>
     internal ScratchPool(ScratchPools owner) => _owner = owner;
+
+    /// <summary>Gets the size of an element from the runtime intrinsic.</summary>
+    private static int ElementBytes => Math.Max(Unsafe.SizeOf<T>(), 1);
+
+    /// <summary>Gets the largest power-of-two array the shared pool serves within the small-buffer limit.</summary>
+    private static int SharedElements => 1 << BitOperations.Log2((uint)(LargeBytes / ElementBytes));
+
+    /// <summary>Gets whether retained arrays require reference clearing.</summary>
+    private static bool HoldsReferences => RuntimeHelpers.IsReferenceOrContainsReferences<T>();
 
     /// <summary>Rents an array of at least the given length. Its contents are not defined.</summary>
     /// <param name="minimumLength">The least length.</param>

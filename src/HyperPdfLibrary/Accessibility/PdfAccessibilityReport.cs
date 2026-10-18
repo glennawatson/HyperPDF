@@ -41,9 +41,9 @@ public sealed record PdfAccessibilityReport(
         get
         {
             var total = 0;
-            foreach (var count in Counts)
+            for (var index = 0; index < Counts.Count; index++)
             {
-                total += count.Count;
+                total += Counts[index].Count;
             }
 
             return total;
@@ -55,8 +55,9 @@ public sealed record PdfAccessibilityReport(
     /// <returns>The count; zero when the code was not found.</returns>
     public int GetCount(PdfAccessibilityCode code)
     {
-        foreach (var count in Counts)
+        for (var index = 0; index < Counts.Count; index++)
         {
+            var count = Counts[index];
             if (count.Code == code)
             {
                 return count.Count;

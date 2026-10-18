@@ -70,7 +70,7 @@ internal static class RasterImageEncoder
             PdfRasterFormat.Gray8 => AddFlate(sink, image, pixels, GrayComponents, options, cancellationToken),
             PdfRasterFormat.Rgb24 => AddFlate(sink, image, pixels, RgbComponents, options, cancellationToken),
             PdfRasterFormat.Bgra32 => AddBgra(sink, image, options, cancellationToken),
-            _ => AddBilevel(sink, image, options),
+            _ => AddBilevel(sink, image, options, cancellationToken),
         };
     }
 
@@ -190,7 +190,7 @@ internal static class RasterImageEncoder
         var file = default(PooledBuffer);
         try
         {
-            JpxEncoder.Encode(shape, samples, jpx, ref file, cancellationToken);
+            JpxEncoder.Encode(shape, samples, jpx, ref file, ScratchFor(sink), cancellationToken);
             return new(dictionary, file.ToArray());
         }
         finally
@@ -295,8 +295,9 @@ internal static class RasterImageEncoder
     /// <param name="sink">The document.</param>
     /// <param name="image">The image.</param>
     /// <param name="options">The options.</param>
+    /// <param name="cancellationToken">Cancels between rows.</param>
     /// <returns>The image's object.</returns>
-    private static PdfObjectId AddBilevel(IPdfObjectSink sink, PdfRasterImage image, PdfImageOptions options)
+    private static PdfObjectId AddBilevel(IPdfObjectSink sink, PdfRasterImage image, PdfImageOptions options, CancellationToken cancellationToken)
     {
         var dictionary = CreateImageDictionary(sink, image.Width, image.Height, OneBit, options.AsStencil ? default : PdfValue.FromName(KnownName.DeviceGray));
         if (options.AsStencil)
@@ -321,7 +322,7 @@ internal static class RasterImageEncoder
         try
         {
             // Without /BlackIs1 a clear bit is black, which matches the set-bit-is-white layout of DeviceGray.
-            CcittEncoder.Encode(image.Pixels.Span, image.Width, image.Height, CcittParameters.FromDictionary(parameters), ref encoded, sink.Owner?.ScratchPools ?? new ScratchPools());
+            CcittEncoder.Encode(image.Pixels.Span, image.Width, image.Height, CcittParameters.FromDictionary(parameters), ref encoded, ScratchFor(sink), cancellationToken);
             return sink.Add(PdfValue.FromStream(new(dictionary, encoded.ToArray())));
         }
         finally

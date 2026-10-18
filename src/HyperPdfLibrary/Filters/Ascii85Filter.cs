@@ -32,6 +32,9 @@ internal static class Ascii85Filter
     /// <summary>The fewest characters in a partial final group that give a byte.</summary>
     private const int MinPartialLength = 2;
 
+    /// <summary>Checks cancellation after each 4096 encoded bytes.</summary>
+    private const int CancellationCheckMask = 4095;
+
     /// <summary>The character that stands for four zero bytes.</summary>
     private const byte ZeroGroup = (byte)'z';
 
@@ -85,14 +88,24 @@ internal static class Ascii85Filter
     /// <param name="input">The encoded data.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
     /// <returns><see langword="false"/> when the data broke one of those rules.</returns>
-    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output) => TryDecode(input, ref output, CancellationToken.None);
+
+    /// <summary>Decodes base-85 groups with cancellation between encoded chunks.</summary>
+    /// <param name="input">The encoded data.</param>
+    /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    /// <returns>Whether all groups follow the base-85 rules.</returns>
+    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken)
     {
-        input = SkipPrefix(input);
+        cancellationToken.ThrowIfCancellationRequested();
+        input = SkipPrefix(input, cancellationToken);
         var value = 0UL;
         var count = 0;
         var clean = true;
         for (var i = 0; i < input.Length; i++)
         {
+            CheckCancellation(i, cancellationToken);
             var c = input[i];
             if (c == ZeroGroup)
             {
@@ -179,17 +192,31 @@ internal static class Ascii85Filter
 
     /// <summary>Skips white space and an optional '&lt;~' prefix.</summary>
     /// <param name="input">The encoded data.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The data after the prefix.</returns>
-    private static ReadOnlySpan<byte> SkipPrefix(ReadOnlySpan<byte> input)
+    private static ReadOnlySpan<byte> SkipPrefix(ReadOnlySpan<byte> input, CancellationToken cancellationToken)
     {
         var start = 0;
         while (start < input.Length && PdfCharacters.IsWhitespace(input[start]))
         {
+            CheckCancellation(start, cancellationToken);
             start++;
         }
 
         var rest = input[start..];
         return rest.StartsWith("<~"u8) ? rest["<~"u8.Length..] : rest;
+    }
+
+    /// <summary>Checks cancellation at the boundary of an encoded chunk.</summary>
+    /// <param name="position">The encoded offset.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CheckCancellation(int position, CancellationToken cancellationToken)
+    {
+        if ((position & CancellationCheckMask) == 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
     }
 
     /// <summary>Writes a final partial group, padded with the highest digit; it gives one byte fewer than its characters.</summary>
@@ -217,7 +244,7 @@ internal static class Ascii85Filter
     /// <param name="output">The output.</param>
     private static void WriteGroup(uint value, int count, ref PooledBuffer output)
     {
-        var destination = output.GetSpan(GroupBytes);
+        var destination = output.GetSpan(count);
         for (var i = 0; i < count; i++)
         {
             destination[i] = (byte)(value >> ((GroupBytes - 1 - i) * ByteBits));

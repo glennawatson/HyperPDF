@@ -11,15 +11,15 @@ namespace HyperPdfLibrary.Document;
 /// <summary>Validates document signatures.</summary>
 public static class PdfDocumentSignatureValidation
 {
-    /// <summary>Gets each signature field's modification-detection data: DocMDP, FieldMDP, locks and usage rights.</summary>
+    /// <summary>Gets current and historical signatures with the permissions and locks recorded when they were signed.</summary>
     /// <param name="document">The document.</param>
-    /// <returns>The details, one per entry of <see cref="PdfDocumentAttachments.GetSignatures"/>.</returns>
+    /// <returns>The signature details, including signed fields hidden by later catalog or field updates.</returns>
     public static IReadOnlyList<PdfSignatureDetails> GetSignatureDetails(PdfDocument document)
     {
         var revision = PdfDocumentCaches.Revision(document);
         return Volatile.Read(ref document.State.SignatureDetails) is { } cached
             ? cached
-            : PdfDocumentCaches.Publish(document, ref document.State.SignatureDetails, PdfSignatureDetailsReader.Read(document), revision);
+            : PdfDocumentCaches.Publish(document, ref document.State.SignatureDetails, PdfSignatureHistory.Read(document), revision);
     }
 
     /// <summary>Gets the document security store (/DSS) and its /VRI entries.</summary>
@@ -50,7 +50,7 @@ public static class PdfDocumentSignatureValidation
 
     /// <summary>Checks every signature without the network, trusting the system's roots.</summary>
     /// <param name="document">The document.</param>
-    /// <returns>One report per entry of <see cref="PdfDocumentAttachments.GetSignatures"/>.</returns>
+    /// <returns>One report per entry of <see cref="GetSignatureDetails"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IReadOnlyList<PdfSignatureValidationReport> ValidateSignatures(PdfDocument document) =>
         PdfDocumentSignatureValidation.ValidateSignatures(
@@ -60,7 +60,7 @@ public static class PdfDocumentSignatureValidation
     /// <summary>Checks every signature: byte ranges, changes after signing and whether MDP allows them, digests, signatures, timestamps and chains.</summary>
     /// <param name="document">The document.</param>
     /// <param name="options">How to check.</param>
-    /// <returns>One report per entry of <see cref="PdfDocumentAttachments.GetSignatures"/>.</returns>
+    /// <returns>One report per entry of <see cref="GetSignatureDetails"/>.</returns>
     public static IReadOnlyList<PdfSignatureValidationReport> ValidateSignatures(PdfDocument document, PdfSignatureValidationOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);

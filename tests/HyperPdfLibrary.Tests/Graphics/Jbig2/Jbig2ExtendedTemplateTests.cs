@@ -113,7 +113,7 @@ public sealed class Jbig2ExtendedTemplateTests
         {
             Jbig2SegmentWriter.WritePageInformation(ref page, 0, Page.Width, Page.Height, true);
             Jbig2Ink.FromSamples(rows, Page.Width, Page.Height, ref ink);
-            Jbig2GenericRegionWriter.Write(ref page, 1, new(ink.WrittenSpan, Page.Width, Page.Height), default, parameters, false, CancellationToken.None);
+            Jbig2GenericRegionWriter.WriteArithmetic(ref page, 1, new(ink.WrittenSpan, Page.Width, Page.Height), default, parameters, CancellationToken.None);
             return page.ToArray();
         }
         finally

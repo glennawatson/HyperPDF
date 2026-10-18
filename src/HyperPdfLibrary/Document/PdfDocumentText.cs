@@ -31,6 +31,19 @@ public static class PdfDocumentText
         return load.IsCompletedSuccessfully ? PdfDocumentText.TextPageReady(document, pageIndex, cancellationToken) : PdfDocumentText.TextPageAfterAsync(document, load, pageIndex, cancellationToken);
     }
 
+    /// <summary>Loads and extracts a page with explicit filtering, without changing the cached text.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="options">The opt-in filters.</param>
+    /// <param name="cancellationToken">Cancels loading and extraction.</param>
+    /// <returns>The filtered text page.</returns>
+    public static async ValueTask<PdfTextPage> GetTextPageAsync(PdfDocument document, int pageIndex, PdfTextExtractionOptions options, CancellationToken cancellationToken)
+    {
+        await PdfDocumentPages.PrefetchPageAsync(document, pageIndex, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return ExtractText(document, pageIndex, options, cancellationToken);
+    }
+
     /// <summary>Walks the text of every page in order, loading each page just ahead of its extraction.</summary>
     /// <param name = "document">The document.</param>
     /// <param name = "cancellationToken">Cancels the walk.</param>
@@ -68,6 +81,15 @@ public static class PdfDocumentText
     public static PdfTextPage GetTextPage(PdfDocument document, int pageIndex) =>
         GetTextPagePrepared(document, pageIndex, CancellationToken.None);
 
+    /// <summary>Extracts a page with explicit filtering, without changing the cached OCR and accessibility text.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="options">The opt-in filters.</param>
+    /// <returns>The filtered text page.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfTextPage GetTextPage(PdfDocument document, int pageIndex, PdfTextExtractionOptions options) =>
+        ExtractText(document, pageIndex, options, CancellationToken.None);
+
     /// <summary>Gets the recently used text pages.</summary>
     /// <param name = "document">The document.</param>
     /// <returns>The recently extracted text page cache.</returns>
@@ -85,16 +107,35 @@ public static class PdfDocumentText
     /// <summary>Extracts a page's text without caching it.</summary>
     /// <param name = "document">The document.</param>
     /// <param name = "pageIndex">The zero based page index.</param>
+    /// <returns>The text page.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfTextPage ExtractText(PdfDocument document, int pageIndex) =>
+        ExtractText(document, pageIndex, default, CancellationToken.None);
+
+    /// <summary>Extracts a page's text without caching it.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
     /// <returns>The text page.</returns>
-    internal static PdfTextPage ExtractText(PdfDocument document, int pageIndex, CancellationToken cancellationToken = default)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfTextPage ExtractText(PdfDocument document, int pageIndex, CancellationToken cancellationToken) =>
+        ExtractText(document, pageIndex, default, cancellationToken);
+
+    /// <summary>Extracts text with filters and an explicit cancellation token, without changing the default cache.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="options">The opt-in filters.</param>
+    /// <param name="cancellationToken">Cancels extraction.</param>
+    /// <returns>The extracted text page.</returns>
+    private static PdfTextPage ExtractText(PdfDocument document, int pageIndex, PdfTextExtractionOptions options, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var page = PdfDocumentPages.GetPage(document, pageIndex);
         var state = TextPageBuild.Rent(document);
         var device = state.Device;
         try
         {
-            device.Reset(page);
+            device.Reset(page, options, cancellationToken);
             PdfDocumentText.RunContent(document, page, device, cancellationToken);
             device.Finish();
             return TextPageBuild.Build(state, page, PdfDocumentText.IsRightToLeft(document));

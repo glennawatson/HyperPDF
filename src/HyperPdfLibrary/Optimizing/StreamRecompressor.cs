@@ -124,7 +124,7 @@ internal static class StreamRecompressor
         var deflated = default(PooledBuffer);
         try
         {
-            Inflate(plain, filter, parameters, ref inflated, cancellationToken);
+            Inflate(plain, filter, parameters, ref inflated, scratchPools, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             Deflate(inflated.WrittenSpan, ref deflated, scratchPools);
             cancellationToken.ThrowIfCancellationRequested();
@@ -142,12 +142,13 @@ internal static class StreamRecompressor
     /// <param name="filter">The filter.</param>
     /// <param name="parameters">Its parameters, or <see langword="null"/>.</param>
     /// <param name="output">Receives the predicted bytes.</param>
+    /// <param name="scratchPools">The decoder owner.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    private static void Inflate(ReadOnlySpan<byte> data, KnownName filter, PdfDictionary? parameters, ref PooledBuffer output, CancellationToken cancellationToken)
+    private static void Inflate(ReadOnlySpan<byte> data, KnownName filter, PdfDictionary? parameters, ref PooledBuffer output, ScratchPools scratchPools, CancellationToken cancellationToken)
     {
         if (filter is KnownName.FlateDecode or KnownName.Fl)
         {
-            _ = FlateFilter.TryDecode(data, ref output, cancellationToken);
+            _ = FlateFilter.TryDecode(data, ref output, scratchPools, cancellationToken);
             return;
         }
 

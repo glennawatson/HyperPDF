@@ -31,27 +31,29 @@ internal static class Jbig2PageEncoder
     /// <summary>Codes a page with one mode.</summary>
     /// <param name="mode">The mode, not <see cref="Jbig2EncodeMode.Smallest"/>.</param>
     /// <param name="ink">The packed rows, 1 for black, with zero padding bits.</param>
-    /// <param name="size">The page size.</param>
-    /// <param name="options">The options.</param>
+    /// <param name="input">The page size and settings.</param>
     /// <param name="page">Receives the page's segments.</param>
     /// <param name="globals">Receives the global segments, when the options ask for them and the mode has any.</param>
+    /// <param name="pools">The caller's MMR line-buffer owner.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
     /// <returns><see langword="false"/> when the mode does not suit the page.</returns>
+    /// <exception cref="InvalidOperationException">MMR coding has no caller-owned scratch.</exception>
     internal static bool TryEncode(
         Jbig2EncodeMode mode,
         ReadOnlySpan<byte> ink,
-        Jbig2Size size,
-        Jbig2EncodeOptions options,
+        in Jbig2EncodingInput input,
         ref PooledBuffer page,
         ref PooledBuffer globals,
+        ScratchPools? pools,
         CancellationToken cancellationToken) =>
         mode switch
         {
-            Jbig2EncodeMode.GenericRegion => EncodeGeneric(ink, size, options, false, ref page, cancellationToken),
-            Jbig2EncodeMode.GenericRegionMmr => EncodeGeneric(ink, size, options, true, ref page, cancellationToken),
-            Jbig2EncodeMode.SymbolText => EncodeSymbols(ink, new(size, options, true, false), ref page, ref globals, cancellationToken),
-            Jbig2EncodeMode.SymbolTextRefined => EncodeSymbols(ink, new(size, options, true, true), ref page, ref globals, cancellationToken),
-            Jbig2EncodeMode.LossySymbolMerging => EncodeSymbols(ink, new(size, options, false, false), ref page, ref globals, cancellationToken),
+            Jbig2EncodeMode.GenericRegion => EncodeArithmetic(ink, input.Size, input.Options, ref page, cancellationToken),
+            Jbig2EncodeMode.GenericRegionMmr when pools is { } owner => EncodeMmr(ink, input.Size, ref page, owner, cancellationToken),
+            Jbig2EncodeMode.GenericRegionMmr => throw new InvalidOperationException("MMR encoding needs a caller-owned scratch pool."),
+            Jbig2EncodeMode.SymbolText => EncodeSymbols(ink, new(input.Size, input.Options, true, false), ref page, ref globals, cancellationToken),
+            Jbig2EncodeMode.SymbolTextRefined => EncodeSymbols(ink, new(input.Size, input.Options, true, true), ref page, ref globals, cancellationToken),
+            Jbig2EncodeMode.LossySymbolMerging => EncodeSymbols(ink, new(input.Size, input.Options, false, false), ref page, ref globals, cancellationToken),
             _ => false,
         };
 
@@ -123,23 +125,37 @@ internal static class Jbig2PageEncoder
 
         var parameters = Jbig2GenericRegionWriter.Nominal(options.GenericTemplate, options.TypicalPrediction);
         var bitmap = new Jbig2BitmapView(slice.Own.ResidualRows, box.Width, box.Height);
-        Jbig2GenericRegionWriter.Write(ref page, next, bitmap, new(box.X, box.Y), parameters, false, cancellationToken);
+        Jbig2GenericRegionWriter.WriteArithmetic(ref page, next, bitmap, new(box.X, box.Y), parameters, cancellationToken);
     }
 
     /// <summary>Codes a page as one generic region.</summary>
     /// <param name="ink">The packed rows.</param>
     /// <param name="size">The page size.</param>
     /// <param name="options">The options.</param>
-    /// <param name="mmr">Whether to use MMR.</param>
     /// <param name="page">Receives the segments.</param>
     /// <param name="cancellationToken">Cancels the encode.</param>
     /// <returns><see langword="true"/>.</returns>
-    private static bool EncodeGeneric(ReadOnlySpan<byte> ink, Jbig2Size size, Jbig2EncodeOptions options, bool mmr, ref PooledBuffer page, CancellationToken cancellationToken)
+    internal static bool EncodeArithmetic(ReadOnlySpan<byte> ink, Jbig2Size size, Jbig2EncodeOptions options, ref PooledBuffer page, CancellationToken cancellationToken)
     {
         Jbig2SegmentWriter.WritePageInformation(ref page, FirstSegment, size.Width, size.Height, true);
         var parameters = Jbig2GenericRegionWriter.Nominal(options.GenericTemplate, options.TypicalPrediction);
         var bitmap = new Jbig2BitmapView(ink, size.Width, size.Height);
-        Jbig2GenericRegionWriter.Write(ref page, FirstSegment + 1, bitmap, default, parameters, mmr, cancellationToken);
+        Jbig2GenericRegionWriter.WriteArithmetic(ref page, FirstSegment + 1, bitmap, default, parameters, cancellationToken);
+        return true;
+    }
+
+    /// <summary>Codes a page as one MMR generic region.</summary>
+    /// <param name="ink">The packed rows, 1 for black.</param>
+    /// <param name="size">The page size.</param>
+    /// <param name="page">Receives the segments.</param>
+    /// <param name="pools">The caller's line-buffer owner.</param>
+    /// <param name="cancellationToken">Cancels the encode.</param>
+    /// <returns>True after writing the region.</returns>
+    private static bool EncodeMmr(ReadOnlySpan<byte> ink, Jbig2Size size, ref PooledBuffer page, ScratchPools pools, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Jbig2SegmentWriter.WritePageInformation(ref page, FirstSegment, size.Width, size.Height, true);
+        Jbig2GenericRegionWriter.WriteMmr(ref page, FirstSegment + 1, new(ink, size.Width, size.Height), default, pools, cancellationToken);
         return true;
     }
 

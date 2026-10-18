@@ -4,6 +4,9 @@
 
 using System.Globalization;
 using HyperPdfLibrary.Accessibility;
+using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Tests.Tagged;
 
 namespace HyperPdfLibrary.Tests.Accessibility;
 
@@ -42,6 +45,83 @@ public sealed class AccessibilityPart2Tests
         await Assert.That(missing.GetCount(PdfAccessibilityCode.ClaimRevisionInvalid)).IsEqualTo(1);
         await Assert.That(other.GetCount(PdfAccessibilityCode.ClaimRevisionInvalid)).IsEqualTo(1);
         await Assert.That(partOne.GetCount(PdfAccessibilityCode.ClaimRevisionInvalid)).IsEqualTo(0);
+    }
+
+    /// <summary>PDF/UA-2 rejects non-integer and malformed revision values.</summary>
+    /// <param name="revision">The claimed revision.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments("year")]
+    [Arguments("2024.0")]
+    [Arguments("202")]
+    [Arguments("20240")]
+    [Arguments("")]
+    public async Task MalformedRevisionIsFlagged(string revision)
+    {
+        var report = await AccessibilityPdfs.ReportAsync(Valid with { Xmp = AccessibilityPdfs.Packet(AccessibilityPdfs.PartTwo, true, revision) });
+
+        await Assert.That(report.GetCount(PdfAccessibilityCode.ClaimRevisionInvalid)).IsEqualTo(1);
+    }
+
+    /// <summary>The structure tree must contain exactly one root element for PDF/UA-2.</summary>
+    /// <param name="rootCount">The number of root children.</param>
+    /// <param name="cancellationToken">Cancels the report.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(0)]
+    [Arguments(2)]
+    public async Task IncorrectRootCountIsFlagged(int rootCount, CancellationToken cancellationToken)
+    {
+        using var document = TaggedTestDocument.Open(AccessibilityPdfs.Build(Valid));
+        var root = document.Catalog.GetDictionary(KnownName.StructTreeRoot)!;
+        var children = new PdfArray(document.Objects, rootCount);
+        var child = root.GetRaw(KnownName.K);
+        for (var index = 0; index < rootCount; index++)
+        {
+            var copy = StoreReading.Resolve(document.Objects, child).AsDictionary()!.Clone();
+            children.Add(PdfValue.FromDictionary(copy));
+        }
+
+        root.Set(KnownName.K, PdfValue.FromArray(children));
+        var report = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
+
+        await Assert.That(report.GetCount(PdfAccessibilityCode.DocumentRootInvalid)).IsEqualTo(1);
+    }
+
+    /// <summary>Recovery must not hide an extra malformed or repeated root child from the report.</summary>
+    /// <param name="repeatDocument">Whether the extra child repeats the Document reference.</param>
+    /// <param name="cancellationToken">Cancels the report.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task ExtraRawRootChildIsFlagged(bool repeatDocument, CancellationToken cancellationToken)
+    {
+        using var document = TaggedTestDocument.Open(AccessibilityPdfs.Build(Valid));
+        var root = document.Catalog.GetDictionary(KnownName.StructTreeRoot)!;
+        var child = root.GetRaw(KnownName.K);
+        var extra = repeatDocument ? child : PdfValue.FromInteger(0);
+        root.Set(KnownName.K, PdfValue.FromArray(new(document.Objects, [child, extra])));
+
+        var report = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
+
+        await Assert.That(report.GetCount(PdfAccessibilityCode.DocumentRootInvalid)).IsEqualTo(1);
+    }
+
+    /// <summary>A sole root with a type other than Document is rejected for PDF/UA-2.</summary>
+    /// <param name="cancellationToken">Cancels the report.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RootTypeMustBeDocument(CancellationToken cancellationToken)
+    {
+        using var document = TaggedTestDocument.Open(AccessibilityPdfs.Build(Valid));
+        var root = document.Catalog.GetDictionary(KnownName.StructTreeRoot)!;
+        var element = root.GetDictionary(KnownName.K)!;
+        element.Set(KnownName.S, PdfValue.FromName(document.Objects.Names.Intern("Part"u8)));
+
+        var report = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
+
+        await Assert.That(report.GetCount(PdfAccessibilityCode.DocumentRootInvalid)).IsEqualTo(1);
     }
 
     /// <summary>The document element must be in the PDF 2.0 namespace for part 2.</summary>
@@ -101,7 +181,7 @@ public sealed class AccessibilityPart2Tests
     /// <param name="document">The document element's number.</param>
     /// <param name="target">The type <c>X</c> is mapped to.</param>
     /// <returns>The document element's kids.</returns>
-    private static string NamespaceElement(Tagged.TaggedPdfBuilder pdf, int document, string target) => NamespaceElement(pdf, document, target, "urn:example:custom");
+    private static string NamespaceElement(TaggedPdfBuilder pdf, int document, string target) => NamespaceElement(pdf, document, target, "urn:example:custom");
 
     /// <summary>Writes an element of type <c>X</c> in a custom namespace whose role map sends <c>X</c> to a type in another namespace.</summary>
     /// <param name="pdf">The builder.</param>
@@ -109,7 +189,7 @@ public sealed class AccessibilityPart2Tests
     /// <param name="target">The type <c>X</c> is mapped to.</param>
     /// <param name="targetUri">The URI of the namespace the target type is in.</param>
     /// <returns>The document element's kids.</returns>
-    private static string NamespaceElement(Tagged.TaggedPdfBuilder pdf, int document, string target, string targetUri)
+    private static string NamespaceElement(TaggedPdfBuilder pdf, int document, string target, string targetUri)
     {
         var targetSpace = pdf.Add(string.Create(CultureInfo.InvariantCulture, $"<< /Type /Namespace /NS ({targetUri}) >>"));
         var space = pdf.Add(string.Create(CultureInfo.InvariantCulture, $"<< /Type /Namespace /NS (urn:example:custom) /RoleMapNS << /X [/{target} {targetSpace} 0 R] >> >>"));

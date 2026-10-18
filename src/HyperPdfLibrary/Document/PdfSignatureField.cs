@@ -7,7 +7,7 @@ using System.Diagnostics;
 namespace HyperPdfLibrary.Document;
 
 /// <summary>A signature field's stored signature, before it is checked.</summary>
-/// <param name="Index">The field's position among the document's top-level signature fields.</param>
+/// <param name="Index">The signature's position in the returned fields or validation results.</param>
 /// <param name="Contents">The encoded signature, usually a CMS blob padded with zeros; empty when unsigned.</param>
 /// <param name="ByteRange">Pairs of offset and length covering the signed bytes.</param>
 /// <param name="SubFilter">The signature format, for example <c>adbe.pkcs7.detached</c>.</param>

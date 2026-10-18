@@ -17,8 +17,11 @@ internal static class AsciiHexFilter
     /// <summary>The bytes written on each line of encoded text, which keeps lines under 80 characters.</summary>
     private const int BytesPerLine = 36;
 
-    /// <summary>The characters ASCIIHexDecode allows before the end marker: hexadecimal digits and white space.</summary>
-    private static readonly SearchValues<byte> HexOrWhitespace = SearchValues.Create("0123456789abcdefABCDEF \t\r\n\f\0"u8);
+    /// <summary>The encoded bytes processed before checking cancellation.</summary>
+    private const int DecodeChunkLength = 4096;
+
+    /// <summary>The bits in one hexadecimal digit.</summary>
+    private const int HexBits = 4;
 
     /// <summary>Encodes bytes as upper-case hexadecimal digits in lines of 72 digits, ending with the '&gt;' end-of-data marker.</summary>
     /// <param name="input">The bytes.</param>
@@ -54,24 +57,94 @@ internal static class AsciiHexFilter
     /// <param name="input">The encoded data.</param>
     /// <param name="output">The buffer receiving the decoded bytes.</param>
     /// <returns><see langword="false"/> when the data held a character that is not a hexadecimal digit or white space.</returns>
-    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output) => TryDecode(input, ref output, CancellationToken.None);
+
+    /// <summary>Decodes hexadecimal chunks, retaining a partial digit across chunk boundaries.</summary>
+    /// <param name="input">The encoded data.</param>
+    /// <param name="output">The buffer receiving the decoded bytes.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    /// <returns>Whether every character is a hexadecimal digit or white space.</returns>
+    internal static bool TryDecode(ReadOnlySpan<byte> input, ref PooledBuffer output, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var end = input.IndexOf((byte)'>');
         if (end >= 0)
         {
             input = input[..end];
         }
 
-        var destination = output.GetSpan((input.Length + 1) / DigitsPerByte);
-
-        // Unbroken runs of digits decode with the vectorised converter; white space falls back to the scalar loop.
-        if ((input.Length & 1) == 0 && Convert.FromHexString(input, destination, out _, out var written) == OperationStatus.Done)
+        var state = new HexChunkState(PdfCharacters.NotHex, true);
+        for (var offset = 0; offset < input.Length; offset += DecodeChunkLength)
         {
-            output.Advance(written);
-            return true;
+            cancellationToken.ThrowIfCancellationRequested();
+            var chunk = input.Slice(offset, Math.Min(DecodeChunkLength, input.Length - offset));
+            if (state.HighNibble >= 0 || !TryVectorChunk(chunk, ref output))
+            {
+                state = DecodeScalarChunk(chunk, state, ref output);
+            }
         }
 
-        output.Advance(PdfStringDecoder.DecodeHex(input, destination));
-        return input.IndexOfAnyExcept(HexOrWhitespace) < 0;
+        if (state.HighNibble >= 0)
+        {
+            output.WriteByte((byte)(state.HighNibble << HexBits));
+        }
+
+        return state.Clean;
     }
+
+    /// <summary>Decodes an even digit run with the vector converter when its full output fits.</summary>
+    /// <param name="input">The encoded chunk.</param>
+    /// <param name="output">The decoded output.</param>
+    /// <returns>Whether the converter decoded the complete chunk.</returns>
+    private static bool TryVectorChunk(ReadOnlySpan<byte> input, ref PooledBuffer output)
+    {
+        var bytes = input.Length / DigitsPerByte;
+        if ((input.Length & 1) != 0 || bytes > output.MaximumLength - output.Length)
+        {
+            return false;
+        }
+
+        if (Convert.FromHexString(input, output.GetSpan(bytes), out _, out var written) != OperationStatus.Done)
+        {
+            return false;
+        }
+
+        output.Advance(written);
+        return true;
+    }
+
+    /// <summary>Decodes a chunk containing white space, an odd digit, or damaged characters.</summary>
+    /// <param name="input">The encoded chunk.</param>
+    /// <param name="state">The previous chunk's trailing digit and validity.</param>
+    /// <param name="output">The decoded output.</param>
+    /// <returns>The trailing digit and combined validity.</returns>
+    private static HexChunkState DecodeScalarChunk(ReadOnlySpan<byte> input, HexChunkState state, ref PooledBuffer output)
+    {
+        var (high, clean) = state;
+        foreach (var value in input)
+        {
+            var digit = PdfCharacters.HexValue(value);
+            if (digit < 0)
+            {
+                clean &= PdfCharacters.IsWhitespace(value);
+            }
+            else if (high < 0)
+            {
+                high = digit;
+            }
+            else
+            {
+                output.WriteByte((byte)((high << HexBits) | digit));
+                high = PdfCharacters.NotHex;
+            }
+        }
+
+        return new(high, clean);
+    }
+
+    /// <summary>The hexadecimal state retained between encoded chunks.</summary>
+    /// <param name="HighNibble">The trailing digit, or -1 when the byte is complete.</param>
+    /// <param name="Clean">Whether all processed characters obey the filter rules.</param>
+    private readonly record struct HexChunkState(int HighNibble, bool Clean);
 }

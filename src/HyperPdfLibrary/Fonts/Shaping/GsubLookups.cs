@@ -69,12 +69,6 @@ internal static class GsubLookups
     /// <summary>The most glyphs a ligature may skip over between its components.</summary>
     private const int MaxKept = 64;
 
-    /// <summary>The largest identifier a ligature gets before they wrap.</summary>
-    private const int MaxLigatureId = 0xFFFFFF;
-
-    /// <summary>The identifier of the next ligature made.</summary>
-    private static int _ligatureIds;
-
     /// <summary>Applies a GSUB subtable at a glyph.</summary>
     /// <param name="run">The engine.</param>
     /// <param name="type">The lookup type.</param>
@@ -130,8 +124,19 @@ internal static class GsubLookups
     }
 
     /// <summary>Gets the next ligature identifier, which ties marks to the ligature they follow.</summary>
+    /// <param name="identifiers">The identifier state owned by this run's glyph buffer.</param>
     /// <returns>A non-zero identifier.</returns>
-    private static int NextLigatureId() => (Interlocked.Increment(ref _ligatureIds) & MaxLigatureId) + 1;
+    /// <exception cref="PdfException">This run has exhausted its identifier range.</exception>
+    internal static int NextLigatureId(ref int identifiers)
+    {
+        if (identifiers == int.MaxValue)
+        {
+            throw new PdfException(PdfError.Format, "The font produced too many ligatures in one text run.");
+        }
+
+        identifiers++;
+        return identifiers;
+    }
 
     /// <summary>Applies a single substitution (OpenType, "GSUB lookup type 1").</summary>
     /// <param name="run">The engine.</param>
@@ -313,7 +318,7 @@ internal static class GsubLookups
     private static void Form(LayoutEngine run, int ligature, int index, int last)
     {
         var table = run.Table;
-        var id = NextLigatureId();
+        var id = NextLigatureId(ref run.Buffer.LigatureIds);
         Span<GlyphRecord> kept = stackalloc GlyphRecord[MaxKept];
         var keptCount = 0;
         var flags = run.Buffer.Items[index].Flags;

@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
+using System.Buffers;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 
@@ -21,31 +21,59 @@ internal static class AccessibilityNamespaceMap
     /// <summary>Follows the namespace role maps from a type.</summary>
     /// <param name="space">The namespace dictionary of the type.</param>
     /// <param name="type">The type's spelling.</param>
+    /// <param name="cancellationToken">Cancels the namespace walk.</param>
     /// <returns>The problem found; <see cref="NamespaceMapProblem.None"/> when the chain ends or leaves for the default namespace.</returns>
-    internal static NamespaceMapProblem Read(PdfDictionary space, string type)
+    internal static NamespaceMapProblem Read(PdfDictionary space, string type, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (space.Dict("RoleMapNS")?.Array(type) is not { Count: > 1 } first)
         {
             return NamespaceMapProblem.None;
         }
 
-        var trail = new List<NamespaceStep> { new(space.Text("NS") ?? string.Empty, type) };
+        var trail = ArrayPool<NamespaceStep>.Shared.Rent(MaxSteps + 1);
+        try
+        {
+            trail[0] = CreateStep(space, space.Key(type));
+            return Follow(first, trail, cancellationToken);
+        }
+        finally
+        {
+            ArrayPool<NamespaceStep>.Shared.Return(trail, clearArray: true);
+        }
+    }
+
+    /// <summary>Follows at most the bounded number of role-map entries.</summary>
+    /// <param name="first">The first role-map entry.</param>
+    /// <param name="trail">The leased visited-step storage.</param>
+    /// <param name="cancellationToken">Cancels the namespace walk.</param>
+    /// <returns>The problem found, or none when the chain ends.</returns>
+    private static NamespaceMapProblem Follow(PdfArray first, Span<NamespaceStep> trail, CancellationToken cancellationToken)
+    {
         var target = first;
         for (var step = 0; step < MaxSteps; step++)
         {
-            if (!TryReadStep(target, out var name, out var next))
+            cancellationToken.ThrowIfCancellationRequested();
+            var name = target.GetName(0);
+            if (name.IsNone || target.GetDictionary(1) is not { } next)
             {
                 return NamespaceMapProblem.None;
             }
 
-            var uri = next.Text("NS") ?? string.Empty;
-            if (FindRepeat(trail, uri, name) is { } repeat)
+            // Name IDs are document-local; preserve the bytes when dictionaries have different owners.
+            if (target.Owner is { } source && next.Owner is { } owner && source != owner)
+            {
+                name = owner.Names.Intern(source.Names.GetSpelling(name));
+            }
+
+            var current = CreateStep(next, name);
+            if (FindRepeat(trail[..(step + 1)], in current, cancellationToken) is { } repeat)
             {
                 return repeat;
             }
 
-            trail.Add(new(uri, name));
-            if (next.Dict("RoleMapNS")?.Array(name) is not { Count: > 1 } following)
+            trail[step + 1] = current;
+            if (next.Dict("RoleMapNS")?.GetArray(name) is not { Count: > 1 } following)
             {
                 return NamespaceMapProblem.None;
             }
@@ -56,38 +84,51 @@ internal static class AccessibilityNamespaceMap
         return NamespaceMapProblem.Cycle;
     }
 
-    /// <summary>Reads a role map entry: a type name and the namespace dictionary it belongs to.</summary>
-    /// <param name="target">The entry.</param>
-    /// <param name="name">Receives the type name.</param>
-    /// <param name="space">Receives the namespace dictionary.</param>
-    /// <returns><see langword="true"/> when the entry is well formed.</returns>
-    private static bool TryReadStep(PdfArray target, [NotNullWhen(true)] out string? name, [NotNullWhen(true)] out PdfDictionary? space)
-    {
-        name = target.NameText(0);
-        space = target.GetDictionary(1);
-        return name is not null && space is not null;
-    }
-
     /// <summary>Looks for a namespace the chain has already passed through.</summary>
     /// <param name="trail">The steps so far.</param>
-    /// <param name="uri">The namespace of the next step.</param>
-    /// <param name="name">The type of the next step.</param>
+    /// <param name="current">The next namespace and type.</param>
+    /// <param name="cancellationToken">Cancels URI decoding.</param>
     /// <returns>The problem, or <see langword="null"/> when the namespace is new.</returns>
-    private static NamespaceMapProblem? FindRepeat(List<NamespaceStep> trail, string uri, string name)
+    private static NamespaceMapProblem? FindRepeat(ReadOnlySpan<NamespaceStep> trail, in NamespaceStep current, CancellationToken cancellationToken)
     {
-        foreach (var seen in trail)
+        var uri = current.Uri.AsStringBytes();
+        foreach (ref readonly var seen in trail)
         {
-            if (string.Equals(seen.Uri, uri, StringComparison.Ordinal))
+            if (seen.Unicode || current.Unicode
+                ? NamespaceUriEquality.Equal(seen.Uri.AsStringBytes(), uri, cancellationToken)
+                : seen.Uri.AsStringBytes().SequenceEqual(uri))
             {
-                return string.Equals(seen.Type, name, StringComparison.Ordinal) ? NamespaceMapProblem.Cycle : NamespaceMapProblem.SameNamespace;
+                return SameType(in seen, in current) ? NamespaceMapProblem.Cycle : NamespaceMapProblem.SameNamespace;
             }
         }
 
         return null;
     }
 
+    /// <summary>Captures whether a URI needs text decoding once per visited namespace.</summary>
+    /// <param name="space">The namespace dictionary.</param>
+    /// <param name="type">The interned structure type.</param>
+    /// <returns>The visited namespace and its URI encoding.</returns>
+    private static NamespaceStep CreateStep(PdfDictionary space, PdfName type)
+    {
+        var uri = space.Value("NS");
+        return new(space, type, uri, NamespaceUriEquality.HasUnicodeMark(uri.AsStringBytes()));
+    }
+
+    /// <summary>Compares interned types without decoding PDF name bytes.</summary>
+    /// <param name="left">The visited type.</param>
+    /// <param name="right">The current type.</param>
+    /// <returns>Whether both types have the same spelling.</returns>
+    private static bool SameType(in NamespaceStep left, in NamespaceStep right) =>
+        left.Space.Owner == right.Space.Owner
+            ? left.Type == right.Type
+            : left.Space.Owner is { } first && right.Space.Owner is { } second
+                && first.Names.GetSpelling(left.Type).SequenceEqual(second.Names.GetSpelling(right.Type));
+
     /// <summary>A type in a namespace on the way through the namespace role maps.</summary>
-    /// <param name="Uri">The namespace's URI.</param>
-    /// <param name="Type">The type's spelling.</param>
-    private readonly record struct NamespaceStep(string Uri, string Type);
+    /// <param name="Space">The namespace dictionary.</param>
+    /// <param name="Type">The interned type.</param>
+    /// <param name="Uri">The URI value captured when the namespace is visited.</param>
+    /// <param name="Unicode">Whether the URI has a Unicode byte-order mark.</param>
+    private readonly record struct NamespaceStep(PdfDictionary Space, PdfName Type, PdfValue Uri, bool Unicode);
 }

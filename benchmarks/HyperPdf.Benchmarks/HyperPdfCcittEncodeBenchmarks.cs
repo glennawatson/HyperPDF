@@ -149,7 +149,7 @@ public class HyperPdfCcittEncodeBenchmarks
         var output = default(PooledBuffer);
         try
         {
-            CcittEncoder.Encode(_rows, Width, Height, parameters, ref output, _scratch);
+            CcittEncoder.Encode(_rows, Width, Height, parameters, ref output, _scratch, CancellationToken.None);
             return output.ToArray();
         }
         finally
@@ -166,7 +166,7 @@ public class HyperPdfCcittEncodeBenchmarks
         var output = default(PooledBuffer);
         try
         {
-            CcittEncoder.Encode(_rows, Width, Height, parameters, ref output, _scratch);
+            CcittEncoder.Encode(_rows, Width, Height, parameters, ref output, _scratch, CancellationToken.None);
             return output.Length;
         }
         finally

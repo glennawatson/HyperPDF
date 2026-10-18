@@ -34,12 +34,12 @@ public sealed class XmpWideEncodingTests
         byte[] original = [.. encoding.GetPreamble(), .. encoding.GetBytes(Packet)];
         await Assert.That(XmpTranscoder.Detect(original, out var markLength)).IsEqualTo(bigEndian ? XmpEncoding.Utf32BigEndian : XmpEncoding.Utf32LittleEndian);
         await Assert.That(markLength).IsEqualTo(mark ? encoding.GetPreamble().Length : 0);
-        await Assert.That(XmpParser.Parse(original).Title).IsEqualTo("Old title");
+        await Assert.That(XmpParser.Parse(original, CancellationToken.None).Title).IsEqualTo("Old title");
 
         var edited = XmpEditor.Apply(original, [new XmpChange(XmpProperty.Title, NewTitle)]);
         await Assert.That(edited).IsNotNull();
         await Assert.That(edited!.AsSpan(0, markLength).SequenceEqual(original.AsSpan(0, markLength))).IsTrue();
-        await Assert.That(XmpParser.Parse(edited).Title).IsEqualTo(NewTitle);
+        await Assert.That(XmpParser.Parse(edited, CancellationToken.None).Title).IsEqualTo(NewTitle);
         await Assert.That(encoding.GetString(edited, markLength, edited.Length - markLength)).Contains(NewTitle);
     }
 

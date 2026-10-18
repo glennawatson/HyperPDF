@@ -54,6 +54,7 @@ internal readonly record struct CmapSelection(int UnicodeFull, int UnicodeBmp, i
     /// <param name="data">The font data.</param>
     /// <param name="cmap">The 'cmap' table.</param>
     /// <returns>The selection.</returns>
+    /// <exception cref="PdfException">The parsed range exceeds the available data or its numeric width.</exception>
     internal static CmapSelection Read(ReadOnlySpan<byte> data, TableRange cmap)
     {
         var selection = None;
@@ -63,7 +64,12 @@ internal readonly record struct CmapSelection(int UnicodeFull, int UnicodeBmp, i
         {
             var record = RecordsOffset + (i * RecordSize);
             var subtable = (long)cmap.Offset + FontBytes.U32(table, record + RecordSubtable);
-            if (subtable < data.Length && TrueTypeCmap.IsSupported(data, (int)subtable))
+            if (subtable > (long)cmap.Offset + cmap.Length - FontBytes.U16Size)
+            {
+                throw new PdfException(PdfError.Format, "The TrueType cmap subtable offset exceeds its table.");
+            }
+
+            if (TrueTypeCmap.IsSupported(data, (int)subtable))
             {
                 selection = selection.With(FontBytes.U16(table, record), FontBytes.U16(table, record + FontBytes.U16Size), (int)subtable);
             }

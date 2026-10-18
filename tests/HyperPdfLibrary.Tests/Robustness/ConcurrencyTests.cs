@@ -111,6 +111,83 @@ public sealed class ConcurrencyTests
         await Assert.That(failures).IsEmpty();
     }
 
+    /// <summary>Disposal waits for the reader-start signal without disposing the document early.</summary>
+    /// <param name="token">Cancels the wait.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DisposalWait_ReaderStartSignal_DisposesOnlyAfterSignal(CancellationToken token)
+    {
+        var document = PdfDocumentReader.Open(RobustnessSeeds.CreateMini(), null);
+        var allStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var disposal = DisposeAfterStartAsync(document, allStarted.Task, 0, token);
+        try
+        {
+            await Assert.That(disposal.IsCompleted).IsFalse();
+            await Assert.That(document.IsDisposed).IsFalse();
+
+            allStarted.SetResult();
+            await disposal;
+
+            await Assert.That(document.IsDisposed).IsTrue();
+        }
+        finally
+        {
+            _ = allStarted.TrySetResult();
+            try
+            {
+                await disposal;
+            }
+            finally
+            {
+                document.Dispose();
+            }
+        }
+    }
+
+    /// <summary>Cancelling before readers start ends the wait without disposing their document.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DisposalWait_CancelledBeforeReaderStart_DoesNotDispose()
+    {
+        using var document = PdfDocumentReader.Open(RobustnessSeeds.CreateMini(), null);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var allStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await Assert.That(() => DisposeAfterStartAsync(document, allStarted.Task, 0, cancellation.Token)).Throws<OperationCanceledException>();
+        await Assert.That(document.IsDisposed).IsFalse();
+    }
+
+    /// <summary>A reader releases its worker between reads and stops on cancellation without disposing the document.</summary>
+    /// <param name="token">Cancels the test.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DisposalReader_YieldsAndStopsOnCancellation(CancellationToken token)
+    {
+        var bytes = RobustnessSeeds.CreateMini();
+        var expected = ReadOnce(bytes);
+        using var document = PdfDocumentReader.Open(bytes, null);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+        using var started = new CountdownEvent(1);
+        var allStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var problems = new ConcurrentQueue<string>();
+        var job = new DisposalReader(document, expected, problems, started, allStarted, cancellation.Token);
+        var reader = ReadUntilDisposedAsync(job);
+        try
+        {
+            await Assert.That(reader.IsCompleted).IsFalse();
+            await allStarted.Task.WaitAsync(token);
+        }
+        finally
+        {
+            await cancellation.CancelAsync();
+            await reader;
+        }
+
+        await Assert.That(problems).IsEmpty();
+        await Assert.That(document.IsDisposed).IsFalse();
+    }
+
     /// <summary>Disposing while reads are in flight is also safe for documents read through a file stream or a file mapping, whose byte sources hold leases and locks.</summary>
     /// <param name="kind">The source kind, from <see cref="SourceOpener.Kinds"/>.</param>
     /// <param name="token">Cancelled when the test runner stops the test.</param>
@@ -337,38 +414,47 @@ public sealed class ConcurrencyTests
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(Limit);
         var roundToken = timeout.Token;
-        var started = 0;
+        using var started = new CountdownEvent(Readers);
+        var allStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var problems = new ConcurrentQueue<string>();
         var tasks = new Task[Readers + 1];
+        var job = new DisposalReader(document, expected, problems, started, allStarted, roundToken);
         for (var i = 0; i < Readers; i++)
         {
-            tasks[i] = RunOnOwnThread(() => ReadUntilDisposed(document, expected, problems, ref started, roundToken));
+            tasks[i] = ReadUntilDisposedAsync(job);
         }
 
-        tasks[Readers] = DisposeAfterStartAsync(document, () => Volatile.Read(ref started), round, roundToken);
-        await Task.WhenAll(tasks).WaitAsync(roundToken);
-        var failures = new List<string>();
-        foreach (var problem in problems)
+        tasks[Readers] = DisposeAfterStartAsync(document, allStarted.Task, round, roundToken);
+        try
         {
-            failures.Add(string.Create(CultureInfo.InvariantCulture, $"{seed.Name} round {round}: {problem}"));
-        }
+            await Task.WhenAll(tasks).WaitAsync(roundToken);
+            var failures = new List<string>();
+            foreach (var problem in problems)
+            {
+                failures.Add(string.Create(CultureInfo.InvariantCulture, $"{seed.Name} round {round}: {problem}"));
+            }
 
-        return failures;
+            return failures;
+        }
+        finally
+        {
+            document.Dispose();
+
+            // Join readers before disposing their startup signal, including when the round is cancelled.
+            await Task.WhenAll(tasks);
+        }
     }
 
     /// <summary>Waits until every reader has started, yields a number of times, then disposes the document.</summary>
     /// <param name="document">The document.</param>
-    /// <param name="startedCount">Gets how many readers have started.</param>
+    /// <param name="allStarted">Completes when every reader has started.</param>
     /// <param name="yields">How many times to yield before disposing.</param>
     /// <param name="token">Cancelled when the test has run too long.</param>
     /// <returns>A task.</returns>
-    private static async Task DisposeAfterStartAsync(PdfDocument document, Func<int> startedCount, int yields, CancellationToken token)
+    private static async Task DisposeAfterStartAsync(PdfDocument document, Task allStarted, int yields, CancellationToken token)
     {
-        await Task.Yield();
-        while (startedCount() < Readers && !token.IsCancellationRequested)
-        {
-            await Task.Yield();
-        }
+        // Wait for startup without competing with readers for CPU.
+        await allStarted.WaitAsync(token);
 
         for (var i = 0; i < yields; i++)
         {
@@ -379,19 +465,24 @@ public sealed class ConcurrencyTests
     }
 
     /// <summary>Reads until the document is disposed; only ObjectDisposedException may stop the loop.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="expected">What a complete read gives.</param>
-    /// <param name="problems">Receives anything unexpected.</param>
-    /// <param name="started">Counts the readers that have started.</param>
-    /// <param name="token">Cancelled when the test has run too long.</param>
-    private static void ReadUntilDisposed(PdfDocument document, string expected, ConcurrentQueue<string> problems, ref int started, CancellationToken token)
+    /// <param name="job">The document, startup signal and cancellation for one disposal round.</param>
+    /// <returns>A task that completes when reading stops.</returns>
+    private static async Task ReadUntilDisposedAsync(DisposalReader job)
     {
-        _ = Interlocked.Increment(ref started);
+        // Each read yields the worker, allowing the other readers and the disposer to run on small CI runners.
+        await Task.Yield();
+        var (document, expected, problems, started, allStarted, token) = job;
+        if (started.Signal())
+        {
+            allStarted.SetResult();
+        }
+
         try
         {
             var result = DocumentExerciser.Read(document);
             while (string.Equals(result, expected, StringComparison.Ordinal) && !token.IsCancellationRequested)
             {
+                await Task.Yield();
                 result = DocumentExerciser.Read(document);
             }
 
@@ -409,4 +500,19 @@ public sealed class ConcurrencyTests
             problems.Enqueue(ex.ToString());
         }
     }
+
+    /// <summary>The shared state of readers racing one document disposal.</summary>
+    /// <param name="Document">The document.</param>
+    /// <param name="Expected">What a complete read gives.</param>
+    /// <param name="Problems">Receives unexpected failures.</param>
+    /// <param name="Started">Counts reader startup.</param>
+    /// <param name="AllStarted">Completes when every reader starts.</param>
+    /// <param name="Token">Cancels the round.</param>
+    private sealed record DisposalReader(
+        PdfDocument Document,
+        string Expected,
+        ConcurrentQueue<string> Problems,
+        CountdownEvent Started,
+        TaskCompletionSource AllStarted,
+        CancellationToken Token);
 }

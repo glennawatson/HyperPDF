@@ -41,7 +41,7 @@ public sealed class XmpExtensionSchemaTests
         await Assert.That(text).Contains("<pdfaProperty:valueType>Boolean</pdfaProperty:valueType>");
         await Assert.That(text).Contains("<pdfaProperty:category>external</pdfaProperty:category>");
         await Assert.That(text.Split("rdf:about=\"uuid:1\"").Length).IsEqualTo(text.Split("<rdf:Description").Length);
-        await Assert.That(XmpParser.Parse(packet!).PdfAPart).IsEqualTo(Conformance.PdfAFixtureLevel.Part2);
+        await Assert.That(XmpParser.Parse(packet!, CancellationToken.None).PdfAPart).IsEqualTo(Conformance.PdfAFixtureLevel.Part2);
     }
 
     /// <summary>A packet with a container gets one more schema in the same bag, so the property is not repeated.</summary>

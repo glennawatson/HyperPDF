@@ -19,6 +19,9 @@ internal ref struct PdfParser
     /// <summary>The bits in a hexadecimal digit, which halves the length of a hexadecimal string.</summary>
     private const int HexDigitsPerByte = 2;
 
+    /// <summary>Checks cancellation in a skipped container after each 256 tokens.</summary>
+    private const int CancellationCheckMask = 255;
+
     /// <summary>The buffer strings may point into, or <see langword="null"/> when parsing a window that strings must copy from.</summary>
     private readonly byte[]? _buffer;
 
@@ -278,15 +281,16 @@ internal ref struct PdfParser
     /// <returns>The value.</returns>
     private PdfValue ParseArray(int depth, ref ParseScratch scratch)
     {
-        var mark = scratch.Count;
-        while (depth < PdfLimits.MaxNesting)
+        if (depth >= PdfLimits.MaxNesting)
         {
-            var kind = _lexer.Next();
-            if (kind is PdfTokenKind.ArrayEnd or PdfTokenKind.EndOfData)
-            {
-                break;
-            }
+            SkipDeepContainer();
+            return default;
+        }
 
+        var mark = scratch.Count;
+        var kind = _lexer.Next();
+        while (kind is not (PdfTokenKind.ArrayEnd or PdfTokenKind.EndOfData))
+        {
             if (kind is PdfTokenKind.DictionaryEnd || (kind == PdfTokenKind.Keyword && IsObjectEnd(_lexer.Keyword)))
             {
                 // A missing ']' ends at the enclosing structure; leave the token for the caller.
@@ -295,6 +299,7 @@ internal ref struct PdfParser
             }
 
             scratch.Push(0, ParseValue(kind, depth + 1, ref scratch));
+            kind = _lexer.Next();
         }
 
         return PdfValue.FromArray(scratch.PopArray(mark, _owner));
@@ -306,8 +311,14 @@ internal ref struct PdfParser
     /// <returns>The value.</returns>
     private PdfValue ParseDictionary(int depth, ref ParseScratch scratch)
     {
+        if (depth >= PdfLimits.MaxNesting)
+        {
+            SkipDeepContainer();
+            return default;
+        }
+
         var mark = scratch.Count;
-        var more = depth < PdfLimits.MaxNesting;
+        var more = true;
         byte[]? storedContents = null;
         while (more)
         {
@@ -322,6 +333,37 @@ internal ref struct PdfParser
         }
 
         return PdfValue.FromDictionary(dictionary);
+    }
+
+    /// <summary>Consumes an over-deep subtree iteratively so its closing tokens do not end the enclosing value.</summary>
+    private void SkipDeepContainer()
+    {
+        PdfOpenContext.Report(_owner?.Context, PdfDiagnosticCode.RecursionLimit, "Nested PDF values were too deep and were cut off.", EncryptionId.Number, _lexer.LexemeStart);
+        var remaining = 1;
+        var tokens = 0;
+        while (remaining > 0)
+        {
+            if ((tokens & CancellationCheckMask) == 0)
+            {
+                PdfOpenContext.ThrowIfCancelled(_owner?.Context);
+            }
+
+            tokens++;
+            var kind = _lexer.Next();
+            if (kind == PdfTokenKind.EndOfData)
+            {
+                break;
+            }
+
+            if (kind is PdfTokenKind.ArrayStart or PdfTokenKind.DictionaryStart)
+            {
+                remaining++;
+            }
+            else if (kind is PdfTokenKind.ArrayEnd or PdfTokenKind.DictionaryEnd)
+            {
+                remaining--;
+            }
+        }
     }
 
     /// <summary>Determines whether an entry is a /Contents string in an encrypted document, which is read as stored until the dictionary shows what it is.</summary>

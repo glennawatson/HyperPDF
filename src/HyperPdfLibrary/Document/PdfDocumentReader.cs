@@ -153,14 +153,11 @@ public static class PdfDocumentReader
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(options);
-        var bound = options.CancellationToken == documentCancellationToken
-            ? options
-            : options with { CancellationToken = documentCancellationToken };
         PdfObjectStore objects;
         try
         {
             await PdfPrefetcher.PrefetchFileAsync(source, cancellationToken).ConfigureAwait(false);
-            objects = PdfDocumentReader.OpenObjects(source, ownsSource, bound, cancellationToken);
+            objects = PdfDocumentReader.OpenObjects(source, ownsSource, options, cancellationToken);
         }
         catch
         {
@@ -179,7 +176,9 @@ public static class PdfDocumentReader
                 await PdfPrefetcher.PrefetchAsync(objects, tree, PdfPrefetchKind.PageTree, cancellationToken).ConfigureAwait(false);
             }
 
-            return PdfDocumentReader.CreateScoped(objects, options.FontFactory, cancellationToken);
+            var document = PdfDocumentReader.CreateScoped(objects, options.FontFactory, cancellationToken);
+            objects.Context?.CompleteOpen(documentCancellationToken);
+            return document;
         }
         catch
         {

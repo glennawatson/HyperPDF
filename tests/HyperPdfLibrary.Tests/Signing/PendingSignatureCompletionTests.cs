@@ -82,6 +82,37 @@ public sealed class PendingSignatureCompletionTests
         await Assert.That(outcomes.Count(static finished => finished)).IsEqualTo(1);
     }
 
+    /// <summary>A new completion token replaces the completed preparation operation's cancellation lifetime.</summary>
+    /// <param name="cancellationToken">Cancels the test.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task CompletionUsesItsOwnCancellationToken(CancellationToken cancellationToken)
+    {
+        using var preparation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var pending = await PrepareAsync(preparation.Token);
+        await preparation.CancelAsync();
+        var result = await PdfDocumentSigning.CompleteAsync(pending, Sign(pending), cancellationToken);
+
+        await Assert.That(SignatureFixtures.ValidateSingle(result.Bytes).SignatureValid).IsTrue();
+    }
+
+    /// <summary>Cancelled completion leaves a pending signature available for another operation.</summary>
+    /// <param name="cancellationToken">Cancels the test.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task CancelledCompletionLeavesPendingSignatureOpen(CancellationToken cancellationToken)
+    {
+        var pending = await PrepareAsync(cancellationToken);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        var value = Sign(pending);
+
+        await Assert.That(async () => await PdfDocumentSigning.CompleteAsync(pending, value, cancelled.Token)).Throws<OperationCanceledException>();
+        var result = await PdfDocumentSigning.CompleteAsync(pending, value, cancellationToken);
+
+        await Assert.That(SignatureFixtures.ValidateSingle(result.Bytes).SignatureValid).IsTrue();
+    }
+
     /// <summary>Prepares a signature of a blank file for a signer that works apart from the library.</summary>
     /// <param name="cancellationToken">Cancels the preparation.</param>
     /// <returns>The pending signature.</returns>

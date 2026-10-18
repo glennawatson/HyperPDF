@@ -11,6 +11,7 @@ using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Optimizing;
 using HyperPdfLibrary.Rendering;
+using HyperPdfLibrary.Structure.Tagged;
 using HyperPdfLibrary.Text;
 
 namespace HyperPdfLibrary.Drawing;
@@ -133,6 +134,21 @@ public sealed class PdfDrawingServices
             }
 
             var created = new ReusableSlots<TextPageBuildState>(TextBuildSlots);
+            return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        }
+    }
+
+    /// <summary>Gets cleaned marked-content recorders shared only by documents using these host services.</summary>
+    internal ReusableSlots<MarkedContentRecorder> MarkedContentRecorders
+    {
+        get
+        {
+            if (Volatile.Read(ref field) is { } existing)
+            {
+                return existing;
+            }
+
+            var created = new ReusableSlots<MarkedContentRecorder>();
             return Interlocked.CompareExchange(ref field, created, null) ?? created;
         }
     }

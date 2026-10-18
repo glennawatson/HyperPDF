@@ -28,8 +28,9 @@ internal static class PdfSigningPlanner
     internal static PdfSigningPlanResult Plan(PdfDocument document, PdfSigningOptions options, PdfSignerIdentity? identity)
     {
         PdfSignerCertificate? signer = identity is { Certificates.Count: > 0 } ? PdfSignerCertificate.Read(identity.Certificates[0]) : null;
-        var problems = PdfMessageLists.Rent();
-        var notes = PdfMessageLists.Rent();
+        var messages = document.Objects.ScratchPools.Slots<List<string>>();
+        var problems = messages.Take() ?? [];
+        var notes = messages.Take() ?? [];
         try
         {
             var field = ResolveField(document, options, problems);
@@ -40,14 +41,25 @@ internal static class PdfSigningPlanner
             }
 
             var plan = Decide(document, options, new(field, seed, identity, signer), problems, notes);
-            return new(plan, PdfMessageLists.Snapshot(problems), PdfMessageLists.Snapshot(notes), seed?.TimestampUrl, seed?.TimestampRequired == true);
+            return Snapshot(plan, problems, notes, seed);
         }
         finally
         {
-            PdfMessageLists.Return(problems);
-            PdfMessageLists.Return(notes);
+            problems.Clear();
+            notes.Clear();
+            _ = messages.Offer(problems);
+            _ = messages.Offer(notes);
         }
     }
+
+    /// <summary>Detaches the plan's messages before its working lists return to their owner.</summary>
+    /// <param name="plan">The decided signature plan.</param>
+    /// <param name="problems">The refusal reasons.</param>
+    /// <param name="notes">The user-facing notes.</param>
+    /// <param name="seed">The field's timestamp requirements.</param>
+    /// <returns>The independently retained plan result.</returns>
+    private static PdfSigningPlanResult Snapshot(PdfSigningPlan plan, List<string> problems, List<string> notes, PdfSeedValues? seed) =>
+        new(plan, problems.Count == 0 ? [] : problems.ToArray(), notes.Count == 0 ? [] : notes.ToArray(), seed?.TimestampUrl, seed?.TimestampRequired == true);
 
     /// <summary>Makes the choices and checks them against the document.</summary>
     /// <param name="document">The document.</param>

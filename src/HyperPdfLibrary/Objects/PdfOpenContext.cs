@@ -16,15 +16,27 @@ namespace HyperPdfLibrary.Objects;
 /// </summary>
 /// <param name="sink">The diagnostics callback, or <see langword="null"/>.</param>
 /// <param name="drawingServices">The drawing services selected for this document, or <see langword="null"/> to make empty ones when first used.</param>
+/// <param name="recovery">Whether damaged objects may be recovered.</param>
+/// <param name="ignoreXrefStreams">Whether cross-reference streams are ignored.</param>
+/// <param name="maxDecompressedBytes">The validated stream-filter output limit.</param>
 /// <param name="token">The cancellation token.</param>
 [DebuggerDisplay("PdfOpenContext: {HasRepairs} repairs")]
-internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServices? drawingServices, CancellationToken token)
+internal sealed class PdfOpenContext(
+    Action<PdfDiagnostic>? sink,
+    PdfDrawingServices? drawingServices,
+    bool recovery,
+    bool ignoreXrefStreams,
+    int maxDecompressedBytes,
+    CancellationToken token)
 {
     /// <summary>The most distinct reports kept; later ones still reach the sink.</summary>
     private const int MaxLogged = 1024;
 
     /// <summary>The diagnostics callback.</summary>
     private readonly Action<PdfDiagnostic>? _sink = sink;
+
+    /// <summary>The operation token while opening, then the document-lifetime token before publication.</summary>
+    private CancellationToken _cancellationToken = token;
 
     /// <summary>Guards the log; made with the first report, so a document that reports nothing never allocates it.</summary>
     private Lock? _gate;
@@ -44,17 +56,29 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <summary>1 once document close has ended scratch retention.</summary>
     private int _scratchClosed;
 
+    /// <summary>Initializes a new instance of the <see cref="PdfOpenContext"/> class.</summary>
+    /// <param name="sink">The diagnostics callback.</param>
+    /// <param name="drawingServices">The drawing services.</param>
+    /// <param name="token">The cancellation token.</param>
+    internal PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServices? drawingServices, CancellationToken token)
+        : this(sink, drawingServices, true, false, PdfLimits.MaxDecodedLength, token)
+    {
+    }
+
     /// <summary>Gets a value indicating whether recovery from a damaged structure is allowed.</summary>
-    internal bool Recovery { get; init; } = true;
+    internal bool Recovery => recovery;
 
     /// <summary>Gets a value indicating whether cross-reference streams are ignored.</summary>
-    internal bool IgnoreXrefStreams { get; init; }
+    internal bool IgnoreXrefStreams => ignoreXrefStreams;
+
+    /// <summary>Gets the maximum output bytes allowed for each stream filter.</summary>
+    internal int MaxDecompressedBytes => maxDecompressedBytes;
 
     /// <summary>Gets a value indicating whether any report of repaired damage has been logged.</summary>
     internal bool HasRepairs => Volatile.Read(ref _hasRepairs) != 0;
 
     /// <summary>Gets the token passed to this document-open or check operation.</summary>
-    internal CancellationToken CancellationToken => token;
+    internal CancellationToken CancellationToken => _cancellationToken;
 
     /// <summary>Gets the drawing services selected for this open.</summary>
     internal PdfDrawingServices DrawingServices => Volatile.Read(ref _drawingServices) ?? CreateDrawingServices();
@@ -73,8 +97,12 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <param name="options">The options.</param>
     /// <param name="cancellationToken">The token.</param>
     /// <returns>The context.</returns>
-    internal static PdfOpenContext Create(PdfOpenOptions options, CancellationToken cancellationToken) =>
-        new(options.Diagnostics, options.DrawingServices, cancellationToken) { Recovery = options.Recovery, IgnoreXrefStreams = options.IgnoreXrefStreams };
+    internal static PdfOpenContext Create(PdfOpenOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxDecompressedBytes);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaxDecompressedBytes, PdfLimits.MaxDecodedLength);
+        return new(options.Diagnostics, options.DrawingServices, options.Recovery, options.IgnoreXrefStreams, options.MaxDecompressedBytes, cancellationToken);
+    }
 
     /// <summary>Throws when the open was cancelled.</summary>
     /// <param name="context">The context, or <see langword="null"/>.</param>
@@ -91,6 +119,10 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Report(PdfOpenContext? context, PdfDiagnosticCode code, string message, int objectNumber, long offset) =>
         context?.Add(new(code, message, objectNumber, offset));
+
+    /// <summary>Retains the document token after opening finishes and before the document is published.</summary>
+    /// <param name="documentCancellationToken">Cancels later document operations.</param>
+    internal void CompleteOpen(CancellationToken documentCancellationToken) => _cancellationToken = documentCancellationToken;
 
     /// <summary>Releases this document's idle scratch buffers, leaving an explicitly shared cache alone.</summary>
     internal void CloseScratchPools()
@@ -124,7 +156,7 @@ internal sealed class PdfOpenContext(Action<PdfDiagnostic>? sink, PdfDrawingServ
     /// <summary>Throws when the open was cancelled.</summary>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void ThrowIfCancelled() => token.ThrowIfCancellationRequested();
+    internal void ThrowIfCancelled() => _cancellationToken.ThrowIfCancellationRequested();
 
     /// <summary>Logs a diagnostic when it is new, then passes it to the sink.</summary>
     /// <param name="diagnostic">The diagnostic.</param>
