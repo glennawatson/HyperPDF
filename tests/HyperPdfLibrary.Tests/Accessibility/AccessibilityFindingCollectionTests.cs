@@ -24,7 +24,7 @@ public sealed class AccessibilityFindingCollectionTests
     {
         var original = new PdfUaClaim(PdfUaClaim.Part1, null, "1.7", false);
         var copy = original with { Part = null };
-        var (part, revision, version, namespaces) = original;
+        var (part, revision, version, namespaces, amendment, corrigendum) = original;
         await Assert.That(original.IsClaimed).IsTrue();
         await Assert.That(copy.IsClaimed).IsFalse();
         await Assert.That(original.Part).IsEqualTo(PdfUaClaim.Part1);
@@ -32,6 +32,8 @@ public sealed class AccessibilityFindingCollectionTests
         await Assert.That(revision).IsNull();
         await Assert.That(version).IsEqualTo("1.7");
         await Assert.That(namespaces).IsFalse();
+        await Assert.That(amendment).IsNull();
+        await Assert.That(corrigendum).IsNull();
     }
 
     /// <summary>Page values copy and deconstruct without changing the original snapshot.</summary>

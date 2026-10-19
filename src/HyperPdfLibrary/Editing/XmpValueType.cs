@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Editing;
@@ -12,4 +11,4 @@ namespace HyperPdfLibrary.Editing;
 /// <param name="Description">What the type holds.</param>
 /// <param name="Fields">The type's fields.</param>
 [DebuggerDisplay("XmpValueType: {Name}")]
-internal sealed record XmpValueType(string Name, string Description, ImmutableArray<XmpValueField> Fields);
+internal sealed record XmpValueType(string Name, string Description, XmpValueField[] Fields);

@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 
 namespace HyperPdfLibrary.Rendering;
@@ -21,9 +20,9 @@ internal readonly record struct PdfRenderCacheKey(long ImageCacheBytes, bool Sim
     /// <summary>Sorts the hidden colorants and drops repeats, so equal sets give equal keys.</summary>
     /// <param name="hidden">The names, or a default array for none.</param>
     /// <returns>The distinct names in ordinal order.</returns>
-    internal static ImmutableArray<string> Normalize(ImmutableArray<string> hidden)
+    internal static string[] Normalize(string[] hidden)
     {
-        if (hidden.IsDefaultOrEmpty)
+        if (hidden.Length == 0)
         {
             return [];
         }
@@ -53,5 +52,5 @@ internal readonly record struct PdfRenderCacheKey(long ImageCacheBytes, bool Sim
     /// <param name="hidden">The normalized names.</param>
     /// <returns>The text; empty for none.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static string Join(ImmutableArray<string> hidden) => hidden.IsDefaultOrEmpty ? string.Empty : string.Join(Separator, hidden.AsSpan());
+    internal static string Join(string[] hidden) => hidden.Length == 0 ? string.Empty : string.Join(Separator, hidden.AsSpan());
 }

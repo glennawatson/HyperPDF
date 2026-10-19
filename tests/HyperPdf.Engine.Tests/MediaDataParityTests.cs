@@ -96,7 +96,7 @@ public sealed class MediaDataParityTests
     /// <param name="expected">PDFium's scripts.</param>
     /// <param name="actual">HyperPDF's scripts.</param>
     /// <returns>A task.</returns>
-    private static async Task AssertScriptsMatchAsync(List<PdfiumNamedScript> expected, System.Collections.Immutable.ImmutableArray<HyperPdfLibrary.Navigation.PdfNamedScript> actual)
+    private static async Task AssertScriptsMatchAsync(List<PdfiumNamedScript> expected, HyperPdfLibrary.Navigation.PdfNamedScript[] actual)
     {
         await Assert.That(actual.Select(static script => script.Name)).IsEquivalentTo(expected.Select(static script => script.Name), CollectionOrdering.Matching);
         await Assert.That(actual.Select(static script => script.Script)).IsEquivalentTo(expected.Select(static script => script.Script), CollectionOrdering.Matching);

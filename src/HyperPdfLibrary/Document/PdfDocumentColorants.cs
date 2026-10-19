@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Graphics.Colors;
@@ -27,7 +26,7 @@ public static class PdfDocumentColorants
     /// <exception cref="ArgumentOutOfRangeException">The page does not exist.</exception>
     /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ImmutableArray<PdfColorant> GetPageColorants(PdfDocument document, int pageIndex) =>
+    public static PdfColorant[] GetPageColorants(PdfDocument document, int pageIndex) =>
         PdfDocumentColorants.Collect(document, pageIndex, CancellationToken.None);
 
     /// <summary>Lists the colorants a page paints, loading the page's objects first. See <see cref="GetPageColorants"/>.</summary>
@@ -38,7 +37,7 @@ public static class PdfDocumentColorants
     /// <exception cref="ArgumentOutOfRangeException">The page does not exist.</exception>
     /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public static async ValueTask<ImmutableArray<PdfColorant>> GetPageColorantsAsync(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
+    public static async ValueTask<PdfColorant[]> GetPageColorantsAsync(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
     {
         await PdfDocumentPages.PrefetchPageAsync(document, pageIndex, cancellationToken).ConfigureAwait(false);
         return PdfDocumentColorants.Collect(document, pageIndex, cancellationToken);
@@ -49,7 +48,7 @@ public static class PdfDocumentColorants
     /// <param name="pageIndex">The page index.</param>
     /// <param name="cancellationToken">Cancels the walk.</param>
     /// <returns>The colorants.</returns>
-    private static ImmutableArray<PdfColorant> Collect(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
+    private static PdfColorant[] Collect(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, document.PageCount);

@@ -10,7 +10,7 @@ namespace HyperPdfLibrary.Tests.Accessibility;
 public sealed class PdfAccessibilityWcagTests
 {
     /// <summary>The number of codes the mapping lists.</summary>
-    private const int MappedCodes = 27;
+    private const int MappedCodes = 29;
 
     /// <summary>Well-known findings map to the criteria WCAG names for them.</summary>
     /// <param name="code">The finding's code.</param>
@@ -39,7 +39,7 @@ public sealed class PdfAccessibilityWcagTests
         var mapped = 0;
         foreach (var code in Enum.GetValues<PdfAccessibilityCode>())
         {
-            if (!PdfAccessibilityWcag.GetSuccessCriteria(code).IsEmpty)
+            if (PdfAccessibilityWcag.GetSuccessCriteria(code).Length != 0)
             {
                 mapped++;
             }

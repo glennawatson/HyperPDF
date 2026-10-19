@@ -210,7 +210,7 @@ internal static class XmpExtensionSchemas
     /// <param name="extension">The property.</param>
     private static void WriteValueTypes(XmlWriter writer, string rdf, XmpExtensionProperty extension)
     {
-        if (extension.ValueTypes.IsEmpty)
+        if (extension.ValueTypes.Length == 0)
         {
             return;
         }

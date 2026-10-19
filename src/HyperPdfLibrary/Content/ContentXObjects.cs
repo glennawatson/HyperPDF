@@ -461,5 +461,5 @@ internal static class ContentXObjects
         && !self.ColorLocked
         && !self.State.Fill.PaintsNothing
         && self.Colorants is null
-        && self.Cache.HiddenColorants.IsEmpty;
+        && self.Cache.HiddenColorants.Length == 0;
 }

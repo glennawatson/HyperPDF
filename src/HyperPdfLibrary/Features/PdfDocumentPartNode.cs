@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using HyperPdfLibrary.Objects;
 
@@ -15,4 +14,4 @@ namespace HyperPdfLibrary.Features;
 /// <param name="EndPage">For a leaf, the zero based last page of its range (its start page when it has no <c>/End</c>), or null.</param>
 /// <param name="Dictionary">The node dictionary.</param>
 [DebuggerDisplay("PdfDocumentPartNode: {Children.Length} children")]
-public sealed record PdfDocumentPartNode(IReadOnlyDictionary<string, string> Metadata, ImmutableArray<PdfDocumentPartNode> Children, int? StartPage, int? EndPage, PdfDictionary Dictionary);
+public sealed record PdfDocumentPartNode(IReadOnlyDictionary<string, string> Metadata, PdfDocumentPartNode[] Children, int? StartPage, int? EndPage, PdfDictionary Dictionary);

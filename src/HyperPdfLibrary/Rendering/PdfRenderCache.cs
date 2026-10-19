@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -100,8 +99,8 @@ internal sealed class PdfRenderCache
     /// <summary>Gets the <c>/DefaultCMYK</c> name of a resource dictionary's colour space that replaces DeviceCMYK.</summary>
     internal PdfName DefaultCmyk { get; }
 
-    /// <summary>Gets or sets the colorants pages recorded from now on leave out; empty for none. Set before the cache is shared.</summary>
-    internal ImmutableArray<string> HiddenColorants { get; set; } = [];
+    /// <summary>Gets the colorants pages recorded from now on leave out; empty for none. <see cref="HideColorants"/> sets it before the cache is shared.</summary>
+    internal string[] HiddenColorants { get; private set; } = [];
 
     /// <summary>Gets the transfer tables of the function values graphics states name.</summary>
     internal ObjectCache<PdfValue, PdfTransfer> Transfers => LazyCaches.Get(ref _transfers);
@@ -255,6 +254,10 @@ internal sealed class PdfRenderCache
     /// <returns>The backend image, which the caller owns.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal IPdfRenderImage? ToRenderImage(PdfImageData data) => Document.DrawingServices.Backend.CreateImage(data);
+
+    /// <summary>Sets the colorants pages recorded from now on leave out. Call it before the cache is shared.</summary>
+    /// <param name="names">The colorant names; empty for none.</param>
+    internal void HideColorants(string[] names) => HiddenColorants = names;
 
     /// <summary>
     /// Empties every cache when the document is disposed. Images are released as their last user finishes, and later

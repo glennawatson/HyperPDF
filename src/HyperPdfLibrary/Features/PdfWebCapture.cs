@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Features;
@@ -13,4 +12,4 @@ namespace HyperPdfLibrary.Features;
 /// <param name="IdEntryCount">The entries in the <c>/IDS</c> name tree.</param>
 /// <param name="UrlEntryCount">The entries in the <c>/URLS</c> name tree.</param>
 [DebuggerDisplay("PdfWebCapture: {ContentSets.Length} content sets")]
-public sealed record PdfWebCapture(double Version, ImmutableArray<PdfWebCaptureContentSet> ContentSets, int IdEntryCount, int UrlEntryCount);
+public sealed record PdfWebCapture(double Version, PdfWebCaptureContentSet[] ContentSets, int IdEntryCount, int UrlEntryCount);

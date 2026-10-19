@@ -37,7 +37,7 @@ public sealed class WtpdfNavigationTests
         using (Assert.Multiple())
         {
             await Assert.That(report.Findings.Count(static f => f.Clause == "8.7")).IsEqualTo(expected);
-            await Assert.That(report.Findings.All(static f => f.Clause != "8.7" || f.Profile == PdfWtpdfProfile.Accessibility)).IsTrue();
+            await Assert.That(Array.TrueForAll(report.Findings, static f => f.Clause != "8.7" || f.Profile == PdfWtpdfProfile.Accessibility)).IsTrue();
         }
     }
 

@@ -160,6 +160,11 @@ internal ref struct WtpdfTableHeaderScan
     /// <returns><see langword="false"/> when the table is empty or too large to lay out.</returns>
     private bool Layout()
     {
+        if (_rows.IsEmpty)
+        {
+            return false;
+        }
+
         foreach (var kid in _rows[0].KidSpan)
         {
             _width += kid.Element is { } cell ? Math.Clamp(cell.Attributes.ColumnSpan, 1, MaxSpan) : 0;

@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.XObjects;
 
@@ -25,7 +24,7 @@ public static class PdfDocumentXObjects
     /// alternate's own <c>/Alternates</c> are not followed, so a loop cannot occur.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="image"/> is null.</exception>
-    public static ImmutableArray<PdfImageAlternate> GetImageAlternates(PdfDocument document, PdfStream image)
+    public static PdfImageAlternate[] GetImageAlternates(PdfDocument document, PdfStream image)
     {
         ArgumentNullException.ThrowIfNull(image);
         return PdfReadSnapshots.Read(document, PdfReadKind.ImageAlternates, image, PdfDocumentXObjects.ReadImageAlternates);
@@ -73,7 +72,7 @@ public static class PdfDocumentXObjects
     /// <summary>Reads the alternate versions of an image.</summary>
     /// <param name="image">The image XObject.</param>
     /// <returns>The alternates in array order.</returns>
-    internal static ImmutableArray<PdfImageAlternate> ReadImageAlternates(PdfStream image)
+    internal static PdfImageAlternate[] ReadImageAlternates(PdfStream image)
     {
         if (image.Dictionary.GetArray(KnownName.Alternates) is not { } list)
         {
@@ -129,6 +128,6 @@ public static class PdfDocumentXObjects
     /// <param name="ids">The array, or null.</param>
     /// <param name="index">The position, 0 or 1.</param>
     /// <returns>The bytes, or null when the array is not a pair of strings.</returns>
-    private static ImmutableArray<byte>? ReadId(PdfArray? ids, int index) =>
+    private static byte[]? ReadId(PdfArray? ids, int index) =>
         ids is { } array && array.Count == PdfDocumentXObjects.IdLength && array.Get(index).Kind == PdfKind.String ? [.. array.Get(index).AsStringBytes()] : null;
 }

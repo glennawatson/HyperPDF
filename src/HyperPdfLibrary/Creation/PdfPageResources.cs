@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -75,7 +74,7 @@ public sealed class PdfPageResources
     ];
 
     /// <summary>The first names of every category, built once and never changed.</summary>
-    private static readonly ImmutableArray<PdfResourceName> CommonResourceNames = BuildCommonNames();
+    private static readonly PdfResourceName[] CommonResourceNames = BuildCommonNames();
 
     /// <summary>The document the resources belong to.</summary>
     private readonly IPdfObjectSink _sink;
@@ -189,9 +188,9 @@ public sealed class PdfPageResources
 
     /// <summary>Builds the common resource names for every category.</summary>
     /// <returns>The names in category order.</returns>
-    private static ImmutableArray<PdfResourceName> BuildCommonNames()
+    private static PdfResourceName[] BuildCommonNames()
     {
-        var names = ImmutableArray.CreateBuilder<PdfResourceName>(CategoryCount * CommonNames);
+        List<PdfResourceName> names = [with(CategoryCount * CommonNames)];
         for (var category = 0; category < CategoryCount; category++)
         {
             for (var number = 1; number <= CommonNames; number++)
@@ -200,7 +199,7 @@ public sealed class PdfPageResources
             }
         }
 
-        return names.MoveToImmutable();
+        return [.. names];
     }
 
     /// <summary>Gets the name of a resource, making it when it is new.</summary>

@@ -341,7 +341,7 @@ public sealed class PdfUaClaimGuardTests
 
     /// <summary>Makes a PDF/UA-1 file with a heading, a paragraph and a described image.</summary>
     /// <returns>The file.</returns>
-    private static byte[] CreateClaimed()
+    internal static byte[] CreateClaimed()
     {
         var creator = new PdfDocumentCreator(new() { Title = "Accessible", Language = "en", Tagged = true, UaClaim = PdfUaConformance.Part1 });
         var font = creator.EmbedFont(CreationTestKit.OpenFont());
@@ -360,18 +360,10 @@ public sealed class PdfUaClaimGuardTests
         return creator.ToArray();
     }
 
-    /// <summary>Removes the catalog's structure tree, which no repair can restore, as an edit.</summary>
-    /// <param name="document">The document.</param>
-    private static void RemoveStructureTree(PdfDocument document)
-    {
-        PdfDocumentMetadataEditing.SetMetadata(document, TitleEdit);
-        _ = document.Objects.Catalog.Remove(KnownName.StructTreeRoot);
-    }
-
     /// <summary>Adds a redact annotation to the first page.</summary>
     /// <param name="document">The document.</param>
     /// <param name="contents">The annotation's description, or <see langword="null"/> for none.</param>
-    private static void AddAnnotation(PdfDocument document, string? contents)
+    internal static void AddAnnotation(PdfDocument document, string? contents)
     {
         var annotation = PdfRedactions.CreateAnnotation(document.Objects, [MarkedArea], PdfRedactionAppearance.Black);
         if (contents is not null)
@@ -380,6 +372,14 @@ public sealed class PdfUaClaimGuardTests
         }
 
         _ = PdfPageAnnotations.Append(document.Objects, PdfDocumentPages.GetPage(document, 0), annotation);
+    }
+
+    /// <summary>Removes the catalog's structure tree, which no repair can restore, as an edit.</summary>
+    /// <param name="document">The document.</param>
+    private static void RemoveStructureTree(PdfDocument document)
+    {
+        PdfDocumentMetadataEditing.SetMetadata(document, TitleEdit);
+        _ = document.Objects.Catalog.Remove(KnownName.StructTreeRoot);
     }
 
     /// <summary>Asserts that a saved file still claims PDF/UA-1 and that checking it again, with a save, finds nothing wrong.</summary>

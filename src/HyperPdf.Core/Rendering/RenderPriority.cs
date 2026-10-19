@@ -19,6 +19,9 @@ public enum RenderPriority
     /// <summary>Sidebar thumbnails.</summary>
     Thumbnail = 3,
 
+    /// <summary>Low resolution previews of pages further from the viewport than the prefetched ones, so a quick scroll shows something.</summary>
+    PrefetchPreview = 4,
+
     /// <summary>Work for documents that are not in the active tab.</summary>
-    Background = 4,
+    Background = 5,
 }

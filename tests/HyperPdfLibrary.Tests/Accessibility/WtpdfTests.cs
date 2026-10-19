@@ -53,7 +53,7 @@ public sealed class WtpdfTests
 
         var report = PdfDocumentWtpdf.Check(document, cancellationToken);
 
-        await Assert.That(report.Findings.Any(static f => f.Clause == "8.4.5.5" && f.Profile == PdfWtpdfProfile.Reuse)).IsTrue();
+        await Assert.That(Array.Exists(report.Findings, static f => f.Clause == "8.4.5.5" && f.Profile == PdfWtpdfProfile.Reuse)).IsTrue();
     }
 
     /// <summary>A symbolic TrueType font with an Encoding is reported under 8.4.5.7 on the first check and again on the next, which reuses the result.</summary>
@@ -88,7 +88,7 @@ public sealed class WtpdfTests
 
         using (Assert.Multiple())
         {
-            await Assert.That(report.Findings.Any(static f => f.Clause == "6" && f.Profile == PdfWtpdfProfile.Accessibility)).IsTrue();
+            await Assert.That(Array.Exists(report.Findings, static f => f.Clause == "6" && f.Profile == PdfWtpdfProfile.Accessibility)).IsTrue();
             await Assert.That(report.CountFor(PdfWtpdfProfile.Reuse)).IsEqualTo(0);
             await Assert.That(report.CountFor(PdfWtpdfProfile.Accessibility)).IsGreaterThan(0);
         }

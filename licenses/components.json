@@ -165,7 +165,7 @@
     "id": "verapdf-profile-text",
     "name": "veraPDF validation profile rule descriptions",
     "version": "veraPDF-validation-profiles commit 070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8",
-    "origin": "Rule descriptions and clause numbers copied into HyperPdfLibrary's PDF/A rule table",
+    "origin": "Rule descriptions and clause numbers copied into HyperPdfLibrary's PDF/A rule table and its PDF/UA, tagged PDF, Well-Tagged PDF and WCAG standards rule table",
     "licence": "CC-BY-4.0",
     "copyright": "Copyright 2015 veraPDF Consortium.",
     "link": "https://github.com/veraPDF/veraPDF-validation-profiles/tree/070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8/PDF_A",

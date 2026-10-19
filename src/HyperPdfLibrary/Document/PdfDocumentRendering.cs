@@ -206,7 +206,7 @@ public static class PdfDocumentRendering
             cache.ImageCapacity = key.ImageCacheBytes;
             cache.SimulateOverprint = key.SimulateOverprint;
             cache.FormHighlight = key.FormHighlight;
-            cache.HiddenColorants = hidden;
+            cache.HideColorants(hidden);
             cache.Quality = key.Quality;
             var created = new PdfRenderCacheEntry(key, cache, outputIntent);
             caches.Add(key, created);

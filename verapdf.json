@@ -1,5 +1,6 @@
 {
-  "comment": "The veraPDF release that scripts/InstallVeraPdf.cs installs for the PDF/A tests. Renovate updates it from the veraPDF/veraPDF-apps release tags. testFilesCommit pins the commit of veraPDF's PDF/A test files (the veraPDF-corpus repository) that scripts/FetchVeraPdfTestFiles.cs fetches; after changing either value, rerun scripts/RecordVeraPdfResults.cs.",
+  "comment": "The veraPDF release that scripts/InstallVeraPdf.cs installs for the PDF/A tests. Renovate updates it from the veraPDF/veraPDF-apps release tags. testFilesCommit pins the commit of veraPDF's PDF/A test files (the veraPDF-corpus repository) that scripts/FetchVeraPdfTestFiles.cs fetches; after changing either value, rerun scripts/RecordVeraPdfResults.cs. profilesCommit pins the commit of veraPDF's validation profiles (the veraPDF-validation-profiles repository) that scripts/FetchVeraPdfProfiles.cs fetches for the tagged PDF and WCAG agreement tests; after changing it, rerun scripts/StandardsRuleTableGenerator.cs.",
   "version": "1.30.3",
-  "testFilesCommit": "bb75f4f0073d9350dfd058c0162a367e6fadf25e"
+  "testFilesCommit": "bb75f4f0073d9350dfd058c0162a367e6fadf25e",
+  "profilesCommit": "070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8"
 }

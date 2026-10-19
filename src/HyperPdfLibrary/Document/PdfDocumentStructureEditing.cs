@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -58,7 +57,7 @@ public static class PdfDocumentStructureEditing
     /// <param name="element">The element.</param>
     /// <returns>The type names; the element's own type is always listed.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    public static ImmutableArray<string> GetTypeChoices(PdfDocument document, PdfStructureElement element)
+    public static string[] GetTypeChoices(PdfDocument document, PdfStructureElement element)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(element);
@@ -97,7 +96,7 @@ public static class PdfDocumentStructureEditing
     /// <param name="document">The document.</param>
     /// <returns>The entries, in file order; empty when the file has no tags or no role map.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document"/> is <see langword="null"/>.</exception>
-    public static ImmutableArray<PdfRoleMapping> GetRoleMap(PdfDocument document)
+    public static PdfRoleMapping[] GetRoleMap(PdfDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (PdfDocumentTagged.GetStructureTree(document)?.Root.GetDictionary(KnownName.RoleMap) is not { } map)
@@ -106,7 +105,7 @@ public static class PdfDocumentStructureEditing
         }
 
         var names = document.Objects.Names;
-        var entries = ImmutableArray.CreateBuilder<PdfRoleMapping>(map.Count);
+        List<PdfRoleMapping> entries = [with(map.Count)];
         for (var i = 0; i < map.Count; i++)
         {
             var target = map.GetValueAt(i);
@@ -116,7 +115,7 @@ public static class PdfDocumentStructureEditing
             }
         }
 
-        return entries.ToImmutable();
+        return [.. entries];
     }
 
     /// <summary>Maps a custom tag type to a standard type, so a reader knows what the custom tags mean. An existing mapping for the type is replaced.</summary>

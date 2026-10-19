@@ -36,7 +36,7 @@ public sealed class WtpdfAnnotationTreeTests
 
         var report = PdfDocumentWtpdf.Check(document, cancellationToken);
 
-        await Assert.That(report.Findings.Any(f => f.Clause == clause)).IsEqualTo(fails);
+        await Assert.That(Array.Exists(report.Findings, f => f.Clause == clause)).IsEqualTo(fails);
     }
 
     /// <summary>Builds a PDF 2.0 file whose Document holds one tag that holds one annotation, which is also on the page.</summary>

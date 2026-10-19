@@ -17,11 +17,20 @@ internal static class VeraPdfValidator
     /// <summary>The variable naming the veraPDF installation directory.</summary>
     internal const string HomeVariable = "HYPERPDF_VERAPDF";
 
+    /// <summary>The variable naming the folder that holds veraPDF's PDF/UA profile files.</summary>
+    internal const string ProfilesVariable = "HYPERPDF_VERAPDF_PROFILES";
+
     /// <summary>The variable that turns a missing installation into a failure.</summary>
     internal const string RequireVariable = "HYPERPDF_REQUIRE_VERAPDF";
 
     /// <summary>The flavour that makes veraPDF pick the profile from the file's own claim.</summary>
     internal const string DetectFlavour = "0";
+
+    /// <summary>The option that selects a built-in profile by its flavour.</summary>
+    private const string FlavourOption = "-f";
+
+    /// <summary>The option that loads a profile from an XML file.</summary>
+    private const string ProfileOption = "-p";
 
     /// <summary>The features read back to compare with HyperPdf's reading.</summary>
     private const string Features = "informationDict,page,outputIntent";
@@ -53,6 +62,28 @@ internal static class VeraPdfValidator
         return string.Empty;
     }
 
+    /// <summary>Gets the path of one of veraPDF's profile files, or skips the test when the profiles are not available.</summary>
+    /// <param name="file">The profile file's name.</param>
+    /// <returns>The path.</returns>
+    /// <exception cref="DirectoryNotFoundException">The profiles are required but missing.</exception>
+    internal static string RequireProfile(string file)
+    {
+        var folder = Environment.GetEnvironmentVariable(ProfilesVariable);
+        if (folder is { Length: > 0 } && File.Exists(Path.Combine(folder, file)))
+        {
+            return Path.Combine(folder, file);
+        }
+
+        const string message = $"No veraPDF profile files. Extract veraPDF-validation-profiles PDF_UA and set {ProfilesVariable} to that folder.";
+        if (Environment.GetEnvironmentVariable(RequireVariable) == "1")
+        {
+            throw new DirectoryNotFoundException(message);
+        }
+
+        Skip.Test(message);
+        return string.Empty;
+    }
+
     /// <summary>Validates files against one flavour and reads the features veraPDF extracts.</summary>
     /// <param name="home">The installation directory.</param>
     /// <param name="flavour">The flavour, such as 1b, 4 or <see cref="DetectFlavour"/>.</param>
@@ -61,11 +92,34 @@ internal static class VeraPdfValidator
     /// <returns>The result for each file, by full path.</returns>
     /// <exception cref="InvalidOperationException">Java could not start veraPDF.</exception>
     /// <exception cref="InvalidDataException">veraPDF gave no result for a file.</exception>
-    internal static async Task<Dictionary<string, VeraPdfJob>> ValidateAsync(string home, string flavour, IReadOnlyList<string> files, CancellationToken cancellationToken)
+    internal static Task<Dictionary<string, VeraPdfJob>> ValidateAsync(string home, string flavour, IReadOnlyList<string> files, CancellationToken cancellationToken) =>
+        RunAsync(home, FlavourOption, flavour, files, cancellationToken);
+
+    /// <summary>Validates files against a profile file, such as one of veraPDF's tagged PDF profiles, which have no flavour of their own.</summary>
+    /// <param name="home">The installation directory.</param>
+    /// <param name="profilePath">The profile's XML file.</param>
+    /// <param name="files">The files.</param>
+    /// <param name="cancellationToken">Cancels the run and kills the process.</param>
+    /// <returns>The result for each file, by full path.</returns>
+    /// <exception cref="InvalidOperationException">Java could not start veraPDF.</exception>
+    /// <exception cref="InvalidDataException">veraPDF gave no result for a file.</exception>
+    internal static Task<Dictionary<string, VeraPdfJob>> ValidateProfileAsync(string home, string profilePath, IReadOnlyList<string> files, CancellationToken cancellationToken) =>
+        RunAsync(home, ProfileOption, Path.GetFullPath(profilePath), files, cancellationToken);
+
+    /// <summary>Runs veraPDF with one profile selector.</summary>
+    /// <param name="home">The installation directory.</param>
+    /// <param name="option">The command-line option that selects the profile.</param>
+    /// <param name="selector">The option's value.</param>
+    /// <param name="files">The files.</param>
+    /// <param name="cancellationToken">Cancels the run and kills the process.</param>
+    /// <returns>The result for each file, by full path.</returns>
+    /// <exception cref="InvalidOperationException">Java could not start veraPDF.</exception>
+    /// <exception cref="InvalidDataException">veraPDF gave no result for a file.</exception>
+    private static async Task<Dictionary<string, VeraPdfJob>> RunAsync(string home, string option, string selector, IReadOnlyList<string> files, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMinutes(TimeoutMinutes));
-        var start = CreateStart(home, flavour, files);
+        var start = CreateStart(home, option, selector, files);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("veraPDF did not start.");
         var output = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
         var error = process.StandardError.ReadToEndAsync(CancellationToken.None);
@@ -97,17 +151,18 @@ internal static class VeraPdfValidator
 
     /// <summary>Builds the Java command line the veraPDF launcher scripts would run.</summary>
     /// <param name="home">The installation directory.</param>
-    /// <param name="flavour">The flavour.</param>
+    /// <param name="option">The command-line option that selects the profile.</param>
+    /// <param name="selector">The option's value.</param>
     /// <param name="files">The files.</param>
     /// <returns>The start information.</returns>
-    private static ProcessStartInfo CreateStart(string home, string flavour, IReadOnlyList<string> files)
+    private static ProcessStartInfo CreateStart(string home, string option, string selector, IReadOnlyList<string> files)
     {
         var start = new ProcessStartInfo(FindJava()) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8 };
         string[] arguments =
         [
             "-cp", Path.Combine(home, "bin", "*"), "-Dfile.encoding=UTF8", $"-Dapp.home={home}", $"-Dbasedir={home}",
             "--add-exports=java.base/sun.security.pkcs=ALL-UNNAMED", "org.verapdf.apps.GreenfieldCliWrapper",
-            "--format", "xml", "--maxfailuresdisplayed", "3", "-x", Features, "-f", flavour,
+            "--format", "xml", "--maxfailuresdisplayed", "3", "-x", Features, option, selector,
         ];
         foreach (var argument in arguments)
         {

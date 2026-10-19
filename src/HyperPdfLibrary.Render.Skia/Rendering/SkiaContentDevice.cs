@@ -1006,7 +1006,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <returns><see langword="true"/> when the stroke was drawn.</returns>
     private bool TryStrokeFitted(PdfPath path, ref GraphicsState state)
     {
-        if (!SkiaStrokeFit.IsAdjusting(_quality, state.StrokeAdjustment) || state.Stroke.Pattern is not null || state.SoftMask is not null || !state.Dash.IsDefaultOrEmpty)
+        if (!SkiaStrokeFit.IsAdjusting(_quality, state.StrokeAdjustment) || state.Stroke.Pattern is not null || state.SoftMask is not null || !state.Dash.IsEmpty)
         {
             return false;
         }

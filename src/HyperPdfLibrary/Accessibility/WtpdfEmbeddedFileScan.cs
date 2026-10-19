@@ -42,7 +42,7 @@ internal static class WtpdfEmbeddedFileScan
             return;
         }
 
-        if (!(PdfDocumentMetadata.ReadXmp(document, stream.Dictionary)?.Declarations ?? []).IsEmpty)
+        if ((PdfDocumentMetadata.ReadXmp(document, stream.Dictionary)?.Declarations ?? []).Length != 0)
         {
             return;
         }

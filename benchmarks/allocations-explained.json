@@ -1,5 +1,30 @@
 [
   {
+    "type": "HyperPdfLibrary.Accessibility.PdfStandardsRuleResult[]",
+    "frame": "HyperPdfLibrary.Accessibility.StandardsRuleEvaluator.Evaluate",
+    "reason": "The array is the returned rule report's data, one result for each rule of the profile. The caller keeps it after the call, so it cannot live in pooled or stack storage."
+  },
+  {
+    "type": "HyperPdfLibrary.Accessibility.PdfStandardsRuleReport",
+    "frame": "HyperPdfLibrary.Accessibility.StandardsRuleEvaluator.Evaluate",
+    "reason": "The report is the detached result of the check."
+  },
+  {
+    "type": "HyperPdfLibrary.Accessibility.PdfStandardsRuleResult[]",
+    "frame": "HyperPdfLibrary.Accessibility.StandardsCriteria.Group",
+    "reason": "Each group is returned data: the results of the rules that bear on one success criterion. A rule that bears on several criteria is copied into each group, so the groups cannot share one array."
+  },
+  {
+    "type": "HyperPdfLibrary.Accessibility.PdfStandardsCriterionResult",
+    "frame": "HyperPdfLibrary.Accessibility.StandardsCriteria.Group",
+    "reason": "Each criterion's entry is part of the returned grouping."
+  },
+  {
+    "type": "HyperPdfLibrary.Accessibility.PdfStandardsCriterionResult[]",
+    "frame": "HyperPdfLibrary.Accessibility.StandardsCriteria.Group",
+    "reason": "The array of criteria is the returned grouping."
+  },
+  {
     "type": "HyperPdfLibrary.Accessibility.PdfWtpdfFinding",
     "frame": "HyperPdfLibrary.Accessibility.WtpdfReportScan.Check",
     "reason": "Each finding the accessibility report raises is copied into the check's result record, which the caller reads after the check returns. A file that meets the rules allocates none."

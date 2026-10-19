@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.TestAssets;
+using HyperPdfLibrary.Accessibility;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Structure.Tagged;
 
@@ -61,6 +62,29 @@ public sealed class StructureEditTests
         await Assert.That(PdfDocumentEditing.Undo(document)).IsTrue();
         await Assert.That(PdfDocumentEditing.Undo(document)).IsTrue();
         await Assert.That(Find(document, PdfStructureType.Figure).AlternateText).IsEqualTo(TestPdf.TaggedFigure);
+    }
+
+    /// <summary>A figure without a description is reported; writing one removes the finding, in the document and in the file that is saved and opened again.</summary>
+    /// <param name="cancellationToken">Cancels the test.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DescriptionRemovesTheFigureFinding(CancellationToken cancellationToken)
+    {
+        using var document = PdfDocumentReader.Open(TestPdf.CreateTagged(), null);
+        await PdfDocumentStructureEditing.SetTextAsync(document, Find(document, PdfStructureType.Figure), PdfStructureTextField.AlternateText, string.Empty, cancellationToken);
+        var before = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
+
+        await PdfDocumentStructureEditing.SetTextAsync(document, Find(document, PdfStructureType.Figure), PdfStructureTextField.AlternateText, NewDescription, cancellationToken);
+        var after = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
+        using var reopened = PdfDocumentReader.Open(EditChecks.SaveCompact(document), null);
+        var saved = await PdfDocumentAccessibility.GetAccessibilityReportAsync(reopened, cancellationToken);
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(before.GetCount(PdfAccessibilityCode.FigureNoDescription)).IsEqualTo(1);
+            await Assert.That(after.GetCount(PdfAccessibilityCode.FigureNoDescription)).IsEqualTo(0);
+            await Assert.That(saved.GetCount(PdfAccessibilityCode.FigureNoDescription)).IsEqualTo(0);
+        }
     }
 
     /// <summary>A heading changes level to another standard type and a non-standard type is refused with nothing changed.</summary>

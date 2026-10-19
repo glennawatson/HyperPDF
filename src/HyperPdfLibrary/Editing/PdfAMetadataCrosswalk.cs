@@ -64,7 +64,7 @@ internal static class PdfAMetadataCrosswalk
         var values = xmp.GetValues(property.Namespace, property.LocalName);
         if (change.Value.Length == 0)
         {
-            return values.IsEmpty;
+            return values.Length == 0;
         }
 
         return property.Shape == XmpShape.Sequence

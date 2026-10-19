@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
@@ -31,6 +33,12 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
 
     /// <summary>The cached text of <see cref="_textPage"/>.</summary>
     private string _text = string.Empty;
+
+    /// <summary>The page the cached blocks belong to, or -1 when nothing is cached.</summary>
+    private int _blocksPage = -1;
+
+    /// <summary>The cached peers of <see cref="_blocksPage"/>' blocks, in reading order.</summary>
+    private ReadingBlockAutomationPeer[] _blocks = [];
 
     /// <summary>The name last reported.</summary>
     private string _name;
@@ -82,6 +90,34 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
         return ItemAutomation.DescribePage(shown.GetPageDisplay(index), index, shown.PageCount);
     }
 
+    /// <summary>Gets the canvas rectangle of a block on a page.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="block">The block.</param>
+    /// <returns>The rectangle on the canvas, or an empty rectangle when the page is not laid out.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Rect GetCanvasRect(int page, ReadingBlock block) => Canvas.GetCanvasRect(page, block.Bounds);
+
+    /// <summary>
+    /// Lists the children afresh each time, because the page's blocks are worked out in the background and a list kept before they were
+    /// ready would stay empty. The blocks themselves are kept once they are known.
+    /// </summary>
+    /// <returns>The children.</returns>
+    protected override IReadOnlyList<AutomationPeer> GetOrCreateChildrenCore() => GetChildrenCore() ?? [];
+
+    /// <summary>Lists the shown page's blocks in reading order after any children the canvas has, so a screen reader can move by heading, list item, table cell and figure.</summary>
+    /// <returns>The children.</returns>
+    protected override IReadOnlyList<AutomationPeer>? GetChildrenCore()
+    {
+        var inherited = base.GetChildrenCore();
+        var blocks = GetBlocks();
+        if (blocks.Length == 0)
+        {
+            return inherited;
+        }
+
+        return inherited is not { Count: > 0 } ? blocks : [.. inherited, .. blocks];
+    }
+
     /// <inheritdoc/>
     protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Document;
 
@@ -129,6 +165,61 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
         return _text;
     }
 
+    /// <summary>Gets the peers of the current page's blocks, reading them once per page.</summary>
+    /// <returns>The peers; none when the page has no reading order.</returns>
+    private ReadingBlockAutomationPeer[] GetBlocks()
+    {
+        if (Canvas.Tab is not { PageCount: > 0 } tab)
+        {
+            return [];
+        }
+
+        var page = Math.Clamp(tab.CurrentPageIndex, 0, tab.PageCount - 1);
+        if (page == _blocksPage)
+        {
+            return _blocks;
+        }
+
+        // The reading order is worked out in the background, so nothing is kept until it can describe the page.
+        if (tab.GetReadingDocument() is not { } reading || page >= reading.PageCount)
+        {
+            return [];
+        }
+
+        _blocks = CreateBlocks(reading.GetPage(page));
+        _blocksPage = page;
+        return _blocks;
+    }
+
+    /// <summary>Makes a peer for each block of a page.</summary>
+    /// <param name="page">The page's blocks.</param>
+    /// <returns>The peers, in reading order.</returns>
+    private ReadingBlockAutomationPeer[] CreateBlocks(ReadingPage page)
+    {
+        var peers = new ReadingBlockAutomationPeer[page.Blocks.Count];
+        var runStart = 0;
+        for (var index = 0; index < peers.Length; index++)
+        {
+            var block = page.Blocks[index];
+            if (block.Kind != ReadingBlockKind.ListItem)
+            {
+                peers[index] = new(this, page.PageIndex, index, block, 0, 0);
+                continue;
+            }
+
+            runStart = index > 0 && page.Blocks[index - 1].Kind == ReadingBlockKind.ListItem ? runStart : index;
+            var runEnd = index;
+            while (runEnd + 1 < peers.Length && page.Blocks[runEnd + 1].Kind == ReadingBlockKind.ListItem)
+            {
+                runEnd++;
+            }
+
+            peers[index] = new(this, page.PageIndex, index, block, index - runStart + 1, runEnd - runStart + 1);
+        }
+
+        return peers;
+    }
+
     /// <summary>Tells assistive technology the page, and with it the name and the text, changed.</summary>
     /// <param name="name">The new name, for example "Page 6 of 40".</param>
     private void AnnouncePage(string name)
@@ -137,6 +228,8 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
         _name = name;
         var oldText = _textPage < 0 ? null : _text;
         _textPage = -1;
+        _blocksPage = -1;
+        InvalidateChildren();
         RaisePropertyChangedEvent(AutomationElementIdentifiers.NameProperty, oldName, name);
         RaisePropertyChangedEvent(ValuePatternIdentifiers.ValueProperty, oldText, GetPageText());
     }

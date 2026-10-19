@@ -148,7 +148,14 @@ internal static class StructureContainment
             return null;
         }
 
-        return element.HeadingLevel > 0 ? NumberedHeading : element.MappedType;
+        // A type that only the PDF 2.0 namespace defines is not a standard type in the PDF 1.7 namespace, which an element without a namespace uses.
+        if (element.Namespace is null or PdfStructureTypes.Pdf17Uri && !PdfStructureTypes.IsStandardIn(element.Type, PdfStructureTypes.Pdf17Flag))
+        {
+            return null;
+        }
+
+        // H and Title count as heading level 1 elsewhere, but Table 5 has a row of their own for each.
+        return element.HeadingLevel > 0 && element.Type is not (PdfStructureType.Heading or PdfStructureType.Title) ? NumberedHeading : element.MappedType;
     }
 
     /// <summary>Gets the table's spelling of a type name.</summary>

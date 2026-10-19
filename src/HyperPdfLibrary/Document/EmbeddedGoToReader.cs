@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Objects;
 
@@ -23,7 +22,7 @@ internal static class EmbeddedGoToReader
         var targets = EmbeddedGoToReader.ReadTargets(action.Dict("T"), out var loops);
         var destination = action.Value("D");
         var newWindow = action.Value("NewWindow");
-        return new(!targets.IsEmpty ? targets[0].FileName : null)
+        return new(targets.Length != 0 ? targets[0].FileName : null)
         {
             File = EmbeddedGoToReader.ReadRootFile(document, action),
             Targets = targets,
@@ -38,7 +37,7 @@ internal static class EmbeddedGoToReader
     /// <param name="first">The action's target dictionary, or null.</param>
     /// <param name="loops">Whether the steps loop back or nest deeper than the reader follows.</param>
     /// <returns>The steps in order.</returns>
-    private static ImmutableArray<PdfEmbeddedTarget> ReadTargets(PdfDictionary? first, out bool loops)
+    private static PdfEmbeddedTarget[] ReadTargets(PdfDictionary? first, out bool loops)
     {
         loops = false;
         if (first is null)

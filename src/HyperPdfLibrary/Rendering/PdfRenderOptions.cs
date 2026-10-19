@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Rendering;
@@ -57,5 +56,5 @@ public sealed record PdfRenderOptions(long ImageCacheBytes, bool SimulateOverpri
     /// cleared from each fill, stroke and glyph colour. An image or shading in a space that still paints another colorant
     /// is drawn whole, because its pixels are not split by colorant. None by default.
     /// </summary>
-    public ImmutableArray<string> HiddenColorants { get; init; } = [];
+    public string[] HiddenColorants { get; init; } = [];
 }

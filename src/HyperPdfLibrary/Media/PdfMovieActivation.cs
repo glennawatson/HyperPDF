@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Media;
@@ -26,5 +25,5 @@ public sealed record PdfMovieActivation(
     bool ShowControls,
     string Mode,
     bool Synchronous,
-    ImmutableArray<int> FullWindowScale,
-    ImmutableArray<double> FullWindowPosition);
+    int[] FullWindowScale,
+    double[] FullWindowPosition);

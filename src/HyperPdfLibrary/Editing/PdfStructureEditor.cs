@@ -2,9 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using HyperPdfLibrary.Accessibility;
 using HyperPdfLibrary.Objects;
@@ -52,12 +50,12 @@ internal static class PdfStructureEditor
     /// <param name="version">The file's version, such as <c>1.7</c> or <c>2.0</c>.</param>
     /// <param name="element">The element, as the reader reports it.</param>
     /// <returns>The type names. A file that uses the PDF 1.7 namespace only lists every standard type, because the hierarchy rules apply to PDF 2.0 trees (ISO/TS 32005 clause 5.2).</returns>
-    internal static ImmutableArray<string> GetChoices(string version, PdfStructureElement element)
+    internal static string[] GetChoices(string version, PdfStructureElement element)
     {
         var names = PdfStructureTypes.GetStandardNameArray(NamespaceFor(version, element));
         if (!UsesContainment(version, element))
         {
-            return ImmutableCollectionsMarshal.AsImmutableArray(names);
+            return names;
         }
 
         var fitting = new List<string>(names.Length);

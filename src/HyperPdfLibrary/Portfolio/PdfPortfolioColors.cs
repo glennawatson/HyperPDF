@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Portfolio;
@@ -15,8 +14,8 @@ namespace HyperPdfLibrary.Portfolio;
 /// <param name="SecondaryText">The secondary text.</param>
 [DebuggerDisplay("PdfPortfolioColors")]
 public sealed record PdfPortfolioColors(
-    ImmutableArray<double>? Background,
-    ImmutableArray<double>? CardBackground,
-    ImmutableArray<double>? CardBorder,
-    ImmutableArray<double>? PrimaryText,
-    ImmutableArray<double>? SecondaryText);
+    double[]? Background,
+    double[]? CardBackground,
+    double[]? CardBorder,
+    double[]? PrimaryText,
+    double[]? SecondaryText);

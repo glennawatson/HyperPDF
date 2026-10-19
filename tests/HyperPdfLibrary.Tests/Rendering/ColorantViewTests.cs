@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Rendering;
@@ -54,13 +53,13 @@ public sealed class ColorantViewTests
         + "/Pair [/DeviceN [/Orange /Teal] /DeviceRGB 1 0 R] >>";
 
     /// <summary>Hides the spot colorant.</summary>
-    private static readonly ImmutableArray<string> HideSpot = [SpotInk];
+    private static readonly string[] HideSpot = [SpotInk];
 
     /// <summary>Hides Magenta.</summary>
-    private static readonly ImmutableArray<string> HideMagenta = [MagentaInk];
+    private static readonly string[] HideMagenta = [MagentaInk];
 
     /// <summary>Hides Black.</summary>
-    private static readonly ImmutableArray<string> HideBlack = [BlackInk];
+    private static readonly string[] HideBlack = [BlackInk];
 
     /// <summary>The colorants of a page come in Cyan, Magenta, Yellow, Black order, then the others as they are first painted.</summary>
     /// <returns>A task.</returns>
@@ -87,7 +86,7 @@ public sealed class ColorantViewTests
 
         var colorants = await PdfDocumentColorants.GetPageColorantsAsync(page.Document, 0, CancellationToken.None);
 
-        await Assert.That(colorants.IsEmpty).IsTrue();
+        await Assert.That(colorants.Length == 0).IsTrue();
     }
 
     /// <summary>Strokes, text and images list their colorants, and an image lists every colorant of its colour space.</summary>
@@ -219,7 +218,7 @@ public sealed class ColorantViewTests
     /// <param name="content">The page content.</param>
     /// <param name="hidden">The hidden colorants.</param>
     /// <returns>The pixels.</returns>
-    private static RenderedImage Render(string content, ImmutableArray<string> hidden)
+    private static RenderedImage Render(string content, string[] hidden)
     {
         using var page = Open(content);
         using var renderer = new PdfPageRenderer(page.Document, PdfRenderOptions.Default with { HiddenColorants = hidden });

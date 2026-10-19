@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Accessibility;
@@ -12,7 +11,7 @@ namespace HyperPdfLibrary.Accessibility;
 /// <param name="DeclaresAccessibility">Whether the XMP holds the accessibility declaration.</param>
 /// <param name="Findings">Every shortfall found, in document order.</param>
 [DebuggerDisplay("PdfWtpdfReport: reuse {DeclaresReuse}, accessibility {DeclaresAccessibility}, {Findings.Length} findings")]
-public sealed record PdfWtpdfReport(bool DeclaresReuse, bool DeclaresAccessibility, ImmutableArray<PdfWtpdfFinding> Findings)
+public sealed record PdfWtpdfReport(bool DeclaresReuse, bool DeclaresAccessibility, PdfWtpdfFinding[] Findings)
 {
     /// <summary>Counts the findings that stop a level from holding.</summary>
     /// <param name="profile">The level.</param>

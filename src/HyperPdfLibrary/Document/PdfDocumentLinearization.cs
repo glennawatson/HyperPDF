@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Syntax;
 
@@ -184,7 +183,7 @@ public static class PdfDocumentLinearization
             return null;
         }
 
-        ImmutableArray<PdfHintRange> ranges = [new(primaryOffset, primaryLength), new(secondaryOffset, secondaryLength)];
+        PdfHintRange[] ranges = [new(primaryOffset, primaryLength), new(secondaryOffset, secondaryLength)];
         return parameters with { Hints = ranges };
     }
 

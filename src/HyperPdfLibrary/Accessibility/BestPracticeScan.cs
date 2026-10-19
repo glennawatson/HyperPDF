@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure.Tagged;
@@ -16,7 +15,7 @@ internal static class BestPracticeScan
     /// <param name="document">The document.</param>
     /// <param name="cancellationToken">Cancels the walk.</param>
     /// <returns>The advice, in document order; empty when the file is untagged.</returns>
-    internal static ImmutableArray<PdfTagAdvice> Check(PdfDocument document, CancellationToken cancellationToken)
+    internal static PdfTagAdvice[] Check(PdfDocument document, CancellationToken cancellationToken)
     {
         if (PdfDocumentTagged.GetStructureTree(document) is not { } tree)
         {

@@ -82,12 +82,16 @@ jobs:
       - name: Check out veraPDF's PDF/A test files
         id: testfiles
         run: dotnet run --file scripts/FetchVeraPdfTestFiles.cs -- "${{ runner.temp }}/verapdf-test-files"
+      - name: Check out veraPDF's validation profiles
+        id: profiles
+        run: dotnet run --file scripts/FetchVeraPdfProfiles.cs -- "${{ runner.temp }}/verapdf-profiles"
       - name: Validate PDF/A output with veraPDF
         env:
           HYPERPDF_VERAPDF: ${{ steps.verapdf.outputs.verapdf-home }}
           HYPERPDF_REQUIRE_VERAPDF: '1'
           HYPERPDF_PDFA_SAMPLES: ${{ runner.temp }}/pdfa-samples
           HYPERPDF_VERAPDF_TEST_FILES: ${{ steps.testfiles.outputs.test-files-dir }}
+          HYPERPDF_VERAPDF_PROFILES: ${{ steps.profiles.outputs.profiles-dir }}
           HYPERPDF_PDFA_OUTPUT: ${{ runner.temp }}/pdfa-output
         run: dotnet run --project "${{ github.workspace }}/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*' --report-trx --results-directory "${{ runner.temp }}/pdfa-output"
       - name: Upload PDF/A outputs

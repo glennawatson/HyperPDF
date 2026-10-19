@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Media;
 using HyperPdfLibrary.Objects;
@@ -52,13 +51,13 @@ public static class PdfDocumentMedia
     /// <param name="document">The document.</param>
     /// <returns>An immutable snapshot of the annotations in document order, read once until the next edit.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ImmutableArray<PdfMultimediaAnnotation> GetMultimediaAnnotations(PdfDocument document) =>
+    public static PdfMultimediaAnnotation[] GetMultimediaAnnotations(PdfDocument document) =>
         PdfReadSnapshots.Read(document, PdfReadKind.MultimediaAnnotations, PdfDocumentMedia.ReadMultimediaAnnotations);
 
     /// <summary>Reads the multimedia annotations of every page.</summary>
     /// <param name="document">The document.</param>
     /// <returns>The annotations in document order.</returns>
-    internal static ImmutableArray<PdfMultimediaAnnotation> ReadMultimediaAnnotations(PdfDocument document)
+    internal static PdfMultimediaAnnotation[] ReadMultimediaAnnotations(PdfDocument document)
     {
         var result = new List<PdfMultimediaAnnotation>();
         foreach (var page in PdfDocumentPages.GetPageSet(document).Pages)

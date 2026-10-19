@@ -58,7 +58,7 @@ public sealed class PortfolioTests
         await Assert.That(portfolio.Sort[1].Ascending).IsFalse();
         await Assert.That(portfolio.InitialDocument).IsEqualTo("b.txt");
         await Assert.That(portfolio.View).IsEqualTo("T");
-        await Assert.That(portfolio.Colors!.Background!.Value).IsEquivalentTo([1.0, 0.0, 0.0]);
+        await Assert.That(portfolio.Colors!.Background!).IsEquivalentTo([1.0, 0.0, 0.0]);
         await Assert.That(portfolio.RootFolder!.Children.Length).IsEqualTo(FileCount);
         await Assert.That(portfolio.RootFolder.Children[1].Name).IsEqualTo("Sub2");
         await Assert.That(portfolio.RootFolder.FreeRanges[0].First).IsEqualTo(FreeFirst);

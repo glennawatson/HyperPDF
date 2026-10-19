@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Metadata;
@@ -81,7 +80,7 @@ internal static class WtpdfScan
     /// <param name="declarations">The file's declarations.</param>
     /// <param name="uri">The profile address.</param>
     /// <returns><see langword="true"/> when one does.</returns>
-    private static bool Holds(ImmutableArray<PdfDeclaration> declarations, string uri)
+    private static bool Holds(PdfDeclaration[] declarations, string uri)
     {
         foreach (var declaration in declarations)
         {

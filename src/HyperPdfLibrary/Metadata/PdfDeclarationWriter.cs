@@ -262,7 +262,7 @@ internal static class PdfDeclarationWriter
         var xml = new StringBuilder();
         var profile = SecurityElement.Escape(declaration.ConformsTo);
         _ = xml.Append(CultureInfo.InvariantCulture, $"<{rdf}:li {rdf}:parseType=\"Resource\"><{prefix}:conformsTo>{profile}</{prefix}:conformsTo>");
-        if (!declaration.ClaimData.IsEmpty)
+        if (declaration.ClaimData.Length != 0)
         {
             _ = xml.Append(CultureInfo.InvariantCulture, $"<{prefix}:claimData><{rdf}:Bag>");
             foreach (var claim in declaration.ClaimData)

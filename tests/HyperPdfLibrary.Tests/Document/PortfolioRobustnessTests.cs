@@ -116,7 +116,7 @@ public sealed class PortfolioRobustnessTests
         using var document = PdfDocumentReader.Open(MiniPdf.Build([.. objects]), null);
 
         var depth = 0;
-        for (var folder = PdfDocumentPortfolio.GetPortfolio(document)!.RootFolder; folder is not null; folder = !folder.Children.IsEmpty ? folder.Children[0] : null)
+        for (var folder = PdfDocumentPortfolio.GetPortfolio(document)!.RootFolder; folder is not null; folder = folder.Children.Length != 0 ? folder.Children[0] : null)
         {
             depth++;
         }

@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -112,9 +111,9 @@ internal sealed class PageColorantCollector : IContentDevice, IColorantSink
 
     /// <summary>Gets the colorants seen: the process colorants in Cyan, Magenta, Yellow, Black order, then the rest in the order they were first painted.</summary>
     /// <returns>The colorants.</returns>
-    internal ImmutableArray<PdfColorant> Result()
+    internal PdfColorant[] Result()
     {
-        var builder = ImmutableArray.CreateBuilder<PdfColorant>(_order.Count);
+        List<PdfColorant> builder = [with(_order.Count)];
         foreach (var process in new[] { ContentColorants.Cyan, ContentColorants.Magenta, ContentColorants.Yellow, ContentColorants.Black })
         {
             if (_kinds.TryGetValue(process, out var kind) && kind == PdfColorantKind.Process)
@@ -131,7 +130,7 @@ internal sealed class PageColorantCollector : IContentDevice, IColorantSink
             }
         }
 
-        return builder.ToImmutable();
+        return [.. builder];
     }
 
     /// <summary>Determines whether a component puts colorant on the page; components past the four kept always do.</summary>

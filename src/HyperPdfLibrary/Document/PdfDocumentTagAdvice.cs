@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Accessibility;
 
@@ -16,7 +15,7 @@ public static class PdfDocumentTagAdvice
     /// <returns>The advice; empty when the file is untagged or has none.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document"/> is <see langword="null"/>.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ImmutableArray<PdfTagAdvice> Get(PdfDocument document) => Get(document, CancellationToken.None);
+    public static PdfTagAdvice[] Get(PdfDocument document) => Get(document, CancellationToken.None);
 
     /// <summary>Lists what a tagged document could do better.</summary>
     /// <param name="document">The document.</param>
@@ -24,7 +23,7 @@ public static class PdfDocumentTagAdvice
     /// <returns>The advice; empty when the file is untagged or has none.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document"/> is <see langword="null"/>.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public static ImmutableArray<PdfTagAdvice> Get(PdfDocument document, CancellationToken cancellationToken)
+    public static PdfTagAdvice[] Get(PdfDocument document, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(document);
         return BestPracticeScan.Check(document, cancellationToken);
