@@ -71,6 +71,9 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
     /// <summary>The most converted glyph outlines retained while recording one picture.</summary>
     private const int MaxCachedGlyphPaths = 512;
 
+    /// <summary>The most pattern shaders kept for one recording; further ones are made for the one draw.</summary>
+    private const int MaxCachedShaders = 64;
+
     /// <summary>The image masks one Type 3 glyph procedure can draw and have kept; later ones share the last place.</summary>
     private const int MaxType3Images = 8;
 
@@ -115,6 +118,9 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
 
     /// <summary>The Type 3 glyphs whose procedures are running, innermost last.</summary>
     private readonly List<Type3Scope> _type3 = [];
+
+    /// <summary>The pattern shaders made for this recording, by pattern and matrix.</summary>
+    private readonly Dictionary<ShaderKey, SKShader> _shaders = [];
 
     /// <summary>The canvas of the page or picture recording itself.</summary>
     private SKCanvas _rootCanvas;
@@ -439,6 +445,7 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
             return;
         }
 
+        DisposeShaders();
         _shapeFilter?.Dispose();
         _lumaFilter?.Dispose();
         _maskPainter?.Dispose();
@@ -562,6 +569,13 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
 private static SKColor WhiteWithAlpha(float alpha) =>
         new(byte.MaxValue, byte.MaxValue, byte.MaxValue, (byte)MathF.Round(Math.Clamp(alpha, 0, 1) * AlphaMax));
+
+    /// <summary>Makes the shader of a shading pattern.</summary>
+    /// <param name="pattern">The pattern.</param>
+    /// <param name="local">The matrix from the shape's space to the pattern's.</param>
+    /// <returns>The shader, or null.</returns>
+    private static SKShader? MakeShadingShader(PdfPatternPaint pattern, SKMatrix local) =>
+        pattern.Shading?.GetShader() is { } source ? SkiaResources.Shader(source).WithLocalMatrix(local) : null;
 
     /// <summary>Creates the repeating shader of a tiling pattern's period.</summary>
     /// <param name="tile">The period.</param>
@@ -691,6 +705,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _glyphPaths.Clear();
         _knockout.Clear();
         _type3.Clear();
+        DisposeShaders();
         _pathBuilder.Reset();
         _paint.Reset();
         _paint.IsAntialias = true;
@@ -830,13 +845,13 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <param name="color">The colour.</param>
     /// <param name="alpha">The alpha.</param>
     /// <param name="matrix">The matrix the shape is drawn with, from shape space to the page.</param>
-    /// <returns>A shader to dispose after drawing, or null.</returns>
-    private SKShader? ApplyColor(in ColorState color, float alpha, Matrix3x2 matrix)
+    /// <returns>The shader's lease, which is disposed after drawing and releases the shader only when it was not kept for reuse.</returns>
+    private ShaderLease ApplyColor(in ColorState color, float alpha, Matrix3x2 matrix)
     {
         if (color.Pattern is not { } pattern)
         {
             _paint.Color = SkiaConversions.ToSkColor(color, alpha);
-            return null;
+            return default;
         }
 
         _paint.Color = WhiteWithAlpha(alpha);
@@ -846,22 +861,60 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _paint.IsDither = pattern.Shading?.AntiAlias == true;
         if (!Matrix3x2.Invert(matrix, out var inverse))
         {
-            return null;
+            return default;
         }
 
-        var local = SkiaConversions.ToSkMatrix(pattern.Matrix * inverse);
-        SKShader? shader = null;
-        if (pattern.Tile is { } tile)
+        var lease = GetPatternShader(pattern, SkiaConversions.ToSkMatrix(pattern.Matrix * inverse));
+        _paint.Shader = lease.Shader;
+        return lease;
+    }
+
+    /// <summary>
+    /// Gets the shader of a pattern for a matrix. A recording fills many shapes with one pattern at one matrix, so the shader is
+    /// made once and kept until the recording is recycled; past <see cref="MaxCachedShaders"/> it is made for the one draw.
+    /// </summary>
+    /// <param name="pattern">The pattern.</param>
+    /// <param name="local">The matrix from the shape's space to the pattern's.</param>
+    /// <returns>The shader's lease.</returns>
+    private ShaderLease GetPatternShader(PdfPatternPaint pattern, SKMatrix local)
+    {
+        object? source = pattern.Tile;
+        source ??= pattern.Shading;
+        if (source is null)
         {
-            shader = CreateTileShader(tile, local);
-        }
-        else if (pattern.Shading?.GetShader()is { } source)
-        {
-            shader = SkiaResources.Shader(source).WithLocalMatrix(local);
+            return default;
         }
 
-        _paint.Shader = shader;
-        return shader;
+        var key = new ShaderKey(source, local);
+        if (_shaders.TryGetValue(key, out var existing))
+        {
+            return new(existing, false);
+        }
+
+        var created = pattern.Tile is { } tile ? CreateTileShader(tile, local) : MakeShadingShader(pattern, local);
+        if (created is null)
+        {
+            return default;
+        }
+
+        if (_shaders.Count >= MaxCachedShaders)
+        {
+            return new(created, true);
+        }
+
+        _shaders.Add(key, created);
+        return new(created, false);
+    }
+
+    /// <summary>Releases the pattern shaders kept for the recording. A picture that drew with one keeps its own reference.</summary>
+    private void DisposeShaders()
+    {
+        foreach (var shader in _shaders.Values)
+        {
+            shader.Dispose();
+        }
+
+        _shaders.Clear();
     }
 
     /// <summary>Fills a shape.</summary>
@@ -898,7 +951,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _paint.IsAntialias = _smoothGraphics;
         _paint.BlendMode = ElementBlend(blend);
         var clipped = ClipShadingBox(color);
-        using var shader = ApplyColor(color, alpha, matrix);
+        using var lease = ApplyColor(color, alpha, matrix);
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
         _canvas.DrawPath(path, _paint);
         if (clipped)
@@ -1172,7 +1225,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
         _paint.PathEffect = dash;
         var clipped = ClipShadingBox(state.Stroke);
-        using var shader = ApplyColor(state.Stroke, pass.Alpha, matrix);
+        using var lease = ApplyColor(state.Stroke, pass.Alpha, matrix);
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
         shape.Draw(_canvas, _paint);
         if (pass.Hairline)
