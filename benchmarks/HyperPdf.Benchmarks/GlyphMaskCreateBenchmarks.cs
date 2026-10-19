@@ -26,8 +26,8 @@ public class GlyphMaskCreateBenchmarks
     /// <summary>How far down its pixel the glyph's origin is, in quarter pixels.</summary>
     private const byte SubY = 2;
 
-    /// <summary>The paint masks are made with, reused for every mask as the painter does.</summary>
-    private readonly SKPaint _paint = new();
+    /// <summary>What masks are made with, reused for every mask as the painter does.</summary>
+    private readonly GlyphMaskScratch _scratch = new();
 
     /// <summary>The outline of the test glyph.</summary>
     private SKPath _path = null!;
@@ -50,7 +50,7 @@ public class GlyphMaskCreateBenchmarks
     public void Cleanup()
     {
         _path.Dispose();
-        _paint.Dispose();
+        _scratch.Dispose();
     }
 
     /// <summary>Makes the mask of one glyph.</summary>
@@ -60,7 +60,7 @@ public class GlyphMaskCreateBenchmarks
     {
         var edges = Edges == "Lcd" ? GlyphMaskEdges.Lcd : GlyphMaskEdges.Smooth;
         var key = new GlyphMaskKey(this, 1, Scale, 0, 0, Scale, Shift, 1, SubY, edges, 0, 0);
-        _ = GlyphMaskRaster.TryCreate(new OutlineMaskSource(_path), key, _paint, out var mask);
+        _ = GlyphMaskRaster.TryCreate(new OutlineMaskSource(_path), key, _scratch, out var mask);
         var bytes = mask?.Bytes ?? 0;
         mask?.Image.Dispose();
         mask?.Cut?.Dispose();

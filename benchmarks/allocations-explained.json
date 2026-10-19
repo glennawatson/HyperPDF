@@ -2407,71 +2407,71 @@
   {
     "type": "System.Object",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "System.WeakReference",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "SkiaSharp.SKData",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "SkiaSharp.SKImage",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "SkiaSharp.SKBitmap",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.DrawCoverage",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "SkiaSharp.SKCanvas",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.DrawCoverage",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "HyperPdfLibrary.Rendering.GlyphMask",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "System.Object",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "System.WeakReference",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.DrawCoverage",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "SkiaSharp.SKData",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "SkiaSharp.SKImage",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "HyperPdfLibrary.Rendering.GlyphMask",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "System.Object",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.DrawCoverage",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   },
   {
     "type": "System.WeakReference",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
-    "reason": "Making a glyph mask costs the SkiaSharp wrappers of the bitmap and canvas it draws into and the image it keeps, and the mask record itself. The image and the mask are the result the cache keeps; the work buffers and the paint are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   }
 ]

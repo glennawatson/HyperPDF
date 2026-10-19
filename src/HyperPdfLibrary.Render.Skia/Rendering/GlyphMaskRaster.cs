@@ -41,10 +41,10 @@ internal static class GlyphMaskRaster
     /// <typeparam name="TSource">What the mask is drawn from.</typeparam>
     /// <param name="source">The glyph's outline, or the image mask, in its own space.</param>
     /// <param name="key">What the mask is for.</param>
-    /// <param name="paint">A paint the caller owns, which the glyph is drawn with so that no paint is made for each mask.</param>
+    /// <param name="scratch">The paint, bitmap and canvas the caller owns and the glyph is drawn with, so none is made for each mask.</param>
     /// <param name="mask">Receives the mask; <see langword="null"/> when the glyph paints nothing.</param>
     /// <returns><see langword="false"/> when the glyph is too large to draw from a mask.</returns>
-    internal static bool TryCreate<TSource>(TSource source, in GlyphMaskKey key, SKPaint paint, out GlyphMask? mask)
+    internal static bool TryCreate<TSource>(TSource source, in GlyphMaskKey key, GlyphMaskScratch scratch, out GlyphMask? mask)
         where TSource : struct, IGlyphMaskSource
     {
         mask = null;
@@ -78,7 +78,7 @@ internal static class GlyphMaskRaster
         var coverage = ArrayPool<byte>.Shared.Rent(width * columns * height);
         try
         {
-            var drawn = DrawCoverage(source, matrix, new(left, top, width * columns, height), key, new(paint, coverage));
+            var drawn = DrawCoverage(source, matrix, new(left, top, width * columns, height), key, new(scratch, coverage));
             mask = lcd ? MakeLcd(drawn, new(left, top, width, height), key.Color) : MakeGrey(drawn, new(left, top, width, height));
         }
         finally
@@ -95,27 +95,35 @@ internal static class GlyphMaskRaster
     /// <param name="matrix">The matrix to the mask's pixels before its offset.</param>
     /// <param name="area">The mask's offset from the glyph's pixel in pixels, and its size in sub-pixel columns and rows.</param>
     /// <param name="key">What the mask is for.</param>
-    /// <param name="work">The paint to draw with and the buffer that receives the coverage, which must hold the area's pixels.</param>
+    /// <param name="work">What to draw with and the buffer that receives the coverage, which must hold the area's pixels.</param>
     /// <returns>The coverage, a row after row of bytes, as the part of the buffer that holds it.</returns>
     private static ReadOnlySpan<byte> DrawCoverage<TSource>(TSource source, SKMatrix matrix, in MaskArea area, in GlyphMaskKey key, in CoverageWork work)
         where TSource : struct, IGlyphMaskSource
     {
         var columns = key.Edges == GlyphMaskEdges.Lcd ? SubPixels : 1;
-        using var bitmap = new SKBitmap(new(area.Width, area.Height, SKColorType.Alpha8, SKAlphaType.Premul));
-        using (var canvas = new SKCanvas(bitmap))
+        var canvas = work.Scratch.Canvas;
+        _ = canvas.Save();
+        canvas.ResetMatrix();
+        canvas.Clear(SKColors.Transparent);
+        canvas.Scale(columns, 1);
+        canvas.Translate(-area.Left, -area.Top);
+        canvas.Concat(in matrix);
+        var paint = work.Scratch.Paint;
+        paint.Reset();
+        paint.IsAntialias = key.Edges != GlyphMaskEdges.Sharp;
+        paint.Color = SKColors.White;
+        source.Draw(canvas, paint);
+        canvas.Restore();
+
+        // The bitmap is as wide as the widest mask, so each row of this mask is copied out of its longer row.
+        var pixels = work.Buffer.AsSpan(0, area.Width * area.Height);
+        var bitmap = work.Scratch.Bitmap;
+        var source8 = bitmap.GetPixelSpan();
+        for (var y = 0; y < area.Height; y++)
         {
-            canvas.Clear(SKColors.Transparent);
-            canvas.Scale(columns, 1);
-            canvas.Translate(-area.Left, -area.Top);
-            canvas.Concat(in matrix);
-            work.Paint.Reset();
-            work.Paint.IsAntialias = key.Edges != GlyphMaskEdges.Sharp;
-            work.Paint.Color = SKColors.White;
-            source.Draw(canvas, work.Paint);
+            source8.Slice(y * bitmap.RowBytes, area.Width).CopyTo(pixels.Slice(y * area.Width, area.Width));
         }
 
-        var pixels = work.Buffer.AsSpan(0, area.Width * area.Height);
-        bitmap.GetPixelSpan()[..pixels.Length].CopyTo(pixels);
         GlyphMaskContrast.Apply(pixels, key.Contrast);
         return pixels;
     }
@@ -205,9 +213,9 @@ internal static class GlyphMaskRaster
     }
 
     /// <summary>What a coverage drawing works with, so none of it is made for each mask.</summary>
-    /// <param name="Paint">The paint the glyph is drawn with.</param>
+    /// <param name="Scratch">The paint, bitmap and canvas the glyph is drawn with.</param>
     /// <param name="Buffer">The buffer that receives the coverage.</param>
-    private readonly record struct CoverageWork(SKPaint Paint, byte[] Buffer);
+    private readonly record struct CoverageWork(GlyphMaskScratch Scratch, byte[] Buffer);
 
     /// <summary>Where a mask sits and how big it is.</summary>
     /// <param name="Left">The offset of the mask's left side from the glyph's pixel.</param>

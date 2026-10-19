@@ -17,11 +17,11 @@ internal sealed class GlyphMaskPainter : IDisposable
     /// <summary>The paint a mask is drawn with.</summary>
     private readonly SKPaint _paint = new() { IsAntialias = false };
 
-    /// <summary>The paint glyphs are drawn with when a mask is made.</summary>
-    private readonly SKPaint _coveragePaint = new();
-
     /// <summary>The masks every device of the backend shares.</summary>
     private readonly SkiaGlyphMasks _masks;
+
+    /// <summary>What glyphs are drawn with when a mask is made, made when the first mask is.</summary>
+    private GlyphMaskScratch? _scratch;
 
     /// <summary>Initializes a new instance of the <see cref="GlyphMaskPainter"/> class.</summary>
     /// <param name="masks">The masks every device of the backend shares.</param>
@@ -32,7 +32,7 @@ internal sealed class GlyphMaskPainter : IDisposable
     public void Dispose()
     {
         _paint.Dispose();
-        _coveragePaint.Dispose();
+        _scratch?.Dispose();
     }
 
     /// <summary>Draws one glyph from its mask.</summary>
@@ -101,7 +101,8 @@ internal sealed class GlyphMaskPainter : IDisposable
             return true;
         }
 
-        if (!GlyphMaskRaster.TryCreate(glyph.Source, key, _coveragePaint, out var created))
+        _scratch ??= new();
+        if (!GlyphMaskRaster.TryCreate(glyph.Source, key, _scratch, out var created))
         {
             return false;
         }
