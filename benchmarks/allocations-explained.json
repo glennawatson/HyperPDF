@@ -1938,5 +1938,50 @@
     "type": "VolatileNode[System.IntPtr,SkiaSharp.SKObject][]",
     "frame": "HyperPdfLibrary.Rendering.TileComposer.Compose(class SkiaSharp.SKPicture,value class HyperPdfLibrary.Objects.PdfRectangle,float32,float32,float32)",
     "reason": "Composing one PDF tiling period publishes an independently owned pattern cell and native image or picture. Raster periods need a surface at their bounded pixel size; SkiaSharp creates the native wrappers and child-handle tracking collections at this boundary. The document caches the completed period for later uses."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextHitBlock[]",
+    "frame": "HyperPdf.Benchmarks.HyperPdfTextHitBuildBenchmarks.BuildBlocks",
+    "reason": "The runtime inlined HyperPdfLibrary.Text.TextHitTesting.BuildBlocks into the benchmark method, so the trace names the caller. The array is the hit-test index of a text page, built once with the page and then read without allocation."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextHitBlock[]",
+    "frame": "HyperPdfLibrary.Text.TextHitTesting.BuildBlocks",
+    "reason": "The blocks are the hit-test index of a text page, built once with the page for 128 or more characters and then read by every point query without allocation. The text page keeps the array, so it cannot live in pooled or stack storage."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Text.TextFolding.Fold",
+    "reason": "The folded string is the search text of one page under one set of search options. The page search keeps it, with its index map, for every later query of that page, so it cannot be pooled."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.FoldedText",
+    "frame": "HyperPdfLibrary.Text.TextFolding.Fold",
+    "reason": "The folded text is the detached result that holds the folded string and its index map."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Export.TextExportSink.Build",
+    "reason": "The string is the HTML or Markdown the caller asked for. The text is pooled until it is complete, so this is the only allocation of the export, and a caller that must avoid it writes a page at a time to a TextWriter."
+  },
+  {
+    "type": "HyperPdf.Core.Layout.LayoutRect[]",
+    "frame": "HyperPdf.Core.Layout.DocumentLayout.Create",
+    "reason": "The page bounds are the returned layout's data, one rectangle for each page. The layout is built once for a document and zoom, then queried without allocation, so the array cannot live in pooled or stack storage."
+  },
+  {
+    "type": "System.Double[]",
+    "frame": "HyperPdf.Core.Layout.DocumentLayout.Create",
+    "reason": "The row tops and bottoms are part of the returned layout and are read by every later position query."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Layout.DocumentLayout.Create",
+    "reason": "The first page of each row is part of the returned layout and is read by every later position query."
+  },
+  {
+    "type": "HyperPdf.Core.Layout.DocumentLayout",
+    "frame": "HyperPdf.Core.Layout.DocumentLayout.Create",
+    "reason": "The layout is the detached result of the calculation."
   }
 ]

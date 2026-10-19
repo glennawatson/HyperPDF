@@ -195,6 +195,6 @@ public class HyperPdfHitTestingBlockBenchmarks
         /// <param name="runs">The existing run indexes.</param>
         /// <returns>The text page.</returns>
         public static PdfTextPage CreatePage(PdfPage page, PdfTextChar[] chars, int[] runs) =>
-            new(page, chars, runs, string.Empty, []);
+            new(page, chars, runs, null, new([], new int[chars.Length], null), string.Empty, []);
     }
 }

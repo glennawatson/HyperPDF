@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using System.Text;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Text;
@@ -75,10 +74,33 @@ public static class PdfTextExport
     private static string Write(PdfTextPage page, TextExportFormat format)
     {
         var text = page.Text;
-        var builder = new StringBuilder(text.Length);
+        var sink = new TextExportSink(text.Length + text.Length);
+        try
+        {
+            return Write(page, format, ref sink);
+        }
+        finally
+        {
+            sink.Dispose();
+        }
+    }
+
+    /// <summary>Writes the text of a page into a sink.</summary>
+    /// <param name="page">The page's text.</param>
+    /// <param name="format">The markup language to write.</param>
+    /// <param name="sink">Receives the characters.</param>
+    /// <returns>The text.</returns>
+    private static string Write(PdfTextPage page, TextExportFormat format, ref TextExportSink sink)
+    {
+        var text = page.Text;
         var emphasis = TextEmphasis.None;
         var breaks = 0;
         var started = false;
+        if (format == TextExportFormat.Html)
+        {
+            sink.Append("<p>");
+        }
+
         for (var i = 0; i < text.Length; i++)
         {
             if (text[i] is '\r' or '\n')
@@ -89,18 +111,18 @@ public static class PdfTextExport
 
             if (breaks > 0 && started)
             {
-                emphasis = Close(builder, emphasis, format);
-                Break(builder, format, breaks);
+                emphasis = Close(ref sink, emphasis, format);
+                Break(ref sink, format, breaks);
             }
 
             breaks = 0;
             started = true;
-            emphasis = Change(builder, emphasis, EmphasisOf(page, i), format);
-            Append(builder, text[i], format);
+            emphasis = Change(ref sink, emphasis, EmphasisOf(page, i), format);
+            Append(ref sink, text[i], format);
         }
 
-        _ = Close(builder, emphasis, format);
-        return Finish(builder, format, started);
+        _ = Close(ref sink, emphasis, format);
+        return started ? Finish(ref sink, format) : string.Empty;
     }
 
     /// <summary>Consumes one line break, and counts it.</summary>
@@ -137,132 +159,138 @@ public static class PdfTextExport
     }
 
     /// <summary>Moves from one emphasis to another by closing and opening the tags that differ.</summary>
-    /// <param name="builder">The output.</param>
+    /// <param name="sink">The output.</param>
     /// <param name="current">The emphasis now open.</param>
     /// <param name="next">The emphasis the next character needs.</param>
     /// <param name="format">The markup language being written.</param>
     /// <returns>The emphasis that is open once the tags are written.</returns>
-    private static TextEmphasis Change(StringBuilder builder, TextEmphasis current, TextEmphasis next, TextExportFormat format)
+    private static TextEmphasis Change(ref TextExportSink sink, TextEmphasis current, TextEmphasis next, TextExportFormat format)
     {
         if (current == next)
         {
             return current;
         }
 
-        _ = Close(builder, current, format);
-        Open(builder, next, format);
+        _ = Close(ref sink, current, format);
+        Open(ref sink, next, format);
         return next;
     }
 
     /// <summary>Closes every open emphasis.</summary>
-    /// <param name="builder">The output.</param>
+    /// <param name="sink">The output.</param>
     /// <param name="current">The emphasis now open.</param>
     /// <param name="format">The markup language being written.</param>
     /// <returns>No emphasis.</returns>
-    private static TextEmphasis Close(StringBuilder builder, TextEmphasis current, TextExportFormat format)
+    private static TextEmphasis Close(ref TextExportSink sink, TextEmphasis current, TextExportFormat format)
     {
         if (format == TextExportFormat.Html)
         {
-            AppendIf(builder, current, TextEmphasis.Underline, "</u>");
-            AppendIf(builder, current, TextEmphasis.Italic, "</em>");
-            AppendIf(builder, current, TextEmphasis.Bold, "</strong>");
+            AppendIf(ref sink, current, TextEmphasis.Underline, "</u>");
+            AppendIf(ref sink, current, TextEmphasis.Italic, "</em>");
+            AppendIf(ref sink, current, TextEmphasis.Bold, "</strong>");
             return TextEmphasis.None;
         }
 
-        AppendIf(builder, current, TextEmphasis.Italic, "*");
-        AppendIf(builder, current, TextEmphasis.Bold, "**");
+        AppendIf(ref sink, current, TextEmphasis.Italic, "*");
+        AppendIf(ref sink, current, TextEmphasis.Bold, "**");
         return TextEmphasis.None;
     }
 
     /// <summary>Opens every emphasis in a set.</summary>
-    /// <param name="builder">The output.</param>
+    /// <param name="sink">The output.</param>
     /// <param name="next">The emphasis to open.</param>
     /// <param name="format">The markup language being written.</param>
-    private static void Open(StringBuilder builder, TextEmphasis next, TextExportFormat format)
+    private static void Open(ref TextExportSink sink, TextEmphasis next, TextExportFormat format)
     {
         if (format == TextExportFormat.Html)
         {
-            AppendIf(builder, next, TextEmphasis.Bold, "<strong>");
-            AppendIf(builder, next, TextEmphasis.Italic, "<em>");
-            AppendIf(builder, next, TextEmphasis.Underline, "<u>");
+            AppendIf(ref sink, next, TextEmphasis.Bold, "<strong>");
+            AppendIf(ref sink, next, TextEmphasis.Italic, "<em>");
+            AppendIf(ref sink, next, TextEmphasis.Underline, "<u>");
             return;
         }
 
-        AppendIf(builder, next, TextEmphasis.Bold, "**");
-        AppendIf(builder, next, TextEmphasis.Italic, "*");
+        AppendIf(ref sink, next, TextEmphasis.Bold, "**");
+        AppendIf(ref sink, next, TextEmphasis.Italic, "*");
     }
 
     /// <summary>Appends a tag when a flag is set.</summary>
-    /// <param name="builder">The output.</param>
+    /// <param name="sink">The output.</param>
     /// <param name="set">The emphasis to look in.</param>
     /// <param name="flag">The flag that wants the tag.</param>
     /// <param name="tag">The tag text.</param>
-    private static void AppendIf(StringBuilder builder, TextEmphasis set, TextEmphasis flag, string tag)
+    private static void AppendIf(ref TextExportSink sink, TextEmphasis set, TextEmphasis flag, ReadOnlySpan<char> tag)
     {
         if ((set & flag) != 0)
         {
-            _ = builder.Append(tag);
+            sink.Append(tag);
         }
     }
 
     /// <summary>Writes a line or paragraph break.</summary>
-    /// <param name="builder">The output.</param>
+    /// <param name="sink">The output.</param>
     /// <param name="format">The markup language being written.</param>
     /// <param name="breaks">The line breaks in the text: one is a line break, more start a paragraph.</param>
-    private static void Break(StringBuilder builder, TextExportFormat format, int breaks)
+    private static void Break(ref TextExportSink sink, TextExportFormat format, int breaks)
     {
         if (format == TextExportFormat.Html)
         {
-            _ = builder.Append(breaks > 1 ? "</p>\n<p>" : "<br>\n");
+            sink.Append(breaks > 1 ? "</p>\n<p>" : "<br>\n");
             return;
         }
 
-        _ = builder.Append(breaks > 1 ? "\n\n" : "  \n");
+        sink.Append(breaks > 1 ? "\n\n" : "  \n");
     }
 
     /// <summary>Appends a character, escaped for the format.</summary>
-    /// <param name="builder">The output.</param>
+    /// <param name="sink">The output.</param>
     /// <param name="c">The character.</param>
     /// <param name="format">The markup language being written.</param>
-    private static void Append(StringBuilder builder, char c, TextExportFormat format)
+    private static void Append(ref TextExportSink sink, char c, TextExportFormat format)
     {
         if (format == TextExportFormat.Html)
         {
-            _ = HtmlEntity(c) is { } entity ? builder.Append(entity) : builder.Append(c);
+            var entity = HtmlEntity(c);
+            if (entity.IsEmpty)
+            {
+                sink.Append(c);
+                return;
+            }
+
+            sink.Append(entity);
             return;
         }
 
         if (MarkdownSpecials.Contains(c, StringComparison.Ordinal))
         {
-            _ = builder.Append('\\');
+            sink.Append('\\');
         }
 
-        _ = builder.Append(c);
+        sink.Append(c);
     }
 
     /// <summary>Gets the HTML entity for a character that HTML reads as markup.</summary>
     /// <param name="c">The character.</param>
-    /// <returns>The entity; <see langword="null"/> when the character needs none.</returns>
-    private static string? HtmlEntity(char c) => c switch
+    /// <returns>The entity; empty when the character needs none.</returns>
+    private static ReadOnlySpan<char> HtmlEntity(char c) => c switch
     {
         '&' => "&amp;",
         '<' => "&lt;",
         '>' => "&gt;",
-        _ => null,
+        _ => default,
     };
 
-    /// <summary>Wraps the finished text.</summary>
-    /// <param name="builder">The output.</param>
+    /// <summary>Wraps the finished text in the format's outer markup and makes it a string.</summary>
+    /// <param name="sink">The output.</param>
     /// <param name="format">The markup language being written.</param>
-    /// <param name="started">Whether any text was written.</param>
     /// <returns>The result.</returns>
-    private static string Finish(StringBuilder builder, TextExportFormat format, bool started)
+    private static string Finish(ref TextExportSink sink, TextExportFormat format)
     {
-        if (!started)
+        if (format == TextExportFormat.Html)
         {
-            return string.Empty;
+            sink.Append("</p>");
         }
 
-        return format == TextExportFormat.Html ? $"<p>{builder}</p>" : builder.ToString();
+        return sink.Build();
     }
 }
