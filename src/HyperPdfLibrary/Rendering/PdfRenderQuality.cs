@@ -16,8 +16,14 @@ public sealed record PdfRenderQuality
     /// <summary>The thickest minimum line width, in device pixels.</summary>
     private const float LineWidthLimit = 8;
 
+    /// <summary>The highest text contrast level.</summary>
+    private const int TextContrastLimit = 3;
+
     /// <summary>Gets the thickest minimum line width, in device pixels.</summary>
     public static float MaxMinimumLineWidth => LineWidthLimit;
+
+    /// <summary>Gets the highest text contrast level.</summary>
+    public static int MaxTextContrast => TextContrastLimit;
 
     /// <summary>Gets the default settings: smooth edges everywhere, no line fitting, and area-averaged image reduction.</summary>
     public static PdfRenderQuality Default { get; } = new();
@@ -43,9 +49,27 @@ public sealed record PdfRenderQuality
     /// <summary>Gets a value indicating whether images that shrink a lot are reduced by averaging the source pixels each output pixel covers.</summary>
     public bool AreaImageReduction { get; init; } = true;
 
+    /// <summary>
+    /// Gets a value indicating whether small text is drawn from cached glyph masks (a mask for each glyph, size and position
+    /// within a pixel) instead of filling the outline each time. Pictures recorded this way belong to one zoom.
+    /// </summary>
+    public bool GlyphMasks { get; init; }
+
+    /// <summary>Gets how glyphs are fitted to the pixel grid; any choice other than none draws small text from glyph masks.</summary>
+    public PdfTextHinting TextHinting { get; init; }
+
+    /// <summary>Gets how much darker the edges of small text are drawn, from 0 (as the font gives them) to <see cref="MaxTextContrast"/>; above 0 draws small text from glyph masks.</summary>
+    public int TextContrast { get; init; }
+
     /// <summary>Gets the minimum line width clamped to its range, with a non-finite value counting as off.</summary>
     public float EffectiveMinimumLineWidth => float.IsFinite(MinimumLineWidth) ? Math.Clamp(MinimumLineWidth, 0, MaxMinimumLineWidth) : 0;
 
+    /// <summary>Gets the text contrast clamped to its range.</summary>
+    public int EffectiveTextContrast => Math.Clamp(TextContrast, 0, TextContrastLimit);
+
+    /// <summary>Gets a value indicating whether small text is drawn from glyph masks: asked for, or needed by the hinting, contrast or LCD choice.</summary>
+    public bool UsesGlyphMasks => GlyphMasks || TextHinting != PdfTextHinting.None || EffectiveTextContrast > 0 || TextEdges == PdfTextEdges.Lcd;
+
     /// <summary>Gets a value indicating whether the recording needs to know the exact page-to-device matrix.</summary>
-    internal bool NeedsDeviceMatrix => StrokeAdjustment != PdfStrokeAdjustment.Off || MinimumLineWidth > 0;
+    internal bool NeedsDeviceMatrix => StrokeAdjustment != PdfStrokeAdjustment.Off || MinimumLineWidth > 0 || UsesGlyphMasks;
 }

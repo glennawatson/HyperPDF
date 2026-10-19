@@ -149,6 +149,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>The registered backend's pool that owns this rental, or null for a directly constructed device.</summary>
     private ReusableSlots<SkiaContentDevice>? _pool;
 
+    /// <summary>The glyph masks every device of the backend shares, or null when small text is always filled from its outline.</summary>
+    private SkiaGlyphMasks? _masks;
+
+    /// <summary>Draws small text from glyph masks; made when the first mask is drawn.</summary>
+    private GlyphMaskPainter? _maskPainter;
+
     /// <summary>One once <see cref="Dispose"/> has run since the recording began.</summary>
     private int _disposed;
 
@@ -261,7 +267,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
         using var pathLease = GetGlyphPath(glyph.Font, glyph.Code, outline);
         var path = pathLease.Path;
         var masked = BeginMask(ref state, path.Bounds, matrix);
-        if (IsMode(FillModes, mode) && !state.Fill.PaintsNothing)
+        if (IsMode(FillModes, mode) && !state.Fill.PaintsNothing && !(CanDrawMask(ref state, masked.Active) && TryDrawMask(glyph, path, matrix, ref state)))
         {
             FillTextShape(path, matrix, state.Fill, state.FillAlpha, state.BlendMode);
         }
@@ -372,11 +378,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
         var style = new PdfPictureStyle(_quality, null);
         if (_pool is { } pool)
         {
-            return Rent(pool, bounds, Weight, style);
+            return Rent(pool, bounds, Weight, style, _masks);
         }
 
         var created = new SkiaContentDevice(bounds, Weight);
         created.Configure(style);
+        created._masks = _masks;
         return created;
     }
 
@@ -409,6 +416,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
 
         _shapeFilter?.Dispose();
         _lumaFilter?.Dispose();
+        _maskPainter?.Dispose();
         _paint.Dispose();
         foreach (var path in _glyphPaths.Values)
         {
@@ -429,7 +437,16 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
     /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight) => Rent(pool, cull, weight, Plain);
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight) => Rent(pool, cull, weight, Plain, null);
+
+    /// <summary>Hands out an idle device, or makes one when none is idle. Dispose it to give it back.</summary>
+    /// <param name="pool">The registered backend's idle devices.</param>
+    /// <param name="cull">The area the picture covers.</param>
+    /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
+    /// <param name="masks">The glyph masks the backend's devices share.</param>
+    /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight, SkiaGlyphMasks masks) => Rent(pool, cull, weight, Plain, masks);
 
     /// <summary>Hands out an idle device, or makes one when none is idle, for a picture shown in a known way. Dispose it to give it back.</summary>
     /// <param name="pool">The registered backend's idle devices.</param>
@@ -437,7 +454,17 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
     /// <param name="style">How the picture is shown: the quality settings and the page matrix.</param>
     /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
-    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight, in PdfPictureStyle style)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight, in PdfPictureStyle style) => Rent(pool, cull, weight, style, null);
+
+    /// <summary>Hands out an idle device, or makes one when none is idle, for a picture shown in a known way. Dispose it to give it back.</summary>
+    /// <param name="pool">The registered backend's idle devices.</param>
+    /// <param name="cull">The area the picture covers.</param>
+    /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
+    /// <param name="style">How the picture is shown: the quality settings and the page matrix.</param>
+    /// <param name="masks">The glyph masks the backend's devices share, or null to fill every glyph from its outline.</param>
+    /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight, in PdfPictureStyle style, SkiaGlyphMasks? masks)
     {
         var device = pool.Take();
         if (device is null)
@@ -451,6 +478,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
 
         device.Configure(style);
         device._pool = pool;
+        device._masks = masks;
         return device;
     }
 
@@ -1270,6 +1298,27 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _paint.Color = WhiteWithAlpha(alpha);
         _paint.BlendMode = ElementBlend(blend);
         _canvas.DrawPaint(_paint);
+    }
+
+    /// <summary>Determines whether a glyph may be drawn from a mask: the recording serves one page matrix, the fill is a plain colour and no soft mask or knockout group shapes it.</summary>
+    /// <param name="state">The graphics state.</param>
+    /// <param name="masked">Whether a soft mask is in effect for the glyph.</param>
+    /// <returns><see langword="true"/> when a mask can draw the glyph.</returns>
+    private bool CanDrawMask(ref GraphicsState state, bool masked) =>
+        _masks is not null && _hasDevice && _quality.UsesGlyphMasks && !masked && state.Fill.Pattern is null && !(_knockout.Count > 0 && _knockout[^1]);
+
+    /// <summary>Draws a glyph from its mask.</summary>
+    /// <param name="glyph">The glyph.</param>
+    /// <param name="path">The glyph's native outline.</param>
+    /// <param name="matrix">The matrix from the outline to the recording's space.</param>
+    /// <param name="state">The graphics state.</param>
+    /// <returns><see langword="true"/> when the glyph was drawn; <see langword="false"/> when it must be filled from its outline.</returns>
+    private bool TryDrawMask(in GlyphEvent glyph, SKPath path, Matrix3x2 matrix, ref GraphicsState state)
+    {
+        var plain = _frames.Count == 0 && state.BlendMode == PdfBlendMode.Normal && state.FillAlpha >= 1;
+        var style = new GlyphMaskStyle(_quality, SkiaConversions.ToSkColor(state.Fill, state.FillAlpha), ElementBlend(state.BlendMode), plain);
+        _maskPainter ??= new(_masks!);
+        return _maskPainter.TryDraw(_canvas, _deviceInverse, new(glyph.Font, glyph.Code, path, matrix * _device), style);
     }
 
     /// <summary>Fills glyph outlines with the text edge setting rather than the graphics one.</summary>
