@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using HyperPdf.App.Services;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Search;
@@ -71,6 +72,14 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
     /// <summary>Gets or sets a value indicating whether only whole words match.</summary>
     [Reactive]
     public partial bool WholeWord { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether accents are ignored, so "resume" finds "résumé".</summary>
+    [Reactive]
+    public partial bool IgnoreDiacritics { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether look-alike characters match: curly and straight quotes, dashes and full-width letters.</summary>
+    [Reactive]
+    public partial bool FoldCompatibility { get; set; }
 
     /// <summary>Gets or sets a value indicating whether subfolders are searched too.</summary>
     [Reactive]
@@ -217,8 +226,8 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the search options.</summary>
     /// <returns>The options.</returns>
-    private SearchOptions Options() =>
-        (MatchCase ? SearchOptions.MatchCase : SearchOptions.None) | (WholeWord ? SearchOptions.WholeWord : SearchOptions.None);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private SearchOptions Options() => SearchOptionChoices.Of(MatchCase, WholeWord, IgnoreDiacritics, FoldCompatibility);
 
     /// <summary>Asks for a folder.</summary>
     /// <returns>A task.</returns>

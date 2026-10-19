@@ -470,6 +470,12 @@ public static class Descriptions
     /// <summary>The whole words option.</summary>
     public static readonly string WholeWords = "Only find whole words, not parts of longer words.";
 
+    /// <summary>The ignore accents option.</summary>
+    public static readonly string IgnoreAccents = "Find letters with or without accents, so resume also finds résumé.";
+
+    /// <summary>The similar characters option.</summary>
+    public static readonly string SimilarCharacters = "Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters.";
+
     /// <summary>The previous result button.</summary>
     public static readonly string PreviousResult = $"Go to the previous result.{Shortcut}Shift+F3";
 

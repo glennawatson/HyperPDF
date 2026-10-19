@@ -32,6 +32,8 @@ public sealed partial class FolderSearchWindow : ReactiveUI.Avalonia.ReactiveWin
             disposables.Add(this.Bind(ViewModel, static vm => vm.Query, static v => v.QueryBox.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.MatchCase, static v => v.MatchCaseBox.IsChecked, static on => on, static value => value == true));
             disposables.Add(this.Bind(ViewModel, static vm => vm.WholeWord, static v => v.WholeWordBox.IsChecked, static on => on, static value => value == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IgnoreDiacritics, static v => v.IgnoreAccentsBox.IsChecked, static on => on, static value => value == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.FoldCompatibility, static v => v.SimilarCharactersBox.IsChecked, static on => on, static value => value == true));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IncludeSubfolders, static v => v.SubfoldersBox.IsChecked, static on => on, static value => value == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Status, static v => v.StatusText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Results, static v => v.ResultList.ItemsSource));

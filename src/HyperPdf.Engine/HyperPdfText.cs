@@ -202,6 +202,16 @@ internal static class HyperPdfText
             result |= PdfTextSearchOptions.WholeWord;
         }
 
+        if ((options & SearchOptions.IgnoreDiacritics) != 0)
+        {
+            result |= PdfTextSearchOptions.IgnoreDiacritics;
+        }
+
+        if ((options & SearchOptions.FoldCompatibility) != 0)
+        {
+            result |= PdfTextSearchOptions.FoldCompatibility;
+        }
+
         return result;
     }
 

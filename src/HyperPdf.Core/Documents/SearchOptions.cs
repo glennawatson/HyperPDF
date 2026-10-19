@@ -16,4 +16,10 @@ public enum SearchOptions
 
     /// <summary>Match whole words only.</summary>
     WholeWord = 1 << 1,
+
+    /// <summary>Ignore accents and other combining marks, so "resume" finds "résumé".</summary>
+    IgnoreDiacritics = 1 << 2,
+
+    /// <summary>Treat look-alike characters as equal: full-width forms, curly and straight quotes, dashes and typographic spaces.</summary>
+    FoldCompatibility = 1 << 3,
 }

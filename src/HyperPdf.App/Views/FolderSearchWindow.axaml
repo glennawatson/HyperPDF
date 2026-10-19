@@ -25,6 +25,10 @@
         <CheckBox x:Name="WholeWordBox" views:ControlHelp.Text="{x:Static views:Descriptions.WholeWords}" Content="_Whole words" />
         <CheckBox x:Name="SubfoldersBox" views:ControlHelp.Text="{x:Static views:Descriptions.Subfolders}" Content="Include sub_folders" />
       </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="16" Margin="70,0,0,0">
+        <CheckBox x:Name="IgnoreAccentsBox" views:ControlHelp.Text="{x:Static views:Descriptions.IgnoreAccents}" Content="Ignore _accents" />
+        <CheckBox x:Name="SimilarCharactersBox" views:ControlHelp.Text="{x:Static views:Descriptions.SimilarCharacters}" Content="Match s_imilar characters" />
+      </StackPanel>
       <TextBlock x:Name="StatusText" Classes="secondary" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" />
     </StackPanel>
     <ListBox Grid.Row="1" x:Name="ResultList" Margin="0,12,0,0" AutomationProperties.Name="Results" />

@@ -31,6 +31,8 @@ public sealed partial class FindBarView : ReactiveUI.Avalonia.ReactiveUserContro
             disposables.Add(this.Bind(ViewModel, static vm => vm.Search.Query, static v => v.SearchBox.Text, static query => query, static text => text ?? string.Empty));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Search.MatchCase, static v => v.MatchCaseToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Search.WholeWord, static v => v.WholeWordToggle.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Search.IgnoreDiacritics, static v => v.IgnoreAccentsToggle.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Search.FoldCompatibility, static v => v.SimilarCharactersToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Search.PreviousCommand, static v => v.PreviousResultButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Search.NextCommand, static v => v.NextResultButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Search.CloseCommand, static v => v.CloseFindButton));

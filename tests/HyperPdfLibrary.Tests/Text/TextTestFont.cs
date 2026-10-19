@@ -41,6 +41,12 @@ internal sealed class TextTestFont : PdfFont
     /// <summary>The code mapped to the single ligature U+FB01.</summary>
     internal const int FiLigatureCode = 3;
 
+    /// <summary>The code mapped to the combining acute accent, U+0301.</summary>
+    internal const int CombiningAcuteCode = 4;
+
+    /// <summary>The code mapped to the combining dot below, U+0323.</summary>
+    internal const int CombiningDotBelowCode = 5;
+
     /// <summary>The first code mapped to Hebrew.</summary>
     internal const int FirstHebrewCode = 0xA0;
 
@@ -61,6 +67,12 @@ internal sealed class TextTestFont : PdfFont
 
     /// <summary>The single ligature fi.</summary>
     private const char FiLigature = (char)0xFB01;
+
+    /// <summary>The combining acute accent.</summary>
+    private const char CombiningAcute = (char)0x0301;
+
+    /// <summary>The combining dot below.</summary>
+    private const char CombiningDotBelow = (char)0x0323;
 
     /// <summary>The glyph outline.</summary>
     private readonly PdfPath _box;
@@ -117,6 +129,18 @@ internal sealed class TextTestFont : PdfFont
             case FiLigatureCode:
             {
                 destination[0] = FiLigature;
+                return 1;
+            }
+
+            case CombiningAcuteCode:
+            {
+                destination[0] = CombiningAcute;
+                return 1;
+            }
+
+            case CombiningDotBelowCode:
+            {
+                destination[0] = CombiningDotBelow;
                 return 1;
             }
 
