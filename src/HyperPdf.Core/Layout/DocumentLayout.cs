@@ -85,19 +85,19 @@ public sealed record DocumentLayout
             return Empty;
         }
 
-        var rowCount = PageRows.GetRowCount(sizes.Length, options.Mode);
+        var rowFirstPage = LayoutRows.GetStarts(sizes, options);
+        var rowCount = rowFirstPage.Length;
         var pages = new LayoutRect[sizes.Length];
         var rowTops = new double[rowCount];
         var rowBottoms = new double[rowCount];
-        var rowFirstPage = new int[rowCount];
 
         // The row widths wait in the bottoms array until the second pass has read each one and writes the real bottom.
         var rowWidths = rowBottoms;
         var contentWidth = 0.0;
         for (var row = 0; row < rowCount; row++)
         {
-            PageRows.GetRowPages(row, sizes.Length, options.Mode, out var first, out var count);
-            rowFirstPage[row] = first;
+            var first = rowFirstPage[row];
+            var count = GetRowLength(rowFirstPage, row, sizes.Length);
             var width = GetSlotWidth(sizes, options, row, first, count);
             rowWidths[row] = width;
             contentWidth = Math.Max(contentWidth, width);
@@ -107,7 +107,8 @@ public sealed record DocumentLayout
         var y = options.Margin;
         for (var row = 0; row < rowCount; row++)
         {
-            PageRows.GetRowPages(row, sizes.Length, options.Mode, out var first, out var count);
+            var first = rowFirstPage[row];
+            var count = GetRowLength(rowFirstPage, row, sizes.Length);
             var rowHeight = 0.0;
             for (var i = first; i < first + count; i++)
             {
@@ -116,7 +117,7 @@ public sealed record DocumentLayout
 
             PlaceRow(sizes, options, pages, new(row, first, count), (extentWidth - rowWidths[row]) / Halves, rowWidths[row], new(y, rowHeight));
 
-            if (options.PageByPage)
+            if (options.PageByPage && options.Scroll == ScrollMode.Vertical)
             {
                 // Slots are flush and at least a viewport tall, so nothing of a neighbouring row shows.
                 var slot = Math.Max(rowHeight + (Halves * options.Margin), options.ViewportHeight);
@@ -132,7 +133,7 @@ public sealed record DocumentLayout
             y += rowHeight + options.Spacing;
         }
 
-        var extentHeight = options.PageByPage ? y - options.Margin : y - options.Spacing + options.Margin;
+        var extentHeight = options.PageByPage && options.Scroll == ScrollMode.Vertical ? y - options.Margin : y - options.Spacing + options.Margin;
         return new(pages, rowTops, rowBottoms, rowFirstPage, extentWidth, extentHeight, options);
     }
 
@@ -182,13 +183,47 @@ public sealed record DocumentLayout
         last = lastRow + 1 < _rowFirstPage.Length ? _rowFirstPage[lastRow + 1] - 1 : _pages.Length - 1;
     }
 
+    /// <summary>Gets the pages intersecting a rectangle. A horizontal layout looks at the sides of the rectangle; the others at its top and bottom.</summary>
+    /// <param name="left">The left of the rectangle.</param>
+    /// <param name="right">The right of the rectangle.</param>
+    /// <param name="top">The top of the rectangle.</param>
+    /// <param name="bottom">The bottom of the rectangle.</param>
+    /// <param name="first">The first visible page, or -1 when none.</param>
+    /// <param name="last">The last visible page, or -2 when none.</param>
+    public void GetVisiblePages(double left, double right, double top, double bottom, out int first, out int last)
+    {
+        if (Options.Scroll != ScrollMode.Horizontal)
+        {
+            GetVisiblePages(top, bottom, out first, out last);
+            return;
+        }
+
+        first = -1;
+        last = NoLastPage;
+        if (_pages.Length == 0 || right < left)
+        {
+            return;
+        }
+
+        var start = FirstPageWhere(!Options.RightToLeft, Options.RightToLeft ? right : left, true);
+        var mirrored = Options.RightToLeft;
+        var end = FirstPageWhere(mirrored, mirrored ? left : right, false) - 1;
+        if (start >= _pages.Length || end < start)
+        {
+            return;
+        }
+
+        first = start;
+        last = end;
+    }
+
     /// <summary>Gets the page at a point.</summary>
     /// <param name="x">The x coordinate.</param>
     /// <param name="y">The y coordinate.</param>
     /// <returns>The page index, or -1.</returns>
     public int HitTest(double x, double y)
     {
-        GetVisiblePages(y, y, out var first, out var last);
+        GetVisiblePages(x, x, y, y, out var first, out var last);
         for (var i = first; i <= last && i >= 0; i++)
         {
             if (_pages[i].Contains(x, y))
@@ -214,6 +249,20 @@ public sealed record DocumentLayout
         return _rowFirstPage[Math.Min(row, _rowFirstPage.Length - 1)];
     }
 
+    /// <summary>Gets the page nearest a point, which for a horizontal layout is the page nearest its horizontal position.</summary>
+    /// <param name="x">The horizontal position.</param>
+    /// <param name="y">The vertical position.</param>
+    /// <returns>The page index, or -1 when the layout is empty.</returns>
+    public int GetPageNearest(double x, double y)
+    {
+        if (Options.Scroll != ScrollMode.Horizontal)
+        {
+            return GetPageNearest(y);
+        }
+
+        return _pages.Length == 0 ? -1 : Math.Min(FirstPageWhere(!Options.RightToLeft, x, true), _pages.Length - 1);
+    }
+
     /// <summary>
     /// Gets the current page for the page indicator: the page in the row nearest a vertical offset. A spread shows two
     /// pages, so <paramref name="preferredPage"/> is kept when it is one of them; otherwise the row's first page is used.
@@ -234,6 +283,22 @@ public sealed record DocumentLayout
         return preferredPage >= first && preferredPage < end ? preferredPage : first;
     }
 
+    /// <summary>Gets the current page for the page indicator at a point: for a horizontal layout the page nearest the horizontal position, otherwise as for a vertical offset.</summary>
+    /// <param name="x">The horizontal position, usually the middle of the viewport.</param>
+    /// <param name="y">The vertical position, usually the middle of the viewport.</param>
+    /// <param name="preferredPage">The page last shown or asked for.</param>
+    /// <returns>The page index, or -1 when the layout is empty.</returns>
+    public int GetCurrentPage(double x, double y, int preferredPage) =>
+        Options.Scroll == ScrollMode.Horizontal ? GetPageNearest(x, y) : GetCurrentPage(y, preferredPage);
+
+    /// <summary>Gets the number of pages in a row.</summary>
+    /// <param name="rowFirstPage">The first page of each row.</param>
+    /// <param name="row">The row.</param>
+    /// <param name="pageCount">The pages in the document.</param>
+    /// <returns>The pages in the row.</returns>
+    private static int GetRowLength(int[] rowFirstPage, int row, int pageCount) =>
+        (row + 1 < rowFirstPage.Length ? rowFirstPage[row + 1] : pageCount) - rowFirstPage[row];
+
     /// <summary>Places the pages of one row across it.</summary>
     /// <param name="sizes">The unrotated page sizes.</param>
     /// <param name="options">The layout options.</param>
@@ -245,7 +310,7 @@ public sealed record DocumentLayout
     private static void PlaceRow(ReadOnlySpan<PageSize> sizes, in LayoutOptions options, LayoutRect[] pages, RowSpan row, double left, double slotWidth, RowBand band)
     {
         var x = left;
-        var cover = PageRows.IsCoverRow(row.Index, options.Mode);
+        var cover = LayoutRows.IsCover(row.Index, options);
         if (cover && !options.RightToLeft)
         {
             // The cover sits in the right hand slot of a two page spread, or the left hand slot when the spread reads right to left.
@@ -285,7 +350,7 @@ public sealed record DocumentLayout
         }
 
         width += options.Spacing * (count - 1);
-        if (PageRows.IsCoverRow(row, options.Mode))
+        if (LayoutRows.IsCover(row, options))
         {
             width = (width * SpreadPages) + options.Spacing;
         }
@@ -350,6 +415,36 @@ public sealed record DocumentLayout
             else
             {
                 hi = mid;
+            }
+        }
+
+        return lo;
+    }
+
+    /// <summary>
+    /// Finds the first page of a horizontal layout for which an edge test gives a wanted answer. The pages run one way across
+    /// the row, so every page after that one gives the same answer.
+    /// </summary>
+    /// <param name="useRightEdge">Whether to test that a page's right edge is past the value; otherwise that its left edge is before it.</param>
+    /// <param name="value">The value to test against.</param>
+    /// <param name="wanted">The answer to look for.</param>
+    /// <returns>The first page that gives the answer, or the page count when none does.</returns>
+    private int FirstPageWhere(bool useRightEdge, double value, bool wanted)
+    {
+        var lo = 0;
+        var hi = _pages.Length;
+        while (lo < hi)
+        {
+            var mid = lo + ((hi - lo) >> 1);
+            var page = _pages[mid];
+            var answer = useRightEdge ? page.X + page.Width > value : page.X < value;
+            if (answer == wanted)
+            {
+                hi = mid;
+            }
+            else
+            {
+                lo = mid + 1;
             }
         }
 

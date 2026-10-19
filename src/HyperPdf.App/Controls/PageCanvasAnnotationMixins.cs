@@ -407,7 +407,7 @@ internal static class PageCanvasAnnotationMixins
                 return;
             }
 
-            canvas.Layout.GetVisiblePages(viewport.Top, viewport.Bottom, out var first, out var last);
+            canvas.Layout.GetVisiblePages(viewport.Left, viewport.Right, viewport.Top, viewport.Bottom, out var first, out var last);
             canvas.UpdateSuggestionPens((canvas.CurrentHitPen ?? StrokePen).Brush);
             for (var page = first; page <= last && page >= 0; page++)
             {
@@ -699,7 +699,7 @@ internal static class PageCanvasAnnotationMixins
                 return;
             }
 
-            canvas.Layout.GetVisiblePages(scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
+            canvas.GetPagesBetween(scroller.Offset.X, scroller.Offset.X + scroller.Viewport.Width, scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
             for (var page = first; page <= last && page >= 0 && page < canvas.Sizes.Length; page++)
             {
                 canvas.DrawPageCommentBadges(context, tab, page);

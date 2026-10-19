@@ -104,6 +104,15 @@ public static class Descriptions
     /// <summary>The dual page with cover layout menu item.</summary>
     public static readonly string DualPageCover = "Show the first page alone like a book cover, then pages side by side: 2 and 3, then 4 and 5.";
 
+    /// <summary>The vertical scroll menu item.</summary>
+    public static readonly string VerticalScroll = "Pages follow one another down the window and you scroll down. This is the usual way to read.";
+
+    /// <summary>The horizontal scroll menu item.</summary>
+    public static readonly string HorizontalScroll = "All pages sit in one row and you scroll from side to side. The mouse wheel moves sideways.";
+
+    /// <summary>The wrapped scroll menu item.</summary>
+    public static readonly string WrappedScroll = "Pages fill each row across the window, then continue on the next row, so a wide window shows several pages.";
+
     /// <summary>The Read Mode menu item.</summary>
     public static readonly string ReadMode = $"Put the tool bars and sidebar away so the pages fill the window.{Shortcut}Ctrl+H";
 

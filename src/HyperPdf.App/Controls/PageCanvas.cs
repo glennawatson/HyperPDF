@@ -221,6 +221,7 @@ public sealed class PageCanvas : Control, IActivatableView
             disposables.Add(this.PointerReleaseSteps(tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
             disposables.Add(this.DocumentKeys.SubscribeSafe(static e => e.Handled = true, ErrorTrace.Write));
             disposables.Add(this.PageByPageWheels.SubscribeSafe(static e => e.Handled = true, ErrorTrace.Write));
+            disposables.Add(this.HorizontalWheels.SubscribeSafe(static e => e.Handled = true, ErrorTrace.Write));
             disposables.Add(this.PinchZooms(tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
             disposables.Add(this.PinchEnds.SubscribeSafe(_ => this.EndPinch(), ErrorTrace.Write));
             disposables.Add(this.MagnifyZooms(tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
@@ -498,13 +499,16 @@ public sealed class PageCanvas : Control, IActivatableView
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal int SetAutoScrollRunning(int value) => Interlocked.Exchange(ref _autoScrollRunning, value);
 
-    /// <summary>Gets the pages laid out between two heights on the canvas.</summary>
+    /// <summary>Gets the pages laid out inside an area of the canvas.</summary>
+    /// <param name="left">The left side.</param>
+    /// <param name="right">The right side.</param>
     /// <param name="top">The upper height.</param>
     /// <param name="bottom">The lower height.</param>
     /// <param name="first">The first page, or -1 when none.</param>
     /// <param name="last">The last page, or -1 when none.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void GetPagesBetween(double top, double bottom, out int first, out int last) => _layout.GetVisiblePages(top, bottom, out first, out last);
+    internal void GetPagesBetween(double left, double right, double top, double bottom, out int first, out int last) =>
+        _layout.GetVisiblePages(left, right, top, bottom, out first, out last);
 
     /// <summary>Converts a point on a page to canvas coordinates.</summary>
     /// <param name="page">The page.</param>
@@ -553,7 +557,14 @@ public sealed class PageCanvas : Control, IActivatableView
         }
 
         var top = _scroller.Offset.Y + ContentMargin;
-        this.GetCurrentPages(tab, top, _scroller.Offset.Y + (_scroller.Viewport.Height * Half), out var topPage, out var middlePage);
+        this.GetCurrentPages(
+            tab,
+            new(_scroller.Offset.X + ContentMargin, top),
+            new(
+                _scroller.Offset.X + (_layout.Options.Scroll == ScrollMode.Horizontal ? ContentMargin : _scroller.Viewport.Width * Half),
+                _scroller.Offset.Y + (_scroller.Viewport.Height * Half)),
+            out var topPage,
+            out var middlePage);
         var bounds = _layout.GetPageBounds(topPage);
         var fraction = bounds.Height > 0 ? Math.Clamp((top - bounds.Y) / bounds.Height, 0, 1) : 0;
         tab.ReportPosition(new(topPage, fraction), middlePage);
@@ -673,7 +684,8 @@ public sealed class PageCanvas : Control, IActivatableView
     {
         var viewport = frame.Viewport;
         var prefetch = viewport.Height * PrefetchViewports;
-        _layout.GetVisiblePages(viewport.Top - prefetch, viewport.Bottom + prefetch, out var first, out var last);
+        var sidePrefetch = viewport.Width * PrefetchViewports;
+        _layout.GetVisiblePages(viewport.Left - sidePrefetch, viewport.Right + sidePrefetch, viewport.Top - prefetch, viewport.Bottom + prefetch, out var first, out var last);
         _frameComplete = true;
 
         // Aliased edges keep neighbouring tiles from showing seams where they meet at fractional positions.
@@ -1020,6 +1032,7 @@ public sealed class PageCanvas : Control, IActivatableView
                 PageByPage = tab.IsPageByPage,
                 ViewportHeight = viewport.Height,
                 RightToLeft = tab.RightToLeft,
+                Scroll = tab.ScrollMode,
             });
         InvalidateMeasure();
         InvalidateVisual();
@@ -1036,13 +1049,14 @@ public sealed class PageCanvas : Control, IActivatableView
                 return;
             }
 
-            _scroller.Offset = new(_scroller.Offset.X, this.GetPageScrollTop(position.PageIndex, position.OffsetFraction));
+            _scroller.Offset = this.GetPageScrollOffset(position.PageIndex, position.OffsetFraction, _scroller.Offset);
         };
 
     /// <summary>Applies a pending scroll once the scroll viewer's extent matches the layout.</summary>
     private void ApplyPendingScroll()
     {
-        if (PendingScroll is null || _scroller is null || Math.Abs(_scroller.Extent.Height - _layout.ExtentHeight) > 1)
+        if (PendingScroll is null || _scroller is null || Math.Abs(_scroller.Extent.Height - _layout.ExtentHeight) > 1
+            || (_layout.Options.Scroll == ScrollMode.Horizontal && Math.Abs(_scroller.Extent.Width - _layout.ExtentWidth) > 1))
         {
             return;
         }
@@ -1105,7 +1119,7 @@ public sealed class PageCanvas : Control, IActivatableView
         }
         else
         {
-            _scroller.Offset = new(_scroller.Offset.X, this.GetPageScrollTop(request.PageIndex, request.OffsetFraction));
+            _scroller.Offset = this.GetPageScrollOffset(request.PageIndex, request.OffsetFraction, _scroller.Offset);
         }
 
         ReportPosition();

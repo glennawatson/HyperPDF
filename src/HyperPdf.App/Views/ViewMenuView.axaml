@@ -12,6 +12,11 @@
         <MenuItem x:Name="SingleLayoutItem" views:ControlHelp.Text="{x:Static views:Descriptions.SinglePage}" Header="_Single Page" ToggleType="Radio" GroupName="PageLayout" />
         <MenuItem x:Name="DualLayoutItem" views:ControlHelp.Text="{x:Static views:Descriptions.DualPage}" Header="_Two Pages" ToggleType="Radio" GroupName="PageLayout" />
         <MenuItem x:Name="CoverLayoutItem" views:ControlHelp.Text="{x:Static views:Descriptions.DualPageCover}" Header="Two Pages with _Cover" ToggleType="Radio" GroupName="PageLayout" />
+        <Separator />
+        <MenuItem x:Name="VerticalScrollItem" views:ControlHelp.Text="{x:Static views:Descriptions.VerticalScroll}" Header="Scroll _Down" ToggleType="Radio" GroupName="ScrollMode" />
+        <MenuItem x:Name="HorizontalScrollItem" views:ControlHelp.Text="{x:Static views:Descriptions.HorizontalScroll}" Header="Scroll Si_deways" ToggleType="Radio" GroupName="ScrollMode" />
+        <MenuItem x:Name="WrappedScrollItem" views:ControlHelp.Text="{x:Static views:Descriptions.WrappedScroll}" Header="_Wrap Pages" ToggleType="Radio" GroupName="ScrollMode" />
+        <Separator />
         <MenuItem x:Name="ReadModeItem" views:ControlHelp.Text="{x:Static views:Descriptions.ReadMode}" Header="Rea_d Mode" InputGesture="Ctrl+H" />
         <MenuItem x:Name="PresentItem" views:ControlHelp.Text="{x:Static views:Descriptions.Present}" Header="P_resent" InputGesture="Shift+F5" />
         <MenuItem x:Name="CaretModeItem" views:ControlHelp.Text="{x:Static views:Descriptions.CaretNavigation}" Header="_Caret Navigation" InputGesture="F7" ToggleType="CheckBox" />

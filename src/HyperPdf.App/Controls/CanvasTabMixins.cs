@@ -47,7 +47,9 @@ internal static class CanvasTabMixins
                 static t => t.IsPageByPage,
                 static t => t.Zoom,
                 static t => t.RightToLeft,
-                static (mode, layout, rotation, pageByPage, zoom, rightToLeft) => new CanvasLayoutKey(mode, layout, rotation, pageByPage, mode == ZoomMode.Free ? zoom : 0, rightToLeft))
+                static t => t.ScrollMode,
+                static (mode, layout, rotation, pageByPage, zoom, rightToLeft, scroll) =>
+                    new CanvasLayoutKey(mode, layout, rotation, pageByPage, mode == ZoomMode.Free ? zoom : 0, rightToLeft, scroll))
             .DistinctUntilChanged()
             .Skip(1)
             .AsVoid;
@@ -96,5 +98,6 @@ internal static class CanvasTabMixins
     /// <param name="PageByPage">Whether pages are shown one at a time.</param>
     /// <param name="Zoom">The zoom in Free mode, otherwise 0.</param>
     /// <param name="RightToLeft">Whether two page spreads read right to left.</param>
-    private readonly record struct CanvasLayoutKey(ZoomMode Mode, PageLayoutMode Layout, PageRotation Rotation, bool PageByPage, double Zoom, bool RightToLeft);
+    /// <param name="Scroll">The direction pages are laid out in.</param>
+    private readonly record struct CanvasLayoutKey(ZoomMode Mode, PageLayoutMode Layout, PageRotation Rotation, bool PageByPage, double Zoom, bool RightToLeft, ScrollMode Scroll);
 }

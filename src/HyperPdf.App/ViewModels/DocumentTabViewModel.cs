@@ -353,6 +353,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial PageLayoutMode LayoutMode { get; set; }
 
+    /// <summary>Gets or sets the direction pages are laid out and scrolled in.</summary>
+    [Reactive]
+    public partial ScrollMode ScrollMode { get; set; }
+
     /// <summary>Gets or sets a value indicating whether two page spreads read right to left, as the document asks and the reader allows.</summary>
     [Reactive]
     public partial bool RightToLeft { get; set; }
@@ -1226,12 +1230,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Goes to the next page, or the next pair of pages when two are shown side by side.</summary>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NextPage() => ShowPage(PageRows.GetNextRowPage(CurrentPageIndex, PageCount, LayoutMode));
+    private void NextPage() => ShowPage(PageRows.GetNextPage(CurrentPageIndex, PageCount, LayoutMode, ScrollMode));
 
     /// <summary>Goes to the previous page, or the previous pair of pages when two are shown side by side.</summary>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void PreviousPage() => ShowPage(PageRows.GetPreviousRowPage(CurrentPageIndex, LayoutMode));
+    private void PreviousPage() => ShowPage(PageRows.GetPreviousPage(CurrentPageIndex, LayoutMode, ScrollMode));
 
     /// <summary>Goes to the first page.</summary>
     [ReactiveCommand]
@@ -1451,6 +1455,17 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         if (Enum.TryParse<PageLayoutMode>(text, out var mode))
         {
             LayoutMode = mode;
+        }
+    }
+
+    /// <summary>Sets the scroll mode from a <see cref="ScrollMode"/> name.</summary>
+    /// <param name="text">The name.</param>
+    [ReactiveCommand]
+    private void SetScrollMode(string text)
+    {
+        if (Enum.TryParse<ScrollMode>(text, out var mode))
+        {
+            ScrollMode = mode;
         }
     }
 

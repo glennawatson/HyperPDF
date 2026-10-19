@@ -108,6 +108,15 @@ internal static class DocumentViewMixins
         /// <summary>Gets the Two Pages with Cover layout item.</summary>
         internal MenuItem CoverLayoutItem => FindIn<ViewMenuView, MenuItem>(view, "CoverLayoutItem");
 
+        /// <summary>Gets the Scroll Down item.</summary>
+        internal MenuItem VerticalScrollItem => FindIn<ViewMenuView, MenuItem>(view, "VerticalScrollItem");
+
+        /// <summary>Gets the Scroll Sideways item.</summary>
+        internal MenuItem HorizontalScrollItem => FindIn<ViewMenuView, MenuItem>(view, "HorizontalScrollItem");
+
+        /// <summary>Gets the Wrap Pages item.</summary>
+        internal MenuItem WrappedScrollItem => FindIn<ViewMenuView, MenuItem>(view, "WrappedScrollItem");
+
         /// <summary>Gets the Page by Page item.</summary>
         internal MenuItem PageByPageItem => FindIn<ViewMenuView, MenuItem>(view, "PageByPageItem");
 
