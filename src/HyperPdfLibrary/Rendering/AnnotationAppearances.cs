@@ -91,6 +91,7 @@ internal static class AnnotationAppearances
         KnownName.Square or KnownName.Circle or KnownName.Polygon or KnownName.PolyLine or KnownName.Line => Build<ShapePlan>(context),
         KnownName.Ink => Build<InkPlan>(context),
         KnownName.Text => Build<NotePlan>(context),
+        KnownName.FileAttachment => Build<AttachmentPlan>(context),
         KnownName.Link => Build<LinkPlan>(context),
         KnownName.Caret => Build<CaretPlan>(context),
         KnownName.Redact => Build<RedactPlan>(context),
