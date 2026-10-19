@@ -720,7 +720,20 @@ public static class Descriptions
 
     /// <summary>The text edges list.</summary>
     public static readonly string TextEdges =
-        "Choose how the edges of letters are drawn. Smooth blends them into the page. Sharp gives each pixel only dark or clear.";
+        "Choose how the edges of letters are drawn. Smooth blends them into the page. Sharp gives each pixel only dark or clear. "
+        + "LCD softens the red, green and blue parts of each pixel separately, which can make small text look sharper on a plain page.";
+
+    /// <summary>The small text hinting list.</summary>
+    public static readonly string TextHinting =
+        "Choose how small letters sit on the screen's pixels. None keeps spacing even. Slight puts each line on whole pixel rows. Full gives the crispest stems with uneven spacing.";
+
+    /// <summary>The small text contrast list.</summary>
+    public static readonly string TextContrast =
+        "Make the edges of small letters darker so they are easier to read. Normal draws them as the font gives them. Each step above that makes them darker.";
+
+    /// <summary>The small text masks box.</summary>
+    public static readonly string SmallTextMasks =
+        "Draw small letters from shapes made once and reused. Pages of text then draw faster. The fit, contrast and LCD choices turn this on by themselves.";
 
     /// <summary>The smooth graphics box.</summary>
     public static readonly string SmoothGraphics = "Smooth the edges of lines and shapes. Turn this off for crisp, hard edges.";

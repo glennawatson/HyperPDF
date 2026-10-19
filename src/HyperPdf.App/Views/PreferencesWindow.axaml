@@ -58,7 +58,11 @@
       <!-- The individual choices behind the named sets. Closed until opened, so the list stays short. -->
       <Expander x:Name="SharpnessAdvanced" AutomationProperties.Name="Advanced sharpness choices" views:ControlHelp.Text="{x:Static views:Descriptions.AdvancedSharpness}" Header="Advanced sharpness choices" HorizontalAlignment="Stretch">
         <StackPanel Spacing="6" Margin="0,6,0,0">
-          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
+            <TextBlock x:Name="TextHintingLabel" Grid.Row="3" VerticalAlignment="Center" Text="Fit small text to pixels" />
+            <ComboBox AutomationProperties.Name="Fit small text to pixels" x:Name="TextHintingBox" views:ControlHelp.Text="{x:Static views:Descriptions.TextHinting}" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="TextContrastLabel" Grid.Row="4" VerticalAlignment="Center" Text="Small text contrast" />
+            <ComboBox AutomationProperties.Name="Small text contrast" x:Name="TextContrastBox" views:ControlHelp.Text="{x:Static views:Descriptions.TextContrast}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" />
             <TextBlock x:Name="TextEdgesLabel" Grid.Row="0" VerticalAlignment="Center" Text="Text edges" />
             <ComboBox AutomationProperties.Name="Text edges" x:Name="TextEdgesBox" views:ControlHelp.Text="{x:Static views:Descriptions.TextEdges}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
             <TextBlock x:Name="StrokeAdjustmentLabel" Grid.Row="1" VerticalAlignment="Center" Text="Fit lines to pixels" />
@@ -68,6 +72,7 @@
           </Grid>
           <CheckBox AutomationProperties.Name="Smooth the edges of lines and shapes" x:Name="SmoothGraphicsBox" views:ControlHelp.Text="{x:Static views:Descriptions.SmoothGraphics}" Content="Smooth the edges of lines and shapes" />
           <CheckBox AutomationProperties.Name="Smooth pictures" x:Name="SmoothImagesBox" views:ControlHelp.Text="{x:Static views:Descriptions.SmoothImages}" Content="Smooth pictures (turn off to show the nearest source pixel)" />
+          <CheckBox AutomationProperties.Name="Remember the shapes of small letters" x:Name="SmallTextMasksBox" views:ControlHelp.Text="{x:Static views:Descriptions.SmallTextMasks}" Content="Remember the shapes of small letters, so pages of text draw faster" />
           <CheckBox AutomationProperties.Name="Average pixels when shrinking big pictures" x:Name="AreaImageReductionBox" views:ControlHelp.Text="{x:Static views:Descriptions.AreaImageReduction}" Content="Average pixels when shrinking big pictures" />
         </StackPanel>
       </Expander>

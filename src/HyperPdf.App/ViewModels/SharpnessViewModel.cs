@@ -47,7 +47,13 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
     public static IReadOnlyList<string> PresetOptions { get; } = ["Smooth", "Sharp", "Crisp", "Custom"];
 
     /// <summary>Gets the text edge choices in enum order.</summary>
-    public static IReadOnlyList<string> TextEdgeOptions { get; } = ["Smooth", "Sharp"];
+    public static IReadOnlyList<string> TextEdgeOptions { get; } = ["Smooth", "Sharp", "LCD"];
+
+    /// <summary>Gets the small text hinting choices in enum order.</summary>
+    public static IReadOnlyList<string> TextHintingOptions { get; } = ["None", "Slight", "Full"];
+
+    /// <summary>Gets the small text contrast choices; the index is the contrast level.</summary>
+    public static IReadOnlyList<string> TextContrastOptions { get; } = ["Normal", "Darker", "Darkest", "Boldest"];
 
     /// <summary>Gets the stroke adjustment choices in enum order.</summary>
     public static IReadOnlyList<string> StrokeAdjustmentOptions { get; } = ["Off", "When the page asks", "Always"];
@@ -86,6 +92,18 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
     /// <summary>Gets or sets a value indicating whether big image reductions average the pixels they cover.</summary>
     [Reactive]
     public partial bool AreaImageReduction { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether small text is drawn from remembered glyph shapes.</summary>
+    [Reactive]
+    public partial bool SmallTextMasks { get; set; }
+
+    /// <summary>Gets or sets the small text hinting index.</summary>
+    [Reactive]
+    public partial int TextHinting { get; set; }
+
+    /// <summary>Gets or sets the small text contrast index, which is also the contrast level.</summary>
+    [Reactive]
+    public partial int TextContrast { get; set; }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -129,6 +147,9 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
         StrokeAdjustment = (int)sharpness.StrokeAdjustment;
         MinimumLineWidth = sharpness.MinimumLineWidth;
         AreaImageReduction = sharpness.AreaImageReduction;
+        SmallTextMasks = sharpness.SmallTextMasks;
+        TextHinting = (int)sharpness.TextHinting;
+        TextContrast = sharpness.TextContrast;
     }
 
     /// <summary>Writes each later change of a choice to the settings.</summary>
@@ -141,6 +162,9 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
         Follow(this.WhenChanged(static x => x.StrokeAdjustment), static (s, index) => s with { StrokeAdjustment = (StrokeAdjustmentChoice)index });
         Follow(this.WhenChanged(static x => x.MinimumLineWidth), static (s, pixels) => s with { MinimumLineWidth = pixels });
         Follow(this.WhenChanged(static x => x.AreaImageReduction), static (s, on) => s with { AreaImageReduction = on });
+        Follow(this.WhenChanged(static x => x.SmallTextMasks), static (s, on) => s with { SmallTextMasks = on });
+        Follow(this.WhenChanged(static x => x.TextHinting), static (s, index) => s with { TextHinting = (TextHintingChoice)index });
+        Follow(this.WhenChanged(static x => x.TextContrast), static (s, level) => s with { TextContrast = level });
     }
 
     /// <summary>Applies each later value of a choice to the settings, then saves.</summary>

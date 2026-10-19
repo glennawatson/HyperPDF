@@ -12,4 +12,7 @@ public enum TextEdgeChoice
 
     /// <summary>Edges are not smoothed, so every pixel is fully dark or fully clear.</summary>
     Sharp = 1,
+
+    /// <summary>Edges are smoothed separately for the red, green and blue parts of each pixel, which makes small text look sharper on most screens. It works best on a plain page colour.</summary>
+    Lcd = 2,
 }
