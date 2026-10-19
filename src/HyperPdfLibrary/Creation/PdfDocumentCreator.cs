@@ -74,7 +74,7 @@ public sealed class PdfDocumentCreator
         _builder.Version = options.UaClaim == PdfUaConformance.Part1 ? PdfHeaderVersion.Pdf17 : PdfHeaderVersion.Pdf20;
         if (options.Tagged)
         {
-            Tags = new(_builder, options.UaClaim == PdfUaConformance.Part2);
+            Tags = new(_builder, options.UaClaim == PdfUaConformance.Part2, _builder.Version == PdfHeaderVersion.Pdf20);
         }
     }
 
@@ -444,7 +444,9 @@ public sealed class PdfDocumentCreator
         AddIf(reasons, string.IsNullOrWhiteSpace(_options.Language), "The document has no language.");
         AddIf(reasons, _firstFont is { IsEmbedded: false } || _otherFonts?.Exists(static font => !font.IsEmbedded) == true, "A built-in font is used, and PDF/UA needs every font embedded.");
         AddIf(reasons, _importedPages > 0, "Pages copied from other documents are not tagged by this document.");
-        AddIf(reasons, Tags?.CountFiguresWithoutDescription() > 0, "A figure has no alternative text.");
+
+        // Typed scratch slots belong to the builder and can also hold tag-walk storage alongside image work.
+        AddIf(reasons, PdfTagDescriptionScan.Count(Tags?.Root, _builder.ImageScratchPools, _options.UaClaim, CancellationToken.None) > 0, "A figure or PDF/UA-1 formula has no required description.");
         if (reasons.Count == 0)
         {
             return _options.UaClaim;

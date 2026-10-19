@@ -203,7 +203,15 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
         PdfDocument document;
         try
         {
-            var options = new PdfOpenOptions { Password = password, Certificate = certificate, FontFactory = self._fontFactory, DrawingServices = self._drawingServices };
+            // External writers can truncate an open file; mapped reads can then terminate the process before reload.
+            var options = new PdfOpenOptions
+            {
+                Password = password,
+                Certificate = certificate,
+                Source = PdfSourceKind.Stream,
+                FontFactory = self._fontFactory,
+                DrawingServices = self._drawingServices,
+            };
             document = PdfDocumentReader.OpenWith(fullPath, options);
         }
         catch (PdfException ex)

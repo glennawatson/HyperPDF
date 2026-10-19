@@ -55,11 +55,104 @@ public sealed class PdfUaClaimGuardTests
     /// <summary>The level of the second heading.</summary>
     private const int SecondLevel = 2;
 
+    /// <summary>The standard mathematical-expression type.</summary>
+    private const string Formula = "Formula";
+
     /// <summary>Gets an area of the test page to mark for redaction.</summary>
     private static PdfRectangle MarkedArea { get; } = new(MarkLeft, MarkBottom, MarkRight, MarkTop);
 
     /// <summary>Gets an edit that makes the document changed.</summary>
     private static PdfMetadataEdit TitleEdit => new() { Title = "Edited" };
+
+    /// <summary>Compact and incremental saves refuse a part 1 formula whose ActualText does not supply Alt.</summary>
+    /// <param name="incremental">Whether to use the incremental writer.</param>
+    /// <param name="cancellationToken">Cancels saving.</param>
+    /// <returns>The asynchronous test.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task FormulaWithoutAltRefusesSave(bool incremental, CancellationToken cancellationToken)
+    {
+        var bytes = AccessibilityPdfs.Build(new()
+        {
+            Content = AccessibilityPdfs.Lines(1),
+            Layout = static (pdf, parent) => AccessibilityPdfs.Kids(pdf.Element(Formula, parent, "/K 0 /ActualText (x plus y)")),
+        });
+        using var document = PdfDocumentReader.Open(bytes, null);
+        PdfDocumentMetadataEditing.SetMetadata(document, TitleEdit);
+        var report = new PdfSaveReport();
+        await using var output = new MemoryStream();
+
+        var thrown = await Assert.ThrowsAsync<PdfException>(async () =>
+        {
+            if (incremental)
+            {
+                await PdfIncrementalWriter.SaveAsync(document.Objects, output, report, cancellationToken);
+            }
+            else
+            {
+                await PdfCompactWriter.SaveAsync(document.Objects, PdfCompactOptions.Default, output, report, cancellationToken);
+            }
+        });
+
+        await Assert.That(thrown!.Error).IsEqualTo(PdfError.ClaimUnmet);
+        await Assert.That(thrown.Message).Contains("Clause 7.7");
+        await Assert.That(output.Length).IsEqualTo(0);
+        await Assert.That(report.UaClaim!.GetUnrepaired().Select(static problem => problem.Requirement)).Contains(PdfUaRequirement.FormulaAlternative);
+    }
+
+    /// <summary>Removing an unmet claim preserves the readable formula and its replacement text.</summary>
+    /// <param name="cancellationToken">Cancels saving and reading.</param>
+    /// <returns>The asynchronous test.</returns>
+    [Test]
+    public async Task FormulaWithoutAltCanRemoveClaim(CancellationToken cancellationToken)
+    {
+        var bytes = AccessibilityPdfs.Build(new()
+        {
+            Content = AccessibilityPdfs.Lines(1),
+            Layout = static (pdf, parent) => AccessibilityPdfs.Kids(pdf.Element(Formula, parent, "/K 0 /ActualText (x plus y)")),
+        });
+        using var document = PdfDocumentReader.Open(bytes, null);
+        PdfDocumentMetadataEditing.SetMetadata(document, TitleEdit);
+        var report = new PdfSaveReport { UnmetUaClaim = PdfUaUnmetClaimAction.RemoveClaim };
+        await using var output = new MemoryStream();
+
+        await PdfCompactWriter.SaveAsync(document.Objects, PdfCompactOptions.Default, output, report, cancellationToken);
+
+        await Assert.That(report.UaClaim!.Removed).IsTrue();
+        using var saved = PdfDocumentReader.Open(output.ToArray(), null);
+        var accessibility = await PdfDocumentAccessibility.GetAccessibilityReportAsync(saved, cancellationToken);
+        await Assert.That(accessibility.Claim.Part).IsNotEqualTo(1);
+        var formula = PdfDocumentTagged.GetStructureTree(saved)!.Roots[0].Kids[0].Element!;
+        await Assert.That(formula.RawType).IsEqualTo(Formula);
+        await Assert.That(formula.ActualText).IsEqualTo("x plus y");
+    }
+
+    /// <summary>Saving preserves an Alt string, including an empty string, without inventing a description.</summary>
+    /// <param name="description">The formula's alternate text.</param>
+    /// <param name="cancellationToken">Cancels saving and reading.</param>
+    /// <returns>The asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("x plus y")]
+    public async Task FormulaWithAltPreservesClaim(string description, CancellationToken cancellationToken)
+    {
+        var spec = new AccessibilitySpec { Content = AccessibilityPdfs.Lines(1), Layout = (pdf, parent) => AccessibilityPdfs.Kids(pdf.Element(Formula, parent, $"/K 0 /Alt ({description})")) };
+        using var document = PdfDocumentReader.Open(AccessibilityPdfs.Build(spec), null);
+        PdfDocumentMetadataEditing.SetMetadata(document, TitleEdit);
+        var report = new PdfSaveReport();
+        await using var output = new MemoryStream();
+
+        await PdfCompactWriter.SaveAsync(document.Objects, PdfCompactOptions.Default, output, report, cancellationToken);
+
+        await Assert.That(report.UaClaim!.Problems).IsEmpty();
+        using var saved = PdfDocumentReader.Open(output.ToArray(), null);
+        var accessibility = await PdfDocumentAccessibility.GetAccessibilityReportAsync(saved, cancellationToken);
+        await Assert.That(accessibility.Claim.Part).IsEqualTo(1);
+        var formula = PdfDocumentTagged.GetStructureTree(saved)!.Roots[0].Kids[0].Element!;
+        await Assert.That(formula.Dictionary.Get(KnownName.Alt).Kind).IsEqualTo(PdfKind.String);
+        await Assert.That(formula.Dictionary.GetText(KnownName.Alt)).IsEqualTo(description);
+    }
 
     /// <summary>A valid claimed file keeps its claim, and nothing is repaired, through a compact save after a metadata edit.</summary>
     /// <returns>A task.</returns>

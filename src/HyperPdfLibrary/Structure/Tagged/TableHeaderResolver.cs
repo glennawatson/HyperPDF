@@ -30,14 +30,17 @@ internal static class TableHeaderResolver
         CollectRows(table, rows, headRows, false);
         var cells = new List<PdfSemanticNode>();
         Place(rows, cells);
-        var ids = new Dictionary<string, PdfSemanticNode>(StringComparer.Ordinal);
+        Dictionary<string, PdfSemanticNode>? ids = null;
         foreach (var cell in cells)
         {
             InferScope(cell, cell.Parent is { } row && headRows.Contains(row));
-            if (cell.Element?.ElementId is { } id)
+            if (cell.Element?.ElementId is not { } id)
             {
-                _ = ids.TryAdd(id, cell);
+                continue;
             }
+
+            ids ??= [with(StringComparer.Ordinal)];
+            _ = ids.TryAdd(id, cell);
         }
 
         foreach (var cell in cells)
@@ -79,7 +82,7 @@ internal static class TableHeaderResolver
     /// <param name="cells">Receives the cells in order.</param>
     private static void Place(List<PdfSemanticNode> rows, List<PdfSemanticNode> cells)
     {
-        var taken = new HashSet<long>();
+        HashSet<long>? taken = null;
         for (var row = 0; row < rows.Count; row++)
         {
             var column = 0;
@@ -90,14 +93,14 @@ internal static class TableHeaderResolver
                     continue;
                 }
 
-                while (taken.Contains(Key(row, column)))
+                while (column < int.MaxValue && taken is not null && taken.Contains(Key(row, column)))
                 {
                     column++;
                 }
 
-                PlaceCell(cell, row, column, taken);
+                PlaceCell(cell, row, column, rows.Count, ref taken);
                 cells.Add(cell);
-                column += cell.ColumnSpan;
+                column = (int)Math.Min((long)column + cell.ColumnSpan, int.MaxValue);
             }
         }
     }
@@ -106,17 +109,28 @@ internal static class TableHeaderResolver
     /// <param name="cell">The cell.</param>
     /// <param name="row">Its row.</param>
     /// <param name="column">Its column.</param>
+    /// <param name="rowCount">The number of rows actually present.</param>
     /// <param name="taken">The slots already filled.</param>
-    private static void PlaceCell(PdfSemanticNode cell, int row, int column, HashSet<long> taken)
+    private static void PlaceCell(PdfSemanticNode cell, int row, int column, int rowCount, ref HashSet<long>? taken)
     {
         var attributes = cell.Element?.Attributes ?? PdfStructureAttributes.None;
         cell.Row = row;
         cell.Column = column;
         cell.RowSpan = attributes.RowSpan;
         cell.ColumnSpan = attributes.ColumnSpan;
-        for (var r = 0; r < cell.RowSpan && taken.Count < MaxSlots; r++)
+        var rowsToMark = Math.Min(cell.RowSpan, rowCount - row);
+        if (rowsToMark <= 1)
         {
-            for (var c = 0; c < cell.ColumnSpan; c++)
+            return;
+        }
+
+        taken ??= [];
+        var columnsToMark = Math.Min((long)cell.ColumnSpan, (long)int.MaxValue - column + 1);
+
+        // Cells advance along their own row; only later, existing rows need occupancy markers.
+        for (var r = 1; r < rowsToMark && taken.Count < MaxSlots; r++)
+        {
+            for (var c = 0; c < columnsToMark && taken.Count < MaxSlots; c++)
             {
                 _ = taken.Add(Key(row + r, column + c));
             }
@@ -153,19 +167,12 @@ internal static class TableHeaderResolver
     /// <param name="cell">The cell.</param>
     /// <param name="cells">Every cell of the table.</param>
     /// <param name="ids">The cells by element id.</param>
-    private static void LinkHeaders(PdfSemanticNode cell, List<PdfSemanticNode> cells, Dictionary<string, PdfSemanticNode> ids)
+    private static void LinkHeaders(PdfSemanticNode cell, List<PdfSemanticNode> cells, Dictionary<string, PdfSemanticNode>? ids)
     {
         var stated = cell.Element?.Attributes.Headers ?? [];
         if (stated.Length > 0)
         {
-            foreach (var id in stated)
-            {
-                if (ids.TryGetValue(id, out var header) && !ReferenceEquals(header, cell))
-                {
-                    cell.AddHeader(header);
-                }
-            }
-
+            LinkDeclaredHeaders(cell, stated, ids);
             return;
         }
 
@@ -177,6 +184,26 @@ internal static class TableHeaderResolver
         foreach (var header in cells)
         {
             if (Labels(header, cell))
+            {
+                cell.AddHeader(header);
+            }
+        }
+    }
+
+    /// <summary>Links only the header IDs that the cell explicitly declares.</summary>
+    /// <param name="cell">The cell.</param>
+    /// <param name="stated">Its header IDs.</param>
+    /// <param name="ids">The table's cells by ID, or null when none have IDs.</param>
+    private static void LinkDeclaredHeaders(PdfSemanticNode cell, string[] stated, Dictionary<string, PdfSemanticNode>? ids)
+    {
+        if (ids is null)
+        {
+            return;
+        }
+
+        foreach (var id in stated)
+        {
+            if (ids.TryGetValue(id, out var header) && !ReferenceEquals(header, cell))
             {
                 cell.AddHeader(header);
             }
@@ -204,8 +231,8 @@ internal static class TableHeaderResolver
     private static bool LabelsColumn(PdfSemanticNode header, PdfSemanticNode cell) =>
         header.Scope is PdfTableScope.Column or PdfTableScope.Both
         && header.Row < cell.Row
-        && header.Column < cell.Column + cell.ColumnSpan
-        && cell.Column < header.Column + header.ColumnSpan;
+        && header.Column < (long)cell.Column + cell.ColumnSpan
+        && cell.Column < (long)header.Column + header.ColumnSpan;
 
     /// <summary>Determines whether a row-scoped header cell is before a cell in its rows.</summary>
     /// <param name="header">The header cell.</param>
@@ -214,6 +241,6 @@ internal static class TableHeaderResolver
     private static bool LabelsRow(PdfSemanticNode header, PdfSemanticNode cell) =>
         header.Scope is PdfTableScope.Row or PdfTableScope.Both
         && header.Column < cell.Column
-        && header.Row < cell.Row + cell.RowSpan
-        && cell.Row < header.Row + header.RowSpan;
+        && header.Row < (long)cell.Row + cell.RowSpan
+        && cell.Row < (long)header.Row + header.RowSpan;
 }

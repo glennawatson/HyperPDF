@@ -180,4 +180,7 @@ public enum PdfStructureType
 
     /// <summary><c>Artifact</c> (PDF 2.0): content that is not part of the document's meaning.</summary>
     Artifact = 57,
+
+    /// <summary><c>Hn</c> (PDF 2.0), with n greater than 6: a heading whose level is in its name.</summary>
+    NumberedHeading = 58,
 }

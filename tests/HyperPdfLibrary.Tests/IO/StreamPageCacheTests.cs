@@ -12,6 +12,33 @@ namespace HyperPdfLibrary.Tests.IO;
 /// <summary>Checks that stream cache tables follow the registered host's lifetime.</summary>
 public sealed class StreamPageCacheTests
 {
+    /// <summary>The number of pages in a multi-page cache check.</summary>
+    private const int TwoPages = 2;
+
+    /// <summary>Read-ahead is unnecessary once ordinary reads have cached every byte of the source.</summary>
+    /// <param name="pages">The source page count.</param>
+    /// <param name="reads">The number of distinct pages read.</param>
+    /// <param name="capacity">The cache capacity in pages.</param>
+    /// <param name="needsPrefetch">Whether uncached pages still require read-ahead.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(1, 1, 1, false)]
+    [Arguments(TwoPages, 1, TwoPages, true)]
+    [Arguments(TwoPages, TwoPages, TwoPages, false)]
+    [Arguments(TwoPages, TwoPages, 1, true)]
+    public async Task OrdinaryReadsRecogniseCompleteCache(int pages, int reads, int capacity, bool needsPrefetch)
+    {
+        await using var stream = new MemoryStream(new byte[pages * StreamPdfByteSource.PageSize], false);
+        using var source = new StreamPdfByteSource(stream, capacity * StreamPdfByteSource.PageSize, false);
+        var buffer = new byte[1];
+        for (var page = 0; page < reads; page++)
+        {
+            await Assert.That(source.Read(page * StreamPdfByteSource.PageSize, buffer)).IsEqualTo(1);
+        }
+
+        await Assert.That(source.NeedsPrefetch).IsEqualTo(needsPrefetch);
+    }
+
     /// <summary>Opening a stream uses the host's tables and returns cleared tables when the document closes.</summary>
     /// <param name="asynchronous">Whether to use the asynchronous open path.</param>
     /// <param name="file">Whether to open a file path instead of a stream.</param>

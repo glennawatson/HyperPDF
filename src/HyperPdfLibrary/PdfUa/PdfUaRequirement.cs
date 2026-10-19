@@ -78,4 +78,49 @@ public enum PdfUaRequirement
 
     /// <summary>The tags refer to content or objects that are no longer on the page (7.1, ISO 32000-1 14.7.4).</summary>
     StructureReferences = 23,
+
+    /// <summary>A mathematical expression has no Alt text string (7.7).</summary>
+    FormulaAlternative = 24,
+
+    /// <summary>A Note has no byte-string ID, or its ID is not unique (7.9).</summary>
+    NoteIdentifier = 25,
+
+    /// <summary>An optional-content configuration lacks a required name or contains an AS entry (7.10).</summary>
+    OptionalContent = 26,
+
+    /// <summary>An embedded file specification lacks an F or UF string (7.11).</summary>
+    EmbeddedFileFilenames = 27,
+
+    /// <summary>An encrypted file lacks the permission bit that lets assistive technology read it (7.16).</summary>
+    AssistiveTechnologyAccess = 28,
+
+    /// <summary>A TrapNet annotation is present (7.18.2).</summary>
+    TrapNetAnnotations = 29,
+
+    /// <summary>A dynamic XFA form is used (7.15).</summary>
+    DynamicXfa = 30,
+
+    /// <summary>A link uses a server-side image map (7.18.5).</summary>
+    LinkImageMap = 31,
+
+    /// <summary>A Reference XObject is used (7.20).</summary>
+    ReferenceXObjects = 32,
+
+    /// <summary>Media clip data lacks CT or Alt (7.18.6.2).</summary>
+    MediaClipData = 33,
+
+    /// <summary>The PDF/UA-2 identification is wrong: the file is not PDF 2.0, or the revision is not 2024 (ISO 14289-2 clause 5).</summary>
+    Part2Identification = 34,
+
+    /// <summary>The tags do not start with one Document element in the PDF 2.0 namespace (ISO 14289-2 clause 8.2.4).</summary>
+    Part2DocumentRoot = 35,
+
+    /// <summary>The file uses the H heading tag, which PDF/UA-2 replaces with numbered headings (ISO 14289-2 clause 8.2.5.12).</summary>
+    Part2HeadingTypes = 36,
+
+    /// <summary>The file uses the Note tag without a mapping (ISO 14289-2 clause 8.2.5.14).</summary>
+    Part2NoteTypes = 37,
+
+    /// <summary>A tag is inside a parent the hierarchy rules do not allow (ISO 14289-2 clause 8.2.4; ISO/TS 32005 clause 7.2).</summary>
+    Part2Containment = 38,
 }

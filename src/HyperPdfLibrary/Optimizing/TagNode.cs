@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Structure.Tagged;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -19,5 +20,6 @@ namespace HyperPdfLibrary.Optimizing;
 /// <param name="Language">The language guessed from the element's text, or <see langword="null"/>.</param>
 /// <param name="AlternateText">The description a host gave a figure, or <see langword="null"/>.</param>
 /// <param name="Cell">The table cell attributes of a header or data cell, or <see langword="null"/>.</param>
+/// <param name="Numbering">How a list's labels are made, or <see cref="PdfListNumbering.None"/> for any other element.</param>
 [DebuggerDisplay("TagNode: {Tag}, {UnitCount} units, {Size} in subtree")]
-internal readonly record struct TagNode(PdfName Tag, int UnitStart, int UnitCount, int Size, bool IsFigure, string? Language, string? AlternateText, TagCell? Cell);
+internal readonly record struct TagNode(PdfName Tag, int UnitStart, int UnitCount, int Size, bool IsFigure, string? Language, string? AlternateText, TagCell? Cell, PdfListNumbering Numbering);

@@ -109,7 +109,8 @@ public sealed class AccessibilityStructureScanTests
             null,
             null,
             null,
-            0,
+            null,
+            string.Empty,
             false,
             cancellation);
     }

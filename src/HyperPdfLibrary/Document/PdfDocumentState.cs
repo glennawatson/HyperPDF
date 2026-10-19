@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Accessibility;
 using HyperPdfLibrary.Features;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Forms;
@@ -109,6 +110,9 @@ internal record struct PdfDocumentState
 
     /// <summary>The structure tree read, or <see langword="null"/> before it is read.</summary>
     private StructureTreeRead? _structureTree;
+
+    /// <summary>The font rules of Well-Tagged PDF the document broke when last checked, or <see langword="null"/> before the first check.</summary>
+    private WtpdfFontResult? _wtpdfFonts;
 
     /// <summary>Independently published marked-content pages.</summary>
     private PdfMarkedContentPage?[]? _markedContent;
@@ -268,6 +272,10 @@ internal record struct PdfDocumentState
     /// <summary>Gets storage for the structure tree read, which stays <see langword="null"/> until the tree is read.</summary>
     [UnscopedRef]
     internal ref StructureTreeRead? StructureTree => ref _structureTree;
+
+    /// <summary>Gets storage for the font rules the document broke when last checked; the result says which revision it is for.</summary>
+    [UnscopedRef]
+    internal ref WtpdfFontResult? WtpdfFonts => ref _wtpdfFonts;
 
     /// <summary>Gets storage for independently published marked-content pages.</summary>
     [UnscopedRef]

@@ -60,7 +60,7 @@ internal static class TagBlocks
             build.Owners[unit] = 0;
             var start = build.OwnedCount;
             build.AddOwned(unit);
-            build.InsertNode(position, new(OptimizerNames.Figure, start, 1, 1, true, null, null, null));
+            build.InsertNode(position, new(OptimizerNames.Figure, start, 1, 1, true, null, null, null, PdfListNumbering.None));
         }
     }
 
@@ -97,7 +97,7 @@ internal static class TagBlocks
         }
 
         var start = build.NodeCount;
-        build.AddNode(new(TagFor(node), 0, 0, 1, false, null, null, null));
+        build.AddNode(new(TagFor(node), 0, 0, 1, false, null, null, null, node.Role == PdfSemanticRole.List ? node.ListNumbering : PdfListNumbering.None));
 
         // A list item's label and body are often one text operator, which cannot be split; the body claims it and the optional label is left out.
         var reverse = node.Role == PdfSemanticRole.ListItem;
@@ -181,7 +181,8 @@ internal static class TagBlocks
             false,
             guessLanguage ? node.InferredLanguage : null,
             null,
-            isCell ? new TagCell(node.Scope, node.RowSpan, node.ColumnSpan) : null));
+            isCell ? new TagCell(node.Scope, node.RowSpan, node.ColumnSpan) : null,
+            PdfListNumbering.None));
         return true;
     }
 
@@ -207,7 +208,7 @@ internal static class TagBlocks
         build.Owners[unit] = 0;
         var unitStart = build.OwnedCount;
         build.AddOwned(unit);
-        var figure = new TagNode(OptimizerNames.Figure, unitStart, 1, 1, true, null, node.AlternateText, null);
+        var figure = new TagNode(OptimizerNames.Figure, unitStart, 1, 1, true, null, node.AlternateText, null, PdfListNumbering.None);
         var caption = node.Children.Count > 0 ? node.Children[0] : null;
         var at = build.NodeCount;
         var captioned = caption is { Role: PdfSemanticRole.Caption } && Convert(caption, ref build, guessLanguage);

@@ -24,4 +24,7 @@ public enum SidebarMode
 
     /// <summary>The document's layers.</summary>
     Layers = 5,
+
+    /// <summary>The document's tags, which tell assistive technology how it reads.</summary>
+    Tags = 6,
 }

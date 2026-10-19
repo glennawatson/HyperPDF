@@ -5,6 +5,8 @@
 using System.Globalization;
 using System.Text;
 using HyperPdfLibrary.Accessibility;
+using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Tests.Tagged;
 
 namespace HyperPdfLibrary.Tests.Accessibility;
 
@@ -43,6 +45,24 @@ public sealed class AccessibilityStructureTests
         await Assert.That(skipped.GetCount(PdfAccessibilityCode.HeadingLevelSkipped)).IsEqualTo(1);
         await Assert.That(orderly.GetCount(PdfAccessibilityCode.HeadingLevelSkipped)).IsEqualTo(0);
         await Assert.That(startsDeep.GetCount(PdfAccessibilityCode.HeadingLevelSkipped)).IsEqualTo(1);
+    }
+
+    /// <summary>PDF/UA-2 checks heading semantics, not the PDF/UA-1 sequential-level rule.</summary>
+    /// <param name="cancellationToken">Cancels report generation.</param>
+    /// <returns>The asynchronous test.</returns>
+    [Test]
+    public async Task PartTwoDoesNotRequireSequentialHeadingLevels(CancellationToken cancellationToken)
+    {
+        var claim = AccessibilityPdfs.Packet(AccessibilityPdfs.PartTwo, true, "2024");
+        var skippedSpec = Headings("H1", "H3") with { Xmp = claim, CatalogExtra = "/Version /2.0", Pdf20Root = true };
+        var startsDeepSpec = Headings("H2") with { Xmp = claim, CatalogExtra = "/Version /2.0", Pdf20Root = true };
+        using var skippedDocument = TaggedTestDocument.Open(AccessibilityPdfs.Build(skippedSpec));
+        using var startsDeepDocument = TaggedTestDocument.Open(AccessibilityPdfs.Build(startsDeepSpec));
+        var skipped = await PdfDocumentAccessibility.GetAccessibilityReportAsync(skippedDocument, cancellationToken);
+        var startsDeep = await PdfDocumentAccessibility.GetAccessibilityReportAsync(startsDeepDocument, cancellationToken);
+
+        await Assert.That(skipped.GetCount(PdfAccessibilityCode.HeadingLevelSkipped)).IsEqualTo(0);
+        await Assert.That(startsDeep.GetCount(PdfAccessibilityCode.HeadingLevelSkipped)).IsEqualTo(0);
     }
 
     /// <summary>Repeated level 1 headings are allowed by both PDF/UA parts.</summary>

@@ -35,12 +35,12 @@ internal static class XmpParser
     /// <summary>The <c>rdf:parseType</c> value that makes a property element a structure.</summary>
     private const string ResourceParseType = "Resource";
 
-    /// <summary>The reader settings: no DTDs, no resolver, no whitespace or comments.</summary>
+    /// <summary>The reader settings: no DTDs or resolver; whitespace remains available to structured text fields.</summary>
     private static readonly XmlReaderSettings Settings = new()
     {
         DtdProcessing = DtdProcessing.Prohibit,
         XmlResolver = null,
-        IgnoreWhitespace = true,
+        IgnoreWhitespace = false,
         IgnoreComments = true,
         IgnoreProcessingInstructions = true,
         MaxCharactersInDocument = PdfLimits.MaxDecodedLength,
@@ -61,46 +61,26 @@ internal static class XmpParser
     {
         cancellationToken.ThrowIfCancellationRequested();
         var properties = new Dictionary<string, ImmutableArray<string>>(StringComparer.Ordinal);
+        var declarations = default(PdfDeclarationParser.Values<PdfDeclaration>);
         var wellFormed = true;
         try
         {
-            using var stream = MemoryStreams.OpenRead(packet);
-            using var reader = XmlReader.Create(stream, Settings);
-            Walk(reader, properties, 0, cancellationToken);
-        }
-        catch (XmlException)
-        {
-            wellFormed = false;
-        }
+            try
+            {
+                using var stream = MemoryStreams.OpenRead(packet);
+                using var reader = XmlReader.Create(stream, Settings);
+                Walk(reader, properties, ref declarations, cancellationToken);
+            }
+            catch (XmlException)
+            {
+                wellFormed = false;
+            }
 
-        return new([.. packet.Span], new XmpPropertyDictionary(properties), wellFormed);
-    }
-
-    /// <summary>Walks the document, reading the properties of every <c>rdf:Description</c>.</summary>
-    /// <param name="reader">The reader.</param>
-    /// <param name="properties">The properties found.</param>
-    /// <param name="nesting">How many structures deep the reader is.</param>
-    /// <param name="cancellationToken">Cancels parsing and property traversal.</param>
-    private static void Walk(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, int nesting, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var descriptionDepth = -1;
-        while (reader.Read())
+            return new([.. packet.Span], new XmpPropertyDictionary(properties), wellFormed) { Declarations = PdfDeclarationParser.ToImmutable(declarations, cancellationToken) };
+        }
+        finally
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (reader.NodeType == XmlNodeType.Element && IsRdf(reader, "Description"))
-            {
-                ReadAttributes(reader, properties, nesting, cancellationToken);
-                descriptionDepth = reader.IsEmptyElement ? -1 : reader.Depth;
-            }
-            else if (reader.NodeType == XmlNodeType.Element && descriptionDepth >= 0 && reader.Depth == descriptionDepth + 1)
-            {
-                ReadProperty(reader, properties, nesting, cancellationToken);
-            }
-            else if (reader.NodeType == XmlNodeType.EndElement && reader.Depth == descriptionDepth)
-            {
-                descriptionDepth = -1;
-            }
+            PdfDeclarationParser.Release(ref declarations);
         }
     }
 
@@ -109,7 +89,7 @@ internal static class XmpParser
     /// <param name="properties">The properties found.</param>
     /// <param name="nesting">How many structures deep the element is; a field of a structure adds to the values already read.</param>
     /// <param name="cancellationToken">Cancels parsing and property traversal.</param>
-    private static void ReadAttributes(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, int nesting, CancellationToken cancellationToken)
+    internal static void ReadAttributes(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, int nesting, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!reader.MoveToFirstAttribute())
@@ -137,7 +117,7 @@ internal static class XmpParser
     /// <param name="properties">The properties found.</param>
     /// <param name="nesting">How many structures deep the reader is.</param>
     /// <param name="cancellationToken">Cancels parsing and property traversal.</param>
-    private static void ReadProperty(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, int nesting, CancellationToken cancellationToken)
+    internal static void ReadProperty(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, int nesting, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (nesting >= PdfLimits.MaxNesting)
@@ -193,7 +173,7 @@ internal static class XmpParser
     /// <param name="values">The values.</param>
     /// <param name="append">Whether to add to the values already read.</param>
     /// <param name="cancellationToken">Cancels storing property values.</param>
-    private static void Store(Dictionary<string, ImmutableArray<string>> properties, string key, string[] values, bool append, CancellationToken cancellationToken)
+    internal static void Store(Dictionary<string, ImmutableArray<string>> properties, string key, string[] values, bool append, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -201,6 +181,55 @@ internal static class XmpParser
         properties[key] = append && properties.TryGetValue(key, out var existing)
             ? existing.AddRange(values.AsSpan())
             : ImmutableCollectionsMarshal.AsImmutableArray(values);
+    }
+
+    /// <summary>Reads properties and associated declarations from each RDF description.</summary>
+    /// <param name="reader">The reader.</param>
+    /// <param name="properties">The flattened property values.</param>
+    /// <param name="declarations">The declarations completed before any XML damage.</param>
+    /// <param name="cancellationToken">Cancels traversal.</param>
+    private static void Walk(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, ref PdfDeclarationParser.Values<PdfDeclaration> declarations, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var descriptionDepth = -1;
+        while (reader.Read())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (reader.NodeType == XmlNodeType.Element && IsRdf(reader, "Description"))
+            {
+                ReadAttributes(reader, properties, 0, cancellationToken);
+                descriptionDepth = reader.IsEmptyElement ? -1 : reader.Depth;
+            }
+            else if (reader.NodeType == XmlNodeType.Element && descriptionDepth >= 0 && reader.Depth == descriptionDepth + 1)
+            {
+                ReadPacketProperty(reader, properties, ref declarations, cancellationToken);
+            }
+            else if (reader.NodeType == XmlNodeType.EndElement && reader.Depth == descriptionDepth)
+            {
+                descriptionDepth = -1;
+            }
+        }
+    }
+
+    /// <summary>Dispatches a packet property without flattening declaration associations.</summary>
+    /// <param name="reader">The reader on the property.</param>
+    /// <param name="properties">The flattened properties.</param>
+    /// <param name="declarations">The declaration storage.</param>
+    /// <param name="cancellationToken">Cancels reading.</param>
+    private static void ReadPacketProperty(
+        XmlReader reader,
+        Dictionary<string, ImmutableArray<string>> properties,
+        ref PdfDeclarationParser.Values<PdfDeclaration> declarations,
+        CancellationToken cancellationToken)
+    {
+        if (reader.NamespaceURI == XmpMetadata.PdfDeclarationsNamespace && reader.LocalName == PdfDeclarationParser.DeclarationsName)
+        {
+            PdfDeclarationParser.Read(reader, properties, ref declarations, cancellationToken);
+        }
+        else
+        {
+            ReadProperty(reader, properties, 0, cancellationToken);
+        }
     }
 
     /// <summary>Reads the child properties of a structure element as properties of their own.</summary>

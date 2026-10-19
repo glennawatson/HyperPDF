@@ -32,4 +32,19 @@ public sealed record PdfStructureAttributes(
 {
     /// <summary>Gets the attributes of an element that gives none.</summary>
     public static PdfStructureAttributes None { get; } = new(string.Empty, null, PdfTableScope.None, [], 1, 1, string.Empty, string.Empty);
+
+    /// <summary>Gets the non-inherited list continuation flag, or null when no valid boolean is specified.</summary>
+    public bool? ContinuedList { get; init; }
+
+    /// <summary>Gets the non-inherited PrintField role, checked state and alternate name, retaining omission separately from an explicit value.</summary>
+    public PdfPrintFieldAttributes PrintField { get; init; }
+
+    /// <summary>Gets whether a previous-list byte-string ID is specified, including an empty string.</summary>
+    public bool HasContinuedFrom => ContinuedFromValue.Kind == PdfKind.String;
+
+    /// <summary>Gets the previous list's exact byte-string ID without decoding it as text; empty when absent.</summary>
+    public ReadOnlySpan<byte> ContinuedFromId => ContinuedFromValue.AsStringBytes();
+
+    /// <summary>Gets the retained source string without copying its backing bytes.</summary>
+    internal PdfValue ContinuedFromValue { get; init; }
 }

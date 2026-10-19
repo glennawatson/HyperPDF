@@ -35,6 +35,9 @@ public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, ReadOnlyDiction
     /// <summary>The PDF/UA identification namespace.</summary>
     public static readonly string PdfUaIdNamespace = "http://www.aiim.org/pdfua/ns/id/";
 
+    /// <summary>The PDF Declarations namespace.</summary>
+    public static readonly string PdfDeclarationsNamespace = "http://pdfa.org/declarations/";
+
     /// <summary>The XMP media management namespace.</summary>
     public static readonly string XmpMediaManagementNamespace = "http://ns.adobe.com/xap/1.0/mm/";
 
@@ -109,6 +112,9 @@ public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, ReadOnlyDiction
 
     /// <summary>Gets the PDF/UA part (<c>pdfuaid:part</c>), or null.</summary>
     public int? PdfUaPart => GetInt(PdfUaIdNamespace, "part");
+
+    /// <summary>Gets the declarations in this packet only, retaining claim associations without verifying the claimed profiles.</summary>
+    public ImmutableArray<PdfDeclaration> Declarations { get; init; } = [];
 
     /// <summary>Gets the trapping state (<c>pdf:Trapped</c>): True, False or Unknown.</summary>
     public string? Trapped => GetValue(PdfNamespace, nameof(Trapped));

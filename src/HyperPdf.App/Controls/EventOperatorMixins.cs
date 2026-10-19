@@ -128,6 +128,13 @@ internal static class EventOperatorMixins
         internal IObservable<TreeViewItem> RowsIn(TreeView tree) =>
             source.SelectWith(tree, static (shown, item) => item is null ? null : shown.ContainerFromItem(item) as TreeViewItem).KeepNotNull();
 
+        /// <summary>Gets the rows a list shows for the values, for the values it shows now.</summary>
+        /// <param name="list">The list.</param>
+        /// <returns>The rows.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal IObservable<ListBoxItem> RowsIn(ListBox list) =>
+            source.SelectWith(list, static (shown, item) => item is null ? null : shown.ContainerFromItem(item) as ListBoxItem).KeepNotNull();
+
         /// <summary>Keeps the values seen while the keyboard focus is outside an area, for example after the control that held it was replaced.</summary>
         /// <param name="area">The area.</param>
         /// <returns>The values seen while the focus is elsewhere.</returns>

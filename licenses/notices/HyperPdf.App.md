@@ -862,7 +862,7 @@ SOFTWARE.
 ````
 
 ### Refit
-- Version: 16.3.0
+- Version: 16.4.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI and Contributors
 - Link: https://github.com/reactiveui/refit

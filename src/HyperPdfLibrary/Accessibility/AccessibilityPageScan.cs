@@ -41,6 +41,7 @@ internal static class AccessibilityPageScan
         }
 
         var reachable = CheckAnnotations(ref state, page, pageIndex);
+        CheckReferenceXObjects(ref state, page, pageIndex);
         var tabs = page.Dictionary.IsName(KnownName.Tabs, KnownName.S);
         if (NeedsStructureTabs(page.Dictionary, tabs, state.Part, reachable))
         {
@@ -179,11 +180,15 @@ internal static class AccessibilityPageScan
         var reachable = 0;
         for (var i = 0; annotations is not null && i < annotations.Count; i++)
         {
+            state.Cancellation.ThrowIfCancellationRequested();
             if (annotations.GetDictionary(i) is not { } annotation)
             {
                 continue;
             }
 
+            AccessibilityEmbeddedFileScan.CheckAnnotation(state.Document.Objects.Names, annotation, state.Part, state.Findings, pageIndex);
+            CheckTrapNet(ref state, annotation, pageIndex);
+            AccessibilityMediaScan.Check(state.Document.Objects.Names, annotation, state.Part, state.Findings, pageIndex);
             var kind = Classify(annotation);
             if (kind == AnnotationKind.Skipped)
             {
@@ -195,6 +200,39 @@ internal static class AccessibilityPageScan
         }
 
         return reachable;
+    }
+
+    /// <summary>Reports a form XObject in the page's resources that has a <c>/Ref</c> entry, which ISO 14289-1 clause 7.20 does not permit.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    private static void CheckReferenceXObjects(ref AccessibilityPageState state, PdfPage page, int pageIndex)
+    {
+        if (state.Part != PdfUaClaim.Part1 || page.Resources?.GetDictionary(KnownName.XObject) is not { } xobjects)
+        {
+            return;
+        }
+
+        for (var i = 0; i < xobjects.Count; i++)
+        {
+            state.Cancellation.ThrowIfCancellationRequested();
+            if (xobjects.Get(xobjects.GetKeyAt(i)).AsStream() is { } stream && stream.Dictionary.ContainsKey(KnownName.Ref))
+            {
+                AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.ReferenceXObject, pageIndex);
+            }
+        }
+    }
+
+    /// <summary>Reports a TrapNet annotation, which ISO 14289-1 clause 7.18.2 does not permit, whether or not it is hidden.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
+    /// <param name="annotation">The annotation.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    private static void CheckTrapNet(ref AccessibilityPageState state, PdfDictionary annotation, int pageIndex)
+    {
+        if (state.Part == PdfUaClaim.Part1 && annotation.GetName(KnownName.Subtype).ToKnownName() == KnownName.TrapNet)
+        {
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.TrapNetAnnotation, pageIndex);
+        }
     }
 
     /// <summary>Checks one annotation.</summary>
@@ -253,7 +291,31 @@ internal static class AccessibilityPageScan
         {
             AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.LinkNoDescription, pageIndex, id);
         }
+
+        CheckImageMap(ref state, link, pageIndex, id);
     }
+
+    /// <summary>Reports a link whose URI action is a server-side image map, which ISO 14289-1 clause 7.18.5 does not permit.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
+    /// <param name="link">The link annotation.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="id">The element that refers to the link, or the default id.</param>
+    private static void CheckImageMap(ref AccessibilityPageState state, PdfDictionary link, int pageIndex, PdfObjectId id)
+    {
+        if (state.Part == PdfUaClaim.Part1 && UsesImageMap(state.Document.Objects.Names, link))
+        {
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.LinkIsMap, pageIndex, id);
+        }
+    }
+
+    /// <summary>Determines whether a link's URI action has <c>/IsMap true</c> (ISO 32000-1 12.6.4.7).</summary>
+    /// <param name="names">The document's name table.</param>
+    /// <param name="link">The link annotation.</param>
+    /// <returns><see langword="true"/> when it does.</returns>
+    private static bool UsesImageMap(PdfNameTable names, PdfDictionary link) =>
+        link.GetDictionary(KnownName.A) is { } action
+        && action.IsName(KnownName.S, KnownName.URI)
+        && action.GetBoolean(names.Intern("IsMap"u8), false);
 
     /// <summary>Checks that a form field has a label and is tagged as a form field.</summary>
     /// <param name="state">The operation's exclusively owned state.</param>

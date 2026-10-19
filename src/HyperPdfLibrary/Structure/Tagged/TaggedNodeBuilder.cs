@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 
 namespace HyperPdfLibrary.Structure.Tagged;
@@ -24,11 +25,11 @@ internal sealed class TaggedNodeBuilder
     /// <summary>What the page draws.</summary>
     private readonly PdfMarkedContentPage _content;
 
-    /// <summary>The marked content ids already given to a node.</summary>
-    private readonly HashSet<int> _used = [];
-
     /// <summary>Resolves object references to annotations and form fields.</summary>
     private readonly TaggedObjectResolver _objects;
+
+    /// <summary>The marked content ids already given to a node.</summary>
+    private HashSet<int>? _used;
 
     /// <summary>Initializes a new instance of the <see cref="TaggedNodeBuilder"/> class.</summary>
     /// <param name="document">The document.</param>
@@ -47,11 +48,20 @@ internal sealed class TaggedNodeBuilder
     /// <summary>Builds the page's top-level nodes.</summary>
     /// <param name="tree">The structure tree.</param>
     /// <param name="output">Receives the nodes, in logical order.</param>
-    internal void Build(PdfStructureTree tree, List<PdfSemanticNode> output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Build(PdfStructureTree tree, List<PdfSemanticNode> output) => Build(tree, output, CancellationToken.None);
+
+    /// <summary>Builds the page's top-level nodes, stopping between elements when cancelled.</summary>
+    /// <param name="tree">The structure tree.</param>
+    /// <param name="output">Receives the nodes, in logical order.</param>
+    /// <param name="cancellationToken">Cancels structure traversal.</param>
+    internal void Build(PdfStructureTree tree, List<PdfSemanticNode> output, CancellationToken cancellationToken)
     {
-        foreach (var root in tree.Roots)
+        cancellationToken.ThrowIfCancellationRequested();
+        var roots = tree.Roots;
+        for (var rootIndex = 0; rootIndex < roots.Count; rootIndex++)
         {
-            if (BuildElement(root) is { } node)
+            if (BuildElement(roots[rootIndex], cancellationToken) is { } node)
             {
                 output.Add(node);
             }
@@ -60,19 +70,26 @@ internal sealed class TaggedNodeBuilder
 
     /// <summary>Builds an element's node, or nothing when it has nothing on the page.</summary>
     /// <param name="element">The element.</param>
+    /// <param name="cancellationToken">Cancels structure traversal.</param>
     /// <returns>The node, or <see langword="null"/>.</returns>
-    private PdfSemanticNode? BuildElement(PdfStructureElement element)
+    private PdfSemanticNode? BuildElement(PdfStructureElement element, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (element.Type == PdfStructureType.Artifact)
         {
             return null;
         }
 
         var node = new PdfSemanticNode(element.Role, PdfNodeOrigin.Tagged, _pageIndex) { Element = element, Level = element.HeadingLevel, ActualText = element.ActualText };
-
-        foreach (var kid in element.Kids)
+        if (node.Role == PdfSemanticRole.List)
         {
-            AddKid(node, kid);
+            node.ListNumbering = ListNumberingReader.Read(element, cancellationToken);
+        }
+
+        var kids = element.Kids;
+        for (var kidIndex = 0; kidIndex < kids.Count; kidIndex++)
+        {
+            AddKid(node, kids[kidIndex], cancellationToken);
         }
 
         if (!Belongs(node, element))
@@ -95,13 +112,15 @@ internal sealed class TaggedNodeBuilder
     /// <summary>Adds one kid to an element's node.</summary>
     /// <param name="node">The element's node.</param>
     /// <param name="kid">The kid.</param>
-    private void AddKid(PdfSemanticNode node, in PdfStructureKid kid)
+    /// <param name="cancellationToken">Cancels structure traversal.</param>
+    private void AddKid(PdfSemanticNode node, in PdfStructureKid kid, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         switch (kid.Kind)
         {
             case PdfStructureKidKind.Element when kid.Element is { } child:
                 {
-                    if (BuildElement(child) is { } childNode)
+                    if (BuildElement(child, cancellationToken) is { } childNode)
                     {
                         node.Add(childNode);
                     }
@@ -142,7 +161,13 @@ internal sealed class TaggedNodeBuilder
     /// <returns>The leaf, or <see langword="null"/> when the id was read before or draws nothing.</returns>
     private PdfSemanticNode? BuildContent(int mcid)
     {
-        if (mcid < 0 || !_used.Add(mcid) || !_content.HasContent(mcid))
+        if (mcid < 0 || !_content.HasContent(mcid))
+        {
+            return null;
+        }
+
+        _used ??= [];
+        if (!_used.Add(mcid))
         {
             return null;
         }

@@ -4,7 +4,7 @@
 
 namespace HyperPdfLibrary.Structure.Tagged;
 
-/// <summary>How the labels of an inferred list are made; the values of the List <c>/ListNumbering</c> attribute (ISO 32000-2 14.8.5.5).</summary>
+/// <summary>The label scheme of a tagged or inferred list (ISO 32000-2 14.8.5.5).</summary>
 public enum PdfListNumbering
 {
     /// <summary>The labels are arbitrary text, such as dashes.</summary>
@@ -33,4 +33,13 @@ public enum PdfListNumbering
 
     /// <summary>Lower case letters.</summary>
     LowerAlpha = 8,
+
+    /// <summary>Unspecified bullets in a PDF 2.0 unordered list.</summary>
+    Unordered = 9,
+
+    /// <summary>Unspecified numbering in a PDF 2.0 ordered list.</summary>
+    Ordered = 10,
+
+    /// <summary>Terms followed by their definitions in a PDF 2.0 list.</summary>
+    Description = 11,
 }

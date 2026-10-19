@@ -34,12 +34,23 @@ internal static class AccessibilityStructureScan
         {
             Visit(ref state, roots[index]);
         }
+
+        if (state.NoteIdentifiers is not null)
+        {
+            AccessibilityNoteIdentifiers.Check(state);
+        }
     }
 
     /// <summary>Clears and returns the walk's lazily leased storage.</summary>
     /// <param name="state">The completed or interrupted walk.</param>
     internal static void Release(in AccessibilityStructureState state)
     {
+        if (state.NoteIdentifiers is { } identifiers)
+        {
+            identifiers.Clear();
+            _ = state.Pools.Slots<Dictionary<PdfValue, int>>().Offer(identifiers);
+        }
+
         if (state.NamespaceMaps is { } namespaces)
         {
             namespaces.Clear();
@@ -65,6 +76,18 @@ internal static class AccessibilityStructureScan
 
         pages.Clear();
         _ = state.Pools.Slots<HashSet<int>>().Offer(pages);
+    }
+
+    /// <summary>Reports a PDF/UA-1 formula without an alternate text string.</summary>
+    /// <param name="state">The operation's exclusively owned state.</param>
+    /// <param name="element">The mathematical expression.</param>
+    internal static void CheckFormula(ref AccessibilityStructureState state, PdfStructureElement element)
+    {
+        // ISO 14289-1 7.7 requires Alt separately from replacement text; an empty string remains a string.
+        if (element.Dictionary.Get(KnownName.Alt).Kind != PdfKind.String)
+        {
+            AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.FormulaNoAlternative, element.PageIndex, element.Id);
+        }
     }
 
     /// <summary>Reads what a table's cells state, without entering tables nested inside it.</summary>
@@ -158,6 +181,22 @@ internal static class AccessibilityStructureScan
                     break;
                 }
 
+            case PdfStructureType.Formula when state.Part == PdfUaClaim.Part1:
+                {
+                    CheckFormula(ref state, element);
+                    break;
+                }
+
+            case PdfStructureType.Note when state.Part == PdfUaClaim.Part1:
+                {
+                    if (state.NoteIdentifiers is null)
+                    {
+                        state = state with { NoteIdentifiers = AccessibilityNoteIdentifiers.Rent(state.Pools) };
+                    }
+
+                    break;
+                }
+
             case PdfStructureType.Table:
                 {
                     CheckTable(ref state, element);
@@ -170,7 +209,9 @@ internal static class AccessibilityStructureScan
                     break;
                 }
 
-            case >= PdfStructureType.Heading1 and <= PdfStructureType.Heading6:
+            // ISO 14289-2 8.2.5.12 requires semantic heading levels, not the part 1 sequential-level rule.
+            case >= PdfStructureType.Heading1 and <= PdfStructureType.Heading6 when state.Part != PdfUaClaim.Part2:
+            case PdfStructureType.NumberedHeading when state.Part != PdfUaClaim.Part2:
                 {
                     CheckHeading(ref state, element);
                     break;
@@ -398,15 +439,15 @@ internal static class AccessibilityStructureScan
     /// <param name="element">The heading.</param>
     private static void CheckHeading(ref AccessibilityStructureState state, PdfStructureElement element)
     {
-        var level = element.HeadingLevel;
-        if (level > state.LastHeading + 1)
+        var name = NumberedHeadings.GetName(element);
+        if (NumberedHeadings.SkipsLevel(state.LastHeading, name))
         {
             AccessibilityFindingCollection.Add(state.Findings, PdfAccessibilityCode.HeadingLevelSkipped, element.PageIndex, element.Id);
         }
 
         state = state with
         {
-            LastHeading = level
+            LastHeading = name
         };
     }
 

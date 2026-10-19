@@ -10,6 +10,15 @@ namespace HyperPdf.Engine;
 /// <summary>Loads what an edit reads with asynchronous I/O, before the edit takes the edit gate.</summary>
 internal static class HyperPdfEditPrefetch
 {
+    /// <summary>Loads the structure tree.</summary>
+    /// <param name="document">The library document.</param>
+    /// <param name="cancellationToken">Cancels loading.</param>
+    /// <returns>A task that completes when the tags are cached.</returns>
+    internal static ValueTask TagsAsync(PdfDocument document, CancellationToken cancellationToken) =>
+        document.Catalog.GetDictionary(KnownName.StructTreeRoot) is { } root
+            ? PdfPrefetcher.PrefetchAsync(document.Objects, root, PdfPrefetchKind.Page, cancellationToken)
+            : ValueTask.CompletedTask;
+
     /// <summary>Loads the bookmark entries.</summary>
     /// <param name="document">The library document.</param>
     /// <param name="cancellationToken">Cancels loading.</param>

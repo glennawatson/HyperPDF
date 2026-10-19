@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using HyperPdfLibrary.Creation;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure.Tagged;
@@ -160,6 +161,24 @@ internal static class TagStructure
         {
             dictionary.Set(KnownName.A, PdfValue.FromDictionary(attributes));
         }
+
+        if (node.Numbering != PdfListNumbering.None)
+        {
+            dictionary.Set(KnownName.A, PdfValue.FromDictionary(ListAttributes(state, node.Numbering)));
+        }
+    }
+
+    /// <summary>Builds the list attribute object that says how a list's labels are made (ISO 32000-2 14.8.5.4).</summary>
+    /// <param name="state">The pass.</param>
+    /// <param name="numbering">The numbering the layout found.</param>
+    /// <returns>The attribute dictionary.</returns>
+    private static PdfDictionary ListAttributes(TaggerState state, PdfListNumbering numbering)
+    {
+        var store = state.Document.Objects;
+        var attributes = new PdfDictionary(store, ElementEntries);
+        attributes.Set(OptimizerNames.Owner, PdfValue.FromName(OptimizerNames.List));
+        attributes.Set(store.Names.Intern("ListNumbering"u8), PdfValue.FromName(store.Names.Intern(PdfTagListNumbering.Name(numbering))));
+        return attributes;
     }
 
     /// <summary>Builds the table attribute object of a cell (ISO 32000-2 14.8.5.7).</summary>

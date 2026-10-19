@@ -106,7 +106,7 @@ public sealed class PdfSemanticNode
     /// <summary>Gets a table cell's row, from zero; -1 for other nodes.</summary>
     public int Row { get; internal set; } = -1;
 
-    /// <summary>Gets a table cell's column, from zero; -1 for other nodes.</summary>
+    /// <summary>Gets a table cell's column from zero, saturated at Int32.MaxValue; -1 for other nodes.</summary>
     public int Column { get; internal set; } = -1;
 
     /// <summary>Gets a table cell's row span.</summary>
@@ -139,7 +139,7 @@ public sealed class PdfSemanticNode
     /// <summary>Gets which pagination artifact a <see cref="PdfSemanticRole.Artifact"/> node is.</summary>
     public PdfPaginationKind Pagination { get; internal set; }
 
-    /// <summary>Gets how an inferred list's labels are made.</summary>
+    /// <summary>Gets the list's explicit or inherited label scheme, or the scheme inferred from its layout.</summary>
     public PdfListNumbering ListNumbering { get; internal set; }
 
     /// <summary>

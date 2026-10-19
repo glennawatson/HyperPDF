@@ -49,6 +49,19 @@ internal static class PdfAccessibilityMessages
         "The file claims a PDF/UA-2 revision other than 2024.",
         "The file has no metadata, so it has no title for readers to show.",
         "A language setting is not a valid language code, so a screen reader may pick the wrong voice.",
+        "A formula has no alternate text description required by PDF/UA-1.",
+        "A footnote or endnote has no ID, or shares its ID with another tag.",
+        "A layer configuration has no required name, so readers cannot identify it.",
+        "A layer configuration changes visibility automatically, which PDF/UA does not allow.",
+        "An embedded file is missing a required filename, so readers may not identify it correctly.",
+        "The file is locked in a way that stops screen readers from reading its content.",
+        "The file has a print trapping note, which an accessible file may not contain.",
+        "This form builds itself when it opens, which screen readers cannot follow.",
+        "A link works by where you click on an image, which keyboard and screen reader users cannot do.",
+        "This page shows content that is stored in another file, which an accessible file may not do.",
+        "A video or sound has no text description or content type, so a screen reader cannot say what it is.",
+        "A tag is inside a tag that is not allowed to hold it, so the reading structure is not valid.",
+        "A tag holds more of one kind of tag than allowed, such as two captions.",
     ];
 
     /// <summary>Gets the number of code values, counting <see cref="PdfAccessibilityCode.None"/>.</summary>
