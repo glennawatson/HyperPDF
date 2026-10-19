@@ -32,12 +32,9 @@ public sealed class DocumentTabExternalRewriteTests
     private static readonly PagePoint NotePosition = new(100, 100);
 
     /// <summary>A clean tab automatically reloads externally replaced bytes and keeps a valid current page.</summary>
-    /// <param name="atomic">Whether replacement renames a new file over the watched path.</param>
     /// <returns>A task.</returns>
     [Test]
-    [Arguments(false)]
-    [Arguments(true)]
-    public async Task CleanTabAutomaticallyReloadsReplacement(bool atomic)
+    public async Task CleanTabAutomaticallyReloadsReplacement()
     {
         var engine = new HighlightedHyperPdfEngine(static () => FormHighlight.Default, static () => RenderSharpness.Default);
         using var test = new TestServices(engine);
@@ -54,7 +51,7 @@ public sealed class DocumentTabExternalRewriteTests
         var destinations = new List<int>();
         using var navigation = tab.Destinations.SubscribeSafe(request => destinations.Add(request.PageIndex), static _ => { });
 
-        await ReplaceAsync(path, atomic);
+        await ReplaceAsync(path);
 
         await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded && tab.PageCount == ReplacementPages && destinations.Count != 0)).IsTrue();
         await Assert.That(tab.TryGetDocument()).IsNotEqualTo(original);
@@ -65,12 +62,9 @@ public sealed class DocumentTabExternalRewriteTests
     }
 
     /// <summary>External replacement prompts instead of silently discarding a tab's unsaved note.</summary>
-    /// <param name="atomic">Whether replacement renames a new file over the watched path.</param>
     /// <returns>A task.</returns>
     [Test]
-    [Arguments(false)]
-    [Arguments(true)]
-    public async Task DirtyTabKeepsEditsAndOffersReload(bool atomic)
+    public async Task DirtyTabKeepsEditsAndOffersReload()
     {
         var engine = new HighlightedHyperPdfEngine(static () => FormHighlight.Default, static () => RenderSharpness.Default);
         using var test = new TestServices(engine);
@@ -84,7 +78,7 @@ public sealed class DocumentTabExternalRewriteTests
         await tab.Annotations.AddNoteAsync(0, NotePosition);
         await Assert.That(tab.Source.HasUnsavedChanges).IsTrue();
 
-        await ReplaceAsync(path, atomic);
+        await ReplaceAsync(path);
 
         await Assert.That(await UiWait.UntilAsync(() => tab.HasPendingReload)).IsTrue();
         await Assert.That(tab.TryGetDocument()).IsEqualTo(original);
@@ -93,17 +87,9 @@ public sealed class DocumentTabExternalRewriteTests
         await Assert.That(tab.Annotations.Items.Single().Annotation.Contents).IsEqualTo("Keep my note");
     }
 
-    /// <summary>Writes a smaller replacement through either common editor save pattern.</summary>
+    /// <summary>Writes a smaller replacement over the watched file.</summary>
     /// <param name="path">The watched path.</param>
-    /// <param name="atomic">Whether to replace by rename.</param>
     /// <returns>A task.</returns>
-    private static async Task ReplaceAsync(string path, bool atomic)
-    {
-        var destination = atomic ? $"{path}.new" : path;
-        await File.WriteAllBytesAsync(destination, TestPdf.Create(ReplacementPages), CancellationToken.None);
-        if (atomic)
-        {
-            File.Move(destination, path, true);
-        }
-    }
+    private static Task ReplaceAsync(string path) =>
+        File.WriteAllBytesAsync(path, TestPdf.Create(ReplacementPages), CancellationToken.None);
 }

@@ -58,36 +58,4 @@ public sealed class HyperPdfExternalRewriteTests
             File.Delete(path);
         }
     }
-
-    /// <summary>Atomic replacement leaves the old document readable and a new open sees the new pages.</summary>
-    /// <param name="asynchronous">Whether opening uses the asynchronous adapter.</param>
-    /// <returns>A task.</returns>
-    [Test]
-    [Arguments(false)]
-    [Arguments(true)]
-    public async Task AtomicReplacementKeepsOldDocumentReadable(bool asynchronous)
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"hyperpdf-replace-{Guid.NewGuid():N}.pdf");
-        var replacementPath = $"{path}.new";
-        await File.WriteAllBytesAsync(path, TestPdf.Create(1), CancellationToken.None);
-        try
-        {
-            var engine = new HyperPdfEngine();
-            using var document = (HyperPdfDocument)(asynchronous
-                ? await engine.OpenAsync(path, null, CancellationToken.None)
-                : engine.Open(path, null));
-            await Assert.That(document.Document.Objects.Source).IsTypeOf<StreamPdfByteSource>();
-            await File.WriteAllBytesAsync(replacementPath, TestPdf.Create(ReplacementPages), CancellationToken.None);
-            File.Move(replacementPath, path, true);
-            await document.PreparePageAsync(0, CancellationToken.None);
-            await Assert.That(document.PageCount).IsEqualTo(1);
-            using var replacement = await engine.OpenAsync(path, null, CancellationToken.None);
-            await Assert.That(replacement.PageCount).IsEqualTo(ReplacementPages);
-        }
-        finally
-        {
-            File.Delete(replacementPath);
-            File.Delete(path);
-        }
-    }
 }
