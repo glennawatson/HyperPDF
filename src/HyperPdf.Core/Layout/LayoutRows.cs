@@ -52,7 +52,8 @@ internal static class LayoutRows
     private static int[] GetWrappedStarts(ReadOnlySpan<PageSize> sizes, in LayoutOptions options)
     {
         var available = options.ViewportWidth - (MarginSides * options.Margin);
-        var starts = new List<int>();
+        var starts = new int[CountWrappedRows(sizes, options, available)];
+        var row = 0;
         var used = 0.0;
         for (var i = 0; i < sizes.Length; i++)
         {
@@ -60,19 +61,41 @@ internal static class LayoutRows
             var needed = used > 0 ? used + options.Spacing + width : width;
             if (used > 0 && needed > available)
             {
-                starts.Add(i);
+                row++;
+                starts[row] = i;
                 used = width;
                 continue;
-            }
-
-            if (i == 0)
-            {
-                starts.Add(0);
             }
 
             used = needed;
         }
 
-        return [.. starts];
+        return starts;
+    }
+
+    /// <summary>Counts the rows wrapped pages fill.</summary>
+    /// <param name="sizes">The unrotated page sizes.</param>
+    /// <param name="options">The layout options.</param>
+    /// <param name="available">The width a row can fill.</param>
+    /// <returns>The rows.</returns>
+    private static int CountWrappedRows(ReadOnlySpan<PageSize> sizes, in LayoutOptions options, double available)
+    {
+        var rows = 1;
+        var used = 0.0;
+        for (var i = 0; i < sizes.Length; i++)
+        {
+            var width = sizes[i].Rotate(options.Rotation).Width * options.Scale;
+            var needed = used > 0 ? used + options.Spacing + width : width;
+            if (used > 0 && needed > available)
+            {
+                rows++;
+                used = width;
+                continue;
+            }
+
+            used = needed;
+        }
+
+        return rows;
     }
 }

@@ -70,6 +70,18 @@ public class PdfTextExportBenchmarks
     [Benchmark]
     public int LayoutLeftToRight() => DocumentLayout.Create(_sizes, new(PageRotation.None, PageLayoutMode.Dual, 1, Spacing, Margin, Viewport)).PageCount;
 
+    /// <summary>Lays out every page in one row that scrolls sideways.</summary>
+    /// <returns>The page count of the layout.</returns>
+    [Benchmark]
+    public int LayoutHorizontal() =>
+        DocumentLayout.Create(_sizes, new(PageRotation.None, PageLayoutMode.Single, 1, Spacing, Margin, Viewport) { Scroll = ScrollMode.Horizontal }).PageCount;
+
+    /// <summary>Lays out pages that wrap across the viewport.</summary>
+    /// <returns>The page count of the layout.</returns>
+    [Benchmark]
+    public int LayoutWrapped() =>
+        DocumentLayout.Create(_sizes, new(PageRotation.None, PageLayoutMode.Single, 1, Spacing, Margin, Viewport) { Scroll = ScrollMode.Wrapped }).PageCount;
+
     /// <summary>Lays out two page spreads that read right to left.</summary>
     /// <returns>The page count of the layout.</returns>
     [Benchmark]
