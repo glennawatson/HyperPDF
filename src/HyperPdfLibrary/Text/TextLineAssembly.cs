@@ -273,7 +273,7 @@ internal static class TextLineAssembly
     {
         var point = state.PreviousEnd;
         var box = new PdfRectangle(point.X, point.Y, point.X, point.Y);
-        state.LineChars.Add(new(PdfTextCharKind.Generated, NoCode, ' ', point, box, box, index, NextGroup(state), state.LineIndex, true));
+        state.LineChars.Add(new(PdfTextCharKind.Generated, NoCode, ' ', point, box, box, index, NextGroup(state), state.LineIndex, true, 0));
     }
 
     /// <summary>Adds the characters one glyph shows.</summary>
@@ -293,7 +293,7 @@ internal static class TextLineAssembly
         {
             var value = (char)glyph.Code;
             var box = TextGeometry.TransformRect(run.Matrix, outline);
-            state.LineChars.Add(new(PdfTextCharKind.NotUnicode, glyph.Code, value, origin, box, TextGeometry.TransformRect(run.Matrix, loose), index, group, state.LineIndex, false));
+            state.LineChars.Add(new(PdfTextCharKind.NotUnicode, glyph.Code, value, origin, box, TextGeometry.TransformRect(run.Matrix, loose), index, group, state.LineIndex, false, 0));
             return;
         }
 
@@ -309,7 +309,7 @@ internal static class TextLineAssembly
                 var character = count > 0 ? pieces[i] : value;
                 var box = TextGeometry.TransformRect(run.Matrix, Slice(outline, position, total, vertical));
                 var looseBox = TextGeometry.TransformRect(run.Matrix, Slice(loose, position, total, vertical));
-                AddCharacter(state, new(kind, glyph.Code, character, origin, box, looseBox, index, group, state.LineIndex, !TextUnicode.IsHidden(character)));
+                AddCharacter(state, new(kind, glyph.Code, character, origin, box, looseBox, index, group, state.LineIndex, !TextUnicode.IsHidden(character), 0));
                 position++;
             }
         }
@@ -385,7 +385,7 @@ internal static class TextLineAssembly
         for (var i = 0; i < text.Length; i++)
         {
             var box = TextGeometry.TransformRect(run.Matrix, Slice(extent, i, text.Length, vertical));
-            AddCharacter(state, new(PdfTextCharKind.ActualText, NoCode, text[i], origin, box, box, index, NextGroup(state), state.LineIndex, !TextUnicode.IsHidden(text[i])));
+            AddCharacter(state, new(PdfTextCharKind.ActualText, NoCode, text[i], origin, box, box, index, NextGroup(state), state.LineIndex, !TextUnicode.IsHidden(text[i]), 0));
         }
 
         var last = glyphs[^1];

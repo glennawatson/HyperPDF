@@ -102,6 +102,16 @@ internal static class TextPageBuild
 
         var text = new char[textLength];
         var charOfText = new int[textLength];
+        FillText(source, text, charOfText);
+        return new(page, chars, lines, BuildLevels(source), new(text), charOfText);
+    }
+
+    /// <summary>Copies the characters that are part of the page text, and the character index of each.</summary>
+    /// <param name="source">The characters the build collected.</param>
+    /// <param name="text">Receives the text.</param>
+    /// <param name="charOfText">Receives the character index of each text index.</param>
+    private static void FillText(ReadOnlySpan<TextBuildChar> source, char[] text, int[] charOfText)
+    {
         var next = 0;
         for (var i = 0; i < source.Length; i++)
         {
@@ -114,7 +124,25 @@ internal static class TextPageBuild
             charOfText[next] = i;
             next++;
         }
+    }
 
-        return new(page, chars, lines, new(text), charOfText);
+    /// <summary>Collects the embedding level of each character.</summary>
+    /// <param name="source">The characters the build collected.</param>
+    /// <returns>The levels, or <see langword="null"/> when every character is at level 0, as on pages of left-to-right text.</returns>
+    private static byte[]? BuildLevels(ReadOnlySpan<TextBuildChar> source)
+    {
+        byte[]? levels = null;
+        for (var i = 0; i < source.Length; i++)
+        {
+            if (source[i].Level == 0)
+            {
+                continue;
+            }
+
+            levels ??= new byte[source.Length];
+            levels[i] = source[i].Level;
+        }
+
+        return levels;
     }
 }

@@ -33,8 +33,11 @@ public sealed class PdfTextPage
     /// <summary>Bounds of contiguous character blocks on larger pages.</summary>
     private readonly TextHitBlock[] _hitBlocks;
 
-    /// <summary>The line each character is on, or -1 for line breaks; characters of one line share one rectangle.</summary>
+    /// <summary>The line each character is on, or -1 for line breaks; characters of one line and one direction share one rectangle.</summary>
     private readonly int[] _lines;
+
+    /// <summary>The bidirectional embedding level of each character, or <see langword="null"/> when every character is at level 0.</summary>
+    private readonly byte[]? _levels;
 
     /// <summary>The page text.</summary>
     private readonly string _text;
@@ -51,18 +54,23 @@ public sealed class PdfTextPage
     /// <summary>The web links, found on first use.</summary>
     private PdfWebLink[]? _webLinks;
 
+    /// <summary>The start of every cluster of the page text as bits, found on first use.</summary>
+    private uint[]? _clusterStarts;
+
     /// <summary>Initializes a new instance of the <see cref="PdfTextPage"/> class.</summary>
     /// <param name="page">The page.</param>
     /// <param name="chars">The characters.</param>
     /// <param name="lines">The line of each character.</param>
+    /// <param name="levels">The embedding level of each character, or <see langword="null"/> when they are all 0.</param>
     /// <param name="text">The page text.</param>
     /// <param name="charOfText">The character index of each text index.</param>
-    internal PdfTextPage(PdfPage page, PdfTextChar[] chars, int[] lines, string text, int[] charOfText)
+    internal PdfTextPage(PdfPage page, PdfTextChar[] chars, int[] lines, byte[]? levels, string text, int[] charOfText)
     {
         Page = page;
         _chars = chars;
         _hitBlocks = TextHitTesting.BuildBlocks(chars);
         _lines = lines;
+        _levels = levels;
         _text = text;
         _charOfText = charOfText;
         _textOfChar = new int[chars.Length];
@@ -94,6 +102,67 @@ public sealed class PdfTextPage
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _chars.Length);
         return _chars[index];
+    }
+
+    /// <summary>
+    /// Gets the bidirectional embedding level of a character: 0 for left-to-right text, 1 for a right-to-left run, and higher
+    /// for text nested in them, such as the digits of a number inside right-to-left text. Characters are in logical order, and
+    /// a run at an odd level is drawn right to left, so its characters sit right to left on the page.
+    /// </summary>
+    /// <param name="index">The character index.</param>
+    /// <returns>The level.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The index is outside the page's characters.</exception>
+    public int GetBidiLevel(int index)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _chars.Length);
+        return _levels is null ? 0 : _levels[index];
+    }
+
+    /// <summary>
+    /// Gets the first character of the cluster a character belongs to. A cluster is what a reader sees as one unit and a
+    /// selection should not split: a letter with its accents, an Indic consonant with its vowel signs, or a conjunct joined
+    /// by a virama (extended grapheme clusters, UAX #29). A character without text is a cluster of its own.
+    /// </summary>
+    /// <param name="index">The character index.</param>
+    /// <returns>The index of the cluster's first character.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The index is outside the page's characters.</exception>
+    public int GetClusterStart(int index)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _chars.Length);
+        var textIndex = _textOfChar[index];
+        return textIndex < 0 ? index : _charOfText[TextClusters.StartOf(ClusterStarts(), textIndex)];
+    }
+
+    /// <summary>Gets the index after the last character of the cluster a character belongs to.</summary>
+    /// <param name="index">The character index.</param>
+    /// <returns>The index after the cluster's last character.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The index is outside the page's characters.</exception>
+    public int GetClusterEnd(int index)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _chars.Length);
+
+        // The cluster ends after its last character that has text; a character without text after it is a cluster of its own.
+        var textIndex = _textOfChar[index];
+        return textIndex < 0 ? index + 1 : _charOfText[TextClusters.EndOf(ClusterStarts(), _text.Length, textIndex) - 1] + 1;
+    }
+
+    /// <summary>Widens a run of characters so it starts at the beginning of a cluster and ends at the end of one.</summary>
+    /// <param name="start">The first character.</param>
+    /// <param name="count">The number of characters; a negative count runs to the end of the page.</param>
+    /// <returns>The widened run; an empty run when the arguments hold no character.</returns>
+    public PdfTextRange GetClusterRange(int start, int count)
+    {
+        if (start < 0 || count == 0 || start >= _chars.Length)
+        {
+            return new(Math.Max(start, 0), 0);
+        }
+
+        var last = count < 0 || (long)start + count > _chars.Length ? _chars.Length - 1 : start + count - 1;
+        var first = GetClusterStart(start);
+        return new(first, GetClusterEnd(last) - first);
     }
 
     /// <summary>Maps an index in <see cref="Text"/> to a character index.</summary>
@@ -173,6 +242,7 @@ public sealed class PdfTextPage
 
         count = count < 0 || start + count > _chars.Length ? _chars.Length - start : count;
         var line = int.MinValue;
+        var level = 0;
         var rect = default(PdfRectangle);
         for (var i = start; i < start + count; i++)
         {
@@ -181,8 +251,10 @@ public sealed class PdfTextPage
                 continue;
             }
 
+            // A run of one direction on a line is one rectangle; a change of direction starts another, so a selection that
+            // takes only part of a right-to-left run inside left-to-right text does not cover what lies between.
             var box = _chars[i].Box;
-            if (line == _lines[i])
+            if (line == _lines[i] && level == LevelOf(i))
             {
                 rect = TextGeometry.Union(rect, box);
                 continue;
@@ -190,6 +262,7 @@ public sealed class PdfTextPage
 
             VisitRect(line, rect, state, visit);
             line = _lines[i];
+            level = LevelOf(i);
             rect = TextGeometry.Normalize(box);
         }
 
@@ -276,6 +349,25 @@ public sealed class PdfTextPage
     /// <returns><see langword="true"/> for shown characters with an area.</returns>
     private static bool CountsTowardsRects(in PdfTextChar info) =>
         info.Kind != PdfTextCharKind.Generated && info.Box.Width >= SizeEpsilon && info.Box.Height >= SizeEpsilon;
+
+    /// <summary>Gets the cluster starts of the page text, making them once.</summary>
+    /// <returns>The bits.</returns>
+    private uint[] ClusterStarts()
+    {
+        if (Volatile.Read(ref _clusterStarts) is { } existing)
+        {
+            return existing;
+        }
+
+        _ = Interlocked.CompareExchange(ref _clusterStarts, TextClusters.FindStarts(_text), null);
+        return Volatile.Read(ref _clusterStarts)!;
+    }
+
+    /// <summary>Gets a character's embedding level.</summary>
+    /// <param name="index">The character index.</param>
+    /// <returns>The level.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int LevelOf(int index) => _levels is null ? 0 : _levels[index];
 
     /// <summary>Finds the last character of a range that has text.</summary>
     /// <param name="first">A character of the range that has text.</param>

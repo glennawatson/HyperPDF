@@ -72,7 +72,7 @@ internal static class TextLineOrder
         {
             for (var i = starts[group]; i < starts[group + 1]; i++)
             {
-                state.LineLogical.Add(state.LineChars[i]);
+                state.LineLogical.Add(state.LineChars[i] with { Level = levels[group] });
             }
         }
 
@@ -143,8 +143,8 @@ internal static class TextLineOrder
         {
             var point = new Vector2(previous.Box.Right, previous.Box.Bottom);
             var box = new PdfRectangle(point.X, point.Y, point.X, point.Y);
-            state.Chars.Add(new(PdfTextCharKind.Generated, -1, '\r', point, box, box, previous.Run, line[0].Group, -1, true));
-            state.Chars.Add(new(PdfTextCharKind.Generated, -1, '\n', point, box, box, previous.Run, line[0].Group, -1, true));
+            state.Chars.Add(new(PdfTextCharKind.Generated, -1, '\r', point, box, box, previous.Run, line[0].Group, -1, true, 0));
+            state.Chars.Add(new(PdfTextCharKind.Generated, -1, '\n', point, box, box, previous.Run, line[0].Group, -1, true, 0));
         }
     }
 

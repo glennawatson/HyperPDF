@@ -10,6 +10,26 @@ public static class TextSearchSamples
     /// <summary>The text of the accented page: accents, curly quotes and an en dash.</summary>
     public static readonly string AccentedText = "résumé “quoted” café 2024–25";
 
+    /// <summary>The text of the conjunct page: the Devanagari consonants ka and ssa joined by a virama, then a space and "ok".</summary>
+    public static readonly string ConjunctText = "\U00000915\U0000094D\U00000937 ok";
+
+    /// <summary>
+    /// Creates a one page document with the Devanagari conjunct ka, virama, ssa, a space and "ok". The font maps its codes
+    /// 1, 2 and 3 to the three Devanagari characters with a <c>/ToUnicode</c> map.
+    /// </summary>
+    /// <returns>The PDF bytes.</returns>
+    public static byte[] CreateConjunctPage() => MiniPdf.Build(
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /ToUnicode 6 0 R >>",
+        MiniPdf.Stream(string.Empty, "BT /F1 14 Tf 20 100 Td <010203> Tj ( ok) Tj ET"),
+        MiniPdf.Stream(
+            string.Empty,
+            "/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /Adobe-Identity-UCS def /CMapType 2 def "
+            + "1 begincodespacerange <00> <FF> endcodespacerange 3 beginbfchar <01> <0915> <02> <094D> <03> <0937> endbfchar "
+            + "endcmap CMapName currentdict /CMap defineresource pop end end"));
+
     /// <summary>Creates a one page document of <see cref="AccentedText"/> in Helvetica with WinAnsi encoding.</summary>
     /// <returns>The PDF bytes.</returns>
     public static byte[] CreateAccentedPage() => MiniPdf.Build(

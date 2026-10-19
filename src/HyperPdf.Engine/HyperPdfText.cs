@@ -86,7 +86,10 @@ internal static class HyperPdfText
         // The point and tolerance are physical points; the text page measures in user space units.
         var user = text.Page.FromPhysical(new(point.X, point.Y));
         var userTolerance = tolerance / text.Page.UserUnit;
-        return Math.Max(text.GetIndexAtPosition(user, userTolerance, userTolerance), -1);
+        var hit = Math.Max(text.GetIndexAtPosition(user, userTolerance, userTolerance), -1);
+
+        // A point on a vowel sign or an accent is on its letter: a selection starts at the beginning of the cluster.
+        return hit < 0 ? hit : text.GetClusterStart(hit);
     }
 
     /// <summary>Gets the text of a run of characters, as <see cref="HyperPdfDocument.GetText"/> will.</summary>
@@ -95,8 +98,17 @@ internal static class HyperPdfText
     /// <param name="start">The first character.</param>
     /// <param name="count">The number of characters.</param>
     /// <returns>The text.</returns>
-    internal static string GetTextNative(HyperPdfDocument self, int pageIndex, int start, int count) =>
-            count <= 0 || start < 0 || TextPage(self, pageIndex) is not { } text ? string.Empty : text.GetText(start, count);
+    internal static string GetTextNative(HyperPdfDocument self, int pageIndex, int start, int count)
+    {
+        if (count <= 0 || start < 0 || TextPage(self, pageIndex) is not { } text)
+        {
+            return string.Empty;
+        }
+
+        // A selection that ends inside a cluster still takes the whole cluster.
+        var range = text.GetClusterRange(start, count);
+        return text.GetText(range.Start, range.Count);
+    }
 
     /// <summary>Appends the line rectangles covering a run of characters in viewer space, as <see cref="HyperPdfDocument.GetTextBounds"/> will.</summary>
     /// <param name="self">The owning document.</param>
@@ -112,9 +124,10 @@ internal static class HyperPdfText
             return;
         }
 
+        var range = text.GetClusterRange(start, count);
         text.GetRects(
-            start,
-            count,
+            range.Start,
+            range.Count,
             new RectOutput(text, output),
             static (state, rect) => state.Output.Add(LinkTargets.ToPageRect(state.Text.Page.ToPhysicalRectangle(rect))));
     }
