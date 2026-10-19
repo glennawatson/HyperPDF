@@ -20,6 +20,15 @@ public sealed class PreviewReachTests
     /// <summary>The pages in the long test document.</summary>
     private const int Pages = 90;
 
+    /// <summary>The name of the long test document.</summary>
+    private const string FileName = "long.pdf";
+
+    /// <summary>The pages in the long document the lag was reported on.</summary>
+    private const int LongPages = 273;
+
+    /// <summary>The page in the middle of the long document.</summary>
+    private const int LongMiddle = 136;
+
     /// <summary>The page the reader jumps to when scrolling forwards.</summary>
     private const int ForwardPage = 40;
 
@@ -45,7 +54,7 @@ public sealed class PreviewReachTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("long.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -72,7 +81,7 @@ public sealed class PreviewReachTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("long.pdf", Pages)]);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
         try
@@ -85,6 +94,33 @@ public sealed class PreviewReachTests
             _ = await UiWait.UntilAsync(() => tab.CurrentPageIndex <= BackwardPage + 1);
 
             var made = await UiWait.UntilAsync(() => HasPreview(test, tab, BackwardPage - BehindWhenGoingBack));
+
+            await Assert.That(made).IsTrue();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>In a 273 page document, a jump into the middle fills in previews on both sides of the view.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PreviewsSurroundTheViewInALongDocument()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, LongPages)]);
+        var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
+        window.Show();
+        try
+        {
+            var tab = main.SelectedTab!;
+            _ = await UiWait.UntilAsync(() => HasPreview(test, tab, 0));
+            tab.GoToPage(LongMiddle);
+            _ = await UiWait.UntilAsync(() => tab.CurrentPageIndex >= LongMiddle - 1);
+
+            var made = await UiWait.UntilAsync(() => HasPreview(test, tab, LongMiddle + Ahead) && HasPreview(test, tab, LongMiddle - Behind));
 
             await Assert.That(made).IsTrue();
         }
