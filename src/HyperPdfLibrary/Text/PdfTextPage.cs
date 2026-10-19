@@ -170,6 +170,16 @@ public sealed class PdfTextPage
         return new(first, GetClusterEnd(last) - first);
     }
 
+    /// <summary>
+    /// Gets the text inside a rectangle. A character is inside when the middle of its box is. Neighbouring characters inside
+    /// are read in reading order with their spaces and line breaks; where the rectangle skips characters, as it does across a
+    /// column, the pieces are separated by a line break.
+    /// </summary>
+    /// <param name="rectangle">The rectangle in user space.</param>
+    /// <returns>The text; empty when no character is inside.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public string GetTextInRectangle(in PdfRectangle rectangle) => TextRegions.Extract(this, rectangle);
+
     /// <summary>Gets how a character is drawn: its colours, direction, matrix, font and decorations.</summary>
     /// <param name="index">The character index.</param>
     /// <returns>The style. A character the extractor generated, such as a space, has the style of the run it follows.</returns>
