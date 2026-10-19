@@ -1940,6 +1940,11 @@
     "reason": "Composing one PDF tiling period publishes an independently owned pattern cell and native image or picture. Raster periods need a surface at their bounded pixel size; SkiaSharp creates the native wrappers and child-handle tracking collections at this boundary. The document caches the completed period for later uses."
   },
   {
+    "type": "HyperPdfLibrary.Objects.PdfStream",
+    "frame": "HyperPdf.Benchmarks.HyperPdfIccProfileCacheBenchmarks.NewProfileStream",
+    "reason": "The benchmark makes a new profile stream on each call on purpose, to measure the cache's work on a profile it has not seen. The stream is the benchmark's input, not a library allocation."
+  },
+  {
     "type": "HyperPdfLibrary.Text.TextHitBlock[]",
     "frame": "HyperPdf.Benchmarks.HyperPdfTextHitBuildBenchmarks.BuildBlocks",
     "reason": "The runtime inlined HyperPdfLibrary.Text.TextHitTesting.BuildBlocks into the benchmark method, so the trace names the caller. The array is the hit-test index of a text page, built once with the page and then read without allocation."
