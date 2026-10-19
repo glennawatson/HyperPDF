@@ -53,6 +53,9 @@ public sealed partial class PageTextEditorView : ReactiveUI.Avalonia.ReactiveUse
     /// <summary>The narrowest editor, in device independent pixels, so the caret always shows.</summary>
     private const double MinEditorWidth = 4;
 
+    /// <summary>The space between the text and the quick format row, in device independent pixels.</summary>
+    private const double BubbleGap = 6;
+
     /// <summary>Halves the room around a comb letter, to centre it in its box.</summary>
     private const double HalfCell = 0.5;
 
@@ -67,6 +70,7 @@ public sealed partial class PageTextEditorView : ReactiveUI.Avalonia.ReactiveUse
         {
             disposables.Add(this.Bind(ViewModel, static vm => vm.Annotations.EditingText, static v => v.PageTextEditor.Text, static text => text, static text => text ?? string.Empty));
             var edits = this.WhenChanged(static v => v.ViewModel!.Annotations.TextEdit);
+            disposables.Add(tabs.BindTo(FormatBubble, static bubble => bubble.ViewModel));
             disposables.Add(edits.SubscribeSafe(ShowPageTextEditor, ErrorTrace.Write));
 
             // The editor takes the keyboard once it is placed and the press that started the text has finished.
@@ -154,7 +158,8 @@ public sealed partial class PageTextEditorView : ReactiveUI.Avalonia.ReactiveUse
         return focused is Visual visual
             && ReferenceEquals(TopLevel.GetTopLevel(visual), TopLevel.GetTopLevel(this))
             && visual.FindAncestorOfType<TextFormatBarView>() is null
-            && !(visual is ILogical logical && logical.FindLogicalAncestorOfType<TextFormatBarView>() is not null);
+            && visual.FindAncestorOfType<TextFormatBubbleView>() is null
+            && !(visual is ILogical logical && (logical.FindLogicalAncestorOfType<TextFormatBarView>() is not null || logical.FindLogicalAncestorOfType<TextFormatBubbleView>() is not null));
     }
 
     /// <summary>Places the editor where the text box is, or hides it.</summary>
@@ -165,6 +170,7 @@ public sealed partial class PageTextEditorView : ReactiveUI.Avalonia.ReactiveUse
         {
             var hadFocus = PageTextEditor.IsKeyboardFocusWithin;
             PageTextEditor.IsVisible = false;
+            FormatBubble.IsVisible = false;
             if (hadFocus)
             {
                 _ = Pages?.Focus();
@@ -175,6 +181,7 @@ public sealed partial class PageTextEditorView : ReactiveUI.Avalonia.ReactiveUse
 
         // Shown first, so the editor lays its text out and its baseline can be lined up with the written one.
         PageTextEditor.IsVisible = true;
+        FormatBubble.IsVisible = true;
         RestylePageTextEditor();
     }
 
@@ -287,6 +294,20 @@ public sealed partial class PageTextEditorView : ReactiveUI.Avalonia.ReactiveUse
         Canvas.SetTop(PageTextUnderline, anchor.Y);
         PageTextEditor.RenderTransform = turns == 0 ? null : new RotateTransform(turns * QuarterTurn);
         PageTextUnderline.RenderTransform = PageTextEditor.RenderTransform;
+        PlaceFormatBubble(anchor);
+    }
+
+    /// <summary>
+    /// Puts the quick format row just above the text, or just below it when there is no room above. It does not turn with
+    /// a rotated page, so its buttons always read the right way up.
+    /// </summary>
+    /// <param name="anchor">The text box's top-left corner on the canvas.</param>
+    private void PlaceFormatBubble(Point anchor)
+    {
+        FormatBubble.Measure(Size.Infinity);
+        var above = anchor.Y - FormatBubble.DesiredSize.Height - BubbleGap;
+        Canvas.SetLeft(FormatBubble, Math.Max(0, anchor.X));
+        Canvas.SetTop(FormatBubble, above >= 0 ? above : anchor.Y + Math.Max(PageTextEditor.Bounds.Height, MinEditorWidth) + BubbleGap);
     }
 
     /// <summary>A key and whether Ctrl is held with it.</summary>

@@ -435,6 +435,7 @@ public sealed class StreamPdfByteSource : PdfByteSource
         _pageNumbers[slot] = page;
         _lastUse[slot] = _clock;
         _slots[page] = slot;
+        MarkComplete();
         return slot;
     }
 
@@ -536,12 +537,18 @@ public sealed class StreamPdfByteSource : PdfByteSource
                 _slots[page] = slot;
             }
 
-            // A file that fits the cache and is wholly cached is never evicted from it, so later reads never touch the file.
-            var totalPages = (Length + PageLength - 1) >> PageShift;
-            if (totalPages <= _pages.Length && _slots.Count == totalPages)
-            {
-                Volatile.Write(ref _complete, 1);
-            }
+            MarkComplete();
+        }
+    }
+
+    /// <summary>Marks a wholly cached source as complete while the cache lock is held.</summary>
+    private void MarkComplete()
+    {
+        // A file that fits the cache and is wholly cached is never evicted from it, so later reads never touch the file.
+        var totalPages = (Length + PageLength - 1) >> PageShift;
+        if (totalPages <= _pages.Length && _slots.Count == totalPages)
+        {
+            Volatile.Write(ref _complete, 1);
         }
     }
 

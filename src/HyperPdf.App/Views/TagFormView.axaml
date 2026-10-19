@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.TagFormView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TagFormView.axaml.cs). -->
+  <StackPanel Spacing="4">
+    <TextBlock x:Name="TypeLabel" Text="Tag type" FontWeight="SemiBold" />
+    <ComboBox x:Name="TypeBox" AutomationProperties.Name="Tag type" AutomationProperties.LabeledBy="{Binding #TypeLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagType}" HorizontalAlignment="Stretch" />
+    <TextBlock x:Name="ScopeLabel" Text="Cells this header labels" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <ComboBox x:Name="ScopeBox" AutomationProperties.Name="Cells this header labels" AutomationProperties.LabeledBy="{Binding #ScopeLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagScope}" HorizontalAlignment="Stretch" />
+    <TextBlock x:Name="RowSpanLabel" Text="Rows this cell covers" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <TextBox x:Name="RowSpanBox" AutomationProperties.Name="Rows this cell covers" AutomationProperties.LabeledBy="{Binding #RowSpanLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagSpan}" />
+    <TextBlock x:Name="ColumnSpanLabel" Text="Columns this cell covers" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <TextBox x:Name="ColumnSpanBox" AutomationProperties.Name="Columns this cell covers" AutomationProperties.LabeledBy="{Binding #ColumnSpanLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagSpan}" />
+    <TextBlock x:Name="NumberingLabel" Text="How list items are labelled" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <ComboBox x:Name="NumberingBox" AutomationProperties.Name="How list items are labelled" AutomationProperties.LabeledBy="{Binding #NumberingLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagNumbering}" HorizontalAlignment="Stretch" />
+    <TextBlock x:Name="PlacementLabel" Text="How this tag sits in the text" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <ComboBox x:Name="PlacementBox" AutomationProperties.Name="How this tag sits in the text" AutomationProperties.LabeledBy="{Binding #PlacementLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagPlacement}" HorizontalAlignment="Stretch" />
+    <TextBlock x:Name="AlternateLabel" Text="Description for a screen reader" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0" />
+    <TextBox x:Name="AlternateBox" AutomationProperties.Name="Description for a screen reader" AutomationProperties.LabeledBy="{Binding #AlternateLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagDescription}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" />
+    <TextBlock x:Name="ActualLabel" Text="Replacement text" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <TextBox x:Name="ActualBox" AutomationProperties.Name="Replacement text" AutomationProperties.LabeledBy="{Binding #ActualLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagReplacement}" AcceptsReturn="True" TextWrapping="Wrap" />
+    <TextBlock x:Name="LanguageLabel" Text="Language, such as en-AU" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <TextBox x:Name="LanguageBox" AutomationProperties.Name="Language" AutomationProperties.LabeledBy="{Binding #LanguageLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagLanguage}" />
+    <TextBlock x:Name="TitleLabel" Text="Title" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <TextBox x:Name="TitleBox" AutomationProperties.Name="Title" AutomationProperties.LabeledBy="{Binding #TitleLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.TagTitle}" />
+    <Button x:Name="ApplyButton" Margin="0,8,0,4" HorizontalAlignment="Stretch" Content="Save Changes" AutomationProperties.Name="Save tag changes" views:ControlHelp.Text="{x:Static views:Descriptions.ApplyTag}" />
+  </StackPanel>
+</UserControl>

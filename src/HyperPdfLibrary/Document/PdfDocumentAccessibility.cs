@@ -47,6 +47,8 @@ public static class PdfDocumentAccessibility
             _ = await PdfDocumentPages.GetPageAsync(document, index, cancellationToken).ConfigureAwait(false);
         }
 
+        await AccessibilityOptionalContentPrefetch.RunAsync(document, cancellationToken).ConfigureAwait(false);
+        await AccessibilityEmbeddedFilePrefetch.RunAsync(document, cancellationToken).ConfigureAwait(false);
         return PdfAccessibilityReader.Read(document, cancellationToken);
     }
 }

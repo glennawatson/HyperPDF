@@ -73,7 +73,8 @@ internal static class PdfAccessibilityReader
             null,
             null,
             null,
-            0,
+            null,
+            string.Empty,
             false,
             cancellation);
         try
@@ -87,7 +88,8 @@ internal static class PdfAccessibilityReader
             var revision = metadata.Revision;
             var hasTitle = metadata.HasTitle;
             var state = new DocumentState(isMarked, tree is not null, catalogLanguage, metadata.HasMetadata, hasTitle, displayTitle, suspects);
-            CheckDocument(findings, state, part, version, revision);
+            CheckDocument(document.Catalog, findings, state, part, version, revision, cancellation);
+            CheckProtectionAndForms(document, tree, part, findings, cancellation);
             if (tree is not null)
             {
                 AccessibilityStructureScan.Run(ref scan);
@@ -125,12 +127,21 @@ internal static class PdfAccessibilityReader
         usesPdf20Namespace || tree?.Root.Array("Namespaces") is { Count: > 0 };
 
     /// <summary>Reports what the catalog, the metadata and the claim say.</summary>
+    /// <param name="catalog">The document catalog.</param>
     /// <param name="findings">Receives the findings.</param>
     /// <param name="state">What the document entries say.</param>
     /// <param name="part">The claimed PDF/UA part, or <see langword="null"/>.</param>
     /// <param name="version">The file's version.</param>
     /// <param name="revision">The claimed <c>pdfuaid:rev</c>, or <see langword="null"/>.</param>
-    private static void CheckDocument(AccessibilityFindings findings, in DocumentState state, int? part, PdfVersion version, string? revision)
+    /// <param name="cancellationToken">Cancels catalog traversal.</param>
+    private static void CheckDocument(
+        PdfDictionary catalog,
+        AccessibilityFindings findings,
+        in DocumentState state,
+        int? part,
+        PdfVersion version,
+        string? revision,
+        CancellationToken cancellationToken)
     {
         AddIf(findings, part == PdfUaClaim.Part2 && !string.Equals(revision, Part2Revision, StringComparison.Ordinal), PdfAccessibilityCode.ClaimRevisionInvalid);
         AddIf(findings, !state.IsMarked, PdfAccessibilityCode.NotMarked);
@@ -143,6 +154,21 @@ internal static class PdfAccessibilityReader
         AddIf(findings, state.HasSuspects, PdfAccessibilityCode.SuspectsSet);
         AddIf(findings, part is not null and not PdfUaClaim.Part1 and not PdfUaClaim.Part2, PdfAccessibilityCode.ClaimPartUnknown);
         AddIf(findings, part == PdfUaClaim.Part2 && version < PdfVersion.Pdf20, PdfAccessibilityCode.ClaimPart2NotPdf2);
+        AccessibilityOptionalContentScan.Run(catalog, part, findings, cancellationToken);
+        AccessibilityEmbeddedFileScan.Run(catalog, part, findings, cancellationToken);
+    }
+
+    /// <summary>Reports the encryption permission and XFA rules, which read the document rather than its catalog alone.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="tree">The document's structure tree, when present.</param>
+    /// <param name="part">The claimed PDF/UA part, or <see langword="null"/>.</param>
+    /// <param name="findings">Receives the findings.</param>
+    /// <param name="cancellationToken">Cancels the XFA read.</param>
+    private static void CheckProtectionAndForms(PdfDocument document, PdfStructureTree? tree, int? part, AccessibilityFindings findings, CancellationToken cancellationToken)
+    {
+        AccessibilitySecurityScan.Run(document, part, findings);
+        AccessibilityXfaScan.Run(document, part, findings, cancellationToken);
+        AccessibilityContainmentScan.Run(tree, findings, cancellationToken);
     }
 
     /// <summary>Adds a document-level finding when a condition holds.</summary>

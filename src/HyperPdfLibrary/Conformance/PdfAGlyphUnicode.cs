@@ -56,7 +56,7 @@ internal static class PdfAGlyphUnicode
     private static string? Type1Pdf1(PdfAGlyphFont font, int code)
     {
         var name = font.Encoding.Name(code) ?? (font.Program.Present ? ProgramName(font.Program, code) : null);
-        return name is not null && (PdfAGlyphNames.Text(name) is not null || IsSymbolName(name)) ? Unchecked : null;
+        return name is not null && (PdfAGlyphNames.IsListed(name) || IsSymbolName(name)) ? Unchecked : null;
     }
 
     /// <summary>Gets the text a glyph name gives.</summary>

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Structure.Tagged;
@@ -17,6 +18,9 @@ public sealed class PdfStructureElement
 {
     /// <summary>The kids, in logical order.</summary>
     private readonly List<PdfStructureKid> _kids = [];
+
+    /// <summary>The recognised subtype stored compactly beside the element's flags.</summary>
+    private byte _noteType;
 
     /// <summary>Initializes a new instance of the <see cref="PdfStructureElement"/> class.</summary>
     /// <param name="dictionary">The element's dictionary.</param>
@@ -80,17 +84,37 @@ public sealed class PdfStructureElement
     /// <summary>Gets the reading attributes.</summary>
     public PdfStructureAttributes Attributes { get; internal set; } = PdfStructureAttributes.None;
 
+    /// <summary>Gets the FENote subtype; None when absent or unsupported.</summary>
+    public PdfNoteType NoteType => (PdfNoteType)_noteType;
+
     /// <summary>Gets how deep the element is: 0 for a top-level element.</summary>
     public int Depth { get; internal set; }
 
-    /// <summary>Gets the heading level, 1 to 6, for a heading; zero otherwise.</summary>
-    public int HeadingLevel => PdfStructureTypes.GetHeadingLevel(Type);
+    /// <summary>Gets the heading level, saturated at Int32.MaxValue; zero otherwise. HeadingLevelDigits retains the exact numbered level.</summary>
+    public int HeadingLevel => NumberedHeadings.GetLevel(this);
+
+    /// <summary>Gets the exact decimal heading level without a numeric-size limit; empty for an unnumbered heading or non-heading.</summary>
+    public ReadOnlySpan<char> HeadingLevelDigits
+    {
+        get
+        {
+            var name = NumberedHeadings.GetName(this);
+            return name.Length == 0 ? [] : name.AsSpan(1);
+        }
+    }
 
     /// <summary>Gets what the element means to a reader.</summary>
     public PdfSemanticRole Role => PdfStructureTypes.GetRole(Type);
+
+    /// <summary>Gets the kids, in logical order, as a span that can be walked without allocating an enumerator. The tree never changes after it is built.</summary>
+    internal ReadOnlySpan<PdfStructureKid> KidSpan => CollectionsMarshal.AsSpan(_kids);
 
     /// <summary>Adds a kid.</summary>
     /// <param name="kid">The kid.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void AddKid(in PdfStructureKid kid) => _kids.Add(kid);
+
+    /// <summary>Records a recognised subtype during tree construction.</summary>
+    /// <param name="type">The parsed subtype.</param>
+    internal void SetNoteType(PdfNoteType type) => _noteType = (byte)type;
 }

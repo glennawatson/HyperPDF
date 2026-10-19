@@ -123,4 +123,43 @@ public enum PdfAccessibilityCode
 
     /// <summary>A <c>/Lang</c> value, in the catalog or in a structure element, is not a language identifier (ISO 14289-1 7.2; ISO 14289-2 8.4.4).</summary>
     LanguageInvalid = 38,
+
+    /// <summary>A PDF/UA-1 Formula element has no alternate text string (ISO 14289-1 7.7).</summary>
+    FormulaNoAlternative = 39,
+
+    /// <summary>A PDF/UA-1 Note has no byte-string ID, or its ID is not unique (ISO 14289-1 7.9).</summary>
+    NoteIdentifierInvalid = 40,
+
+    /// <summary>An optional-content configuration lacks a required nonempty text name (ISO 14289-1 7.10; ISO 14289-2 8.7).</summary>
+    OptionalContentNameMissing = 41,
+
+    /// <summary>An optional-content configuration has a prohibited AS entry (ISO 14289-1 7.10; ISO 14289-2 8.7).</summary>
+    OptionalContentAutomaticState = 42,
+
+    /// <summary>An embedded file specification lacks an F or UF string (ISO 14289-1 7.11).</summary>
+    EmbeddedFileFilenameInvalid = 43,
+
+    /// <summary>An encrypted file does not allow assistive technology to read it: the encryption dictionary's P value has bit 10 clear (ISO 14289-1 7.16).</summary>
+    SecurityBlocksAssistiveTechnology = 44,
+
+    /// <summary>A TrapNet annotation is present, which a PDF/UA-1 file may not contain (ISO 14289-1 7.18.2).</summary>
+    TrapNetAnnotation = 45,
+
+    /// <summary>The XFA configuration asks for dynamic rendering, which a PDF/UA-1 file may not use (ISO 14289-1 7.15).</summary>
+    DynamicXfaForm = 46,
+
+    /// <summary>A link's URI action has IsMap set to true, which a PDF/UA-1 file may not use unless the same function is available elsewhere (ISO 14289-1 7.18.5).</summary>
+    LinkIsMap = 47,
+
+    /// <summary>A Reference XObject is used, which a PDF/UA-1 file may not contain (ISO 14289-1 7.20).</summary>
+    ReferenceXObject = 48,
+
+    /// <summary>Media clip data lacks the CT or Alt key that PDF/UA-1 requires (ISO 14289-1 7.18.6.2).</summary>
+    MediaClipNoAlternative = 49,
+
+    /// <summary>A tag is inside a parent that the hierarchy table of ISO/TS 32005 clause 7.2 (ISO 32000-2 Annex L) does not allow.</summary>
+    StructureContainmentViolation = 50,
+
+    /// <summary>A tag holds more than one child of a type that the hierarchy table of ISO/TS 32005 clause 7.2 allows at most once (occurrence 0..1).</summary>
+    StructureOccurrenceViolation = 51,
 }

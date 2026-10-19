@@ -211,7 +211,7 @@ public sealed class StructureTreeTests
     public async Task FindsStandardTypes()
     {
         await Assert.That(PdfStructureTypes.Find("TOCI"u8)).IsEqualTo(PdfStructureType.TableOfContentsItem);
-        await Assert.That(PdfStructureTypes.Find("H9"u8)).IsEqualTo(PdfStructureType.Heading6);
+        await Assert.That(PdfStructureTypes.Find("H9"u8)).IsEqualTo(PdfStructureType.NumberedHeading);
         await Assert.That(PdfStructureTypes.Find("H0"u8)).IsEqualTo(PdfStructureType.Unknown);
         await Assert.That(PdfStructureTypes.Find("Paragraph"u8)).IsEqualTo(PdfStructureType.Unknown);
         await Assert.That(PdfStructureTypes.IsGrouping(PdfStructureType.TableRow)).IsTrue();

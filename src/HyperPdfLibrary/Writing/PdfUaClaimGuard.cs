@@ -19,8 +19,8 @@ namespace HyperPdfLibrary.Writing;
 /// document in memory as one undoable edit (a missing tab order, display title, marked flag, language taken from the file,
 /// Unicode map, annotation tag or dangling tag), and the document is checked again. A problem that cannot be fixed
 /// stops the save with the reason, and nothing is written, unless the caller chose to remove the claim
-/// (<see cref="PdfSaveReport.UnmetUaClaim"/>). A claim that still holds after an edit is kept as it was. PDF/UA-2
-/// (ISO 14289-2) is not checked here.
+/// (<see cref="PdfSaveReport.UnmetUaClaim"/>). A claim that still holds after an edit is kept as it was. A PDF/UA-2 claim
+/// (ISO 14289-2:2024) is checked the same way against the rules the library tests for part 2.
 /// </summary>
 internal static class PdfUaClaimGuard
 {
@@ -51,18 +51,33 @@ internal static class PdfUaClaimGuard
         Removal("rev"),
     ];
 
-    /// <summary>Determines whether the document being saved claims PDF/UA-1, so its content must be checked.</summary>
+    /// <summary>Determines whether the document being saved claims PDF/UA-1 or PDF/UA-2, so its content must be checked.</summary>
+    /// <param name="store">The objects being written.</param>
+    /// <returns><see langword="true"/> when the catalog's XMP names PDF/UA part 1 or part 2.</returns>
+    internal static bool IsClaimed(PdfObjectStore store) => ClaimedPart(store) is not null;
+
+    /// <summary>Determines whether the document being saved claims PDF/UA-1, which the encryption rules treat on their own.</summary>
     /// <param name="store">The objects being written.</param>
     /// <returns><see langword="true"/> when the catalog's XMP names PDF/UA part 1.</returns>
-    internal static bool IsClaimed(PdfObjectStore store)
+    internal static bool IsPart1Claimed(PdfObjectStore store) => ClaimedPart(store) == PdfUaClaim.Part1;
+
+    /// <summary>Gets the PDF/UA part the document claims.</summary>
+    /// <param name="store">The objects being written.</param>
+    /// <returns>1 or 2, or <see langword="null"/> when the catalog's XMP names neither part.</returns>
+    internal static int? ClaimedPart(PdfObjectStore store)
     {
         if (store.Catalog.GetStream(KnownName.Metadata) is not { } stream || NamesNoPdfUa(stream))
         {
-            return false;
+            return null;
         }
 
         var packet = stream.DecodeOrEmpty();
-        return packet.Length > 0 && XmpParser.Parse(packet, CancellationToken.None).PdfUaPart == PdfUaClaim.Part1;
+        if (packet.Length == 0)
+        {
+            return null;
+        }
+
+        return XmpParser.Parse(packet, CancellationToken.None).PdfUaPart is (PdfUaClaim.Part1 or PdfUaClaim.Part2) and var part ? part : null;
     }
 
     /// <summary>
@@ -79,12 +94,12 @@ internal static class PdfUaClaimGuard
     {
         report?.UaClaim = null;
         var edited = StoreEditing.HasChanges(store);
-        if ((!wholeFile && !edited) || !IsClaimed(store))
+        if ((!wholeFile && !edited) || ClaimedPart(store) is not { } part)
         {
             return;
         }
 
-        var found = PdfUaPreflight.Check(store, edited, cancellationToken);
+        var found = PdfUaPreflight.Check(store, edited, part, cancellationToken);
         if (found.Count == 0)
         {
             report?.UaClaim = new([]);
@@ -92,8 +107,8 @@ internal static class PdfUaClaimGuard
         }
 
         Repair(store, found, cancellationToken);
-        var remaining = PdfUaPreflight.Check(store, edited, cancellationToken);
-        Settle(store, report, new(Describe(found, remaining)), remaining.Count > 0);
+        var remaining = PdfUaPreflight.Check(store, edited, part, cancellationToken);
+        Settle(store, report, new(Describe(found, remaining, part)), part, remaining.Count > 0);
     }
 
     /// <summary>
@@ -119,9 +134,10 @@ internal static class PdfUaClaimGuard
     /// <param name="store">The objects being written.</param>
     /// <param name="report">Receives the check and holds the choice, or <see langword="null"/>, which refuses.</param>
     /// <param name="check">The check, with the problems before and after the repair.</param>
+    /// <param name="part">The claimed PDF/UA part.</param>
     /// <param name="unmet">Whether a problem the repair could not fix remains.</param>
     /// <exception cref="PdfException">The claim cannot be kept and the save was not told to remove it.</exception>
-    private static void Settle(PdfObjectStore store, PdfSaveReport? report, PdfUaClaimCheck check, bool unmet)
+    private static void Settle(PdfObjectStore store, PdfSaveReport? report, PdfUaClaimCheck check, int part, bool unmet)
     {
         report?.UaClaim = check;
         if (!unmet)
@@ -131,10 +147,10 @@ internal static class PdfUaClaimGuard
 
         if (report?.UnmetUaClaim != PdfUaUnmetClaimAction.RemoveClaim)
         {
-            throw new PdfException(PdfError.ClaimUnmet, Refusal(check));
+            throw new PdfException(PdfError.ClaimUnmet, Refusal(check, part));
         }
 
-        RemoveClaim(store);
+        RemoveClaim(store, part);
         report.UaClaim = check with { Removed = true };
     }
 
@@ -179,8 +195,9 @@ internal static class PdfUaClaimGuard
     /// <summary>Describes the findings in plain words, marking the ones the repair fixed.</summary>
     /// <param name="found">The findings of the first check.</param>
     /// <param name="remaining">The findings of the check after the repair.</param>
+    /// <param name="part">The claimed PDF/UA part, which picks the clause named for each problem.</param>
     /// <returns>One problem for each distinct finding, in requirement order.</returns>
-    private static PdfUaProblem[] Describe(List<PdfUaFinding> found, List<PdfUaFinding> remaining)
+    private static PdfUaProblem[] Describe(List<PdfUaFinding> found, List<PdfUaFinding> remaining, int part)
     {
         var still = new HashSet<PdfUaFinding>(remaining);
         List<PdfUaFinding> distinct = [.. new HashSet<PdfUaFinding>(found)];
@@ -188,7 +205,7 @@ internal static class PdfUaClaimGuard
         var problems = new List<PdfUaProblem>(distinct.Count);
         foreach (var finding in distinct)
         {
-            problems.Add(new(finding.Requirement, PdfUaRequirements.Clause(finding.Requirement), PdfUaRequirements.Message(finding.Requirement), finding.PageIndex, !still.Contains(finding)));
+            problems.Add(new(finding.Requirement, PdfUaRequirements.Clause(finding.Requirement, part), PdfUaRequirements.Message(finding.Requirement), finding.PageIndex, !still.Contains(finding)));
         }
 
         return [.. problems];
@@ -196,12 +213,13 @@ internal static class PdfUaClaimGuard
 
     /// <summary>Writes the reason a save is refused.</summary>
     /// <param name="check">The check, with its unrepaired problems.</param>
+    /// <param name="part">The claimed PDF/UA part.</param>
     /// <returns>The reason in plain words.</returns>
-    private static string Refusal(PdfUaClaimCheck check)
+    private static string Refusal(PdfUaClaimCheck check, int part)
     {
         var text = new StringBuilder(
-            "This file's metadata names PDF/UA-1, and the checks below found problems that cannot be fixed automatically. "
-            + "It was not saved, because the saved file would still carry the PDF/UA-1 identification. ");
+            $"This file's metadata names PDF/UA-{part}, and the checks below found problems that cannot be fixed automatically. "
+            + $"It was not saved, because the saved file would still carry the PDF/UA-{part} identification. ");
         var named = new HashSet<PdfUaRequirement>();
         foreach (var problem in check.GetUnrepaired())
         {
@@ -217,8 +235,9 @@ internal static class PdfUaClaimGuard
 
     /// <summary>Removes the PDF/UA identification from the catalog's XMP packet, as one undoable edit.</summary>
     /// <param name="store">The objects being written.</param>
+    /// <param name="part">The claimed PDF/UA part.</param>
     /// <exception cref="PdfException">The packet cannot be edited, so the claim cannot be removed.</exception>
-    private static void RemoveClaim(PdfObjectStore store)
+    private static void RemoveClaim(PdfObjectStore store, int part)
     {
         var raw = store.Catalog.GetRaw(KnownName.Metadata);
         if (!raw.IsReference || StoreReading.Resolve(store, raw).AsStream() is not { } stream
@@ -226,7 +245,7 @@ internal static class PdfUaClaimGuard
         {
             throw new PdfException(
                 PdfError.ClaimUnmet,
-                "The document's metadata names PDF/UA-1 and the checks found problems that cannot be fixed, "
+                $"The document's metadata names PDF/UA-{part} and the checks found problems that cannot be fixed, "
                 + "and its XMP metadata cannot be edited to remove the identification. It was not saved, because the saved file would still carry it.");
         }
 

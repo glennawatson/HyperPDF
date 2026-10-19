@@ -38,6 +38,7 @@ public sealed partial class SidebarView : ReactiveUI.Avalonia.ReactiveUserContro
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsAnnotationsMode, static v => v.AnnotationsToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Layers.HasLayers, static v => v.LayersToggle.IsVisible));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsLayersMode, static v => v.LayersToggle.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsTagsMode, static v => v.TagsToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Attachments.HasAttachments, static v => v.AttachmentsToggle.IsVisible));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsAttachmentsMode, static v => v.AttachmentsToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsSearchMode, static v => v.SearchResultList.IsVisible));

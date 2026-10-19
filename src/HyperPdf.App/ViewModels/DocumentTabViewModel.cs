@@ -73,6 +73,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>The layers panel, once used.</summary>
     private LayersViewModel? _layers;
 
+    /// <summary>The tags panel, once used.</summary>
+    private TagsViewModel? _tags;
+
     /// <summary>The colour separation bar, once used.</summary>
     private PageSeparationViewModel? _separations;
 
@@ -385,7 +388,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         nameof(IsSearchMode),
         nameof(IsAnnotationsMode),
         nameof(IsAttachmentsMode),
-        nameof(IsLayersMode))]
+        nameof(IsLayersMode),
+        nameof(IsTagsMode))]
     public partial SidebarMode SidebarMode { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the thumbnails panel is shown.</summary>
@@ -430,8 +434,18 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         set => SetSidebarMode(value, SidebarMode.Layers);
     }
 
+    /// <summary>Gets or sets a value indicating whether the tags panel is shown.</summary>
+    public bool IsTagsMode
+    {
+        get => SidebarMode == SidebarMode.Tags;
+        set => SetSidebarMode(value, SidebarMode.Tags);
+    }
+
     /// <summary>Gets the document's layers.</summary>
     public LayersViewModel Layers => _layers ??= Owned(new LayersViewModel(this));
+
+    /// <summary>Gets the document's tags and the edits to them.</summary>
+    public TagsViewModel Tags => _tags ??= Owned(new TagsViewModel(this));
 
     /// <summary>Gets the colour separation details of the current page, for a preseparated document.</summary>
     public PageSeparationViewModel Separations => _separations ??= Owned(new PageSeparationViewModel(this));
@@ -1107,6 +1121,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
+        _tags?.Refresh();
         Search.Refresh();
         LastPageChange = LastPageChange.Next(PageChange.AllPages);
         LayoutVersion++;

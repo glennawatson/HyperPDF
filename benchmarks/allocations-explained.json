@@ -1,5 +1,55 @@
 [
   {
+    "type": "HyperPdfLibrary.Accessibility.PdfWtpdfFinding",
+    "frame": "HyperPdfLibrary.Accessibility.WtpdfReportScan.Check",
+    "reason": "Each finding the accessibility report raises is copied into the check's result record, which the caller reads after the check returns. A file that meets the rules allocates none."
+  },
+  {
+    "type": "HyperPdfLibrary.Accessibility.PdfWtpdfFinding",
+    "frame": "HyperPdfLibrary.Accessibility.WtpdfScan.Add",
+    "reason": "Each finding is a result record the caller reads after the check returns, so it cannot live in pooled or stack storage. A file that meets the rules allocates none."
+  },
+  {
+    "type": "HyperPdfLibrary.Accessibility.PdfWtpdfFinding[]",
+    "frame": "HyperPdfLibrary.Accessibility.WtpdfScan.Check",
+    "reason": "The immutable findings array is the returned report's data and must outlive the working list that built it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Accessibility.PdfWtpdfFinding]",
+    "frame": "HyperPdfLibrary.Accessibility.WtpdfScan.Check",
+    "reason": "The working list collects findings from several scans before they are copied into the immutable report. One list per check; a pooled list would have to be cleared and returned on every exit path for a result that is returned to the caller anyway."
+  },
+  {
+    "type": "HyperPdfLibrary.Accessibility.PdfWtpdfReport",
+    "frame": "HyperPdfLibrary.Accessibility.WtpdfScan.Check",
+    "reason": "The report is the detached result of the check."
+  },
+  {
+    "type": "System.Collections.Generic.HashSet`1[System.Int32]",
+    "frame": "HyperPdfLibrary.Accessibility.WtpdfArtifactAnnotationScan.TaggedObjects",
+    "reason": "The set of object numbers the tree tags as content is working state for one check. It is not created for files without a structure tree; a file with one pays for one set."
+  },
+  {
+    "type": "HyperPdfLibrary.Accessibility.PdfTagAdvice",
+    "frame": "HyperPdfLibrary.Accessibility.BestPracticeScan.Check",
+    "reason": "Each suggestion is a result record the caller reads after the call returns."
+  },
+  {
+    "type": "HyperPdfLibrary.Accessibility.PdfTagAdvice[]",
+    "frame": "HyperPdfLibrary.Accessibility.BestPracticeScan.Check",
+    "reason": "The immutable advice array is the returned result and must outlive the working list."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Accessibility.PdfTagAdvice]",
+    "frame": "HyperPdfLibrary.Accessibility.BestPracticeScan.Check",
+    "reason": "The working list collects suggestions before they are copied into the immutable result."
+  },
+  {
+    "type": "AdviceScan",
+    "frame": "HyperPdfLibrary.Accessibility.BestPracticeScan.Check",
+    "reason": "The walk's state (the list and whether a heading was seen) passes through a generic visitor as one reference, which avoids a capturing closure. One small object per call."
+  },
+  {
     "type": "HyperPdfLibrary.Signatures.PdfObjectChange[]",
     "frame": "HyperPdfLibrary.Signatures.PdfRevisionComparer.SnapshotChanges",
     "reason": "The detached change result must outlive its leased builder. Returning pooled or mutable storage would let a later comparison overwrite a retained report; repeated-comparison tests verify distinct result identities. Empty comparisons share the empty array. The allocation may be attributed here or to Run when this helper is inlined."
@@ -403,6 +453,21 @@
     "type": "HyperPdfLibrary.IO.StreamPdfByteSource",
     "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.Open(class System.String,int64)",
     "reason": "Live stream/file source identity and synchronisation state. Cache tables are reused after close; handles and source identity remain independent. SemaphoreSlim is created only for a caller stream whose shared Position must be serialised across awaits; file handles use offset-based reads without it."
+  },
+  {
+    "type": "HyperPdfLibrary.IO.StreamPdfByteSource",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.Open(class System.String,int64,class HyperPdfLibrary.Filters.ScratchPools)",
+    "reason": "Each independently disposable source owns its file handle and closed state. Retained caller references must remain disposed rather than read a later document. The host reuses cleared cache tables, not source identity; file handles use offset-based reads without a semaphore."
+  },
+  {
+    "type": "Microsoft.Win32.SafeHandles.SafeFileHandle",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.Open(class System.String,int64,class HyperPdfLibrary.Filters.ScratchPools)",
+    "reason": "The runtime handle owns one opened file and its disposal lifetime. External replacement keeps that open file independent of subsequent opens; resetting a retained handle for another document would violate that lifetime."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.Open(class System.String,int64,class HyperPdfLibrary.Filters.ScratchPools)",
+    "reason": "Each source owns the lock guarding its cache and closed state. Outstanding caller references and concurrent reads retain that synchronization identity even when cleared cache tables are returned to the host pool."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfOpenContext",

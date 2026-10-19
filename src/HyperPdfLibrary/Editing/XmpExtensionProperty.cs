@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Editing;
@@ -14,4 +15,8 @@ namespace HyperPdfLibrary.Editing;
 /// <param name="ValueType">The property's XMP value type, such as Boolean or Text.</param>
 /// <param name="Description">What the property records.</param>
 [DebuggerDisplay("XmpExtensionProperty: {Prefix}:{Name}")]
-internal sealed record XmpExtensionProperty(string SchemaName, string Namespace, string Prefix, string Name, string ValueType, string Description);
+internal sealed record XmpExtensionProperty(string SchemaName, string Namespace, string Prefix, string Name, string ValueType, string Description)
+{
+    /// <summary>Gets the structured value types the schema defines for the property; empty for a property of a basic type.</summary>
+    public ImmutableArray<XmpValueType> ValueTypes { get; init; } = [];
+}

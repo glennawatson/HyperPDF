@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Accessibility;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Fonts;
@@ -28,7 +30,18 @@ internal static class PdfUaPreflight
     /// <param name="cancellationToken">Stops the check.</param>
     /// <returns>The findings; empty when every checked rule holds.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    internal static List<PdfUaFinding> Check(PdfObjectStore store, bool edited, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static List<PdfUaFinding> Check(PdfObjectStore store, bool edited, CancellationToken cancellationToken) =>
+        Check(store, edited, PdfUaClaim.Part1, cancellationToken);
+
+    /// <summary>Finds what is wrong with the document's PDF/UA claim.</summary>
+    /// <param name="store">The objects being written.</param>
+    /// <param name="edited">Whether edits changed the document, so the tags are also checked against the content they point at.</param>
+    /// <param name="part">The claimed PDF/UA part: 1 or 2.</param>
+    /// <param name="cancellationToken">Stops the check.</param>
+    /// <returns>The findings; empty when every checked rule holds.</returns>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    internal static List<PdfUaFinding> Check(PdfObjectStore store, bool edited, int part, CancellationToken cancellationToken)
     {
         var document = OpenView(store);
 
@@ -36,7 +49,7 @@ internal static class PdfUaPreflight
         // check and is disposed before the caller repairs anything, so no edit is ever read through it.
         using var contents = PdfPageContentScope.Begin(document);
         var findings = new List<PdfUaFinding>();
-        PdfUaReportChecks.Check(document, findings, cancellationToken);
+        PdfUaReportChecks.Check(document, part, findings, cancellationToken);
         PdfUaTabOrder.Check(document, findings, cancellationToken);
         PdfUaFontChecks.Check(document, findings, cancellationToken);
         if (edited)

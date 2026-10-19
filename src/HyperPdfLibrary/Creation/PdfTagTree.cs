@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Structure.Tagged;
 using HyperPdfLibrary.Writing;
@@ -35,20 +34,23 @@ public sealed class PdfTagTree
     /// <summary>The entries of a namespace dictionary.</summary>
     private const int NamespaceEntries = 2;
 
-    /// <summary>The longest structure type spelling accepted.</summary>
-    private const int MaxTypeLength = 32;
+    /// <summary>The most standard namespaces in a mixed tree.</summary>
+    private const int StandardNamespaceCount = 2;
 
     /// <summary>The pages that have marked content, in the order they were first used.</summary>
     private readonly List<PageEntry> _pages = [];
 
-    /// <summary>The same pages by object.</summary>
-    private readonly Dictionary<PdfObjectId, PageEntry> _pageByObject = [];
-
     /// <summary>The document.</summary>
     private readonly IPdfObjectSink _sink;
 
-    /// <summary>The PDF 2.0 structure namespace object, or the default id when the elements use the default namespace.</summary>
-    private readonly PdfObjectId _namespaceId;
+    /// <summary>Whether a PDF 2.0 creator may promote a standalone PDF 1.7 tree when a new type needs it.</summary>
+    private readonly bool _allowsPdf20Namespace;
+
+    /// <summary>The marked-content pages by object, allocated when content is first added.</summary>
+    private Dictionary<PdfObjectId, PageEntry>? _pageByObject;
+
+    /// <summary>The PDF 2.0 namespace object, reserved on promotion when the creator allows both namespaces.</summary>
+    private PdfObjectId _namespaceId;
 
     /// <summary>One once <see cref="Finish"/> has started, otherwise zero.</summary>
     private int _finished;
@@ -63,12 +65,22 @@ public sealed class PdfTagTree
 
     /// <summary>Initializes a new instance of the <see cref="PdfTagTree"/> class.</summary>
     /// <param name="sink">The document the structure objects are added to.</param>
-    /// <param name="usesPdf20Namespace">Whether every element is written in the PDF 2.0 structure namespace (ISO 32000-2 14.8.6), which the structure tree root lists.</param>
+    /// <param name="usesPdf20Namespace">Whether common and PDF 2.0 types use an explicit PDF 2.0 namespace, with legacy-only types in the PDF 1.7 namespace.</param>
     /// <exception cref="ArgumentNullException"><paramref name="sink"/> is <see langword="null"/>.</exception>
     public PdfTagTree(IPdfObjectSink sink, bool usesPdf20Namespace)
+        : this(sink, usesPdf20Namespace, usesPdf20Namespace)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PdfTagTree"/> class with deferred namespace support.</summary>
+    /// <param name="sink">The document receiving structure objects.</param>
+    /// <param name="usesPdf20Namespace">Whether to identify the PDF 2.0 namespace immediately.</param>
+    /// <param name="allowsPdf20Namespace">Whether the document version permits promotion to mixed namespaces.</param>
+    internal PdfTagTree(IPdfObjectSink sink, bool usesPdf20Namespace, bool allowsPdf20Namespace)
     {
         ArgumentNullException.ThrowIfNull(sink);
         _sink = sink;
+        _allowsPdf20Namespace = usesPdf20Namespace || allowsPdf20Namespace;
         RootId = sink.Reserve();
         Root = new(sink.Reserve(), DocumentType, null, PdfTagOptions.Default);
         _namespaceId = usesPdf20Namespace ? sink.Reserve() : default;
@@ -85,7 +97,7 @@ public sealed class PdfTagTree
     /// <param name="type">A standard structure type such as <c>Sect</c>, <c>P</c>, <c>H1</c>, <c>Table</c>, <c>TR</c>, <c>TD</c>, <c>L</c>, <c>LI</c> or <c>Figure</c>.</param>
     /// <returns>The element.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="parent"/> or <paramref name="type"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="type"/> is not a standard structure type.</exception>
+    /// <exception cref="ArgumentException">The type is unknown or requires an unavailable structure namespace.</exception>
     /// <exception cref="InvalidOperationException">The tree is finished.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PdfTagElement AddElement(PdfTagElement parent, string type) => AddElement(parent, type, PdfTagOptions.Default);
@@ -96,7 +108,8 @@ public sealed class PdfTagTree
     /// <param name="options">What the element says besides its type.</param>
     /// <returns>The element.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="type"/> is not a standard structure type.</exception>
+    /// <exception cref="ArgumentException">The type or an attribute is undefined, misplaced or requires an unavailable namespace or output version.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A table scope, note subtype or numbering scheme is undefined.</exception>
     /// <exception cref="InvalidOperationException">The tree is finished.</exception>
     public PdfTagElement AddElement(PdfTagElement parent, string type, PdfTagOptions options)
     {
@@ -104,11 +117,21 @@ public sealed class PdfTagTree
         ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(options);
         ThrowIfFinished();
-        Span<byte> bytes = stackalloc byte[MaxTypeLength];
-        var length = type.Length <= MaxTypeLength ? Encoding.ASCII.GetBytes(type, bytes) : MaxTypeLength + 1;
-        if (length > MaxTypeLength || PdfStructureTypes.Find(bytes[..length]) == PdfStructureType.Unknown)
+        var resolved = PdfTagTypeNames.Validate(type, _allowsPdf20Namespace);
+        PdfTagAttributes.Validate(options);
+        if (options.ListNumbering is not null)
         {
-            throw new ArgumentException($"'{type}' is not a standard structure type.", nameof(type));
+            PdfTagListNumbering.Validate(_sink, resolved, options);
+        }
+
+        if (options.PrintField is { } field)
+        {
+            _ = PdfTagPrintField.Validate(_sink, resolved, field);
+        }
+
+        if (_allowsPdf20Namespace && !_namespaceId.IsValid && !PdfStructureTypes.IsStandardIn(resolved, PdfStructureTypes.Pdf17Flag))
+        {
+            _namespaceId = _sink.Reserve();
         }
 
         var element = new PdfTagElement(_sink.Reserve(), type, parent, options);
@@ -126,11 +149,19 @@ public sealed class PdfTagTree
         }
 
         var pending = new Stack<PdfTagElement>();
+        PdfDictionary? roleMap = null;
+        PdfObjectId legacyNamespaceId = default;
         pending.Push(Root);
         while (pending.Count > 0)
         {
             var element = pending.Pop();
-            _sink.Set(element.Id, PdfValue.FromDictionary(CreateElement(element)));
+            _sink.Set(element.Id, PdfValue.FromDictionary(CreateElement(element, ref legacyNamespaceId)));
+            if (!_namespaceId.IsValid && NumberedHeadings.IsExtendedName(element.Type.AsSpan()))
+            {
+                roleMap ??= new(_sink.Owner, 1);
+                roleMap.Set(_sink.Names.Intern(element.Type), PdfValue.FromName(_sink.Names.Intern("H6")));
+            }
+
             foreach (var kid in element.Kids)
             {
                 if (kid.Element is { } child)
@@ -140,34 +171,8 @@ public sealed class PdfTagTree
             }
         }
 
-        _sink.Set(RootId, PdfValue.FromDictionary(CreateRoot()));
+        _sink.Set(RootId, PdfValue.FromDictionary(CreateRoot(roleMap, legacyNamespaceId)));
         return RootId;
-    }
-
-    /// <summary>Counts the figures that have no alternative text, which a reader of the document could not perceive.</summary>
-    /// <returns>The number of <c>Figure</c> elements whose options give no alternative text or actual text.</returns>
-    internal int CountFiguresWithoutDescription()
-    {
-        var count = 0;
-        var pending = new Stack<PdfTagElement>();
-        pending.Push(Root);
-        while (pending.Count > 0)
-        {
-            var element = pending.Pop();
-            var undescribed = string.Equals(element.Type, "Figure", StringComparison.Ordinal)
-                && string.IsNullOrWhiteSpace(element.Options.AlternativeText)
-                && string.IsNullOrWhiteSpace(element.Options.ActualText);
-            count += undescribed ? 1 : 0;
-            foreach (var kid in element.Kids)
-            {
-                if (kid.Element is { } child)
-                {
-                    pending.Push(child);
-                }
-            }
-        }
-
-        return count;
     }
 
     /// <summary>Records a piece of marked content on a page.</summary>
@@ -178,10 +183,11 @@ public sealed class PdfTagTree
     internal int AddContent(PdfTagElement element, PdfObjectId page)
     {
         ThrowIfFinished();
-        if (!_pageByObject.TryGetValue(page, out var entry))
+        var pages = _pageByObject ??= [];
+        if (!pages.TryGetValue(page, out var entry))
         {
             entry = new(_pages.Count);
-            _pageByObject.Add(page, entry);
+            pages.Add(page, entry);
             _pages.Add(entry);
         }
 
@@ -197,7 +203,7 @@ public sealed class PdfTagTree
     /// <returns><see langword="true"/> when the page has marked content.</returns>
     internal bool TryGetStructParents(PdfObjectId page, out int key)
     {
-        if (_pageByObject.TryGetValue(page, out var entry))
+        if (_pageByObject is { } pages && pages.TryGetValue(page, out var entry))
         {
             key = entry.Key;
             return true;
@@ -213,7 +219,8 @@ public sealed class PdfTagTree
     /// <param name="text">The text, or <see langword="null"/>.</param>
     private static void SetText(PdfDictionary dictionary, PdfName key, string? text)
     {
-        if (!string.IsNullOrEmpty(text))
+        // Empty Alt and ActualText are explicit descriptions, not absent entries.
+        if (text is not null && (text.Length != 0 || key == KnownName.Alt || key == KnownName.ActualText))
         {
             dictionary.Set(key, PdfValue.FromString(PdfText.Encode(text)));
         }
@@ -221,8 +228,9 @@ public sealed class PdfTagTree
 
     /// <summary>Creates the dictionary of an element.</summary>
     /// <param name="element">The element.</param>
+    /// <param name="legacyNamespaceId">The shared legacy namespace reserved by this save.</param>
     /// <returns>The dictionary.</returns>
-    private PdfDictionary CreateElement(PdfTagElement element)
+    private PdfDictionary CreateElement(PdfTagElement element, ref PdfObjectId legacyNamespaceId)
     {
         var dictionary = new PdfDictionary(_sink.Owner, ElementEntries);
         dictionary.Set(KnownName.Type, PdfValue.FromName(KnownName.StructElem));
@@ -230,7 +238,7 @@ public sealed class PdfTagTree
         dictionary.Set(KnownName.P, PdfValue.FromReference(element.Parent?.Id ?? RootId));
         if (_namespaceId.IsValid)
         {
-            dictionary.Set(_sink.Names.Intern("NS"), PdfValue.FromReference(_namespaceId));
+            dictionary.Set(_sink.Names.Intern("NS"), PdfValue.FromReference(ElementNamespace(element, ref legacyNamespaceId)));
         }
 
         if (element.Page.IsValid)
@@ -243,10 +251,12 @@ public sealed class PdfTagTree
         SetText(dictionary, KnownName.ActualText, element.Options.ActualText);
         SetText(dictionary, KnownName.Lang, element.Options.Language);
         SetText(dictionary, _sink.Names.Intern("T"), element.Options.Title);
-        if (CreateAttributes(element.Options) is { } attributes)
+        if (element.Options.ListNumbering is not null)
         {
-            dictionary.Set(KnownName.A, PdfValue.FromDictionary(attributes));
+            PdfTagListNumbering.Validate(_sink, PdfStructureTypes.Find(element.TypeUtf8), element.Options);
         }
+
+        PdfTagAttributes.Write(_sink, dictionary, element.Options);
 
         return dictionary;
     }
@@ -303,64 +313,66 @@ public sealed class PdfTagTree
         }
     }
 
-    /// <summary>Creates the table attribute object of an element (ISO 32000-2 14.8.5.7).</summary>
-    /// <param name="options">The element's options.</param>
-    /// <returns>The attribute dictionary, or <see langword="null"/> when the element has no table attributes.</returns>
-    private PdfDictionary? CreateAttributes(PdfTagOptions options)
-    {
-        if (options.TableScope == PdfTableScope.None && options.RowSpan <= 1 && options.ColumnSpan <= 1)
-        {
-            return null;
-        }
-
-        var names = _sink.Names;
-        var attributes = new PdfDictionary(_sink.Owner, ElementEntries);
-        attributes.Set(names.Intern("O"), PdfValue.FromName(names.Intern("Table")));
-        if (options.TableScope != PdfTableScope.None)
-        {
-            attributes.Set(names.Intern("Scope"), PdfValue.FromName(names.Intern(options.TableScope.ToString())));
-        }
-
-        if (options.RowSpan > 1)
-        {
-            attributes.Set(names.Intern("RowSpan"), PdfValue.FromInteger(options.RowSpan));
-        }
-
-        if (options.ColumnSpan > 1)
-        {
-            attributes.Set(names.Intern("ColSpan"), PdfValue.FromInteger(options.ColumnSpan));
-        }
-
-        return attributes;
-    }
-
     /// <summary>Creates the structure tree root.</summary>
+    /// <param name="roleMap">PDF 1.7 extension-heading mappings, when needed.</param>
+    /// <param name="legacyNamespaceId">The legacy namespace used by this save, or an invalid id when unused.</param>
     /// <returns>The dictionary.</returns>
-    private PdfDictionary CreateRoot()
+    private PdfDictionary CreateRoot(PdfDictionary? roleMap, PdfObjectId legacyNamespaceId)
     {
         var root = new PdfDictionary(_sink.Owner, ElementEntries);
         root.Set(KnownName.Type, PdfValue.FromName(KnownName.StructTreeRoot));
         root.Set(KnownName.K, PdfValue.FromReference(Root.Id));
         root.Set(KnownName.ParentTree, PdfValue.FromReference(WriteParentTree()));
         root.Set(KnownName.ParentTreeNextKey, PdfValue.FromInteger(_pages.Count));
+        if (roleMap is not null)
+        {
+            root.Set(KnownName.RoleMap, PdfValue.FromDictionary(roleMap));
+        }
+
         if (_namespaceId.IsValid)
         {
-            var namespaces = new PdfArray(_sink.Owner, 1);
+            var namespaces = new PdfArray(_sink.Owner, legacyNamespaceId.IsValid ? StandardNamespaceCount : 1);
             namespaces.Add(PdfValue.FromReference(_namespaceId));
+            if (legacyNamespaceId.IsValid)
+            {
+                namespaces.Add(PdfValue.FromReference(legacyNamespaceId));
+                _sink.Set(legacyNamespaceId, PdfValue.FromDictionary(CreateNamespace(PdfStructureTypes.Pdf17Namespace)));
+            }
+
             root.Set(_sink.Names.Intern("Namespaces"), PdfValue.FromArray(namespaces));
-            _sink.Set(_namespaceId, PdfValue.FromDictionary(CreateNamespace()));
+            _sink.Set(_namespaceId, PdfValue.FromDictionary(CreateNamespace(PdfStructureTypes.Pdf20Namespace)));
         }
 
         return root;
     }
 
-    /// <summary>Creates the PDF 2.0 structure namespace dictionary (ISO 32000-2 14.8.6).</summary>
+    /// <summary>Gets the explicit namespace for a type in a mixed tree.</summary>
+    /// <param name="element">The element being serialized.</param>
+    /// <param name="legacyNamespaceId">The shared legacy namespace reserved by this save.</param>
+    /// <returns>The standard namespace object.</returns>
+    private PdfObjectId ElementNamespace(PdfTagElement element, ref PdfObjectId legacyNamespaceId)
+    {
+        if (PdfStructureTypes.IsStandardIn(PdfStructureTypes.Find(element.TypeUtf8), PdfStructureTypes.Pdf20Flag))
+        {
+            return _namespaceId;
+        }
+
+        if (!legacyNamespaceId.IsValid)
+        {
+            legacyNamespaceId = _sink.Reserve();
+        }
+
+        return legacyNamespaceId;
+    }
+
+    /// <summary>Creates a standard structure namespace dictionary (ISO 32000-2 14.8.6).</summary>
+    /// <param name="uri">The namespace identifier.</param>
     /// <returns>The dictionary.</returns>
-    private PdfDictionary CreateNamespace()
+    private PdfDictionary CreateNamespace(string uri)
     {
         var space = new PdfDictionary(_sink.Owner, NamespaceEntries);
         space.Set(KnownName.Type, PdfValue.FromName(_sink.Names.Intern("Namespace")));
-        space.Set(_sink.Names.Intern("NS"), PdfValue.FromString(PdfText.Encode(PdfStructureTypes.Pdf20Namespace)));
+        space.Set(_sink.Names.Intern("NS"), PdfValue.FromString(PdfText.Encode(uri)));
         return space;
     }
 

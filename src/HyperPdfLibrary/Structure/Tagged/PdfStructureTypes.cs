@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace HyperPdfLibrary.Structure.Tagged;
@@ -30,17 +31,8 @@ public static class PdfStructureTypes
     /// <summary>The flag of a type that only groups other elements.</summary>
     private const int GroupingFlag = 4;
 
-    /// <summary>The longest spelling looked up; standard types are a few characters.</summary>
+    /// <summary>The longest fixed spelling looked up; Hn names have no fixed length limit.</summary>
     private const int MaxSpelling = 32;
-
-    /// <summary>The deepest heading level.</summary>
-    private const int MaxHeadingLevel = 6;
-
-    /// <summary>The longest <c>Hn</c> spelling read: H and up to three digits.</summary>
-    private const int MaxHeadingSpelling = 4;
-
-    /// <summary>The base of decimal digits.</summary>
-    private const int Decimal = 10;
 
     /// <summary>The byte length of a standard spelling group.</summary>
     private const int SpellingLength2 = 2;
@@ -72,6 +64,12 @@ public static class PdfStructureTypes
     /// <summary>The byte length of a standard spelling group.</summary>
     private const int SpellingLength16 = 16;
 
+    /// <summary>The standard type names of the PDF 1.7 namespace, in the order of <see cref="PdfStructureType"/>.</summary>
+    private static readonly string[] Pdf17Names = BuildNames(Pdf17Flag);
+
+    /// <summary>The standard type names of the PDF 2.0 namespace, in the order of <see cref="PdfStructureType"/>.</summary>
+    private static readonly string[] Pdf20Names = BuildNames(Pdf20Flag);
+
     /// <summary>Gets the standard structure namespace of PDF 1.7.</summary>
     public static string Pdf17Namespace => Pdf17Uri;
 
@@ -85,7 +83,7 @@ public static class PdfStructureTypes
         0x05, 0x01, 0x05, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x02,
         0x07, 0x03, 0x03, 0x03, 0x07, 0x07, 0x03, 0x03, 0x07, 0x07, 0x07, 0x03,
         0x01, 0x01, 0x02, 0x01, 0x01, 0x01, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03,
-        0x03, 0x03, 0x03, 0x03, 0x03, 0x07, 0x02, 0x02, 0x02, 0x02,
+        0x03, 0x03, 0x03, 0x03, 0x03, 0x07, 0x02, 0x02, 0x02, 0x02, 0x02,
     ];
 
     /// <summary>Gets each type's <see cref="PdfSemanticRole"/>, indexed by <see cref="PdfStructureType"/>.</summary>
@@ -95,7 +93,7 @@ public static class PdfStructureTypes
         0x15, 0x16, 0x15, 0x03, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
         0x04, 0x05, 0x06, 0x07, 0x08, 0x0A, 0x0B, 0x0C, 0x09, 0x09, 0x09, 0x17,
         0x12, 0x11, 0x11, 0x17, 0x03, 0x13, 0x0F, 0x18, 0x17, 0x17, 0x17, 0x17,
-        0x17, 0x17, 0x17, 0x0D, 0x0E, 0x10, 0x17, 0x17, 0x17, 0x00,
+        0x17, 0x17, 0x17, 0x0D, 0x0E, 0x10, 0x17, 0x17, 0x17, 0x00, 0x02,
     ];
 
     /// <summary>Finds the standard type a spelling names, in either standard namespace.</summary>
@@ -103,12 +101,12 @@ public static class PdfStructureTypes
     /// <returns>The type, or <see cref="PdfStructureType.Unknown"/>.</returns>
     public static PdfStructureType Find(ReadOnlySpan<byte> spelling)
     {
-        if (spelling.IsEmpty || spelling.Length > MaxSpelling)
+        if (spelling.IsEmpty)
         {
             return PdfStructureType.Unknown;
         }
 
-        var type = FindExact(spelling);
+        var type = spelling.Length <= MaxSpelling ? FindExact(spelling) : PdfStructureType.Unknown;
         return type == PdfStructureType.Unknown ? FindNumberedHeading(spelling) : type;
     }
 
@@ -119,7 +117,7 @@ public static class PdfStructureTypes
 
     /// <summary>Gets a heading type's level, 1 to 6; <c>H</c> and <c>Title</c> count as level 1, the top heading.</summary>
     /// <param name="type">The type.</param>
-    /// <returns>The level, or zero for a type that is not a heading.</returns>
+    /// <returns>The level, or zero when the enum alone does not specify a level. NumberedHeading needs its spelling.</returns>
     public static int GetHeadingLevel(PdfStructureType type) => type switch
     {
         PdfStructureType.Heading or PdfStructureType.Title => 1,
@@ -131,6 +129,22 @@ public static class PdfStructureTypes
     /// <param name="type">The type.</param>
     /// <returns><see langword="true"/> for a grouping type.</returns>
     public static bool IsGrouping(PdfStructureType type) => (GetFlags(type) & GroupingFlag) != 0;
+
+    /// <summary>Gets the standard type names a namespace defines, such as the choices for a tag type picker.</summary>
+    /// <param name="namespaceUri">The namespace's <c>/NS</c> text; <see langword="null"/> or the PDF 1.7 namespace gives the PDF 1.7 types, and the PDF 2.0 namespace gives the PDF 2.0 types.</param>
+    /// <returns>The names, shared and never changing; empty for a namespace that is not a standard one.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ReadOnlySpan<string> GetStandardNames(string? namespaceUri) => GetStandardNameArray(namespaceUri);
+
+    /// <summary>Gets the shared array of standard type names a namespace defines. The caller must not change it.</summary>
+    /// <param name="namespaceUri">The namespace's <c>/NS</c> text.</param>
+    /// <returns>The names; empty for a namespace that is not a standard one.</returns>
+    internal static string[] GetStandardNameArray(string? namespaceUri) => namespaceUri switch
+    {
+        null or Pdf17Uri => Pdf17Names,
+        Pdf20Uri => Pdf20Names,
+        _ => [],
+    };
 
     /// <summary>Determines whether a type is standard in the given namespaces.</summary>
     /// <param name="type">The type.</param>
@@ -154,33 +168,41 @@ public static class PdfStructureTypes
     /// <returns>The type name.</returns>
     internal static string GetSpelling(ReadOnlySpan<byte> spelling) => GetKnownSpelling(FindExact(spelling)) ?? Encoding.UTF8.GetString(spelling);
 
+    /// <summary>Lists the spellings of the types a namespace defines.</summary>
+    /// <param name="flag">The namespace flag.</param>
+    /// <returns>The spellings.</returns>
+    private static string[] BuildNames(int flag)
+    {
+        var names = new List<string>();
+        for (var type = PdfStructureType.Document; type <= PdfStructureType.Subdivision; type++)
+        {
+            if ((GetFlags(type) & flag) != 0 && GetKnownSpelling(type) is { } spelling)
+            {
+                names.Add(spelling);
+            }
+        }
+
+        return [.. names];
+    }
+
     /// <summary>Gets a type's flags.</summary>
     /// <param name="type">The type.</param>
     /// <returns>The flags.</returns>
     private static int GetFlags(PdfStructureType type) => (uint)type < (uint)Flags.Length ? Flags[(int)type] : 0;
 
-    /// <summary>Reads a PDF 2.0 heading <c>Hn</c> deeper than H6 as a level 6 heading.</summary>
+    /// <summary>Recognises numbered headings without imposing a numeric or spelling-length limit.</summary>
     /// <param name="spelling">The type's bytes.</param>
     /// <returns>A heading type, or <see cref="PdfStructureType.Unknown"/>.</returns>
     private static PdfStructureType FindNumberedHeading(ReadOnlySpan<byte> spelling)
     {
-        if (spelling.Length < 2 || spelling.Length > MaxHeadingSpelling || spelling[0] != (byte)'H')
+        if (!NumberedHeadings.IsName(spelling))
         {
             return PdfStructureType.Unknown;
         }
 
-        var level = 0;
-        foreach (var digit in spelling[1..])
-        {
-            if (digit is < (byte)'0' or > (byte)'9')
-            {
-                return PdfStructureType.Unknown;
-            }
-
-            level = (level * Decimal) + (digit - '0');
-        }
-
-        return level <= 0 ? PdfStructureType.Unknown : PdfStructureType.Heading1 + (Math.Min(level, MaxHeadingLevel) - 1);
+        return spelling.Length == SpellingLength2 && spelling[1] <= (byte)'6'
+            ? PdfStructureType.Heading1 + (spelling[1] - '1')
+            : PdfStructureType.NumberedHeading;
     }
 
     /// <summary>Finds an exact standard spelling directly in its UTF-8 bytes.</summary>

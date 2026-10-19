@@ -159,6 +159,7 @@ internal sealed class StructureTreeBuilder
         element.Language = ReadText(dictionary, KnownName.Lang) ?? parent.Language;
         element.ElementId = ReadText(dictionary, KnownName.ID);
         element.Attributes = _attributes.Read(dictionary);
+        element.SetNoteType(_attributes.NoteType);
     }
 
     /// <summary>Gets a type name's text, decoding each name once.</summary>

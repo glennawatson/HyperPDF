@@ -497,6 +497,69 @@ public static class Descriptions
     /// <summary>The layers sidebar tab.</summary>
     public static readonly string Layers = "Show the document's layers so you can hide or show them.";
 
+    /// <summary>The tags sidebar tab.</summary>
+    public static readonly string Tags = "Show the tags that tell a screen reader how this document reads, and fix them.";
+
+    /// <summary>The tag type box.</summary>
+    public static readonly string TagType = "What the chosen tag is, such as a heading or a paragraph. Only types the file may use are listed.";
+
+    /// <summary>The tag description box.</summary>
+    public static readonly string TagDescription = "What a screen reader says in place of the content, for example what a picture shows.";
+
+    /// <summary>The tag replacement text box.</summary>
+    public static readonly string TagReplacement = "Text that stands in for the content when it is read aloud or copied. Leave it empty when the page text reads well.";
+
+    /// <summary>The tag language box.</summary>
+    public static readonly string TagLanguage = "The language of this tag's content, such as en-AU, so a screen reader uses the right voice. Leave it empty to use the document's language.";
+
+    /// <summary>The tag title box.</summary>
+    public static readonly string TagTitle = "A short title for the chosen tag.";
+
+    /// <summary>The move-inside choice and button.</summary>
+    public static readonly string MoveTagInto = "Choose another tag, then move the chosen tag inside it, as its last item. A move that would break the document's structure is refused.";
+
+    /// <summary>The new custom tag type fields.</summary>
+    public static readonly string NewRole = "Name a custom tag type this document uses and choose the standard tag it stands for, so screen readers know what it means.";
+
+    /// <summary>The remove custom tag type button.</summary>
+    public static readonly string RemoveRole = "Take away the chosen custom tag type's meaning. It is refused while any tag still uses the type.";
+
+    /// <summary>The cell span boxes.</summary>
+    public static readonly string TagSpan = "How many rows or columns this table cell stretches across. Leave it at 1 for a normal cell.";
+
+    /// <summary>The list numbering box.</summary>
+    public static readonly string TagNumbering = "How this list labels its items, such as bullets or numbers. Screen readers use it to say what kind of list it is.";
+
+    /// <summary>The tag placement box.</summary>
+    public static readonly string TagPlacement = "Whether this tag is its own block (Block), runs inside a line (Inline), or sits before, at the start or at the end of its text.";
+
+    /// <summary>The header cell scope box.</summary>
+    public static readonly string TagScope = "Which cells this table header labels: the cells in its row, in its column, or both. Screen readers use it to say which header goes with a cell.";
+
+    /// <summary>The Check Accessibility button.</summary>
+    public static readonly string CheckTags = "Look for things a screen reader would struggle with, such as a picture with no description.";
+
+    /// <summary>The Apply Tag Changes button.</summary>
+    public static readonly string ApplyTag = "Save the type and text above to the chosen tag. Undo takes the change back.";
+
+    /// <summary>The Move Tag Up button.</summary>
+    public static readonly string MoveTagUp = "Make a screen reader read the chosen tag earlier. The page does not change.";
+
+    /// <summary>The Move Tag Down button.</summary>
+    public static readonly string MoveTagDown = "Make a screen reader read the chosen tag later. The page does not change.";
+
+    /// <summary>The Nest Tag button.</summary>
+    public static readonly string NestTag = "Put the chosen tag inside the tag above it, so a screen reader reads it as part of that tag.";
+
+    /// <summary>The Un-nest Tag button.</summary>
+    public static readonly string UnnestTag = "Move the chosen tag out of the tag it is inside, to just after it.";
+
+    /// <summary>The Remove Tag button.</summary>
+    public static readonly string RemoveTag = "Remove the chosen tag when it holds no page content. The tags inside it stay. Undo puts it back.";
+
+    /// <summary>The Undo button in the tags panel.</summary>
+    public static readonly string UndoTag = "Take back the latest change to the document, including a tag change.";
+
     /// <summary>The Save Attachment button.</summary>
     public static readonly string SaveAttachment = "Save the chosen attachment as a file.";
 

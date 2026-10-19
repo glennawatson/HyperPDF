@@ -108,6 +108,7 @@ internal static class HyperPdfFeatureRegistry
         _ when featureType == typeof(IPageExporter) => FeatureSlot.PageExporter,
         _ when featureType == typeof(IOutlineEditor) => FeatureSlot.OutlineEditor,
         _ when featureType == typeof(IAttachmentEditor) => FeatureSlot.AttachmentEditor,
+        _ when featureType == typeof(ITagEditor) => FeatureSlot.TagEditor,
         _ => FeatureSlot.None,
     };
 
@@ -138,6 +139,7 @@ internal static class HyperPdfFeatureRegistry
         FeatureSlot.FormDesigner => new HyperPdfFormDesignerService(owner),
         FeatureSlot.FlattenCopyWriter => new HyperPdfFlattenCopyWriterService(owner),
         FeatureSlot.Signer => new HyperPdfSignerService(owner),
+        FeatureSlot.TagEditor => new HyperPdfTagEditorService(owner),
         FeatureSlot.RenderSharpness => new HyperPdfRenderSharpnessService(owner),
         <=FeatureSlot.TextLayout => HyperPdfFeatureRegistry.CreateDocumentService(owner, slot),
         <= FeatureSlot.PageExporter => HyperPdfFeatureRegistry.CreateEditingService(owner, slot),

@@ -40,8 +40,32 @@ internal static class XmpExtensionSchemas
     /// <summary>The RDF namespace.</summary>
     private const string RdfNamespace = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 
-    /// <summary>The elements a schema description leaves open: its item, the property field, the sequence and the property item.</summary>
-    private const int SchemaDepth = 4;
+    /// <summary>The <c>rdf:parseType</c> local name.</summary>
+    private const string ParseType = "parseType";
+
+    /// <summary>The <c>rdf:parseType</c> value of a structure.</summary>
+    private const string ResourceValue = "Resource";
+
+    /// <summary>The local name of a value type field.</summary>
+    private const string ValueTypeName = "valueType";
+
+    /// <summary>The local name of a description field.</summary>
+    private const string DescriptionName = "description";
+
+    /// <summary>The elements a property leaves open until its end: the property item, the sequence and the property field.</summary>
+    private const int PropertyDepth = 3;
+
+    /// <summary>The PDF/A value type namespace.</summary>
+    private const string TypeNamespace = "http://www.aiim.org/pdfa/ns/type#";
+
+    /// <summary>The required prefix of the value type's fields.</summary>
+    private const string TypePrefix = "pdfaType";
+
+    /// <summary>The PDF/A field namespace.</summary>
+    private const string FieldNamespace = "http://www.aiim.org/pdfa/ns/field#";
+
+    /// <summary>The required prefix of a value type field's fields.</summary>
+    private const string FieldPrefix = "pdfaField";
 
     /// <summary>The elements a new container leaves open: the description, the schemas property and its bag.</summary>
     private const int ContainerDepth = 3;
@@ -149,26 +173,87 @@ internal static class XmpExtensionSchemas
             writer.WriteStartElement(rdf, "li", RdfNamespace);
             writer.WriteAttributeString(XmlnsPrefix, SchemaPrefix, null, SchemaNamespace);
             writer.WriteAttributeString(XmlnsPrefix, PropertyPrefix, null, PropertyNamespace);
-            writer.WriteAttributeString(rdf, "parseType", RdfNamespace, "Resource");
+            writer.WriteAttributeString(rdf, ParseType, RdfNamespace, ResourceValue);
             writer.WriteElementString(SchemaPrefix, "schema", SchemaNamespace, extension.SchemaName);
             writer.WriteElementString(SchemaPrefix, "namespaceURI", SchemaNamespace, extension.Namespace);
             writer.WriteElementString(SchemaPrefix, "prefix", SchemaNamespace, extension.Prefix);
             writer.WriteStartElement(SchemaPrefix, "property", SchemaNamespace);
             writer.WriteStartElement(rdf, "Seq", RdfNamespace);
             writer.WriteStartElement(rdf, "li", RdfNamespace);
-            writer.WriteAttributeString(rdf, "parseType", RdfNamespace, "Resource");
+            writer.WriteAttributeString(rdf, ParseType, RdfNamespace, ResourceValue);
             writer.WriteElementString(PropertyPrefix, "name", PropertyNamespace, extension.Name);
-            writer.WriteElementString(PropertyPrefix, "valueType", PropertyNamespace, extension.ValueType);
+            writer.WriteElementString(PropertyPrefix, ValueTypeName, PropertyNamespace, extension.ValueType);
             writer.WriteElementString(PropertyPrefix, "category", PropertyNamespace, "external");
-            writer.WriteElementString(PropertyPrefix, "description", PropertyNamespace, extension.Description);
+            writer.WriteElementString(PropertyPrefix, DescriptionName, PropertyNamespace, extension.Description);
 
-            // Close the property item, its sequence, the schema property and the schema item, then any container.
-            for (var open = SchemaDepth + (subject is null ? 0 : ContainerDepth); open > 0; open--)
+            // Close the property item, its sequence and the schema property; value types are siblings of the property.
+            for (var open = PropertyDepth; open > 0; open--)
+            {
+                writer.WriteEndElement();
+            }
+
+            WriteValueTypes(writer, rdf, extension);
+
+            // Close the schema item, then any container.
+            for (var open = 1 + (subject is null ? 0 : ContainerDepth); open > 0; open--)
             {
                 writer.WriteEndElement();
             }
         }
 
         return memory.ToArray();
+    }
+
+    /// <summary>Writes the schema's structured value types, when it has any.</summary>
+    /// <param name="writer">The writer, inside the schema item.</param>
+    /// <param name="rdf">The RDF prefix.</param>
+    /// <param name="extension">The property.</param>
+    private static void WriteValueTypes(XmlWriter writer, string rdf, XmpExtensionProperty extension)
+    {
+        if (extension.ValueTypes.IsEmpty)
+        {
+            return;
+        }
+
+        writer.WriteStartElement(SchemaPrefix, ValueTypeName, SchemaNamespace);
+        writer.WriteStartElement(rdf, "Seq", RdfNamespace);
+        foreach (var type in extension.ValueTypes)
+        {
+            writer.WriteStartElement(rdf, "li", RdfNamespace);
+            writer.WriteAttributeString(XmlnsPrefix, TypePrefix, null, TypeNamespace);
+            writer.WriteAttributeString(XmlnsPrefix, FieldPrefix, null, FieldNamespace);
+            writer.WriteAttributeString(rdf, ParseType, RdfNamespace, ResourceValue);
+            writer.WriteElementString(TypePrefix, "type", TypeNamespace, type.Name);
+            writer.WriteElementString(TypePrefix, "namespaceURI", TypeNamespace, extension.Namespace);
+            writer.WriteElementString(TypePrefix, "prefix", TypeNamespace, extension.Prefix);
+            writer.WriteElementString(TypePrefix, DescriptionName, TypeNamespace, type.Description);
+            WriteFields(writer, rdf, type);
+            writer.WriteEndElement();
+        }
+
+        writer.WriteEndElement();
+        writer.WriteEndElement();
+    }
+
+    /// <summary>Writes one value type's fields.</summary>
+    /// <param name="writer">The writer, inside the type's item.</param>
+    /// <param name="rdf">The RDF prefix.</param>
+    /// <param name="type">The value type.</param>
+    private static void WriteFields(XmlWriter writer, string rdf, XmpValueType type)
+    {
+        writer.WriteStartElement(TypePrefix, "field", TypeNamespace);
+        writer.WriteStartElement(rdf, "Seq", RdfNamespace);
+        foreach (var field in type.Fields)
+        {
+            writer.WriteStartElement(rdf, "li", RdfNamespace);
+            writer.WriteAttributeString(rdf, ParseType, RdfNamespace, ResourceValue);
+            writer.WriteElementString(FieldPrefix, "name", FieldNamespace, field.Name);
+            writer.WriteElementString(FieldPrefix, ValueTypeName, FieldNamespace, field.ValueType);
+            writer.WriteElementString(FieldPrefix, DescriptionName, FieldNamespace, field.Description);
+            writer.WriteEndElement();
+        }
+
+        writer.WriteEndElement();
+        writer.WriteEndElement();
     }
 }

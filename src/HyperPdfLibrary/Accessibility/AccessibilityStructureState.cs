@@ -18,7 +18,8 @@ namespace HyperPdfLibrary.Accessibility;
 /// <param name="RoleMapFacts">Facts about mapped root types, leased on first use.</param>
 /// <param name="Owners">Annotation owners, leased when an object reference is found.</param>
 /// <param name="TablePages">Pages on which a table starts, leased when a table is found.</param>
-/// <param name="LastHeading">The last numbered heading level.</param>
+/// <param name="NoteIdentifiers">Byte-string ID counts, leased when a part 1 Note is found.</param>
+/// <param name="LastHeading">The last numbered heading name, or empty before the first heading.</param>
 /// <param name="UsesPdf20Namespace">Whether the walk encountered the PDF 2.0 namespace.</param>
 /// <param name="Cancellation">Cancels the walk.</param>
 internal readonly record struct AccessibilityStructureState(
@@ -31,6 +32,7 @@ internal readonly record struct AccessibilityStructureState(
     Dictionary<PdfName, AccessibilityStructureScan.RoleMapFacts>? RoleMapFacts,
     Dictionary<int, PdfStructureElement>? Owners,
     HashSet<int>? TablePages,
-    int LastHeading,
+    Dictionary<PdfValue, int>? NoteIdentifiers,
+    string LastHeading,
     bool UsesPdf20Namespace,
     CancellationToken Cancellation);

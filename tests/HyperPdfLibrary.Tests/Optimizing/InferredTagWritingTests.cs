@@ -84,6 +84,23 @@ public sealed class InferredTagWritingTests
         await Assert.That(report.GetCount(PdfAccessibilityCode.FigureNoDescription)).IsEqualTo(0);
     }
 
+    /// <summary>
+    /// The tags the optimiser wrote break none of the Well-Tagged PDF structure rules (clauses 8.2.4 and 8.2.5), apart from
+    /// 8.2.5.2: the optimiser keeps the file's version, so the Document tag has no PDF 2.0 namespace until the file is made PDF 2.0.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the check.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PassesWtpdfStructureChecks(CancellationToken cancellationToken)
+    {
+        using var document = Optimize(FigureDescription);
+
+        var report = PdfDocumentWtpdf.Check(document, cancellationToken);
+
+        var structure = report.Findings.Where(static f => f.Clause.StartsWith("8.2", StringComparison.Ordinal) && f.Clause != "8.2.5.2").Select(static f => $"{f.Clause}: {f.Message}").ToArray();
+        await Assert.That(structure).IsEmpty().Because(string.Join(" | ", structure));
+    }
+
     /// <summary>A figure with no description from the host is reported, as before.</summary>
     /// <returns>A task.</returns>
     [Test]

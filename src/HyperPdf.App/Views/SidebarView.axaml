@@ -26,6 +26,9 @@
         <ToggleButton AutomationProperties.Name="Layers" x:Name="LayersToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Layers}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconLayers}" />
         </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Tags" x:Name="TagsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Tags}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconTags}" />
+        </ToggleButton>
       </StackPanel>
       <Panel>
         <views:ThumbnailPanelView />
@@ -34,6 +37,7 @@
         <ListBox x:Name="SearchResultList" AutomationProperties.Name="Search results" Background="Transparent" />
         <views:LayersPanelView />
         <views:AttachmentsPanelView />
+        <views:TagsPanelView />
       </Panel>
     </DockPanel>
   </Border>

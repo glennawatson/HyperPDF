@@ -20,11 +20,8 @@ public static class PdfReadingStructure
     /// <returns>The page's nodes; check <see cref="PdfSemanticPage.NeedsTextRecognition"/> for an image-only page.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pageIndex"/> is not a page.</exception>
-    public static PdfSemanticPage Read(PdfDocument document, int pageIndex)
-    {
-        var tagged = ReadTagged(document, pageIndex);
-        return tagged.Nodes.Count > 0 ? tagged : InferLayout(document, pageIndex);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfSemanticPage Read(PdfDocument document, int pageIndex) => Read(document, pageIndex, CancellationToken.None);
 
     /// <summary>
     /// Reads a page like <see cref="Read(PdfDocument, int)"/>, and for a page that draws only images asks the recogniser for
@@ -43,7 +40,7 @@ public static class PdfReadingStructure
         ArgumentNullException.ThrowIfNull(recogniser);
         Validate(document, pageIndex);
         await PdfPrefetcher.PrefetchAsync(document.Objects, PdfDocumentPages.GetPage(document, pageIndex).Dictionary, PdfPrefetchKind.Page, cancellationToken).ConfigureAwait(false);
-        var page = Read(document, pageIndex);
+        var page = Read(document, pageIndex, cancellationToken);
         if (!page.NeedsTextRecognition)
         {
             return page;
@@ -59,18 +56,8 @@ public static class PdfReadingStructure
     /// <returns>The page's nodes in logical order; none for an untagged document or a page with no tagged content.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pageIndex"/> is not a page.</exception>
-    public static PdfSemanticPage ReadTagged(PdfDocument document, int pageIndex)
-    {
-        Validate(document, pageIndex);
-        var builder = new TaggedNodeBuilder(document, pageIndex);
-        var nodes = new List<PdfSemanticNode>();
-        if (PdfDocumentTagged.GetStructureTree(document) is { } tree)
-        {
-            builder.Build(tree, nodes);
-        }
-
-        return new(pageIndex, PdfNodeOrigin.Tagged, nodes, builder.Content);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfSemanticPage ReadTagged(PdfDocument document, int pageIndex) => ReadTagged(document, pageIndex, CancellationToken.None);
 
     /// <summary>Works out a page's reading order from its layout, leaving out artifacts; every node is labelled as inferred.</summary>
     /// <param name="document">The document.</param>
@@ -143,6 +130,36 @@ public static class PdfReadingStructure
         var nodes = new List<PdfSemanticNode>();
         new InferredLayoutBuilder(PdfNodeOrigin.Ocr, pageIndex, text.ToString(), items).Build(nodes, [], CancellationToken.None);
         return new(pageIndex, PdfNodeOrigin.Ocr, nodes, null);
+    }
+
+    /// <summary>Reads tagged nodes or infers their layout with the operation's cancellation token.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="cancellationToken">Cancels structure traversal and layout inference.</param>
+    /// <returns>The page's reading nodes.</returns>
+    private static PdfSemanticPage Read(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
+    {
+        var tagged = ReadTagged(document, pageIndex, cancellationToken);
+        return tagged.Nodes.Count > 0 ? tagged : InferLayout(document, pageIndex, PdfLayoutInference.Default, cancellationToken);
+    }
+
+    /// <summary>Builds tagged reading nodes using the operation's cancellation token.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="cancellationToken">Cancels structure traversal.</param>
+    /// <returns>The page's tagged reading nodes.</returns>
+    private static PdfSemanticPage ReadTagged(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Validate(document, pageIndex);
+        var builder = new TaggedNodeBuilder(document, pageIndex);
+        var nodes = new List<PdfSemanticNode>();
+        if (PdfDocumentTagged.GetStructureTree(document) is { } tree)
+        {
+            builder.Build(tree, nodes, cancellationToken);
+        }
+
+        return new(pageIndex, PdfNodeOrigin.Tagged, nodes, builder.Content);
     }
 
     /// <summary>Checks the arguments.</summary>

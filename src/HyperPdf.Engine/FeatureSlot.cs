@@ -97,9 +97,12 @@ internal enum FeatureSlot
     /// <summary>The flattened copy writer.</summary>
     FlattenCopyWriter = 28,
 
-    /// <summary>The certificate signer, the last service.</summary>
+    /// <summary>The certificate signer.</summary>
     Signer = 29,
 
+    /// <summary>The tag editor, the last service.</summary>
+    TagEditor = 30,
+
     /// <summary>The page sharpness choices, after the last service.</summary>
-    RenderSharpness = 30,
+    RenderSharpness = 31,
 }
