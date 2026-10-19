@@ -110,6 +110,13 @@ internal static class TextClusters
         return bits == 0 ? length : (word << WordShift) + BitOperations.TrailingZeroCount(bits);
     }
 
+    /// <summary>Determines whether a position in a text is inside a conjunct: a consonant that a virama joins to the consonant before it.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="index">The position of a character.</param>
+    /// <returns><see langword="true"/> when the character is a consonant right after a virama.</returns>
+    internal static bool IsInsideConjunct(string text, int index) =>
+        index > 0 && IsLinker(text[index - 1]) && IsConjunctConsonant(text[index]);
+
     /// <summary>Gets the length of the cluster that starts at an index.</summary>
     /// <param name="text">The text.</param>
     /// <param name="start">The index of the cluster's first character.</param>
@@ -117,7 +124,7 @@ internal static class TextClusters
     private static int ClusterLength(string text, int start)
     {
         var length = Math.Max(1, StringInfo.GetNextTextElementLength(text.AsSpan(start)));
-        while (start + length < text.Length && IsLinker(text[start + length - 1]) && IsConjunctConsonant(text[start + length]))
+        while (start + length < text.Length && IsInsideConjunct(text, start + length))
         {
             length += Math.Max(1, StringInfo.GetNextTextElementLength(text.AsSpan(start + length)));
         }

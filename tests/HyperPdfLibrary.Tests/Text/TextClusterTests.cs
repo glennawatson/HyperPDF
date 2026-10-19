@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdfLibrary.Text;
+using TUnit.Assertions.Enums;
 
 namespace HyperPdfLibrary.Tests.Text;
 
@@ -131,6 +132,18 @@ public sealed class TextClusterTests
         await Assert.That(page.GetClusterRange(SyllableLength, 1)).IsEqualTo(new(SyllableLength, 1));
     }
 
+    /// <summary>Verifies that a search finds a consonant on its own but not inside a conjunct, finds the whole conjunct, and does not find its first consonant alone.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task Search_KeepsAConjunctWhole()
+    {
+        var page = TextTestDocument.Extract("BT /F1 10 Tf 10 100 Td (\\020\\021\\022 \\022) Tj ET");
+
+        await Assert.That(Find(page, "\U00000937")).IsEquivalentTo([new PdfTextMatch(SecondKa, 1)], CollectionOrdering.Matching);
+        await Assert.That(Find(page, "\U00000915")).IsEmpty();
+        await Assert.That(Find(page, "\U00000915\U0000094D\U00000937")).IsEquivalentTo([new PdfTextMatch(0, ConjunctLength)], CollectionOrdering.Matching);
+    }
+
     /// <summary>Verifies that an index outside the page is refused.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
@@ -140,5 +153,16 @@ public sealed class TextClusterTests
 
         await Assert.That(() => page.GetClusterStart(-1)).Throws<ArgumentOutOfRangeException>();
         await Assert.That(() => page.GetClusterEnd(page.CharCount)).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>Finds every match of a query.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="query">The query.</param>
+    /// <returns>The matches.</returns>
+    private static List<PdfTextMatch> Find(PdfTextPage page, string query)
+    {
+        var matches = new List<PdfTextMatch>();
+        page.Find(query, PdfTextSearchOptions.None, matches);
+        return matches;
     }
 }

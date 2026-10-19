@@ -141,7 +141,10 @@ internal static class TextSearch
         return true;
     }
 
-    /// <summary>Determines whether a match counts: it must not split a letter from its mark, and with whole-word search it must not be part of a longer word.</summary>
+    /// <summary>
+    /// Determines whether a match counts: it must not split a letter from its mark, must not start inside a conjunct, and
+    /// with whole-word search it must not be part of a longer word.
+    /// </summary>
     /// <param name="text">The folded text.</param>
     /// <param name="start">The match start.</param>
     /// <param name="end">The position after the match.</param>
@@ -149,7 +152,7 @@ internal static class TextSearch
     /// <param name="wholeWord">Whether only whole words match.</param>
     /// <returns><see langword="true"/> when the match is reported.</returns>
     private static bool IsAcceptable(string text, int start, int end, ReadOnlySpan<char> pattern, bool wholeWord) =>
-        !SplitsLetter(text, end) && (!wholeWord || IsWholeWord(text, start, end, pattern));
+        !SplitsLetter(text, end) && !TextClusters.IsInsideConjunct(text, start) && (!wholeWord || IsWholeWord(text, start, end, pattern));
 
     /// <summary>
     /// Determines whether a match ends between a letter and a mark that belongs to it, as "e" would in "é", which text and
