@@ -8,12 +8,16 @@ using HyperPdf.Core.Geometry;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Navigation;
+using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Security;
 namespace HyperPdf.Engine;
 
 /// <summary>Implements Navigation over the document's owned state.</summary>
 internal static class HyperPdfNavigation
 {
+    /// <summary>The side of an annotation icon in points, which is how far a click reaches from its upper-left corner.</summary>
+    private const float IconSide = 20;
+
     /// <summary>How far the red channel of 0xRRGGBB is shifted left.</summary>
     private const int RedShift = 16;
 
@@ -188,6 +192,7 @@ internal static class HyperPdfNavigation
             }
         }
 
+        AddAttachmentLinks(self, page, pageIndex, links);
         return links;
     }
 
@@ -209,6 +214,27 @@ internal static class HyperPdfNavigation
         }
 
         return nodes;
+    }
+
+    /// <summary>Adds a link over the icon of each file attachment annotation that holds a file, so a click on the icon reaches the file.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="pageIndex">The page index.</param>
+    /// <param name="links">Receives the links.</param>
+    internal static void AddAttachmentLinks(HyperPdfDocument self, PdfPage page, int pageIndex, List<PageLink> links)
+    {
+        foreach (var file in PdfDocumentFileAttachmentAnnotations.GetFileAttachmentAnnotations(self.Document, pageIndex))
+        {
+            if (file.Data is null || !file.Id.IsValid)
+            {
+                continue;
+            }
+
+            // The icon is at most IconSide points square at the upper-left corner of the annotation's rectangle.
+            var side = Math.Min(IconSide, Math.Min(file.Bounds.Width, file.Bounds.Height));
+            var icon = side > 0 ? new PdfRectangle(file.Bounds.Left, file.Bounds.Top - side, file.Bounds.Left + side, file.Bounds.Top) : file.Bounds;
+            links.Add(new(LinkTargets.ToPageRect(page.ToPhysicalRectangle(icon)), LinkTarget.ForAttachment(pageIndex, file.Id.Number)));
+        }
     }
 
     /// <summary>Converts a bookmark's colour and flags.</summary>

@@ -94,6 +94,35 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
         }
     }
 
+    /// <summary>
+    /// Shows the file a file attachment annotation holds: the panel opens with the file selected, so Open and Save are one click
+    /// away. Nothing is opened or saved until the reader asks, so a click on an icon never runs a file by surprise.
+    /// </summary>
+    /// <param name="target">The attached file link target.</param>
+    /// <returns><see langword="true"/> when the file was found.</returns>
+    public bool Reveal(LinkTarget target)
+    {
+        if (target.Kind != LinkTargetKind.AttachedFile || !int.TryParse(target.Uri, NumberStyles.None, CultureInfo.InvariantCulture, out var annotationId))
+        {
+            return false;
+        }
+
+        foreach (var item in Items)
+        {
+            if (item.AnnotationId != annotationId)
+            {
+                continue;
+            }
+
+            Selected = item;
+            _owner.SidebarMode = SidebarMode.Attachments;
+            _owner.SidebarVisible = true;
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>Saves an embedded file to a path.</summary>
     /// <param name="attachment">The file.</param>
     /// <param name="path">Where to save it.</param>

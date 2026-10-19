@@ -683,6 +683,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
                     break;
                 }
 
+            case LinkTargetKind.AttachedFile:
+                {
+                    _ = Attachments.Reveal(target);
+                    break;
+                }
+
             default:
                 {
                     break;

@@ -24,4 +24,7 @@ public enum LinkTargetKind
 
     /// <summary>A document embedded in this one.</summary>
     EmbeddedDocument = 5,
+
+    /// <summary>A file attached to a page by a file attachment annotation, named by <see cref="LinkTarget.Uri"/> as the annotation's object number.</summary>
+    AttachedFile = 6,
 }

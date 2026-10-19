@@ -11,4 +11,11 @@ namespace HyperPdf.Core.Attachments;
 /// <param name="Name">The file name.</param>
 /// <param name="Size">The size in bytes.</param>
 [DebuggerDisplay("DocumentAttachment: {Name} ({Size} bytes)")]
-public sealed record DocumentAttachment(int Index, string Name, long Size);
+public sealed record DocumentAttachment(int Index, string Name, long Size)
+{
+    /// <summary>Gets the zero-based page of the file attachment annotation that holds the file, or -1 for a file attached to the document itself.</summary>
+    public int PageIndex { get; init; } = -1;
+
+    /// <summary>Gets the object number of the file attachment annotation that holds the file, or 0 for a file attached to the document itself.</summary>
+    public int AnnotationId { get; init; }
+}
