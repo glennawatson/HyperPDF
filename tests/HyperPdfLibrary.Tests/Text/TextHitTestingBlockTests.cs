@@ -242,7 +242,7 @@ public sealed class TextHitTestingBlockTests
     private static PdfTextPage CreatePage(PdfTextChar[] chars)
     {
         var sample = TextTestDocument.Extract("BT /F1 10 Tf 10 100 Td (A) Tj ET");
-        return new(sample.Page, chars, new int[chars.Length], null, string.Empty, []);
+        return new(sample.Page, chars, new int[chars.Length], null, new([], new int[chars.Length], null), string.Empty, []);
     }
 
     /// <summary>Creates ordered, separate glyph boxes.</summary>

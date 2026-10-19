@@ -103,7 +103,36 @@ internal static class TextPageBuild
         var text = new char[textLength];
         var charOfText = new int[textLength];
         FillText(source, text, charOfText);
-        return new(page, chars, lines, BuildLevels(source), new(text), charOfText);
+        var styles = BuildStyles(state, source);
+        return new(page, chars, lines, BuildLevels(source), styles with { Decorations = TextDecorationScan.Detect(chars, styles, state.Device.Marks) }, new(text), charOfText);
+    }
+
+    /// <summary>Keeps the style of each run and the run of each character.</summary>
+    /// <param name="state">The build state, whose runs and fonts are read.</param>
+    /// <param name="source">The characters the build collected.</param>
+    /// <returns>The style table.</returns>
+    private static TextStyleTable BuildStyles(TextPageBuildState state, ReadOnlySpan<TextBuildChar> source)
+    {
+        var styles = new TextRunStyle[state.Runs.Count];
+        for (var i = 0; i < styles.Length; i++)
+        {
+            var run = state.Runs[i];
+            ref var facts = ref CollectionsMarshal.GetValueRefOrAddDefault(state.FontFacts, run.Font, out var known);
+            if (!known)
+            {
+                facts = TextFontFacts.Read(run.Font);
+            }
+
+            styles[i] = new(run.Matrix, run.FillColor, run.StrokeColor, facts.Name, facts.Weight, facts.Flags);
+        }
+
+        var runOfChar = new int[source.Length];
+        for (var i = 0; i < runOfChar.Length; i++)
+        {
+            runOfChar[i] = (uint)source[i].Run < (uint)styles.Length ? source[i].Run : -1;
+        }
+
+        return new(styles, runOfChar, null);
     }
 
     /// <summary>Copies the characters that are part of the page text, and the character index of each.</summary>

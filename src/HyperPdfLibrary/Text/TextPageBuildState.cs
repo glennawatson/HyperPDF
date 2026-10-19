@@ -53,6 +53,9 @@ internal sealed class TextPageBuildState
     /// <summary>Gets the share of the font size each font's space is wide, cached by font.</summary>
     internal Dictionary<PdfFont, float> SpaceWidths { get; } = [];
 
+    /// <summary>Gets what each font of the page says about itself, read once per font.</summary>
+    internal Dictionary<PdfFont, TextFontFacts> FontFacts { get; } = [];
+
     /// <summary>Gets the replacement-text sequences already placed on the page.</summary>
     internal HashSet<int> PlacedSequences { get; } = [];
 
@@ -106,6 +109,7 @@ internal sealed class TextPageBuildState
         GroupLevels.Clear();
         GroupOrder.Clear();
         SpaceWidths.Clear();
+        FontFacts.Clear();
         PlacedSequences.Clear();
         Device.Clear();
         RightToLeft = false;

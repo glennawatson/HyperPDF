@@ -39,6 +39,9 @@ public sealed class PdfTextPage
     /// <summary>The bidirectional embedding level of each character, or <see langword="null"/> when every character is at level 0.</summary>
     private readonly byte[]? _levels;
 
+    /// <summary>The styles of the runs and the run each character belongs to.</summary>
+    private readonly TextStyleTable _styles;
+
     /// <summary>The page text.</summary>
     private readonly string _text;
 
@@ -62,15 +65,17 @@ public sealed class PdfTextPage
     /// <param name="chars">The characters.</param>
     /// <param name="lines">The line of each character.</param>
     /// <param name="levels">The embedding level of each character, or <see langword="null"/> when they are all 0.</param>
+    /// <param name="styles">The styles of the runs and the run of each character.</param>
     /// <param name="text">The page text.</param>
     /// <param name="charOfText">The character index of each text index.</param>
-    internal PdfTextPage(PdfPage page, PdfTextChar[] chars, int[] lines, byte[]? levels, string text, int[] charOfText)
+    internal PdfTextPage(PdfPage page, PdfTextChar[] chars, int[] lines, byte[]? levels, TextStyleTable styles, string text, int[] charOfText)
     {
         Page = page;
         _chars = chars;
         _hitBlocks = TextHitTesting.BuildBlocks(chars);
         _lines = lines;
         _levels = levels;
+        _styles = styles;
         _text = text;
         _charOfText = charOfText;
         _textOfChar = new int[chars.Length];
@@ -163,6 +168,17 @@ public sealed class PdfTextPage
         var last = count < 0 || (long)start + count > _chars.Length ? _chars.Length - 1 : start + count - 1;
         var first = GetClusterStart(start);
         return new(first, GetClusterEnd(last) - first);
+    }
+
+    /// <summary>Gets how a character is drawn: its colours, direction, matrix, font and decorations.</summary>
+    /// <param name="index">The character index.</param>
+    /// <returns>The style. A character the extractor generated, such as a space, has the style of the run it follows.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The index is outside the page's characters.</exception>
+    public PdfTextCharStyle GetCharStyle(int index)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _chars.Length);
+        return _styles.Of(index);
     }
 
     /// <summary>Maps an index in <see cref="Text"/> to a character index.</summary>
