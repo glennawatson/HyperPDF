@@ -23,7 +23,7 @@ namespace HyperPdfLibrary.Rendering;
 /// interpreter started in (viewer space for pages), so replaying it only needs a matrix.
 /// </summary>
 [DebuggerDisplay("SkiaContentDevice")]
-internal sealed class SkiaContentDevice : IPictureDevice
+internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
 {
     /// <summary>The pixels of padding added to layer bounds so anti-aliased edges and strokes are not cut off.</summary>
     private const float BoundsPadding = 2;
@@ -71,6 +71,9 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>The most converted glyph outlines retained while recording one picture.</summary>
     private const int MaxCachedGlyphPaths = 512;
 
+    /// <summary>The image masks one Type 3 glyph procedure can draw and have kept; later ones share the last place.</summary>
+    private const int MaxType3Images = 8;
+
     /// <summary>The colour channel table that leaves a channel unchanged.</summary>
     private static readonly byte[] IdentityTable = CreateIdentityTable();
 
@@ -109,6 +112,9 @@ internal sealed class SkiaContentDevice : IPictureDevice
 
     /// <summary>Whether each open transparency group is a knockout group, innermost last.</summary>
     private readonly List<bool> _knockout = [];
+
+    /// <summary>The Type 3 glyphs whose procedures are running, innermost last.</summary>
+    private readonly List<Type3Scope> _type3 = [];
 
     /// <summary>The canvas of the page or picture recording itself.</summary>
     private SKCanvas _rootCanvas;
@@ -244,6 +250,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
         var native = SkiaResources.Image(image);
         var matrix = new Matrix3x2(1F / image.Width, 0, 0, -1F / image.Height, 0, 1) * state.Ctm;
         var masked = BeginMask(ref state, new(0, 0, 1, 1), state.Ctm);
+        if (isMask && _type3.Count > 0 && CanDrawMask(ref state, masked.Active) && TryDrawImageMask(native, matrix, ref state, smooth))
+        {
+            EndMask(ref state, masked);
+            return;
+        }
+
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
         _paint.Reset();
         _paint.IsAntialias = SmoothImages;
@@ -278,6 +290,19 @@ internal sealed class SkiaContentDevice : IPictureDevice
         }
 
         EndMask(ref state, masked);
+    }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void BeginType3Glyph(PdfFont font, int code) => _type3.Add(new(font, code, 0));
+
+    /// <inheritdoc/>
+    public void EndType3Glyph()
+    {
+        if (_type3.Count > 0)
+        {
+            _type3.RemoveAt(_type3.Count - 1);
+        }
     }
 
     /// <inheritdoc/>
@@ -665,6 +690,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
         _glyphPaths.Clear();
         _knockout.Clear();
+        _type3.Clear();
         _pathBuilder.Reset();
         _paint.Reset();
         _paint.IsAntialias = true;
@@ -1318,7 +1344,27 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         var plain = _frames.Count == 0 && state.BlendMode == PdfBlendMode.Normal && state.FillAlpha >= 1;
         var style = new GlyphMaskStyle(_quality, SkiaConversions.ToSkColor(state.Fill, state.FillAlpha), ElementBlend(state.BlendMode), plain);
         _maskPainter ??= new(_masks!);
-        return _maskPainter.TryDraw(_canvas, _deviceInverse, new(glyph.Font, glyph.Code, path, matrix * _device), style);
+        return _maskPainter.TryDraw(_canvas, _deviceInverse, new GlyphMaskGlyph<OutlineMaskSource>(glyph.Font, glyph.Code, new(path), matrix * _device), style);
+    }
+
+    /// <summary>Draws the image mask of a Type 3 glyph from a mask made once for the glyph's size and position.</summary>
+    /// <param name="native">The image.</param>
+    /// <param name="imageToRecording">The matrix from the image's pixels to the recording's space.</param>
+    /// <param name="state">The graphics state.</param>
+    /// <param name="smooth">Whether the image asks for smoothing.</param>
+    /// <returns><see langword="true"/> when the mask was drawn.</returns>
+    private bool TryDrawImageMask(SKImage native, Matrix3x2 imageToRecording, ref GraphicsState state, bool smooth)
+    {
+        // The mask is kept under the glyph and the place of the image in its procedure, not under the image, which an inline image makes anew each time.
+        var scope = _type3[^1];
+        _type3[^1] = scope with { Images = scope.Images + 1 };
+        var plain = _frames.Count == 0 && state.BlendMode == PdfBlendMode.Normal && state.FillAlpha >= 1;
+        var style = new GlyphMaskStyle(_quality, SkiaConversions.ToSkColor(state.Fill, state.FillAlpha), ElementBlend(state.BlendMode), plain);
+        var toDevice = imageToRecording * _device;
+        var sampling = SkiaImageSampling.Choose(native.Width, toDevice, smooth, SmoothImages);
+        var key = (scope.Code * MaxType3Images) + Math.Min(scope.Images, MaxType3Images - 1);
+        _maskPainter ??= new(_masks!);
+        return _maskPainter.TryDraw(_canvas, _deviceInverse, new GlyphMaskGlyph<ImageMaskSource>(scope.Font, key, new(native, sampling), toDevice), style);
     }
 
     /// <summary>Fills glyph outlines with the text edge setting rather than the graphics one.</summary>

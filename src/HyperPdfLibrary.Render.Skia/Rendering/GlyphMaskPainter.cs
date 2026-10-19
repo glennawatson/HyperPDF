@@ -29,12 +29,14 @@ internal sealed class GlyphMaskPainter : IDisposable
     public void Dispose() => _paint.Dispose();
 
     /// <summary>Draws one glyph from its mask.</summary>
+    /// <typeparam name="TSource">What the mask is drawn from when it is made.</typeparam>
     /// <param name="canvas">The recording's canvas.</param>
     /// <param name="deviceInverse">The matrix from device pixels back to the recording's space.</param>
-    /// <param name="glyph">The glyph: its font, code, outline and the matrix from the outline to device pixels.</param>
+    /// <param name="glyph">The glyph: what it is made from, its code, its source and the matrix from the source to device pixels.</param>
     /// <param name="style">The quality settings, text colour and how it is drawn.</param>
-    /// <returns><see langword="true"/> when the glyph was drawn or has nothing to draw; <see langword="false"/> when it must be filled from its outline.</returns>
-    internal bool TryDraw(SKCanvas canvas, SKMatrix deviceInverse, in GlyphMaskGlyph glyph, in GlyphMaskStyle style)
+    /// <returns><see langword="true"/> when the glyph was drawn or has nothing to draw; <see langword="false"/> when it must be drawn the usual way.</returns>
+    internal bool TryDraw<TSource>(SKCanvas canvas, SKMatrix deviceInverse, in GlyphMaskGlyph<TSource> glyph, in GlyphMaskStyle style)
+        where TSource : struct, IGlyphMaskSource
     {
         if (!GlyphMaskPlacement.TryCreate(glyph.ToDevice, style.Quality.TextHinting, out var placement))
         {
@@ -43,7 +45,7 @@ internal sealed class GlyphMaskPainter : IDisposable
 
         var edges = EdgesOf(style);
         var key = new GlyphMaskKey(
-            glyph.Font,
+            glyph.Owner,
             glyph.Code,
             placement.A,
             placement.B,
@@ -79,18 +81,20 @@ internal sealed class GlyphMaskPainter : IDisposable
     };
 
     /// <summary>Finds a mask, or makes it and keeps it.</summary>
+    /// <typeparam name="TSource">What the mask is drawn from when it is made.</typeparam>
     /// <param name="glyph">The glyph.</param>
     /// <param name="key">What the mask is for.</param>
     /// <param name="mask">Receives the mask; <see langword="null"/> when the glyph paints nothing.</param>
     /// <returns><see langword="false"/> when the glyph is too large to draw from a mask.</returns>
-    private bool FindOrMake(in GlyphMaskGlyph glyph, in GlyphMaskKey key, out GlyphMask? mask)
+    private bool FindOrMake<TSource>(in GlyphMaskGlyph<TSource> glyph, in GlyphMaskKey key, out GlyphMask? mask)
+        where TSource : struct, IGlyphMaskSource
     {
         if (_masks.TryGet(key, out mask))
         {
             return true;
         }
 
-        if (!GlyphMaskRaster.TryCreate(glyph.Path, key, out var created))
+        if (!GlyphMaskRaster.TryCreate(glyph.Source, key, out var created))
         {
             return false;
         }

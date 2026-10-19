@@ -37,11 +37,13 @@ internal static class GlyphMaskRaster
     private static readonly int[] LcdFilter = [8, 77, 86, 77, 8];
 
     /// <summary>Makes a mask for a glyph.</summary>
-    /// <param name="path">The glyph's outline in its own space.</param>
+    /// <typeparam name="TSource">What the mask is drawn from.</typeparam>
+    /// <param name="source">The glyph's outline, or the image mask, in its own space.</param>
     /// <param name="key">What the mask is for.</param>
     /// <param name="mask">Receives the mask; <see langword="null"/> when the glyph paints nothing.</param>
     /// <returns><see langword="false"/> when the glyph is too large to draw from a mask.</returns>
-    internal static bool TryCreate(SKPath path, in GlyphMaskKey key, out GlyphMask? mask)
+    internal static bool TryCreate<TSource>(TSource source, in GlyphMaskKey key, out GlyphMask? mask)
+        where TSource : struct, IGlyphMaskSource
     {
         mask = null;
         var matrix = new SKMatrix(
@@ -54,7 +56,7 @@ internal static class GlyphMaskRaster
             0,
             0,
             1);
-        var bounds = matrix.MapRect(path.Bounds);
+        var bounds = matrix.MapRect(source.Bounds);
         if (bounds.IsEmpty || !float.IsFinite(bounds.Width) || !float.IsFinite(bounds.Height))
         {
             return true;
@@ -71,19 +73,21 @@ internal static class GlyphMaskRaster
 
         var lcd = key.Edges == GlyphMaskEdges.Lcd;
         var columns = lcd ? SubPixels : 1;
-        var coverage = DrawCoverage(path, matrix, new(left, top, width * columns, height), key, columns);
+        var coverage = DrawCoverage(source, matrix, new(left, top, width * columns, height), key, columns);
         mask = lcd ? MakeLcd(coverage, new(left, top, width, height), key.Color) : MakeGrey(coverage, new(left, top, width, height));
         return true;
     }
 
     /// <summary>Draws a glyph into a byte for each sub-pixel of coverage.</summary>
-    /// <param name="path">The glyph's outline.</param>
+    /// <typeparam name="TSource">What the mask is drawn from.</typeparam>
+    /// <param name="source">The glyph's outline, or the image mask.</param>
     /// <param name="matrix">The matrix to the mask's pixels before its offset.</param>
     /// <param name="area">The mask's offset from the glyph's pixel in pixels, and its size in sub-pixel columns and rows.</param>
     /// <param name="key">What the mask is for.</param>
     /// <param name="columns">The sub-pixel columns in each pixel.</param>
     /// <returns>The coverage, a row after row of bytes.</returns>
-    private static byte[] DrawCoverage(SKPath path, SKMatrix matrix, in MaskArea area, in GlyphMaskKey key, int columns)
+    private static byte[] DrawCoverage<TSource>(TSource source, SKMatrix matrix, in MaskArea area, in GlyphMaskKey key, int columns)
+        where TSource : struct, IGlyphMaskSource
     {
         using var bitmap = new SKBitmap(new(area.Width, area.Height, SKColorType.Alpha8, SKAlphaType.Premul));
         using (var canvas = new SKCanvas(bitmap))
@@ -93,7 +97,7 @@ internal static class GlyphMaskRaster
             canvas.Translate(-area.Left, -area.Top);
             canvas.Concat(in matrix);
             using var paint = new SKPaint { IsAntialias = key.Edges != GlyphMaskEdges.Sharp, Color = SKColors.White };
-            canvas.DrawPath(path, paint);
+            source.Draw(canvas, paint);
         }
 
         var pixels = bitmap.GetPixelSpan().ToArray();

@@ -3,14 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Numerics;
-using HyperPdfLibrary.Fonts;
-using SkiaSharp;
 
 namespace HyperPdfLibrary.Rendering;
 
 /// <summary>A glyph to draw from a mask.</summary>
-/// <param name="Font">The font.</param>
-/// <param name="Code">The character code.</param>
-/// <param name="Path">The glyph's outline in its own space.</param>
-/// <param name="ToDevice">The matrix from the outline's space to device pixels.</param>
-internal readonly record struct GlyphMaskGlyph(PdfFont Font, int Code, SKPath Path, Matrix3x2 ToDevice);
+/// <typeparam name="TSource">What the mask is drawn from when it is made.</typeparam>
+/// <param name="Owner">What the mask is made from: the font whose glyph it is, or the image mask itself.</param>
+/// <param name="Code">The character code; 0 for an image mask.</param>
+/// <param name="Source">The glyph's outline, or the image mask, in its own space.</param>
+/// <param name="ToDevice">The matrix from the source's space to device pixels.</param>
+internal readonly record struct GlyphMaskGlyph<TSource>(object Owner, int Code, TSource Source, Matrix3x2 ToDevice)
+    where TSource : struct, IGlyphMaskSource;
