@@ -60,7 +60,7 @@ internal static class HyperPdfDocumentRenderSharpness
                 TextHintingChoice.Full => PdfTextHinting.Full,
                 _ => PdfTextHinting.None,
             },
-            TextContrast = normal.TextContrast,
+            TextContrast = normal.TextDarkness,
             SmoothGraphics = normal.SmoothGraphics,
             SmoothImages = normal.SmoothImages,
             StrokeAdjustment = normal.StrokeAdjustment switch

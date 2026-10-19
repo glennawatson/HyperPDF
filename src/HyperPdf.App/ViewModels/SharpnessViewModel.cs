@@ -149,7 +149,7 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
         AreaImageReduction = sharpness.AreaImageReduction;
         SmallTextMasks = sharpness.SmallTextMasks;
         TextHinting = (int)sharpness.TextHinting;
-        TextContrast = sharpness.TextContrast;
+        TextContrast = sharpness.TextDarkness;
     }
 
     /// <summary>Writes each later change of a choice to the settings.</summary>
@@ -164,7 +164,7 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
         Follow(this.WhenChanged(static x => x.AreaImageReduction), static (s, on) => s with { AreaImageReduction = on });
         Follow(this.WhenChanged(static x => x.SmallTextMasks), static (s, on) => s with { SmallTextMasks = on });
         Follow(this.WhenChanged(static x => x.TextHinting), static (s, index) => s with { TextHinting = (TextHintingChoice)index });
-        Follow(this.WhenChanged(static x => x.TextContrast), static (s, level) => s with { TextContrast = level });
+        Follow(this.WhenChanged(static x => x.TextContrast), static (s, level) => s with { TextDarkness = level });
     }
 
     /// <summary>Applies each later value of a choice to the settings, then saves.</summary>

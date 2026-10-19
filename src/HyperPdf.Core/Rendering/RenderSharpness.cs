@@ -20,7 +20,7 @@ namespace HyperPdf.Core.Rendering;
 /// <param name="AreaImageReduction">Whether images that shrink a lot are reduced by averaging, which keeps fine detail from sparkling.</param>
 /// <param name="SmallTextMasks">Whether small text is drawn from cached glyph masks, which is quicker once a page's letters repeat.</param>
 /// <param name="TextHinting">How small text is fitted to the pixel grid; any choice but none draws small text from glyph masks.</param>
-/// <param name="TextContrast">How much darker the edges of small text are drawn, from 0 to 3; above 0 draws small text from glyph masks.</param>
+/// <param name="TextDarkness">How much darker the edges of small text are drawn, from 0 to 3; above 0 draws small text from glyph masks.</param>
 [DebuggerDisplay("RenderSharpness: text {TextEdges}, lines {StrokeAdjustment}/{MinimumLineWidth}")]
 public sealed record RenderSharpness(
     TextEdgeChoice TextEdges = TextEdgeChoice.Smooth,
@@ -31,7 +31,7 @@ public sealed record RenderSharpness(
     bool AreaImageReduction = true,
     bool SmallTextMasks = false,
     TextHintingChoice TextHinting = TextHintingChoice.None,
-    int TextContrast = 0)
+    int TextDarkness = 0)
 {
     /// <summary>The thickest minimum line width, in device pixels.</summary>
     private const int LineWidthLimit = 3;
@@ -45,8 +45,8 @@ public sealed record RenderSharpness(
     /// <summary>Gets the thickest minimum line width in device pixels.</summary>
     public static int MaxMinimumLineWidth => LineWidthLimit;
 
-    /// <summary>Gets the highest text contrast level.</summary>
-    public static int MaxTextContrast => ContrastLimit;
+    /// <summary>Gets the highest text darkness level.</summary>
+    public static int MaxTextDarkness => ContrastLimit;
 
     /// <summary>Brings every value into its range, so a hand-edited or older settings file still gives a working choice.</summary>
     /// <returns>The choices with each value inside its range.</returns>
@@ -56,6 +56,6 @@ public sealed record RenderSharpness(
         StrokeAdjustment = Enum.IsDefined(StrokeAdjustment) ? StrokeAdjustment : StrokeAdjustmentChoice.Off,
         MinimumLineWidth = Math.Clamp(MinimumLineWidth, 0, LineWidthLimit),
         TextHinting = Enum.IsDefined(TextHinting) ? TextHinting : TextHintingChoice.None,
-        TextContrast = Math.Clamp(TextContrast, 0, ContrastLimit),
+        TextDarkness = Math.Clamp(TextDarkness, 0, ContrastLimit),
     };
 }

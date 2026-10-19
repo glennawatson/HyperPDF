@@ -48,7 +48,7 @@ public sealed class SmallTextPreferencesTests
 
         await Assert.That(saved.SmallTextMasks).IsTrue();
         await Assert.That(saved.TextHinting).IsEqualTo(TextHintingChoice.Slight);
-        await Assert.That(saved.TextContrast).IsEqualTo(ChosenContrast);
+        await Assert.That(saved.TextDarkness).IsEqualTo(ChosenContrast);
         await Assert.That(saved.TextEdges).IsEqualTo(TextEdgeChoice.Lcd);
         await Assert.That(reloaded.Sharpness.SmallTextMasks).IsTrue();
         await Assert.That(reloaded.Sharpness.TextHinting).IsEqualTo((int)TextHintingChoice.Slight);
@@ -93,7 +93,7 @@ public sealed class SmallTextPreferencesTests
         preferences.Sharpness.TextContrast = OutOfRangeContrast;
         preferences.Sharpness.TextHinting = OutOfRangeHinting;
 
-        await Assert.That(test.Services.Settings.Sharpness.TextContrast).IsEqualTo(RenderSharpness.MaxTextContrast);
+        await Assert.That(test.Services.Settings.Sharpness.TextDarkness).IsEqualTo(RenderSharpness.MaxTextDarkness);
         await Assert.That(test.Services.Settings.Sharpness.TextHinting).IsEqualTo(TextHintingChoice.None);
     }
 
