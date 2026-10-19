@@ -135,7 +135,7 @@ internal static class ContentGraphicsState
             total += Math.Abs(lengths[i]);
         }
 
-        self.State.Dash = count == 0 || total <= 0 ? [] : [.. lengths[..count]];
+        self.State.Dash = count == 0 || total <= 0 ? default : lengths[..count].ToArray();
         self.State.DashPhase = phase;
     }
 }

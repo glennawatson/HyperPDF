@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Metadata;
 using HyperPdfLibrary.Objects;
@@ -70,7 +69,7 @@ public sealed class PdfADeclarationValidationTests
         {
             var claim = new PdfDeclarationClaim("Example Validator & Co", "2026-10-19", "Certified <tester>", "https://example.org/report");
             PdfDocumentDeclarations.Add(document, new(Profile, [claim]));
-            PdfDocumentDeclarations.Add(document, new("https://www.w3.org/TR/WCAG22/", ImmutableArray<PdfDeclarationClaim>.Empty));
+            PdfDocumentDeclarations.Add(document, new("https://www.w3.org/TR/WCAG22/", []));
             await File.WriteAllBytesAsync(path, PdfCompactWriter.Save(document.Objects, PdfCompactOptions.Default), cancellationToken);
         }
 

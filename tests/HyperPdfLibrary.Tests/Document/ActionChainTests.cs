@@ -236,7 +236,7 @@ public sealed class ActionChainTests
             await Assert.That(node.Action.Value).IsEqualTo(new UnsupportedAction(string.Empty));
         }
 
-        await Assert.That(Array.TrueForAll(nodes, static node => node.Next.IsEmpty)).IsTrue();
+        await Assert.That(Array.TrueForAll(nodes, static node => node.Next.Length == 0)).IsTrue();
     }
 
     /// <summary>A chain longer than the reader follows stops at the nesting limit, and a very wide chain stops at the action limit.</summary>
@@ -256,7 +256,7 @@ public sealed class ActionChainTests
         using var deepDocument = StructureDocuments.Open(string.Empty, linear);
         using var wideDocument = StructureDocuments.Open(string.Empty, wide);
         var depth = 1;
-        for (var node = Node(deepDocument, FirstObject); !node.Next.IsEmpty; node = node.Next[0])
+        for (var node = Node(deepDocument, FirstObject); node.Next.Length != 0; node = node.Next[0])
         {
             depth++;
         }

@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Features;
 
 namespace HyperPdfLibrary.Tests.Document;
 
@@ -100,11 +101,12 @@ public sealed class ArticleAndPartReadingTests
     {
         using var document = StructureDocuments.Open("/Threads [4 0 R]", "<< /Type /Thread /I << /Title (Story) >> >>");
         var threads = PdfDocumentCatalog.GetThreads(document);
-        var changed = threads.SetItem(0, threads[0] with { Title = "Changed" });
+        PdfThread[] changed = [.. threads];
+        changed[0] = threads[0] with { Title = "Changed" };
 
         await Assert.That(changed[0].Title).IsEqualTo("Changed");
         await Assert.That(PdfDocumentCatalog.GetThreads(document)[0].Title).IsEqualTo("Story");
-        await Assert.That(() => ((IList<HyperPdfLibrary.Features.PdfThread>)threads).Clear()).Throws<NotSupportedException>();
+        await Assert.That(() => ((IList<PdfThread>)threads).Clear()).Throws<NotSupportedException>();
     }
 
     /// <summary>A three-bead thread keeps the /N order from /F, each bead's rectangle and its page.</summary>
@@ -128,7 +130,7 @@ public sealed class ArticleAndPartReadingTests
         await Assert.That(thread.Beads[1].Bounds!.Value.Left).IsEqualTo(SecondLeft);
         await Assert.That(thread.Beads[Third].Bounds!.Value.Left).IsEqualTo(ThirdLeft);
         await Assert.That(thread.Beads[Third].Bounds!.Value.Bottom).IsEqualTo(ThirdBottom);
-        await Assert.That(thread.Beads.All(static bead => bead.PageIndex == 0)).IsTrue();
+        await Assert.That(Array.TrueForAll(thread.Beads, static bead => bead.PageIndex == 0)).IsTrue();
     }
 
     /// <summary>A ring whose last bead points back into the middle, a bead with no /N and a /N to a missing object all stop.</summary>

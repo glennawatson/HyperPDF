@@ -65,7 +65,7 @@ public sealed class TagAdviceTests
         ]);
         using var document = await PdfDocumentReader.OpenAsync(bytes, null, cancellationToken);
 
-        await Assert.That(PdfDocumentTagAdvice.Get(document, cancellationToken).IsEmpty).IsTrue();
+        await Assert.That(PdfDocumentTagAdvice.Get(document, cancellationToken).Length == 0).IsTrue();
     }
 
     /// <summary>Builds a Document holding two nested tags.</summary>

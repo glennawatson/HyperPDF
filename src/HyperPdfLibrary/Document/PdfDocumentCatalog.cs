@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Features;
 using HyperPdfLibrary.Objects;
@@ -28,7 +27,7 @@ public static class PdfDocumentCatalog
     /// <param name="document">The document.</param>
     /// <returns>An immutable snapshot of the threads, read once until the next edit.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ImmutableArray<PdfThread> GetThreads(PdfDocument document) => PdfReadSnapshots.Read(document, PdfReadKind.Threads, PdfDocumentCatalog.ReadThreads);
+    public static PdfThread[] GetThreads(PdfDocument document) => PdfReadSnapshots.Read(document, PdfReadKind.Threads, PdfDocumentCatalog.ReadThreads);
 
     /// <summary>Gets the output intents (the catalog's <c>/OutputIntents</c>).</summary>
     /// <param name="document">The document.</param>
@@ -76,14 +75,14 @@ public static class PdfDocumentCatalog
     /// <param name="document">The document.</param>
     /// <returns>One entry per application.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ImmutableArray<PdfPieceData> GetPieceInfo(PdfDocument document) => PdfDocumentCatalog.GetPieceInfo(document, document.Catalog);
+    public static PdfPieceData[] GetPieceInfo(PdfDocument document) => PdfDocumentCatalog.GetPieceInfo(document, document.Catalog);
 
     /// <summary>Gets the page-piece data of a page.</summary>
     /// <param name="document">The document.</param>
     /// <param name="page">The page.</param>
     /// <returns>One entry per application.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="page"/> is null.</exception>
-    public static ImmutableArray<PdfPieceData> GetPieceInfo(PdfDocument document, PdfPage page)
+    public static PdfPieceData[] GetPieceInfo(PdfDocument document, PdfPage page)
     {
         ArgumentNullException.ThrowIfNull(page);
         return PdfDocumentCatalog.GetPieceInfo(document, page.Dictionary);
@@ -94,7 +93,7 @@ public static class PdfDocumentCatalog
     /// <param name="owner">The dictionary.</param>
     /// <returns>An immutable snapshot with one entry per application whose value is a data dictionary, read once until the next edit.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="owner"/> is null.</exception>
-    public static ImmutableArray<PdfPieceData> GetPieceInfo(PdfDocument document, PdfDictionary owner)
+    public static PdfPieceData[] GetPieceInfo(PdfDocument document, PdfDictionary owner)
     {
         ArgumentNullException.ThrowIfNull(owner);
         return PdfReadSnapshots.Read(document, PdfReadKind.PieceInfo, owner, PdfDocumentCatalog.ReadPieceInfo);
@@ -104,7 +103,7 @@ public static class PdfDocumentCatalog
     /// <param name="document">The document.</param>
     /// <param name="owner">The dictionary.</param>
     /// <returns>One entry per application whose value is a data dictionary.</returns>
-    internal static ImmutableArray<PdfPieceData> ReadPieceInfo(PdfDocument document, PdfDictionary owner)
+    internal static PdfPieceData[] ReadPieceInfo(PdfDocument document, PdfDictionary owner)
     {
         if (owner.Dict("PieceInfo") is not { } info)
         {
@@ -130,7 +129,7 @@ public static class PdfDocumentCatalog
     /// <summary>Reads the article threads (the catalog's <c>/Threads</c>).</summary>
     /// <param name="document">The document.</param>
     /// <returns>The threads.</returns>
-    internal static ImmutableArray<PdfThread> ReadThreads(PdfDocument document)
+    internal static PdfThread[] ReadThreads(PdfDocument document)
     {
         var list = document.Catalog.Array("Threads");
         var threads = new List<PdfThread>(list?.Count ?? 0);
@@ -196,7 +195,7 @@ public static class PdfDocumentCatalog
     /// <param name="document">The document.</param>
     /// <param name="first">The first bead (<c>/F</c>), or null.</param>
     /// <returns>The beads.</returns>
-    private static ImmutableArray<PdfBead> ReadBeads(PdfDocument document, PdfDictionary? first)
+    private static PdfBead[] ReadBeads(PdfDocument document, PdfDictionary? first)
     {
         var beads = new List<PdfBead>();
         var visited = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);

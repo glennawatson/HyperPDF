@@ -88,11 +88,22 @@ internal static class AccessibilityPdfs
     /// <param name="title">Whether to include a <c>dc:title</c>.</param>
     /// <param name="revision">The <c>pdfuaid:rev</c>, or <see langword="null"/> for none.</param>
     /// <returns>The packet.</returns>
-    internal static string Packet(int part, bool title, string? revision)
+    internal static string Packet(int part, bool title, string? revision) => Packet(part, title, revision, null, null);
+
+    /// <summary>Writes an XMP packet with the PDF/UA part, a revision, an amendment, a corrigendum and, optionally, a title.</summary>
+    /// <param name="part">The <c>pdfuaid:part</c>.</param>
+    /// <param name="title">Whether to include a <c>dc:title</c>.</param>
+    /// <param name="revision">The <c>pdfuaid:rev</c>, or <see langword="null"/> for none.</param>
+    /// <param name="amendment">The <c>pdfuaid:amd</c>, or <see langword="null"/> for none.</param>
+    /// <param name="corrigendum">The <c>pdfuaid:corr</c>, or <see langword="null"/> for none.</param>
+    /// <returns>The packet.</returns>
+    internal static string Packet(int part, bool title, string? revision, string? amendment, string? corrigendum)
     {
         var titleXml = title ? "<dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">A title</rdf:li></rdf:Alt></dc:title>" : string.Empty;
         var revisionXml = revision is null ? string.Empty : $"<pdfuaid:rev>{revision}</pdfuaid:rev>";
-        return string.Create(CultureInfo.InvariantCulture, $"{PacketStart}<pdfuaid:part>{part}</pdfuaid:part>{revisionXml}{titleXml}{PacketEnd}");
+        var amendmentXml = amendment is null ? string.Empty : $"<pdfuaid:amd>{amendment}</pdfuaid:amd>";
+        var corrigendumXml = corrigendum is null ? string.Empty : $"<pdfuaid:corr>{corrigendum}</pdfuaid:corr>";
+        return string.Create(CultureInfo.InvariantCulture, $"{PacketStart}<pdfuaid:part>{part}</pdfuaid:part>{revisionXml}{amendmentXml}{corrigendumXml}{titleXml}{PacketEnd}");
     }
 
     /// <summary>The default layout: a level 1 heading, a paragraph and a described figure.</summary>

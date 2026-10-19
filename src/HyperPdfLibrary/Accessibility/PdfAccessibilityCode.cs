@@ -162,4 +162,13 @@ public enum PdfAccessibilityCode
 
     /// <summary>A tag holds more than one child of a type that the hierarchy table of ISO/TS 32005 clause 7.2 allows at most once (occurrence 0..1).</summary>
     StructureOccurrenceViolation = 51,
+
+    /// <summary>A tag whose type both namespaces define is not in the PDF 2.0 namespace, in a file that uses a namespace other than the PDF 1.7 one (ISO/TS 32005 clause 5.3).</summary>
+    SharedTypeNotInPdf20Namespace = 52,
+
+    /// <summary>A tag whose type only the PDF 2.0 namespace defines does not declare that namespace (ISO/TS 32005 clause 5.4).</summary>
+    Pdf20TypeWithoutNamespace = 53,
+
+    /// <summary>A PDF Declaration names ISO/TS 32005 but not with the address the standard gives (ISO/TS 32005 clause 4, Table 1).</summary>
+    Iso32005ClaimMalformed = 54,
 }

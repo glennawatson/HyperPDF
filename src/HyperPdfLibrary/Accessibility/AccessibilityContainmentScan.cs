@@ -117,6 +117,29 @@ internal static class AccessibilityContainmentScan
         return count;
     }
 
+    /// <summary>
+    /// Reports a tag that is in the wrong namespace for its type, in a file that mixes namespaces (ISO/TS 32005 clauses 5.3 and 5.4): a type both
+    /// namespaces define belongs in the PDF 2.0 namespace, and a type only that namespace defines has to say so. Only a tag spelled with a standard
+    /// type name is judged; a custom type that a role map sends to a standard one is not.
+    /// </summary>
+    /// <param name="element">The element.</param>
+    /// <param name="findings">Receives the finding.</param>
+    private static void CheckNamespaceUse(PdfStructureElement element, AccessibilityFindings findings)
+    {
+        if (element.Namespace is not (null or PdfStructureTypes.Pdf17Uri) || !string.Equals(element.RawType, element.MappedType, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (!PdfStructureTypes.IsStandardIn(element.Type, PdfStructureTypes.Pdf20Flag))
+        {
+            return;
+        }
+
+        var code = PdfStructureTypes.IsStandardIn(element.Type, PdfStructureTypes.Pdf17Flag) ? PdfAccessibilityCode.SharedTypeNotInPdf20Namespace : PdfAccessibilityCode.Pdf20TypeWithoutNamespace;
+        AccessibilityFindingCollection.Add(findings, code, element.PageIndex, element.Id);
+    }
+
     /// <summary>Reports a tag that holds a second child of a type the table allows at most once (occurrence 0..1, ISO/TS 32005 Table 5).</summary>
     /// <param name="element">The parent tag.</param>
     /// <param name="findings">Receives a finding for each repeated type.</param>
@@ -151,6 +174,7 @@ internal static class AccessibilityContainmentScan
     /// <param name="findings">Receives the finding.</param>
     private static void Check(PdfStructureElement element, AccessibilityFindings findings)
     {
+        CheckNamespaceUse(element, findings);
         CheckOccurrence(element, findings);
         if (element.Parent is not { } parent || StructureContainment.NameOf(element) is not { } child || StructureContainment.NameOf(parent) is not { } parentName
             || !StructureContainment.Knows(parentName) || StructureContainment.Allows(parentName, child))

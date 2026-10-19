@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using HyperPdfLibrary.Document;
@@ -180,12 +179,12 @@ internal static class PortfolioReader
     /// <param name="colors">The colours dictionary.</param>
     /// <param name="key">The key.</param>
     /// <returns>The components, or null when the entry is not three numbers.</returns>
-    private static ImmutableArray<double>? Color(PdfDictionary colors, string key) => colors.Array(key).Numbers() is { Length: ColorComponents } components ? [.. components] : null;
+    private static double[]? Color(PdfDictionary colors, string key) => colors.Array(key).Numbers() is { Length: ColorComponents } components ? [.. components] : null;
 
     /// <summary>Reads the <c>/Free</c> array of id ranges.</summary>
     /// <param name="free">The array, or null.</param>
     /// <returns>The ranges.</returns>
-    private static ImmutableArray<PdfFolderIdRange> ReadFree(PdfArray? free)
+    private static PdfFolderIdRange[] ReadFree(PdfArray? free)
     {
         var ranges = new List<PdfFolderIdRange>();
         for (var i = 0; free is not null && i + 1 < free.Count; i += RangeLength)

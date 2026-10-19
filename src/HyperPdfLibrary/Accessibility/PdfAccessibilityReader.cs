@@ -59,7 +59,9 @@ internal static class PdfAccessibilityReader
     /// <returns>The independently owned report.</returns>
     private static PdfAccessibilityReport Build(PdfDocument document, AccessibilityFindings findings, CancellationToken cancellation)
     {
-        var metadata = AccessibilityMetadataReader.Read(PdfDocumentMetadata.ReadOwnerXmp(document, document.Catalog, cancellation));
+        var xmp = PdfDocumentMetadata.ReadOwnerXmp(document, document.Catalog, cancellation);
+        var metadata = AccessibilityMetadataReader.Read(xmp);
+        AccessibilityIso32005Claim.Run(xmp, findings);
         var tree = PdfDocumentTagged.GetStructureTree(document);
         var markInfo = document.Catalog.GetDictionary(KnownName.MarkInfo);
         var part = metadata.Part;
@@ -85,10 +87,8 @@ internal static class PdfAccessibilityReader
             var displayTitle = PdfDocumentViewerPreferences.GetViewerPreferences(document).DisplayDocTitle;
             var suspects = markInfo?.Flag("Suspects", false) == true;
             var version = PdfDocumentVersioning.GetVersion(document);
-            var revision = metadata.Revision;
-            var hasTitle = metadata.HasTitle;
-            var state = new DocumentState(isMarked, tree is not null, catalogLanguage, metadata.HasMetadata, hasTitle, displayTitle, suspects);
-            CheckDocument(document.Catalog, findings, state, part, version, revision, cancellation);
+            var state = new DocumentState(isMarked, tree is not null, catalogLanguage, metadata.HasMetadata, metadata.HasTitle, displayTitle, suspects);
+            CheckDocument(document.Catalog, findings, state, part, version, metadata.Revision, cancellation);
             CheckProtectionAndForms(document, tree, part, findings, cancellation);
             if (tree is not null)
             {
@@ -97,13 +97,13 @@ internal static class PdfAccessibilityReader
 
             var pages = CheckPages(document, tree, scan, part, findings, cancellation);
             AccessibilityFontScan.Run(document, findings, cancellation);
-            var claim = new PdfUaClaim(part, revision, version.ToString(), UsesPdf20Namespaces(tree, scan.UsesPdf20Namespace));
+            var claim = new PdfUaClaim(part, metadata.Revision, version.ToString(), UsesPdf20Namespaces(tree, scan.UsesPdf20Namespace), metadata.Amendment, metadata.Corrigendum);
             return new(
                 claim,
                 isMarked,
                 tree is not null,
                 language,
-                hasTitle,
+                metadata.HasTitle,
                 displayTitle,
                 suspects,
                 pages,

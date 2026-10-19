@@ -82,7 +82,7 @@ public static class PdfFormActions
         lock (form.Gate)
         {
             var count = 0;
-            for (var page = 0; page < form.Document.PageCount && !action.Targets.IsEmpty; page++)
+            for (var page = 0; page < form.Document.PageCount && action.Targets.Length != 0; page++)
             {
                 count += PdfFormActions.HidePage(form, page, action, cancellationToken);
             }
@@ -233,7 +233,7 @@ public static class PdfFormActions
     internal static bool IsResettable(in ResolvedWidget widget, ResetFormAction action, bool exclude) =>
         widget.FieldId.IsValid
         && widget.Type is not (PdfFieldType.Unknown or PdfFieldType.PushButton or PdfFieldType.Signature)
-        && (action.Fields.IsEmpty || PdfFormActions.IsChosen(widget.Name, action.Fields.AsSpan(), exclude));
+        && (action.Fields.Length == 0 || PdfFormActions.IsChosen(widget.Name, action.Fields.AsSpan(), exclude));
 
     /// <summary>Resets one field to its default value.</summary>
     /// <param name = "form">The shared form state.</param>

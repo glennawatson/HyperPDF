@@ -62,6 +62,9 @@ internal static class PdfAccessibilityMessages
         "A video or sound has no text description or content type, so a screen reader cannot say what it is.",
         "A tag is inside a tag that is not allowed to hold it, so the reading structure is not valid.",
         "A tag holds more of one kind of tag than allowed, such as two captions.",
+        "A tag type that both namespaces define is not in the PDF 2.0 namespace, in a file that mixes namespaces.",
+        "A tag type that only the PDF 2.0 namespace defines does not say it belongs to that namespace.",
+        "A declaration names ISO/TS 32005 with a wrong address, so no reader will recognise the claim.",
     ];
 
     /// <summary>Gets the number of code values, counting <see cref="PdfAccessibilityCode.None"/>.</summary>

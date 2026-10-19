@@ -7,5 +7,11 @@ https://creativecommons.org/licenses/by/4.0/
 
 HyperPdfLibrary uses the PDF/A rule descriptions, clause numbers and test numbers from the PDF_A profiles at commit
 070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8. Changes: rules that the profiles repeat across PDF/A parts are merged
-into one entry, and each description ends with a full stop. The rule checks are HyperPdfLibrary's own code; no
-veraPDF software is included.
+into one entry, and each description ends with a full stop.
+
+It also uses the rule descriptions, clause numbers, test numbers and tags from the PDF_UA profiles (PDF/UA-1, PDF/UA-2,
+the tagged PDF, ISO/TS 32005, Well-Tagged PDF and WCAG 2.2 profiles) at the same commit. Changes: rules that several
+profiles repeat are merged into one entry that records which profiles hold it, and white space in descriptions is
+collapsed.
+
+The rule checks are HyperPdfLibrary's own code; no veraPDF software is included.

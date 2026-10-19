@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Navigation;
@@ -11,4 +10,4 @@ namespace HyperPdfLibrary.Navigation;
 /// <param name="Fields">The field names to reset (or to keep, when bit 1 of <paramref name="Flags"/> is set); empty means all fields.</param>
 /// <param name="Flags">The <c>/Flags</c> value.</param>
 [DebuggerDisplay("ResetFormAction: {Fields.Length} fields")]
-public sealed record ResetFormAction(ImmutableArray<string> Fields, int Flags);
+public sealed record ResetFormAction(string[] Fields, int Flags);

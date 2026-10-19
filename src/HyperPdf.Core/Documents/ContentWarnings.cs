@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Text;
 
 namespace HyperPdf.Core.Documents;
@@ -36,7 +35,7 @@ public static class ContentWarnings
     private static class Descriptions
     {
         /// <summary>The parts, in the order they are listed.</summary>
-        private static readonly ImmutableArray<(UnsupportedContent Part, string Words)> Parts =
+        private static readonly (UnsupportedContent Part, string Words)[] Parts =
         [
             (UnsupportedContent.XfaForm, "an XFA form"),
             (UnsupportedContent.JavaScript, "form scripts"),
@@ -46,7 +45,7 @@ public static class ContentWarnings
         ];
 
         /// <summary>Gets the message for every supported combination of flags.</summary>
-        internal static ImmutableArray<string?> Messages { get; } = Create();
+        internal static string?[] Messages { get; } = Create();
 
         /// <summary>Builds the message for a combination of unsupported parts.</summary>
         /// <param name="content">The unsupported parts.</param>
@@ -86,16 +85,15 @@ public static class ContentWarnings
 
         /// <summary>Builds the immutable lookup.</summary>
         /// <returns>All messages indexed by their flags.</returns>
-        private static ImmutableArray<string?> Create()
+        private static string?[] Create()
         {
-            var messages = ImmutableArray.CreateBuilder<string?>(AllParts + 1);
-            messages.Add(null);
+            var messages = new string?[AllParts + 1];
             for (var key = 1; key <= AllParts; key++)
             {
-                messages.Add(Build((UnsupportedContent)key));
+                messages[key] = Build((UnsupportedContent)key);
             }
 
-            return messages.MoveToImmutable();
+            return messages;
         }
     }
 }

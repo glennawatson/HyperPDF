@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
-using System.Runtime.InteropServices;
 using SkiaSharp;
 
 namespace HyperPdfLibrary.Rendering;
@@ -40,14 +38,14 @@ internal static class SkiaDash
     /// <param name="phase">The phase.</param>
     /// <param name="scale">The device units one unit of the path's space spans.</param>
     /// <returns>The effect, or null for a solid line.</returns>
-    internal static SKPathEffect? Create(ImmutableArray<float> lengths, float phase, float scale)
+    internal static SKPathEffect? Create(ReadOnlyMemory<float> lengths, float phase, float scale)
     {
-        if (lengths.IsDefaultOrEmpty)
+        if (lengths.IsEmpty)
         {
             return null;
         }
 
-        var source = ImmutableCollectionsMarshal.AsArray(lengths)!;
+        var source = lengths.Span;
         var cycle = 0F;
         foreach (var length in source)
         {

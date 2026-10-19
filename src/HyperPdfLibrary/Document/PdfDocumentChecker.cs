@@ -230,9 +230,9 @@ internal sealed class PdfDocumentChecker
 
         try
         {
-            if (info.Hints.IsDefaultOrEmpty || PdfLinearizationHints.GetPageRanges(_document, _context.CancellationToken) is not { } ranges)
+            if (info.Hints.Length == 0 || PdfLinearizationHints.GetPageRanges(_document, _context.CancellationToken) is not { } ranges)
             {
-                _faults.Add(new(PdfDiagnosticCode.BadLinearization, "The linearization page hints are missing or damaged.", 0, info.Hints.IsDefaultOrEmpty ? 0 : info.Hints[0].Offset));
+                _faults.Add(new(PdfDiagnosticCode.BadLinearization, "The linearization page hints are missing or damaged.", 0, info.Hints.Length == 0 ? 0 : info.Hints[0].Offset));
             }
             else if (!PdfLinearizationValidity.TryCheck(_document, info, ranges, _context.CancellationToken, out var reason, out var offset))
             {

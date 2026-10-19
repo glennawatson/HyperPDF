@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Features;
@@ -152,7 +151,7 @@ public static class PdfDocumentWebCapture
     /// <param name="document">The document.</param>
     /// <param name="info">The <c>/SI</c> value.</param>
     /// <returns>The sources.</returns>
-    private static ImmutableArray<PdfWebCaptureSource> ReadSources(PdfDocument document, PdfValue info)
+    private static PdfWebCaptureSource[] ReadSources(PdfDocument document, PdfValue info)
     {
         if (info.AsArray() is not { } array)
         {

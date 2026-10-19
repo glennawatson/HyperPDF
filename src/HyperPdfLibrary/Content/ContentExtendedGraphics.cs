@@ -287,7 +287,7 @@ internal static class ContentExtendedGraphics
         }
 
         var pattern = self.Cache.Dashes.GetOrCreate(lengths, 0, static (key, _) => ContentExtendedGraphics.ReadDash(key));
-        self.State.Dash = pattern?.Lengths ?? [];
+        self.State.Dash = pattern is null ? default : pattern.Lengths;
         self.State.DashPhase = array.GetSingle(1);
     }
 

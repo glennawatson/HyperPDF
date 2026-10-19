@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
-
 namespace HyperPdfLibrary.Accessibility;
 
 /// <summary>
@@ -67,12 +65,14 @@ public static class PdfAccessibilityWcag
         new(PdfAccessibilityCode.MediaClipNoAlternative, ["1.2.1"]),
         new(PdfAccessibilityCode.StructureContainmentViolation, [Relationships]),
         new(PdfAccessibilityCode.StructureOccurrenceViolation, [Relationships]),
+        new(PdfAccessibilityCode.SharedTypeNotInPdf20Namespace, [Relationships]),
+        new(PdfAccessibilityCode.Pdf20TypeWithoutNamespace, [Relationships]),
     ];
 
     /// <summary>Gets the WCAG 2.2 success criteria that a finding most closely touches.</summary>
     /// <param name="code">The finding's code.</param>
     /// <returns>The criteria numbers, such as <c>1.1.1</c>; empty when no criterion maps to the code, for example a font encoding problem that WCAG does not name.</returns>
-    public static ImmutableArray<string> GetSuccessCriteria(PdfAccessibilityCode code)
+    public static string[] GetSuccessCriteria(PdfAccessibilityCode code)
     {
         var low = 0;
         var high = Rows.Length - 1;
@@ -101,5 +101,5 @@ public static class PdfAccessibilityWcag
     /// <summary>One code and the criteria it touches.</summary>
     /// <param name="Code">The code.</param>
     /// <param name="Criteria">The criteria numbers.</param>
-    private readonly record struct WcagRow(PdfAccessibilityCode Code, ImmutableArray<string> Criteria);
+    private readonly record struct WcagRow(PdfAccessibilityCode Code, string[] Criteria);
 }

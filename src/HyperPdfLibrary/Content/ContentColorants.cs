@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Numerics;
 using HyperPdfLibrary.Graphics;
 using HyperPdfLibrary.Graphics.Colors;
@@ -69,7 +68,7 @@ internal static class ContentColorants
     /// <param name="hidden">The hidden names.</param>
     /// <param name="name">The colorant name.</param>
     /// <returns><see langword="true"/> when hidden.</returns>
-    internal static bool IsHidden(ImmutableArray<string> hidden, string name)
+    internal static bool IsHidden(string[] hidden, string name)
     {
         foreach (var candidate in hidden)
         {
@@ -106,7 +105,7 @@ internal static class ContentColorants
     internal static bool Hide(ContentInterpreter self, ref ColorState colour, IccRendering rendering)
     {
         var hidden = self.Cache.HiddenColorants;
-        if (hidden.IsEmpty || colour.Pattern is not null || ContentColorants.Names(colour.Space) is not { } names)
+        if (hidden.Length == 0 || colour.Pattern is not null || ContentColorants.Names(colour.Space) is not { } names)
         {
             return true;
         }
@@ -135,7 +134,7 @@ internal static class ContentColorants
     /// <returns><see langword="true"/> when the image is drawn.</returns>
     internal static bool ImageVisible(ContentInterpreter self, PdfDictionary image)
     {
-        if (self.Colorants is null && self.Cache.HiddenColorants.IsEmpty)
+        if (self.Colorants is null && self.Cache.HiddenColorants.Length == 0)
         {
             return true;
         }
@@ -160,9 +159,9 @@ internal static class ContentColorants
     /// <param name="hidden">The hidden names.</param>
     /// <param name="space">The colour space.</param>
     /// <returns><see langword="false"/> when the space paints colorants and all of them are hidden.</returns>
-    internal static bool AnyVisible(ImmutableArray<string> hidden, PdfColorSpace space)
+    internal static bool AnyVisible(string[] hidden, PdfColorSpace space)
     {
-        if (hidden.IsEmpty || ContentColorants.Names(space) is not { } names)
+        if (hidden.Length == 0 || ContentColorants.Names(space) is not { } names)
         {
             return true;
         }
@@ -185,7 +184,7 @@ internal static class ContentColorants
     /// <param name="components">The colour's components, which change.</param>
     /// <param name="removed">Receives whether a component was cleared.</param>
     /// <returns>Whether a colorant that is not hidden, and not /None, is left.</returns>
-    private static bool Remove(ImmutableArray<string> hidden, IReadOnlyList<string> names, bool light, Span<float> components, out bool removed)
+    private static bool Remove(string[] hidden, IReadOnlyList<string> names, bool light, Span<float> components, out bool removed)
     {
         removed = false;
         var remaining = false;

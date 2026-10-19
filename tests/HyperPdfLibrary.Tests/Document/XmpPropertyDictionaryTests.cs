@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Text;
 using HyperPdfLibrary.Metadata;
@@ -34,7 +33,7 @@ public sealed class XmpPropertyDictionaryTests
     public async Task ParsedPropertiesRejectMutation()
     {
         var snapshot = XmpParser.Parse(Packet.ToArray(), CancellationToken.None);
-        var writable = (IDictionary<string, ImmutableArray<string>>)snapshot.Properties;
+        var writable = (IDictionary<string, string[]>)snapshot.Properties;
         var key = XmpMetadata.Key(XmpMetadata.DublinCoreNamespace, "title");
         await Assert.That(() => writable[key] = ["Changed"]).Throws<NotSupportedException>();
         await Assert.That(() => writable.Clear()).Throws<NotSupportedException>();
@@ -47,7 +46,7 @@ public sealed class XmpPropertyDictionaryTests
     [Test]
     public async Task EmptySnapshotRejectsMutation()
     {
-        var writable = (IDictionary<string, ImmutableArray<string>>)XmpMetadata.Empty.Properties;
+        var writable = (IDictionary<string, string[]>)XmpMetadata.Empty.Properties;
         await Assert.That(() => writable.Add("key", ["Value"])).Throws<NotSupportedException>();
         await Assert.That(XmpMetadata.Empty.Properties.Count).IsEqualTo(0);
         await Assert.That(XmpMetadata.Empty.Title).IsNull();
@@ -82,8 +81,8 @@ public sealed class XmpPropertyDictionaryTests
     [Test]
     public async Task CallerDictionaryUsesItsOwnComparer()
     {
-        var values = new Dictionary<string, ImmutableArray<string>>(StringComparer.OrdinalIgnoreCase) { [XmpMetadata.Key(XmpMetadata.DublinCoreNamespace, "TITLE")] = [Title] };
-        var snapshot = new XmpMetadata([], new ReadOnlyDictionary<string, ImmutableArray<string>>(values), true);
+        var values = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { [XmpMetadata.Key(XmpMetadata.DublinCoreNamespace, "TITLE")] = [Title] };
+        var snapshot = new XmpMetadata([], new ReadOnlyDictionary<string, string[]>(values), true);
         await Assert.That(snapshot.Title).IsEqualTo(Title);
     }
 

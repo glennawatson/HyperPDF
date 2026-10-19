@@ -26,7 +26,7 @@ public sealed class RoleMapEditTests
     public async Task MappingIsAddedReplacedAndUndone(CancellationToken cancellationToken)
     {
         using var document = await PdfDocumentReader.OpenAsync(Build(string.Empty), null, cancellationToken);
-        await Assert.That(PdfDocumentStructureEditing.GetRoleMap(document).IsEmpty).IsTrue();
+        await Assert.That(PdfDocumentStructureEditing.GetRoleMap(document).Length == 0).IsTrue();
 
         PdfDocumentStructureEditing.SetRoleMapping(document, Custom, "Table");
         PdfDocumentStructureEditing.SetRoleMapping(document, Unused, "Sect");

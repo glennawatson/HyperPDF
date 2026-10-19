@@ -3,8 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
-using System.Collections.Immutable;
-using System.Runtime.InteropServices;
 using System.Xml;
 
 namespace HyperPdfLibrary.Metadata;
@@ -59,7 +57,7 @@ internal static class PdfDeclarationParser
     /// <param name="properties">The existing flattened property values.</param>
     /// <param name="declarations">The operation's leased declaration storage.</param>
     /// <param name="cancellationToken">Cancels reading and array growth.</param>
-    internal static void Read(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, ref Values<PdfDeclaration> declarations, CancellationToken cancellationToken)
+    internal static void Read(XmlReader reader, Dictionary<string, string[]> properties, ref Values<PdfDeclaration> declarations, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         XmpParser.ReadAttributes(reader, properties, DeclarationNesting, cancellationToken);
@@ -83,12 +81,12 @@ internal static class PdfDeclarationParser
     /// <typeparam name="T">The snapshot type.</typeparam>
     /// <param name="values">The collected references.</param>
     /// <param name="cancellationToken">Cancels before copying.</param>
-    /// <returns>The owned immutable array, empty when no entry completed.</returns>
-    internal static ImmutableArray<T> ToImmutable<T>(in Values<T> values, CancellationToken cancellationToken)
+    /// <returns>The owned array, empty when no entry completed.</returns>
+    internal static T[] Detach<T>(in Values<T> values, CancellationToken cancellationToken)
         where T : class
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return values.Count == 0 ? [] : ImmutableCollectionsMarshal.AsImmutableArray(values.Buffer.AsSpan(0, values.Count).ToArray());
+        return values.Count == 0 ? [] : values.Buffer.AsSpan(0, values.Count).ToArray();
     }
 
     /// <summary>Clears and returns operation-owned leased storage.</summary>
@@ -110,10 +108,10 @@ internal static class PdfDeclarationParser
     /// <param name="properties">The flattened properties.</param>
     /// <param name="cancellationToken">Cancels traversal.</param>
     /// <returns>The completed declaration.</returns>
-    private static PdfDeclaration ReadDeclaration(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, CancellationToken cancellationToken)
+    private static PdfDeclaration ReadDeclaration(XmlReader reader, Dictionary<string, string[]> properties, CancellationToken cancellationToken)
     {
         var profile = reader.GetAttribute(ConformsToName, XmpMetadata.PdfDeclarationsNamespace);
-        var claims = ImmutableArray<PdfDeclarationClaim>.Empty;
+        var claims = Array.Empty<PdfDeclarationClaim>();
         XmpParser.ReadAttributes(reader, properties, DeclarationNesting, cancellationToken);
         if (reader.IsEmptyElement)
         {
@@ -153,9 +151,9 @@ internal static class PdfDeclarationParser
     /// <param name="cancellationToken">Cancels parsing.</param>
     private static void ReadDeclarationField(
         XmlReader reader,
-        Dictionary<string, ImmutableArray<string>> properties,
+        Dictionary<string, string[]> properties,
         ref string? profile,
-        ref ImmutableArray<PdfDeclarationClaim> claims,
+        ref PdfDeclarationClaim[] claims,
         CancellationToken cancellationToken)
     {
         if (reader.NamespaceURI != XmpMetadata.PdfDeclarationsNamespace)
@@ -191,7 +189,7 @@ internal static class PdfDeclarationParser
     /// <param name="properties">The flattened properties.</param>
     /// <param name="cancellationToken">Cancels reading and copying.</param>
     /// <returns>The declaration's detached claim array.</returns>
-    private static ImmutableArray<PdfDeclarationClaim> ReadClaims(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, CancellationToken cancellationToken)
+    private static PdfDeclarationClaim[] ReadClaims(XmlReader reader, Dictionary<string, string[]> properties, CancellationToken cancellationToken)
     {
         var claims = default(Values<PdfDeclarationClaim>);
         try
@@ -210,7 +208,7 @@ internal static class PdfDeclarationParser
                 }
             }
 
-            return ToImmutable(claims, cancellationToken);
+            return Detach(claims, cancellationToken);
         }
         finally
         {
@@ -223,7 +221,7 @@ internal static class PdfDeclarationParser
     /// <param name="properties">The flattened properties.</param>
     /// <param name="cancellationToken">Cancels traversal.</param>
     /// <returns>The completed claim.</returns>
-    private static PdfDeclarationClaim ReadClaim(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, CancellationToken cancellationToken)
+    private static PdfDeclarationClaim ReadClaim(XmlReader reader, Dictionary<string, string[]> properties, CancellationToken cancellationToken)
     {
         var fields = ReadClaimAttributes(reader, properties, cancellationToken);
         if (!reader.IsEmptyElement)
@@ -258,7 +256,7 @@ internal static class PdfDeclarationParser
     /// <param name="properties">The flattened properties.</param>
     /// <param name="cancellationToken">Cancels attribute traversal.</param>
     /// <returns>The fields present on this structure.</returns>
-    private static ClaimFields ReadClaimAttributes(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, CancellationToken cancellationToken)
+    private static ClaimFields ReadClaimAttributes(XmlReader reader, Dictionary<string, string[]> properties, CancellationToken cancellationToken)
     {
         var result = new ClaimFields(
             reader.GetAttribute(ClaimByName, XmpMetadata.PdfDeclarationsNamespace),
@@ -275,7 +273,7 @@ internal static class PdfDeclarationParser
     /// <param name="fields">The fields collected for this claim.</param>
     /// <param name="cancellationToken">Cancels parsing.</param>
     /// <returns>The fields with this property's value.</returns>
-    private static ClaimFields ReadClaimField(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, in ClaimFields fields, CancellationToken cancellationToken)
+    private static ClaimFields ReadClaimField(XmlReader reader, Dictionary<string, string[]> properties, in ClaimFields fields, CancellationToken cancellationToken)
     {
         var name = reader.LocalName;
         if (reader.NamespaceURI != XmpMetadata.PdfDeclarationsNamespace
@@ -301,7 +299,7 @@ internal static class PdfDeclarationParser
     /// <param name="nesting">The structure nesting level.</param>
     /// <param name="cancellationToken">Cancels text traversal.</param>
     /// <returns>The untrimmed text or resource value, including an explicitly empty value.</returns>
-    private static string ReadText(XmlReader reader, Dictionary<string, ImmutableArray<string>> properties, int nesting, CancellationToken cancellationToken)
+    private static string ReadText(XmlReader reader, Dictionary<string, string[]> properties, int nesting, CancellationToken cancellationToken)
     {
         var name = reader.LocalName;
         var resource = reader.GetAttribute("resource", RdfNamespace);

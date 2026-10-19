@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Media;
@@ -12,4 +11,4 @@ namespace HyperPdfLibrary.Media;
 /// <param name="Name">The configuration name, or null.</param>
 /// <param name="Instances">The instances.</param>
 [DebuggerDisplay("PdfRichMediaConfiguration: {Subtype} {Name}")]
-public sealed record PdfRichMediaConfiguration(string? Subtype, string? Name, ImmutableArray<PdfRichMediaInstance> Instances);
+public sealed record PdfRichMediaConfiguration(string? Subtype, string? Name, PdfRichMediaInstance[] Instances);

@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -18,7 +17,7 @@ namespace HyperPdfLibrary.Metadata;
 /// <param name="Properties">The property values by key. Arrays list their items in order; a language alternative lists its default first.</param>
 /// <param name="IsWellFormed">Whether the packet parsed as XML to the end. A damaged packet keeps the properties read before the damage.</param>
 [DebuggerDisplay("XmpMetadata: {Title}")]
-public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, ReadOnlyDictionary<string, ImmutableArray<string>> Properties, bool IsWellFormed)
+public sealed record XmpMetadata(byte[] RawPacket, ReadOnlyDictionary<string, string[]> Properties, bool IsWellFormed)
 {
     /// <summary>The Dublin Core namespace.</summary>
     public static readonly string DublinCoreNamespace = "http://purl.org/dc/elements/1.1/";
@@ -72,13 +71,13 @@ public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, ReadOnlyDiction
     public string? Title => GetValue(DublinCoreNamespace, "title");
 
     /// <summary>Gets the creators (authors).</summary>
-    public ImmutableArray<string> Creators => GetValues(DublinCoreNamespace, "creator");
+    public string[] Creators => GetValues(DublinCoreNamespace, "creator");
 
     /// <summary>Gets the description (the default language).</summary>
     public string? Description => GetValue(DublinCoreNamespace, "description");
 
     /// <summary>Gets the subjects (keywords as a list).</summary>
-    public ImmutableArray<string> Subjects => GetValues(DublinCoreNamespace, "subject");
+    public string[] Subjects => GetValues(DublinCoreNamespace, "subject");
 
     /// <summary>Gets the producing application (<c>pdf:Producer</c>).</summary>
     public string? Producer => GetValue(PdfNamespace, nameof(Producer));
@@ -114,7 +113,7 @@ public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, ReadOnlyDiction
     public int? PdfUaPart => GetInt(PdfUaIdNamespace, "part");
 
     /// <summary>Gets the declarations in this packet only, retaining claim associations without verifying the claimed profiles.</summary>
-    public ImmutableArray<PdfDeclaration> Declarations { get; init; } = [];
+    public PdfDeclaration[] Declarations { get; init; } = [];
 
     /// <summary>Gets the trapping state (<c>pdf:Trapped</c>): True, False or Unknown.</summary>
     public string? Trapped => GetValue(PdfNamespace, nameof(Trapped));
@@ -135,7 +134,7 @@ public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, ReadOnlyDiction
     public bool? RightsMarked => GetBool(XmpRightsNamespace, "Marked");
 
     /// <summary>Gets the rights owners (<c>xmpRights:Owner</c>).</summary>
-    public ImmutableArray<string> RightsOwners => GetValues(XmpRightsNamespace, "Owner");
+    public string[] RightsOwners => GetValues(XmpRightsNamespace, "Owner");
 
     /// <summary>Gets the usage terms (<c>xmpRights:UsageTerms</c>, the default language).</summary>
     public string? UsageTerms => GetValue(XmpRightsNamespace, nameof(UsageTerms));
@@ -158,13 +157,13 @@ public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, ReadOnlyDiction
     /// <param name="localName">The property's local name.</param>
     /// <returns>The value, or null when missing.</returns>
     public string? GetValue(string namespaceUri, string localName) =>
-        TryGetProperty(namespaceUri, localName, out var values) && !values.IsEmpty ? values[0] : null;
+        TryGetProperty(namespaceUri, localName, out var values) && values.Length != 0 ? values[0] : null;
 
     /// <summary>Gets all values of a property.</summary>
     /// <param name="namespaceUri">The property's namespace URI.</param>
     /// <param name="localName">The property's local name.</param>
     /// <returns>The values; empty when missing.</returns>
-    public ImmutableArray<string> GetValues(string namespaceUri, string localName) =>
+    public string[] GetValues(string namespaceUri, string localName) =>
         TryGetProperty(namespaceUri, localName, out var values) ? values : [];
 
     /// <summary>Looks a property up by its namespace and name. A parsed packet's dictionary is searched with a key built on the stack, so the lookup makes no string.</summary>
@@ -172,7 +171,7 @@ public sealed record XmpMetadata(ImmutableArray<byte> RawPacket, ReadOnlyDiction
     /// <param name="localName">The property's local name.</param>
     /// <param name="values">Receives the values.</param>
     /// <returns><see langword="true"/> when the property exists.</returns>
-    private bool TryGetProperty(string namespaceUri, string localName, out ImmutableArray<string> values)
+    private bool TryGetProperty(string namespaceUri, string localName, out string[] values)
     {
         var length = namespaceUri.Length + localName.Length + KeyDelimiters;
         if (length <= StackKeyChars && Properties is XmpPropertyDictionary parsed

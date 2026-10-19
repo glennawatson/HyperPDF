@@ -110,7 +110,7 @@ internal static class ContentPainting
     /// <param name="state">The graphics state.</param>
     internal static void PaintShading(ContentInterpreter self, PdfShading shading, ref GraphicsState state)
     {
-        if (self.Colorants is null && self.Cache.HiddenColorants.IsEmpty)
+        if (self.Colorants is null && self.Cache.HiddenColorants.Length == 0)
         {
             self.Device.PaintShading(shading, ref state);
             return;
@@ -131,7 +131,7 @@ internal static class ContentPainting
         self.TextObjects is not null
         || (state.Transfer is null
             && self.Colorants is null
-            && self.Cache.HiddenColorants.IsEmpty
+            && self.Cache.HiddenColorants.Length == 0
             && !(self.Cache.SimulateOverprint && (state.FillOverprint || state.StrokeOverprint)));
 
     /// <summary>Applies the output-stage keys to a copy of the graphics state.</summary>

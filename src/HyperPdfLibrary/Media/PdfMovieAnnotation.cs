@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Media;
@@ -15,4 +14,4 @@ namespace HyperPdfLibrary.Media;
 /// <param name="HasPoster">Whether the movie has a poster image.</param>
 /// <param name="Activation">How the movie plays.</param>
 [DebuggerDisplay("PdfMovieAnnotation: {Title} {File}")]
-public sealed record PdfMovieAnnotation(string? Title, string? File, ImmutableArray<int> Aspect, int Rotation, bool HasPoster, PdfMovieActivation Activation);
+public sealed record PdfMovieAnnotation(string? Title, string? File, int[] Aspect, int Rotation, bool HasPoster, PdfMovieActivation Activation);

@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using HyperPdfLibrary.Media;
 using HyperPdfLibrary.Objects;
 
@@ -65,7 +64,7 @@ initialView is null ? initial.ScalarText(document.Objects) : null);
     /// <summary>Reads the assets name tree of a rich media annotation.</summary>
     /// <param name="assets">The <c>/Assets</c> name tree root, or null.</param>
     /// <returns>The assets.</returns>
-    private static ImmutableArray<PdfRichMediaAsset> ReadRichMediaAssets(PdfDictionary? assets)
+    private static PdfRichMediaAsset[] ReadRichMediaAssets(PdfDictionary? assets)
     {
         var entries = new List<NameTreeEntry>();
         NameTree.Enumerate(assets, entries);
@@ -94,7 +93,7 @@ activation.Flag("NP", false));
     /// <param name="document">The document.</param>
     /// <param name="configurations">The <c>/Configurations</c> array, or null.</param>
     /// <returns>The configurations.</returns>
-    private static ImmutableArray<PdfRichMediaConfiguration> ReadRichMediaConfigurations(PdfDocument document, PdfArray? configurations)
+    private static PdfRichMediaConfiguration[] ReadRichMediaConfigurations(PdfDocument document, PdfArray? configurations)
     {
         var result = new List<PdfRichMediaConfiguration>();
         for (var i = 0; configurations is not null && i < configurations.Count; i++)
@@ -115,7 +114,7 @@ PdfDocumentMedia3D.ReadRichMediaInstances(document, configuration.Array("Instanc
     /// <param name="document">The document.</param>
     /// <param name="instances">The <c>/Instances</c> array, or null.</param>
     /// <returns>The instances.</returns>
-    private static ImmutableArray<PdfRichMediaInstance> ReadRichMediaInstances(PdfDocument document, PdfArray? instances)
+    private static PdfRichMediaInstance[] ReadRichMediaInstances(PdfDocument document, PdfArray? instances)
     {
         var result = new List<PdfRichMediaInstance>();
         for (var i = 0; instances is not null && i < instances.Count; i++)

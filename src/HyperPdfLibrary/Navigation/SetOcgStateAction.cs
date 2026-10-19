@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Navigation;
@@ -11,4 +10,4 @@ namespace HyperPdfLibrary.Navigation;
 /// <param name="Changes">The steps, in order.</param>
 /// <param name="PreserveRadioButtons">Whether radio-button groups stay consistent (<c>/PreserveRB</c>, default true).</param>
 [DebuggerDisplay("SetOcgStateAction: {Changes.Length} changes")]
-public sealed record SetOcgStateAction(ImmutableArray<PdfOcgStateChange> Changes, bool PreserveRadioButtons);
+public sealed record SetOcgStateAction(PdfOcgStateChange[] Changes, bool PreserveRadioButtons);

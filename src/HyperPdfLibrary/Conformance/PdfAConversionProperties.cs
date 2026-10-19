@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Conformance;
@@ -22,9 +21,9 @@ namespace HyperPdfLibrary.Conformance;
 [DebuggerDisplay("PdfAConversionProperties: {Title}")]
 internal sealed record PdfAConversionProperties(
     string? Title,
-    ImmutableArray<string> Creators,
+    string[] Creators,
     string? Description,
-    ImmutableArray<string> Subjects,
+    string[] Subjects,
     string? Keywords,
     string? CreatorTool,
     string? Producer,

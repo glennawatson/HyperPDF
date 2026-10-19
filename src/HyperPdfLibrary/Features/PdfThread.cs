@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using HyperPdfLibrary.Objects;
 
@@ -13,4 +12,4 @@ namespace HyperPdfLibrary.Features;
 /// <param name="Beads">The beads in reading order.</param>
 /// <param name="Dictionary">The thread dictionary.</param>
 [DebuggerDisplay("PdfThread: {Title} {Beads.Length} beads")]
-public sealed record PdfThread(string? Title, ImmutableArray<PdfBead> Beads, PdfDictionary Dictionary);
+public sealed record PdfThread(string? Title, PdfBead[] Beads, PdfDictionary Dictionary);

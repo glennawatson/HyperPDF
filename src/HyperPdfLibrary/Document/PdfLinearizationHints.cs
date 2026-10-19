@@ -32,7 +32,7 @@ public static class PdfLinearizationHints
         ArgumentNullException.ThrowIfNull(document);
         cancellationToken.ThrowIfCancellationRequested();
         var info = PdfDocumentLinearization.GetInfo(document);
-        if (info is null || info.Hints.IsDefaultOrEmpty || TryLoadStream(document, info.Hints[0]) is not { } stream)
+        if (info is null || info.Hints.Length == 0 || TryLoadStream(document, info.Hints[0]) is not { } stream)
         {
             return null;
         }
@@ -65,7 +65,7 @@ public static class PdfLinearizationHints
     {
         ArgumentNullException.ThrowIfNull(document);
         var info = await PdfDocumentLinearization.GetInfoAsync(document, cancellationToken).ConfigureAwait(false);
-        if (info is null || info.Hints.IsDefaultOrEmpty)
+        if (info is null || info.Hints.Length == 0)
         {
             return null;
         }

@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Numerics;
 
@@ -34,7 +33,7 @@ public record struct GraphicsState
         FillAlpha = 1;
         StrokeAlpha = 1;
         HorizontalScaling = 1;
-        Dash = [];
+        Dash = default;
         TextKnockout = true;
         Flatness = 1;
         RenderingIntent = IccIntent.RelativeColorimetric;
@@ -62,7 +61,7 @@ public record struct GraphicsState
     public float MiterLimit { get; set; }
 
     /// <summary>Gets or sets the dash lengths; empty for solid lines.</summary>
-    public ImmutableArray<float> Dash { get; set; }
+    public ReadOnlyMemory<float> Dash { get; set; }
 
     /// <summary>Gets or sets the dash phase.</summary>
     public float DashPhase { get; set; }

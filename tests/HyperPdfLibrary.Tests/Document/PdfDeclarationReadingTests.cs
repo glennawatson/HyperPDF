@@ -161,7 +161,7 @@ public sealed class PdfDeclarationReadingTests
             """,
             cancellationToken);
 
-        await Assert.That(snapshot.Declarations.IsEmpty).IsTrue();
+        await Assert.That(snapshot.Declarations.Length == 0).IsTrue();
         await Assert.That(snapshot.GetValue(OtherNamespace, ProfileProperty)).IsEqualTo(FirstProfile);
     }
 
@@ -185,7 +185,7 @@ public sealed class PdfDeclarationReadingTests
         }
 
         await Assert.That(snapshot.Declarations[0].ConformsTo).IsNull();
-        await Assert.That(snapshot.Declarations[0].ClaimData.IsEmpty).IsTrue();
+        await Assert.That(snapshot.Declarations[0].ClaimData.Length == 0).IsTrue();
     }
 
     /// <summary>Unknown fields remain available without becoming known declaration fields.</summary>

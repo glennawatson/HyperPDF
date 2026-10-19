@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using HyperPdfLibrary.Objects;
 
@@ -12,4 +11,4 @@ namespace HyperPdfLibrary.Navigation;
 /// <param name="Mode">The mode: ON, OFF or Toggle.</param>
 /// <param name="Groups">The optional content group objects.</param>
 [DebuggerDisplay("PdfOcgStateChange: {Mode} {Groups.Length} groups")]
-public sealed record PdfOcgStateChange(string Mode, ImmutableArray<PdfObjectId> Groups);
+public sealed record PdfOcgStateChange(string Mode, PdfObjectId[] Groups);

@@ -11,5 +11,7 @@ namespace HyperPdfLibrary.Accessibility;
 /// <param name="HasTitle">Whether the packet has a title.</param>
 /// <param name="Part">The claimed PDF/UA part (<c>pdfuaid:part</c>), or <see langword="null"/>.</param>
 /// <param name="Revision">The claimed <c>pdfuaid:rev</c>, or <see langword="null"/> when missing or empty.</param>
+/// <param name="Amendment">The claimed <c>pdfuaid:amd</c>, or <see langword="null"/> when missing or empty.</param>
+/// <param name="Corrigendum">The claimed <c>pdfuaid:corr</c>, or <see langword="null"/> when missing or empty.</param>
 [DebuggerDisplay("AccessibilityMetadata: part {Part}, revision {Revision}")]
-internal readonly record struct AccessibilityMetadata(bool HasMetadata, bool HasTitle, int? Part, string? Revision);
+internal readonly record struct AccessibilityMetadata(bool HasMetadata, bool HasTitle, int? Part, string? Revision, string? Amendment, string? Corrigendum);

@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Portfolio;
@@ -22,5 +21,5 @@ public sealed record PdfPortfolioFolder(
     string? Description,
     DateTimeOffset? Created,
     DateTimeOffset? Modified,
-    ImmutableArray<PdfFolderIdRange> FreeRanges,
-    ImmutableArray<PdfPortfolioFolder> Children);
+    PdfFolderIdRange[] FreeRanges,
+    PdfPortfolioFolder[] Children);

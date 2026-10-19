@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace HyperPdfLibrary.Xfa;
@@ -11,4 +10,4 @@ namespace HyperPdfLibrary.Xfa;
 /// <param name="Name">The packet name, for example template, datasets, config, localeSet, connectionSet, form, xdc or xfdf. A single-stream XFA is one packet named xdp.</param>
 /// <param name="Data">The decoded bytes (usually XML).</param>
 [DebuggerDisplay("PdfXfaPacket: {Name} {Data.Length} bytes")]
-public sealed record PdfXfaPacket(string Name, ImmutableArray<byte> Data);
+public sealed record PdfXfaPacket(string Name, byte[] Data);

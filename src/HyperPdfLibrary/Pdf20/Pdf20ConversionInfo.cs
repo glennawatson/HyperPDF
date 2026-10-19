@@ -200,7 +200,7 @@ internal static class Pdf20ConversionInfo
             return true;
         }
 
-        if (xmp.RawPacket.IsEmpty)
+        if (xmp.RawPacket.Length == 0)
         {
             plan.Changes.Add(new(Format, "application/pdf"));
         }

@@ -46,7 +46,8 @@ public sealed class PdfAccessibilityAgreementTests
             var file = Path.Combine(testFiles, expected.Path.Replace('/', Path.DirectorySeparatorChar));
             using var document = await PdfDocumentReader.OpenAsync(file, null, cancellationToken);
             var report = await PdfDocumentAccessibility.GetAccessibilityReportAsync(document, cancellationToken);
-            comparisons += Compare(expected, report, disagreements);
+            var clauses = new HashSet<string>(PdfDocumentWtpdf.Check(document, cancellationToken).Findings.Select(static finding => finding.Clause), StringComparer.Ordinal);
+            comparisons += Compare(expected, report, clauses, disagreements);
             files++;
         }
 
@@ -58,9 +59,10 @@ public sealed class PdfAccessibilityAgreementTests
     /// <summary>Compares one report with veraPDF's result for the same file.</summary>
     /// <param name="expected">veraPDF's result.</param>
     /// <param name="report">HyperPdf's report.</param>
+    /// <param name="wtpdfClauses">The clauses of HyperPdf's Well-Tagged PDF findings.</param>
     /// <param name="disagreements">Receives each mapping that differs.</param>
     /// <returns>The number of mappings compared.</returns>
-    internal static int Compare(VeraPdfUaRecordedResult expected, PdfAccessibilityReport report, List<string> disagreements)
+    internal static int Compare(VeraPdfUaRecordedResult expected, PdfAccessibilityReport report, HashSet<string> wtpdfClauses, List<string> disagreements)
     {
         var compared = 0;
         foreach (var mapping in PdfUaRuleMapping.All)
@@ -71,7 +73,7 @@ public sealed class PdfAccessibilityAgreementTests
             }
 
             compared++;
-            var ours = Array.Exists(mapping.Codes, code => report.GetCount(code) > 0);
+            var ours = Finds(mapping, report, wtpdfClauses);
             var theirs = Array.Exists(mapping.Rules, expected.Failed.Contains);
             if (mapping.Difference is null ? ours != theirs : theirs && !ours)
             {
@@ -103,6 +105,14 @@ public sealed class PdfAccessibilityAgreementTests
         Skip.Test(message);
         return string.Empty;
     }
+
+    /// <summary>Determines whether HyperPdf finds one of a mapping's codes or clauses.</summary>
+    /// <param name="mapping">The mapping.</param>
+    /// <param name="report">HyperPdf's report.</param>
+    /// <param name="wtpdfClauses">The clauses of HyperPdf's Well-Tagged PDF findings.</param>
+    /// <returns><see langword="true"/> when HyperPdf fails the mapping's rules.</returns>
+    private static bool Finds(PdfUaRuleMapping mapping, PdfAccessibilityReport report, HashSet<string> wtpdfClauses) =>
+        Array.Exists(mapping.Codes, code => report.GetCount(code) > 0) || Array.Exists(mapping.WtpdfClauses, wtpdfClauses.Contains);
 
     /// <summary>Lists the first few disagreements of each mapping, so one broken mapping cannot hide the others.</summary>
     /// <param name="disagreements">The disagreements, each starting with its mapping's label and the separator.</param>

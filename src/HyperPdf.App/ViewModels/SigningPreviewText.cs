@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 using HyperPdf.Core.Signatures.Signing;
@@ -16,7 +15,7 @@ internal static class SigningPreviewText
     internal const string Unavailable = "The document cannot say what signing would do.";
 
     /// <summary>Gets the kinds of certification the user can choose, in the order of <see cref="CertificationLevel"/>.</summary>
-    internal static ImmutableArray<string> CertificationChoices { get; } =
+    internal static string[] CertificationChoices { get; } =
     [
         "Approve: allow any later change",
         "Certify: allow no later change",

@@ -165,7 +165,7 @@ public sealed class DeviceFunctionStateTests
         var recorder = GraphicsStateRecorder.Run($"/All gs{Paint}q /All gs{Paint}Q/Dashed gs{Paint}/Dashed2 gs{Paint}/Dashed gs{Paint}/Solid gs{Paint}", States);
 
         await Assert.That(recorder.Paints[1].Transfer).IsSameReferenceAs(recorder.Paints[0].Transfer);
-        await Assert.That(recorder.Paints[2].Dash.AsSpan().ToArray()).IsEquivalentTo(DashLengths);
+        await Assert.That(recorder.Paints[2].Dash.ToArray()).IsEquivalentTo(DashLengths);
         await Assert.That(recorder.Paints[2].DashPhase).IsEqualTo(1F);
         await Assert.That(recorder.Paints[4].Dash.Equals(recorder.Paints[2].Dash)).IsTrue();
         await Assert.That(recorder.Paints[5].Dash.IsEmpty).IsTrue();

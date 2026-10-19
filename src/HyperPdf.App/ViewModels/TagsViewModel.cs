@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -120,7 +119,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable
     public partial string? SelectedType { get; set; }
 
     /// <summary>Gets the scopes a table header cell can have, in the order of <see cref="DocumentTableScope"/>.</summary>
-    public ImmutableArray<string> ScopeChoices { get; } = [NotSet, "Row", "Column", "Both"];
+    public string[] ScopeChoices { get; } = [NotSet, "Row", "Column", "Both"];
 
     /// <summary>Gets the tags the chosen tag can move into: every tag except itself and the tags inside it.</summary>
     [Reactive]
@@ -135,11 +134,11 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable
     public partial bool CanMoveInto { get; private set; }
 
     /// <summary>Gets how a list can label its items; the first entry means not set, and the rest are the names of ISO 32000-2 Table 383.</summary>
-    public ImmutableArray<string> ListNumberingChoices { get; } =
+    public string[] ListNumberingChoices { get; } =
         [NotSet, "None", "Unordered", "Ordered", "Disc", "Circle", "Square", "Decimal", "UpperRoman", "LowerRoman", "UpperAlpha", "LowerAlpha", "Description"];
 
     /// <summary>Gets how a tag can sit in the flow of content; the first entry means not set, and the rest are the names of ISO 32000-2 Table 380.</summary>
-    public ImmutableArray<string> PlacementChoices { get; } = [NotSet, "Block", "Inline", "Before", "Start", "End"];
+    public string[] PlacementChoices { get; } = [NotSet, "Block", "Inline", "Before", "Start", "End"];
 
     /// <summary>Gets a value indicating whether the chosen tag can be given a placement.</summary>
     [Reactive]
