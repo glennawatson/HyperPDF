@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -32,7 +31,7 @@ public sealed class BenchmarkCaseGenerator : IIncrementalGenerator
             .Select(static (model, _) => model!.Value)
             .WithTrackingName("Benchmarks")
             .Collect()
-            .Select(static (all, _) => new EquatableArray<BenchmarkModel>(all))
+            .Select(static (all, _) => new EquatableArray<BenchmarkModel>(all.ToArray()))
             .WithTrackingName("BenchmarkList");
 
         var hooks = Hooks(in context, "GlobalSetupAttribute", HookKind.GlobalSetup)
@@ -64,7 +63,7 @@ public sealed class BenchmarkCaseGenerator : IIncrementalGenerator
             .Where(static model => model is not null)
             .Select(static (model, _) => model!.Value)
             .Collect()
-            .Select(static (all, _) => new EquatableArray<HookModel>(all));
+            .Select(static (all, _) => new EquatableArray<HookModel>(all.ToArray()));
 
     /// <summary>Reads one kind of parameter attribute into a collected list.</summary>
     /// <param name="context">The initialization context.</param>
@@ -80,17 +79,17 @@ public sealed class BenchmarkCaseGenerator : IIncrementalGenerator
             .Where(static model => model is not null)
             .Select(static (model, _) => model!.Value)
             .Collect()
-            .Select(static (all, _) => new EquatableArray<ParameterModel>(all));
+            .Select(static (all, _) => new EquatableArray<ParameterModel>(all.ToArray()));
 
     /// <summary>Joins collected hook lists.</summary>
     /// <param name="lists">The lists.</param>
     /// <returns>One list.</returns>
     private static EquatableArray<HookModel> Join(params EquatableArray<HookModel>[] lists) =>
-        new(lists.SelectMany(static l => l.Items).ToImmutableArray());
+        new(lists.SelectMany(static l => l.Items).ToArray());
 
     /// <summary>Joins collected parameter lists.</summary>
     /// <param name="lists">The lists.</param>
     /// <returns>One list.</returns>
     private static EquatableArray<ParameterModel> Join(params EquatableArray<ParameterModel>[] lists) =>
-        new(lists.SelectMany(static l => l.Items).ToImmutableArray());
+        new(lists.SelectMany(static l => l.Items).ToArray());
 }

@@ -4,12 +4,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 
 namespace HyperPdf.Benchmarks.Generator;
 
 /// <summary>
-/// An immutable array that compares by content, so a pipeline model holding one is equal to the model of the previous
+/// An array, never changed after it is built, that compares by content, so a pipeline model holding one is equal to the model of the previous
 /// run when nothing changed, and the incremental engine skips the stages after it.
 /// </summary>
 /// <typeparam name="T">The element type.</typeparam>
@@ -23,20 +22,20 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>
     private const int Multiplier = 31;
 
     /// <summary>The elements; <see langword="default"/> when the array was never set.</summary>
-    private readonly ImmutableArray<T> _array;
+    private readonly T[]? _array;
 
     /// <summary>Initializes a new instance of the <see cref="EquatableArray{T}"/> struct.</summary>
-    /// <param name="array">The elements.</param>
-    internal EquatableArray(ImmutableArray<T> array) => _array = array;
+    /// <param name="array">The elements, which the caller no longer changes.</param>
+    internal EquatableArray(T[] array) => _array = array;
 
     /// <summary>Gets the number of elements.</summary>
-    internal int Length => _array.IsDefault ? 0 : _array.Length;
+    internal int Length => _array?.Length ?? 0;
 
     /// <summary>Gets a value indicating whether there are no elements.</summary>
     internal bool IsEmpty => Length == 0;
 
     /// <summary>Gets the elements.</summary>
-    internal IReadOnlyList<T> Items => _array.IsDefault ? System.Array.Empty<T>() : _array;
+    internal IReadOnlyList<T> Items => _array ?? System.Array.Empty<T>();
 
     /// <inheritdoc/>
     public bool Equals(EquatableArray<T> other)
@@ -48,7 +47,7 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>
 
         for (var i = 0; i < Length; i++)
         {
-            if (!_array[i].Equals(other._array[i]))
+            if (!_array![i].Equals(other._array![i]))
             {
                 return false;
             }
@@ -66,7 +65,7 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>
         var hash = Seed;
         for (var i = 0; i < Length; i++)
         {
-            hash = unchecked((hash * Multiplier) + _array[i].GetHashCode());
+            hash = unchecked((hash * Multiplier) + _array![i].GetHashCode());
         }
 
         return hash;

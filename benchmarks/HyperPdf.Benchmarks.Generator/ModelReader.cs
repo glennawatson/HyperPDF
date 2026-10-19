@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -219,7 +218,7 @@ internal static class ModelReader
             }
         }
 
-        return new(targets.ToImmutableArray());
+        return new(targets.ToArray());
     }
 
     /// <summary>Adds the target names a constant holds.</summary>
