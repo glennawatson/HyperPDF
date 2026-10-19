@@ -79,6 +79,22 @@ public sealed class RightToLeftTextParityTests
         await Assert.That(Count(text, ArabicWordWithoutMark, PdfTextSearchOptions.IgnoreDiacritics)).IsEqualTo(ArabicWordCount);
     }
 
+    /// <summary>Verifies that the variants of the file, one with a one-line CMap and one rotated, also give the logical Arabic word and the Latin word.</summary>
+    /// <param name="id">The manifest id of the variant.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("pypdf-arabic-oneline-cmap")]
+    [Arguments("pypdf-arabic-rotated")]
+    public async Task ArabicVariants_AlsoGiveTheLogicalWord(string id)
+    {
+        using var pair = new EnginePair(ReferencePdfFile.Read(id));
+        var text = PdfDocumentText.GetTextPage(pair.Library, 0);
+
+        await Assert.That(text.Text).Contains(ArabicWord);
+        await Assert.That(text.Text).Contains(LatinWord);
+        await Assert.That(Count(text, ArabicWord, PdfTextSearchOptions.None)).IsEqualTo(ArabicWordCount);
+    }
+
     /// <summary>Keeps only the Arabic block characters of a text.</summary>
     /// <param name="text">The text.</param>
     /// <returns>The Arabic characters, in the order they are in the text.</returns>

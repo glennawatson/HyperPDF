@@ -434,6 +434,45 @@
       "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
     },
     {
+      "id": "pypdf-arabic-oneline-cmap",
+      "source": "py-pdf/sample-files",
+      "url": "https://raw.githubusercontent.com/py-pdf/sample-files/02b8203bf416db3dbdb03438bc8278dfcb0555f3/015-arabic/habibi-oneline-cmap.pdf",
+      "sha256": "31b50622a8623723188bbb69385881c70ca8bedaa5099a19392c0d0afcccd8ee",
+      "bytes": 14957,
+      "tags": [
+        "rtl",
+        "weasyprint"
+      ],
+      "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pypdf-arabic-rotated",
+      "source": "py-pdf/sample-files",
+      "url": "https://raw.githubusercontent.com/py-pdf/sample-files/02b8203bf416db3dbdb03438bc8278dfcb0555f3/015-arabic/habibi-rotated.pdf",
+      "sha256": "56329f1e3cff5358f1f2aadcfac03467cce51b36b2e2daab9c14cef26f7ea536",
+      "bytes": 15860,
+      "tags": [
+        "rtl",
+        "rotated",
+        "weasyprint"
+      ],
+      "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
+    },
+    {
+      "id": "commons-apna-aap",
+      "source": "Wikimedia Commons, from the Internet Archive",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/95/Apna_Aap.pdf",
+      "sha256": "a7ca8b44bdb11fc115ff312cf888f260f1c4e360aa687d772227c7fba327fda9",
+      "bytes": 4926558,
+      "tags": [
+        "scanned",
+        "ocr",
+        "indic",
+        "devanagari"
+      ],
+      "licence": "CC0 1.0: Apna Aap by Jaswant Rai, released to the public domain; see ATTRIBUTION.md"
+    },
+    {
       "id": "pypdf-annotations",
       "source": "py-pdf/sample-files",
       "url": "https://raw.githubusercontent.com/py-pdf/sample-files/02b8203bf416db3dbdb03438bc8278dfcb0555f3/024-annotations/annotated_pdf.pdf",
