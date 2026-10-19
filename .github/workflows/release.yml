@@ -31,7 +31,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         src-folder: '.'
         stamp-version: 'false'
@@ -39,7 +39,7 @@ jobs:
           11.x
     - name: Compute version and tag
       id: bump
-      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         bump: ${{ inputs.bump }}
         tag-prefix: ''
@@ -66,7 +66,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         src-folder: '.'
         stamp-version: 'false'
@@ -105,7 +105,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         src-folder: '.'
         stamp-version: 'false'
@@ -140,7 +140,7 @@ jobs:
     - name: Stage the AppDir metadata
       run: cp packaging/linux/net.glennwatson.HyperPDF.metainfo.xml artifacts/appdir/usr/share/metainfo/net.glennwatson.HyperPDF.appdata.xml
     - name: Build the RPM
-      uses: glennawatson/actions-common/.github/actions/rpm-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/rpm-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/stage
         output: artifacts/hyperpdf-${{ needs.version.outputs.version }}-1.${{ matrix.rpm-architecture }}.rpm
@@ -169,7 +169,7 @@ jobs:
           /usr/lib/hyperpdf
           /usr/share/licenses/hyperpdf
     - name: Build the DEB
-      uses: glennawatson/actions-common/.github/actions/deb-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/deb-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/stage
         output: artifacts/hyperpdf_${{ needs.version.outputs.version }}_${{ matrix.deb-architecture }}.deb
@@ -195,7 +195,7 @@ jobs:
           libcups2
           libpulse0
     - name: Build the AppImage
-      uses: glennawatson/actions-common/.github/actions/appimage-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/appimage-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         appdir: artifacts/appdir
         architecture: ${{ matrix.rpm-architecture }}
@@ -230,7 +230,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         src-folder: '.'
         stamp-version: 'false'
@@ -240,7 +240,7 @@ jobs:
       run: dotnet run --file scripts/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
     # The .noindex folder stops Spotlight holding files open while the image is built.
     - name: Lay out the app bundle
-      uses: glennawatson/actions-common/.github/actions/macos-app-bundle@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/macos-app-bundle@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/${{ matrix.rid }}
         output: artifacts/macos-${{ matrix.rid }}.noindex/Hyper PDF Viewer.app
@@ -259,7 +259,7 @@ jobs:
     - name: Sign the app bundle (ad hoc)
       run: codesign --force --deep --sign - "$APP"
     - name: Build the DMG
-      uses: glennawatson/actions-common/.github/actions/dmg-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/dmg-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/macos-${{ matrix.rid }}.noindex
         volume-name: Hyper PDF Viewer
@@ -285,7 +285,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         src-folder: '.'
         stamp-version: 'false'
@@ -310,8 +310,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: release
-    container:
-      image: ghcr.io/reactiveui/certum-signer:latest@sha256:f15c2913f472c60b314b6487829dd559b5eea8fa92ae2add895ba1b0e183380b
     env:
       CERTUM_USER_ID: ${{ secrets.CERTUM_USER_ID }}
       CERTUM_OTP_URI: ${{ secrets.CERTUM_OTP_URI }}
@@ -320,7 +318,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         src-folder: '.'
         stamp-version: 'false'
@@ -354,7 +352,7 @@ jobs:
         mv artifacts/win-x64/hyperpdf.exe artifacts/exe/hyperpdf-win-x64.exe
         mv artifacts/win-arm64/hyperpdf.exe artifacts/exe/hyperpdf-win-arm64.exe
     - name: Sign the executables, RPMs and NuGet packages
-      uses: glennawatson/actions-common/.github/actions/certum-sign@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/certum-sign@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         authenticode: 'artifacts/exe/*.exe'
         rpm: 'release/*.rpm'
@@ -378,7 +376,7 @@ jobs:
     - name: Add the ARM64 MSIX logos
       run: cp -R artifacts/msix-win-x64/Assets artifacts/msix-win-arm64/Assets
     - name: Build the x64 MSIX
-      uses: glennawatson/actions-common/.github/actions/msix-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/msix-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/msix-win-x64
         output: release/hyperpdf-${{ needs.version.outputs.version }}-win-x64.msix
@@ -398,7 +396,7 @@ jobs:
         file-types: .pdf
         file-type-name: PDF document
     - name: Build the ARM64 MSIX
-      uses: glennawatson/actions-common/.github/actions/msix-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/msix-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/msix-win-arm64
         output: release/hyperpdf-${{ needs.version.outputs.version }}-win-arm64.msix
@@ -418,7 +416,7 @@ jobs:
         file-types: .pdf
         file-type-name: PDF document
     - name: Build the x64 MSI
-      uses: glennawatson/actions-common/.github/actions/msi-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/msi-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/win-x64
         output: release/hyperpdf-${{ needs.version.outputs.version }}-win-x64.msi
@@ -432,7 +430,7 @@ jobs:
         icon: packaging/windows/HyperPdf.ico
         homepage: https://github.com/glennawatson/HyperPDF
     - name: Build the ARM64 MSI
-      uses: glennawatson/actions-common/.github/actions/msi-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/msi-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/win-arm64
         output: release/hyperpdf-${{ needs.version.outputs.version }}-win-arm64.msi
@@ -446,12 +444,12 @@ jobs:
         icon: packaging/windows/HyperPdf.ico
         homepage: https://github.com/glennawatson/HyperPDF
     - name: Zip the x64 app
-      uses: glennawatson/actions-common/.github/actions/zip-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/zip-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/win-x64
         output: release/hyperpdf-${{ needs.version.outputs.version }}-win-x64.zip
     - name: Zip the ARM64 app
-      uses: glennawatson/actions-common/.github/actions/zip-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/zip-build@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         source: artifacts/win-arm64
         output: release/hyperpdf-${{ needs.version.outputs.version }}-win-arm64.zip
@@ -459,7 +457,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: glennawatson/actions-common
-        ref: 7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+        ref: 315788024be8e61daa4f2b957e6476746211b522 # main
         path: .actions-common
         persist-credentials: false
     - name: Write the AUR PKGBUILD and .SRCINFO
@@ -492,11 +490,10 @@ jobs:
         AUR_OUTPUT: release
       run: dotnet run --file .actions-common/.github/actions/aur-build/aur-build.cs
     - name: Sign the installers and the checksums
-      uses: glennawatson/actions-common/.github/actions/certum-sign@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/certum-sign@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         authenticode: 'release/*.msi*'
         checksums: 'release/*'
-        certificate-from: release/hyperpdf-${{ needs.version.outputs.version }}-win-x64.msi
     - name: Upload the release files
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
@@ -534,7 +531,7 @@ jobs:
         name: release-assets
         path: packages
     - name: Verify the DEB
-      uses: glennawatson/actions-common/.github/actions/deb-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/deb-verify@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         package: packages/hyperpdf_${{ needs.version.outputs.version }}_${{ matrix.deb-architecture }}.deb
         name: hyperpdf
@@ -544,7 +541,7 @@ jobs:
           /usr/share/applications/net.glennwatson.HyperPDF.desktop
           /usr/share/metainfo/net.glennwatson.HyperPDF.metainfo.xml
     - name: Verify the AppImage
-      uses: glennawatson/actions-common/.github/actions/appimage-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/appimage-verify@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         package: packages/HyperPDF-${{ needs.version.outputs.version }}-${{ matrix.architecture }}.AppImage
 
@@ -570,7 +567,7 @@ jobs:
         name: release-assets
         path: packages
     - name: Verify the RPM
-      uses: glennawatson/actions-common/.github/actions/rpm-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/rpm-verify@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         package: packages/hyperpdf-${{ needs.version.outputs.version }}-1.${{ matrix.architecture }}.rpm
         name: hyperpdf
@@ -599,14 +596,14 @@ jobs:
         name: release-assets
         path: packages
     - name: Verify the MSI
-      uses: glennawatson/actions-common/.github/actions/msi-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/msi-verify@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         # msiexec reads a forward slash as an invalid path character (error 1324), so this path uses a backslash.
         package: packages\hyperpdf-${{ needs.version.outputs.version }}-${{ matrix.rid }}.msi
         expect-files: |
           %ProgramFiles%\Glenn Watson\Hyper PDF Viewer\hyperpdf.exe
     - name: Verify the MSIX
-      uses: glennawatson/actions-common/.github/actions/msix-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/msix-verify@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         package: packages/hyperpdf-${{ needs.version.outputs.version }}-${{ matrix.rid }}.msix
         identity-name: net.glennwatson.HyperPDF
@@ -627,7 +624,7 @@ jobs:
         name: release-assets
         path: packages
     - name: Verify the DMG
-      uses: glennawatson/actions-common/.github/actions/dmg-verify@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/dmg-verify@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         package: packages/hyperpdf-${{ needs.version.outputs.version }}-${{ matrix.rid }}.dmg
         app: Hyper PDF Viewer.app
@@ -644,7 +641,7 @@ jobs:
       id-token: write
     steps:
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
       with:
         stamp-version: 'false'
         dotnet-versions: |
@@ -669,7 +666,7 @@ jobs:
     needs: [version, verify-linux, verify-rpm, verify-windows, verify-macos, publish-nuget]
     permissions:
       contents: write
-    uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+    uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@315788024be8e61daa4f2b957e6476746211b522 # main
     with:
       version: ${{ needs.version.outputs.version }}
       tag: ${{ needs.version.outputs.tag }}

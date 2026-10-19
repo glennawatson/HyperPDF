@@ -95,12 +95,6 @@
       "description": "veraPDF tags odd minors as development builds and posts release installers after tagging.",
       "matchDepNames": ["veraPDF/veraPDF-apps"],
       "minimumReleaseAge": "3 days"
-    },
-    {
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["/^ghcr\\.io\\/reactiveui\\//"],
-      "matchUpdateTypes": ["digest", "pin", "pinDigest"],
-      "automerge": true
     }
   ]
 }
