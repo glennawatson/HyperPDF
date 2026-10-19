@@ -37,7 +37,7 @@ jobs:
         id: firefox
         run: dotnet run --file scripts/InstallComparisonFirefox.cs -- "${{ runner.temp }}/comparison-firefox"
       - name: Fetch verified comparison PDFs
-        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/reference-pdfs" loc-marbury-v-madison irs-w9-2024 pyhanko-ua-and-a usgs-morrison-1957 usgs-lost-city-2023
+        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/reference-pdfs" loc-marbury-v-madison loc-brown-v-board loc-plessy-v-ferguson loc-korematsu-v-united-states loc-gideon-v-wainwright irs-w9-2024 pyhanko-ua-and-a usgs-morrison-1957 usgs-lost-city-2023
       - name: Compare renderers against standards
         env:
           PVL_FIREFOX_PATH: ${{ steps.firefox.outputs.firefox-path }}

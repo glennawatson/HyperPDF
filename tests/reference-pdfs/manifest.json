@@ -27,6 +27,62 @@
       "licence": "Public domain: Marbury v. Madison, 5 U.S. 137 (1803), a US Supreme Court opinion published long before 1930"
     },
     {
+      "id": "loc-brown-v-board",
+      "source": "Library of Congress United States Reports",
+      "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep347/usrep347483/usrep347483.pdf",
+      "sha256": "7021074961cffdafdddac07c25c6b21c6a689d1ff118966f5b53bb3a48163ec1",
+      "bytes": 462758,
+      "tags": [
+        "scanned",
+        "ocr",
+        "jbig2",
+        "legal"
+      ],
+      "licence": "Public domain: US Supreme Court opinion, a US government work; Brown v. Board of Education, 347 U.S. 483 (1954)"
+    },
+    {
+      "id": "loc-plessy-v-ferguson",
+      "source": "Library of Congress United States Reports",
+      "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep163/usrep163537/usrep163537.pdf",
+      "sha256": "1bd8154d5ed6e16f3fec76f0cd14286f57975b997cdadf749f9bb40446b683e2",
+      "bytes": 1037410,
+      "tags": [
+        "scanned",
+        "ocr",
+        "jbig2",
+        "legal"
+      ],
+      "licence": "Public domain: Plessy v. Ferguson, 163 U.S. 537 (1896), a US Supreme Court opinion published long before 1930"
+    },
+    {
+      "id": "loc-korematsu-v-united-states",
+      "source": "Library of Congress United States Reports",
+      "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep323/usrep323214/usrep323214.pdf",
+      "sha256": "2fdaef6d2e55184b529317fee573deb0fc9475c5d3e3d88f5db270f387408c1e",
+      "bytes": 1118301,
+      "tags": [
+        "scanned",
+        "ocr",
+        "jbig2",
+        "legal"
+      ],
+      "licence": "Public domain: US Supreme Court opinion, a US government work; Korematsu v. United States, 323 U.S. 214 (1944)"
+    },
+    {
+      "id": "loc-gideon-v-wainwright",
+      "source": "Library of Congress United States Reports",
+      "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep372/usrep372335/usrep372335.pdf",
+      "sha256": "2d3219523cb251490349806ab6ab089a33f82429b8c72cf727f1f8ed4d77407d",
+      "bytes": 550057,
+      "tags": [
+        "scanned",
+        "ocr",
+        "jbig2",
+        "legal"
+      ],
+      "licence": "Public domain: US Supreme Court opinion, a US government work; Gideon v. Wainwright, 372 U.S. 335 (1963)"
+    },
+    {
       "id": "irs-w9-2024",
       "source": "Internal Revenue Service",
       "url": "https://www.irs.gov/pub/irs-prior/fw9--2024.pdf",
