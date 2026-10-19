@@ -65,6 +65,12 @@ internal sealed class PausingEngine : IDocumentEngine
     /// <summary>Gets the pages whose open actions ran, in order. Features must be exposed.</summary>
     internal ConcurrentQueue<int> OpenedPages { get; } = new();
 
+    /// <summary>Gets the page actions that ran, open and close together, in order. Features must be exposed.</summary>
+    internal ConcurrentQueue<RecordedPageAction> PageActions { get; } = new();
+
+    /// <summary>Gets the document events whose actions ran, in order. Features must be exposed.</summary>
+    internal ConcurrentQueue<FormDocumentEvent> DocumentEvents { get; } = new();
+
     /// <summary>Gets or sets the gate each page's open actions wait at, or <see langword="null"/> to run at once.</summary>
     internal TaskCompletionSource? FormGate { get; set; }
 

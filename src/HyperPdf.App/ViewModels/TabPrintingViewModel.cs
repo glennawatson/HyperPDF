@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Forms;
 using HyperPdf.Core.Printing;
 using ReactiveUI;
 using ReactiveUI.Primitives;
@@ -53,10 +54,34 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
     [ReactiveCommand]
     private async Task PrintAsync()
     {
+        // The document's own actions bracket the print: they may change fields before the pages are built.
+        _ = await _owner.Forms.RunDocumentEventAsync(FormDocumentEvent.WillPrint).ConfigureAwait(true);
+        if (await PreviewAndPrintAsync().ConfigureAwait(true))
+        {
+            _ = await _owner.Forms.RunDocumentEventAsync(FormDocumentEvent.DidPrint).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>Hands the whole document, as it looks now, straight to the desktop's print dialog.</summary>
+    /// <returns>A task.</returns>
+    [ReactiveCommand]
+    private async Task PrintWithSystemDialogAsync()
+    {
+        _ = await _owner.Forms.RunDocumentEventAsync(FormDocumentEvent.WillPrint).ConfigureAwait(true);
+        if (await SendToSystemDialogAsync().ConfigureAwait(true))
+        {
+            _ = await _owner.Forms.RunDocumentEventAsync(FormDocumentEvent.DidPrint).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>Shows the print preview, then prints, saves the printed pages as a PDF or opens the desktop's print dialog.</summary>
+    /// <returns><see langword="true"/> when the pages were handed to a printer, the print dialog or a saved file.</returns>
+    private async Task<bool> PreviewAndPrintAsync()
+    {
         using var preview = new PrintPreviewViewModel(_owner, _owner.Services);
         if (!await PrintPreviewInteraction.Handle(preview).ToTask().ConfigureAwait(true))
         {
-            return;
+            return false;
         }
 
         var destination = preview.Destination;
@@ -66,25 +91,24 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
         if (destination == PrintDestination.SystemDialog)
         {
             _ = file is not null && TryDelete(file);
-            await PrintWithSystemDialogAsync().ConfigureAwait(true);
-            return;
+            return await SendToSystemDialogAsync().ConfigureAwait(true);
         }
 
         if (file is null)
         {
-            return;
+            return false;
         }
 
         try
         {
             if (destination == PrintDestination.SaveAsPdf)
             {
-                await SavePrintAsPdfAsync(file).ConfigureAwait(true);
-                return;
+                return await SavePrintAsPdfAsync(file).ConfigureAwait(true);
             }
 
             var outcome = await _owner.Services.Platform.Printer.SubmitAsync(file, _owner.FileName, job, CancellationToken.None).ConfigureAwait(true);
             _owner.Notice = outcome.Sent ? $"Sent to {label}." : $"Could not print: {outcome.Detail}";
+            return outcome.Sent;
         }
         finally
         {
@@ -92,21 +116,20 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
         }
     }
 
-    /// <summary>Hands the whole document, as it looks now, straight to the desktop's print dialog.</summary>
-    /// <returns>A task.</returns>
-    [ReactiveCommand]
-    private async Task PrintWithSystemDialogAsync()
+    /// <summary>Exports the whole document, as it looks now, and opens the desktop's print dialog for it.</summary>
+    /// <returns><see langword="true"/> when the print dialog was opened.</returns>
+    private async Task<bool> SendToSystemDialogAsync()
     {
         var printer = _owner.Services.Platform.Printer;
         if (!printer.IsAvailable)
         {
             _owner.Notice = "Printing is not available on this desktop. Choose Save as PDF instead.";
-            return;
+            return false;
         }
 
         if (DocumentFeature<IPageExporter>.Get(_owner.TryGetDocument()) is not { } exporter || _owner.Source.PageCount == 0)
         {
-            return;
+            return false;
         }
 
         var file = Path.Combine(Path.GetTempPath(), $"hyperpdf-print-{Guid.NewGuid():N}.pdf");
@@ -128,11 +151,16 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
             if (!written)
             {
                 _owner.Notice = "Could not prepare the document for printing.";
+                return false;
             }
-            else if (!await printer.PrintAsync(file, _owner.FileName, CancellationToken.None).ConfigureAwait(true))
+
+            if (!await printer.PrintAsync(file, _owner.FileName, CancellationToken.None).ConfigureAwait(true))
             {
                 _owner.Notice = "The print dialog could not be opened.";
+                return false;
             }
+
+            return true;
         }
         finally
         {
@@ -142,18 +170,19 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
 
     /// <summary>Asks where to save the printed pages as a PDF and copies them there.</summary>
     /// <param name="file">The printed pages.</param>
-    /// <returns>A task.</returns>
-    private async Task SavePrintAsPdfAsync(string file)
+    /// <returns><see langword="true"/> when the pages were saved.</returns>
+    private async Task<bool> SavePrintAsPdfAsync(string file)
     {
         var path = await _owner.SaveAsInteraction.Handle(_owner.FileName).ToTask().ConfigureAwait(true);
         if (string.IsNullOrEmpty(path))
         {
-            return;
+            return false;
         }
 
         try
         {
             File.Copy(file, path, true);
+            return true;
         }
         catch (IOException ex)
         {
@@ -163,5 +192,7 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
         {
             _owner.Notice = $"Could not save: {ex.Message}";
         }
+
+        return false;
     }
 }

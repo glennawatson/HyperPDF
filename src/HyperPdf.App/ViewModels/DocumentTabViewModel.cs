@@ -839,7 +839,15 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             return false;
         }
 
-        return ApplySaveOutcome(await DocumentSave.SaveAsync(editor, Source, path, cancellationToken).ConfigureAwait(true));
+        // The document's own actions bracket the save: they may change fields before the file is written.
+        _ = await Forms.RunDocumentEventAsync(FormDocumentEvent.WillSave).ConfigureAwait(true);
+        var saved = ApplySaveOutcome(await DocumentSave.SaveAsync(editor, Source, path, cancellationToken).ConfigureAwait(true));
+        if (saved)
+        {
+            _ = await Forms.RunDocumentEventAsync(FormDocumentEvent.DidSave).ConfigureAwait(true);
+        }
+
+        return saved;
     }
 
     /// <summary>Turns read mode on or off, putting the sidebar away and bringing it back as it was.</summary>

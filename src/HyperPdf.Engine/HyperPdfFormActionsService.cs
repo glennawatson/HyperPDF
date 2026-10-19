@@ -37,4 +37,19 @@ internal sealed class HyperPdfFormActionsService : IFormActions
             pageIndex,
             host,
             cancellationToken);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask<FormActionResult> RunPageClosedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken) => HyperPdfDocumentFormActions.RunPageClosedAsync(
+            _owner,
+            pageIndex,
+            host,
+            cancellationToken);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask<FormActionResult> RunDocumentEventAsync(
+        FormDocumentEvent documentEvent,
+        IFormActionHost host,
+        CancellationToken cancellationToken) => HyperPdfDocumentFormActions.RunDocumentEventAsync(_owner, documentEvent, host, cancellationToken);
 }

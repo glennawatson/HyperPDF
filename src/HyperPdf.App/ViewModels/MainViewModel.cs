@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.App.Services;
+using HyperPdf.Core.Forms;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Settings;
@@ -400,6 +401,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
             }
         }
 
+        _ = await tab.Forms.RunDocumentEventAsync(FormDocumentEvent.WillClose).ConfigureAwait(true);
         CloseTabWithoutAsking(tab);
     }
 
@@ -458,6 +460,17 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         }
 
         return Path.IsPathRooted(item) || !item.Contains("://", StringComparison.Ordinal) ? Path.GetFullPath(item) : null;
+    }
+
+    /// <summary>Runs the document actions that happen before a document closes, for each tab about to close.</summary>
+    /// <param name="closing">The tabs.</param>
+    /// <returns>A task.</returns>
+    private static async Task RunWillCloseAsync(List<DocumentTabViewModel> closing)
+    {
+        foreach (var tab in closing)
+        {
+            _ = await tab.Forms.RunDocumentEventAsync(FormDocumentEvent.WillClose).ConfigureAwait(true);
+        }
     }
 
     /// <summary>Clears the recent PDF list shown by this app.</summary>
@@ -712,10 +725,13 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
             }
         }
 
-        if (await ConfirmCloseAsync(closing.Count).ConfigureAwait(true))
+        if (!await ConfirmCloseAsync(closing.Count).ConfigureAwait(true))
         {
-            CloseGroup(closing);
+            return;
         }
+
+        await RunWillCloseAsync(closing).ConfigureAwait(true);
+        CloseGroup(closing);
     }
 
     /// <summary>Closes every tab, asking first when there is more than one.</summary>
@@ -728,7 +744,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
             return;
         }
 
-        CloseGroup([.. Tabs]);
+        List<DocumentTabViewModel> closing = [.. Tabs];
+        await RunWillCloseAsync(closing).ConfigureAwait(true);
+        CloseGroup(closing);
         RefreshRecentDocuments();
     }
 
