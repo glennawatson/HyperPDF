@@ -41,7 +41,7 @@ internal static class TextLineOrder
             return;
         }
 
-        var line = Reorder(state) ? state.LineLogical : state.LineChars;
+        var line = state.Device.Options.Order != PdfTextOrder.Raw && Reorder(state) ? state.LineLogical : state.LineChars;
         JoinToPage(state, line);
         state.Chars.AddRange(line);
         state.LineIndex++;
@@ -135,7 +135,7 @@ internal static class TextLineOrder
 
         var previous = state.Chars[^1];
         var next = FirstTextChar(line);
-        if (EndsHyphenatedWord(state, next))
+        if (state.Device.Options.HyphenMode == PdfTextHyphenMode.Join && EndsHyphenatedWord(state, next))
         {
             state.Chars[^1] = previous with { Kind = PdfTextCharKind.Hyphen, InText = false };
         }

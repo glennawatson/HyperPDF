@@ -42,15 +42,20 @@ internal static class TextLineAssembly
         state.HasPrevious = false;
         state.GroupCount = 0;
         state.LineAxis = state.Frames[firstRun].Axis;
+        var raw = state.Device.Options.Order == PdfTextOrder.Raw;
         for (var i = firstRun; i < firstRun + runCount; i++)
         {
-            if (!IsRepeatedRun(state, i))
+            if (raw || !IsRepeatedRun(state, i))
             {
                 state.Order.Add(i);
             }
         }
 
-        SortAlongLine(state);
+        if (!raw)
+        {
+            SortAlongLine(state);
+        }
+
         foreach (var run in CollectionsMarshal.AsSpan(state.Order))
         {
             AppendRun(state, run);
@@ -169,7 +174,7 @@ internal static class TextLineAssembly
     {
         var frame = state.Frames[index];
         var origin = TextGeometry.Transform(run.Matrix, glyph.Origin);
-        if (IsRepeatedGlyph(state, run, glyph.Code, origin, frame.Em))
+        if (state.Device.Options.Order != PdfTextOrder.Raw && IsRepeatedGlyph(state, run, glyph.Code, origin, frame.Em))
         {
             return;
         }
