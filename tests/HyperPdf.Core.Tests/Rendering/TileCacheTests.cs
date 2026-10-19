@@ -20,6 +20,12 @@ public sealed class TileCacheTests
     /// <summary>The number of tiles the test budget holds.</summary>
     private const int Capacity = 3;
 
+    /// <summary>Previews may take one over this of the budget.</summary>
+    private const int Half = 2;
+
+    /// <summary>The index of the third page.</summary>
+    private const int ThirdPage = 2;
+
     /// <summary>Verifies the least recently used tile is evicted and disposed when over budget.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -94,9 +100,97 @@ public sealed class TileCacheTests
         await Assert.That(cache.Count).IsEqualTo(1);
     }
 
+    /// <summary>Verifies a page preview is kept while the cache sheds tiles, because it stands in for the page while its tiles are made.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PreviewsOutliveTilesWhenOverBudget()
+    {
+        using var cache = new TileCache(TileBytes * Capacity);
+        var preview = new FakeSurface(Edge, Edge);
+        cache.Add(PreviewKey(1, 0), preview);
+        for (var i = 0; i < Capacity; i++)
+        {
+            cache.Add(Key(1, i), new FakeSurface(Edge, Edge));
+        }
+
+        await Assert.That(cache.Contains(PreviewKey(1, 0))).IsTrue();
+        await Assert.That(preview.IsDisposed).IsFalse();
+        await Assert.That(cache.Contains(Key(1, 0))).IsFalse();
+        await Assert.That(cache.Count).IsEqualTo(Capacity);
+        await Assert.That(cache.CurrentBytes).IsEqualTo(TileBytes * Capacity);
+    }
+
+    /// <summary>Verifies previews never take more than half the budget, so they cannot push every tile out.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PreviewsAreCappedAtHalfTheBudget()
+    {
+        const int pages = 4;
+        using var cache = new TileCache(TileBytes * pages);
+        var surfaces = new FakeSurface[pages];
+        for (var page = 0; page < pages; page++)
+        {
+            surfaces[page] = new(Edge, Edge);
+            cache.Add(PreviewKey(1, page), surfaces[page]);
+        }
+
+        await Assert.That(cache.PreviewBytes).IsEqualTo(TileBytes * pages / Half);
+        await Assert.That(surfaces[0].IsDisposed).IsTrue();
+        await Assert.That(surfaces[1].IsDisposed).IsTrue();
+        await Assert.That(cache.Contains(PreviewKey(1, pages - 1))).IsTrue();
+    }
+
+    /// <summary>Verifies a preview that is looked up counts as recently used, so the previews in view are the last to go.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LookedUpPreviewsAreKept()
+    {
+        const int pages = 4;
+        using var cache = new TileCache(TileBytes * pages);
+        cache.Add(PreviewKey(1, 0), new FakeSurface(Edge, Edge));
+        cache.Add(PreviewKey(1, 1), new FakeSurface(Edge, Edge));
+        _ = cache.TryGet(PreviewKey(1, 0), out _);
+
+        cache.Add(PreviewKey(1, ThirdPage), new FakeSurface(Edge, Edge));
+
+        await Assert.That(cache.Contains(PreviewKey(1, 0))).IsTrue();
+        await Assert.That(cache.Contains(PreviewKey(1, 1))).IsFalse();
+    }
+
+    /// <summary>Verifies removing a document or a page removes its previews as well as its tiles.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RemovesPreviewsWithTheirDocumentAndPage()
+    {
+        const int otherDocument = 2;
+        using var cache = new TileCache(TileBytes * Capacity * Capacity);
+        cache.Add(PreviewKey(1, 0), new FakeSurface(Edge, Edge));
+        cache.Add(PreviewKey(1, 1), new FakeSurface(Edge, Edge));
+        cache.Add(PreviewKey(otherDocument, 0), new FakeSurface(Edge, Edge));
+        cache.Add(Key(1, 0), new FakeSurface(Edge, Edge));
+
+        cache.RemovePage(1, 0);
+
+        await Assert.That(cache.Contains(PreviewKey(1, 0))).IsFalse();
+        await Assert.That(cache.Contains(Key(1, 0))).IsFalse();
+        await Assert.That(cache.Contains(PreviewKey(1, 1))).IsTrue();
+
+        cache.RemoveDocument(1);
+
+        await Assert.That(cache.Contains(PreviewKey(1, 1))).IsFalse();
+        await Assert.That(cache.Contains(PreviewKey(otherDocument, 0))).IsTrue();
+        await Assert.That(cache.PreviewBytes).IsEqualTo(TileBytes);
+    }
+
     /// <summary>Creates a key.</summary>
     /// <param name="document">The document identifier.</param>
     /// <param name="column">The column.</param>
     /// <returns>The key.</returns>
     private static TileKey Key(int document, int column) => new(document, 0, 1, PageRotation.None, 0, (short)column, 0);
+
+    /// <summary>Creates the key of a page preview.</summary>
+    /// <param name="document">The document identifier.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>The key.</returns>
+    private static TileKey PreviewKey(int document, int page) => TileKey.Preview(document, page, PageRotation.None, 0);
 }

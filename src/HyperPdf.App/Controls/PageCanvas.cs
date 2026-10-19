@@ -81,6 +81,15 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <summary>How far beyond the viewport, in viewport heights, pages are prefetched.</summary>
     private const double PrefetchViewports = 0.75;
 
+    /// <summary>The smallest change in the viewport's top, in canvas units, that counts as scrolling in a direction.</summary>
+    private const double ScrollDirectionTolerance = 0.5;
+
+    /// <summary>How many pages past the drawn ones get a low resolution preview on the side the reader is scrolling towards.</summary>
+    private const int PreviewReachAhead = 24;
+
+    /// <summary>How many pages past the drawn ones get a low resolution preview on the side the reader came from.</summary>
+    private const int PreviewReachBehind = 8;
+
     /// <summary>The smallest display scale change that needs a new tile generation.</summary>
     private const double RenderScaleTolerance = 1e-9;
 
@@ -148,6 +157,12 @@ public sealed class PageCanvas : Control, IActivatableView
 
     /// <summary>The tone used by the last tile request.</summary>
     private int _renderToneId;
+
+    /// <summary>The top of the viewport at the last frame, to tell which way the reader is scrolling.</summary>
+    private double _previousViewportTop;
+
+    /// <summary>Whether the reader last scrolled towards the end of the document, so previews are made further ahead on that side.</summary>
+    private bool _scrollingDown = true;
 
     /// <summary>The pen outlining the current search hit, rebuilt when <see cref="CurrentHitOutline"/> changes.</summary>
     private IPen? _currentHitPen;
@@ -670,10 +685,71 @@ public sealed class PageCanvas : Control, IActivatableView
             }
         }
 
+        RequestPreviewReach(frame, first, last);
         if (_frameComplete && !IsZoomEasing)
         {
             _fallbackScale = GetTileScale(frame.RenderScaling);
         }
+    }
+
+    /// <summary>
+    /// Keeps a low resolution preview of the pages around the drawn ones, nearest first and further ahead in the direction of
+    /// scrolling, so a quick scroll up or down shows each page's shape and text before its sharp tiles are made.
+    /// </summary>
+    /// <param name="frame">The frame.</param>
+    /// <param name="first">The first drawn page, or -1 when none.</param>
+    /// <param name="last">The last drawn page.</param>
+    private void RequestPreviewReach(in FrameContext frame, int first, int last)
+    {
+        var top = frame.Viewport.Top;
+        if (Math.Abs(top - _previousViewportTop) > ScrollDirectionTolerance)
+        {
+            _scrollingDown = top > _previousViewportTop;
+            _previousViewportTop = top;
+        }
+
+        if (first < 0)
+        {
+            return;
+        }
+
+        var after = _scrollingDown ? PreviewReachAhead : PreviewReachBehind;
+        var before = _scrollingDown ? PreviewReachBehind : PreviewReachAhead;
+        for (var distance = 1; distance <= Math.Max(after, before); distance++)
+        {
+            if (distance <= after)
+            {
+                RequestDistantPreview(frame, last + distance);
+            }
+
+            if (distance <= before)
+            {
+                RequestDistantPreview(frame, first - distance);
+            }
+        }
+    }
+
+    /// <summary>Marks a page's preview as recently used, or requests it at the lowest page priority when it is missing.</summary>
+    /// <param name="frame">The frame.</param>
+    /// <param name="page">The page, which may be outside the document.</param>
+    private void RequestDistantPreview(in FrameContext frame, int page)
+    {
+        var tab = frame.Tab;
+        if ((uint)page >= (uint)_layout.PageCount)
+        {
+            return;
+        }
+
+        var key = TileKey.Preview(tab.TileId, page, tab.Rotation, tab.PageTone.Id);
+        if (frame.Hub.Cache.TryGet(key, out _))
+        {
+            return;
+        }
+
+        var size = tab.Source.PageSizes[page];
+        var scale = TileGrid.GetPreviewScale(size, tab.Rotation);
+        TileGrid.GetPagePixelSize(size, tab.Rotation, scale, out var width, out var height);
+        frame.Request(key, new(page, scale, tab.Rotation, 0, 0, RenderFlags.Annotations), width, height, RenderPriority.PrefetchPreview);
     }
 
     /// <summary>Draws one page: shadow, background, preview, tiles and highlights.</summary>
