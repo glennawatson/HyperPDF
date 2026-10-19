@@ -16,4 +16,7 @@ public sealed record OutlineNode(string Title, LinkTarget Target, IReadOnlyList<
 {
     /// <summary>Gets the entry's object number in the file, which <see cref="IOutlineEditor"/> takes to name the entry; 0 when the entry cannot be edited.</summary>
     public int Id { get; init; }
+
+    /// <summary>Gets how the document asks for the title to look, or <see langword="null"/> when the entry sets no colour or style.</summary>
+    public OutlineStyle? Style { get; init; }
 }

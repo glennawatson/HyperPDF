@@ -46,6 +46,9 @@ public sealed record DocumentMetadata
     /// <summary>Gets whether the source file has a valid linearization header.</summary>
     public bool IsLinearized { get; init; }
 
+    /// <summary>Gets what the document asks of the viewer when it opens.</summary>
+    public DocumentOpenHints OpenHints { get; init; } = DocumentOpenHints.None;
+
     /// <summary>Gets the encrypted document's file name when this is a wrapper PDF.</summary>
     public string? WrappedFileName { get; init; }
 

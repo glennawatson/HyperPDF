@@ -114,21 +114,7 @@ public sealed record DocumentLayout
                 rowHeight = Math.Max(rowHeight, sizes[i].Rotate(options.Rotation).Height * options.Scale);
             }
 
-            var x = (extentWidth - rowWidths[row]) / Halves;
-            if (PageRows.IsCoverRow(row, options.Mode))
-            {
-                // The cover sits in the right hand slot of a two page spread.
-                x += (rowWidths[row] + options.Spacing) / Halves;
-            }
-
-            for (var i = first; i < first + count; i++)
-            {
-                var rotated = sizes[i].Rotate(options.Rotation);
-                var w = rotated.Width * options.Scale;
-                var h = rotated.Height * options.Scale;
-                pages[i] = new(x, y + ((rowHeight - h) / Halves), w, h);
-                x += w + options.Spacing;
-            }
+            PlaceRow(sizes, options, pages, new(row, first, count), (extentWidth - rowWidths[row]) / Halves, rowWidths[row], new(y, rowHeight));
 
             if (options.PageByPage)
             {
@@ -248,6 +234,41 @@ public sealed record DocumentLayout
         return preferredPage >= first && preferredPage < end ? preferredPage : first;
     }
 
+    /// <summary>Places the pages of one row across it.</summary>
+    /// <param name="sizes">The unrotated page sizes.</param>
+    /// <param name="options">The layout options.</param>
+    /// <param name="pages">Receives the page bounds.</param>
+    /// <param name="row">Which row, and the pages in it.</param>
+    /// <param name="left">Where the row's slot starts.</param>
+    /// <param name="slotWidth">The width of the row's slot.</param>
+    /// <param name="band">Where the row sits down the page.</param>
+    private static void PlaceRow(ReadOnlySpan<PageSize> sizes, in LayoutOptions options, LayoutRect[] pages, RowSpan row, double left, double slotWidth, RowBand band)
+    {
+        var x = left;
+        var cover = PageRows.IsCoverRow(row.Index, options.Mode);
+        if (cover && !options.RightToLeft)
+        {
+            // The cover sits in the right hand slot of a two page spread, or the left hand slot when the spread reads right to left.
+            x += (slotWidth + options.Spacing) / Halves;
+        }
+
+        var mirrored = options.RightToLeft && !cover;
+        if (mirrored)
+        {
+            x += slotWidth;
+        }
+
+        for (var i = row.First; i < row.First + row.Count; i++)
+        {
+            var rotated = sizes[i].Rotate(options.Rotation);
+            var w = rotated.Width * options.Scale;
+            var h = rotated.Height * options.Scale;
+            x -= mirrored ? w : 0;
+            pages[i] = new(x, band.Top + ((band.Height - h) / Halves), w, h);
+            x += mirrored ? -options.Spacing : w + options.Spacing;
+        }
+    }
+
     /// <summary>Gets the width a row occupies, including an empty slot beside the cover page.</summary>
     /// <param name="sizes">The page sizes.</param>
     /// <param name="options">The options.</param>
@@ -334,4 +355,15 @@ public sealed record DocumentLayout
 
         return lo;
     }
+
+    /// <summary>The pages of one row.</summary>
+    /// <param name="Index">The row's index.</param>
+    /// <param name="First">The row's first page.</param>
+    /// <param name="Count">The pages in the row.</param>
+    private readonly record struct RowSpan(int Index, int First, int Count);
+
+    /// <summary>Where a row sits down the document.</summary>
+    /// <param name="Top">The top of the row.</param>
+    /// <param name="Height">The height of the tallest page in the row.</param>
+    private readonly record struct RowBand(double Top, double Height);
 }

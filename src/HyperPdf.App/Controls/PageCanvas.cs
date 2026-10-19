@@ -1015,7 +1015,12 @@ public sealed class PageCanvas : Control, IActivatableView
 
         _layout = DocumentLayout.Create(
             _sizes,
-            new(tab.Rotation, tab.LayoutMode, zoom * ZoomCalculator.PixelsPerPoint, PageSpacing, ContentMargin, viewport.Width) { PageByPage = tab.IsPageByPage, ViewportHeight = viewport.Height });
+            new(tab.Rotation, tab.LayoutMode, zoom * ZoomCalculator.PixelsPerPoint, PageSpacing, ContentMargin, viewport.Width)
+            {
+                PageByPage = tab.IsPageByPage,
+                ViewportHeight = viewport.Height,
+                RightToLeft = tab.RightToLeft,
+            });
         InvalidateMeasure();
         InvalidateVisual();
         RaisePropertyChanged(PageScaleProperty, scaleBefore, PageScale);

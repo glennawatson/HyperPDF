@@ -133,6 +133,30 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial bool ReopenAtLastPage { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether a document's own opening page is followed.</summary>
+    [Reactive]
+    public partial bool FollowOpenAction { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the panel a document asks for is shown.</summary>
+    [Reactive]
+    public partial bool FollowPageMode { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the page layout and direction a document asks for are used.</summary>
+    [Reactive]
+    public partial bool FollowPageLayout { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether a document's own title is shown when it asks.</summary>
+    [Reactive]
+    public partial bool FollowDisplayDocTitle { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the print choices a document asks for are the print defaults.</summary>
+    [Reactive]
+    public partial bool FollowPrintDefaults { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the colours a document gives its bookmarks are ignored.</summary>
+    [Reactive]
+    public partial bool IgnoreOutlineColours { get; set; }
+
     /// <summary>Gets or sets a value indicating whether form fields underline misspelled words.</summary>
     [Reactive]
     public partial bool CheckSpelling { get; set; }
@@ -257,6 +281,12 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         TimestampServer = settings.TimestampServer;
         CommentAuthor = settings.CommentAuthor;
         ReopenAtLastPage = settings.ReopenAtLastPage;
+        FollowOpenAction = settings.FollowOpenAction;
+        FollowPageMode = settings.FollowPageMode;
+        FollowPageLayout = settings.FollowPageLayout;
+        FollowDisplayDocTitle = settings.FollowDisplayDocTitle;
+        FollowPrintDefaults = settings.FollowPrintDefaults;
+        IgnoreOutlineColours = settings.IgnoreOutlineColours;
         CheckSpelling = settings.CheckSpelling;
         ShowPreviewOnlyFonts = settings.ShowPreviewOnlyFonts;
         AzureRegion = settings.AzureSpeechRegion;
@@ -297,6 +327,12 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     {
         Follow(this.WhenChanged(static x => x.CommentAuthor), author => settings.CommentAuthor = author);
         Follow(this.WhenChanged(static x => x.ReopenAtLastPage), reopen => settings.ReopenAtLastPage = reopen);
+        Follow(this.WhenChanged(static x => x.FollowOpenAction), follow => settings.FollowOpenAction = follow);
+        Follow(this.WhenChanged(static x => x.FollowPageMode), follow => settings.FollowPageMode = follow);
+        Follow(this.WhenChanged(static x => x.FollowPageLayout), follow => settings.FollowPageLayout = follow);
+        Follow(this.WhenChanged(static x => x.FollowDisplayDocTitle), follow => settings.FollowDisplayDocTitle = follow);
+        Follow(this.WhenChanged(static x => x.FollowPrintDefaults), follow => settings.FollowPrintDefaults = follow);
+        Follow(this.WhenChanged(static x => x.IgnoreOutlineColours), ignore => settings.IgnoreOutlineColours = ignore);
         Follow(this.WhenChanged(static x => x.CheckSpelling), check => settings.CheckSpelling = check);
         Follow(this.WhenChanged(static x => x.ShowPreviewOnlyFonts), show => settings.ShowPreviewOnlyFonts = show);
     }

@@ -14,6 +14,15 @@ namespace HyperPdf.Engine;
 /// <summary>Implements Navigation over the document's owned state.</summary>
 internal static class HyperPdfNavigation
 {
+    /// <summary>How far the red channel of 0xRRGGBB is shifted left.</summary>
+    private const int RedShift = 16;
+
+    /// <summary>How far the green channel of 0xRRGGBB is shifted left.</summary>
+    private const int GreenShift = 8;
+
+    /// <summary>The largest value of a colour channel.</summary>
+    private const float ChannelMax = 255F;
+
     /// <summary>Gets the size of every page in points of physical size (1/72 inch): the user space size times the page's <c>/UserUnit</c> (ISO 32000-2 7.7.3.3), without loading the pages.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The page sizes, indexed by page.</returns>
@@ -41,6 +50,7 @@ internal static class HyperPdfNavigation
             IsEncrypted = info.IsEncrypted,
             Integrity = IntegrityOf(PdfDocumentMac.GetIntegrity(self.Document)),
             IsLinearized = PdfDocumentLinearization.GetInfo(self.Document) is not null,
+            OpenHints = HyperPdfOpenHints.Read(self.Document),
             WrappedFileName = payload?.FileName,
             WrappedCryptographicFilter = payload?.CryptographicFilter,
         };
@@ -191,11 +201,26 @@ internal static class HyperPdfNavigation
         for (var i = 0; i < nodes.Length; i++)
         {
             var item = items[i];
-            nodes[i] = new(item.Title, LinkTargets.From(self.Document, item.Action), HyperPdfNavigation.ConvertOutline(self, item.Children), item.IsOpen) { Id = item.Id.Number };
+            nodes[i] = new(item.Title, LinkTargets.From(self.Document, item.Action), HyperPdfNavigation.ConvertOutline(self, item.Children), item.IsOpen)
+            {
+                Id = item.Id.Number,
+                Style = item.Style is { } style ? OutlineStyleOf(style) : null,
+            };
         }
 
         return nodes;
     }
+
+    /// <summary>Converts a bookmark's colour and flags.</summary>
+    /// <param name="style">The library's style, whose colour channels run from 0 to 1.</param>
+    /// <returns>The viewer's style, with the colour as 0xRRGGBB.</returns>
+    internal static OutlineStyle OutlineStyleOf(PdfBookmarkStyle style) =>
+        new((Channel(style.Red) << RedShift) | (Channel(style.Green) << GreenShift) | Channel(style.Blue), style.Bold, style.Italic);
+
+    /// <summary>Scales a colour channel from 0 to 1 up to a byte.</summary>
+    /// <param name="value">The channel.</param>
+    /// <returns>The byte.</returns>
+    internal static uint Channel(float value) => (uint)Math.Round(Math.Clamp(value, 0F, 1F) * ChannelMax);
 
     /// <summary>Converts the PDF MAC check to the viewer's integrity result.</summary>
     /// <param name="report">The library's report.</param>

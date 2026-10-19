@@ -23,6 +23,9 @@ public readonly record struct LayoutOptions(PageRotation Rotation, PageLayoutMod
     /// </summary>
     public bool PageByPage { get; init; }
 
+    /// <summary>Gets a value indicating whether a two page row reads right to left: the first page of the row sits on the right and a cover on the left.</summary>
+    public bool RightToLeft { get; init; }
+
     /// <summary>Gets the viewport height, used for page by page slots.</summary>
     public double ViewportHeight { get; init; }
 }

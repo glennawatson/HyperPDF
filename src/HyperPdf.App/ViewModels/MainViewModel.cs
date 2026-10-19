@@ -16,6 +16,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -79,6 +80,11 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
             .Do(LeaveActiveTab)
             .KeepNotNull()
             .SubscribeSafe(static tab => tab.IsSelected = true, ErrorTrace.Write));
+
+        // The window title follows the shown tab's name, which changes when its document loads.
+        _subscriptions.Add(this.WhenChanged(static x => x.SelectedTab)
+            .SwitchMap(static tab => tab is null ? Signal.Never<string>() : tab.WhenChanged(static t => t.WindowName))
+            .SubscribeSafe(_ => RaiseWindowTitle(), ErrorTrace.Write));
         _subscriptions.Add(this.WhenChanged(static x => x.PageToneEnabled).Skip(1).SubscribeSafe(ApplyPageTone, ErrorTrace.Write));
         _subscriptions.Add(Scope.Create(ReleaseTabs));
     }
@@ -141,7 +147,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Gets the window title.</summary>
-    public string WindowTitle => SelectedTab is { } tab ? $"{tab.Title} — Hyper PDF Viewer" : "Hyper PDF Viewer";
+    public string WindowTitle => SelectedTab is { } tab ? $"{tab.WindowName} — Hyper PDF Viewer" : "Hyper PDF Viewer";
 
     /// <summary>Gets or sets a value indicating whether pages are drawn in the comfort page colour rather than plain white.</summary>
     [Reactive]
@@ -516,6 +522,10 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
 
         _activeTab = next;
     }
+
+    /// <summary>Tells the window that its title changed.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void RaiseWindowTitle() => this.RaisePropertyChanged(nameof(WindowTitle));
 
     /// <summary>Releases the second view and every tab, like closing them: the pool drops each source, which closes its document and forgets its passwords.</summary>
     private void ReleaseTabs()

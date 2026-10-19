@@ -13,6 +13,7 @@ using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Navigation;
+using HyperPdf.Core.Printing;
 using HyperPdf.Core.Reading;
 using HyperPdf.Core.Rendering;
 using ReactiveUI;
@@ -111,6 +112,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         _services = services;
         FileName = Path.GetFileName(source.FilePath);
         Title = FileName;
+        WindowName = FileName;
         ZoomMode = services.Settings.DefaultZoomMode;
         LayoutMode = services.Settings.DefaultLayoutMode;
         SidebarVisible = services.Settings.ShowSidebar;
@@ -282,6 +284,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial string Title { get; private set; }
 
+    /// <summary>Gets the name the window shows for the document: its own title when it asks for that and the reader allows it, otherwise the file name.</summary>
+    [Reactive]
+    public partial string WindowName { get; private set; }
+
     /// <summary>Gets a value indicating whether the document has been opened at least once.</summary>
     [Reactive]
     public partial bool IsLoaded { get; private set; }
@@ -346,6 +352,13 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets or sets the page arrangement.</summary>
     [Reactive]
     public partial PageLayoutMode LayoutMode { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether two page spreads read right to left, as the document asks and the reader allows.</summary>
+    [Reactive]
+    public partial bool RightToLeft { get; set; }
+
+    /// <summary>Gets or sets the print defaults the document asks for and the reader allows, or <see langword="null"/> when the print window starts with the viewer's own.</summary>
+    public PrintDefaults? PrintDefaults { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a text cursor is moved through the page with the arrow keys (F7).</summary>
     [Reactive]
@@ -1110,6 +1123,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             Notice = $"This file contains an encrypted document named {wrappedName}. Open it from Attachments.";
         }
 
+        TabOpenHints.Apply(this, _services.Settings);
         IsLoaded = true;
         LayoutVersion++;
     }
@@ -1142,7 +1156,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         var sizes = Source.PageSizes;
         var title = Source.Metadata?.Title;
         Title = string.IsNullOrWhiteSpace(title) ? FileName : title;
-        Outline = OutlineItemViewModel.Create(Source.Outline);
+        WindowName = TabOpenHints.TitleOf(Source.Metadata, FileName, _services.Settings);
+        Outline = OutlineItemViewModel.Create(Source.Outline, _services.Settings.IgnoreOutlineColours);
 
         // A separation page's thumbnail names its colourant, so it is not mistaken for a page of its own.
         Separations.Load(DocumentFeature<ISeparationSource>.Get(document)?.GetSeparations() ?? DocumentSeparations.Empty, CurrentPageIndex);

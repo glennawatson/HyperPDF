@@ -36,6 +36,12 @@
     </Grid>
     <StackPanel Spacing="6">
       <CheckBox AutomationProperties.Name="Open documents at the last page read" x:Name="ReopenAtLastPageBox" views:ControlHelp.Text="{x:Static views:Descriptions.ReopenAtLastPage}" Content="Open documents at the last page read" />
+      <CheckBox AutomationProperties.Name="Follow the page a document opens at" x:Name="FollowOpenActionBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowOpenAction}" Content="Follow the page a document opens at" />
+      <CheckBox AutomationProperties.Name="Show the panel a document asks for" x:Name="FollowPageModeBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageMode}" Content="Show the panel a document asks for" />
+      <CheckBox AutomationProperties.Name="Use the page layout and direction a document asks for" x:Name="FollowPageLayoutBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageLayout}" Content="Use the page layout and direction a document asks for" />
+      <CheckBox AutomationProperties.Name="Show a document's own title when it asks" x:Name="FollowDisplayDocTitleBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowDisplayDocTitle}" Content="Show a document's own title when it asks" />
+      <CheckBox AutomationProperties.Name="Use the print choices a document asks for" x:Name="FollowPrintDefaultsBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPrintDefaults}" Content="Use the print choices a document asks for" />
+      <CheckBox AutomationProperties.Name="Ignore bookmark colours" x:Name="IgnoreOutlineColoursBox" views:ControlHelp.Text="{x:Static views:Descriptions.IgnoreOutlineColours}" Content="Ignore bookmark colours" />
       <CheckBox AutomationProperties.Name="Check spelling in form fields" x:Name="CheckSpellingBox" views:ControlHelp.Text="{x:Static views:Descriptions.CheckSpelling}" Content="Check spelling in form fields" />
       <CheckBox AutomationProperties.Name="Offer fonts that cannot be saved in PDFs" x:Name="PreviewOnlyFontsBox" views:ControlHelp.Text="{x:Static views:Descriptions.PreviewOnlyFonts}" Content="Offer fonts that cannot be saved in PDFs (shown on screen, saved as Helvetica, Times or Courier)" />
     </StackPanel>

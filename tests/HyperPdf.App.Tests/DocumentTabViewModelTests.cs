@@ -341,6 +341,7 @@ public sealed class DocumentTabViewModelTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(DocumentName, Pages)]);
         var tab = main.SelectedTab!;
+        var sidebarBefore = tab.SidebarMode;
 
         tab.Search.Open();
         tab.Search.Query = "lazy dog";
@@ -349,7 +350,7 @@ public sealed class DocumentTabViewModelTests
         await Assert.That(found).IsTrue();
         await Assert.That(tab.Search.CurrentIndex).IsEqualTo(0);
         await Assert.That(tab.Search.Status).IsEqualTo($"1 of {Pages}");
-        await Assert.That(tab.SidebarMode).IsEqualTo(SidebarMode.Thumbnails);
+        await Assert.That(tab.SidebarMode).IsEqualTo(sidebarBefore);
         _ = await tab.Search.NextCommand.Execute().ToTask();
         await Assert.That(tab.Search.CurrentIndex).IsEqualTo(1);
         _ = await tab.Search.PreviousCommand.Execute().ToTask();

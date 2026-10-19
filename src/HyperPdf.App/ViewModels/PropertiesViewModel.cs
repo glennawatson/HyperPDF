@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -48,7 +49,7 @@ public sealed partial class PropertiesViewModel : ReactiveObject
             Add(entries, "PDF version", metadata.FormatVersion);
             entries.Add(new(metadata.WrappedFileName is null ? "Encrypted" : "Wrapper encrypted", metadata.IsEncrypted ? "Yes" : "No"));
             Add(entries, "Integrity protection (PDF MAC)", metadata.Integrity?.Summary);
-            entries.Add(new("Linearized", metadata.IsLinearized ? "Yes" : "No"));
+            AddFileFacts(entries, metadata);
             Add(entries, "Encrypted file inside", metadata.WrappedFileName);
             Add(entries, "Cryptographic filter", metadata.WrappedCryptographicFilter);
         }
@@ -72,6 +73,15 @@ public sealed partial class PropertiesViewModel : ReactiveObject
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Close()
     {
+    }
+
+    /// <summary>Adds the rows that say how the file is built: whether it is linearized and whether it is a tagged PDF.</summary>
+    /// <param name="entries">The list.</param>
+    /// <param name="metadata">The document's metadata.</param>
+    private static void AddFileFacts(List<PropertyEntry> entries, DocumentMetadata metadata)
+    {
+        entries.Add(new("Linearized", metadata.IsLinearized ? "Yes" : "No"));
+        entries.Add(new("Tagged PDF", metadata.OpenHints.IsTagged ? "Yes" : "No"));
     }
 
     /// <summary>Adds a property when it has a value.</summary>
