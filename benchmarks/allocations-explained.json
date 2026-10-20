@@ -3863,5 +3863,280 @@
     "type": "System.Threading.Tasks.Task`1[HyperPdf.Media.LibavMediaPlayer+ProbeResult]",
     "frame": "HyperPdf.Media.LibavMediaPlayer.OpenAsync",
     "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Objects.PdfStream][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.CutPrograms",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Objects.PdfStream][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.FindPrograms",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Optimizing.CodeBitSet][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.GlyphsByFont",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Optimizing.CodeBitSet][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.Plan",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Optimizing.FontRename][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.Tag",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Optimizing.FontUser][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.FindPrograms",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,System.Collections.Generic.List`1[System.Int32]][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.FindPrograms",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32][]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildContent",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.SetBorderWidth",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfRectangle[]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfStream",
+    "frame": "HyperPdfLibrary.Optimizing.CffProgramSubsetter.Compress",
+    "reason": "The cut-down font program stream is the result stored in the saved document."
+  },
+  {
+    "type": "HyperPdfLibrary.Optimizing.CodeBitSet",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.RentBits",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "HyperPdfLibrary.Optimizing.CodeBitSet[]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Recycle",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "HyperPdfLibrary.Optimizing.FontPlanState",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Rent",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.ContentRedactor",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.PdfRedaction[]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.RedactMark",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.RedactMark[]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.RedactionTally",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Apply",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.ReusableSlots`1[HyperPdfLibrary.Optimizing.FontPlanState]",
+    "frame": "HyperPdfLibrary.Optimizing.OptimizerResources.Get",
+    "reason": "The pool belongs to the document's services and is made the first time a document is optimised."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.ReusableSlots`1[HyperPdfLibrary.Optimizing.FontUsageDevice]",
+    "frame": "HyperPdfLibrary.Optimizing.OptimizerResources.Get",
+    "reason": "The pool belongs to the document's services and is made the first time a document is optimised."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.PdfSemanticNode",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildContent",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.PdfSemanticNode",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildElement",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.PdfSemanticNode[]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.Build",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.PdfSemanticPage",
+    "frame": "HyperPdfLibrary.Structure.Tagged.PdfReadingStructure.ReadTagged",
+    "reason": "The builder and its resolver are made once for each page's structure read."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder",
+    "frame": "HyperPdfLibrary.Structure.Tagged.PdfReadingStructure.ReadTagged",
+    "reason": "The builder and its resolver are made once for each page's structure read."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.TaggedObjectResolver",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder..ctor",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "KeyValuePairComparer[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "Node[System.Collections.Generic.KeyValuePair`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "Node[System.Collections.Generic.KeyValuePair`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]][]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "RunState",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Apply",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.Objects.PdfStream]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.Optimizing.CodeBitSet]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.Optimizing.FontRename]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.Optimizing.FontUser]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,System.Collections.Generic.List`1[System.Int32]]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.HashSet`1[System.Int32]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildContent",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Objects.PdfRectangle]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Apply",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.RedactMark]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Structure.Tagged.PdfSemanticNode]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.PdfReadingStructure.ReadTagged",
+    "reason": "The builder and its resolver are made once for each page's structure read."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Int32][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Dispose",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.SortedDictionary`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.Stack`1[HyperPdfLibrary.Optimizing.CodeBitSet]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Stack`1[System.Collections.Generic.List`1[System.Int32]]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Stack`1[System.Collections.Generic.SortedSet`1+Node[System.Collections.Generic.KeyValuePair`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.TreeSet`1[System.Collections.Generic.KeyValuePair`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Annotations.PdfTrapNetworkPages.Visit",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildContent",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.AddBaselineLt",
+    "reason": "The finding's message is part of the report returned to the caller."
+  },
+  {
+    "type": "ValueCollection[System.Int32,HyperPdfLibrary.Optimizing.CodeBitSet]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Recycle",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "ValueCollection[System.Int32,System.Collections.Generic.List`1[System.Int32]]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Dispose",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Int32]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.RentList",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetter.Add",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
   }
 ]
