@@ -839,6 +839,26 @@ public static class TestPdf
         height = landscape ? PortraitWidth : PortraitHeight;
     }
 
+    /// <summary>Creates a one page document with a 3D annotation that holds U3D data, written in hexadecimal so the file stays text.</summary>
+    /// <param name="u3d">The U3D file's bytes.</param>
+    /// <returns>The PDF bytes.</returns>
+    public static byte[] CreateModelDocument(byte[] u3d)
+    {
+        ArgumentNullException.ThrowIfNull(u3d);
+        var hex = $"{Convert.ToHexString(u3d)}>";
+        var objects = new List<string>();
+        var catalog = Reserve(objects);
+        var pages = Reserve(objects);
+        var page = Reserve(objects);
+        var model = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Type /3D /Subtype /U3D /Filter /ASCIIHexDecode /Length {hex.Length} >>\nstream\n{hex}\nendstream"));
+        var annotation = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Type /Annot /Subtype /3D /Rect [72 500 300 700] /P {page} 0 R /Contents (Metal box) /3DD {model} 0 R >>"));
+        objects[page - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {PortraitWidth} {PortraitHeight}] /Annots [{annotation} 0 R] >>");
+        objects[pages - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{page} 0 R] /Count 1 >>");
+        objects[catalog - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Catalog /Pages {pages} 0 R >>");
+        var info = Add(objects, $"<< /Title (Model) /Author ({Author}) >>");
+        return Serialize(objects, catalog, info);
+    }
+
     /// <summary>
     /// Creates a one page document with a sound annotation (eight bit samples), a screen annotation whose rendition holds the
     /// clip <c>intro.mp4</c>, and a rich media annotation holding <c>talk.webm</c>. The media bytes are short stand-ins.

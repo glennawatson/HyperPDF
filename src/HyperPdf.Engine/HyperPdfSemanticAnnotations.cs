@@ -5,6 +5,8 @@
 using HyperPdf.Core.Reading;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Media;
+using HyperPdfLibrary.Media.U3d;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdf.Engine;
@@ -14,6 +16,9 @@ internal static class HyperPdfSemanticAnnotations
 {
     /// <summary>The most annotations read for a page.</summary>
     private const int MaxAnnotations = 1024;
+
+    /// <summary>The largest 3D stream read for its description, in encoded bytes.</summary>
+    private const int MaxModelBytes = 64 * 1024 * 1024;
 
     /// <summary>Adds the annotations of a page that have a description.</summary>
     /// <param name="self">The owning document.</param>
@@ -27,10 +32,20 @@ internal static class HyperPdfSemanticAnnotations
             return;
         }
 
+        var models = ThreeDStreams(self.Document, page);
+        var modelAt = 0;
         var count = Math.Min(annotations.Count, MaxAnnotations);
         for (var i = 0; i < count; i++)
         {
-            if (annotations.GetDictionary(i) is { } annotation && Describe(self.Document, page, annotation) is { } item)
+            if (annotations.GetDictionary(i) is not { } annotation)
+            {
+                continue;
+            }
+
+            var isModel = annotation.GetName(KnownName.Subtype).ToKnownName() == KnownName.ThreeD;
+            var item = isModel ? DescribeModel(self.Document, page, annotation, modelAt < models.Count ? models[modelAt] : null) : Describe(self.Document, page, annotation);
+            modelAt += isModel ? 1 : 0;
+            if (item is not null)
             {
                 items.Add(item);
             }
@@ -55,6 +70,47 @@ internal static class HyperPdfSemanticAnnotations
         KnownName.FileAttachment => "file attachment",
         _ => "annotation",
     };
+
+    /// <summary>Gets the 3D streams of a page's 3D annotations, in annotation order.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>One entry per 3D annotation; <see langword="null"/> where the annotation has no 3D stream.</returns>
+    private static List<Pdf3DStream?> ThreeDStreams(PdfDocument document, PdfPage page)
+    {
+        var streams = new List<Pdf3DStream?>();
+        foreach (var multimedia in PdfDocumentMedia.GetMultimediaAnnotations(document, page))
+        {
+            if (multimedia.Kind == PdfMultimediaKind.ThreeD)
+            {
+                streams.Add(multimedia.ThreeD?.Stream);
+            }
+        }
+
+        return streams;
+    }
+
+    /// <summary>Describes a 3D annotation: its own description when it has one, and what the model declares.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="annotation">The annotation.</param>
+    /// <param name="model">The annotation's 3D stream, or <see langword="null"/>.</param>
+    /// <returns>The item.</returns>
+    private static PageSemanticItem DescribeModel(PdfDocument document, PdfPage page, PdfDictionary annotation, Pdf3DStream? model) =>
+        new(
+            PageSemanticKind.Annotation,
+            annotation.GetText(KnownName.Contents) is { Length: > 0 } description ? description : "3D model",
+            HyperPdfAnnotationReading.ToPageRect(page, PdfAnnotations.GetRectangle(annotation)))
+        {
+            Role = "3D model",
+            Description = SummaryOf(model),
+            IsHidden = HyperPdfPageSemantics.IsHidden(document, annotation),
+        };
+
+    /// <summary>Describes what a 3D stream holds, reading only the structure of a U3D file.</summary>
+    /// <param name="model">The 3D stream, or <see langword="null"/>.</param>
+    /// <returns>The description, or <see langword="null"/> when the stream is not U3D or is too large to read.</returns>
+    private static string? SummaryOf(Pdf3DStream? model) =>
+        model is { Subtype: "U3D" } && model.Data.RawLength <= MaxModelBytes ? U3dSummary.Describe(U3dReader.Read(model.Data.DecodeToArray())) : null;
 
     /// <summary>Describes one annotation, or nothing for form widgets, pop-ups and annotations with no description.</summary>
     /// <param name="document">The document.</param>
