@@ -524,22 +524,60 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
 
         _scratch.Clear();
         editor.GetAnnotations(page, _scratch);
+
+        // Where annotations overlap the smallest one wins (the topmost on a tie), so a big shape never hides what is inside it.
+        PageAnnotation? best = null;
+        var bestArea = float.MaxValue;
         for (var i = _scratch.Count - 1; i >= 0; i--)
         {
-            var bounds = _scratch[i].Bounds;
-            var grown = PageRect.FromEdges(bounds.Left - HitTolerance, bounds.Top - HitTolerance, bounds.Right + HitTolerance, bounds.Bottom + HitTolerance);
-            if (grown.Contains(point))
+            var candidate = _scratch[i];
+            if (!IsHit(candidate, point))
             {
-                return _scratch[i];
+                continue;
             }
+
+            var area = candidate.Bounds.Width * candidate.Bounds.Height;
+            if (area >= bestArea)
+            {
+                continue;
+            }
+
+            best = candidate;
+            bestArea = area;
         }
 
-        return null;
+        return best;
     }
 
     /// <summary>Picks an annotation, or clears the pick.</summary>
     /// <param name="annotation">The annotation.</param>
     public void Select(PageAnnotation? annotation) => Selected = annotation;
+
+    /// <summary>
+    /// Determines whether a point picks an annotation. An unfilled closed shape is picked only near its outline, so the
+    /// empty inside leaves the text and annotations under it reachable.
+    /// </summary>
+    /// <param name="annotation">The annotation.</param>
+    /// <param name="point">The point in page space.</param>
+    /// <returns><see langword="true"/> when the point picks it.</returns>
+    private static bool IsHit(PageAnnotation annotation, PagePoint point)
+    {
+        var bounds = annotation.Bounds;
+        var grown = PageRect.FromEdges(bounds.Left - HitTolerance, bounds.Top - HitTolerance, bounds.Right + HitTolerance, bounds.Bottom + HitTolerance);
+        if (!grown.Contains(point))
+        {
+            return false;
+        }
+
+        if (annotation.Kind is not (AnnotationKind.Rectangle or AnnotationKind.Ellipse or AnnotationKind.Polygon or AnnotationKind.Cloud))
+        {
+            return true;
+        }
+
+        var band = HitTolerance + annotation.LineWidth;
+        var inner = PageRect.FromEdges(bounds.Left + band, bounds.Top + band, bounds.Right - band, bounds.Bottom - band);
+        return inner.Right <= inner.Left || inner.Bottom <= inner.Top || !inner.Contains(point);
+    }
 
     /// <summary>Writes a typed mark's text at the size that fills its bounds, as a signature.</summary>
     /// <param name="editor">The editor.</param>

@@ -3,7 +3,7 @@
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.RecentDocumentView">
   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Background="Transparent">
-    <Path Classes="icon" Data="{StaticResource IconDocument}" VerticalAlignment="Center" />
+    <Path Classes="icon nav" Data="{StaticResource IconDocument}" VerticalAlignment="Center" />
     <StackPanel Grid.Column="1">
       <TextBlock x:Name="NameText" />
       <TextBlock x:Name="FolderText" Classes="secondary" FontSize="11" TextTrimming="CharacterEllipsis" />

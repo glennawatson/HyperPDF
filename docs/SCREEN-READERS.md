@@ -9,6 +9,8 @@ HyperPDF provides names, descriptions and keyboard access for screen readers on 
 - Every button says its action. Buttons with only an icon still have a name.
 - List items say what they hold and their place, such as "Page 3 of 40" or "2 of 7".
 - Status messages and Read Aloud progress are announced without moving focus.
+- Picking an annotation with the Select tool is described on the page area, for example "Selected: Rectangle, yellow, on page 2". Delete removes it and the arrow keys move it. The Annotations list in the sidebar is the other way to pick one.
+- Menus are solid, bordered panels with an accent bar on the highlighted row, so they stay clear of the page behind them.
 
 ## Reading pages
 

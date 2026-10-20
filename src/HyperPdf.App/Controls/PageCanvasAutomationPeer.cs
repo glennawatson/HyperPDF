@@ -51,6 +51,9 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
     /// <summary>The name last reported.</summary>
     private string _name;
 
+    /// <summary>The help text last reported: the picked annotation, or an empty string.</summary>
+    private string _help = string.Empty;
+
     /// <summary>Initializes a new instance of the <see cref="PageCanvasAutomationPeer"/> class.</summary>
     /// <param name="owner">The page canvas.</param>
     public PageCanvasAutomationPeer(PageCanvas owner)
@@ -70,6 +73,15 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
             .Select(_ => GetName())
             .Where(name => !string.Equals(name, _name, StringComparison.Ordinal))
             .SubscribeSafe(AnnouncePage, ErrorTrace.Write);
+
+        // The picked annotation is the one thing on the page a screen reader cannot otherwise find, so a pick is said as help text.
+        _ = owner.WhenChanged(static x => x.Tab)
+            .SwitchMap(static tab => tab is null
+                ? Signal.Return(RxVoid.Default)
+                : tab.Annotations.WhenChanged(static x => x.Selected).AsVoid)
+            .Select(_ => DescribeSelection(Canvas.Tab))
+            .Where(help => !string.Equals(help, _help, StringComparison.Ordinal))
+            .SubscribeSafe(AnnounceSelection, ErrorTrace.Write);
     }
 
     /// <inheritdoc/>
@@ -96,6 +108,20 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
 
         var index = Math.Clamp(shown.CurrentPageIndex, 0, shown.PageCount - 1);
         return ItemAutomation.DescribePage(shown.GetPageDisplay(index), index, shown.PageCount);
+    }
+
+    /// <summary>Describes the picked annotation, for example "Selected: Rectangle, yellow, on page 2 (Delete removes it, arrow keys move it)".</summary>
+    /// <param name="tab">The tab shown, or <see langword="null"/>.</param>
+    /// <returns>The description, or an empty string when nothing is picked.</returns>
+    internal static string DescribeSelection(DocumentTabViewModel? tab)
+    {
+        if (tab?.Annotations.Selected is not { } picked)
+        {
+            return string.Empty;
+        }
+
+        var action = picked.IsMovable ? "Delete removes it, arrow keys move it" : "Delete removes it";
+        return $"Selected: {AnnotationNames.Get(picked.Kind)}, {AnnotationNames.GetColor(picked.Color)}, on page {picked.PageIndex + 1} ({action})";
     }
 
     /// <summary>Gets the canvas rectangle of a block on a page.</summary>
@@ -145,6 +171,9 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
         var name = base.GetNameCore();
         return string.IsNullOrWhiteSpace(name) ? Describe(Canvas.Tab) : name;
     }
+
+    /// <inheritdoc/>
+    protected override string? GetHelpTextCore() => _help.Length > 0 ? _help : base.GetHelpTextCore();
 
     /// <summary>Reads a page's text, in reading order when the document can describe its layout.</summary>
     /// <param name="tab">The tab.</param>
@@ -259,6 +288,15 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
         }
 
         return peers;
+    }
+
+    /// <summary>Tells assistive technology the picked annotation changed.</summary>
+    /// <param name="help">The new description, or an empty string when nothing is picked.</param>
+    private void AnnounceSelection(string help)
+    {
+        var oldHelp = _help;
+        _help = help;
+        RaisePropertyChangedEvent(AutomationElementIdentifiers.HelpTextProperty, oldHelp, help);
     }
 
     /// <summary>Tells assistive technology the page, and with it the name and the text, changed.</summary>

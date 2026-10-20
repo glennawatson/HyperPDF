@@ -7,16 +7,16 @@
     <StackPanel Orientation="Horizontal" Spacing="2">
       <TextBox x:Name="SearchBox" views:ControlHelp.Text="{x:Static views:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" Width="280" MinHeight="28" Padding="8,3" VerticalAlignment="Center" PlaceholderText="Find in document" />
       <ToggleButton AutomationProperties.Name="Match case" x:Name="MatchCaseToggle" views:ControlHelp.Text="{x:Static views:Descriptions.MatchCase}" Classes="tool">
-        <Path Classes="icon" Data="{StaticResource IconCase}" />
+        <Path Classes="icon nav" Data="{StaticResource IconCase}" />
       </ToggleButton>
       <ToggleButton AutomationProperties.Name="Whole words" x:Name="WholeWordToggle" views:ControlHelp.Text="{x:Static views:Descriptions.WholeWords}" Classes="tool">
-        <Path Classes="icon" Data="{StaticResource IconWholeWord}" />
+        <Path Classes="icon nav" Data="{StaticResource IconWholeWord}" />
       </ToggleButton>
       <ToggleButton AutomationProperties.Name="Ignore accents" x:Name="IgnoreAccentsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.IgnoreAccents}" Classes="tool">
-        <Path Classes="icon" Data="{StaticResource IconAccent}" />
+        <Path Classes="icon nav" Data="{StaticResource IconAccent}" />
       </ToggleButton>
       <ToggleButton AutomationProperties.Name="Similar characters" x:Name="SimilarCharactersToggle" views:ControlHelp.Text="{x:Static views:Descriptions.SimilarCharacters}" Classes="tool">
-        <Path Classes="icon" Data="{StaticResource IconSimilar}" />
+        <Path Classes="icon nav" Data="{StaticResource IconSimilar}" />
       </ToggleButton>
       <Button AutomationProperties.Name="Previous result" x:Name="PreviousResultButton" views:ControlHelp.Text="{x:Static views:Descriptions.PreviousResult}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageUp}" />
