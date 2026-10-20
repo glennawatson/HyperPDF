@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Media;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Objects;
@@ -23,19 +25,7 @@ internal static class HyperPdfDocumentMediaItems
     internal static IReadOnlyList<DocumentMedia> GetMedia(HyperPdfDocument self)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
-        if (self.IsDisposed)
-        {
-            return [];
-        }
-
-        var entries = Collect(self);
-        var media = new DocumentMedia[entries.Count];
-        for (var i = 0; i < media.Length; i++)
-        {
-            media[i] = entries[i].Info;
-        }
-
-        return media;
+        return self.IsDisposed ? [] : Cached(self).Media;
     }
 
     /// <summary>Writes one piece of media as a file.</summary>
@@ -52,31 +42,78 @@ internal static class HyperPdfDocumentMediaItems
             return false;
         }
 
-        var entries = Collect(self);
-        if ((uint)index >= (uint)entries.Count)
+        var entries = Cached(self).Entries;
+        if ((uint)index >= (uint)entries.Length)
         {
             return false;
         }
 
         var entry = entries[index];
-        var samples = entry.Data.DecodeToArray();
-        if (samples.Length == 0)
+        var output = default(PooledBuffer);
+        try
         {
-            return false;
+            _ = entry.Data.Decode(ref output);
+            if (output.Length == 0)
+            {
+                return false;
+            }
+
+            // The decoded bytes are a pooled copy that belongs to this call, so a sound's samples can be converted where they are.
+            Write(entry, MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(output.WrittenSpan), output.Length), destination);
+            return true;
+        }
+        finally
+        {
+            output.Dispose();
+        }
+    }
+
+    /// <summary>Writes decoded media: a sound as a WAVE file, anything else as it is.</summary>
+    /// <param name="entry">The media.</param>
+    /// <param name="bytes">The decoded bytes, a private copy that can be changed.</param>
+    /// <param name="destination">Receives the file.</param>
+    private static void Write(MediaEntry entry, Span<byte> bytes, Stream destination)
+    {
+        if (entry.Sound is { } sound)
+        {
+            HyperPdfSoundWave.Write(sound, bytes, destination);
+            return;
         }
 
-        destination.Write(entry.Sound is { } sound ? HyperPdfSoundWave.Build(sound, samples) : samples);
-        return true;
+        destination.Write(bytes);
+    }
+
+    /// <summary>Gets the media of the document, found again only when the library gives a new snapshot of the annotations after an edit.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <returns>The media.</returns>
+    private static MediaCache Cached(HyperPdfDocument self)
+    {
+        var snapshot = PdfDocumentMedia.GetMultimediaAnnotations(self.Document);
+        if (Volatile.Read(ref self.Media) is { } cached && ReferenceEquals(cached.Source, snapshot))
+        {
+            return cached;
+        }
+
+        var entries = Collect(snapshot);
+        var media = new DocumentMedia[entries.Count];
+        for (var i = 0; i < media.Length; i++)
+        {
+            media[i] = entries[i].Info;
+        }
+
+        var made = new MediaCache(snapshot, [.. entries], media);
+        Volatile.Write(ref self.Media, made);
+        return made;
     }
 
     /// <summary>Gathers the media of every multimedia annotation.</summary>
-    /// <param name="self">The owning document.</param>
+    /// <param name="annotations">The multimedia annotations.</param>
     /// <returns>The entries, numbered in order.</returns>
-    private static List<MediaEntry> Collect(HyperPdfDocument self)
+    private static List<MediaEntry> Collect(PdfMultimediaAnnotation[] annotations)
     {
         var entries = new List<MediaEntry>();
         var seen = new HashSet<int>();
-        foreach (var annotation in PdfDocumentMedia.GetMultimediaAnnotations(self.Document))
+        foreach (var annotation in annotations)
         {
             switch (annotation)
             {

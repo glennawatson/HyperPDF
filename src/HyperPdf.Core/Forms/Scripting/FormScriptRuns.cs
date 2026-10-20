@@ -79,7 +79,7 @@ public static class FormScriptRuns
     /// <param name="outcome">What the program did.</param>
     /// <param name="message">Why the value is refused; empty when it is accepted.</param>
     /// <returns><see langword="true"/> when the value is accepted.</returns>
-    private static bool Accepted(FormScriptOutcome outcome, out string message)
+    private static bool Accepted(in FormScriptOutcome outcome, out string message)
     {
         var accepted = !outcome.Completed || outcome.Accepted;
         message = outcome.Message.Length > 0 ? outcome.Message : DefaultRefusal;

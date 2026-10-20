@@ -28,6 +28,9 @@ public sealed class U3dReaderTests
     /// <summary>The problems the extension test file has: one other file, one unknown block type.</summary>
     private const int ExtensionProblems = 2;
 
+    /// <summary>The nodes of the scene that is too large for the small-scene check.</summary>
+    private const int LargeScene = 100;
+
     /// <summary>The seed for the corruption test, so it repeats.</summary>
     private const uint Seed = 20_261_020;
 
@@ -162,6 +165,24 @@ public sealed class U3dReaderTests
 
         await Assert.That(U3dReader.Read(loop).Problems.Single()).Contains("loop");
         await Assert.That(U3dReader.Read(Scene()).IsComplete).IsTrue();
+    }
+
+    /// <summary>A scene larger than the small-scene path is checked the same way: a long chain is a tree, and closing it into a ring is a loop.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task FindsLoopsInALargeScene()
+    {
+        var chain = new U3dBuilder();
+        var ring = new U3dBuilder();
+        for (var i = 0; i < LargeScene; i++)
+        {
+            var parents = i == 0 ? Array.Empty<string>() : new[] { $"N{i - 1}" };
+            _ = chain.Add(U3dBuilder.Block((uint)U3dBlockType.GroupNode, U3dBuilder.NodeData($"N{i}", parents, [])));
+            _ = ring.Add(U3dBuilder.Block((uint)U3dBlockType.GroupNode, U3dBuilder.NodeData($"N{i}", [$"N{(i + LargeScene - 1) % LargeScene}"], [])));
+        }
+
+        await Assert.That(U3dReader.Read(chain.ToArray()).IsComplete).IsTrue();
+        await Assert.That(U3dReader.Read(ring.ToArray()).Problems.Single()).Contains("loop");
     }
 
     /// <summary>Extensions, other files and block types the file does not define are noted and never followed.</summary>

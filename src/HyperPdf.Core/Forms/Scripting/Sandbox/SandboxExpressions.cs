@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 
 namespace HyperPdf.Core.Forms.Scripting.Sandbox;
@@ -34,7 +35,8 @@ internal static class SandboxExpressions
     /// <param name="context">The run.</param>
     /// <returns>The value.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static SandboxValue Name(SandboxNode node, SandboxContext context) => context.Lookup(node.Text);
+    internal static SandboxValue Name(SandboxNode node, SandboxContext context) =>
+        node.Number >= 0 ? context.Variable((int)node.Number) : context.Global(node.Text);
 
     /// <summary>Reads a property.</summary>
     /// <param name="node">The member read: the object.</param>
@@ -78,18 +80,24 @@ internal static class SandboxExpressions
         }
 
         var receiver = callee.Kind == SandboxNodeKind.Member ? SandboxInterpreter.Evaluate(callee.Children[0], context) : SandboxValue.Undefined;
-        var arguments = new SandboxValue[node.Children.Length - 1];
-        for (var i = 0; i < arguments.Length; i++)
+        var count = node.Children.Length - 1;
+        if (count == 0)
         {
-            arguments[i] = SandboxInterpreter.Evaluate(node.Children[i + 1], context);
+            return Dispatch(callee, receiver, default);
         }
 
-        if (callee.Kind == SandboxNodeKind.Name)
+        // The arguments live in a pooled array, which is cleared on return so it does not keep objects alive.
+        var rented = ArrayPool<SandboxValue>.Shared.Rent(count);
+        try
         {
-            return SandboxPrimitives.CallGlobal(callee.Text, arguments);
+            var arguments = rented.AsSpan(0, count);
+            EvaluateArguments(node, arguments, context);
+            return Dispatch(callee, receiver, arguments);
         }
-
-        return receiver.AsObject() is { } owner ? owner.Call(callee.Text, arguments) : SandboxPrimitives.Call(receiver, callee.Text, arguments);
+        finally
+        {
+            ArrayPool<SandboxValue>.Shared.Return(rented, true);
+        }
     }
 
     /// <summary>Applies <c>!</c>, <c>-</c>, <c>+</c> or <c>typeof</c>.</summary>
@@ -157,7 +165,7 @@ internal static class SandboxExpressions
         if (node.Text != "=")
         {
             var current = SandboxInterpreter.Evaluate(node.Children[0], context);
-            value = SandboxOperators.Apply(node.Text[..^1], current, value);
+            value = SandboxOperators.Apply(SandboxOperators.BaseOf(node.Text), current, value);
         }
 
         SandboxAssignment.Store(node.Children[0], value, context);
@@ -177,6 +185,33 @@ internal static class SandboxExpressions
         }
 
         return SandboxValue.Of(array);
+    }
+
+    /// <summary>Evaluates the arguments of a call.</summary>
+    /// <param name="node">The call: the callee and then the arguments.</param>
+    /// <param name="arguments">Receives the argument values.</param>
+    /// <param name="context">The run.</param>
+    private static void EvaluateArguments(SandboxNode node, Span<SandboxValue> arguments, SandboxContext context)
+    {
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            arguments[i] = SandboxInterpreter.Evaluate(node.Children[i + 1], context);
+        }
+    }
+
+    /// <summary>Calls a global function, or a method of an object or of text.</summary>
+    /// <param name="callee">The callee node: a name or a member.</param>
+    /// <param name="receiver">The value the method is called on.</param>
+    /// <param name="arguments">The arguments.</param>
+    /// <returns>The result.</returns>
+    private static SandboxValue Dispatch(SandboxNode callee, SandboxValue receiver, ReadOnlySpan<SandboxValue> arguments)
+    {
+        if (callee.Kind == SandboxNodeKind.Name)
+        {
+            return SandboxPrimitives.CallGlobal(callee.Text, arguments);
+        }
+
+        return receiver.AsObject() is { } owner ? owner.Call(callee.Text, arguments) : SandboxPrimitives.Call(receiver, callee.Text, arguments);
     }
 
     /// <summary>Names the kind of a value as <c>typeof</c> does.</summary>

@@ -5,11 +5,13 @@
 using System.Buffers;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace HyperPdf.Core.Forms.Scripting.Sandbox;
 
-/// <summary>Writes text as <c>util.printf</c> does: <c>%d</c>, <c>%f</c>, <c>%s</c>, <c>%x</c>, widths, precisions and the <c>,0</c> to <c>,3</c> thousands styles.</summary>
+/// <summary>
+/// Writes text as <c>util.printf</c> does: <c>%d</c>, <c>%f</c>, <c>%s</c>, <c>%x</c>, widths, precisions and the <c>,0</c> to
+/// <c>,3</c> thousands styles. Numbers are written into stack space, so the only allocation is the result.
+/// </summary>
 internal static class SandboxPrintf
 {
     /// <summary>The digits in a group of thousands.</summary>
@@ -33,8 +35,20 @@ internal static class SandboxPrintf
     /// <summary>The base of the numbers in a format.</summary>
     private const int DecimalBase = 10;
 
+    /// <summary>The characters of stack space for a number; a longer number is written on the heap.</summary>
+    private const int Scratch = 384;
+
+    /// <summary>The most characters a number can gain from thousands separators and a sign.</summary>
+    private const int Growth = 140;
+
+    /// <summary>The precisions whose .NET format is made once.</summary>
+    private const int CachedFormats = 21;
+
     /// <summary>The characters that can come before a width: the flags.</summary>
     private static readonly SearchValues<char> FlagCharacters = SearchValues.Create("-0+ ,");
+
+    /// <summary>The .NET fixed-point formats for the precisions 0 to 20.</summary>
+    private static readonly string[] FixedFormats = MakeFormats();
 
     /// <summary>Writes the arguments into the format.</summary>
     /// <param name="format">The format text.</param>
@@ -42,14 +56,14 @@ internal static class SandboxPrintf
     /// <returns>The text.</returns>
     internal static string Format(string format, ReadOnlySpan<SandboxValue> arguments)
     {
-        var text = new StringBuilder(format.Length);
+        var output = new DefaultInterpolatedStringHandler(format.Length, 0, CultureInfo.InvariantCulture);
         var next = 0;
         var at = 0;
         while (at < format.Length)
         {
             if (format[at] != '%')
             {
-                _ = text.Append(format[at]);
+                output.AppendFormatted(format[at]);
                 at++;
                 continue;
             }
@@ -57,11 +71,29 @@ internal static class SandboxPrintf
             var spec = ReadSpec(format, ref at);
             var argument = spec.Conversion != '%' && next < arguments.Length ? arguments[next] : SandboxValue.Undefined;
             next += spec.Conversion == '%' ? 0 : 1;
-            _ = text.Append(Pad(spec, Convert(spec, argument)));
+            Write(ref output, spec, argument);
         }
 
-        return text.ToString();
+        return output.ToStringAndClear();
     }
+
+    /// <summary>Makes the fixed-point formats once.</summary>
+    /// <returns>The formats, by precision.</returns>
+    private static string[] MakeFormats()
+    {
+        var formats = new string[CachedFormats];
+        for (var i = 0; i < formats.Length; i++)
+        {
+            formats[i] = string.Create(CultureInfo.InvariantCulture, $"F{i}");
+        }
+
+        return formats;
+    }
+
+    /// <summary>Gets the .NET fixed-point format for a precision.</summary>
+    /// <param name="precision">The decimals.</param>
+    /// <returns>The format.</returns>
+    private static string FixedFormat(int precision) => precision < FixedFormats.Length ? FixedFormats[precision] : string.Create(CultureInfo.InvariantCulture, $"F{precision}");
 
     /// <summary>Reads one conversion, from its <c>%</c> to its letter.</summary>
     /// <param name="format">The format text.</param>
@@ -134,85 +166,167 @@ internal static class SandboxPrintf
         return value;
     }
 
-    /// <summary>Writes one value as its conversion asks.</summary>
+    /// <summary>Writes one value as its conversion asks, padded to the width.</summary>
+    /// <param name="output">Receives the text.</param>
     /// <param name="spec">The conversion.</param>
     /// <param name="argument">The value.</param>
-    /// <returns>The text, without padding.</returns>
-    private static string Convert(PrintfSpec spec, SandboxValue argument) => spec.Conversion switch
+    private static void Write(ref DefaultInterpolatedStringHandler output, PrintfSpec spec, SandboxValue argument)
     {
-        'd' or 'i' => Signed(spec, Separate(spec, Math.Truncate(argument.ToNumber()).ToString("F0", CultureInfo.InvariantCulture))),
-        'f' => Signed(spec, Separate(spec, argument.ToNumber().ToString(FixedFormat(spec.Precision < 0 ? DefaultPrecision : spec.Precision), CultureInfo.InvariantCulture))),
-        'x' => ((long)Math.Truncate(argument.ToNumber())).ToString("x", CultureInfo.InvariantCulture),
-        'X' => ((long)Math.Truncate(argument.ToNumber())).ToString("X", CultureInfo.InvariantCulture),
-        's' => spec.Precision >= 0 && spec.Precision < argument.ToText().Length ? argument.ToText()[..spec.Precision] : argument.ToText(),
-        '%' => "%",
-        _ => string.Empty,
-    };
-
-    /// <summary>Makes the .NET format of a number with a fixed count of decimals.</summary>
-    /// <param name="precision">The decimals.</param>
-    /// <returns>The format.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string FixedFormat(int precision) => string.Create(CultureInfo.InvariantCulture, $"F{precision}");
-
-    /// <summary>Puts a plus sign in front of a non-negative number when the conversion asks.</summary>
-    /// <param name="spec">The conversion.</param>
-    /// <param name="digits">The number as text.</param>
-    /// <returns>The text.</returns>
-    private static string Signed(PrintfSpec spec, string digits) => spec.Plus && !digits.StartsWith('-') ? $"+{digits}" : digits;
-
-    /// <summary>Applies a <c>,0</c> to <c>,3</c> thousands style to a plain number.</summary>
-    /// <param name="spec">The conversion.</param>
-    /// <param name="number">The number written with a point for decimals.</param>
-    /// <returns>The number with the style's separators.</returns>
-    private static string Separate(PrintfSpec spec, string number)
-    {
-        if (spec.Separator < 0 || spec.Separator > NoneCommaStyle)
-        {
-            return number;
-        }
-
-        var point = number.IndexOf('.', StringComparison.Ordinal);
-        var whole = point < 0 ? number : number[..point];
-        var fraction = point < 0 ? string.Empty : number[(point + 1)..];
-        var groups = spec.Separator is CommaPointStyle or PointCommaStyle ? Group(whole, spec.Separator == CommaPointStyle ? ',' : '.') : whole;
-        var decimalMark = spec.Separator >= PointCommaStyle ? ',' : '.';
-        return fraction.Length == 0 ? groups : groups + decimalMark + fraction;
+        Span<char> plain = stackalloc char[Scratch];
+        Span<char> grouped = stackalloc char[Scratch + Growth];
+        var body = Body(spec, argument, plain, grouped);
+        Pad(ref output, spec, body);
     }
 
-    /// <summary>Puts a separator between each group of three digits.</summary>
-    /// <param name="whole">The whole part, with an optional minus sign.</param>
-    /// <param name="separator">The separator.</param>
-    /// <returns>The grouped text.</returns>
-    private static string Group(string whole, char separator)
+    /// <summary>Makes the text of one value, before padding.</summary>
+    /// <param name="spec">The conversion.</param>
+    /// <param name="argument">The value.</param>
+    /// <param name="plain">Space for the number.</param>
+    /// <param name="grouped">Space for the number with thousands separators.</param>
+    /// <returns>The text, in one of the spaces or the value's own text.</returns>
+    private static ReadOnlySpan<char> Body(PrintfSpec spec, SandboxValue argument, Span<char> plain, Span<char> grouped)
     {
-        var sign = whole.StartsWith('-') ? 1 : 0;
-        var text = new StringBuilder(whole.Length + (whole.Length / GroupSize));
-        for (var i = 0; i < whole.Length; i++)
+        switch (spec.Conversion)
         {
-            if (i > sign && (whole.Length - i) % GroupSize == 0)
+            case 'd' or 'i':
             {
-                _ = text.Append(separator);
+                return Number(spec, Math.Truncate(argument.ToNumber()), "F0", plain, grouped);
             }
 
-            _ = text.Append(whole[i]);
-        }
+            case 'f':
+            {
+                return Number(spec, argument.ToNumber(), FixedFormat(spec.Precision < 0 ? DefaultPrecision : spec.Precision), plain, grouped);
+            }
 
-        return text.ToString();
+            case 'x' or 'X':
+            {
+                return ((long)Math.Truncate(argument.ToNumber())).TryFormat(plain, out var written, spec.Conversion == 'x' ? "x" : "X", CultureInfo.InvariantCulture)
+                    ? plain[..written]
+                    : default;
+            }
+
+            case 's':
+            {
+                var text = argument.ToText();
+                return spec.Precision >= 0 && spec.Precision < text.Length ? text.AsSpan(0, spec.Precision) : text;
+            }
+
+            case '%':
+            {
+                return "%";
+            }
+
+            default:
+            {
+                return default;
+            }
+        }
     }
 
-    /// <summary>Pads a converted value to the width.</summary>
+    /// <summary>Writes a number in a fixed-point format, with a sign and thousands separators when asked.</summary>
     /// <param name="spec">The conversion.</param>
-    /// <param name="text">The converted value.</param>
-    /// <returns>The padded text.</returns>
-    private static string Pad(PrintfSpec spec, string text)
+    /// <param name="value">The number.</param>
+    /// <param name="format">The .NET format.</param>
+    /// <param name="plain">Space for the number.</param>
+    /// <param name="grouped">Space for the number with thousands separators.</param>
+    /// <returns>The text.</returns>
+    private static ReadOnlySpan<char> Number(PrintfSpec spec, double value, string format, Span<char> plain, Span<char> grouped)
     {
-        if (text.Length >= spec.Width)
+        // The number starts one place in, so a plus sign can go in front of it.
+        if (!value.TryFormat(plain[1..], out var written, format, CultureInfo.InvariantCulture))
         {
-            return text;
+            return value.ToString(format, CultureInfo.InvariantCulture);
         }
 
-        return spec.Left ? text.PadRight(spec.Width) : text.PadLeft(spec.Width, spec.Zero && spec.Conversion != 's' ? '0' : ' ');
+        var start = spec.Plus && plain[1] != '-' ? 0 : 1;
+        plain[0] = '+';
+        var number = plain.Slice(start, written + 1 - start);
+        return spec.Separator is >= CommaPointStyle and <= NoneCommaStyle && number.Length + Growth <= grouped.Length ? Separate(spec.Separator, number, grouped) : number;
+    }
+
+    /// <summary>Applies a <c>,0</c> to <c>,3</c> thousands style to a plain number.</summary>
+    /// <param name="style">The style, 0 to 3.</param>
+    /// <param name="number">The number written with a point for decimals, perhaps with a sign.</param>
+    /// <param name="destination">Space for the result.</param>
+    /// <returns>The number with the style's separators.</returns>
+    private static ReadOnlySpan<char> Separate(int style, ReadOnlySpan<char> number, Span<char> destination)
+    {
+        var point = number.IndexOf('.');
+        var written = GroupWhole(style, point < 0 ? number : number[..point], destination);
+        if (point >= 0)
+        {
+            destination[written] = style >= PointCommaStyle ? ',' : '.';
+            written++;
+            number[(point + 1)..].CopyTo(destination[written..]);
+            written += number.Length - point - 1;
+        }
+
+        return destination[..written];
+    }
+
+    /// <summary>Writes the whole part of a number, with a separator between each group of three digits when the style asks.</summary>
+    /// <param name="style">The style, 0 to 3.</param>
+    /// <param name="whole">The whole part, perhaps with a sign.</param>
+    /// <param name="destination">Space for the result.</param>
+    /// <returns>The characters written.</returns>
+    private static int GroupWhole(int style, ReadOnlySpan<char> whole, Span<char> destination)
+    {
+        var signs = SignLength(whole);
+        var groups = style is CommaPointStyle or PointCommaStyle;
+        var thousands = style == CommaPointStyle ? ',' : '.';
+        var written = 0;
+        for (var i = 0; i < whole.Length; i++)
+        {
+            if (groups && i > signs && (whole.Length - i) % GroupSize == 0)
+            {
+                destination[written] = thousands;
+                written++;
+            }
+
+            destination[written] = whole[i];
+            written++;
+        }
+
+        return written;
+    }
+
+    /// <summary>Writes text padded to the width.</summary>
+    /// <param name="output">Receives the text.</param>
+    /// <param name="spec">The conversion.</param>
+    /// <param name="body">The text.</param>
+    private static void Pad(ref DefaultInterpolatedStringHandler output, PrintfSpec spec, scoped ReadOnlySpan<char> body)
+    {
+        var missing = Math.Max(spec.Width - body.Length, 0);
+        if (spec.Left)
+        {
+            output.AppendFormatted(body);
+            Fill(ref output, ' ', missing);
+            return;
+        }
+
+        // Zeros go after a sign, never before it.
+        var zeros = spec.Zero && spec.Conversion != 's';
+        var sign = zeros ? SignLength(body) : 0;
+        output.AppendFormatted(body[..sign]);
+        Fill(ref output, zeros ? '0' : ' ', missing);
+        output.AppendFormatted(body[sign..]);
+    }
+
+    /// <summary>Gets the length of the sign at the start of a number.</summary>
+    /// <param name="number">The text.</param>
+    /// <returns>1 when the text starts with a sign, otherwise 0.</returns>
+    private static int SignLength(ReadOnlySpan<char> number) => !number.IsEmpty && number[0] is '-' or '+' ? 1 : 0;
+
+    /// <summary>Writes a character several times.</summary>
+    /// <param name="output">Receives the text.</param>
+    /// <param name="c">The character.</param>
+    /// <param name="count">How many times.</param>
+    private static void Fill(ref DefaultInterpolatedStringHandler output, char c, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            output.AppendFormatted(c);
+        }
     }
 
     /// <summary>One conversion of a format: <c>%-08.2f</c> and so on.</summary>

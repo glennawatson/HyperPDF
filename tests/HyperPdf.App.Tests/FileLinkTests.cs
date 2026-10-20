@@ -159,8 +159,10 @@ public sealed class FileLinkTests
         var tab = main.SelectedTab!;
 
         await Assert.That(await UiWait.UntilAsync(() => tab.Notices.ContentWarning is not null)).IsTrue();
+
+        // The fixture's portfolio has collection data, which the attachments panel shows, so it is not a warning.
         const UnsupportedContent everything = UnsupportedContent.XfaForm | UnsupportedContent.JavaScript | UnsupportedContent.Multimedia
-            | UnsupportedContent.ThreeD | UnsupportedContent.Portfolio;
+            | UnsupportedContent.ThreeD;
         await Assert.That(tab.Notices.UnsupportedContent).IsEqualTo(everything);
         await Assert.That(tab.Notices.ContentWarning).Contains("an XFA form");
         _ = await tab.Notices.DismissContentWarningCommand.Execute().ToTask();

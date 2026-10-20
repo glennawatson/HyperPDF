@@ -31,6 +31,19 @@ internal static class SandboxOperators
         _ => throw new SandboxException($"The script uses the operator '{symbol}', which form scripts cannot use."),
     };
 
+    /// <summary>Gets the operator a compound assignment applies, such as <c>+</c> for <c>+=</c>, without making a new string.</summary>
+    /// <param name="compound">The compound assignment operator.</param>
+    /// <returns>The operator.</returns>
+    /// <exception cref="SandboxException">The operator is not one the sandbox has.</exception>
+    internal static string BaseOf(string compound) => compound switch
+    {
+        "+=" => "+",
+        "-=" => "-",
+        "*=" => "*",
+        "/=" => "/",
+        _ => throw new SandboxException($"The script uses the operator '{compound}', which form scripts cannot use."),
+    };
+
     /// <summary>Compares two values for strict equality: same kind and same value.</summary>
     /// <param name="left">The left value.</param>
     /// <param name="right">The right value.</param>

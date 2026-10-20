@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace HyperPdf.Core.Forms.Scripting.Sandbox;
 
 /// <summary>
@@ -23,41 +25,18 @@ internal static class SandboxValidator
     /// <summary>Refuses a script that uses a name or method the sandbox does not have.</summary>
     /// <param name="root">The parsed script.</param>
     /// <exception cref="SandboxException">The script uses something the sandbox does not have.</exception>
-    internal static void Check(SandboxNode root)
-    {
-        var declared = new HashSet<string>(StringComparer.Ordinal);
-        Collect(root, declared);
-        Verify(root, declared);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Check(SandboxNode root) => Verify(root);
 
-    /// <summary>Gathers the variables a script declares or assigns, wherever they come in the script.</summary>
+    /// <summary>
+    /// Checks the names and calls of a node and the nodes below it. A name is a variable when the parser gave it a place, that is
+    /// when the script declared it or assigned to it earlier in the text; otherwise it must be one of the objects the sandbox has.
+    /// </summary>
     /// <param name="node">The node.</param>
-    /// <param name="declared">Receives the names.</param>
-    private static void Collect(SandboxNode node, HashSet<string> declared)
-    {
-        if (node.Kind == SandboxNodeKind.Declare)
-        {
-            _ = declared.Add(node.Text);
-        }
-
-        if (node.Kind is SandboxNodeKind.Assign or SandboxNodeKind.Update && node.Children[0].Kind == SandboxNodeKind.Name)
-        {
-            _ = declared.Add(node.Children[0].Text);
-        }
-
-        foreach (var child in node.Children)
-        {
-            Collect(child, declared);
-        }
-    }
-
-    /// <summary>Checks the names and calls of a node and the nodes below it.</summary>
-    /// <param name="node">The node.</param>
-    /// <param name="declared">The variables the script declares.</param>
     /// <exception cref="SandboxException">The script uses something the sandbox does not have.</exception>
-    private static void Verify(SandboxNode node, HashSet<string> declared)
+    private static void Verify(SandboxNode node)
     {
-        if (node.Kind == SandboxNodeKind.Name && !declared.Contains(node.Text) && Array.IndexOf(Roots, node.Text) < 0)
+        if (node.Kind == SandboxNodeKind.Name && node.Number < 0 && Array.IndexOf(Roots, node.Text) < 0)
         {
             throw new SandboxException($"The script uses '{node.Text}', which is not available to form scripts.");
         }
@@ -65,7 +44,7 @@ internal static class SandboxValidator
         var first = 0;
         if (node.Kind == SandboxNodeKind.Call)
         {
-            VerifyCall(node.Children[0], declared);
+            VerifyCall(node.Children[0]);
 
             // The name of a global function is checked as a callee, and is not a variable.
             first = node.Children[0].Kind == SandboxNodeKind.Name ? 1 : 0;
@@ -73,22 +52,21 @@ internal static class SandboxValidator
 
         for (var i = first; i < node.Children.Length; i++)
         {
-            Verify(node.Children[i], declared);
+            Verify(node.Children[i]);
         }
     }
 
     /// <summary>Checks the callee of a call.</summary>
     /// <param name="callee">The callee node.</param>
-    /// <param name="declared">The variables the script declares.</param>
     /// <exception cref="SandboxException">The callee is not a function or method the sandbox has.</exception>
-    private static void VerifyCall(SandboxNode callee, HashSet<string> declared)
+    private static void VerifyCall(SandboxNode callee)
     {
-        if (callee.Kind == SandboxNodeKind.Name && Array.IndexOf(Functions, callee.Text) < 0)
+        if (callee.Kind == SandboxNodeKind.Name && (callee.Number >= 0 || Array.IndexOf(Functions, callee.Text) < 0))
         {
             throw new SandboxException($"The script calls {callee.Text}, which form scripts cannot use.");
         }
 
-        if (callee.Kind == SandboxNodeKind.Member && callee.Children[0] is { Kind: SandboxNodeKind.Name } owner && !declared.Contains(owner.Text) && !Allows(owner.Text, callee.Text))
+        if (callee.Kind == SandboxNodeKind.Member && callee.Children[0] is { Kind: SandboxNodeKind.Name, Number: < 0 } owner && !Allows(owner.Text, callee.Text))
         {
             throw new SandboxException($"The script calls {owner.Text}.{callee.Text}, which form scripts cannot use.");
         }

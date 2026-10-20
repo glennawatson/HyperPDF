@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Reading;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
@@ -16,6 +16,45 @@ internal static class HyperPdfSemanticFields
 {
     /// <summary>The most parents followed when looking for a field's tooltip, so a damaged cycle ends.</summary>
     private const int MaxDepth = 32;
+
+    /// <summary>The flag for a required field.</summary>
+    private const int RequiredBit = 1;
+
+    /// <summary>The flag for a read-only field.</summary>
+    private const int ReadOnlyBit = 2;
+
+    /// <summary>The flag for a text field of several lines.</summary>
+    private const int MultilineBit = 4;
+
+    /// <summary>The combinations of the three flags.</summary>
+    private const int StateFlagCombinations = 8;
+
+    /// <summary>The check state of a field that cannot be ticked.</summary>
+    private const int NoBox = 0;
+
+    /// <summary>The check state of a ticked box.</summary>
+    private const int CheckedBox = 1;
+
+    /// <summary>The check state of a box that is not ticked.</summary>
+    private const int NotCheckedBox = 2;
+
+    /// <summary>The flag for bold text.</summary>
+    private const int BoldBit = 1;
+
+    /// <summary>The flag for italic text.</summary>
+    private const int ItalicBit = 2;
+
+    /// <summary>The flag for underlined text.</summary>
+    private const int UnderlineBit = 4;
+
+    /// <summary>The flag for struck-out text.</summary>
+    private const int StrikeBit = 8;
+
+    /// <summary>The words for each state of a field, made once: the check state times eight plus the flags.</summary>
+    private static readonly string?[] States = MakeStates();
+
+    /// <summary>The words for each combination of text styles, made once.</summary>
+    private static readonly string[] Styles = MakeStyles();
 
     /// <summary>Adds the form fields of a page.</summary>
     /// <param name="self">The owning document.</param>
@@ -58,16 +97,9 @@ internal static class HyperPdfSemanticFields
     /// <returns>The state, or <see langword="null"/> when it has nothing to say.</returns>
     internal static string? StateOf(PdfFormWidget widget)
     {
-        var state = new StringBuilder();
-        if (widget.Type is PdfFieldType.CheckBox or PdfFieldType.RadioButton)
-        {
-            _ = state.Append(widget.IsChecked ? "checked" : "not checked");
-        }
-
-        Append(state, widget.IsRequired, "required");
-        Append(state, widget.IsReadOnly, "read only");
-        Append(state, widget.Type == PdfFieldType.Text && widget.IsMultiline, "several lines");
-        return state.Length == 0 ? null : state.ToString();
+        var box = BoxState(widget);
+        var flags = (widget.IsRequired ? RequiredBit : 0) | (widget.IsReadOnly ? ReadOnlyBit : 0) | (widget.Type == PdfFieldType.Text && widget.IsMultiline ? MultilineBit : 0);
+        return States[(box * StateFlagCombinations) + flags];
     }
 
     /// <summary>Describes one widget.</summary>
@@ -114,28 +146,79 @@ internal static class HyperPdfSemanticFields
     /// <summary>Names the styles a rich text value uses.</summary>
     /// <param name="rich">The summary.</param>
     /// <returns>The styles in words, such as "bold, italic", or "formatted" when it only has paragraphs.</returns>
-    private static string DescribeStyles(PdfFormRichTextSummary rich)
-    {
-        var styles = new StringBuilder();
-        Append(styles, rich.Bold, "bold");
-        Append(styles, rich.Italic, "italic");
-        Append(styles, rich.Underline, "underlined");
-        Append(styles, rich.StrikeOut, "struck out");
-        return styles.Length == 0 ? "formatted text" : styles.ToString();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string DescribeStyles(PdfFormRichTextSummary rich) =>
+        Styles[(rich.Bold ? BoldBit : 0) | (rich.Italic ? ItalicBit : 0) | (rich.Underline ? UnderlineBit : 0) | (rich.StrikeOut ? StrikeBit : 0)];
 
-    /// <summary>Adds a word to a comma separated list when a condition holds.</summary>
-    /// <param name="builder">The list.</param>
-    /// <param name="condition">Whether to add it.</param>
-    /// <param name="word">The word.</param>
-    private static void Append(StringBuilder builder, bool condition, string word)
+    /// <summary>Gets whether a box or radio button is ticked.</summary>
+    /// <param name="widget">The widget.</param>
+    /// <returns>The check state: not a box, ticked, or not ticked.</returns>
+    private static int BoxState(PdfFormWidget widget)
     {
-        if (!condition)
+        if (widget.Type is not (PdfFieldType.CheckBox or PdfFieldType.RadioButton))
         {
-            return;
+            return NoBox;
         }
 
-        _ = builder.Append(builder.Length == 0 ? string.Empty : ", ").Append(word);
+        return widget.IsChecked ? CheckedBox : NotCheckedBox;
+    }
+
+    /// <summary>Makes the state words for every combination of a field's state, once.</summary>
+    /// <returns>The words by combination: the check state times the flag combinations plus the flags; <see langword="null"/> for none.</returns>
+    private static string?[] MakeStates()
+    {
+        string[] boxes = [string.Empty, "checked", "not checked"];
+        string[] flagWords = ["required", "read only", "several lines"];
+        var states = new string?[boxes.Length * StateFlagCombinations];
+        for (var box = 0; box < boxes.Length; box++)
+        {
+            for (var flags = 0; flags < StateFlagCombinations; flags++)
+            {
+                var text = Join(boxes[box], flags, flagWords);
+                states[(box * StateFlagCombinations) + flags] = text.Length == 0 ? null : text;
+            }
+        }
+
+        return states;
+    }
+
+    /// <summary>Makes the style words for every combination of styles, once.</summary>
+    /// <returns>The words by combination of bold, italic, underline and strike-out.</returns>
+    private static string[] MakeStyles()
+    {
+        string[] words = ["bold", "italic", "underlined", "struck out"];
+        var styles = new string[1 << words.Length];
+        for (var flags = 0; flags < styles.Length; flags++)
+        {
+            var text = Join(string.Empty, flags, words);
+            styles[flags] = text.Length == 0 ? "formatted text" : text;
+        }
+
+        return styles;
+    }
+
+    /// <summary>Joins a first word and the words whose bits are set, with commas.</summary>
+    /// <param name="first">The first word, or empty for none.</param>
+    /// <param name="flags">Which of the words to add, one bit each.</param>
+    /// <param name="words">The words.</param>
+    /// <returns>The joined words; empty when there are none.</returns>
+    private static string Join(string first, int flags, string[] words)
+    {
+        var list = new List<string>();
+        if (first.Length > 0)
+        {
+            list.Add(first);
+        }
+
+        for (var i = 0; i < words.Length; i++)
+        {
+            if ((flags & (1 << i)) != 0)
+            {
+                list.Add(words[i]);
+            }
+        }
+
+        return string.Join(", ", list);
     }
 
     /// <summary>Finds a field's tooltip (<c>/TU</c>), on the widget or the nearest parent that has one.</summary>

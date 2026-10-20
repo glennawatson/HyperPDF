@@ -24,7 +24,7 @@ internal class SandboxObject
     /// <param name="arguments">The arguments.</param>
     /// <returns>The result.</returns>
     /// <exception cref="SandboxException">The object has no such method.</exception>
-    internal virtual SandboxValue Call(string name, SandboxValue[] arguments) =>
+    internal virtual SandboxValue Call(string name, ReadOnlySpan<SandboxValue> arguments) =>
         throw new SandboxException($"The script calls {name}, which form scripts cannot use.");
 
     /// <summary>Reads an element by position.</summary>

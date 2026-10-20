@@ -42,6 +42,9 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
     /// <summary>The attachments, read once; viewing never adds or removes them.</summary>
     private DocumentAttachment[]? _attachments;
 
+    /// <summary>The media found, kept for as long as the library gives the same snapshot of the multimedia annotations.</summary>
+    private MediaCache? _media;
+
     /// <summary>The signatures, read once; they cannot change while the document is open.</summary>
     private RawSignature[]? _signatures;
 
@@ -127,6 +130,9 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <summary>Gets or sets the owned Attachments state.</summary>
     internal ref DocumentAttachment[]? Attachments => ref _attachments;
+
+    /// <summary>Gets or sets the owned Media state.</summary>
+    internal ref MediaCache? Media => ref _media;
 
     /// <summary>Gets or sets the owned Signatures state.</summary>
     internal ref RawSignature[]? Signatures => ref _signatures;

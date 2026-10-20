@@ -18,13 +18,18 @@ public sealed class FormScriptProgram
     /// <summary>The parsed script.</summary>
     private readonly SandboxNode _root;
 
+    /// <summary>The number of variables the script uses.</summary>
+    private readonly int _slotCount;
+
     /// <summary>Initializes a new instance of the <see cref="FormScriptProgram"/> class.</summary>
     /// <param name="source">The script text.</param>
     /// <param name="root">The parsed script.</param>
-    private FormScriptProgram(string source, SandboxNode root)
+    /// <param name="slotCount">The number of variables the script uses.</param>
+    private FormScriptProgram(string source, SandboxNode root, int slotCount)
     {
         Source = source;
         _root = root;
+        _slotCount = slotCount;
     }
 
     /// <summary>Gets the script text.</summary>
@@ -47,9 +52,9 @@ public sealed class FormScriptProgram
 
         try
         {
-            var root = SandboxParser.Parse(javaScript);
+            var root = SandboxParser.Parse(javaScript, out var slotCount);
             SandboxValidator.Check(root);
-            program = new(javaScript, root);
+            program = new(javaScript, root, slotCount);
             return true;
         }
         catch (SandboxException exception)
@@ -66,8 +71,7 @@ public sealed class FormScriptProgram
     public FormScriptOutcome Run(IFormScriptHost host, FormScriptEvent input)
     {
         ArgumentNullException.ThrowIfNull(host);
-        var messages = new List<string>();
-        var context = SandboxContext.Create(host, input, messages);
+        using var context = new SandboxContext(host, input, _slotCount);
         try
         {
             _ = SandboxInterpreter.Evaluate(_root, context);
@@ -78,12 +82,12 @@ public sealed class FormScriptProgram
             return new(false, input.Value, true, [exception.Message]);
         }
 
-        foreach (var message in messages)
+        foreach (var message in context.Messages)
         {
             host.Tell(message);
         }
 
-        var value = context.ReadEvent("value");
-        return new(true, value.Kind == SandboxValueKind.Undefined ? input.Value : value.ToText(), context.ReadEvent("rc").IsTruthy, messages);
+        var value = context.EventValue;
+        return new(true, value.Kind == SandboxValueKind.Undefined ? input.Value : value.ToText(), context.ReturnCode.IsTruthy, context.Messages);
     }
 }

@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
-using System.Text;
+using System.Runtime.CompilerServices;
 
 namespace HyperPdfLibrary.Media.U3d;
 
@@ -17,29 +17,44 @@ public static class U3dSummary
     public static string Describe(U3dScene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        var text = new StringBuilder("3D model");
-        _ = text.Append(CultureInfo.InvariantCulture, $" with {Plural(scene.Geometry.Length, "shape")}");
-        _ = text.Append(CultureInfo.InvariantCulture, $", {Plural(scene.Nodes.Length, "scene node")}");
-        _ = text.Append(CultureInfo.InvariantCulture, $", {Plural(scene.CountNodes(U3dNodeKind.View), "view")}");
-        _ = text.Append(CultureInfo.InvariantCulture, $", {Plural(scene.CountResources(U3dBlockType.MaterialResource), "material")}");
-        _ = text.Append(CultureInfo.InvariantCulture, $" and {Plural(scene.CountResources(U3dBlockType.TextureDeclaration), "texture")}.");
-        _ = text.Append(" The shapes are not drawn; the picture shown is the one the document supplies.");
+        var text = new DefaultInterpolatedStringHandler(0, 0, CultureInfo.InvariantCulture);
+        text.AppendLiteral("3D model with ");
+        Count(ref text, scene.Geometry.Length, "shape");
+        text.AppendLiteral(", ");
+        Count(ref text, scene.Nodes.Length, "scene node");
+        text.AppendLiteral(", ");
+        Count(ref text, scene.CountNodes(U3dNodeKind.View), "view");
+        text.AppendLiteral(", ");
+        Count(ref text, scene.CountResources(U3dBlockType.MaterialResource), "material");
+        text.AppendLiteral(" and ");
+        Count(ref text, scene.CountResources(U3dBlockType.TextureDeclaration), "texture");
+        text.AppendLiteral(". The shapes are not drawn; the picture shown is the one the document supplies.");
         if (scene.Extensions.Length > 0)
         {
-            _ = text.Append(CultureInfo.InvariantCulture, $" It uses extensions that are not read: {string.Join(", ", scene.Extensions)}.");
+            text.AppendLiteral(" It uses extensions that are not read: ");
+            text.AppendFormatted(string.Join(", ", scene.Extensions));
+            text.AppendLiteral(".");
         }
 
         foreach (var problem in scene.Problems)
         {
-            _ = text.Append(' ').Append(problem);
+            text.AppendLiteral(" ");
+            text.AppendFormatted(problem);
         }
 
-        return text.ToString();
+        return text.ToStringAndClear();
     }
 
-    /// <summary>Writes a count with its noun.</summary>
+    /// <summary>Writes a count with its noun, such as "1 view" or "2 views".</summary>
+    /// <param name="text">Receives the words.</param>
     /// <param name="count">The count.</param>
     /// <param name="noun">The noun in its singular form.</param>
-    /// <returns>The count and noun, such as "1 view" or "2 views".</returns>
-    private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : string.Create(CultureInfo.InvariantCulture, $"{count} {noun}s");
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Count(ref DefaultInterpolatedStringHandler text, int count, string noun)
+    {
+        text.AppendFormatted(count);
+        text.AppendLiteral(" ");
+        text.AppendFormatted(noun);
+        text.AppendLiteral(count == 1 ? string.Empty : "s");
+    }
 }

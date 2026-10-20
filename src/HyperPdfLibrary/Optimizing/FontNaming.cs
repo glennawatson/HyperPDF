@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Buffers.Binary;
-using System.Security.Cryptography;
 using System.Text;
 using HyperPdfLibrary.Objects;
 
@@ -28,38 +26,42 @@ internal static class FontNaming
     /// <summary>The bytes one glyph number takes in the hash input.</summary>
     private const int GlyphBytes = sizeof(int);
 
+    /// <summary>The bits in a byte.</summary>
+    private const int BitsPerByte = 8;
+
+    /// <summary>The starting value of the 64-bit FNV-1a hash.</summary>
+    private const ulong FnvOffset = 14_695_981_039_346_656_037;
+
+    /// <summary>The multiplier of the 64-bit FNV-1a hash.</summary>
+    private const ulong FnvPrime = 1_099_511_628_211;
+
     /// <summary>Makes the tag of a subset.</summary>
     /// <param name="program">The embedded program's number.</param>
     /// <param name="kept">The glyphs kept.</param>
     /// <returns>Six capital letters.</returns>
     internal static string Tag(int program, CodeBitSet kept)
     {
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        Span<byte> number = stackalloc byte[GlyphBytes];
-        BinaryPrimitives.WriteInt32BigEndian(number, program);
-        hash.AppendData(number);
+        // The tag only has to differ for different subsets, so a plain hash over the program number and glyph numbers is enough.
+        var hash = Mix(FnvOffset, (uint)program);
         for (var bit = kept.NextBit(0); bit != CodeBitSet.NoBit; bit = kept.NextBit(bit + 1))
         {
-            BinaryPrimitives.WriteInt32BigEndian(number, bit);
-            hash.AppendData(number);
+            hash = Mix(hash, (uint)bit);
         }
 
         if (kept.Overflow is { } overflow)
         {
             foreach (var glyph in overflow)
             {
-                BinaryPrimitives.WriteInt32BigEndian(number, glyph);
-                hash.AppendData(number);
+                hash = Mix(hash, (uint)glyph);
             }
         }
 
-        Span<byte> digest = stackalloc byte[SHA256.HashSizeInBytes];
-        _ = hash.GetHashAndReset(digest);
-        return string.Create(TagLength, digest.ToArray(), static (span, bytes) =>
+        return string.Create(TagLength, hash, static (span, value) =>
         {
             for (var i = 0; i < span.Length; i++)
             {
-                span[i] = (char)('A' + (bytes[i] % Letters));
+                span[i] = (char)('A' + (int)(value % Letters));
+                value /= Letters;
             }
         });
     }
@@ -147,6 +149,20 @@ internal static class FontNaming
         }
 
         return true;
+    }
+
+    /// <summary>Folds a number into a hash, one byte at a time (FNV-1a).</summary>
+    /// <param name="hash">The hash so far.</param>
+    /// <param name="number">The number.</param>
+    /// <returns>The new hash.</returns>
+    private static ulong Mix(ulong hash, uint number)
+    {
+        for (var shift = 0; shift < GlyphBytes * BitsPerByte; shift += BitsPerByte)
+        {
+            hash = (hash ^ ((number >> shift) & byte.MaxValue)) * FnvPrime;
+        }
+
+        return hash;
     }
 
     /// <summary>Replaces a name entry with its tagged form.</summary>

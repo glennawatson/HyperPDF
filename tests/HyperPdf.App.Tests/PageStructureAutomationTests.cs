@@ -58,9 +58,11 @@ public sealed class PageStructureAutomationTests
             await Assert.That(blocks[0].GetAutomationControlType()).IsEqualTo(AutomationControlType.Text);
             await Assert.That(blocks[0].GetHeadingLevel()).IsEqualTo(1);
             await Assert.That(blocks[1].GetHeadingLevel()).IsEqualTo(0);
-            await Assert.That(blocks[^1].GetName()).IsEqualTo(TestPdf.TaggedFigure);
-            await Assert.That(blocks[^1].GetAutomationControlType()).IsEqualTo(AutomationControlType.Image);
-            await Assert.That(blocks[^1].GetHelpText()).IsEqualTo("Figure");
+
+            // Artifacts such as a running header follow the tagged blocks, so the figure is found by its role.
+            var figure = blocks.First(static block => block.GetAutomationControlType() == AutomationControlType.Image);
+            await Assert.That(figure.GetName()).IsEqualTo(TestPdf.TaggedFigure);
+            await Assert.That(figure.GetHelpText()).IsEqualTo("Figure");
             await Assert.That(blocks[0].GetParent()).IsNotNull();
             await Assert.That(blocks[0].GetParent()!.GetAutomationControlType()).IsEqualTo(AutomationControlType.Document);
         }

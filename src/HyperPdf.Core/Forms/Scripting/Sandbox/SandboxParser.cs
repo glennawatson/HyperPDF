@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace HyperPdf.Core.Forms.Scripting.Sandbox;
 
@@ -36,6 +37,9 @@ internal sealed class SandboxParser
     /// <summary>The tokens.</summary>
     private readonly List<SandboxToken> _tokens;
 
+    /// <summary>The place of each variable in the array a run keeps its variables in, so a run looks variables up by position and not by name.</summary>
+    private readonly Dictionary<string, int> _slots = [with(StringComparer.Ordinal)];
+
     /// <summary>The position of the next token.</summary>
     private int _at;
 
@@ -51,9 +55,10 @@ internal sealed class SandboxParser
 
     /// <summary>Parses a script.</summary>
     /// <param name="source">The script text.</param>
+    /// <param name="slotCount">The number of variables the script uses.</param>
     /// <returns>The script as one block.</returns>
     /// <exception cref="SandboxException">The script is not well formed, or uses something the sandbox does not allow.</exception>
-    internal static SandboxNode Parse(string source)
+    internal static SandboxNode Parse(string source, out int slotCount)
     {
         var parser = new SandboxParser(SandboxLexer.Tokenize(source));
         var statements = new List<SandboxNode>();
@@ -62,6 +67,7 @@ internal sealed class SandboxParser
             statements.Add(parser.Statement());
         }
 
+        slotCount = parser._slots.Count;
         return SandboxNode.Of(SandboxNodeKind.Block, [.. statements]);
     }
 
@@ -76,24 +82,44 @@ internal sealed class SandboxParser
     /// <param name="target">The target.</param>
     /// <returns>The node.</returns>
     /// <exception cref="SandboxException">The target cannot be changed.</exception>
-    private static SandboxNode Update(string op, double prefix, SandboxNode target)
+    private SandboxNode Update(string op, double prefix, SandboxNode target)
     {
         if (target.Kind is not (SandboxNodeKind.Name or SandboxNodeKind.Member or SandboxNodeKind.Index))
         {
             throw new SandboxException("The script is not well formed: only a variable, property or element can be changed with ++ or --.");
         }
 
-        return new(SandboxNodeKind.Update, op, prefix, [target]);
+        return new(SandboxNodeKind.Update, op, prefix, [Bind(target)]);
     }
 
     /// <summary>Makes the node for a name: a variable or global object, which includes the words <c>true</c>, <c>false</c>, <c>null</c> and <c>undefined</c>.</summary>
     /// <param name="word">The name.</param>
-    /// <returns>The node.</returns>
+    /// <returns>The node; its number is the variable's place, or -1 when the name is not a variable declared before.</returns>
     /// <exception cref="SandboxException">The word is one the sandbox refuses.</exception>
-    private static SandboxNode Word(string word) =>
+    private SandboxNode Word(string word) =>
         IsRefused(word)
             ? throw new SandboxException($"The script uses '{word}', which form scripts cannot use.")
-            : SandboxNode.Of(SandboxNodeKind.Name, word);
+            : new(SandboxNodeKind.Name, word, _slots.GetValueOrDefault(word, -1), []);
+
+    /// <summary>Gives a name that is assigned to a place for its variable, so that a run finds it by position.</summary>
+    /// <param name="target">The target of an assignment or update.</param>
+    /// <returns>The target; a name that was not a variable becomes one.</returns>
+    private SandboxNode Bind(SandboxNode target) =>
+        target is { Kind: SandboxNodeKind.Name, Number: < 0 } ? new(SandboxNodeKind.Name, target.Text, Slot(target.Text), []) : target;
+
+    /// <summary>Gets the place of a variable, giving it one the first time.</summary>
+    /// <param name="name">The variable's name.</param>
+    /// <returns>The place.</returns>
+    private int Slot(string name)
+    {
+        ref var slot = ref CollectionsMarshal.GetValueRefOrAddDefault(_slots, name, out var exists);
+        if (!exists)
+        {
+            slot = _slots.Count - 1;
+        }
+
+        return slot;
+    }
 
     /// <summary>Determines whether the next token is a symbol.</summary>
     /// <param name="symbol">The symbol.</param>
@@ -241,8 +267,9 @@ internal sealed class SandboxParser
                 throw new SandboxException("The script is not well formed: a variable needs a name.");
             }
 
-            var initial = IsSymbol("=") ? Initial() : SandboxNode.Of(SandboxNodeKind.Name, "undefined");
-            declarations.Add(SandboxNode.Of(SandboxNodeKind.Declare, name.Text, initial));
+            var slot = Slot(name.Text);
+            var initial = IsSymbol("=") ? Initial() : Word("undefined");
+            declarations.Add(new(SandboxNodeKind.Declare, name.Text, slot, [initial]));
         }
         while (AcceptComma());
 
@@ -300,7 +327,7 @@ internal sealed class SandboxParser
     {
         Expect("(");
         var start = IsSymbol(";") ? Statement() : StatementBody();
-        var test = IsSymbol(";") ? SandboxNode.Of(SandboxNodeKind.Name, "true") : Expression();
+        var test = IsSymbol(";") ? Word("true") : Expression();
         Expect(";");
         var step = IsSymbol(")") ? SandboxNode.Of(SandboxNodeKind.Block) : Expression();
         Expect(")");
@@ -336,7 +363,8 @@ internal sealed class SandboxParser
             }
 
             var op = Take().Text;
-            left = SandboxNode.Of(SandboxNodeKind.Assign, op, left, Assignment());
+            var target = Bind(left);
+            left = SandboxNode.Of(SandboxNodeKind.Assign, op, target, Assignment());
         }
 
         _depth--;

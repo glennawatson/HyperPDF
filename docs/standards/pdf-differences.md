@@ -27,4 +27,4 @@ Method: each PDF was drawn by HyperPDF at a size big enough to judge, then compa
 | UnknownFilter, real-world pair | 7.4 | The README keeps the exact fault secret; a reader should show a placeholder or an error, not a different image. | Draws the page (letterhead, logos, QR code); the hidden fault was not found. | Not judged |
 | VerticalText | 9.7 | Brackets, punctuation and the long vowel mark use their vertical forms. | Horizontal forms are used. | Follow-up |
 
-Follow-up work is filed as separate issues. The viewer also does not yet tell the reader in words when a page uses a filter it cannot read.
+Follow-up work is filed as separate issues: vertical glyph forms (#237), an image with an unknown filter (#238), a notice when a page uses a filter the viewer cannot read (#239) and the order of extracted text for mirrored lines (#240).

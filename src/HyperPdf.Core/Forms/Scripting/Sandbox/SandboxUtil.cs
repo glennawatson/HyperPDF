@@ -8,8 +8,8 @@ namespace HyperPdf.Core.Forms.Scripting.Sandbox;
 internal sealed class SandboxUtil : SandboxObject
 {
     /// <inheritdoc/>
-    internal override SandboxValue Call(string name, SandboxValue[] arguments) =>
-        name == "printf" && arguments.Length > 0
-            ? SandboxValue.Of(SandboxPrintf.Format(arguments[0].ToText(), arguments.AsSpan(1)))
+    internal override SandboxValue Call(string name, ReadOnlySpan<SandboxValue> arguments) =>
+        name == "printf" && !arguments.IsEmpty
+            ? SandboxValue.Of(SandboxPrintf.Format(arguments[0].ToText(), arguments[1..]))
             : base.Call($"util.{name}", arguments);
 }

@@ -25,7 +25,7 @@ internal static class SandboxPrimitives
     /// <param name="arguments">The arguments.</param>
     /// <returns>The result.</returns>
     /// <exception cref="SandboxException">There is no such method.</exception>
-    internal static SandboxValue Call(SandboxValue target, string name, SandboxValue[] arguments) => name switch
+    internal static SandboxValue Call(SandboxValue target, string name, ReadOnlySpan<SandboxValue> arguments) => name switch
     {
         "toString" => SandboxValue.Of(target.ToText()),
         "toFixed" => SandboxValue.Of(ToFixed(target.ToNumber(), Number(arguments, 0))),
@@ -38,9 +38,9 @@ internal static class SandboxPrimitives
     /// <param name="arguments">The arguments.</param>
     /// <returns>The result.</returns>
     /// <exception cref="SandboxException">There is no such function.</exception>
-    internal static SandboxValue CallGlobal(string name, SandboxValue[] arguments)
+    internal static SandboxValue CallGlobal(string name, ReadOnlySpan<SandboxValue> arguments)
     {
-        var first = arguments.Length > 0 ? arguments[0] : SandboxValue.Undefined;
+        var first = !arguments.IsEmpty ? arguments[0] : SandboxValue.Undefined;
         return name switch
         {
             "parseFloat" => SandboxValue.Of(ParseLeading(first.ToText(), allowPoint: true)),
@@ -65,15 +65,15 @@ internal static class SandboxPrimitives
     /// <param name="arguments">The arguments.</param>
     /// <returns>The result.</returns>
     /// <exception cref="SandboxException">There is no such method.</exception>
-    private static SandboxValue CallText(string text, string name, SandboxValue[] arguments) => name switch
+    private static SandboxValue CallText(string text, string name, ReadOnlySpan<SandboxValue> arguments) => name switch
     {
         "toUpperCase" => SandboxValue.Of(text.ToUpperInvariant()),
         "toLowerCase" => SandboxValue.Of(text.ToLowerInvariant()),
         "trim" => SandboxValue.Of(text.Trim()),
-        "indexOf" => SandboxValue.Of(text.IndexOf(arguments.Length > 0 ? arguments[0].ToText() : "undefined", StringComparison.Ordinal)),
+        "indexOf" => SandboxValue.Of(text.IndexOf(!arguments.IsEmpty ? arguments[0].ToText() : "undefined", StringComparison.Ordinal)),
         "charAt" => SandboxValue.Of(CharAt(text, (int)Number(arguments, 0))),
         "substring" => SandboxValue.Of(Substring(text, Number(arguments, 0), arguments.Length > 1 ? Number(arguments, 1) : text.Length)),
-        "split" => Split(text, arguments.Length > 0 ? arguments[0].ToText() : string.Empty),
+        "split" => Split(text, !arguments.IsEmpty ? arguments[0].ToText() : string.Empty),
         _ => throw new SandboxException($"The script calls {name}, which form scripts cannot use."),
     };
 
@@ -81,7 +81,7 @@ internal static class SandboxPrimitives
     /// <param name="arguments">The arguments.</param>
     /// <param name="index">The position.</param>
     /// <returns>The number.</returns>
-    private static double Number(SandboxValue[] arguments, int index)
+    private static double Number(ReadOnlySpan<SandboxValue> arguments, int index)
     {
         var number = index < arguments.Length ? arguments[index].ToNumber() : 0;
         return double.IsNaN(number) ? 0 : number;

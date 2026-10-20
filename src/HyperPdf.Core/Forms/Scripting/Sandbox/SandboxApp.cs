@@ -5,18 +5,18 @@
 namespace HyperPdf.Core.Forms.Scripting.Sandbox;
 
 /// <summary>The <c>app</c> object of a form script. It can only leave a message for the reader.</summary>
-/// <param name="messages">Receives the messages.</param>
-internal sealed class SandboxApp(List<string> messages) : SandboxObject
+/// <param name="context">The run, which receives the messages.</param>
+internal sealed class SandboxApp(SandboxContext context) : SandboxObject
 {
     /// <inheritdoc/>
-    internal override SandboxValue Call(string name, SandboxValue[] arguments)
+    internal override SandboxValue Call(string name, ReadOnlySpan<SandboxValue> arguments)
     {
         if (name != "alert")
         {
             return base.Call($"app.{name}", arguments);
         }
 
-        messages.Add(arguments.Length > 0 ? arguments[0].ToText() : string.Empty);
+        context.AddMessage(!arguments.IsEmpty ? arguments[0].ToText() : string.Empty);
         return SandboxValue.Of(1);
     }
 }

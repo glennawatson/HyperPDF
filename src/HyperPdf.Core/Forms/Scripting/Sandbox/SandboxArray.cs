@@ -36,7 +36,7 @@ internal sealed class SandboxArray : SandboxObject
     }
 
     /// <inheritdoc/>
-    internal override SandboxValue Call(string name, SandboxValue[] arguments)
+    internal override SandboxValue Call(string name, ReadOnlySpan<SandboxValue> arguments)
     {
         if (name == "push")
         {
@@ -48,7 +48,7 @@ internal sealed class SandboxArray : SandboxObject
             return SandboxValue.Of(_items.Count);
         }
 
-        return name == "join" ? SandboxValue.Of(Join(arguments.Length > 0 ? arguments[0].ToText() : ",")) : base.Call(name, arguments);
+        return name == "join" ? SandboxValue.Of(Join(!arguments.IsEmpty ? arguments[0].ToText() : ",")) : base.Call(name, arguments);
     }
 
     /// <inheritdoc/>

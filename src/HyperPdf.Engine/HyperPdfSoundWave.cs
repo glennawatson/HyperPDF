@@ -79,31 +79,32 @@ internal static class HyperPdfSoundWave
     internal static bool CanWrite(PdfSound sound) =>
         string.IsNullOrEmpty(sound.Compression) && sound.Channels > 0 && TagOf(sound) != 0 && sound.Rate > 0;
 
-    /// <summary>Builds a WAVE file from a sound's samples.</summary>
+    /// <summary>Writes a sound as a WAVE file: the header, then the samples in the byte order and sign WAVE expects.</summary>
     /// <param name="sound">The sound.</param>
-    /// <param name="samples">The decoded samples.</param>
-    /// <returns>The WAVE file's bytes.</returns>
-    internal static byte[] Build(PdfSound sound, ReadOnlySpan<byte> samples)
+    /// <param name="samples">The decoded samples, which are changed in place and belong to the caller.</param>
+    /// <param name="destination">Receives the file.</param>
+    internal static void Write(PdfSound sound, Span<byte> samples, Stream destination)
     {
-        var wave = new byte[HeaderLength + samples.Length];
+        Span<byte> wave = stackalloc byte[HeaderLength];
         var tag = TagOf(sound);
         var bytesPerSample = Math.Max(sound.BitsPerSample / BitsPerByte, 1);
         var rate = (int)sound.Rate;
         var blockAlign = (short)(sound.Channels * bytesPerSample);
         "RIFF"u8.CopyTo(wave);
-        BinaryPrimitives.WriteInt32LittleEndian(wave.AsSpan(RiffLengthOffset), wave.Length - RiffPrefix);
-        "WAVEfmt "u8.CopyTo(wave.AsSpan(RiffPrefix));
-        BinaryPrimitives.WriteInt32LittleEndian(wave.AsSpan(FormatLengthOffset), FormatLength);
-        BinaryPrimitives.WriteInt16LittleEndian(wave.AsSpan(TagOffset), tag);
-        BinaryPrimitives.WriteInt16LittleEndian(wave.AsSpan(ChannelsOffset), (short)sound.Channels);
-        BinaryPrimitives.WriteInt32LittleEndian(wave.AsSpan(RateOffset), rate);
-        BinaryPrimitives.WriteInt32LittleEndian(wave.AsSpan(ByteRateOffset), rate * blockAlign);
-        BinaryPrimitives.WriteInt16LittleEndian(wave.AsSpan(BlockAlignOffset), blockAlign);
-        BinaryPrimitives.WriteInt16LittleEndian(wave.AsSpan(BitsOffset), (short)sound.BitsPerSample);
-        "data"u8.CopyTo(wave.AsSpan(DataTagOffset));
-        BinaryPrimitives.WriteInt32LittleEndian(wave.AsSpan(DataLengthOffset), samples.Length);
-        Convert(sound, samples, wave.AsSpan(HeaderLength));
-        return wave;
+        BinaryPrimitives.WriteInt32LittleEndian(wave[RiffLengthOffset..], HeaderLength + samples.Length - RiffPrefix);
+        "WAVEfmt "u8.CopyTo(wave[RiffPrefix..]);
+        BinaryPrimitives.WriteInt32LittleEndian(wave[FormatLengthOffset..], FormatLength);
+        BinaryPrimitives.WriteInt16LittleEndian(wave[TagOffset..], tag);
+        BinaryPrimitives.WriteInt16LittleEndian(wave[ChannelsOffset..], (short)sound.Channels);
+        BinaryPrimitives.WriteInt32LittleEndian(wave[RateOffset..], rate);
+        BinaryPrimitives.WriteInt32LittleEndian(wave[ByteRateOffset..], rate * blockAlign);
+        BinaryPrimitives.WriteInt16LittleEndian(wave[BlockAlignOffset..], blockAlign);
+        BinaryPrimitives.WriteInt16LittleEndian(wave[BitsOffset..], (short)sound.BitsPerSample);
+        "data"u8.CopyTo(wave[DataTagOffset..]);
+        BinaryPrimitives.WriteInt32LittleEndian(wave[DataLengthOffset..], samples.Length);
+        Convert(sound, samples);
+        destination.Write(wave);
+        destination.Write(samples);
     }
 
     /// <summary>Gets the WAVE format tag of a sound, or 0 when it cannot be written.</summary>
@@ -119,15 +120,14 @@ internal static class HyperPdfSoundWave
 
     /// <summary>Writes samples in the byte order and sign WAVE expects.</summary>
     /// <param name="sound">The sound.</param>
-    /// <param name="samples">The samples as the PDF stores them: unsigned or signed, most significant byte first.</param>
-    /// <param name="destination">Receives the samples.</param>
-    private static void Convert(PdfSound sound, ReadOnlySpan<byte> samples, Span<byte> destination)
+    /// <param name="samples">The samples as the PDF stores them: unsigned or signed, most significant byte first. They are changed in place.</param>
+    private static void Convert(PdfSound sound, Span<byte> samples)
     {
         if (sound.BitsPerSample == BitsPerByte)
         {
             for (var i = 0; i < samples.Length; i++)
             {
-                destination[i] = sound.Encoding == "Signed" ? (byte)(samples[i] ^ SignFlip8) : samples[i];
+                samples[i] = sound.Encoding == "Signed" ? (byte)(samples[i] ^ SignFlip8) : samples[i];
             }
 
             return;
@@ -137,7 +137,7 @@ internal static class HyperPdfSoundWave
         for (var i = 0; i + 1 < samples.Length; i += SampleBytes)
         {
             var value = BinaryPrimitives.ReadUInt16BigEndian(samples[i..]);
-            BinaryPrimitives.WriteUInt16LittleEndian(destination[i..], sound.Encoding == "Raw" ? (ushort)(value ^ SignFlip16) : value);
+            BinaryPrimitives.WriteUInt16LittleEndian(samples[i..], sound.Encoding == "Raw" ? (ushort)(value ^ SignFlip16) : value);
         }
     }
 }

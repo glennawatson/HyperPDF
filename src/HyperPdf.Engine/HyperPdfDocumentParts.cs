@@ -128,18 +128,38 @@ internal static class HyperPdfDocumentParts
     /// <returns>The entry, or <see langword="null"/> when none of the naming keys has a value.</returns>
     private static KeyValuePair<string, string>? FindName(IReadOnlyDictionary<string, string> metadata)
     {
-        foreach (var key in NameKeys)
+        // One pass over the entries: the entry whose key comes earliest in the list of naming keys wins.
+        KeyValuePair<string, string>? best = null;
+        var bestRank = NameKeys.Length;
+        foreach (var entry in metadata)
         {
-            foreach (var entry in metadata)
+            var rank = entry.Value.Length > 0 ? RankOf(entry.Key) : NameKeys.Length;
+            if (rank >= bestRank)
             {
-                if (entry.Value.Length > 0 && string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase))
-                {
-                    return entry;
-                }
+                continue;
+            }
+
+            best = entry;
+            bestRank = rank;
+        }
+
+        return best;
+    }
+
+    /// <summary>Gets the place of a key among the keys that name a part.</summary>
+    /// <param name="key">The metadata key.</param>
+    /// <returns>The place; the number of naming keys when the key is not one of them.</returns>
+    private static int RankOf(string key)
+    {
+        for (var i = 0; i < NameKeys.Length; i++)
+        {
+            if (string.Equals(key, NameKeys[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
             }
         }
 
-        return null;
+        return NameKeys.Length;
     }
 
     /// <summary>Writes a part's metadata as "key: value" pairs, leaving out the entry that names it.</summary>
@@ -148,6 +168,11 @@ internal static class HyperPdfDocumentParts
     /// <returns>The pairs, in key order.</returns>
     private static string FormatDetails(IReadOnlyDictionary<string, string> metadata, string? nameKey)
     {
+        if (metadata.Count == 0 || (metadata.Count == 1 && nameKey is not null))
+        {
+            return string.Empty;
+        }
+
         var keys = new List<string>(metadata.Keys);
         keys.Sort(StringComparer.Ordinal);
         var details = new StringBuilder();

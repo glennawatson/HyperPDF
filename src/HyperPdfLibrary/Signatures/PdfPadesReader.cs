@@ -106,7 +106,7 @@ public static class PdfPadesReader
     {
         const PdfPadesLevel Level = PdfPadesLevel.BaselineB;
         var cades = report.Signature.Format == PdfSignatureFormat.CadesDetached;
-        var subFilterFailure = $"The sub-filter is {report.Signature.Format}; PAdES needs ETSI.CAdES.detached.";
+        var subFilterFailure = cades ? string.Empty : $"The sub-filter is {report.Signature.Format}; PAdES needs ETSI.CAdES.detached.";
         Add(findings, Level, "SubFilter", cades, "The sub-filter is ETSI.CAdES.detached.", subFilterFailure);
         var signed = ReadSignedAttributes(report.Signature.Field.Contents);
         var required = signed.Contains(ContentTypeOid) && signed.Contains(MessageDigestOid);

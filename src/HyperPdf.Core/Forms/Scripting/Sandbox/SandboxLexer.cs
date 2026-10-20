@@ -185,6 +185,27 @@ internal static class SandboxLexer
     {
         var quote = source[at];
         at++;
+
+        // A string with no escape is a slice of the script; only one with escapes needs a builder.
+        var plain = source.AsSpan(at).IndexOfAny(quote, '\\');
+        if (plain >= 0 && source[at + plain] == quote)
+        {
+            var text = source[at..(at + plain)];
+            at += plain + 1;
+            return new(SandboxTokenKind.String, text, 0);
+        }
+
+        return ReadEscapedString(source, ref at, quote);
+    }
+
+    /// <summary>Reads a string that has escapes, or is not closed.</summary>
+    /// <param name="source">The script text.</param>
+    /// <param name="at">The position after the opening quote, moved past the closing quote.</param>
+    /// <param name="quote">The quote that closes the string.</param>
+    /// <returns>The token.</returns>
+    /// <exception cref="SandboxException">The string is not closed.</exception>
+    private static SandboxToken ReadEscapedString(string source, ref int at, char quote)
+    {
         var text = new StringBuilder();
         while (at < source.Length && source[at] != quote)
         {

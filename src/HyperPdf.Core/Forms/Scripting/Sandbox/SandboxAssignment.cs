@@ -16,7 +16,7 @@ internal static class SandboxAssignment
     {
         if (target.Kind == SandboxNodeKind.Name)
         {
-            context.Declare(target.Text, value);
+            context.SetVariable((int)target.Number, value);
             return;
         }
 

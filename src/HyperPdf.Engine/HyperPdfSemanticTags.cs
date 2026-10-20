@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
+using System.Buffers;
 using HyperPdf.Core.Reading;
 using HyperPdfLibrary;
 using HyperPdfLibrary.Document;
@@ -19,6 +19,9 @@ internal static class HyperPdfSemanticTags
     /// <summary>The most table cells listed as empty for a page.</summary>
     private const int MaxEmptyCells = 512;
 
+    /// <summary>The characters of stack space for the text of an artifact; a longer run uses a rented array.</summary>
+    private const int StackText = 256;
+
     /// <summary>Adds a tagged page's empty cells, then its artifacts.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
@@ -32,9 +35,10 @@ internal static class HyperPdfSemanticTags
 
         var page = PdfReadingStructure.ReadTagged(self.Document, pageIndex);
         var cells = new List<int>();
-        foreach (var node in page.Nodes)
+        var nodes = page.Nodes;
+        for (var i = 0; i < nodes.Count; i++)
         {
-            AddEmptyCells(node, items, cells, 0);
+            AddEmptyCells(nodes[i], items, cells, 0);
         }
 
         if (page.Content is { } content)
@@ -98,26 +102,65 @@ internal static class HyperPdfSemanticTags
     /// <param name="items">Receives the items.</param>
     private static void AddArtifacts(PdfMarkedContentPage content, List<PageSemanticItem> items)
     {
-        var text = new StringBuilder();
-        var bounds = default(PdfViewerRect);
         var added = 0;
-        for (var i = 0; i <= content.GlyphCount && added < MaxArtifacts; i++)
+        var at = 0;
+        while (at < content.GlyphCount && added < MaxArtifacts)
         {
-            if (i < content.GlyphCount && content.Glyphs[i].IsArtifact)
+            if (!content.Glyphs[at].IsArtifact)
             {
-                _ = text.Append(content.GetText(i));
-                bounds = bounds.Union(content.Glyphs[i].Bounds);
+                at++;
                 continue;
             }
 
-            if (text.ToString().Trim() is { Length: > 0 } words)
+            // A run of artifact glyphs is one item: its text, trimmed, and the box that holds its glyphs.
+            var start = at;
+            var bounds = default(PdfViewerRect);
+            var length = 0;
+            for (; at < content.GlyphCount && content.Glyphs[at].IsArtifact; at++)
             {
-                items.Add(new(PageSemanticKind.Artifact, words, new(bounds.Left, bounds.Top, bounds.Width, bounds.Height)) { Role = "artifact" });
-                added++;
+                length += content.GetText(at).Length;
+                bounds = bounds.Union(content.Glyphs[at].Bounds);
             }
 
-            _ = text.Clear();
-            bounds = default;
+            if (RunText(content, start, at, length) is not { } words)
+            {
+                continue;
+            }
+
+            items.Add(new(PageSemanticKind.Artifact, words, new(bounds.Left, bounds.Top, bounds.Width, bounds.Height)) { Role = "artifact" });
+            added++;
+        }
+    }
+
+    /// <summary>Gathers the text of a run of glyphs without an intermediate string, so the trimmed text is the only allocation.</summary>
+    /// <param name="content">What the page draws.</param>
+    /// <param name="start">The first glyph.</param>
+    /// <param name="end">The glyph after the last.</param>
+    /// <param name="length">The characters the glyphs hold together.</param>
+    /// <returns>The text with its white space trimmed, or <see langword="null"/> when nothing is left.</returns>
+    private static string? RunText(PdfMarkedContentPage content, int start, int end, int length)
+    {
+        char[]? rented = null;
+        try
+        {
+            Span<char> buffer = length <= StackText ? stackalloc char[StackText] : (rented = ArrayPool<char>.Shared.Rent(length));
+            var written = 0;
+            for (var i = start; i < end; i++)
+            {
+                var piece = content.GetText(i);
+                piece.CopyTo(buffer[written..]);
+                written += piece.Length;
+            }
+
+            var trimmed = buffer[..written].Trim();
+            return trimmed.IsEmpty ? null : new string(trimmed);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<char>.Shared.Return(rented);
+            }
         }
     }
 }

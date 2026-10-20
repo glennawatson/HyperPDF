@@ -19,7 +19,7 @@ internal sealed class SandboxMath : SandboxObject
     };
 
     /// <inheritdoc/>
-    internal override SandboxValue Call(string name, SandboxValue[] arguments)
+    internal override SandboxValue Call(string name, ReadOnlySpan<SandboxValue> arguments)
     {
         var first = Argument(arguments, 0);
         return name switch
@@ -41,14 +41,14 @@ internal sealed class SandboxMath : SandboxObject
     /// <param name="arguments">The arguments.</param>
     /// <param name="index">The position.</param>
     /// <returns>The number; not a number when missing.</returns>
-    private static double Argument(SandboxValue[] arguments, int index) => index < arguments.Length ? arguments[index].ToNumber() : double.NaN;
+    private static double Argument(ReadOnlySpan<SandboxValue> arguments, int index) => index < arguments.Length ? arguments[index].ToNumber() : double.NaN;
 
     /// <summary>Combines all arguments with a function, giving not a number when any is not a number.</summary>
     /// <param name="arguments">The arguments.</param>
     /// <param name="start">The result for no arguments.</param>
     /// <param name="combine">Combines two numbers.</param>
     /// <returns>The result.</returns>
-    private static double Fold(SandboxValue[] arguments, double start, Func<double, double, double> combine)
+    private static double Fold(ReadOnlySpan<SandboxValue> arguments, double start, Func<double, double, double> combine)
     {
         var result = start;
         foreach (var argument in arguments)

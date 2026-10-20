@@ -9,14 +9,14 @@ namespace HyperPdf.Core.Forms.Scripting.Sandbox;
 internal sealed class SandboxDocument(IFormScriptHost host) : SandboxObject
 {
     /// <inheritdoc/>
-    internal override SandboxValue Call(string name, SandboxValue[] arguments)
+    internal override SandboxValue Call(string name, ReadOnlySpan<SandboxValue> arguments)
     {
         if (name != "getField")
         {
             return base.Call(name, arguments);
         }
 
-        var fieldName = arguments.Length > 0 ? arguments[0].ToText() : string.Empty;
+        var fieldName = !arguments.IsEmpty ? arguments[0].ToText() : string.Empty;
         return host.GetFieldValue(fieldName) is null ? SandboxValue.Null : SandboxValue.Of(new SandboxField(fieldName, host));
     }
 }

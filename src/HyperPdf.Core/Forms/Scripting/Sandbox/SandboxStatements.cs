@@ -31,7 +31,7 @@ internal static class SandboxStatements
     /// <returns>Undefined.</returns>
     internal static SandboxValue Declare(SandboxNode node, SandboxContext context)
     {
-        context.Declare(node.Text, SandboxInterpreter.Evaluate(node.Children[0], context));
+        context.SetVariable((int)node.Number, SandboxInterpreter.Evaluate(node.Children[0], context));
         return SandboxValue.Undefined;
     }
 
