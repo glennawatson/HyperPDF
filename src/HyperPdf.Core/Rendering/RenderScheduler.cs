@@ -163,7 +163,15 @@ public sealed class RenderScheduler : IDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         if (request.Priority <= RenderPriority.Visible)
         {
-            _visibleRequested.OnNext(RxVoid.Default);
+            try
+            {
+                _visibleRequested.OnNext(RxVoid.Default);
+            }
+            catch (ObjectDisposedException)
+            {
+                // The dispose came between the check above and the signal; the request is refused like any other after the dispose.
+                ObjectDisposedException.ThrowIf(true, this);
+            }
         }
 
         return !request.CancellationToken.IsCancellationRequested && EnqueueRequest(request);
