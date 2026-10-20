@@ -39,6 +39,9 @@ internal sealed class FakeAnnotationEditor : IAnnotationEditor
     public int AddNote(int pageIndex, PagePoint location, string contents, uint color) => throw new NotSupportedException();
 
     /// <inheritdoc/>
+    public int AddCaret(int pageIndex, PagePoint location, uint color) => throw new NotSupportedException();
+
+    /// <inheritdoc/>
     public int AddText(int pageIndex, PagePoint location, string text, float fontSize, uint color, AnnotationKind kind) => throw new NotSupportedException();
 
     /// <inheritdoc/>

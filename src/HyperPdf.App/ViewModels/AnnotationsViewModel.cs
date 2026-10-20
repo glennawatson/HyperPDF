@@ -23,6 +23,9 @@ namespace HyperPdf.App.ViewModels;
 [DebuggerDisplay("AnnotationsViewModel: {Tool}, {Items.Count} annotations")]
 public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
 {
+    /// <summary>The width of the highlighter pen, in points.</summary>
+    public static readonly float HighlighterWidth = 14;
+
     /// <summary>The coordinates stored for each drawn signature point.</summary>
     private const int PointCoordinates = 2;
 
@@ -131,6 +134,8 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
         nameof(IsDrawTool),
         nameof(IsNoteTool),
         nameof(IsTextTool),
+        nameof(IsCaretTool),
+        nameof(IsFreehandHighlightTool),
         nameof(ShapeLabel),
         nameof(StampButtonLabel))]
     public partial AnnotationTool Tool { get; set; }
@@ -182,6 +187,20 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     {
         get => Tool == AnnotationTool.Text;
         set => SelectTool(value, AnnotationTool.Text);
+    }
+
+    /// <summary>Gets or sets a value indicating whether the caret tool is active.</summary>
+    public bool IsCaretTool
+    {
+        get => Tool == AnnotationTool.Caret;
+        set => SelectTool(value, AnnotationTool.Caret);
+    }
+
+    /// <summary>Gets or sets a value indicating whether the freehand highlighter tool is active.</summary>
+    public bool IsFreehandHighlightTool
+    {
+        get => Tool == AnnotationTool.FreehandHighlight;
+        set => SelectTool(value, AnnotationTool.FreehandHighlight);
     }
 
     /// <summary>Gets the shape button's label: the shape being drawn, or "Shape".</summary>
@@ -337,15 +356,31 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     /// <param name="page">The page.</param>
     /// <param name="points">The points, stroke after stroke.</param>
     /// <param name="strokeLengths">The number of points in each stroke.</param>
-    /// <param name="kind">Ink or signature.</param>
+    /// <param name="kind">Ink, signature, or a freehand highlight, which uses the chosen colour as it is on a wide pen.</param>
     /// <returns><see langword="true"/> when added.</returns>
     public bool AddInk(int page, ReadOnlySpan<PagePoint> points, ReadOnlySpan<int> strokeLengths, AnnotationKind kind)
     {
-        var signature = kind == AnnotationKind.Signature;
-        var color = signature ? AnnotationColors.Ink : AnnotationColors.Deep(Color);
-        var width = signature ? InkWidth : LineWidth;
+        var color = kind switch
+        {
+            AnnotationKind.Signature => AnnotationColors.Ink,
+            AnnotationKind.FreehandHighlight => Color,
+            _ => AnnotationColors.Deep(Color),
+        };
+        var width = kind switch
+        {
+            AnnotationKind.Signature => InkWidth,
+            AnnotationKind.FreehandHighlight => HighlighterWidth,
+            _ => LineWidth,
+        };
         return EditorForChange() is { } editor && Added(page, editor.AddInk(page, points, strokeLengths, color, width, kind));
     }
+
+    /// <summary>Marks a place where text should be inserted, in the deeper tone of the chosen colour.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="location">The place: the caret hangs below this point with its tip on it.</param>
+    /// <returns><see langword="true"/> when added.</returns>
+    public bool AddCaret(int page, PagePoint location) =>
+        EditorForChange() is { } editor && Added(page, editor.AddCaret(page, location, AnnotationColors.Deep(Color)));
 
     /// <summary>
     /// Keeps a measurement on the page: its lines as a drawing whose comment is the measurement, and the measurement

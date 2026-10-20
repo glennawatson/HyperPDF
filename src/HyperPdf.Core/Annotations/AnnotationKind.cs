@@ -63,4 +63,10 @@ public enum AnnotationKind
 
     /// <summary>An area marked for redaction: it is removed for good when the redactions are applied.</summary>
     Redaction = 18,
+
+    /// <summary>A caret marking where text should be inserted.</summary>
+    Caret = 19,
+
+    /// <summary>A wide, see-through freehand stroke that marks text like a highlighter pen.</summary>
+    FreehandHighlight = 20,
 }

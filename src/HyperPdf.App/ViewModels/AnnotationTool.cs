@@ -60,4 +60,10 @@ public enum AnnotationTool
 
     /// <summary>Selecting text marks it to redact.</summary>
     RedactText = 19,
+
+    /// <summary>Clicking marks a place where text should be inserted.</summary>
+    Caret = 20,
+
+    /// <summary>Dragging marks over the page with a wide, see-through highlighter pen.</summary>
+    FreehandHighlight = 21,
 }

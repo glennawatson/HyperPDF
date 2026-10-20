@@ -418,6 +418,9 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <summary>Gets or sets the cached pen used to draw a signature mark preview.</summary>
     internal Pen? MarkPen { get; set; }
 
+    /// <summary>Gets or sets the cached pen the highlighter's live stroke is drawn with.</summary>
+    internal Pen? HighlighterPen { get; set; }
+
     /// <summary>Gets or sets the printed-form region currently hovered by the pointer.</summary>
     internal PageCanvasAnnotationMixins.HoveredFormRegion? HoveredRegion { get; set; }
 

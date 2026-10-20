@@ -63,6 +63,9 @@ internal static class PageCanvasAnnotationMixins
     /// <summary>How far the placement outline sits outside the mark.</summary>
     private const double PlacementInset = 4;
 
+    /// <summary>The alpha of the highlighter pen's preview, about 40% like the highlight it saves.</summary>
+    private const uint HighlighterAlpha = 0x66000000U;
+
     /// <summary>The smallest zoom change that makes the ink pen again.</summary>
     private const double PenTolerance = 0.001;
 
@@ -268,7 +271,8 @@ internal static class PageCanvasAnnotationMixins
                 if (canvas.Stroke.Count > 1)
                 {
                     ReadOnlySpan<int> lengths = [canvas.Stroke.Count];
-                    _ = tab.Annotations.AddInk(page, CollectionsMarshal.AsSpan(canvas.Stroke), lengths, AnnotationKind.Ink);
+                    var kind = tab.Annotations.Tool == AnnotationTool.FreehandHighlight ? AnnotationKind.FreehandHighlight : AnnotationKind.Ink;
+                    _ = tab.Annotations.AddInk(page, CollectionsMarshal.AsSpan(canvas.Stroke), lengths, kind);
                 }
 
                 canvas.Stroke.Clear();
@@ -365,6 +369,31 @@ internal static class PageCanvasAnnotationMixins
             canvas.InvalidateVisual();
         }
 
+        /// <summary>
+        /// Gets the pen the live stroke is drawn with: thin ink for drawing, or a wide see-through pen in the chosen colour for the
+        /// highlighter. The highlighter pen is kept until the colour or zoom changes.
+        /// </summary>
+        /// <param name="tab">The tab.</param>
+        /// <returns>The pen.</returns>
+        internal IPen GetStrokePen(DocumentTabViewModel tab)
+        {
+            if (tab.Annotations.Tool != AnnotationTool.FreehandHighlight)
+            {
+                return StrokePen;
+            }
+
+            var width = AnnotationsViewModel.HighlighterWidth * canvas.Layout.Options.Scale;
+            var color = Color.FromUInt32(HighlighterAlpha | tab.Annotations.Color);
+            if (canvas.HighlighterPen is { Brush: ISolidColorBrush brush } cached && brush.Color == color && Math.Abs(cached.Thickness - width) <= PenTolerance)
+            {
+                return cached;
+            }
+
+            var made = new Pen(new ImmutableSolidColorBrush(color), width, lineCap: PenLineCap.Round);
+            canvas.HighlighterPen = made;
+            return made;
+        }
+
         /// <summary>Draws the stroke being drawn, comment badges and the outline of the picked annotation.</summary>
         /// <param name="context">The drawing context.</param>
         /// <param name="tab">The tab.</param>
@@ -380,10 +409,11 @@ internal static class PageCanvasAnnotationMixins
             {
                 var transform = new PageTransform(canvas.Layout.GetPageBounds(canvas.StrokePage), canvas.Sizes[canvas.StrokePage], tab.Rotation, canvas.Layout.Options.Scale);
                 var previous = transform.ToCanvas(canvas.Stroke[0]);
+                var strokePen = canvas.GetStrokePen(tab);
                 for (var i = 1; i < canvas.Stroke.Count; i++)
                 {
                     var next = transform.ToCanvas(canvas.Stroke[i]);
-                    context.DrawLine(StrokePen, previous, next);
+                    context.DrawLine(strokePen, previous, next);
                     previous = next;
                 }
             }
@@ -484,10 +514,10 @@ internal static class PageCanvasAnnotationMixins
         private DrawingToolPress? TryMatchPageToolOrField(DocumentTabViewModel tab, PointerPressedEventArgs e, int page, Point position) =>
             tab.Annotations.Tool switch
             {
-                AnnotationTool.Draw => new(canvas, tab, e, page, position, DrawingToolPress.Ink),
+                AnnotationTool.Draw or AnnotationTool.FreehandHighlight => new(canvas, tab, e, page, position, DrawingToolPress.Ink),
                 AnnotationTool.Text or AnnotationTool.Select when tab.Forms.HitTest(page, canvas.ToPage(tab, page, position)) is not null =>
                     new(canvas, tab, e, page, position, DrawingToolPress.Field),
-                AnnotationTool.Note or AnnotationTool.Text or AnnotationTool.Stamp =>
+                AnnotationTool.Note or AnnotationTool.Text or AnnotationTool.Stamp or AnnotationTool.Caret =>
                     new(canvas, tab, e, page, position, DrawingToolPress.ClickTool),
                 _ => null,
             };
@@ -884,6 +914,12 @@ internal static class PageCanvasAnnotationMixins
             case AnnotationTool.Stamp:
             {
                 _ = tab.Annotations.AddStamp(clicked, point);
+                break;
+            }
+
+            case AnnotationTool.Caret:
+            {
+                _ = tab.Annotations.AddCaret(clicked, point);
                 break;
             }
 

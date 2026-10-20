@@ -40,6 +40,12 @@ internal static class HyperPdfAnnotationStrokes
     /// <summary>The index of the first head side's start.</summary>
     internal const int ArrowFirstStart = 2;
 
+    /// <summary>The entries of a freehand highlight's graphics state: both opacities and the blend mode.</summary>
+    private const int HighlighterStateEntries = 3;
+
+    /// <summary>Gets the name of the graphics state a freehand highlight's appearance uses.</summary>
+    private static ReadOnlySpan<byte> HighlighterState => "HL"u8;
+
     /// <summary>Gets an arrow head's length for a line width.</summary>
     /// <param name="width">The line width.</param>
     /// <returns>The length.</returns>
@@ -205,16 +211,47 @@ internal static class HyperPdfAnnotationStrokes
         try
         {
             builder.SaveState();
+            var resources = UseHighlighterState(annotationState, annotation, kind, ref builder);
             PdfAppearances.SetColors(ref builder, color);
             PdfAppearances.SetRoundLine(ref builder, width);
             AddPath(ref builder, kind, ref path, width);
             builder.Stroke();
             builder.RestoreState();
-            _ = PdfAnnotations.SetNormalAppearance(annotationState.Store, annotation, builder.ToFormXObject(annotationState.Store, rectangle, null));
+            _ = PdfAnnotations.SetNormalAppearance(annotationState.Store, annotation, builder.ToFormXObject(annotationState.Store, rectangle, resources));
         }
         finally
         {
             builder.Dispose();
         }
+    }
+
+    /// <summary>
+    /// For a freehand highlight, applies a see-through multiplying graphics state to the appearance so the text under the
+    /// pen stays readable, using the annotation's own constant opacity.
+    /// </summary>
+    /// <param name="annotationState">The annotation state.</param>
+    /// <param name="annotation">The annotation.</param>
+    /// <param name="kind">Its kind.</param>
+    /// <param name="builder">The appearance being written.</param>
+    /// <returns>The resources the appearance needs, or <see langword="null"/> for any other kind.</returns>
+    private static PdfDictionary? UseHighlighterState(HyperPdfAnnotations annotationState, PdfDictionary annotation, AnnotationKind kind, ref PdfContentBuilder builder)
+    {
+        if (kind != AnnotationKind.FreehandHighlight)
+        {
+            return null;
+        }
+
+        var store = annotationState.Store;
+        var opacity = annotation.Get(KnownName.CA) is { IsNumber: true } alpha ? (float)alpha.AsNumber() : HyperPdfAnnotationShapes.HighlighterOpacity;
+        var state = new PdfDictionary(store, HighlighterStateEntries);
+        state.Set(KnownName.CA, PdfNumber.ToValue(opacity));
+        state.Set(KnownName.FillAlpha, PdfNumber.ToValue(opacity));
+        state.Set(KnownName.BM, PdfValue.FromName(KnownName.Multiply));
+        var states = new PdfDictionary(store, 1);
+        states.Set(store.Names.Intern(HighlighterState), PdfValue.FromDictionary(state));
+        var resources = new PdfDictionary(store, 1);
+        resources.Set(KnownName.ExtGState, PdfValue.FromDictionary(states));
+        builder.SetGraphicsState(HighlighterState);
+        return resources;
     }
 }

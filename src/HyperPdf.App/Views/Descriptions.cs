@@ -260,6 +260,12 @@ public static class Descriptions
     /// <summary>The draw tool.</summary>
     public static readonly string DrawTool = "Drag on the page to draw freehand.";
 
+    /// <summary>The freehand highlighter tool.</summary>
+    public static readonly string FreehandHighlightTool = "Drag on the page with a wide, see-through pen to highlight anything, including pictures and scanned text.";
+
+    /// <summary>The caret tool.</summary>
+    public static readonly string CaretTool = "Click on the page to mark a place where text should be inserted.";
+
     /// <summary>The note tool.</summary>
     public static readonly string NoteTool = "Click on the page to add a sticky note.";
 

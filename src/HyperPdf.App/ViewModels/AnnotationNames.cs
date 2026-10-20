@@ -32,6 +32,8 @@ public static class AnnotationNames
         AnnotationKind.Cloud => "Cloud",
         AnnotationKind.PolyLine => "Connected lines",
         AnnotationKind.Redaction => "Redaction",
+        AnnotationKind.Caret => "Insertion point",
+        AnnotationKind.FreehandHighlight => "Freehand highlight",
         _ => "Annotation",
     };
 

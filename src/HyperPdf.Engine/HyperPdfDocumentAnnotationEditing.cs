@@ -94,6 +94,21 @@ internal static class HyperPdfDocumentAnnotationEditing
         }
     }
 
+    /// <summary>Adds a caret marking where text should be inserted.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="location">The place the text goes.</param>
+    /// <param name="color">The colour as 0xRRGGBB.</param>
+    /// <returns>The new annotation's index, or -1.</returns>
+    internal static int AddCaret(HyperPdfDocument self, int pageIndex, PagePoint location, uint color)
+    {
+        lock (self.EditGate)
+        {
+            using var access = HyperPdfNavigation.EnterPageWrite(self);
+            return HyperPdfEditing.Added(self, pageIndex, HyperPdfAnnotationCarets.AddCaret(HyperPdfAnnotationStateAccess.GetAnnotations(self), pageIndex, location, color));
+        }
+    }
+
     /// <summary>Writes text on the page, or places a typed signature.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
