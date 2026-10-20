@@ -119,7 +119,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes qpdf
       - name: Fetch verified reference PDFs
-        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/reference-pdfs" usgs-lost-city-2023 verapdf-ua-headings verapdf-ua-tables verapdf-ua-notes pdfjs-textfields pdfjs-js-buttons pdfjs-annotation-attachment pypdf-latex-forms pypdf-libreoffice-form pypdf-outline pypdf-arabic pypdf-arabic-oneline-cmap pypdf-arabic-rotated commons-apna-aap pypdf-annotations pypdf-attachment
+        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/reference-pdfs" usgs-lost-city-2023 verapdf-ua-headings verapdf-ua-tables verapdf-ua-notes pdfjs-textfields pdfjs-js-buttons pdfjs-annotation-attachment pypdf-latex-forms pypdf-libreoffice-form pypdf-outline pypdf-arabic pypdf-arabic-oneline-cmap pypdf-arabic-rotated pypdf-annotations pypdf-attachment
       - name: Save PDF 2.0 copies and check them with qpdf
         run: dotnet run --file scripts/CheckPdf20Copies.cs -- "${{ runner.temp }}/reference-pdfs" "${{ runner.temp }}/pdf20-copies"
       - name: Upload PDF 2.0 copies
