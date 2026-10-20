@@ -3413,5 +3413,30 @@
     "type": "System.RuntimeFieldInfoStub",
     "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.Assemble",
     "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.CreatePointArray",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "System.Boolean[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetter.KeepNumbers",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.SetDate",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.FdSelect",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.Describe",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
   }
 ]
