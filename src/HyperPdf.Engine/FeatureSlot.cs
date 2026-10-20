@@ -108,4 +108,7 @@ internal enum FeatureSlot
 
     /// <summary>The page transitions a presentation shows.</summary>
     PageTransitions = 32,
+
+    /// <summary>The document parts and article threads.</summary>
+    PartSource = 33,
 }

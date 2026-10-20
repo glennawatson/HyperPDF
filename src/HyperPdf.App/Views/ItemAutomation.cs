@@ -78,6 +78,8 @@ internal static class ItemAutomation
         AnnotationItemViewModel annotation => annotation.SpokenText,
         DocumentAttachment attachment => string.Create(CultureInfo.CurrentCulture, $"{attachment.Name}, {AttachmentsViewModel.FormatSize(attachment.Size)}"),
         LayerItemViewModel layer => layer.SpokenName,
+        PartItemViewModel part => part.SpokenName,
+        ThreadItemViewModel thread => thread.SpokenName,
         TagItemViewModel tag => tag.SpokenName,
         TagProblemItem problem => problem.Text,
         RecentDocument recent => DescribeFile(recent.FileName, recent.Folder),

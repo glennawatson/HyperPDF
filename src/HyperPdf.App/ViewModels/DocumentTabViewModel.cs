@@ -406,7 +406,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         nameof(IsAnnotationsMode),
         nameof(IsAttachmentsMode),
         nameof(IsLayersMode),
-        nameof(IsTagsMode))]
+        nameof(IsTagsMode),
+        nameof(IsPartsMode))]
     public partial SidebarMode SidebarMode { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the thumbnails panel is shown.</summary>
@@ -457,6 +458,16 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         get => SidebarMode == SidebarMode.Tags;
         set => SetSidebarMode(value, SidebarMode.Tags);
     }
+
+    /// <summary>Gets or sets a value indicating whether the parts and articles panel is shown.</summary>
+    public bool IsPartsMode
+    {
+        get => SidebarMode == SidebarMode.Parts;
+        set => SetSidebarMode(value, SidebarMode.Parts);
+    }
+
+    /// <summary>Gets the document's parts and article threads.</summary>
+    public DocumentPartsViewModel Parts => field ??= Owned(new DocumentPartsViewModel(this));
 
     /// <summary>Gets the document's layers.</summary>
     public LayersViewModel Layers => _layers ??= Owned(new LayersViewModel(this));
@@ -917,17 +928,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         }
 
         IsPresenting = false;
-        var before = _beforePresenting;
-        SidebarVisible = before.SidebarVisible;
-        IsPageByPage = before.PageByPage;
-        if (before.ZoomMode == ZoomMode.Free)
-        {
-            SetZoom(before.Zoom);
-        }
-        else
-        {
-            ZoomMode = before.ZoomMode;
-        }
+        _beforePresenting.Restore(this);
     }
 
     /// <summary>Closes the native document while the tab is in the background; it reopens on demand.</summary>
@@ -1120,6 +1121,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
+        Parts.Refresh();
         Copies.Refresh(document);
         PagesInUse?.Refresh();
         if (!IsSecondaryView)
@@ -1156,6 +1158,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
+        Parts.Refresh();
         _tags?.Refresh();
         Search.Refresh();
         LastPageChange = LastPageChange.Next(PageChange.AllPages);

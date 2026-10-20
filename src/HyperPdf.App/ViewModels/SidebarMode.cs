@@ -27,4 +27,7 @@ public enum SidebarMode
 
     /// <summary>The document's tags, which tell assistive technology how it reads.</summary>
     Tags = 6,
+
+    /// <summary>The document's parts and article threads.</summary>
+    Parts = 7,
 }

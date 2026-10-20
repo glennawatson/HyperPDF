@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.PartsPanelView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (PartsPanelView.axaml.cs). -->
+  <DockPanel x:Name="PartsPanel">
+    <TextBlock DockPanel.Dock="Top" Classes="secondary" Margin="12,4,12,8" TextWrapping="Wrap"
+               Text="Choose a part to go to its first page, or an article to read it place by place. The outline and page numbers still work." />
+    <!-- Articles: shown only when the file has some. Previous and Next keep the place in the chosen article. -->
+    <StackPanel x:Name="ThreadSection" DockPanel.Dock="Bottom" Margin="8" Spacing="6">
+      <TextBlock Text="Articles" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <ListBox x:Name="ThreadList" AutomationProperties.Name="Articles" MaxHeight="180" Background="Transparent" />
+      <TextBlock x:Name="PlaceText" Classes="secondary" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button x:Name="PreviousPlaceButton" views:ControlHelp.Text="{x:Static views:Descriptions.PreviousPlace}" Content="Previous place" />
+        <Button x:Name="NextPlaceButton" views:ControlHelp.Text="{x:Static views:Descriptions.NextPlace}" Content="Next place" />
+      </StackPanel>
+    </StackPanel>
+    <!-- Parts: shown only when the file has some. -->
+    <DockPanel x:Name="PartSection">
+      <TextBlock DockPanel.Dock="Top" Margin="8,0" Text="Parts" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <TreeView x:Name="PartTree" AutomationProperties.Name="Document parts" Background="Transparent" />
+    </DockPanel>
+  </DockPanel>
+</UserControl>

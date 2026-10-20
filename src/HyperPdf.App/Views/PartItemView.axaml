@@ -1,0 +1,10 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HyperPdf.App.Views.PartItemView">
+  <StackPanel Spacing="2">
+    <TextBlock x:Name="NameText" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+    <TextBlock x:Name="PagesText" Classes="secondary" FontSize="11" />
+    <!-- The part's metadata as written in the file. -->
+    <TextBlock x:Name="DetailText" Classes="secondary" FontSize="11" TextWrapping="Wrap" />
+  </StackPanel>
+</UserControl>

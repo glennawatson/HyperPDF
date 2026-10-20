@@ -590,6 +590,15 @@ public static class Descriptions
     /// <summary>The splitter beside the sidebar.</summary>
     public static readonly string SidebarSplitter = "Drag to make the sidebar wider or narrower.";
 
+    /// <summary>The parts and articles button.</summary>
+    public static readonly string Parts = "Show the document's parts and article threads, if it has any.";
+
+    /// <summary>The Previous place button of the articles list.</summary>
+    public static readonly string PreviousPlace = "Go back to the place before this one in the chosen article.";
+
+    /// <summary>The Next place button of the articles list.</summary>
+    public static readonly string NextPlace = "Go to the next place in the chosen article, in the order the file gives.";
+
     /// <summary>The Reset Layers button.</summary>
     public static readonly string ResetLayers = "Put every layer back to how the file sets it. The file does not change.";
 
