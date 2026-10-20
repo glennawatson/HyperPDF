@@ -4138,5 +4138,30 @@
     "type": "System.Int32[]",
     "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetter.Add",
     "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.PrivateDict",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.Top",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.FdSelect",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.HashSet`1[System.Int32]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.FindPrograms",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
   }
 ]
