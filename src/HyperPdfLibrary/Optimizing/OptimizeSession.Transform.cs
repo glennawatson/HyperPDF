@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 
@@ -14,21 +13,21 @@ internal sealed partial class OptimizeSession
     /// <inheritdoc/>
     public PdfValue Transform(int oldNumber, PdfValue value)
     {
-        if (value.AsStream() is not { } stream)
-        {
-            return value;
-        }
-
         // The writer may call back on another thread, so each object uses this session's token.
         _cancellationToken.ThrowIfCancellationRequested();
+        if (value.AsStream() is not { } stream)
+        {
+            return TransformFontNames(oldNumber, value);
+        }
+
         if (_images.TryGetValue(oldNumber, out var use) && TransformImage(oldNumber, stream, use) is { } image)
         {
             return PdfValue.FromStream(image);
         }
 
-        if (_fonts is { } fonts && fonts.Kept.TryGetValue(oldNumber, out var glyphs) && TransformFont(oldNumber, stream, glyphs) is { } font)
+        if (_fonts is { } fonts && fonts.Subsets.TryGetValue(oldNumber, out var subset))
         {
-            return PdfValue.FromStream(font);
+            return PdfValue.FromStream(subset);
         }
 
         if (_options.RecompressStreams && StreamRecompressor.TryRecompress(stream, _source.Objects.ScratchPools, _cancellationToken) is { } smaller)
@@ -43,6 +42,18 @@ internal sealed partial class OptimizeSession
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Progress(int written, int total, long bytes) => _progress?.Report(new(PdfOptimizePhase.Writing, written, total, bytes));
+
+    /// <summary>Adds the subset tag to the names of a font object whose program was cut down.</summary>
+    /// <param name="oldNumber">The object's number in the source.</param>
+    /// <param name="value">The object.</param>
+    /// <returns>The object with tagged names, or the object itself when it needs none.</returns>
+    private PdfValue TransformFontNames(int oldNumber, PdfValue value)
+    {
+        var renamed = _fonts is { } fonts && fonts.Renames.TryGetValue(oldNumber, out var rename) && value.AsDictionary() is { } dictionary
+            ? FontNaming.Apply(dictionary, rename, Working.Objects.Names)
+            : null;
+        return renamed is null ? value : PdfValue.FromDictionary(renamed);
+    }
 
     /// <summary>Re-encodes an image as it is written.</summary>
     /// <param name="oldNumber">The image's number in the source.</param>
@@ -64,23 +75,5 @@ internal sealed partial class OptimizeSession
         }
 
         return null;
-    }
-
-    /// <summary>Subsets a font program as it is written.</summary>
-    /// <param name="oldNumber">The program's number in the source.</param>
-    /// <param name="program">The font program stream.</param>
-    /// <param name="glyphs">The glyphs to keep.</param>
-    /// <returns>The subset program, or <see langword="null"/> when nothing was gained.</returns>
-    private PdfStream? TransformFont(int oldNumber, PdfStream program, CodeBitSet glyphs)
-    {
-        if (TrueTypeSubsetter.Subset(program, glyphs, _source.Objects.ScratchPools, _cancellationToken) is not { } subset)
-        {
-            _report.Skip(PdfOptimizeCategory.Fonts, oldNumber, "The font program could not be subset or subsetting saved nothing.");
-            return null;
-        }
-
-        var note = string.Create(CultureInfo.InvariantCulture, $"TrueType font program cut down to {glyphs.Count} used glyphs; glyph numbers are kept.");
-        _report.Changed(PdfOptimizeCategory.Fonts, oldNumber, note, program.RawLength, subset.RawLength);
-        return subset;
     }
 }

@@ -133,6 +133,33 @@ public static class TestCffFont
         return TestFont.CreateOpenType(tables, options.EmbeddingFlags, options.Family);
     }
 
+    /// <summary>Takes the bare Compact Font Format program out of an OpenType font written by <see cref="Create(TestCffOptions)"/>.</summary>
+    /// <param name="openType">The OpenType font file.</param>
+    /// <returns>The bytes of its 'CFF ' table.</returns>
+    /// <exception cref="InvalidOperationException">The font has no 'CFF ' table.</exception>
+    public static byte[] ExtractProgram(byte[] openType)
+    {
+        ArgumentNullException.ThrowIfNull(openType);
+        const int directoryHeader = 12;
+        const int recordSize = 16;
+        const uint cffTag = 0x43464620;
+        var count = BinaryPrimitives.ReadUInt16BigEndian(openType.AsSpan(0x4));
+        for (var i = 0; i < count; i++)
+        {
+            var record = openType.AsSpan(directoryHeader + (i * recordSize));
+            if (BinaryPrimitives.ReadUInt32BigEndian(record) != cffTag)
+            {
+                continue;
+            }
+
+            var offset = (int)BinaryPrimitives.ReadUInt32BigEndian(record[0x8..]);
+            var length = (int)BinaryPrimitives.ReadUInt32BigEndian(record[0xC..]);
+            return openType.AsSpan(offset, length).ToArray();
+        }
+
+        throw new InvalidOperationException("The font has no CFF table.");
+    }
+
     /// <summary>Gets the advance height of a glyph in vertical writing.</summary>
     /// <param name="glyph">The glyph.</param>
     /// <returns>The advance height in font units.</returns>
