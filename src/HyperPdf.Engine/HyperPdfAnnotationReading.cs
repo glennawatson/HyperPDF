@@ -320,7 +320,11 @@ internal static class HyperPdfAnnotationReading
             PdfAnnotations.SetColor(annotation, KnownName.C, rgb);
         }
 
-        PdfAnnotations.SetOpacity(annotation, 1);
+        if (!annotation.Get(KnownName.CA).IsNumber)
+        {
+            PdfAnnotations.SetOpacity(annotation, 1);
+        }
+
         PdfAnnotations.SetFlags(annotation, PrintFlags);
         PdfAnnotations.SetText(annotation, KnownName.T, GetAuthor(annotationState));
         SetModified(annotationState, annotation);

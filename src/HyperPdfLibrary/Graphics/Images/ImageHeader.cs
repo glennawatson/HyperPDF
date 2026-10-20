@@ -107,7 +107,10 @@ internal readonly record struct ImageHeader(
     internal static ImageHeader? FromInline(PdfDictionary dictionary, PdfDictionary? colorSpaces, OutputIntentColors? colors) =>
         Read(dictionary, colorSpaces, true, colors);
 
-    /// <summary>Gets a value by its full key, or by its inline abbreviation.</summary>
+    /// <summary>
+    /// Gets a value by its inline abbreviation, or by its full key. When an inline image has both, the abbreviated key takes
+    /// precedence (ISO 32000-2 §8.9.7).
+    /// </summary>
     /// <param name="dictionary">The dictionary.</param>
     /// <param name="key">The full key.</param>
     /// <param name="abbreviation">The inline abbreviation.</param>
@@ -115,8 +118,8 @@ internal readonly record struct ImageHeader(
     /// <returns>The value, or null.</returns>
     internal static PdfValue Get(PdfDictionary dictionary, KnownName key, KnownName abbreviation, bool inline)
     {
-        var value = dictionary.Get(key);
-        return value.IsNull && inline ? dictionary.Get(abbreviation) : value;
+        var abbreviated = inline ? dictionary.Get(abbreviation) : default;
+        return abbreviated.IsNull ? dictionary.Get(key) : abbreviated;
     }
 
     /// <summary>Gets the decode range of each component: the /Decode array or the colour space's default.</summary>

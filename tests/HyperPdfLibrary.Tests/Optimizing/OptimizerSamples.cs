@@ -276,6 +276,29 @@ internal static class OptimizerSamples
             MiniPdf.Stream(Format($"/Length1 {font.Length}"), OptimizerTestKit.Latin1(font)));
     }
 
+    /// <summary>Builds a page that shows text in the CID-keyed test font with Compact Font Format outlines, as a Type 0 font.</summary>
+    /// <param name="openType">Whether the program is the whole OpenType file (<c>/OpenType</c>) rather than the bare CFF program (<c>/CIDFontType0C</c>).</param>
+    /// <returns>The PDF.</returns>
+    internal static byte[] EmbeddedCffFont(bool openType)
+    {
+        const string Descriptor = "<< /Type /FontDescriptor /FontName /PVLTestCidCff /Flags 4 /FontBBox [0 -200 1000 800] /ItalicAngle 0 "
+            + "/Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 /FontFile3 8 0 R >>";
+        var file = TestCffFont.Create(new() { CidKeyed = true });
+        var program = openType ? file : TestCffFont.ExtractProgram(file);
+        var subtype = openType ? "OpenType" : "CIDFontType0C";
+        var shown = string.Concat(FontText.Select(static letter => TestFont.GlyphOf(letter).ToString("X4", CultureInfo.InvariantCulture)));
+        var content = Format($"BT /F1 24 Tf {Margin} 700 Td <{shown}> Tj ET\n");
+        return MiniPdf.Build(
+            Catalog,
+            OnePage,
+            Page("/Font << /F1 5 0 R >>"),
+            MiniPdf.Stream(string.Empty, content),
+            "<< /Type /Font /Subtype /Type0 /BaseFont /PVLTestCidCff /Encoding /Identity-H /DescendantFonts [6 0 R] >>",
+            "<< /Type /Font /Subtype /CIDFontType0 /BaseFont /PVLTestCidCff /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /DW 600 /FontDescriptor 7 0 R >>",
+            Descriptor,
+            MiniPdf.Stream($"/Subtype /{subtype}", OptimizerTestKit.Latin1(program)));
+    }
+
     /// <summary>Builds two pages that each draw their own copy of the same image.</summary>
     /// <returns>The PDF.</returns>
     internal static byte[] Duplicates()

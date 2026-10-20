@@ -37,6 +37,14 @@ internal readonly record struct StreamDescription(
     /// <summary>The bits in a float sample.</summary>
     private const uint FloatBits = 32;
 
+    /// <summary>Describes interleaved 32 bit float samples.</summary>
+    /// <param name="rate">The sample rate.</param>
+    /// <param name="channels">The number of channels.</param>
+    /// <returns>The description.</returns>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal static StreamDescription Float(int rate, int channels) =>
+        new(rate, LinearPcm, PackedFloat, (uint)(sizeof(float) * channels), 1, (uint)(sizeof(float) * channels), (uint)channels, FloatBits, 0);
+
     /// <summary>Describes mono 32 bit float samples.</summary>
     /// <param name="rate">The sample rate.</param>
     /// <returns>The description.</returns>

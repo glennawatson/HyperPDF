@@ -13,4 +13,21 @@ namespace HyperPdf.App.ViewModels;
 /// <param name="PageByPage">Whether pages were shown one at a time.</param>
 /// <param name="SidebarVisible">Whether the sidebar was shown.</param>
 [DebuggerDisplay("PresentationState: {ZoomMode} page by page={PageByPage}")]
-public readonly record struct PresentationState(ZoomMode ZoomMode, double Zoom, bool PageByPage, bool SidebarVisible);
+public readonly record struct PresentationState(ZoomMode ZoomMode, double Zoom, bool PageByPage, bool SidebarVisible)
+{
+    /// <summary>Puts a tab's view back as it was before presenting.</summary>
+    /// <param name="tab">The tab.</param>
+    public void Restore(DocumentTabViewModel tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        tab.SidebarVisible = SidebarVisible;
+        tab.IsPageByPage = PageByPage;
+        if (ZoomMode == ZoomMode.Free)
+        {
+            tab.SetZoom(Zoom);
+            return;
+        }
+
+        tab.ZoomMode = ZoomMode;
+    }
+}

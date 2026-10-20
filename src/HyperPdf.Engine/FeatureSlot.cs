@@ -105,4 +105,22 @@ internal enum FeatureSlot
 
     /// <summary>The page sharpness choices, after the last service.</summary>
     RenderSharpness = 31,
+
+    /// <summary>The page transitions a presentation shows.</summary>
+    PageTransitions = 32,
+
+    /// <summary>The document parts and article threads.</summary>
+    PartSource = 33,
+
+    /// <summary>What a page offers assistive technology beyond its reading blocks.</summary>
+    PageSemantics = 34,
+
+    /// <summary>The XMP properties of the catalog.</summary>
+    XmpSource = 35,
+
+    /// <summary>Showing and hiding form fields by name.</summary>
+    FormVisibility = 36,
+
+    /// <summary>The sound and video a document carries.</summary>
+    MediaSource = 37,
 }

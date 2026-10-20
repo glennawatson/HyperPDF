@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using HyperPdfLibrary.Content;
@@ -32,7 +33,7 @@ internal static class FontSubsetPlanner
     /// <param name="cancellationToken">Stops page interpretation.</param>
     internal static void Plan(PdfDocument document, ContentUsageScanner scanner, OptimizerGraph graph, FontPlanState state, OptimizeReportBuilder report, CancellationToken cancellationToken)
     {
-        FindPrograms(graph, state, report);
+        FindPrograms(graph, state, document.Objects.Names);
         if (state.Programs.Count == 0)
         {
             return;
@@ -53,13 +54,15 @@ internal static class FontSubsetPlanner
                 state.Kept[program] = kept;
             }
         }
+
+        CutPrograms(document, state, report, cancellationToken);
     }
 
-    /// <summary>Finds the embedded TrueType programs and the fonts using each.</summary>
+    /// <summary>Finds the embedded TrueType, CFF and OpenType programs and the fonts using each.</summary>
     /// <param name = "graph">The reachable objects.</param>
     /// <param name = "state">Receives the font numbers using each program, by program number.</param>
-    /// <param name = "report">Receives the fonts that cannot be subset.</param>
-    private static void FindPrograms(OptimizerGraph graph, FontPlanState state, OptimizeReportBuilder report)
+    /// <param name = "names">The document's name table.</param>
+    private static void FindPrograms(OptimizerGraph graph, FontPlanState state, PdfNameTable names)
     {
         var programs = state.Programs;
         for (var number = 1; number <= graph.Count; number++)
@@ -69,16 +72,118 @@ internal static class FontSubsetPlanner
                 continue;
             }
 
-            var program = descriptor.GetRaw(KnownName.FontFile2);
-            if (program.IsReference)
+            var key = descriptor.GetRaw(KnownName.FontFile2).IsReference ? KnownName.FontFile2 : KnownName.FontFile3;
+            var program = descriptor.GetRaw(key);
+            if (!program.IsReference || descriptor.GetStream(key) is not { } stream)
             {
-                ref var users = ref CollectionsMarshal.GetValueRefOrAddDefault(programs, program.AsReference().Number, out _);
-                users ??= state.RentList();
-                users.Add(graph.GetOldNumber(number));
+                continue;
             }
-            else if (descriptor.GetRaw(KnownName.FontFile3).IsReference)
+
+            var programNumber = program.AsReference().Number;
+            ref var users = ref CollectionsMarshal.GetValueRefOrAddDefault(programs, programNumber, out _);
+            users ??= state.RentList();
+            var oldNumber = graph.GetOldNumber(number);
+            users.Add(oldNumber);
+            state.Streams[programNumber] = stream;
+            state.Users[oldNumber] = UserOf(graph.GetValue(number).AsDictionary()!, programNumber, names);
+        }
+    }
+
+    /// <summary>Finds the separate objects that hold a font's names.</summary>
+    /// <param name="font">The font dictionary.</param>
+    /// <param name="program">The number of the program the font uses.</param>
+    /// <param name="names">The document's name table.</param>
+    /// <returns>The objects.</returns>
+    private static FontUser UserOf(PdfDictionary font, int program, PdfNameTable names)
+    {
+        var isType0 = font.GetName(KnownName.Subtype).ToKnownName() == KnownName.Type0;
+        var descendants = isType0 ? font.GetArray(KnownName.DescendantFonts) : null;
+        var holder = isType0 ? descendants?.GetDictionary(0) : font;
+        var descendant = descendants is null ? 0 : ReferenceNumber(descendants.GetRaw(0));
+        var descriptor = holder is null ? 0 : ReferenceNumber(holder.GetRaw(KnownName.FontDescriptor));
+        var name = FontNaming.BareName(names, holder?.GetDictionary(KnownName.FontDescriptor)?.GetName(KnownName.FontName) ?? default);
+        return new(program, descendant, descriptor, name);
+    }
+
+    /// <summary>Gets the object number a value refers to.</summary>
+    /// <param name="value">The value.</param>
+    /// <returns>The object number, or zero when the value is not a reference.</returns>
+    private static int ReferenceNumber(PdfValue value) => value.IsReference ? value.AsReference().Number : 0;
+
+    /// <summary>Cuts down every program whose glyphs were worked out and gives its fonts a subset tag.</summary>
+    /// <param name="document">The working copy.</param>
+    /// <param name="state">The plan's tables.</param>
+    /// <param name="report">Receives what was cut down and what was not.</param>
+    /// <param name="cancellationToken">Stops the work.</param>
+    private static void CutPrograms(PdfDocument document, FontPlanState state, OptimizeReportBuilder report, CancellationToken cancellationToken)
+    {
+        foreach (var (program, kept) in state.Kept)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!state.Streams.TryGetValue(program, out var stream) || !IsWanted(state, program))
             {
-                report.Skip(PdfOptimizeCategory.Fonts, descriptor.GetRaw(KnownName.FontFile3).AsReference().Number, "CFF and OpenType font programs are not subset yet.");
+                continue;
+            }
+
+            var isCff = stream.Dictionary.ContainsKey(KnownName.Subtype);
+            var tag = FontNaming.Tag(program, kept);
+            var name = $"{tag}+{state.Users[state.Programs[program][0]].Name}";
+            var subset = isCff
+                ? CffProgramSubsetter.Subset(stream, kept, name, document.Objects.ScratchPools, cancellationToken)
+                : TrueTypeSubsetter.Subset(stream, kept, document.Objects.ScratchPools, cancellationToken);
+            if (subset is null)
+            {
+                report.Skip(PdfOptimizeCategory.Fonts, program, "The font program could not be subset or subsetting saved nothing.");
+                continue;
+            }
+
+            state.Subsets[program] = subset;
+            var note = string.Create(CultureInfo.InvariantCulture, $"{(isCff ? "CFF" : "TrueType")} font program cut down to {kept.Count} used glyphs; glyph numbers are kept.");
+            report.Changed(PdfOptimizeCategory.Fonts, program, note, stream.RawLength, subset.RawLength);
+            Tag(program, tag, state);
+        }
+    }
+
+    /// <summary>Determines whether a program may be cut down: any program may, unless the plan is limited to some fonts and none of them uses it.</summary>
+    /// <param name="state">The plan's tables.</param>
+    /// <param name="program">The program's number.</param>
+    /// <returns><see langword="true"/> when the program is to be cut down.</returns>
+    private static bool IsWanted(FontPlanState state, int program)
+    {
+        if (!state.LimitToOnlyFonts)
+        {
+            return true;
+        }
+
+        foreach (var font in state.Programs[program])
+        {
+            if (state.OnlyFonts.Contains(font))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Marks every font object that names a cut-down program for a subset tag.</summary>
+    /// <param name="program">The program's number.</param>
+    /// <param name="tag">The subset tag.</param>
+    /// <param name="state">The plan's tables.</param>
+    private static void Tag(int program, string tag, FontPlanState state)
+    {
+        foreach (var font in state.Programs[program])
+        {
+            state.Renames[font] = new(FontRenameKind.Font, tag);
+            var user = state.Users[font];
+            if (user.Descendant > 0)
+            {
+                state.Renames[user.Descendant] = new(FontRenameKind.Descendant, tag);
+            }
+
+            if (user.Descriptor > 0)
+            {
+                state.Renames[user.Descriptor] = new(FontRenameKind.Descriptor, tag);
             }
         }
     }
@@ -245,14 +350,21 @@ internal static class FontSubsetPlanner
                 return null;
             }
 
-            if (!state.Shown.TryGetValue(user, out var glyphs))
+            if (state.Shown.TryGetValue(user, out var glyphs))
             {
-                report.Skip(PdfOptimizeCategory.Fonts, program, "No page shows text in the font, so it is left whole.");
-                state.Release(kept);
-                return null;
+                kept.UnionWith(glyphs);
+                continue;
             }
 
-            kept.UnionWith(glyphs);
+            // A font that lost all its text to redaction keeps no glyph at all; any other font nobody shows is left whole.
+            if (state.LimitToOnlyFonts && state.OnlyFonts.Contains(user))
+            {
+                continue;
+            }
+
+            report.Skip(PdfOptimizeCategory.Fonts, program, "No page shows text in the font, so it is left whole.");
+            state.Release(kept);
+            return null;
         }
 
         return kept;

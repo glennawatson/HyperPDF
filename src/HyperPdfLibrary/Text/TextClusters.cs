@@ -114,7 +114,7 @@ internal static class TextClusters
     /// <param name="text">The text.</param>
     /// <param name="index">The position of a character.</param>
     /// <returns><see langword="true"/> when the character is a consonant right after a virama.</returns>
-    internal static bool IsInsideConjunct(string text, int index) =>
+    internal static bool IsInsideConjunct(ReadOnlySpan<char> text, int index) =>
         index > 0 && IsLinker(text[index - 1]) && IsConjunctConsonant(text[index]);
 
     /// <summary>Gets the length of the cluster that starts at an index.</summary>

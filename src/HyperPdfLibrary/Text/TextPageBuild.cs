@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.InteropServices;
 using HyperPdfLibrary.Document;
 
@@ -64,6 +65,45 @@ internal static class TextPageBuild
         finally
         {
             state.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Searches a page's collected runs without making a text page: it keeps only the page text and the character index of
+    /// each text character in pooled buffers, and reports the same matches a text page's Find would. Then it clears the state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the caller's state.</typeparam>
+    /// <param name="state">The reusable build state.</param>
+    /// <param name="rightToLeft">Whether the document asks for right-to-left reading order.</param>
+    /// <param name="query">The text to find.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="caller">The caller's state passed to each visit.</param>
+    /// <param name="visit">Receives each match's first character and length.</param>
+    internal static void Find<TState>(TextPageBuildState state, bool rightToLeft, ReadOnlySpan<char> query, PdfTextSearchOptions options, TState caller, Action<TState, int, int> visit)
+    {
+        state.RightToLeft = rightToLeft;
+        char[]? text = null;
+        int[]? charOfText = null;
+        try
+        {
+            TextLineGrouping.Assemble(state);
+            var source = CollectionsMarshal.AsSpan(state.Chars);
+            var length = CountText(source);
+            if (length == 0 || query.IsEmpty)
+            {
+                return;
+            }
+
+            text = ArrayPool<char>.Shared.Rent(length);
+            charOfText = ArrayPool<int>.Shared.Rent(length);
+            FillText(source, text, charOfText);
+            using var folded = TextFolding.FoldPooled(text.AsSpan(0, length), options & TextFolding.FoldOptions);
+            TextSearch.FindAll(folded.View, query, options, new SearchSink<TState>(caller, visit, charOfText), static (sink, first, last) => sink.Add(first, last));
+        }
+        finally
+        {
+            state.Clear();
+            ReturnRented(text, charOfText);
         }
     }
 
@@ -135,6 +175,36 @@ internal static class TextPageBuild
         return new(styles, runOfChar, null);
     }
 
+    /// <summary>Counts the characters that are part of the page text.</summary>
+    /// <param name="source">The characters the build collected.</param>
+    /// <returns>The count.</returns>
+    private static int CountText(ReadOnlySpan<TextBuildChar> source)
+    {
+        var count = 0;
+        foreach (var info in source)
+        {
+            count += info.InText ? 1 : 0;
+        }
+
+        return count;
+    }
+
+    /// <summary>Returns the buffers a search rented.</summary>
+    /// <param name="text">The text buffer, or <see langword="null"/>.</param>
+    /// <param name="charOfText">The index buffer, or <see langword="null"/>.</param>
+    private static void ReturnRented(char[]? text, int[]? charOfText)
+    {
+        if (text is not null)
+        {
+            ArrayPool<char>.Shared.Return(text);
+        }
+
+        if (charOfText is not null)
+        {
+            ArrayPool<int>.Shared.Return(charOfText);
+        }
+    }
+
     /// <summary>Copies the characters that are part of the page text, and the character index of each.</summary>
     /// <param name="source">The characters the build collected.</param>
     /// <param name="text">Receives the text.</param>
@@ -173,5 +243,22 @@ internal static class TextPageBuild
         }
 
         return levels;
+    }
+
+    /// <summary>Turns a match in the page text into a match of page characters.</summary>
+    /// <typeparam name="TState">The type of the caller's state.</typeparam>
+    /// <param name="State">The caller's state.</param>
+    /// <param name="Visit">The caller's method receiving each match's first character and length.</param>
+    /// <param name="CharOfText">The character index of each page text index.</param>
+    private readonly record struct SearchSink<TState>(TState State, Action<TState, int, int> Visit, int[] CharOfText)
+    {
+        /// <summary>Reports a match.</summary>
+        /// <param name="first">The text index of the first character.</param>
+        /// <param name="last">The text index of the last character.</param>
+        internal void Add(int first, int last)
+        {
+            var start = CharOfText[first];
+            Visit(State, start, CharOfText[last] - start + 1);
+        }
     }
 }

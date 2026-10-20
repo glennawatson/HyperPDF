@@ -19,4 +19,7 @@ public sealed record TaggedBlock(ReadingBlockKind Kind, int Level, int[] Charact
 
     /// <summary>Gets the table column of a table cell, from 1; zero when the block is not a table cell or its column is not known.</summary>
     public int Column { get; init; }
+
+    /// <summary>Gets the language the element asks for when it differs from the one it sits in, for example "fr-FR"; <see langword="null"/> when it keeps the surrounding language.</summary>
+    public string? Language { get; init; }
 }

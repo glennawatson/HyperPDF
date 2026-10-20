@@ -68,6 +68,28 @@ internal static class BilevelEncoder
         packed.Advance(stride * height);
     }
 
+    /// <summary>Unpacks 1-bit rows into 8-bit samples: 0 stays 0, 1 becomes 255.</summary>
+    /// <param name="rows">The packed rows, each padded to a whole byte.</param>
+    /// <param name="width">The width.</param>
+    /// <param name="height">The height.</param>
+    /// <param name="samples">Receives one byte a pixel.</param>
+    internal static void Unpack(ReadOnlySpan<byte> rows, int width, int height, ref PooledBuffer samples)
+    {
+        var stride = (width + BitMask) >> ByteShift;
+        var target = samples.GetSpan(width * height);
+        for (var y = 0; y < height; y++)
+        {
+            var line = rows.Slice(y * stride, stride);
+            var row = target.Slice(y * width, width);
+            for (var x = 0; x < width; x++)
+            {
+                row[x] = (line[x >> ByteShift] & (1 << (BitMask - (x & BitMask)))) != 0 ? White : (byte)0;
+            }
+        }
+
+        samples.Advance(width * height);
+    }
+
     /// <summary>Encodes 1-bit rows as Group 4, JBIG2 or Flate, whichever is smallest, when that beats the stored size.</summary>
     /// <param name="dictionary">The image dictionary.</param>
     /// <param name="rows">The packed rows.</param>

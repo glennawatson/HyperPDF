@@ -29,6 +29,8 @@ public sealed partial class AttachmentsPanelView : ReactiveUI.Avalonia.ReactiveU
             disposables.Add(ItemAutomation.NameItems(AttachmentList));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsAttachmentsMode, static v => v.AttachmentsPanel.IsVisible));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Attachments.Items, static v => v.AttachmentList.ItemsSource));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Attachments.PortfolioText, static v => v.PortfolioHeading.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Attachments.PortfolioText, static v => v.PortfolioHeading.IsVisible, static text => text is not null));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Attachments.Selected, static v => v.AttachmentList.SelectedItem, static item => item, static item => item as DocumentAttachment));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Attachments.SaveCommand, static v => v.SaveAttachmentButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Attachments.OpenSelectedCommand, static v => v.OpenAttachmentButton));

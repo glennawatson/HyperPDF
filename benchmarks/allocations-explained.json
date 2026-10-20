@@ -2473,5 +2473,1670 @@
     "type": "System.WeakReference",
     "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
     "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "<Bits>d__18",
+    "frame": "HyperPdfLibrary.Optimizing.CffProgramSubsetter.Bits",
+    "reason": "The existing CFF subsetter takes a sequence of glyph numbers; this iterator is one object for each font cut down."
+  },
+  {
+    "type": "CertificateList",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "Entry[System.Int32][]",
+    "frame": "HyperPdfLibrary.Redaction.FontProgramTrimmer.FontNumbers",
+    "reason": "Scratch sets of font numbers and the tally of the redaction, made once for each redaction that applies."
+  },
+  {
+    "type": "Entry[System.Int32][]",
+    "frame": "HyperPdfLibrary.Redaction.FontProgramTrimmer.Trim",
+    "reason": "Scratch sets of font numbers and the tally of the redaction, made once for each redaction that applies."
+  },
+  {
+    "type": "Entry[System.String,System.Int32][]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Slot",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "Entry[System.String][]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "Enumerator[System.String,System.String]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.FindName",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "HyperPdf.Core.Documents.ArticleBead[]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.ConvertBeads",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "HyperPdf.Core.Documents.ArticleThread",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.GetThreads",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "HyperPdf.Core.Documents.ArticleThread[]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.GetThreads",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "HyperPdf.Core.Documents.DocumentPart",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.ConvertLevel",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "HyperPdf.Core.Documents.DocumentPart[]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.ConvertLevel",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.FormScriptProgram",
+    "frame": "HyperPdf.Core.Forms.Scripting.FormScriptProgram.TryParse",
+    "reason": "The program object is the result of reading a script. It is made once for each script and kept."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxContext",
+    "frame": "HyperPdf.Core.Forms.Scripting.FormScriptProgram.Run",
+    "reason": "One state object for each run of a script. It also serves as the script's event object, so a run makes one object for both."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxDocument",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxContext.Document",
+    "reason": "The wrapper for the document object a script names with this. It holds only the form, and is made when the script first uses it."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxField",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxDocument.Call",
+    "reason": "The wrapper for a field a script names with getField. It holds only the form and the field's name."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode.Of",
+    "reason": "Reading a script builds its syntax tree once for each script. The program keeps the tree and every run reuses it."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Declaration",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Word",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode[]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Arguments",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode[]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Assignment",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode[]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Binary",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode[]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.CallOrMember",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode[]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Declaration",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode[]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Parse",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Parse",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxToken[]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxLexer.Tokenize",
+    "reason": "Reading a script builds its tokens and the names and strings in them once for each script. The program keeps the tree, so no run repeats this."
+  },
+  {
+    "type": "HyperPdf.Core.Presentation.PageTransition",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentTransitions.Convert",
+    "reason": "The transition record is the result returned to the caller."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.PageSemanticItem",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticAnnotations.Describe",
+    "reason": "The page items and the list of 3D streams are returned data, built once for each request for a page's items."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.PageSemanticItem",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticAnnotations.DescribeModel",
+    "reason": "The page items and the list of 3D streams are returned data, built once for each request for a page's items."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.PageSemanticItem",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticFields.Describe",
+    "reason": "A page item for each form field is returned data, and the text of its description is part of it."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.PageSemanticItem",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticTags.AddArtifacts",
+    "reason": "The page items for empty cells and artifacts are returned data, and a scratch list of cell contents is reused within one page."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.PageSemanticItem",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticTags.DescribeEmptyCell",
+    "reason": "The page items for empty cells and artifacts are returned data, and a scratch list of cell contents is reused within one page."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.PageSemanticItem[]",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticAnnotations.Add",
+    "reason": "The page items and the list of 3D streams are returned data, built once for each request for a page's items."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.PageSemanticItem[]",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticFields.Add",
+    "reason": "A page item for each form field is returned data, and the text of its description is part of it."
+  },
+  {
+    "type": "HyperPdfLibrary.Conformance.PdfXFinding[]",
+    "frame": "HyperPdfLibrary.Conformance.PdfXReader.CheckPageBoxes",
+    "reason": "The findings and the report are the result of the check."
+  },
+  {
+    "type": "HyperPdfLibrary.Conformance.PdfXFinding[]",
+    "frame": "HyperPdfLibrary.Conformance.PdfXReader.Read",
+    "reason": "The findings and the report are the result of the check."
+  },
+  {
+    "type": "HyperPdfLibrary.Conformance.PdfXReport",
+    "frame": "HyperPdfLibrary.Conformance.PdfXReader.Read",
+    "reason": "The findings and the report are the result of the check."
+  },
+  {
+    "type": "HyperPdfLibrary.Features.PdfVtReport",
+    "frame": "HyperPdfLibrary.Features.PdfVtReader.Read",
+    "reason": "The records, findings and the report are the result of the check."
+  },
+  {
+    "type": "HyperPdfLibrary.Forms.PdfFormRichTextSummary",
+    "frame": "HyperPdfLibrary.Forms.PdfFormRichValues.Summarise",
+    "reason": "The summary of a field's rich text is returned data."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.Pdf3DStream[]",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticAnnotations.ThreeDStreams",
+    "reason": "The page items and the list of 3D streams are returned data, built once for each request for a page's items."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dGeometry",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dDeclarations.ReadShape",
+    "reason": "The nodes, shapes, resources and their names are the contents of the returned scene, which the caller keeps."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dGeometry[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dDeclarations.ReadShape",
+    "reason": "The nodes, shapes, resources and their names are the contents of the returned scene, which the caller keeps."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dGeometry[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder.Build",
+    "reason": "The arrays of the scene the reader returns. The caller keeps the scene, so they cannot live in pooled or stack storage."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dNode",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dDeclarations.ReadNode",
+    "reason": "The nodes, shapes, resources and their names are the contents of the returned scene, which the caller keeps."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dNode[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dDeclarations.ReadNode",
+    "reason": "The nodes, shapes, resources and their names are the contents of the returned scene, which the caller keeps."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dNode[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder.Build",
+    "reason": "The arrays of the scene the reader returns. The caller keeps the scene, so they cannot live in pooled or stack storage."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dResource",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dDeclarations.ReadResource",
+    "reason": "The nodes, shapes, resources and their names are the contents of the returned scene, which the caller keeps."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dResource[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dDeclarations.ReadResource",
+    "reason": "The nodes, shapes, resources and their names are the contents of the returned scene, which the caller keeps."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dResource[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder.Build",
+    "reason": "The arrays of the scene the reader returns. The caller keeps the scene, so they cannot live in pooled or stack storage."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dScene",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder.Build",
+    "reason": "The arrays of the scene the reader returns. The caller keeps the scene, so they cannot live in pooled or stack storage."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dReader.Read",
+    "reason": "The reader's working state for one file; it is dropped when the scene is built."
+  },
+  {
+    "type": "HyperPdfLibrary.Navigation.HideAction",
+    "frame": "HyperPdf.Engine.HyperPdfFormVisibilityService.SetHidden",
+    "reason": "The library's hide action takes an array of field names and a record, made for each change of a field's visibility."
+  },
+  {
+    "type": "HyperPdfLibrary.Optimizing.OptimizeReportBuilder",
+    "frame": "HyperPdfLibrary.Redaction.FontProgramTrimmer.Trim",
+    "reason": "Scratch sets of font numbers and the tally of the redaction, made once for each redaction that applies."
+  },
+  {
+    "type": "HyperPdfLibrary.Signatures.PdfPadesFinding[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.Add",
+    "reason": "The findings and the reports are the result of the check, and an enumerator over the validation reports is made for each signature checked."
+  },
+  {
+    "type": "HyperPdfLibrary.Signatures.PdfPadesFinding[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.Classify",
+    "reason": "The findings and the reports are the result of the check, and an enumerator over the validation reports is made for each signature checked."
+  },
+  {
+    "type": "HyperPdfLibrary.Signatures.PdfPadesReport",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.Classify",
+    "reason": "The findings and the reports are the result of the check, and an enumerator over the validation reports is made for each signature checked."
+  },
+  {
+    "type": "HyperPdfLibrary.Signatures.PdfPadesReport[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.Read",
+    "reason": "The findings and the reports are the result of the check, and an enumerator over the validation reports is made for each signature checked."
+  },
+  {
+    "type": "KeyCollection[HyperPdfLibrary.Objects.PdfDictionary,System.Collections.Generic.HashSet`1[System.Int32]]",
+    "frame": "HyperPdfLibrary.Redaction.FontProgramTrimmer.FontNumbers",
+    "reason": "Scratch sets of font numbers and the tally of the redaction, made once for each redaction that applies."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Optimizing.FontNaming.WithTag",
+    "reason": "The font name with its subset tag is stored as a name in the font dictionary, so the bytes are the result."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.FormatDetails",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,System.Int32]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser..ctor",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "System.Collections.Generic.HashSet`1[System.Int32]",
+    "frame": "HyperPdfLibrary.Redaction.FontProgramTrimmer.FontNumbers",
+    "reason": "Scratch sets of font numbers and the tally of the redaction, made once for each redaction that applies."
+  },
+  {
+    "type": "System.Collections.Generic.HashSet`1[System.String]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Documents.ArticleBead]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.ConvertBeads",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Documents.ArticleThread]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.GetThreads",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Documents.DocumentPart]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.ConvertLevel",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Arguments",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Declaration",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Forms.Scripting.Sandbox.SandboxNode]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Parse",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Forms.Scripting.Sandbox.SandboxToken]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxLexer.Tokenize",
+    "reason": "Reading a script builds its tokens and the names and strings in them once for each script. The program keeps the tree, so no run repeats this."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Reading.PageSemanticItem]",
+    "frame": "HyperPdf.Engine.HyperPdfPageSemantics.GetItems",
+    "reason": "The list of items is the result returned to the caller."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Conformance.PdfXFinding]",
+    "frame": "HyperPdfLibrary.Conformance.PdfXReader.Read",
+    "reason": "The findings and the report are the result of the check."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Features.PdfVtRecord]",
+    "frame": "HyperPdfLibrary.Features.PdfVtReader.Read",
+    "reason": "The records, findings and the report are the result of the check."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Forms.PdfFormWidget]",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticFields.Add",
+    "reason": "A page item for each form field is returned data, and the text of its description is part of it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.Pdf3DStream]",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticAnnotations.ThreeDStreams",
+    "reason": "The page items and the list of 3D streams are returned data, built once for each request for a page's items."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dGeometry]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder..ctor",
+    "reason": "The lists the reader fills while it reads one file. They become the arrays of the returned scene."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dNode]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder..ctor",
+    "reason": "The lists the reader fills while it reads one file. They become the arrays of the returned scene."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dResource]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder..ctor",
+    "reason": "The lists the reader fills while it reads one file. They become the arrays of the returned scene."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Signatures.PdfPadesFinding]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.Classify",
+    "reason": "The findings and the reports are the result of the check, and an enumerator over the validation reports is made for each signature checked."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Signatures.PdfPadesReport]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.Read",
+    "reason": "The findings and the reports are the result of the check, and an enumerator over the validation reports is made for each signature checked."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Formats.Asn1.AsnReader]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Int32]",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticTags.Add",
+    "reason": "The page items for empty cells and artifacts are returned data, and a scratch list of cell contents is reused within one page."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.ReadOnlyMemory`1[System.Byte]]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Security.Cryptography.Asn1.AlgorithmIdentifierAsn]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Security.Cryptography.Asn1.AttributeAsn]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Security.Cryptography.Asn1.Pkcs7.CertificateChoiceAsn]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Security.Cryptography.Asn1.Pkcs7.SignerInfoAsn]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Security.Cryptography.AsnEncodedData]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Security.Cryptography.CryptographicAttributeObject]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.String]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.FormatDetails",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.String]",
+    "frame": "HyperPdfLibrary.Features.PdfVtReader.Read",
+    "reason": "The records, findings and the report are the result of the check."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.String]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder..ctor",
+    "reason": "The lists the reader fills while it reads one file. They become the arrays of the returned scene."
+  },
+  {
+    "type": "System.Comparison`1[System.String]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.FormatDetails",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.Formats.Asn1.AsnReader",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Formats.Asn1.AsnReader[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxParser.Slot",
+    "reason": "Reading a script builds its syntax tree and the table of variable places once for each script. The program keeps them and every run reuses them."
+  },
+  {
+    "type": "System.ReadOnlyMemory`1[System.Byte][]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.SZGenericArrayEnumerator`1[HyperPdfLibrary.Signatures.PdfSignatureValidationReport]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.FindLaterDocumentTimestamp",
+    "reason": "The findings and the reports are the result of the check, and an enumerator over the validation reports is made for each signature checked."
+  },
+  {
+    "type": "System.SZGenericArrayEnumerator`1[HyperPdfLibrary.Signatures.PdfSignatureValidationReport]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.Read",
+    "reason": "The findings and the reports are the result of the check, and an enumerator over the validation reports is made for each signature checked."
+  },
+  {
+    "type": "System.Security.Cryptography.Asn1.AlgorithmIdentifierAsn[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Asn1.AttributeAsn[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Asn1.Pkcs7.CertificateChoiceAsn[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Asn1.Pkcs7.SignerInfoAsn[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.AsnEncodedData",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.AsnEncodedDataCollection",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.AsnEncodedDataEnumerator",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.AsnEncodedData[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.CryptographicAttributeObject",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.CryptographicAttributeObjectCollection",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.CryptographicAttributeObjectEnumerator",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.CryptographicAttributeObject[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Oid",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Pkcs.ContentInfo",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Pkcs.Pkcs9AttributeObject",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Pkcs.Pkcs9ContentType",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Pkcs.Pkcs9MessageDigest",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Pkcs.SignedCms",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Pkcs.SignerInfo",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Pkcs.SignerInfoCollection",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Pkcs.SignerInfo[]",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Pkcs.SubjectIdentifier",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.Security.Cryptography.Xml.X509IssuerSerial",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxLexer.ReadName",
+    "reason": "Reading a script builds its tokens and the names and strings in them once for each script. The program keeps the tree, so no run repeats this."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxPrintf.Format",
+    "reason": "The text a script writes with printf is its result."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Forms.Scripting.Sandbox.SandboxValue.NumberToText",
+    "reason": "A number a script turns into text produces a new string, which is the result of that operation."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.FormatDetails",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticFields.Describe",
+    "reason": "A page item for each form field is returned data, and the text of its description is part of it."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticTags.RunText",
+    "reason": "The page items for empty cells and artifacts are returned data, and a scratch list of cell contents is reused within one page."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Conformance.PdfXReader.CheckHeader",
+    "reason": "The findings and the report are the result of the check."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dCursor.ReadString",
+    "reason": "A name in the file becomes a string of the returned scene."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSummary.Describe",
+    "reason": "The description is the text returned to the caller."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.ReadSignedAttributes",
+    "reason": "The signed attributes of a CMS message are read with System.Security.Cryptography.Pkcs.SignedCms. It builds its own object graph and has no span based reader, and the objects are dropped at once."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.FormatDetails",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdf.Engine.HyperPdfFormVisibilityService.SetHidden",
+    "reason": "The library's hide action takes an array of field names and a record, made for each change of a field's visibility."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dDeclarations.ReadNode",
+    "reason": "The nodes, shapes, resources and their names are the contents of the returned scene, which the caller keeps."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder.Problem",
+    "reason": "The list of problems grows when the reader finds one in a damaged file. It becomes the problem list of the returned scene."
+  },
+  {
+    "type": "System.Text.StringBuilder",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.FormatDetails",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "Entry[System.Int32,System.Int32][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffStringTable.Sid",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.PageSemanticItem[]",
+    "frame": "HyperPdf.Engine.HyperPdfSemanticTags.AddEmptyCells",
+    "reason": "The page items for empty cells are returned data. The list grows by doubling as cells are found."
+  },
+  {
+    "type": "HyperPdfLibrary.Features.PdfPageTransition",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentViewerPreferences.ReadTransition",
+    "reason": "The transition record is the result returned to the caller."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.CffDictEntry[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffDictScanner.Scan",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.CffFace",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffFaceReader.TryRead",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.CffFontDict[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffFaceReader.ReadFontDicts",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.CffSections",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.Write",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.CffStringTable",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.Write",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.CffSubrWalker",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetter.Follow",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.CffTopValues",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffFaceReader.ReadOffsets",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.PdfMultimediaAnnotation",
+    "frame": "HyperPdfLibrary.Media.PdfMultimediaAnnotation.<Clone>$",
+    "reason": "The record is copied when a caller changes one of its parts."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.SetColor",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.SetInkList",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.Annotations.PdfPageAnnotations.Append",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdf.Engine.HyperPdfAnnotationStrokes.UseHighlighterState",
+    "reason": "The see-through graphics state of a highlight is stored in the annotation's appearance resources, so these dictionaries are part of the saved document."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.Create",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.SetNormalAppearance",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "System.Boolean[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubrWalker..ctor",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Boolean[][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubrWalker..ctor",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdf.Engine.HyperPdfAnnotationReading.Finish",
+    "reason": "The subject of an annotation is stored in its dictionary, so the bytes are part of the saved document."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffFaceReader.ReadPrivate",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.FdArray",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.CharStrings",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.Subrs",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffWriting.Entry",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffWriting.Index",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Optimizing.CffProgramSubsetter.CopyHead",
+    "reason": "The head of the cut-down font program is copied once for each font when a copy is saved."
+  },
+  {
+    "type": "System.Byte[][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.Assemble",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.FdArray",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffStringTable.Add",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffStringTable.ToItems",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.CharStrings",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.PrivateBlocks",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.Subrs",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,System.Int32]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffStringTable..ctor",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Fonts.Embedding.CffDictEntry]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffDictScanner.Scan",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte[]]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.Assemble",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte[]]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffStringTable..ctor",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte[]]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.PrivateBlocks",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffFaceReader.ReadFontDicts",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffFaceReader.ReadPrivate",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.FdArray",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.PrivateDict",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.Top",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Int32]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetter.KeepNumbers",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdfLibrary.Conformance.PdfXReader.CheckHeader",
+    "reason": "The finding's message is part of the report returned to the caller."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.InverseOf",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetter.KeepNumbers",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.RuntimeFieldInfoStub",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.Assemble",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.CreatePointArray",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "System.Boolean[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetter.KeepNumbers",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.SetDate",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Byte]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.FdSelect",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentParts.Describe",
+    "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.Assemble",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.FontDictMap",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder.NamesOf",
+    "reason": "The extension and problem names are copied into the arrays of the returned scene. An empty list shares the empty array."
+  },
+  {
+    "type": "CueReader",
+    "frame": "HyperPdf.Core.Media.SrtCaptions.Parse",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "HyperPdf.Core.Media.CaptionCue",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.Close",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "HyperPdf.Core.Media.CaptionCue",
+    "frame": "HyperPdf.Core.Media.SrtCaptions.Parse",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "HyperPdf.Core.Media.CaptionCue[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.Close",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "HyperPdf.Core.Media.CaptionCue[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions.Parse",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader..ctor",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.AddWords",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.Close",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Media.CaptionCue]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader..ctor",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Media.FfmpegArguments.Seconds",
+    "reason": "The arguments are the strings and the array one process start needs. They are built when the reader presses Play or seeks, not for each picture."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.Close",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Media.SrtCaptions.Parse",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdf.Core.Media.FfmpegArguments.Video",
+    "reason": "The arguments are the strings and the array one process start needs. They are built when the reader presses Play or seeks, not for each picture."
+  },
+  {
+    "type": "System.Text.StringBuilder",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader..ctor",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Text.StringBuilder",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.AddWords",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "<>c__DisplayClass4_0",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.OpenAsync",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "<>c__DisplayClass8_0",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "CallbackNode",
+    "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
+    "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
+  },
+  {
+    "type": "CallbackNode",
+    "frame": "HyperPdf.Media.LibavRun.PictureLoop",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "CallbackNode",
+    "frame": "HyperPdf.Media.LibavRun.SoundLoop",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "CancellationPromise`1[System.Threading.Tasks.VoidTaskResult]",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "DelegateWitness`1[HyperPdf.Core.Media.MediaSnapshot]",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "HyperPdf.Media.LibavAudioDecoder",
+    "frame": "HyperPdf.Media.LibavAudioDecoder.Create",
+    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "HyperPdf.Media.LibavCodec",
+    "frame": "HyperPdf.Media.LibavCodec.Open",
+    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "HyperPdf.Media.LibavFormat",
+    "frame": "HyperPdf.Media.LibavSource.Open",
+    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "HyperPdf.Media.LibavFrame",
+    "frame": "HyperPdf.Media.LibavAudioDecoder..ctor",
+    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "HyperPdf.Media.LibavFrame",
+    "frame": "HyperPdf.Media.LibavScaler..ctor",
+    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "HyperPdf.Media.LibavFrame",
+    "frame": "HyperPdf.Media.LibavVideoDecoder..ctor",
+    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "HyperPdf.Media.LibavPacket",
+    "frame": "HyperPdf.Media.LibavRun.Rent",
+    "reason": "A packet wrapper is made only when no used one is waiting, so a run makes as many as are in flight at once and then reuses them."
+  },
+  {
+    "type": "HyperPdf.Media.LibavScaler",
+    "frame": "HyperPdf.Media.LibavVideoDecoder..ctor",
+    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "HyperPdf.Media.LibavSource",
+    "frame": "HyperPdf.Media.LibavSource.Open",
+    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "Microsoft.Win32.SafeHandles.SafeWaitHandle",
+    "frame": "HyperPdf.Media.LibavRun.Execute",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "ProbeResult",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.Probe",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.SubscribeSafeWitness`1[HyperPdf.Core.Media.MediaSnapshot]",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Disposables.SingleReplaceableDisposable",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "Registrations",
+    "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
+    "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
+  },
+  {
+    "type": "Registrations",
+    "frame": "HyperPdf.Media.LibavRun.PictureLoop",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "Registrations",
+    "frame": "HyperPdf.Media.LibavRun.SoundLoop",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "SignalSubscription[HyperPdf.Core.Media.MediaSnapshot]",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "Slot[HyperPdf.Media.LibavPacket][]",
+    "frame": "HyperPdf.Media.LibavRun..ctor",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "StartHelper",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.RunOnThread",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "StartHelper",
+    "frame": "HyperPdf.Media.LibavRun.Launch",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "State",
+    "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
+    "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
+  },
+  {
+    "type": "System.Action`1[HyperPdf.Core.Media.MediaSnapshot]",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdf.Core.Media.FramePump..ctor",
+    "reason": "Two picture buffers and a lock for one player, made when the media opens. Every picture reuses them."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Media.CaptionCue]",
+    "frame": "HyperPdf.Core.Media.MediaPlayerBase.Halt",
+    "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
+  },
+  {
+    "type": "System.Func`1[HyperPdf.Media.LibavMediaPlayer+ProbeResult]",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.OpenAsync",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdf.Media.LibavRun..ctor",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks+<>c__DisplayClass8_0.<PlayClip>b__0",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdf.Media.LibavRun.SoundLoop",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdf.Media.LibavRun.Wait",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Runtime.CompilerServices.Continuation",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.OpenClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "System.Runtime.CompilerServices.Continuation",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.OpenAsync",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "System.Runtime.CompilerServices.StrongBox`1[System.Boolean]",
+    "frame": "HyperPdf.Media.LibavRun..ctor",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Threading.CancellationTokenSource",
+    "frame": "HyperPdf.Core.Media.MediaPlayerBase.StartRunLocked",
+    "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
+  },
+  {
+    "type": "System.Threading.CancellationTokenSource",
+    "frame": "HyperPdf.Media.LibavRun..ctor",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdf.Core.Media.FramePump..ctor",
+    "reason": "Two picture buffers and a lock for one player, made when the media opens. Every picture reuses them."
+  },
+  {
+    "type": "System.Threading.ManualResetEvent",
+    "frame": "HyperPdf.Media.LibavRun.Execute",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Threading.PeriodicTimer",
+    "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
+    "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
+  },
+  {
+    "type": "System.Threading.SemaphoreSlim",
+    "frame": "HyperPdf.Media.LibavRun..ctor",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Threading.Tasks.Task",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "System.Threading.Tasks.TaskCompletionSource",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "System.Threading.Tasks.Task`1[System.String]",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.RunOnThread",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "System.Threading.Thread",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.RunOnThread",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "System.Threading.Thread",
+    "frame": "HyperPdf.Media.LibavRun.Launch",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Threading.ThreadStart",
+    "frame": "HyperPdf.Media.LibavRun.Execute",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Threading.TimerQueueTimer",
+    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
+    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
+  },
+  {
+    "type": "System.Threading.TimerQueueTimer",
+    "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
+    "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
+  },
+  {
+    "type": "ValueTaskSourceContinuation",
+    "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
+    "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
+  },
+  {
+    "type": "WaitableObject",
+    "frame": "HyperPdf.Media.LibavRun.Execute",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "HyperPdf.Core.Media.FramePump",
+    "frame": "HyperPdf.Core.Media.MediaPlayerBase.Opened",
+    "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
+  },
+  {
+    "type": "HyperPdf.Media.LibavVideoDecoder",
+    "frame": "HyperPdf.Media.LibavVideoDecoder.Create",
+    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "HyperPdf.Media.PlaybackClock",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.PlayAsync",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "RunRequest",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.PlayAsync",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "Slot[HyperPdf.Media.LibavPacket][]",
+    "frame": "HyperPdf.Media.LibavRun.Hand",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Collections.Concurrent.BlockingCollection`1[HyperPdf.Media.LibavPacket]",
+    "frame": "HyperPdf.Media.LibavRun..ctor",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Collections.Concurrent.ConcurrentQueueSegment`1[HyperPdf.Media.LibavPacket]",
+    "frame": "HyperPdf.Media.LibavRun..ctor",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Collections.Concurrent.ConcurrentQueueSegment`1[HyperPdf.Media.LibavPacket]",
+    "frame": "HyperPdf.Media.LibavRun.Hand",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Collections.Concurrent.ConcurrentQueue`1[HyperPdf.Media.LibavPacket]",
+    "frame": "HyperPdf.Media.LibavRun..ctor",
+    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Media.CaptionCue]",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.Probe",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Media.FfmpegArguments.Video",
+    "reason": "The arguments are the strings and the array one process start needs. They are built when the reader presses Play or seeks, not for each picture."
+  },
+  {
+    "type": "System.Threading.Tasks.Task`1[HyperPdf.Media.LibavMediaPlayer+ProbeResult]",
+    "frame": "HyperPdf.Media.LibavMediaPlayer.OpenAsync",
+    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Objects.PdfStream][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.CutPrograms",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Objects.PdfStream][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.FindPrograms",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Optimizing.CodeBitSet][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.GlyphsByFont",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Optimizing.CodeBitSet][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.Plan",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Optimizing.FontRename][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.Tag",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Optimizing.FontUser][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.FindPrograms",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32,System.Collections.Generic.List`1[System.Int32]][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.FindPrograms",
+    "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "Entry[System.Int32][]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildContent",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.Annotations.PdfAnnotations.SetBorderWidth",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfRectangle[]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfStream",
+    "frame": "HyperPdfLibrary.Optimizing.CffProgramSubsetter.Compress",
+    "reason": "The cut-down font program stream is the result stored in the saved document."
+  },
+  {
+    "type": "HyperPdfLibrary.Optimizing.CodeBitSet",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.RentBits",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "HyperPdfLibrary.Optimizing.CodeBitSet[]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Recycle",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "HyperPdfLibrary.Optimizing.FontPlanState",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Rent",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.ContentRedactor",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.PdfRedaction[]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.RedactMark",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.RedactMark[]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Redaction.RedactionTally",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Apply",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.ReusableSlots`1[HyperPdfLibrary.Optimizing.FontPlanState]",
+    "frame": "HyperPdfLibrary.Optimizing.OptimizerResources.Get",
+    "reason": "The pool belongs to the document's services and is made the first time a document is optimised."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.ReusableSlots`1[HyperPdfLibrary.Optimizing.FontUsageDevice]",
+    "frame": "HyperPdfLibrary.Optimizing.OptimizerResources.Get",
+    "reason": "The pool belongs to the document's services and is made the first time a document is optimised."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.PdfSemanticNode",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildContent",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.PdfSemanticNode",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildElement",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.PdfSemanticNode[]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.Build",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.PdfSemanticPage",
+    "frame": "HyperPdfLibrary.Structure.Tagged.PdfReadingStructure.ReadTagged",
+    "reason": "The builder and its resolver are made once for each page's structure read."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder",
+    "frame": "HyperPdfLibrary.Structure.Tagged.PdfReadingStructure.ReadTagged",
+    "reason": "The builder and its resolver are made once for each page's structure read."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.TaggedObjectResolver",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder..ctor",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "KeyValuePairComparer[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "Node[System.Collections.Generic.KeyValuePair`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "Node[System.Collections.Generic.KeyValuePair`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]][]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "RunState",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Apply",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.Objects.PdfStream]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.Optimizing.CodeBitSet]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.Optimizing.FontRename]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.Optimizing.FontUser]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,System.Collections.Generic.List`1[System.Int32]]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.HashSet`1[System.Int32]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildContent",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Objects.PdfRectangle]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Apply",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.RedactMark]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.RedactPage",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Structure.Tagged.PdfSemanticNode]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.PdfReadingStructure.ReadTagged",
+    "reason": "The builder and its resolver are made once for each page's structure read."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Int32][]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Dispose",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.SortedDictionary`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.Stack`1[HyperPdfLibrary.Optimizing.CodeBitSet]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Stack`1[System.Collections.Generic.List`1[System.Int32]]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState..ctor",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.Stack`1[System.Collections.Generic.SortedSet`1+Node[System.Collections.Generic.KeyValuePair`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Collections.Generic.TreeSet`1[System.Collections.Generic.KeyValuePair`2[System.Int32,System.Collections.Generic.List`1[HyperPdfLibrary.Redaction.PdfRedaction]]]",
+    "frame": "HyperPdfLibrary.Redaction.PdfRedactor.Run",
+    "reason": "The list of redactions, the marks grouped by page and the covered areas are built once for each redaction pass, and the tally is its result."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Annotations.PdfTrapNetworkPages.Visit",
+    "reason": "The annotation's dictionaries and arrays are the objects the document stores for it."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.TaggedNodeBuilder.BuildContent",
+    "reason": "The semantic nodes and the sets that track which content was used are the result of reading one page's structure."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Signatures.PdfPadesReader.AddBaselineLt",
+    "reason": "The finding's message is part of the report returned to the caller."
+  },
+  {
+    "type": "ValueCollection[System.Int32,HyperPdfLibrary.Optimizing.CodeBitSet]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Recycle",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "ValueCollection[System.Int32,System.Collections.Generic.List`1[System.Int32]]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.Dispose",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Int32]",
+    "frame": "HyperPdfLibrary.Optimizing.FontPlanState.RentList",
+    "reason": "The plan state and its tables belong to the services of the document, so a one-shot call that opens its own document builds them once. Later calls on the same services reuse them."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetter.Add",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
   }
 ]

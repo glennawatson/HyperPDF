@@ -49,7 +49,7 @@ public sealed partial class PropertiesWindow : ReactiveUI.Avalonia.ReactiveWindo
     /// <returns>The row.</returns>
     private static Grid CreateRow(PropertyEntry? entry)
     {
-        var name = new TextBlock { Text = entry?.Name, HorizontalAlignment = HorizontalAlignment.Right, Margin = new(0, 0, ColumnGap, 0) };
+        var name = new TextBlock { Text = entry?.Name, HorizontalAlignment = HorizontalAlignment.Right, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Margin = new(0, 0, ColumnGap, 0) };
         name.Classes.Add("secondary");
         var value = new SelectableTextBlock { Text = entry?.Value, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         Grid.SetColumn(value, 1);

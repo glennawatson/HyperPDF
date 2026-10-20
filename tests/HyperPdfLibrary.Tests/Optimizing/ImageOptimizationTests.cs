@@ -33,6 +33,15 @@ public sealed class ImageOptimizationTests
     /// <summary>The bilevel image's height.</summary>
     private const int BilevelHeight = 320;
 
+    /// <summary>The entries of a 1-bit grey image.</summary>
+    private const string OneBitGrey = "/ColorSpace /DeviceGray /BitsPerComponent 1";
+
+    /// <summary>The width of a 1-bit image drawn at a resolution above the black-and-white target.</summary>
+    private const int HighBilevelWidth = 2400;
+
+    /// <summary>The height of a 1-bit image drawn at a resolution above the black-and-white target.</summary>
+    private const int HighBilevelHeight = 1600;
+
     /// <summary>The bilevel image's drawn size.</summary>
     private const int BilevelPoints = 300;
 
@@ -157,6 +166,43 @@ public sealed class ImageOptimizationTests
         await Assert.That(image.Dictionary.GetInt32(KnownName.Width)).IsEqualTo(BilevelWidth);
         await Assert.That(result.Bytes.Length).IsLessThan(source.Length);
         await Assert.That(OptimizerTestKit.MaxDifference(OptimizerTestKit.Render(source), OptimizerTestKit.Render(result.Bytes))).IsEqualTo(0);
+    }
+
+    /// <summary>A 1-bit image drawn well above the black-and-white target is shrunk, stays 1-bit, and the page looks the same.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DownsamplesHighResolutionBlackAndWhite()
+    {
+        var grey = OptimizerSamples.Strokes(HighBilevelWidth, HighBilevelHeight);
+        var samples = OptimizerSamples.Pack(grey, HighBilevelWidth, HighBilevelHeight);
+        var source = OptimizerSamples.ImagePage(OptimizerSamples.ImageObject(samples, HighBilevelWidth, HighBilevelHeight, OneBitGrey), BilevelPoints);
+
+        var result = OptimizerTestKit.Optimize(source, PdfOptimizeOptions.Smaller);
+        var image = FirstImage(result.Bytes);
+
+        await Assert.That(image.Dictionary.GetInt32(KnownName.BitsPerComponent)).IsEqualTo(1);
+        await Assert.That(image.Dictionary.GetInt32(KnownName.Width)).IsLessThan(HighBilevelWidth);
+        await Assert.That(image.Dictionary.GetInt32(KnownName.Height)).IsLessThan(HighBilevelHeight);
+        await Assert.That(result.Bytes.Length).IsLessThan(source.Length);
+        await Assert.That(OptimizerTestKit.MeanDifference(OptimizerTestKit.Render(source), OptimizerTestKit.Render(result.Bytes))).IsLessThan(LossyTolerance);
+    }
+
+    /// <summary>With lossy changes off, or the black-and-white target off, a 1-bit image keeps its resolution.</summary>
+    /// <param name="lossy">Whether lossy changes are allowed.</param>
+    /// <param name="dpi">The black-and-white target resolution.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(false, 200)]
+    [Arguments(true, 0)]
+    public async Task KeepsBlackAndWhiteResolutionWhenNotAsked(bool lossy, int dpi)
+    {
+        var grey = OptimizerSamples.Strokes(HighBilevelWidth, HighBilevelHeight);
+        var samples = OptimizerSamples.Pack(grey, HighBilevelWidth, HighBilevelHeight);
+        var source = OptimizerSamples.ImagePage(OptimizerSamples.ImageObject(samples, HighBilevelWidth, HighBilevelHeight, OneBitGrey), BilevelPoints);
+
+        var result = OptimizerTestKit.Optimize(source, PdfOptimizeOptions.Smaller with { AllowLossyImages = lossy, MonochromeImageDpi = dpi });
+
+        await Assert.That(FirstImage(result.Bytes).Dictionary.GetInt32(KnownName.Width)).IsEqualTo(HighBilevelWidth);
     }
 
     /// <summary>A soft mask is never compressed lossily, while the image it masks may be.</summary>

@@ -27,6 +27,10 @@ internal sealed class HyperPdfAttachmentSourceService : IAttachmentSource
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public PortfolioSummary? GetPortfolioSummary() => HyperPdfDocumentAttachments.GetPortfolioSummary(_owner);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool SaveAttachment(int index, Stream destination) => HyperPdfDocumentAttachments.SaveAttachment(
             _owner,
             index,

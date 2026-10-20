@@ -44,6 +44,9 @@ internal sealed class TaggedBlockWalker
     /// <summary>Each glyph's characters.</summary>
     private GlyphCharacters[] _map = [];
 
+    /// <summary>The document's language, which a block reports only when its own differs.</summary>
+    private string? _documentLanguage;
+
     /// <summary>Gets the blocks, in logical order.</summary>
     internal List<TaggedBlock> Blocks { get; private set; } = NoBlocks;
 
@@ -53,10 +56,12 @@ internal sealed class TaggedBlockWalker
     /// <summary>Starts a walk, so one walker and its index buffers serve every page a thread reads.</summary>
     /// <param name="map">Each glyph's characters.</param>
     /// <param name="blocks">Receives the blocks, in logical order.</param>
-    internal void Begin(GlyphCharacters[] map, List<TaggedBlock> blocks)
+    /// <param name="documentLanguage">The document's language, or <see langword="null"/>, which a block only reports when it differs.</param>
+    internal void Begin(GlyphCharacters[] map, List<TaggedBlock> blocks, string? documentLanguage)
     {
         _map = map;
         Blocks = blocks;
+        _documentLanguage = documentLanguage;
         Covered = 0;
     }
 
@@ -64,6 +69,7 @@ internal sealed class TaggedBlockWalker
     internal void End()
     {
         _map = [];
+        _documentLanguage = null;
         Blocks = NoBlocks;
         _glyphs.Clear();
         _characters.Clear();
@@ -176,6 +182,16 @@ internal sealed class TaggedBlockWalker
         }
 
         Covered += characters.Count;
-        Blocks.Add(new(kind, node.Element?.HeadingLevel ?? 0, [.. characters], replacement) { Row = Place(kind, node.Row), Column = Place(kind, node.Column) });
+        Blocks.Add(new(kind, node.Element?.HeadingLevel ?? 0, [.. characters], replacement) { Row = Place(kind, node.Row), Column = Place(kind, node.Column), Language = LanguageChange(node) });
+    }
+
+    /// <summary>Gets the language a node asks for when it differs from the one it sits in.</summary>
+    /// <param name="node">The node.</param>
+    /// <returns>The language, or <see langword="null"/> when it keeps the surrounding language.</returns>
+    private string? LanguageChange(PdfSemanticNode node)
+    {
+        var own = node.Language;
+        var around = node.Parent?.Language ?? _documentLanguage;
+        return own is not null && !string.Equals(own, around, StringComparison.OrdinalIgnoreCase) ? own : null;
     }
 }

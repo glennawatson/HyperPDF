@@ -23,6 +23,13 @@ internal readonly record struct WaveFormat(ushort FormatTag, ushort Channels, ui
     /// <summary>The bits in a float sample.</summary>
     private const ushort FloatBits = 32;
 
+    /// <summary>Describes interleaved 32 bit float samples.</summary>
+    /// <param name="rate">The sample rate.</param>
+    /// <param name="channels">The number of channels.</param>
+    /// <returns>The format.</returns>
+    internal static WaveFormat Float(int rate, int channels) =>
+        new(IeeeFloat, (ushort)channels, (uint)rate, (uint)(rate * channels * sizeof(float)), (ushort)(channels * sizeof(float)), FloatBits, 0);
+
     /// <summary>Describes mono 32 bit float samples.</summary>
     /// <param name="rate">The sample rate.</param>
     /// <returns>The format.</returns>

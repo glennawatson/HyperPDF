@@ -122,6 +122,11 @@ public sealed unsafe class PulseAudioOutput : IAudioOutput
             TaskScheduler.Default);
     }
 
+    /// <summary>Determines whether libpulse-simple can be loaded.</summary>
+    /// <returns><see langword="true"/> when found.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool LibraryLoads() => Loaded.Value;
+
     /// <summary>
     /// Waits for the buffered audio to play, flushing it if cancelled. The server's latency, read once after the last
     /// write, is how long the written audio takes to be heard; it is not polled to zero, as an idle stream keeps
@@ -143,11 +148,6 @@ public sealed unsafe class PulseAudioOutput : IAudioOutput
             _ = NativeMethods.PaSimpleFlush(stream, out _);
         }
     }
-
-    /// <summary>Determines whether libpulse-simple can be loaded.</summary>
-    /// <returns><see langword="true"/> when found.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool LibraryLoads() => Loaded.Value;
 
     /// <summary>Registers and loads libpulse-simple, once.</summary>
     /// <returns><see langword="true"/> when found.</returns>

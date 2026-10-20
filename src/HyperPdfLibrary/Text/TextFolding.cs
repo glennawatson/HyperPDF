@@ -41,23 +41,7 @@ internal static class TextFolding
         var writer = new FoldWriter(buffer, capacity);
         try
         {
-            Span<char> parts = stackalloc char[TextUnicodeData.LongestCompatibility];
-            for (var i = 0; i < text.Length; i++)
-            {
-                var written = TextNormalization.Decompose(text[i], compatibility, parts);
-                if (written == 0)
-                {
-                    writer.Add(text[i], options, i);
-                    continue;
-                }
-
-                for (var part = 0; part < written; part++)
-                {
-                    writer.Add(parts[part], options, i);
-                }
-            }
-
-            writer.Reorder();
+            FoldInto(text, options, ref writer);
 
             // Text that folds to itself keeps its own string instead of a copy.
             var result = buffer.AsSpan(0, writer.Count);
@@ -100,6 +84,35 @@ internal static class TextFolding
         return count;
     }
 
+    /// <summary>
+    /// Folds page text into pooled buffers, so a search can scan a page without keeping a string or a map for it. The caller
+    /// disposes the result to return the buffers.
+    /// </summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="options">The search options; only the folding options matter.</param>
+    /// <returns>The folded text in pooled buffers.</returns>
+    internal static PooledFold FoldPooled(ReadOnlySpan<char> text, PdfTextSearchOptions options)
+    {
+        var compatibility = (options & PdfTextSearchOptions.FoldCompatibility) != 0;
+        var capacity = TextNormalization.DecomposedLength(text, compatibility);
+        var buffer = ArrayPool<char>.Shared.Rent(capacity);
+        var writer = new FoldWriter(buffer, capacity);
+        try
+        {
+            FoldInto(text, options, ref writer);
+            return new(buffer, writer.Count, writer.TakeMap(), text.Length);
+        }
+        catch
+        {
+            ArrayPool<char>.Shared.Return(buffer);
+            throw;
+        }
+        finally
+        {
+            writer.Release();
+        }
+    }
+
     /// <summary>Folds one character.</summary>
     /// <param name="value">The character.</param>
     /// <param name="options">The search options.</param>
@@ -124,6 +137,32 @@ internal static class TextFolding
         }
 
         return true;
+    }
+
+    /// <summary>Decomposes, folds and reorders every character of a text into a writer.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="writer">Receives the folded characters and their source indexes.</param>
+    private static void FoldInto(ReadOnlySpan<char> text, PdfTextSearchOptions options, ref FoldWriter writer)
+    {
+        var compatibility = (options & PdfTextSearchOptions.FoldCompatibility) != 0;
+        Span<char> parts = stackalloc char[TextUnicodeData.LongestCompatibility];
+        for (var i = 0; i < text.Length; i++)
+        {
+            var written = TextNormalization.Decompose(text[i], compatibility, parts);
+            if (written == 0)
+            {
+                writer.Add(text[i], options, i);
+                continue;
+            }
+
+            for (var part = 0; part < written; part++)
+            {
+                writer.Add(parts[part], options, i);
+            }
+        }
+
+        writer.Reorder();
     }
 
     /// <summary>Folds a character into a buffer, unless it is dropped.</summary>
@@ -232,6 +271,15 @@ internal static class TextFolding
         /// <returns>The map, or <see langword="null"/> when folded characters map to the same indexes.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal readonly int[]? CopyMap() => _map?.AsSpan(0, Count).ToArray();
+
+        /// <summary>Hands the rented map to the caller, who returns it; <see cref="Release"/> then returns nothing.</summary>
+        /// <returns>The rented map, or <see langword="null"/> when folded characters map to the same indexes.</returns>
+        internal int[]? TakeMap()
+        {
+            var map = _map;
+            _map = null;
+            return map;
+        }
 
         /// <summary>Returns the rented map.</summary>
         internal readonly void Release()

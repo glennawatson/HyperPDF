@@ -19,4 +19,10 @@ public sealed record PdfFieldChangeResult(bool Applied, string? Reason)
     /// <param name="reason">The plain reason.</param>
     /// <returns>The result.</returns>
     public static PdfFieldChangeResult Refused(string reason) => new(false, reason);
+
+    /// <summary>Returns the result when the change was made, and throws when it was refused.</summary>
+    /// <returns>This result.</returns>
+    /// <exception cref="InvalidOperationException">The change was refused; the message holds <see cref="Reason"/>.</exception>
+    public PdfFieldChangeResult ThrowIfRefused() =>
+        Applied ? this : throw new InvalidOperationException(Reason ?? "The field change was refused.");
 }

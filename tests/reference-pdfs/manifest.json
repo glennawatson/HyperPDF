@@ -2,6 +2,413 @@
   "comment": "Rights-reviewed reference PDFs fetched and hash-verified by CI; see ATTRIBUTION.md.",
   "documents": [
     {
+      "id": "pdfdiff-fillstrokeordering",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Atomic-Fill+Stroke/FillStrokeOrdering.pdf",
+      "sha256": "e41acc3e1b39916011e52e55b6c81aba95415815deed8510bc2aa142ec97ad34",
+      "bytes": 1937,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-selfintersecting-opaque",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Atomic-Fill+Stroke/SelfIntersecting-Opaque.pdf",
+      "sha256": "8e9bf836d70f16dde06d4ca077ec6b70431a3f991ee4d2cc11af062e2110e695",
+      "bytes": 1437,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-selfintersecting-transparency",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Atomic-Fill+Stroke/SelfIntersecting-Transparency.pdf",
+      "sha256": "21e0bd7d487e94611c93f84839dd8eac0a15d9b1bf6f7dca5b4430b9806f534c",
+      "bytes": 1857,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-colorburn",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/ColorBurn-ColorDodge/ColorBurn.pdf",
+      "sha256": "ef2416ff47d4ac4a5cee17335bccbcd7732ee7bbfde619971b48b56af7240fb6",
+      "bytes": 3357,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-colordodge",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/ColorBurn-ColorDodge/ColorDodge.pdf",
+      "sha256": "eb904775daf6b67bbebecd3b311e825292fb384f347040576da29b399df32085",
+      "bytes": 3345,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-degeneratedashing",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Dashing-Degenerate/DegenerateDashing.pdf",
+      "sha256": "bd39ed997708358cc997776b3ed167c0a3cdf215a95e2c6bc6a77c51701e33f4",
+      "bytes": 4192,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-dashing-endbeforebend",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Dashing-EndBeforeBend/Dashing-EndBeforeBend.pdf",
+      "sha256": "c59152a0483ce8578b49d501e68bddb5615e874bad95e70f6a6fb3015f93b298",
+      "bytes": 2666,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-dashing-endbeforebend2",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Dashing-EndBeforeBend/Dashing-EndBeforeBend2.pdf",
+      "sha256": "92e8a49204dbb9321f831246337dee660d610edac60b5da0fd7367d047733a5c",
+      "bytes": 1168,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-defaultrgbcolourspaces-inherit",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/DefaultColorSpaces/DefaultRGBColourSpaces-inherit.pdf",
+      "sha256": "a6cd5a5fc4aebae91a56ea509a84c8fb7985e143c68824db7ffabd7505896efe",
+      "bytes": 5645,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-defaultrgbcolourspaces",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/DefaultColorSpaces/DefaultRGBColourSpaces.pdf",
+      "sha256": "bff699dbaaf438cabebb60d6bfadb8a7367713bc0ab44e482e5cbcef956f630e",
+      "bytes": 5645,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-indexedcs-negative-and-high",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/IndexedColor/IndexedCS_negative_and_high.pdf",
+      "sha256": "818053a2bf343f31f4ad0b48eb2837eb3b43a4543c9feb6269a9f653fbcee59e",
+      "bytes": 1798,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-inlineabbreviations",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Inline-Image-Abbreviations/InlineAbbreviations.pdf",
+      "sha256": "5716b3f45f5353b9d674bfb3d0c829341c6d061256ad7e5e66721a40425ab1f5",
+      "bytes": 15125,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-largemitrelimit-beziers",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/LargeMitreLimit/LargeMitreLimit-Beziers.pdf",
+      "sha256": "aa409792549d998466cfcd6e1fd3f6e3467863839dba1c8d5679b68d8947aae9",
+      "bytes": 4039,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-largemitrelimit",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/LargeMitreLimit/LargeMitreLimit.pdf",
+      "sha256": "8887f5725c1aed9bf0ab3a9d248672a8c658f2dc81150cfb6f5bd8581a65bea2",
+      "bytes": 3515,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-linecap-degenerate",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/LineCap-Degenerate/LineCap-Degenerate.pdf",
+      "sha256": "2b8821f9f280b577428f413da1b71f17b440f0e45e58fd30813d9c7045102f2e",
+      "bytes": 1583,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-cuthereexample",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Negative-DashPhase/CutHereExample.pdf",
+      "sha256": "f6178abd6ffbe1299c00064ea2673511c9f7fc936975317a42d201dff0b5c415",
+      "bytes": 1150,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-negative-dashphase",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Negative-DashPhase/Negative-DashPhase.pdf",
+      "sha256": "9fdc7fd3a19521e3eb9342937a9be99e74478179b5bb96994a8f1d219dc984b0",
+      "bytes": 3702,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-negativefontsize",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/NegativeFontSize/NegativeFontSize.pdf",
+      "sha256": "7886e7942de1c5a215caf3f98507c66a4fe32a7e8c2ff862bc9431958a31b0d8",
+      "bytes": 3180,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-overlappingglyphclipping",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/OverlappingGlyphClipping/OverlappingGlyphClipping.pdf",
+      "sha256": "957a4064877a35f906a505ae0bdeacbfc295df85583e6aad3d381797add01108",
+      "bytes": 2794,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-pdf-versions1",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/PDF-version/PDF-versions1.pdf",
+      "sha256": "94b949fc0fcd6e81f19a262f5d49be684e6db135ee4bac7b67f22625edac31b7",
+      "bytes": 997,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-pdf-versions2",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/PDF-version/PDF-versions2.pdf",
+      "sha256": "e03ffc599c0b47c66b98650742eec25f5f36ee37bc53ac9c08fb5e15f5d3d65e",
+      "bytes": 1022,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-pdf-versions3",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/PDF-version/PDF-versions3.pdf",
+      "sha256": "690ec13b9c407aa351eb863ffe712bf42432ecb47e0e9b27f322e65ae3d4e287",
+      "bytes": 1212,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-pagelabelstest",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/PageLabels-UX/PageLabelsTest.pdf",
+      "sha256": "69c5c7fa14acf38866171d2bc0baa1138d523904f7e6b452dcdfb90d0595fb5b",
+      "bytes": 8611,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-textclippingmodechanges",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/TextClipModeChanges/TextClippingModeChanges.pdf",
+      "sha256": "d7b844c98a1e5510c9f000035da60eb01ef21fea06937f5ead19e20867263712",
+      "bytes": 2473,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-type3test",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/Type3WordSpacing/Type3Test.pdf",
+      "sha256": "8ac40dc49d40af8b5a50b442ced56b8db962c961a779a0284cd3a6207adc0bb7",
+      "bytes": 2693,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-real-world-1",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/382252277877c00a92f3bb54daef1413bafe5557e2f5f7c32c23e800cd9bdcd4.pdf",
+      "sha256": "382252277877c00a92f3bb54daef1413bafe5557e2f5f7c32c23e800cd9bdcd4",
+      "bytes": 496944,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-real-world-2",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/4387ba480c6f935b8e97749d40b3c001ad584b7bda66ca2c040be67337669497.pdf",
+      "sha256": "4387ba480c6f935b8e97749d40b3c001ad584b7bda66ca2c040be67337669497",
+      "bytes": 506671,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-unknownfilter-font",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-Font.pdf",
+      "sha256": "b5272e7e9bc0c02ad08ce995a6e8826102d818e67b684f4167b8efb17a0baba4",
+      "bytes": 11433,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-unknownfilter-formxobject",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-FormXObject.pdf",
+      "sha256": "839d651384db9cce2104a9b997212e9adf52985d4528f88e06eb632fd4845c27",
+      "bytes": 12215,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-unknownfilter-icc",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-ICC.pdf",
+      "sha256": "cddc37a4673008c770b6be70d539c20a13349750612ca7ecf28e0bba37431977",
+      "bytes": 26848,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-unknownfilter-imagexobject",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-ImageXObject.pdf",
+      "sha256": "74b36790035e244f8ef02c4ec3efd541222d73cca847814c51fce747cef10701",
+      "bytes": 11433,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-unknownfilter-linearized",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-Linearized.pdf",
+      "sha256": "10272c70b1c60e7f67bf717d39570964216b2aca2c71a34826378f7f8e043529",
+      "bytes": 14446,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-unknownfilter-outlineobjstm",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-OutlineObjStm.pdf",
+      "sha256": "585100f65ef5577707317974cee18891e92e35b22873709d13b7148a7b20defe",
+      "bytes": 13140,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-unknownfilter-pagecontentstream",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-PageContentStream.pdf",
+      "sha256": "e2dd6a46f0f41256b8796770bbbd523179cbbd77aacc6abb045c4151108afcad",
+      "bytes": 11433,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-unknownfilter-objstm",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-objstm.pdf",
+      "sha256": "f98b7501731e5fb8ee1b08a832e5cfa19f503c496faea646a26566c4d415f9c5",
+      "bytes": 14446,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-unknownfilter-xrefstm",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-xrefstm.pdf",
+      "sha256": "2c153eb1a00e2583d03e939b116b623fe78b70be18e4308347cfcf5f2c4c3c81",
+      "bytes": 14446,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-verticaltext",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/VerticalText/VerticalText.pdf",
+      "sha256": "64df210d4b119e2af344911a6711764a3569c970265b8b61a2fa08b6c1fe073c",
+      "bytes": 5164,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
       "id": "pyhanko-ua-and-a",
       "source": "MatthiasValvekens/pyHanko",
       "url": "https://raw.githubusercontent.com/MatthiasValvekens/pyHanko/871387373d318882e81a3fdd5e8d9089b6f5170e/internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-pdf-ua-and-a.pdf",

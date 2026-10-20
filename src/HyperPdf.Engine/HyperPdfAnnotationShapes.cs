@@ -17,6 +17,15 @@ internal static class HyperPdfAnnotationShapes
     /// <summary>The size of a sticky note icon in points.</summary>
     internal const float NoteSize = 20;
 
+    /// <summary>The opacity of a freehand highlight, so the text under it stays readable.</summary>
+    internal const float HighlighterOpacity = 0.4F;
+
+    /// <summary>The width of a caret in points.</summary>
+    internal const float CaretWidth = 10;
+
+    /// <summary>The height of a caret in points.</summary>
+    internal const float CaretHeight = 12;
+
     /// <summary>Halves a line width for the margin around a rectangle or ellipse.</summary>
     internal const float Half = 0.5F;
 
@@ -128,7 +137,8 @@ internal static class HyperPdfAnnotationShapes
     /// <param name="color">The colour as 0xRRGGBB.</param>
     /// <param name="width">The line width in points.</param>
     /// <param name="kind">
-    /// <see cref="F:HyperPdf.Core.Annotations.AnnotationKind.Ink" /> or <see cref="F:HyperPdf.Core.Annotations.AnnotationKind.Signature" />.</param>
+    /// <see cref="F:HyperPdf.Core.Annotations.AnnotationKind.Ink" />, <see cref="F:HyperPdf.Core.Annotations.AnnotationKind.Signature" /> or
+    /// <see cref="F:HyperPdf.Core.Annotations.AnnotationKind.FreehandHighlight" />.</param>
     /// <returns>The new annotation's index, or -1.</returns>
     internal static int AddInk(HyperPdfAnnotations annotationState, int pageIndex, ReadOnlySpan<PagePoint> points, ReadOnlySpan<int> strokeLengths, uint color, float width, AnnotationKind kind)
     {
@@ -139,7 +149,7 @@ internal static class HyperPdfAnnotationShapes
 
         lock (annotationState.Gate)
         {
-            var inkKind = kind == AnnotationKind.Signature ? AnnotationKind.Signature : AnnotationKind.Ink;
+            var inkKind = kind is AnnotationKind.Signature or AnnotationKind.FreehandHighlight ? kind : AnnotationKind.Ink;
             return HyperPdfAnnotationReading.GetPage(annotationState, pageIndex) is { } page ? AddStrokes(
                 annotationState,
                 pageIndex,
@@ -245,6 +255,7 @@ internal static class HyperPdfAnnotationShapes
     {
         AnnotationKind.Signature => HyperPdfAnnotationKinds.GetSignatureSubject(),
         AnnotationKind.Arrow => HyperPdfAnnotationKinds.GetArrowSubject(),
+        AnnotationKind.FreehandHighlight => HyperPdfAnnotationKinds.GetFreehandHighlightSubject(),
         AnnotationKind.Line => HyperPdfAnnotationKinds.GetLineSubject(),
         AnnotationKind.Polygon => HyperPdfAnnotationKinds.GetPolygonSubject(),
         AnnotationKind.Cloud => HyperPdfAnnotationKinds.GetCloudSubject(),
@@ -342,6 +353,12 @@ internal static class HyperPdfAnnotationShapes
 
             var annotation = PdfAnnotations.Create(annotationState.Store, style.Subtype, default);
             PdfAnnotations.SetBorderWidth(annotation, style.Width);
+            if (style.Kind == AnnotationKind.FreehandHighlight)
+            {
+                // The opacity is set before the appearance is drawn, which reads it, and Finish keeps an opacity already set.
+                PdfAnnotations.SetOpacity(annotation, HighlighterOpacity);
+            }
+
             HyperPdfAnnotationStrokes.WriteStrokes(annotation, ref path);
             WritePolygonEntries(annotationState, annotation, style.Kind);
             HyperPdfAnnotationStrokes.Redraw(annotationState, annotation, style.Kind, ref path, style.Color, style.Width);

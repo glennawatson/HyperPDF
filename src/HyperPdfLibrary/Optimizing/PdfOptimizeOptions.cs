@@ -15,6 +15,12 @@ public readonly record struct PdfOptimizeOptions
     /// <summary>The image resolution the balanced preset keeps.</summary>
     private const int BalancedDpi = 200;
 
+    /// <summary>The resolution the balanced preset keeps for black-and-white images.</summary>
+    private const int BalancedMonochromeDpi = 300;
+
+    /// <summary>The resolution the smaller preset keeps for black-and-white images.</summary>
+    private const int SmallerMonochromeDpi = 200;
+
     /// <summary>The JPEG quality the balanced preset writes.</summary>
     private const int BalancedQuality = 80;
 
@@ -32,10 +38,10 @@ public readonly record struct PdfOptimizeOptions
     {
     }
 
-    /// <summary>Gets the preset for the smallest file: colour and grey images at 150 dpi, JPEG quality 70.</summary>
-    public static PdfOptimizeOptions Smaller { get; } = new() { ColorImageDpi = SmallerDpi, GrayImageDpi = SmallerDpi, JpegQuality = SmallerQuality };
+    /// <summary>Gets the preset for the smallest file: colour and grey images at 150 dpi, black-and-white images at 200 dpi, JPEG quality 70.</summary>
+    public static PdfOptimizeOptions Smaller { get; } = new() { ColorImageDpi = SmallerDpi, GrayImageDpi = SmallerDpi, MonochromeImageDpi = SmallerMonochromeDpi, JpegQuality = SmallerQuality };
 
-    /// <summary>Gets the balanced preset: colour and grey images at 200 dpi, JPEG quality 80.</summary>
+    /// <summary>Gets the balanced preset: colour and grey images at 200 dpi, black-and-white images at 300 dpi, JPEG quality 80.</summary>
     public static PdfOptimizeOptions Balanced { get; } = new();
 
     /// <summary>Gets the preset that changes no pixel: lossless recompression, deduplication and font subsetting only.</summary>
@@ -55,6 +61,13 @@ public readonly record struct PdfOptimizeOptions
 
     /// <summary>Gets the resolution greyscale images are downsampled to, in pixels per inch at their largest use.</summary>
     public int GrayImageDpi { get; init; } = BalancedDpi;
+
+    /// <summary>
+    /// Gets the resolution black-and-white (1-bit) images are downsampled to, in pixels per inch at their largest use, or
+    /// zero to leave them at their own resolution. A shrunk image is averaged and then made black and white again, so thin
+    /// lines may lose a little weight. It applies only when <see cref="AllowLossyImages"/> is on.
+    /// </summary>
+    public int MonochromeImageDpi { get; init; } = BalancedMonochromeDpi;
 
     /// <summary>
     /// Gets how many times the target resolution an image must exceed before it is downsampled; 1.5 leaves images up to

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Rendering;
 
 namespace HyperPdfLibrary.Optimizing;
@@ -40,8 +41,29 @@ internal sealed class FontPlanState : IDisposable
     /// <summary>Gets the glyphs each font shows, by font number.</summary>
     internal Dictionary<int, CodeBitSet> Shown { get; } = [];
 
+    /// <summary>
+    /// Gets the object numbers of the only fonts whose programs may be cut down when <see cref="LimitToOnlyFonts"/> is set.
+    /// Redaction fills it with the fonts that lost text, so no other font program is touched.
+    /// </summary>
+    internal HashSet<int> OnlyFonts { get; } = [];
+
+    /// <summary>Gets or sets a value indicating whether only the programs of <see cref="OnlyFonts"/> may be cut down.</summary>
+    internal bool LimitToOnlyFonts { get; set; }
+
     /// <summary>Gets the glyphs to keep in each embedded program, by the program's number.</summary>
     internal Dictionary<int, CodeBitSet> Kept { get; } = [];
+
+    /// <summary>Gets the embedded program streams the plan may cut down, by the program's number.</summary>
+    internal Dictionary<int, PdfStream> Streams { get; } = [];
+
+    /// <summary>Gets what each font that uses an embedded program names, by the font's object number, for adding subset tags.</summary>
+    internal Dictionary<int, FontUser> Users { get; } = [];
+
+    /// <summary>Gets the cut-down program stream of each program that was cut down, by the program's number.</summary>
+    internal Dictionary<int, PdfStream> Subsets { get; } = [];
+
+    /// <summary>Gets the subset tag change of each font object that needs one, by object number.</summary>
+    internal Dictionary<int, FontRename> Renames { get; } = [];
 
     /// <summary>Empties the state and gives it back to the pool.</summary>
     public void Dispose()
@@ -59,6 +81,12 @@ internal sealed class FontPlanState : IDisposable
         }
 
         Programs.Clear();
+        OnlyFonts.Clear();
+        LimitToOnlyFonts = false;
+        Streams.Clear();
+        Users.Clear();
+        Subsets.Clear();
+        Renames.Clear();
         Recycle(Shown);
         Recycle(Kept);
         if (!grew)

@@ -96,16 +96,28 @@ internal sealed class ReadingBlockAutomationPeer : AutomationPeer
     protected override string? GetNameCore() => _block.Text;
 
     /// <inheritdoc/>
-    protected override string? GetHelpTextCore() => _block.Kind switch
+    protected override string? GetHelpTextCore()
     {
-        ReadingBlockKind.ListItem when _listSize > 0 => string.Create(CultureInfo.InvariantCulture, $"List item {_positionInList} of {_listSize}"),
-        ReadingBlockKind.TableCell when _block.Row > 0 => string.Create(CultureInfo.InvariantCulture, $"Table cell, row {_block.Row}, column {_block.Column}"),
-        ReadingBlockKind.TableCell => "Table cell",
-        ReadingBlockKind.Figure => "Figure",
-        ReadingBlockKind.Caption => "Caption",
-        ReadingBlockKind.Footnote => "Footnote",
-        _ => null,
-    };
+        var role = _block.Kind switch
+        {
+            ReadingBlockKind.ListItem when _listSize > 0 => string.Create(CultureInfo.InvariantCulture, $"List item {_positionInList} of {_listSize}"),
+            ReadingBlockKind.TableCell when _block.Row > 0 => string.Create(CultureInfo.InvariantCulture, $"Table cell, row {_block.Row}, column {_block.Column}"),
+            ReadingBlockKind.TableCell => "Table cell",
+            ReadingBlockKind.Figure => "Figure",
+            ReadingBlockKind.Caption => "Caption",
+            ReadingBlockKind.Footnote => "Footnote",
+            _ => null,
+        };
+
+        // A change of language is said so a screen reader can switch voices or tell the reader.
+        if (_block.Language is not { Length: > 0 } language)
+        {
+            return role;
+        }
+
+        var spoken = $"language {PageSemanticAutomationPeer.DescribeLanguage(language)}";
+        return role is null ? spoken : $"{role}, {spoken}";
+    }
 
     /// <inheritdoc/>
     protected override int GetHeadingLevelCore() => _block.Kind == ReadingBlockKind.Heading ? _block.Level : 0;

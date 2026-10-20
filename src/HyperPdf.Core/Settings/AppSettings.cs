@@ -167,6 +167,18 @@ public sealed class AppSettings
     /// <summary>Gets or sets a value indicating whether the colours a document gives its bookmarks are ignored, so every bookmark has the theme's text colour.</summary>
     public bool IgnoreOutlineColours { get; set; } = true;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether presenting shows the page transitions a document asks for. Off by default, so
+    /// nothing moves unless asked for; reduced motion also turns it off.
+    /// </summary>
+    public bool FollowPageTransitions { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether presenting moves on after the time a page asks for. Off by default, so no page
+    /// changes by itself unless asked for; reduced motion also turns it off.
+    /// </summary>
+    public bool FollowPageTimings { get; set; }
+
     /// <summary>Gets the page each recent document was closed at, newest last.</summary>
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public List<LastViewedPage> LastPages { get; } = [];

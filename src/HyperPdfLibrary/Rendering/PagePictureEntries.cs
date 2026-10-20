@@ -51,6 +51,29 @@ internal record struct PagePictureEntries
         Count++;
     }
 
+    /// <summary>Adds an entry as the least recently used, so it is the first to go when the cache trims.</summary>
+    /// <param name="entry">The entry to retain.</param>
+    internal void AddOldest(PagePictures entry)
+    {
+        if (Count == 0)
+        {
+            _first = entry;
+            Count = 1;
+            return;
+        }
+
+        if (_overflow is null || Count > _overflow.Length)
+        {
+            Array.Resize(ref _overflow, _overflow is null ? InitialCapacity : _overflow.Length << 1);
+        }
+
+        // The old first entry moves to the front of the overflow, after everything else shifts one place up.
+        _overflow.AsSpan(0, Count - 1).CopyTo(_overflow.AsSpan(1, Count - 1));
+        _overflow[0] = _first!;
+        _first = entry;
+        Count++;
+    }
+
     /// <summary>Removes one entry and closes the gap.</summary>
     /// <param name="index">The position to remove.</param>
     internal void RemoveAt(int index)

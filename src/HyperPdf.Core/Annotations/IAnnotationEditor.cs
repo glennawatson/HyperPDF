@@ -51,6 +51,13 @@ public interface IAnnotationEditor : IDocumentFeature
     /// <returns>The new annotation's index, or -1.</returns>
     int AddNote(int pageIndex, PagePoint location, string contents, uint color);
 
+    /// <summary>Adds a caret marking where text should be inserted.</summary>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="location">The place the text goes: the caret hangs below this point with its tip on it.</param>
+    /// <param name="color">The colour as 0xRRGGBB.</param>
+    /// <returns>The new annotation's index, or -1.</returns>
+    int AddCaret(int pageIndex, PagePoint location, uint color);
+
     /// <summary>Writes text on the page, or places a typed signature.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="location">The top-left corner of the first line.</param>

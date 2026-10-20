@@ -5,7 +5,9 @@
         Width="560" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <StackPanel Margin="20" Spacing="16">
-    <ItemsControl x:Name="EntryList" />
+    <ScrollViewer MaxHeight="520" HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="EntryList" AutomationProperties.Name="Document properties" />
+    </ScrollViewer>
     <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" HorizontalAlignment="Right" Content="Close" IsDefault="True" IsCancel="True" />
   </StackPanel>
 </Window>

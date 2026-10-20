@@ -62,6 +62,11 @@ internal static class HyperPdfAnnotationKinds
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ReadOnlySpan<byte> GetPolyLineSubject() => "Polyline"u8;
 
+    /// <summary>Gets FreehandHighlightSubject.</summary>
+    /// <returns>The current value.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ReadOnlySpan<byte> GetFreehandHighlightSubject() => "Freehand highlight"u8;
+
     /// <summary>Maps the subtypes that need no subject to a kind.</summary>
     /// <param name="subtype">The subtype.</param>
     /// <returns>The kind.</returns>
@@ -76,6 +81,7 @@ internal static class HyperPdfAnnotationKinds
         KnownName.Square => AnnotationKind.Rectangle,
         KnownName.Circle => AnnotationKind.Ellipse,
         KnownName.Redact => AnnotationKind.Redaction,
+        KnownName.Caret => AnnotationKind.Caret,
         _ => AnnotationKind.Other,
     };
 
@@ -135,6 +141,11 @@ internal static class HyperPdfAnnotationKinds
         if (HasSubject(annotationState, annotation, GetArrowSubject()))
         {
             return AnnotationKind.Arrow;
+        }
+
+        if (HasSubject(annotationState, annotation, GetFreehandHighlightSubject()))
+        {
+            return AnnotationKind.FreehandHighlight;
         }
 
         return HasSubject(annotationState, annotation, GetLineSubject()) ? AnnotationKind.Line : GetPolygonKind(annotationState, annotation) ?? AnnotationKind.Ink;

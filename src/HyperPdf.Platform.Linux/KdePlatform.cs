@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Media;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Speech;
 using HyperPdf.Platform.Linux.Accessibility;
@@ -40,6 +41,10 @@ public sealed class KdePlatform : IDesktopPlatform
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IAudioOutput CreateAudioOutput() => new PulseAudioOutput();
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IStreamingAudioOutput CreateStreamingAudioOutput() => new PulseStreamingAudioOutput();
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

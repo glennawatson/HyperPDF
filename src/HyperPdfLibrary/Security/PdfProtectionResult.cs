@@ -14,4 +14,10 @@ public sealed record PdfProtectionResult(string? Refusal, IReadOnlyList<string> 
 {
     /// <summary>Gets a value indicating whether the file was written.</summary>
     public bool Written => Refusal is null;
+
+    /// <summary>Returns the result when the file was written, and throws when it was refused.</summary>
+    /// <returns>This result.</returns>
+    /// <exception cref="PdfException">Nothing was written; <see cref="PdfException.Error"/> is <see cref="PdfError.Security"/> and the message holds <see cref="Refusal"/>.</exception>
+    public PdfProtectionResult ThrowIfRefused() =>
+        Refusal is null ? this : throw new PdfException(PdfError.Security, Refusal);
 }

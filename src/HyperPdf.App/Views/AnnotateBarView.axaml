@@ -37,6 +37,18 @@
             <TextBlock Classes="label" Text="Draw" />
           </StackPanel>
         </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Highlighter" x:Name="FreehandHighlightTool" views:ControlHelp.Text="{x:Static views:Descriptions.FreehandHighlightTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon edit" Data="{StaticResource IconFreehandHighlight}" />
+            <TextBlock Classes="label" Text="Highlighter" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton AutomationProperties.Name="Caret" x:Name="CaretTool" views:ControlHelp.Text="{x:Static views:Descriptions.CaretTool}" Classes="tool">
+          <StackPanel Orientation="Horizontal">
+            <Path Classes="icon add" Data="{StaticResource IconCaret}" />
+            <TextBlock Classes="label" Text="Caret" />
+          </StackPanel>
+        </ToggleButton>
         <ToggleButton AutomationProperties.Name="Note" x:Name="NoteTool" views:ControlHelp.Text="{x:Static views:Descriptions.NoteTool}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon add" Data="{StaticResource IconNote}" />

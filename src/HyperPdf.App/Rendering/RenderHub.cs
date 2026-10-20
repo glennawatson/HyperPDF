@@ -51,6 +51,7 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
         Cache = new(cacheBytes);
         _surfaceFactory = new(RequestSoftwareRecovery);
         Scheduler = new(_surfaceFactory);
+        Preparer = new(HasVisibleWork, UnderPressure, NeighbourPagePreparer.DefaultDebounce, TimeProvider.System);
         TilesArrived = this.WhenChanged(static hub => hub.TileVersion).Skip(1).Select(static _ => RxVoid.Default);
 
         // Closing is first, so work that finishes while the rest is released finds the hub closed.
@@ -64,6 +65,10 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
             .ObserveOn(AvaloniaScheduler.Instance)
             .SubscribeSafe(_ => RecoverSoftware(), ErrorTrace.Write));
         _subscriptions.Add(recoveryRequests);
+
+        // Something on screen needs drawing, so background preparation of neighbouring pages stands aside.
+        _subscriptions.Add(Scheduler.VisibleWorkRequested.SubscribeSafe(_ => Preparer.Preempt(), ErrorTrace.Write));
+        _subscriptions.Add(Preparer);
         _subscriptions.Add(Scheduler);
         _subscriptions.Add(Cache);
     }
@@ -80,6 +85,9 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
 
     /// <summary>Gets the render scheduler.</summary>
     public RenderScheduler Scheduler { get; }
+
+    /// <summary>Gets the worker that prepares the pages next to the one being read.</summary>
+    public NeighbourPagePreparer Preparer { get; }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -109,6 +117,7 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
             return;
         }
 
+        Preparer.Reset();
         Cache.RemoveDocument(documentId);
         TileVersion++;
         InvalidateWindows();
@@ -125,6 +134,18 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
             }
         }
     }
+
+    /// <summary>Tells whether something on screen is queued or rendering.</summary>
+    /// <returns><see langword="true"/> when preparation of neighbouring pages should wait.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool HasVisibleWork() => Scheduler.HasVisibleWork;
+
+    /// <summary>
+    /// Tells whether memory is short: the system is under load, or the tile cache is nearly full. The cache's byte count is a
+    /// single 64-bit read, which is safe to make from the preparation thread; a stale value only moves the decision by a tile.
+    /// </summary>
+    /// <returns><see langword="true"/> when neighbouring pages should not be prepared.</returns>
+    private bool UnderPressure() => MemoryPressure.IsSystemHigh() || MemoryPressure.IsCacheFull(Cache);
 
     /// <summary>Marks the hub closed, so work that finishes while the rest is released finds it closed.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

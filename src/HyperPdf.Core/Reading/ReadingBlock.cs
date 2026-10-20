@@ -27,4 +27,7 @@ public sealed record ReadingBlock(ReadingBlockKind Kind, string Text, int[] Char
 
     /// <summary>Gets a value indicating whether the block comes from the document's own structure tags rather than its layout.</summary>
     public bool IsTagged { get; init; }
+
+    /// <summary>Gets the language the block's tags ask for when it differs from the surrounding text, for example "fr-FR"; <see langword="null"/> otherwise.</summary>
+    public string? Language { get; init; }
 }

@@ -36,6 +36,7 @@ internal static class HyperPdfAnnotationEditing
                 KnownName.FreeText => IsWrittenHere(annotationState, annotation) && RecolorAppearance(annotationState, annotation, color),
                 KnownName.Ink or KnownName.Polygon or KnownName.PolyLine => RecolorStrokes(annotationState, annotation, color),
                 KnownName.Redact => false,
+                KnownName.Caret => HyperPdfAnnotationCarets.Recolor(annotationState, annotation, color),
                 _ => RecolorEntries(annotation, color),
             };
             return changed && HyperPdfAnnotationReading.Commit(annotationState, pageIndex, page, index, annotation);

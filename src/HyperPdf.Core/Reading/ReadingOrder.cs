@@ -396,12 +396,13 @@ public static class ReadingOrder
                 IsTagged = true,
                 Row = element.Row,
                 Column = element.Column,
+                Language = element.Language,
             };
         }
 
         return block.LineCount == 0
             ? null
-            : ReadingBlocks.ToReadingBlock(scratch, block, TaggedRole(scratch, element, block, body), new(true, element.Row, element.Column));
+            : ReadingBlocks.ToReadingBlock(scratch, block, TaggedRole(scratch, element, block, body), new(true, element.Row, element.Column, element.Language));
     }
 
     /// <summary>Gets a tagged element's role, promoting a paragraph that looks like a heading when the tags have none.</summary>

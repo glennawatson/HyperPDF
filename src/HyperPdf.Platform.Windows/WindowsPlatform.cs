@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Media;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Speech;
 using HyperPdf.Platform.Windows.Audio;
@@ -60,6 +61,10 @@ public sealed class WindowsPlatform : IDesktopPlatform
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IAudioOutput CreateAudioOutput() => new WasapiAudioOutput();
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IStreamingAudioOutput CreateStreamingAudioOutput() => new WasapiStreamingAudioOutput();
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

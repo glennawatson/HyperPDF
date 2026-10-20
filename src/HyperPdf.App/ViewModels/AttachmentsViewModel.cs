@@ -58,8 +58,36 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
     [Reactive]
     public partial DocumentAttachment? Selected { get; set; }
 
+    /// <summary>Gets how the document's portfolio asks for its files to be shown, or <see langword="null"/> when the document is not a portfolio.</summary>
+    [Reactive]
+    public partial PortfolioSummary? Portfolio { get; private set; }
+
+    /// <summary>Gets a plain-words line about the portfolio, or <see langword="null"/> when the document is not a portfolio.</summary>
+    [Reactive]
+    public partial string? PortfolioText { get; private set; }
+
+    /// <summary>Gets a value indicating whether the document is a portfolio that asks to be shown as a list of files.</summary>
+    public bool ShowsPortfolio => Portfolio is { IsHidden: false };
+
     /// <summary>Gets the interaction asking where to save a file; the input is the suggested name.</summary>
     public Interaction<string, string?> SaveInteraction { get; } = new();
+
+    /// <summary>Describes a portfolio in words.</summary>
+    /// <param name="portfolio">The portfolio.</param>
+    /// <returns>The description.</returns>
+    public static string DescribePortfolio(PortfolioSummary portfolio)
+    {
+        ArgumentNullException.ThrowIfNull(portfolio);
+        var view = portfolio.View.ToUpperInvariant() switch
+        {
+            "T" => "tiles",
+            "H" => "hidden",
+            _ => "details",
+        };
+        var files = portfolio.FileCount == 1 ? "1 file" : string.Create(CultureInfo.CurrentCulture, $"{portfolio.FileCount} files");
+        var first = string.IsNullOrEmpty(portfolio.InitialFile) ? string.Empty : $" It opens at {portfolio.InitialFile}.";
+        return $"PDF portfolio: {files}, {view} view.{first}";
+    }
 
     /// <summary>Describes a file size in words, for example "12 KB".</summary>
     /// <param name="bytes">The size in bytes.</param>
@@ -77,14 +105,24 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
     {
         Items.Clear();
         Selected = null;
+        Portfolio = null;
+        PortfolioText = null;
         if (DocumentFeature<IAttachmentSource>.Get(_owner.TryGetDocument()) is
             {
             } source)
         {
-            foreach (var attachment in source.GetAttachments())
+            var attachments = new List<DocumentAttachment>(source.GetAttachments());
+
+            // Files the portfolio sorts come first, in its order; the rest keep their own order after them.
+            attachments.Sort(static (first, second) => PortfolioRank(first).CompareTo(PortfolioRank(second)));
+            foreach (var attachment in attachments)
             {
                 Items.Add(attachment);
             }
+
+            Portfolio = source.GetPortfolioSummary();
+            PortfolioText = Portfolio is null ? null : DescribePortfolio(Portfolio);
+            Selected = Portfolio is null ? null : FindInitial();
         }
 
         HasAttachments = Items.Count > 0;
@@ -168,6 +206,12 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
         return await WriteAsync(attachment, path).ConfigureAwait(true) && await _owner.Links.OpenFileAsync(path, 0).ConfigureAwait(true);
     }
 
+    /// <summary>Gets the place a file takes in the list: the portfolio's order, then the files it does not describe in their own order.</summary>
+    /// <param name="attachment">The file.</param>
+    /// <returns>The rank, which is the portfolio order when the file has one and a larger number otherwise.</returns>
+    private static long PortfolioRank(DocumentAttachment attachment) =>
+        attachment.PortfolioOrder >= 0 ? attachment.PortfolioOrder : (long)int.MaxValue + attachment.Index;
+
     /// <summary>Extracts an embedded file into a new file.</summary>
     /// <param name="source">The document's attachments.</param>
     /// <param name="index">The attachment.</param>
@@ -177,6 +221,21 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
     {
         using var stream = File.Create(path);
         return source.SaveAttachment(index, stream);
+    }
+
+    /// <summary>Finds the file the portfolio names as the one to show first.</summary>
+    /// <returns>The file, or <see langword="null"/> when the portfolio names none.</returns>
+    private DocumentAttachment? FindInitial()
+    {
+        foreach (var item in Items)
+        {
+            if (item.IsPortfolioInitial)
+            {
+                return item;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Writes an embedded file to a path, saying what went wrong when it cannot.</summary>

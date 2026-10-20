@@ -38,6 +38,10 @@ public sealed partial class SidebarView : ReactiveUI.Avalonia.ReactiveUserContro
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsAnnotationsMode, static v => v.AnnotationsToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Layers.HasLayers, static v => v.LayersToggle.IsVisible));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsLayersMode, static v => v.LayersToggle.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Parts.HasStructure, static v => v.PartsToggle.IsVisible));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsPartsMode, static v => v.PartsToggle.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Media.HasMedia, static v => v.MediaToggle.IsVisible));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IsMediaMode, static v => v.MediaToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsTagsMode, static v => v.TagsToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Attachments.HasAttachments, static v => v.AttachmentsToggle.IsVisible));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsAttachmentsMode, static v => v.AttachmentsToggle.IsChecked, static on => on, static on => on == true));

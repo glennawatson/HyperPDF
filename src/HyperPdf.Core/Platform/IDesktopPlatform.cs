@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.Core.Media;
 using HyperPdf.Core.Speech;
 
 namespace HyperPdf.Core.Platform;
@@ -30,6 +31,10 @@ public interface IDesktopPlatform
     /// <summary>Creates the sound output Read Aloud plays through; dispose it when done.</summary>
     /// <returns>The output, which reports whether sound can be played.</returns>
     IAudioOutput CreateAudioOutput();
+
+    /// <summary>Creates the sound output media plays through; dispose it when done.</summary>
+    /// <returns>The output, which reports whether sound can be played; platforms without a streaming output return one that never plays.</returns>
+    IStreamingAudioOutput CreateStreamingAudioOutput() => NullStreamingAudioOutput.Instance;
 
     /// <summary>Gets the window activation token the launcher handed this process, if any.</summary>
     /// <returns>The token.</returns>

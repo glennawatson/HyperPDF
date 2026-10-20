@@ -27,6 +27,8 @@ public sealed partial class AttachmentItemView : ReactiveUI.Avalonia.ReactiveUse
         {
             disposables.Add(attachments.Select(static attachment => attachment?.Name).BindTo(this, static v => v.NameText.Text));
             disposables.Add(attachments.Select(static attachment => attachment is null ? null : AttachmentsViewModel.FormatSize(attachment.Size)).BindTo(this, static v => v.SizeText.Text));
+            disposables.Add(attachments.Select(static attachment => attachment?.PortfolioDetails).BindTo(this, static v => v.DetailText.Text));
+            disposables.Add(attachments.Select(static attachment => attachment?.PortfolioDetails is not null).BindTo(this, static v => v.DetailText.IsVisible));
         });
     }
 }

@@ -142,16 +142,21 @@ internal static class HyperPdfText
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(output);
-        if (query.Length == 0 || TextPage(self, pageIndex) is not { } text)
+        using var access = HyperPdfNavigation.EnterPageRead(self);
+        if (query.Length == 0 || self.IsDisposed || (uint)pageIndex >= (uint)self.PageCount)
         {
             return;
         }
 
-        text.Find(
+        // Pages without a match never get a text page: only a page that is already cached, or that a later bounds call builds, does.
+        PdfDocumentText.FindInPage(
+            self.Document,
+            pageIndex,
             query,
             ToLibraryOptions(options),
             new MatchOutput(pageIndex, output),
-            static (state, start, length) => state.Output.Add(new(state.PageIndex, start, length)));
+            static (state, start, length) => state.Output.Add(new(state.PageIndex, start, length)),
+            CancellationToken.None);
     }
 
     /// <summary>Appends every character of a page in viewer space.</summary>

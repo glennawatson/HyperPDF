@@ -55,6 +55,9 @@ internal sealed class FakeDocument : IDocument
     /// <summary>Gets or sets asynchronous page preparation.</summary>
     internal Func<int, CancellationToken, ValueTask>? Preparation { get; set; }
 
+    /// <summary>Gets the pages recorded ahead, in order.</summary>
+    internal List<int> PreparedAhead { get; } = [];
+
     /// <summary>Gets or sets the text of every page.</summary>
     internal string PageText { get; set; } = "alpha beta alpha";
 
@@ -73,6 +76,18 @@ internal sealed class FakeDocument : IDocument
     /// <inheritdoc/>
     public ValueTask PreparePageAsync(int pageIndex, CancellationToken cancellationToken) =>
         Preparation?.Invoke(pageIndex, cancellationToken) ?? ValueTask.CompletedTask;
+
+    /// <inheritdoc/>
+    public bool PrepareAhead(in PageRenderInfo info, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (PreparedAhead)
+        {
+            PreparedAhead.Add(info.PageIndex);
+        }
+
+        return true;
+    }
 
     /// <inheritdoc/>
     public bool Render(in PageRenderInfo info, RenderTarget target)

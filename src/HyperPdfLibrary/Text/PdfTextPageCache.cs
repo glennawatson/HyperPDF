@@ -70,6 +70,17 @@ internal sealed class PdfTextPageCache
         }
     }
 
+    /// <summary>Gets a page's text when it is cached, marking it used.</summary>
+    /// <param name="pageIndex">The page index.</param>
+    /// <returns>The page, or <see langword="null"/> when it is not cached.</returns>
+    internal PdfTextPage? TryGet(int pageIndex)
+    {
+        lock (_gate)
+        {
+            return TryFind(pageIndex);
+        }
+    }
+
     /// <summary>Removes every page.</summary>
     internal void Clear()
     {

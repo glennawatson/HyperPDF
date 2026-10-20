@@ -89,6 +89,22 @@ internal static class HyperPdfRendering
         return GetRenderer(self).Prepare(request, cancellationToken);
     }
 
+    /// <summary>Records a page the reader is likely to turn to, without making it the newest page in the picture cache.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="info">The page and flags.</param>
+    /// <param name="cancellationToken">Cancels recording.</param>
+    /// <returns>Whether the page was recorded.</returns>
+    internal static bool PrepareAhead(HyperPdfDocument self, in PageRenderInfo info, CancellationToken cancellationToken)
+    {
+        using var access = HyperPdfNavigation.EnterPageRead(self);
+        if (self.IsDisposed || (uint)info.PageIndex >= (uint)self.PageCount)
+        {
+            return false;
+        }
+
+        return GetRenderer(self).PrepareAhead(ToRequest(info), cancellationToken);
+    }
+
     /// <summary>Loads external page resources, then records the requested content.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="info">The page and flags.</param>

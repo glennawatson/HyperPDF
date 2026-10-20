@@ -154,6 +154,23 @@ public sealed class PdfFontSource
         return new(new PdfFontSource(font, facts, outlines), null);
     }
 
+    /// <summary>Opens the first face of a font file, throwing when it cannot be embedded.</summary>
+    /// <param name="fontFile">The font file's bytes; the source keeps a reference to them.</param>
+    /// <returns>The font.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="fontFile"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PdfException">The font cannot be embedded; the message gives the reason.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfFontSource OpenOrThrow(byte[] fontFile) => PdfFontOpenResult.SourceOrThrow(Open(fontFile, 0));
+
+    /// <summary>Opens one face of a font file, throwing when it cannot be embedded.</summary>
+    /// <param name="fontFile">The font file's bytes; the source keeps a reference to them.</param>
+    /// <param name="faceIndex">The face's index in a TrueType collection; zero for a single font.</param>
+    /// <returns>The font.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="fontFile"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PdfException">The font cannot be embedded; the message gives the reason.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfFontSource OpenOrThrow(byte[] fontFile, int faceIndex) => PdfFontOpenResult.SourceOrThrow(Open(fontFile, faceIndex));
+
     /// <summary>Gets the glyph a character is drawn with.</summary>
     /// <param name="codePoint">The Unicode code point.</param>
     /// <returns>The glyph, or zero (the missing glyph) when the font has none for it.</returns>

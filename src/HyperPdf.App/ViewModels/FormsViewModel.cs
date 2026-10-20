@@ -38,6 +38,9 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
     /// <summary>The page actions that have not run yet, in the order the pages turned; used on the UI thread only.</summary>
     private readonly Queue<PageTurn> _pendingTurns = [];
 
+    /// <summary>The names of the fields a script made read-only; the document itself is not changed.</summary>
+    private readonly HashSet<string> _scriptReadOnly = [with(StringComparer.Ordinal)];
+
     /// <summary>The page whose open actions ran last, so the next turn can close it; used on the UI thread only.</summary>
     private int _shownPage;
 
@@ -119,7 +122,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
         filler.GetFields(page, _scratch);
         foreach (var field in _scratch)
         {
-            if (!field.IsReadOnly && field.Kind != FormFieldKind.Unknown && field.Bounds.Contains(point))
+            if (!field.IsReadOnly && !_scriptReadOnly.Contains(field.Name) && field.Kind != FormFieldKind.Unknown && field.Bounds.Contains(point))
             {
                 return field;
             }
@@ -246,15 +249,19 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
         }
 
         var scripts = ScriptsFor(field.Name);
-        if (scripts is not null && Problem(scripts, EditText) is { } problem)
+        var host = HostFor(scripts);
+        var problem = scripts is null ? null : Problem(scripts, EditText, AsHost(host));
+        if (problem is not null)
         {
             // Keep the editor open so the value can be corrected; the message stays until dismissed.
+            ApplyScriptChanges(host);
             _owner.Notice = problem;
             return;
         }
 
         Editing = null;
-        var text = scripts is null ? EditText : FormScriptEngine.Format(scripts.Format, EditText);
+        var text = scripts is null ? EditText : FormScriptRuns.Format(scripts.Format, EditText, AsHost(host));
+        ApplyScriptChanges(host);
         if (string.Equals(field.Value, text, StringComparison.Ordinal))
         {
             return;
@@ -342,25 +349,15 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
         for (var pass = 0; pass < MaxCalculationPasses; pass++)
         {
             var values = ReadValues(filler);
+            var host = calculated.Exists(static scripts => scripts.UsesPrograms) ? CreateHost(filler, values) : null;
             var changed = false;
             foreach (var scripts in calculated)
             {
-                if (!FormScriptEngine.TryCalculate(scripts.Calculate, name => values.GetValueOrDefault(name), out var result))
-                {
-                    continue;
-                }
-
-                var text = FormScriptEngine.Format(scripts.Format, FormNumbers.Plain(result));
-                if (string.Equals(values.GetValueOrDefault(scripts.Name), text, StringComparison.Ordinal) || !filler.SetText(scripts.PageIndex, scripts.Index, text))
-                {
-                    continue;
-                }
-
-                values[scripts.Name] = text;
-                changed = true;
-                LastPageChange = LastPageChange.Next(scripts.PageIndex);
+                changed |= RunCalculation(scripts, filler, values, host);
             }
 
+            changed |= host is { ChangedPages.Count: > 0 } || host is { DisplayChanged: true };
+            ApplyScriptChanges(host);
             if (!changed)
             {
                 return;
@@ -402,21 +399,112 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
     /// <summary>Explains why a typed value is refused by its field's keystroke or validate script.</summary>
     /// <param name="scripts">The field's scripts.</param>
     /// <param name="text">The typed value.</param>
+    /// <param name="host">The form that sandboxed programs run in.</param>
     /// <returns>The explanation, or <see langword="null"/> when the value is accepted.</returns>
-    private static string? Problem(FieldScripts scripts, string text)
+    private static string? Problem(FieldScripts scripts, string text, IFormScriptHost host)
     {
-        if (!FormScriptEngine.Accepts(scripts.Keystroke, text))
+        if (!FormScriptRuns.Accepts(scripts.Keystroke, text, host, out var refusal))
         {
             return scripts.Keystroke.Function switch
             {
                 FormScriptFunction.Date => $"Type a date like {FormScriptEngine.Format(scripts.Keystroke, "2026-03-07")}.",
                 FormScriptFunction.Time => $"Type a time like {FormScriptEngine.Format(scripts.Keystroke, "13:45")}.",
                 FormScriptFunction.Special => "Type the number with the right count of digits.",
+                FormScriptFunction.Program => refusal,
                 _ => "Type a number.",
             };
         }
 
-        return FormScriptEngine.Validate(scripts.Validate, text, out var message) ? null : message;
+        return FormScriptRuns.Validate(scripts.Validate, text, host, out var message) ? null : message;
+    }
+
+    /// <summary>Gives a script the form it runs in: the real one when the field has a sandboxed program, otherwise an empty form.</summary>
+    /// <param name="host">The real host, or <see langword="null"/>.</param>
+    /// <returns>The host to run scripts with.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IFormScriptHost AsHost(FormsScriptHost? host) => host ?? (IFormScriptHost)EmptyFormScriptHost.Instance;
+
+    /// <summary>Runs one field's calculate script and writes the result to the field.</summary>
+    /// <param name="scripts">The field's scripts.</param>
+    /// <param name="filler">The form.</param>
+    /// <param name="values">The fields' values, kept up to date.</param>
+    /// <param name="host">The form as sandboxed programs see it, or <see langword="null"/> when no field has a program.</param>
+    /// <returns><see langword="true"/> when the field's value changed.</returns>
+    private bool RunCalculation(FieldScripts scripts, IFormFiller filler, Dictionary<string, string> values, FormsScriptHost? host)
+    {
+        string text;
+        if (scripts.Calculate.Function == FormScriptFunction.Program && host is not null)
+        {
+            if (!FormScriptRuns.TryCalculate(scripts.Calculate, values.GetValueOrDefault(scripts.Name, string.Empty), host, out var raw))
+            {
+                return false;
+            }
+
+            text = FormScriptRuns.Format(scripts.Format, raw, host);
+        }
+        else if (FormScriptEngine.TryCalculate(scripts.Calculate, name => values.GetValueOrDefault(name), out var result))
+        {
+            text = FormScriptEngine.Format(scripts.Format, FormNumbers.Plain(result));
+        }
+        else
+        {
+            return false;
+        }
+
+        if (string.Equals(values.GetValueOrDefault(scripts.Name), text, StringComparison.Ordinal) || !filler.SetText(scripts.PageIndex, scripts.Index, text))
+        {
+            return false;
+        }
+
+        values[scripts.Name] = text;
+        LastPageChange = LastPageChange.Next(scripts.PageIndex);
+        return true;
+    }
+
+    /// <summary>Makes the form as sandboxed scripts see it, for a field whose scripts include a program.</summary>
+    /// <param name="scripts">The field's scripts, or <see langword="null"/>.</param>
+    /// <returns>The host, or <see langword="null"/> when no program runs or the form cannot be filled.</returns>
+    private FormsScriptHost? HostFor(FieldScripts? scripts) =>
+        scripts is { UsesPrograms: true } && Filler is { } filler ? CreateHost(filler, ReadValues(filler)) : null;
+
+    /// <summary>Makes the form as sandboxed scripts see it.</summary>
+    /// <param name="filler">The form.</param>
+    /// <param name="values">The fields' values by name.</param>
+    /// <returns>The host.</returns>
+    private FormsScriptHost CreateHost(IFormFiller filler, Dictionary<string, string> values)
+    {
+        var fields = new Dictionary<string, FormField>(StringComparer.Ordinal);
+        for (var page = 0; page < _owner.PageCount; page++)
+        {
+            _scratch.Clear();
+            filler.GetFields(page, _scratch);
+            foreach (var field in _scratch)
+            {
+                _ = fields.TryAdd(field.Name, field);
+            }
+        }
+
+        return new(filler, DocumentFeature<IFormVisibility>.Get(_owner.TryGetDocument()), fields, values, _scriptReadOnly, message => _owner.Notice = message);
+    }
+
+    /// <summary>Redraws what a sandboxed script changed in the form.</summary>
+    /// <param name="host">The form the script ran in, or <see langword="null"/>.</param>
+    private void ApplyScriptChanges(FormsScriptHost? host)
+    {
+        if (host is null)
+        {
+            return;
+        }
+
+        foreach (var page in host.ChangedPages)
+        {
+            LastPageChange = LastPageChange.Next(page);
+        }
+
+        if (host.DisplayChanged)
+        {
+            RefreshAllPages();
+        }
     }
 
     /// <summary>Picks a choice of a combo or list box.</summary>

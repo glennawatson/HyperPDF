@@ -295,7 +295,7 @@ internal sealed class OptimizedFileWriter
             for (var i = 0; i < self._groupCount; i++)
             {
                 var number = self._group![i];
-                packer.Add(ref body, number, self._graph.GetValue(number));
+                packer.Add(ref body, number, self._transformer.Transform(self._graph.GetOldNumber(number), self._graph.GetValue(number)));
             }
 
             packer.Flush(ref body, ref writer, new(self._streamNumber, 0));

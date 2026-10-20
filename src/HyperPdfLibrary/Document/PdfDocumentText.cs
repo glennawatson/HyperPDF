@@ -88,6 +88,67 @@ public static class PdfDocumentText
         return PdfDocumentText.FindPagesAsync(document, query, options, cancellationToken);
     }
 
+    /// <summary>
+    /// Finds a query on one page. A page already in the text page cache is searched as it is; any other page is searched
+    /// without making a text page, so searching many pages neither allocates their characters nor pushes the pages the
+    /// reader is using out of the cache. The matches equal those of <see cref="PdfTextPage.Find(ReadOnlySpan{char}, PdfTextSearchOptions, List{PdfTextMatch})"/>.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="query">The text to find.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="output">Receives the matches, as character indexes into the page's text page.</param>
+    /// <param name="cancellationToken">Cancels the extraction.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> or <paramref name="output"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The page does not exist.</exception>
+    /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static void FindInPage(PdfDocument document, int pageIndex, string query, PdfTextSearchOptions options, List<PdfTextMatch> output, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        SearchLoadedPage(document, pageIndex, query, options, output, static (matches, start, count) => matches.Add(new(start, count)), cancellationToken);
+    }
+
+    /// <summary>Finds a query on one page as the list form does, without an intermediate list.</summary>
+    /// <typeparam name="TState">The caller's state passed to each visit.</typeparam>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="query">The text to find.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="state">The caller's state.</param>
+    /// <param name="visit">Receives each match's first character and length.</param>
+    /// <param name="cancellationToken">Cancels the extraction.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> or <paramref name="visit"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The page does not exist.</exception>
+    /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void FindInPage<TState>(
+        PdfDocument document,
+        int pageIndex,
+        string query,
+        PdfTextSearchOptions options,
+        TState state,
+        Action<TState, int, int> visit,
+        CancellationToken cancellationToken) =>
+        SearchLoadedPage(document, pageIndex, query, options, state, visit, cancellationToken);
+
+    /// <summary>Loads a page, then finds a query on it as <see cref="FindInPage{TState}"/> does.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="query">The text to find.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="output">Receives the matches, as character indexes into the page's text page.</param>
+    /// <param name="cancellationToken">Cancels the loading and the extraction.</param>
+    /// <returns>A task that completes when the matches are in <paramref name="output"/>.</returns>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static async ValueTask FindInPageAsync(PdfDocument document, int pageIndex, string query, PdfTextSearchOptions options, List<PdfTextMatch> output, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        await PdfDocumentPages.PrefetchPageAsync(document, pageIndex, cancellationToken).ConfigureAwait(false);
+        SearchLoadedPage(document, pageIndex, query, options, output, static (matches, start, count) => matches.Add(new(start, count)), cancellationToken);
+    }
+
     /// <summary>Gets a page's text, extracting it on first use and keeping recently used pages.</summary>
     /// <param name = "document">The document.</param>
     /// <param name = "pageIndex">The zero based page index.</param>
@@ -210,9 +271,8 @@ public static class PdfDocumentText
         {
             for (var i = 0; i < document.PageCount; i++)
             {
-                var text = await PdfDocumentText.GetTextPageAsync(document, i, cancellationToken).ConfigureAwait(false);
                 found.Clear();
-                text.Find(query, options, found);
+                await PdfDocumentText.FindInPageAsync(document, i, query, options, found, cancellationToken).ConfigureAwait(false);
                 if (found.Count > 0)
                 {
                     yield return new(i, [.. found]);
@@ -291,6 +351,58 @@ public static class PdfDocumentText
         OverflowException)
         {
             // The runs collected so far still make a text page.
+        }
+    }
+
+    /// <summary>Finds a query on a page whose objects are loaded: in the cached text page when there is one, else without making one.</summary>
+    /// <typeparam name="TState">The caller's state passed to each visit.</typeparam>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="query">The text to find.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="state">The caller's state.</param>
+    /// <param name="visit">Receives each match's first character and length.</param>
+    /// <param name="cancellationToken">Cancels the extraction.</param>
+    private static void SearchLoadedPage<TState>(
+        PdfDocument document,
+        int pageIndex,
+        string query,
+        PdfTextSearchOptions options,
+        TState state,
+        Action<TState, int, int> visit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentNullException.ThrowIfNull(visit);
+        ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, document.PageCount);
+        ObjectDisposedException.ThrowIf(document.IsDisposed, document);
+        if (query.Length == 0)
+        {
+            return;
+        }
+
+        if (PdfDocumentText.GetTextPages(document).TryGet(pageIndex) is { } cached)
+        {
+            cached.Find(query, options, state, visit);
+            return;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var page = PdfDocumentPages.GetPage(document, pageIndex);
+        var build = TextPageBuild.Rent(document);
+        var device = build.Device;
+        try
+        {
+            device.Reset(page, default, cancellationToken);
+            PdfDocumentText.RunContent(document, page, device, cancellationToken);
+            device.Finish();
+            TextPageBuild.Find(build, PdfDocumentText.IsRightToLeft(document), query, options, state, visit);
+        }
+        finally
+        {
+            device.Clear();
+            TextPageBuild.Return(document, build);
         }
     }
 

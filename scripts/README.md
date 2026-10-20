@@ -9,6 +9,7 @@ Each entry point targets .NET 11. Files named `*Builder.cs` and `ScriptProcess.c
 | Compare a baseline ref with the current code using the same benchmark definitions | `CompareBenchmarks.cs <ref> '*Benchmark*' [more filters] [--leeway percent]` |
 | Read existing allocation or CPU traces | `AllocationAudit.cs`, `CpuAudit.cs` |
 | Publish Native AOT and separate debug symbols | `Publish.cs <runtime identifier> [publish arguments]` |
+| Fetch the FFmpeg libraries for a runtime (`Publish.cs` runs this; the build is pinned in `ffmpeg.json`) | `FetchFfmpeg.cs <runtime identifier> <folder>` |
 | Install a published Linux build and desktop integration | `InstallLinux.cs [--prefix directory] [--from directory]` |
 | Check screen reader access on a private Linux display and D-Bus session | `CheckScreenReader.cs [--wayland] <app path> [minimum controls]` |
 | Write the accessibility check PDF or walk an existing AT-SPI tree | `AccessibilityCheck.cs` |

@@ -33,4 +33,7 @@ public enum FormScriptFunction
 
     /// <summary><c>AFTime_Format(Ex)</c> or <c>AFTime_Keystroke(Ex)</c>: a time of day in a given format.</summary>
     Time = 8,
+
+    /// <summary>Any other script within what the sandboxed interpreter runs; see <see cref="FormScriptProgram"/>.</summary>
+    Program = 9,
 }

@@ -55,15 +55,7 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
             disposables.Add(this.Bind(ViewModel, static vm => vm.AzureRegion, static v => v.AzureRegionBox.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.TimestampServer, static v => v.TimestampServerBox.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.CommentAuthor, static v => v.CommentAuthorBox.Text));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.ReopenAtLastPage, static v => v.ReopenAtLastPageBox.IsChecked));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowOpenAction, static v => v.FollowOpenActionBox.IsChecked));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowPageMode, static v => v.FollowPageModeBox.IsChecked));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowPageLayout, static v => v.FollowPageLayoutBox.IsChecked));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowDisplayDocTitle, static v => v.FollowDisplayDocTitleBox.IsChecked));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowPrintDefaults, static v => v.FollowPrintDefaultsBox.IsChecked));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.IgnoreOutlineColours, static v => v.IgnoreOutlineColoursBox.IsChecked));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.CheckSpelling, static v => v.CheckSpellingBox.IsChecked));
-            disposables.Add(this.Bind(ViewModel, static vm => vm.ShowPreviewOnlyFonts, static v => v.PreviewOnlyFontsBox.IsChecked));
+            BindReadingChoices(disposables.Add);
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UsesAzure, static v => v.AzureKeyLabel.IsVisible));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UsesAzure, static v => v.AzureKeyBox.IsVisible));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UsesAzure, static v => v.AzureRegionLabel.IsVisible));
@@ -86,6 +78,23 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
     private static string DescribeSpeech(bool azure) => azure
         ? "Each sentence read aloud is sent to your own Azure Speech resource, which bills your Azure account. The key is kept in your settings file, readable only by you."
         : "The voice runs on this computer, so nothing you read is sent anywhere. It is downloaded once, the first time you use Read Aloud.";
+
+    /// <summary>Binds the tick boxes for how documents open and present.</summary>
+    /// <param name="add">Keeps a binding until the window is deactivated.</param>
+    private void BindReadingChoices(Action<IDisposable> add)
+    {
+        add(this.Bind(ViewModel, static vm => vm.ReopenAtLastPage, static v => v.ReopenAtLastPageBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.FollowOpenAction, static v => v.FollowOpenActionBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.FollowPageMode, static v => v.FollowPageModeBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.FollowPageLayout, static v => v.FollowPageLayoutBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.FollowDisplayDocTitle, static v => v.FollowDisplayDocTitleBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.FollowPrintDefaults, static v => v.FollowPrintDefaultsBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.IgnoreOutlineColours, static v => v.IgnoreOutlineColoursBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.FollowPageTransitions, static v => v.FollowPageTransitionsBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.FollowPageTimings, static v => v.FollowPageTimingsBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.CheckSpelling, static v => v.CheckSpellingBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.ShowPreviewOnlyFonts, static v => v.PreviewOnlyFontsBox.IsChecked));
+    }
 
     /// <summary>Fills the lists of choices and links each box to its label.</summary>
     private void FillChoices()

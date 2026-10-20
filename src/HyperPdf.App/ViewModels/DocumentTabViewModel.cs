@@ -16,6 +16,7 @@ using HyperPdf.Core.Navigation;
 using HyperPdf.Core.Printing;
 using HyperPdf.Core.Reading;
 using HyperPdf.Core.Rendering;
+using HyperPdf.Media;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -406,57 +407,43 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         nameof(IsAnnotationsMode),
         nameof(IsAttachmentsMode),
         nameof(IsLayersMode),
-        nameof(IsTagsMode))]
+        nameof(IsTagsMode),
+        nameof(IsPartsMode),
+        nameof(IsMediaMode))]
     public partial SidebarMode SidebarMode { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the thumbnails panel is shown.</summary>
-    public bool IsThumbnailsMode
-    {
-        get => SidebarMode == SidebarMode.Thumbnails;
-        set => SetSidebarMode(value, SidebarMode.Thumbnails);
-    }
+    public bool IsThumbnailsMode { get => SidebarMode == SidebarMode.Thumbnails; set => SetSidebarMode(value, SidebarMode.Thumbnails); }
 
     /// <summary>Gets or sets a value indicating whether the outline panel is shown.</summary>
-    public bool IsOutlineMode
-    {
-        get => SidebarMode == SidebarMode.Outline;
-        set => SetSidebarMode(value, SidebarMode.Outline);
-    }
+    public bool IsOutlineMode { get => SidebarMode == SidebarMode.Outline; set => SetSidebarMode(value, SidebarMode.Outline); }
 
     /// <summary>Gets or sets a value indicating whether the search results panel is shown.</summary>
-    public bool IsSearchMode
-    {
-        get => SidebarMode == SidebarMode.Search;
-        set => SetSidebarMode(value, SidebarMode.Search);
-    }
+    public bool IsSearchMode { get => SidebarMode == SidebarMode.Search; set => SetSidebarMode(value, SidebarMode.Search); }
 
     /// <summary>Gets or sets a value indicating whether the annotations panel is shown.</summary>
-    public bool IsAnnotationsMode
-    {
-        get => SidebarMode == SidebarMode.Annotations;
-        set => SetSidebarMode(value, SidebarMode.Annotations);
-    }
+    public bool IsAnnotationsMode { get => SidebarMode == SidebarMode.Annotations; set => SetSidebarMode(value, SidebarMode.Annotations); }
 
     /// <summary>Gets or sets a value indicating whether the attachments panel is shown.</summary>
-    public bool IsAttachmentsMode
-    {
-        get => SidebarMode == SidebarMode.Attachments;
-        set => SetSidebarMode(value, SidebarMode.Attachments);
-    }
+    public bool IsAttachmentsMode { get => SidebarMode == SidebarMode.Attachments; set => SetSidebarMode(value, SidebarMode.Attachments); }
 
     /// <summary>Gets or sets a value indicating whether the layers panel is shown.</summary>
-    public bool IsLayersMode
-    {
-        get => SidebarMode == SidebarMode.Layers;
-        set => SetSidebarMode(value, SidebarMode.Layers);
-    }
+    public bool IsLayersMode { get => SidebarMode == SidebarMode.Layers; set => SetSidebarMode(value, SidebarMode.Layers); }
 
     /// <summary>Gets or sets a value indicating whether the tags panel is shown.</summary>
-    public bool IsTagsMode
-    {
-        get => SidebarMode == SidebarMode.Tags;
-        set => SetSidebarMode(value, SidebarMode.Tags);
-    }
+    public bool IsTagsMode { get => SidebarMode == SidebarMode.Tags; set => SetSidebarMode(value, SidebarMode.Tags); }
+
+    /// <summary>Gets or sets a value indicating whether the parts and articles panel is shown.</summary>
+    public bool IsPartsMode { get => SidebarMode == SidebarMode.Parts; set => SetSidebarMode(value, SidebarMode.Parts); }
+
+    /// <summary>Gets or sets a value indicating whether the media panel is shown.</summary>
+    public bool IsMediaMode { get => SidebarMode == SidebarMode.Media; set => SetSidebarMode(value, SidebarMode.Media); }
+
+    /// <summary>Gets the document's sound and video.</summary>
+    public DocumentMediaViewModel Media => field ??= new(this);
+
+    /// <summary>Gets the document's parts and article threads.</summary>
+    public DocumentPartsViewModel Parts => field ??= Owned(new DocumentPartsViewModel(this));
 
     /// <summary>Gets the document's layers.</summary>
     public LayersViewModel Layers => _layers ??= Owned(new LayersViewModel(this));
@@ -469,6 +456,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the files embedded in the document.</summary>
     public AttachmentsViewModel Attachments => field ??= new(this);
+
+    /// <summary>Gets what happens as each page appears while presenting; made when the page view first shows the tab.</summary>
+    public PagePresentationViewModel PagePresentation => field ??= Owned(new PagePresentationViewModel(this, _services));
 
     /// <summary>Gets the bookmark editing state.</summary>
     public OutlineEditViewModel OutlineEditing => _outlineEditing ??= Owned(new OutlineEditViewModel(this));
@@ -570,6 +560,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the application services, for the parts of the tab that need settings or desktop services.</summary>
     internal AppServices Services => _services;
+
+    /// <summary>Gets how media plays on this computer.</summary>
+    internal MediaPlaybackFactory MediaPlayback => _services.MediaPlayback;
 
     /// <summary>Gets the document's text in reading order, which Read Aloud and Focus Mode share.</summary>
     internal TabReading Reading => _reading ??= new(this);
@@ -914,17 +907,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         }
 
         IsPresenting = false;
-        var before = _beforePresenting;
-        SidebarVisible = before.SidebarVisible;
-        IsPageByPage = before.PageByPage;
-        if (before.ZoomMode == ZoomMode.Free)
-        {
-            SetZoom(before.Zoom);
-        }
-        else
-        {
-            ZoomMode = before.ZoomMode;
-        }
+        _beforePresenting.Restore(this);
     }
 
     /// <summary>Closes the native document while the tab is in the background; it reopens on demand.</summary>
@@ -973,8 +956,11 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _subscriptions.Dispose();
+    public void Dispose()
+    {
+        _subscriptions.Dispose();
+        Media.Dispose();
+    }
 
     /// <summary>Reloads a changed file, or offers to, depending on the user's choice. Unsaved edits are never discarded silently.</summary>
     internal void CheckChangedFile()
@@ -1117,6 +1103,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
+        Parts.Refresh();
+        Media.Refresh();
         Copies.Refresh(document);
         PagesInUse?.Refresh();
         if (!IsSecondaryView)
@@ -1153,6 +1141,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
+        Parts.Refresh();
+        Media.Refresh();
         _tags?.Refresh();
         Search.Refresh();
         LastPageChange = LastPageChange.Next(PageChange.AllPages);

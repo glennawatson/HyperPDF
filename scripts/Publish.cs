@@ -12,6 +12,8 @@ using HyperPdf.Scripts;
 
 const int Usage = 2;
 
+const string ArtifactsFolder = "artifacts";
+
 if (args.Length == 0 || args[0] == "--help")
 {
     Console.WriteLine("dotnet run --file scripts/Publish.cs -- <runtime identifier> [dotnet publish arguments]");
@@ -27,9 +29,9 @@ if (rid is not ("linux-x64" or "linux-arm64" or "win-x64" or "win-arm64" or "osx
     throw new ArgumentException("Unsupported runtime identifier.");
 }
 
-var output = Path.Combine(root, "artifacts", rid);
+var output = Path.Combine(root, ArtifactsFolder, rid);
 
-var symbols = Path.Combine(root, "artifacts", "symbols", rid);
+var symbols = Path.Combine(root, ArtifactsFolder, "symbols", rid);
 
 if (Directory.Exists(output))
 {
@@ -43,6 +45,18 @@ Console.CancelKeyPress += (_, e) =>
     e.Cancel = true;
     cancellation.Cancel();
 };
+
+// The FFmpeg libraries that play sound and video go beside the app. A runtime with no build (exit status 3) ships without them.
+const int NoFfmpegBuild = 3;
+
+var ffmpeg = Path.Combine(root, ArtifactsFolder, "ffmpeg", rid);
+
+var fetched = await ScriptProcess.RunAsync(ScriptProcess.Dotnet, ["run", "--file", Path.Combine(root, "scripts", "FetchFfmpeg.cs"), "--", rid, ffmpeg], root, cancellation.Token);
+
+if (fetched is not (0 or NoFfmpegBuild))
+{
+    return fetched;
+}
 
 string[] arguments = [
     "publish",
