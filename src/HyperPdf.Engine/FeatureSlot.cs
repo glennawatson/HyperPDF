@@ -120,4 +120,7 @@ internal enum FeatureSlot
 
     /// <summary>Showing and hiding form fields by name.</summary>
     FormVisibility = 36,
+
+    /// <summary>The sound and video a document carries.</summary>
+    MediaSource = 37,
 }

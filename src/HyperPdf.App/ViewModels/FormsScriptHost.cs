@@ -18,13 +18,15 @@ namespace HyperPdf.App.ViewModels;
 /// <param name="fields">The first widget of each field, by name.</param>
 /// <param name="values">The current values by name; kept up to date as scripts change them.</param>
 /// <param name="lockedNames">The names of the fields scripts made read-only; shared with the tab.</param>
+/// <param name="tell">Shows the reader a message, as a calm notice.</param>
 [DebuggerDisplay("FormsScriptHost: {fields.Count} fields")]
 internal sealed class FormsScriptHost(
     IFormFiller filler,
     IFormVisibility? visibility,
     Dictionary<string, FormField> fields,
     Dictionary<string, string> values,
-    HashSet<string> lockedNames) : IFormScriptHost
+    HashSet<string> lockedNames,
+    Action<string> tell) : IFormScriptHost
 {
     /// <summary>Gets the pages whose fields a script changed.</summary>
     internal HashSet<int> ChangedPages { get; } = [];
@@ -59,4 +61,8 @@ internal sealed class FormsScriptHost(
 
     /// <inheritdoc/>
     public void SetFieldReadOnly(string fieldName, bool readOnly) => _ = readOnly ? lockedNames.Add(fieldName) : lockedNames.Remove(fieldName);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Tell(string message) => tell(message);
 }

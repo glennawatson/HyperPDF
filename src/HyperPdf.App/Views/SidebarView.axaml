@@ -30,6 +30,10 @@
         <ToggleButton AutomationProperties.Name="Parts and articles" x:Name="PartsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Parts}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconParts}" />
         </ToggleButton>
+        <!-- Only shown when the document has sound or video. -->
+        <ToggleButton AutomationProperties.Name="Media" x:Name="MediaToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Media}" Classes="tool">
+          <Path Classes="icon nav" Data="{StaticResource IconMedia}" />
+        </ToggleButton>
         <ToggleButton AutomationProperties.Name="Tags" x:Name="TagsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Tags}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconTags}" />
         </ToggleButton>
@@ -42,6 +46,7 @@
         <views:LayersPanelView />
         <views:PartsPanelView />
         <views:AttachmentsPanelView />
+        <views:MediaPanelView />
         <views:TagsPanelView />
       </Panel>
     </DockPanel>

@@ -18,6 +18,9 @@ internal sealed class FakeScriptHost : IFormScriptHost
     /// <summary>Gets the fields the scripts made read-only, with the setting.</summary>
     internal Dictionary<string, bool> ReadOnly { get; } = [with(StringComparer.Ordinal)];
 
+    /// <summary>Gets the messages the scripts told the reader.</summary>
+    internal List<string> Told { get; } = [];
+
     /// <inheritdoc/>
     public string? GetFieldValue(string fieldName) => Values.GetValueOrDefault(fieldName);
 
@@ -29,4 +32,7 @@ internal sealed class FakeScriptHost : IFormScriptHost
 
     /// <inheritdoc/>
     public void SetFieldReadOnly(string fieldName, bool readOnly) => ReadOnly[fieldName] = readOnly;
+
+    /// <inheritdoc/>
+    public void Tell(string message) => Told.Add(message);
 }

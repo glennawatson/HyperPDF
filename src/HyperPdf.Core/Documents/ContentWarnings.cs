@@ -73,6 +73,11 @@ public static class ContentWarnings
                 _ = builder.Append("Its files are listed under Attachments. ");
             }
 
+            if ((content & UnsupportedContent.Multimedia) != 0)
+            {
+                _ = builder.Append("Sound and video are listed under Media, where you can save them or open them with your player. ");
+            }
+
             return builder.Append("To use everything, open it in Adobe Acrobat Reader.").ToString();
         }
 

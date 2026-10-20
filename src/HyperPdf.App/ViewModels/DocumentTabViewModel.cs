@@ -407,64 +407,39 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         nameof(IsAttachmentsMode),
         nameof(IsLayersMode),
         nameof(IsTagsMode),
-        nameof(IsPartsMode))]
+        nameof(IsPartsMode),
+        nameof(IsMediaMode))]
     public partial SidebarMode SidebarMode { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the thumbnails panel is shown.</summary>
-    public bool IsThumbnailsMode
-    {
-        get => SidebarMode == SidebarMode.Thumbnails;
-        set => SetSidebarMode(value, SidebarMode.Thumbnails);
-    }
+    public bool IsThumbnailsMode { get => SidebarMode == SidebarMode.Thumbnails; set => SetSidebarMode(value, SidebarMode.Thumbnails); }
 
     /// <summary>Gets or sets a value indicating whether the outline panel is shown.</summary>
-    public bool IsOutlineMode
-    {
-        get => SidebarMode == SidebarMode.Outline;
-        set => SetSidebarMode(value, SidebarMode.Outline);
-    }
+    public bool IsOutlineMode { get => SidebarMode == SidebarMode.Outline; set => SetSidebarMode(value, SidebarMode.Outline); }
 
     /// <summary>Gets or sets a value indicating whether the search results panel is shown.</summary>
-    public bool IsSearchMode
-    {
-        get => SidebarMode == SidebarMode.Search;
-        set => SetSidebarMode(value, SidebarMode.Search);
-    }
+    public bool IsSearchMode { get => SidebarMode == SidebarMode.Search; set => SetSidebarMode(value, SidebarMode.Search); }
 
     /// <summary>Gets or sets a value indicating whether the annotations panel is shown.</summary>
-    public bool IsAnnotationsMode
-    {
-        get => SidebarMode == SidebarMode.Annotations;
-        set => SetSidebarMode(value, SidebarMode.Annotations);
-    }
+    public bool IsAnnotationsMode { get => SidebarMode == SidebarMode.Annotations; set => SetSidebarMode(value, SidebarMode.Annotations); }
 
     /// <summary>Gets or sets a value indicating whether the attachments panel is shown.</summary>
-    public bool IsAttachmentsMode
-    {
-        get => SidebarMode == SidebarMode.Attachments;
-        set => SetSidebarMode(value, SidebarMode.Attachments);
-    }
+    public bool IsAttachmentsMode { get => SidebarMode == SidebarMode.Attachments; set => SetSidebarMode(value, SidebarMode.Attachments); }
 
     /// <summary>Gets or sets a value indicating whether the layers panel is shown.</summary>
-    public bool IsLayersMode
-    {
-        get => SidebarMode == SidebarMode.Layers;
-        set => SetSidebarMode(value, SidebarMode.Layers);
-    }
+    public bool IsLayersMode { get => SidebarMode == SidebarMode.Layers; set => SetSidebarMode(value, SidebarMode.Layers); }
 
     /// <summary>Gets or sets a value indicating whether the tags panel is shown.</summary>
-    public bool IsTagsMode
-    {
-        get => SidebarMode == SidebarMode.Tags;
-        set => SetSidebarMode(value, SidebarMode.Tags);
-    }
+    public bool IsTagsMode { get => SidebarMode == SidebarMode.Tags; set => SetSidebarMode(value, SidebarMode.Tags); }
 
     /// <summary>Gets or sets a value indicating whether the parts and articles panel is shown.</summary>
-    public bool IsPartsMode
-    {
-        get => SidebarMode == SidebarMode.Parts;
-        set => SetSidebarMode(value, SidebarMode.Parts);
-    }
+    public bool IsPartsMode { get => SidebarMode == SidebarMode.Parts; set => SetSidebarMode(value, SidebarMode.Parts); }
+
+    /// <summary>Gets or sets a value indicating whether the media panel is shown.</summary>
+    public bool IsMediaMode { get => SidebarMode == SidebarMode.Media; set => SetSidebarMode(value, SidebarMode.Media); }
+
+    /// <summary>Gets the document's sound and video.</summary>
+    public DocumentMediaViewModel Media => field ??= new(this);
 
     /// <summary>Gets the document's parts and article threads.</summary>
     public DocumentPartsViewModel Parts => field ??= Owned(new DocumentPartsViewModel(this));
@@ -1122,6 +1097,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Attachments.Refresh();
         Layers.Refresh();
         Parts.Refresh();
+        Media.Refresh();
         Copies.Refresh(document);
         PagesInUse?.Refresh();
         if (!IsSecondaryView)
@@ -1159,6 +1135,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         Attachments.Refresh();
         Layers.Refresh();
         Parts.Refresh();
+        Media.Refresh();
         _tags?.Refresh();
         Search.Refresh();
         LastPageChange = LastPageChange.Next(PageChange.AllPages);

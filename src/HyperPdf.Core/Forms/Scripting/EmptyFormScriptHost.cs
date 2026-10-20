@@ -30,4 +30,9 @@ public sealed class EmptyFormScriptHost : IFormScriptHost
     public void SetFieldReadOnly(string fieldName, bool readOnly)
     {
     }
+
+    /// <inheritdoc/>
+    public void Tell(string message)
+    {
+    }
 }

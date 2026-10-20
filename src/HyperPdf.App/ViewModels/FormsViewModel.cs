@@ -484,7 +484,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
             }
         }
 
-        return new(filler, DocumentFeature<IFormVisibility>.Get(_owner.TryGetDocument()), fields, values, _scriptReadOnly);
+        return new(filler, DocumentFeature<IFormVisibility>.Get(_owner.TryGetDocument()), fields, values, _scriptReadOnly, message => _owner.Notice = message);
     }
 
     /// <summary>Redraws what a sandboxed script changed in the form.</summary>

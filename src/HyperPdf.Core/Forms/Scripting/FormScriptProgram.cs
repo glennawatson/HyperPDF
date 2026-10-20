@@ -74,7 +74,13 @@ public sealed class FormScriptProgram
         }
         catch (SandboxException exception)
         {
+            host.Tell($"A script in this form was skipped. {exception.Message}");
             return new(false, input.Value, true, [exception.Message]);
+        }
+
+        foreach (var message in messages)
+        {
+            host.Tell(message);
         }
 
         var value = context.ReadEvent("value");

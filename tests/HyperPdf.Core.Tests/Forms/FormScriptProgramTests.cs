@@ -321,6 +321,19 @@ public sealed class FormScriptProgramTests
         await Assert.That(FormScriptRuns.Format(script, KeptValue, host)).IsEqualTo(KeptValue);
     }
 
+    /// <summary>Alerts are told to the reader as they happen, and a script that is stopped says why it was skipped.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TellsTheReaderAboutAlertsAndSkippedScripts()
+    {
+        var host = new FakeScriptHost { Values = { ["F"] = "a" } };
+
+        _ = Run("app.alert('Check this.');", string.Empty, host);
+        _ = Run("this.getField('F').setAction('x', 'y');", string.Empty, host);
+
+        await Assert.That(host.Told).IsEquivalentTo(["Check this.", "A script in this form was skipped. The script calls setAction, which form scripts cannot use."]);
+    }
+
     /// <summary>The longest operator wins, so strict equality and compound assignment are not split.</summary>
     /// <returns>A task.</returns>
     [Test]

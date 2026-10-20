@@ -839,6 +839,40 @@ public static class TestPdf
         height = landscape ? PortraitWidth : PortraitHeight;
     }
 
+    /// <summary>
+    /// Creates a one page document with a sound annotation (eight bit samples), a screen annotation whose rendition holds the
+    /// clip <c>intro.mp4</c>, and a rich media annotation holding <c>talk.webm</c>. The media bytes are short stand-ins.
+    /// </summary>
+    /// <returns>The PDF bytes.</returns>
+    public static byte[] CreateMediaDocument()
+    {
+        var objects = new List<string>();
+        var catalog = Reserve(objects);
+        var pages = Reserve(objects);
+        var page = Reserve(objects);
+        var samples = Add(objects, "<< /R 8000 /C 1 /B 8 /E /Raw /Length 4 >>\nstream\nABCD\nendstream");
+        var clip = Add(objects, "<< /Length 8 >>\nstream\nMP4DATA!\nendstream");
+        var talk = Add(objects, "<< /Length 8 >>\nstream\nWEBMDAT!\nendstream");
+        var sound = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Type /Annot /Subtype /Sound /Rect [72 700 100 720] /P {page} 0 R /Sound {samples} 0 R >>"));
+        var screen = Add(objects, string.Create(CultureInfo.InvariantCulture, $$"""
+            << /Type /Annot /Subtype /Screen /Rect [72 640 200 690] /T (Clip) /P {{page}} 0 R
+               /A << /S /Rendition /OP 0 /R << /S /MR /N (Intro) /C << /S /MCD /N (Intro) /CT (video/mp4)
+               /D << /Type /Filespec /F (intro.mp4) /EF << /F {{clip}} 0 R >> >> >> >> >> >>
+            """));
+        var rich = Add(objects, string.Create(CultureInfo.InvariantCulture, $$"""
+            << /Type /Annot /Subtype /RichMedia /Rect [72 560 200 620] /P {{page}} 0 R
+               /RichMediaContent << /Assets << /Names [(talk.webm) << /Type /Filespec /F (talk.webm) /EF << /F {{talk}} 0 R >> >>] >> >> >>
+            """));
+        objects[page - 1] = string.Create(CultureInfo.InvariantCulture, $$"""
+            << /Type /Page /Parent {{pages}} 0 R /MediaBox [0 0 {{PortraitWidth}} {{PortraitHeight}}]
+               /Annots [{{sound}} 0 R {{screen}} 0 R {{rich}} 0 R] >>
+            """);
+        objects[pages - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{page} 0 R] /Count 1 >>");
+        objects[catalog - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Catalog /Pages {pages} 0 R >>");
+        var info = Add(objects, $"<< /Title (Media) /Author ({Author}) >>");
+        return Serialize(objects, catalog, info);
+    }
+
     /// <summary>Creates a one page form from field definitions.</summary>
     /// <param name="definitions">The fields' names and actions.</param>
     /// <param name="calculationOrder">The indexes of the calculated fields, in the order they calculate.</param>

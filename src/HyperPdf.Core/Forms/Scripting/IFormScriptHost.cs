@@ -6,7 +6,7 @@ namespace HyperPdf.Core.Forms.Scripting;
 
 /// <summary>
 /// What a sandboxed form script can reach in the document: other fields' values and looks. It reaches nothing else:
-/// no files, no network, no timers, no other apps. Messages the script wants to show come back in the outcome.
+/// no files, no network, no timers, no other apps. Messages the script wants to show go to <see cref="Tell"/> and also come back in the outcome.
 /// </summary>
 public interface IFormScriptHost
 {
@@ -29,4 +29,11 @@ public interface IFormScriptHost
     /// <param name="fieldName">The field's full name.</param>
     /// <param name="readOnly">Whether the field is read-only.</param>
     void SetFieldReadOnly(string fieldName, bool readOnly);
+
+    /// <summary>
+    /// Tells the reader something in a calm message: what a script asked to show with <c>app.alert</c>, or why a script was
+    /// skipped because it needs more than the sandbox gives.
+    /// </summary>
+    /// <param name="message">The message.</param>
+    void Tell(string message);
 }

@@ -512,6 +512,15 @@ public static class Descriptions
     /// <summary>The annotations sidebar tab.</summary>
     public static readonly string Annotations = "Show the highlights, notes and other annotations in this document.";
 
+    /// <summary>The media sidebar tab.</summary>
+    public static readonly string Media = "Show the sound and video in this document. They never play by themselves.";
+
+    /// <summary>The Save Media button.</summary>
+    public static readonly string SaveMedia = "Save the chosen sound or video as a file.";
+
+    /// <summary>The Open Media button.</summary>
+    public static readonly string OpenMedia = "Open the chosen sound or video with your system's player, after you agree. Nothing plays until you choose it.";
+
     /// <summary>The attachments sidebar tab.</summary>
     public static readonly string Attachments = "Show the files attached to this document.";
 
