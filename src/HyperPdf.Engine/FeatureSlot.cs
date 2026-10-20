@@ -111,4 +111,10 @@ internal enum FeatureSlot
 
     /// <summary>The document parts and article threads.</summary>
     PartSource = 33,
+
+    /// <summary>What a page offers assistive technology beyond its reading blocks.</summary>
+    PageSemantics = 34,
+
+    /// <summary>The XMP properties of the catalog.</summary>
+    XmpSource = 35,
 }

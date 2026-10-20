@@ -68,6 +68,11 @@ internal sealed class TaggedNodeBuilder
         }
     }
 
+    /// <summary>Determines whether an element is a table data or header cell.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns><see langword="true"/> for a cell.</returns>
+    private static bool IsTableCell(PdfStructureElement element) => element.Type is PdfStructureType.TableDataCell or PdfStructureType.TableHeaderCell;
+
     /// <summary>Builds an element's node, or nothing when it has nothing on the page.</summary>
     /// <param name="element">The element.</param>
     /// <param name="cancellationToken">Cancels structure traversal.</param>
@@ -101,13 +106,16 @@ internal sealed class TaggedNodeBuilder
         return node;
     }
 
-    /// <summary>Determines whether a node shows on the page: it holds content or an object there, or describes something there.</summary>
+    /// <summary>
+    /// Determines whether a node shows on the page: it holds content or an object there, describes something there, or is a
+    /// table cell on the page. An empty cell is kept so the cells after it keep their columns and a reader can say it is empty.
+    /// </summary>
     /// <param name="node">The node.</param>
     /// <param name="element">Its element.</param>
     /// <returns><see langword="true"/> when the page should read it.</returns>
     private bool Belongs(PdfSemanticNode node, PdfStructureElement element) =>
         node.Children.Count > 0 || node.Annotation is not null
-        || (element.PageIndex == _pageIndex && (element.ActualText is not null || element.AlternateText is not null));
+        || (element.PageIndex == _pageIndex && (element.ActualText is not null || element.AlternateText is not null || IsTableCell(element)));
 
     /// <summary>Adds one kid to an element's node.</summary>
     /// <param name="node">The element's node.</param>

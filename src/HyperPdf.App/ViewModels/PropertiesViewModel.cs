@@ -38,25 +38,18 @@ public sealed partial class PropertiesViewModel : ReactiveObject
         Add(entries, "Colour separations", tab.Separations.Summary);
         if (metadata is not null)
         {
-            Add(entries, nameof(Title), metadata.Title);
-            Add(entries, "Author", metadata.Author);
-            Add(entries, "Subject", metadata.Subject);
-            Add(entries, "Keywords", metadata.Keywords);
-            Add(entries, "Creator", metadata.Creator);
-            Add(entries, "Producer", metadata.Producer);
-            Add(entries, "Created", metadata.Created?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
-            Add(entries, "Modified", metadata.Modified?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
-            Add(entries, "PDF version", metadata.FormatVersion);
-            entries.Add(new(metadata.WrappedFileName is null ? "Encrypted" : "Wrapper encrypted", metadata.IsEncrypted ? "Yes" : "No"));
-            Add(entries, "Integrity protection (PDF MAC)", metadata.Integrity?.Summary);
-            AddFileFacts(entries, metadata);
-            Add(entries, "Encrypted file inside", metadata.WrappedFileName);
-            Add(entries, "Cryptographic filter", metadata.WrappedCryptographicFilter);
+            AddMetadata(entries, metadata);
         }
 
         if (tab.Source.PageSizes is [var first, ..])
         {
             entries.Add(new("Page size", string.Create(CultureInfo.CurrentCulture, $"{first.Width * MillimetresPerPoint:0} × {first.Height * MillimetresPerPoint:0} mm")));
+        }
+
+        // Every property of the XMP packet is listed, so none needs the file's bytes to be read.
+        foreach (var property in DocumentFeature<IDocumentXmpSource>.Get(tab.TryGetDocument())?.GetProperties() ?? [])
+        {
+            Add(entries, $"XMP {property.Name}", property.Value);
         }
 
         Entries = entries;
@@ -73,6 +66,27 @@ public sealed partial class PropertiesViewModel : ReactiveObject
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Close()
     {
+    }
+
+    /// <summary>Adds the rows the document's information gives.</summary>
+    /// <param name="entries">The list.</param>
+    /// <param name="metadata">The document's metadata.</param>
+    private static void AddMetadata(List<PropertyEntry> entries, DocumentMetadata metadata)
+    {
+        Add(entries, nameof(Title), metadata.Title);
+        Add(entries, "Author", metadata.Author);
+        Add(entries, "Subject", metadata.Subject);
+        Add(entries, "Keywords", metadata.Keywords);
+        Add(entries, "Creator", metadata.Creator);
+        Add(entries, "Producer", metadata.Producer);
+        Add(entries, "Created", metadata.Created?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
+        Add(entries, "Modified", metadata.Modified?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
+        Add(entries, "PDF version", metadata.FormatVersion);
+        entries.Add(new(metadata.WrappedFileName is null ? "Encrypted" : "Wrapper encrypted", metadata.IsEncrypted ? "Yes" : "No"));
+        Add(entries, "Integrity protection (PDF MAC)", metadata.Integrity?.Summary);
+        AddFileFacts(entries, metadata);
+        Add(entries, "Encrypted file inside", metadata.WrappedFileName);
+        Add(entries, "Cryptographic filter", metadata.WrappedCryptographicFilter);
     }
 
     /// <summary>Adds the rows that say how the file is built: whether it is linearized and whether it is a tagged PDF.</summary>

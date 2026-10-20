@@ -82,7 +82,7 @@ internal static class HyperPdfTagged
         try
         {
             HyperPdfDocumentCharacterLayout.GetCharacters(self, pageIndex, characters);
-            return WalkBlocks(page, TaggedCharacterMap.Create(content, characters), marked, output);
+            return WalkBlocks(page, TaggedCharacterMap.Create(content, characters), marked, PdfDocumentTagged.GetStructureTree(self.Document)?.Language, output);
         }
         finally
         {
@@ -106,15 +106,16 @@ internal static class HyperPdfTagged
     /// <param name="page">The page's nodes.</param>
     /// <param name="map">Each glyph's characters.</param>
     /// <param name="marked">The marked characters on the page.</param>
+    /// <param name="documentLanguage">The document's language, or <see langword="null"/>.</param>
     /// <param name="output">Receives the blocks; left as it was when the page is not covered well enough.</param>
     /// <returns><see langword="true"/> when the blocks were kept.</returns>
-    private static bool WalkBlocks(PdfSemanticPage page, GlyphCharacters[] map, int marked, List<TaggedBlock> output)
+    private static bool WalkBlocks(PdfSemanticPage page, GlyphCharacters[] map, int marked, string? documentLanguage, List<TaggedBlock> output)
     {
         var start = output.Count;
 
         // Each thread keeps one walker with its index buffers, which a walk empties after use.
         var walker = _walker ??= new();
-        walker.Begin(map, output);
+        walker.Begin(map, output, documentLanguage);
         try
         {
             var nodes = page.Nodes;

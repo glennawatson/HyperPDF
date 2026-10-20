@@ -116,6 +116,7 @@ internal static class ReadingBlocks
                 IsTagged = cell.IsTagged,
                 Row = cell.Row,
                 Column = cell.Column,
+                Language = cell.Language,
             };
         }
         finally

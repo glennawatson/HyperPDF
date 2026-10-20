@@ -11,6 +11,8 @@ using Avalonia.Automation.Provider;
 using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
+using HyperPdf.Core.Documents;
+using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Reading;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -39,6 +41,12 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
 
     /// <summary>The cached peers of <see cref="_blocksPage"/>' blocks, in reading order.</summary>
     private ReadingBlockAutomationPeer[] _blocks = [];
+
+    /// <summary>The page the cached items belong to, or -1 when nothing is cached.</summary>
+    private int _itemsPage = -1;
+
+    /// <summary>The cached peers of <see cref="_itemsPage"/>' empty cells, artifacts, form fields and annotations.</summary>
+    private PageSemanticAutomationPeer[] _items = [];
 
     /// <summary>The name last reported.</summary>
     private string _name;
@@ -97,6 +105,13 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal Rect GetCanvasRect(int page, ReadingBlock block) => Canvas.GetCanvasRect(page, block.Bounds);
 
+    /// <summary>Gets the canvas rectangle of an area of a page.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="bounds">The area in page space.</param>
+    /// <returns>The rectangle on the canvas, or an empty rectangle when the page is not laid out.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Rect GetCanvasRect(int page, PageRect bounds) => Canvas.GetCanvasRect(page, bounds);
+
     /// <summary>
     /// Lists the children afresh each time, because the page's blocks are worked out in the background and a list kept before they were
     /// ready would stay empty. The blocks themselves are kept once they are known.
@@ -104,18 +119,17 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
     /// <returns>The children.</returns>
     protected override IReadOnlyList<AutomationPeer> GetOrCreateChildrenCore() => GetChildrenCore() ?? [];
 
-    /// <summary>Lists the shown page's blocks in reading order after any children the canvas has, so a screen reader can move by heading, list item, table cell and figure.</summary>
+    /// <summary>
+    /// Lists the shown page's blocks in reading order after any children the canvas has, so a screen reader can move by heading, list
+    /// item, table cell and figure, and then its empty cells, artifacts, form fields and annotations.
+    /// </summary>
     /// <returns>The children.</returns>
     protected override IReadOnlyList<AutomationPeer>? GetChildrenCore()
     {
         var inherited = base.GetChildrenCore();
         var blocks = GetBlocks();
-        if (blocks.Length == 0)
-        {
-            return inherited;
-        }
-
-        return inherited is not { Count: > 0 } ? blocks : [.. inherited, .. blocks];
+        var items = GetItems();
+        return blocks.Length == 0 && items.Length == 0 ? inherited : [.. inherited ?? [], .. blocks, .. items];
     }
 
     /// <inheritdoc/>
@@ -191,6 +205,33 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
         return _blocks;
     }
 
+    /// <summary>Gets the peers of the current page's empty cells, artifacts, form fields and annotations, reading them once per page.</summary>
+    /// <returns>The peers; none when the document gives no such items.</returns>
+    private PageSemanticAutomationPeer[] GetItems()
+    {
+        if (Canvas.Tab is not { PageCount: > 0 } tab)
+        {
+            return [];
+        }
+
+        var page = Math.Clamp(tab.CurrentPageIndex, 0, tab.PageCount - 1);
+        if (page == _itemsPage)
+        {
+            return _items;
+        }
+
+        var items = DocumentFeature<IPageSemanticSource>.Get(tab.TryGetDocument())?.GetItems(page) ?? [];
+        var peers = new PageSemanticAutomationPeer[items.Count];
+        for (var index = 0; index < peers.Length; index++)
+        {
+            peers[index] = items[index].Kind == PageSemanticKind.FormField ? new FormFieldAutomationPeer(this, page, index, items[index]) : new(this, page, index, items[index]);
+        }
+
+        _items = peers;
+        _itemsPage = page;
+        return peers;
+    }
+
     /// <summary>Makes a peer for each block of a page.</summary>
     /// <param name="page">The page's blocks.</param>
     /// <returns>The peers, in reading order.</returns>
@@ -229,6 +270,7 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
         var oldText = _textPage < 0 ? null : _text;
         _textPage = -1;
         _blocksPage = -1;
+        _itemsPage = -1;
         InvalidateChildren();
         RaisePropertyChangedEvent(AutomationElementIdentifiers.NameProperty, oldName, name);
         RaisePropertyChangedEvent(ValuePatternIdentifiers.ValueProperty, oldText, GetPageText());
