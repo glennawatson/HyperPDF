@@ -46,6 +46,9 @@ public sealed partial record FormScript(FormScriptFunction Function, IReadOnlyLi
     /// <summary>Gets the script used when there is none, or it is not understood.</summary>
     public static FormScript None { get; } = new(FormScriptFunction.Unknown, [], [], string.Empty);
 
+    /// <summary>Gets the sandboxed program of a <see cref="FormScriptFunction.Program"/> script, otherwise <see langword="null"/>.</summary>
+    public FormScriptProgram? Program { get; init; }
+
     /// <summary>Recognises a script.</summary>
     /// <param name="javaScript">The field action's JavaScript.</param>
     /// <returns>The recognised script, or <see cref="None"/>.</returns>
@@ -58,9 +61,15 @@ public sealed partial record FormScript(FormScriptFunction Function, IReadOnlyLi
 
         // PDF form editors write simplified field notation between these markers, ahead of the JavaScript it generates.
         var notation = NotationPattern().Match(javaScript);
-        return notation.Success
-            ? new(FormScriptFunction.Expression, [], [], notation.Groups["expression"].Value.Trim())
-            : FindCall(javaScript);
+        if (notation.Success)
+        {
+            return new(FormScriptFunction.Expression, [], [], notation.Groups["expression"].Value.Trim());
+        }
+
+        var call = FindCall(javaScript);
+        return call.Function != FormScriptFunction.Unknown || !FormScriptProgram.TryParse(javaScript, out var program, out _)
+            ? call
+            : new(FormScriptFunction.Program, [], [], string.Empty) { Program = program };
     }
 
     /// <summary>Determines whether <see cref="Parse"/> would recognise a script, without creating the script.</summary>
@@ -88,7 +97,7 @@ public sealed partial record FormScript(FormScriptFunction Function, IReadOnlyLi
             }
         }
 
-        return false;
+        return FormScriptProgram.TryParse(javaScript.ToString(), out _, out _);
     }
 
     /// <summary>Gets an argument as a number, or a fallback when it is missing or not a number.</summary>

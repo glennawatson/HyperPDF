@@ -100,6 +100,15 @@ public static class TestPdf
     /// <summary>The Tax field's place among the calculated form's fields.</summary>
     private const int TaxField = 3;
 
+    /// <summary>The Subtotal field's place among the scripted form's fields.</summary>
+    private const int ScriptedSubtotalField = 2;
+
+    /// <summary>The Switch field's place among the scripted form's fields.</summary>
+    private const int ScriptedSwitchField = 5;
+
+    /// <summary>The Lock field's place among the scripted form's fields.</summary>
+    private const int ScriptedLockField = 6;
+
     /// <summary>A number field's keystroke and format actions.</summary>
     private const string NumberActions = "/K << /S /JavaScript /JS (AFNumber_Keystroke(2, 0, 0, 0, \"\", true);) >> /F << /S /JavaScript /JS (AFNumber_Format(2, 0, 0, 0, \"\", true);) >>";
 
@@ -172,6 +181,21 @@ public static class TestPdf
         ("Tax", TaxActions),
         ("Percent", "/V << /S /JavaScript /JS (AFRange_Validate(true, 0, true, 100);) >>"),
         ("Date", "/K << /S /JavaScript /JS (AFDate_KeystrokeEx(\"dd/mm/yyyy\");) >> /F << /S /JavaScript /JS (AFDate_FormatEx(\"dd/mm/yyyy\");) >>"),
+    ];
+
+    /// <summary>The scripted form's fields and their actions; each script is outside the built-in form functions.</summary>
+    private static readonly (string Name, string Actions)[] ScriptedFields =
+    [
+        ("Quantity", "/F << /S /JavaScript /JS (event.value = util.printf('%03d', event.value);) >>"),
+        ("Price", string.Empty),
+        (
+            "Subtotal",
+            "/C << /S /JavaScript /JS (event.value = this.getField('Quantity').value * this.getField('Price').value;) >> "
+            + "/F << /S /JavaScript /JS (event.value = util.printf('$%,0.2f', event.value);) >>"),
+        ("Code", "/V << /S /JavaScript /JS (if (event.value.length != 3) { app.alert('The code must have three letters.'); event.rc = false; }) >>"),
+        ("Spare", string.Empty),
+        ("Switch", "/C << /S /JavaScript /JS (var q = this.getField('Quantity').value; this.getField('Spare').display = q > 5 ? display.hidden : display.visible;) >>"),
+        ("Lock", "/C << /S /JavaScript /JS (this.getField('Code').readonly = this.getField('Quantity').value > 8;) >>"),
     ];
 
     /// <summary>Creates a PDF document.</summary>
@@ -269,41 +293,15 @@ public static class TestPdf
     /// 0 and 100, and Date is shown as day/month/year.
     /// </summary>
     /// <returns>The PDF bytes.</returns>
-    public static byte[] CreateCalculatedForm()
-    {
-        var objects = new List<string>();
-        var catalog = Reserve(objects);
-        var pages = Reserve(objects);
-        var page = Reserve(objects);
-        var font = Add(objects, HelveticaFont);
-        var ids = new int[CalculatedFields.Length];
-        for (var i = 0; i < ids.Length; i++)
-        {
-            var top = FirstFieldTop - (i * FieldSpacing);
-            ids[i] = Add(objects, string.Create(CultureInfo.InvariantCulture, $$"""
-                << /Type /Annot /Subtype /Widget /FT /Tx /T ({{CalculatedFields[i].Name}}) /Rect [72 {{top - FieldHeight}} 300 {{top}}] /P {{page}} 0 R /F 4
-                   /DA (/Helv 12 Tf 0 g) /MK << /BC [0.5 0.5 0.5] >> /AA << {{CalculatedFields[i].Actions}} >> >>
-                """));
-        }
+    public static byte[] CreateCalculatedForm() => CreateFieldForm(CalculatedFields, [TotalField, TaxField]);
 
-        var content = new StringBuilder();
-        AppendText(content, PortraitHeight - Margin, HeadingSize, "Order");
-        var stream = content.ToString();
-        var contentId = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Length {Encoding.ASCII.GetByteCount(stream)} >>\nstream\n{stream}endstream"));
-        var fields = string.Join(' ', ids.Select(static id => string.Create(CultureInfo.InvariantCulture, $"{id} 0 R")));
-        objects[page - 1] = string.Create(CultureInfo.InvariantCulture, $$"""
-            << /Type /Page /Parent {{pages}} 0 R /MediaBox [0 0 {{PortraitWidth}} {{PortraitHeight}}]
-               /Resources << /Font << /F1 {{font}} 0 R >> >> /Contents {{contentId}} 0 R /Annots [{{fields}}] >>
-            """);
-        objects[pages - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{page} 0 R] /Count 1 >>");
-        objects[catalog - 1] = string.Create(CultureInfo.InvariantCulture, $$"""
-            << /Type /Catalog /Pages {{pages}} 0 R
-               /AcroForm << /Fields [{{fields}}] /CO [{{ids[TotalField]}} 0 R {{ids[TaxField]}} 0 R] /NeedAppearances true /DA (/Helv 12 Tf 0 g)
-                            /DR << /Font << /Helv {{font}} 0 R >> >> >> >>
-            """);
-        var info = Add(objects, $"<< /Title (Order) /Author ({Author}) >>");
-        return Serialize(objects, catalog, info);
-    }
+    /// <summary>
+    /// Creates a one page form whose fields carry scripts that are not one of the built-in PDF form functions, so a
+    /// sandboxed interpreter has to run them: Quantity is shown as a whole number, Subtotal is Quantity times Price shown as
+    /// currency, Code must be three letters long, and Spare is hidden while Quantity is above five.
+    /// </summary>
+    /// <returns>The PDF bytes.</returns>
+    public static byte[] CreateScriptedForm() => CreateFieldForm(ScriptedFields, [ScriptedSubtotalField, ScriptedSwitchField, ScriptedLockField]);
 
     /// <summary>
     /// Creates a one page, portrait, image-only PDF, like a scan: the page shows an 8 bit greyscale image filling it
@@ -839,6 +837,47 @@ public static class TestPdf
         var landscape = pageIndex == LandscapePage - 1;
         width = landscape ? PortraitHeight : PortraitWidth;
         height = landscape ? PortraitWidth : PortraitHeight;
+    }
+
+    /// <summary>Creates a one page form from field definitions.</summary>
+    /// <param name="definitions">The fields' names and actions.</param>
+    /// <param name="calculationOrder">The indexes of the calculated fields, in the order they calculate.</param>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] CreateFieldForm((string Name, string Actions)[] definitions, int[] calculationOrder)
+    {
+        var objects = new List<string>();
+        var catalog = Reserve(objects);
+        var pages = Reserve(objects);
+        var page = Reserve(objects);
+        var font = Add(objects, HelveticaFont);
+        var ids = new int[definitions.Length];
+        for (var i = 0; i < ids.Length; i++)
+        {
+            var top = FirstFieldTop - (i * FieldSpacing);
+            ids[i] = Add(objects, string.Create(CultureInfo.InvariantCulture, $$"""
+                << /Type /Annot /Subtype /Widget /FT /Tx /T ({{definitions[i].Name}}) /Rect [72 {{top - FieldHeight}} 300 {{top}}] /P {{page}} 0 R /F 4
+                   /DA (/Helv 12 Tf 0 g) /MK << /BC [0.5 0.5 0.5] >> /AA << {{definitions[i].Actions}} >> >>
+                """));
+        }
+
+        var content = new StringBuilder();
+        AppendText(content, PortraitHeight - Margin, HeadingSize, "Order");
+        var stream = content.ToString();
+        var contentId = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Length {Encoding.ASCII.GetByteCount(stream)} >>\nstream\n{stream}endstream"));
+        var fields = string.Join(' ', ids.Select(static id => string.Create(CultureInfo.InvariantCulture, $"{id} 0 R")));
+        objects[page - 1] = string.Create(CultureInfo.InvariantCulture, $$"""
+            << /Type /Page /Parent {{pages}} 0 R /MediaBox [0 0 {{PortraitWidth}} {{PortraitHeight}}]
+               /Resources << /Font << /F1 {{font}} 0 R >> >> /Contents {{contentId}} 0 R /Annots [{{fields}}] >>
+            """);
+        objects[pages - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{page} 0 R] /Count 1 >>");
+        var order = string.Join(' ', calculationOrder.Select(index => string.Create(CultureInfo.InvariantCulture, $"{ids[index]} 0 R")));
+        objects[catalog - 1] = string.Create(CultureInfo.InvariantCulture, $$"""
+            << /Type /Catalog /Pages {{pages}} 0 R
+               /AcroForm << /Fields [{{fields}}] /CO [{{order}}] /NeedAppearances true /DA (/Helv 12 Tf 0 g)
+                            /DR << /Font << /Helv {{font}} 0 R >> >> >> >>
+            """);
+        var info = Add(objects, $"<< /Title (Order) /Author ({Author}) >>");
+        return Serialize(objects, catalog, info);
     }
 
     /// <summary>Creates a one page file whose XMP claims PDF/A-2b.</summary>

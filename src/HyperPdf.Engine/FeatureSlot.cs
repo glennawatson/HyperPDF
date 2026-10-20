@@ -117,4 +117,7 @@ internal enum FeatureSlot
 
     /// <summary>The XMP properties of the catalog.</summary>
     XmpSource = 35,
+
+    /// <summary>Showing and hiding form fields by name.</summary>
+    FormVisibility = 36,
 }

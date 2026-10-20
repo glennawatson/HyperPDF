@@ -17,6 +17,11 @@ namespace HyperPdf.Core.Forms.Scripting;
 [DebuggerDisplay("FieldScripts: {Name}")]
 public sealed record FieldScripts(int PageIndex, int Index, string Name, FormScript Keystroke, FormScript Format, FormScript Validate, FormScript Calculate)
 {
+    /// <summary>Gets a value indicating whether any of the field's scripts is a sandboxed program, which needs the form's fields to run.</summary>
+    public bool UsesPrograms =>
+        Keystroke.Function == FormScriptFunction.Program || Format.Function == FormScriptFunction.Program
+        || Validate.Function == FormScriptFunction.Program || Calculate.Function == FormScriptFunction.Program;
+
     /// <summary>Gets a value indicating whether the field has any script HyperPDF runs.</summary>
     public bool HasAny =>
         Keystroke.Function != FormScriptFunction.Unknown || Format.Function != FormScriptFunction.Unknown
