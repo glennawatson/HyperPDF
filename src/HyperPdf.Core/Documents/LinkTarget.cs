@@ -32,6 +32,13 @@ public readonly record struct LinkTarget(LinkTargetKind Kind, int PageIndex, Pag
     /// <returns>The target.</returns>
     public static LinkTarget ForPage(int pageIndex, PagePoint? location) => new(LinkTargetKind.Page, pageIndex, location, null);
 
+    /// <summary>Creates a target that is the file a file attachment annotation holds.</summary>
+    /// <param name="pageIndex">The zero based page the annotation is on.</param>
+    /// <param name="annotationId">The annotation's object number.</param>
+    /// <returns>The target.</returns>
+    public static LinkTarget ForAttachment(int pageIndex, int annotationId) =>
+        new(LinkTargetKind.AttachedFile, pageIndex, null, annotationId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
     /// <summary>Creates an external URI target.</summary>
     /// <param name="uri">The URI.</param>
     /// <returns>The target.</returns>

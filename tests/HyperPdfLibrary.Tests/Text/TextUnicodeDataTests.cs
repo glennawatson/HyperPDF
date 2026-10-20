@@ -63,17 +63,6 @@ public sealed class TextUnicodeDataTests
         await Assert.That(TextUnicode.Decompose('a', buffer)).IsEqualTo(0);
     }
 
-    /// <summary>Precomposed letters map to their base letter.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task BaseLettersAreFound()
-    {
-        await Assert.That(TextUnicode.GetBaseLetter('é')).IsEqualTo('e');
-        await Assert.That(TextUnicode.GetBaseLetter('Å')).IsEqualTo('A');
-        await Assert.That(TextUnicode.GetBaseLetter('ấ')).IsEqualTo('a');
-        await Assert.That(TextUnicode.GetBaseLetter('x')).IsEqualTo('x');
-    }
-
     /// <summary>Control codes, noncharacters and the byte order mark carry no text; tabs and line breaks do.</summary>
     /// <returns>A task.</returns>
     [Test]

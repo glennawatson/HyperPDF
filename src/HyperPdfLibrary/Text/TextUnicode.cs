@@ -90,19 +90,15 @@ internal static class TextUnicode
         return values.Length;
     }
 
-    /// <summary>Gets the base letter of a precomposed letter, such as <c>e</c> for <c>é</c>.</summary>
-    /// <param name="value">The character.</param>
-    /// <returns>The base letter, or the character itself.</returns>
-    internal static char GetBaseLetter(char value)
-    {
-        var index = TextUnicodeData.FoldKeys.BinarySearch((ushort)value);
-        return index < 0 ? value : (char)TextUnicodeData.FoldValues[index];
-    }
-
     /// <summary>Determines whether a character is a combining mark that a search can ignore.</summary>
     /// <param name="value">The character.</param>
     /// <returns><see langword="true"/> for non-spacing marks.</returns>
     internal static bool IsCombiningMark(char value) => CharUnicodeInfo.GetUnicodeCategory(value) == UnicodeCategory.NonSpacingMark;
+
+    /// <summary>Determines whether a character is a mark of any kind: non-spacing, spacing combining or enclosing. A mark belongs to the letter before it.</summary>
+    /// <param name="value">The character.</param>
+    /// <returns><see langword="true"/> for marks.</returns>
+    internal static bool IsMark(char value) => CharUnicodeInfo.GetUnicodeCategory(value) is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark;
 
     /// <summary>Determines whether a character is written without spaces between words: Han, kana, CJK punctuation and fullwidth forms.</summary>
     /// <param name="value">The character.</param>

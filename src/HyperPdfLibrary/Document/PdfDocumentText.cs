@@ -44,6 +44,23 @@ public static class PdfDocumentText
         return ExtractText(document, pageIndex, options, cancellationToken);
     }
 
+    /// <summary>
+    /// Gets a page's text in article order: the text inside each article bead on the page, following the document's article
+    /// threads in their order and each thread's beads in theirs (ISO 32000-2 12.4.3).
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="cancellationToken">Cancels the loading and the extraction.</param>
+    /// <returns>The text of each bead one after the other; <see langword="null"/> when the page has no bead with a rectangle.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The page does not exist.</exception>
+    /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static async ValueTask<string?> GetArticleTextAsync(PdfDocument document, int pageIndex, CancellationToken cancellationToken)
+    {
+        var page = await GetTextPageAsync(document, pageIndex, cancellationToken).ConfigureAwait(false);
+        return TextArticles.Read(PdfDocumentCatalog.GetThreads(document), pageIndex, page);
+    }
+
     /// <summary>Walks the text of every page in order, loading each page just ahead of its extraction.</summary>
     /// <param name = "document">The document.</param>
     /// <param name = "cancellationToken">Cancels the walk.</param>
@@ -89,6 +106,16 @@ public static class PdfDocumentText
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PdfTextPage GetTextPage(PdfDocument document, int pageIndex, PdfTextExtractionOptions options) =>
         ExtractText(document, pageIndex, options, CancellationToken.None);
+
+    /// <summary>Gets a page's text in article order, as <see cref="GetArticleTextAsync"/> does, without waiting for the page to load.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <returns>The text of each bead one after the other; <see langword="null"/> when the page has no bead with a rectangle.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The page does not exist.</exception>
+    /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string? GetArticleText(PdfDocument document, int pageIndex) =>
+        TextArticles.Read(PdfDocumentCatalog.GetThreads(document), pageIndex, GetTextPage(document, pageIndex));
 
     /// <summary>Gets the recently used text pages.</summary>
     /// <param name = "document">The document.</param>

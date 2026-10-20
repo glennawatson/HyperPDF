@@ -132,7 +132,7 @@ public sealed class PageMarksLayer : Control, IActivatableView
             return;
         }
 
-        pages.GetPagesBetween(scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
+        pages.GetPagesBetween(scroller.Offset.X, scroller.Offset.X + scroller.Viewport.Width, scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
         for (var page = first; page <= last && page >= 0; page++)
         {
             if (!pages.TryGetPageTransform(page, out var transform, out var bounds))

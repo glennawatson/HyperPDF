@@ -23,7 +23,7 @@ namespace HyperPdfLibrary.Rendering;
 /// interpreter started in (viewer space for pages), so replaying it only needs a matrix.
 /// </summary>
 [DebuggerDisplay("SkiaContentDevice")]
-internal sealed class SkiaContentDevice : IPictureDevice
+internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
 {
     /// <summary>The pixels of padding added to layer bounds so anti-aliased edges and strokes are not cut off.</summary>
     private const float BoundsPadding = 2;
@@ -71,6 +71,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>The most converted glyph outlines retained while recording one picture.</summary>
     private const int MaxCachedGlyphPaths = 512;
 
+    /// <summary>The most pattern shaders kept for one recording; further ones are made for the one draw.</summary>
+    private const int MaxCachedShaders = 64;
+
+    /// <summary>The image masks one Type 3 glyph procedure can draw and have kept; later ones share the last place.</summary>
+    private const int MaxType3Images = 8;
+
     /// <summary>The colour channel table that leaves a channel unchanged.</summary>
     private static readonly byte[] IdentityTable = CreateIdentityTable();
 
@@ -110,6 +116,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <summary>Whether each open transparency group is a knockout group, innermost last.</summary>
     private readonly List<bool> _knockout = [];
 
+    /// <summary>The Type 3 glyphs whose procedures are running, innermost last.</summary>
+    private readonly List<Type3Scope> _type3 = [];
+
+    /// <summary>The pattern shaders made for this recording, by pattern and matrix.</summary>
+    private readonly Dictionary<ShaderKey, SKShader> _shaders = [];
+
     /// <summary>The canvas of the page or picture recording itself.</summary>
     private SKCanvas _rootCanvas;
 
@@ -148,6 +160,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
 
     /// <summary>The registered backend's pool that owns this rental, or null for a directly constructed device.</summary>
     private ReusableSlots<SkiaContentDevice>? _pool;
+
+    /// <summary>The glyph masks every device of the backend shares, or null when small text is always filled from its outline.</summary>
+    private SkiaGlyphMasks? _masks;
+
+    /// <summary>Draws small text from glyph masks; made when the first mask is drawn.</summary>
+    private GlyphMaskPainter? _maskPainter;
 
     /// <summary>One once <see cref="Dispose"/> has run since the recording began.</summary>
     private int _disposed;
@@ -238,6 +256,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
         var native = SkiaResources.Image(image);
         var matrix = new Matrix3x2(1F / image.Width, 0, 0, -1F / image.Height, 0, 1) * state.Ctm;
         var masked = BeginMask(ref state, new(0, 0, 1, 1), state.Ctm);
+        if (isMask && _type3.Count > 0 && CanDrawMask(ref state, masked.Active) && TryDrawImageMask(native, matrix, ref state, smooth))
+        {
+            EndMask(ref state, masked);
+            return;
+        }
+
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
         _paint.Reset();
         _paint.IsAntialias = SmoothImages;
@@ -261,7 +285,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
         using var pathLease = GetGlyphPath(glyph.Font, glyph.Code, outline);
         var path = pathLease.Path;
         var masked = BeginMask(ref state, path.Bounds, matrix);
-        if (IsMode(FillModes, mode) && !state.Fill.PaintsNothing)
+        if (IsMode(FillModes, mode) && !state.Fill.PaintsNothing && !(CanDrawMask(ref state, masked.Active) && TryDrawMask(glyph, path, matrix, ref state)))
         {
             FillTextShape(path, matrix, state.Fill, state.FillAlpha, state.BlendMode);
         }
@@ -272,6 +296,19 @@ internal sealed class SkiaContentDevice : IPictureDevice
         }
 
         EndMask(ref state, masked);
+    }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void BeginType3Glyph(PdfFont font, int code) => _type3.Add(new(font, code, 0));
+
+    /// <inheritdoc/>
+    public void EndType3Glyph()
+    {
+        if (_type3.Count > 0)
+        {
+            _type3.RemoveAt(_type3.Count - 1);
+        }
     }
 
     /// <inheritdoc/>
@@ -372,11 +409,12 @@ internal sealed class SkiaContentDevice : IPictureDevice
         var style = new PdfPictureStyle(_quality, null);
         if (_pool is { } pool)
         {
-            return Rent(pool, bounds, Weight, style);
+            return Rent(pool, bounds, Weight, style, _masks);
         }
 
         var created = new SkiaContentDevice(bounds, Weight);
         created.Configure(style);
+        created._masks = _masks;
         return created;
     }
 
@@ -407,8 +445,10 @@ internal sealed class SkiaContentDevice : IPictureDevice
             return;
         }
 
+        DisposeShaders();
         _shapeFilter?.Dispose();
         _lumaFilter?.Dispose();
+        _maskPainter?.Dispose();
         _paint.Dispose();
         foreach (var path in _glyphPaths.Values)
         {
@@ -429,7 +469,16 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
     /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight) => Rent(pool, cull, weight, Plain);
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight) => Rent(pool, cull, weight, Plain, null);
+
+    /// <summary>Hands out an idle device, or makes one when none is idle. Dispose it to give it back.</summary>
+    /// <param name="pool">The registered backend's idle devices.</param>
+    /// <param name="cull">The area the picture covers.</param>
+    /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
+    /// <param name="masks">The glyph masks the backend's devices share.</param>
+    /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight, SkiaGlyphMasks masks) => Rent(pool, cull, weight, Plain, masks);
 
     /// <summary>Hands out an idle device, or makes one when none is idle, for a picture shown in a known way. Dispose it to give it back.</summary>
     /// <param name="pool">The registered backend's idle devices.</param>
@@ -437,7 +486,17 @@ internal sealed class SkiaContentDevice : IPictureDevice
     /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
     /// <param name="style">How the picture is shown: the quality settings and the page matrix.</param>
     /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
-    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight, in PdfPictureStyle style)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight, in PdfPictureStyle style) => Rent(pool, cull, weight, style, null);
+
+    /// <summary>Hands out an idle device, or makes one when none is idle, for a picture shown in a known way. Dispose it to give it back.</summary>
+    /// <param name="pool">The registered backend's idle devices.</param>
+    /// <param name="cull">The area the picture covers.</param>
+    /// <param name="weight">Counts the images drawn; null counts them in the device itself.</param>
+    /// <param name="style">How the picture is shown: the quality settings and the page matrix.</param>
+    /// <param name="masks">The glyph masks the backend's devices share, or null to fill every glyph from its outline.</param>
+    /// <returns>A device that is recording, owned by the caller until it is disposed.</returns>
+    internal static SkiaContentDevice Rent(ReusableSlots<SkiaContentDevice> pool, SKRect cull, PictureWeight? weight, in PdfPictureStyle style, SkiaGlyphMasks? masks)
     {
         var device = pool.Take();
         if (device is null)
@@ -451,6 +510,7 @@ internal sealed class SkiaContentDevice : IPictureDevice
 
         device.Configure(style);
         device._pool = pool;
+        device._masks = masks;
         return device;
     }
 
@@ -509,6 +569,13 @@ internal sealed class SkiaContentDevice : IPictureDevice
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
 private static SKColor WhiteWithAlpha(float alpha) =>
         new(byte.MaxValue, byte.MaxValue, byte.MaxValue, (byte)MathF.Round(Math.Clamp(alpha, 0, 1) * AlphaMax));
+
+    /// <summary>Makes the shader of a shading pattern.</summary>
+    /// <param name="pattern">The pattern.</param>
+    /// <param name="local">The matrix from the shape's space to the pattern's.</param>
+    /// <returns>The shader, or null.</returns>
+    private static SKShader? MakeShadingShader(PdfPatternPaint pattern, SKMatrix local) =>
+        pattern.Shading?.GetShader() is { } source ? SkiaResources.Shader(source).WithLocalMatrix(local) : null;
 
     /// <summary>Creates the repeating shader of a tiling pattern's period.</summary>
     /// <param name="tile">The period.</param>
@@ -637,6 +704,8 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
         _glyphPaths.Clear();
         _knockout.Clear();
+        _type3.Clear();
+        DisposeShaders();
         _pathBuilder.Reset();
         _paint.Reset();
         _paint.IsAntialias = true;
@@ -776,13 +845,13 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <param name="color">The colour.</param>
     /// <param name="alpha">The alpha.</param>
     /// <param name="matrix">The matrix the shape is drawn with, from shape space to the page.</param>
-    /// <returns>A shader to dispose after drawing, or null.</returns>
-    private SKShader? ApplyColor(in ColorState color, float alpha, Matrix3x2 matrix)
+    /// <returns>The shader's lease, which is disposed after drawing and releases the shader only when it was not kept for reuse.</returns>
+    private ShaderLease ApplyColor(in ColorState color, float alpha, Matrix3x2 matrix)
     {
         if (color.Pattern is not { } pattern)
         {
             _paint.Color = SkiaConversions.ToSkColor(color, alpha);
-            return null;
+            return default;
         }
 
         _paint.Color = WhiteWithAlpha(alpha);
@@ -792,22 +861,60 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _paint.IsDither = pattern.Shading?.AntiAlias == true;
         if (!Matrix3x2.Invert(matrix, out var inverse))
         {
-            return null;
+            return default;
         }
 
-        var local = SkiaConversions.ToSkMatrix(pattern.Matrix * inverse);
-        SKShader? shader = null;
-        if (pattern.Tile is { } tile)
+        var lease = GetPatternShader(pattern, SkiaConversions.ToSkMatrix(pattern.Matrix * inverse));
+        _paint.Shader = lease.Shader;
+        return lease;
+    }
+
+    /// <summary>
+    /// Gets the shader of a pattern for a matrix. A recording fills many shapes with one pattern at one matrix, so the shader is
+    /// made once and kept until the recording is recycled; past <see cref="MaxCachedShaders"/> it is made for the one draw.
+    /// </summary>
+    /// <param name="pattern">The pattern.</param>
+    /// <param name="local">The matrix from the shape's space to the pattern's.</param>
+    /// <returns>The shader's lease.</returns>
+    private ShaderLease GetPatternShader(PdfPatternPaint pattern, SKMatrix local)
+    {
+        object? source = pattern.Tile;
+        source ??= pattern.Shading;
+        if (source is null)
         {
-            shader = CreateTileShader(tile, local);
-        }
-        else if (pattern.Shading?.GetShader()is { } source)
-        {
-            shader = SkiaResources.Shader(source).WithLocalMatrix(local);
+            return default;
         }
 
-        _paint.Shader = shader;
-        return shader;
+        var key = new ShaderKey(source, local);
+        if (_shaders.TryGetValue(key, out var existing))
+        {
+            return new(existing, false);
+        }
+
+        var created = pattern.Tile is { } tile ? CreateTileShader(tile, local) : MakeShadingShader(pattern, local);
+        if (created is null)
+        {
+            return default;
+        }
+
+        if (_shaders.Count >= MaxCachedShaders)
+        {
+            return new(created, true);
+        }
+
+        _shaders.Add(key, created);
+        return new(created, false);
+    }
+
+    /// <summary>Releases the pattern shaders kept for the recording. A picture that drew with one keeps its own reference.</summary>
+    private void DisposeShaders()
+    {
+        foreach (var shader in _shaders.Values)
+        {
+            shader.Dispose();
+        }
+
+        _shaders.Clear();
     }
 
     /// <summary>Fills a shape.</summary>
@@ -844,7 +951,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _paint.IsAntialias = _smoothGraphics;
         _paint.BlendMode = ElementBlend(blend);
         var clipped = ClipShadingBox(color);
-        using var shader = ApplyColor(color, alpha, matrix);
+        using var lease = ApplyColor(color, alpha, matrix);
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
         _canvas.DrawPath(path, _paint);
         if (clipped)
@@ -1118,7 +1225,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
         _paint.PathEffect = dash;
         var clipped = ClipShadingBox(state.Stroke);
-        using var shader = ApplyColor(state.Stroke, pass.Alpha, matrix);
+        using var lease = ApplyColor(state.Stroke, pass.Alpha, matrix);
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
         shape.Draw(_canvas, _paint);
         if (pass.Hairline)
@@ -1270,6 +1377,47 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _paint.Color = WhiteWithAlpha(alpha);
         _paint.BlendMode = ElementBlend(blend);
         _canvas.DrawPaint(_paint);
+    }
+
+    /// <summary>Determines whether a glyph may be drawn from a mask: the recording serves one page matrix, the fill is a plain colour and no soft mask or knockout group shapes it.</summary>
+    /// <param name="state">The graphics state.</param>
+    /// <param name="masked">Whether a soft mask is in effect for the glyph.</param>
+    /// <returns><see langword="true"/> when a mask can draw the glyph.</returns>
+    private bool CanDrawMask(ref GraphicsState state, bool masked) =>
+        _masks is not null && _hasDevice && _quality.UsesGlyphMasks && !masked && state.Fill.Pattern is null && !(_knockout.Count > 0 && _knockout[^1]);
+
+    /// <summary>Draws a glyph from its mask.</summary>
+    /// <param name="glyph">The glyph.</param>
+    /// <param name="path">The glyph's native outline.</param>
+    /// <param name="matrix">The matrix from the outline to the recording's space.</param>
+    /// <param name="state">The graphics state.</param>
+    /// <returns><see langword="true"/> when the glyph was drawn; <see langword="false"/> when it must be filled from its outline.</returns>
+    private bool TryDrawMask(in GlyphEvent glyph, SKPath path, Matrix3x2 matrix, ref GraphicsState state)
+    {
+        var plain = _frames.Count == 0 && state.BlendMode == PdfBlendMode.Normal && state.FillAlpha >= 1;
+        var style = new GlyphMaskStyle(_quality, SkiaConversions.ToSkColor(state.Fill, state.FillAlpha), ElementBlend(state.BlendMode), plain);
+        _maskPainter ??= new(_masks!);
+        return _maskPainter.TryDraw(_canvas, _deviceInverse, new GlyphMaskGlyph<OutlineMaskSource>(glyph.Font, glyph.Code, new(path), matrix * _device), style);
+    }
+
+    /// <summary>Draws the image mask of a Type 3 glyph from a mask made once for the glyph's size and position.</summary>
+    /// <param name="native">The image.</param>
+    /// <param name="imageToRecording">The matrix from the image's pixels to the recording's space.</param>
+    /// <param name="state">The graphics state.</param>
+    /// <param name="smooth">Whether the image asks for smoothing.</param>
+    /// <returns><see langword="true"/> when the mask was drawn.</returns>
+    private bool TryDrawImageMask(SKImage native, Matrix3x2 imageToRecording, ref GraphicsState state, bool smooth)
+    {
+        // The mask is kept under the glyph and the place of the image in its procedure, not under the image, which an inline image makes anew each time.
+        var scope = _type3[^1];
+        _type3[^1] = scope with { Images = scope.Images + 1 };
+        var plain = _frames.Count == 0 && state.BlendMode == PdfBlendMode.Normal && state.FillAlpha >= 1;
+        var style = new GlyphMaskStyle(_quality, SkiaConversions.ToSkColor(state.Fill, state.FillAlpha), ElementBlend(state.BlendMode), plain);
+        var toDevice = imageToRecording * _device;
+        var sampling = SkiaImageSampling.Choose(native.Width, toDevice, smooth, SmoothImages);
+        var key = (scope.Code * MaxType3Images) + Math.Min(scope.Images, MaxType3Images - 1);
+        _maskPainter ??= new(_masks!);
+        return _maskPainter.TryDraw(_canvas, _deviceInverse, new GlyphMaskGlyph<ImageMaskSource>(scope.Font, key, new(native, sampling), toDevice), style);
     }
 
     /// <summary>Fills glyph outlines with the text edge setting rather than the graphics one.</summary>

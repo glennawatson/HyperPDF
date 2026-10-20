@@ -26,4 +26,18 @@ public interface IFormActions : IDocumentFeature
     /// <param name="cancellationToken">A token that cancels the run.</param>
     /// <returns>What happened.</returns>
     ValueTask<FormActionResult> RunPageOpenedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken);
+
+    /// <summary>Runs the actions a page does when it closes.</summary>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="host">The application's part of running actions.</param>
+    /// <param name="cancellationToken">A token that cancels the run.</param>
+    /// <returns>What happened.</returns>
+    ValueTask<FormActionResult> RunPageClosedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken);
+
+    /// <summary>Runs the document's additional actions for one event: close, save or print.</summary>
+    /// <param name="documentEvent">The event the viewer reached.</param>
+    /// <param name="host">The application's part of running actions.</param>
+    /// <param name="cancellationToken">A token that cancels the run.</param>
+    /// <returns>What happened.</returns>
+    ValueTask<FormActionResult> RunDocumentEventAsync(FormDocumentEvent documentEvent, IFormActionHost host, CancellationToken cancellationToken);
 }

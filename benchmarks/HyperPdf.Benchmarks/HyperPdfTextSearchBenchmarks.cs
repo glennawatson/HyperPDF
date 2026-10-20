@@ -25,6 +25,9 @@ public class HyperPdfTextSearchBenchmarks
     /// <summary>The page text folded for case-insensitive search.</summary>
     private FoldedText _folded = new(string.Empty, null);
 
+    /// <summary>The page text folded with accents ignored, which has an index map back to the page text.</summary>
+    private FoldedText _foldedIgnoringAccents = new(string.Empty, null);
+
     /// <summary>The classes of a mixed-direction line.</summary>
     private TextBidiClass[] _classes = [];
 
@@ -40,6 +43,7 @@ public class HyperPdfTextSearchBenchmarks
     {
         _text = string.Concat(Enumerable.Repeat(Paragraph, Paragraphs));
         _folded = TextFolding.Fold(_text, PdfTextSearchOptions.None);
+        _foldedIgnoringAccents = TextFolding.Fold(_text, PdfTextSearchOptions.IgnoreDiacritics);
         _classes = new TextBidiClass[_text.Length];
         _levels = new byte[_text.Length];
     }
@@ -58,6 +62,21 @@ public class HyperPdfTextSearchBenchmarks
     /// <returns>The folded length.</returns>
     [Benchmark]
     public int FoldIgnoringAccents() => TextFolding.Fold(_text, PdfTextSearchOptions.IgnoreDiacritics).Text.Length;
+
+    /// <summary>Folds the page text with compatibility decomposition, ignoring case and accents.</summary>
+    /// <returns>The folded length.</returns>
+    [Benchmark]
+    public int FoldCompatibilityForms() => TextFolding.Fold(_text, PdfTextSearchOptions.IgnoreDiacritics | PdfTextSearchOptions.FoldCompatibility).Text.Length;
+
+    /// <summary>Finds every accented match in text folded with accents ignored, mapping each match back through the index table.</summary>
+    /// <returns>The match count.</returns>
+    [Benchmark]
+    public int SearchIgnoringAccents()
+    {
+        _found = 0;
+        TextSearch.FindAll(_foldedIgnoringAccents, "résumé", PdfTextSearchOptions.IgnoreDiacritics, this, static (benchmark, _, _) => benchmark._found++);
+        return _found;
+    }
 
     /// <summary>Classifies the text and resolves its bidirectional levels.</summary>
     /// <returns>The level of the last character.</returns>

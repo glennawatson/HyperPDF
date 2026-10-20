@@ -216,18 +216,18 @@
   },
   {
     "type": "HyperPdfLibrary.Document.PdfDocument",
-    "frame": "HyperPdfLibrary.Document.PdfDocumentReader.Create(class HyperPdfLibrary.Objects.PdfObjectStore,class System.Func\u00602\u003Cclass HyperPdfLibrary.Objects.PdfDictionary,class HyperPdfLibrary.Fonts.PdfFont\u003E)",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentReader.Create(class HyperPdfLibrary.Objects.PdfObjectStore,class System.Func`2<class HyperPdfLibrary.Objects.PdfDictionary,class HyperPdfLibrary.Fonts.PdfFont>)",
     "reason": "Per-document identity, mutable state and cancellation/diagnostics lifetime. Reusing these instances across documents would let retained references or in-flight reads observe the next document. Internal transient buffers are reused separately."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfObjectStore",
-    "frame": "HyperPdfLibrary.Objects.StoreOpening.Open(class HyperPdfLibrary.IO.PdfByteSource,bool,value class HyperPdfLibrary.Objects.OpenCredentials\u0026)",
+    "frame": "HyperPdfLibrary.Objects.StoreOpening.Open(class HyperPdfLibrary.IO.PdfByteSource,bool,value class HyperPdfLibrary.Objects.OpenCredentials&)",
     "reason": "Per-document identity, mutable state and cancellation/diagnostics lifetime. Reusing these instances across documents would let retained references or in-flight reads observe the next document. Internal transient buffers are reused separately."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfDictionary",
     "frame": "HyperPdfLibrary.Syntax.ParseScratch.PopDictionary(int32,class HyperPdfLibrary.Objects.PdfObjectStore)",
-    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document\u0027s data."
+    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document's data."
   },
   {
     "type": "ThreadPoolValueTaskSource",
@@ -236,7 +236,7 @@
   },
   {
     "type": "HyperPdfLibrary.Structure.XrefTable",
-    "frame": "HyperPdfLibrary.Objects.StoreOpening.Open(class HyperPdfLibrary.IO.PdfByteSource,bool,value class HyperPdfLibrary.Objects.OpenCredentials\u0026)",
+    "frame": "HyperPdfLibrary.Objects.StoreOpening.Open(class HyperPdfLibrary.IO.PdfByteSource,bool,value class HyperPdfLibrary.Objects.OpenCredentials&)",
     "reason": "Cross-reference identity retained by the document and revision/conformance readers. Recycling this instance across documents was rejected because in-flight readers can retain the table after store disposal."
   },
   {
@@ -276,7 +276,7 @@
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfValue[]",
-    "frame": "HyperPdfLibrary.Objects.PdfArray..ctor(class HyperPdfLibrary.Objects.PdfObjectStore,value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Objects.PdfValue\u003E)",
+    "frame": "HyperPdfLibrary.Objects.PdfArray..ctor(class HyperPdfLibrary.Objects.PdfObjectStore,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Objects.PdfValue>)",
     "reason": "Mutable PDF object storage is retained by parsed results or independent edit copies. The arena-recycling attempt was rejected after finding escaped arrays/spans and concurrent readers that could outlive document disposal. Nested values already share their stable backing data."
   },
   {
@@ -286,13 +286,13 @@
   },
   {
     "type": "ThreadPoolValueTaskSource",
-    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.ReadInputAsync(int64,value class System.Memory\u00601\u003Cunsigned int8\u003E,value class System.Threading.CancellationToken)",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.ReadInputAsync(int64,value class System.Memory`1<unsigned int8>,value class System.Threading.CancellationToken)",
     "reason": "Observed in grouped document-open EventPipe measurements on .NET 10/11. This runtime state carries an asynchronous I/O operation across suspension; warm cache paths complete without suspension. Removing it by blocking would break the async read contract."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfArray",
     "frame": "HyperPdfLibrary.Syntax.ParseScratch.PopArray(int32,class HyperPdfLibrary.Objects.PdfObjectStore)",
-    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document\u0027s data."
+    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document's data."
   },
   {
     "type": "System.Threading.SemaphoreSlim",
@@ -300,13 +300,13 @@
     "reason": "Live stream/file source identity and synchronisation state. Cache tables are reused after close; handles and source identity remain independent. SemaphoreSlim is created only for a caller stream whose shared Position must be serialised across awaits; file handles use offset-based reads without it."
   },
   {
-    "type": "System.Runtime.CompilerServices.StrongBox\u00601[System.Boolean]",
+    "type": "System.Runtime.CompilerServices.StrongBox`1[System.Boolean]",
     "frame": "HyperPdfLibrary.IO.StreamPdfByteSource..ctor(class System.IO.Stream,int64,bool)",
     "reason": "Live stream/file source identity and synchronisation state. Cache tables are reused after close; handles and source identity remain independent. SemaphoreSlim is created only for a caller stream whose shared Position must be serialised across awaits; file handles use offset-based reads without it."
   },
   {
-    "type": "StateMachineBox\u00601[System.Int32,System.IO.Stream\u002B\u003CReadAtLeastAsyncCore\u003Ed__49]",
-    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.ReadInputAsync(int64,value class System.Memory\u00601\u003Cunsigned int8\u003E,value class System.Threading.CancellationToken)",
+    "type": "StateMachineBox`1[System.Int32,System.IO.Stream+<ReadAtLeastAsyncCore>d__49]",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.ReadInputAsync(int64,value class System.Memory`1<unsigned int8>,value class System.Threading.CancellationToken)",
     "reason": "Observed in grouped document-open EventPipe measurements on .NET 10/11. This runtime state carries an asynchronous I/O operation across suspension; warm cache paths complete without suspension. Removing it by blocking would break the async read contract."
   },
   {
@@ -341,7 +341,7 @@
   },
   {
     "type": "System.Runtime.CompilerServices.Continuation",
-    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.ReadInputAsync(int64,value class System.Memory\u00601\u003Cunsigned int8\u003E,value class System.Threading.CancellationToken)",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.ReadInputAsync(int64,value class System.Memory`1<unsigned int8>,value class System.Threading.CancellationToken)",
     "reason": "Observed in grouped document-open EventPipe measurements on .NET 10/11. This runtime state carries an asynchronous I/O operation across suspension; warm cache paths complete without suspension. Removing it by blocking would break the async read contract."
   },
   {
@@ -402,7 +402,7 @@
   {
     "type": "HyperPdfLibrary.Objects.PdfValue[]",
     "frame": "HyperPdfLibrary.Syntax.ParseScratch.PopDictionary(int32,class HyperPdfLibrary.Objects.PdfObjectStore)",
-    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document\u0027s data."
+    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document's data."
   },
   {
     "type": "HyperPdfLibrary.Document.PdfPage[]",
@@ -421,7 +421,7 @@
   },
   {
     "type": "System.Int64[]",
-    "frame": "HyperPdfLibrary.Structure.XrefReader.ReadSubsection(value class HyperPdfLibrary.Syntax.PdfLexer\u0026,int32,int32,class HyperPdfLibrary.Structure.XrefTable)",
+    "frame": "HyperPdfLibrary.Structure.XrefReader.ReadSubsection(value class HyperPdfLibrary.Syntax.PdfLexer&,int32,int32,class HyperPdfLibrary.Structure.XrefTable)",
     "reason": "The live document retains its cross-reference index. Recycling the table and arrays was rejected because revision/conformance readers retain snapshots outside the parsing lock. Traversal queues and decoded cross-reference stream buffers are pooled; this is the retained index storage."
   },
   {
@@ -442,7 +442,7 @@
   {
     "type": "HyperPdfLibrary.Objects.PdfValue[]",
     "frame": "HyperPdfLibrary.Syntax.ParseScratch.PopArray(int32,class HyperPdfLibrary.Objects.PdfObjectStore)",
-    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document\u0027s data."
+    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document's data."
   },
   {
     "type": "HyperPdfLibrary.Document.PdfPage[]",
@@ -452,26 +452,26 @@
   {
     "type": "System.Int32[]",
     "frame": "HyperPdfLibrary.Syntax.ParseScratch.PopDictionary(int32,class HyperPdfLibrary.Objects.PdfObjectStore)",
-    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document\u0027s data."
+    "reason": "Measured parser output retained by the returned PDF arrays and dictionaries. Temporary parser overflow storage is pooled. Recycling the result arrays or object identities on document disposal was rejected because retained values and spans could then read another document's data."
   },
   {
     "type": "System.Int32[]",
-    "frame": "HyperPdfLibrary.Objects.PdfNameTable.AddUnknown(value class System.ReadOnlySpan\u00601\u003Cunsigned int8\u003E,unsigned int32)",
+    "frame": "HyperPdfLibrary.Objects.PdfNameTable.AddUnknown(value class System.ReadOnlySpan`1<unsigned int8>,unsigned int32)",
     "reason": "Document-specific name identity and append-only spelling/index storage. Known names bypass this storage, and the insertion lock is lazy. Packed spellings avoid per-name arrays and dictionary nodes; the grouped name audit still measures retained spelling and index storage. Reusing the table or its arrays across documents was rejected because callers retain name tables and spelling spans."
   },
   {
     "type": "System.Byte[]",
-    "frame": "HyperPdfLibrary.Objects.PdfNameTable.AddUnknown(value class System.ReadOnlySpan\u00601\u003Cunsigned int8\u003E,unsigned int32)",
+    "frame": "HyperPdfLibrary.Objects.PdfNameTable.AddUnknown(value class System.ReadOnlySpan`1<unsigned int8>,unsigned int32)",
     "reason": "Document-specific name identity and append-only spelling/index storage. Known names bypass this storage, and the insertion lock is lazy. Packed spellings avoid per-name arrays and dictionary nodes; the grouped name audit still measures retained spelling and index storage. Reusing the table or its arrays across documents was rejected because callers retain name tables and spelling spans."
   },
   {
     "type": "System.Byte[]",
-    "frame": "HyperPdfLibrary.Structure.XrefReader.ReadSubsection(value class HyperPdfLibrary.Syntax.PdfLexer\u0026,int32,int32,class HyperPdfLibrary.Structure.XrefTable)",
+    "frame": "HyperPdfLibrary.Structure.XrefReader.ReadSubsection(value class HyperPdfLibrary.Syntax.PdfLexer&,int32,int32,class HyperPdfLibrary.Structure.XrefTable)",
     "reason": "The live document retains its cross-reference index. Recycling the table and arrays was rejected because revision/conformance readers retain snapshots outside the parsing lock. Traversal queues and decoded cross-reference stream buffers are pooled; this is the retained index storage."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfArray",
-    "frame": "HyperPdfLibrary.Objects.PdfArray.FromNumbers(class HyperPdfLibrary.Objects.PdfObjectStore,value class System.ReadOnlySpan\u00601\u003Cfloat32\u003E)",
+    "frame": "HyperPdfLibrary.Objects.PdfArray.FromNumbers(class HyperPdfLibrary.Objects.PdfObjectStore,value class System.ReadOnlySpan`1<float32>)",
     "reason": "Mutable PDF object storage is retained by parsed results or independent edit copies. The arena-recycling attempt was rejected after finding escaped arrays/spans and concurrent readers that could outlive document disposal. Nested values already share their stable backing data."
   },
   {
@@ -546,7 +546,7 @@
   },
   {
     "type": "System.Int32[]",
-    "frame": "HyperPdfLibrary.Structure.XrefReader.ReadSubsection(value class HyperPdfLibrary.Syntax.PdfLexer\u0026,int32,int32,class HyperPdfLibrary.Structure.XrefTable)",
+    "frame": "HyperPdfLibrary.Structure.XrefReader.ReadSubsection(value class HyperPdfLibrary.Syntax.PdfLexer&,int32,int32,class HyperPdfLibrary.Structure.XrefTable)",
     "reason": "The live document retains its cross-reference index. Recycling the table and arrays was rejected because revision/conformance readers retain snapshots outside the parsing lock. Traversal queues and decoded cross-reference stream buffers are pooled; this is the retained index storage."
   },
   {
@@ -556,7 +556,7 @@
   },
   {
     "type": "System.Threading.Lock",
-    "frame": "HyperPdfLibrary.Objects.PdfNameTable.AddUnknown(value class System.ReadOnlySpan\u00601\u003Cunsigned int8\u003E,unsigned int32)",
+    "frame": "HyperPdfLibrary.Objects.PdfNameTable.AddUnknown(value class System.ReadOnlySpan`1<unsigned int8>,unsigned int32)",
     "reason": "Document-specific name identity and append-only spelling/index storage. Known names bypass this storage, and the insertion lock is lazy. Packed spellings avoid per-name arrays and dictionary nodes; the grouped name audit still measures retained spelling and index storage. Reusing the table or its arrays across documents was rejected because callers retain name tables and spelling spans."
   },
   {
@@ -575,7 +575,7 @@
     "reason": "Per-dictionary prefetch marks remember completed work by kind and cache generation, avoiding repeat graph walks and I/O. Weak keys let discarded dictionaries be collected. Temporary walk collections are reused after the async operation completes."
   },
   {
-    "type": "System.Runtime.CompilerServices.ConditionalWeakTable\u00602[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Document.PdfPrefetchMark]",
+    "type": "System.Runtime.CompilerServices.ConditionalWeakTable`2[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Document.PdfPrefetchMark]",
     "frame": "HyperPdfLibrary.Document.PdfPrefetcher.PrefetchAsync(class HyperPdfLibrary.Objects.PdfObjectStore,class HyperPdfLibrary.Objects.PdfDictionary,value class HyperPdfLibrary.Document.PdfPrefetchKind,value class System.Threading.CancellationToken)",
     "reason": "Per-dictionary prefetch marks remember completed work by kind and cache generation, avoiding repeat graph walks and I/O. Weak keys let discarded dictionaries be collected. Temporary walk collections are reused after the async operation completes."
   },
@@ -597,7 +597,7 @@
   {
     "type": "HyperPdfLibrary.Objects.PdfValue[]",
     "frame": "HyperPdfLibrary.Objects.PdfArray..ctor(class HyperPdfLibrary.Objects.PdfObjectStore,int32)",
-    "reason": "Retained parsed array identity and item storage. The parser\u0027s temporary overflow arrays return to the pool, while values returned to callers keep independent backing arrays. Early recycling was rejected because retained spans and values could observe reused document data."
+    "reason": "Retained parsed array identity and item storage. The parser's temporary overflow arrays return to the pool, while values returned to callers keep independent backing arrays. Early recycling was rejected because retained spans and values could observe reused document data."
   },
   {
     "type": "HyperPdfLibrary.IO.StreamPdfByteSource",
@@ -607,7 +607,7 @@
   {
     "type": "HyperPdfLibrary.Objects.PdfOpenContext",
     "frame": "HyperPdfLibrary.Document.PdfDocumentReader.OpenWith(class System.IO.Stream,class HyperPdfLibrary.Document.PdfOpenOptions)",
-    "reason": "Per-document cancellation, diagnostics and decoder ownership retained by in-flight reads. Recycling a context before those readers finish could expose another document\u0027s state; temporary parser and prefetch buffers are reused independently."
+    "reason": "Per-document cancellation, diagnostics and decoder ownership retained by in-flight reads. Recycling a context before those readers finish could expose another document's state; temporary parser and prefetch buffers are reused independently."
   },
   {
     "type": "System.Threading.SemaphoreSlim",
@@ -615,7 +615,7 @@
     "reason": "The live source and its synchronization state belong to that source. Caller streams use SemaphoreSlim and its disposal state to serialize Position across awaits; file handles use independent offsets and omit the semaphore. Cache tables are reused through an explicitly supplied host pool."
   },
   {
-    "type": "System.Runtime.CompilerServices.StrongBox\u00601[System.Boolean]",
+    "type": "System.Runtime.CompilerServices.StrongBox`1[System.Boolean]",
     "frame": "HyperPdfLibrary.Document.PdfDocumentReader.OpenWith(class System.IO.Stream,class HyperPdfLibrary.Document.PdfOpenOptions)",
     "reason": "The live source and its synchronization state belong to that source. Caller streams use SemaphoreSlim and its disposal state to serialize Position across awaits; file handles use independent offsets and omit the semaphore. Cache tables are reused through an explicitly supplied host pool."
   },
@@ -637,7 +637,7 @@
   {
     "type": "Microsoft.Win32.SafeHandles.SafeFileHandle",
     "frame": "HyperPdfLibrary.IO.PdfByteSources.OpenAutomatic(class System.String,int64)",
-    "reason": "Managed ownership of the current file handle. Each open must observe that file\u0027s identity and dispose independently; reusing a previous path\u0027s handle could read an older replacement. The large file byte buffer is pooled separately."
+    "reason": "Managed ownership of the current file handle. Each open must observe that file's identity and dispose independently; reusing a previous path's handle could read an older replacement. The large file byte buffer is pooled separately."
   },
   {
     "type": "System.Object[]",
@@ -646,7 +646,7 @@
   },
   {
     "type": "HyperPdfLibrary.Document.PdfPrefetchMark",
-    "frame": "HyperPdfLibrary.Document.PdfPrefetcher\u002B\u003C\u003Ec.\u003CPrefetchAsync\u003Eb__6_0(class HyperPdfLibrary.Objects.PdfDictionary)",
+    "frame": "HyperPdfLibrary.Document.PdfPrefetcher+<>c.<PrefetchAsync>b__6_0(class HyperPdfLibrary.Objects.PdfDictionary)",
     "reason": "A weakly keyed prefetch mark and its table synchronisation state memoise completed work by kind and cache generation. Repeated prefetch tests verify that a matching mark avoids a graph walk and further reads. Temporary walk collections are reused after the operation completes."
   },
   {
@@ -681,83 +681,83 @@
   },
   {
     "type": "System.Byte[]",
-    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource\u002B\u003CLoadRunAsync\u003Ed__55.MoveNext()",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource+<LoadRunAsync>d__55.MoveNext()",
     "reason": "Rented bytes for an asynchronous read run or a retained source-cache page. Each active read/cache page owns its bytes; buffers return to ArrayPool after the run or source closes. A pool miss or growth can allocate without requiring a new array for every read."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[System.Int32,HyperPdfLibrary.IO.StreamPdfByteSource\u002B\u003CReadInputAsync\u003Ed__57]",
-    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource\u002B\u003CReadInputAsync\u003Ed__57.MoveNext()",
+    "type": "AsyncStateMachineBox`1[System.Int32,HyperPdfLibrary.IO.StreamPdfByteSource+<ReadInputAsync>d__57]",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource+<ReadInputAsync>d__57.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[HyperPdfLibrary.Document.PdfDocument,HyperPdfLibrary.Document.PdfDocumentReader\u002B\u003COpenWithAsync\u003Ed__4]",
-    "frame": "HyperPdfLibrary.Document.PdfDocumentReader\u002B\u003COpenWithAsync\u003Ed__4.MoveNext()",
+    "type": "AsyncStateMachineBox`1[HyperPdfLibrary.Document.PdfDocument,HyperPdfLibrary.Document.PdfDocumentReader+<OpenWithAsync>d__4]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentReader+<OpenWithAsync>d__4.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[System.Threading.Tasks.VoidTaskResult,HyperPdfLibrary.IO.StreamPdfByteSource\u002B\u003CLoadRunAsync\u003Ed__55]",
-    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource\u002B\u003CLoadRunAsync\u003Ed__55.MoveNext()",
+    "type": "AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,HyperPdfLibrary.IO.StreamPdfByteSource+<LoadRunAsync>d__55]",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource+<LoadRunAsync>d__55.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
     "type": "ThreadPoolValueTaskSource",
-    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource\u002B\u003CReadInputAsync\u003Ed__57.MoveNext()",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource+<ReadInputAsync>d__57.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[HyperPdfLibrary.Document.PdfDocument,HyperPdfLibrary.Document.PdfDocumentReader\u002B\u003COpenWithAsync\u003Ed__7]",
-    "frame": "HyperPdfLibrary.Document.PdfDocumentReader\u002B\u003COpenWithAsync\u003Ed__7.MoveNext()",
+    "type": "AsyncStateMachineBox`1[HyperPdfLibrary.Document.PdfDocument,HyperPdfLibrary.Document.PdfDocumentReader+<OpenWithAsync>d__7]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentReader+<OpenWithAsync>d__7.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[System.Threading.Tasks.VoidTaskResult,HyperPdfLibrary.IO.StreamPdfByteSource\u002B\u003CPrefetchAsync\u003Ed__47]",
-    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource\u002B\u003CPrefetchAsync\u003Ed__47.MoveNext()",
+    "type": "AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,HyperPdfLibrary.IO.StreamPdfByteSource+<PrefetchAsync>d__47]",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource+<PrefetchAsync>d__47.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfOpenContext",
-    "frame": "HyperPdfLibrary.Document.PdfDocumentReader\u002B\u003COpenWithAsync\u003Ed__7.MoveNext()",
-    "reason": "Per-document cancellation, diagnostics and decoder ownership retained by in-flight reads. Recycling a context before those readers finish could expose another document\u0027s state; temporary parser and prefetch buffers are reused independently."
+    "frame": "HyperPdfLibrary.Document.PdfDocumentReader+<OpenWithAsync>d__7.MoveNext()",
+    "reason": "Per-document cancellation, diagnostics and decoder ownership retained by in-flight reads. Recycling a context before those readers finish could expose another document's state; temporary parser and prefetch buffers are reused independently."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfArray",
-    "frame": "HyperPdfLibrary.Syntax.PdfParser.ParseArray(int32,value class HyperPdfLibrary.Syntax.ParseScratch\u0026)",
-    "reason": "Retained parsed array identity and item storage. The parser\u0027s temporary overflow arrays return to the pool, while values returned to callers keep independent backing arrays. Early recycling was rejected because retained spans and values could observe reused document data."
+    "frame": "HyperPdfLibrary.Syntax.PdfParser.ParseArray(int32,value class HyperPdfLibrary.Syntax.ParseScratch&)",
+    "reason": "Retained parsed array identity and item storage. The parser's temporary overflow arrays return to the pool, while values returned to callers keep independent backing arrays. Early recycling was rejected because retained spans and values could observe reused document data."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[HyperPdfLibrary.IO.MemoryPdfByteSource,HyperPdfLibrary.IO.MemoryPdfByteSource\u002B\u003CReadFileAsync\u003Ed__14]",
-    "frame": "HyperPdfLibrary.IO.MemoryPdfByteSource\u002B\u003CReadFileAsync\u003Ed__14.MoveNext()",
+    "type": "AsyncStateMachineBox`1[HyperPdfLibrary.IO.MemoryPdfByteSource,HyperPdfLibrary.IO.MemoryPdfByteSource+<ReadFileAsync>d__14]",
+    "frame": "HyperPdfLibrary.IO.MemoryPdfByteSource+<ReadFileAsync>d__14.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[HyperPdfLibrary.IO.PdfByteSource,HyperPdfLibrary.IO.PdfByteSources\u002B\u003COpenAsync\u003Ed__1]",
-    "frame": "HyperPdfLibrary.IO.PdfByteSources\u002B\u003COpenAsync\u003Ed__1.MoveNext()",
+    "type": "AsyncStateMachineBox`1[HyperPdfLibrary.IO.PdfByteSource,HyperPdfLibrary.IO.PdfByteSources+<OpenAsync>d__1]",
+    "frame": "HyperPdfLibrary.IO.PdfByteSources+<OpenAsync>d__1.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
     "type": "Microsoft.Win32.SafeHandles.SafeFileHandle",
-    "frame": "HyperPdfLibrary.IO.MemoryPdfByteSource\u002B\u003CReadFileAsync\u003Ed__14.MoveNext()",
-    "reason": "Managed ownership of the current file handle. Each open must observe that file\u0027s identity and dispose independently; reusing a previous path\u0027s handle could read an older replacement. The large file byte buffer is pooled separately."
+    "frame": "HyperPdfLibrary.IO.MemoryPdfByteSource+<ReadFileAsync>d__14.MoveNext()",
+    "reason": "Managed ownership of the current file handle. Each open must observe that file's identity and dispose independently; reusing a previous path's handle could read an older replacement. The large file byte buffer is pooled separately."
   },
   {
     "type": "HyperPdfLibrary.IO.MemoryPdfByteSource",
-    "frame": "HyperPdfLibrary.IO.MemoryPdfByteSource\u002B\u003CReadFileAsync\u003Ed__14.MoveNext()",
+    "frame": "HyperPdfLibrary.IO.MemoryPdfByteSource+<ReadFileAsync>d__14.MoveNext()",
     "reason": "Per-open memory-source identity tracks disposal and outstanding byte leases. File bytes are pooled and returned after the final lease; the source object cannot be reset while callers can retain it."
   },
   {
     "type": "ThreadPoolValueTaskSource",
-    "frame": "HyperPdfLibrary.IO.MemoryPdfByteSource\u002B\u003CReadFileAsync\u003Ed__14.MoveNext()",
+    "frame": "HyperPdfLibrary.IO.MemoryPdfByteSource+<ReadFileAsync>d__14.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
-    "type": "StateMachineBox\u00601[System.Int32,System.IO.Stream\u002B\u003CReadAtLeastAsyncCore\u003Ed__49]",
-    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource\u002B\u003CReadInputAsync\u003Ed__57.MoveNext()",
+    "type": "StateMachineBox`1[System.Int32,System.IO.Stream+<ReadAtLeastAsyncCore>d__49]",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource+<ReadInputAsync>d__57.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfValue[]",
-    "frame": "HyperPdfLibrary.Syntax.PdfParser.ParseArray(int32,value class HyperPdfLibrary.Syntax.ParseScratch\u0026)",
-    "reason": "Retained parsed array identity and item storage. The parser\u0027s temporary overflow arrays return to the pool, while values returned to callers keep independent backing arrays. Early recycling was rejected because retained spans and values could observe reused document data."
+    "frame": "HyperPdfLibrary.Syntax.PdfParser.ParseArray(int32,value class HyperPdfLibrary.Syntax.ParseScratch&)",
+    "reason": "Retained parsed array identity and item storage. The parser's temporary overflow arrays return to the pool, while values returned to callers keep independent backing arrays. Early recycling was rejected because retained spans and values could observe reused document data."
   },
   {
     "type": "System.Threading.Lock",
@@ -775,29 +775,29 @@
     "reason": "The immutable sorted object-offset index is cached for later prefetch walks. Sorting scratch is rented and returned; this frame can also sample a scratch-pool miss. The published index remains owned by the document so concurrent readers cannot observe recycled data."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[System.Int64,HyperPdfLibrary.Document.PdfPrefetcher\u002B\u003CLoadAsync\u003Ed__10]",
-    "frame": "HyperPdfLibrary.Document.PdfPrefetcher\u002B\u003CLoadAsync\u003Ed__10.MoveNext()",
+    "type": "AsyncStateMachineBox`1[System.Int64,HyperPdfLibrary.Document.PdfPrefetcher+<LoadAsync>d__10]",
+    "frame": "HyperPdfLibrary.Document.PdfPrefetcher+<LoadAsync>d__10.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[System.Threading.Tasks.VoidTaskResult,HyperPdfLibrary.Document.PdfPrefetcher\u002B\u003CWalkAsync\u003Ed__7]",
-    "frame": "HyperPdfLibrary.Document.PdfPrefetcher\u002B\u003CWalkAsync\u003Ed__7.MoveNext()",
+    "type": "AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,HyperPdfLibrary.Document.PdfPrefetcher+<WalkAsync>d__7]",
+    "frame": "HyperPdfLibrary.Document.PdfPrefetcher+<WalkAsync>d__7.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfValue[]",
     "frame": "HyperPdfLibrary.Syntax.ParseScratch.GrowOverflow()",
-    "reason": "An ArrayPool miss or larger scratch requirement while parsing nested values. The overflow arrays are returned in PdfParser\u0027s finally block. A concurrent or larger parse needs its own temporary storage when no suitable idle array is available."
+    "reason": "An ArrayPool miss or larger scratch requirement while parsing nested values. The overflow arrays are returned in PdfParser's finally block. A concurrent or larger parse needs its own temporary storage when no suitable idle array is available."
   },
   {
-    "type": "AsyncStateMachineBox\u00601[System.Threading.Tasks.VoidTaskResult,HyperPdfLibrary.Document.PdfPrefetcher\u002B\u003CPrefetchEndsAsync\u003Ed__9]",
-    "frame": "HyperPdfLibrary.Document.PdfPrefetcher\u002B\u003CPrefetchEndsAsync\u003Ed__9.MoveNext()",
+    "type": "AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,HyperPdfLibrary.Document.PdfPrefetcher+<PrefetchEndsAsync>d__9]",
+    "frame": "HyperPdfLibrary.Document.PdfPrefetcher+<PrefetchEndsAsync>d__9.MoveNext()",
     "reason": "Grouped open/prefetch traces attribute this state to asynchronous I/O suspension. It retains the operation and cancellation state until the await completes. Cache-hit paths return completed ValueTasks; replacing suspended I/O with blocking waits would violate the async contract."
   },
   {
     "type": "System.Int32[]",
     "frame": "HyperPdfLibrary.Syntax.ParseScratch.GrowOverflow()",
-    "reason": "An ArrayPool miss or larger scratch requirement while parsing nested values. The overflow arrays are returned in PdfParser\u0027s finally block. A concurrent or larger parse needs its own temporary storage when no suitable idle array is available."
+    "reason": "An ArrayPool miss or larger scratch requirement while parsing nested values. The overflow arrays are returned in PdfParser's finally block. A concurrent or larger parse needs its own temporary storage when no suitable idle array is available."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfNameTable",
@@ -1210,7 +1210,7 @@
     "reason": "A caller-provided stream has one Position, so each live source serializes its asynchronous reads. Its semaphore remains bound to that source's disposal state; host pooling reuses cache tables, not source synchronization."
   },
   {
-    "type": "System.Runtime.CompilerServices.StrongBox\u00601[System.Boolean]",
+    "type": "System.Runtime.CompilerServices.StrongBox`1[System.Boolean]",
     "frame": "HyperPdfLibrary.IO.StreamPdfByteSource..ctor(class System.IO.Stream,int64,bool,class HyperPdfLibrary.Filters.ScratchPools)",
     "reason": "The source's SemaphoreSlim owns its disposal-state box. It stays with that source while pending reads finish, even when the host reuses cleared cache tables for another source."
   },
@@ -1221,7 +1221,7 @@
   },
   {
     "type": "HyperPdfLibrary.IO.StreamPageCache",
-    "frame": "HyperPdfLibrary.IO.StreamPageCache.Rent(int32,class HyperPdfLibrary.Filters.ScratchSlots\u00601<class HyperPdfLibrary.IO.StreamPageCache>)",
+    "frame": "HyperPdfLibrary.IO.StreamPageCache.Rent(int32,class HyperPdfLibrary.Filters.ScratchSlots`1<class HyperPdfLibrary.IO.StreamPageCache>)",
     "reason": "The live source owns its cache-table bundle. A registered host reuses a cleared bundle with matching capacity; without a host pool the bundle remains source-owned and becomes collectible after that source is released."
   },
   {
@@ -1240,7 +1240,7 @@
     "reason": "These allocations hold cached page lengths and the slot dictionary's buckets. Standalone sources own this metadata; a registered host retains cleared tables for matching future cache capacities."
   },
   {
-    "type": "System.Collections.Generic.Dictionary\u00602[System.Int64,System.Int32]",
+    "type": "System.Collections.Generic.Dictionary`2[System.Int64,System.Int32]",
     "frame": "HyperPdfLibrary.IO.StreamPageCache..ctor(int32)",
     "reason": "The live cache maps page numbers to slots as pages are loaded and evicted. A registered host reuses the cleared map; standalone sources keep independent maps for their own lifetimes."
   },
@@ -1355,12 +1355,12 @@
     "reason": "The concurrency workload starts two independent cold renders, opens a shared start gate, and observes both results before releasing their renderer. These task/gate/continuation identities belong to that measured concurrency orchestration. Caller pixel buffers and queue callbacks are reused by the fixture."
   },
   {
-    "type": "System.Threading.Tasks.Task\u00601[System.Threading.Tasks.Task\u00601[System.Boolean]]",
+    "type": "System.Threading.Tasks.Task`1[System.Threading.Tasks.Task`1[System.Boolean]]",
     "frame": "HyperPdf.Benchmarks.HyperPdfImageSharingBenchmarks.RenderBoth(class HyperPdfLibrary.Rendering.PdfPageRenderer)",
     "reason": "The concurrency workload starts two independent cold renders, opens a shared start gate, and observes both results before releasing their renderer. These task/gate/continuation identities belong to that measured concurrency orchestration. Caller pixel buffers and queue callbacks are reused by the fixture."
   },
   {
-    "type": "System.Threading.Tasks.UnwrapPromise\u00601[System.Boolean]",
+    "type": "System.Threading.Tasks.UnwrapPromise`1[System.Boolean]",
     "frame": "HyperPdf.Benchmarks.HyperPdfImageSharingBenchmarks.RenderBoth(class HyperPdfLibrary.Rendering.PdfPageRenderer)",
     "reason": "The concurrency workload starts two independent cold renders, opens a shared start gate, and observes both results before releasing their renderer. These task/gate/continuation identities belong to that measured concurrency orchestration. Caller pixel buffers and queue callbacks are reused by the fixture."
   },
@@ -1370,7 +1370,7 @@
     "reason": "The concurrency workload starts two independent cold renders, opens a shared start gate, and observes both results before releasing their renderer. These task/gate/continuation identities belong to that measured concurrency orchestration. Caller pixel buffers and queue callbacks are reused by the fixture."
   },
   {
-    "type": "RuntimeAsyncTask\u00601[System.Boolean]",
+    "type": "RuntimeAsyncTask`1[System.Boolean]",
     "frame": "HyperPdf.Benchmarks.HyperPdfImageSharingBenchmarks.RenderFirst()",
     "reason": "The concurrency workload starts two independent cold renders, opens a shared start gate, and observes both results before releasing their renderer. These task/gate/continuation identities belong to that measured concurrency orchestration. Caller pixel buffers and queue callbacks are reused by the fixture."
   },
@@ -1380,7 +1380,7 @@
     "reason": "The concurrency workload starts two independent cold renders, opens a shared start gate, and observes both results before releasing their renderer. These task/gate/continuation identities belong to that measured concurrency orchestration. Caller pixel buffers and queue callbacks are reused by the fixture."
   },
   {
-    "type": "RuntimeAsyncTask\u00601[System.Boolean]",
+    "type": "RuntimeAsyncTask`1[System.Boolean]",
     "frame": "HyperPdf.Benchmarks.HyperPdfImageSharingBenchmarks.RenderSecond()",
     "reason": "The concurrency workload starts two independent cold renders, opens a shared start gate, and observes both results before releasing their renderer. These task/gate/continuation identities belong to that measured concurrency orchestration. Caller pixel buffers and queue callbacks are reused by the fixture."
   },
@@ -1416,22 +1416,22 @@
   },
   {
     "type": "Avalonia.Media.TextFormatting.ShapedBuffer",
-    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(value class System.ReadOnlyMemory\u00601\u003Cwchar\u003E,value class Avalonia.Media.TextFormatting.TextShaperOptions)",
+    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(value class System.ReadOnlyMemory`1<wchar>,value class Avalonia.Media.TextFormatting.TextShaperOptions)",
     "reason": "Avalonia requires an independently disposable ShapedBuffer result for each text layout. Its pooled glyph-array owner and reference-count wrappers keep that result alive independently of other layouts; the registered shaper reuses its native working buffer, language and feature conversion array."
   },
   {
-    "type": "PooledArray\u00601[Avalonia.Media.TextFormatting.GlyphInfo]",
-    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(value class System.ReadOnlyMemory\u00601\u003Cwchar\u003E,value class Avalonia.Media.TextFormatting.TextShaperOptions)",
+    "type": "PooledArray`1[Avalonia.Media.TextFormatting.GlyphInfo]",
+    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(value class System.ReadOnlyMemory`1<wchar>,value class Avalonia.Media.TextFormatting.TextShaperOptions)",
     "reason": "Avalonia requires an independently disposable ShapedBuffer result for each text layout. Its pooled glyph-array owner and reference-count wrappers keep that result alive independently of other layouts; the registered shaper reuses its native working buffer, language and feature conversion array."
   },
   {
     "type": "RefCounter",
-    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(value class System.ReadOnlyMemory\u00601\u003Cwchar\u003E,value class Avalonia.Media.TextFormatting.TextShaperOptions)",
+    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(value class System.ReadOnlyMemory`1<wchar>,value class Avalonia.Media.TextFormatting.TextShaperOptions)",
     "reason": "Avalonia requires an independently disposable ShapedBuffer result for each text layout. Its pooled glyph-array owner and reference-count wrappers keep that result alive independently of other layouts; the registered shaper reuses its native working buffer, language and feature conversion array."
   },
   {
-    "type": "Ref\u00601[Avalonia.Media.TextFormatting.ShapedBuffer\u002BPooledArray\u00601[Avalonia.Media.TextFormatting.GlyphInfo]]",
-    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(value class System.ReadOnlyMemory\u00601\u003Cwchar\u003E,value class Avalonia.Media.TextFormatting.TextShaperOptions)",
+    "type": "Ref`1[Avalonia.Media.TextFormatting.ShapedBuffer+PooledArray`1[Avalonia.Media.TextFormatting.GlyphInfo]]",
+    "frame": "HyperPdf.Skia.Fonts.HarfBuzzTextShaper.ShapeText(value class System.ReadOnlyMemory`1<wchar>,value class Avalonia.Media.TextFormatting.TextShaperOptions)",
     "reason": "Avalonia requires an independently disposable ShapedBuffer result for each text layout. Its pooled glyph-array owner and reference-count wrappers keep that result alive independently of other layouts; the registered shaper reuses its native working buffer, language and feature conversion array."
   },
   {
@@ -1455,7 +1455,7 @@
     "reason": "Renderers with equal immutable image/colour/quality options share this document-owned cache entry and lookup storage. Its user count prevents one renderer from releasing resources another renderer uses; cache contents and native image leases remain separate for unequal options."
   },
   {
-    "type": "System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.PdfRenderCacheKey,HyperPdfLibrary.Rendering.PdfRenderCacheEntry]",
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.PdfRenderCacheKey,HyperPdfLibrary.Rendering.PdfRenderCacheEntry]",
     "frame": "HyperPdfLibrary.Document.PdfDocumentRendering.GetRendererCacheCore(class HyperPdfLibrary.Document.PdfDocument,class HyperPdfLibrary.Rendering.PdfRenderOptions,class HyperPdfLibrary.Graphics.Colors.OutputIntentColors,bool)",
     "reason": "Renderers with equal immutable image/colour/quality options share this document-owned cache entry and lookup storage. Its user count prevents one renderer from releasing resources another renderer uses; cache contents and native image leases remain separate for unequal options."
   },
@@ -1465,12 +1465,12 @@
     "reason": "Renderers with equal immutable image/colour/quality options share this document-owned cache entry and lookup storage. Its user count prevents one renderer from releasing resources another renderer uses; cache contents and native image leases remain separate for unequal options."
   },
   {
-    "type": "System.WeakReference\u00601[HyperPdfLibrary.Rendering.PdfPageRenderer]",
+    "type": "System.WeakReference`1[HyperPdfLibrary.Rendering.PdfPageRenderer]",
     "frame": "HyperPdfLibrary.Document.PdfDocumentRendering.RegisterRenderer(class HyperPdfLibrary.Document.PdfDocument,class HyperPdfLibrary.Rendering.PdfPageRenderer)",
     "reason": "Document disposal must discover live renderers without keeping abandoned renderers alive. The per-renderer weak reference and document-owned index provide that lifetime tracking; the existing collection is detached directly at disposal instead of copied."
   },
   {
-    "type": "System.WeakReference\u00601[HyperPdfLibrary.Rendering.PdfPageRenderer][]",
+    "type": "System.WeakReference`1[HyperPdfLibrary.Rendering.PdfPageRenderer][]",
     "frame": "HyperPdfLibrary.Document.PdfDocumentRendering.RegisterRenderer(class HyperPdfLibrary.Document.PdfDocument,class HyperPdfLibrary.Rendering.PdfPageRenderer)",
     "reason": "Document disposal must discover live renderers without keeping abandoned renderers alive. The per-renderer weak reference and document-owned index provide that lifetime tracking; the existing collection is detached directly at disposal instead of copied."
   },
@@ -1491,17 +1491,17 @@
   },
   {
     "type": "HyperPdfLibrary.Layers.OptionalContentSet",
-    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Finish(value class HyperPdfLibrary.Layers.PdfLayer[],int32[],value class LayerBits\u0026,int32)",
+    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Finish(value class HyperPdfLibrary.Layers.PdfLayer[],int32[],value class LayerBits&,int32)",
     "reason": "Layer visibility, configuration and order data are document-owned snapshots. Published arrays may remain in callers or concurrent readers after a configuration changes, so the reader copies the live result while retaining reusable numeric/node scratch storage for subsequent reads. Layer nodes are value records and unused zoom buffers are skipped."
   },
   {
     "type": "HyperPdfLibrary.Layers.ZoomClassRange[]",
-    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Finish(value class HyperPdfLibrary.Layers.PdfLayer[],int32[],value class LayerBits\u0026,int32)",
+    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Finish(value class HyperPdfLibrary.Layers.PdfLayer[],int32[],value class LayerBits&,int32)",
     "reason": "Layer visibility, configuration and order data are document-owned snapshots. Published arrays may remain in callers or concurrent readers after a configuration changes, so the reader copies the live result while retaining reusable numeric/node scratch storage for subsequent reads. Layer nodes are value records and unused zoom buffers are skipped."
   },
   {
     "type": "System.Int32[]",
-    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Finish(value class HyperPdfLibrary.Layers.PdfLayer[],int32[],value class LayerBits\u0026,int32)",
+    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Finish(value class HyperPdfLibrary.Layers.PdfLayer[],int32[],value class LayerBits&,int32)",
     "reason": "Layer visibility, configuration and order data are document-owned snapshots. Published arrays may remain in callers or concurrent readers after a configuration changes, so the reader copies the live result while retaining reusable numeric/node scratch storage for subsequent reads. Layer nodes are value records and unused zoom buffers are skipped."
   },
   {
@@ -1521,27 +1521,27 @@
   },
   {
     "type": "HyperPdfLibrary.Layers.ZoomLimit[]",
-    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]\u0026,int32)",
+    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]&,int32)",
     "reason": "Layer visibility, configuration and order data are document-owned snapshots. Published arrays may remain in callers or concurrent readers after a configuration changes, so the reader copies the live result while retaining reusable numeric/node scratch storage for subsequent reads. Layer nodes are value records and unused zoom buffers are skipped."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfObjectId[]",
-    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]\u0026,int32)",
+    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]&,int32)",
     "reason": "Layer visibility, configuration and order data are document-owned snapshots. Published arrays may remain in callers or concurrent readers after a configuration changes, so the reader copies the live result while retaining reusable numeric/node scratch storage for subsequent reads. Layer nodes are value records and unused zoom buffers are skipped."
   },
   {
     "type": "System.Double[]",
-    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]\u0026,int32)",
+    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]&,int32)",
     "reason": "Layer visibility, configuration and order data are document-owned snapshots. Published arrays may remain in callers or concurrent readers after a configuration changes, so the reader copies the live result while retaining reusable numeric/node scratch storage for subsequent reads. Layer nodes are value records and unused zoom buffers are skipped."
   },
   {
     "type": "System.Int32[]",
-    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]\u0026,int32)",
+    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]&,int32)",
     "reason": "Layer visibility, configuration and order data are document-owned snapshots. Published arrays may remain in callers or concurrent readers after a configuration changes, so the reader copies the live result while retaining reusable numeric/node scratch storage for subsequent reads. Layer nodes are value records and unused zoom buffers are skipped."
   },
   {
     "type": "System.Int64[]",
-    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]\u0026,int32)",
+    "frame": "HyperPdfLibrary.Layers.OptionalContentReader.Reserve(!!0[]&,int32)",
     "reason": "Layer visibility, configuration and order data are document-owned snapshots. Published arrays may remain in callers or concurrent readers after a configuration changes, so the reader copies the live result while retaining reusable numeric/node scratch storage for subsequent reads. Layer nodes are value records and unused zoom buffers are skipped."
   },
   {
@@ -1551,21 +1551,21 @@
   },
   {
     "type": "System.Double[]",
-    "frame": "HyperPdfLibrary.Layers.OptionalContentZoom.CollectLimits(value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Layers.ZoomLimit\u003E,value class System.Span\u00601\u003Cfloat64\u003E)",
+    "frame": "HyperPdfLibrary.Layers.OptionalContentZoom.CollectLimits(value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Layers.ZoomLimit>,value class System.Span`1<float64>)",
     "reason": "Layer visibility, configuration and order data are document-owned snapshots. Published arrays may remain in callers or concurrent readers after a configuration changes, so the reader copies the live result while retaining reusable numeric/node scratch storage for subsequent reads. Layer nodes are value records and unused zoom buffers are skipped."
   },
   {
     "type": "HyperPdfLibrary.Layers.OptionalContentReader",
     "frame": "HyperPdfLibrary.Layers.PdfOptionalContent..ctor(class HyperPdfLibrary.Objects.PdfObjectStore)",
-    "reason": "The document\u0027s optional-content owner keeps its configuration reader and synchronization gate. The gate makes radio-group changes and visibility snapshots consistent across render threads; working arrays are reused for later configurations of that document."
+    "reason": "The document's optional-content owner keeps its configuration reader and synchronization gate. The gate makes radio-group changes and visibility snapshots consistent across render threads; working arrays are reused for later configurations of that document."
   },
   {
     "type": "System.Threading.Lock",
     "frame": "HyperPdfLibrary.Layers.PdfOptionalContent..ctor(class HyperPdfLibrary.Objects.PdfObjectStore)",
-    "reason": "The document\u0027s optional-content owner keeps its configuration reader and synchronization gate. The gate makes radio-group changes and visibility snapshots consistent across render threads; working arrays are reused for later configurations of that document."
+    "reason": "The document's optional-content owner keeps its configuration reader and synchronization gate. The gate makes radio-group changes and visibility snapshots consistent across render threads; working arrays are reused for later configurations of that document."
   },
   {
-    "type": "\u003C\u003Ec__DisplayClass20_0",
+    "type": "<>c__DisplayClass20_0",
     "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateImage(class HyperPdfLibrary.Graphics.Images.PdfImageData)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
@@ -1601,42 +1601,42 @@
   },
   {
     "type": "HyperPdfLibrary.Rendering.SkiaRenderShader",
-    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateLinearGradient(value class HyperPdfLibrary.Drawing.PdfPoint,value class HyperPdfLibrary.Drawing.PdfPoint,value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Drawing.PdfColor\u003E,value class System.ReadOnlySpan\u00601\u003Cfloat32\u003E,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
+    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateLinearGradient(value class HyperPdfLibrary.Drawing.PdfPoint,value class HyperPdfLibrary.Drawing.PdfPoint,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Drawing.PdfColor>,value class System.ReadOnlySpan`1<float32>,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
     "type": "SkiaSharp.SKShader",
-    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateLinearGradient(value class HyperPdfLibrary.Drawing.PdfPoint,value class HyperPdfLibrary.Drawing.PdfPoint,value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Drawing.PdfColor\u003E,value class System.ReadOnlySpan\u00601\u003Cfloat32\u003E,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
+    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateLinearGradient(value class HyperPdfLibrary.Drawing.PdfPoint,value class HyperPdfLibrary.Drawing.PdfPoint,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Drawing.PdfColor>,value class System.ReadOnlySpan`1<float32>,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
     "type": "System.Object",
-    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateLinearGradient(value class HyperPdfLibrary.Drawing.PdfPoint,value class HyperPdfLibrary.Drawing.PdfPoint,value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Drawing.PdfColor\u003E,value class System.ReadOnlySpan\u00601\u003Cfloat32\u003E,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
+    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateLinearGradient(value class HyperPdfLibrary.Drawing.PdfPoint,value class HyperPdfLibrary.Drawing.PdfPoint,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Drawing.PdfColor>,value class System.ReadOnlySpan`1<float32>,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
     "type": "System.WeakReference",
-    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateLinearGradient(value class HyperPdfLibrary.Drawing.PdfPoint,value class HyperPdfLibrary.Drawing.PdfPoint,value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Drawing.PdfColor\u003E,value class System.ReadOnlySpan\u00601\u003Cfloat32\u003E,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
+    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateLinearGradient(value class HyperPdfLibrary.Drawing.PdfPoint,value class HyperPdfLibrary.Drawing.PdfPoint,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Drawing.PdfColor>,value class System.ReadOnlySpan`1<float32>,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
     "type": "HyperPdfLibrary.Rendering.SkiaRenderShader",
-    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateTwoPointConicalGradient(value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Drawing.PdfColor\u003E,value class System.ReadOnlySpan\u00601\u003Cfloat32\u003E,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
+    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateTwoPointConicalGradient(value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Drawing.PdfColor>,value class System.ReadOnlySpan`1<float32>,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
     "type": "SkiaSharp.SKShader",
-    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateTwoPointConicalGradient(value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Drawing.PdfColor\u003E,value class System.ReadOnlySpan\u00601\u003Cfloat32\u003E,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
+    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateTwoPointConicalGradient(value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Drawing.PdfColor>,value class System.ReadOnlySpan`1<float32>,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
     "type": "System.Object",
-    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateTwoPointConicalGradient(value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Drawing.PdfColor\u003E,value class System.ReadOnlySpan\u00601\u003Cfloat32\u003E,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
+    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateTwoPointConicalGradient(value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Drawing.PdfColor>,value class System.ReadOnlySpan`1<float32>,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
     "type": "System.WeakReference",
-    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateTwoPointConicalGradient(value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class System.ReadOnlySpan\u00601\u003Cvalue class HyperPdfLibrary.Drawing.PdfColor\u003E,value class System.ReadOnlySpan\u00601\u003Cfloat32\u003E,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
+    "frame": "HyperPdfLibrary.Render.Skia.SkiaRenderBackend.CreateTwoPointConicalGradient(value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class HyperPdfLibrary.Drawing.PdfPoint,float32,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Drawing.PdfColor>,value class System.ReadOnlySpan`1<float32>,value class HyperPdfLibrary.Drawing.PdfShaderTileMode)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
@@ -1655,94 +1655,94 @@
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
-    "type": "System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageDecode]",
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageDecode]",
     "frame": "HyperPdfLibrary.Rendering.ImageCache..ctor()",
-    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document\u0027s renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
+    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document's renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
   },
   {
-    "type": "System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageEntry]",
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageEntry]",
     "frame": "HyperPdfLibrary.Rendering.ImageCache..ctor()",
-    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document\u0027s renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
+    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document's renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
   },
   {
     "type": "System.Threading.Lock",
     "frame": "HyperPdfLibrary.Rendering.ImageCache..ctor()",
-    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document\u0027s renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
+    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document's renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
   },
   {
     "type": "Entry[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageDecode][]",
-    "frame": "HyperPdfLibrary.Rendering.ImageCache.Begin(value class HyperPdfLibrary.Rendering.ImageKey,class HyperPdfLibrary.Rendering.ImageEntry\u0026,bool\u0026)",
-    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document\u0027s renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
+    "frame": "HyperPdfLibrary.Rendering.ImageCache.Begin(value class HyperPdfLibrary.Rendering.ImageKey,class HyperPdfLibrary.Rendering.ImageEntry&,bool&)",
+    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document's renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
   },
   {
     "type": "HyperPdfLibrary.Rendering.ImageDecode",
-    "frame": "HyperPdfLibrary.Rendering.ImageCache.Begin(value class HyperPdfLibrary.Rendering.ImageKey,class HyperPdfLibrary.Rendering.ImageEntry\u0026,bool\u0026)",
+    "frame": "HyperPdfLibrary.Rendering.ImageCache.Begin(value class HyperPdfLibrary.Rendering.ImageKey,class HyperPdfLibrary.Rendering.ImageEntry&,bool&)",
     "reason": "One operation identity coalesces concurrent requests for an image and lets async/synchronous waiters stop independently. Completion remains observable until every waiter leaves; the sync path uses atomic completion state and no separate lock object."
   },
   {
     "type": "System.Int32[]",
-    "frame": "HyperPdfLibrary.Rendering.ImageCache.Begin(value class HyperPdfLibrary.Rendering.ImageKey,class HyperPdfLibrary.Rendering.ImageEntry\u0026,bool\u0026)",
-    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document\u0027s renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
+    "frame": "HyperPdfLibrary.Rendering.ImageCache.Begin(value class HyperPdfLibrary.Rendering.ImageKey,class HyperPdfLibrary.Rendering.ImageEntry&,bool&)",
+    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document's renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
   },
   {
     "type": "Entry[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageEntry][]",
     "frame": "HyperPdfLibrary.Rendering.ImageCache.Publish(value class HyperPdfLibrary.Rendering.ImageKey,class HyperPdfLibrary.Rendering.ImageEntry)",
-    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document\u0027s renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
+    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document's renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
   },
   {
     "type": "System.Int32[]",
     "frame": "HyperPdfLibrary.Rendering.ImageCache.Publish(value class HyperPdfLibrary.Rendering.ImageKey,class HyperPdfLibrary.Rendering.ImageEntry)",
-    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document\u0027s renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
+    "reason": "The image cache retains its synchronized image/in-flight lookup indices and backing storage while a document's renderers and image leases use it. The LRU links live in image entries; failed-image storage is created only after an actual failed decode, and populated indices are reused on cache hits."
   },
   {
-    "type": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell]",
-    "frame": "HyperPdfLibrary.Rendering.LazyCaches.Get(class HyperPdfLibrary.Rendering.ObjectCache\u00602\u003C!!0,!!1\u003E\u0026)",
+    "type": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell]",
+    "frame": "HyperPdfLibrary.Rendering.LazyCaches.Get(class HyperPdfLibrary.Rendering.ObjectCache`2<!!0,!!1>&)",
     "reason": "This resource-specific document cache is created only after the corresponding PDF feature is used. It retains parsed functions, colour spaces, patterns or masks for reuse across recording operations; unused feature caches stay absent."
   },
   {
-    "type": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.PatternPaintKey,HyperPdfLibrary.Graphics.PdfPatternPaint]",
-    "frame": "HyperPdfLibrary.Rendering.LazyCaches.Get(class HyperPdfLibrary.Rendering.ObjectCache\u00602\u003C!!0,!!1\u003E\u0026)",
+    "type": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.PatternPaintKey,HyperPdfLibrary.Graphics.PdfPatternPaint]",
+    "frame": "HyperPdfLibrary.Rendering.LazyCaches.Get(class HyperPdfLibrary.Rendering.ObjectCache`2<!!0,!!1>&)",
     "reason": "This resource-specific document cache is created only after the corresponding PDF feature is used. It retains parsed functions, colour spaces, patterns or masks for reuse across recording operations; unused feature caches stay absent."
   },
   {
-    "type": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.ResourcedKey\u00601[HyperPdfLibrary.Objects.PdfDictionary],HyperPdfLibrary.Graphics.Shadings.PdfShading]",
-    "frame": "HyperPdfLibrary.Rendering.LazyCaches.Get(class HyperPdfLibrary.Rendering.ObjectCache\u00602\u003C!!0,!!1\u003E\u0026)",
+    "type": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.ResourcedKey`1[HyperPdfLibrary.Objects.PdfDictionary],HyperPdfLibrary.Graphics.Shadings.PdfShading]",
+    "frame": "HyperPdfLibrary.Rendering.LazyCaches.Get(class HyperPdfLibrary.Rendering.ObjectCache`2<!!0,!!1>&)",
     "reason": "This resource-specific document cache is created only after the corresponding PDF feature is used. It retains parsed functions, colour spaces, patterns or masks for reuse across recording operations; unused feature caches stay absent."
   },
   {
-    "type": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.SoftMaskKey,HyperPdfLibrary.Graphics.PdfSoftMask]",
-    "frame": "HyperPdfLibrary.Rendering.LazyCaches.Get(class HyperPdfLibrary.Rendering.ObjectCache\u00602\u003C!!0,!!1\u003E\u0026)",
+    "type": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.SoftMaskKey,HyperPdfLibrary.Graphics.PdfSoftMask]",
+    "frame": "HyperPdfLibrary.Rendering.LazyCaches.Get(class HyperPdfLibrary.Rendering.ObjectCache`2<!!0,!!1>&)",
     "reason": "This resource-specific document cache is created only after the corresponding PDF feature is used. It retains parsed functions, colour spaces, patterns or masks for reuse across recording operations; unused feature caches stay absent."
   },
   {
     "type": "Entry[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell][]",
-    "frame": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.PatternKey,System.__Canon].Store(!0,!1)",
-    "reason": "The document\u0027s resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.PatternKey,System.__Canon].Store(!0,!1)",
+    "reason": "The document's resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
   },
   {
-    "type": "System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell]",
-    "frame": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.PatternKey,System.__Canon].Store(!0,!1)",
-    "reason": "The document\u0027s resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.PatternKey,HyperPdfLibrary.Rendering.PatternCell]",
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.PatternKey,System.__Canon].Store(!0,!1)",
+    "reason": "The document's resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
   },
   {
     "type": "Entry[HyperPdfLibrary.Rendering.PatternPaintKey,HyperPdfLibrary.Graphics.PdfPatternPaint][]",
-    "frame": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.PatternPaintKey,System.__Canon].Store(!0,!1)",
-    "reason": "The document\u0027s resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.PatternPaintKey,System.__Canon].Store(!0,!1)",
+    "reason": "The document's resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
   },
   {
-    "type": "System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.PatternPaintKey,HyperPdfLibrary.Graphics.PdfPatternPaint]",
-    "frame": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.PatternPaintKey,System.__Canon].Store(!0,!1)",
-    "reason": "The document\u0027s resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.PatternPaintKey,HyperPdfLibrary.Graphics.PdfPatternPaint]",
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.PatternPaintKey,System.__Canon].Store(!0,!1)",
+    "reason": "The document's resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
   },
   {
-    "type": "Entry[HyperPdfLibrary.Rendering.ResourcedKey\u00601[HyperPdfLibrary.Objects.PdfDictionary],HyperPdfLibrary.Graphics.Shadings.PdfShading][]",
-    "frame": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.ResourcedKey\u00601[System.__Canon],System.__Canon].Store(!0,!1)",
-    "reason": "The document\u0027s resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
+    "type": "Entry[HyperPdfLibrary.Rendering.ResourcedKey`1[HyperPdfLibrary.Objects.PdfDictionary],HyperPdfLibrary.Graphics.Shadings.PdfShading][]",
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.ResourcedKey`1[System.__Canon],System.__Canon].Store(!0,!1)",
+    "reason": "The document's resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
   },
   {
-    "type": "System.Collections.Generic.Dictionary\u00602[HyperPdfLibrary.Rendering.ResourcedKey\u00601[HyperPdfLibrary.Objects.PdfDictionary],HyperPdfLibrary.Graphics.Shadings.PdfShading]",
-    "frame": "HyperPdfLibrary.Rendering.ObjectCache\u00602[HyperPdfLibrary.Rendering.ResourcedKey\u00601[System.__Canon],System.__Canon].Store(!0,!1)",
-    "reason": "The document\u0027s resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Rendering.ResourcedKey`1[HyperPdfLibrary.Objects.PdfDictionary],HyperPdfLibrary.Graphics.Shadings.PdfShading]",
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.ResourcedKey`1[System.__Canon],System.__Canon].Store(!0,!1)",
+    "reason": "The document's resource-specific cache creates its dictionary and backing entries on first store, then reuses them. Keys include the PDF resource identity and rendering parameters, so cached patterns and shadings cannot be shared across unrelated document object stores."
   },
   {
     "type": "HyperPdfLibrary.Rendering.PagePictures[]",
@@ -1776,7 +1776,7 @@
   },
   {
     "type": "HyperPdfLibrary.Rendering.PagePictures",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Acquire(int32,bool,float32,value class System.Nullable\u00601\u003Cvalue class System.Numerics.Matrix3x2\u003E)",
+    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Acquire(int32,bool,float32,value class System.Nullable`1<value class System.Numerics.Matrix3x2>)",
     "reason": "The renderer/page cache retains independently synchronized recording state and immutable output/image snapshots while active renders hold leases. A retired entry releases native pictures only after its last user leaves. Single-entry LRU storage is inline and warm replay reuses the retained state."
   },
   {
@@ -1785,7 +1785,7 @@
     "reason": "A renderer retains a reusable image-id set so shared decoded pixels count once toward the budget. A single page with at most one image bypasses this set; recordings with multiple image references or pages clear and reuse it."
   },
   {
-    "type": "System.Collections.Generic.HashSet\u00601[System.UInt32]",
+    "type": "System.Collections.Generic.HashSet`1[System.UInt32]",
     "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.MeasureLocked(int32)",
     "reason": "A renderer retains a reusable image-id set so shared decoded pixels count once toward the budget. A single page with at most one image bypasses this set; recordings with multiple image references or pages clear and reuse it."
   },
@@ -1796,7 +1796,7 @@
   },
   {
     "type": "HyperPdfLibrary.Rendering.PagePictures",
-    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest\u0026,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
+    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Render(value class HyperPdfLibrary.Rendering.PdfTileRequest&,value class HyperPdfLibrary.Rendering.PdfTileTarget)",
     "reason": "The renderer/page cache retains independently synchronized recording state and immutable output/image snapshots while active renders hold leases. A retired entry releases native pictures only after its last user leaves. Single-entry LRU storage is inline and warm replay reuses the retained state."
   },
   {
@@ -1881,7 +1881,7 @@
   },
   {
     "type": "SkiaSharp.SKPath",
-    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.StrokeMesh(class SkiaSharp.SKPath,value class System.Numerics.Matrix3x2,class HyperPdfLibrary.Graphics.PdfPatternPaint,float32,value class HyperPdfLibrary.Graphics.GraphicsState\u0026)",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.StrokeMesh(class SkiaSharp.SKPath,value class System.Numerics.Matrix3x2,class HyperPdfLibrary.Graphics.PdfPatternPaint,float32,value class HyperPdfLibrary.Graphics.GraphicsState&)",
     "reason": "The managed Skia binding creates an owned native resource wrapper and its handle/delegate tracking at this boundary. The native recording or image can retain the resource after the current call. Recording devices, paints, builders, default luminosity filters, gradient/vertex conversion arrays and borrowed pixel wrappers are reused within their registered backend; basic rectangles/lines bypass path construction."
   },
   {
@@ -1925,7 +1925,7 @@
     "reason": "Composing one PDF tiling period publishes an independently owned pattern cell and native image or picture. Raster periods need a surface at their bounded pixel size; SkiaSharp creates the native wrappers and child-handle tracking collections at this boundary. The document caches the completed period for later uses."
   },
   {
-    "type": "System.Collections.Concurrent.ConcurrentDictionary\u00602[System.IntPtr,SkiaSharp.SKObject]",
+    "type": "System.Collections.Concurrent.ConcurrentDictionary`2[System.IntPtr,SkiaSharp.SKObject]",
     "frame": "HyperPdfLibrary.Rendering.TileComposer.Compose(class SkiaSharp.SKPicture,value class HyperPdfLibrary.Objects.PdfRectangle,float32,float32,float32)",
     "reason": "Composing one PDF tiling period publishes an independently owned pattern cell and native image or picture. Raster periods need a surface at their bounded pixel size; SkiaSharp creates the native wrappers and child-handle tracking collections at this boundary. The document caches the completed period for later uses."
   },
@@ -1938,5 +1938,540 @@
     "type": "VolatileNode[System.IntPtr,SkiaSharp.SKObject][]",
     "frame": "HyperPdfLibrary.Rendering.TileComposer.Compose(class SkiaSharp.SKPicture,value class HyperPdfLibrary.Objects.PdfRectangle,float32,float32,float32)",
     "reason": "Composing one PDF tiling period publishes an independently owned pattern cell and native image or picture. Raster periods need a surface at their bounded pixel size; SkiaSharp creates the native wrappers and child-handle tracking collections at this boundary. The document caches the completed period for later uses."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Layout.LayoutRows.GetStarts",
+    "reason": "The first page of each row is part of the returned layout and is read by every later position query."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Layout.LayoutRows.GetVerticalStarts",
+    "reason": "The first page of each row is part of the returned layout and is read by every later position query."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Layout.LayoutRows.GetWrappedStarts",
+    "reason": "The first page of each row is part of the returned layout and is read by every later position query."
+  },
+  {
+    "type": "HyperPdf.Core.Layout.LayoutRect[]",
+    "frame": "HyperPdf.Benchmarks.PdfTextExportBenchmarks.LayoutLeftToRight",
+    "reason": "The runtime inlined DocumentLayout.Create into the benchmark method, so the trace names the caller. The array is the layout's page bounds, which the layout returns."
+  },
+  {
+    "type": "System.Double[]",
+    "frame": "HyperPdf.Benchmarks.PdfTextExportBenchmarks.LayoutLeftToRight",
+    "reason": "The runtime inlined DocumentLayout.Create into the benchmark method, so the trace names the caller. The array holds the layout's row tops and bottoms, which the layout returns."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfStream",
+    "frame": "HyperPdf.Benchmarks.HyperPdfIccProfileCacheBenchmarks.NewProfileStream",
+    "reason": "The benchmark makes a new profile stream on each call on purpose, to measure the cache's work on a profile it has not seen. The stream is the benchmark's input, not a library allocation."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextHitBlock[]",
+    "frame": "HyperPdf.Benchmarks.HyperPdfTextHitBuildBenchmarks.BuildBlocks",
+    "reason": "The runtime inlined HyperPdfLibrary.Text.TextHitTesting.BuildBlocks into the benchmark method, so the trace names the caller. The array is the hit-test index of a text page, built once with the page and then read without allocation."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextHitBlock[]",
+    "frame": "HyperPdfLibrary.Text.TextHitTesting.BuildBlocks",
+    "reason": "The blocks are the hit-test index of a text page, built once with the page for 128 or more characters and then read by every point query without allocation. The text page keeps the array, so it cannot live in pooled or stack storage."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Text.TextFolding.Fold",
+    "reason": "The folded string is the search text of one page under one set of search options. The page search keeps it, with its index map, for every later query of that page, so it cannot be pooled."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.FoldedText",
+    "frame": "HyperPdfLibrary.Text.TextFolding.Fold",
+    "reason": "The folded text is the detached result that holds the folded string and its index map."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Export.TextExportSink.Build",
+    "reason": "The string is the HTML or Markdown the caller asked for. The text is pooled until it is complete, so this is the only allocation of the export, and a caller that must avoid it writes a page at a time to a TextWriter."
+  },
+  {
+    "type": "HyperPdf.Core.Layout.LayoutRect[]",
+    "frame": "HyperPdf.Core.Layout.DocumentLayout.Create",
+    "reason": "The page bounds are the returned layout's data, one rectangle for each page. The layout is built once for a document and zoom, then queried without allocation, so the array cannot live in pooled or stack storage."
+  },
+  {
+    "type": "System.Double[]",
+    "frame": "HyperPdf.Core.Layout.DocumentLayout.Create",
+    "reason": "The row tops and bottoms are part of the returned layout and are read by every later position query."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Layout.DocumentLayout.Create",
+    "reason": "The first page of each row is part of the returned layout and is read by every later position query."
+  },
+  {
+    "type": "HyperPdf.Core.Layout.DocumentLayout",
+    "frame": "HyperPdf.Core.Layout.DocumentLayout.Create",
+    "reason": "The layout is the detached result of the calculation."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.WeakReference`1[HyperPdfLibrary.Rendering.PdfPageRenderer]]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentState.get_Renderers",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.TileComposer.Compose",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.Shadings.PdfShading",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.PdfShading.Parse",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfPoint[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.ResourcedKey`1[System.__Canon],System.__Canon]..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.PdfPatternPaint",
+    "frame": "HyperPdfLibrary.Content.ContentColors+<>c.<GetPaint>b__24_0",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.Shadings.MeshVertex[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.FillShape",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfPoint[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.ToMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.Shadings.ShadingMesh[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.PdfShading.GetMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.StrokeMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.Build",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.IPdfRenderVertices[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.ToMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Single[]",
+    "frame": "HyperPdfLibrary.Graphics.Functions.ExponentialFunction.ReadPadded",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfColor[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.ToMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdfLibrary.Rendering.TileComposer.Compose",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.FillShape",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.Functions.ExponentialFunction",
+    "frame": "HyperPdfLibrary.Graphics.Functions.ExponentialFunction.Parse",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Drawing.PdfPoint]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "SkiaSharp.SKShader",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.CreateTileShader",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "SkiaSharp.SKShader",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.FillShape",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Single[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.Build",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Single[]",
+    "frame": "HyperPdfLibrary.Graphics.Functions.FunctionReader.ReadNumbers",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfColor[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.Add",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Single[]",
+    "frame": "HyperPdfLibrary.Graphics.Functions.ExponentialFunction.Parse",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfPoint[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.Add",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Drawing.PdfColor]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Drawing.PdfColor]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.ToMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.Shadings.ShadingMesh",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.ToMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Drawing.IPdfRenderVertices]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.ToMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Drawing.PdfPoint]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.MeshBuilder.ToMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Boolean[]",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.PdfShading.GetMesh",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Graphics.Images.PixelMemory.Allocate",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Rendering.ImageCache.Publish",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.Filters.ScratchPools..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "Entry[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageEntry][]",
+    "frame": "HyperPdfLibrary.Rendering.ImageCache.Publish",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "Entry[HyperPdfLibrary.Rendering.ImageKey,HyperPdfLibrary.Rendering.ImageDecode][]",
+    "frame": "HyperPdfLibrary.Rendering.ImageCache.Begin",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Filters.ScratchPools",
+    "frame": "HyperPdfLibrary.Objects.PdfOpenContext.CreateScratchPools",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "ZLibStreamHandle",
+    "frame": "HyperPdfLibrary.Compat.ZLibCodec.DecompressZlib",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.IO.Compression.ZLibDecoder[]",
+    "frame": "HyperPdfLibrary.Rendering.ReusableSlots`1[System.__Canon]..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Filters.ScratchPool`1[System.Byte]",
+    "frame": "HyperPdfLibrary.Filters.ScratchPools.Get",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.Images.PdfImageData",
+    "frame": "HyperPdfLibrary.Graphics.Images.GrayImages.TryDecode",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Filters.ScratchObjects`1[System.IO.Compression.ZLibDecoder]",
+    "frame": "HyperPdfLibrary.Filters.ScratchPools.Objects",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.ImageDecode",
+    "frame": "HyperPdfLibrary.Rendering.ImageCache.Begin",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.IO.Compression.DeflateDecoder",
+    "frame": "HyperPdfLibrary.Compat.ZLibCodec.DecompressZlib",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.IO.Compression.ZLibDecoder",
+    "frame": "HyperPdfLibrary.Compat.ZLibCodec.DecompressZlib",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.ReusableSlots`1[System.IO.Compression.ZLibDecoder]",
+    "frame": "HyperPdfLibrary.Filters.ScratchObjects`1[System.__Canon]..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfPathCommand[]",
+    "frame": "HyperPdfLibrary.Drawing.PdfPathBuilder.Detach",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfPath[]",
+    "frame": "HyperPdfLibrary.Fonts.GlyphOutlineCache.CreateFirstPage",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfPath",
+    "frame": "HyperPdfLibrary.Drawing.PdfPathBuilder.Detach",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdfLibrary.Fonts.SimpleGlyphMap..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Single[]",
+    "frame": "HyperPdfLibrary.Fonts.SimpleFontLoader.ReadWidths",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.SkiaPathConversion.Create",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.PdfSimpleFont",
+    "frame": "HyperPdfLibrary.Fonts.SimpleFontLoader.Load",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[System.__Canon,System.__Canon]..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Objects.PdfDictionary,HyperPdfLibrary.Fonts.PdfFont]",
+    "frame": "HyperPdfLibrary.Fonts.PdfFontCache..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.SimpleGlyphMap",
+    "frame": "HyperPdfLibrary.Fonts.SimpleGlyphMap.Copy",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.GlyphOutlineCache",
+    "frame": "HyperPdfLibrary.Fonts.PdfSimpleFont..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentState.CreateGate",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "Entry[System.IntPtr,System.WeakReference][]",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.Begin",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.Graphics.Shadings.PdfShading..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Graphics.PdfSoftMask",
+    "frame": "HyperPdfLibrary.Content.ContentExtendedGraphics.RecordSoftMask",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.Rent",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.ApplyColor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "SkiaSharp.SKShader",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.ApplyColor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdfLibrary.Rendering.TileComposer.Record",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Rendering.ImageCache.Begin",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.CreateTileShader",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.ResourcedKey`1[System.__Canon],System.__Canon].Store",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.CreateTileShader",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "SkiaSharp.SKCanvas",
+    "frame": "HyperPdfLibrary.Rendering.TileComposer.Compose",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.PatternKey,System.__Canon]..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.SkiaContentDevice.ApplyColor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.Rendering.ObjectCache`2[HyperPdfLibrary.Rendering.PatternPaintKey,System.__Canon]..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.SimpleGlyphMap..ctor",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "SkiaSharp.SKPicture",
+    "frame": "HyperPdfLibrary.Rendering.TileComposer.Record",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.SkiaRenderPicture",
+    "frame": "HyperPdfLibrary.Rendering.TileComposer.Compose",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.TileComposer.Record",
+    "reason": "Made while the document opens or the page's first picture is recorded, then kept and reused. The warm replay of the same page allocates 0.0 B/op in the same audit, so no later render pays for it."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "SkiaSharp.SKData",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "SkiaSharp.SKImage",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "SkiaSharp.SKBitmap",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.DrawCoverage",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "SkiaSharp.SKCanvas",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.DrawCoverage",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.GlyphMask",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeLcd",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.DrawCoverage",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "SkiaSharp.SKData",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "SkiaSharp.SKImage",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.GlyphMask",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.DrawCoverage",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdfLibrary.Rendering.GlyphMaskRaster.MakeGrey",
+    "reason": "What a glyph mask keeps: its image, the image's data and the SkiaSharp handle tracking for them, and the mask record. These are the result the cache holds. The paint, bitmap, canvas and work buffers are reused, and a page pays this once for each glyph, size and position, after which a draw is a lookup that allocates nothing."
   }
 ]

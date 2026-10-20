@@ -48,7 +48,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
         _owner = owner;
         _subscriptions =
         [
-            this.WhenChanged(static x => x.Query, static x => x.MatchCase, static x => x.WholeWord)
+            this.WhenChanged(static x => x.Query, static x => x.MatchCase, static x => x.WholeWord, static x => x.IgnoreDiacritics, static x => x.FoldCompatibility)
                 .Throttle(TypingDelay, RxSchedulers.MainThreadScheduler)
                 .SubscribeSafe(_ => StartSearch(), ErrorTrace.Write),
 
@@ -81,6 +81,14 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     /// <summary>Gets or sets a value indicating whether only whole words match.</summary>
     [Reactive]
     public partial bool WholeWord { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether accents are ignored, so "resume" finds "résumé".</summary>
+    [Reactive]
+    public partial bool IgnoreDiacritics { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether look-alike characters match: curly and straight quotes, dashes and full-width letters.</summary>
+    [Reactive]
+    public partial bool FoldCompatibility { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the search bar is open.</summary>
     [Reactive]
@@ -233,7 +241,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
             return;
         }
 
-        var options = (MatchCase ? SearchOptions.MatchCase : SearchOptions.None) | (WholeWord ? SearchOptions.WholeWord : SearchOptions.None);
+        var options = SearchOptionChoices.Of(MatchCase, WholeWord, IgnoreDiacritics, FoldCompatibility);
         _search = new();
         _ = RunSearchAsync(document, Query, options, _owner.CurrentPageIndex, _search.Token);
     }

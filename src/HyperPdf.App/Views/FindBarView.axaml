@@ -12,6 +12,12 @@
       <ToggleButton AutomationProperties.Name="Whole words" x:Name="WholeWordToggle" views:ControlHelp.Text="{x:Static views:Descriptions.WholeWords}" Classes="tool">
         <Path Classes="icon" Data="{StaticResource IconWholeWord}" />
       </ToggleButton>
+      <ToggleButton AutomationProperties.Name="Ignore accents" x:Name="IgnoreAccentsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.IgnoreAccents}" Classes="tool">
+        <Path Classes="icon" Data="{StaticResource IconAccent}" />
+      </ToggleButton>
+      <ToggleButton AutomationProperties.Name="Similar characters" x:Name="SimilarCharactersToggle" views:ControlHelp.Text="{x:Static views:Descriptions.SimilarCharacters}" Classes="tool">
+        <Path Classes="icon" Data="{StaticResource IconSimilar}" />
+      </ToggleButton>
       <Button AutomationProperties.Name="Previous result" x:Name="PreviousResultButton" views:ControlHelp.Text="{x:Static views:Descriptions.PreviousResult}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageUp}" />
       </Button>

@@ -26,19 +26,27 @@ public static class PdfDocumentFileAttachmentAnnotations
     {
         ArgumentNullException.ThrowIfNull(document);
         var result = new List<PdfFileAttachmentAnnotation>();
-        var fileSpec = document.Objects.Names.Intern("FS"u8);
         for (var pageIndex = 0; pageIndex < document.PageCount; pageIndex++)
         {
-            var annotations = PdfDocumentPages.GetPage(document, pageIndex).Dictionary.GetArray(KnownName.Annots);
-            for (var i = 0; annotations is not null && i < annotations.Count; i++)
-            {
-                if (annotations.GetDictionary(i) is { } annotation && annotation.IsName(KnownName.Subtype, KnownName.FileAttachment))
-                {
-                    result.Add(Read(document, pageIndex, annotations.GetRaw(i).AsReference(), annotation, fileSpec));
-                }
-            }
+            ReadPage(document, pageIndex, result);
         }
 
+        return result;
+    }
+
+    /// <summary>Lists the file attachment annotations of one page.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <returns>The annotations, in the order the page lists them.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="document"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The page is not a page of the document.</exception>
+    public static IReadOnlyList<PdfFileAttachmentAnnotation> GetFileAttachmentAnnotations(PdfDocument document, int pageIndex)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, document.PageCount);
+        var result = new List<PdfFileAttachmentAnnotation>();
+        ReadPage(document, pageIndex, result);
         return result;
     }
 
@@ -95,6 +103,23 @@ public static class PdfDocumentFileAttachmentAnnotations
         return state.Done;
     }
 
+    /// <summary>Reads the file attachment annotations of a page into a list.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="result">Receives the annotations.</param>
+    private static void ReadPage(PdfDocument document, int pageIndex, List<PdfFileAttachmentAnnotation> result)
+    {
+        var fileSpec = document.Objects.Names.Intern("FS"u8);
+        var annotations = PdfDocumentPages.GetPage(document, pageIndex).Dictionary.GetArray(KnownName.Annots);
+        for (var i = 0; annotations is not null && i < annotations.Count; i++)
+        {
+            if (annotations.GetDictionary(i) is { } annotation && annotation.IsName(KnownName.Subtype, KnownName.FileAttachment))
+            {
+                result.Add(Read(document, pageIndex, annotations.GetRaw(i).AsReference(), annotation, fileSpec));
+            }
+        }
+    }
+
     /// <summary>Reads one file attachment annotation of a page.</summary>
     /// <param name="document">The document.</param>
     /// <param name="pageIndex">The index of the page the annotation is on.</param>
@@ -105,13 +130,18 @@ public static class PdfDocumentFileAttachmentAnnotations
     private static PdfFileAttachmentAnnotation Read(PdfDocument document, int pageIndex, PdfObjectId id, PdfDictionary annotation, PdfName fileSpec)
     {
         var icon = annotation.GetName(KnownName.Name);
+        var files = annotation.Get(fileSpec).AsDictionary()?.GetDictionary(KnownName.EF);
         return new(
             pageIndex,
             id,
             PdfDocumentFileSpecs.ReadFileSpec(document, annotation.Get(fileSpec)),
             icon.IsNone ? nameof(PdfAttachmentIcon.PushPin) : document.Objects.Names.GetString(icon),
             annotation.GetText(KnownName.Contents),
-            annotation.GetRaw(fileSpec).AsReference());
+            annotation.GetRaw(fileSpec).AsReference())
+        {
+            Bounds = annotation.TryGetRectangle(KnownName.Rect, out var rect) ? PdfRectangle.FromCorners(rect.Left, rect.Bottom, rect.Right, rect.Top) : default,
+            Data = files?.GetStream(KnownName.UF) ?? files?.GetStream(KnownName.F),
+        };
     }
 
     /// <summary>The arguments of an add, and the annotation it made.</summary>

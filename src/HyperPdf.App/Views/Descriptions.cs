@@ -104,6 +104,15 @@ public static class Descriptions
     /// <summary>The dual page with cover layout menu item.</summary>
     public static readonly string DualPageCover = "Show the first page alone like a book cover, then pages side by side: 2 and 3, then 4 and 5.";
 
+    /// <summary>The vertical scroll menu item.</summary>
+    public static readonly string VerticalScroll = "Pages follow one another down the window and you scroll down. This is the usual way to read.";
+
+    /// <summary>The horizontal scroll menu item.</summary>
+    public static readonly string HorizontalScroll = "All pages sit in one row and you scroll from side to side. The mouse wheel moves sideways.";
+
+    /// <summary>The wrapped scroll menu item.</summary>
+    public static readonly string WrappedScroll = "Pages fill each row across the window, then continue on the next row, so a wide window shows several pages.";
+
     /// <summary>The Read Mode menu item.</summary>
     public static readonly string ReadMode = $"Put the tool bars and sidebar away so the pages fill the window.{Shortcut}Ctrl+H";
 
@@ -470,6 +479,12 @@ public static class Descriptions
     /// <summary>The whole words option.</summary>
     public static readonly string WholeWords = "Only find whole words, not parts of longer words.";
 
+    /// <summary>The ignore accents option.</summary>
+    public static readonly string IgnoreAccents = "Find letters with or without accents, so resume also finds résumé.";
+
+    /// <summary>The similar characters option.</summary>
+    public static readonly string SimilarCharacters = "Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters.";
+
     /// <summary>The previous result button.</summary>
     public static readonly string PreviousResult = $"Go to the previous result.{Shortcut}Shift+F3";
 
@@ -705,7 +720,20 @@ public static class Descriptions
 
     /// <summary>The text edges list.</summary>
     public static readonly string TextEdges =
-        "Choose how the edges of letters are drawn. Smooth blends them into the page. Sharp gives each pixel only dark or clear.";
+        "Choose how the edges of letters are drawn. Smooth blends them into the page. Sharp gives each pixel only dark or clear. "
+        + "LCD softens the red, green and blue parts of each pixel separately, which can make small text look sharper on a plain page.";
+
+    /// <summary>The small text hinting list.</summary>
+    public static readonly string TextHinting =
+        "Choose how small letters sit on the screen's pixels. None keeps spacing even. Slight puts each line on whole pixel rows. Full gives the crispest stems with uneven spacing.";
+
+    /// <summary>The small text contrast list.</summary>
+    public static readonly string TextContrast =
+        "Make the edges of small letters darker so they are easier to read. Normal draws them as the font gives them. Each step above that makes them darker.";
+
+    /// <summary>The small text masks box.</summary>
+    public static readonly string SmallTextMasks =
+        "Draw small letters from shapes made once and reused. Pages of text then draw faster. The fit, contrast and LCD choices turn this on by themselves.";
 
     /// <summary>The smooth graphics box.</summary>
     public static readonly string SmoothGraphics = "Smooth the edges of lines and shapes. Turn this off for crisp, hard edges.";
@@ -730,6 +758,24 @@ public static class Descriptions
 
     /// <summary>The help for the reopen at last page choice.</summary>
     public static readonly string ReopenAtLastPage = "When ticked, a document you open again starts at the page you last read in it.";
+
+    /// <summary>The help for following a document's opening page.</summary>
+    public static readonly string FollowOpenAction = "When ticked, a document that names a page to open at starts there. The page you last read always comes first.";
+
+    /// <summary>The help for following a document's page mode.</summary>
+    public static readonly string FollowPageMode = "When ticked, a document that asks for its bookmarks, thumbnails, attachments or layers shows that panel when it opens.";
+
+    /// <summary>The help for following a document's page layout and direction.</summary>
+    public static readonly string FollowPageLayout = "When ticked, a document that asks for two pages side by side, or for right to left pages, opens that way. The View menu still changes it.";
+
+    /// <summary>The help for following a document's title preference.</summary>
+    public static readonly string FollowDisplayDocTitle = "When ticked, a document that asks for its title to be shown is named by that title in its tab. Otherwise the tab shows the file name.";
+
+    /// <summary>The help for following a document's print choices.</summary>
+    public static readonly string FollowPrintDefaults = "When ticked, the print window starts with the copies, two-sided choice and scaling the document asks for. You can change them.";
+
+    /// <summary>The help for ignoring bookmark colours.</summary>
+    public static readonly string IgnoreOutlineColours = "When ticked, every bookmark uses the colour of your theme, so none is hard to read. Bold and italic bookmarks stay bold and italic.";
 
     /// <summary>The help for the spelling check choice.</summary>
     public static readonly string CheckSpelling = "When ticked, misspelled words in form fields are underlined. Right-click one for corrections, from this computer's own dictionary.";

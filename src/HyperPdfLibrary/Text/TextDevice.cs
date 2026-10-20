@@ -28,6 +28,18 @@ internal sealed class TextDevice : ITextObjectDevice
     /// <summary>The initial capacity of the run list.</summary>
     private const int RunCapacity = 128;
 
+    /// <summary>The mask that keeps the red, green and blue channels of a packed colour.</summary>
+    private const uint RgbMask = 0xFFFFFF;
+
+    /// <summary>The most points a path may have to be kept as a mark: a rectangle or a line, not a drawing.</summary>
+    private const int MarkPointLimit = 6;
+
+    /// <summary>The most marks kept for a page, so a page of many small shapes cannot grow the list without limit.</summary>
+    private const int MarkLimit = 8192;
+
+    /// <summary>The tallest mark kept, in points; a highlight is no taller than a few lines of text.</summary>
+    private const float MarkHeightLimit = 144;
+
     /// <summary>How far, as a share of the font size, a glyph may sit off the run's baseline or behind the pen and still continue the run.</summary>
     private const float ContinueShare = 0.01F;
 
@@ -61,20 +73,11 @@ internal sealed class TextDevice : ITextObjectDevice
     /// <summary>Whether a run is open.</summary>
     private bool _open;
 
-    /// <summary>The open run's font.</summary>
-    private PdfFont? _font;
-
-    /// <summary>The open run's font size.</summary>
-    private float _fontSize;
-
-    /// <summary>The open run's render mode.</summary>
-    private int _mode;
+    /// <summary>What the open run is drawn with: its font, size, matrix, render mode and colours.</summary>
+    private GlyphStyle _style;
 
     /// <summary>Whether the open run writes vertically.</summary>
     private bool _vertical;
-
-    /// <summary>The open run's matrix.</summary>
-    private Matrix3x2 _matrix;
 
     /// <summary>The inverse of the open run's matrix.</summary>
     private Matrix3x2 _inverse;
@@ -109,6 +112,9 @@ internal sealed class TextDevice : ITextObjectDevice
     /// <summary>Gets the Unicode text of every glyph.</summary>
     internal List<char> Unicode { get; } = [with(GlyphCapacity)];
 
+    /// <summary>Gets the small lines and boxes the page draws, in the order it draws them.</summary>
+    internal List<TextMark> Marks { get; } = [];
+
     /// <inheritdoc/>
     public void Save()
     {
@@ -131,14 +137,12 @@ internal sealed class TextDevice : ITextObjectDevice
     }
 
     /// <inheritdoc/>
-    public void Fill(PdfPath path, bool evenOdd, ref GraphicsState state)
-    {
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Fill(PdfPath path, bool evenOdd, ref GraphicsState state) => AddMark(path, ref state, state.Fill, 0);
 
     /// <inheritdoc/>
-    public void Stroke(PdfPath path, ref GraphicsState state)
-    {
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Stroke(PdfPath path, ref GraphicsState state) => AddMark(path, ref state, state.Stroke, state.LineWidth);
 
     /// <inheritdoc/>
     public void Clip(PdfPath path, bool evenOdd, Matrix3x2 ctm)
@@ -227,10 +231,11 @@ internal sealed class TextDevice : ITextObjectDevice
             return;
         }
 
-        if (!Continues(glyph.Font, glyph.FontSize, matrix, state.RenderMode))
+        var style = new GlyphStyle(glyph.Font, glyph.FontSize, matrix, state.RenderMode, PaintOf(state.Fill), PaintOf(state.Stroke));
+        if (!Continues(style))
         {
             CloseRun();
-            OpenRun(glyph.Font, glyph.FontSize, matrix, state.RenderMode);
+            OpenRun(style);
         }
 
         AddGlyph(glyph, matrix.Translation, state.HorizontalScaling);
@@ -265,6 +270,7 @@ internal sealed class TextDevice : ITextObjectDevice
         Runs.Clear();
         Glyphs.Clear();
         Unicode.Clear();
+        Marks.Clear();
         _levels.Clear();
         _clips.Clear();
         _groupAlphas.Clear();
@@ -275,9 +281,14 @@ internal sealed class TextDevice : ITextObjectDevice
         _sequences = 0;
         _drawingServices = null;
         _open = false;
-        _font = null;
+        _style = default;
         _runMarks = TextMarks.None;
     }
+
+    /// <summary>Gets the colour a glyph is painted with, as 0xRRGGBB. A pattern paints no single colour, so it counts as 0.</summary>
+    /// <param name="color">The fill or stroke colour.</param>
+    /// <returns>The colour.</returns>
+    private static uint PaintOf(in ColorState color) => color.Pattern is null ? color.Rgb & RgbMask : 0;
 
     /// <summary>Determines whether two matrices share their scale, rotation and skew.</summary>
     /// <param name="first">The first matrix.</param>
@@ -312,56 +323,69 @@ internal sealed class TextDevice : ITextObjectDevice
     private static PdfRectangle Offset(in PdfRectangle outline, Vector2 origin) =>
         TextGeometry.IsEmpty(outline) ? default : new(outline.Left + origin.X, outline.Bottom + origin.Y, outline.Right + origin.X, outline.Top + origin.Y);
 
-    /// <summary>Determines whether a glyph continues the open run.</summary>
-    /// <param name="font">The glyph's font.</param>
-    /// <param name="fontSize">The glyph's font size.</param>
-    /// <param name="matrix">The glyph's run matrix.</param>
-    /// <param name="mode">The render mode.</param>
-    /// <returns><see langword="true"/> when the glyph belongs to the open run.</returns>
-    private bool Continues(PdfFont font, float fontSize, Matrix3x2 matrix, int mode)
+    /// <summary>Keeps a small shape the page draws, which may be the underline, strikeout or highlight of the text near it.</summary>
+    /// <param name="path">The path, valid only during the call.</param>
+    /// <param name="state">The graphics state.</param>
+    /// <param name="color">The paint of the fill or stroke.</param>
+    /// <param name="lineWidth">The stroke's line width, or 0 for a fill.</param>
+    private void AddMark(PdfPath path, ref GraphicsState state, in ColorState color, float lineWidth)
     {
-        if (!SameState(font, fontSize, matrix, mode))
+        if (path.IsEmpty || path.PointCount > MarkPointLimit || Marks.Count >= MarkLimit || color.PaintsNothing || color.Pattern is not null)
+        {
+            return;
+        }
+
+        var matrix = state.Ctm * _userTransform;
+        var bounds = path.Bounds;
+        var rect = TextGeometry.Normalize(TextGeometry.TransformRect(matrix, new(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom)));
+        var grow = lineWidth * MathF.Sqrt(MathF.Abs(matrix.GetDeterminant())) * Half;
+        rect = new(rect.Left - grow, rect.Bottom - grow, rect.Right + grow, rect.Top + grow);
+        if (rect.Height <= MarkHeightLimit && rect.Width > 0 && rect.Height >= 0)
+        {
+            Marks.Add(new(rect, color.Rgb & RgbMask));
+        }
+    }
+
+    /// <summary>Determines whether a glyph continues the open run.</summary>
+    /// <param name="style">What the glyph is drawn with.</param>
+    /// <returns><see langword="true"/> when the glyph belongs to the open run.</returns>
+    private bool Continues(in GlyphStyle style)
+    {
+        if (!SameState(style))
         {
             return false;
         }
 
         // A glyph on the run's baseline at or past the pen continues it, and any gap is a text adjustment.
-        var local = Vector2.Transform(matrix.Translation, _inverse);
+        var local = Vector2.Transform(style.Matrix.Translation, _inverse);
         var along = _vertical ? local.Y : local.X;
         var across = _vertical ? local.X : local.Y;
         var behind = _vertical ? along - _nextPen : _nextPen - along;
-        var tolerance = ContinueShare * MathF.Abs(fontSize);
+        var tolerance = ContinueShare * MathF.Abs(style.FontSize);
         return MathF.Abs(across) <= tolerance && behind <= tolerance;
     }
 
     /// <summary>Determines whether the text state of a glyph matches the open run's.</summary>
-    /// <param name="font">The glyph's font.</param>
-    /// <param name="fontSize">The glyph's font size.</param>
-    /// <param name="matrix">The glyph's run matrix.</param>
-    /// <param name="mode">The render mode.</param>
+    /// <param name="style">What the glyph is drawn with.</param>
     /// <returns><see langword="true"/> when nothing that shapes a run changed.</returns>
-    private bool SameState(PdfFont font, float fontSize, Matrix3x2 matrix, int mode) =>
+    private bool SameState(in GlyphStyle style) =>
         _open
-        && ReferenceEquals(font, _font)
-        && TextGeometry.Same(fontSize, _fontSize)
-        && mode == _mode
+        && ReferenceEquals(style.Font, _style.Font)
+        && TextGeometry.Same(style.FontSize, _style.FontSize)
+        && style.RenderMode == _style.RenderMode
+        && style.FillColor == _style.FillColor
+        && style.StrokeColor == _style.StrokeColor
         && CurrentMarks().Id == _runMarks.Id
-        && SameLinear(matrix, _matrix);
+        && SameLinear(style.Matrix, _style.Matrix);
 
     /// <summary>Starts a run at a glyph.</summary>
-    /// <param name="font">The font.</param>
-    /// <param name="fontSize">The font size.</param>
-    /// <param name="matrix">The run matrix.</param>
-    /// <param name="mode">The render mode.</param>
-    private void OpenRun(PdfFont font, float fontSize, Matrix3x2 matrix, int mode)
+    /// <param name="style">What the glyph is drawn with.</param>
+    private void OpenRun(in GlyphStyle style)
     {
         _open = true;
-        _font = font;
-        _fontSize = fontSize;
-        _mode = mode;
-        _vertical = font.IsVertical;
-        _matrix = matrix;
-        _inverse = TextGeometry.Invert(matrix);
+        _style = style;
+        _vertical = style.Font!.IsVertical;
+        _inverse = TextGeometry.Invert(style.Matrix);
         _runMarks = CurrentMarks();
         _first = Glyphs.Count;
         _nextPen = 0;
@@ -379,7 +403,7 @@ internal sealed class TextDevice : ITextObjectDevice
         var count = Glyphs.Count - _first;
         if (count > 0)
         {
-            Runs.Add(new(_font!, _fontSize, _mode, _matrix, _first, count, _runMarks));
+            Runs.Add(new(_style.Font!, _style.FontSize, _style.RenderMode, _style.Matrix, _first, count, _runMarks, _style.FillColor, _style.StrokeColor));
         }
     }
 
@@ -390,7 +414,7 @@ internal sealed class TextDevice : ITextObjectDevice
     private void AddGlyph(in GlyphEvent glyph, Vector2 pen, float scaling)
     {
         var font = glyph.Font;
-        var fontSize = _fontSize;
+        var fontSize = _style.FontSize;
         var along = 0F;
         if (Glyphs.Count > _first)
         {

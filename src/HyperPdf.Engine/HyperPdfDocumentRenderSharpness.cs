@@ -50,8 +50,17 @@ internal static class HyperPdfDocumentRenderSharpness
             TextEdges = normal.TextEdges switch
             {
                 TextEdgeChoice.Sharp => PdfTextEdges.Sharp,
+                TextEdgeChoice.Lcd => PdfTextEdges.Lcd,
                 _ => PdfTextEdges.Smooth,
             },
+            GlyphMasks = normal.SmallTextMasks,
+            TextHinting = normal.TextHinting switch
+            {
+                TextHintingChoice.Slight => PdfTextHinting.Slight,
+                TextHintingChoice.Full => PdfTextHinting.Full,
+                _ => PdfTextHinting.None,
+            },
+            TextContrast = normal.TextDarkness,
             SmoothGraphics = normal.SmoothGraphics,
             SmoothImages = normal.SmoothImages,
             StrokeAdjustment = normal.StrokeAdjustment switch

@@ -41,6 +41,24 @@ internal sealed class TextTestFont : PdfFont
     /// <summary>The code mapped to the single ligature U+FB01.</summary>
     internal const int FiLigatureCode = 3;
 
+    /// <summary>The code mapped to the combining acute accent, U+0301.</summary>
+    internal const int CombiningAcuteCode = 4;
+
+    /// <summary>The code mapped to the combining dot below, U+0323.</summary>
+    internal const int CombiningDotBelowCode = 5;
+
+    /// <summary>The code mapped to the Devanagari consonant ka, U+0915.</summary>
+    internal const int DevanagariKaCode = 0x10;
+
+    /// <summary>The code mapped to the Devanagari virama, U+094D, which joins the consonants around it into a conjunct.</summary>
+    internal const int DevanagariViramaCode = 0x11;
+
+    /// <summary>The code mapped to the Devanagari consonant ssa, U+0937.</summary>
+    internal const int DevanagariSsaCode = 0x12;
+
+    /// <summary>The code mapped to the Devanagari vowel sign i, U+093F, a spacing mark.</summary>
+    internal const int DevanagariVowelSignICode = 0x13;
+
     /// <summary>The first code mapped to Hebrew.</summary>
     internal const int FirstHebrewCode = 0xA0;
 
@@ -61,6 +79,24 @@ internal sealed class TextTestFont : PdfFont
 
     /// <summary>The single ligature fi.</summary>
     private const char FiLigature = (char)0xFB01;
+
+    /// <summary>The combining acute accent.</summary>
+    private const char CombiningAcute = (char)0x0301;
+
+    /// <summary>The combining dot below.</summary>
+    private const char CombiningDotBelow = (char)0x0323;
+
+    /// <summary>The Devanagari consonant ka.</summary>
+    private const char DevanagariKa = (char)0x0915;
+
+    /// <summary>The Devanagari virama.</summary>
+    private const char DevanagariVirama = (char)0x094D;
+
+    /// <summary>The Devanagari consonant ssa.</summary>
+    private const char DevanagariSsa = (char)0x0937;
+
+    /// <summary>The Devanagari vowel sign i.</summary>
+    private const char DevanagariVowelSignI = (char)0x093F;
 
     /// <summary>The glyph outline.</summary>
     private readonly PdfPath _box;
@@ -120,6 +156,18 @@ internal sealed class TextTestFont : PdfFont
                 return 1;
             }
 
+            case CombiningAcuteCode:
+            {
+                destination[0] = CombiningAcute;
+                return 1;
+            }
+
+            case CombiningDotBelowCode:
+            {
+                destination[0] = CombiningDotBelow;
+                return 1;
+            }
+
             default:
             {
                 destination[0] = Map(code);
@@ -133,6 +181,10 @@ internal sealed class TextTestFont : PdfFont
     /// <returns>The character.</returns>
     private static char Map(int code) => code switch
     {
+        DevanagariKaCode => DevanagariKa,
+        DevanagariViramaCode => DevanagariVirama,
+        DevanagariSsaCode => DevanagariSsa,
+        DevanagariVowelSignICode => DevanagariVowelSignI,
         >= FirstHebrewCode and <= LastHebrewCode => (char)(HebrewAlef + code - FirstHebrewCode),
         >= FirstArabicCode and <= LastArabicCode => (char)(ArabicHamza + code - FirstArabicCode),
         _ => (char)code,

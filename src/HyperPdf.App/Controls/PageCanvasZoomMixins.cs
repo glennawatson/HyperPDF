@@ -49,6 +49,11 @@ internal static class PageCanvasZoomMixins
             .Where(static e => (e.KeyModifiers & KeyModifiers.Control) == 0)
             .WhereWith(canvas, static (c, e) => c.StepPageByPage(-e.Delta.Y * LineStep));
 
+        /// <summary>Gets the wheel turns that move a horizontal layout sideways.</summary>
+        internal IObservable<PointerWheelEventArgs> HorizontalWheels => canvas.PointerWheels
+            .Where(static e => (e.KeyModifiers & KeyModifiers.Control) == 0 && e.Delta.Y != 0)
+            .WhereWith(canvas, static (c, e) => c.StepSideways(-e.Delta.Y * LineStep));
+
         /// <summary>Gets the moments a touch pinch ends.</summary>
         internal IObservable<PinchEndedEventArgs> PinchEnds => canvas.Events().PinchEnded;
 
@@ -191,7 +196,7 @@ internal static class PageCanvasZoomMixins
             var page = canvas.Layout.HitTest(centre.X, centre.Y);
             if (page < 0)
             {
-                page = canvas.Layout.GetPageNearest(centre.Y);
+                page = canvas.Layout.GetPageNearest(centre.X, centre.Y);
             }
 
             if (page < 0)
@@ -315,16 +320,47 @@ internal static class PageCanvasZoomMixins
 
         /// <summary>Gets the pages to report: the requested or current page wherever its row is the row found.</summary>
         /// <param name="tab">The tab.</param>
-        /// <param name="top">The vertical offset of the top of the content in view.</param>
-        /// <param name="middle">The vertical offset of the middle of the viewport.</param>
+        /// <param name="top">The position of the top left of the content in view.</param>
+        /// <param name="middle">The position of the middle of the viewport.</param>
         /// <param name="topPage">The page at the top of the viewport.</param>
         /// <param name="middlePage">The page in the middle of the viewport, shown as the current page.</param>
-        internal void GetCurrentPages(DocumentTabViewModel tab, double top, double middle, out int topPage, out int middlePage)
+        internal void GetCurrentPages(DocumentTabViewModel tab, Point top, Point middle, out int topPage, out int middlePage)
         {
             var preferred = canvas.RequestedPage >= 0 ? canvas.RequestedPage : tab.CurrentPageIndex;
             canvas.RequestedPage = -1;
-            topPage = canvas.Layout.GetCurrentPage(top, preferred);
-            middlePage = canvas.Layout.GetCurrentPage(middle, preferred);
+            topPage = canvas.Layout.GetCurrentPage(top.X, top.Y, preferred);
+            middlePage = canvas.Layout.GetCurrentPage(middle.X, middle.Y, preferred);
+        }
+
+        /// <summary>Gets the horizontal offset that shows a page: its left side in a horizontal layout, and otherwise the offset the reader has.</summary>
+        /// <param name="pageIndex">The page.</param>
+        /// <param name="current">The current horizontal offset.</param>
+        /// <returns>The offset.</returns>
+        internal double GetPageScrollLeft(int pageIndex, double current) =>
+            canvas.Layout.Options.Scroll == ScrollMode.Horizontal ? Math.Max(0, canvas.Layout.GetPageBounds(pageIndex).X - PageCanvas.ContentMargin) : current;
+
+        /// <summary>Gets the offset that shows a position on a page.</summary>
+        /// <param name="pageIndex">The page.</param>
+        /// <param name="offsetFraction">How far down the page, from 0 to 1.</param>
+        /// <param name="current">The current offset.</param>
+        /// <returns>The offset.</returns>
+        internal Vector GetPageScrollOffset(int pageIndex, double offsetFraction, Vector current) =>
+            new(canvas.GetPageScrollLeft(pageIndex, current.X), canvas.Layout.Options.Scroll == ScrollMode.Horizontal ? current.Y : canvas.GetPageScrollTop(pageIndex, offsetFraction));
+
+        /// <summary>Moves a horizontal layout sideways.</summary>
+        /// <param name="delta">How far to move; positive is to the right.</param>
+        /// <returns><see langword="true"/> when the layout is horizontal and moved.</returns>
+        internal bool StepSideways(double delta)
+        {
+            if (canvas.Scroller is not { } scroller || canvas.Layout.Options.Scroll != ScrollMode.Horizontal)
+            {
+                return false;
+            }
+
+            var limit = Math.Max(0, scroller.Extent.Width - scroller.Viewport.Width);
+            scroller.Offset = new(Math.Clamp(scroller.Offset.X + delta, 0, limit), scroller.Offset.Y);
+            canvas.ReportPosition();
+            return true;
         }
     }
 

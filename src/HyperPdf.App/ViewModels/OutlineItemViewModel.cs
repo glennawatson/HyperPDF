@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -16,20 +17,40 @@ public sealed partial class OutlineItemViewModel : ReactiveObject
     /// <summary>Initializes a new instance of the <see cref="OutlineItemViewModel"/> class.</summary>
     /// <param name="node">The outline node.</param>
     public OutlineItemViewModel(OutlineNode node)
+        : this(node, true)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="OutlineItemViewModel"/> class.</summary>
+    /// <param name="node">The outline node.</param>
+    /// <param name="ignoreColours">Whether the colour the document gives the title is left out, so the title has the theme's text colour.</param>
+    public OutlineItemViewModel(OutlineNode node, bool ignoreColours)
     {
         ArgumentNullException.ThrowIfNull(node);
         Title = string.IsNullOrWhiteSpace(node.Title) ? "(untitled)" : node.Title;
         Target = node.Target;
         Id = node.Id;
         IsExpanded = node.IsOpen;
+        IsBold = node.Style?.Bold ?? false;
+        IsItalic = node.Style?.Italic ?? false;
+        Colour = ignoreColours ? null : node.Style?.Color;
         var children = new OutlineItemViewModel[node.Children.Count];
         for (var i = 0; i < children.Length; i++)
         {
-            children[i] = new(node.Children[i]);
+            children[i] = new(node.Children[i], ignoreColours);
         }
 
         Children = children;
     }
+
+    /// <summary>Gets a value indicating whether the document asks for the title in bold.</summary>
+    public bool IsBold { get; }
+
+    /// <summary>Gets a value indicating whether the document asks for the title in italics.</summary>
+    public bool IsItalic { get; }
+
+    /// <summary>Gets the colour the title is shown in as 0xRRGGBB, or <see langword="null"/> for the theme's text colour.</summary>
+    public uint? Colour { get; }
 
     /// <summary>Gets the entry's object number, which the bookmark editor names it by; 0 when it cannot be edited.</summary>
     public int Id { get; }
@@ -110,7 +131,14 @@ public sealed partial class OutlineItemViewModel : ReactiveObject
     /// <summary>Converts outline nodes to view models.</summary>
     /// <param name="nodes">The nodes.</param>
     /// <returns>The view models.</returns>
-    public static IReadOnlyList<OutlineItemViewModel> Create(IReadOnlyList<OutlineNode>? nodes)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IReadOnlyList<OutlineItemViewModel> Create(IReadOnlyList<OutlineNode>? nodes) => Create(nodes, true);
+
+    /// <summary>Converts outline nodes to view models.</summary>
+    /// <param name="nodes">The nodes.</param>
+    /// <param name="ignoreColours">Whether the colours the document gives the titles are left out.</param>
+    /// <returns>The view models.</returns>
+    public static IReadOnlyList<OutlineItemViewModel> Create(IReadOnlyList<OutlineNode>? nodes, bool ignoreColours)
     {
         if (nodes is null || nodes.Count == 0)
         {
@@ -120,7 +148,7 @@ public sealed partial class OutlineItemViewModel : ReactiveObject
         var items = new OutlineItemViewModel[nodes.Count];
         for (var i = 0; i < items.Length; i++)
         {
-            items[i] = new(nodes[i]);
+            items[i] = new(nodes[i], ignoreColours);
         }
 
         return items;

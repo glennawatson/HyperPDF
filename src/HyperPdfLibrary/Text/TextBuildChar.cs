@@ -19,6 +19,7 @@ namespace HyperPdfLibrary.Text;
 /// <param name="Group">Numbers the glyph, generated space or replacement text the character came from; its characters stay together when a line is reordered.</param>
 /// <param name="Line">The line the character is on, or -1 for line breaks.</param>
 /// <param name="InText">Whether the character is part of the page text.</param>
+/// <param name="Level">The embedding level the bidirectional algorithm gave the character's line; 0 until a line is reordered and for left-to-right text, odd for right-to-left runs.</param>
 [DebuggerDisplay("TextBuildChar: {Unicode} {Kind}")]
 internal readonly record struct TextBuildChar(
     PdfTextCharKind Kind,
@@ -30,4 +31,5 @@ internal readonly record struct TextBuildChar(
     int Run,
     int Group,
     int Line,
-    bool InText);
+    bool InText,
+    byte Level);

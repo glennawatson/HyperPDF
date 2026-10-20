@@ -49,6 +49,16 @@ public static class LastPages
         return index < 0 ? 0 : pages[index].PageIndex;
     }
 
+    /// <summary>Determines whether a document has a remembered page.</summary>
+    /// <param name="pages">The remembered pages.</param>
+    /// <param name="filePath">The document.</param>
+    /// <returns><see langword="true"/> when the document was closed at a page that is remembered.</returns>
+    public static bool IsRemembered(List<LastViewedPage> pages, string filePath)
+    {
+        ArgumentNullException.ThrowIfNull(pages);
+        return IndexOf(pages, filePath) >= 0;
+    }
+
     /// <summary>Finds a document's record, searching from the newest.</summary>
     /// <param name="pages">The remembered pages.</param>
     /// <param name="filePath">The document.</param>

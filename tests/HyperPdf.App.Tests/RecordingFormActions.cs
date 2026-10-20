@@ -24,11 +24,26 @@ internal sealed class RecordingFormActions(IFormActions inner, IDocument documen
     public async ValueTask<FormActionResult> RunPageOpenedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken)
     {
         engine.OpenedPages.Enqueue(pageIndex);
+        engine.PageActions.Enqueue(new(pageIndex, true));
         if (engine.FormGate is { } gate)
         {
             await gate.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
 
         return await inner.RunPageOpenedAsync(pageIndex, host, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<FormActionResult> RunPageClosedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken)
+    {
+        engine.PageActions.Enqueue(new(pageIndex, false));
+        return inner.RunPageClosedAsync(pageIndex, host, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<FormActionResult> RunDocumentEventAsync(FormDocumentEvent documentEvent, IFormActionHost host, CancellationToken cancellationToken)
+    {
+        engine.DocumentEvents.Enqueue(documentEvent);
+        return inner.RunDocumentEventAsync(documentEvent, host, cancellationToken);
     }
 }

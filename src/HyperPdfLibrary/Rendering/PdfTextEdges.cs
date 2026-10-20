@@ -12,4 +12,10 @@ public enum PdfTextEdges
 
     /// <summary>Edges are not smoothed: every pixel is either fully covered or not covered.</summary>
     Sharp = 1,
+
+    /// <summary>
+    /// Edges are smoothed separately for the red, green and blue parts of each pixel (LCD sub-pixel text), which makes small
+    /// text look sharper on a screen with that pixel layout. It applies to small text drawn from glyph masks on a plain page.
+    /// </summary>
+    Lcd = 2,
 }

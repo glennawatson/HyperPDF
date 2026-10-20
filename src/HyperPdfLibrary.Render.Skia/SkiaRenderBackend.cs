@@ -23,6 +23,9 @@ public sealed class SkiaRenderBackend : IPdfRenderBackend
     /// <summary>The reusable drawing session for each thread that uses this backend.</summary>
     private readonly ConditionalWeakTable<Thread, SkiaDrawingSession> _sessions = new();
 
+    /// <summary>The glyph masks every recording of this backend shares.</summary>
+    private readonly SkiaGlyphMasks _glyphMasks = new();
+
     /// <summary>Gets the current thread's session within this registered backend.</summary>
     private SkiaDrawingSession Session => _sessions.GetValue(Thread.CurrentThread, static _ => new());
 
@@ -47,11 +50,11 @@ public sealed class SkiaRenderBackend : IPdfRenderBackend
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPictureDevice CreatePictureDevice(PdfRect bounds) => SkiaContentDevice.Rent(RecordingDevices, SkiaConversions.ToSkRect(bounds), null);
+    public IPictureDevice CreatePictureDevice(PdfRect bounds) => SkiaContentDevice.Rent(RecordingDevices, SkiaConversions.ToSkRect(bounds), null, _glyphMasks);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPictureDevice CreatePictureDevice(PdfRect bounds, in PdfPictureStyle style) => SkiaContentDevice.Rent(RecordingDevices, SkiaConversions.ToSkRect(bounds), null, style);
+    public IPictureDevice CreatePictureDevice(PdfRect bounds, in PdfPictureStyle style) => SkiaContentDevice.Rent(RecordingDevices, SkiaConversions.ToSkRect(bounds), null, style, _glyphMasks);
 
     /// <inheritdoc/>
     public IPdfRenderImage? CreateImage(PdfImageData data)

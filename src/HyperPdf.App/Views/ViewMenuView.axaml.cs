@@ -22,8 +22,17 @@ public sealed partial class ViewMenuView : ReactiveUI.Avalonia.ReactiveUserContr
         SingleLayoutItem.CommandParameter = "Single";
         DualLayoutItem.CommandParameter = "Dual";
         CoverLayoutItem.CommandParameter = "DualCover";
+        VerticalScrollItem.CommandParameter = "Vertical";
+        HorizontalScrollItem.CommandParameter = "Horizontal";
+        WrappedScrollItem.CommandParameter = "Wrapped";
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.SetScrollModeCommand, static v => v.VerticalScrollItem, "Vertical".AsCommandParameter));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.SetScrollModeCommand, static v => v.HorizontalScrollItem, "Horizontal".AsCommandParameter));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.SetScrollModeCommand, static v => v.WrappedScrollItem, "Wrapped".AsCommandParameter));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ScrollMode, static v => v.VerticalScrollItem.IsChecked, static mode => mode == ScrollMode.Vertical));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ScrollMode, static v => v.HorizontalScrollItem.IsChecked, static mode => mode == ScrollMode.Horizontal));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ScrollMode, static v => v.WrappedScrollItem.IsChecked, static mode => mode == ScrollMode.Wrapped));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.RotateLeftCommand, static v => v.RotateLeftItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.RotateRightCommand, static v => v.RotateRightItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.SetLayoutCommand, static v => v.SingleLayoutItem, "Single".AsCommandParameter));

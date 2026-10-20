@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -14,8 +15,9 @@ namespace HyperPdfLibrary.Rendering;
 /// ISO 32000-2 12.5.3 anchors annotations that do not zoom; it shrinks to fit a smaller <c>/Rect</c>.
 /// </summary>
 /// <param name="Bounds">The icon's rectangle.</param>
-[DebuggerDisplay("NotePlan: {Bounds}")]
-internal readonly record struct NotePlan(PdfRectangle Bounds) : IAppearancePlan<NotePlan>
+/// <param name="Icon">The icon the annotation's <c>/Name</c> asks for.</param>
+[DebuggerDisplay("NotePlan: {Bounds} {Icon}")]
+internal readonly record struct NotePlan(PdfRectangle Bounds, NoteIcon Icon) : IAppearancePlan<NotePlan>
 {
     /// <summary>The side of the icon, in points: 20 points is 0.28 inch, large enough to click or tap and small enough not to cover text.</summary>
     internal const float MaxSide = 20;
@@ -41,13 +43,19 @@ internal readonly record struct NotePlan(PdfRectangle Bounds) : IAppearancePlan<
         var rect = AppearanceRects.Read(annotation);
         var side = rect.Width > 0 ? Math.Min(MaxSide, rect.Width) : MaxSide;
         side = rect.Height > 0 ? Math.Min(side, rect.Height) : side;
-        plan = new(new(rect.Left, rect.Top - side, rect.Left + side, rect.Top));
+        plan = new(new(rect.Left, rect.Top - side, rect.Left + side, rect.Top), NoteIcons.Parse(annotation.NameText("Name")));
         return true;
     }
 
     /// <inheritdoc/>
     public void Emit(ref PdfContentBuilder builder)
     {
+        if (Icon != NoteIcon.Comment)
+        {
+            NoteIcons.Emit(ref builder, Bounds, Icon);
+            return;
+        }
+
         builder.SetFillRgb(1, 1, 0);
         builder.SetStrokeRgb(0, 0, 0);
         builder.SetLineWidth(1);

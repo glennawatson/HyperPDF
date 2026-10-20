@@ -15,4 +15,11 @@ namespace HyperPdfLibrary.Document;
 /// <param name="Contents">The annotation's text, or <see langword="null"/> for none.</param>
 /// <param name="FileSpecification">The object of the file specification, or an invalid id when it is stored inside the annotation.</param>
 [DebuggerDisplay("PdfFileAttachmentAnnotation: page {PageIndex} {FileName}")]
-public sealed record PdfFileAttachmentAnnotation(int PageIndex, PdfObjectId Id, string? FileName, string Icon, string? Contents, PdfObjectId FileSpecification);
+public sealed record PdfFileAttachmentAnnotation(int PageIndex, PdfObjectId Id, string? FileName, string Icon, string? Contents, PdfObjectId FileSpecification)
+{
+    /// <summary>Gets the annotation's rectangle (<c>/Rect</c>) in default user space, which is empty when it has none.</summary>
+    public PdfRectangle Bounds { get; init; }
+
+    /// <summary>Gets the stream holding the attached file, or <see langword="null"/> when the file specification embeds none.</summary>
+    public PdfStream? Data { get; init; }
+}

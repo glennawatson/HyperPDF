@@ -29,14 +29,17 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
 
-    /// <summary>Runs the open actions of each page that becomes the current page, until the tab closes.</summary>
-    private readonly IDisposable _pageOpenings;
+    /// <summary>Runs the close actions of the page that stops being the current page and the open actions of the one that becomes it, until the tab closes.</summary>
+    private readonly IDisposable _pageTurns;
 
     /// <summary>Fields read for hit testing, reused.</summary>
     private readonly List<FormField> _scratch = [];
 
-    /// <summary>The pages whose open actions have not run yet, in the order the pages opened; used on the UI thread only.</summary>
-    private readonly Queue<int> _pagesOpened = [];
+    /// <summary>The page actions that have not run yet, in the order the pages turned; used on the UI thread only.</summary>
+    private readonly Queue<PageTurn> _pendingTurns = [];
+
+    /// <summary>The page whose open actions ran last, so the next turn can close it; used on the UI thread only.</summary>
+    private int _shownPage;
 
     /// <summary>The fields' scripts by name, read on first use.</summary>
     private Dictionary<string, FieldScripts>? _scripts;
@@ -49,15 +52,16 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
     public FormsViewModel(DocumentTabViewModel owner)
     {
         _owner = owner;
+        _shownPage = owner.CurrentPageIndex;
 
-        // Each page that becomes the current page runs its open actions. A page that opens while the actions of an
-        // earlier page still run waits its turn in the queue instead of being skipped: it is queued first, and the
-        // running command drains the queue.
-        _pageOpenings = owner.WhenChanged(static tab => tab.CurrentPageIndex)
+        // The page that stops being the current page runs its close actions, then the page that becomes it runs its open
+        // actions. A page that turns while the actions of an earlier turn still run waits its place in the queue instead
+        // of being skipped: it is queued first, and the running command drains the queue.
+        _pageTurns = owner.WhenChanged(static tab => tab.CurrentPageIndex)
             .Skip(1)
             .WhereWith(this, static (forms, _) => forms.Actions is not null)
-            .DoWith(this, static (forms, page) => forms._pagesOpened.Enqueue(page))
-            .InvokeCommand(this, static forms => forms.PageOpenedCommand);
+            .DoWith(this, static (forms, page) => forms.QueueTurn(page))
+            .InvokeCommand(this, static forms => forms.PageTurnedCommand);
     }
 
     /// <summary>Gets the latest change filling in the form made to a page; the tab redraws the page it names.</summary>
@@ -183,20 +187,9 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
             return FormActionResult.None;
         }
 
-        FormActionResult result;
-        try
-        {
-            result = await actions.RunWidgetActionAsync(field.PageIndex, field.Index, new TabFormActionHost(_owner, true), _owner.LifetimeToken).ConfigureAwait(true);
-        }
-        catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException)
-        {
-            // The tab was closed, or its document was closed under the action; there is nothing left to redraw.
-            return FormActionResult.None;
-        }
-
+        var result = await FinishAsync(actions.RunWidgetActionAsync(field.PageIndex, field.Index, new TabFormActionHost(_owner, true), _owner.LifetimeToken)).ConfigureAwait(true);
         if ((result & (FormActionResult.Changed | FormActionResult.LayersChanged)) != 0)
         {
-            RefreshAllPages();
             Recalculate();
         }
 
@@ -205,38 +198,34 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _pageOpenings.Dispose();
+    public void Dispose() => _pageTurns.Dispose();
 
     /// <summary>Runs the actions a page does when it opens.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>What happened.</returns>
-    public async Task<FormActionResult> RunPageOpenedAsync(int pageIndex)
-    {
-        if (Actions is not
-            {
-            } actions)
-        {
-            return FormActionResult.None;
-        }
+    public async Task<FormActionResult> RunPageOpenedAsync(int pageIndex) =>
+        Actions is { } actions
+            ? await FinishAsync(actions.RunPageOpenedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true)
+            : FormActionResult.None;
 
-        FormActionResult result;
-        try
-        {
-            result = await actions.RunPageOpenedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken).ConfigureAwait(true);
-        }
-        catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException)
-        {
-            // The tab was closed, or its document was closed under the action; there is nothing left to redraw.
-            return FormActionResult.None;
-        }
+    /// <summary>Runs the actions a page does when it closes.</summary>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <returns>What happened.</returns>
+    public async Task<FormActionResult> RunPageClosedAsync(int pageIndex) =>
+        Actions is { } actions
+            ? await FinishAsync(actions.RunPageClosedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true)
+            : FormActionResult.None;
 
-        if ((result & (FormActionResult.Changed | FormActionResult.LayersChanged)) != 0)
-        {
-            RefreshAllPages();
-        }
-
-        return result;
-    }
+    /// <summary>
+    /// Runs the document's additional actions for the event the viewer reached. Like a page's actions they run on their
+    /// own, so they cannot move the reader, open links or ask questions.
+    /// </summary>
+    /// <param name="documentEvent">The event.</param>
+    /// <returns>What happened.</returns>
+    public async Task<FormActionResult> RunDocumentEventAsync(FormDocumentEvent documentEvent) =>
+        Actions is { } actions
+            ? await FinishAsync(actions.RunDocumentEventAsync(documentEvent, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true)
+            : FormActionResult.None;
 
     /// <summary>Picks a choice of a combo or list box.</summary>
     /// <param name="field">The field.</param>
@@ -624,16 +613,51 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     private async Task RunButton(FormField field) => await RunButtonAsync(field).ConfigureAwait(true);
 
-    /// <summary>Runs the actions of the pages that became the current page, in the order they opened, until none wait.</summary>
+    /// <summary>Waits for a page action to finish, then redraws the pages it changed.</summary>
+    /// <param name="pending">The running actions.</param>
+    /// <returns>What happened; nothing when the tab or its document closed under the actions.</returns>
+    private async Task<FormActionResult> FinishAsync(ValueTask<FormActionResult> pending)
+    {
+        FormActionResult result;
+        try
+        {
+            result = await pending.ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException)
+        {
+            // The tab was closed, or its document was closed under the action; there is nothing left to redraw.
+            return FormActionResult.None;
+        }
+
+        if ((result & (FormActionResult.Changed | FormActionResult.LayersChanged)) != 0)
+        {
+            RefreshAllPages();
+        }
+
+        return result;
+    }
+
+    /// <summary>Queues the close actions of the page that was shown and the open actions of the page that is shown now.</summary>
+    /// <param name="page">The page that became the current page.</param>
+    private void QueueTurn(int page)
+    {
+        _pendingTurns.Enqueue(new(_shownPage, false));
+        _pendingTurns.Enqueue(new(page, true));
+        _shownPage = page;
+    }
+
+    /// <summary>Runs the actions of the pages that turned, in the order they turned, until none wait.</summary>
     /// <param name="pageIndex">The zero based page index that started the run; it is already queued.</param>
     /// <returns>A task.</returns>
     [ReactiveCommand]
-    private async Task PageOpened(int pageIndex)
+    private async Task PageTurned(int pageIndex)
     {
         _ = pageIndex;
-        while (_pagesOpened.TryDequeue(out var page))
+        while (_pendingTurns.TryDequeue(out var turn))
         {
-            _ = await RunPageOpenedAsync(page).ConfigureAwait(true);
+            _ = turn.Opened
+                ? await RunPageOpenedAsync(turn.Page).ConfigureAwait(true)
+                : await RunPageClosedAsync(turn.Page).ConfigureAwait(true);
         }
     }
 
@@ -651,4 +675,9 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
             LastPageChange = LastPageChange.Next(field.PageIndex);
         }
     }
+
+    /// <summary>A page that is waiting to run its open or close actions.</summary>
+    /// <param name="Page">The zero based page index.</param>
+    /// <param name="Opened"><see langword="true"/> for the open actions, <see langword="false"/> for the close actions.</param>
+    private readonly record struct PageTurn(int Page, bool Opened);
 }

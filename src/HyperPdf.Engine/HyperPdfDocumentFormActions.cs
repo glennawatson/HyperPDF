@@ -41,6 +41,47 @@ internal static class HyperPdfDocumentFormActions
             : HyperPdfFormRuntime.Complete(self, await HyperPdfFormRuntime.CreateRunner(self, host).RunPageOpenedAsync(pageIndex, cancellationToken).ConfigureAwait(false));
     }
 
+    /// <summary>Runs the actions a page does when it closes.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="host">The application's part of running actions.</param>
+    /// <param name="cancellationToken">A token that cancels the run.</param>
+    /// <returns>What happened.</returns>
+    internal static async ValueTask<FormActionResult> RunPageClosedAsync(HyperPdfDocument self, int pageIndex, IFormActionHost host, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        return self.IsDisposed
+            ? FormActionResult.None
+            : HyperPdfFormRuntime.Complete(self, await HyperPdfFormRuntime.CreateRunner(self, host).RunPageClosedAsync(pageIndex, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>Runs the document's additional actions for one event.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="documentEvent">The event the viewer reached.</param>
+    /// <param name="host">The application's part of running actions.</param>
+    /// <param name="cancellationToken">A token that cancels the run.</param>
+    /// <returns>What happened.</returns>
+    internal static async ValueTask<FormActionResult> RunDocumentEventAsync(HyperPdfDocument self, FormDocumentEvent documentEvent, IFormActionHost host, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        return self.IsDisposed || EventKey(documentEvent) is not { } key
+            ? FormActionResult.None
+            : HyperPdfFormRuntime.Complete(self, await HyperPdfFormRuntime.CreateRunner(self, host).RunDocumentEventAsync(key, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>Gets the key of a document event in the catalog's additional actions.</summary>
+    /// <param name="documentEvent">The event.</param>
+    /// <returns>The key, or <see langword="null"/> for an event the library has no action for.</returns>
+    private static string? EventKey(FormDocumentEvent documentEvent) => documentEvent switch
+    {
+        FormDocumentEvent.WillClose => "WC",
+        FormDocumentEvent.WillSave => "WS",
+        FormDocumentEvent.DidSave => "DS",
+        FormDocumentEvent.WillPrint => "WP",
+        FormDocumentEvent.DidPrint => "DP",
+        _ => null,
+    };
+
     /// <summary>Reads the action of a widget while no edit runs.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="pageIndex">The zero based page index.</param>

@@ -26,7 +26,8 @@ internal static class TextSearch
     internal static void FindAll<TState>(FoldedText folded, ReadOnlySpan<char> query, PdfTextSearchOptions options, TState state, Action<TState, int, int> visit)
     {
         char[]? rented = null;
-        var buffer = query.Length <= StackQueryChars ? stackalloc char[StackQueryChars] : (rented = ArrayPool<char>.Shared.Rent(query.Length));
+        var capacity = TextNormalization.DecomposedLength(query, (options & PdfTextSearchOptions.FoldCompatibility) != 0);
+        var buffer = capacity <= StackQueryChars ? stackalloc char[StackQueryChars] : (rented = ArrayPool<char>.Shared.Rent(capacity));
         try
         {
             var length = TextFolding.Fold(query, buffer, options);
@@ -75,7 +76,7 @@ internal static class TextSearch
     /// <param name="visit">Receives the first and last text index of each match.</param>
     private static void Scan<TState>(FoldedText folded, ReadOnlySpan<char> pattern, PdfTextSearchOptions options, TState state, Action<TState, int, int> visit)
     {
-        var (text, map) = folded;
+        var text = folded.Text;
         var overlap = (options & PdfTextSearchOptions.Consecutive) != 0;
         var wholeWord = (options & PdfTextSearchOptions.WholeWord) != 0;
         var from = 0;
@@ -88,13 +89,13 @@ internal static class TextSearch
             }
 
             var start = from + found;
-            if (!TryMatch(text, start, pattern, out var end) || (wholeWord && !IsWholeWord(text, start, end, pattern)))
+            if (!TryMatch(text, start, pattern, out var end) || !IsAcceptable(text, start, end, pattern, wholeWord))
             {
                 from = start + 1;
                 continue;
             }
 
-            visit(state, map is null ? start : map[start], map is null ? end - 1 : map[end - 1]);
+            visit(state, folded.StartOf(start), folded.EndOf(end - 1));
             from = overlap ? start + 1 : end;
         }
     }
@@ -139,6 +140,28 @@ internal static class TextSearch
 
         return true;
     }
+
+    /// <summary>
+    /// Determines whether a match counts: it must not split a letter from its mark, must not start inside a conjunct, and
+    /// with whole-word search it must not be part of a longer word.
+    /// </summary>
+    /// <param name="text">The folded text.</param>
+    /// <param name="start">The match start.</param>
+    /// <param name="end">The position after the match.</param>
+    /// <param name="pattern">The pattern.</param>
+    /// <param name="wholeWord">Whether only whole words match.</param>
+    /// <returns><see langword="true"/> when the match is reported.</returns>
+    private static bool IsAcceptable(string text, int start, int end, ReadOnlySpan<char> pattern, bool wholeWord) =>
+        !SplitsLetter(text, end) && !TextClusters.IsInsideConjunct(text, start) && (!wholeWord || IsWholeWord(text, start, end, pattern));
+
+    /// <summary>
+    /// Determines whether a match ends between a letter and a mark that belongs to it, as "e" would in "é", which text and
+    /// query hold as "e" and an acute accent. Such a match is a different letter, so it does not count.
+    /// </summary>
+    /// <param name="text">The folded text.</param>
+    /// <param name="end">The position after the match.</param>
+    /// <returns><see langword="true"/> when a mark follows the match.</returns>
+    private static bool SplitsLetter(string text, int end) => end < text.Length && TextUnicode.IsMark(text[end]);
 
     /// <summary>Determines whether a match is not part of a longer word.</summary>
     /// <param name="text">The folded text.</param>

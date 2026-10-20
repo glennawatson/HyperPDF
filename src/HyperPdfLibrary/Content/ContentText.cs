@@ -460,12 +460,15 @@ internal static class ContentText
         self.State.Font = null;
         self.Resources.Add(font.Resources ?? ContentExecution.CurrentResources(self));
         self.Depth++;
+        var scope = self.Device as IType3GlyphScope;
+        scope?.BeginType3Glyph(font, code);
         try
         {
             ContentExecution.RunStreamBody(self, procedure);
         }
         finally
         {
+            scope?.EndType3Glyph();
             self.Depth--;
             self.Resources.RemoveAt(self.Resources.Count - 1);
             ContentGraphicsState.RestoreState(self);

@@ -8,12 +8,25 @@ using HyperPdf.Core.Geometry;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Navigation;
+using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Security;
 namespace HyperPdf.Engine;
 
 /// <summary>Implements Navigation over the document's owned state.</summary>
 internal static class HyperPdfNavigation
 {
+    /// <summary>The side of an annotation icon in points, which is how far a click reaches from its upper-left corner.</summary>
+    private const float IconSide = 20;
+
+    /// <summary>How far the red channel of 0xRRGGBB is shifted left.</summary>
+    private const int RedShift = 16;
+
+    /// <summary>How far the green channel of 0xRRGGBB is shifted left.</summary>
+    private const int GreenShift = 8;
+
+    /// <summary>The largest value of a colour channel.</summary>
+    private const float ChannelMax = 255F;
+
     /// <summary>Gets the size of every page in points of physical size (1/72 inch): the user space size times the page's <c>/UserUnit</c> (ISO 32000-2 7.7.3.3), without loading the pages.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The page sizes, indexed by page.</returns>
@@ -41,6 +54,7 @@ internal static class HyperPdfNavigation
             IsEncrypted = info.IsEncrypted,
             Integrity = IntegrityOf(PdfDocumentMac.GetIntegrity(self.Document)),
             IsLinearized = PdfDocumentLinearization.GetInfo(self.Document) is not null,
+            OpenHints = HyperPdfOpenHints.Read(self.Document),
             WrappedFileName = payload?.FileName,
             WrappedCryptographicFilter = payload?.CryptographicFilter,
         };
@@ -178,6 +192,7 @@ internal static class HyperPdfNavigation
             }
         }
 
+        AddAttachmentLinks(self, page, pageIndex, links);
         return links;
     }
 
@@ -191,11 +206,47 @@ internal static class HyperPdfNavigation
         for (var i = 0; i < nodes.Length; i++)
         {
             var item = items[i];
-            nodes[i] = new(item.Title, LinkTargets.From(self.Document, item.Action), HyperPdfNavigation.ConvertOutline(self, item.Children), item.IsOpen) { Id = item.Id.Number };
+            nodes[i] = new(item.Title, LinkTargets.From(self.Document, item.Action), HyperPdfNavigation.ConvertOutline(self, item.Children), item.IsOpen)
+            {
+                Id = item.Id.Number,
+                Style = item.Style is { } style ? OutlineStyleOf(style) : null,
+            };
         }
 
         return nodes;
     }
+
+    /// <summary>Adds a link over the icon of each file attachment annotation that holds a file, so a click on the icon reaches the file.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="pageIndex">The page index.</param>
+    /// <param name="links">Receives the links.</param>
+    internal static void AddAttachmentLinks(HyperPdfDocument self, PdfPage page, int pageIndex, List<PageLink> links)
+    {
+        foreach (var file in PdfDocumentFileAttachmentAnnotations.GetFileAttachmentAnnotations(self.Document, pageIndex))
+        {
+            if (file.Data is null || !file.Id.IsValid)
+            {
+                continue;
+            }
+
+            // The icon is at most IconSide points square at the upper-left corner of the annotation's rectangle.
+            var side = Math.Min(IconSide, Math.Min(file.Bounds.Width, file.Bounds.Height));
+            var icon = side > 0 ? new PdfRectangle(file.Bounds.Left, file.Bounds.Top - side, file.Bounds.Left + side, file.Bounds.Top) : file.Bounds;
+            links.Add(new(LinkTargets.ToPageRect(page.ToPhysicalRectangle(icon)), LinkTarget.ForAttachment(pageIndex, file.Id.Number)));
+        }
+    }
+
+    /// <summary>Converts a bookmark's colour and flags.</summary>
+    /// <param name="style">The library's style, whose colour channels run from 0 to 1.</param>
+    /// <returns>The viewer's style, with the colour as 0xRRGGBB.</returns>
+    internal static OutlineStyle OutlineStyleOf(PdfBookmarkStyle style) =>
+        new((Channel(style.Red) << RedShift) | (Channel(style.Green) << GreenShift) | Channel(style.Blue), style.Bold, style.Italic);
+
+    /// <summary>Scales a colour channel from 0 to 1 up to a byte.</summary>
+    /// <param name="value">The channel.</param>
+    /// <returns>The byte.</returns>
+    internal static uint Channel(float value) => (uint)Math.Round(Math.Clamp(value, 0F, 1F) * ChannelMax);
 
     /// <summary>Converts the PDF MAC check to the viewer's integrity result.</summary>
     /// <param name="report">The library's report.</param>

@@ -23,6 +23,10 @@ public enum PdfTextSearchOptions
     /// <summary>Let matches overlap: look for the next match from the character after the previous match's start.</summary>
     Consecutive = 1 << 3,
 
-    /// <summary>Treat compatibility variants as equal: fullwidth forms, curly quotes, dashes and no-break or typographic spaces.</summary>
+    /// <summary>
+    /// Treat compatibility variants as equal: the forms Unicode compatibility decomposition (NFKD) spells out, such as
+    /// superscripts, fractions, circled numbers, units and halfwidth or fullwidth forms, and also curly quotes, dashes and
+    /// no-break or typographic spaces. A letter and its accent match however each is written, with or without this option.
+    /// </summary>
     FoldCompatibility = 1 << 4,
 }

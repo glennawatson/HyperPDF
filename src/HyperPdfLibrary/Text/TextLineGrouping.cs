@@ -25,6 +25,11 @@ internal static class TextLineGrouping
     internal static void Assemble(TextPageBuildState state)
     {
         var runs = state.Runs;
+        if (state.Device.Options.Order == PdfTextOrder.Layout)
+        {
+            TextLayoutOrder.Sort(runs);
+        }
+
         for (var i = 0; i < runs.Count; i++)
         {
             state.Frames.Add(TextRunFrame.Of(runs[i]));

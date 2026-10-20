@@ -69,6 +69,14 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         _services = services;
         _ready = this.WhenChanged(static vm => vm.IsValid, static vm => vm.IsBuilding, static (valid, building) => valid && !building);
         SelectedTarget = SystemDialogTarget;
+        if (tab.PrintDefaults is { } defaults)
+        {
+            Copies = defaults.Copies;
+            TwoSided = defaults.Duplex;
+            Binding = defaults.Binding;
+            Scaling = defaults.ActualSize ? PrintScaling.ActualSize : Scaling;
+        }
+
         _ = LoadPrintersAsync();
         _subscriptions =
         [

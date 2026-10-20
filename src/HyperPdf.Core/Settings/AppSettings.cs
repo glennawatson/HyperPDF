@@ -149,6 +149,24 @@ public sealed class AppSettings
     /// <summary>Gets or sets a value indicating whether a document reopens at the page it was closed at.</summary>
     public bool ReopenAtLastPage { get; set; } = true;
 
+    /// <summary>Gets or sets a value indicating whether a document's own opening page (its <c>/OpenAction</c>) is followed. A page restored from the last visit always wins.</summary>
+    public bool FollowOpenAction { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether the side panel a document asks for (its <c>/PageMode</c>) is shown.</summary>
+    public bool FollowPageMode { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether the page arrangement and reading direction a document asks for are used.</summary>
+    public bool FollowPageLayout { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether the window shows a document's own title when it asks for that.</summary>
+    public bool FollowDisplayDocTitle { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether the print scaling, copies and two-sided choice a document asks for are the print defaults.</summary>
+    public bool FollowPrintDefaults { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether the colours a document gives its bookmarks are ignored, so every bookmark has the theme's text colour.</summary>
+    public bool IgnoreOutlineColours { get; set; } = true;
+
     /// <summary>Gets the page each recent document was closed at, newest last.</summary>
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public List<LastViewedPage> LastPages { get; } = [];

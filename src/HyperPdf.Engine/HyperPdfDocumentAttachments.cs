@@ -2,9 +2,11 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using HyperPdf.Core.Attachments;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
+using HyperPdfLibrary.Objects;
 
 namespace HyperPdf.Engine;
 
@@ -29,14 +31,40 @@ internal static class HyperPdfDocumentAttachments
         }
 
         var source = PdfDocumentAttachments.GetAttachments(self.Document);
-        var attachments = new DocumentAttachment[source.Count];
-        for (var i = 0; i < attachments.Length; i++)
+        var onPages = AnnotationFiles(self);
+        var attachments = new DocumentAttachment[source.Count + onPages.Count];
+        for (var i = 0; i < source.Count; i++)
         {
             attachments[i] = new(source[i].Index, source[i].Name, HyperPdfAttachments.AttachmentSize(source[i].Data));
         }
 
+        for (var i = 0; i < onPages.Count; i++)
+        {
+            var file = onPages[i];
+            var index = source.Count + i;
+            var name = string.IsNullOrEmpty(file.FileName) ? string.Create(CultureInfo.InvariantCulture, $"Attachment {index + 1}") : file.FileName;
+            attachments[index] = new(index, name, HyperPdfAttachments.AttachmentSize(file.Data)) { PageIndex = file.PageIndex, AnnotationId = file.Id.Number };
+        }
+
         Volatile.Write(ref self.Attachments, attachments);
         return attachments;
+    }
+
+    /// <summary>Gets the file attachment annotations of the document that hold a file, in page order.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <returns>The annotations.</returns>
+    internal static List<PdfFileAttachmentAnnotation> AnnotationFiles(HyperPdfDocument self)
+    {
+        var onPages = new List<PdfFileAttachmentAnnotation>();
+        foreach (var annotation in PdfDocumentFileAttachmentAnnotations.GetFileAttachmentAnnotations(self.Document))
+        {
+            if (annotation.Data is not null)
+            {
+                onPages.Add(annotation);
+            }
+        }
+
+        return onPages;
     }
 
     /// <summary>Copies an embedded file's contents into a stream.</summary>
@@ -72,13 +100,29 @@ internal static class HyperPdfDocumentAttachments
     private static bool Decode(HyperPdfDocument self, int index, ref PooledBuffer output)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
-        var attachments = self.IsDisposed ? [] : PdfDocumentAttachments.GetAttachments(self.Document);
-        if ((uint)index >= (uint)attachments.Count || attachments[index].Data is not { } data)
+        if (self.IsDisposed || index < 0)
+        {
+            return false;
+        }
+
+        var attachments = PdfDocumentAttachments.GetAttachments(self.Document);
+        var data = index < attachments.Count ? attachments[index].Data : AnnotationFileData(self, index - attachments.Count);
+        if (data is null)
         {
             return false;
         }
 
         _ = data.Decode(ref output);
         return true;
+    }
+
+    /// <summary>Gets the stream of the file a file attachment annotation holds.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="position">The annotation's position among the annotations that hold a file.</param>
+    /// <returns>The stream, or <see langword="null"/> when there is no such annotation.</returns>
+    private static PdfStream? AnnotationFileData(HyperPdfDocument self, int position)
+    {
+        var onPages = AnnotationFiles(self);
+        return (uint)position < (uint)onPages.Count ? onPages[position].Data : null;
     }
 }

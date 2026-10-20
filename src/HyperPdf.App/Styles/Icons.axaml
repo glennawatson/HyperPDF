@@ -25,6 +25,8 @@
   <StreamGeometry x:Key="IconOutline">M0,0 M24,24 M4,6 L6,6 M9,6 L20,6 M7,12 L9,12 M12,12 L20,12 M7,18 L9,18 M12,18 L20,18</StreamGeometry>
   <StreamGeometry x:Key="IconCase">M0,0 M24,24 M3,18 L7.5,6 L12,18 M4.7,14 L10.3,14 M19,11 A3,3 0 1 0 19,17 L19,10</StreamGeometry>
   <StreamGeometry x:Key="IconWholeWord">M0,0 M24,24 M3,7 L5,17 L7,10 L9,17 L11,7 M14,17 L21,17 M14,7 L14,17 M21,7 L21,17</StreamGeometry>
+  <StreamGeometry x:Key="IconAccent">M0,0 M24,24 M4,20 L9.5,8 L15,20 M5.9,16 L13.1,16 M13,5 L17,3</StreamGeometry>
+  <StreamGeometry x:Key="IconSimilar">M0,0 M24,24 M4,9 C7,5 9,13 12,9 C15,5 17,13 20,9 M4,16 C7,12 9,20 12,16 C15,12 17,20 20,16</StreamGeometry>
   <StreamGeometry x:Key="IconCursor">M0,0 M24,24 M6,3 L6,19 L10,15 L13,21 L15,20 L12,14 L18,14 Z</StreamGeometry>
   <StreamGeometry x:Key="IconHighlight">M0,0 M24,24 M4,21 L11,21 M14,4 L20,10 L11,19 L7,19 L5,17 L5,13 Z</StreamGeometry>
   <StreamGeometry x:Key="IconUnderline">M0,0 M24,24 M7,4 L7,11 A5,5 0 0 0 17,11 L17,4 M5,20 L19,20</StreamGeometry>

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using HyperPdf.App.Services;
 using HyperPdf.App.ViewModels;
@@ -17,6 +18,9 @@ namespace HyperPdf.App.Views;
 [DebuggerDisplay("OutlineItemView: {ViewModel}")]
 public sealed partial class OutlineItemView : ReactiveUI.Avalonia.ReactiveUserControl<OutlineItemViewModel>
 {
+    /// <summary>The alpha channel of an opaque 0xAARRGGBB colour.</summary>
+    private const uint OpaqueAlpha = 0xFF000000;
+
     /// <summary>Initializes a new instance of the <see cref="OutlineItemView"/> class.</summary>
     public OutlineItemView()
     {
@@ -43,5 +47,16 @@ public sealed partial class OutlineItemView : ReactiveUI.Avalonia.ReactiveUserCo
         // Both are attached properties, which a binding expression cannot reach.
         ToolTip.SetTip(this, entry?.Title);
         ItemAutomation.NameContainer(this, entry?.Title);
+
+        // The document's title style is applied as local values; without a colour the title keeps the theme's text colour.
+        TitleText.FontWeight = entry?.IsBold == true ? FontWeight.Bold : FontWeight.Normal;
+        TitleText.FontStyle = entry?.IsItalic == true ? FontStyle.Italic : FontStyle.Normal;
+        if (entry?.Colour is { } rgb)
+        {
+            TitleText.Foreground = new SolidColorBrush(Color.FromUInt32(OpaqueAlpha | rgb));
+            return;
+        }
+
+        TitleText.ClearValue(TextBlock.ForegroundProperty);
     }
 }

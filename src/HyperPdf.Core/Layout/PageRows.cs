@@ -68,6 +68,23 @@ public static class PageRows
         return next < pageCount ? next : pageIndex;
     }
 
+    /// <summary>Gets the page the Next page command goes to. A vertical layout steps by row; a horizontal or wrapped one by page.</summary>
+    /// <param name="pageIndex">The current page.</param>
+    /// <param name="pageCount">The page count.</param>
+    /// <param name="mode">The arrangement.</param>
+    /// <param name="scroll">The scroll mode.</param>
+    /// <returns>The page, or <paramref name="pageIndex"/> when it is the last.</returns>
+    public static int GetNextPage(int pageIndex, int pageCount, PageLayoutMode mode, ScrollMode scroll) =>
+        scroll == ScrollMode.Vertical ? GetNextRowPage(pageIndex, pageCount, mode) : Math.Min(pageIndex + 1, Math.Max(0, pageCount - 1));
+
+    /// <summary>Gets the page the Previous page command goes to. A vertical layout steps by row; a horizontal or wrapped one by page.</summary>
+    /// <param name="pageIndex">The current page.</param>
+    /// <param name="mode">The arrangement.</param>
+    /// <param name="scroll">The scroll mode.</param>
+    /// <returns>The page, or the first page when already there.</returns>
+    public static int GetPreviousPage(int pageIndex, PageLayoutMode mode, ScrollMode scroll) =>
+        scroll == ScrollMode.Vertical ? GetPreviousRowPage(pageIndex, mode) : Math.Max(0, pageIndex - 1);
+
     /// <summary>Gets the first page of the row before the one holding a page, for the Previous page command.</summary>
     /// <param name="pageIndex">The current page.</param>
     /// <param name="mode">The arrangement.</param>

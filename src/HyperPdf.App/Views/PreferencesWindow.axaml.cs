@@ -47,12 +47,21 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
             disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.SmoothGraphics, static v => v.SmoothGraphicsBox.IsChecked));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.SmoothImages, static v => v.SmoothImagesBox.IsChecked));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.AreaImageReduction, static v => v.AreaImageReductionBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.SmallTextMasks, static v => v.SmallTextMasksBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.TextHinting, static v => v.TextHintingBox.SelectedIndex));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Sharpness.TextContrast, static v => v.TextContrastBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SpeechEngine, static v => v.SpeechEngineBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.AzureKey, static v => v.AzureKeyBox.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.AzureRegion, static v => v.AzureRegionBox.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.TimestampServer, static v => v.TimestampServerBox.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.CommentAuthor, static v => v.CommentAuthorBox.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.ReopenAtLastPage, static v => v.ReopenAtLastPageBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowOpenAction, static v => v.FollowOpenActionBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowPageMode, static v => v.FollowPageModeBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowPageLayout, static v => v.FollowPageLayoutBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowDisplayDocTitle, static v => v.FollowDisplayDocTitleBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.FollowPrintDefaults, static v => v.FollowPrintDefaultsBox.IsChecked));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.IgnoreOutlineColours, static v => v.IgnoreOutlineColoursBox.IsChecked));
             disposables.Add(this.Bind(ViewModel, static vm => vm.CheckSpelling, static v => v.CheckSpellingBox.IsChecked));
             disposables.Add(this.Bind(ViewModel, static vm => vm.ShowPreviewOnlyFonts, static v => v.PreviewOnlyFontsBox.IsChecked));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UsesAzure, static v => v.AzureKeyLabel.IsVisible));
@@ -96,6 +105,8 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
         TextEdgesBox.ItemsSource = SharpnessViewModel.TextEdgeOptions;
         StrokeAdjustmentBox.ItemsSource = SharpnessViewModel.StrokeAdjustmentOptions;
         MinimumLineBox.ItemsSource = SharpnessViewModel.MinimumLineOptions;
+        TextHintingBox.ItemsSource = SharpnessViewModel.TextHintingOptions;
+        TextContrastBox.ItemsSource = SharpnessViewModel.TextContrastOptions;
 
         OcrLanguageList.ItemTemplate = new FuncDataTemplate<OcrLanguageItemViewModel>(static (_, _) => new OcrLanguageItemView());
         FieldLabels.Link(
@@ -114,6 +125,8 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
             (TextEdgesBox, TextEdgesLabel),
             (StrokeAdjustmentBox, StrokeAdjustmentLabel),
             (MinimumLineBox, MinimumLineLabel),
+            (TextHintingBox, TextHintingLabel),
+            (TextContrastBox, TextContrastLabel),
             (SpeechEngineBox, SpeechEngineLabel),
             (AzureKeyBox, AzureKeyLabel),
             (AzureRegionBox, AzureRegionLabel),

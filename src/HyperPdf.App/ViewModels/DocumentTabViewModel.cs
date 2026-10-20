@@ -13,6 +13,7 @@ using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Navigation;
+using HyperPdf.Core.Printing;
 using HyperPdf.Core.Reading;
 using HyperPdf.Core.Rendering;
 using ReactiveUI;
@@ -111,6 +112,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         _services = services;
         FileName = Path.GetFileName(source.FilePath);
         Title = FileName;
+        WindowName = FileName;
         ZoomMode = services.Settings.DefaultZoomMode;
         LayoutMode = services.Settings.DefaultLayoutMode;
         SidebarVisible = services.Settings.ShowSidebar;
@@ -282,6 +284,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial string Title { get; private set; }
 
+    /// <summary>Gets the name the window shows for the document: its own title when it asks for that and the reader allows it, otherwise the file name.</summary>
+    [Reactive]
+    public partial string WindowName { get; private set; }
+
     /// <summary>Gets a value indicating whether the document has been opened at least once.</summary>
     [Reactive]
     public partial bool IsLoaded { get; private set; }
@@ -346,6 +352,17 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets or sets the page arrangement.</summary>
     [Reactive]
     public partial PageLayoutMode LayoutMode { get; set; }
+
+    /// <summary>Gets or sets the direction pages are laid out and scrolled in.</summary>
+    [Reactive]
+    public partial ScrollMode ScrollMode { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether two page spreads read right to left, as the document asks and the reader allows.</summary>
+    [Reactive]
+    public partial bool RightToLeft { get; set; }
+
+    /// <summary>Gets or sets the print defaults the document asks for and the reader allows, or <see langword="null"/> when the print window starts with the viewer's own.</summary>
+    public PrintDefaults? PrintDefaults { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a text cursor is moved through the page with the arrow keys (F7).</summary>
     [Reactive]
@@ -666,6 +683,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
                     break;
                 }
 
+            case LinkTargetKind.AttachedFile:
+                {
+                    _ = Attachments.Reveal(target);
+                    break;
+                }
+
             default:
                 {
                     break;
@@ -839,7 +862,15 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             return false;
         }
 
-        return ApplySaveOutcome(await DocumentSave.SaveAsync(editor, Source, path, cancellationToken).ConfigureAwait(true));
+        // The document's own actions bracket the save: they may change fields before the file is written.
+        _ = await Forms.RunDocumentEventAsync(FormDocumentEvent.WillSave).ConfigureAwait(true);
+        var saved = ApplySaveOutcome(await DocumentSave.SaveAsync(editor, Source, path, cancellationToken).ConfigureAwait(true));
+        if (saved)
+        {
+            _ = await Forms.RunDocumentEventAsync(FormDocumentEvent.DidSave).ConfigureAwait(true);
+        }
+
+        return saved;
     }
 
     /// <summary>Turns read mode on or off, putting the sidebar away and bringing it back as it was.</summary>
@@ -1102,6 +1133,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             Notice = $"This file contains an encrypted document named {wrappedName}. Open it from Attachments.";
         }
 
+        TabOpenHints.Apply(this, _services.Settings);
         IsLoaded = true;
         LayoutVersion++;
     }
@@ -1134,7 +1166,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         var sizes = Source.PageSizes;
         var title = Source.Metadata?.Title;
         Title = string.IsNullOrWhiteSpace(title) ? FileName : title;
-        Outline = OutlineItemViewModel.Create(Source.Outline);
+        WindowName = TabOpenHints.TitleOf(Source.Metadata, FileName, _services.Settings);
+        Outline = OutlineItemViewModel.Create(Source.Outline, _services.Settings.IgnoreOutlineColours);
 
         // A separation page's thumbnail names its colourant, so it is not mistaken for a page of its own.
         Separations.Load(DocumentFeature<ISeparationSource>.Get(document)?.GetSeparations() ?? DocumentSeparations.Empty, CurrentPageIndex);
@@ -1203,12 +1236,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Goes to the next page, or the next pair of pages when two are shown side by side.</summary>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NextPage() => ShowPage(PageRows.GetNextRowPage(CurrentPageIndex, PageCount, LayoutMode));
+    private void NextPage() => ShowPage(PageRows.GetNextPage(CurrentPageIndex, PageCount, LayoutMode, ScrollMode));
 
     /// <summary>Goes to the previous page, or the previous pair of pages when two are shown side by side.</summary>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void PreviousPage() => ShowPage(PageRows.GetPreviousRowPage(CurrentPageIndex, LayoutMode));
+    private void PreviousPage() => ShowPage(PageRows.GetPreviousPage(CurrentPageIndex, LayoutMode, ScrollMode));
 
     /// <summary>Goes to the first page.</summary>
     [ReactiveCommand]
@@ -1428,6 +1461,17 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         if (Enum.TryParse<PageLayoutMode>(text, out var mode))
         {
             LayoutMode = mode;
+        }
+    }
+
+    /// <summary>Sets the scroll mode from a <see cref="ScrollMode"/> name.</summary>
+    /// <param name="text">The name.</param>
+    [ReactiveCommand]
+    private void SetScrollMode(string text)
+    {
+        if (Enum.TryParse<ScrollMode>(text, out var mode))
+        {
+            ScrollMode = mode;
         }
     }
 

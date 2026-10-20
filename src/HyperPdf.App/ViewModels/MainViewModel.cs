@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.App.Services;
+using HyperPdf.Core.Forms;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Settings;
@@ -15,6 +16,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.App.ViewModels;
@@ -78,6 +80,11 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
             .Do(LeaveActiveTab)
             .KeepNotNull()
             .SubscribeSafe(static tab => tab.IsSelected = true, ErrorTrace.Write));
+
+        // The window title follows the shown tab's name, which changes when its document loads.
+        _subscriptions.Add(this.WhenChanged(static x => x.SelectedTab)
+            .SwitchMap(static tab => tab is null ? Signal.Never<string>() : tab.WhenChanged(static t => t.WindowName))
+            .SubscribeSafe(_ => RaiseWindowTitle(), ErrorTrace.Write));
         _subscriptions.Add(this.WhenChanged(static x => x.PageToneEnabled).Skip(1).SubscribeSafe(ApplyPageTone, ErrorTrace.Write));
         _subscriptions.Add(Scope.Create(ReleaseTabs));
     }
@@ -140,7 +147,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Gets the window title.</summary>
-    public string WindowTitle => SelectedTab is { } tab ? $"{tab.Title} — Hyper PDF Viewer" : "Hyper PDF Viewer";
+    public string WindowTitle => SelectedTab is { } tab ? $"{tab.WindowName} — Hyper PDF Viewer" : "Hyper PDF Viewer";
 
     /// <summary>Gets or sets a value indicating whether pages are drawn in the comfort page colour rather than plain white.</summary>
     [Reactive]
@@ -400,6 +407,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
             }
         }
 
+        _ = await tab.Forms.RunDocumentEventAsync(FormDocumentEvent.WillClose).ConfigureAwait(true);
         CloseTabWithoutAsking(tab);
     }
 
@@ -460,6 +468,17 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         return Path.IsPathRooted(item) || !item.Contains("://", StringComparison.Ordinal) ? Path.GetFullPath(item) : null;
     }
 
+    /// <summary>Runs the document actions that happen before a document closes, for each tab about to close.</summary>
+    /// <param name="closing">The tabs.</param>
+    /// <returns>A task.</returns>
+    private static async Task RunWillCloseAsync(List<DocumentTabViewModel> closing)
+    {
+        foreach (var tab in closing)
+        {
+            _ = await tab.Forms.RunDocumentEventAsync(FormDocumentEvent.WillClose).ConfigureAwait(true);
+        }
+    }
+
     /// <summary>Clears the recent PDF list shown by this app.</summary>
     [ReactiveCommand]
     private void ClearRecent()
@@ -503,6 +522,10 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
 
         _activeTab = next;
     }
+
+    /// <summary>Tells the window that its title changed.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void RaiseWindowTitle() => this.RaisePropertyChanged(nameof(WindowTitle));
 
     /// <summary>Releases the second view and every tab, like closing them: the pool drops each source, which closes its document and forgets its passwords.</summary>
     private void ReleaseTabs()
@@ -712,10 +735,13 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
             }
         }
 
-        if (await ConfirmCloseAsync(closing.Count).ConfigureAwait(true))
+        if (!await ConfirmCloseAsync(closing.Count).ConfigureAwait(true))
         {
-            CloseGroup(closing);
+            return;
         }
+
+        await RunWillCloseAsync(closing).ConfigureAwait(true);
+        CloseGroup(closing);
     }
 
     /// <summary>Closes every tab, asking first when there is more than one.</summary>
@@ -728,7 +754,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
             return;
         }
 
-        CloseGroup([.. Tabs]);
+        List<DocumentTabViewModel> closing = [.. Tabs];
+        await RunWillCloseAsync(closing).ConfigureAwait(true);
+        CloseGroup(closing);
         RefreshRecentDocuments();
     }
 
