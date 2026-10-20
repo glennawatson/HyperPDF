@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
@@ -31,6 +32,12 @@ public sealed partial class MediaPanelView : ReactiveUI.Avalonia.ReactiveUserCon
     /// <summary>The bytes in each pixel of a decoded picture.</summary>
     private const int BytesPerPixel = 4;
 
+    /// <summary>How long the position slider must stay still before the player goes to where it was left, in milliseconds.</summary>
+    private const int SeekSettleMilliseconds = 250;
+
+    /// <summary>How long the position slider must stay still before the player goes to where it was left.</summary>
+    private static readonly TimeSpan SeekSettleTime = TimeSpan.FromMilliseconds(SeekSettleMilliseconds);
+
     /// <summary>Initializes a new instance of the <see cref="MediaPanelView"/> class.</summary>
     public MediaPanelView()
     {
@@ -55,10 +62,15 @@ public sealed partial class MediaPanelView : ReactiveUI.Avalonia.ReactiveUserCon
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Media.Player.Clock, static v => v.MediaClockText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Media.Player.Caption, static v => v.MediaCaptionText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Media.Player.Caption, static v => v.MediaCaptionText.IsVisible, static text => text.Length > 0));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Media.Player.DurationSeconds, static v => v.MediaPositionBar.Maximum));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Media.Player.PositionSeconds, static v => v.MediaPositionBar.Value));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Media.Player.DurationSeconds, static v => v.MediaPositionSlider.Maximum));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Media.Player.PositionSeconds, static v => v.MediaPositionSlider.Value));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Media.Player.HasPicture, static v => v.MediaPictureImage.IsVisible));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Media.Player.FrameVersion).Skip(1).SubscribeSafe(_ => DrawPicture(), ErrorTrace.Write));
+
+            // A change of the slider that is not the player moving it is the reader moving it; the seek waits until they stop.
+            var moves = MediaPositionSlider.ValueChanges.Select(static args => args.NewValue);
+            disposables.Add(moves.SubscribeSafe(NoteSeek, ErrorTrace.Write));
+            disposables.Add(moves.Throttle(SeekSettleTime).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => ViewModel!.Media.Player.CompleteSeek(), ErrorTrace.Write));
         });
     }
 
@@ -108,6 +120,11 @@ public sealed partial class MediaPanelView : ReactiveUI.Avalonia.ReactiveUserCon
         CopyPicture(player, picture, size);
         MediaPictureImage.InvalidateVisual();
     }
+
+    /// <summary>Tells the player the reader moved the position slider.</summary>
+    /// <param name="seconds">The slider's value, in seconds.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void NoteSeek(double seconds) => ViewModel?.Media.Player.NoteSeek(seconds);
 
     /// <summary>Asks where to save media, through the desktop's save dialog.</summary>
     /// <param name="context">The interaction context, holding the suggested file name.</param>

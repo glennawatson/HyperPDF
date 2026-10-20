@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using HyperPdf.App.Services;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Media;
+using HyperPdf.Media;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -17,9 +18,9 @@ using ReactiveUI.SourceGenerators;
 namespace HyperPdf.App.ViewModels;
 
 /// <summary>
-/// Plays the chosen sound or video inside the viewer with the FFmpeg programs found on the computer. Nothing plays until the
-/// reader presses Play. Without FFmpeg the buttons stay off and the panel says how to get it; saving the media and opening it
-/// with the system player still work.
+/// Plays the chosen sound or video inside the viewer with the FFmpeg libraries that ship with the app. Nothing plays until the
+/// reader presses Play. When the libraries cannot be loaded the buttons stay off and the panel says so; saving the media and
+/// opening it with the system player still work.
 /// </summary>
 [DebuggerDisplay("MediaPlayerViewModel: {State}")]
 public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
@@ -27,8 +28,12 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     /// <summary>How far the skip buttons move, in seconds.</summary>
     private const double SkipSeconds = 10;
 
-    /// <summary>What the panel says when FFmpeg is not installed.</summary>
-    private const string NotInstalled = "To play sound and video here, install FFmpeg (the ffmpeg, ffplay and ffprobe programs). You can still save the media or open it with your system's player.";
+    /// <summary>How far a slider value may be from the position and still be taken as the player moving it, in seconds.</summary>
+    private const double FollowTolerance = 0.6;
+
+    /// <summary>What the panel says when media cannot be played here.</summary>
+    private const string NotInstalled =
+        "Sound and video cannot be played here because the FFmpeg libraries that come with HyperPDF could not be loaded. You can still save the media or open it with your system's player.";
 
     /// <summary>What the panel says before anything is chosen.</summary>
     private const string ChooseSomething = "Choose a sound or video, then press Play.";
@@ -39,8 +44,8 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     /// <summary>The owning media list.</summary>
     private readonly DocumentMediaViewModel _media;
 
-    /// <summary>The FFmpeg programs, or <see langword="null"/> when they are not installed.</summary>
-    private readonly MediaTools? _tools;
+    /// <summary>Makes the player of a piece of media.</summary>
+    private readonly MediaPlaybackFactory _factory;
 
     /// <summary>Owns the subscriptions.</summary>
     private readonly MultipleDisposable _subscriptions = [];
@@ -55,7 +60,13 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     private readonly IObservable<bool> _canMove;
 
     /// <summary>The player of the chosen media, or <see langword="null"/> when none is loaded.</summary>
-    private FfmpegMediaPlayer? _player;
+    private IMediaPlayback? _player;
+
+    /// <summary>Where the reader is dragging to, in seconds.</summary>
+    private double _seekTarget;
+
+    /// <summary>Whether the reader is moving the position bar.</summary>
+    private bool _seeking;
 
     /// <summary>Follows the loaded player.</summary>
     private IDisposable? _playerSubscription;
@@ -68,11 +79,11 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
 
     /// <summary>Initializes a new instance of the <see cref="MediaPlayerViewModel"/> class.</summary>
     /// <param name="media">The owning media list.</param>
-    /// <param name="tools">The FFmpeg programs, or <see langword="null"/> when they are not installed.</param>
-    public MediaPlayerViewModel(DocumentMediaViewModel media, MediaTools? tools)
+    /// <param name="factory">Makes the player of a piece of media.</param>
+    public MediaPlayerViewModel(DocumentMediaViewModel media, MediaPlaybackFactory factory)
     {
         _media = media;
-        _tools = tools;
+        _factory = factory;
         Status = IdleStatus();
         Clock = string.Empty;
         Caption = string.Empty;
@@ -82,8 +93,8 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
         _subscriptions.Add(media.WhenChanged(static vm => vm.Selected).SubscribeSafe(_ => SelectionChanged(), ErrorTrace.Write));
     }
 
-    /// <summary>Gets a value indicating whether FFmpeg was found, so media can play here.</summary>
-    public bool IsAvailable => _tools is not null;
+    /// <summary>Gets a value indicating whether media can be played here.</summary>
+    public bool IsAvailable => _factory.IsAvailable;
 
     /// <summary>Gets the size of the pictures, or an empty size when the media has no picture.</summary>
     public FrameSize FrameSize => _player?.FrameSize ?? default;
@@ -144,6 +155,35 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
         Release();
     }
 
+    /// <summary>
+    /// Notes where the reader has moved the position bar to. A value close to the playing position is the bar following the
+    /// player, not the reader, so it is ignored.
+    /// </summary>
+    /// <param name="seconds">The value of the bar, in seconds.</param>
+    public void NoteSeek(double seconds)
+    {
+        if (_player is null || Math.Abs(seconds - PositionSeconds) <= FollowTolerance)
+        {
+            return;
+        }
+
+        _seeking = true;
+        _seekTarget = seconds;
+    }
+
+    /// <summary>Goes to the position the reader moved the bar to, and lets the bar follow the player again.</summary>
+    public void CompleteSeek()
+    {
+        if (!_seeking)
+        {
+            return;
+        }
+
+        _seeking = false;
+        PositionSeconds = _seekTarget;
+        _player?.Seek(TimeSpan.FromSeconds(_seekTarget));
+    }
+
     /// <summary>Stops and forgets the loaded media; called when the document loads again.</summary>
     internal void Release()
     {
@@ -152,6 +192,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
         _player?.Dispose();
         _player = null;
         _loadedIndex = -1;
+        _seeking = false;
         HasPicture = false;
         Caption = string.Empty;
         Clock = string.Empty;
@@ -174,7 +215,9 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     private void Apply(MediaSnapshot snapshot)
     {
         State = snapshot.State;
-        PositionSeconds = snapshot.Position.TotalSeconds;
+
+        // While the reader drags the position bar it stays where they put it.
+        PositionSeconds = _seeking ? PositionSeconds : snapshot.Position.TotalSeconds;
         DurationSeconds = snapshot.Duration.TotalSeconds;
         Caption = snapshot.Caption;
         FrameVersion = snapshot.FrameVersion;
@@ -220,7 +263,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     /// <returns>The words.</returns>
     private string IdleStatus()
     {
-        if (_tools is null)
+        if (!IsAvailable)
         {
             return NotInstalled;
         }
@@ -235,15 +278,21 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     {
         Release();
         Status = "Opening…";
+        if (_factory.Create(_media.ReduceMotion) is not { } player)
+        {
+            Status = NotInstalled;
+            return false;
+        }
+
         var extracted = await _media.ExtractAsync(media).ConfigureAwait(true);
         if (extracted is null)
         {
             Status = "This media could not be read from the document.";
+            player.Dispose();
             return false;
         }
 
         _folder = Path.GetDirectoryName(extracted);
-        var player = new FfmpegMediaPlayer(_tools!, _media.ReduceMotion);
         if (!await player.OpenAsync(extracted, _media.LifetimeToken).ConfigureAwait(true))
         {
             Status = player.Problem ?? "This media could not be played.";
@@ -289,7 +338,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     [ReactiveCommand(CanExecute = nameof(_canPlay))]
     private async Task PlayAsync()
     {
-        if (_tools is null || _media.Selected is not { } selected)
+        if (!IsAvailable || _media.Selected is not { } selected)
         {
             return;
         }

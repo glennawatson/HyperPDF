@@ -303,6 +303,66 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ````
 
+### FFmpeg.AutoGen.Abstractions
+- Version: 8.1.0
+- Origin: NuGet package
+- Copyright: Copyright © Ruslan Balanukhin 2025 All rights reserved.
+- Link: https://github.com/Ruslan-B/FFmpeg.AutoGen
+
+````text
+MIT License
+
+Copyright (c) 2025 Ruslan Balanukhin (Rationale One)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+````
+
+### FFmpeg.AutoGen.Bindings.DynamicallyLinked
+- Version: 8.1.0
+- Origin: NuGet package
+- Copyright: Copyright © Ruslan Balanukhin 2025 All rights reserved.
+- Link: https://github.com/Ruslan-B/FFmpeg.AutoGen
+
+````text
+MIT License
+
+Copyright (c) 2025 Ruslan Balanukhin (Rationale One)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+````
+
 ### HarfBuzzSharp
 - Version: 14.2.1.301
 - Origin: NuGet package
@@ -11824,22 +11884,23 @@ Public License instead of this License.
 
 ## Apache-2.0 AND OFL-1.1
 
-### Open font pack (Arimo, Tinos, Cousine and Noto symbols)
-- Version: Google Fonts commits 62e55e586fc0c29d428ee47b7c359cd33143f93d (Tinos, Cousine, Noto) and 89ade4fa7b7663aec69d3202d2eefd928e78c467 (Arimo)
-- Origin: Embedded in the library assembly, cut down to the standard fonts' characters; never downloaded
+### Open font pack (Arimo, Tinos, Cousine, Noto symbols and Noto Emoji)
+- Version: Google Fonts commits 62e55e586fc0c29d428ee47b7c359cd33143f93d (Tinos, Cousine, Noto), 89ade4fa7b7663aec69d3202d2eefd928e78c467 (Arimo) and Noto Emoji 2.048
+- Origin: Embedded in the library assembly; never downloaded
 - Copyright: Copyright the font authors; see the font notices.
 - Link: https://github.com/google/fonts
 
 ````text
 These font programs are embedded in the HyperPdfLibrary assembly. Nothing is downloaded. Arimo, Tinos and Cousine are
-compatible substitutes for the sans, serif and fixed-pitch standard fonts. Noto Sans Math and Noto Sans Symbols 2
-supply the Symbol and ZapfDingbats glyphs.
+compatible substitutes for the sans, serif and fixed-pitch standard fonts. Noto Sans Math, Noto Sans Symbols 2 and Noto
+Emoji supply the Symbol, ZapfDingbats and monochrome emoji fallback glyphs.
 
-The embedded copies are modified, as the licences below allow: each was cut down to the characters the standard fonts
-and their usual substitutes need (Basic Latin, Latin-1, Latin Extended-A and -B, Greek, Cyrillic, Hebrew, Vietnamese,
-punctuation, currency, arrows, mathematical operators, box drawing and geometric shapes; the symbol faces to the
-characters of Symbol and ZapfDingbats), then compressed. Glyph outlines, metrics and names of the kept characters are
-unchanged. None of these fonts declares a Reserved Font Name, so the copies keep the original names.
+The embedded copies are modified or compressed, as the licences below allow: the text and symbol faces were cut down to
+the characters the standard fonts and their usual substitutes need (Basic Latin, Latin-1, Latin Extended-A and -B, Greek,
+Cyrillic, Hebrew, Vietnamese, punctuation, currency, arrows, mathematical operators, box drawing and geometric shapes; the
+symbol faces to the characters of Symbol and ZapfDingbats), and all faces are compressed. Glyph outlines, metrics and
+names of the kept characters are unchanged. None of these fonts declares a Reserved Font Name, so the copies keep the
+original names.
 
 Arimo notice:
 
@@ -12058,6 +12119,10 @@ Noto Sans Symbols 2 notice:
 
 Copyright 2022 The Noto Project Authors (https://github.com/notofonts/symbols)
 
+Noto Emoji notice:
+
+Copyright 2013-2026 Google LLC (https://github.com/googlefonts/noto-emoji)
+
 Tinos notice:
 
 Copyright 2026 The Tinos Project Authors (https://github.com/googlefonts/tinos)
@@ -12066,7 +12131,7 @@ Cousine notice:
 
 Copyright 2026 The Cousine Project Authors (https://github.com/googlefonts/cousine)
 
-SIL Open Font License for Noto Sans Math, Noto Sans Symbols 2, Tinos and Cousine:
+SIL Open Font License for Noto Sans Math, Noto Sans Symbols 2, Noto Emoji, Tinos and Cousine:
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
@@ -12251,7 +12316,7 @@ The engine builds and caches only the requested mappings. No CMap data is includ
 
 ### veraPDF validation profile rule descriptions
 - Version: veraPDF-validation-profiles commit 070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8
-- Origin: Rule descriptions and clause numbers copied into HyperPdfLibrary's PDF/A rule table
+- Origin: Rule descriptions and clause numbers copied into HyperPdfLibrary's PDF/A rule table and its PDF/UA, tagged PDF, Well-Tagged PDF and WCAG standards rule table
 - Copyright: Copyright 2015 veraPDF Consortium.
 - Link: https://github.com/veraPDF/veraPDF-validation-profiles/tree/070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8/PDF_A
 
@@ -12265,8 +12330,190 @@ https://creativecommons.org/licenses/by/4.0/
 
 HyperPdfLibrary uses the PDF/A rule descriptions, clause numbers and test numbers from the PDF_A profiles at commit
 070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8. Changes: rules that the profiles repeat across PDF/A parts are merged
-into one entry, and each description ends with a full stop. The rule checks are HyperPdfLibrary's own code; no
-veraPDF software is included.
+into one entry, and each description ends with a full stop.
+
+It also uses the rule descriptions, clause numbers, test numbers and tags from the PDF_UA profiles (PDF/UA-1, PDF/UA-2,
+the tagged PDF, ISO/TS 32005, Well-Tagged PDF and WCAG 2.2 profiles) at the same commit. Changes: rules that several
+profiles repeat are merged into one entry that records which profiles hold it, and white space in descriptions is
+collapsed.
+
+The rule checks are HyperPdfLibrary's own code; no veraPDF software is included.
+````
+
+## LGPL-3.0-or-later
+
+### FFmpeg libraries (libavutil, libswresample, libavcodec, libavformat, libswscale)
+- Version: 8.1.3, LGPL shared build from BtbN/FFmpeg-Builds
+- Origin: Shipped in the ffmpeg folder beside the app; loaded to play sound and video. They are separate shared libraries, so you can replace them with your own build of the same major versions.
+- Copyright: Copyright the FFmpeg developers.
+- Link: https://ffmpeg.org/legal.html
+
+````text
+GNU LESSER GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+
+  This version of the GNU Lesser General Public License incorporates
+the terms and conditions of version 3 of the GNU General Public
+License, supplemented by the additional permissions listed below.
+
+  0. Additional Definitions.
+
+  As used herein, "this License" refers to version 3 of the GNU Lesser
+General Public License, and the "GNU GPL" refers to version 3 of the GNU
+General Public License.
+
+  "The Library" refers to a covered work governed by this License,
+other than an Application or a Combined Work as defined below.
+
+  An "Application" is any work that makes use of an interface provided
+by the Library, but which is not otherwise based on the Library.
+Defining a subclass of a class defined by the Library is deemed a mode
+of using an interface provided by the Library.
+
+  A "Combined Work" is a work produced by combining or linking an
+Application with the Library.  The particular version of the Library
+with which the Combined Work was made is also called the "Linked
+Version".
+
+  The "Minimal Corresponding Source" for a Combined Work means the
+Corresponding Source for the Combined Work, excluding any source code
+for portions of the Combined Work that, considered in isolation, are
+based on the Application, and not on the Linked Version.
+
+  The "Corresponding Application Code" for a Combined Work means the
+object code and/or source code for the Application, including any data
+and utility programs needed for reproducing the Combined Work from the
+Application, but excluding the System Libraries of the Combined Work.
+
+  1. Exception to Section 3 of the GNU GPL.
+
+  You may convey a covered work under sections 3 and 4 of this License
+without being bound by section 3 of the GNU GPL.
+
+  2. Conveying Modified Versions.
+
+  If you modify a copy of the Library, and, in your modifications, a
+facility refers to a function or data to be supplied by an Application
+that uses the facility (other than as an argument passed when the
+facility is invoked), then you may convey a copy of the modified
+version:
+
+   a) under this License, provided that you make a good faith effort to
+   ensure that, in the event an Application does not supply the
+   function or data, the facility still operates, and performs
+   whatever part of its purpose remains meaningful, or
+
+   b) under the GNU GPL, with none of the additional permissions of
+   this License applicable to that copy.
+
+  3. Object Code Incorporating Material from Library Header Files.
+
+  The object code form of an Application may incorporate material from
+a header file that is part of the Library.  You may convey such object
+code under terms of your choice, provided that, if the incorporated
+material is not limited to numerical parameters, data structure
+layouts and accessors, or small macros, inline functions and templates
+(ten or fewer lines in length), you do both of the following:
+
+   a) Give prominent notice with each copy of the object code that the
+   Library is used in it and that the Library and its use are
+   covered by this License.
+
+   b) Accompany the object code with a copy of the GNU GPL and this license
+   document.
+
+  4. Combined Works.
+
+  You may convey a Combined Work under terms of your choice that,
+taken together, effectively do not restrict modification of the
+portions of the Library contained in the Combined Work and reverse
+engineering for debugging such modifications, if you also do each of
+the following:
+
+   a) Give prominent notice with each copy of the Combined Work that
+   the Library is used in it and that the Library and its use are
+   covered by this License.
+
+   b) Accompany the Combined Work with a copy of the GNU GPL and this license
+   document.
+
+   c) For a Combined Work that displays copyright notices during
+   execution, include the copyright notice for the Library among
+   these notices, as well as a reference directing the user to the
+   copies of the GNU GPL and this license document.
+
+   d) Do one of the following:
+
+       0) Convey the Minimal Corresponding Source under the terms of this
+       License, and the Corresponding Application Code in a form
+       suitable for, and under terms that permit, the user to
+       recombine or relink the Application with a modified version of
+       the Linked Version to produce a modified Combined Work, in the
+       manner specified by section 6 of the GNU GPL for conveying
+       Corresponding Source.
+
+       1) Use a suitable shared library mechanism for linking with the
+       Library.  A suitable mechanism is one that (a) uses at run time
+       a copy of the Library already present on the user's computer
+       system, and (b) will operate properly with a modified version
+       of the Library that is interface-compatible with the Linked
+       Version.
+
+   e) Provide Installation Information, but only if you would otherwise
+   be required to provide such information under section 6 of the
+   GNU GPL, and only to the extent that such information is
+   necessary to install and execute a modified version of the
+   Combined Work produced by recombining or relinking the
+   Application with a modified version of the Linked Version. (If
+   you use option 4d0, the Installation Information must accompany
+   the Minimal Corresponding Source and Corresponding Application
+   Code. If you use option 4d1, you must provide the Installation
+   Information in the manner specified by section 6 of the GNU GPL
+   for conveying Corresponding Source.)
+
+  5. Combined Libraries.
+
+  You may place library facilities that are a work based on the
+Library side by side in a single library together with other library
+facilities that are not Applications and are not covered by this
+License, and convey such a combined library under terms of your
+choice, if you do both of the following:
+
+   a) Accompany the combined library with a copy of the same work based
+   on the Library, uncombined with any other library facilities,
+   conveyed under the terms of this License.
+
+   b) Give prominent notice with the combined library that part of it
+   is a work based on the Library, and explaining where to find the
+   accompanying uncombined form of the same work.
+
+  6. Revised Versions of the GNU Lesser General Public License.
+
+  The Free Software Foundation may publish revised and/or new versions
+of the GNU Lesser General Public License from time to time. Such new
+versions will be similar in spirit to the present version, but may
+differ in detail to address new problems or concerns.
+
+  Each version is given a distinguishing version number. If the
+Library as you received it specifies that a certain numbered version
+of the GNU Lesser General Public License "or any later version"
+applies to it, you have the option of following the terms and
+conditions either of that published version or of any later version
+published by the Free Software Foundation. If the Library as you
+received it does not specify a version number of the GNU Lesser
+General Public License, you may choose any version of the GNU Lesser
+General Public License ever published by the Free Software Foundation.
+
+  If the Library as you received it specifies that a proxy can decide
+whether future versions of the GNU Lesser General Public License shall
+apply, that proxy's public statement of acceptance of any version is
+permanent authorization for you to choose that version for the
+Library.
 ````
 
 ## LicenseRef-CMU-0.6 AND BSD-2-Clause

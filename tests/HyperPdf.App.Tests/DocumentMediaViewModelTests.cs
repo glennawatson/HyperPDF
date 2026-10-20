@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Media;
+using HyperPdf.Media;
 using HyperPdf.TestAssets;
 using ReactiveUI.Primitives;
 
@@ -18,6 +19,12 @@ public sealed class DocumentMediaViewModelTests
 
     /// <summary>The position of the screen clip.</summary>
     private const int ClipPosition = 1;
+
+    /// <summary>A bar value this close to the playing position is the bar following the player, in seconds.</summary>
+    private const double FollowStep = 0.2;
+
+    /// <summary>The place the bar is moved to, in seconds.</summary>
+    private const double SeekSeconds = 1.5;
 
     /// <summary>How long to wait to see that nothing starts by itself, in milliseconds.</summary>
     private const int SettleMilliseconds = 400;
@@ -99,12 +106,12 @@ public sealed class DocumentMediaViewModelTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         var tab = await OpenAsync(test, main, TestPdf.CreateMediaDocument());
-        using var media = new DocumentMediaViewModel(tab, null);
+        using var media = new DocumentMediaViewModel(tab, new MediaPlaybackFactory(static () => false, static _ => null));
         media.Refresh();
         media.Selected = media.Items[ClipPosition];
 
         await Assert.That(media.Player.IsAvailable).IsFalse();
-        await Assert.That(media.Player.Status).Contains("install FFmpeg");
+        await Assert.That(media.Player.Status).Contains("could not be loaded");
         await Assert.That(await media.Player.PlayCommand.CanExecute.FirstAsync()).IsFalse();
         await Assert.That(media.SaveCommand is not null).IsTrue();
     }
@@ -115,7 +122,8 @@ public sealed class DocumentMediaViewModelTests
     public async Task PlaysTheChosenClipOnlyAfterPlayIsPressed()
     {
         var tools = MediaToolLocator.Find();
-        if (tools is null)
+        var playback = new MediaPlaybackFactory(static () => NullStreamingAudioOutput.Instance);
+        if (tools is null || !playback.IsAvailable)
         {
             Skip.Test("FFmpeg is not installed on this computer.");
         }
@@ -124,7 +132,7 @@ public sealed class DocumentMediaViewModelTests
         var clip = await MakeClipAsync(tools!, test.Directory);
         using var main = new MainViewModel(test.Services);
         var tab = await OpenAsync(test, main, TestPdf.CreateMediaDocument(clip));
-        using var media = new DocumentMediaViewModel(tab, tools);
+        using var media = new DocumentMediaViewModel(tab, playback);
         media.Refresh();
 
         media.Selected = media.Items[ClipPosition];
@@ -146,6 +154,41 @@ public sealed class DocumentMediaViewModelTests
         media.Selected = media.Items[0];
         await Assert.That(media.Player.State).IsEqualTo(MediaPlayerState.Idle);
         await Assert.That(media.Player.HasPicture).IsFalse();
+    }
+
+    /// <summary>Moving the position bar and letting go goes to that place; a bar that only follows the player does not seek.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task MovingThePositionBarSeeks()
+    {
+        var tools = MediaToolLocator.Find();
+        var playback = new MediaPlaybackFactory(static () => NullStreamingAudioOutput.Instance);
+        if (tools is null || !playback.IsAvailable)
+        {
+            Skip.Test("FFmpeg is not installed on this computer.");
+        }
+
+        using var test = new TestServices();
+        var clip = await MakeClipAsync(tools!, test.Directory);
+        using var main = new MainViewModel(test.Services);
+        var tab = await OpenAsync(test, main, TestPdf.CreateMediaDocument(clip));
+        using var media = new DocumentMediaViewModel(tab, playback);
+        media.Refresh();
+        media.Selected = media.Items[ClipPosition];
+        _ = await media.Player.PlayCommand.Execute().ToTask();
+        _ = await media.Player.PauseCommand.Execute().ToTask();
+        await Assert.That(await UiWait.UntilAsync(() => media.Player.State == MediaPlayerState.Paused)).IsTrue();
+        var paused = media.Player.PositionSeconds;
+
+        media.Player.NoteSeek(paused + FollowStep);
+        media.Player.CompleteSeek();
+        await Assert.That(media.Player.PositionSeconds).IsEqualTo(paused);
+
+        media.Player.NoteSeek(SeekSeconds);
+        media.Player.CompleteSeek();
+
+        await Assert.That(media.Player.PositionSeconds).IsEqualTo(SeekSeconds);
+        await Assert.That(await UiWait.UntilAsync(() => media.Player.State == MediaPlayerState.Paused)).IsTrue();
     }
 
     /// <summary>Makes a short video with FFmpeg.</summary>

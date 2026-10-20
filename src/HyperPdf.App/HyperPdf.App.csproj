@@ -36,6 +36,7 @@
     <ProjectReference Include="..\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
     <ProjectReference Include="..\HyperPdf.Http\HyperPdf.Http.csproj" />
     <ProjectReference Include="..\HyperPdf.Speech\HyperPdf.Speech.csproj" />
+    <ProjectReference Include="..\HyperPdf.Media\HyperPdf.Media.csproj" />
     <ProjectReference Include="..\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
     <ProjectReference Include="..\HyperPdf.Platform.MacOS\HyperPdf.Platform.MacOS.csproj" />
     <ProjectReference Include="..\HyperPdf.Platform.Windows\HyperPdf.Platform.Windows.csproj" />
@@ -58,10 +59,19 @@
     <InternalsVisibleTo Include="HyperPdf.App.Tests" />
   </ItemGroup>
 
+  <!-- The LGPL FFmpeg libraries that play sound and video go in a folder beside the app. scripts/FetchFfmpeg.cs (run by scripts/Publish.cs) fills
+       artifacts/ffmpeg/<runtime>; a build with no runtime identifier, or before the fetch, ships none and the app falls back to FFmpeg programs. -->
+  <PropertyGroup>
+    <FfmpegDirectory Condition="'$(FfmpegDirectory)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\ffmpeg\$(RuntimeIdentifier)\</FfmpegDirectory>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != '' And Exists('$(FfmpegDirectory)')">
+    <Content Include="$(FfmpegDirectory)*" Exclude="$(FfmpegDirectory).*" Link="ffmpeg\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- The Licences window shows these notices: the packages in this project's assets, the font and CMap resource packs, and the data the app downloads. -->
   <PropertyGroup>
     <NoticesResourceName>HyperPdf.ThirdPartyNotices.md</NoticesResourceName>
-    <NoticesComponents>unicode-ucd;open-font-pack;adobe-cmaps;tessdata-fast;kokoro;misaki;melotts;bert-base-uncased;g2p-en;cmudict;verapdf-profile-text</NoticesComponents>
+    <NoticesComponents>unicode-ucd;open-font-pack;adobe-cmaps;ffmpeg;tessdata-fast;kokoro;misaki;melotts;bert-base-uncased;g2p-en;cmudict;verapdf-profile-text</NoticesComponents>
   </PropertyGroup>
   <Import Project="..\..\licenses\ThirdPartyNotices.targets" />
 

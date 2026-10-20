@@ -530,6 +530,9 @@ public static class Descriptions
     /// <summary>The Stop Media button.</summary>
     public static readonly string StopMedia = "Stop the sound or video and go back to the start.";
 
+    /// <summary>The Media Position bar.</summary>
+    public static readonly string MediaPosition = "Drag to move to another place in the sound or video. With the keyboard, the arrow keys move five seconds and Page Up or Page Down move thirty.";
+
     /// <summary>The Skip Media Back button.</summary>
     public static readonly string SkipMediaBack = "Go back ten seconds.";
 

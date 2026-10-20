@@ -6,7 +6,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
-using HyperPdf.Core.Media;
+using HyperPdf.Media;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -31,8 +31,8 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
     /// <summary>Whether an item is selected, so it can be saved or opened.</summary>
     private readonly IObservable<bool> _canAct;
 
-    /// <summary>The FFmpeg programs that play media in the panel, or <see langword="null"/> when they are not installed.</summary>
-    private readonly MediaTools? _tools;
+    /// <summary>How media plays in the panel.</summary>
+    private readonly MediaPlaybackFactory _playback;
 
     /// <summary>The player, made when first needed.</summary>
     private MediaPlayerViewModel? _player;
@@ -40,25 +40,25 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
     /// <summary>Initializes a new instance of the <see cref="DocumentMediaViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
     public DocumentMediaViewModel(DocumentTabViewModel owner)
-        : this(owner, MediaToolLocator.Find())
+        : this(owner, owner.MediaPlayback)
     {
     }
 
     /// <summary>Initializes a new instance of the <see cref="DocumentMediaViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
-    /// <param name="tools">The FFmpeg programs that play media in the panel, or <see langword="null"/> when they are not installed.</param>
-    public DocumentMediaViewModel(DocumentTabViewModel owner, MediaTools? tools)
+    /// <param name="playback">How media plays in the panel.</param>
+    public DocumentMediaViewModel(DocumentTabViewModel owner, MediaPlaybackFactory playback)
     {
         _owner = owner;
         _canAct = this.WhenChanged(static vm => vm.Selected).Select(static item => item is not null);
-        _tools = tools;
+        _playback = playback;
     }
 
     /// <summary>Gets the document's media.</summary>
     public ObservableCollection<DocumentMedia> Items { get; } = [];
 
     /// <summary>Gets the player that plays the chosen media in the panel.</summary>
-    public MediaPlayerViewModel Player => _player ??= new(this, _tools);
+    public MediaPlayerViewModel Player => _player ??= new(this, _playback);
 
     /// <summary>Gets a value indicating whether the document has sound or video.</summary>
     [Reactive]

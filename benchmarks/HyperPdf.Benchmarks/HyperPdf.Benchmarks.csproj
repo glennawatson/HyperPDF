@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\src\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Speech\HyperPdf.Speech.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Http\HyperPdf.Http.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.Media\HyperPdf.Media.csproj" />
     <ProjectReference Include="..\..\tests\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
   </ItemGroup>
 

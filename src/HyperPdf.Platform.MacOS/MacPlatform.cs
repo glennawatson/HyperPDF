@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Media;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Speech;
 using HyperPdf.Platform.MacOS.Audio;
@@ -49,6 +50,10 @@ public sealed class MacPlatform : IDesktopPlatform
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IAudioOutput CreateAudioOutput() => new AudioQueueOutput();
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IStreamingAudioOutput CreateStreamingAudioOutput() => new AudioQueueStreamingOutput();
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

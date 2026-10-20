@@ -17,6 +17,7 @@ using HyperPdf.Core.Spelling;
 using HyperPdf.Core.Text.Fonts;
 using HyperPdf.Core.Theming;
 using HyperPdf.Http.Remote;
+using HyperPdf.Media;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -49,6 +50,9 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
 
     /// <summary>The sound output, created when first used.</summary>
     private IAudioOutput? _audio;
+
+    /// <summary>How media plays, made when first needed.</summary>
+    private MediaPlaybackFactory? _mediaPlayback;
 
     /// <summary>The spell checker, created on first use.</summary>
     private ISpellChecker? _spellChecker;
@@ -161,6 +165,9 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
 
     /// <summary>Gets the sound output shared by every tab.</summary>
     public IAudioOutput Audio => _audio ??= Own(Speech.CreateAudio());
+
+    /// <summary>Gets how media plays on this computer, which every tab shares.</summary>
+    public MediaPlaybackFactory MediaPlayback => _mediaPlayback ??= new(Platform.CreateStreamingAudioOutput);
 
     /// <summary>Gets the resolved theme, re-resolved when the settings or the desktop palette change; the current value is replayed on subscription.</summary>
     public IObservable<ResolvedTheme> Theme { get; }

@@ -10,7 +10,7 @@
     <StackPanel Grid.Row="2" Margin="8,4" Spacing="6">
       <Image x:Name="MediaPictureImage" MaxHeight="220" Stretch="Uniform" AutomationProperties.AccessibilityView="Raw" />
       <TextBlock x:Name="MediaCaptionText" TextWrapping="Wrap" AutomationProperties.Name="Caption" AutomationProperties.LiveSetting="Polite" />
-      <ProgressBar x:Name="MediaPositionBar" Minimum="0" Height="6" AutomationProperties.Name="Position" />
+      <Slider x:Name="MediaPositionSlider" Minimum="0" SmallChange="5" LargeChange="30" AutomationProperties.Name="Position" views:ControlHelp.Text="{x:Static views:Descriptions.MediaPosition}" />
       <TextBlock x:Name="MediaClockText" Classes="secondary" FontSize="11" />
       <TextBlock x:Name="MediaStatusText" TextWrapping="Wrap" Classes="secondary" FontSize="11" AutomationProperties.LiveSetting="Polite" />
       <WrapPanel>

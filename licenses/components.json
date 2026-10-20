@@ -31,6 +31,18 @@
     "textFile": "../src/HyperPdfLibrary/Fonts/Data/CMaps/LICENSE.txt"
   },
   {
+    "id": "ffmpeg",
+    "name": "FFmpeg libraries (libavutil, libswresample, libavcodec, libavformat, libswscale)",
+    "version": "8.1.3, LGPL shared build from BtbN/FFmpeg-Builds",
+    "origin": "Shipped in the ffmpeg folder beside the app; loaded to play sound and video. They are separate shared libraries, so you can replace them with your own build of the same major versions.",
+    "licence": "LGPL-3.0-or-later",
+    "copyright": "Copyright the FFmpeg developers.",
+    "link": "https://ffmpeg.org/legal.html",
+    "textFile": "upstream/ffmpeg.txt",
+    "licenceSource": "https://github.com/BtbN/FFmpeg-Builds/tree/46d899d7a0",
+    "sourceNote": "The source for this version is at https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz. The build scripts and options are in the BtbN/FFmpeg-Builds repository; ffmpeg.json in this repository pins the exact build."
+  },
+  {
     "id": "tessdata-fast",
     "name": "Tesseract language data (tessdata_fast)",
     "version": "4.1.0",

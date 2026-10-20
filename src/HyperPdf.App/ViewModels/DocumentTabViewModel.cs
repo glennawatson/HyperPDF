@@ -16,6 +16,7 @@ using HyperPdf.Core.Navigation;
 using HyperPdf.Core.Printing;
 using HyperPdf.Core.Reading;
 using HyperPdf.Core.Rendering;
+using HyperPdf.Media;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -559,6 +560,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the application services, for the parts of the tab that need settings or desktop services.</summary>
     internal AppServices Services => _services;
+
+    /// <summary>Gets how media plays on this computer.</summary>
+    internal MediaPlaybackFactory MediaPlayback => _services.MediaPlayback;
 
     /// <summary>Gets the document's text in reading order, which Read Aloud and Focus Mode share.</summary>
     internal TabReading Reading => _reading ??= new(this);

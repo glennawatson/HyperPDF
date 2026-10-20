@@ -150,6 +150,14 @@ internal static class ControlEventMixins
         internal IObservable<RoutedEventArgs> Clicks => item.Events().Click;
     }
 
+    /// <summary>Adds the value stream of a slider or other range control.</summary>
+    /// <param name="range">The control.</param>
+    extension(RangeBase range)
+    {
+        /// <summary>Gets the changes to the value, whether the reader or the program made them.</summary>
+        internal IObservable<RangeBaseValueChangedEventArgs> ValueChanges => range.Events().ValueChanged;
+    }
+
     /// <summary>Adds the scroll stream of a scroll bar.</summary>
     /// <param name="bar">The scroll bar.</param>
     extension(ScrollBar bar)
