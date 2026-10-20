@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Attachments;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -131,7 +132,10 @@ public sealed partial class TabNoticesViewModel : ReactiveObject
     {
         var content = check.CheckDocument();
         var pages = document.GetPageSizes().Length;
-        if (pages > 0 && attachments > 0 && ContentWarnings.LooksLikePortfolio(attachments, document.GetText(0, 0, document.GetCharacterCount(0))))
+
+        // A portfolio whose collection data HyperPDF reads is shown in the attachments panel, so it needs no warning.
+        if (pages > 0 && attachments > 0 && DocumentFeature<IAttachmentSource>.Get(document)?.GetPortfolioSummary() is null
+            && ContentWarnings.LooksLikePortfolio(attachments, document.GetText(0, 0, document.GetCharacterCount(0))))
         {
             content |= UnsupportedContent.Portfolio;
         }

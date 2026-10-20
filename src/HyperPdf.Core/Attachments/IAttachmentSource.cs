@@ -13,6 +13,10 @@ public interface IAttachmentSource : IDocumentFeature
     /// <returns>The attachments.</returns>
     IReadOnlyList<DocumentAttachment> GetAttachments();
 
+    /// <summary>Gets how the document's portfolio asks for its files to be shown.</summary>
+    /// <returns>The summary, or <see langword="null"/> when the document is not a portfolio.</returns>
+    PortfolioSummary? GetPortfolioSummary() => null;
+
     /// <summary>Copies an embedded file's contents into a stream.</summary>
     /// <param name="index">The attachment index.</param>
     /// <param name="destination">The stream receiving the contents.</param>

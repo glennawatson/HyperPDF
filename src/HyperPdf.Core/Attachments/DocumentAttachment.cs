@@ -18,4 +18,16 @@ public sealed record DocumentAttachment(int Index, string Name, long Size)
 
     /// <summary>Gets the object number of the file attachment annotation that holds the file, or 0 for a file attached to the document itself.</summary>
     public int AnnotationId { get; init; }
+
+    /// <summary>
+    /// Gets where the portfolio lists this file, counting from zero after the portfolio's sort keys are applied, or -1 for a
+    /// file that is not in a portfolio. The attachments panel lists files in this order.
+    /// </summary>
+    public int PortfolioOrder { get; init; } = -1;
+
+    /// <summary>Gets the field values the portfolio shows for this file, such as "Author: Ann; Date: 2024", or <see langword="null"/> when it shows none.</summary>
+    public string? PortfolioDetails { get; init; }
+
+    /// <summary>Gets a value indicating whether the portfolio names this file as the one to show first.</summary>
+    public bool IsPortfolioInitial { get; init; }
 }

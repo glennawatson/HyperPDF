@@ -4,9 +4,11 @@
 
 using System.Globalization;
 using HyperPdf.Core.Attachments;
+using HyperPdfLibrary;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Portfolio;
 
 namespace HyperPdf.Engine;
 
@@ -46,8 +48,22 @@ internal static class HyperPdfDocumentAttachments
             attachments[index] = new(index, name, HyperPdfAttachments.AttachmentSize(file.Data)) { PageIndex = file.PageIndex, AnnotationId = file.Id.Number };
         }
 
+        if (ReadPortfolio(self) is { } portfolio)
+        {
+            HyperPdfPortfolioView.Apply(portfolio, attachments);
+        }
+
         Volatile.Write(ref self.Attachments, attachments);
         return attachments;
+    }
+
+    /// <summary>Gets how the document's portfolio asks for its files to be shown.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <returns>The summary, or <see langword="null"/> when the document has no readable portfolio.</returns>
+    internal static PortfolioSummary? GetPortfolioSummary(HyperPdfDocument self)
+    {
+        using var access = HyperPdfNavigation.EnterPageRead(self);
+        return self.IsDisposed || ReadPortfolio(self) is not { } portfolio ? null : HyperPdfPortfolioView.Summarise(portfolio);
     }
 
     /// <summary>Gets the file attachment annotations of the document that hold a file, in page order.</summary>
@@ -114,6 +130,21 @@ internal static class HyperPdfDocumentAttachments
 
         _ = data.Decode(ref output);
         return true;
+    }
+
+    /// <summary>Reads the document's portfolio, treating damaged collection data as no portfolio.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <returns>The portfolio, or <see langword="null"/>.</returns>
+    private static PdfPortfolio? ReadPortfolio(HyperPdfDocument self)
+    {
+        try
+        {
+            return PdfDocumentPortfolio.GetPortfolio(self.Document);
+        }
+        catch (PdfException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Gets the stream of the file a file attachment annotation holds.</summary>

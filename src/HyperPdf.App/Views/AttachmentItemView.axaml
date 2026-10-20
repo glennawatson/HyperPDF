@@ -6,6 +6,8 @@
     <StackPanel Spacing="2">
       <TextBlock x:Name="NameText" TextTrimming="CharacterEllipsis" />
       <TextBlock x:Name="SizeText" Classes="secondary" FontSize="11" />
+      <!-- The folder and field values a PDF portfolio shows for the file; empty for other documents. -->
+      <TextBlock x:Name="DetailText" Classes="secondary" FontSize="11" TextWrapping="Wrap" />
     </StackPanel>
   </DockPanel>
 </UserControl>

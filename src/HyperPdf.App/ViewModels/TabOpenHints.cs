@@ -33,7 +33,9 @@ internal static class TabOpenHints
 
         tab.RightToLeft = plan.RightToLeft;
         tab.PrintDefaults = plan.Print;
-        ShowPanel(tab, plan.Panel);
+
+        // A portfolio is its files, so unless the document asks for another panel the reader sees them first.
+        ShowPanel(tab, plan.Panel == OpenPanel.None && tab.Attachments.ShowsPortfolio ? OpenPanel.Attachments : plan.Panel);
     }
 
     /// <summary>Gets the title a tab shows: the document's own when it asks for that and the reader allows, otherwise the file name.</summary>
