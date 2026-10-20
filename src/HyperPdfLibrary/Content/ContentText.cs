@@ -179,14 +179,13 @@ internal static class ContentText
         ContentText.ShowOperand(self, ref reader, ContentText.SpacingStringOperand);
     }
 
-    /// <summary>Handles <c>d1</c>: the glyph is a shape painted in the colour in force when it is shown.</summary>
+    /// <summary>
+    /// Handles <c>d1</c>: the glyph is a shape painted in the colours in force when it is shown, the fill colour for what it fills
+    /// and the stroke colour for what it strokes (ISO 32000-2 9.6.4); colour operators inside the glyph are ignored.
+    /// </summary>
     /// <param name = "self">The interpreter.</param>
     /// <param name = "reader">The reader.</param>
-    internal static void OpSetGlyphWidthAndBounds(ContentInterpreter self, ref ContentReader reader)
-    {
-        self.State.Stroke = self.State.Fill;
-        self.ColorLocked = true;
-    }
+    internal static void OpSetGlyphWidthAndBounds(ContentInterpreter self, ref ContentReader reader) => self.ColorLocked = true;
 
     /// <summary>Moves to the start of a new line.</summary>
     /// <param name = "self">The owned interpreter state.</param>

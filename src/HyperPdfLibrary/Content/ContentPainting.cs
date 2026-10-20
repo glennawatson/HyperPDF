@@ -51,6 +51,7 @@ internal static class ContentPainting
     /// <param name="state">The graphics state.</param>
     internal static void Stroke(ContentInterpreter self, PdfPath path, ref GraphicsState state)
     {
+        path = DegenerateSubpaths.Without(path, state.LineCap);
         if (ContentPainting.IsPlain(self, ref state))
         {
             self.Device.Stroke(path, ref state);

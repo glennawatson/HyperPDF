@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Syntax;
 
@@ -22,6 +23,9 @@ internal static class InlineImageDictionary
 
     /// <summary>The extra entries an image XObject has: /Type and /Subtype.</summary>
     private const int ExtraEntries = 2;
+
+    /// <summary>The passes over the entries: full keys, then abbreviated keys.</summary>
+    private const int KeyPasses = 2;
 
     /// <summary>The index of the colour space family in a colour space array.</summary>
     private const int FamilyIndex = 0;
@@ -88,16 +92,29 @@ internal static class InlineImageDictionary
         var result = new PdfDictionary(store, source.Count + ExtraEntries);
         result.Set(KnownName.Type, PdfValue.FromName(KnownName.XObject));
         result.Set(KnownName.Subtype, PdfValue.FromName(KnownName.Image));
-        for (var i = 0; i < source.Count; i++)
+
+        // Full keys go in first and abbreviated keys after them, so an abbreviated key takes precedence over the full key for the
+        // same entry (ISO 32000-2 §8.9.7).
+        for (var pass = 0; pass < KeyPasses; pass++)
         {
-            if (!TryAdd(store, result, source.GetKeyAt(i), source.GetValueAt(i), resources))
+            for (var i = 0; i < source.Count; i++)
             {
-                return null;
+                if (IsAbbreviatedKey(store, source.GetKeyAt(i)) == (pass == 1) && !TryAdd(store, result, source.GetKeyAt(i), source.GetValueAt(i), resources))
+                {
+                    return null;
+                }
             }
         }
 
         return result;
     }
+
+    /// <summary>Determines whether an inline key is an abbreviation of a full key name.</summary>
+    /// <param name="store">The document's objects.</param>
+    /// <param name="key">The key.</param>
+    /// <returns><see langword="true"/> for an abbreviation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsAbbreviatedKey(PdfObjectStore store, PdfName key) => TryExpand(Keys, store.Names.GetSpelling(key), out _);
 
     /// <summary>Adds one entry under its full key with its value expanded.</summary>
     /// <param name="store">The document's objects.</param>

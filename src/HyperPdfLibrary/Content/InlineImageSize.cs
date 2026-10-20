@@ -57,13 +57,7 @@ internal static class InlineImageSize
     internal static bool TryGetDataLength(ReadOnlySpan<byte> dictionary, out long length)
     {
         length = 0;
-        var fields = default(Fields);
-        var lexer = new PdfLexer(dictionary);
-        while (lexer.Next() == PdfTokenKind.Name)
-        {
-            var key = Classify(lexer.Lexeme);
-            ReadValue(ref lexer, key, ref fields);
-        }
+        var fields = ReadFields(dictionary);
 
         if (fields.Filtered || fields.Width <= 0 || fields.Height <= 0)
         {
@@ -81,6 +75,49 @@ internal static class InlineImageSize
         length = rowBytes * fields.Height;
         return length <= MaxLength;
     }
+
+    /// <summary>Reads the size-related entries; an abbreviated key beats the full key for the same entry (ISO 32000-2 §8.9.7), so the full one is read and dropped.</summary>
+    /// <param name="dictionary">The dictionary entries between <c>BI</c> and <c>ID</c>.</param>
+    /// <returns>The fields.</returns>
+    private static Fields ReadFields(ReadOnlySpan<byte> dictionary)
+    {
+        var fields = default(Fields);
+        var overridden = Abbreviated(dictionary);
+        var lexer = new PdfLexer(dictionary);
+        var scratch = default(Fields);
+        while (lexer.Next() == PdfTokenKind.Name)
+        {
+            var key = Classify(lexer.Lexeme);
+            var ignored = key != InlineKey.Other && !IsAbbreviation(lexer.Lexeme) && (overridden & (1 << (int)key)) != 0;
+            ReadValue(ref lexer, key, ref ignored ? ref scratch : ref fields);
+        }
+
+        return fields;
+    }
+
+    /// <summary>Finds which of the size-related entries are written with their abbreviated key.</summary>
+    /// <param name="dictionary">The dictionary entries between <c>BI</c> and <c>ID</c>.</param>
+    /// <returns>A bit for each <see cref="InlineKey"/> that has an abbreviated key.</returns>
+    private static int Abbreviated(ReadOnlySpan<byte> dictionary)
+    {
+        var found = 0;
+        var lexer = new PdfLexer(dictionary);
+        var scratch = default(Fields);
+        while (lexer.Next() == PdfTokenKind.Name)
+        {
+            var key = Classify(lexer.Lexeme);
+            found |= key != InlineKey.Other && IsAbbreviation(lexer.Lexeme) ? 1 << (int)key : 0;
+            ReadValue(ref lexer, key, ref scratch);
+        }
+
+        return found;
+    }
+
+    /// <summary>Determines whether a key is one of the inline abbreviations rather than a full name.</summary>
+    /// <param name="name">The key's bytes.</param>
+    /// <returns><see langword="true"/> for an abbreviation.</returns>
+    private static bool IsAbbreviation(ReadOnlySpan<byte> name) =>
+        name.SequenceEqual("W"u8) || name.SequenceEqual("H"u8) || name.SequenceEqual("BPC"u8) || name.SequenceEqual("CS"u8) || name.SequenceEqual("IM"u8) || name.SequenceEqual("F"u8);
 
     /// <summary>Identifies a dictionary key, expanding the inline abbreviations.</summary>
     /// <param name="name">The key's bytes.</param>
