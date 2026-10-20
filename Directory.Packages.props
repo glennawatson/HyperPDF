@@ -66,7 +66,7 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="$(SkiaVersion)" />
     <PackageVersion Include="Refit" Version="16.4.0" />
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
-    <PackageVersion Include="FFmpeg.AutoGen.Abstractions" Version="8.1.0" />
+    <PackageVersion Include="FFmpeg.AutoGen.Abstractions" Version="9.0.1.1" />
     <PackageVersion Include="FFmpeg.AutoGen.Bindings.DynamicallyLinked" Version="8.1.0" />
   </ItemGroup>
 
