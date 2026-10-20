@@ -105,4 +105,7 @@ internal enum FeatureSlot
 
     /// <summary>The page sharpness choices, after the last service.</summary>
     RenderSharpness = 31,
+
+    /// <summary>The page transitions a presentation shows.</summary>
+    PageTransitions = 32,
 }

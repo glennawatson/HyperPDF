@@ -109,6 +109,10 @@ public sealed class PageCanvas : Control, IActivatableView
     private static readonly DirectProperty<PageCanvas, PageCanvasZoomMixins.WheelZoomEase> WheelZoomProperty =
         AvaloniaProperty.RegisterDirect<PageCanvas, PageCanvasZoomMixins.WheelZoomEase>(nameof(WheelZoom), static canvas => canvas.WheelZoom);
 
+    /// <summary>Defines the <see cref="Transition"/> property.</summary>
+    private static readonly DirectProperty<PageCanvas, PageCanvasTransitionMixins.TransitionRun> TransitionProperty =
+        AvaloniaProperty.RegisterDirect<PageCanvas, PageCanvasTransitionMixins.TransitionRun>(nameof(Transition), static canvas => canvas.Transition);
+
     /// <summary>The page shadow brush.</summary>
     private static readonly IBrush ShadowBrush = new SolidColorBrush(Color.FromArgb(0x40, 0, 0, 0));
 
@@ -203,6 +207,8 @@ public sealed class PageCanvas : Control, IActivatableView
             disposables.Add(tabs.Follow(static tab => tab.CaretModeStarts).Do(this.StartCaret).SelectWith(this, static (canvas, _) => canvas).TakeFocus());
             disposables.Add(tabs.Follow(static tab => tab.PageToolChanges).SubscribeSafe(_ => ShowPageTool(), ErrorTrace.Write));
             disposables.Add(this.WheelZoomFrames.SubscribeSafe(this.StepZoom, ErrorTrace.Write));
+            disposables.Add(tabs.Follow(static tab => tab.PagePresentation.WhenChanged(static presentation => presentation.Current)).SubscribeSafe(this.StartTransition, ErrorTrace.Write));
+            disposables.Add(this.TransitionFrames.SubscribeSafe(this.StepTransition, ErrorTrace.Write));
             disposables.Add(this.AutoScrollFrames(tabs).SubscribeSafe(_ => this.StepAutoScroll(), ErrorTrace.Write));
             disposables.Add(this.WhenChanged(static x => x.CurrentHitOutline)
                 .SubscribeSafe(outline => _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null, ErrorTrace.Write));
@@ -349,6 +355,16 @@ public sealed class PageCanvas : Control, IActivatableView
         set => SetAndRaise(WheelZoomProperty, ref field, value);
     }
 
+    /// <summary>Gets or sets the page transition playing now, or the last one once it has ended.</summary>
+    internal PageCanvasTransitionMixins.TransitionRun Transition
+    {
+        get;
+        set => SetAndRaise(TransitionProperty, ref field, value);
+    }
+
+    /// <summary>Gets the brush behind the pages, which a page transition draws back to reveal the page.</summary>
+    internal IBrush? CurtainBrush => _scroller?.Background;
+
     /// <summary>Gets a value indicating whether a wheel zoom is easing, so tiles at passing scales are not requested.</summary>
     internal bool IsZoomEasing => WheelZoom.IsRunning;
 
@@ -491,7 +507,21 @@ public sealed class PageCanvas : Control, IActivatableView
         var viewport = new Rect(_scroller.Offset.X, _scroller.Offset.Y, _scroller.Viewport.Width, _scroller.Viewport.Height);
         var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
         var generation = RenderGeneration(tab, document, viewport, scaling);
-        DrawPages(context, new(tab, document, tab.RenderHub, viewport, scaling, generation));
+        var frame = new FrameContext(tab, document, tab.RenderHub, viewport, scaling, generation);
+        var slide = this.GetSlideOffset(viewport);
+        if (slide != default)
+        {
+            using (context.PushTransform(Matrix.CreateTranslation(slide.X, slide.Y)))
+            {
+                DrawPages(context, frame);
+            }
+        }
+        else
+        {
+            DrawPages(context, frame);
+        }
+
+        this.DrawCurtain(context, viewport);
         this.DrawAnnotationOverlay(context, tab);
         this.DrawRegions(context, tab, viewport);
         this.DrawMeasurement(context, tab);

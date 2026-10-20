@@ -11,6 +11,7 @@ using HyperPdf.Core.Forms;
 using HyperPdf.Core.Forms.Scripting;
 using HyperPdf.Core.Ocr;
 using HyperPdf.Core.Optimizing;
+using HyperPdf.Core.Presentation;
 using HyperPdf.Core.Printing;
 using HyperPdf.Core.Protection;
 using HyperPdf.Core.Reading;
@@ -24,7 +25,7 @@ namespace HyperPdf.Engine;
 internal static class HyperPdfFeatureRegistry
 {
     /// <summary>The number of feature slots a document holds.</summary>
-    private const int SlotCount = (int)FeatureSlot.RenderSharpness + 1;
+    private const int SlotCount = (int)FeatureSlot.PageTransitions + 1;
 
     /// <summary>Gets a stable service while leaving feature resources lazy.</summary>
     /// <param name="owner">The owning document.</param>
@@ -92,6 +93,7 @@ internal static class HyperPdfFeatureRegistry
         _ when featureType == typeof(IFlattenCopyWriter) => FeatureSlot.FlattenCopyWriter,
         _ when featureType == typeof(IDocumentSigner) => FeatureSlot.Signer,
         _ when featureType == typeof(IRenderSharpness) => FeatureSlot.RenderSharpness,
+        _ when featureType == typeof(IPageTransitionSource) => FeatureSlot.PageTransitions,
         _ => FeatureSlot.None,
     };
 
@@ -141,6 +143,7 @@ internal static class HyperPdfFeatureRegistry
         FeatureSlot.Signer => new HyperPdfSignerService(owner),
         FeatureSlot.TagEditor => new HyperPdfTagEditorService(owner),
         FeatureSlot.RenderSharpness => new HyperPdfRenderSharpnessService(owner),
+        FeatureSlot.PageTransitions => new HyperPdfPageTransitionService(owner),
         <=FeatureSlot.TextLayout => HyperPdfFeatureRegistry.CreateDocumentService(owner, slot),
         <= FeatureSlot.PageExporter => HyperPdfFeatureRegistry.CreateEditingService(owner, slot),
         _ => HyperPdfFeatureRegistry.CreateFormService(owner, slot),

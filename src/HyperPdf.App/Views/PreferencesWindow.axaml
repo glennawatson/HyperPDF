@@ -42,6 +42,8 @@
       <CheckBox AutomationProperties.Name="Show a document's own title when it asks" x:Name="FollowDisplayDocTitleBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowDisplayDocTitle}" Content="Show a document's own title when it asks" />
       <CheckBox AutomationProperties.Name="Use the print choices a document asks for" x:Name="FollowPrintDefaultsBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPrintDefaults}" Content="Use the print choices a document asks for" />
       <CheckBox AutomationProperties.Name="Ignore bookmark colours" x:Name="IgnoreOutlineColoursBox" views:ControlHelp.Text="{x:Static views:Descriptions.IgnoreOutlineColours}" Content="Ignore bookmark colours" />
+      <CheckBox AutomationProperties.Name="Show page transitions when presenting" x:Name="FollowPageTransitionsBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageTransitions}" Content="Show page transitions when presenting" />
+      <CheckBox AutomationProperties.Name="Move on by itself when presenting" x:Name="FollowPageTimingsBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageTimings}" Content="Move on by itself when presenting" />
       <CheckBox AutomationProperties.Name="Check spelling in form fields" x:Name="CheckSpellingBox" views:ControlHelp.Text="{x:Static views:Descriptions.CheckSpelling}" Content="Check spelling in form fields" />
       <CheckBox AutomationProperties.Name="Offer fonts that cannot be saved in PDFs" x:Name="PreviewOnlyFontsBox" views:ControlHelp.Text="{x:Static views:Descriptions.PreviewOnlyFonts}" Content="Offer fonts that cannot be saved in PDFs (shown on screen, saved as Helvetica, Times or Courier)" />
     </StackPanel>

@@ -470,6 +470,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Gets the files embedded in the document.</summary>
     public AttachmentsViewModel Attachments => field ??= new(this);
 
+    /// <summary>Gets what happens as each page appears while presenting; made when the page view first shows the tab.</summary>
+    public PagePresentationViewModel PagePresentation => field ??= Owned(new PagePresentationViewModel(this, _services));
+
     /// <summary>Gets the bookmark editing state.</summary>
     public OutlineEditViewModel OutlineEditing => _outlineEditing ??= Owned(new OutlineEditViewModel(this));
 

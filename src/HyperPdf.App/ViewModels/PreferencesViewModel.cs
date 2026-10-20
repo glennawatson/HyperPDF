@@ -157,6 +157,14 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial bool IgnoreOutlineColours { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether presenting shows the page transitions a document asks for.</summary>
+    [Reactive]
+    public partial bool FollowPageTransitions { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether presenting moves on after the time a page asks for.</summary>
+    [Reactive]
+    public partial bool FollowPageTimings { get; set; }
+
     /// <summary>Gets or sets a value indicating whether form fields underline misspelled words.</summary>
     [Reactive]
     public partial bool CheckSpelling { get; set; }
@@ -287,6 +295,8 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         FollowDisplayDocTitle = settings.FollowDisplayDocTitle;
         FollowPrintDefaults = settings.FollowPrintDefaults;
         IgnoreOutlineColours = settings.IgnoreOutlineColours;
+        FollowPageTransitions = settings.FollowPageTransitions;
+        FollowPageTimings = settings.FollowPageTimings;
         CheckSpelling = settings.CheckSpelling;
         ShowPreviewOnlyFonts = settings.ShowPreviewOnlyFonts;
         AzureRegion = settings.AzureSpeechRegion;
@@ -333,6 +343,8 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         Follow(this.WhenChanged(static x => x.FollowDisplayDocTitle), follow => settings.FollowDisplayDocTitle = follow);
         Follow(this.WhenChanged(static x => x.FollowPrintDefaults), follow => settings.FollowPrintDefaults = follow);
         Follow(this.WhenChanged(static x => x.IgnoreOutlineColours), ignore => settings.IgnoreOutlineColours = ignore);
+        Follow(this.WhenChanged(static x => x.FollowPageTransitions), follow => settings.FollowPageTransitions = follow);
+        Follow(this.WhenChanged(static x => x.FollowPageTimings), follow => settings.FollowPageTimings = follow);
         Follow(this.WhenChanged(static x => x.CheckSpelling), check => settings.CheckSpelling = check);
         Follow(this.WhenChanged(static x => x.ShowPreviewOnlyFonts), show => settings.ShowPreviewOnlyFonts = show);
     }

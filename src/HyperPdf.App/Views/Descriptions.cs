@@ -783,6 +783,15 @@ public static class Descriptions
     /// <summary>The help for ignoring bookmark colours.</summary>
     public static readonly string IgnoreOutlineColours = "When ticked, every bookmark uses the colour of your theme, so none is hard to read. Bold and italic bookmarks stay bold and italic.";
 
+    /// <summary>The help for following a document's page transitions.</summary>
+    public static readonly string FollowPageTransitions =
+        "When ticked, presenting shows the effect a page asks for as it appears, such as a fade or a wipe. Off by default. Reduced motion turns it off.";
+
+    /// <summary>The help for following a document's page timings.</summary>
+    public static readonly string FollowPageTimings =
+        "When ticked, presenting moves to the next page after the time the page asks for. Off by default, so pages change only when you ask. "
+        + "Reduced motion turns it off. Keys and clicks still move pages.";
+
     /// <summary>The help for the spelling check choice.</summary>
     public static readonly string CheckSpelling = "When ticked, misspelled words in form fields are underlined. Right-click one for corrections, from this computer's own dictionary.";
 

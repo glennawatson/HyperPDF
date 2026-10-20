@@ -96,6 +96,17 @@ public static class PdfDocumentViewerPreferences
         return page.Dictionary.Dict("Trans") is { } trans ? PdfDocumentViewerPreferences.ReadTransition(trans, advance.IsNumber ? advance.AsNumber() : null) : null;
     }
 
+    /// <summary>Gets the seconds after which a page advances by itself (<c>/Dur</c>), which a page may have without a transition.</summary>
+    /// <param name="page">The page.</param>
+    /// <returns>The time in seconds, or <see langword="null"/> when the page has none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="page"/> is null.</exception>
+    public static double? GetAdvanceAfter(PdfPage page)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        var advance = page.Dictionary.Value("Dur");
+        return advance.IsNumber ? advance.AsNumber() : null;
+    }
+
     /// <summary>Reads a transition dictionary.</summary>
     /// <param name="trans">The transition dictionary.</param>
     /// <param name="advanceAfter">The page's automatic advance time in seconds, or null.</param>

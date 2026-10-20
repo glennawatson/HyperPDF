@@ -51,4 +51,29 @@ public sealed class OpenHintPreferencesTests
         await Assert.That(reloaded.FollowOpenAction).IsFalse();
         await Assert.That(reloaded.IgnoreOutlineColours).IsFalse();
     }
+
+    /// <summary>Verifies that page transitions and timings start off, so nothing moves by itself, and that each choice round trips.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task PresentationChoices_StartOffAndRoundTrip()
+    {
+        using var test = new TestServices();
+        var path = Path.Combine(test.Directory, SettingsFile);
+        using (var preferences = new PreferencesViewModel(test.Services))
+        {
+            await Assert.That(preferences.FollowPageTransitions).IsFalse();
+            await Assert.That(preferences.FollowPageTimings).IsFalse();
+            preferences.FollowPageTransitions = true;
+            preferences.FollowPageTimings = true;
+        }
+
+        var saved = new SettingsStore(path).Load();
+        using var nextRun = new AppServices(new SettingsStore(path), new HyperPdfEngine(), new FallbackPlatform());
+        using var reloaded = new PreferencesViewModel(nextRun);
+
+        await Assert.That(saved.FollowPageTransitions).IsTrue();
+        await Assert.That(saved.FollowPageTimings).IsTrue();
+        await Assert.That(reloaded.FollowPageTransitions).IsTrue();
+        await Assert.That(reloaded.FollowPageTimings).IsTrue();
+    }
 }
