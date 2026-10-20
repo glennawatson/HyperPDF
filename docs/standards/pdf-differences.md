@@ -2,7 +2,7 @@
 
 HyperPDF was checked against every case of [pdf-association/pdf-differences](https://github.com/pdf-association/pdf-differences) at commit `907fe96e52b73e491489eee545c47b119bf9989b`. The PDFs are CC BY 4.0 and the source is Apache-2.0 (see `tests/reference-pdfs/ATTRIBUTION.md`).
 
-Method: each PDF was drawn by HyperPDF at a size big enough to judge, then compared by eye with the case's own explanation and its final correct picture. The pictures were not used as pixel oracles. PDFium was not used as the judge. Cases that say a result in words are checked by `PdfDifferencesCorpusTests` (set `HYPERPDF_REFERENCE_PDF_DIR`, fetch the `pdfdiff-*` ids with `scripts/FetchReferencePdfs.cs`). Cases fixed in the same change as this audit have regression tests in `PdfDifferencesRenderTests`.
+Method: each PDF was drawn by HyperPDF at a size big enough to judge, then compared by eye with the case's own explanation and its final correct picture. The pictures were not used as pixel oracles. PDFium was not used as the judge. Cases that say a result in words are checked by `PdfDifferencesCaseTests` (set `HYPERPDF_REFERENCE_PDF_DIR`, fetch the `pdfdiff-*` ids with `scripts/FetchReferencePdfs.cs`). Cases fixed in the same change as this audit have regression tests in `PdfDifferencesRenderTests`.
 
 | Case | Clause | Expected | HyperPDF | Status |
 | --- | --- | --- | --- | --- |
@@ -24,7 +24,7 @@ Method: each PDF was drawn by HyperPDF at a size big enough to judge, then compa
 | Type3WordSpacing | 9.6.4 | A glyph that gives only a shape strokes with the stroke colour. Tw applies to spaces. | Stroke used the fill colour. | Fixed here |
 | UnknownFilter (9 files) | 7.4 | Files with an unknown filter on an optional stream still open; text is kept. | All open and draw; text is kept where the page does not need the stream. | Matches, tested |
 | UnknownFilter, image stream | 7.4 | A reader should not draw noise for an image it cannot decode. | Noise on black is drawn. | Follow-up |
-| UnknownFilter, real-world pair | 7.4 | Drawn by eye only, because the files carry a company's content. | Draws the page. | Not judged |
+| UnknownFilter, real-world pair | 7.4 | The README keeps the exact fault secret; a reader should show a placeholder or an error, not a different image. | Draws the page (letterhead, logos, QR code); the hidden fault was not found. | Not judged |
 | VerticalText | 9.7 | Brackets, punctuation and the long vowel mark use their vertical forms. | Horizontal forms are used. | Follow-up |
 
 Follow-up work is filed as separate issues. The viewer also does not yet tell the reader in words when a page uses a filter it cannot read.

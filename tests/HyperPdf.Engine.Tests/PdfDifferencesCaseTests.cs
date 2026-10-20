@@ -13,7 +13,7 @@ namespace HyperPdf.Engine.Tests;
 /// and draws, and the cases that say a result in words are checked against it. How each drawing compares with the case's own
 /// picture was judged by eye and is recorded in docs/standards/pdf-differences.md. The files come from tests/reference-pdfs/manifest.json.
 /// </summary>
-public sealed partial class PdfDifferencesCorpusTests
+public sealed partial class PdfDifferencesCaseTests
 {
     /// <summary>The bytes in one BGRA pixel.</summary>
     private const int BytesPerPixel = 4;
@@ -46,6 +46,7 @@ public sealed partial class PdfDifferencesCorpusTests
         "pdfdiff-textclippingmodechanges", "pdfdiff-type3test", "pdfdiff-unknownfilter-font", "pdfdiff-unknownfilter-formxobject", "pdfdiff-unknownfilter-icc",
         "pdfdiff-unknownfilter-imagexobject", "pdfdiff-unknownfilter-linearized", "pdfdiff-unknownfilter-outlineobjstm",
         "pdfdiff-unknownfilter-pagecontentstream", "pdfdiff-unknownfilter-objstm", "pdfdiff-unknownfilter-xrefstm", "pdfdiff-verticaltext",
+        "pdfdiff-real-world-1", "pdfdiff-real-world-2",
     ];
 
     /// <summary>Gets the ids of the cases that say a PDF 1.6 file, for <c>[MethodDataSource]</c>.</summary>

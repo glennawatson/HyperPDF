@@ -277,6 +277,28 @@
       "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
     },
     {
+      "id": "pdfdiff-real-world-1",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/382252277877c00a92f3bb54daef1413bafe5557e2f5f7c32c23e800cd9bdcd4.pdf",
+      "sha256": "382252277877c00a92f3bb54daef1413bafe5557e2f5f7c32c23e800cd9bdcd4",
+      "bytes": 496944,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
+      "id": "pdfdiff-real-world-2",
+      "source": "pdf-association/pdf-differences",
+      "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/4387ba480c6f935b8e97749d40b3c001ad584b7bda66ca2c040be67337669497.pdf",
+      "sha256": "4387ba480c6f935b8e97749d40b3c001ad584b7bda66ca2c040be67337669497",
+      "bytes": 506671,
+      "tags": [
+        "pdf-differences"
+      ],
+      "licence": "CC BY 4.0, PDF Association, pdf-association/pdf-differences; see ATTRIBUTION.md"
+    },
+    {
       "id": "pdfdiff-unknownfilter-font",
       "source": "pdf-association/pdf-differences",
       "url": "https://raw.githubusercontent.com/pdf-association/pdf-differences/907fe96e52b73e491489eee545c47b119bf9989b/UnknownFilter/UnknownFilter-Font.pdf",
