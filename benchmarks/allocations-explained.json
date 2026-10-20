@@ -3453,5 +3453,80 @@
     "type": "System.String[]",
     "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder.NamesOf",
     "reason": "The extension and problem names are copied into the arrays of the returned scene. An empty list shares the empty array."
+  },
+  {
+    "type": "CueReader",
+    "frame": "HyperPdf.Core.Media.SrtCaptions.Parse",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "HyperPdf.Core.Media.CaptionCue",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.Close",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "HyperPdf.Core.Media.CaptionCue",
+    "frame": "HyperPdf.Core.Media.SrtCaptions.Parse",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "HyperPdf.Core.Media.CaptionCue[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.Close",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "HyperPdf.Core.Media.CaptionCue[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions.Parse",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader..ctor",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.AddWords",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.Close",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Media.CaptionCue]",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader..ctor",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Media.FfmpegArguments.Seconds",
+    "reason": "The arguments are the strings and the array one process start needs. They are built when the reader presses Play or seeks, not for each picture."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.Close",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Media.SrtCaptions.Parse",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdf.Core.Media.FfmpegArguments.Video",
+    "reason": "The arguments are the strings and the array one process start needs. They are built when the reader presses Play or seeks, not for each picture."
+  },
+  {
+    "type": "System.Text.StringBuilder",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader..ctor",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
+  },
+  {
+    "type": "System.Text.StringBuilder",
+    "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.AddWords",
+    "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
   }
 ]

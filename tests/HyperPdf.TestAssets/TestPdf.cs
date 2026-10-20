@@ -864,14 +864,29 @@ public static class TestPdf
     /// clip <c>intro.mp4</c>, and a rich media annotation holding <c>talk.webm</c>. The media bytes are short stand-ins.
     /// </summary>
     /// <returns>The PDF bytes.</returns>
-    public static byte[] CreateMediaDocument()
+    public static byte[] CreateMediaDocument() => BuildMediaDocument("<< /Length 8 >>\nstream\nMP4DATA!\nendstream");
+
+    /// <summary>Creates the document of <see cref="CreateMediaDocument()"/> with real bytes as the clip <c>intro.mp4</c>, stored as hexadecimal text.</summary>
+    /// <param name="clip">The bytes of the clip.</param>
+    /// <returns>The PDF bytes.</returns>
+    public static byte[] CreateMediaDocument(byte[] clip)
+    {
+        ArgumentNullException.ThrowIfNull(clip);
+        var hex = Convert.ToHexString(clip);
+        return BuildMediaDocument(string.Create(CultureInfo.InvariantCulture, $"<< /Filter /ASCIIHexDecode /Length {hex.Length + 1} >>\nstream\n{hex}>\nendstream"));
+    }
+
+    /// <summary>Builds the media document around a clip stream object.</summary>
+    /// <param name="clipObject">The clip's stream object.</param>
+    /// <returns>The PDF bytes.</returns>
+    private static byte[] BuildMediaDocument(string clipObject)
     {
         var objects = new List<string>();
         var catalog = Reserve(objects);
         var pages = Reserve(objects);
         var page = Reserve(objects);
         var samples = Add(objects, "<< /R 8000 /C 1 /B 8 /E /Raw /Length 4 >>\nstream\nABCD\nendstream");
-        var clip = Add(objects, "<< /Length 8 >>\nstream\nMP4DATA!\nendstream");
+        var clip = Add(objects, clipObject);
         var talk = Add(objects, "<< /Length 8 >>\nstream\nWEBMDAT!\nendstream");
         var sound = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Type /Annot /Subtype /Sound /Rect [72 700 100 720] /P {page} 0 R /Sound {samples} 0 R >>"));
         var screen = Add(objects, string.Create(CultureInfo.InvariantCulture, $$"""

@@ -2,7 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
 using HyperPdf.App.ViewModels;
+using HyperPdf.Core.Media;
 using HyperPdf.TestAssets;
 using ReactiveUI.Primitives;
 
@@ -16,6 +18,12 @@ public sealed class DocumentMediaViewModelTests
 
     /// <summary>The position of the screen clip.</summary>
     private const int ClipPosition = 1;
+
+    /// <summary>How long to wait to see that nothing starts by itself, in milliseconds.</summary>
+    private const int SettleMilliseconds = 400;
+
+    /// <summary>How long to wait to see that nothing starts by itself.</summary>
+    private static readonly TimeSpan SettleTime = TimeSpan.FromMilliseconds(SettleMilliseconds);
 
     /// <summary>The media panel offers the document's sound and video, and a document without any hides it.</summary>
     /// <returns>A task.</returns>
@@ -81,6 +89,82 @@ public sealed class DocumentMediaViewModelTests
         await Assert.That(opened).IsEqualTo(agree);
         await Assert.That(asked).IsEqualTo("intro.mp4");
         await Assert.That(launched is not null).IsEqualTo(agree);
+    }
+
+    /// <summary>Without FFmpeg the player says how to get it, its buttons stay off, and saving still works.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PlayerExplainsAMissingFfmpeg()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        var tab = await OpenAsync(test, main, TestPdf.CreateMediaDocument());
+        using var media = new DocumentMediaViewModel(tab, null);
+        media.Refresh();
+        media.Selected = media.Items[ClipPosition];
+
+        await Assert.That(media.Player.IsAvailable).IsFalse();
+        await Assert.That(media.Player.Status).Contains("install FFmpeg");
+        await Assert.That(await media.Player.PlayCommand.CanExecute.FirstAsync()).IsFalse();
+        await Assert.That(media.SaveCommand is not null).IsTrue();
+    }
+
+    /// <summary>Nothing plays until Play is pressed. Then the video plays in the panel with a picture, and choosing other media puts the player away.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PlaysTheChosenClipOnlyAfterPlayIsPressed()
+    {
+        var tools = MediaToolLocator.Find();
+        if (tools is null)
+        {
+            Skip.Test("FFmpeg is not installed on this computer.");
+        }
+
+        using var test = new TestServices();
+        var clip = await MakeClipAsync(tools!, test.Directory);
+        using var main = new MainViewModel(test.Services);
+        var tab = await OpenAsync(test, main, TestPdf.CreateMediaDocument(clip));
+        using var media = new DocumentMediaViewModel(tab, tools);
+        media.Refresh();
+
+        media.Selected = media.Items[ClipPosition];
+        await Task.Delay(SettleTime);
+
+        await Assert.That(media.Player.State).IsEqualTo(MediaPlayerState.Idle);
+        await Assert.That(media.Player.FrameVersion).IsEqualTo(0);
+        await Assert.That(await media.Player.PlayCommand.CanExecute.FirstAsync()).IsTrue();
+
+        _ = await media.Player.PlayCommand.Execute().ToTask();
+        await Assert.That(await UiWait.UntilAsync(() => media.Player.FrameVersion > 0)).IsTrue();
+
+        await Assert.That(media.Player.HasPicture).IsTrue();
+        await Assert.That(media.Player.FrameSize.IsEmpty).IsFalse();
+        var picture = new byte[media.Player.FrameSize.ByteCount];
+        await Assert.That(media.Player.TryCopyFrame(picture)).IsTrue();
+        await Assert.That(await media.Player.StopCommand.CanExecute.FirstAsync()).IsTrue();
+
+        media.Selected = media.Items[0];
+        await Assert.That(media.Player.State).IsEqualTo(MediaPlayerState.Idle);
+        await Assert.That(media.Player.HasPicture).IsFalse();
+    }
+
+    /// <summary>Makes a short video with FFmpeg.</summary>
+    /// <param name="tools">The FFmpeg programs.</param>
+    /// <param name="directory">The folder to write to.</param>
+    /// <returns>The bytes of the video.</returns>
+    private static async Task<byte[]> MakeClipAsync(MediaTools tools, string directory)
+    {
+        var path = Path.Combine(directory, "made.mp4");
+        var start = new ProcessStartInfo(tools.Ffmpeg) { UseShellExecute = false, RedirectStandardError = true };
+        foreach (var argument in new[] { "-v", "error", "-f", "lavfi", "-i", "testsrc=duration=2:size=160x120:rate=10", "-c:v", "mpeg4", "-y", path })
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(start)!;
+        _ = await process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        return await File.ReadAllBytesAsync(path);
     }
 
     /// <summary>Opens a document and waits for it to load.</summary>

@@ -952,8 +952,11 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _subscriptions.Dispose();
+    public void Dispose()
+    {
+        _subscriptions.Dispose();
+        Media.Dispose();
+    }
 
     /// <summary>Reloads a changed file, or offers to, depending on the user's choice. Unsaved edits are never discarded silently.</summary>
     internal void CheckChangedFile()

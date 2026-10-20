@@ -521,6 +521,21 @@ public static class Descriptions
     /// <summary>The Open Media button.</summary>
     public static readonly string OpenMedia = "Open the chosen sound or video with your system's player, after you agree. Nothing plays until you choose it.";
 
+    /// <summary>The Play Media button.</summary>
+    public static readonly string PlayMedia = "Play the chosen sound or video here. It starts only when you press this.";
+
+    /// <summary>The Pause Media button.</summary>
+    public static readonly string PauseMedia = "Pause the sound or video where it is.";
+
+    /// <summary>The Stop Media button.</summary>
+    public static readonly string StopMedia = "Stop the sound or video and go back to the start.";
+
+    /// <summary>The Skip Media Back button.</summary>
+    public static readonly string SkipMediaBack = "Go back ten seconds.";
+
+    /// <summary>The Skip Media Forward button.</summary>
+    public static readonly string SkipMediaForward = "Go forward ten seconds.";
+
     /// <summary>The attachments sidebar tab.</summary>
     public static readonly string Attachments = "Show the files attached to this document.";
 

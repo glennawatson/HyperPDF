@@ -4,7 +4,9 @@
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Media;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -14,11 +16,11 @@ namespace HyperPdf.App.ViewModels;
 
 /// <summary>
 /// A tab's sound and video. The media panel only appears for documents that have some. Media never plays by itself: the page
-/// shows the annotation's poster picture, and the reader can save the media or hand it to the system player after
-/// confirming. Playing inside the viewer is a separate piece of work.
+/// shows the annotation's poster picture, and the reader can press Play to play it in the panel (when FFmpeg is installed),
+/// save it, or hand it to the system player after confirming.
 /// </summary>
 [DebuggerDisplay("DocumentMediaViewModel: {Items.Count} items")]
-public sealed partial class DocumentMediaViewModel : ReactiveObject
+public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
 {
     /// <summary>The temporary folder opened media is written to.</summary>
     private const string TempFolderName = "hyperpdf-media";
@@ -29,16 +31,34 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject
     /// <summary>Whether an item is selected, so it can be saved or opened.</summary>
     private readonly IObservable<bool> _canAct;
 
+    /// <summary>The FFmpeg programs that play media in the panel, or <see langword="null"/> when they are not installed.</summary>
+    private readonly MediaTools? _tools;
+
+    /// <summary>The player, made when first needed.</summary>
+    private MediaPlayerViewModel? _player;
+
     /// <summary>Initializes a new instance of the <see cref="DocumentMediaViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
     public DocumentMediaViewModel(DocumentTabViewModel owner)
+        : this(owner, MediaToolLocator.Find())
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="DocumentMediaViewModel"/> class.</summary>
+    /// <param name="owner">The owning tab.</param>
+    /// <param name="tools">The FFmpeg programs that play media in the panel, or <see langword="null"/> when they are not installed.</param>
+    public DocumentMediaViewModel(DocumentTabViewModel owner, MediaTools? tools)
     {
         _owner = owner;
         _canAct = this.WhenChanged(static vm => vm.Selected).Select(static item => item is not null);
+        _tools = tools;
     }
 
     /// <summary>Gets the document's media.</summary>
     public ObservableCollection<DocumentMedia> Items { get; } = [];
+
+    /// <summary>Gets the player that plays the chosen media in the panel.</summary>
+    public MediaPlayerViewModel Player => _player ??= new(this, _tools);
 
     /// <summary>Gets a value indicating whether the document has sound or video.</summary>
     [Reactive]
@@ -51,9 +71,16 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject
     /// <summary>Gets the interaction asking where to save a file; the input is the suggested name.</summary>
     public Interaction<string, string?> SaveInteraction { get; } = new();
 
+    /// <summary>Gets a value indicating whether the reader asked for less motion, which makes video show a picture only once a second.</summary>
+    internal bool ReduceMotion => _owner.ReduceMotion;
+
+    /// <summary>Gets the token that is cancelled when the tab closes.</summary>
+    internal CancellationToken LifetimeToken => _owner.LifetimeToken;
+
     /// <summary>Lists the document's media; called when the document loads.</summary>
     public void Refresh()
     {
+        _player?.Release();
         Items.Clear();
         Selected = null;
         if (DocumentFeature<IDocumentMediaSource>.Get(_owner.TryGetDocument()) is { } source)
@@ -96,8 +123,19 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject
     public async Task<bool> OpenAsync(DocumentMedia media)
     {
         ArgumentNullException.ThrowIfNull(media);
+        return await ExtractAsync(media).ConfigureAwait(true) is { } path && await _owner.Links.OpenFileAsync(path, 0).ConfigureAwait(true);
+    }
 
-        // Each opening gets its own folder, so files with the same name never replace one another.
+    /// <summary>Releases the player and its temporary file.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _player?.Dispose();
+
+    /// <summary>Writes a piece of media to a new temporary file.</summary>
+    /// <param name="media">The media.</param>
+    /// <returns>The full path of the file, or <see langword="null"/> when it could not be written; the notice says why.</returns>
+    internal async Task<string?> ExtractAsync(DocumentMedia media)
+    {
+        // Each extraction gets its own folder, so files with the same name never replace one another.
         var folder = Path.Combine(Path.GetTempPath(), TempFolderName, Guid.NewGuid().ToString("N"));
         try
         {
@@ -106,16 +144,16 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject
         catch (IOException ex)
         {
             _owner.Notice = $"Could not open {media.FileName}: {ex.Message}";
-            return false;
+            return null;
         }
         catch (UnauthorizedAccessException ex)
         {
             _owner.Notice = $"Could not open {media.FileName}: {ex.Message}";
-            return false;
+            return null;
         }
 
         var path = Path.Combine(folder, media.FileName);
-        return await WriteAsync(media, path).ConfigureAwait(true) && await _owner.Links.OpenFileAsync(path, 0).ConfigureAwait(true);
+        return await WriteAsync(media, path).ConfigureAwait(true) ? path : null;
     }
 
     /// <summary>Writes media into a new file.</summary>

@@ -123,7 +123,7 @@ No single theme suits everyone. Choose the appearance that works for you.
 
 ## Limits
 
-Form JavaScript runs only in a small safe subset (field values, show and hide, text formatting and messages); a script that needs more is skipped and the app says so. XFA forms are not supported. Sound and video never play in the app: the Media panel lets you save them or open them with your own player after you agree. 3D models show the picture the document supplies, and their contents are described in words but not drawn. The app says when a document uses content it cannot show.
+Form JavaScript runs only in a small safe subset (field values, show and hide, text formatting and messages); a script that needs more is skipped and the app says so. XFA forms are not supported. Sound and video never play by themselves. If FFmpeg (the `ffmpeg`, `ffplay` and `ffprobe` programs) is installed, the Media panel plays the chosen item when you press Play, with pause, stop, skip and captions; with reduced motion on, video shows one picture a second. Sound and picture start together and can drift apart by a fraction of a second. Set `HYPERPDF_FFMPEG` to a folder to use programs that are not on your search path. Without FFmpeg, the panel lets you save the media or open it with your own player after you agree. 3D models show the picture the document supplies, and their contents are described in words but not drawn. The app says when a document uses content it cannot show.
 
 When you save a copy, the viewer tells you if something could not be made to fit, for example a PDF/A level it could not apply. Programs that follow older PDF rules may not open AES-256 with change detection (AES-GCM) files yet.
 

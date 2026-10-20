@@ -3,11 +3,25 @@
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.MediaPanelView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (MediaPanelView.axaml.cs). -->
-  <Grid x:Name="MediaPanel" RowDefinitions="Auto,*,Auto">
+  <Grid x:Name="MediaPanel" RowDefinitions="Auto,*,Auto,Auto">
     <TextBlock Margin="8,6" TextWrapping="Wrap" Classes="secondary" FontSize="11"
-               Text="Sound and video in this document. Nothing plays by itself: choose an item, then save it or open it with your system's player." />
+               Text="Sound and video in this document. Nothing plays by itself: choose an item, then press Play, save it, or open it with your system's player." />
     <ListBox x:Name="MediaList" Grid.Row="1" AutomationProperties.Name="Media" Background="Transparent" />
-    <StackPanel Grid.Row="2" Margin="8" Spacing="6">
+    <StackPanel Grid.Row="2" Margin="8,4" Spacing="6">
+      <Image x:Name="MediaPictureImage" MaxHeight="220" Stretch="Uniform" AutomationProperties.AccessibilityView="Raw" />
+      <TextBlock x:Name="MediaCaptionText" TextWrapping="Wrap" AutomationProperties.Name="Caption" AutomationProperties.LiveSetting="Polite" />
+      <ProgressBar x:Name="MediaPositionBar" Minimum="0" Height="6" AutomationProperties.Name="Position" />
+      <TextBlock x:Name="MediaClockText" Classes="secondary" FontSize="11" />
+      <TextBlock x:Name="MediaStatusText" TextWrapping="Wrap" Classes="secondary" FontSize="11" AutomationProperties.LiveSetting="Polite" />
+      <WrapPanel>
+        <Button x:Name="MediaPlayButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static views:Descriptions.PlayMedia}" Content="Play Media" />
+        <Button x:Name="MediaPauseButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static views:Descriptions.PauseMedia}" Content="Pause Media" />
+        <Button x:Name="MediaStopButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static views:Descriptions.StopMedia}" Content="Stop Media" />
+        <Button x:Name="MediaSkipBackButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static views:Descriptions.SkipMediaBack}" Content="Back 10 s" />
+        <Button x:Name="MediaSkipForwardButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static views:Descriptions.SkipMediaForward}" Content="Forward 10 s" />
+      </WrapPanel>
+    </StackPanel>
+    <StackPanel Grid.Row="3" Margin="8" Spacing="6">
       <Button x:Name="OpenMediaButton" views:ControlHelp.Text="{x:Static views:Descriptions.OpenMedia}" HorizontalAlignment="Stretch" Content="Open in Player…" />
       <Button x:Name="SaveMediaButton" views:ControlHelp.Text="{x:Static views:Descriptions.SaveMedia}" HorizontalAlignment="Stretch" Content="Save Media…" />
     </StackPanel>
