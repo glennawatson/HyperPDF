@@ -10,6 +10,9 @@ namespace HyperPdfLibrary.Media.U3d;
 /// <summary>Describes what a U3D file holds in plain words, for people who cannot see the picture of it.</summary>
 public static class U3dSummary
 {
+    /// <summary>The characters that hold any 32-bit number, with its sign.</summary>
+    private const int MaxDigits = 11;
+
     /// <summary>Describes a scene.</summary>
     /// <param name="scene">The scene.</param>
     /// <returns>A sentence or two: what the file declares, and what was not read.</returns>
@@ -52,7 +55,10 @@ public static class U3dSummary
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Count(ref DefaultInterpolatedStringHandler text, int count, string noun)
     {
-        text.AppendFormatted(count);
+        // Formatting into stack space keeps the number from being boxed on its way into the handler.
+        Span<char> digits = stackalloc char[MaxDigits];
+        _ = count.TryFormat(digits, out var written, default, CultureInfo.InvariantCulture);
+        text.AppendFormatted(digits[..written]);
         text.AppendLiteral(" ");
         text.AppendFormatted(noun);
         text.AppendLiteral(count == 1 ? string.Empty : "s");

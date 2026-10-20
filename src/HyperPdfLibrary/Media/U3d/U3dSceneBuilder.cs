@@ -77,5 +77,10 @@ internal sealed class U3dSceneBuilder
     /// <summary>Makes the scene.</summary>
     /// <returns>The scene.</returns>
     internal U3dScene Build() =>
-        new(MajorVersion, MinorVersion, Profile, Units, [.. Nodes], [.. Geometry], [.. Resources], BlockCount, ContinuationBlocks, [.. _extensions], [.. _problems]);
+        new(MajorVersion, MinorVersion, Profile, Units, [.. Nodes], [.. Geometry], [.. Resources], BlockCount, ContinuationBlocks, NamesOf(_extensions), NamesOf(_problems));
+
+    /// <summary>Copies a list of names, sharing the empty array when there are none.</summary>
+    /// <param name="names">The names to copy.</param>
+    /// <returns>An array with the same names.</returns>
+    private static string[] NamesOf(List<string> names) => names.Count == 0 ? [] : [.. names];
 }
