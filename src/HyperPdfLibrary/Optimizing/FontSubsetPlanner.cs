@@ -120,7 +120,7 @@ internal static class FontSubsetPlanner
         foreach (var (program, kept) in state.Kept)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!state.Streams.TryGetValue(program, out var stream))
+            if (!state.Streams.TryGetValue(program, out var stream) || !IsWanted(state, program))
             {
                 continue;
             }
@@ -142,6 +142,28 @@ internal static class FontSubsetPlanner
             report.Changed(PdfOptimizeCategory.Fonts, program, note, stream.RawLength, subset.RawLength);
             Tag(program, tag, state);
         }
+    }
+
+    /// <summary>Determines whether a program may be cut down: any program may, unless the plan is limited to some fonts and none of them uses it.</summary>
+    /// <param name="state">The plan's tables.</param>
+    /// <param name="program">The program's number.</param>
+    /// <returns><see langword="true"/> when the program is to be cut down.</returns>
+    private static bool IsWanted(FontPlanState state, int program)
+    {
+        if (!state.LimitToOnlyFonts)
+        {
+            return true;
+        }
+
+        foreach (var font in state.Programs[program])
+        {
+            if (state.OnlyFonts.Contains(font))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Marks every font object that names a cut-down program for a subset tag.</summary>
@@ -328,14 +350,21 @@ internal static class FontSubsetPlanner
                 return null;
             }
 
-            if (!state.Shown.TryGetValue(user, out var glyphs))
+            if (state.Shown.TryGetValue(user, out var glyphs))
             {
-                report.Skip(PdfOptimizeCategory.Fonts, program, "No page shows text in the font, so it is left whole.");
-                state.Release(kept);
-                return null;
+                kept.UnionWith(glyphs);
+                continue;
             }
 
-            kept.UnionWith(glyphs);
+            // A font that lost all its text to redaction keeps no glyph at all; any other font nobody shows is left whole.
+            if (state.LimitToOnlyFonts && state.OnlyFonts.Contains(user))
+            {
+                continue;
+            }
+
+            report.Skip(PdfOptimizeCategory.Fonts, program, "No page shows text in the font, so it is left whole.");
+            state.Release(kept);
+            return null;
         }
 
         return kept;

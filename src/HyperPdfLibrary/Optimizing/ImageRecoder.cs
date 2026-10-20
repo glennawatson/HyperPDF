@@ -28,6 +28,9 @@ internal sealed class ImageRecoder
     /// <summary>The bits of an 8-bit sample.</summary>
     private const int ByteBits = 8;
 
+    /// <summary>How far above the quality asked for a JPEG's estimated quality must be before it is written again at the lower one.</summary>
+    private const int RewriteQualityMargin = 5;
+
     /// <summary>The pixels sampled to tell photographs from flat graphics.</summary>
     private const int ToneSamples = 4096;
 
@@ -128,7 +131,7 @@ internal sealed class ImageRecoder
 
         if (BilevelRecoder.IsBilevel(dictionary))
         {
-            return RecodeBilevel(image, codec, new(width, height, 1), isMask);
+            return RecodeBilevel(image, codec, new(width, height, 1), use, isMask);
         }
 
         var eightBit = dictionary.GetInt32(KnownName.BitsPerComponent, ByteBits) == ByteBits;
@@ -179,6 +182,18 @@ internal sealed class ImageRecoder
         return false;
     }
 
+    /// <summary>Determines whether an image has a mask of its own, which a shrunk image would no longer line up with.</summary>
+    /// <param name="dictionary">The image dictionary.</param>
+    /// <returns><see langword="true"/> when the image has a soft mask, a stencil or colour-key mask.</returns>
+    private static bool HasMaskEntries(PdfDictionary dictionary) =>
+        dictionary.ContainsKey(KnownName.SMask) || dictionary.ContainsKey(KnownName.Mask) || ImageColor.HasColorKey(dictionary);
+
+    /// <summary>Determines whether a JPEG image has a <c>/Decode</c> array or a colour transform setting, which a re-encode would not keep.</summary>
+    /// <param name="dictionary">The image dictionary.</param>
+    /// <returns><see langword="true"/> when the image has either.</returns>
+    private static bool HasJpegTransform(PdfDictionary dictionary) =>
+        dictionary.ContainsKey(KnownName.Decode) || ImageFilters.CodecParameters(dictionary)?.ContainsKey(KnownName.ColorTransform) == true;
+
     /// <summary>Describes a size change.</summary>
     /// <param name="from">The old size.</param>
     /// <param name="to">The new size.</param>
@@ -201,12 +216,41 @@ internal sealed class ImageRecoder
     /// <param name="image">The image.</param>
     /// <param name="codec">Its codec.</param>
     /// <param name="size">Its size.</param>
+    /// <param name="use">How the image is used.</param>
     /// <param name="isMask">Whether another image uses it as a mask.</param>
     /// <returns>The outcome.</returns>
-    private ImageOutcome RecodeBilevel(PdfStream image, CodecKind codec, PixelSize size, bool isMask)
+    private ImageOutcome RecodeBilevel(PdfStream image, CodecKind codec, PixelSize size, ImageUse use, bool isMask)
     {
         var codings = Codings(isMask);
+        if (codec != CodecKind.Jpeg && MonochromeTarget(use, size, image.Dictionary, isMask) is { } target)
+        {
+            var shrunk = BilevelRecoder.Downsample(image, size, target, codings, Codec, _scratchStore.ScratchPools, _cancellationToken);
+            if (shrunk.Stream is not null)
+            {
+                return shrunk;
+            }
+        }
+
         return codings.IsAnyEnabled ? BilevelRecoder.Recode(image, codec, size, codings, _scratchStore.ScratchPools, _cancellationToken) : ImageOutcome.Unchanged;
+    }
+
+    /// <summary>Works out the size to shrink a 1-bit image to, when it is drawn well above the black-and-white target resolution.</summary>
+    /// <param name="use">How the image is used.</param>
+    /// <param name="size">The image's size.</param>
+    /// <param name="dictionary">The image dictionary.</param>
+    /// <param name="isMask">Whether another image uses it as a mask, which is never shrunk.</param>
+    /// <returns>The target size, or <see langword="null"/> to keep the resolution.</returns>
+    private PixelSize? MonochromeTarget(ImageUse use, PixelSize size, PdfDictionary dictionary, bool isMask)
+    {
+        var target = _options.MonochromeImageDpi;
+        var tooSharp = target <= 0 || use.IsFixed || use.Uses == 0 || !float.IsFinite(use.MinPpi) || use.MinPpi <= target * _options.DownsampleThreshold;
+        if (isMask || !_options.AllowLossyImages || tooSharp || HasMaskEntries(dictionary))
+        {
+            return null;
+        }
+
+        var factor = target / use.MinPpi;
+        return size with { Width = Math.Max(1, (int)MathF.Round(size.Width * factor)), Height = Math.Max(1, (int)MathF.Round(size.Height * factor)) };
     }
 
     /// <summary>Re-encodes an 8-bit grey or RGB image.</summary>
@@ -257,8 +301,7 @@ internal sealed class ImageRecoder
     /// <returns>The outcome.</returns>
     private ImageOutcome RecodeJpeg(in ImageJob job)
     {
-        var dictionary = job.Image.Dictionary;
-        if (job.Target is not { } target || dictionary.ContainsKey(KnownName.Decode) || ImageFilters.CodecParameters(dictionary)?.ContainsKey(KnownName.ColorTransform) == true)
+        if (!job.Lossy || HasJpegTransform(job.Image.Dictionary))
         {
             return ImageOutcome.Unchanged;
         }
@@ -272,8 +315,15 @@ internal sealed class ImageRecoder
                 return ImageOutcome.Unchanged;
             }
 
+            // A JPEG that is not drawn above the target resolution is still worth writing again when it was saved at a higher quality than the one asked for.
+            var rewrite = JpegQualityEstimate.Estimate(encoded.WrittenSpan) > _options.JpegQuality + RewriteQualityMargin;
+            if (job.Target is null && !rewrite)
+            {
+                return ImageOutcome.Unchanged;
+            }
+
             return ImagePixels.TryDecodeJpeg(encoded.WrittenSpan, job.Size.Components, ref pixels, out var decoded, _scratchStore.ScratchPools, _cancellationToken) && decoded == job.Size
-                ? EncodeJpeg(job, pixels.WrittenSpan, target)
+                ? EncodeJpeg(job, pixels.WrittenSpan, job.Target ?? job.Size)
                 : ImageOutcome.Unchanged;
         }
         finally

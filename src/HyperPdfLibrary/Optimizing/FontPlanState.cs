@@ -41,6 +41,15 @@ internal sealed class FontPlanState : IDisposable
     /// <summary>Gets the glyphs each font shows, by font number.</summary>
     internal Dictionary<int, CodeBitSet> Shown { get; } = [];
 
+    /// <summary>
+    /// Gets the object numbers of the only fonts whose programs may be cut down when <see cref="LimitToOnlyFonts"/> is set.
+    /// Redaction fills it with the fonts that lost text, so no other font program is touched.
+    /// </summary>
+    internal HashSet<int> OnlyFonts { get; } = [];
+
+    /// <summary>Gets or sets a value indicating whether only the programs of <see cref="OnlyFonts"/> may be cut down.</summary>
+    internal bool LimitToOnlyFonts { get; set; }
+
     /// <summary>Gets the glyphs to keep in each embedded program, by the program's number.</summary>
     internal Dictionary<int, CodeBitSet> Kept { get; } = [];
 
@@ -72,6 +81,8 @@ internal sealed class FontPlanState : IDisposable
         }
 
         Programs.Clear();
+        OnlyFonts.Clear();
+        LimitToOnlyFonts = false;
         Streams.Clear();
         Users.Clear();
         Subsets.Clear();

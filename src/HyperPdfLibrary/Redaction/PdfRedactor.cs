@@ -123,6 +123,11 @@ public static class PdfRedactor
             ToUnicodePruner.Run(state.Document, state.Tally, state.Token);
         }
 
+        if (state.Options.RemoveUnusedResources)
+        {
+            FontProgramTrimmer.Trim(state.Document, state.Tally, state.Token);
+        }
+
         if (state.Options.ScrubMetadata)
         {
             MetadataScrubber.Scrub(state.Document.Objects, transaction);

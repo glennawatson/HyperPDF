@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
 using HyperPdfLibrary.Objects;
@@ -60,6 +61,67 @@ internal static class BilevelRecoder
         {
             decoded.Dispose();
             rows.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Shrinks a 1-bit image: the bits are averaged down to the target size, then made black and white again, and the result
+    /// is coded with the codings the options allow. The image keeps its colour space, <c>/Decode</c> and stencil flag.
+    /// </summary>
+    /// <param name="image">The image.</param>
+    /// <param name="size">Its width and height.</param>
+    /// <param name="target">The width and height to shrink to.</param>
+    /// <param name="codings">The codings besides Flate that may be tried.</param>
+    /// <param name="codec">The image codec that resamples.</param>
+    /// <param name="scratchPools">The document or registered service's compression owner.</param>
+    /// <param name="cancellationToken">Cancels this operation.</param>
+    /// <returns>The outcome; unchanged when the image has too little data or the result is not smaller.</returns>
+    internal static ImageOutcome Downsample(
+        PdfStream image,
+        PixelSize size,
+        PixelSize target,
+        in BilevelCodings codings,
+        IPdfImageCodec codec,
+        ScratchPools scratchPools,
+        CancellationToken cancellationToken)
+    {
+        var parameters = ImageFilters.CodecParameters(image.Dictionary);
+        var decoded = default(PooledBuffer);
+        var rows = default(PooledBuffer);
+        var grey = default(PooledBuffer);
+        var resized = default(PooledBuffer);
+        var packed = default(PooledBuffer);
+        try
+        {
+            if (!TryReadRows(image, parameters, size, ref decoded, ref rows, cancellationToken))
+            {
+                return ImageOutcome.Unchanged;
+            }
+
+            BilevelEncoder.Unpack(rows.WrittenSpan, size.Width, size.Height, ref grey);
+            if (!ImagePixels.Downsample(codec, grey.WrittenSpan, size, target.Width, target.Height, ref resized))
+            {
+                return ImageOutcome.Unchanged;
+            }
+
+            BilevelEncoder.Pack(resized.WrittenSpan, target.Width, target.Height, ref packed);
+            var what = string.Create(CultureInfo.InvariantCulture, $"1-bit image downsampled from {size.Width}x{size.Height} to");
+            var outcome = Code(image, packed.WrittenSpan, target, what, codings, scratchPools, cancellationToken);
+            if (outcome.Stream is { } result)
+            {
+                result.Dictionary.Set(KnownName.Width, PdfValue.FromInteger(target.Width));
+                result.Dictionary.Set(KnownName.Height, PdfValue.FromInteger(target.Height));
+            }
+
+            return outcome;
+        }
+        finally
+        {
+            decoded.Dispose();
+            rows.Dispose();
+            grey.Dispose();
+            resized.Dispose();
+            packed.Dispose();
         }
     }
 
