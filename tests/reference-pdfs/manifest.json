@@ -460,8 +460,8 @@
     },
     {
       "id": "commons-apna-aap",
-      "source": "Wikimedia Commons, from the Internet Archive",
-      "url": "https://upload.wikimedia.org/wikipedia/commons/9/95/Apna_Aap.pdf",
+      "source": "Wikimedia Commons, from the Internet Archive; mirrored in this repository's reference-pdfs-1 release",
+      "url": "https://github.com/glennawatson/HyperPDF/releases/download/reference-pdfs-1/commons-apna-aap.pdf",
       "sha256": "a7ca8b44bdb11fc115ff312cf888f260f1c4e360aa687d772227c7fba327fda9",
       "bytes": 4926558,
       "tags": [
