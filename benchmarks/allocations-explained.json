@@ -3438,5 +3438,20 @@
     "type": "System.String",
     "frame": "HyperPdf.Engine.HyperPdfDocumentParts.Describe",
     "reason": "The parts, threads and their beads are returned data that the caller keeps, and the details text of a part is part of it."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffLayout.Assemble",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CffSubsetWriter.FontDictMap",
+    "reason": "Cutting a CFF font down builds the new font's tables once for each font when a copy is saved. The bytes are the cut-down font program and the scratch tables are dropped when the font is done."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder.NamesOf",
+    "reason": "The extension and problem names are copied into the arrays of the returned scene. An empty list shares the empty array."
   }
 ]
