@@ -134,6 +134,9 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <summary>The tile scale of the last frame whose visible pages were all sharp, drawn while newer tiles render.</summary>
     private float _fallbackScale;
 
+    /// <summary>The scale pages were last drawn at, which neighbouring pages are prepared for.</summary>
+    private float _neighbourScale = 1;
+
     /// <summary>Whether every visible page in the frame being drawn had its sharp tiles.</summary>
     private bool _frameComplete;
 
@@ -568,6 +571,10 @@ public sealed class PageCanvas : Control, IActivatableView
         var bounds = _layout.GetPageBounds(topPage);
         var fraction = bounds.Height > 0 ? Math.Clamp((top - bounds.Y) / bounds.Height, 0, 1) : 0;
         tab.ReportPosition(new(topPage, fraction), middlePage);
+        if (tab.TryGetDocument() is { } document)
+        {
+            tab.RenderHub.Preparer.Visit(document, middlePage, _neighbourScale, tab.Rotation, RenderFlags.Annotations);
+        }
     }
 
     /// <inheritdoc/>
@@ -698,6 +705,7 @@ public sealed class PageCanvas : Control, IActivatableView
         }
 
         RequestPreviewReach(frame, first, last);
+        _neighbourScale = GetTileScale(frame.RenderScaling);
         if (_frameComplete && !IsZoomEasing)
         {
             _fallbackScale = GetTileScale(frame.RenderScaling);

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Runtime.CompilerServices;
 
 namespace HyperPdfLibrary.Text;
 
@@ -23,7 +24,18 @@ internal static class TextSearch
     /// <param name="options">The search options.</param>
     /// <param name="state">The caller's state.</param>
     /// <param name="visit">Receives the page text index of each match's first and last character.</param>
-    internal static void FindAll<TState>(FoldedText folded, ReadOnlySpan<char> query, PdfTextSearchOptions options, TState state, Action<TState, int, int> visit)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void FindAll<TState>(FoldedText folded, ReadOnlySpan<char> query, PdfTextSearchOptions options, TState state, Action<TState, int, int> visit) =>
+        FindAll(new FoldedView(folded.Text, folded.Map, folded.SourceLength), query, options, state, visit);
+
+    /// <summary>Finds every match in folded text held in caller-owned buffers.</summary>
+    /// <typeparam name="TState">The caller's state passed to each visit.</typeparam>
+    /// <param name="folded">The folded page text.</param>
+    /// <param name="query">The query, not yet folded.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="state">The caller's state.</param>
+    /// <param name="visit">Receives the page text index of each match's first and last character.</param>
+    internal static void FindAll<TState>(FoldedView folded, ReadOnlySpan<char> query, PdfTextSearchOptions options, TState state, Action<TState, int, int> visit)
     {
         char[]? rented = null;
         var capacity = TextNormalization.DecomposedLength(query, (options & PdfTextSearchOptions.FoldCompatibility) != 0);
@@ -74,7 +86,7 @@ internal static class TextSearch
     /// <param name="options">The search options.</param>
     /// <param name="state">The state handed to each visit.</param>
     /// <param name="visit">Receives the first and last text index of each match.</param>
-    private static void Scan<TState>(FoldedText folded, ReadOnlySpan<char> pattern, PdfTextSearchOptions options, TState state, Action<TState, int, int> visit)
+    private static void Scan<TState>(FoldedView folded, ReadOnlySpan<char> pattern, PdfTextSearchOptions options, TState state, Action<TState, int, int> visit)
     {
         var text = folded.Text;
         var overlap = (options & PdfTextSearchOptions.Consecutive) != 0;
@@ -82,7 +94,7 @@ internal static class TextSearch
         var from = 0;
         while (from < text.Length)
         {
-            var found = text.AsSpan(from).IndexOf(pattern[0]);
+            var found = text[from..].IndexOf(pattern[0]);
             if (found < 0)
             {
                 return;
@@ -106,7 +118,7 @@ internal static class TextSearch
     /// <param name="pattern">The folded pattern.</param>
     /// <param name="end">Receives the position after the match.</param>
     /// <returns><see langword="true"/> when the text matches.</returns>
-    private static bool TryMatch(string text, int start, ReadOnlySpan<char> pattern, out int end)
+    private static bool TryMatch(ReadOnlySpan<char> text, int start, ReadOnlySpan<char> pattern, out int end)
     {
         end = start;
         foreach (var value in pattern)
@@ -151,7 +163,7 @@ internal static class TextSearch
     /// <param name="pattern">The pattern.</param>
     /// <param name="wholeWord">Whether only whole words match.</param>
     /// <returns><see langword="true"/> when the match is reported.</returns>
-    private static bool IsAcceptable(string text, int start, int end, ReadOnlySpan<char> pattern, bool wholeWord) =>
+    private static bool IsAcceptable(ReadOnlySpan<char> text, int start, int end, ReadOnlySpan<char> pattern, bool wholeWord) =>
         !SplitsLetter(text, end) && !TextClusters.IsInsideConjunct(text, start) && (!wholeWord || IsWholeWord(text, start, end, pattern));
 
     /// <summary>
@@ -161,7 +173,7 @@ internal static class TextSearch
     /// <param name="text">The folded text.</param>
     /// <param name="end">The position after the match.</param>
     /// <returns><see langword="true"/> when a mark follows the match.</returns>
-    private static bool SplitsLetter(string text, int end) => end < text.Length && TextUnicode.IsMark(text[end]);
+    private static bool SplitsLetter(ReadOnlySpan<char> text, int end) => end < text.Length && TextUnicode.IsMark(text[end]);
 
     /// <summary>Determines whether a match is not part of a longer word.</summary>
     /// <param name="text">The folded text.</param>
@@ -169,7 +181,7 @@ internal static class TextSearch
     /// <param name="end">The position after the match.</param>
     /// <param name="pattern">The pattern.</param>
     /// <returns><see langword="true"/> when the characters around the match are not word characters.</returns>
-    private static bool IsWholeWord(string text, int start, int end, ReadOnlySpan<char> pattern)
+    private static bool IsWholeWord(ReadOnlySpan<char> text, int start, int end, ReadOnlySpan<char> pattern)
     {
         if (TextUnicode.IsWordChar(pattern[0]) && start > 0 && TextUnicode.IsWordChar(text[start - 1]))
         {

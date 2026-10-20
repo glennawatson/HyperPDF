@@ -259,6 +259,10 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool PrepareAhead(in PageRenderInfo info, CancellationToken cancellationToken) => HyperPdfRendering.PrepareAhead(this, info, cancellationToken);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<bool> PrepareAsync(PageRenderInfo info, CancellationToken cancellationToken) => HyperPdfRendering.PrepareAsync(this, info, cancellationToken);
 
     /// <inheritdoc/>

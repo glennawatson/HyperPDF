@@ -34,4 +34,7 @@ public enum PdfError
     /// repair, so writing it would make a false claim. The message says which rules fail.
     /// </summary>
     ClaimUnmet = 6,
+
+    /// <summary>A font file cannot be embedded: it is damaged, unsupported or its licence forbids embedding. The message says which.</summary>
+    FontRefused = 7,
 }

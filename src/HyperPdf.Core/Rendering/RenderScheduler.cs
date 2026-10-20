@@ -46,6 +46,9 @@ public sealed class RenderScheduler : IDisposable
     /// <summary>Emits on the render thread when finished tiles are waiting.</summary>
     private readonly Signal<RxVoid> _completed = new();
 
+    /// <summary>Emits when something on screen is requested, so background preparation can stand aside.</summary>
+    private readonly Signal<RxVoid> _visibleRequested = new();
+
     /// <summary>Wakes the render thread.</summary>
     private readonly SemaphoreSlim _signal = new(0);
 
@@ -82,6 +85,7 @@ public sealed class RenderScheduler : IDisposable
         _thread = new(Run) { IsBackground = true, Name = "HyperPDF render" };
         _thread.Start();
         Completed = new(_completed);
+        VisibleWorkRequested = new(_visibleRequested);
     }
 
     /// <summary>
@@ -90,6 +94,12 @@ public sealed class RenderScheduler : IDisposable
     /// drain starts.
     /// </summary>
     public AsObservableSignal<RxVoid> Completed { get; }
+
+    /// <summary>
+    /// Gets notifications, raised on the requesting thread, each time a visible tile or visible preview is requested, even when
+    /// it merges with work already queued. Background preparation cancels what it is doing when one arrives.
+    /// </summary>
+    public AsObservableSignal<RxVoid> VisibleWorkRequested { get; }
 
     /// <summary>Gets the token that cancels when this scheduler stops.</summary>
     public CancellationToken ShutdownToken => _shutdown.Token;
@@ -102,6 +112,29 @@ public sealed class RenderScheduler : IDisposable
             lock (_gate)
             {
                 return _queue.Count;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets whether a request for something on screen, a visible tile or a visible preview, is queued or rendering. Background
+    /// preparation uses it to stand aside.
+    /// </summary>
+    public bool HasVisibleWork
+    {
+        get
+        {
+            lock (_gate)
+            {
+                foreach (var pending in _pending.Values)
+                {
+                    if (pending.Latest.Priority <= RenderPriority.Visible)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         }
     }
@@ -128,6 +161,11 @@ public sealed class RenderScheduler : IDisposable
     public bool Request(in RenderRequest request)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        if (request.Priority <= RenderPriority.Visible)
+        {
+            _visibleRequested.OnNext(RxVoid.Default);
+        }
+
         return !request.CancellationToken.IsCancellationRequested && EnqueueRequest(request);
     }
 
@@ -207,6 +245,8 @@ public sealed class RenderScheduler : IDisposable
 
         _completed.OnCompleted();
         _completed.Dispose();
+        _visibleRequested.OnCompleted();
+        _visibleRequested.Dispose();
         _signal.Dispose();
         _shutdown.Dispose();
     }
@@ -368,6 +408,8 @@ public sealed class RenderScheduler : IDisposable
             {
                 _completed.OnCompleted();
                 _completed.Dispose();
+                _visibleRequested.OnCompleted();
+                _visibleRequested.Dispose();
                 _signal.Dispose();
                 _shutdown.Dispose();
             }

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
 
@@ -209,43 +210,19 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <param name="request">The page and rendering flags to prepare.</param>
     /// <param name="cancellationToken">Cancels recording between operators and during long operations.</param>
     /// <returns>Whether the requested page exists.</returns>
-    public bool Prepare(in PdfTileRequest request, CancellationToken cancellationToken)
-    {
-        ObjectDisposedException.ThrowIf(_disposed || _document.IsDisposed, this);
-        if ((uint)request.PageIndex >= (uint)_document.PageCount)
-        {
-            return false;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool Prepare(in PdfTileRequest request, CancellationToken cancellationToken) => PrepareCore(request, true, cancellationToken);
 
-        cancellationToken.ThrowIfCancellationRequested();
-        var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
-        var cache = CacheFor(request.Flags);
-        var entry = Acquire(page, request, cache);
-        try
-        {
-            var recorded = entry.Recordings;
-            var printing = (request.Flags & PdfRenderFlags.Printing) != 0;
-            var status = entry.ContinueContent(cache, page, printing, null, cancellationToken);
-            if (status != PdfRenderStatus.Done)
-            {
-                TrimIfRecorded(entry, recorded);
-                return false;
-            }
-
-            if ((request.Flags & PdfRenderFlags.Annotations) != 0)
-            {
-                _ = entry.GetAnnotations(cache, page, printing, cancellationToken);
-            }
-
-            TrimIfRecorded(entry, recorded);
-            cancellationToken.ThrowIfCancellationRequested();
-            return true;
-        }
-        finally
-        {
-            entry.Release();
-        }
-    }
+    /// <summary>
+    /// Records a page the reader is likely to turn to, as <see cref="Prepare"/> does, but keeps the page out of the way of the
+    /// pages on screen: its pictures enter the cache as the least recently used, so they are the first to go when the picture
+    /// limit is reached, and the page that is drawn stays the newest, protected one. A page already cached keeps its place.
+    /// </summary>
+    /// <param name="request">The page and rendering flags to prepare.</param>
+    /// <param name="cancellationToken">Cancels recording between operators and during long operations.</param>
+    /// <returns>Whether the requested page exists and was recorded.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool PrepareAhead(in PdfTileRequest request, CancellationToken cancellationToken) => PrepareCore(request, false, cancellationToken);
 
     /// <summary>
     /// Renders part of a page progressively, a slice of operators at a time. While the page is not yet
@@ -512,10 +489,19 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <param name="request">The tile request.</param>
     /// <param name="cache">The caches the tile records with.</param>
     /// <returns>The entry; release it when done.</returns>
-    private PagePictures Acquire(PdfPage page, in PdfTileRequest request, PdfRenderCache cache)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private PagePictures Acquire(PdfPage page, in PdfTileRequest request, PdfRenderCache cache) => Acquire(page, request, cache, true);
+
+    /// <summary>Finds or creates the entry for a tile's page, recorded for the exact page matrix when the quality settings need it.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="request">The tile request.</param>
+    /// <param name="cache">The caches the tile records with.</param>
+    /// <param name="promote">Whether the entry becomes the newest, or enters as the oldest when it is new.</param>
+    /// <returns>The entry; release it when done.</returns>
+    private PagePictures Acquire(PdfPage page, in PdfTileRequest request, PdfRenderCache cache, bool promote)
     {
         Matrix3x2? device = cache.Quality.NeedsDeviceMatrix ? GetMatrix(page, request with { OffsetX = 0, OffsetY = 0 }) : null;
-        return Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale), device);
+        return Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale), device, promote);
     }
 
     /// <summary>Finds or creates the entry for a page at the current optional content version, and marks it in use.</summary>
@@ -523,8 +509,9 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <param name="usesIntent">Whether the pictures convert device colours through the output intent.</param>
     /// <param name="scale">Device pixels per page point.</param>
     /// <param name="device">The page-to-device matrix without the tile offset when pictures are recorded for it; otherwise null for a zoom band.</param>
+    /// <param name="promote">Whether the entry becomes the newest; when not, a new entry enters as the oldest and a cached one keeps its place.</param>
     /// <returns>The entry; release it when done.</returns>
-    private PagePictures Acquire(int pageIndex, bool usesIntent, float scale, Matrix3x2? device)
+    private PagePictures Acquire(int pageIndex, bool usesIntent, float scale, Matrix3x2? device, bool promote)
     {
         if (Volatile.Read(ref _registered) == 0 && Interlocked.Exchange(ref _registered, 1) == 0)
         {
@@ -547,17 +534,72 @@ public sealed partial class PdfPageRenderer : IDisposable
                     continue;
                 }
 
-                _entries.RemoveAt(i);
-                _entries.Add(existing);
+                if (promote)
+                {
+                    _entries.RemoveAt(i);
+                    _entries.Add(existing);
+                }
+
                 existing.Acquire();
                 return existing;
             }
 
             var created = new PagePictures(pageIndex, version, usesIntent, scaleBand, upperScale, zoomClass) { Device = device };
-            _entries.Add(created);
+            if (promote)
+            {
+                _entries.Add(created);
+            }
+            else
+            {
+                _entries.AddOldest(created);
+            }
+
             created.Acquire();
             EvictLocked();
             return created;
+        }
+    }
+
+    /// <summary>Records page content and requested annotations without creating output pixels.</summary>
+    /// <param name="request">The page and rendering flags to prepare.</param>
+    /// <param name="promote">Whether the page becomes the newest cache entry.</param>
+    /// <param name="cancellationToken">Cancels recording between operators and during long operations.</param>
+    /// <returns>Whether the requested page exists.</returns>
+    private bool PrepareCore(in PdfTileRequest request, bool promote, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed || _document.IsDisposed, this);
+        if ((uint)request.PageIndex >= (uint)_document.PageCount)
+        {
+            return false;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var page = PdfDocumentPages.GetPage(_document, request.PageIndex);
+        var cache = CacheFor(request.Flags);
+        var entry = Acquire(page, request, cache, promote);
+        try
+        {
+            var recorded = entry.Recordings;
+            var printing = (request.Flags & PdfRenderFlags.Printing) != 0;
+            var status = entry.ContinueContent(cache, page, printing, null, cancellationToken);
+            if (status != PdfRenderStatus.Done)
+            {
+                TrimIfRecorded(entry, recorded);
+                return false;
+            }
+
+            if ((request.Flags & PdfRenderFlags.Annotations) != 0)
+            {
+                _ = entry.GetAnnotations(cache, page, printing, cancellationToken);
+            }
+
+            TrimIfRecorded(entry, recorded);
+            cancellationToken.ThrowIfCancellationRequested();
+            return true;
+        }
+        finally
+        {
+            entry.Release();
         }
     }
 

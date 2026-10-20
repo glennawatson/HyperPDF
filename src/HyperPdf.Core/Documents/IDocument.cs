@@ -50,6 +50,15 @@ public interface IDocument : IDisposable
     /// <returns>A task completing when page resources are ready.</returns>
     ValueTask PreparePageAsync(int pageIndex, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 
+    /// <summary>
+    /// Records a page the reader is likely to turn to, without drawing any pixels, and keeps it out of the way of the pages on
+    /// screen: if the picture memory runs out, the prepared page is the first to go. Call <see cref="PreparePageAsync"/> first.
+    /// </summary>
+    /// <param name="info">The page, scale, rotation and flags the page is likely to be drawn with.</param>
+    /// <param name="cancellationToken">Cancels recording.</param>
+    /// <returns><see langword="true"/> when the page was recorded; engines that cannot record ahead return <see langword="false"/>.</returns>
+    bool PrepareAhead(in PageRenderInfo info, CancellationToken cancellationToken) => false;
+
     /// <summary>Renders part of a page into a pixel buffer. The buffer is filled with white first.</summary>
     /// <param name="info">What to render.</param>
     /// <param name="target">The destination buffer.</param>

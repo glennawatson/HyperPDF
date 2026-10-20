@@ -40,6 +40,17 @@ public static class PdfBundledFonts
         return Open(services.FontResources, family, bold, italic);
     }
 
+    /// <summary>Opens an embedded font, throwing when it cannot be embedded.</summary>
+    /// <param name="family">The family.</param>
+    /// <param name="bold">Whether to use the bold style; ignored for symbol, dingbats, and emoji families.</param>
+    /// <param name="italic">Whether to use the italic style; ignored for symbol, dingbats, and emoji families.</param>
+    /// <returns>The font.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="family"/> is not a defined family.</exception>
+    /// <exception cref="PdfException">The font cannot be embedded; the message gives the reason.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PdfFontSource OpenOrThrow(PdfBundledFontFamily family, bool bold, bool italic) =>
+        PdfFontOpenResult.SourceOrThrow(Open(family, bold, italic));
+
     /// <summary>Opens the default license-compatible bundled backup fonts (Symbol, Dingbats, and Emoji) in fallback order.</summary>
     /// <returns>The ordered list of bundled fallback font sources.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

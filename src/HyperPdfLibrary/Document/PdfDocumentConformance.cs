@@ -88,6 +88,16 @@ public static class PdfDocumentConformance
         return new(part, string.IsNullOrEmpty(conformance) ? null : conformance, xmp.PdfARevision);
     }
 
+    /// <summary>Reads the PDF/X version from the Info dictionary, else from the XMP.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="xmp">The catalog's XMP, or null.</param>
+    /// <returns>The version text, or null.</returns>
+    internal static string? ReadPdfXVersion(PdfDocument document, XmpMetadata? xmp)
+    {
+        var fromInfo = document.Objects.Trailer.Dict("Info")?.Text(PdfDocumentConformance.PdfXVersionKey);
+        return string.IsNullOrWhiteSpace(fromInfo) ? xmp?.GetValue(PdfDocumentConformance.PdfXIdNamespace, PdfDocumentConformance.PdfXVersionKey) : fromInfo;
+    }
+
     /// <summary>Reads the claims, output intents and observations, without the PDF/A rule check.</summary>
     /// <param name="document">The document.</param>
     /// <param name="cancellationToken">Stops the scan.</param>
@@ -124,14 +134,4 @@ public static class PdfDocumentConformance
         PdfDocumentConformance.CmykProfileComponents => "CMYK",
         _ => null,
     });
-
-    /// <summary>Reads the PDF/X version from the Info dictionary, else from the XMP.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="xmp">The catalog's XMP, or null.</param>
-    /// <returns>The version text, or null.</returns>
-    private static string? ReadPdfXVersion(PdfDocument document, XmpMetadata? xmp)
-    {
-        var fromInfo = document.Objects.Trailer.Dict("Info")?.Text(PdfDocumentConformance.PdfXVersionKey);
-        return string.IsNullOrWhiteSpace(fromInfo) ? xmp?.GetValue(PdfDocumentConformance.PdfXIdNamespace, PdfDocumentConformance.PdfXVersionKey) : fromInfo;
-    }
 }
