@@ -18,6 +18,21 @@ namespace HyperPdf.Core.Rendering;
 [DebuggerDisplay("TileKey: Doc {DocumentId} p{PageIndex} s{ScaleKey} ({Column},{Row})")]
 public readonly record struct TileKey(int DocumentId, int PageIndex, int ScaleKey, PageRotation Rotation, int ToneId, short Column, short Row)
 {
+    /// <summary>The bits in a half of a 64 bit word.</summary>
+    private const int HalfWordBits = 32;
+
+    /// <summary>The bits in a tile coordinate.</summary>
+    private const int CoordinateBits = 16;
+
+    /// <summary>The first hash multiplier, an odd 64 bit constant with well mixed bits.</summary>
+    private const ulong MultiplierOne = 0x9E3779B97F4A7C15UL;
+
+    /// <summary>The second hash multiplier.</summary>
+    private const ulong MultiplierTwo = 0xC2B2AE3D27D4EB4FUL;
+
+    /// <summary>The third hash multiplier.</summary>
+    private const ulong MultiplierThree = 0x165667B19E3779F9UL;
+
     /// <summary>Gets a value indicating whether the key identifies a whole-page preview image.</summary>
     public bool IsPreview => Column < 0;
 
@@ -29,4 +44,29 @@ public readonly record struct TileKey(int DocumentId, int PageIndex, int ScaleKe
     /// <returns>The key.</returns>
     public static TileKey Preview(int documentId, int pageIndex, PageRotation rotation, int toneId) =>
         new(documentId, pageIndex, 0, rotation, toneId, -1, -1);
+
+    /// <summary>Determines whether another key identifies the same tile.</summary>
+    /// <param name="other">The other key.</param>
+    /// <returns><see langword="true"/> when every field is equal.</returns>
+    public bool Equals(TileKey other) =>
+        DocumentId == other.DocumentId
+        && PageIndex == other.PageIndex
+        && ScaleKey == other.ScaleKey
+        && Column == other.Column
+        && Row == other.Row
+        && ToneId == other.ToneId
+        && Rotation == other.Rotation;
+
+    /// <summary>Gets a hash that packs the seven fields into three words and mixes them.</summary>
+    /// <returns>The hash code.</returns>
+    public override int GetHashCode()
+    {
+        var first = (uint)DocumentId | ((ulong)(uint)PageIndex << HalfWordBits);
+        var second = (uint)ScaleKey | ((ulong)(uint)ToneId << HalfWordBits);
+        var third = (ushort)Column | ((ulong)(ushort)Row << CoordinateBits) | ((ulong)(uint)Rotation << HalfWordBits);
+        var mixed = first * MultiplierOne;
+        mixed = (mixed ^ second) * MultiplierTwo;
+        mixed = (mixed ^ third) * MultiplierThree;
+        return (int)(mixed >> HalfWordBits);
+    }
 }
