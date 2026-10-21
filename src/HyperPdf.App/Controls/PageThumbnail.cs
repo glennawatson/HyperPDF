@@ -49,6 +49,12 @@ public sealed class PageThumbnail : Control, IActivatableView
     /// <summary>The tab <see cref="_request"/> is for.</summary>
     private DocumentTabViewModel? _requestTab;
 
+    /// <summary>The client generation the live request was made for, or -1 when none was made.</summary>
+    private int _requestGeneration = -1;
+
+    /// <summary>The hub's preview version when the live request was made.</summary>
+    private int _requestVersion;
+
     /// <summary>The tab work token <see cref="_request"/> follows.</summary>
     private CancellationToken _requestFor;
 
@@ -94,6 +100,9 @@ public sealed class PageThumbnail : Control, IActivatableView
         set => SetValue(PageIndexProperty, value);
     }
 
+    /// <summary>Gets a value indicating whether the preview has not been drawn yet, so a repaint can still gain something.</summary>
+    internal bool NeedsPreview => !_hasImage;
+
     /// <inheritdoc/>
     public override void Render(DrawingContext context)
     {
@@ -127,13 +136,7 @@ public sealed class PageThumbnail : Control, IActivatableView
             return;
         }
 
-        var size = tab.Source.PageSizes[page];
-        var scale = TileGrid.GetPreviewScale(size, PageRotation.None);
-        TileGrid.GetPagePixelSize(size, PageRotation.None, scale, out var width, out var height);
-        var info = new PageRenderInfo(page, scale, PageRotation.None, 0, 0, RenderFlags.Annotations);
-        var client = tab.ThumbnailClient;
-        var request = new RenderRequest(key, document, info, width, height, RenderPriority.Thumbnail, client, client.Generation, tab.PageTone) { CancellationToken = RequestToken(tab, page) };
-        _ = tab.RenderHub.Scheduler.Request(request);
+        RequestPreview(tab, document, key);
     }
 
     /// <summary>
@@ -145,7 +148,7 @@ public sealed class PageThumbnail : Control, IActivatableView
     private static IObservable<RxVoid> Repaints(ShownTab shown) => shown.Tab is not { } tab
         ? Signal.Empty<RxVoid>()
         : Signal.Merge(
-            tab.RenderHub.TilesArrived.WhereWith(shown.Thumbnail, static (thumbnail, _) => !thumbnail._hasImage),
+            tab.RenderHub.PreviewsArrived.WhereWith(shown.Thumbnail, static (thumbnail, _) => !thumbnail._hasImage),
             tab.WhenChanged(static x => x.PageTone).Skip(1).Select(static _ => RxVoid.Default));
 
     /// <summary>
@@ -170,6 +173,35 @@ public sealed class PageThumbnail : Control, IActivatableView
         return _request.Token;
     }
 
+    /// <summary>Queues the preview of the shown page, unless the request already queued for it is still live.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <param name="document">The document.</param>
+    /// <param name="key">The preview's key.</param>
+    private void RequestPreview(DocumentTabViewModel tab, IDocument document, TileKey key)
+    {
+        var page = key.PageIndex;
+        var client = tab.ThumbnailClient;
+        var token = RequestToken(tab, page);
+        var generation = client.Generation;
+        var version = tab.RenderHub.PreviewVersion;
+
+        // The request already queued for this page, generation and cache state is still live, so asking again only
+        // takes the scheduler lock. Any cache drop or preview arrival moves the version and asks again.
+        if (_requestGeneration == generation && _requestVersion == version && !token.IsCancellationRequested)
+        {
+            return;
+        }
+
+        _requestGeneration = generation;
+        _requestVersion = version;
+        var size = tab.Source.PageSizes[page];
+        var scale = TileGrid.GetPreviewScale(size, PageRotation.None);
+        TileGrid.GetPagePixelSize(size, PageRotation.None, scale, out var width, out var height);
+        var info = new PageRenderInfo(page, scale, PageRotation.None, 0, 0, RenderFlags.Annotations);
+        var request = new RenderRequest(key, document, info, width, height, RenderPriority.Thumbnail, client, generation, tab.PageTone) { CancellationToken = token };
+        _ = tab.RenderHub.Scheduler.Request(request);
+    }
+
     /// <summary>Cancels the request for the preview this thumbnail was showing, if it is still queued.</summary>
     private void CancelRequest()
     {
@@ -180,6 +212,7 @@ public sealed class PageThumbnail : Control, IActivatableView
 
         _request = null;
         _requestTab = null;
+        _requestGeneration = -1;
         _ = CancellationSources.CancelAndDisposeAsync(request);
     }
 

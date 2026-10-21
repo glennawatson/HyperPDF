@@ -53,6 +53,7 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
         Scheduler = new(_surfaceFactory);
         Preparer = new(HasVisibleWork, UnderPressure, NeighbourPagePreparer.DefaultDebounce, TimeProvider.System);
         TilesArrived = this.WhenChanged(static hub => hub.TileVersion).Skip(1).Select(static _ => RxVoid.Default);
+        PreviewsArrived = this.WhenChanged(static hub => hub.PreviewVersion).Skip(1).Select(static _ => RxVoid.Default);
 
         // Closing is first, so work that finishes while the rest is released finds the hub closed.
         var recoveryRequests = new Signal<RxVoid>();
@@ -79,6 +80,16 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
     /// <summary>Gets a number that changes each time tiles were added to the cache, or dropped from it.</summary>
     [Reactive]
     public partial int TileVersion { get; private set; }
+
+    /// <summary>
+    /// Gets notifications, on the UI thread, that a page preview was added to the cache, or that cached tiles were dropped
+    /// or must be presented again. Tiles of the page canvas alone do not raise it.
+    /// </summary>
+    public IObservable<RxVoid> PreviewsArrived { get; }
+
+    /// <summary>Gets a number that changes each time <see cref="PreviewsArrived"/> raises.</summary>
+    [Reactive]
+    public partial int PreviewVersion { get; private set; }
 
     /// <summary>Gets the tile cache. Use only on the UI thread.</summary>
     public TileCache Cache { get; }
@@ -120,6 +131,7 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
         Preparer.Reset();
         Cache.RemoveDocument(documentId);
         TileVersion++;
+        PreviewVersion++;
         InvalidateWindows();
     }
 
@@ -155,15 +167,22 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
     private void Drain()
     {
         var any = false;
+        var preview = false;
         while (Scheduler.TryTakeCompleted(out var tile))
         {
             Cache.Add(tile.Key, tile.Surface);
             any = true;
+            preview |= tile.Key.IsPreview;
         }
 
         if (any)
         {
             TileVersion++;
+        }
+
+        if (preview)
+        {
+            PreviewVersion++;
         }
     }
 
@@ -177,6 +196,7 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
         }
 
         TileVersion++;
+        PreviewVersion++;
         InvalidateWindows();
     }
 }
