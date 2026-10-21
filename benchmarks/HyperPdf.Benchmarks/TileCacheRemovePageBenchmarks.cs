@@ -58,6 +58,7 @@ public class TileCacheRemovePageBenchmarks
         return _cache.Count;
     }
 
+#if HYPERPDF_REMOVE_PAGE_PAIR
     /// <summary>Removes a missing page for the document and its alternate identifier with the single-walk overload.</summary>
     /// <returns>The cache count.</returns>
     [Benchmark]
@@ -66,6 +67,7 @@ public class TileCacheRemovePageBenchmarks
         _cache.RemovePage(DocumentId, ~DocumentId, MissingPage);
         return _cache.Count;
     }
+#endif
 
     /// <summary>A surface with no pixels.</summary>
     private sealed class NullSurface : IRenderSurface

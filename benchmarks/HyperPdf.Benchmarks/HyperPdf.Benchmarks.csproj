@@ -27,6 +27,32 @@
     <ProjectReference Include="..\..\tests\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
   </ItemGroup>
 
+  <!-- The batched tile operation, the zoom label and the single-walk page removal exist only on newer refs; a baseline ref lacks them, so their benchmarks compile only where the sources are. -->
+  <PropertyGroup Condition="$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.Core\Rendering\TileCache.cs').Contains('int otherDocumentId'))">
+    <DefineConstants>$(DefineConstants);HYPERPDF_REMOVE_PAGE_PAIR</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\TileDraw.cs" Link="TileBatch\TileDraw.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuTileBatchOperation.cs" Link="TileBatch\GpuTileBatchOperation.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuPreparedRenderSurface.cs" Link="TileBatch\GpuPreparedRenderSurface.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuAvailability.cs" Link="TileBatch\GpuAvailability.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\AvaloniaRenderSurface.cs" Link="TileBatch\AvaloniaRenderSurface.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\TileRenderingEventSource.cs" Link="TileBatch\TileRenderingEventSource.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">
+    <Compile Remove="TileBatchOperationBenchmarks.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs')">
+    <Compile Include="..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs" Link="ZoomLabel.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs')">
+    <Compile Remove="ZoomLabelEaseBenchmarks.cs" />
+  </ItemGroup>
+
   <!-- Lists the benchmarks for the allocation harness, so no reflection finds or calls them. -->
   <ItemGroup>
     <ProjectReference Include="..\HyperPdf.Benchmarks.Generator\HyperPdf.Benchmarks.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
@@ -43,14 +69,7 @@
     <Compile Include="..\..\src\HyperPdf.App\Controls\FocusArrival.cs" Link="FocusArrival.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Controls\FocusArrivalMixins.cs" Link="FocusArrivalMixins.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\TileDraw.cs" Link="TileBatch\TileDraw.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuTileBatchOperation.cs" Link="TileBatch\GpuTileBatchOperation.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuPreparedRenderSurface.cs" Link="TileBatch\GpuPreparedRenderSurface.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuAvailability.cs" Link="TileBatch\GpuAvailability.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuPageTone.cs" Link="TileBatch\GpuPageTone.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\AvaloniaRenderSurface.cs" Link="TileBatch\AvaloniaRenderSurface.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\TileRenderingEventSource.cs" Link="TileBatch\TileRenderingEventSource.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs" Link="ZoomLabel.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuPageTone.cs" Link="GpuPageTone.cs" />
     <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
     <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationNames.cs" Link="AnnotationNames.cs" />
     <!-- The JPEG 2000 test encoder, which re-encodes a corpus page as HTJ2K for the high-throughput benchmarks. -->
