@@ -1145,21 +1145,6 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         LayoutVersion++;
     }
 
-    /// <summary>Brings the annotation or layer list up to date when its panel is shown; both skip work while hidden.</summary>
-    private void ShowSidebarPane()
-    {
-        if (IsAnnotationsMode)
-        {
-            _ = Annotations.ShowItems();
-            return;
-        }
-
-        if (IsLayersMode)
-        {
-            Layers.ShowForPage();
-        }
-    }
-
     /// <summary>Refreshes layout, thumbnails and navigation after page management changed the page order or geometry.</summary>
     private void RereadPageStructure()
     {
@@ -1172,11 +1157,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         SelectedThumbnail = PageCount > 0 ? Thumbnails[CurrentPageIndex] : null;
         HasUnsavedChanges = Source.HasUnsavedChanges;
         _annotations?.InvalidateItems();
-        if (IsAnnotationsMode)
-        {
-            _annotations?.ShowItems();
-        }
-
+        ShowSidebarPane();
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
@@ -1332,15 +1313,15 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <param name="zoom">The zoom factor.</param>
     private void ShowZoomText(double zoom)
     {
-        var percent = ZoomLabel.RoundPercent(zoom);
-        if (percent == _zoomPercent)
+        if (ZoomLabel.TryChange(zoom, ref _zoomPercent, out var text))
         {
-            return;
+            ZoomText = text;
         }
-
-        _zoomPercent = percent;
-        ZoomText = ZoomLabel.Format(percent);
     }
+
+    /// <summary>Brings the annotation or layer list up to date when its panel is shown.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ShowSidebarPane() => TabSidebarPane.Show(this);
 
     /// <summary>
     /// Follows the current page: updates the page box, selects the page's thumbnail, shows its separation and checks
@@ -1372,8 +1353,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         {
             // Tiles rendered before the edit may still be on their way; the scheduler drops them so they cannot be cached.
             TabTiles.InvalidateBoth(RenderHub, Source.Id);
-            RenderHub.Cache.RemovePage(Source.Id, change.PageIndex);
-            RenderHub.Cache.RemovePage(~Source.Id, change.PageIndex);
+            RenderHub.Cache.RemovePage(Source.Id, ~Source.Id, change.PageIndex);
         }
 
         HasUnsavedChanges = Source.HasUnsavedChanges;

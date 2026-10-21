@@ -4,7 +4,6 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdf.Core.Geometry;
-using HyperPdf.Core.Layout;
 using HyperPdf.Core.Rendering;
 
 namespace HyperPdf.Benchmarks;
@@ -74,15 +73,10 @@ public class PageCanvasPrefetchStampBenchmarks
     /// <summary>Compares the cache totals with the last frame's and skips the probes when nothing changed.</summary>
     /// <returns>The previews found.</returns>
     [Benchmark]
-    public int RepaintUnchangedViewComparingCacheTotals()
-    {
-        if (_count == _cache.Count && _bytes == _cache.CurrentBytes && _previewBytes == _cache.PreviewBytes)
-        {
-            return 0;
-        }
-
-        return RepaintUnchangedViewProbingEveryPreview();
-    }
+    public int RepaintUnchangedViewComparingCacheTotals() =>
+        _count == _cache.Count && _bytes == _cache.CurrentBytes && _previewBytes == _cache.PreviewBytes
+            ? 0
+            : RepaintUnchangedViewProbingEveryPreview();
 
     /// <summary>A surface with no pixels.</summary>
     private sealed class NullSurface : IRenderSurface

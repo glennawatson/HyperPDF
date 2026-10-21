@@ -2,9 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
 using HyperPdf.App.ViewModels;
@@ -27,6 +25,9 @@ public sealed class PageCanvasRenderPathTests
     /// <summary>How far down the document the scroll test goes, in pixels.</summary>
     private const double ScrollDistance = 3000;
 
+    /// <summary>The milliseconds the first frame's requests get to settle before the cache is emptied.</summary>
+    private const int SettleMilliseconds = 250;
+
     /// <summary>Verifies that tiles are asked for again after the cache is emptied and the same view is repainted.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
@@ -44,7 +45,7 @@ public sealed class PageCanvasRenderPathTests
             var filled = await UiWait.UntilAsync(() => tab.RenderHub.Cache.Count > 0);
             await Assert.That(filled).IsTrue();
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(TimeSpan.FromMilliseconds(SettleMilliseconds));
             tab.RenderHub.Cache.Clear();
             canvas.InvalidateVisual();
 
