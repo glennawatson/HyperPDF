@@ -291,7 +291,7 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     internal Dictionary<int, IReadOnlyList<PageLink>> Links { get; } = [];
 
     /// <summary>Gets the text the reader has selected.</summary>
-    internal TextSelection Selection { get; } = new();
+    internal TextSelection Selection => State.Selection;
 
     /// <summary>Gets the page points of the ink stroke being drawn.</summary>
     internal List<PagePoint> Stroke { get; } = [];
@@ -303,7 +303,7 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     internal List<PageAnnotation> BadgeAnnotations { get; } = [];
 
     /// <summary>Gets the character bounds list reused for caret lookups.</summary>
-    internal List<PageRect> CaretBounds { get; } = [];
+    internal List<PageRect> CaretBounds => State.CaretBounds;
 
     /// <summary>Gets the auto-scroll distance calculator.</summary>
     internal AutoScroller AutoScroller { get; } = new();
@@ -363,7 +363,11 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     }
 
     /// <summary>Gets or sets the caret position.</summary>
-    internal CharacterPosition Caret { get; set; } = new(-1, -1);
+    internal CharacterPosition Caret
+    {
+        get => State.Caret;
+        set => State.Caret = value;
+    }
 
     /// <summary>Gets or sets the wheel zoom easing now, or the last one once it has settled.</summary>
     internal WheelZoomEase WheelZoom
@@ -444,7 +448,11 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     }
 
     /// <summary>Gets or sets the annotation being moved or resized, or <see langword="null"/>.</summary>
-    internal PageCanvasEditMixins.AnnotationEditSession? ActiveEdit { get; set; }
+    internal AnnotationEditSession? ActiveEdit
+    {
+        get => State.Tools.ActiveEdit;
+        set => State.Tools.ActiveEdit = value;
+    }
 
     /// <summary>Gets or sets the page an ink stroke is being drawn on, or -1 when not drawing.</summary>
     internal int StrokePage { get; set; } = -1;

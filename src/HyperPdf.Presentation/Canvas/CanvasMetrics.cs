@@ -30,6 +30,12 @@ public static class CanvasMetrics
     /// <summary>Where in the viewport a navigation target is placed, as a fraction of its height from the top.</summary>
     public static readonly double TargetViewportFraction = 0.3;
 
+    /// <summary>How far an annotation's outline sits outside its bounds.</summary>
+    public static readonly double OutlineInset = 2;
+
+    /// <summary>The side of a resize handle.</summary>
+    public static readonly double HandleSize = 8;
+
     /// <summary>Gets whether a press and release stayed close enough to count as a click rather than a drag.</summary>
     /// <param name="pressed">Where the pointer went down.</param>
     /// <param name="released">Where the pointer came up.</param>

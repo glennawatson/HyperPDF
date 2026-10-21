@@ -18,12 +18,6 @@ namespace HyperPdf.App.Controls;
 /// </summary>
 internal static class PageCanvasEditMixins
 {
-    /// <summary>The side of a resize handle, in device independent pixels.</summary>
-    private const double HandleSize = 8;
-
-    /// <summary>How far outside a handle a press still grabs it.</summary>
-    private const double HandleReach = 4;
-
     /// <summary>
     /// Adds the conditional select-tool streams for double-clicking text boxes, grabbing resize handles, clicking comment
     /// badges, double-clicking bubbles, and dragging movable annotations.
@@ -104,43 +98,15 @@ internal static class PageCanvasEditMixins
         /// <param name="position">The canvas point.</param>
         /// <param name="anchor">The opposite corner in page space, which stays put while resizing.</param>
         /// <returns><see langword="true"/> when a handle was grabbed.</returns>
-        internal bool TryGrabHandle(DocumentTabViewModel tab, PageAnnotation picked, Point position, out PagePoint anchor)
-        {
-            var transform = new PageTransform(canvas.Layout.GetPageBounds(picked.PageIndex), canvas.Sizes[picked.PageIndex], tab.Rotation, canvas.Layout.Options.Scale);
-            var area = transform.ToCanvas(picked.Bounds).Inflate(PageCanvasAnnotationMixins.OutlineInset);
-            if (ResizeHandles.TryGrab(new(area.X, area.Y, area.Width, area.Height), position.X, position.Y, (HandleSize * PageCanvas.Half) + HandleReach, out var opposite))
-            {
-                anchor = transform.MapToPage(opposite.X, opposite.Y);
-                return true;
-            }
-
-            anchor = default;
-            return false;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool TryGrabHandle(DocumentTabViewModel tab, PageAnnotation picked, Point position, out PagePoint anchor) =>
+            canvas.State.TryGrabHandle(tab, picked, new(position.X, position.Y), out anchor);
 
         /// <summary>Nudges the picked annotation with the arrow keys, in the direction they point on screen.</summary>
         /// <param name="e">The key press.</param>
         /// <returns><see langword="true"/> when the annotation moved.</returns>
-        internal bool NudgeSelected(KeyEventArgs e)
-        {
-            if (canvas.Tab is not { Annotations.Selected: { IsMovable: true } picked } tab || (uint)picked.PageIndex >= (uint)canvas.Sizes.Length)
-            {
-                return false;
-            }
-
-            var (dx, dy) = ScreenStep.FromArrow(e.ViewerKey, e.ViewerModifiers);
-            if (dx == 0 && dy == 0)
-            {
-                return false;
-            }
-
-            var transform = new PageTransform(canvas.Layout.GetPageBounds(picked.PageIndex), canvas.Sizes[picked.PageIndex], tab.Rotation, canvas.Layout.Options.Scale);
-            var origin = transform.ToCanvas(new PagePoint(picked.Bounds.Left, picked.Bounds.Top));
-            var start = transform.ToPage(origin);
-            var end = transform.ToPage(origin + new Vector(dx * transform.Scale, dy * transform.Scale));
-            var bounds = picked.Bounds with { Left = picked.Bounds.Left + (end.X - start.X), Top = picked.Bounds.Top + (end.Y - start.Y) };
-            return tab.Annotations.Move(picked, bounds, true);
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool NudgeSelected(KeyEventArgs e) => canvas.State.NudgeSelected(e.ViewerKey, e.ViewerModifiers);
 
         /// <summary>Draws the outline of an annotation being dragged, and the resize handles of the picked one.</summary>
         /// <param name="context">The drawing context.</param>
@@ -151,7 +117,7 @@ internal static class PageCanvasEditMixins
             if (canvas.ActiveEdit is { } edit && (uint)edit.Annotation.PageIndex < (uint)canvas.Sizes.Length)
             {
                 var transform = new PageTransform(canvas.Layout.GetPageBounds(edit.Annotation.PageIndex), canvas.Sizes[edit.Annotation.PageIndex], tab.Rotation, canvas.Layout.Options.Scale);
-                context.DrawRectangle(null, pen, transform.ToCanvas(edit.Bounds).Inflate(PageCanvasAnnotationMixins.OutlineInset));
+                context.DrawRectangle(null, pen, transform.ToCanvas(edit.Bounds).Inflate(CanvasMetrics.OutlineInset));
                 return;
             }
 
@@ -161,10 +127,12 @@ internal static class PageCanvasEditMixins
             }
 
             var pickedTransform = new PageTransform(canvas.Layout.GetPageBounds(picked.PageIndex), canvas.Sizes[picked.PageIndex], tab.Rotation, canvas.Layout.Options.Scale);
-            var (topLeft, topRight, bottomRight, bottomLeft) = Corners(pickedTransform.ToCanvas(picked.Bounds).Inflate(PageCanvasAnnotationMixins.OutlineInset));
+            var (topLeft, topRight, bottomRight, bottomLeft) = Corners(pickedTransform.ToCanvas(picked.Bounds).Inflate(CanvasMetrics.OutlineInset));
+            var side = CanvasMetrics.HandleSize;
+            var reach = side * PageCanvas.Half;
             foreach (var corner in (ReadOnlySpan<Point>)[topLeft, topRight, bottomRight, bottomLeft])
             {
-                context.DrawRectangle(pen.Brush, null, new(corner.X - (HandleSize * PageCanvas.Half), corner.Y - (HandleSize * PageCanvas.Half), HandleSize, HandleSize));
+                context.DrawRectangle(pen.Brush, null, new(corner.X - reach, corner.Y - reach, side, side));
             }
         }
 
@@ -189,16 +157,14 @@ internal static class PageCanvasEditMixins
         /// <returns>The edit move step, or <see langword="null"/> when no edit drag is active.</returns>
         private AnnotationEditMove? TryCreateEditMove(Injected<PointerEventArgs, DocumentTabViewModel> item)
         {
-            if (canvas.ActiveEdit is not { } edit)
+            if (canvas.ActiveEdit is null)
             {
                 return null;
             }
 
             var (e, tab) = item;
-            var point = canvas.ToPage(tab, edit.Annotation.PageIndex, e.GetPosition(canvas));
-            var nextBounds = AnnotationEdit.GetNextBounds(edit.Annotation.Bounds, edit.Resizing, edit.Anchor, point);
-
-            return new(canvas, edit with { Bounds = nextBounds }, nextBounds != edit.Bounds);
+            var position = e.GetPosition(canvas);
+            return new(canvas, canvas.State.MoveEdit(tab, new(position.X, position.Y)));
         }
 
         /// <summary>Creates an <see cref="AnnotationEditEnd"/> when the pointer is released during an annotation edit drag.</summary>
@@ -206,13 +172,13 @@ internal static class PageCanvasEditMixins
         /// <returns>The edit end step, or <see langword="null"/> when no edit drag is active.</returns>
         private AnnotationEditEnd? TryCreateEditEnd(Injected<PointerReleasedEventArgs, DocumentTabViewModel> item)
         {
-            if (canvas.ActiveEdit is not { } edit)
+            if (canvas.ActiveEdit is null)
             {
                 return null;
             }
 
             var (e, tab) = item;
-            return new(canvas, tab, e, edit, e.GetPosition(canvas));
+            return new(canvas, tab, e, e.GetPosition(canvas));
         }
     }
 
@@ -234,11 +200,8 @@ internal static class PageCanvasEditMixins
     /// <param name="press">The select-tool press.</param>
     /// <returns>The resize edit start when a corner handle was grabbed.</returns>
     private static AnnotationEditStart? TryMatchResizeHandle(SelectToolPress press) =>
-        press.Tab.Annotations.Selected is { } picked
-        && picked.PageIndex == press.Page
-        && AnnotationRules.CanResize(picked)
-        && press.Canvas.TryGrabHandle(press.Tab, picked, press.Position, out var anchor)
-            ? new(press.Canvas, press.Args, new(picked, anchor, press.Position, picked.Bounds, true))
+        press.Canvas.State.TryStartResize(press.Tab, press.Page, new(press.Position.X, press.Position.Y), out var session)
+            ? new(press.Canvas, press.Args, session)
             : null;
 
     /// <summary>Matches a click on an on-page comment indicator badge.</summary>
@@ -262,34 +225,13 @@ internal static class PageCanvasEditMixins
     /// <returns>The move edit start when a movable annotation was grabbed.</returns>
     private static AnnotationEditStart? SelectAndTryStartMove(SelectToolPress press)
     {
-        var annotations = press.Tab.Annotations;
-        var hit = annotations.HitTest(press.Page, press.PagePoint);
-        annotations.Select(hit);
-        if (hit is null)
+        var outcome = press.Canvas.State.SelectAndTryStartMove(press.Tab, press.Page, press.PagePoint, new(press.Position.X, press.Position.Y));
+        if (outcome.Handled)
         {
-            annotations.CloseBubble();
+            press.Args.Handled = true;
         }
 
-        press.Canvas.InvalidateVisual();
-        if (hit is null)
-        {
-            return null;
-        }
-
-        var overText = press.Canvas.TryHitTestCharacter(press.Position, out _, out _);
-
-        // An outline drawn around text leaves the text selectable; its handles and the arrow keys still move it.
-        if (!hit.IsMovable || (AnnotationRules.IsOutline(hit.Kind) && overText))
-        {
-            if (!overText)
-            {
-                press.Args.Handled = true;
-            }
-
-            return null;
-        }
-
-        return new(press.Canvas, press.Args, new(hit, press.PagePoint, press.Position, hit.Bounds, false));
+        return outcome.Session is { } session ? new(press.Canvas, press.Args, session) : null;
     }
 
     /// <summary>An unhandled left pointer press on a page while the Select tool is active.</summary>
@@ -345,19 +287,6 @@ internal static class PageCanvasEditMixins
         }
     }
 
-    /// <summary>The state of an active annotation move or resize drag on the canvas.</summary>
-    /// <param name="Annotation">The annotation being moved or resized.</param>
-    /// <param name="Anchor">Where the drag started in page space, or the opposite corner when resizing.</param>
-    /// <param name="PressPosition">Where the drag started in canvas coordinates.</param>
-    /// <param name="Bounds">The preview bounds in page space.</param>
-    /// <param name="Resizing">Whether a corner resize handle is being dragged.</param>
-    internal readonly record struct AnnotationEditSession(
-        PageAnnotation Annotation,
-        PagePoint Anchor,
-        Point PressPosition,
-        PageRect Bounds,
-        bool Resizing);
-
     /// <summary>Starts an annotation move or resize drag.</summary>
     /// <param name="Canvas">The page canvas.</param>
     /// <param name="Args">The pointer press arguments.</param>
@@ -367,22 +296,20 @@ internal static class PageCanvasEditMixins
         /// <summary>Records the active edit session, captures the pointer and marks the press handled.</summary>
         internal void Begin()
         {
-            Canvas.ActiveEdit = Session;
+            Canvas.State.Tools.ActiveEdit = Session;
             Args.Pointer.Capture(Canvas);
             Args.Handled = true;
         }
     }
 
-    /// <summary>Updates the preview bounds of an active annotation move or resize drag.</summary>
+    /// <summary>Updates the preview of an active annotation move or resize drag.</summary>
     /// <param name="Canvas">The page canvas.</param>
-    /// <param name="Session">The updated edit session.</param>
     /// <param name="Changed">Whether the page bounds changed.</param>
-    internal readonly record struct AnnotationEditMove(PageCanvas Canvas, AnnotationEditSession Session, bool Changed)
+    internal readonly record struct AnnotationEditMove(PageCanvas Canvas, bool Changed)
     {
-        /// <summary>Applies the updated preview bounds and redraws when they changed.</summary>
+        /// <summary>Redraws when the bounds changed.</summary>
         internal void UpdatePreview()
         {
-            Canvas.ActiveEdit = Session;
             if (Changed)
             {
                 Canvas.InvalidateVisual();
@@ -394,32 +321,15 @@ internal static class PageCanvasEditMixins
     /// <param name="Canvas">The page canvas.</param>
     /// <param name="Tab">The active tab.</param>
     /// <param name="Args">The pointer release arguments.</param>
-    /// <param name="Session">The finished edit session.</param>
     /// <param name="Position">The release position in canvas coordinates.</param>
-    internal readonly record struct AnnotationEditEnd(
-        PageCanvas Canvas,
-        DocumentTabViewModel Tab,
-        PointerReleasedEventArgs Args,
-        AnnotationEditSession Session,
-        Point Position)
+    internal readonly record struct AnnotationEditEnd(PageCanvas Canvas, DocumentTabViewModel Tab, PointerReleasedEventArgs Args, Point Position)
     {
         /// <summary>Commits the moved or resized bounds, or opens the comment bubble when clicked without dragging.</summary>
         internal void CommitOrOpenBubble()
         {
-            Canvas.ActiveEdit = null;
             Args.Pointer.Capture(null);
             Args.Handled = true;
-            var travel = Position - Session.PressPosition;
-            if (Math.Abs(travel.X) >= PageCanvas.DragThreshold || Math.Abs(travel.Y) >= PageCanvas.DragThreshold)
-            {
-                _ = Tab.Annotations.Move(Session.Annotation, Session.Bounds, false);
-            }
-            else if (!Session.Resizing && (Session.Annotation.Kind == AnnotationKind.Note || Session.Annotation.Contents.Length > 0))
-            {
-                _ = Tab.Annotations.OpenBubble(Session.Annotation);
-            }
-
-            Canvas.InvalidateVisual();
+            _ = Canvas.State.EndEdit(Tab, new(Position.X, Position.Y));
         }
     }
 

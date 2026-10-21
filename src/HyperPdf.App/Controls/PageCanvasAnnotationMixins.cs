@@ -23,9 +23,6 @@ namespace HyperPdf.App.Controls;
 /// </summary>
 internal static class PageCanvasAnnotationMixins
 {
-    /// <summary>How far the selected annotation outline sits outside the annotation.</summary>
-    internal const double OutlineInset = 2;
-
     /// <summary>The colour of the live stroke while drawing: the annotation ink colour.</summary>
     internal static readonly ImmutablePen StrokePen = new(new ImmutableSolidColorBrush(Color.FromUInt32(0xFF000000U | AnnotationColors.Ink)), OverlayPenWidth);
 
@@ -399,7 +396,7 @@ internal static class PageCanvasAnnotationMixins
             if (tab.Annotations.Selected is { } selected && selected.PageIndex < canvas.Sizes.Length && canvas.CurrentHitPen is { } pen)
             {
                 var transform = new PageTransform(canvas.Layout.GetPageBounds(selected.PageIndex), canvas.Sizes[selected.PageIndex], tab.Rotation, canvas.Layout.Options.Scale);
-                context.DrawRectangle(null, pen, transform.ToCanvas(selected.Bounds).Inflate(OutlineInset));
+                context.DrawRectangle(null, pen, transform.ToCanvas(selected.Bounds).Inflate(CanvasMetrics.OutlineInset));
             }
         }
 

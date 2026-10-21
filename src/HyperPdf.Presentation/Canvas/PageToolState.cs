@@ -11,6 +11,9 @@ namespace HyperPdf.Presentation.Canvas;
 [DebuggerDisplay("PageToolState: panning={Panning}, space={SpaceHeld}, area={AreaDragging}")]
 public sealed class PageToolState
 {
+    /// <summary>Gets or sets the annotation being moved or resized, or <see langword="null"/>.</summary>
+    public AnnotationEditSession? ActiveEdit { get; set; }
+
     /// <summary>Gets or sets when the last auto-scroll frame ran, as a <see cref="Stopwatch"/> timestamp.</summary>
     public long AutoScrollLast { get; set; }
 

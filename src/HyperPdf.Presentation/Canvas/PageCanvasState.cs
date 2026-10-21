@@ -28,6 +28,15 @@ public sealed class PageCanvasState
     /// <summary>Gets the toolkit's canvas.</summary>
     public ICanvasHost Host { get; }
 
+    /// <summary>Gets the text the reader has selected.</summary>
+    public TextSelection Selection { get; } = new();
+
+    /// <summary>Gets or sets the text caret position, or a position on page -1 when there is none.</summary>
+    public CharacterPosition Caret { get; set; } = CaretNavigation.None();
+
+    /// <summary>Gets the character bounds list reused for caret lookups.</summary>
+    public List<PageRect> CaretBounds { get; } = [];
+
     /// <summary>Gets what the page tools remember between pointer and key events.</summary>
     public PageToolState Tools { get; } = new();
 

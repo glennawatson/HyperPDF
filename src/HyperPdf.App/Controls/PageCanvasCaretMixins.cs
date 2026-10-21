@@ -21,12 +21,6 @@ namespace HyperPdf.App.Controls;
 /// </summary>
 internal static class PageCanvasCaretMixins
 {
-    /// <summary>The caret line width in device independent pixels.</summary>
-    private const double CaretWidth = 2;
-
-    /// <summary>How far the caret reaches above and below the glyph, as a fraction of its height, to span the line.</summary>
-    private const double CaretOverhang = 0.3;
-
     /// <summary>The hit tolerance for text, in points.</summary>
     private const float TextTolerance = 4F;
 
@@ -78,25 +72,8 @@ internal static class PageCanvasCaretMixins
 
         /// <summary>Puts the caret at the first character of the current page or later, when caret mode starts.</summary>
         /// <param name="tab">The tab.</param>
-        internal void StartCaret(DocumentTabViewModel tab)
-        {
-            if (canvas.Caret.Page >= 0 || tab.TryGetDocument() is not { } document)
-            {
-                return;
-            }
-
-            for (var page = Math.Max(0, tab.CurrentPageIndex); page < document.PageCount; page++)
-            {
-                if (document.GetCharacterCount(page) <= 0)
-                {
-                    continue;
-                }
-
-                canvas.Caret = new(page, 0);
-                canvas.InvalidateVisual();
-                return;
-            }
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void StartCaret(DocumentTabViewModel tab) => canvas.State.StartCaret(tab);
 
         /// <summary>Handles the moving and grabbing keys before the other page keys.</summary>
         /// <param name="e">The key press.</param>
@@ -125,40 +102,20 @@ internal static class PageCanvasCaretMixins
         /// <summary>Handles the arrow keys in caret mode.</summary>
         /// <param name="e">The key event.</param>
         /// <returns><see langword="true"/> when handled.</returns>
-        internal bool HandleCaretKey(KeyEventArgs e)
-        {
-            if (canvas.Tab is not { IsCaretMode: true } tab || tab.TryGetDocument() is not { } document || (e.KeyModifiers & ~KeyModifiers.Shift) != 0)
-            {
-                return false;
-            }
-
-            canvas.StartCaret(tab);
-            if (canvas.Caret.Page < 0)
-            {
-                return false;
-            }
-
-            var next = CaretKeys.GetNext(document, canvas.Caret, e.ViewerKey, canvas.CaretBounds);
-            if (next.Page < 0)
-            {
-                return CaretKeys.IsCaretKey(e.ViewerKey);
-            }
-
-            canvas.MoveCaret(next, (e.KeyModifiers & KeyModifiers.Shift) != 0);
-            return true;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool HandleCaretKey(KeyEventArgs e) => canvas.State.HandleCaretKey(e.ViewerKey, e.ViewerModifiers);
 
         /// <summary>Draws the steady caret when caret mode is on.</summary>
         /// <param name="context">The drawing context.</param>
         /// <param name="tab">The tab.</param>
         internal void DrawCaret(DrawingContext context, DocumentTabViewModel tab)
         {
-            if (!tab.IsCaretMode || (canvas.CurrentHitOutline ?? canvas.SelectionBrush) is not { } brush || canvas.CaretRect(tab) is not { } caret)
+            if (!tab.IsCaretMode || (canvas.CurrentHitOutline ?? canvas.SelectionBrush) is not { } brush || !canvas.State.TryGetCaretArea(out var area))
             {
                 return;
             }
 
-            context.FillRectangle(brush, caret);
+            context.FillRectangle(brush, new(area.X, area.Y, area.Width, area.Height));
         }
 
         /// <summary>Gets the normalised selection.</summary>
@@ -195,21 +152,8 @@ internal static class PageCanvasCaretMixins
         /// <param name="page">The page.</param>
         /// <param name="character">The character index.</param>
         /// <returns><see langword="true"/> when over text.</returns>
-        internal bool TryHitTestCharacter(Point position, out int page, out int character)
-        {
-            character = -1;
-            page = canvas.Layout.HitTest(position.X, position.Y);
-            var tab = canvas.Tab;
-            var document = tab?.TryGetDocument();
-            if (page < 0 || tab is null || document is null)
-            {
-                return false;
-            }
-
-            var transform = new PageTransform(canvas.Layout.GetPageBounds(page), canvas.Sizes[page], tab.Rotation, canvas.Layout.Options.Scale);
-            character = document.GetCharacterIndexAt(page, transform.ToPage(position), TextTolerance);
-            return character >= 0;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool TryHitTestCharacter(Point position, out int page, out int character) => canvas.State.TryHitTestCharacter(new(position.X, position.Y), out page, out character);
 
         /// <summary>Determines whether the pointer is over text.</summary>
         /// <param name="hover">The page and page point under the pointer.</param>
@@ -321,24 +265,8 @@ internal static class PageCanvasCaretMixins
 
         /// <summary>Selects all the text on the current page; the caret moves to its end, so Shift and the arrows adjust it.</summary>
         /// <param name="tab">The tab.</param>
-        private void SelectAllOnPage(DocumentTabViewModel tab)
-        {
-            if (tab.TryGetDocument() is not { PageCount: > 0 } document)
-            {
-                return;
-            }
-
-            var page = Math.Clamp(tab.CurrentPageIndex, 0, document.PageCount - 1);
-            var count = document.GetCharacterCount(page);
-            canvas.ClearSelection();
-            if (count <= 0)
-            {
-                return;
-            }
-
-            canvas.Selection.SelectPage(page, count);
-            canvas.Caret = new(page, count - 1);
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SelectAllOnPage(DocumentTabViewModel tab) => canvas.State.SelectAllOnPage(tab);
 
         /// <summary>Handles Home, End, Escape and Space, pressed without Ctrl or Alt.</summary>
         /// <param name="tab">The tab.</param>
@@ -361,54 +289,6 @@ internal static class PageCanvasCaretMixins
             };
         }
 
-        /// <summary>Moves the caret, extending the selection when asked, and keeps it in view.</summary>
-        /// <param name="next">The new position.</param>
-        /// <param name="extend">Whether to extend the selection.</param>
-        private void MoveCaret(CharacterPosition next, bool extend)
-        {
-            canvas.Selection.MoveCaret(canvas.Caret, next, extend);
-            canvas.Caret = next;
-            canvas.ScrollCaretIntoView();
-            canvas.InvalidateVisual();
-        }
-
-        /// <summary>Scrolls just enough to show the caret.</summary>
-        private void ScrollCaretIntoView()
-        {
-            if (canvas.Scroller is not { } scroller || canvas.Tab is not { } tab || canvas.CaretRect(tab) is not { } caret)
-            {
-                return;
-            }
-
-            var offset = scroller.Offset;
-            var viewport = scroller.Viewport;
-            scroller.Offset = new(
-                PageScrolling.GetOffsetToShow(offset.X, viewport.Width, caret.Left, caret.Right, PageCanvas.ContentMargin),
-                PageScrolling.GetOffsetToShow(offset.Y, viewport.Height, caret.Top, caret.Bottom, PageCanvas.ContentMargin));
-        }
-
-        /// <summary>Gets the caret's line on the canvas.</summary>
-        /// <param name="tab">The tab.</param>
-        /// <returns>The rectangle, or <see langword="null"/> when there is no caret.</returns>
-        private Rect? CaretRect(DocumentTabViewModel tab)
-        {
-            if (canvas.Caret.Page < 0 || canvas.Caret.Page >= canvas.Layout.PageCount || tab.TryGetDocument() is not { } document)
-            {
-                return null;
-            }
-
-            canvas.CaretBounds.Clear();
-            document.GetTextBounds(canvas.Caret.Page, canvas.Caret.Char, 1, canvas.CaretBounds);
-            if (canvas.CaretBounds.Count == 0)
-            {
-                return null;
-            }
-
-            var transform = new PageTransform(canvas.Layout.GetPageBounds(canvas.Caret.Page), canvas.Sizes[canvas.Caret.Page], tab.Rotation, canvas.Layout.Options.Scale);
-            var area = transform.ToCanvas(canvas.CaretBounds[0]);
-            var overhang = area.Height * CaretOverhang;
-            return new(area.X - (CaretWidth * PageCanvas.Half), area.Y - overhang, CaretWidth, area.Height + overhang + overhang);
-        }
     }
 
     /// <summary>An unhandled left pointer press that clicks a link or starts a text selection drag.</summary>
