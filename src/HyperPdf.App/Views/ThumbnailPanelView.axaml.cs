@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
@@ -18,6 +19,9 @@ namespace HyperPdf.App.Views;
 [DebuggerDisplay("ThumbnailPanelView: {ViewModel}")]
 public sealed partial class ThumbnailPanelView : ReactiveUI.Avalonia.ReactiveUserControl<DocumentTabViewModel>
 {
+    /// <summary>The items the list had realized at the last scroll step that changed them.</summary>
+    private RealizedRange? _realized;
+
     /// <summary>Initializes a new instance of the <see cref="ThumbnailPanelView"/> class.</summary>
     public ThumbnailPanelView()
     {
@@ -47,13 +51,29 @@ public sealed partial class ThumbnailPanelView : ReactiveUI.Avalonia.ReactiveUse
     /// <param name="tab">The tab whose thumbnails are listed.</param>
     private void RequestVisibleThumbnailsAgain(DocumentTabViewModel tab)
     {
+        // Scrolling inside the same set of realized items changes nothing a thumbnail asked for.
+        var realized = ThumbnailList.ItemsPanelRoot is VirtualizingStackPanel panel
+            ? new RealizedRange(panel.FirstRealizedIndex, panel.LastRealizedIndex)
+            : null;
+        if (realized is not null && realized == _realized)
+        {
+            return;
+        }
+
+        _realized = realized;
         _ = tab.ThumbnailClient.Advance();
         foreach (var visual in ThumbnailList.GetVisualDescendants())
         {
-            if (visual is PageThumbnail thumbnail)
+            // A thumbnail that already shows its preview gains nothing from drawing again.
+            if (visual is PageThumbnail { NeedsPreview: true } thumbnail)
             {
                 thumbnail.InvalidateVisual();
             }
         }
     }
+
+    /// <summary>The first and last realized item indexes.</summary>
+    /// <param name="First">The first realized index.</param>
+    /// <param name="Last">The last realized index.</param>
+    private sealed record RealizedRange(int First, int Last);
 }
