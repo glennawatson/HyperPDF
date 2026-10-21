@@ -5,7 +5,6 @@
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Input;
-using HyperPdf.App.Services;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Controls;

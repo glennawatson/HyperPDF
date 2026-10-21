@@ -3,11 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Windows.Input;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Redaction;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;

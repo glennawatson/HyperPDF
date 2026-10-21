@@ -7,10 +7,10 @@ using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Reading;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

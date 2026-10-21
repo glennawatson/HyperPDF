@@ -136,7 +136,7 @@ internal static class DocumentViewMixins
         internal Border SeparationBar => FindIn<DocumentBarsView, Border>(view, "SeparationBar");
 
         /// <summary>Gets the text on the colour separation bar.</summary>
-        internal TextBlock SeparationText => FindIn<DocumentBarsView, TextBlock>(view, "SeparationText");
+        internal TextBlock SeparationText => FindIn<DocumentBarsView, TextBlock>(view, nameof(SeparationText));
 
         /// <summary>Gets the label of the separation choice.</summary>
         internal TextBlock SeparationChoiceLabel => FindIn<DocumentBarsView, TextBlock>(view, "SeparationChoiceLabel");

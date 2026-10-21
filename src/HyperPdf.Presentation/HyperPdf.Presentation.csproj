@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Toolkit-free page canvas behaviour for the HyperPDF viewer: input vocabulary, key and pointer routing, scrolling and zoom, so any render head can show the pages the same way.</Description>
+    <RootNamespace>HyperPdf.Presentation</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.ViewModels\HyperPdf.ViewModels.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="HyperPdf.Presentation.Canvas" />
+    <Using Include="HyperPdf.Presentation.Input" />
+  </ItemGroup>
+
+  <ItemGroup Label="View model namespaces">
+    <Using Include="HyperPdf.ViewModels.Dialogs" />
+    <Using Include="HyperPdf.ViewModels.Finding" />
+    <Using Include="HyperPdf.ViewModels.FormFilling" />
+    <Using Include="HyperPdf.ViewModels.Help" />
+    <Using Include="HyperPdf.ViewModels.Markup" />
+    <Using Include="HyperPdf.ViewModels.Output" />
+    <Using Include="HyperPdf.ViewModels.Preferences" />
+    <Using Include="HyperPdf.ViewModels.Reading" />
+    <Using Include="HyperPdf.ViewModels.Rendering" />
+    <Using Include="HyperPdf.ViewModels.Security" />
+    <Using Include="HyperPdf.ViewModels.Services" />
+    <Using Include="HyperPdf.ViewModels.Sidebar" />
+    <Using Include="HyperPdf.ViewModels.Signing" />
+    <Using Include="HyperPdf.ViewModels.Viewing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Presentation.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+</Project>

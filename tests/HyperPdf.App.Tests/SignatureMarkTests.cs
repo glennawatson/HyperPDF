@@ -9,14 +9,15 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Rendering;
 using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
@@ -87,7 +88,7 @@ public sealed class SignatureMarkTests
     [Arguments(SignatureMarkKind.Initials, "Your Initials")]
     public async Task OffersTypeDrawAndImage(SignatureMarkKind kind, string title)
     {
-        using var request = new SignatureMarkViewModel(kind, null);
+        using var request = new SignatureMarkViewModel(kind, null, SignatureImageFile.Load);
         var window = new SignatureMarkWindow { ViewModel = request };
         window.Show();
         try
@@ -318,7 +319,7 @@ public sealed class SignatureMarkTests
         _ = fill.Cancel();
         var remembered = test.Services.SignatureMarks.Signature;
         SignatureMark? afterRestart;
-        using (var restarted = new AppServices(new SettingsStore(test.Services.SettingsStore.FilePath), new HyperPdfEngine(), new FallbackPlatform()))
+        using (var restarted = new AppServices(new SettingsStore(test.Services.SettingsStore.FilePath), new HyperPdfEngine(), new FallbackPlatform(), new AvaloniaRenderHead()))
         {
             afterRestart = restarted.SignatureMarks.Signature;
         }
@@ -363,7 +364,7 @@ public sealed class SignatureMarkTests
 
         var notPicture = Path.Combine(test.Directory, "notes.txt");
         await File.WriteAllTextAsync(notPicture, "not a picture");
-        using var request = new SignatureMarkViewModel(SignatureMarkKind.Signature, null);
+        using var request = new SignatureMarkViewModel(SignatureMarkKind.Signature, null, SignatureImageFile.Load);
 
         var image = SignatureImageFile.Load(path);
         request.UseImage(image);

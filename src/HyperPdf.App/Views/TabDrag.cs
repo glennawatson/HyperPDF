@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using Avalonia;
-using HyperPdf.App.ViewModels;
 
 namespace HyperPdf.App.Views;
 

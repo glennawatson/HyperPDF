@@ -12,10 +12,10 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Settings;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 

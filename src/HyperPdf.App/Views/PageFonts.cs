@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using Avalonia.Media;
-using HyperPdf.App.Services;
 using HyperPdf.Core.Text;
 using HyperPdf.Core.Text.Fonts;
 
@@ -31,7 +30,7 @@ internal static class PageFonts
     internal static FontFamily Get(PageFontFamilies? state, string? family)
     {
         var name = string.IsNullOrWhiteSpace(family) ? StandardFontFamilies.Sans : family;
-        if (state is not null && state.TryGet(name, out var font) && font is { } existing)
+        if (state is not null && state.TryGet(name, out var font) && font is FontFamily existing)
         {
             return existing;
         }

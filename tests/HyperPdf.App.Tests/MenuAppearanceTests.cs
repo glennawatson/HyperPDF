@@ -10,8 +10,8 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

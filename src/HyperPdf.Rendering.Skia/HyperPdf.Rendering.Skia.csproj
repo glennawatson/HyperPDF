@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Skia tile surfaces for HyperPDF that any UI toolkit's render head can present: prepared page recordings, GPU replay and the page tone shader.</Description>
+    <RootNamespace>HyperPdf.Rendering.Skia</RootNamespace>
+    <EventSourceSupport>true</EventSourceSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\HyperPdf.Engine\HyperPdf.Engine.csproj" />
+    <ProjectReference Include="..\HyperPdfLibrary\HyperPdfLibrary.csproj" />
+    <ProjectReference Include="..\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.App.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+</Project>

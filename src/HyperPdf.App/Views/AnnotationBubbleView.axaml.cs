@@ -7,8 +7,6 @@ using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Input;
 using HyperPdf.App.Controls;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;

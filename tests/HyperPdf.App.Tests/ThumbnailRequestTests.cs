@@ -4,9 +4,9 @@
 
 using Avalonia.Controls;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Rendering;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

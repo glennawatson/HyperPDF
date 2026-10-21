@@ -7,11 +7,11 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using HyperPdf.App.Theming;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Printing;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Theming;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

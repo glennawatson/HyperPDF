@@ -1,5 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.FolderSearchWindow"
         Title="Search in Folder" Width="720" Height="560" MinWidth="480" MinHeight="360" WindowStartupLocation="CenterOwner"
@@ -9,29 +9,29 @@
     <StackPanel Spacing="10">
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock x:Name="FolderLabel" Text="Folder" Width="70" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" x:Name="FolderBox" views:ControlHelp.Text="{x:Static views:Descriptions.FolderBox}" AutomationProperties.Name="Folder to search" />
-        <Button Grid.Column="2" x:Name="ChooseFolderButton" views:ControlHelp.Text="{x:Static views:Descriptions.ChooseFolder}" Content="_Choose…" Margin="8,0,0,0" AutomationProperties.Name="Choose folder" />
+        <TextBox Grid.Column="1" x:Name="FolderBox" views:ControlHelp.Text="{x:Static help:Descriptions.FolderBox}" AutomationProperties.Name="Folder to search" />
+        <Button Grid.Column="2" x:Name="ChooseFolderButton" views:ControlHelp.Text="{x:Static help:Descriptions.ChooseFolder}" Content="_Choose…" Margin="8,0,0,0" AutomationProperties.Name="Choose folder" />
       </Grid>
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock x:Name="QueryLabel" Text="Find" Width="70" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" x:Name="QueryBox" views:ControlHelp.Text="{x:Static views:Descriptions.FolderQuery}" AutomationProperties.Name="Words to find" />
+        <TextBox Grid.Column="1" x:Name="QueryBox" views:ControlHelp.Text="{x:Static help:Descriptions.FolderQuery}" AutomationProperties.Name="Words to find" />
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
-          <Button x:Name="SearchButton" views:ControlHelp.Text="{x:Static views:Descriptions.SearchFolderStart}" Content="_Search" IsDefault="True" AutomationProperties.Name="Search the folder" />
-          <Button x:Name="StopButton" views:ControlHelp.Text="{x:Static views:Descriptions.StopSearch}" Content="S_top" AutomationProperties.Name="Stop searching" />
+          <Button x:Name="SearchButton" views:ControlHelp.Text="{x:Static help:Descriptions.SearchFolderStart}" Content="_Search" IsDefault="True" AutomationProperties.Name="Search the folder" />
+          <Button x:Name="StopButton" views:ControlHelp.Text="{x:Static help:Descriptions.StopSearch}" Content="S_top" AutomationProperties.Name="Stop searching" />
         </StackPanel>
       </Grid>
       <StackPanel Orientation="Horizontal" Spacing="16" Margin="70,0,0,0">
-        <CheckBox x:Name="MatchCaseBox" views:ControlHelp.Text="{x:Static views:Descriptions.MatchCase}" Content="Match _case" />
-        <CheckBox x:Name="WholeWordBox" views:ControlHelp.Text="{x:Static views:Descriptions.WholeWords}" Content="_Whole words" />
-        <CheckBox x:Name="SubfoldersBox" views:ControlHelp.Text="{x:Static views:Descriptions.Subfolders}" Content="Include sub_folders" />
+        <CheckBox x:Name="MatchCaseBox" views:ControlHelp.Text="{x:Static help:Descriptions.MatchCase}" Content="Match _case" />
+        <CheckBox x:Name="WholeWordBox" views:ControlHelp.Text="{x:Static help:Descriptions.WholeWords}" Content="_Whole words" />
+        <CheckBox x:Name="SubfoldersBox" views:ControlHelp.Text="{x:Static help:Descriptions.Subfolders}" Content="Include sub_folders" />
       </StackPanel>
       <StackPanel Orientation="Horizontal" Spacing="16" Margin="70,0,0,0">
-        <CheckBox x:Name="IgnoreAccentsBox" views:ControlHelp.Text="{x:Static views:Descriptions.IgnoreAccents}" Content="Ignore _accents" />
-        <CheckBox x:Name="SimilarCharactersBox" views:ControlHelp.Text="{x:Static views:Descriptions.SimilarCharacters}" Content="Match s_imilar characters" />
+        <CheckBox x:Name="IgnoreAccentsBox" views:ControlHelp.Text="{x:Static help:Descriptions.IgnoreAccents}" Content="Ignore _accents" />
+        <CheckBox x:Name="SimilarCharactersBox" views:ControlHelp.Text="{x:Static help:Descriptions.SimilarCharacters}" Content="Match s_imilar characters" />
       </StackPanel>
       <TextBlock x:Name="StatusText" Classes="secondary" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" />
     </StackPanel>
     <ListBox Grid.Row="1" x:Name="ResultList" Margin="0,12,0,0" AutomationProperties.Name="Results" />
-    <Button Grid.Row="2" x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" Content="Close" IsCancel="True" HorizontalAlignment="Right" Margin="0,12,0,0" />
+    <Button Grid.Row="2" x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" Content="Close" IsCancel="True" HorizontalAlignment="Right" Margin="0,12,0,0" />
   </Grid>
 </Window>

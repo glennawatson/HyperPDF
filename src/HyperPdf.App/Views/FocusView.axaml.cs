@@ -10,8 +10,6 @@ using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -27,32 +25,14 @@ namespace HyperPdf.App.Views;
 [DebuggerDisplay("FocusView: {ViewModel}")]
 public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<FocusModeViewModel>
 {
-    /// <summary>A character's average width as a share of the text size, to turn a width in characters into pixels.</summary>
-    private const double CharacterWidth = 0.5;
+    /// <summary>The alpha byte of an opaque colour, in the top byte of an ARGB value.</summary>
+    private const uint OpaqueAlpha = 0xFF000000;
 
-    /// <summary>A heading's size as a multiple of the text size.</summary>
-    private const double HeadingScale = 1.35;
+    /// <summary>The mask of the red, green and blue bytes of an ARGB value.</summary>
+    private const uint RgbMask = 0x00FFFFFF;
 
-    /// <summary>Captions and footnotes as a multiple of the text size.</summary>
-    private const double SmallScale = 0.85;
-
-    /// <summary>The list indent as a multiple of the text size.</summary>
-    private const double ItemIndent = 1.2;
-
-    /// <summary>Headings are spaced a little tighter than body text.</summary>
-    private const double HeadingSpacingShare = 0.8;
-
-    /// <summary>Half the paragraph space, after headings and between list items.</summary>
-    private const double HalfSpace = 0.5;
-
-    /// <summary>The red share of perceived brightness.</summary>
-    private const double RedWeight = 0.299;
-
-    /// <summary>The green share of perceived brightness.</summary>
-    private const double GreenWeight = 0.587;
-
-    /// <summary>The blue share of perceived brightness.</summary>
-    private const double BlueWeight = 0.114;
+    /// <summary>White as 0xRRGGBB.</summary>
+    private const uint White = 0xFFFFFF;
 
     /// <summary>The opacity of secondary text.</summary>
     private const byte MutedAlpha = 0xA6;
@@ -66,23 +46,11 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
     /// <summary>How far the scroll position may move, in pixels, and still count as settled.</summary>
     private const double AlignTolerance = 0.5;
 
-    /// <summary>The luminance above which text on the page is dark.</summary>
-    private const double LightPage = 0.55;
-
     /// <summary>How long a scroll waits for a layout pass before it carries on.</summary>
     private static readonly TimeSpan LayoutWait = TimeSpan.FromMilliseconds(50);
 
     /// <summary>A serif typeface, with fallbacks found on each platform.</summary>
     private static readonly FontFamily SerifFamily = new("Noto Serif, Source Serif 4, DejaVu Serif, Georgia, Cambria, Times New Roman, serif");
-
-    /// <summary>The page and text colours of each page colour choice after the first, which follows the pages.</summary>
-    private static readonly FocusColours[] PageColours =
-    [
-        new(Color.FromRgb(0xF4, 0xEC, 0xD8), Color.FromRgb(0x3B, 0x3A, 0x36)),
-        new(Color.FromRgb(0xE3, 0xEB, 0xDD), Color.FromRgb(0x2F, 0x3A, 0x2F)),
-        new(Color.FromRgb(0x2A, 0x28, 0x26), Color.FromRgb(0xD8, 0xD2, 0xC8)),
-        new(Colors.White, Color.FromRgb(0x1A, 0x1A, 0x1A)),
-    ];
 
     /// <summary>The Focus Mode the view shows. Events read it from here, not from a field.</summary>
     private readonly IObservable<FocusModeViewModel?> _focus;
@@ -137,11 +105,11 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
         return views;
     }
 
-    /// <summary>Gets a colour's relative brightness.</summary>
-    /// <param name="colour">The colour.</param>
-    /// <returns>From 0 (black) to 1 (white).</returns>
+    /// <summary>Turns a packed 0xRRGGBB colour into an opaque Avalonia colour.</summary>
+    /// <param name="rgb">The packed colour.</param>
+    /// <returns>The same colour for Avalonia to paint.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static double Luminance(Color colour) => ((RedWeight * colour.R) + (GreenWeight * colour.G) + (BlueWeight * colour.B)) / byte.MaxValue;
+    private static Color ToColor(uint rgb) => Color.FromUInt32(OpaqueAlpha | rgb);
 
     /// <summary>
     /// Turns the settings into the resources the styles use. They are set on the inner panel, not this control, so
@@ -150,39 +118,30 @@ public sealed partial class FocusView : ReactiveUI.Avalonia.ReactiveUserControl<
     /// <param name="focus">The Focus Mode whose settings are applied.</param>
     private void ApplySettings(FocusModeViewModel focus)
     {
-        var size = focus.FontSize;
-        var paragraph = size * focus.ParagraphSpacing;
-        Root.Resources["FocusFontSize"] = size;
-        Root.Resources["FocusLineHeight"] = size * focus.LineSpacing;
-        Root.Resources["FocusParagraphMargin"] = new Thickness(0, 0, 0, paragraph);
-        Root.Resources["FocusHeadingSize"] = size * HeadingScale;
-        Root.Resources["FocusHeadingLineHeight"] = size * HeadingScale * Math.Max(1, focus.LineSpacing * HeadingSpacingShare);
-        Root.Resources["FocusHeadingMargin"] = new Thickness(0, paragraph, 0, paragraph * HalfSpace);
-        Root.Resources["FocusItemMargin"] = new Thickness(size * ItemIndent, 0, 0, paragraph * HalfSpace);
-        Root.Resources["FocusSmallSize"] = size * SmallScale;
+        var type = FocusTypography.From(focus.FontSize, focus.LineSpacing, focus.ParagraphSpacing, focus.TextWidth);
+        Root.Resources["FocusFontSize"] = type.FontSize;
+        Root.Resources["FocusLineHeight"] = type.LineHeight;
+        Root.Resources["FocusParagraphMargin"] = new Thickness(0, 0, 0, type.ParagraphMargin);
+        Root.Resources["FocusHeadingSize"] = type.HeadingSize;
+        Root.Resources["FocusHeadingLineHeight"] = type.HeadingLineHeight;
+        Root.Resources["FocusHeadingMargin"] = new Thickness(0, type.HeadingTopMargin, 0, type.HeadingBottomMargin);
+        Root.Resources["FocusItemMargin"] = new Thickness(type.ItemIndent, 0, 0, type.ItemBottomMargin);
+        Root.Resources["FocusSmallSize"] = type.SmallSize;
         Root.Resources["FocusFontFamily"] = focus.Font == 1 ? SerifFamily : FontFamily.Default;
-        PageList.MaxWidth = focus.TextWidth * size * CharacterWidth;
+        PageList.MaxWidth = type.MaxWidth;
 
-        var (page, text) = PageColour(focus.PageColour);
+        var colours = FocusColours.Resolve(focus.PageColour, AppPaper());
+        var text = ToColor(colours.Text);
 
-        Root.Resources["FocusBackground"] = new SolidColorBrush(page);
+        Root.Resources["FocusBackground"] = new SolidColorBrush(ToColor(colours.Page));
         Root.Resources["FocusForeground"] = new SolidColorBrush(text);
         Root.Resources["FocusMutedForeground"] = new SolidColorBrush(Color.FromArgb(MutedAlpha, text.R, text.G, text.B));
     }
 
-    /// <summary>Gets the page and text colours of a choice; the first follows the app's page colour.</summary>
-    /// <param name="choice">The choice.</param>
-    /// <returns>The colours.</returns>
-    private FocusColours PageColour(int choice)
-    {
-        if (choice > 0 && choice <= PageColours.Length)
-        {
-            return PageColours[choice - 1];
-        }
-
-        var paper = this.TryFindResource("AppPaperBrush", out var found) && found is ISolidColorBrush brush ? brush.Color : Colors.White;
-        return new(paper, Luminance(paper) > LightPage ? Color.FromRgb(0x22, 0x22, 0x22) : Color.FromRgb(0xE4, 0xE0, 0xD8));
-    }
+    /// <summary>Reads the page colour the theme paints pages with.</summary>
+    /// <returns>The colour as 0xRRGGBB, white when the theme has none.</returns>
+    private uint AppPaper() =>
+        this.TryFindResource("AppPaperBrush", out var found) && found is ISolidColorBrush brush ? brush.Color.ToUInt32() & RgbMask : White;
 
     /// <summary>Brings a place into view: the page, then the block nearest the place, at the top.</summary>
     /// <param name="scroll">The place and the Focus Mode that has it.</param>

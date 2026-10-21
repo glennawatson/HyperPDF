@@ -6,10 +6,10 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Documents;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
@@ -68,7 +68,7 @@ public sealed class PageSeparationTests
         await Assert.That(tab.Thumbnails[SpotPage].Caption).IsEqualTo("8 (PANTONE 35 CV)");
         await Assert.That(tab.Thumbnails[SeparationPdf.OrdinaryPage].Caption).IsEqualTo("9");
         await Assert.That(tab.GetPageDisplay(0)).IsEqualTo("1");
-        await Assert.That(ItemAutomation.Describe(tab.Thumbnails[0], 0, SeparationPdf.PreseparatedPages)).IsEqualTo("Page 1 of 9, Cyan separation");
+        await Assert.That(ItemDescriptions.Describe(tab.Thumbnails[0], 0, SeparationPdf.PreseparatedPages)).IsEqualTo("Page 1 of 9, Cyan separation");
         await Assert.That(new PropertiesViewModel(tab).Entries).Contains(new PropertyEntry("Colour separations", "8 colour separation pages, making 2 printed pages"));
     }
 

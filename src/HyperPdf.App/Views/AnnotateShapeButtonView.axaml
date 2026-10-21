@@ -1,27 +1,27 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AnnotateShapeButtonView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotateShapeButtonView.axaml.cs). -->
-  <Button AutomationProperties.Name="Shape" x:Name="ShapeButton" views:ControlHelp.Text="{x:Static views:Descriptions.Shape}" Classes="tool">
+  <Button AutomationProperties.Name="Shape" x:Name="ShapeButton" views:ControlHelp.Text="{x:Static help:Descriptions.Shape}" Classes="tool">
     <StackPanel Orientation="Horizontal">
       <Path Classes="icon edit" Data="{StaticResource IconShape}" />
       <TextBlock x:Name="ShapeText" Classes="label" Text="Shape" />
     </StackPanel>
     <Button.Flyout>
       <MenuFlyout>
-        <MenuItem x:Name="RectangleItem" views:ControlHelp.Text="{x:Static views:Descriptions.Rectangle}" Header="_Rectangle" />
-        <MenuItem x:Name="EllipseItem" views:ControlHelp.Text="{x:Static views:Descriptions.Ellipse}" Header="_Ellipse" />
-        <MenuItem x:Name="ArrowItem" views:ControlHelp.Text="{x:Static views:Descriptions.Arrow}" Header="_Arrow" />
-        <MenuItem x:Name="LineItem" views:ControlHelp.Text="{x:Static views:Descriptions.Line}" Header="_Line" />
+        <MenuItem x:Name="RectangleItem" views:ControlHelp.Text="{x:Static help:Descriptions.Rectangle}" Header="_Rectangle" />
+        <MenuItem x:Name="EllipseItem" views:ControlHelp.Text="{x:Static help:Descriptions.Ellipse}" Header="_Ellipse" />
+        <MenuItem x:Name="ArrowItem" views:ControlHelp.Text="{x:Static help:Descriptions.Arrow}" Header="_Arrow" />
+        <MenuItem x:Name="LineItem" views:ControlHelp.Text="{x:Static help:Descriptions.Line}" Header="_Line" />
         <Separator />
-        <MenuItem x:Name="CalloutItem" views:ControlHelp.Text="{x:Static views:Descriptions.Callout}" Header="_Callout" />
-        <MenuItem x:Name="PolygonItem" views:ControlHelp.Text="{x:Static views:Descriptions.Polygon}" Header="_Polygon" />
-        <MenuItem x:Name="CloudItem" views:ControlHelp.Text="{x:Static views:Descriptions.Cloud}" Header="Cl_oud" />
-        <MenuItem x:Name="PolyLineItem" views:ControlHelp.Text="{x:Static views:Descriptions.PolyLine}" Header="Co_nnected Lines" />
+        <MenuItem x:Name="CalloutItem" views:ControlHelp.Text="{x:Static help:Descriptions.Callout}" Header="_Callout" />
+        <MenuItem x:Name="PolygonItem" views:ControlHelp.Text="{x:Static help:Descriptions.Polygon}" Header="_Polygon" />
+        <MenuItem x:Name="CloudItem" views:ControlHelp.Text="{x:Static help:Descriptions.Cloud}" Header="Cl_oud" />
+        <MenuItem x:Name="PolyLineItem" views:ControlHelp.Text="{x:Static help:Descriptions.PolyLine}" Header="Co_nnected Lines" />
         <Separator />
-        <MenuItem x:Name="RedactAreaItem" views:ControlHelp.Text="{x:Static views:Descriptions.RedactArea}" Header="Mark Area to Re_dact" />
-        <MenuItem x:Name="RedactTextItem" views:ControlHelp.Text="{x:Static views:Descriptions.RedactText}" Header="Mark _Text to Redact" />
+        <MenuItem x:Name="RedactAreaItem" views:ControlHelp.Text="{x:Static help:Descriptions.RedactArea}" Header="Mark Area to Re_dact" />
+        <MenuItem x:Name="RedactTextItem" views:ControlHelp.Text="{x:Static help:Descriptions.RedactText}" Header="Mark _Text to Redact" />
       </MenuFlyout>
     </Button.Flyout>
   </Button>

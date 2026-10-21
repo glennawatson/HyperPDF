@@ -6,11 +6,11 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Presentation;
 using HyperPdf.Core.Settings;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 
@@ -211,7 +211,7 @@ public sealed class PresentationTransitionTests
     [Arguments(360, 0)]
     [Arguments(-90, 3)]
     public async Task ReducesDirectionsToTheNearestStraightOne(int degrees, int expected) =>
-        await Assert.That(PageCanvasTransitionMixins.Quadrant(degrees)).IsEqualTo(expected);
+        await Assert.That((int)TransitionTiming.GetDirection(degrees)).IsEqualTo(expected);
 
     /// <summary>The curtain of a transition starts covering the whole page and ends covering nothing.</summary>
     /// <returns>A task.</returns>
@@ -220,8 +220,8 @@ public sealed class PresentationTransitionTests
     {
         PresentationStep step = new(1, TransitionStyle.Wipe, TransitionEffect.Wipe, 1, false, false, 0, false, null);
         var now = Stopwatch.GetTimestamp();
-        var started = PageCanvasTransitionMixins.Progress(new(true, step, now));
-        var finished = PageCanvasTransitionMixins.Progress(new(true, step, now - (Stopwatch.Frequency * LongAgoSeconds)));
+        var started = new TransitionRun(true, step, now).Progress;
+        var finished = new TransitionRun(true, step, now - (Stopwatch.Frequency * LongAgoSeconds)).Progress;
 
         await Assert.That(started).IsLessThan(JustStarted);
         await Assert.That(finished).IsEqualTo(1);

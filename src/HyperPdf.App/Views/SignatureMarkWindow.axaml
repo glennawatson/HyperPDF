@@ -1,5 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         xmlns:controls="using:HyperPdf.App.Controls"
         x:Class="HyperPdf.App.Views.SignatureMarkWindow"
@@ -11,30 +11,30 @@
 
     <!-- The three ways stay visible, in the same order, every time. -->
     <StackPanel Orientation="Horizontal" Spacing="16">
-      <RadioButton x:Name="TypeOption" GroupName="MarkStyle" Content="Type" AutomationProperties.Name="Type" views:ControlHelp.Text="{x:Static views:Descriptions.MarkType}" />
-      <RadioButton x:Name="DrawOption" GroupName="MarkStyle" Content="Draw" AutomationProperties.Name="Draw" views:ControlHelp.Text="{x:Static views:Descriptions.MarkDraw}" />
-      <RadioButton x:Name="ImageOption" GroupName="MarkStyle" Content="Image" AutomationProperties.Name="Image" views:ControlHelp.Text="{x:Static views:Descriptions.MarkImage}" />
+      <RadioButton x:Name="TypeOption" GroupName="MarkStyle" Content="Type" AutomationProperties.Name="Type" views:ControlHelp.Text="{x:Static help:Descriptions.MarkType}" />
+      <RadioButton x:Name="DrawOption" GroupName="MarkStyle" Content="Draw" AutomationProperties.Name="Draw" views:ControlHelp.Text="{x:Static help:Descriptions.MarkDraw}" />
+      <RadioButton x:Name="ImageOption" GroupName="MarkStyle" Content="Image" AutomationProperties.Name="Image" views:ControlHelp.Text="{x:Static help:Descriptions.MarkImage}" />
     </StackPanel>
 
     <StackPanel x:Name="TypePanel" Spacing="6">
       <TextBlock x:Name="TextLabel" />
-      <TextBox x:Name="MarkTextBox" views:ControlHelp.Text="{x:Static views:Descriptions.MarkText}" MinHeight="32" />
+      <TextBox x:Name="MarkTextBox" views:ControlHelp.Text="{x:Static help:Descriptions.MarkText}" MinHeight="32" />
     </StackPanel>
 
     <StackPanel x:Name="DrawPanel" Spacing="6">
       <TextBlock Classes="secondary" TextWrapping="Wrap" Text="Draw with a mouse, pen or finger. Typing is the keyboard way." />
       <Border Background="{DynamicResource AppSignaturePaperBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Height="160">
-        <controls:SignaturePad x:Name="Pad" AutomationProperties.Name="Drawing area" views:ControlHelp.Text="{x:Static views:Descriptions.MarkPad}" />
+        <controls:SignaturePad x:Name="Pad" AutomationProperties.Name="Drawing area" views:ControlHelp.Text="{x:Static help:Descriptions.MarkPad}" />
       </Border>
-      <Button x:Name="ClearDrawingButton" Content="Clear Drawing" views:ControlHelp.Text="{x:Static views:Descriptions.ClearDrawing}" />
+      <Button x:Name="ClearDrawingButton" Content="Clear Drawing" views:ControlHelp.Text="{x:Static help:Descriptions.ClearDrawing}" />
     </StackPanel>
 
     <StackPanel x:Name="ImagePanel" Spacing="6">
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button x:Name="ChooseImageButton" Content="Choose Picture…" views:ControlHelp.Text="{x:Static views:Descriptions.ChooseSignatureImage}" />
+        <Button x:Name="ChooseImageButton" Content="Choose Picture…" views:ControlHelp.Text="{x:Static help:Descriptions.ChooseSignatureImage}" />
         <TextBlock x:Name="ImageNameText" VerticalAlignment="Center" />
       </StackPanel>
-      <CheckBox x:Name="RemovePaperCheck" Content="Remove white paper" views:ControlHelp.Text="{x:Static views:Descriptions.RemovePaper}" />
+      <CheckBox x:Name="RemovePaperCheck" Content="Remove white paper" views:ControlHelp.Text="{x:Static help:Descriptions.RemovePaper}" />
       <TextBlock x:Name="ImageErrorText" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" />
     </StackPanel>
 
@@ -44,13 +44,13 @@
     </Border>
 
     <StackPanel Orientation="Horizontal" Spacing="8">
-      <CheckBox x:Name="RememberCheck" Content="Remember on this computer" views:ControlHelp.Text="{x:Static views:Descriptions.RememberMark}" />
-      <Button x:Name="ForgetButton" Content="Forget Remembered" views:ControlHelp.Text="{x:Static views:Descriptions.ForgetMark}" />
+      <CheckBox x:Name="RememberCheck" Content="Remember on this computer" views:ControlHelp.Text="{x:Static help:Descriptions.RememberMark}" />
+      <Button x:Name="ForgetButton" Content="Forget Remembered" views:ControlHelp.Text="{x:Static help:Descriptions.ForgetMark}" />
     </StackPanel>
 
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />
-      <Button x:Name="UseButton" views:ControlHelp.Text="{x:Static views:Descriptions.UseMark}" IsDefault="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />
+      <Button x:Name="UseButton" views:ControlHelp.Text="{x:Static help:Descriptions.UseMark}" IsDefault="True" />
     </StackPanel>
   </StackPanel>
 </Window>

@@ -7,7 +7,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Attachments;
 using ReactiveUI;
 using ReactiveUI.Binding;

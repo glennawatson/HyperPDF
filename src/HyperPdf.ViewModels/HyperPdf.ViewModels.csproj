@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Toolkit-free view models, services and render hub for the HyperPDF viewer, so any render head can present them.</Description>
+    <RootNamespace>HyperPdf.ViewModels</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\HyperPdf.Engine\HyperPdf.Engine.csproj" />
+    <ProjectReference Include="..\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
+    <ProjectReference Include="..\HyperPdf.Http\HyperPdf.Http.csproj" />
+    <ProjectReference Include="..\HyperPdf.Speech\HyperPdf.Speech.csproj" />
+    <ProjectReference Include="..\HyperPdf.Media\HyperPdf.Media.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ReactiveUI" />
+    <PackageReference Include="ReactiveUI.Binding" />
+    <PackageReference Include="ReactiveUI.Primitives.ObservableEvents" PrivateAssets="all" />
+    <!-- ReactiveUI's own dependency on the generators excludes analyzers, so they only run when referenced here. -->
+    <PackageReference Include="ReactiveUI.SourceGenerators" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.App.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.ViewModels.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Presentation.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+
+  <ItemGroup Label="View model namespaces">
+    <Using Include="HyperPdf.ViewModels.Dialogs" />
+    <Using Include="HyperPdf.ViewModels.Finding" />
+    <Using Include="HyperPdf.ViewModels.FormFilling" />
+    <Using Include="HyperPdf.ViewModels.Help" />
+    <Using Include="HyperPdf.ViewModels.Markup" />
+    <Using Include="HyperPdf.ViewModels.Output" />
+    <Using Include="HyperPdf.ViewModels.Preferences" />
+    <Using Include="HyperPdf.ViewModels.Reading" />
+    <Using Include="HyperPdf.ViewModels.Rendering" />
+    <Using Include="HyperPdf.ViewModels.Security" />
+    <Using Include="HyperPdf.ViewModels.Services" />
+    <Using Include="HyperPdf.ViewModels.Sidebar" />
+    <Using Include="HyperPdf.ViewModels.Signing" />
+    <Using Include="HyperPdf.ViewModels.Viewing" />
+  </ItemGroup>
+</Project>

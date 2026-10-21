@@ -2,8 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Forms;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 using TUnit.Assertions.Enums;
 

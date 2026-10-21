@@ -8,8 +8,6 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -39,12 +37,6 @@ public sealed class PageMarksLayer : Control, IActivatableView
     /// <summary>Defines the <see cref="DimBrush"/> property.</summary>
     public static readonly StyledProperty<IBrush?> DimBrushProperty = AvaloniaProperty.Register<PageMarksLayer, IBrush?>(nameof(DimBrush));
 
-    /// <summary>The thickness of the line under the word being read.</summary>
-    private const double WordUnderline = 1.5;
-
-    /// <summary>How far the focus band reaches above and below the sentence being read.</summary>
-    private const double FocusBandMargin = 6;
-
     /// <summary>The width of the outline marking the current search hit, so it differs by shape as well as colour.</summary>
     private const double CurrentHitOutlineWidth = 2;
 
@@ -53,6 +45,9 @@ public sealed class PageMarksLayer : Control, IActivatableView
 
     /// <summary>The pen outlining the current search hit, rebuilt when <see cref="CurrentHitOutline"/> changes.</summary>
     private IPen? _currentHitPen;
+
+    /// <summary>Puts the planned marks on a drawing context, made when the first frame is drawn.</summary>
+    private AvaloniaMarksPainter? _painter;
 
     /// <summary>Initializes static members of the <see cref="PageMarksLayer"/> class.</summary>
     static PageMarksLayer()
@@ -126,6 +121,9 @@ public sealed class PageMarksLayer : Control, IActivatableView
     /// <summary>Gets or sets the pages the marks are drawn over, which say where each page is laid out.</summary>
     internal PageCanvas? Pages { get; set; }
 
+    /// <summary>Gets the pen outlining the current search hit, or <see langword="null"/> when the outline has no brush.</summary>
+    internal IPen? CurrentHitPen => _currentHitPen;
+
     /// <summary>Gets a value indicating whether the tab has any search hit, spoken sentence or focus band to draw.</summary>
     internal bool HasMarks => Tab is { } tab && (tab.Search.HasHits || tab.ReadAloud.SpokenPage >= 0);
 
@@ -138,109 +136,8 @@ public sealed class PageMarksLayer : Control, IActivatableView
             return;
         }
 
-        var viewport = new Rect(scroller.Offset.X, scroller.Offset.Y, scroller.Viewport.Width, scroller.Viewport.Height);
-        pages.GetPagesBetween(scroller.Offset.X, scroller.Offset.X + scroller.Viewport.Width, scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
-        for (var page = first; page <= last && page >= 0; page++)
-        {
-            if (!pages.TryGetPageTransform(page, out var transform, out var bounds))
-            {
-                continue;
-            }
-
-            DrawHits(context, tab, page, transform, viewport);
-            DrawSpoken(context, tab, page, transform);
-            DrawFocusBand(context, tab, page, bounds, transform);
-        }
-    }
-
-    /// <summary>Draws the search hits on a page, outlining the current one.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="tab">The tab.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="transform">How the page maps onto the canvas.</param>
-    /// <param name="viewport">The visible part of the canvas; hits outside it are not recorded.</param>
-    private void DrawHits(DrawingContext context, DocumentTabViewModel tab, int page, in PageTransform transform, in Rect viewport)
-    {
-        if (tab.Search.GetHits(page) is not { } hits)
-        {
-            return;
-        }
-
-        var current = tab.Search.CurrentHit;
-        var fill = HitBrush;
-        foreach (var hit in hits)
-        {
-            var pen = ReferenceEquals(hit, current) ? _currentHitPen : null;
-            foreach (var rect in hit.Bounds)
-            {
-                var canvasRect = transform.ToCanvas(rect);
-                if (canvasRect.Intersects(viewport))
-                {
-                    context.DrawRectangle(fill, pen, canvasRect);
-                }
-            }
-        }
-    }
-
-    /// <summary>Softly marks the sentence being read aloud, and underlines the word.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="tab">The tab.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="transform">How the page maps onto the canvas.</param>
-    private void DrawSpoken(DrawingContext context, DocumentTabViewModel tab, int page, in PageTransform transform)
-    {
-        var reader = tab.ReadAloud;
-        if (SpokenBrush is not { } brush || reader.SpokenPage != page)
-        {
-            return;
-        }
-
-        foreach (var rect in reader.SpokenBounds)
-        {
-            context.FillRectangle(brush, transform.ToCanvas(rect));
-        }
-
-        // The word is underlined rather than filled, so the marks stay quiet.
-        var pen = _currentHitPen;
-        foreach (var rect in reader.SpokenWordBounds)
-        {
-            var word = transform.ToCanvas(rect);
-            context.DrawLine(pen ?? new Pen(brush, WordUnderline), word.BottomLeft, word.BottomRight);
-        }
-    }
-
-    /// <summary>
-    /// Dims the page away from the sentence being read, when the focus band is on: a band around the sentence stays
-    /// clear and the rest of its page, and every other page, is laid over with the translucent paper colour.
-    /// </summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="tab">The tab.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="pageRect">The page's bounds on the canvas.</param>
-    /// <param name="transform">How the page maps onto the canvas.</param>
-    private void DrawFocusBand(DrawingContext context, DocumentTabViewModel tab, int page, in Rect pageRect, in PageTransform transform)
-    {
-        var reader = tab.ReadAloud;
-        if (DimBrush is not { } dim || !tab.FocusMode.FocusBand || reader.SpokenPage < 0 || reader.SpokenBounds.Count == 0)
-        {
-            return;
-        }
-
-        if (reader.SpokenPage != page)
-        {
-            context.FillRectangle(dim, pageRect);
-            return;
-        }
-
-        var band = transform.ToCanvas(reader.SpokenBounds[0]);
-        foreach (var rect in reader.SpokenBounds)
-        {
-            band = band.Union(transform.ToCanvas(rect));
-        }
-
-        var top = Math.Max(pageRect.Top, band.Top - FocusBandMargin);
-        var bottom = Math.Min(pageRect.Bottom, band.Bottom + FocusBandMargin);
-        context.FillRectangle(dim, new(pageRect.Left, pageRect.Top, pageRect.Width, Math.Max(0, top - pageRect.Top)));
-        context.FillRectangle(dim, new(pageRect.Left, bottom, pageRect.Width, Math.Max(0, pageRect.Bottom - bottom)));
+        var painter = _painter ??= new(this);
+        painter.Start(context);
+        pages.State.DrawMarks(painter, tab, new(scroller.Offset.X, scroller.Offset.Y, scroller.Viewport.Width, scroller.Viewport.Height));
     }
 }

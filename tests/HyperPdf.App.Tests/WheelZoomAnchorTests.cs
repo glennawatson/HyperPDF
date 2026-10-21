@@ -10,10 +10,10 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Settings;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

@@ -9,10 +9,10 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.VisualTree;
 using HyperPdf.App.Theming;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Theming;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

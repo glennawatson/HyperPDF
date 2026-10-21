@@ -31,6 +31,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.ViewModels\HyperPdf.ViewModels.csproj" />
+    <ProjectReference Include="..\HyperPdf.Presentation\HyperPdf.Presentation.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Skia\HyperPdf.Rendering.Skia.csproj" />
     <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
     <ProjectReference Include="..\HyperPdf.Engine\HyperPdf.Engine.csproj" />
     <ProjectReference Include="..\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
@@ -98,4 +101,25 @@
     <Copy SourceFiles="@(_PublishedSymbolBundleFiles)" DestinationFiles="@(_PublishedSymbolBundleFiles->'$(PublishDir)..\symbols\%(RecursiveDir)%(Filename)%(Extension)')" />
     <RemoveDir Directories="@(_PublishedSymbolBundles)" />
   </Target>
+
+  <ItemGroup Label="View model namespaces">
+    <Using Include="HyperPdf.Core.Layout" />
+    <Using Include="HyperPdf.Presentation.Canvas" />
+    <Using Include="HyperPdf.Presentation.Input" />
+    <Using Include="HyperPdf.Rendering.Skia" />
+    <Using Include="HyperPdf.ViewModels.Dialogs" />
+    <Using Include="HyperPdf.ViewModels.Finding" />
+    <Using Include="HyperPdf.ViewModels.FormFilling" />
+    <Using Include="HyperPdf.ViewModels.Help" />
+    <Using Include="HyperPdf.ViewModels.Markup" />
+    <Using Include="HyperPdf.ViewModels.Output" />
+    <Using Include="HyperPdf.ViewModels.Preferences" />
+    <Using Include="HyperPdf.ViewModels.Reading" />
+    <Using Include="HyperPdf.ViewModels.Rendering" />
+    <Using Include="HyperPdf.ViewModels.Security" />
+    <Using Include="HyperPdf.ViewModels.Services" />
+    <Using Include="HyperPdf.ViewModels.Sidebar" />
+    <Using Include="HyperPdf.ViewModels.Signing" />
+    <Using Include="HyperPdf.ViewModels.Viewing" />
+  </ItemGroup>
 </Project>

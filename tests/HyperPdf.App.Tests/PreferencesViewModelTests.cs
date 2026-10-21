@@ -5,16 +5,17 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
+using HyperPdf.App.Rendering;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Settings;
+using HyperPdf.Core.Spelling;
 using HyperPdf.Core.Theming;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
@@ -93,7 +94,7 @@ public sealed class PreferencesViewModelTests
     [Test]
     public async Task DefaultAppServicesUseHyperPdf()
     {
-        using var services = AppServices.CreateDefault(new FallbackPlatform());
+        using var services = AppServices.CreateDefault(new FallbackPlatform(), new AvaloniaRenderHead(), static () => NullSpellChecker.Instance);
 
         await Assert.That(services.Engine.Name).IsEqualTo("HyperPDF");
     }
@@ -141,7 +142,7 @@ public sealed class PreferencesViewModelTests
         }
 
         var saved = new SettingsStore(path).Load();
-        using var nextRun = new AppServices(new SettingsStore(path), new HyperPdfEngine(), new FallbackPlatform());
+        using var nextRun = new AppServices(new SettingsStore(path), new HyperPdfEngine(), new FallbackPlatform(), new AvaloniaRenderHead());
         using var reloaded = new PreferencesViewModel(nextRun);
 
         await Assert.That(saved.FormHighlightColor).IsEqualTo(YellowTint);

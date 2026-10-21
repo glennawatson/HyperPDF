@@ -1,24 +1,24 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.NavigationBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (NavigationBarView.axaml.cs). -->
   <!-- Wraps rather than clips when the window is narrow, so no control is ever hidden. -->
   <WrapPanel Orientation="Horizontal">
-    <ToggleButton AutomationProperties.Name="Sidebar" x:Name="SidebarToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Sidebar}" Classes="tool">
+    <ToggleButton AutomationProperties.Name="Sidebar" x:Name="SidebarToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Sidebar}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon nav" Data="{StaticResource IconSidebar}" />
         <TextBlock Classes="label" Text="Sidebar" />
       </StackPanel>
     </ToggleButton>
     <Rectangle Classes="separator" />
-    <Button AutomationProperties.Name="Back" x:Name="BackButton" views:ControlHelp.Text="{x:Static views:Descriptions.Back}" Classes="tool">
+    <Button AutomationProperties.Name="Back" x:Name="BackButton" views:ControlHelp.Text="{x:Static help:Descriptions.Back}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon nav" Data="{StaticResource IconBack}" />
         <TextBlock Classes="label" Text="Back" />
       </StackPanel>
     </Button>
-    <Button AutomationProperties.Name="Forward" x:Name="ForwardButton" views:ControlHelp.Text="{x:Static views:Descriptions.Forward}" Classes="tool">
+    <Button AutomationProperties.Name="Forward" x:Name="ForwardButton" views:ControlHelp.Text="{x:Static help:Descriptions.Forward}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <TextBlock Classes="label leading" Text="Forward" />
         <Path Classes="icon nav" Data="{StaticResource IconForward}" />
@@ -27,38 +27,38 @@
     <Rectangle Classes="separator" />
     <!-- One group on one centre line: the arrows together, then the page box and the page count. -->
     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-      <Button AutomationProperties.Name="Previous page" x:Name="PreviousPageButton" views:ControlHelp.Text="{x:Static views:Descriptions.PreviousPage}" Classes="tool">
+      <Button AutomationProperties.Name="Previous page" x:Name="PreviousPageButton" views:ControlHelp.Text="{x:Static help:Descriptions.PreviousPage}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageUp}" />
       </Button>
-      <Button AutomationProperties.Name="Next page" x:Name="NextPageButton" views:ControlHelp.Text="{x:Static views:Descriptions.NextPage}" Classes="tool">
+      <Button AutomationProperties.Name="Next page" x:Name="NextPageButton" views:ControlHelp.Text="{x:Static help:Descriptions.NextPage}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageDown}" />
       </Button>
-      <TextBox x:Name="PageBox" views:ControlHelp.Text="{x:Static views:Descriptions.PageNumber}" AutomationProperties.Name="Page number" Width="56" Height="30" MinHeight="30" Margin="4,0,0,0" Padding="6,0" VerticalAlignment="Center"
+      <TextBox x:Name="PageBox" views:ControlHelp.Text="{x:Static help:Descriptions.PageNumber}" AutomationProperties.Name="Page number" Width="56" Height="30" MinHeight="30" Margin="4,0,0,0" Padding="6,0" VerticalAlignment="Center"
                VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
       <TextBlock x:Name="PageCountText" Classes="secondary" VerticalAlignment="Center" Margin="6,0" />
     </StackPanel>
     <Rectangle Classes="separator" />
-    <Button AutomationProperties.Name="Zoom out" x:Name="ZoomOutButton" views:ControlHelp.Text="{x:Static views:Descriptions.ZoomOut}" Classes="tool">
+    <Button AutomationProperties.Name="Zoom out" x:Name="ZoomOutButton" views:ControlHelp.Text="{x:Static help:Descriptions.ZoomOut}" Classes="tool">
       <Path Classes="icon nav" Data="{StaticResource IconZoomOut}" />
     </Button>
     <!-- Named by its content, the zoom, which is announced when it changes. -->
-    <Button x:Name="ZoomButton" views:ControlHelp.Text="{x:Static views:Descriptions.ZoomMenu}" AutomationProperties.LiveSetting="Polite" Classes="tool" MinWidth="64">
+    <Button x:Name="ZoomButton" views:ControlHelp.Text="{x:Static help:Descriptions.ZoomMenu}" AutomationProperties.LiveSetting="Polite" Classes="tool" MinWidth="64">
       <Button.Flyout>
         <MenuFlyout>
-          <MenuItem x:Name="FitWidthItem" views:ControlHelp.Text="{x:Static views:Descriptions.FitWidth}" Header="Fit _Width" InputGesture="Ctrl+2" />
-          <MenuItem x:Name="FitPageItem" views:ControlHelp.Text="{x:Static views:Descriptions.FitPage}" Header="Fit _Page" InputGesture="Ctrl+1" />
+          <MenuItem x:Name="FitWidthItem" views:ControlHelp.Text="{x:Static help:Descriptions.FitWidth}" Header="Fit _Width" InputGesture="Ctrl+2" />
+          <MenuItem x:Name="FitPageItem" views:ControlHelp.Text="{x:Static help:Descriptions.FitPage}" Header="Fit _Page" InputGesture="Ctrl+1" />
           <Separator />
-          <MenuItem x:Name="Zoom50Item" views:ControlHelp.Text="{x:Static views:Descriptions.Zoom50}" Header="50%" />
-          <MenuItem x:Name="Zoom75Item" views:ControlHelp.Text="{x:Static views:Descriptions.Zoom75}" Header="75%" />
-          <MenuItem x:Name="Zoom100Item" views:ControlHelp.Text="{x:Static views:Descriptions.Zoom100}" Header="100%" InputGesture="Ctrl+0" />
-          <MenuItem x:Name="Zoom125Item" views:ControlHelp.Text="{x:Static views:Descriptions.Zoom125}" Header="125%" />
-          <MenuItem x:Name="Zoom150Item" views:ControlHelp.Text="{x:Static views:Descriptions.Zoom150}" Header="150%" />
-          <MenuItem x:Name="Zoom200Item" views:ControlHelp.Text="{x:Static views:Descriptions.Zoom200}" Header="200%" />
-          <MenuItem x:Name="Zoom400Item" views:ControlHelp.Text="{x:Static views:Descriptions.Zoom400}" Header="400%" />
+          <MenuItem x:Name="Zoom50Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom50}" Header="50%" />
+          <MenuItem x:Name="Zoom75Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom75}" Header="75%" />
+          <MenuItem x:Name="Zoom100Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom100}" Header="100%" InputGesture="Ctrl+0" />
+          <MenuItem x:Name="Zoom125Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom125}" Header="125%" />
+          <MenuItem x:Name="Zoom150Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom150}" Header="150%" />
+          <MenuItem x:Name="Zoom200Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom200}" Header="200%" />
+          <MenuItem x:Name="Zoom400Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom400}" Header="400%" />
         </MenuFlyout>
       </Button.Flyout>
     </Button>
-    <Button AutomationProperties.Name="Zoom in" x:Name="ZoomInButton" views:ControlHelp.Text="{x:Static views:Descriptions.ZoomIn}" Classes="tool">
+    <Button AutomationProperties.Name="Zoom in" x:Name="ZoomInButton" views:ControlHelp.Text="{x:Static help:Descriptions.ZoomIn}" Classes="tool">
       <Path Classes="icon nav" Data="{StaticResource IconZoomIn}" />
     </Button>
   </WrapPanel>

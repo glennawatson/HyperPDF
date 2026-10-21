@@ -1,5 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.PrintPreviewWindow"
         Title="Print" Width="1040" Height="720" MinWidth="760" MinHeight="480" WindowStartupLocation="CenterOwner"
@@ -19,12 +19,12 @@
           <views:PrintSheetSettingsView />
           <TextBlock x:Name="PrinterHint" Classes="secondary" TextWrapping="Wrap" Margin="0,8,0,0"
                      Text="The printer, copies and paper are chosen in the next step." />
-          <Button x:Name="SystemDialogButton" views:ControlHelp.Text="{x:Static views:Descriptions.SystemPrintDialog}" Classes="link" Margin="0,4,0,0" HorizontalAlignment="Left"
+          <Button x:Name="SystemDialogButton" views:ControlHelp.Text="{x:Static help:Descriptions.SystemPrintDialog}" Classes="link" Margin="0,4,0,0" HorizontalAlignment="Left"
                   Content="Print using system dialog… (Ctrl+Shift+P)" />
         </StackPanel>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-          <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />
-          <Button x:Name="PrintButton" views:ControlHelp.Text="{x:Static views:Descriptions.PrintNext}" Content="Print…" IsDefault="True" />
+          <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />
+          <Button x:Name="PrintButton" views:ControlHelp.Text="{x:Static help:Descriptions.PrintNext}" Content="Print…" IsDefault="True" />
         </StackPanel>
       </Grid>
     </Border>

@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:controls="using:HyperPdf.App.Controls"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.PageCanvasView">
@@ -10,7 +10,7 @@
                   HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
       <Panel HorizontalAlignment="Left" VerticalAlignment="Top">
         <!-- Named "Page 5 of 40" by its automation peer; the new page is announced as the reader moves. -->
-        <controls:PageCanvas x:Name="Canvas" AutomationProperties.HelpText="{x:Static views:Descriptions.Pages}" AutomationProperties.LiveSetting="Polite" CurrentHitOutline="{DynamicResource AppCurrentHitOutline}"
+        <controls:PageCanvas x:Name="Canvas" AutomationProperties.HelpText="{x:Static help:Descriptions.Pages}" AutomationProperties.LiveSetting="Polite" CurrentHitOutline="{DynamicResource AppCurrentHitOutline}"
                              SelectionBrush="{DynamicResource AppTextSelectionBrush}"
                              LabelBackground="{DynamicResource AppWindowBackground}" LabelForeground="{DynamicResource AppForeground}" />
         <!-- Search hits, the reading marks and the focus band, over the pages; the pointer passes through to the pages. -->

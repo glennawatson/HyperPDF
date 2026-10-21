@@ -6,7 +6,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
+using HyperPdf.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 

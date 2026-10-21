@@ -9,7 +9,6 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using HyperPdf.Skia;
-using HyperPdf.Skia.Gpu;
 using SkiaSharp;
 
 namespace HyperPdf.App.Rendering;
@@ -32,6 +31,9 @@ internal sealed class GpuTileBatchOperation : ICustomDrawOperation
 
     /// <summary>Sampling for scaled previews and zoom stand-ins.</summary>
     private static readonly SKSamplingOptions SmoothSampling = new(SKFilterMode.Linear, SKMipmapMode.Linear);
+
+    /// <summary>Sampling for scaled software previews; a raster canvas rebuilds mipmaps on every draw, which cost 14 times as much in the benchmark.</summary>
+    private static readonly SKSamplingOptions SoftwareSmoothSampling = new(SKFilterMode.Linear, SKMipmapMode.None);
 
     /// <summary>Sampling for pixel-aligned sharp tiles.</summary>
     private static readonly SKSamplingOptions SharpSampling = new(SKFilterMode.Nearest, SKMipmapMode.None);
@@ -100,10 +102,7 @@ internal sealed class GpuTileBatchOperation : ICustomDrawOperation
         try
         {
             Array.Clear(_drawn, 0, Count);
-            if (!TryDrawGpu(context))
-            {
-                DrawSoftware(context);
-            }
+            DrawTiles(context);
         }
         finally
         {
@@ -155,38 +154,36 @@ internal sealed class GpuTileBatchOperation : ICustomDrawOperation
     /// <returns><see langword="true"/> while the batch has not been disposed.</returns>
     private static bool IsActive(int state) => state is Live or Rendering;
 
-    /// <summary>Draws every tile through one lease on the active compositor context.</summary>
+    /// <summary>Draws every tile through one lease on the active compositor context: through the GPU where it can, and from software pixels for the rest.</summary>
     /// <param name="context">The immediate context.</param>
-    /// <returns>Whether every tile was drawn.</returns>
-    private bool TryDrawGpu(ImmediateDrawingContext context)
+    private void DrawTiles(ImmediateDrawingContext context)
     {
         if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>() is not { } feature)
         {
             MarkUndrawnUnavailable();
-            return false;
+            return;
         }
 
         try
         {
             using var lease = feature.Lease();
-            if (lease.GrContext is not { } gpu || lease.ImageRetirement is not { } retirement)
+            if (lease.GrContext is { } gpu && lease.ImageRetirement is { } retirement)
+            {
+                for (var i = 0; i < Count; i++)
+                {
+                    _ = TryDrawTile(i, lease, gpu, retirement);
+                }
+            }
+            else
             {
                 MarkUndrawnUnavailable();
-                return false;
             }
 
-            var complete = true;
-            for (var i = 0; i < Count; i++)
-            {
-                complete &= TryDrawTile(i, lease, gpu, retirement);
-            }
-
-            return complete;
+            DrawSoftware(lease);
         }
         catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
         {
             MarkUndrawnUnavailable();
-            return false;
         }
     }
 
@@ -225,8 +222,8 @@ internal sealed class GpuTileBatchOperation : ICustomDrawOperation
     }
 
     /// <summary>Draws software pixels for tiles the GPU did not draw, preparing a cached tile on its first recovery draw.</summary>
-    /// <param name="context">The immediate context.</param>
-    private void DrawSoftware(ImmediateDrawingContext context)
+    /// <param name="lease">The active Skia lease.</param>
+    private void DrawSoftware(ISkiaSharpApiLease lease)
     {
         for (var i = 0; i < Count; i++)
         {
@@ -235,17 +232,14 @@ internal sealed class GpuTileBatchOperation : ICustomDrawOperation
                 continue;
             }
 
-            var (tile, bounds, _) = _tiles[i];
-            var bitmap = tile.SoftwareBitmap;
-            if (bitmap is null && tile.IsGpuUnavailable && tile.EnsureSoftwareBitmap())
+            var (tile, bounds, smooth) = _tiles[i];
+            if (tile.SoftwareSurface is null && tile.IsGpuUnavailable)
             {
-                bitmap = tile.SoftwareBitmap;
+                _ = tile.EnsureSoftwareBitmap();
             }
 
-            if (bitmap is not null)
-            {
-                context.DrawBitmap(bitmap, new(0, 0, tile.Width, tile.Height), bounds);
-            }
+            var rect = new SKRect((float)bounds.Left, (float)bounds.Top, (float)bounds.Right, (float)bounds.Bottom);
+            _drawn[i] = tile.DrawSoftware(lease.SkCanvas, rect, smooth ? SoftwareSmoothSampling : SharpSampling);
         }
     }
 

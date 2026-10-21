@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TextFormatBubbleView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TextFormatBubbleView.axaml.cs). -->
@@ -9,22 +9,22 @@
   -->
   <Border x:Name="Bubble" Classes="toolbar subbar" AutomationProperties.Name="Quick text format" AutomationProperties.ControlTypeOverride="ToolBar">
     <StackPanel Orientation="Horizontal" Spacing="2">
-      <ToggleButton AutomationProperties.Name="Bold" x:Name="BoldToggle" Focusable="False" views:ControlHelp.Text="{x:Static views:Descriptions.BoldText}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="Bold" x:Name="BoldToggle" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.BoldText}" Classes="tool">
         <TextBlock Classes="label" Text="Bold" FontWeight="Bold" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Italic" x:Name="ItalicToggle" Focusable="False" views:ControlHelp.Text="{x:Static views:Descriptions.ItalicText}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="Italic" x:Name="ItalicToggle" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.ItalicText}" Classes="tool">
         <TextBlock Classes="label" Text="Italic" FontStyle="Italic" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Underline text" x:Name="UnderlineToggle" Focusable="False" views:ControlHelp.Text="{x:Static views:Descriptions.UnderlineText}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="Underline text" x:Name="UnderlineToggle" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.UnderlineText}" Classes="tool">
         <TextBlock Classes="label" Text="Underline" TextDecorations="Underline" />
       </ToggleButton>
-      <Button AutomationProperties.Name="Smaller text" x:Name="SmallerTextButton" Focusable="False" views:ControlHelp.Text="{x:Static views:Descriptions.ShrinkPageText}" Classes="tool">
+      <Button AutomationProperties.Name="Smaller text" x:Name="SmallerTextButton" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.ShrinkPageText}" Classes="tool">
         <TextBlock Classes="label" Text="Smaller" />
       </Button>
-      <Button AutomationProperties.Name="Larger text" x:Name="LargerTextButton" Focusable="False" views:ControlHelp.Text="{x:Static views:Descriptions.GrowPageText}" Classes="tool">
+      <Button AutomationProperties.Name="Larger text" x:Name="LargerTextButton" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.GrowPageText}" Classes="tool">
         <TextBlock Classes="label" Text="Larger" />
       </Button>
-      <Button AutomationProperties.Name="Finish Text" x:Name="FinishTextButton" Focusable="False" views:ControlHelp.Text="{x:Static views:Descriptions.FinishText}" Classes="tool">
+      <Button AutomationProperties.Name="Finish Text" x:Name="FinishTextButton" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.FinishText}" Classes="tool">
         <TextBlock Classes="label" Text="Done" />
       </Button>
     </StackPanel>

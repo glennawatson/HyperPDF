@@ -8,9 +8,6 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
-using HyperPdf.App.Views;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Reading;
@@ -27,9 +24,6 @@ namespace HyperPdf.App.Controls;
 [DebuggerDisplay("PageCanvasAutomationPeer: {GetName()}")]
 internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValueProvider
 {
-    /// <summary>The name when no document is shown.</summary>
-    internal const string NoDocumentName = "No document";
-
     /// <summary>The page the cached text belongs to, or -1 when nothing is cached.</summary>
     private int _textPage = -1;
 
@@ -60,7 +54,7 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
         : base(owner)
     {
         Canvas = owner;
-        _name = Describe(owner.Tab);
+        _name = ItemDescriptions.DescribeReader(owner.Tab);
 
         // The peer lives as long as its canvas and only references it, so the subscription needs no owner. A new page,
         // page count or tab gives a new name, which is announced when it differs from the one last reported.
@@ -79,7 +73,7 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
             .SwitchMap(static tab => tab is null
                 ? Signal.Return(RxVoid.Default)
                 : tab.Annotations.WhenChanged(static x => x.Selected).AsVoid)
-            .Select(_ => DescribeSelection(Canvas.Tab))
+            .Select(_ => ItemDescriptions.DescribeSelection(Canvas.Tab))
             .Where(help => !string.Equals(help, _help, StringComparison.Ordinal))
             .SubscribeSafe(AnnounceSelection, ErrorTrace.Write);
     }
@@ -95,34 +89,6 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
 
     /// <inheritdoc/>
     public void SetValue(string? value) => throw new InvalidOperationException("The page text cannot be changed.");
-
-    /// <summary>Describes where the reader is, for example "Page 5 of 40", using the document's own page labels.</summary>
-    /// <param name="tab">The tab shown, or <see langword="null"/>.</param>
-    /// <returns>The description.</returns>
-    internal static string Describe(DocumentTabViewModel? tab)
-    {
-        if (tab is not { PageCount: > 0 } shown)
-        {
-            return NoDocumentName;
-        }
-
-        var index = Math.Clamp(shown.CurrentPageIndex, 0, shown.PageCount - 1);
-        return ItemAutomation.DescribePage(shown.GetPageDisplay(index), index, shown.PageCount);
-    }
-
-    /// <summary>Describes the picked annotation, for example "Selected: Rectangle, yellow, on page 2 (Delete removes it, arrow keys move it)".</summary>
-    /// <param name="tab">The tab shown, or <see langword="null"/>.</param>
-    /// <returns>The description, or an empty string when nothing is picked.</returns>
-    internal static string DescribeSelection(DocumentTabViewModel? tab)
-    {
-        if (tab?.Annotations.Selected is not { } picked)
-        {
-            return string.Empty;
-        }
-
-        var action = picked.IsMovable ? "Delete removes it, arrow keys move it" : "Delete removes it";
-        return $"Selected: {AnnotationNames.Get(picked.Kind)}, {AnnotationNames.GetColor(picked.Color)}, on page {picked.PageIndex + 1} ({action})";
-    }
 
     /// <summary>Gets the canvas rectangle of a block on a page.</summary>
     /// <param name="page">The page.</param>
@@ -169,7 +135,7 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
     {
         // A name set on the control wins, as it does for every other control.
         var name = base.GetNameCore();
-        return string.IsNullOrWhiteSpace(name) ? Describe(Canvas.Tab) : name;
+        return string.IsNullOrWhiteSpace(name) ? ItemDescriptions.DescribeReader(Canvas.Tab) : name;
     }
 
     /// <inheritdoc/>

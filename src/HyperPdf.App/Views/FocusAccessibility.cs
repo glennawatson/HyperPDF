@@ -6,7 +6,6 @@ using System.Globalization;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Reading;
 
 namespace HyperPdf.App.Views;

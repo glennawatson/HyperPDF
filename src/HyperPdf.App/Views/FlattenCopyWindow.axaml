@@ -1,5 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.FlattenCopyWindow"
         Title="Save Flattened Copy" Width="680" Height="860" MinWidth="480" MinHeight="560" WindowStartupLocation="CenterOwner"
@@ -14,10 +14,10 @@
     <ScrollViewer Grid.Row="1" Margin="0,8,0,0" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="8">
         <TextBlock Text="What to flatten" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <ListBox x:Name="ScopeList" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenScopes}" AutomationProperties.Name="What to flatten" />
+        <ListBox x:Name="ScopeList" views:ControlHelp.Text="{x:Static help:Descriptions.FlattenScopes}" AutomationProperties.Name="What to flatten" />
         <TextBlock Text="Look to keep" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <ListBox x:Name="LookList" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenLooks}" AutomationProperties.Name="Look to keep" />
-        <CheckBox x:Name="UprightBox" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenUpright}" Content="Save turned pages upright" />
+        <ListBox x:Name="LookList" views:ControlHelp.Text="{x:Static help:Descriptions.FlattenLooks}" AutomationProperties.Name="Look to keep" />
+        <CheckBox x:Name="UprightBox" views:ControlHelp.Text="{x:Static help:Descriptions.FlattenUpright}" Content="Save turned pages upright" />
       </StackPanel>
     </ScrollViewer>
 
@@ -25,22 +25,22 @@
       <TextBlock Text="Progress and summary" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
       <!-- The busy bar and the result bar share one cell, so the layout stays still; only one is visible at a time. -->
       <Grid>
-        <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenProgress}" AutomationProperties.Name="Progress of the copy" />
-        <ProgressBar x:Name="BusyProgress" IsIndeterminate="True" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenProgress}" AutomationProperties.Name="Making the copy" />
+        <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{x:Static help:Descriptions.FlattenProgress}" AutomationProperties.Name="Progress of the copy" />
+        <ProgressBar x:Name="BusyProgress" IsIndeterminate="True" views:ControlHelp.Text="{x:Static help:Descriptions.FlattenProgress}" AutomationProperties.Name="Making the copy" />
       </Grid>
       <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       <TextBlock x:Name="ErrorText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
       <Border BorderThickness="1" Padding="10" Height="160" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenResult}" AutomationProperties.Name="Summary of the copy" />
+          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static help:Descriptions.FlattenResult}" AutomationProperties.Name="Summary of the copy" />
         </ScrollViewer>
       </Border>
     </StackPanel>
 
     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenCancel}" Content="_Cancel" />
-      <Button x:Name="SaveButton" views:ControlHelp.Text="{x:Static views:Descriptions.FlattenSave}" Content="_Save Copy…" IsDefault="True" />
-      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.FlattenCancel}" Content="_Cancel" />
+      <Button x:Name="SaveButton" views:ControlHelp.Text="{x:Static help:Descriptions.FlattenSave}" Content="_Save Copy…" IsDefault="True" />
+      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
     </StackPanel>
   </Grid>
 </Window>

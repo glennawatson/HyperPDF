@@ -1,15 +1,15 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.PromptWindow"
         Width="440" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <StackPanel Margin="20" Spacing="10">
     <TextBlock x:Name="LabelText" />
-    <TextBox x:Name="InputBox" views:ControlHelp.Text="{x:Static views:Descriptions.PromptInput}" MinHeight="32" />
+    <TextBox x:Name="InputBox" views:ControlHelp.Text="{x:Static help:Descriptions.PromptInput}" MinHeight="32" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
-      <Button x:Name="ConfirmButton" views:ControlHelp.Text="{x:Static views:Descriptions.PromptConfirm}" IsDefault="True" />
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />
+      <Button x:Name="ConfirmButton" views:ControlHelp.Text="{x:Static help:Descriptions.PromptConfirm}" IsDefault="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />
     </StackPanel>
   </StackPanel>
 </Window>

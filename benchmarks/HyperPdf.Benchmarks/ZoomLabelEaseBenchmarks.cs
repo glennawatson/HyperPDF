@@ -3,7 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
+#if HYPERPDF_VIEWMODELS_PROJECT
+using HyperPdf.ViewModels.Viewing;
+#else
 using HyperPdf.App.ViewModels;
+#endif
 
 namespace HyperPdf.Benchmarks;
 

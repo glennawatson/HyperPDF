@@ -3,9 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Geometry;
-using HyperPdf.Core.Layout;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Signals;

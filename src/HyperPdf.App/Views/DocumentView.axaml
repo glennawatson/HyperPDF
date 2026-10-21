@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.DocumentView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding, in the views this one is made of. -->
@@ -8,7 +8,7 @@
     <Border x:Name="ReadModeBar" DockPanel.Dock="Top" Classes="toolbar subbar" AutomationProperties.Name="Read mode" AutomationProperties.ControlTypeOverride="ToolBar">
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock x:Name="ReadModeTitle" Classes="secondary" VerticalAlignment="Center" Margin="12,0" TextTrimming="CharacterEllipsis" />
-        <Button Grid.Column="1" AutomationProperties.Name="Leave Read Mode" x:Name="LeaveReadModeButton" views:ControlHelp.Text="{x:Static views:Descriptions.LeaveReadMode}" Classes="tool">
+        <Button Grid.Column="1" AutomationProperties.Name="Leave Read Mode" x:Name="LeaveReadModeButton" views:ControlHelp.Text="{x:Static help:Descriptions.LeaveReadMode}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconDone}" />
             <TextBlock Classes="label" Text="Leave Read Mode" />
@@ -41,7 +41,7 @@
 
     <Grid ColumnDefinitions="Auto,Auto,*">
       <views:SidebarView x:Name="SidebarPane" Grid.Column="0" />
-      <GridSplitter x:Name="SidebarSplitter" views:ControlHelp.Text="{x:Static views:Descriptions.SidebarSplitter}" Grid.Column="1" Width="1" Background="{DynamicResource AppBorderBrush}" />
+      <GridSplitter x:Name="SidebarSplitter" views:ControlHelp.Text="{x:Static help:Descriptions.SidebarSplitter}" Grid.Column="1" Width="1" Background="{DynamicResource AppBorderBrush}" />
       <views:PageCanvasView x:Name="PageArea" Grid.Column="2" AutomationProperties.Name="Pages" AutomationProperties.LandmarkType="Main" />
     </Grid>
   </DockPanel>

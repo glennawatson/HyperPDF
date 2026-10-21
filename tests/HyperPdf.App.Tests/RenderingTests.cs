@@ -10,9 +10,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.Services;
 using HyperPdf.App.Theming;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
@@ -21,6 +19,7 @@ using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Theming;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
@@ -574,13 +573,13 @@ public sealed class RenderingTests
             _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Cache.Count > 0);
 
             _ = await tab.ToggleCaretModeCommand.Execute().ToTask();
-            var started = await UiWait.UntilAsync(() => canvas.Caret == new PageCharacter(0, 0));
+            var started = await UiWait.UntilAsync(() => canvas.Caret == new CharacterPosition(0, 0));
             for (var i = 0; i < CaretSteps; i++)
             {
                 window.KeyPress(Avalonia.Input.Key.Right, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.ArrowRight, null);
             }
 
-            var moved = await UiWait.UntilAsync(() => canvas.Caret == new PageCharacter(0, CaretSteps));
+            var moved = await UiWait.UntilAsync(() => canvas.Caret == new CharacterPosition(0, CaretSteps));
             window.KeyPress(Avalonia.Input.Key.Down, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.ArrowDown, null);
             var down = await UiWait.UntilAsync(() => canvas.Caret.Char > HeadingLength);
             using var frame = window.CaptureRenderedFrame();

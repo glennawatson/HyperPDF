@@ -3,9 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using Avalonia.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Signatures.Signing;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

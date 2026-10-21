@@ -1,23 +1,23 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TabsMenuView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TabsMenuView.axaml.cs). -->
-  <Button AutomationProperties.Name="Tabs and settings" x:Name="TabsMenuButton" views:ControlHelp.Text="{x:Static views:Descriptions.TabsMenu}" Classes="tool" Content="Tabs &amp; settings ▾" Margin="0,0,4,0">
+  <Button AutomationProperties.Name="Tabs and settings" x:Name="TabsMenuButton" views:ControlHelp.Text="{x:Static help:Descriptions.TabsMenu}" Classes="tool" Content="Tabs &amp; settings ▾" Margin="0,0,4,0">
     <Button.Flyout>
       <MenuFlyout Placement="BottomEdgeAlignedRight">
-        <MenuItem x:Name="OpenMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.Open}" Header="_Open…" InputGesture="Ctrl+O" />
-        <MenuItem x:Name="RecentMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.OpenRecent}" Header="Open _Recent" />
+        <MenuItem x:Name="OpenMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.Open}" Header="_Open…" InputGesture="Ctrl+O" />
+        <MenuItem x:Name="RecentMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.OpenRecent}" Header="Open _Recent" />
         <MenuItem x:Name="ClearRecentMenuItem" views:ControlHelp.Text="Remove recent PDFs without deleting files. On Linux, this also clears the desktop's shared recent PDF list." Header="Clear Recent List" />
-        <MenuItem x:Name="NewWindowMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.NewWindow}" Header="_New Window" InputGesture="Ctrl+N" />
-        <MenuItem x:Name="ReopenMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.ReopenClosedTabs}" Header="_Reopen Closed Tabs" InputGesture="Ctrl+Shift+T" />
-        <MenuItem x:Name="SearchFolderMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.SearchFolder}" Header="_Search in Folder…" InputGesture="Ctrl+Shift+F" />
+        <MenuItem x:Name="NewWindowMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.NewWindow}" Header="_New Window" InputGesture="Ctrl+N" />
+        <MenuItem x:Name="ReopenMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.ReopenClosedTabs}" Header="_Reopen Closed Tabs" InputGesture="Ctrl+Shift+T" />
+        <MenuItem x:Name="SearchFolderMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.SearchFolder}" Header="_Search in Folder…" InputGesture="Ctrl+Shift+F" />
         <Separator />
-        <MenuItem x:Name="PageToneMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.ComfortPageColour}" Header="_Comfort Page Colour" InputGesture="Ctrl+I" ToggleType="CheckBox" />
-        <MenuItem x:Name="PreferencesMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.Preferences}" Header="_Preferences…" InputGesture="Ctrl+OemComma" />
-        <MenuItem x:Name="LicencesMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.Licences}" Header="About and _Licences…" />
+        <MenuItem x:Name="PageToneMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.ComfortPageColour}" Header="_Comfort Page Colour" InputGesture="Ctrl+I" ToggleType="CheckBox" />
+        <MenuItem x:Name="PreferencesMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.Preferences}" Header="_Preferences…" InputGesture="Ctrl+OemComma" />
+        <MenuItem x:Name="LicencesMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.Licences}" Header="About and _Licences…" />
         <Separator />
-        <MenuItem x:Name="CloseAllMenuItem" views:ControlHelp.Text="{x:Static views:Descriptions.CloseAllTabs}" Header="Close _All Tabs" />
+        <MenuItem x:Name="CloseAllMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.CloseAllTabs}" Header="Close _All Tabs" />
       </MenuFlyout>
     </Button.Flyout>
   </Button>

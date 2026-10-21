@@ -2,9 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Rendering;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

@@ -1,5 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.RedactionWindow"
         Title="Apply Redactions" Width="640" Height="920" MinWidth="480" MinHeight="600" WindowStartupLocation="CenterOwner"
@@ -18,34 +18,34 @@
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
       <StackPanel Spacing="12" Margin="0,0,12,0">
         <TextBlock Text="Pictures under a mark" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <ListBox x:Name="ImageList" views:ControlHelp.Text="{x:Static views:Descriptions.RedactImages}" AutomationProperties.Name="Pictures under a mark" />
+        <ListBox x:Name="ImageList" views:ControlHelp.Text="{x:Static help:Descriptions.RedactImages}" AutomationProperties.Name="Pictures under a mark" />
 
         <TextBlock Text="Drawings under a mark" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <ListBox x:Name="LineArtList" views:ControlHelp.Text="{x:Static views:Descriptions.RedactLineArt}" AutomationProperties.Name="Drawings under a mark" />
+        <ListBox x:Name="LineArtList" views:ControlHelp.Text="{x:Static help:Descriptions.RedactLineArt}" AutomationProperties.Name="Drawings under a mark" />
 
         <TextBlock Text="Other things under a mark" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <CheckBox x:Name="HiddenTextBox" views:ControlHelp.Text="{x:Static views:Descriptions.RedactHiddenText}" Content="Remove hidden text, such as a scan's text layer" />
-        <CheckBox x:Name="LinksBox" views:ControlHelp.Text="{x:Static views:Descriptions.RedactLinks}" Content="Remove links, comments and form fields" />
-        <CheckBox x:Name="MetadataBox" views:ControlHelp.Text="{x:Static views:Descriptions.RedactMetadata}" Content="Remove the document information and metadata" />
+        <CheckBox x:Name="HiddenTextBox" views:ControlHelp.Text="{x:Static help:Descriptions.RedactHiddenText}" Content="Remove hidden text, such as a scan's text layer" />
+        <CheckBox x:Name="LinksBox" views:ControlHelp.Text="{x:Static help:Descriptions.RedactLinks}" Content="Remove links, comments and form fields" />
+        <CheckBox x:Name="MetadataBox" views:ControlHelp.Text="{x:Static help:Descriptions.RedactMetadata}" Content="Remove the document information and metadata" />
       </StackPanel>
     </ScrollViewer>
 
     <StackPanel Grid.Row="2" Spacing="4" Margin="0,12,0,0">
-      <CheckBox x:Name="UnderstandBox" views:ControlHelp.Text="{x:Static views:Descriptions.RedactConfirm}" Content="I understand that removed content cannot be brought back after I save" />
-      <ProgressBar x:Name="RunProgress" IsIndeterminate="False" Minimum="0" Maximum="1" views:ControlHelp.Text="{x:Static views:Descriptions.RedactProgress}" AutomationProperties.Name="Progress of the redaction" />
+      <CheckBox x:Name="UnderstandBox" views:ControlHelp.Text="{x:Static help:Descriptions.RedactConfirm}" Content="I understand that removed content cannot be brought back after I save" />
+      <ProgressBar x:Name="RunProgress" IsIndeterminate="False" Minimum="0" Maximum="1" views:ControlHelp.Text="{x:Static help:Descriptions.RedactProgress}" AutomationProperties.Name="Progress of the redaction" />
       <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       <TextBlock x:Name="ErrorText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
       <Border x:Name="ResultBox" BorderThickness="1" Padding="10" Height="100" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static views:Descriptions.RedactResult}" AutomationProperties.Name="Summary of the redaction" />
+          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static help:Descriptions.RedactResult}" AutomationProperties.Name="Summary of the redaction" />
         </ScrollViewer>
       </Border>
     </StackPanel>
 
     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.RedactCancel}" Content="_Cancel" />
-      <Button x:Name="ApplyButton" views:ControlHelp.Text="{x:Static views:Descriptions.RedactApply}" Content="_Apply and Save As…" IsDefault="True" />
-      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.RedactCancel}" Content="_Cancel" />
+      <Button x:Name="ApplyButton" views:ControlHelp.Text="{x:Static help:Descriptions.RedactApply}" Content="_Apply and Save As…" IsDefault="True" />
+      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
     </StackPanel>
   </Grid>
 </Window>

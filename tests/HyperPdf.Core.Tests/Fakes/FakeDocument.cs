@@ -10,6 +10,9 @@ namespace HyperPdf.Core.Tests.Fakes;
 /// <summary>A document whose pages are filled with a grey level equal to the page index, with optional render gating.</summary>
 internal sealed class FakeDocument : IDocument
 {
+    /// <summary>The side of each character cell when the text is laid out in a grid.</summary>
+    private const float CellSize = 10F;
+
     /// <summary>The page sizes.</summary>
     private readonly PageSize[] _sizes;
 
@@ -60,6 +63,9 @@ internal sealed class FakeDocument : IDocument
 
     /// <summary>Gets or sets the text of every page.</summary>
     internal string PageText { get; set; } = "alpha beta alpha";
+
+    /// <summary>Gets or sets how many characters fill each line; when above zero the text is laid out in a grid of square cells, line after line.</summary>
+    internal int LineLength { get; set; }
 
     /// <summary>Gets or sets a function giving each page its own text; when null every page uses <see cref="PageText"/>.</summary>
     internal Func<int, string>? PageTextFor { get; set; }
@@ -117,13 +123,32 @@ internal sealed class FakeDocument : IDocument
     public int GetCharacterCount(int pageIndex) => TextOf(pageIndex).Length;
 
     /// <inheritdoc/>
-    public int GetCharacterIndexAt(int pageIndex, PagePoint point, float tolerance) => -1;
+    public int GetCharacterIndexAt(int pageIndex, PagePoint point, float tolerance)
+    {
+        if (LineLength <= 0 || point.X < 0 || point.Y < 0)
+        {
+            return -1;
+        }
+
+        var found = ((int)(point.Y / CellSize) * LineLength) + (int)(point.X / CellSize);
+        return (int)(point.X / CellSize) < LineLength && found < GetCharacterCount(pageIndex) ? found : -1;
+    }
 
     /// <inheritdoc/>
     public string GetText(int pageIndex, int start, int count) => TextOf(pageIndex).Substring(start, count);
 
     /// <inheritdoc/>
-    public void GetTextBounds(int pageIndex, int start, int count, List<PageRect> output) => output.Add(new(start, 0, count, 1));
+    public void GetTextBounds(int pageIndex, int start, int count, List<PageRect> output)
+    {
+        if (LineLength <= 0)
+        {
+            output.Add(new(start, 0, count, 1));
+            return;
+        }
+
+        var row = Math.DivRem(start, LineLength, out var column);
+        output.Add(new(column * CellSize, row * CellSize, CellSize, CellSize));
+    }
 
     /// <inheritdoc/>
     public IReadOnlyList<PageLink> GetLinks(int pageIndex) => [];

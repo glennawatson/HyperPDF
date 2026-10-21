@@ -5,7 +5,6 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Printing;
 using ReactiveUI;
 using ReactiveUI.Binding;

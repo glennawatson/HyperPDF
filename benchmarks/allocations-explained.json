@@ -4163,5 +4163,20 @@
     "type": "System.Int32[]",
     "frame": "HyperPdfLibrary.Optimizing.FontSubsetPlanner.FindPrograms",
     "reason": "The tables of the plan (fonts per program, glyphs per font, programs to cut) are built once for each optimise call on a freshly opened document. They live in the plan state, which the document's services keep and reuse for later calls on the same services."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.ViewModels.Reading.TextSelection.GetText",
+    "reason": "The text of each selected page comes from the document's string API, and the joined text is the returned result that the caller copies to the clipboard. This runs once per copy, not per frame, and a one page selection returns the document's own string with no copy."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdf.ViewModels.Reading.TextSelection.GetText",
+    "reason": "The list of page strings is joined once into the result. It is a few bytes per copy action and replaces a text buffer that was many times larger."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.String]",
+    "frame": "HyperPdf.ViewModels.Reading.TextSelection.GetText",
+    "reason": "The list holds one string for each selected page until they are joined, once per copy action."
   }
 ]

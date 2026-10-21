@@ -1,5 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.Pdf20CopyWindow"
         Title="Save as PDF 2.0 Copy" Width="640" Height="560" MinWidth="480" MinHeight="420" WindowStartupLocation="CenterOwner"
@@ -15,22 +15,22 @@
       <TextBlock Text="Progress and summary" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
       <!-- The busy bar and the result bar share one cell, so the layout stays still; only one is visible at a time. -->
       <Grid>
-        <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{x:Static views:Descriptions.Pdf20Progress}" AutomationProperties.Name="Progress of the copy" />
-        <ProgressBar x:Name="BusyProgress" IsIndeterminate="True" views:ControlHelp.Text="{x:Static views:Descriptions.Pdf20Progress}" AutomationProperties.Name="Making the copy" />
+        <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{x:Static help:Descriptions.Pdf20Progress}" AutomationProperties.Name="Progress of the copy" />
+        <ProgressBar x:Name="BusyProgress" IsIndeterminate="True" views:ControlHelp.Text="{x:Static help:Descriptions.Pdf20Progress}" AutomationProperties.Name="Making the copy" />
       </Grid>
       <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       <TextBlock x:Name="ErrorText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
       <Border BorderThickness="1" Padding="10" MinHeight="160" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static views:Descriptions.Pdf20Result}" AutomationProperties.Name="Summary of the copy" />
+          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static help:Descriptions.Pdf20Result}" AutomationProperties.Name="Summary of the copy" />
         </ScrollViewer>
       </Border>
     </StackPanel>
 
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static views:Descriptions.Pdf20Cancel}" Content="_Cancel" />
-      <Button x:Name="SaveButton" views:ControlHelp.Text="{x:Static views:Descriptions.Pdf20Save}" Content="_Save Copy…" IsDefault="True" />
-      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.Pdf20Cancel}" Content="_Cancel" />
+      <Button x:Name="SaveButton" views:ControlHelp.Text="{x:Static help:Descriptions.Pdf20Save}" Content="_Save Copy…" IsDefault="True" />
+      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
     </StackPanel>
   </Grid>
 </Window>

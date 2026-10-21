@@ -37,8 +37,8 @@ public sealed class TileBatchPresentationTests
     [Test]
     public async Task BatchesOfTheSameTilesAndBoundsAreEqual()
     {
-        var first = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability());
-        var second = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability());
+        var first = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
+        var second = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
         var origin = new Rect(0, 0, TileSide, TileSide);
         var beside = new Rect(TileStep, 0, TileSide, TileSide);
         using var one = Create(new TileDraw(first, origin, false), new TileDraw(second, beside, false));
@@ -67,7 +67,7 @@ public sealed class TileBatchPresentationTests
     [Test]
     public async Task DisposedBatchIsNotEqual()
     {
-        var tile = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability());
+        var tile = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
         var bounds = new Rect(0, 0, TileSide, TileSide);
         var disposed = Create(new TileDraw(tile, bounds, false));
         using var live = Create(new TileDraw(tile, bounds, false));
@@ -87,8 +87,8 @@ public sealed class TileBatchPresentationTests
     [Test]
     public async Task EvictedTilesAreReleasedExactlyOnceWhenTheBatchIsDisposed()
     {
-        var kept = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability());
-        var evicted = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability());
+        var kept = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
+        var evicted = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
         var operation = Create(new TileDraw(kept, new(0, 0, TileSide, TileSide), false), new TileDraw(evicted, new(TileStep, 0, TileSide, TileSide), false));
 
         evicted.Dispose();
@@ -167,7 +167,7 @@ public sealed class TileBatchPresentationTests
     /// <returns>The prepared tile.</returns>
     private static GpuPreparedRenderSurface Prepared(IDocument document, GpuAvailability availability, int index)
     {
-        var tile = new GpuPreparedRenderSurface(TileSide, TileSide, availability);
+        var tile = new GpuPreparedRenderSurface(TileSide, TileSide, availability, TestTiles.Software);
         var client = new RenderClient();
         var tone = PageTone.None;
         var request = new RenderRequest(
