@@ -18,7 +18,8 @@ Each entry point targets .NET 11. Files named `*Builder.cs` and `ScriptProcess.c
 | Extract the Isartor PDF/A test files | `ExtractIsartorSuite.cs` |
 | Refresh generated lookup tables | `KnownNameTableGenerator.cs`, `UnicodeTextTableGenerator.cs`, `JpxHtTableGenerator.cs` |
 | Refresh the PDF/UA, tagged PDF, Well-Tagged PDF and WCAG rule table from veraPDF's profile files | `StandardsRuleTableGenerator.cs <folder of PDF_UA profile XML files>` |
-| Refresh dependency notices | `GenerateThirdPartyNotices.cs` |
+| Refresh dependency notices for every project (`.github/workflows/refresh-notices.yml` runs it with `--push` on Renovate pull requests) | `RefreshThirdPartyNotices.cs [--push]` |
+| Write one notices file from chosen assets files | `GenerateThirdPartyNotices.cs` |
 
 The tests that compare the PDF/UA, parent-child and WCAG rule reports with veraPDF's own profiles read the profile XML files (CC BY 4.0, from `veraPDF-validation-profiles`, folder `PDF_UA`) from the folder named by `HYPERPDF_VERAPDF_PROFILES`, and veraPDF's PDF/UA test files from `HYPERPDF_VERAPDF_TEST_FILES`. Without them the tests skip.
 

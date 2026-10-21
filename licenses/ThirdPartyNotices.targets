@@ -2,9 +2,10 @@
   <!--
     Embeds the project's checked-in third-party notices (licenses/notices/<project>.md) as the resource named in
     NoticesResourceName. The files are generated, not written by hand: after a package or component change, run
-    scripts/GenerateThirdPartyNotices.cs (its header gives the arguments) with the project's assets file and the
-    components listed in the project's NoticesComponents. Shared app notices need assets-file inputs covering all
-    supported runtime packages, not just the current host's native OCR package. Generating during the build is avoided on purpose:
+    scripts/RefreshThirdPartyNotices.cs, which restores each project (the app once per supported Tesseract runtime) and
+    calls scripts/GenerateThirdPartyNotices.cs with the project's assets files and the components listed in the project's
+    NoticesComponents. On Renovate pull requests the refresh-notices workflow does this and pushes the result.
+    Generating during the build is avoided on purpose:
     multi-target and solution builds would run the script concurrently and race on its output. A test fails when a
     shipped package is missing from the notices, so a stale file is caught.
   -->

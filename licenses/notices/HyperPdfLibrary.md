@@ -215,22 +215,23 @@ SOFTWARE.
 
 ## Apache-2.0 AND OFL-1.1
 
-### Open font pack (Arimo, Tinos, Cousine and Noto symbols)
-- Version: Google Fonts commits 62e55e586fc0c29d428ee47b7c359cd33143f93d (Tinos, Cousine, Noto) and 89ade4fa7b7663aec69d3202d2eefd928e78c467 (Arimo)
-- Origin: Embedded in the library assembly, cut down to the standard fonts' characters; never downloaded
+### Open font pack (Arimo, Tinos, Cousine, Noto symbols and Noto Emoji)
+- Version: Google Fonts commits 62e55e586fc0c29d428ee47b7c359cd33143f93d (Tinos, Cousine, Noto), 89ade4fa7b7663aec69d3202d2eefd928e78c467 (Arimo) and Noto Emoji 2.048
+- Origin: Embedded in the library assembly; never downloaded
 - Copyright: Copyright the font authors; see the font notices.
 - Link: https://github.com/google/fonts
 
 ````text
 These font programs are embedded in the HyperPdfLibrary assembly. Nothing is downloaded. Arimo, Tinos and Cousine are
-compatible substitutes for the sans, serif and fixed-pitch standard fonts. Noto Sans Math and Noto Sans Symbols 2
-supply the Symbol and ZapfDingbats glyphs.
+compatible substitutes for the sans, serif and fixed-pitch standard fonts. Noto Sans Math, Noto Sans Symbols 2 and Noto
+Emoji supply the Symbol, ZapfDingbats and monochrome emoji fallback glyphs.
 
-The embedded copies are modified, as the licences below allow: each was cut down to the characters the standard fonts
-and their usual substitutes need (Basic Latin, Latin-1, Latin Extended-A and -B, Greek, Cyrillic, Hebrew, Vietnamese,
-punctuation, currency, arrows, mathematical operators, box drawing and geometric shapes; the symbol faces to the
-characters of Symbol and ZapfDingbats), then compressed. Glyph outlines, metrics and names of the kept characters are
-unchanged. None of these fonts declares a Reserved Font Name, so the copies keep the original names.
+The embedded copies are modified or compressed, as the licences below allow: the text and symbol faces were cut down to
+the characters the standard fonts and their usual substitutes need (Basic Latin, Latin-1, Latin Extended-A and -B, Greek,
+Cyrillic, Hebrew, Vietnamese, punctuation, currency, arrows, mathematical operators, box drawing and geometric shapes; the
+symbol faces to the characters of Symbol and ZapfDingbats), and all faces are compressed. Glyph outlines, metrics and
+names of the kept characters are unchanged. None of these fonts declares a Reserved Font Name, so the copies keep the
+original names.
 
 Arimo notice:
 
@@ -449,6 +450,10 @@ Noto Sans Symbols 2 notice:
 
 Copyright 2022 The Noto Project Authors (https://github.com/notofonts/symbols)
 
+Noto Emoji notice:
+
+Copyright 2013-2026 Google LLC (https://github.com/googlefonts/noto-emoji)
+
 Tinos notice:
 
 Copyright 2026 The Tinos Project Authors (https://github.com/googlefonts/tinos)
@@ -457,7 +462,7 @@ Cousine notice:
 
 Copyright 2026 The Cousine Project Authors (https://github.com/googlefonts/cousine)
 
-SIL Open Font License for Noto Sans Math, Noto Sans Symbols 2, Tinos and Cousine:
+SIL Open Font License for Noto Sans Math, Noto Sans Symbols 2, Noto Emoji, Tinos and Cousine:
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
@@ -601,7 +606,7 @@ The engine builds and caches only the requested mappings. No CMap data is includ
 
 ### veraPDF validation profile rule descriptions
 - Version: veraPDF-validation-profiles commit 070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8
-- Origin: Rule descriptions and clause numbers copied into HyperPdfLibrary's PDF/A rule table
+- Origin: Rule descriptions and clause numbers copied into HyperPdfLibrary's PDF/A rule table and its PDF/UA, tagged PDF, Well-Tagged PDF and WCAG standards rule table
 - Copyright: Copyright 2015 veraPDF Consortium.
 - Link: https://github.com/veraPDF/veraPDF-validation-profiles/tree/070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8/PDF_A
 
@@ -615,8 +620,14 @@ https://creativecommons.org/licenses/by/4.0/
 
 HyperPdfLibrary uses the PDF/A rule descriptions, clause numbers and test numbers from the PDF_A profiles at commit
 070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8. Changes: rules that the profiles repeat across PDF/A parts are merged
-into one entry, and each description ends with a full stop. The rule checks are HyperPdfLibrary's own code; no
-veraPDF software is included.
+into one entry, and each description ends with a full stop.
+
+It also uses the rule descriptions, clause numbers, test numbers and tags from the PDF_UA profiles (PDF/UA-1, PDF/UA-2,
+the tagged PDF, ISO/TS 32005, Well-Tagged PDF and WCAG 2.2 profiles) at the same commit. Changes: rules that several
+profiles repeat are merged into one entry that records which profiles hold it, and white space in descriptions is
+collapsed.
+
+The rule checks are HyperPdfLibrary's own code; no veraPDF software is included.
 ````
 
 ## Unicode-3.0
