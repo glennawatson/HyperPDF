@@ -304,7 +304,7 @@ SOFTWARE.
 ````
 
 ### FFmpeg.AutoGen.Abstractions
-- Version: 8.1.0
+- Version: 9.0.1.1
 - Origin: NuGet package
 - Copyright: Copyright © Ruslan Balanukhin 2025 All rights reserved.
 - Link: https://github.com/Ruslan-B/FFmpeg.AutoGen
@@ -334,7 +334,7 @@ SOFTWARE.
 ````
 
 ### FFmpeg.AutoGen.Bindings.DynamicallyLinked
-- Version: 8.1.0
+- Version: 9.0.1.1
 - Origin: NuGet package
 - Copyright: Copyright © Ruslan Balanukhin 2025 All rights reserved.
 - Link: https://github.com/Ruslan-B/FFmpeg.AutoGen
