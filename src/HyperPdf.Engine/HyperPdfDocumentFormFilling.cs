@@ -30,13 +30,17 @@ internal static class HyperPdfDocumentFormFilling
             return;
         }
 
-        var page = PdfDocumentPages.GetPage(self.Document, pageIndex);
-        List<PdfFormWidget> widgets = [];
-        PdfFormReading.GetWidgets(PdfDocumentForms.GetForm(self.Document), pageIndex, widgets);
-        foreach (var widget in widgets)
+        // The stamp is read before the fields are: an edit that lands during the read moves the version on, so the result is not reused.
+        var version = Volatile.Read(ref self.EditVersion);
+        var snapshot = GetSnapshot(self, version);
+        var fields = Volatile.Read(ref snapshot.Pages[pageIndex]);
+        if (fields is null)
         {
-            output.Add(HyperPdfForms.ToField(widget, page));
+            fields = ReadFields(self, pageIndex);
+            fields = Interlocked.CompareExchange(ref snapshot.Pages[pageIndex], fields, null) ?? fields;
         }
+
+        output.AddRange(fields);
     }
 
     /// <summary>Replaces the text of a text field.</summary>
@@ -89,5 +93,44 @@ internal static class HyperPdfDocumentFormFilling
                 self,
                 PdfFormEditing.SelectOption(PdfDocumentForms.GetForm(self.Document), pageIndex, index, option));
         }
+    }
+
+    /// <summary>Gets the field cache for an edit version, replacing one read at an older version.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="version">The edit version read before the fields.</param>
+    /// <returns>The cache, or an unshared one when a newer version is already published.</returns>
+    private static FormFieldPages GetSnapshot(HyperPdfDocument self, long version)
+    {
+        var current = Volatile.Read(ref self.FormFields);
+        if (current is not null && current.Version == version && current.Pages.Length == self.PageCount)
+        {
+            return current;
+        }
+
+        FormFieldPages fresh = new(version, new FormField[]?[self.PageCount]);
+        if (current is null || current.Version < version || current.Pages.Length != self.PageCount)
+        {
+            _ = Interlocked.CompareExchange(ref self.FormFields, fresh, current);
+        }
+
+        return fresh;
+    }
+
+    /// <summary>Reads a page's form fields from the document.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <returns>The fields.</returns>
+    private static FormField[] ReadFields(HyperPdfDocument self, int pageIndex)
+    {
+        var page = PdfDocumentPages.GetPage(self.Document, pageIndex);
+        List<PdfFormWidget> widgets = [];
+        PdfFormReading.GetWidgets(PdfDocumentForms.GetForm(self.Document), pageIndex, widgets);
+        var fields = new FormField[widgets.Count];
+        for (var i = 0; i < fields.Length; i++)
+        {
+            fields[i] = HyperPdfForms.ToField(widgets[i], page);
+        }
+
+        return fields;
     }
 }

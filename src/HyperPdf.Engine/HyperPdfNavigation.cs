@@ -117,8 +117,18 @@ internal static class HyperPdfNavigation
         var links = Volatile.Read(ref cache[pageIndex]);
         if (links is null)
         {
+            var version = Volatile.Read(ref self.EditVersion);
             links = HyperPdfNavigation.ReadLinks(self, pageIndex);
-            Volatile.Write(ref cache[pageIndex], links);
+            if (Interlocked.CompareExchange(ref cache[pageIndex], links, null) is { } published)
+            {
+                return published;
+            }
+
+            // An edit that ran during the read moves the version before it drops the page's links, so a stale list is taken back out.
+            if (Volatile.Read(ref self.EditVersion) != version)
+            {
+                _ = Interlocked.CompareExchange(ref cache[pageIndex], null, links);
+            }
         }
 
         return links;
