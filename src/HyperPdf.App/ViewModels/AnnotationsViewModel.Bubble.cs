@@ -112,23 +112,26 @@ public sealed partial class AnnotationsViewModel
 
         _scratch.Clear();
         editor.GetAnnotations(page, _scratch);
-        for (var i = _scratch.Count - 1; i >= 0; i--)
-        {
-            var candidate = _scratch[i];
-            if (!HasCommentBadge(candidate))
-            {
-                continue;
-            }
+        return FindBadge(_scratch, point);
+    }
 
-            var badge = CommentBadgeBounds(candidate);
-            var grown = PageRect.FromEdges(badge.Left - HitTolerance, badge.Top - HitTolerance, badge.Right + HitTolerance, badge.Bottom + HitTolerance);
-            if (grown.Contains(point))
-            {
-                return candidate;
-            }
+    /// <summary>
+    /// Determines whether a point is over a sticky note or a comment badge. The page's annotations are read once for both
+    /// tests, and a page with none answers at once.
+    /// </summary>
+    /// <param name="page">The zero-based page index.</param>
+    /// <param name="point">The point in page space.</param>
+    /// <returns><see langword="true"/> when over a note or a comment badge.</returns>
+    public bool IsOverCommentTrigger(int page, PagePoint point)
+    {
+        if (Editor is not { } editor)
+        {
+            return false;
         }
 
-        return null;
+        _scratch.Clear();
+        editor.GetAnnotations(page, _scratch);
+        return _scratch.Count > 0 && (FindBadge(_scratch, point) is not null || FindHit(_scratch, point) is { Kind: AnnotationKind.Note });
     }
 
     /// <summary>Opens the on-page comment bubble for an existing annotation.</summary>
@@ -275,6 +278,31 @@ public sealed partial class AnnotationsViewModel
 
         CloseBubble();
         Delete(annotation);
+    }
+
+    /// <summary>Finds a commented annotation whose badge is under a point, topmost first.</summary>
+    /// <param name="annotations">The annotations on the page.</param>
+    /// <param name="point">The point in page space.</param>
+    /// <returns>The annotation whose badge was hit, or <see langword="null"/>.</returns>
+    private static PageAnnotation? FindBadge(List<PageAnnotation> annotations, PagePoint point)
+    {
+        for (var i = annotations.Count - 1; i >= 0; i--)
+        {
+            var candidate = annotations[i];
+            if (!HasCommentBadge(candidate))
+            {
+                continue;
+            }
+
+            var badge = CommentBadgeBounds(candidate);
+            var grown = PageRect.FromEdges(badge.Left - HitTolerance, badge.Top - HitTolerance, badge.Right + HitTolerance, badge.Bottom + HitTolerance);
+            if (grown.Contains(point))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Refreshes the open bubble when its annotation changed on the page.</summary>
