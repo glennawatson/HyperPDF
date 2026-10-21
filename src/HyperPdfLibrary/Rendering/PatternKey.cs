@@ -12,5 +12,6 @@ namespace HyperPdfLibrary.Rendering;
 /// <param name="Rgb">The colour of an uncoloured pattern, otherwise zero.</param>
 /// <param name="ScaleBucket">The power of two at or above the page units one pattern unit spans.</param>
 /// <param name="Mode">The layer version, layer zoom class and print mode the cell was recorded under.</param>
-[DebuggerDisplay("PatternKey: {Rgb:X6} scale 2^{ScaleBucket}")]
-internal readonly record struct PatternKey(PdfDictionary Pattern, uint Rgb, int ScaleBucket, RecordingMode Mode);
+/// <param name="Oversample">How many pixels per device pixel the cell's period is rasterised at, chosen from the page's zoom band.</param>
+[DebuggerDisplay("PatternKey: {Rgb:X6} scale 2^{ScaleBucket} oversample {Oversample}")]
+internal readonly record struct PatternKey(PdfDictionary Pattern, uint Rgb, int ScaleBucket, RecordingMode Mode, int Oversample);

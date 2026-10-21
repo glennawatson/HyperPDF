@@ -36,7 +36,7 @@ internal sealed class TileComposer
     /// <param name="box">The pattern's /BBox.</param>
     /// <param name="stepX">The horizontal step, not zero.</param>
     /// <param name="stepY">The vertical step, not zero.</param>
-    /// <param name="scale">The page units one pattern unit spans where the pattern is used.</param>
+    /// <param name="scale">The page units one pattern unit spans where the pattern is used, already reduced for low zoom pages so the period is not finer than the page shows.</param>
     /// <returns>The period; the caller owns it.</returns>
     internal PatternCell Compose(SKPicture cell, PdfRectangle box, float stepX, float stepY, float scale)
     {

@@ -50,6 +50,12 @@ public sealed class GlyphMaskCacheTests
     /// <summary>The masks the draws of different choices make: plain, contrast, sharp, LCD and another glyph.</summary>
     private const int DifferentMasks = 5;
 
+    /// <summary>A field value that differs from the 1 the test key holds.</summary>
+    private const int OtherValue = 2;
+
+    /// <summary>A text colour that differs from the 0 the test key holds.</summary>
+    private const uint OtherColor = 0xFF0000;
+
     /// <summary>The colour the test text is drawn in.</summary>
     private static readonly SKColor Ink = SKColors.Black;
 
@@ -209,6 +215,62 @@ public sealed class GlyphMaskCacheTests
         await Assert.That(first).IsTrue();
         await Assert.That(second).IsTrue();
         await Assert.That(masks.Count).IsEqualTo(1);
+    }
+
+    /// <summary>Verifies that equal keys hash alike and that each field changes the key's identity.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task Key_HashesAndComparesByEveryField()
+    {
+        var owner = new object();
+        var key = new GlyphMaskKey(owner, 1, 1, 1, 1, 1, 1, 1, 1, GlyphMaskEdges.Smooth, 1, 0);
+        var same = key with { };
+        GlyphMaskKey[] variants =
+        [
+            key with { Owner = new() },
+            key with { Code = OtherValue },
+            key with { A = OtherValue },
+            key with { B = OtherValue },
+            key with { C = OtherValue },
+            key with { D = OtherValue },
+            key with { Shift = OtherValue },
+            key with { SubX = OtherValue },
+            key with { SubY = OtherValue },
+            key with { Edges = GlyphMaskEdges.Lcd },
+            key with { Contrast = OtherValue },
+            key with { Color = OtherColor },
+        ];
+
+        await Assert.That(same).IsEqualTo(key);
+        await Assert.That(same.GetHashCode()).IsEqualTo(key.GetHashCode());
+        foreach (var variant in variants)
+        {
+            await Assert.That(variant.Equals(key)).IsFalse();
+            await Assert.That(variant.GetHashCode()).IsNotEqualTo(key.GetHashCode());
+        }
+    }
+
+    /// <summary>Verifies that a second device finds a mask the first made, and that its own repeats are found without making another.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DeviceMemo_ReturnsTheSharedMask()
+    {
+        var masks = new SkiaGlyphMasks();
+        var font = new object();
+        _ = Draw(masks, font, Column, Row, Plain);
+        var key = new GlyphMaskKey(font, 1, 0, 0, 0, 0, 0, 0, 0, GlyphMaskEdges.Smooth, 0, 0);
+        var memo = new GlyphMaskMemo();
+        using var bitmap = new SKBitmap(new(1, 1, SKColorType.Alpha8, SKAlphaType.Premul));
+        using var image = SKImage.FromBitmap(bitmap);
+
+        var missing = memo.TryGet(masks, key, out _);
+        var added = memo.Add(masks, key, new(image, null, 0, 0, 1));
+        var found = memo.TryGet(masks, key, out var again);
+
+        await Assert.That(missing).IsFalse();
+        await Assert.That(found).IsTrue();
+        await Assert.That(again).IsSameReferenceAs(added);
+        await Assert.That(masks.Count).IsEqualTo(TwoMasks);
     }
 
     /// <summary>Draws a round glyph from a mask.</summary>
