@@ -182,6 +182,85 @@ public sealed class TileCacheTests
         await Assert.That(cache.PreviewBytes).IsEqualTo(TileBytes);
     }
 
+    /// <summary>Verifies a tile that keeps being looked up survives repeated eviction while untouched tiles go.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task HotTileSurvivesRepeatedEviction()
+    {
+        const int added = 10;
+        using var cache = new TileCache(TileBytes * Capacity);
+        cache.Add(Key(1, 0), new FakeSurface(Edge, Edge));
+        for (var i = 1; i < added; i++)
+        {
+            _ = cache.TryGet(Key(1, 0), out _);
+            cache.Add(Key(1, i), new FakeSurface(Edge, Edge));
+        }
+
+        await Assert.That(cache.Count).IsEqualTo(Capacity);
+        await Assert.That(cache.Contains(Key(1, 0))).IsTrue();
+        await Assert.That(cache.Contains(Key(1, added - 1))).IsTrue();
+        await Assert.That(cache.CurrentBytes).IsEqualTo(TileBytes * Capacity);
+    }
+
+    /// <summary>Verifies the cache still evicts when every tile has been looked up.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task EvictsWhenEveryTileWasLookedUp()
+    {
+        using var cache = new TileCache(TileBytes * Capacity);
+        for (var i = 0; i < Capacity; i++)
+        {
+            cache.Add(Key(1, i), new FakeSurface(Edge, Edge));
+            _ = cache.TryGet(Key(1, i), out _);
+        }
+
+        cache.Add(Key(1, Capacity), new FakeSurface(Edge, Edge));
+
+        await Assert.That(cache.Count).IsEqualTo(Capacity);
+        await Assert.That(cache.CurrentBytes).IsEqualTo(TileBytes * Capacity);
+        await Assert.That(cache.Contains(Key(1, Capacity))).IsTrue();
+    }
+
+    /// <summary>Verifies a lookup reports misses and hits with the stored surface.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TryGetReturnsStoredSurfaceOnlyForCachedKeys()
+    {
+        using var cache = new TileCache(TileBytes * Capacity);
+        var surface = new FakeSurface(Edge, Edge);
+        cache.Add(Key(1, 0), surface);
+
+        await Assert.That(cache.TryGet(Key(1, 0), out var found)).IsTrue();
+        await Assert.That(found).IsSameReferenceAs(surface);
+        await Assert.That(cache.TryGet(Key(1, 1), out _)).IsFalse();
+    }
+
+    /// <summary>Verifies removing a page under two document identifiers removes only those tiles and previews of that page.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RemovesPageUnderBothDocumentIdentifiers()
+    {
+        const int otherDocument = 2;
+        using var cache = new TileCache(TileBytes * Capacity * Capacity * Capacity);
+        cache.Add(Key(1, 0), new FakeSurface(Edge, Edge));
+        cache.Add(Key(~1, 0), new FakeSurface(Edge, Edge));
+        cache.Add(PreviewKey(1, 0), new FakeSurface(Edge, Edge));
+        cache.Add(PreviewKey(~1, 0), new FakeSurface(Edge, Edge));
+        cache.Add(PreviewKey(1, 1), new FakeSurface(Edge, Edge));
+        cache.Add(Key(otherDocument, 0), new FakeSurface(Edge, Edge));
+
+        cache.RemovePage(1, ~1, 0);
+
+        await Assert.That(cache.Contains(Key(1, 0))).IsFalse();
+        await Assert.That(cache.Contains(Key(~1, 0))).IsFalse();
+        await Assert.That(cache.Contains(PreviewKey(1, 0))).IsFalse();
+        await Assert.That(cache.Contains(PreviewKey(~1, 0))).IsFalse();
+        await Assert.That(cache.Contains(PreviewKey(1, 1))).IsTrue();
+        await Assert.That(cache.Contains(Key(otherDocument, 0))).IsTrue();
+        await Assert.That(cache.Count).IsEqualTo(Capacity - 1);
+        await Assert.That(cache.CurrentBytes).IsEqualTo(TileBytes * (Capacity - 1));
+    }
+
     /// <summary>Creates a key.</summary>
     /// <param name="document">The document identifier.</param>
     /// <param name="column">The column.</param>
