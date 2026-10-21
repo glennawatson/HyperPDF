@@ -123,6 +123,9 @@ public sealed class PageCanvas : Control, IActivatableView
     /// </summary>
     private static readonly RenderOptions PageRenderOptions = new() { BitmapInterpolationMode = BitmapInterpolationMode.MediumQuality, EdgeMode = EdgeMode.Aliased };
 
+    /// <summary>Queues each page's GPU tiles so they reach the scene as one operation.</summary>
+    private readonly TileDrawBatch _tiles = new();
+
     /// <summary>The current layout.</summary>
     private DocumentLayout _layout = DocumentLayout.Empty;
 
@@ -670,7 +673,7 @@ public sealed class PageCanvas : Control, IActivatableView
         {
             if (draw)
             {
-                TilePresentation.Draw(context, surface, rect, smooth: true);
+                _tiles.Draw(context, surface, rect, smooth: true);
             }
 
             return;
@@ -714,7 +717,7 @@ public sealed class PageCanvas : Control, IActivatableView
             return;
         }
 
-        TilePresentation.Draw(context, surface, destination, smooth: false);
+        _tiles.Draw(context, surface, destination, smooth: false);
     }
 
     /// <summary>Draws the pages around the viewport, and remembers the scale once every visible page is sharp.</summary>
@@ -836,6 +839,8 @@ public sealed class PageCanvas : Control, IActivatableView
             DrawTiles(context, frame, grid, window, visible);
             PrefetchAdjacentTiles(context, frame, page, rect, window, visible);
         }
+
+        _tiles.Flush(context);
 
         if (!visible)
         {
@@ -974,7 +979,7 @@ public sealed class PageCanvas : Control, IActivatableView
                 }
 
                 var destination = new Rect(rect.X + (column * tileSize * unitX), rect.Y + (row * tileSize * unitY), surface.Width * unitX, surface.Height * unitY);
-                TilePresentation.Draw(context, surface, destination, smooth: true);
+                _tiles.Draw(context, surface, destination, smooth: true);
             }
         }
     }

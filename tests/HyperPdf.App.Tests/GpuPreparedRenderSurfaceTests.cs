@@ -36,7 +36,7 @@ public sealed class GpuPreparedRenderSurfaceTests
         var marker = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability());
         var request = Request(document);
         var prepared = marker.Prepare(request, CancellationToken.None);
-        var operation = GpuTileDrawOperation.TryCreate(marker, new(0, 0, TileSide, TileSide), false);
+        var operation = TileBatchPresentationTests.Create(new TileDraw(marker, new(0, 0, TileSide, TileSide), false));
         marker.Dispose();
         var fallback = marker.EnsureSoftwareBitmap();
         var hasBitmapWhileRetained = marker.SoftwareBitmap is not null;
