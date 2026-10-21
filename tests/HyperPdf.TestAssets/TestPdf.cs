@@ -154,6 +154,12 @@ public static class TestPdf
     /// <summary>How far below the top the printed form's label sits, in points.</summary>
     private const int FlatLabelDepth = 200;
 
+    /// <summary>The font size of the lines on a text filled page.</summary>
+    private const int FilledFontSize = 10;
+
+    /// <summary>The distance between lines on a text filled page.</summary>
+    private const int FilledLineHeight = 12;
+
     /// <summary>The distance between body lines.</summary>
     private const int LineHeight = 20;
 
@@ -232,6 +238,47 @@ public static class TestPdf
         objects[pages - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{kids.ToString().TrimEnd()}] /Count {pageCount} >>");
         objects[catalog - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Catalog /Pages {pages} 0 R /Outlines {outlines} 0 R /PageMode /UseOutlines >>");
         var info = Add(objects, $"<< /Title ({Title}) /Author ({Author}) /Creator (HyperPdf.TestAssets) /CreationDate (D:20260102030405+10'00') >>");
+        return Serialize(objects, catalog, info);
+    }
+
+    /// <summary>Creates a PDF whose pages are filled with lines of <see cref="Sentence"/>, for text selection work.</summary>
+    /// <param name="pageCount">The number of pages.</param>
+    /// <param name="linesPerPage">The number of text lines on each page.</param>
+    /// <returns>The PDF bytes.</returns>
+    public static byte[] CreateTextFilled(int pageCount, int linesPerPage)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageCount);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(linesPerPage);
+        var objects = new List<string>();
+        var catalog = Reserve(objects);
+        var pages = Reserve(objects);
+        var font = Add(objects, HelveticaFont);
+        var pageIds = new int[pageCount];
+        for (var i = 0; i < pageCount; i++)
+        {
+            pageIds[i] = Reserve(objects);
+        }
+
+        var content = new StringBuilder();
+        for (var line = 0; line < linesPerPage; line++)
+        {
+            AppendText(content, PortraitHeight - Margin - (line * FilledLineHeight), FilledFontSize, Sentence);
+        }
+
+        var stream = content.ToString();
+        var kids = new StringBuilder();
+        for (var i = 0; i < pageCount; i++)
+        {
+            var contentId = Add(objects, string.Create(CultureInfo.InvariantCulture, $"<< /Length {Encoding.ASCII.GetByteCount(stream)} >>\nstream\n{stream}endstream"));
+            objects[pageIds[i] - 1] = string.Create(
+                CultureInfo.InvariantCulture,
+                $"<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {PortraitWidth} {PortraitHeight}] /Resources << /Font << /F1 {font} 0 R >> >> /Contents {contentId} 0 R >>");
+            _ = kids.Append(CultureInfo.InvariantCulture, $"{pageIds[i]} 0 R ");
+        }
+
+        objects[pages - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Pages /Kids [{kids.ToString().TrimEnd()}] /Count {pageCount} >>");
+        objects[catalog - 1] = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Catalog /Pages {pages} 0 R >>");
+        var info = Add(objects, $"<< /Title ({Title}) >>");
         return Serialize(objects, catalog, info);
     }
 

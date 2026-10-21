@@ -209,7 +209,7 @@ internal static class PageCanvasCaretMixins
                 return cached;
             }
 
-            var rects = new List<PageRect>();
+            var rects = canvas.RentSelectionRects();
             var document = canvas.Tab?.TryGetDocument();
             if (document is not null && canvas.TryGetSelection(out var start, out var end) && page >= start.Page && page <= end.Page)
             {
@@ -224,6 +224,56 @@ internal static class PageCanvasCaretMixins
             canvas.SelectionRects[page] = rects;
             return rects;
         }
+
+        /// <summary>
+        /// Moves the selection focus. Nothing changes when the focus is already there; otherwise only the pages between the
+        /// old and new focus lose their rectangles, because the pages outside that span keep the same selected range.
+        /// </summary>
+        /// <param name="next">The new focus.</param>
+        /// <returns><see langword="true"/> when the focus moved.</returns>
+        internal bool MoveSelectionFocus(PageCharacter next)
+        {
+            var previous = canvas.SelectionFocus;
+            if (previous == next)
+            {
+                return false;
+            }
+
+            canvas.SelectionFocus = next;
+            canvas.DropSelectionRects(Math.Min(previous.Page, next.Page), Math.Max(previous.Page, next.Page));
+            return true;
+        }
+
+        /// <summary>Moves the selection focus to the character under a canvas point and redraws only when the focus changed.</summary>
+        /// <param name="position">The canvas point.</param>
+        internal void ExtendSelectionTo(Point position)
+        {
+            if (canvas.TryHitTestCharacter(position, out var page, out var character) && canvas.MoveSelectionFocus(new(page, character)))
+            {
+                canvas.InvalidateVisual();
+            }
+        }
+
+        /// <summary>Forgets the cached selection rectangles on a run of pages, keeping their lists for reuse.</summary>
+        /// <param name="firstPage">The first page.</param>
+        /// <param name="lastPage">The last page.</param>
+        internal void DropSelectionRects(int firstPage, int lastPage)
+        {
+            for (var page = firstPage; page <= lastPage; page++)
+            {
+                if (!canvas.SelectionRects.Remove(page, out var rects))
+                {
+                    continue;
+                }
+
+                rects.Clear();
+                canvas.SpareSelectionRects.Push(rects);
+            }
+        }
+
+        /// <summary>Takes an empty list for a page's selection rectangles, reusing a dropped one when there is one.</summary>
+        /// <returns>The empty list.</returns>
+        internal List<PageRect> RentSelectionRects() => canvas.SpareSelectionRects.Count > 0 ? canvas.SpareSelectionRects.Pop() : [];
 
         /// <summary>Finds the character under a canvas point.</summary>
         /// <param name="position">The canvas point.</param>
@@ -573,13 +623,7 @@ internal static class PageCanvasCaretMixins
 
             if (Canvas.Selecting)
             {
-                if (Canvas.TryHitTestCharacter(position, out var page, out var character))
-                {
-                    Canvas.SelectionFocus = new(page, character);
-                    Canvas.SelectionRects.Clear();
-                    Canvas.InvalidateVisual();
-                }
-
+                Canvas.ExtendSelectionTo(position);
                 return;
             }
 
