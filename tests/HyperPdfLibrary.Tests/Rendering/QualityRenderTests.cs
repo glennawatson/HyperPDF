@@ -45,6 +45,9 @@ public sealed class QualityRenderTests
     /// <summary>The column the stroke tests read.</summary>
     private const int Column = 50;
 
+    /// <summary>The ink, in channel levels, a thin line's column may differ by between one pass and two.</summary>
+    private const int ThinLineInkBound = 64;
+
     /// <summary>The thinnest line width in pixels used by the test.</summary>
     private const int ThinnestWidth = 2;
 
@@ -95,7 +98,10 @@ public sealed class QualityRenderTests
         var unasked = RenderContent(ThinLine, follow);
         var asked = RenderContent($"/SAOn gs {ThinLine}", follow, "/ExtGState << /SAOn << /SA true >> >>");
 
-        await Assert.That(unasked.Pixels).IsEquivalentTo(RenderContent(ThinLine, PdfRenderQuality.Default).Pixels);
+        // With the page matrix known a line under a pixel is drawn once, as a hairline, so it may differ a little from the
+        // body-plus-hairline line drawn when the matrix is unknown. The ink of the column stays within a bound.
+        var unknownMatrix = RenderContent(ThinLine, PdfRenderQuality.Default);
+        await Assert.That(Math.Abs(ColumnInk(unasked) - ColumnInk(unknownMatrix))).IsLessThanOrEqualTo(ThinLineInkBound);
         await Assert.That(ColumnInk(asked)).IsEqualTo(White);
     }
 

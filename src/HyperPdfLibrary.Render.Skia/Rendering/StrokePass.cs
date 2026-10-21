@@ -10,6 +10,7 @@ namespace HyperPdfLibrary.Rendering;
 /// <summary>How one stroke is drawn.</summary>
 /// <param name="Alpha">The alpha to stroke with.</param>
 /// <param name="Blend">The blend mode to stroke with.</param>
-/// <param name="Hairline">Whether a one pixel hairline is drawn too, so the line never falls below a device pixel.</param>
-[DebuggerDisplay("StrokePass: alpha {Alpha} hairline {Hairline}")]
-internal readonly record struct StrokePass(float Alpha, SKBlendMode Blend, bool Hairline);
+/// <param name="Hairline">Whether a one pixel hairline is drawn, so the line never falls below a device pixel.</param>
+/// <param name="Body">Whether the line is drawn at its own width.</param>
+[DebuggerDisplay("StrokePass: alpha {Alpha} body {Body} hairline {Hairline}")]
+internal readonly record struct StrokePass(float Alpha, SKBlendMode Blend, bool Hairline, bool Body);

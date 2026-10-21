@@ -71,7 +71,7 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
     /// <summary>The most converted glyph outlines retained while recording one picture.</summary>
     private const int MaxCachedGlyphPaths = 512;
 
-    /// <summary>The most pattern shaders kept for one recording; further ones are made for the one draw.</summary>
+    /// <summary>The most pattern shaders kept for one recording; a full cache is cleared before the next one is kept.</summary>
     private const int MaxCachedShaders = 64;
 
     /// <summary>The image masks one Type 3 glyph procedure can draw and have kept; later ones share the last place.</summary>
@@ -112,6 +112,9 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
 
     /// <summary>The paint reused for layers.</summary>
     private readonly SKPaint _layerPaint = new();
+
+    /// <summary>The dash effect of the last dashed stroke, reused while the next stroke dashes the same way.</summary>
+    private readonly DashEffectCache _dashes = new();
 
     /// <summary>Whether each open transparency group is a knockout group, innermost last.</summary>
     private readonly List<bool> _knockout = [];
@@ -252,6 +255,13 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
     /// <inheritdoc/>
     public void DrawImage(IPdfRenderImage image, bool isMask, bool smooth, ref GraphicsState state)
     {
+        // An image wholly outside the clip paints nothing, so it is neither converted nor counted in the picture's weight.
+        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
+        if (_canvas.QuickReject(new SKRect(0, 0, 1, 1)))
+        {
+            return;
+        }
+
         Weight.Add(image);
         var native = SkiaResources.Image(image);
         var matrix = new Matrix3x2(1F / image.Width, 0, 0, -1F / image.Height, 0, 1) * state.Ctm;
@@ -450,6 +460,7 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
         _lumaFilter?.Dispose();
         _maskPainter?.Dispose();
         _paint.Dispose();
+        _dashes.Dispose();
         foreach (var path in _glyphPaths.Values)
         {
             path.Dispose();
@@ -709,6 +720,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _pathBuilder.Reset();
         _paint.Reset();
         _paint.IsAntialias = true;
+        _dashes.Clear();
         _layerPaint.Reset();
         Configure(Plain);
         _weight = _ownWeight;
@@ -871,7 +883,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
     /// <summary>
     /// Gets the shader of a pattern for a matrix. A recording fills many shapes with one pattern at one matrix, so the shader is
-    /// made once and kept until the recording is recycled; past <see cref="MaxCachedShaders"/> it is made for the one draw.
+    /// made once and kept until the recording is recycled; past <see cref="MaxCachedShaders"/> the cache is cleared and refilled.
     /// </summary>
     /// <param name="pattern">The pattern.</param>
     /// <param name="local">The matrix from the shape's space to the pattern's.</param>
@@ -897,9 +909,11 @@ private static SKColor WhiteWithAlpha(float alpha) =>
             return default;
         }
 
+        // A full cache is cleared rather than left closed, so the shaders the page is drawing with now keep hitting. Earlier
+        // draws are safe: a recorded picture holds its own reference to each shader, and no lease is open between draws.
         if (_shaders.Count >= MaxCachedShaders)
         {
-            return new(created, true);
+            DisposeShaders();
         }
 
         _shaders.Add(key, created);
@@ -965,6 +979,13 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <param name="state">The graphics state.</param>
     private void FillRectangle(SKRect rectangle, ref GraphicsState state)
     {
+        // A rectangle wholly outside the clip paints nothing, with or without a soft mask or blend, so none of it is recorded.
+        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
+        if (_canvas.QuickReject(rectangle))
+        {
+            return;
+        }
+
         var masked = BeginMask(ref state, rectangle, state.Ctm);
         _paint.Reset();
         _paint.IsAntialias = _smoothGraphics;
@@ -1043,8 +1064,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     private bool TryStrokeTileCopies(SKPath path, Matrix3x2 matrix, PdfPatternPaint pattern, float scale, ref GraphicsState state)
     {
         ConfigureStroke(ref state);
-        using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
-        _paint.PathEffect = dash;
+        _paint.PathEffect = _dashes.Get(state.Dash, state.DashPhase, scale);
         _pathBuilder.Reset();
         if (!_paint.GetFillPath(path, _pathBuilder))
         {
@@ -1166,7 +1186,16 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         // a pixel is drawn twice: at its width, and as a hairline, which Skia keeps one pixel wide.
         if (fitted || state.LineWidth <= 0 || state.LineWidth * scale >= ThinLineLimit)
         {
-            DrawStroke(shape, matrix, scale, ref state, new(state.StrokeAlpha, ElementBlend(state.BlendMode), false));
+            DrawStroke(shape, matrix, scale, ref state, new(state.StrokeAlpha, ElementBlend(state.BlendMode), false, true));
+            return;
+        }
+
+        // With the page matrix known the width in device pixels is exact, so one pass is enough: the body when it spans a
+        // pixel, otherwise a hairline. That needs no layer to keep a translucent line from doubling up.
+        if (_hasDevice)
+        {
+            var wide = state.LineWidth * SkiaStrokeFit.DeviceScale(matrix * _device) >= ThinLineLimit;
+            DrawStroke(shape, matrix, scale, ref state, new(state.StrokeAlpha, ElementBlend(state.BlendMode), !wide, wide));
             return;
         }
 
@@ -1188,7 +1217,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
         var alpha = layered ? 1 : state.StrokeAlpha;
         var blend = layered ? SKBlendMode.SrcOver : ElementBlend(state.BlendMode);
-        DrawStroke(shape, matrix, scale, ref state, new(alpha, blend, true));
+        DrawStroke(shape, matrix, scale, ref state, new(alpha, blend, true, true));
         if (layered)
         {
             _canvas.Restore();
@@ -1222,12 +1251,15 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     {
         ConfigureStroke(ref state);
         _paint.BlendMode = pass.Blend;
-        using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
-        _paint.PathEffect = dash;
+        _paint.PathEffect = _dashes.Get(state.Dash, state.DashPhase, scale);
         var clipped = ClipShadingBox(state.Stroke);
         using var lease = ApplyColor(state.Stroke, pass.Alpha, matrix);
         _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
-        shape.Draw(_canvas, _paint);
+        if (pass.Body)
+        {
+            shape.Draw(_canvas, _paint);
+        }
+
         if (pass.Hairline)
         {
             _paint.StrokeWidth = 0;
@@ -1290,8 +1322,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     {
         ConfigureStroke(ref state);
         _paint.StrokeWidth = Math.Max(state.LineWidth, 1 / Math.Max(scale, SkiaDash.MinScale));
-        using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
-        _paint.PathEffect = dash;
+        _paint.PathEffect = _dashes.Get(state.Dash, state.DashPhase, scale);
         _pathBuilder.Reset();
         if (!_paint.GetFillPath(path, _pathBuilder))
         {
