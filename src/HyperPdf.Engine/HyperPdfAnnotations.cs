@@ -33,7 +33,7 @@ internal sealed class HyperPdfAnnotations
     private AnnotationNames? _names;
 
     /// <summary>The annotations read from each page; made on first use.</summary>
-    private Dictionary<int, PageAnnotation[]>? _cache;
+    private PageAnnotation[]?[]? _cache;
 
     /// <summary>The pages with removed annotations; made when one is removed.</summary>
     private HashSet<int>? _pagesWithRemoved;
@@ -79,9 +79,6 @@ internal sealed class HyperPdfAnnotations
     /// <summary>Gets the Names state.</summary>
     internal AnnotationNames Names => Volatile.Read(ref _names) ?? Interlocked.CompareExchange(ref _names, AnnotationNames.Create(_store.Names), null) ?? Volatile.Read(ref _names)!;
 
-    /// <summary>Gets the Cache state.</summary>
-    internal Dictionary<int, PageAnnotation[]> Cache => Volatile.Read(ref _cache) ?? Interlocked.CompareExchange(ref _cache, [], null) ?? Volatile.Read(ref _cache)!;
-
     /// <summary>Gets the PagesWithRemoved state.</summary>
     internal HashSet<int> PagesWithRemoved => Volatile.Read(ref _pagesWithRemoved) ?? Interlocked.CompareExchange(ref _pagesWithRemoved, [], null) ?? Volatile.Read(ref _pagesWithRemoved)!;
 
@@ -106,14 +103,54 @@ internal sealed class HyperPdfAnnotations
     /// <summary>Gets a reference to the Catalog state.</summary>
     internal ref FontCatalog? Catalog => ref _catalog;
 
+    /// <summary>
+    /// Gets the annotations cached for a page without taking the gate. A published array is never changed, so a reader keeps a
+    /// consistent snapshot while an edit forgets the page.
+    /// </summary>
+    /// <param name="pageIndex">The page.</param>
+    /// <returns>The cached annotations, or <see langword="null"/> when the page is not cached.</returns>
+    internal PageAnnotation[]? TryGetCached(int pageIndex) =>
+        Volatile.Read(ref _cache) is { } pages && (uint)pageIndex < (uint)pages.Length ? Volatile.Read(ref pages[pageIndex]) : null;
+
+    /// <summary>Caches a page's annotations. The caller holds the gate, so an edit cannot forget the page between the read and this call.</summary>
+    /// <param name="pageIndex">The page.</param>
+    /// <param name="annotations">The annotations read from the page.</param>
+    internal void SetCached(int pageIndex, PageAnnotation[] annotations)
+    {
+        var pages = Volatile.Read(ref _cache);
+        if (pages is null || pages.Length != _document.PageCount)
+        {
+            pages = new PageAnnotation[]?[_document.PageCount];
+            Volatile.Write(ref _cache, pages);
+        }
+
+        if ((uint)pageIndex < (uint)pages.Length)
+        {
+            Volatile.Write(ref pages[pageIndex], annotations);
+        }
+    }
+
     /// <summary>Forgets the cached annotations of a page, if any were cached.</summary>
     /// <param name="pageIndex">The page.</param>
-    internal void ForgetPage(int pageIndex) => _ = Volatile.Read(ref _cache)?.Remove(pageIndex);
+    internal void ForgetPage(int pageIndex)
+    {
+        // The gate is re-entered by the edits that call this, and orders the forget after any read that is still filling the page.
+        lock (Gate)
+        {
+            if (Volatile.Read(ref _cache) is { } pages && (uint)pageIndex < (uint)pages.Length)
+            {
+                Volatile.Write(ref pages[pageIndex], null);
+            }
+        }
+    }
 
     /// <summary>Forgets every cached page and every page with removed annotations, if any were made.</summary>
     internal void ForgetPages()
     {
-        Volatile.Read(ref _cache)?.Clear();
-        Volatile.Read(ref _pagesWithRemoved)?.Clear();
+        lock (Gate)
+        {
+            Volatile.Write(ref _cache, null);
+            Volatile.Read(ref _pagesWithRemoved)?.Clear();
+        }
     }
 }

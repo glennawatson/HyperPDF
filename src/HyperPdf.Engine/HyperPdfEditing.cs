@@ -19,8 +19,8 @@ internal static class HyperPdfEditing
     {
         if (changed)
         {
-            // A field value and its appearance are widget and field objects: no page content or structure tree changes.
-            Edited(self, PdfCacheScopes.None);
+            // A field value and its appearance are widget and field objects: no page content, structure tree or Link annotation changes.
+            EditedKeepingLinks(self, PdfCacheScopes.None);
         }
 
         return changed;
@@ -47,7 +47,9 @@ internal static class HyperPdfEditing
         if (changed && (uint)pageIndex < (uint)self.PageCount)
         {
             // An annotation is an object in the page's /Annots array: the page's content stream and the structure tree stay.
-            Edited(self, PdfCacheScopes.None);
+            // It can be a Link or file attachment annotation, so only this page's links are read again.
+            EditedKeepingLinks(self, PdfCacheScopes.None);
+            DropPageLinks(self, pageIndex);
         }
 
         return changed;
@@ -79,9 +81,33 @@ internal static class HyperPdfEditing
     /// <param name="scopes">The parts of the document the edit can have changed.</param>
     internal static void Edited(HyperPdfDocument self, PdfCacheScopes scopes)
     {
-        PdfDocumentEditing.InvalidateCaches(self.Document, scopes);
+        EditedKeepingLinks(self, scopes);
+
+        // The version moved on first, so a link read that started before the edit sees it and removes what it published.
         Volatile.Write(ref self.Links, null);
+    }
+
+    /// <summary>
+    /// Drops everything read or drawn from the objects before an edit except this document's links, for edits that cannot
+    /// change a page's links or that name the page they change.
+    /// </summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="scopes">The parts of the document the edit can have changed.</param>
+    internal static void EditedKeepingLinks(HyperPdfDocument self, PdfCacheScopes scopes)
+    {
+        PdfDocumentEditing.InvalidateCaches(self.Document, scopes);
         HyperPdfRendering.ResetRenderer(self);
         _ = Interlocked.Increment(ref self.EditVersion);
+    }
+
+    /// <summary>Forgets one page's links; the other pages keep theirs.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="pageIndex">The page edited.</param>
+    private static void DropPageLinks(HyperPdfDocument self, int pageIndex)
+    {
+        if (Volatile.Read(ref self.Links) is { } cache && (uint)pageIndex < (uint)cache.Length)
+        {
+            Volatile.Write(ref cache[pageIndex], null);
+        }
     }
 }
