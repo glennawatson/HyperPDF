@@ -45,7 +45,9 @@ public sealed partial class SidebarView : ReactiveUI.Avalonia.ReactiveUserContro
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsTagsMode, static v => v.TagsToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Attachments.HasAttachments, static v => v.AttachmentsToggle.IsVisible));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsAttachmentsMode, static v => v.AttachmentsToggle.IsChecked, static on => on, static on => on == true));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsSearchMode, static v => v.SearchResultList.IsVisible));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsSearchMode, static v => v.SearchPanel.IsVisible));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.Search.Query, static v => v.SidebarSearchBox.Text, static query => query, static text => text ?? string.Empty));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Search.Status, static v => v.SidebarSearchStatus.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Search.Results, static v => v.SearchResultList.ItemsSource));
             disposables.Add(this.Bind(
                 ViewModel,

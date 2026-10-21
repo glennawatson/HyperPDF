@@ -4,8 +4,9 @@
              x:Class="HyperPdf.App.Views.FindBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (FindBarView.axaml.cs). -->
   <Border x:Name="FindBar" Classes="toolbar" AutomationProperties.Name="Find" AutomationProperties.LandmarkType="Search">
-    <StackPanel Orientation="Horizontal" Spacing="2">
-      <TextBox x:Name="SearchBox" views:ControlHelp.Text="{x:Static views:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" Width="280" MinHeight="28" Padding="8,3" VerticalAlignment="Center" PlaceholderText="Find in document" />
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
+      <TextBox x:Name="SearchBox" views:ControlHelp.Text="{x:Static views:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" MinWidth="200" MinHeight="28" Padding="8,3" VerticalAlignment="Center" PlaceholderText="Find in document" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
       <ToggleButton AutomationProperties.Name="Match case" x:Name="MatchCaseToggle" views:ControlHelp.Text="{x:Static views:Descriptions.MatchCase}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconCase}" />
       </ToggleButton>
@@ -28,6 +29,7 @@
       <Button AutomationProperties.Name="Close find" x:Name="CloseFindButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseFind}" Classes="tool">
         <Path Classes="icon remove" Data="{StaticResource IconClose}" />
       </Button>
-    </StackPanel>
+      </StackPanel>
+    </Grid>
   </Border>
 </UserControl>
