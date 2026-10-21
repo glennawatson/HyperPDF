@@ -37,6 +37,9 @@ public sealed class PageCanvasState
     /// <summary>Gets the character bounds list reused for caret lookups.</summary>
     public List<PageRect> CaretBounds { get; } = [];
 
+    /// <summary>Gets what the annotation drawing tools remember between pointer events.</summary>
+    public DrawingToolState Drawing { get; } = new();
+
     /// <summary>Gets what the page tools remember between pointer and key events.</summary>
     public PageToolState Tools { get; } = new();
 

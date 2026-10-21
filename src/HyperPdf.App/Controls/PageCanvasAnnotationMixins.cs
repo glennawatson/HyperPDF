@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -43,12 +42,6 @@ internal static class PageCanvasAnnotationMixins
 
     /// <summary>The vertical position of the second ruled line inside a comment indicator badge, as a fraction of its height.</summary>
     private const double BadgeSecondLineY = 0.64;
-
-    /// <summary>Points kept per drawing before a new stroke is needed.</summary>
-    private const int MaxStrokePoints = 4096;
-
-    /// <summary>The shortest drag, in points, that draws a shape; shorter drags are taken as stray clicks.</summary>
-    private const float MinShapeDrag = 4;
 
     /// <summary>The radius of a placed corner's dot.</summary>
     private const double CornerRadius = 3;
@@ -212,69 +205,14 @@ internal static class PageCanvasAnnotationMixins
         /// <summary>Adds a point to the stroke or shape being drawn.</summary>
         /// <param name="position">The canvas point.</param>
         /// <returns><see langword="true"/> when a shape or stroke is being drawn.</returns>
-        internal bool ContinueStroke(Point position)
-        {
-            canvas.HoverPolygon(position);
-            if (canvas.ContinueShape(position) || canvas.ActiveEdit is not null)
-            {
-                return true;
-            }
-
-            if (canvas.StrokePage < 0 || canvas.Tab is not { } tab)
-            {
-                return false;
-            }
-
-            if (canvas.Stroke.Count < MaxStrokePoints)
-            {
-                canvas.Stroke.Add(canvas.ToPage(tab, canvas.StrokePage, position));
-                canvas.InvalidateVisual();
-            }
-
-            return true;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool ContinueStroke(Point position) => canvas.State.ContinueDrawing(new(position.X, position.Y));
 
         /// <summary>Finishes a shape, ink stroke or click tool on pointer release.</summary>
         /// <param name="position">The canvas point.</param>
         /// <returns><see langword="true"/> when the release was handled.</returns>
-        internal bool EndAnnotationPress(Point position)
-        {
-            if (canvas.Tab is not { } tab)
-            {
-                return false;
-            }
-
-            if (canvas.EndShape(tab, position))
-            {
-                return true;
-            }
-
-            if (canvas.StrokePage >= 0)
-            {
-                var page = canvas.StrokePage;
-                canvas.StrokePage = -1;
-                if (canvas.Stroke.Count > 1)
-                {
-                    ReadOnlySpan<int> lengths = [canvas.Stroke.Count];
-                    var kind = tab.Annotations.Tool == AnnotationTool.FreehandHighlight ? AnnotationKind.FreehandHighlight : AnnotationKind.Ink;
-                    _ = tab.Annotations.AddInk(page, CollectionsMarshal.AsSpan(canvas.Stroke), lengths, kind);
-                }
-
-                canvas.Stroke.Clear();
-                canvas.InvalidateVisual();
-                return true;
-            }
-
-            if (canvas.ClickPage < 0)
-            {
-                return false;
-            }
-
-            var clicked = canvas.ClickPage;
-            canvas.ClickPage = -1;
-            ClickTools.Run(tab.Annotations, clicked, canvas.ToPage(tab, clicked, position), canvas.ClickSnaps);
-            return true;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool EndAnnotationPress(Point position) => canvas.State.EndDrawing(new(position.X, position.Y));
 
         /// <summary>Marks the selected text when a markup tool is active, then clears the selection.</summary>
         internal void ApplyMarkupTool()
@@ -307,42 +245,17 @@ internal static class PageCanvasAnnotationMixins
 
         /// <summary>Follows the pointer over the places to write, redrawing when it moves onto or off one.</summary>
         /// <param name="hover">The page and page point under the pointer.</param>
-        internal void HoverRegion(PointerHover hover)
-        {
-            HoveredFormRegion? hovered = null;
-            if (hover.IsOverPage && canvas.Tab is { Annotations: { Tool: AnnotationTool.Text, IsEditingText: false } annotations }
-                && annotations.RegionAt(hover.Page, hover.Point) is { } region)
-            {
-                hovered = new(hover.Page, region);
-            }
-
-            if (hovered == canvas.HoveredRegion)
-            {
-                return;
-            }
-
-            canvas.HoveredRegion = hovered;
-            canvas.InvalidateVisual();
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void HoverRegion(PointerHover hover) => canvas.State.HoverRegion(hover.IsOverPage, hover.Page, hover.Point);
 
         /// <summary>Moves the next polygon side's free end with the pointer.</summary>
         /// <param name="position">The canvas point.</param>
-        internal void HoverPolygon(Point position)
-        {
-            if (canvas.Polygon.IsActive && canvas.Tab is { } tab && canvas.Polygon.MoveHover(canvas.ToPage(tab, canvas.Polygon.Page, position)))
-            {
-                canvas.InvalidateVisual();
-            }
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void HoverPolygon(Point position) => canvas.State.HoverPolygon(new(position.X, position.Y));
 
         /// <summary>Forgets the placed polygon corners.</summary>
-        internal void CancelPolygon()
-        {
-            if (canvas.Polygon.Cancel())
-            {
-                canvas.InvalidateVisual();
-            }
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void CancelPolygon() => canvas.State.CancelPolygon();
 
         /// <summary>
         /// Gets the pen the live stroke is drawn with: thin ink for drawing, or a wide see-through pen in the chosen colour for the
@@ -429,13 +342,9 @@ internal static class PageCanvasAnnotationMixins
         /// <param name="page">The page index, or -1.</param>
         /// <param name="position">The canvas position.</param>
         /// <param name="clickCount">The pointer click count.</param>
-        internal void PressPolygonCorner(DocumentTabViewModel tab, int page, Point position, int clickCount)
-        {
-            if (page >= 0 && canvas.Polygon.Press(tab.Annotations, page, canvas.ToPage(tab, page, position), clickCount >= PageCanvasToolMixins.DoubleClick))
-            {
-                canvas.InvalidateVisual();
-            }
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void PressPolygonCorner(DocumentTabViewModel tab, int page, Point position, int clickCount) =>
+            canvas.State.PressPolygonCorner(tab, page, new(position.X, position.Y), clickCount >= PageCanvasToolMixins.DoubleClick);
 
         /// <summary>Matches a left pointer press to signature placement, shape/polygon/ink drawing, form field activation or click tools.</summary>
         /// <param name="item">The pointer press and tab.</param>
@@ -469,85 +378,19 @@ internal static class PageCanvasAnnotationMixins
             };
         }
 
-        /// <summary>Follows the pointer with the shape's free end.</summary>
-        /// <param name="position">The canvas point.</param>
-        /// <returns><see langword="true"/> while a shape is dragged.</returns>
-        private bool ContinueShape(Point position)
-        {
-            if (canvas.ActiveShape is not { } shape || canvas.Tab is not { } tab)
-            {
-                return false;
-            }
-
-            canvas.ActiveShape = shape with { End = canvas.ToPage(tab, shape.Page, position) };
-            canvas.InvalidateVisual();
-            return true;
-        }
-
-        /// <summary>Adds the dragged shape on release.</summary>
-        /// <param name="tab">The tab.</param>
-        /// <param name="position">The canvas point.</param>
-        /// <returns><see langword="true"/> when a shape was being dragged.</returns>
-        private bool EndShape(DocumentTabViewModel tab, Point position)
-        {
-            if (canvas.ActiveShape is not { } shape)
-            {
-                return false;
-            }
-
-            canvas.ActiveShape = null;
-            var end = canvas.ToPage(tab, shape.Page, position);
-            if (Math.Abs(end.X - shape.Start.X) + Math.Abs(end.Y - shape.Start.Y) < MinShapeDrag)
-            {
-                canvas.InvalidateVisual();
-                return true;
-            }
-
-            if (shape.Kind == AnnotationKind.Callout)
-            {
-                _ = tab.Annotations.AddCalloutAsync(shape.Page, shape.Start, end);
-            }
-            else
-            {
-                _ = tab.Annotations.AddShape(shape.Page, shape.Kind, shape.Start, end);
-            }
-
-            canvas.InvalidateVisual();
-            return true;
-        }
-
         /// <summary>Handles Enter (finish), Backspace (take back a corner) and Escape (start again) while placing corners.</summary>
         /// <param name="key">The key.</param>
         /// <returns><see langword="true"/> when the key was used.</returns>
-        private bool HandlePolygonKey(ViewerKey key)
-        {
-            if (canvas.Tab is not { } tab || !DocumentKeys.HandlePolygon(canvas.Polygon, tab.Annotations, key))
-            {
-                return false;
-            }
-
-            canvas.InvalidateVisual();
-            return true;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool HandlePolygonKey(ViewerKey key) => canvas.State.HandlePolygonKey(key);
 
         /// <summary>Moves the mark being placed by a distance on screen, so arrows follow the screen on a rotated page.</summary>
         /// <param name="tab">The tab.</param>
         /// <param name="dx">The move right on screen, in points.</param>
         /// <param name="dy">The move down on screen, in points.</param>
         /// <returns><see langword="true"/> when a mark is being placed.</returns>
-        private bool MovePlacement(DocumentTabViewModel tab, float dx, float dy)
-        {
-            if (tab.FillAndSign.Placement is not { } placement || (uint)placement.Page >= (uint)canvas.Sizes.Length)
-            {
-                return false;
-            }
-
-            var transform = new PageTransform(canvas.Layout.GetPageBounds(placement.Page), canvas.Sizes[placement.Page], tab.Rotation, canvas.Layout.Options.Scale);
-            var origin = transform.ToCanvas(new PagePoint(placement.Bounds.Left, placement.Bounds.Top));
-            var start = transform.ToPage(origin);
-            var end = transform.ToPage(origin + new Vector(dx * transform.Scale, dy * transform.Scale));
-            return tab.FillAndSign.Move(end.X - start.X, end.Y - start.Y);
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool MovePlacement(DocumentTabViewModel tab, float dx, float dy) => canvas.State.MovePlacement(tab, dx, dy);
 
         /// <summary>Marks the selected text and clears the selection.</summary>
         /// <param name="tab">The tab.</param>
@@ -745,18 +588,6 @@ internal static class PageCanvasAnnotationMixins
         context.DrawLine(BadgeBorderPen, new(x1, y2), new(x2, y2));
     }
 
-    /// <summary>The preview state of a shape being dragged on a page.</summary>
-    /// <param name="Kind">The shape kind.</param>
-    /// <param name="Page">The page index.</param>
-    /// <param name="Start">Where the drag started in page coordinates.</param>
-    /// <param name="End">Where the pointer is now in page coordinates.</param>
-    internal readonly record struct ShapePreview(AnnotationKind Kind, int Page, PagePoint Start, PagePoint End);
-
-    /// <summary>A printed-form region suggestion currently hovered by the pointer.</summary>
-    /// <param name="Page">The page index.</param>
-    /// <param name="Region">The form region.</param>
-    internal readonly record struct HoveredFormRegion(int Page, FormRegion Region);
-
     /// <summary>A left pointer press claimed by signature placement, shape/polygon/ink drawing, form field activation or click tools.</summary>
     /// <param name="Canvas">The page canvas.</param>
     /// <param name="Tab">The active tab.</param>
@@ -834,8 +665,7 @@ internal static class PageCanvasAnnotationMixins
 
                 case ClickTool:
                 {
-                    Canvas.ClickPage = Page;
-                    Canvas.ClickSnaps = (Args.KeyModifiers & KeyModifiers.Alt) == 0;
+                    Canvas.State.BeginClick(Page, (Args.KeyModifiers & KeyModifiers.Alt) == 0);
                     Args.Handled = true;
                     break;
                 }
@@ -850,13 +680,11 @@ internal static class PageCanvasAnnotationMixins
         /// <summary>Captures the pointer and begins dragging a shape or callout annotation.</summary>
         private void BeginShape()
         {
-            if (AnnotationsViewModel.GetShapeKind(Tab.Annotations.Tool) is not { } shapeKind)
+            if (!Canvas.State.BeginShape(Tab, Page, new(Position.X, Position.Y)))
             {
                 return;
             }
 
-            var start = Canvas.ToPage(Tab, Page, Position);
-            Canvas.ActiveShape = new(shapeKind, Page, start, start);
             Args.Pointer.Capture(Canvas);
             Args.Handled = true;
         }
@@ -864,9 +692,7 @@ internal static class PageCanvasAnnotationMixins
         /// <summary>Captures the pointer and begins a freehand ink stroke.</summary>
         private void BeginInk()
         {
-            Canvas.Stroke.Clear();
-            Canvas.StrokePage = Page;
-            Canvas.Stroke.Add(Canvas.ToPage(Tab, Page, Position));
+            Canvas.State.BeginInk(Tab, Page, new(Position.X, Position.Y));
             Args.Pointer.Capture(Canvas);
             Args.Handled = true;
         }

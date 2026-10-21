@@ -294,10 +294,10 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     internal TextSelection Selection => State.Selection;
 
     /// <summary>Gets the page points of the ink stroke being drawn.</summary>
-    internal List<PagePoint> Stroke { get; } = [];
+    internal List<PagePoint> Stroke => State.Drawing.Stroke;
 
     /// <summary>Gets the corners placed so far in a polygon, cloud or polyline.</summary>
-    internal PolygonDraft Polygon { get; } = new();
+    internal PolygonDraft Polygon => State.Drawing.Polygon;
 
     /// <summary>Gets the annotations list reused while drawing comment indicator badges.</summary>
     internal List<PageAnnotation> BadgeAnnotations { get; } = [];
@@ -455,16 +455,32 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     }
 
     /// <summary>Gets or sets the page an ink stroke is being drawn on, or -1 when not drawing.</summary>
-    internal int StrokePage { get; set; } = -1;
+    internal int StrokePage
+    {
+        get => State.Drawing.StrokePage;
+        set => State.Drawing.StrokePage = value;
+    }
 
     /// <summary>Gets or sets the shape currently being dragged on a page, or <see langword="null"/>.</summary>
-    internal PageCanvasAnnotationMixins.ShapePreview? ActiveShape { get; set; }
+    internal ShapePreview? ActiveShape
+    {
+        get => State.Drawing.ActiveShape;
+        set => State.Drawing.ActiveShape = value;
+    }
 
     /// <summary>Gets or sets the page clicked by a click-based annotation tool, or -1 when none.</summary>
-    internal int ClickPage { get; set; } = -1;
+    internal int ClickPage
+    {
+        get => State.Drawing.ClickPage;
+        set => State.Drawing.ClickPage = value;
+    }
 
     /// <summary>Gets or sets a value indicating whether a click-based text tool snaps to a detected form region.</summary>
-    internal bool ClickSnaps { get; set; }
+    internal bool ClickSnaps
+    {
+        get => State.Drawing.ClickSnaps;
+        set => State.Drawing.ClickSnaps = value;
+    }
 
     /// <summary>Gets or sets the cached signature mark preview.</summary>
     internal SignatureMarkPainter? MarkPainter { get; set; }
@@ -476,7 +492,11 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     internal Pen? HighlighterPen { get; set; }
 
     /// <summary>Gets or sets the printed-form region currently hovered by the pointer.</summary>
-    internal PageCanvasAnnotationMixins.HoveredFormRegion? HoveredRegion { get; set; }
+    internal HoveredFormRegion? HoveredRegion
+    {
+        get => State.Drawing.HoveredRegion;
+        set => State.Drawing.HoveredRegion = value;
+    }
 
     /// <summary>Gets or sets the dashed pen used to draw printed-form region suggestions.</summary>
     internal Pen? SuggestionPen { get; set; }
