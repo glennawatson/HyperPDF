@@ -112,29 +112,8 @@ internal static class PageCanvasToolMixins
         /// <summary>Scrolls down, page by page within the page shown and then to the next page.</summary>
         /// <param name="distance">How far.</param>
         /// <returns><see langword="true"/> when the pages moved; <see langword="false"/> at the end.</returns>
-        internal bool AutoScrollBy(double distance)
-        {
-            if (canvas.Scroller is not { } scroller)
-            {
-                return false;
-            }
-
-            var before = scroller.Offset.Y;
-            if (canvas.StepPageByPage(distance))
-            {
-                return scroller.Offset.Y > before;
-            }
-
-            var end = Math.Max(0, scroller.Extent.Height - scroller.Viewport.Height);
-            if (before >= end - PageCanvasZoomMixins.EdgeTolerance)
-            {
-                return false;
-            }
-
-            scroller.Offset = new(scroller.Offset.X, Math.Min(end, before + distance));
-            canvas.ReportPosition();
-            return true;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool AutoScrollBy(double distance) => canvas.State.AutoScrollBy(distance);
 
         /// <summary>Moves the pages with the pointer while panning.</summary>
         /// <param name="e">The pointer movement.</param>
@@ -146,16 +125,8 @@ internal static class PageCanvasToolMixins
                 return false;
             }
 
-            var moved = e.GetPosition(scroller) - canvas.PanStart;
-            var y = canvas.PanOffset.Y - moved.Y;
-            if (canvas.Layout.Options.PageByPage && canvas.Layout.PageCount > 0)
-            {
-                // Page by page, a drag moves within the page shown and never shows half of the next one.
-                y = canvas.ClampToSlot(canvas.Layout.GetPageNearest(canvas.PanOffset.Y + PageCanvasZoomMixins.EdgeTolerance), y);
-            }
-
-            scroller.Offset = new(canvas.PanOffset.X - moved.X, y);
-            return true;
+            var pointer = e.GetPosition(scroller);
+            return canvas.State.ContinuePan(new(pointer.X, pointer.Y));
         }
 
         /// <summary>Ends moving the pages, following a link when the Hand tool clicked one without moving.</summary>
@@ -168,13 +139,12 @@ internal static class PageCanvasToolMixins
                 return false;
             }
 
-            canvas.Panning = false;
+            canvas.State.Tools.Panning = false;
             canvas.Cursor = canvas.ToolCursor();
             canvas.ReportPosition();
             var link = canvas.PressedLink;
             canvas.PressedLink = null;
-            var travel = position - canvas.PressPoint;
-            if (link is { } pressed && Math.Abs(travel.X) < PageCanvas.DragThreshold && Math.Abs(travel.Y) < PageCanvas.DragThreshold)
+            if (link is { } pressed && CanvasMetrics.IsClick(new(canvas.PressPoint.X, canvas.PressPoint.Y), new(position.X, position.Y)))
             {
                 canvas.Tab?.Navigate(pressed.Target);
             }
@@ -187,16 +157,13 @@ internal static class PageCanvasToolMixins
         /// <returns><see langword="true"/> when the key was Space.</returns>
         internal bool PressSpace(KeyEventArgs e)
         {
-            if (e.Key != Key.Space || (e.KeyModifiers & ~KeyModifiers.Shift) != 0)
+            if (!canvas.State.PressSpace(e.ViewerKey, e.ViewerModifiers, out var started))
             {
                 return false;
             }
 
-            // Held keys repeat; only the first press starts a hold.
-            if (!canvas.SpaceHeld)
+            if (started)
             {
-                canvas.SpaceHeld = true;
-                canvas.SpacePanned = false;
                 canvas.Cursor = PageCanvas.HandCursor;
             }
 
@@ -207,8 +174,7 @@ internal static class PageCanvasToolMixins
         /// <param name="e">The key release.</param>
         internal void CompleteSpaceHold(KeyEventArgs e)
         {
-            canvas.SpaceHeld = false;
-            if (!canvas.SpacePanned && !canvas.Panning)
+            if (canvas.State.EndSpaceHold())
             {
                 _ = canvas.HandlePageByPageKey(e);
             }
@@ -222,10 +188,15 @@ internal static class PageCanvasToolMixins
         }
 
         /// <summary>Forgets a held Space when the pages lose the keyboard, as its release will not arrive.</summary>
-        internal void ReleaseSpace()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void ReleaseSpace() => canvas.State.ReleaseSpace();
+
+        /// <summary>Gets the area between where the drag started and where it is now.</summary>
+        /// <returns>The area.</returns>
+        internal Rect GetArea()
         {
-            canvas.SpaceHeld = false;
-            canvas.SpacePanned = false;
+            var area = canvas.State.GetArea();
+            return new(area.X, area.Y, area.Width, area.Height);
         }
 
         /// <summary>Gets the pointer for the chosen tool when it is not over anything special.</summary>
@@ -286,7 +257,8 @@ internal static class PageCanvasToolMixins
                 return true;
             }
 
-            var area = Between(canvas.AreaStart, position);
+            canvas.AreaEnd = position;
+            var area = canvas.GetArea();
             if (tab.PageTools.PageTool == PageTool.ZoomArea)
             {
                 canvas.ZoomToArea(tab, area);
@@ -330,7 +302,7 @@ internal static class PageCanvasToolMixins
                 return;
             }
 
-            context.DrawRectangle(null, pen, Between(canvas.AreaStart, canvas.AreaEnd));
+            context.DrawRectangle(null, pen, canvas.GetArea());
         }
 
         /// <summary>Moves the measurement's last point with the pointer.</summary>
@@ -432,13 +404,6 @@ internal static class PageCanvasToolMixins
             }
         }
     }
-
-    /// <summary>Gets the rectangle between two corners, whichever way it was dragged.</summary>
-    /// <param name="first">One corner.</param>
-    /// <param name="second">The opposite corner.</param>
-    /// <returns>The rectangle.</returns>
-    private static Rect Between(Point first, Point second) =>
-        new(Math.Min(first.X, second.X), Math.Min(first.Y, second.Y), Math.Abs(second.X - first.X), Math.Abs(second.Y - first.Y));
 
     /// <summary>Draws a measurement's lines and points.</summary>
     /// <param name="context">The drawing context.</param>
@@ -558,10 +523,8 @@ internal static class PageCanvasToolMixins
             _ = Canvas.Focus();
             Canvas.PressPoint = Point.Position;
             Canvas.PressedLink = Point.Properties.IsLeftButtonPressed && !Canvas.SpaceHeld ? Canvas.HitTestLink(Point.Position, out _) : null;
-            Canvas.Panning = true;
-            Canvas.SpacePanned |= Canvas.SpaceHeld;
-            Canvas.PanStart = Args.GetPosition(scroller);
-            Canvas.PanOffset = scroller.Offset;
+            var start = Args.GetPosition(scroller);
+            Canvas.State.BeginPan(new(start.X, start.Y));
             Canvas.Cursor = MoveCursor;
             Args.Pointer.Capture(Canvas);
             Args.Handled = true;

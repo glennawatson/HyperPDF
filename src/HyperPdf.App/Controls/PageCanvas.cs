@@ -403,34 +403,41 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     }
 
     /// <summary>Gets or sets when the last auto-scroll frame ran.</summary>
-    internal long AutoScrollLast { get; set; }
+    internal long AutoScrollLast
+    {
+        get => State.Tools.AutoScrollLast;
+        set => State.Tools.AutoScrollLast = value;
+    }
 
     /// <summary>Gets a value indicating whether auto-scroll frames are being requested, for tests.</summary>
     internal bool IsAutoScrollRunning => Volatile.Read(ref _autoScrollRunning) != 0;
 
-    /// <summary>Gets or sets a value indicating whether the Space bar is held for temporary hand panning.</summary>
-    internal bool SpaceHeld { get; set; }
+    /// <summary>Gets a value indicating whether the Space bar is held for temporary hand panning.</summary>
+    internal bool SpaceHeld => State.Tools.SpaceHeld;
 
-    /// <summary>Gets or sets a value indicating whether a drag moved the pages during the current Space hold.</summary>
-    internal bool SpacePanned { get; set; }
-
-    /// <summary>Gets or sets a value indicating whether a hand pan is in progress.</summary>
-    internal bool Panning { get; set; }
-
-    /// <summary>Gets or sets where the pointer was in the scroll viewer when the pan started.</summary>
-    internal Point PanStart { get; set; }
-
-    /// <summary>Gets or sets the scroll offset when the pan started.</summary>
-    internal Vector PanOffset { get; set; }
+    /// <summary>Gets a value indicating whether a hand pan is in progress.</summary>
+    internal bool Panning => State.Tools.Panning;
 
     /// <summary>Gets or sets a value indicating whether a snapshot or marquee-zoom rectangle is being dragged.</summary>
-    internal bool AreaDragging { get; set; }
+    internal bool AreaDragging
+    {
+        get => State.Tools.AreaDragging;
+        set => State.Tools.AreaDragging = value;
+    }
 
     /// <summary>Gets or sets where the area drag started on the canvas.</summary>
-    internal Point AreaStart { get; set; }
+    internal Point AreaStart
+    {
+        get => new(State.Tools.AreaStart.X, State.Tools.AreaStart.Y);
+        set => State.Tools.AreaStart = new(value.X, value.Y);
+    }
 
     /// <summary>Gets or sets where the pointer is now in the area drag.</summary>
-    internal Point AreaEnd { get; set; }
+    internal Point AreaEnd
+    {
+        get => new(State.Tools.AreaEnd.X, State.Tools.AreaEnd.Y);
+        set => State.Tools.AreaEnd = new(value.X, value.Y);
+    }
 
     /// <summary>Gets or sets the annotation being moved or resized, or <see langword="null"/>.</summary>
     internal PageCanvasEditMixins.AnnotationEditSession? ActiveEdit { get; set; }

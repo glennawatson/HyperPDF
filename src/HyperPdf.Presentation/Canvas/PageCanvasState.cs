@@ -28,6 +28,9 @@ public sealed class PageCanvasState
     /// <summary>Gets the toolkit's canvas.</summary>
     public ICanvasHost Host { get; }
 
+    /// <summary>Gets what the page tools remember between pointer and key events.</summary>
+    public PageToolState Tools { get; } = new();
+
     /// <summary>Gets the page measurements the fit zoom comes from, kept so a resize does not walk every page.</summary>
     public PageFitExtentsCache FitExtents { get; } = new();
 

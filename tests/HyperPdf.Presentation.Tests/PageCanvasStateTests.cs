@@ -14,12 +14,6 @@ public sealed class PageCanvasStateTests
     /// <summary>The page count of generated documents.</summary>
     private const int Pages = 3;
 
-    /// <summary>The width of the scrolling area.</summary>
-    private const double ViewWidth = 800;
-
-    /// <summary>The height of the scrolling area.</summary>
-    private const double ViewHeight = 600;
-
     /// <summary>The width of a row of pages laid out side by side.</summary>
     private const double WideExtent = 2000;
 
@@ -46,7 +40,7 @@ public sealed class PageCanvasStateTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-layout.pdf", Pages)]);
-        var (host, state) = Create(main.SelectedTab!);
+        var (host, state) = CanvasUnderTest.Create(main.SelectedTab!);
 
         state.RebuildLayout();
 
@@ -63,7 +57,7 @@ public sealed class PageCanvasStateTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-empty.pdf", Pages)]);
-        var (host, state) = Create(main.SelectedTab!);
+        var (host, state) = CanvasUnderTest.Create(main.SelectedTab!);
         host.HasScroller = false;
 
         state.RebuildLayout();
@@ -81,8 +75,8 @@ public sealed class PageCanvasStateTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-sideways.pdf", Pages)]);
         var tab = main.SelectedTab!;
         tab.ScrollMode = ScrollMode.Horizontal;
-        var (host, state) = Create(tab);
-        host.ExtentSize = new(WideExtent, ViewHeight);
+        var (host, state) = CanvasUnderTest.Create(tab);
+        host.ExtentSize = new(WideExtent, CanvasUnderTest.ViewHeight);
         state.RebuildLayout();
 
         var moved = state.StepSideways(SidewaysStep);
@@ -92,7 +86,7 @@ public sealed class PageCanvasStateTests
         await Assert.That(moved).IsTrue();
         await Assert.That(first).IsEqualTo(SidewaysStep);
         await Assert.That(pastEnd).IsTrue();
-        await Assert.That(host.ScrollOffset.X).IsEqualTo(WideExtent - ViewWidth);
+        await Assert.That(host.ScrollOffset.X).IsEqualTo(WideExtent - CanvasUnderTest.ViewWidth);
     }
 
     /// <summary>A vertical layout does not move sideways.</summary>
@@ -103,7 +97,7 @@ public sealed class PageCanvasStateTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-vertical.pdf", Pages)]);
-        var (host, state) = Create(main.SelectedTab!);
+        var (host, state) = CanvasUnderTest.Create(main.SelectedTab!);
         state.RebuildLayout();
 
         await Assert.That(state.StepSideways(SidewaysStep)).IsFalse();
@@ -120,7 +114,7 @@ public sealed class PageCanvasStateTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-keys.pdf", Pages)]);
         var tab = main.SelectedTab!;
         tab.IsPageByPage = false;
-        var (_, state) = Create(tab);
+        var (_, state) = CanvasUnderTest.Create(tab);
         state.RebuildLayout();
 
         await Assert.That(state.HandlePageByPageKey(ViewerKey.PageDown, ViewerModifiers.None)).IsFalse();
@@ -137,7 +131,7 @@ public sealed class PageCanvasStateTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-modifiers.pdf", Pages)]);
         var tab = main.SelectedTab!;
         tab.IsPageByPage = true;
-        var (_, state) = Create(tab);
+        var (_, state) = CanvasUnderTest.Create(tab);
         state.RebuildLayout();
 
         await Assert.That(state.HandlePageByPageKey(ViewerKey.PageDown, ViewerModifiers.Control)).IsFalse();
@@ -153,7 +147,7 @@ public sealed class PageCanvasStateTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-next.pdf", Pages)]);
         var tab = main.SelectedTab!;
         tab.IsPageByPage = true;
-        var (host, state) = Create(tab);
+        var (host, state) = CanvasUnderTest.Create(tab);
         state.RebuildLayout();
 
         var handled = state.HandlePageByPageKey(ViewerKey.PageDown, ViewerModifiers.None);
@@ -171,7 +165,7 @@ public sealed class PageCanvasStateTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-wheel.pdf", Pages)]);
         var tab = main.SelectedTab!;
-        var (host, state) = Create(tab);
+        var (host, state) = CanvasUnderTest.Create(tab);
         state.RebuildLayout();
         var before = tab.Zoom;
 
@@ -191,7 +185,7 @@ public sealed class PageCanvasStateTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-ease.pdf", Pages)]);
         var tab = main.SelectedTab!;
-        var (host, state) = Create(tab);
+        var (host, state) = CanvasUnderTest.Create(tab);
         host.IsInWindow = true;
         state.RebuildLayout();
         var before = tab.Zoom;
@@ -211,7 +205,7 @@ public sealed class PageCanvasStateTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-noscroll.pdf", Pages)]);
         var tab = main.SelectedTab!;
-        var (host, state) = Create(tab);
+        var (host, state) = CanvasUnderTest.Create(tab);
         host.HasScroller = false;
         var before = tab.Zoom;
 
@@ -229,7 +223,7 @@ public sealed class PageCanvasStateTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("canvas-settle.pdf", Pages)]);
         var tab = main.SelectedTab!;
-        var (_, state) = Create(tab);
+        var (_, state) = CanvasUnderTest.Create(tab);
         state.RebuildLayout();
         var target = ZoomCalculator.Clamp(tab.Zoom * ZoomFactor);
         var ease = new WheelZoomEase(true, tab.Zoom, target, Stopwatch.GetTimestamp() - LongAgo, new(0, 0));
@@ -240,19 +234,4 @@ public sealed class PageCanvasStateTests
         await Assert.That(state.IsZoomEasing).IsFalse();
         await Assert.That(tab.Zoom).IsEqualTo(target);
     }
-
-    /// <summary>Makes a canvas state for a tab, in a scrolling area of the test size.</summary>
-    /// <param name="tab">The tab.</param>
-    /// <returns>The host and the state working through it.</returns>
-    private static CanvasUnderTest Create(DocumentTabViewModel tab)
-    {
-        var view = new CanvasSize(ViewWidth, ViewHeight);
-        var host = new FakeCanvasHost { ViewportSize = view, ScrollerSize = view, ExtentSize = view };
-        return new(host, new(host) { Tab = tab });
-    }
-
-    /// <summary>A canvas state and the host it works through.</summary>
-    /// <param name="Host">The host.</param>
-    /// <param name="State">The state.</param>
-    private readonly record struct CanvasUnderTest(FakeCanvasHost Host, PageCanvasState State);
 }
