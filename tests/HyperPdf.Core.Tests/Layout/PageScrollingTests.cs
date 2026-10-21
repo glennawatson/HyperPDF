@@ -127,6 +127,38 @@ public sealed class PageScrollingTests
         await Assert.That(top).IsEqualTo(PageScrolling.GetTop(layout, ThirdPage, Quarter, ContentMargin, ViewportHeight));
     }
 
+    /// <summary>A span already in view leaves the offset alone.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SpanInViewKeepsTheOffset()
+    {
+        var offset = PageScrolling.GetOffsetToShow(Current, ViewportHeight, Current + Quarter, Current + ContentMargin, ContentMargin);
+
+        await Assert.That(offset).IsEqualTo(Current);
+    }
+
+    /// <summary>A span above the view scrolls up to it, keeping the margin.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SpanAboveScrollsUp()
+    {
+        var offset = PageScrolling.GetOffsetToShow(FarOffset, ViewportHeight, Current, Current + ContentMargin, ContentMargin);
+
+        await Assert.That(offset).IsEqualTo(Current - ContentMargin);
+    }
+
+    /// <summary>A span below the view scrolls down until its far edge shows, keeping the margin.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SpanBelowScrollsDown()
+    {
+        const double far = Current + ViewportHeight + ContentMargin;
+
+        var offset = PageScrolling.GetOffsetToShow(0, ViewportHeight, far - ContentMargin, far, ContentMargin);
+
+        await Assert.That(offset).IsEqualTo(far - ViewportHeight + ContentMargin);
+    }
+
     /// <summary>A missing layout is refused.</summary>
     /// <returns>A task.</returns>
     [Test]

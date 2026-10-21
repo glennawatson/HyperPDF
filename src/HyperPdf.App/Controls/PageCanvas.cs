@@ -18,7 +18,6 @@ using HyperPdf.App.Rendering;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
-using HyperPdf.Core.Layout;
 using HyperPdf.Core.Navigation;
 using HyperPdf.Core.Rendering;
 using ReactiveUI;

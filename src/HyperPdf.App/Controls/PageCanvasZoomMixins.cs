@@ -7,7 +7,6 @@ using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using HyperPdf.Core.Layout;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -27,12 +26,6 @@ internal static class PageCanvasZoomMixins
 
     /// <summary>Zoom change per wheel notch.</summary>
     private const double WheelZoomFactor = 1.1;
-
-    /// <summary>The power of the ease out curve.</summary>
-    private const double ZoomEasePower = 3;
-
-    /// <summary>How long one wheel zoom takes to ease to its target.</summary>
-    private static readonly TimeSpan ZoomDuration = TimeSpan.FromMilliseconds(140);
 
     /// <summary>Adds the zoom, pinch and page-by-page streams and helpers to a page canvas.</summary>
     /// <param name="canvas">The page canvas.</param>
@@ -116,11 +109,8 @@ internal static class PageCanvasZoomMixins
                 return;
             }
 
-            var progress = Math.Min(1, Stopwatch.GetElapsedTime(ease.Started) / ZoomDuration);
-
-            // Cubic ease out, applied to the zoom ratio so each frame scales by the same proportion.
-            var eased = 1 - Math.Pow(1 - progress, ZoomEasePower);
-            var zoom = ease.From * Math.Pow(ease.To / ease.From, eased);
+            var progress = WheelZoomCurve.GetProgress(Stopwatch.GetElapsedTime(ease.Started));
+            var zoom = WheelZoomCurve.GetZoom(ease.From, ease.To, progress);
             var done = progress >= 1;
             if (done)
             {

@@ -2,14 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.Core.Attachments;
-using HyperPdf.Core.Platform;
-using HyperPdf.Core.Settings;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Views;
@@ -35,16 +31,6 @@ internal static class ItemAutomation
             .SubscribeSafe(NameItem, ErrorTrace.Write);
     }
 
-    /// <summary>Puts an item's place in its list into words, unless its name already says it.</summary>
-    /// <param name="item">The item.</param>
-    /// <param name="index">Its zero based position.</param>
-    /// <param name="count">How many items there are.</param>
-    /// <returns>The description, such as "2 of 7", or <see langword="null"/>.</returns>
-    internal static string? DescribePosition(object? item, int index, int count) =>
-        count <= 0 || item is ThumbnailItemViewModel
-            ? null
-            : string.Create(CultureInfo.CurrentCulture, $"{index + 1} of {count}");
-
     /// <summary>Names the list or tree item that shows a view.</summary>
     /// <param name="view">The item's view.</param>
     /// <param name="name">The name.</param>
@@ -63,68 +49,6 @@ internal static class ItemAutomation
         }
     }
 
-    /// <summary>Describes an item as a screen reader should say it.</summary>
-    /// <param name="item">The item.</param>
-    /// <param name="index">Its zero based position.</param>
-    /// <param name="count">How many items there are.</param>
-    /// <returns>The description, or <see langword="null"/> for items that name themselves.</returns>
-    internal static string? Describe(object? item, int index, int count) => item switch
-    {
-        ThumbnailItemViewModel { Colorant: { } colorant } separation => $"{DescribePage(separation.Label, separation.PageIndex, count)}, {colorant} separation",
-        ThumbnailItemViewModel thumbnail => DescribePage(thumbnail.Label, thumbnail.PageIndex, count),
-        SearchResultItemViewModel result => string.Create(CultureInfo.CurrentCulture, $"Page {result.PageNumber}: {result.Context}"),
-        AnnotationItemViewModel annotation => annotation.SpokenText,
-        DocumentAttachment attachment => string.Create(CultureInfo.CurrentCulture, $"{attachment.Name}, {AttachmentsViewModel.FormatSize(attachment.Size)}"),
-        LayerItemViewModel layer => layer.SpokenName,
-        PartItemViewModel part => part.SpokenName,
-        ThreadItemViewModel thread => thread.SpokenName,
-        TagItemViewModel tag => tag.SpokenName,
-        TagProblemItem problem => problem.Text,
-        RecentDocument recent => DescribeFile(recent.FileName, recent.Folder),
-        DocumentTabViewModel tab => DescribeFile(tab.FileName, tab.Folder),
-        FolderSearchResultViewModel found => found.SpokenText,
-        PrintPreviewPage sheet => string.Create(CultureInfo.CurrentCulture, $"Sheet {sheet.Caption}"),
-        PrintTarget target => target.Label,
-        OutlineItemViewModel entry => entry.Title,
-        RememberedCertificate certificate => DescribeCertificate(certificate),
-        OptimizePresetChoice preset => $"{preset.Name}. {preset.Description}",
-        ArchiveLevelChoice level => $"{level.Name}. {level.Description}",
-        ProtectionFormatChoice format => $"{format.Name}. {format.Description}",
-        FlattenScopeChoice scope => $"{scope.Name}. {scope.Description}",
-        FlattenLookChoice look => $"{look.Name}. {look.Description}",
-        ValidationActionChoice action => $"{action.Name}. {action.Description}",
-        SigningKeyChoice key => key.Name,
-        ExternalResultChoice result => result.Name,
-        string text => text,
-        _ => count > 0 ? string.Create(CultureInfo.CurrentCulture, $"Item {index + 1} of {count}") : null,
-    };
-
-    /// <summary>Describes a page, for example "Page 3 of 40", saying the document's own label when it differs.</summary>
-    /// <param name="label">The page's label.</param>
-    /// <param name="pageIndex">The zero based page.</param>
-    /// <param name="count">How many pages there are.</param>
-    /// <returns>The description.</returns>
-    internal static string DescribePage(string label, int pageIndex, int count)
-    {
-        var number = (pageIndex + 1).ToString(CultureInfo.CurrentCulture);
-        return label == number
-            ? string.Create(CultureInfo.CurrentCulture, $"Page {number} of {count}")
-            : string.Create(CultureInfo.CurrentCulture, $"Page {label}, {number} of {count}");
-    }
-
-    /// <summary>Describes an open tab in the tab strip: its file, and whether it has changes that are not saved.</summary>
-    /// <param name="fileName">The file name.</param>
-    /// <param name="unsaved">Whether there are unsaved changes.</param>
-    /// <returns>The description.</returns>
-    internal static string DescribeTab(string fileName, bool unsaved) =>
-        unsaved ? string.Create(CultureInfo.CurrentCulture, $"{fileName}, unsaved changes") : fileName;
-
-    /// <summary>Describes a remembered certificate by who it names and where it is.</summary>
-    /// <param name="certificate">The certificate.</param>
-    /// <returns>The description.</returns>
-    internal static string DescribeCertificate(RememberedCertificate? certificate) =>
-        certificate is null ? string.Empty : string.Create(CultureInfo.CurrentCulture, $"{certificate.Subject} ({Path.GetFileName(certificate.Path)})");
-
     /// <summary>Names a list item as it is prepared for an item, from what the item holds and where it sits.</summary>
     /// <param name="prepared">The list and the container that was prepared with its position.</param>
     private static void NameItem(PreparedItem prepared)
@@ -133,21 +57,14 @@ internal static class ItemAutomation
         var container = args.Container;
         var item = list.ItemFromContainer(container) ?? container.DataContext;
         var count = list.Items.Count;
-        AutomationProperties.SetName(container, Describe(item, args.Index, count));
+        AutomationProperties.SetName(container, ItemDescriptions.Describe(item, args.Index, count));
         AutomationProperties.SetPositionInSet(container, args.Index + 1);
         AutomationProperties.SetSizeOfSet(container, count);
 
         // Avalonia's Linux and macOS bridges drop the set position, so there it is spoken as the description.
         if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
         {
-            AutomationProperties.SetHelpText(container, DescribePosition(item, args.Index, count));
+            AutomationProperties.SetHelpText(container, ItemDescriptions.DescribePosition(item, args.Index, count));
         }
     }
-
-    /// <summary>Describes a file by its name and folder.</summary>
-    /// <param name="fileName">The file name.</param>
-    /// <param name="folder">The folder.</param>
-    /// <returns>The description.</returns>
-    private static string DescribeFile(string fileName, string folder) =>
-        folder.Length == 0 ? fileName : string.Create(CultureInfo.CurrentCulture, $"{fileName}, in {folder}");
 }

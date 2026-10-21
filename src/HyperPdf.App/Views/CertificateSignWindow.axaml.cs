@@ -21,7 +21,7 @@ public sealed partial class CertificateSignWindow : ReactiveUI.Avalonia.Reactive
     public CertificateSignWindow()
     {
         InitializeComponent();
-        RememberedBox.ItemTemplate = new FuncDataTemplate<RememberedCertificate>(static (certificate, _) => new TextBlock { Text = ItemAutomation.DescribeCertificate(certificate) });
+        RememberedBox.ItemTemplate = new FuncDataTemplate<RememberedCertificate>(static (certificate, _) => new TextBlock { Text = ItemDescriptions.DescribeCertificate(certificate) });
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(ItemAutomation.NameItems(RememberedBox));

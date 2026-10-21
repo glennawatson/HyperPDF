@@ -27,17 +27,11 @@ internal static class PageCanvasCaretMixins
     /// <summary>How far the caret reaches above and below the glyph, as a fraction of its height, to span the line.</summary>
     private const double CaretOverhang = 0.3;
 
-    /// <summary>How far past a line, as a fraction of its height, to look for the next line.</summary>
-    private const float LineProbe = 0.75F;
-
-    /// <summary>The most lines skipped when the next line is far away, such as across a gap in the page.</summary>
-    private const int MaxLineProbes = 12;
-
     /// <summary>The hit tolerance for text, in points.</summary>
     private const float TextTolerance = 4F;
 
     /// <summary>Represents the absence of a character position.</summary>
-    private static readonly CharacterPosition NoCharacter = new(-1, -1);
+    private static readonly CharacterPosition NoCharacter = CaretNavigation.None;
 
     /// <summary>Adds the caret, text selection, link click, pointer move/release and document key streams and helpers to a page canvas.</summary>
     /// <param name="canvas">The page canvas.</param>
@@ -149,10 +143,10 @@ internal static class PageCanvasCaretMixins
 
             var next = e.Key switch
             {
-                Key.Right => Step(document, canvas.Caret, 1),
-                Key.Left => Step(document, canvas.Caret, -1),
-                Key.Down => canvas.StepLine(document, canvas.Caret, 1),
-                Key.Up => canvas.StepLine(document, canvas.Caret, -1),
+                Key.Right => CaretNavigation.Step(document, canvas.Caret, 1),
+                Key.Left => CaretNavigation.Step(document, canvas.Caret, -1),
+                Key.Down => CaretNavigation.StepLine(document, canvas.Caret, 1, canvas.CaretBounds),
+                Key.Up => CaretNavigation.StepLine(document, canvas.Caret, -1, canvas.CaretBounds),
                 _ => NoCharacter,
             };
             if (next.Page < 0)
@@ -477,55 +471,6 @@ internal static class PageCanvasCaretMixins
             canvas.InvalidateVisual();
         }
 
-        /// <summary>Steps one line down or up, keeping the caret's horizontal position, crossing pages at the edges.</summary>
-        /// <param name="document">The document.</param>
-        /// <param name="from">The current position.</param>
-        /// <param name="direction">1 for down, -1 for up.</param>
-        /// <returns>The new position, or page -1 at either end of the document.</returns>
-        private CharacterPosition StepLine(IDocument document, CharacterPosition from, int direction)
-        {
-            canvas.CaretBounds.Clear();
-            document.GetTextBounds(from.Page, from.Char, 1, canvas.CaretBounds);
-            if (canvas.CaretBounds.Count > 0)
-            {
-                var bounds = canvas.CaretBounds[0];
-                var height = Math.Max(1, bounds.Height);
-                for (var probe = 1; probe <= MaxLineProbes; probe++)
-                {
-                    var y = direction > 0 ? bounds.Bottom + (height * LineProbe * probe) : bounds.Top - (height * LineProbe * probe);
-                    var found = document.GetCharacterIndexAt(from.Page, new(bounds.Left, y), height);
-                    if (found >= 0 && found != from.Char && canvas.IsOtherLine(document, from.Page, found, bounds, direction))
-                    {
-                        return new(from.Page, found);
-                    }
-                }
-            }
-
-            // No further line on this page: go to the first or last character of the next page with text.
-            var edge = direction > 0 ? new CharacterPosition(from.Page, document.GetCharacterCount(from.Page) - 1) : new CharacterPosition(from.Page, 0);
-            return Step(document, edge, direction);
-        }
-
-        /// <summary>Determines whether a character sits on a line beyond the caret's, not just reaching past it like a descender.</summary>
-        /// <param name="document">The document.</param>
-        /// <param name="page">The page.</param>
-        /// <param name="character">The character found.</param>
-        /// <param name="caret">The caret character's bounds.</param>
-        /// <param name="direction">1 for down, -1 for up.</param>
-        /// <returns><see langword="true"/> when its centre is past the caret's line.</returns>
-        private bool IsOtherLine(IDocument document, int page, int character, in PageRect caret, int direction)
-        {
-            canvas.CaretBounds.Clear();
-            document.GetTextBounds(page, character, 1, canvas.CaretBounds);
-            if (canvas.CaretBounds.Count == 0)
-            {
-                return false;
-            }
-
-            var centre = canvas.CaretBounds[0].Top + (canvas.CaretBounds[0].Height * (float)PageCanvas.Half);
-            return direction > 0 ? centre > caret.Bottom : centre < caret.Top;
-        }
-
         /// <summary>Scrolls just enough to show the caret.</summary>
         private void ScrollCaretIntoView()
         {
@@ -536,27 +481,9 @@ internal static class PageCanvasCaretMixins
 
             var offset = scroller.Offset;
             var viewport = scroller.Viewport;
-            var y = offset.Y;
-            if (caret.Top < y)
-            {
-                y = caret.Top - PageCanvas.ContentMargin;
-            }
-            else if (caret.Bottom > y + viewport.Height)
-            {
-                y = caret.Bottom - viewport.Height + PageCanvas.ContentMargin;
-            }
-
-            var x = offset.X;
-            if (caret.Left < x)
-            {
-                x = caret.Left - PageCanvas.ContentMargin;
-            }
-            else if (caret.Right > x + viewport.Width)
-            {
-                x = caret.Right - viewport.Width + PageCanvas.ContentMargin;
-            }
-
-            scroller.Offset = new(x, y);
+            scroller.Offset = new(
+                PageScrolling.GetOffsetToShow(offset.X, viewport.Width, caret.Left, caret.Right, PageCanvas.ContentMargin),
+                PageScrolling.GetOffsetToShow(offset.Y, viewport.Height, caret.Top, caret.Bottom, PageCanvas.ContentMargin));
         }
 
         /// <summary>Gets the caret's line on the canvas.</summary>
@@ -581,31 +508,6 @@ internal static class PageCanvasCaretMixins
             var overhang = area.Height * CaretOverhang;
             return new(area.X - (CaretWidth * PageCanvas.Half), area.Y - overhang, CaretWidth, area.Height + overhang + overhang);
         }
-    }
-
-    /// <summary>Steps one character, crossing to the next or previous page with text.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="from">The current position.</param>
-    /// <param name="direction">1 for forward, -1 for back.</param>
-    /// <returns>The new position, or page -1 at either end of the document.</returns>
-    private static CharacterPosition Step(IDocument document, CharacterPosition from, int direction)
-    {
-        var target = from.Char + direction;
-        if (target >= 0 && target < document.GetCharacterCount(from.Page))
-        {
-            return new(from.Page, target);
-        }
-
-        for (var page = from.Page + direction; page >= 0 && page < document.PageCount; page += direction)
-        {
-            var count = document.GetCharacterCount(page);
-            if (count > 0)
-            {
-                return new(page, direction > 0 ? 0 : count - 1);
-            }
-        }
-
-        return NoCharacter;
     }
 
     /// <summary>An unhandled left pointer press that clicks a link or starts a text selection drag.</summary>

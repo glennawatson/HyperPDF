@@ -4,7 +4,11 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdf.Core.Annotations;
+#if HYPERPDF_VIEWMODELS_PROJECT
 using HyperPdf.ViewModels.Markup;
+#else
+using HyperPdf.App.ViewModels;
+#endif
 
 namespace HyperPdf.Benchmarks;
 

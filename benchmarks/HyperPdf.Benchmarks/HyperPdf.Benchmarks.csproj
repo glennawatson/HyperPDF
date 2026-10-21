@@ -12,10 +12,16 @@
     <DefineConstants>$(DefineConstants);HYPERPDF_FIT_EXTENTS_CACHE</DefineConstants>
   </PropertyGroup>
 
+  <!-- Newer refs keep the view models and the toolkit-free Skia tiles in their own projects; a baseline ref keeps them in the app, so the sources are linked from there. -->
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.ViewModels\HyperPdf.ViewModels.csproj')">
+    <DefineConstants>$(DefineConstants);HYPERPDF_VIEWMODELS_PROJECT</DefineConstants>
+    <ViewModelsProject>true</ViewModelsProject>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\HyperPdf.Core\HyperPdf.Core.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Skia\HyperPdf.Skia.csproj" />
-    <ProjectReference Include="..\..\src\HyperPdf.Rendering.Skia\HyperPdf.Rendering.Skia.csproj" />
+    <ProjectReference Condition="'$(ViewModelsProject)' == 'true'" Include="..\..\src\HyperPdf.Rendering.Skia\HyperPdf.Rendering.Skia.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Platform.Cups\HyperPdf.Platform.Cups.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Engine\HyperPdf.Engine.csproj" />
@@ -47,12 +53,22 @@
     <Compile Remove="SelectionRectsBenchmarks.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.ViewModels\Viewing\ZoomLabel.cs')">
+  <ItemGroup Condition="'$(ViewModelsProject)' == 'true'">
     <Compile Include="..\..\src\HyperPdf.ViewModels\Viewing\ZoomLabel.cs" Link="ZoomLabel.cs" />
+    <Compile Include="..\..\src\HyperPdf.ViewModels\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
+    <Compile Include="..\..\src\HyperPdf.ViewModels\Markup\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
+    <Compile Include="..\..\src\HyperPdf.ViewModels\Markup\AnnotationNames.cs" Link="AnnotationNames.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.ViewModels\Viewing\ZoomLabel.cs')">
-    <Compile Remove="ZoomLabelEaseBenchmarks.cs" />
+  <ItemGroup Condition="'$(ViewModelsProject)' != 'true'">
+    <Compile Include="..\..\src\HyperPdf.App\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationNames.cs" Link="AnnotationNames.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuPreparedRenderSurface.cs" Link="TileBatch\GpuPreparedRenderSurface.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\GpuPreparedRenderSurface.cs')" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuAvailability.cs" Link="TileBatch\GpuAvailability.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\GpuAvailability.cs')" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\TileRenderingEventSource.cs" Link="TileBatch\TileRenderingEventSource.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileRenderingEventSource.cs')" />
+    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuPageTone.cs" Link="GpuPageTone.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\GpuPageTone.cs')" />
+    <Compile Include="..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs" Link="ZoomLabel.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs')" />
   </ItemGroup>
 
   <!-- Lists the benchmarks for the allocation harness, so no reflection finds or calls them. -->
@@ -65,9 +81,14 @@
     <PackageReference Include="ReactiveUI.Avalonia" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(ViewModelsProject)' == 'true'">
     <Using Include="HyperPdf.ViewModels.Services" />
     <Using Include="HyperPdf.Rendering.Skia" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ViewModelsProject)' != 'true'">
+    <Using Include="HyperPdf.App.Services" />
+    <Using Include="HyperPdf.App.Rendering" />
   </ItemGroup>
 
   <ItemGroup>
@@ -75,9 +96,6 @@
     <Compile Include="..\..\src\HyperPdf.App\Views\FocusAnnouncementRepair.cs" Link="FocusAnnouncementRepair.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Controls\FocusArrival.cs" Link="FocusArrival.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Controls\FocusArrivalMixins.cs" Link="FocusArrivalMixins.cs" />
-    <Compile Include="..\..\src\HyperPdf.ViewModels\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
-    <Compile Include="..\..\src\HyperPdf.ViewModels\Markup\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
-    <Compile Include="..\..\src\HyperPdf.ViewModels\Markup\AnnotationNames.cs" Link="AnnotationNames.cs" />
     <!-- The JPEG 2000 test encoder, which re-encodes a corpus page as HTJ2K for the high-throughput benchmarks. -->
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
     <Compile Include="..\..\scripts\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />

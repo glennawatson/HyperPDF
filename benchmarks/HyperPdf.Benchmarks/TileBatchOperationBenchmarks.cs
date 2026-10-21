@@ -42,7 +42,11 @@ public class TileBatchOperationBenchmarks
         _bounds = new Rect[VisibleTiles];
         for (var i = 0; i < VisibleTiles; i++)
         {
+#if HYPERPDF_VIEWMODELS_PROJECT
             _tiles[i] = new(TileSide, TileSide, new(), SoftwareTile);
+#else
+            _tiles[i] = new(TileSide, TileSide, new());
+#endif
             _bounds[i] = new((i % Columns) * TileSide, (i / Columns) * TileSide, TileSide, TileSide);
         }
 
@@ -91,11 +95,13 @@ public class TileBatchOperationBenchmarks
         return current.Equals(_previous);
     }
 
+#if HYPERPDF_VIEWMODELS_PROJECT
     /// <summary>Makes the software tile a prepared tile falls back to.</summary>
     /// <param name="width">The tile width.</param>
     /// <param name="height">The tile height.</param>
     /// <returns>The tile.</returns>
     private static AvaloniaRenderSurface SoftwareTile(int width, int height) => new(width, height);
+#endif
 
     /// <summary>Builds an operation over a run of tiles, retaining each once.</summary>
     /// <param name="start">The first tile.</param>

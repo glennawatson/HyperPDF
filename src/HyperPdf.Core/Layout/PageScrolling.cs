@@ -54,6 +54,23 @@ public static class PageScrolling
         return layout.Options.Scroll == ScrollMode.Horizontal ? Math.Max(0, layout.GetPageBounds(pageIndex).X - contentMargin) : current;
     }
 
+    /// <summary>Gets the offset along one axis that scrolls just enough to show a span, leaving the offset alone when the span is in view.</summary>
+    /// <param name="offset">The current offset.</param>
+    /// <param name="viewport">The size of the viewport along the axis.</param>
+    /// <param name="near">Where the span starts along the axis.</param>
+    /// <param name="far">Where the span ends along the axis.</param>
+    /// <param name="contentMargin">The space kept beyond the span after scrolling.</param>
+    /// <returns>The offset.</returns>
+    public static double GetOffsetToShow(double offset, double viewport, double near, double far, double contentMargin)
+    {
+        if (near < offset)
+        {
+            return near - contentMargin;
+        }
+
+        return far > offset + viewport ? far - viewport + contentMargin : offset;
+    }
+
     /// <summary>Gets the vertical offset that shows a position on a page: the current one in a horizontal layout, which only moves sideways.</summary>
     /// <param name="layout">The document layout.</param>
     /// <param name="pageIndex">The page.</param>

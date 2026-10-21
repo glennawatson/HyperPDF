@@ -331,10 +331,10 @@ public sealed class ScreenReaderTests
     [Test]
     public async Task DescriptionsSayWhatIsSeen()
     {
-        await Assert.That(ItemAutomation.DescribePage("3", ThirdPage, LongDocument)).IsEqualTo("Page 3 of 40");
-        await Assert.That(ItemAutomation.DescribePage("iii", ThirdPage, LongDocument)).IsEqualTo("Page iii, 3 of 40");
-        await Assert.That(ItemAutomation.DescribeTab(FileName, true)).IsEqualTo("reader.pdf, unsaved changes");
-        await Assert.That(ItemAutomation.DescribeTab(FileName, false)).IsEqualTo(FileName);
+        await Assert.That(ItemDescriptions.DescribePage("3", ThirdPage, LongDocument)).IsEqualTo("Page 3 of 40");
+        await Assert.That(ItemDescriptions.DescribePage("iii", ThirdPage, LongDocument)).IsEqualTo("Page iii, 3 of 40");
+        await Assert.That(ItemDescriptions.DescribeTab(FileName, true)).IsEqualTo("reader.pdf, unsaved changes");
+        await Assert.That(ItemDescriptions.DescribeTab(FileName, false)).IsEqualTo(FileName);
     }
 
     /// <summary>Lists the shown list and tree items whose name is missing or is a type name.</summary>

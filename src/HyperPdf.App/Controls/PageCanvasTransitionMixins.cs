@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -19,30 +20,6 @@ namespace HyperPdf.App.Controls;
 /// </summary>
 internal static class PageCanvasTransitionMixins
 {
-    /// <summary>Degrees in a quarter turn, which the four straight directions of a page's transition are multiples of.</summary>
-    private const int QuarterTurn = 90;
-
-    /// <summary>Half of <see cref="QuarterTurn"/>, so a direction rounds to the nearest straight one.</summary>
-    private const int HalfQuarterTurn = 45;
-
-    /// <summary>Degrees in a full turn.</summary>
-    private const int FullTurn = 360;
-
-    /// <summary>The constant of the smooth step curve, three less two times the progress.</summary>
-    private const double SmoothBase = 3;
-
-    /// <summary>The slope of the smooth step curve.</summary>
-    private const double SmoothSlope = 2;
-
-    /// <summary>The direction of motion from the bottom of the page upwards.</summary>
-    private const int Upwards = 1;
-
-    /// <summary>The direction of motion from the right of the page leftwards.</summary>
-    private const int Leftwards = 2;
-
-    /// <summary>The direction of motion from the top of the page downwards.</summary>
-    private const int Downwards = 3;
-
     /// <summary>Half, for the middle of a rectangle.</summary>
     private const double Half = 0.5;
 
@@ -86,14 +63,8 @@ internal static class PageCanvasTransitionMixins
                 return default;
             }
 
-            var remaining = 1 - Progress(run);
-            return Quadrant(run.Step.Direction) switch
-            {
-                0 => new(-viewport.Width * remaining, 0),
-                Upwards => new(0, viewport.Height * remaining),
-                Leftwards => new(viewport.Width * remaining, 0),
-                _ => new(0, -viewport.Height * remaining),
-            };
+            var (x, y) = TransitionTiming.GetSlideOffset(run.Step.Direction, Progress(run), viewport.Width, viewport.Height);
+            return new(x, y);
         }
 
         /// <summary>Draws the curtain that has not yet been drawn back, for an effect that reveals the page.</summary>
@@ -125,17 +96,14 @@ internal static class PageCanvasTransitionMixins
     /// <summary>Gets how far a transition has played, from 0 to 1, eased so it starts and ends gently.</summary>
     /// <param name="run">The run.</param>
     /// <returns>The progress.</returns>
-    internal static double Progress(in TransitionRun run)
-    {
-        var seconds = Math.Max(run.Step.DurationSeconds, double.Epsilon);
-        var linear = Math.Min(1, Stopwatch.GetElapsedTime(run.Started).TotalSeconds / seconds);
-        return linear * linear * (SmoothBase - (SmoothSlope * linear));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static double Progress(in TransitionRun run) => TransitionTiming.GetProgress(run.Step.DurationSeconds, run.Started);
 
     /// <summary>Reduces a direction in degrees to the nearest of the four straight ones: 0 is left to right, then anti-clockwise.</summary>
     /// <param name="degrees">The direction in degrees.</param>
     /// <returns>0 for left to right, 1 for bottom to top, 2 for right to left, 3 for top to bottom.</returns>
-    internal static int Quadrant(int degrees) => (((degrees % FullTurn) + FullTurn + HalfQuarterTurn) % FullTurn) / QuarterTurn;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int Quadrant(int degrees) => (int)TransitionTiming.GetDirection(degrees);
 
     /// <summary>Gets the frames of a run, or none when it is not playing.</summary>
     /// <param name="canvas">The page canvas.</param>
@@ -158,7 +126,7 @@ internal static class PageCanvasTransitionMixins
         {
             case TransitionEffect.Wipe:
             {
-                context.FillRectangle(brush, WipeCurtain(area, Quadrant(step.Direction), progress));
+                context.FillRectangle(brush, WipeCurtain(area, TransitionTiming.GetDirection(step.Direction), progress));
                 break;
             }
 
@@ -178,14 +146,14 @@ internal static class PageCanvasTransitionMixins
 
     /// <summary>Gets the part of the page a wipe has not reached.</summary>
     /// <param name="area">The area the page fills.</param>
-    /// <param name="quadrant">The direction of the wipe, as <see cref="Quadrant"/> returns it.</param>
+    /// <param name="direction">The direction of the wipe.</param>
     /// <param name="progress">How far the wipe has gone.</param>
     /// <returns>The covered rectangle.</returns>
-    private static Rect WipeCurtain(in Rect area, int quadrant, double progress) => quadrant switch
+    private static Rect WipeCurtain(in Rect area, TransitionDirection direction, double progress) => direction switch
     {
-        0 => new(area.Left + (area.Width * progress), area.Top, area.Width * (1 - progress), area.Height),
-        Upwards => new(area.Left, area.Top, area.Width, area.Height * (1 - progress)),
-        Leftwards => new(area.Left, area.Top, area.Width * (1 - progress), area.Height),
+        TransitionDirection.LeftToRight => new(area.Left + (area.Width * progress), area.Top, area.Width * (1 - progress), area.Height),
+        TransitionDirection.BottomToTop => new(area.Left, area.Top, area.Width, area.Height * (1 - progress)),
+        TransitionDirection.RightToLeft => new(area.Left, area.Top, area.Width * (1 - progress), area.Height),
         _ => new(area.Left, area.Top + (area.Height * progress), area.Width, area.Height * (1 - progress)),
     };
 

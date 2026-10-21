@@ -102,6 +102,7 @@
   </Target>
 
   <ItemGroup Label="View model namespaces">
+    <Using Include="HyperPdf.Core.Layout" />
     <Using Include="HyperPdf.Rendering.Skia" />
     <Using Include="HyperPdf.ViewModels.Dialogs" />
     <Using Include="HyperPdf.ViewModels.Finding" />
