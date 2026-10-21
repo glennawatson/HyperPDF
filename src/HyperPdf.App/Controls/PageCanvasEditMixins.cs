@@ -5,7 +5,6 @@
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Input;
-using Avalonia.Media;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using ReactiveUI.Primitives;
@@ -108,34 +107,6 @@ internal static class PageCanvasEditMixins
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool NudgeSelected(KeyEventArgs e) => canvas.State.NudgeSelected(e.ViewerKey, e.ViewerModifiers);
 
-        /// <summary>Draws the outline of an annotation being dragged, and the resize handles of the picked one.</summary>
-        /// <param name="context">The drawing context.</param>
-        /// <param name="tab">The tab.</param>
-        internal void DrawEditing(DrawingContext context, DocumentTabViewModel tab)
-        {
-            var pen = canvas.CurrentHitPen ?? PageCanvasAnnotationMixins.StrokePen;
-            if (canvas.ActiveEdit is { } edit && (uint)edit.Annotation.PageIndex < (uint)canvas.Sizes.Length)
-            {
-                var transform = new PageTransform(canvas.Layout.GetPageBounds(edit.Annotation.PageIndex), canvas.Sizes[edit.Annotation.PageIndex], tab.Rotation, canvas.Layout.Options.Scale);
-                context.DrawRectangle(null, pen, transform.ToCanvas(edit.Bounds).Inflate(CanvasMetrics.OutlineInset));
-                return;
-            }
-
-            if (tab.Annotations.Selected is not { } picked || !AnnotationRules.CanResize(picked) || (uint)picked.PageIndex >= (uint)canvas.Sizes.Length)
-            {
-                return;
-            }
-
-            var pickedTransform = new PageTransform(canvas.Layout.GetPageBounds(picked.PageIndex), canvas.Sizes[picked.PageIndex], tab.Rotation, canvas.Layout.Options.Scale);
-            var (topLeft, topRight, bottomRight, bottomLeft) = Corners(pickedTransform.ToCanvas(picked.Bounds).Inflate(CanvasMetrics.OutlineInset));
-            var side = CanvasMetrics.HandleSize;
-            var reach = side * PageCanvas.Half;
-            foreach (var corner in (ReadOnlySpan<Point>)[topLeft, topRight, bottomRight, bottomLeft])
-            {
-                context.DrawRectangle(pen.Brush, null, new(corner.X - reach, corner.Y - reach, side, side));
-            }
-        }
-
         /// <summary>Creates a <see cref="SelectToolPress"/> when an unhandled left press lands on a page while the Select tool is active.</summary>
         /// <param name="item">The pointer press and tab.</param>
         /// <returns>The select-tool press, or <see langword="null"/> when the press is outside a page or uses another tool.</returns>
@@ -181,12 +152,6 @@ internal static class PageCanvasEditMixins
             return new(canvas, tab, e, e.GetPosition(canvas));
         }
     }
-
-    /// <summary>Gets the four corners of a canvas rectangle, clockwise from the top-left.</summary>
-    /// <param name="area">The rectangle.</param>
-    /// <returns>The corners.</returns>
-    private static CanvasCorners Corners(in Rect area) =>
-        new(area.TopLeft, area.TopRight, area.BottomRight, area.BottomLeft);
 
     /// <summary>Matches a double-click on a free-text annotation.</summary>
     /// <param name="press">The select-tool press.</param>
@@ -332,11 +297,4 @@ internal static class PageCanvasEditMixins
             _ = Canvas.State.EndEdit(Tab, new(Position.X, Position.Y));
         }
     }
-
-    /// <summary>The four corners of a canvas rectangle, clockwise from the top-left.</summary>
-    /// <param name="TopLeft">The top-left corner.</param>
-    /// <param name="TopRight">The top-right corner.</param>
-    /// <param name="BottomRight">The bottom-right corner.</param>
-    /// <param name="BottomLeft">The bottom-left corner.</param>
-    private readonly record struct CanvasCorners(Point TopLeft, Point TopRight, Point BottomRight, Point BottomLeft);
 }

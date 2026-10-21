@@ -8,7 +8,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
-using Avalonia.Media;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using ReactiveUI.Primitives;
@@ -104,19 +103,6 @@ internal static class PageCanvasCaretMixins
         /// <returns><see langword="true"/> when handled.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool HandleCaretKey(KeyEventArgs e) => canvas.State.HandleCaretKey(e.ViewerKey, e.ViewerModifiers);
-
-        /// <summary>Draws the steady caret when caret mode is on.</summary>
-        /// <param name="context">The drawing context.</param>
-        /// <param name="tab">The tab.</param>
-        internal void DrawCaret(DrawingContext context, DocumentTabViewModel tab)
-        {
-            if (!tab.IsCaretMode || (canvas.CurrentHitOutline ?? canvas.SelectionBrush) is not { } brush || !canvas.State.TryGetCaretArea(out var area))
-            {
-                return;
-            }
-
-            context.FillRectangle(brush, new(area.X, area.Y, area.Width, area.Height));
-        }
 
         /// <summary>Gets the normalised selection.</summary>
         /// <param name="start">The start.</param>

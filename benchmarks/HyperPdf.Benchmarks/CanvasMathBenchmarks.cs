@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
 using BenchmarkDotNet.Attributes;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
@@ -60,8 +61,20 @@ public class CanvasMathBenchmarks
     /// <summary>How close to a corner counts as on its handle.</summary>
     private const double Reach = 8;
 
+    /// <summary>The share of a second a reveal has played.</summary>
+    private const int HalfASecond = 2;
+
+    /// <summary>The width of the area the curtain covers.</summary>
+    private const double CurtainWidth = 1200;
+
+    /// <summary>The height of the area the curtain covers.</summary>
+    private const double CurtainHeight = 800;
+
     /// <summary>A point on the page.</summary>
     private static readonly PagePoint Point = new(120F, 340F);
+
+    /// <summary>The rectangles a curtain is written into.</summary>
+    private readonly LayoutRect[] _curtain = new LayoutRect[TransitionCurtain.MaxRectangles];
 
     /// <summary>The page transform for each rotation.</summary>
     private PageTransform[] _transforms = [];
@@ -71,6 +84,9 @@ public class CanvasMathBenchmarks
 
     /// <summary>The rectangle whose handles are probed.</summary>
     private LayoutRect _area;
+
+    /// <summary>A reveal of each effect, each half way through.</summary>
+    private TransitionRun[] _reveals = [];
 
     /// <summary>Fills the transforms and probes.</summary>
     [GlobalSetup]
@@ -84,6 +100,7 @@ public class CanvasMathBenchmarks
         }
 
         _area = new(AreaLeft, AreaTop, AreaWidth, AreaHeight);
+        _reveals = CreateReveals();
         _probes =
         [
             new(AreaLeft + Inside, AreaTop + Inside),
@@ -151,4 +168,38 @@ public class CanvasMathBenchmarks
 
         return found;
     }
+
+    /// <summary>Works out the curtain of every reveal effect half way through, as every frame of a transition does.</summary>
+    /// <returns>How many rectangles all the curtains are made of.</returns>
+    [Benchmark]
+    public int CurtainRectangles()
+    {
+        var area = new LayoutRect(0, 0, CurtainWidth, CurtainHeight);
+        var count = 0;
+        foreach (var reveal in _reveals)
+        {
+            count += TransitionCurtain.GetRectangles(reveal, area, _curtain, out _);
+        }
+
+        return count;
+    }
+
+    /// <summary>Makes a reveal of each effect, half way through.</summary>
+    /// <returns>The reveals.</returns>
+    private static TransitionRun[] CreateReveals() =>
+    [
+        Reveal(TransitionEffect.Fade, false),
+        Reveal(TransitionEffect.Wipe, false),
+        Reveal(TransitionEffect.Split, false),
+        Reveal(TransitionEffect.Split, true),
+        Reveal(TransitionEffect.Box, false),
+        Reveal(TransitionEffect.Box, true),
+    ];
+
+    /// <summary>Makes a reveal that is partly played.</summary>
+    /// <param name="effect">The effect.</param>
+    /// <param name="flag">Whether it moves inward and runs vertically.</param>
+    /// <returns>The run.</returns>
+    private static TransitionRun Reveal(TransitionEffect effect, bool flag) =>
+        new(true, new(1, TransitionStyle.Wipe, effect, 1, flag, flag, 0, false, null), Stopwatch.GetTimestamp() - (Stopwatch.Frequency / HalfASecond));
 }

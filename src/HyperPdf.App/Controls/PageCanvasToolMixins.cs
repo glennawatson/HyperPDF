@@ -3,14 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Media;
-using HyperPdf.Core.Geometry;
-using HyperPdf.Core.Measuring;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.ObservableEvents;
 using ReactiveUI.Primitives.Signals;
@@ -25,18 +21,6 @@ internal static class PageCanvasToolMixins
 {
     /// <summary>A double click.</summary>
     internal const int DoubleClick = 2;
-
-    /// <summary>The radius of a measured point's dot.</summary>
-    private const double MeasurePointRadius = 3;
-
-    /// <summary>The size of the measurement label's text.</summary>
-    private const double MeasureLabelSize = 13;
-
-    /// <summary>How far the label sits from the last point.</summary>
-    private const double MeasureLabelOffset = 10;
-
-    /// <summary>The padding around the label's text.</summary>
-    private const double MeasureLabelPadding = 4;
 
     /// <summary>Adds the page tool, auto-scroll, pan, area and measure streams and helpers to a page canvas.</summary>
     /// <param name="canvas">The page canvas.</param>
@@ -293,18 +277,6 @@ internal static class PageCanvasToolMixins
             return true;
         }
 
-        /// <summary>Draws the outline of the area being dragged.</summary>
-        /// <param name="context">The drawing context.</param>
-        internal void DrawArea(DrawingContext context)
-        {
-            if (!canvas.AreaDragging || canvas.CurrentHitPen is not { } pen)
-            {
-                return;
-            }
-
-            context.DrawRectangle(null, pen, canvas.GetArea());
-        }
-
         /// <summary>Moves the measurement's last point with the pointer.</summary>
         /// <param name="position">The canvas point.</param>
         /// <returns><see langword="true"/> while measuring.</returns>
@@ -337,26 +309,6 @@ internal static class PageCanvasToolMixins
 
             canvas.InvalidateVisual();
             return true;
-        }
-
-        /// <summary>Draws the measurement: its lines, its points and the measurement beside the last point.</summary>
-        /// <param name="context">The drawing context.</param>
-        /// <param name="tab">The tab.</param>
-        internal void DrawMeasurement(DrawingContext context, DocumentTabViewModel tab)
-        {
-            var measure = tab.Measure;
-            var points = measure.Points;
-            if (!measure.IsOn || measure.Page < 0 || measure.Page >= canvas.Sizes.Length || points.Count == 0 || canvas.CurrentHitPen is not { } pen)
-            {
-                return;
-            }
-
-            var transform = new PageTransform(canvas.Layout.GetPageBounds(measure.Page), canvas.Sizes[measure.Page], tab.Rotation, canvas.Layout.Options.Scale);
-            var last = DrawMeasureLines(context, pen, transform, points, measure.Mode == MeasureMode.Area);
-            if (measure.Result.Length > 0)
-            {
-                DrawMeasureLabel(canvas, context, pen, measure.Result, last);
-            }
         }
 
         /// <summary>Matches a pointer press to an active page tool or measure action.</summary>
@@ -403,52 +355,6 @@ internal static class PageCanvasToolMixins
                 }
             }
         }
-    }
-
-    /// <summary>Draws a measurement's lines and points.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="pen">The pen.</param>
-    /// <param name="transform">The page transform.</param>
-    /// <param name="points">The points, in page space.</param>
-    /// <param name="closed">Whether the shape closes back to its first point.</param>
-    /// <returns>The last point, in canvas space.</returns>
-    private static Point DrawMeasureLines(DrawingContext context, IPen pen, in PageTransform transform, IReadOnlyList<PagePoint> points, bool closed)
-    {
-        var previous = transform.ToCanvas(points[0]);
-        var first = previous;
-        for (var i = 1; i < points.Count; i++)
-        {
-            var next = transform.ToCanvas(points[i]);
-            context.DrawLine(pen, previous, next);
-            previous = next;
-        }
-
-        if (closed && points.Count > 2)
-        {
-            context.DrawLine(pen, previous, first);
-        }
-
-        foreach (var point in points)
-        {
-            context.DrawEllipse(pen.Brush, null, transform.ToCanvas(point), MeasurePointRadius, MeasurePointRadius);
-        }
-
-        return previous;
-    }
-
-    /// <summary>Draws the measurement beside the last point, in the window's colours, framed by the measuring line's colour.</summary>
-    /// <param name="canvas">The page canvas.</param>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="outline">The measurement's pen, which frames the label.</param>
-    /// <param name="result">The measurement.</param>
-    /// <param name="last">The last point, in canvas space.</param>
-    private static void DrawMeasureLabel(PageCanvas canvas, DrawingContext context, IPen outline, string result, Point last)
-    {
-        var text = new FormattedText(result, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface.Default, MeasureLabelSize, canvas.LabelForeground ?? outline.Brush);
-        var origin = last + new Vector(MeasureLabelOffset, MeasureLabelOffset);
-        var box = new Rect(origin, new Size(text.Width, text.Height)).Inflate(MeasureLabelPadding);
-        context.DrawRectangle(canvas.LabelBackground, outline, box, MeasureLabelPadding, MeasureLabelPadding);
-        context.DrawText(text, origin);
     }
 
     /// <summary>A pointer press claimed by auto-scroll, panning, area dragging or measuring.</summary>

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
@@ -36,6 +37,9 @@ public sealed class PageCanvasState
 
     /// <summary>Gets the character bounds list reused for caret lookups.</summary>
     public List<PageRect> CaretBounds { get; } = [];
+
+    /// <summary>Gets the annotations list reused while planning comment indicator badges.</summary>
+    public List<PageAnnotation> BadgeAnnotations { get; } = [];
 
     /// <summary>Gets what the canvas remembers from frame to frame to decide what to draw and what to ask the renderer for.</summary>
     public RenderPlanState Render { get; } = new();

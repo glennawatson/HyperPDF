@@ -12,10 +12,10 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
-using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Navigation;
+using HyperPdf.Core.Presentation;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -85,11 +85,11 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
         AvaloniaProperty.RegisterDirect<PageCanvas, WheelZoomEase>(nameof(WheelZoom), static canvas => canvas.WheelZoom);
 
     /// <summary>Defines the <see cref="Transition"/> property.</summary>
-    private static readonly DirectProperty<PageCanvas, PageCanvasTransitionMixins.TransitionRun> TransitionProperty =
-        AvaloniaProperty.RegisterDirect<PageCanvas, PageCanvasTransitionMixins.TransitionRun>(nameof(Transition), static canvas => canvas.Transition);
+    private static readonly DirectProperty<PageCanvas, TransitionRun> TransitionProperty =
+        AvaloniaProperty.RegisterDirect<PageCanvas, TransitionRun>(nameof(Transition), static canvas => canvas.Transition);
 
     /// <summary>Puts the planned pages on an Avalonia drawing context, made when the first frame is drawn.</summary>
-    private AvaloniaTilePainter? _painter;
+    private AvaloniaCanvasPainter? _painter;
 
     /// <summary>The hosting scroll viewer.</summary>
     private ScrollViewer? _scroller;
@@ -223,9 +223,6 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     /// <summary>Gets the corners placed so far in a polygon, cloud or polyline.</summary>
     internal PolygonDraft Polygon => State.Drawing.Polygon;
 
-    /// <summary>Gets the annotations list reused while drawing comment indicator badges.</summary>
-    internal List<PageAnnotation> BadgeAnnotations { get; } = [];
-
     /// <summary>Gets the character bounds list reused for caret lookups.</summary>
     internal List<PageRect> CaretBounds => State.CaretBounds;
 
@@ -301,7 +298,7 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     }
 
     /// <summary>Gets or sets the page transition playing now, or the last one once it has ended.</summary>
-    internal PageCanvasTransitionMixins.TransitionRun Transition
+    internal TransitionRun Transition
     {
         get;
         set => SetAndRaise(TransitionProperty, ref field, value);
@@ -406,27 +403,12 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
         set => State.Drawing.ClickSnaps = value;
     }
 
-    /// <summary>Gets or sets the cached signature mark preview.</summary>
-    internal SignatureMarkPainter? MarkPainter { get; set; }
-
-    /// <summary>Gets or sets the cached pen used to draw a signature mark preview.</summary>
-    internal Pen? MarkPen { get; set; }
-
-    /// <summary>Gets or sets the cached pen the highlighter's live stroke is drawn with.</summary>
-    internal Pen? HighlighterPen { get; set; }
-
     /// <summary>Gets or sets the printed-form region currently hovered by the pointer.</summary>
     internal HoveredFormRegion? HoveredRegion
     {
         get => State.Drawing.HoveredRegion;
         set => State.Drawing.HoveredRegion = value;
     }
-
-    /// <summary>Gets or sets the dashed pen used to draw printed-form region suggestions.</summary>
-    internal Pen? SuggestionPen { get; set; }
-
-    /// <summary>Gets or sets the solid pen used to draw the hovered printed-form region suggestion.</summary>
-    internal Pen? HoveredSuggestionPen { get; set; }
 
     /// <summary>Gets the canvas rectangle of a rectangle on a page, or an empty rectangle when the page is not laid out.</summary>
     /// <param name="page">The page.</param>
@@ -482,11 +464,11 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
         }
 
         this.DrawCurtain(context, viewport);
-        this.DrawAnnotationOverlay(context, tab);
-        this.DrawRegions(context, tab, viewport);
-        this.DrawMeasurement(context, tab);
-        this.DrawArea(context);
-        this.DrawCaret(context, tab);
+        State.DrawAnnotationOverlay(painter, tab, area);
+        State.DrawRegions(painter, tab, area);
+        State.DrawMeasurement(painter, tab);
+        State.DrawArea(painter);
+        State.DrawCaret(painter, tab);
     }
 
     /// <summary>Draws the text selection on a page; the search hits and reading marks are drawn by <see cref="PageMarksLayer"/>.</summary>
@@ -645,8 +627,7 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     /// <summary>Lets go of what the canvas holds once it is put away: the signature mark preview, the snapshotter, the scroll viewer and the tab.</summary>
     private void PutAway()
     {
-        MarkPainter?.Dispose();
-        MarkPainter = null;
+        _painter?.Dispose();
         Snapshotter.Release();
         _scroller = null;
         ShowTab(null);
