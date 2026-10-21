@@ -418,6 +418,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         {
             IsValid = false;
             Summary = PageChoice == PrintPageChoice.Custom ? "Type pages like 1-3, 7" : "Nothing to print";
+            IsBuilding = false;
             return RxVoid.Default;
         }
 
@@ -432,13 +433,15 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
             return RxVoid.Default;
         }
 
-        IsBuilding = false;
+        // The build stays marked as running until the sheets, summary and validity are all set, so nobody who waits for it to end
+        // sees the sheets of the build before, or none, with the new settings.
         var selected = SelectedSheetIndex;
         ClosePreview();
         if (path is null)
         {
             IsValid = false;
             Summary = "Could not prepare the pages";
+            IsBuilding = false;
             return RxVoid.Default;
         }
 
@@ -453,6 +456,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         SelectedSheetIndex = Math.Min(selected, sizes.Length - 1);
         Summary = DescribeSheets(sizes.Length);
         IsValid = true;
+        IsBuilding = false;
         return RxVoid.Default;
     }
 
