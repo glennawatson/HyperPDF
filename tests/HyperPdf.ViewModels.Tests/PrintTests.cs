@@ -157,7 +157,7 @@ public sealed class PrintTests
             await Assert.That(await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Sheets.Count == RangePages * PosterSheetsPerPage)).IsTrue();
             posterSheets = preview.Sheets.Count;
             preview.LayoutIndex = BookletLayout;
-            await Assert.That(await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer && preview.Sheets.Count < RangePages)).IsTrue();
+            await Assert.That(await WaitAsync(() => IsBookletReady(preview))).IsTrue();
             bookletSheets = preview.Sheets.Count;
             context.SetOutput(true);
         });
@@ -168,6 +168,15 @@ public sealed class PrintTests
         await Assert.That(bookletSheets).IsEqualTo(Booklet.SheetCount(RangePages) * BookletSides);
         await Assert.That(printer.PageCount).IsEqualTo(bookletSheets);
     }
+
+    /// <summary>Determines whether the preview has finished building a booklet with all of its sheets.</summary>
+    /// <param name="preview">The preview.</param>
+    /// <returns><see langword="true"/> when it is ready; an empty list of sheets while it rebuilds does not count.</returns>
+    private static bool IsBookletReady(PrintPreviewViewModel preview) =>
+        preview.IsValid
+        && !preview.IsBuilding
+        && preview.Destination == PrintDestination.Printer
+        && preview.Sheets.Count == Booklet.SheetCount(RangePages) * BookletSides;
 
     /// <summary>Confirms the preview once its sheets are ready and the printers are listed, so the job goes to the printer.</summary>
     /// <param name="context">The interaction context.</param>
