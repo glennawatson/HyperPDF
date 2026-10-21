@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
+using HyperPdf.Presentation.Canvas;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -23,7 +24,7 @@ namespace HyperPdf.App.Controls;
 /// <see cref="StrokeCommand"/>. When nothing has been drawn here yet it shows <see cref="Mark"/>, such as a remembered
 /// drawing.
 /// </summary>
-[DebuggerDisplay("SignaturePad: {_drawn.Count} strokes")]
+[DebuggerDisplay("SignaturePad: {_strokes}")]
 public sealed class SignaturePad : Control, IActivatableView
 {
     /// <summary>The mark shown when nothing has been drawn here; setting it to <see langword="null"/> clears the pad.</summary>
@@ -38,23 +39,14 @@ public sealed class SignaturePad : Control, IActivatableView
     /// <summary>How far a remembered drawing sits inside the pad's edge.</summary>
     private const double MarkInset = 12;
 
-    /// <summary>The most points kept in one stroke.</summary>
-    private const int MaxStrokePoints = 4096;
-
-    /// <summary>Half, to centre a mark.</summary>
-    private const double Half = 0.5;
-
     /// <summary>The ink brush, the colour signatures are written in.</summary>
     private static readonly IImmutableSolidColorBrush InkBrush = new ImmutableSolidColorBrush(Color.FromUInt32(0xFF000000U | AnnotationColors.Ink));
 
     /// <summary>The ink pen.</summary>
     private static readonly IPen InkPen = new ImmutablePen(InkBrush, InkWidth, lineCap: PenLineCap.Round);
 
-    /// <summary>The finished strokes drawn here, in pad coordinates.</summary>
-    private readonly List<PagePoint[]> _drawn = [];
-
-    /// <summary>The stroke being drawn.</summary>
-    private readonly List<PagePoint> _stroke = [];
+    /// <summary>The strokes drawn here, in pad coordinates.</summary>
+    private readonly SignaturePadStrokes _strokes = new();
 
     /// <summary>Draws a remembered mark, while shown.</summary>
     private SignatureMarkPainter? _painter;
@@ -76,7 +68,7 @@ public sealed class SignaturePad : Control, IActivatableView
                 .SelectWith(this, static (pad, _) => pad)
                 .SwitchMap(static pad => pad.PointerMoves
                     .TakeUntil(pad.PointerReleases)
-                    .WhereWith(pad, static (drawing, _) => drawing._stroke.Count < MaxStrokePoints))
+                    .WhereWith(pad, static (drawing, _) => drawing._strokes.CanExtend))
                 .SubscribeSafe(ExtendStroke, ErrorTrace.Write));
             disposables.Add(strokes
                 .SelectWith(this, static (pad, _) => pad)
@@ -112,35 +104,24 @@ public sealed class SignaturePad : Control, IActivatableView
 
         // A transparent fill makes the whole pad answer the pointer, not just the ink.
         context.FillRectangle(Brushes.Transparent, new(Bounds.Size));
-        if (_drawn.Count == 0 && _stroke.Count == 0)
+        if (_strokes.IsEmpty)
         {
             if (Mark is { } mark)
             {
                 var area = new Rect(Bounds.Size).Deflate(MarkInset);
-                (_painter ??= new()).Draw(context, mark, Fit(mark, area), InkBrush, InkPen);
+                var fitted = SignaturePadStrokes.Fit(mark, new(area.X, area.Y, area.Width, area.Height));
+                (_painter ??= new()).Draw(context, mark, new(fitted.X, fitted.Y, fitted.Width, fitted.Height), InkBrush, InkPen);
             }
 
             return;
         }
 
-        foreach (var stroke in _drawn)
+        foreach (var stroke in _strokes.Drawn)
         {
             DrawStroke(context, stroke);
         }
 
-        DrawStroke(context, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_stroke));
-    }
-
-    /// <summary>Fits a mark inside a rectangle, keeping its shape, centred.</summary>
-    /// <param name="mark">The mark.</param>
-    /// <param name="area">The rectangle.</param>
-    /// <returns>The mark's rectangle.</returns>
-    internal static Rect Fit(SignatureMark mark, in Rect area)
-    {
-        var scale = Math.Min(area.Width / mark.Width, area.Height / mark.Height);
-        var width = mark.Width * scale;
-        var height = mark.Height * scale;
-        return new(area.X + ((area.Width - width) * Half), area.Y + ((area.Height - height) * Half), width, height);
+        DrawStroke(context, _strokes.Current);
     }
 
     /// <summary>Draws one stroke as joined lines.</summary>
@@ -159,8 +140,7 @@ public sealed class SignaturePad : Control, IActivatableView
     private void StartStroke(PointerPressedEventArgs press)
     {
         var point = press.GetPosition(this);
-        _stroke.Clear();
-        _stroke.Add(new((float)point.X, (float)point.Y));
+        _strokes.Begin(point.X, point.Y);
         press.Pointer.Capture(this);
         InvalidateVisual();
     }
@@ -170,7 +150,7 @@ public sealed class SignaturePad : Control, IActivatableView
     private void ExtendStroke(PointerEventArgs move)
     {
         var point = move.GetPosition(this);
-        _stroke.Add(new((float)Math.Clamp(point.X, 0, Bounds.Width), (float)Math.Clamp(point.Y, 0, Bounds.Height)));
+        _ = _strokes.Extend(point.X, point.Y, Bounds.Width, Bounds.Height);
         InvalidateVisual();
     }
 
@@ -179,14 +159,11 @@ public sealed class SignaturePad : Control, IActivatableView
     private void FinishStroke(PointerReleasedEventArgs release)
     {
         release.Pointer.Capture(null);
-        if (_stroke.Count == 0)
+        if (_strokes.Finish() is not { } stroke)
         {
             return;
         }
 
-        PagePoint[] stroke = [.. _stroke];
-        _stroke.Clear();
-        _drawn.Add(stroke);
         InvalidateVisual();
         if (StrokeCommand is { } command && command.CanExecute(stroke))
         {
@@ -204,8 +181,7 @@ public sealed class SignaturePad : Control, IActivatableView
     /// <summary>Forgets every stroke drawn here.</summary>
     private void Clear()
     {
-        _drawn.Clear();
-        _stroke.Clear();
+        _strokes.Clear();
         InvalidateVisual();
     }
 }

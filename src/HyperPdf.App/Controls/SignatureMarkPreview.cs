@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using HyperPdf.Core.Annotations;
+using HyperPdf.Presentation.Canvas;
 using ReactiveUI;
 using ReactiveUI.Primitives.Disposables;
 
@@ -59,7 +60,8 @@ public sealed class SignatureMarkPreview : Control, IActivatableView
         }
 
         var area = new Rect(Bounds.Size).Deflate(Inset);
-        (_painter ??= new()).Draw(context, mark, SignaturePad.Fit(mark, area), InkBrush, InkPen);
+        var fitted = SignaturePadStrokes.Fit(mark, new(area.X, area.Y, area.Width, area.Height));
+        (_painter ??= new()).Draw(context, mark, new(fitted.X, fitted.Y, fitted.Width, fitted.Height), InkBrush, InkPen);
     }
 
     /// <summary>Frees the cached picture once the preview is no longer shown.</summary>
