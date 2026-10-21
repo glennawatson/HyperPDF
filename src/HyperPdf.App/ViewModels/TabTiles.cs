@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.App.Rendering;
 
 namespace HyperPdf.App.ViewModels;
@@ -22,11 +23,8 @@ internal static class TabTiles
     /// <summary>Drops queued and running renders of both views of a document, so none of them is cached.</summary>
     /// <param name="hub">The render hub.</param>
     /// <param name="sourceId">The document source's identity.</param>
-    internal static void InvalidateBoth(RenderHub hub, int sourceId)
-    {
-        hub.Scheduler.Invalidate(sourceId);
-        hub.Scheduler.Invalidate(~sourceId);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void InvalidateBoth(RenderHub hub, int sourceId) => hub.Scheduler.Invalidate(sourceId, ~sourceId);
 
     /// <summary>Drops the renders and the cached tiles of both views of a document.</summary>
     /// <param name="hub">The render hub.</param>

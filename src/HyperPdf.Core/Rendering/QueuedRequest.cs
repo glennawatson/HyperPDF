@@ -6,8 +6,8 @@ using System.Diagnostics;
 
 namespace HyperPdf.Core.Rendering;
 
-/// <summary>A render request waiting in the work queue.</summary>
-/// <param name="Request">The request.</param>
+/// <summary>A tile waiting in the work queue. The request itself stays in the scheduler's pending map.</summary>
+/// <param name="Key">The tile the entry stands for.</param>
 /// <param name="Stamp">The ordering key: the priority above the arrival sequence, so smaller stamps are served first.</param>
-[DebuggerDisplay("QueuedRequest: {Request} stamp {Stamp}")]
-internal readonly record struct QueuedRequest(RenderRequest Request, long Stamp);
+[DebuggerDisplay("QueuedRequest: {Key} stamp {Stamp}")]
+internal readonly record struct QueuedRequest(TileKey Key, long Stamp);

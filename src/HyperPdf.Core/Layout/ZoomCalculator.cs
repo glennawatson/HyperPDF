@@ -37,14 +37,42 @@ public static class ZoomCalculator
     /// <returns>The zoom factor; 1 when the zoom mode is <see cref="ZoomMode.Free"/>.</returns>
     public static double GetFitZoom(ReadOnlySpan<PageSize> sizes, in FitParameters parameters)
     {
-        if (parameters.ZoomMode == ZoomMode.Free || sizes.IsEmpty || parameters.ViewportWidth <= 0 || parameters.ViewportHeight <= 0)
+        var skipsFit = parameters.ZoomMode == ZoomMode.Free || sizes.IsEmpty || parameters.ViewportWidth <= 0 || parameters.ViewportHeight <= 0;
+        return skipsFit ? 1.0 : GetFitZoom(GetFitExtents(sizes, parameters.Rotation, parameters.Mode), parameters);
+    }
+
+    /// <summary>Gets the zoom factor (1 = 100%) that fits pages to the viewport from measurements taken earlier.</summary>
+    /// <param name="extents">The page measurements from <see cref="GetFitExtents"/>.</param>
+    /// <param name="parameters">The viewport and arrangement.</param>
+    /// <returns>The zoom factor; 1 when the zoom mode is <see cref="ZoomMode.Free"/>.</returns>
+    public static double GetFitZoom(PageFitExtents extents, in FitParameters parameters)
+    {
+        if (parameters.ZoomMode == ZoomMode.Free || extents.PageCount == 0 || parameters.ViewportWidth <= 0 || parameters.ViewportHeight <= 0)
         {
             return 1.0;
         }
 
+        var margins = Sides * parameters.Margin;
+        var scale = Math.Min(
+            Math.Max(1, parameters.ViewportWidth - margins) / extents.WidestPage,
+            Math.Max(1, parameters.ViewportWidth - margins - parameters.Spacing) / extents.WidestSpread);
+        if (parameters.ZoomMode == ZoomMode.FitPage)
+        {
+            scale = Math.Min(scale, Math.Max(1, parameters.ViewportHeight - margins) / extents.Tallest);
+        }
+
+        return Clamp(scale / PixelsPerPoint);
+    }
+
+    /// <summary>Measures the widest lone page, the widest spread and the tallest row. This is the only part of a fit zoom that visits every page.</summary>
+    /// <param name="sizes">The unrotated page sizes.</param>
+    /// <param name="rotation">The page rotation.</param>
+    /// <param name="mode">The page arrangement.</param>
+    /// <returns>The measurements.</returns>
+    public static PageFitExtents GetFitExtents(ReadOnlySpan<PageSize> sizes, PageRotation rotation, PageLayoutMode mode)
+    {
         // The widest row of each kind and the tallest row decide the zoom; a spread is as wide as its pages together and
         // has one gap between them, so lone pages and spreads are measured apart.
-        var mode = parameters.Mode;
         var widestPage = 0.0;
         var widestSpread = 0.0;
         var tallest = 0.0;
@@ -52,7 +80,7 @@ public static class ZoomCalculator
         for (var row = 0; row < rows; row++)
         {
             PageRows.GetRowPages(row, sizes.Length, mode, out var first, out var count);
-            GetRowSize(sizes.Slice(first, count), parameters.Rotation, out var width, out var height);
+            GetRowSize(sizes.Slice(first, count), rotation, out var width, out var height);
             tallest = Math.Max(tallest, height);
             if (PageRows.IsCoverRow(row, mode))
             {
@@ -69,16 +97,7 @@ public static class ZoomCalculator
             }
         }
 
-        var margins = Sides * parameters.Margin;
-        var scale = Math.Min(
-            Math.Max(1, parameters.ViewportWidth - margins) / widestPage,
-            Math.Max(1, parameters.ViewportWidth - margins - parameters.Spacing) / widestSpread);
-        if (parameters.ZoomMode == ZoomMode.FitPage)
-        {
-            scale = Math.Min(scale, Math.Max(1, parameters.ViewportHeight - margins) / tallest);
-        }
-
-        return Clamp(scale / PixelsPerPoint);
+        return new(sizes.Length, widestPage, widestSpread, tallest);
     }
 
     /// <summary>Gets the next larger preset zoom.</summary>

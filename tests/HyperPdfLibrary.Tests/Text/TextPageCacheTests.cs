@@ -19,6 +19,46 @@ public sealed class TextPageCacheTests
     /// <summary>The builds: pages 0, 1 and 2, then page 1 again after it was evicted.</summary>
     private const int ExpectedBuilds = 4;
 
+    /// <summary>The pages kept at least, whatever their size.</summary>
+    private const int MinimumPages = 2;
+
+    /// <summary>The most pages the character budget cache can hold.</summary>
+    private const int MaximumPages = 5;
+
+    /// <summary>Small pages fill the cache past its minimum up to the maximum; a tiny budget shrinks it back to the minimum.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task KeepsMorePagesWithinTheCharacterBudget()
+    {
+        var document = TextTestDocument.Open(TextTestDocument.Create("BT /F1 10 Tf 10 100 Td (A) Tj ET").ToBytes());
+        var roomy = new PdfTextPageCache(MinimumPages, MaximumPages, long.MaxValue);
+        var tight = new PdfTextPageCache(MinimumPages, MaximumPages, 0);
+        var roomyBuilds = 0;
+        var tightBuilds = 0;
+        Func<int, int, PdfTextPage> countRoomy = (_, _) =>
+        {
+            roomyBuilds++;
+            return HyperPdfLibrary.Document.PdfDocumentText.ExtractText(document, 0);
+        };
+        Func<int, int, PdfTextPage> countTight = (_, _) =>
+        {
+            tightBuilds++;
+            return HyperPdfLibrary.Document.PdfDocumentText.ExtractText(document, 0);
+        };
+
+        for (var pass = 0; pass < MinimumPages; pass++)
+        {
+            for (var page = 0; page < MaximumPages; page++)
+            {
+                _ = roomy.GetOrAdd(page, 0, countRoomy);
+                _ = tight.GetOrAdd(page, 0, countTight);
+            }
+        }
+
+        await Assert.That(roomyBuilds).IsEqualTo(MaximumPages);
+        await Assert.That(tightBuilds).IsGreaterThan(MaximumPages);
+    }
+
     /// <summary>The cache keeps the most recently used pages and builds an evicted page again.</summary>
     /// <returns>A task.</returns>
     [Test]

@@ -27,11 +27,20 @@ public sealed class PdfTextPage
     /// <summary>The number of distinct combinations of the folding options.</summary>
     private const int FoldKeys = 8;
 
+    /// <summary>The state of a text whose characters are all clusters of their own.</summary>
+    private const int PlainState = 1;
+
+    /// <summary>The state of a text that needs segmentation into clusters.</summary>
+    private const int ComplexState = 2;
+
     /// <summary>The characters.</summary>
     private readonly PdfTextChar[] _chars;
 
     /// <summary>Bounds of contiguous character blocks on larger pages.</summary>
     private readonly TextHitBlock[] _hitBlocks;
+
+    /// <summary>The union of the block bounds, or an empty box on small pages.</summary>
+    private readonly PdfRectangle _hitBounds;
 
     /// <summary>The line each character is on, or -1 for line breaks; characters of one line and one direction share one rectangle.</summary>
     private readonly int[] _lines;
@@ -60,6 +69,9 @@ public sealed class PdfTextPage
     /// <summary>The start of every cluster of the page text as bits, found on first use.</summary>
     private uint[]? _clusterStarts;
 
+    /// <summary>Whether every character of the page text is a cluster of its own: 0 not yet known, 1 yes, 2 no.</summary>
+    private int _plainText;
+
     /// <summary>Initializes a new instance of the <see cref="PdfTextPage"/> class.</summary>
     /// <param name="page">The page.</param>
     /// <param name="chars">The characters.</param>
@@ -73,6 +85,7 @@ public sealed class PdfTextPage
         Page = page;
         _chars = chars;
         _hitBlocks = TextHitTesting.BuildBlocks(chars);
+        _hitBounds = TextHitTesting.PageBoundsOf(_hitBlocks);
         _lines = lines;
         _levels = levels;
         _styles = styles;
@@ -137,7 +150,12 @@ public sealed class PdfTextPage
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _chars.Length);
         var textIndex = _textOfChar[index];
-        return textIndex < 0 ? index : _charOfText[TextClusters.StartOf(ClusterStarts(), textIndex)];
+        if (textIndex < 0)
+        {
+            return index;
+        }
+
+        return IsPlainText() ? _charOfText[textIndex] : _charOfText[TextClusters.StartOf(ClusterStarts(), textIndex)];
     }
 
     /// <summary>Gets the index after the last character of the cluster a character belongs to.</summary>
@@ -151,7 +169,13 @@ public sealed class PdfTextPage
 
         // The cluster ends after its last character that has text; a character without text after it is a cluster of its own.
         var textIndex = _textOfChar[index];
-        return textIndex < 0 ? index + 1 : _charOfText[TextClusters.EndOf(ClusterStarts(), _text.Length, textIndex) - 1] + 1;
+        if (textIndex < 0)
+        {
+            return index + 1;
+        }
+
+        var textEnd = IsPlainText() ? textIndex + 1 : TextClusters.EndOf(ClusterStarts(), _text.Length, textIndex);
+        return _charOfText[textEnd - 1] + 1;
     }
 
     /// <summary>Widens a run of characters so it starts at the beginning of a cluster and ends at the end of one.</summary>
@@ -302,7 +326,7 @@ public sealed class PdfTextPage
     /// <returns>The character index, or -1.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int GetIndexAtPosition(Vector2 point, float toleranceX, float toleranceY) =>
-        TextHitTesting.Find(_chars, _hitBlocks, point, toleranceX, toleranceY);
+        TextHitTesting.Find(_chars, _hitBlocks, _hitBounds, point, toleranceX, toleranceY);
 
     /// <summary>Appends every match of a query, found from the start of the page.</summary>
     /// <param name="query">The text to find.</param>
@@ -375,6 +399,20 @@ public sealed class PdfTextPage
     /// <returns><see langword="true"/> for shown characters with an area.</returns>
     private static bool CountsTowardsRects(in PdfTextChar info) =>
         info.Kind != PdfTextCharKind.Generated && info.Box.Width >= SizeEpsilon && info.Box.Height >= SizeEpsilon;
+
+    /// <summary>Determines, once, whether every character of the page text is a cluster of its own so no segmentation is needed.</summary>
+    /// <returns><see langword="true"/> when the text has no character that can join its neighbours.</returns>
+    private bool IsPlainText()
+    {
+        var state = Volatile.Read(ref _plainText);
+        if (state == 0)
+        {
+            state = TextClusters.IsPlain(_text) ? PlainState : ComplexState;
+            Volatile.Write(ref _plainText, state);
+        }
+
+        return state == PlainState;
+    }
 
     /// <summary>Gets the cluster starts of the page text, making them once.</summary>
     /// <returns>The bits.</returns>

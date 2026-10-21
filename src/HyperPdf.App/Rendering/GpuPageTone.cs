@@ -41,11 +41,11 @@ internal sealed class GpuPageTone : IDisposable
         }
         """;
 
-    /// <summary>Protects filter use, creation and disposal.</summary>
+    /// <summary>Protects the entry cache, its in-flight use count and disposal.</summary>
     private readonly Lock _gate = new();
 
-    /// <summary>Filters are immutable and reused by all tiles of the same tone.</summary>
-    private readonly Dictionary<PageTone, SKColorFilter?> _filters = [];
+    /// <summary>Entries are immutable and reused by all tiles of the same tone.</summary>
+    private readonly Dictionary<PageTone, ToneEntry?> _entries = [];
 
     /// <summary>The compiled tone effect, shared across colour settings.</summary>
     private SKRuntimeEffect? _effect;
@@ -55,6 +55,9 @@ internal sealed class GpuPageTone : IDisposable
 
     /// <summary>Whether the owning render hub has closed.</summary>
     private bool _disposed;
+
+    /// <summary>The number of draws using a cached entry outside the gate.</summary>
+    private int _active;
 
     /// <inheritdoc/>
     public void Dispose()
@@ -67,14 +70,10 @@ internal sealed class GpuPageTone : IDisposable
             }
 
             _disposed = true;
-            foreach (var (_, filter) in _filters)
+            if (_active == 0)
             {
-                filter?.Dispose();
+                ReleaseResourcesLocked();
             }
-
-            _filters.Clear();
-            _effect?.Dispose();
-            _effect = null;
         }
     }
 
@@ -89,8 +88,8 @@ internal sealed class GpuPageTone : IDisposable
             return true;
         }
 
-        using var filter = AcquireFilter(tone);
-        return filter.Value is not null;
+        using var lease = AcquireEntry(tone);
+        return lease.Value is not null;
     }
 
     /// <summary>Renders an opaque source image into a toned surface without reading its pixels.</summary>
@@ -103,9 +102,28 @@ internal sealed class GpuPageTone : IDisposable
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(tone);
-        lock (_gate)
+
+        // The gate covers only the cache lookup. The lease keeps the entry alive while this draw runs outside it.
+        using var lease = AcquireEntry(tone);
+        if (lease.Value is not { } entry)
         {
-            return TryApplyLocked(source, info, tone, context);
+            return null;
+        }
+
+        using var surface = TryCreateSurface(context, info);
+        if (surface is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            surface.Canvas.DrawImage(source, new SKRect(0, 0, info.Width, info.Height), new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None), entry.Paint);
+            return surface.Snapshot();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
+        {
+            return null;
         }
     }
 
@@ -126,16 +144,17 @@ internal sealed class GpuPageTone : IDisposable
         }
     }
 
-    /// <summary>Writes one tone's channel values into an immutable colour filter.</summary>
+    /// <summary>Writes one tone's channel values into an immutable colour filter and the paint that carries it.</summary>
     /// <param name="effect">The compiled effect.</param>
     /// <param name="tone">The tone.</param>
-    /// <returns>The filter.</returns>
-    private static SKColorFilter? CreateFilter(SKRuntimeEffect effect, PageTone tone)
+    /// <returns>The entry, or null when the effect gave no filter.</returns>
+    private static ToneEntry? CreateEntry(SKRuntimeEffect effect, PageTone tone)
     {
         using var uniforms = new SKRuntimeEffectUniforms(effect);
         uniforms["paper"] = Color(tone.Paper);
         uniforms["ink"] = Color(tone.Ink);
-        return effect.ToColorFilter(uniforms);
+        var filter = effect.ToColorFilter(uniforms);
+        return filter is null ? null : new(filter, new SKPaint { ColorFilter = filter, BlendMode = SKBlendMode.Src });
     }
 
     /// <summary>Converts a packed RGB colour into shader channel values.</summary>
@@ -144,42 +163,10 @@ internal sealed class GpuPageTone : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static SKPoint3 Color(uint rgb) => new((rgb >> RedShift) & ChannelMax, (rgb >> GreenShift) & ChannelMax, rgb & ChannelMax);
 
-    /// <summary>Draws with a filter while disposal is excluded.</summary>
-    /// <param name="source">The untoned image.</param>
-    /// <param name="info">The target pixel layout.</param>
-    /// <param name="tone">The page tone.</param>
-    /// <param name="context">The graphics context, or null for raster output.</param>
-    /// <returns>The toned image, or null when unsupported.</returns>
-    private SKImage? TryApplyLocked(SKImage source, SKImageInfo info, PageTone tone, GRContext? context)
-    {
-        using var filter = AcquireFilter(tone);
-        if (filter.Value is null)
-        {
-            return null;
-        }
-
-        using var surface = TryCreateSurface(context, info);
-        if (surface is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            using var paint = new SKPaint { ColorFilter = filter.Value, BlendMode = SKBlendMode.Src };
-            surface.Canvas.DrawImage(source, new SKRect(0, 0, info.Width, info.Height), new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None), paint);
-            return surface.Snapshot();
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>Gets a cached filter or creates a short-lived filter after the cache fills.</summary>
+    /// <summary>Gets a cached entry or creates a short-lived entry after the cache fills.</summary>
     /// <param name="tone">The tone.</param>
-    /// <returns>The filter lease.</returns>
-    private ToneFilterLease AcquireFilter(PageTone tone)
+    /// <returns>The entry lease.</returns>
+    private ToneLease AcquireEntry(PageTone tone)
     {
         lock (_gate)
         {
@@ -188,9 +175,9 @@ internal sealed class GpuPageTone : IDisposable
                 return default;
             }
 
-            if (_filters.TryGetValue(tone, out var existing))
+            if (_entries.TryGetValue(tone, out var existing))
             {
-                return new(existing, false);
+                return existing is null ? default : LeaseCachedLocked(existing);
             }
 
             var effect = GetEffectLocked();
@@ -199,29 +186,69 @@ internal sealed class GpuPageTone : IDisposable
                 return default;
             }
 
-            SKColorFilter? filter;
+            ToneEntry? entry;
             try
             {
-                filter = CreateFilter(effect, tone);
+                entry = CreateEntry(effect, tone);
             }
             catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or SKRuntimeEffectBuilderException)
             {
-                if (_filters.Count < CachedTones)
+                entry = null;
+            }
+
+            if (entry is null)
+            {
+                if (_entries.Count < CachedTones)
                 {
-                    _filters.Add(tone, null);
+                    _entries.Add(tone, null);
                 }
 
                 return default;
             }
 
-            if (_filters.Count >= CachedTones)
+            if (_entries.Count >= CachedTones)
             {
-                return new(filter, true);
+                return new(entry, null);
             }
 
-            _filters.Add(tone, filter);
-            return new(filter, false);
+            _entries.Add(tone, entry);
+            return LeaseCachedLocked(entry);
         }
+    }
+
+    /// <summary>Marks a cached entry as in use so disposal waits for the draw.</summary>
+    /// <param name="entry">The cached entry.</param>
+    /// <returns>The lease.</returns>
+    private ToneLease LeaseCachedLocked(ToneEntry entry)
+    {
+        _active++;
+        return new(entry, this);
+    }
+
+    /// <summary>Ends a cached entry's use and frees the cache if the hub closed meanwhile.</summary>
+    private void ReleaseCached()
+    {
+        lock (_gate)
+        {
+            _active--;
+            if (_disposed && _active == 0)
+            {
+                ReleaseResourcesLocked();
+            }
+        }
+    }
+
+    /// <summary>Disposes every cached entry and the compiled effect.</summary>
+    private void ReleaseResourcesLocked()
+    {
+        foreach (var (_, entry) in _entries)
+        {
+            entry?.Dispose();
+        }
+
+        _entries.Clear();
+        _effect?.Dispose();
+        _effect = null;
     }
 
     /// <summary>Compiles the effect once while the cache gate is held.</summary>
@@ -247,18 +274,34 @@ internal sealed class GpuPageTone : IDisposable
         return _effect;
     }
 
-    /// <summary>Owns only filters created after the bounded shared cache fills.</summary>
-    /// <param name="Value">The filter, or null when unsupported.</param>
-    /// <param name="Owns">Whether this use must release the filter.</param>
-    private readonly record struct ToneFilterLease(SKColorFilter? Value, bool Owns) : IDisposable
+    /// <summary>Keeps a cached entry alive for one draw, or owns an entry made after the cache filled.</summary>
+    /// <param name="Value">The entry, or null when unsupported.</param>
+    /// <param name="Cache">The cache that counts this use, or null when the lease owns the entry.</param>
+    private readonly record struct ToneLease(ToneEntry? Value, GpuPageTone? Cache) : IDisposable
     {
         /// <inheritdoc/>
         public void Dispose()
         {
-            if (Owns)
+            if (Cache is not null)
             {
-                Value?.Dispose();
+                Cache.ReleaseCached();
+                return;
             }
+
+            Value?.Dispose();
+        }
+    }
+
+    /// <summary>A tone's colour filter and the reusable paint that carries it.</summary>
+    /// <param name="Filter">The immutable colour filter.</param>
+    /// <param name="Paint">The paint, which draws never change.</param>
+    private sealed record ToneEntry(SKColorFilter Filter, SKPaint Paint) : IDisposable
+    {
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            Paint.Dispose();
+            Filter.Dispose();
         }
     }
 }

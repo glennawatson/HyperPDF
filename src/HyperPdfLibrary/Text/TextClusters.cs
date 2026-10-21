@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Globalization;
 using System.Numerics;
 
@@ -52,6 +53,18 @@ internal static class TextClusters
 
     /// <summary>The Malayalam virama.</summary>
     private const char MalayalamVirama = (char)0x0D4D;
+
+    /// <summary>The characters that are always a cluster of their own: tab, line feed, printable ASCII and Latin-1 from U+00A0; the set never changes after it is built.</summary>
+    private static readonly SearchValues<char> PlainCharacters = SearchValues.Create(ListPlainCharacters());
+
+    /// <summary>
+    /// Determines whether every character of a text is a cluster of its own. Only printable ASCII, tab, line feed and the
+    /// Latin-1 letters and symbols qualify: none of them extends, joins or prepends, so a text of them needs no segmentation.
+    /// Carriage return is left out because it joins a following line feed. Anything else counts as not plain.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <returns><see langword="true"/> when every character is a cluster of its own.</returns>
+    internal static bool IsPlain(ReadOnlySpan<char> text) => !text.ContainsAnyExcept(PlainCharacters);
 
     /// <summary>Marks the start of every cluster of a text.</summary>
     /// <param name="text">The text.</param>
@@ -116,6 +129,31 @@ internal static class TextClusters
     /// <returns><see langword="true"/> when the character is a consonant right after a virama.</returns>
     internal static bool IsInsideConjunct(ReadOnlySpan<char> text, int index) =>
         index > 0 && IsLinker(text[index - 1]) && IsConjunctConsonant(text[index]);
+
+    /// <summary>Lists tab, line feed, printable ASCII (U+0020 to U+007E) and Latin-1 from U+00A0 to U+00FF.</summary>
+    /// <returns>The characters as a string.</returns>
+    private static string ListPlainCharacters()
+    {
+        const char tab = '\t';
+        const char lineFeed = '\n';
+        const char firstAscii = ' ';
+        const char lastAscii = '~';
+        const char firstLatin = ' ';
+        const char lastLatin = 'ÿ';
+        var builder = new System.Text.StringBuilder();
+        _ = builder.Append(tab).Append(lineFeed);
+        for (var value = firstAscii; value <= lastAscii; value++)
+        {
+            _ = builder.Append(value);
+        }
+
+        for (var value = firstLatin; value <= lastLatin; value++)
+        {
+            _ = builder.Append(value);
+        }
+
+        return builder.ToString();
+    }
 
     /// <summary>Gets the length of the cluster that starts at an index.</summary>
     /// <param name="text">The text.</param>

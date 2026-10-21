@@ -4,7 +4,6 @@
 
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Text.Fonts;
@@ -73,22 +72,40 @@ internal static class HyperPdfAnnotationReading
     internal static void GetAnnotations(HyperPdfAnnotations annotationState, int pageIndex, List<PageAnnotation> output)
     {
         ArgumentNullException.ThrowIfNull(output);
+        output.AddRange(GetAnnotations(annotationState, pageIndex).Span);
+    }
+
+    /// <summary>
+    /// Gets the annotations on a page, skipping links, form fields and pop-ups. A cached page is returned without taking the
+    /// gate or copying; the memory is a snapshot that is never changed.
+    /// </summary>
+    /// <param name="annotationState">The annotation state.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <returns>The annotations, empty when the page does not exist.</returns>
+    internal static ReadOnlyMemory<PageAnnotation> GetAnnotations(HyperPdfAnnotations annotationState, int pageIndex)
+    {
+        if (annotationState.TryGetCached(pageIndex) is { } hit)
+        {
+            return hit;
+        }
+
         lock (annotationState.Gate)
         {
-            if (annotationState.Cache.TryGetValue(pageIndex, out var cached))
+            if (annotationState.TryGetCached(pageIndex) is { } cached)
             {
-                output.AddRange(cached);
-                return;
+                return cached;
             }
 
             if (GetPage(annotationState, pageIndex) is not { } page)
             {
-                return;
+                return default;
             }
 
-            var start = output.Count;
-            Read(annotationState, page, output);
-            annotationState.Cache[pageIndex] = [.. CollectionsMarshal.AsSpan(output)[start..]];
+            List<PageAnnotation> read = [];
+            Read(annotationState, page, read);
+            var annotations = read.ToArray();
+            annotationState.SetCached(pageIndex, annotations);
+            return annotations;
         }
     }
 

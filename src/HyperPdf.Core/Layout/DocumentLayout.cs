@@ -78,63 +78,46 @@ public sealed record DocumentLayout
     /// <param name="sizes">The unrotated page sizes.</param>
     /// <param name="options">The layout options.</param>
     /// <returns>The layout.</returns>
-    public static DocumentLayout Create(ReadOnlySpan<PageSize> sizes, in LayoutOptions options)
+    public static DocumentLayout Create(ReadOnlySpan<PageSize> sizes, in LayoutOptions options) =>
+        sizes.IsEmpty ? Empty : CreateRows(sizes, options, LayoutRows.GetStarts(sizes, options));
+
+    /// <summary>Computes a layout for the same pages as an earlier one, sharing its row starts when the new options give the same rows.</summary>
+    /// <param name="sizes">The unrotated page sizes, the same pages <paramref name="previous"/> was computed from.</param>
+    /// <param name="options">The layout options.</param>
+    /// <param name="previous">The earlier layout of these pages.</param>
+    /// <returns>The layout.</returns>
+    public static DocumentLayout Create(ReadOnlySpan<PageSize> sizes, in LayoutOptions options, DocumentLayout previous)
     {
         if (sizes.IsEmpty)
         {
             return Empty;
         }
 
-        var rowFirstPage = LayoutRows.GetStarts(sizes, options);
-        var rowCount = rowFirstPage.Length;
-        var pages = new LayoutRect[sizes.Length];
-        var rowTops = new double[rowCount];
-        var rowBottoms = new double[rowCount];
+        // Single, dual and cover rows depend only on the page count and arrangement, and a horizontal layout is one row, so
+        // the earlier array stays right. Wrapped rows depend on the scale and viewport, so they are found again.
+        var previousOptions = previous.Options;
+        var sameRows = options.Scroll != ScrollMode.Wrapped
+            && options.Scroll == previousOptions.Scroll
+            && options.Mode == previousOptions.Mode
+            && previous.PageCount == sizes.Length;
+        return CreateRows(sizes, options, sameRows ? previous._rowFirstPage : LayoutRows.GetStarts(sizes, options));
+    }
 
-        // The row widths wait in the bottoms array until the second pass has read each one and writes the real bottom.
-        var rowWidths = rowBottoms;
-        var contentWidth = 0.0;
-        for (var row = 0; row < rowCount; row++)
+    /// <summary>
+    /// Determines whether laying the same pages out with other options would give this layout again. A viewport height
+    /// only matters to page by page slots, so a height-only change to any other layout needs no new layout.
+    /// </summary>
+    /// <param name="next">The options a layout would be computed with.</param>
+    /// <returns><see langword="true"/> when this layout is already what <paramref name="next"/> would produce.</returns>
+    public bool Matches(in LayoutOptions next)
+    {
+        if (Options == next)
         {
-            var first = rowFirstPage[row];
-            var count = GetRowLength(rowFirstPage, row, sizes.Length);
-            var width = GetSlotWidth(sizes, options, row, first, count);
-            rowWidths[row] = width;
-            contentWidth = Math.Max(contentWidth, width);
+            return true;
         }
 
-        var extentWidth = Math.Max(contentWidth + (Halves * options.Margin), options.ViewportWidth);
-        var y = options.Margin;
-        for (var row = 0; row < rowCount; row++)
-        {
-            var first = rowFirstPage[row];
-            var count = GetRowLength(rowFirstPage, row, sizes.Length);
-            var rowHeight = 0.0;
-            for (var i = first; i < first + count; i++)
-            {
-                rowHeight = Math.Max(rowHeight, sizes[i].Rotate(options.Rotation).Height * options.Scale);
-            }
-
-            PlaceRow(sizes, options, pages, new(row, first, count), (extentWidth - rowWidths[row]) / Halves, rowWidths[row], new(y, rowHeight));
-
-            if (options.PageByPage && options.Scroll == ScrollMode.Vertical)
-            {
-                // Slots are flush and at least a viewport tall, so nothing of a neighbouring row shows.
-                var slot = Math.Max(rowHeight + (Halves * options.Margin), options.ViewportHeight);
-                rowTops[row] = y - options.Margin;
-                rowBottoms[row] = rowTops[row] + slot;
-                ShiftRow(pages, first, count, rowTops[row] + ((slot - rowHeight) / Halves) - y);
-                y = rowBottoms[row] + options.Margin;
-                continue;
-            }
-
-            rowTops[row] = y;
-            rowBottoms[row] = y + rowHeight;
-            y += rowHeight + options.Spacing;
-        }
-
-        var extentHeight = options.PageByPage && options.Scroll == ScrollMode.Vertical ? y - options.Margin : y - options.Spacing + options.Margin;
-        return new(pages, rowTops, rowBottoms, rowFirstPage, extentWidth, extentHeight, options);
+        var usesHeight = Options.PageByPage && Options.Scroll == ScrollMode.Vertical;
+        return !usesHeight && Options with { ViewportHeight = next.ViewportHeight } == next;
     }
 
     /// <summary>Gets the vertical extent of the row holding a page: its slot in page by page layouts.</summary>
@@ -290,6 +273,64 @@ public sealed record DocumentLayout
     /// <returns>The page index, or -1 when the layout is empty.</returns>
     public int GetCurrentPage(double x, double y, int preferredPage) =>
         Options.Scroll == ScrollMode.Horizontal ? GetPageNearest(x, y) : GetCurrentPage(y, preferredPage);
+
+    /// <summary>Computes a layout from its rows.</summary>
+    /// <param name="sizes">The unrotated page sizes, not empty.</param>
+    /// <param name="options">The layout options.</param>
+    /// <param name="rowFirstPage">The first page of each row.</param>
+    /// <returns>The layout.</returns>
+    private static DocumentLayout CreateRows(ReadOnlySpan<PageSize> sizes, in LayoutOptions options, int[] rowFirstPage)
+    {
+        var rowCount = rowFirstPage.Length;
+        var pages = new LayoutRect[sizes.Length];
+        var rowTops = new double[rowCount];
+        var rowBottoms = new double[rowCount];
+
+        // The row widths wait in the bottoms array until the second pass has read each one and writes the real bottom.
+        var rowWidths = rowBottoms;
+        var contentWidth = 0.0;
+        for (var row = 0; row < rowCount; row++)
+        {
+            var first = rowFirstPage[row];
+            var count = GetRowLength(rowFirstPage, row, sizes.Length);
+            var width = GetSlotWidth(sizes, options, row, first, count);
+            rowWidths[row] = width;
+            contentWidth = Math.Max(contentWidth, width);
+        }
+
+        var extentWidth = Math.Max(contentWidth + (Halves * options.Margin), options.ViewportWidth);
+        var y = options.Margin;
+        for (var row = 0; row < rowCount; row++)
+        {
+            var first = rowFirstPage[row];
+            var count = GetRowLength(rowFirstPage, row, sizes.Length);
+            var rowHeight = 0.0;
+            for (var i = first; i < first + count; i++)
+            {
+                rowHeight = Math.Max(rowHeight, sizes[i].Rotate(options.Rotation).Height * options.Scale);
+            }
+
+            PlaceRow(sizes, options, pages, new(row, first, count), (extentWidth - rowWidths[row]) / Halves, rowWidths[row], new(y, rowHeight));
+
+            if (options.PageByPage && options.Scroll == ScrollMode.Vertical)
+            {
+                // Slots are flush and at least a viewport tall, so nothing of a neighbouring row shows.
+                var slot = Math.Max(rowHeight + (Halves * options.Margin), options.ViewportHeight);
+                rowTops[row] = y - options.Margin;
+                rowBottoms[row] = rowTops[row] + slot;
+                ShiftRow(pages, first, count, rowTops[row] + ((slot - rowHeight) / Halves) - y);
+                y = rowBottoms[row] + options.Margin;
+                continue;
+            }
+
+            rowTops[row] = y;
+            rowBottoms[row] = y + rowHeight;
+            y += rowHeight + options.Spacing;
+        }
+
+        var extentHeight = options.PageByPage && options.Scroll == ScrollMode.Vertical ? y - options.Margin : y - options.Spacing + options.Margin;
+        return new(pages, rowTops, rowBottoms, rowFirstPage, extentWidth, extentHeight, options);
+    }
 
     /// <summary>Gets the number of pages in a row.</summary>
     /// <param name="rowFirstPage">The first page of each row.</param>

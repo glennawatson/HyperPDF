@@ -20,6 +20,27 @@ internal sealed class GlyphMaskPainter : IDisposable
     /// <summary>The masks every device of the backend shares.</summary>
     private readonly SkiaGlyphMasks _masks;
 
+    /// <summary>The masks this device has used, checked before the shared lock.</summary>
+    private readonly GlyphMaskMemo _memo = new();
+
+    /// <summary>The canvas whose matrix was last set by this painter.</summary>
+    private SKCanvas? _matrixCanvas;
+
+    /// <summary>The matrix this painter last set.</summary>
+    private SKMatrix _matrix;
+
+    /// <summary>Whether <see cref="_matrix"/> is still the canvas matrix.</summary>
+    private bool _matrixKnown;
+
+    /// <summary>The colour the paint holds when <see cref="_paintKnown"/> is set.</summary>
+    private SKColor _paintColor;
+
+    /// <summary>The blend the paint holds when <see cref="_paintKnown"/> is set.</summary>
+    private SKBlendMode _paintBlend;
+
+    /// <summary>Whether the paint holds <see cref="_paintColor"/> and <see cref="_paintBlend"/>.</summary>
+    private bool _paintKnown;
+
     /// <summary>What glyphs are drawn with when a mask is made, made when the first mask is.</summary>
     private GlyphMaskScratch? _scratch;
 
@@ -34,6 +55,10 @@ internal sealed class GlyphMaskPainter : IDisposable
         _paint.Dispose();
         _scratch?.Dispose();
     }
+
+    /// <summary>Forgets the matrix last set on the canvas; call when the canvas matrix is changed or restored by anything else.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ForgetMatrix() => _matrixKnown = false;
 
     /// <summary>Draws one glyph from its mask.</summary>
     /// <typeparam name="TSource">What the mask is drawn from when it is made.</typeparam>
@@ -96,7 +121,7 @@ internal sealed class GlyphMaskPainter : IDisposable
     private bool FindOrMake<TSource>(in GlyphMaskGlyph<TSource> glyph, in GlyphMaskKey key, out GlyphMask? mask)
         where TSource : struct, IGlyphMaskSource
     {
-        if (_masks.TryGet(key, out mask))
+        if (_memo.TryGet(_masks, key, out mask))
         {
             return true;
         }
@@ -107,7 +132,7 @@ internal sealed class GlyphMaskPainter : IDisposable
             return false;
         }
 
-        mask = created is null ? null : _masks.Add(key, created);
+        mask = created is null ? null : _memo.Add(_masks, key, created);
         return true;
     }
 
@@ -120,21 +145,37 @@ internal sealed class GlyphMaskPainter : IDisposable
     /// <param name="edges">How the mask's edges were made.</param>
     private void Draw(SKCanvas canvas, SKMatrix deviceInverse, GlyphMask mask, in GlyphMaskPlacement placement, in GlyphMaskStyle style, GlyphMaskEdges edges)
     {
-        canvas.SetMatrix(deviceInverse);
+        if (!_matrixKnown || !ReferenceEquals(_matrixCanvas, canvas) || _matrix != deviceInverse)
+        {
+            canvas.SetMatrix(deviceInverse);
+            _matrixCanvas = canvas;
+            _matrix = deviceInverse;
+            _matrixKnown = true;
+        }
+
         var x = placement.OriginX + mask.Left;
         var y = placement.OriginY + mask.Top;
         var area = new SKRect(x, y, x + mask.Width, y + mask.Height);
         var sampling = default(SKSamplingOptions);
         if (edges != GlyphMaskEdges.Lcd || mask.Cut is not { } cut)
         {
-            _paint.Reset();
-            _paint.Color = style.Color;
-            _paint.BlendMode = style.Blend;
+            // Only this painter touches its paint, so a run of one colour and blend keeps the paint as it is.
+            if (!_paintKnown || _paintColor != style.Color || _paintBlend != style.Blend)
+            {
+                _paint.Reset();
+                _paint.Color = style.Color;
+                _paint.BlendMode = style.Blend;
+                _paintColor = style.Color;
+                _paintBlend = style.Blend;
+                _paintKnown = true;
+            }
+
             canvas.DrawImage(mask.Image, area, sampling, _paint);
             return;
         }
 
         // The page's colour is dimmed where the glyph covers each channel, then the text's colour is added in the same places.
+        _paintKnown = false;
         _paint.Reset();
         _paint.BlendMode = SKBlendMode.Modulate;
         canvas.DrawImage(cut, area, sampling, _paint);

@@ -25,11 +25,23 @@ internal static class ContentColors
     /// <summary>The ratio between neighbouring pattern resolutions, and the divisor that averages two axis scales.</summary>
     internal const float PatternScaleBase = 2;
 
+    /// <summary>The most pixels per device pixel a period gets: enough to stay sharp up to 400% zoom, and used when the zoom is not known.</summary>
+    internal const int MaxPatternOversample = 4;
+
     /// <summary>The smallest power-of-two pattern scale kept.</summary>
     internal const int MinPatternExponent = -8;
 
     /// <summary>The largest power-of-two pattern scale kept.</summary>
     internal const int MaxPatternExponent = 8;
+
+    /// <summary>The device scale up to which a period needs only one pixel per device pixel.</summary>
+    private const float LowZoomScale = 0.5F;
+
+    /// <summary>The device scale up to which a period needs two pixels per device pixel.</summary>
+    private const float MidZoomScale = 1;
+
+    /// <summary>The pixels per device pixel a period gets between the low and mid zoom scales.</summary>
+    private const int MidPatternOversample = 2;
 
     /// <summary>Handles <c>g</c>.</summary>
     /// <param name = "self">The interpreter.</param>
@@ -104,6 +116,16 @@ internal static class ContentColors
             destination[i] = reader.Number(i);
         }
     }
+
+    /// <summary>Gets how many pixels per device pixel a pattern period is rasterised at, so a page drawn at low zoom does not pay for the detail of 400% zoom.</summary>
+    /// <param name = "imageScale">The upper device scale of the zoom band the page is recorded for; infinite when unknown.</param>
+    /// <returns>1, 2 or <see cref = "MaxPatternOversample"/>.</returns>
+    internal static int PatternOversample(float imageScale) => imageScale switch
+    {
+        <= LowZoomScale => 1,
+        <= MidZoomScale => MidPatternOversample,
+        _ => MaxPatternOversample,
+    };
 
     /// <summary>Gets the power of two at or above the page units one pattern unit spans, so cells are reused across nearby scales.</summary>
     /// <param name = "matrix">The matrix from pattern space to the page.</param>
@@ -293,14 +315,14 @@ internal static class ContentColors
         var mode = self.Mode;
         self.Cache.ObserveLayerVersion(mode.LayerVersion);
         var cell = self.Cache.Cells.GetOrCreate(
-            new(dictionary, uncolored ? rgb : 0, bucket, mode),
+            new(dictionary, uncolored ? rgb : 0, bucket, mode, ContentColors.PatternOversample(self.ImageScale)),
             new CellRequest(self, stream, uncolored, rgb),
             static (key, request) => ContentColors.RecordCell(
                 request.Owner,
                 request.Pattern,
                 request.Uncolored,
                 request.Rgb,
-                MathF.Pow(ContentColors.PatternScaleBase, key.ScaleBucket)));
+                MathF.Pow(ContentColors.PatternScaleBase, key.ScaleBucket) * key.Oversample / ContentColors.MaxPatternOversample));
         return cell is null ? null : ContentColors.GetPaint(self, cell, matrix);
     }
 
@@ -338,7 +360,7 @@ internal static class ContentColors
     /// <param name = "pattern">The pattern stream.</param>
     /// <param name = "uncolored">Whether the pattern is uncoloured.</param>
     /// <param name = "rgb">The colour for an uncoloured pattern.</param>
-    /// <param name = "scale">The page units one pattern unit spans, which sets the resolution of a rasterised period.</param>
+    /// <param name = "scale">The page units one pattern unit spans, scaled down for pages drawn at low zoom, which sets the resolution of a rasterised period.</param>
     /// <returns>The cell, or null when the pattern is damaged, nested too deeply or has a zero step, which ISO 32000-2 8.7.3.2 does not allow, so nothing is drawn.</returns>
     internal static PatternCell? RecordCell(ContentInterpreter self, PdfStream pattern, bool uncolored, uint rgb, float scale)
     {

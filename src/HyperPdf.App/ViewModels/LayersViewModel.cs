@@ -35,6 +35,15 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
     /// <summary>The id of each configuration listed in <see cref="ConfigurationNames"/>.</summary>
     private readonly List<int> _configurationIds = [];
 
+    /// <summary>The layer ids the visible page used when the tree was last listed, or <see langword="null"/> when the tree lists every layer.</summary>
+    private HashSet<int>? _onPage;
+
+    /// <summary>A set to read the visible page's layer ids into, so a page change that uses the same layers allocates nothing.</summary>
+    private HashSet<int> _spareOnPage = [];
+
+    /// <summary>Whether page changes were skipped while the panel was hidden.</summary>
+    private bool _pageListStale;
+
     /// <summary>Whether the tree is being rebuilt or its check boxes synchronised, so changes are not sent to the document.</summary>
     private bool _updating;
 
@@ -56,7 +65,7 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
         _subscriptions.Add(owner.WhenChanged(static tab => tab.CurrentPageIndex)
             .Skip(1)
             .WhereWith(owner, static (tab, _) => DocumentFeature<ILayerSource>.Get(tab.TryGetDocument()) is { ListMode: DocumentLayerListMode.VisiblePages })
-            .SubscribeSafe(_ => Refresh(), ErrorTrace.Write));
+            .SubscribeSafe(_ => RefreshForPage(), ErrorTrace.Write));
 
         // Refilling the tree replaces the subscriptions to the old entries' check boxes.
         _subscriptions.Add(this.WhenChanged(static x => x.ItemChanges).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
@@ -107,6 +116,15 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
         }
     }
 
+    /// <summary>Lists the layers the visible page uses when the panel opens after page changes were skipped.</summary>
+    public void ShowForPage()
+    {
+        if (_pageListStale)
+        {
+            RefreshForPage();
+        }
+    }
+
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
@@ -139,6 +157,55 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
     /// <param name="source">The document's layers, or <see langword="null"/> when it has none.</param>
     private void Fill(ILayerSource? source)
     {
+        _onPage = source is not null && source.ListMode == DocumentLayerListMode.VisiblePages ? new HashSet<int>(source.GetLayerIdsOnPage(_owner.CurrentPageIndex)) : null;
+        _pageListStale = false;
+        HasLayers = FillTree(source, _onPage);
+        FillConfigurations(source);
+    }
+
+    /// <summary>Follows a page change: lists the layers again only when the layers the visible page uses are different.</summary>
+    private void RefreshForPage()
+    {
+        if (!_owner.IsLayersMode)
+        {
+            // Nobody sees the tree; it is listed once when the panel opens.
+            _pageListStale = true;
+            return;
+        }
+
+        _pageListStale = false;
+        if (DocumentFeature<ILayerSource>.Get(_owner.TryGetDocument()) is not { ListMode: DocumentLayerListMode.VisiblePages } source)
+        {
+            return;
+        }
+
+        _spareOnPage.Clear();
+        _spareOnPage.UnionWith(source.GetLayerIdsOnPage(_owner.CurrentPageIndex));
+        if (_onPage is not null && _onPage.SetEquals(_spareOnPage))
+        {
+            return;
+        }
+
+        var previous = _onPage;
+        _onPage = _spareOnPage;
+        _spareOnPage = previous ?? [];
+        _updating = true;
+        try
+        {
+            _ = FillTree(source, _onPage);
+        }
+        finally
+        {
+            _updating = false;
+        }
+    }
+
+    /// <summary>Rebuilds the tree from the document, leaving the configuration list alone.</summary>
+    /// <param name="source">The document's layers, or <see langword="null"/> when it has none.</param>
+    /// <param name="onPage">The layers a visible page uses to limit the list to, or <see langword="null"/> to list them all.</param>
+    /// <returns><see langword="true"/> when the document has layers.</returns>
+    private bool FillTree(ILayerSource? source, HashSet<int>? onPage)
+    {
         Items.Clear();
         _byId.Clear();
         var layers = new Dictionary<int, DocumentLayer>();
@@ -150,7 +217,6 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
 
         if (source is not null && layers.Count > 0)
         {
-            var onPage = source.ListMode == DocumentLayerListMode.VisiblePages ? new HashSet<int>(source.GetLayerIdsOnPage(_owner.CurrentPageIndex)) : null;
             foreach (var item in Build(source.GetLayerTree(), layers, onPage))
             {
                 Items.Add(item);
@@ -159,8 +225,7 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
         }
 
         ItemChanges = itemChanges;
-        HasLayers = layers.Count > 0;
-        FillConfigurations(source);
+        return layers.Count > 0;
     }
 
     /// <summary>Lists the configurations the file offers and selects the one in use.</summary>

@@ -8,9 +8,10 @@ using System.Runtime.CompilerServices;
 namespace HyperPdf.Core.Rendering;
 
 /// <summary>
-/// A least-recently-used cache of rendered tiles bounded by memory. The cache owns its surfaces and disposes them on
-/// eviction. Whole-page previews are small and stand in for pages while their sharp tiles are made, so they are kept in a list of
-/// their own: when the cache is over budget, tiles go first and previews only when no tile is left, and previews never take more
+/// A cache of rendered tiles bounded by memory. It evicts the least recently used first, using a second-chance (clock) rule so
+/// a lookup is a flag write. The cache owns its surfaces and disposes them on eviction. Whole-page previews are small and
+/// stand in for pages while their sharp tiles are made, so they are kept in a list of their own:
+/// when the cache is over budget, tiles go first and previews only when no tile is left, and previews never take more
 /// than half the budget. It is not thread safe and is used only from the UI thread.
 /// </summary>
 [DebuggerDisplay("TileCache: {Count} tiles, {CurrentBytes} bytes")]
@@ -44,7 +45,7 @@ public sealed class TileCache : IDisposable
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
             field = value;
-            Trim();
+            Trim(null);
         }
     }
 
@@ -65,13 +66,8 @@ public sealed class TileCache : IDisposable
     {
         if (_entries.TryGetValue(key, out var node))
         {
-            var list = node.List!;
-            if (node != list.First)
-            {
-                list.Remove(node);
-                list.AddFirst(node);
-            }
-
+            // A hit only sets a bit; eviction gives marked entries a second chance, so no list surgery happens per lookup.
+            node.ValueRef.Referenced = true;
             surface = node.Value.Surface;
             return true;
         }
@@ -117,7 +113,7 @@ public sealed class TileCache : IDisposable
             Release(existing);
         }
 
-        var node = (key.IsPreview ? _previews : _recency).AddFirst(new CacheEntry(key, surface));
+        var node = (key.IsPreview ? _previews : _recency).AddFirst(new CacheEntry(key, surface, false));
         _entries.Add(key, node);
         CurrentBytes += surface.ByteSize;
         if (key.IsPreview)
@@ -125,24 +121,31 @@ public sealed class TileCache : IDisposable
             PreviewBytes += surface.ByteSize;
         }
 
-        Trim();
+        Trim(node);
     }
 
     /// <summary>Removes every tile belonging to a document.</summary>
     /// <param name="documentId">The document identifier.</param>
     public void RemoveDocument(int documentId)
     {
-        Sweep(_recency, documentId, -1);
-        Sweep(_previews, documentId, -1);
+        Sweep(_recency, documentId, documentId, -1);
+        Sweep(_previews, documentId, documentId, -1);
     }
 
     /// <summary>Removes every tile of one page, for example after it was annotated.</summary>
     /// <param name="documentId">The document identifier.</param>
     /// <param name="pageIndex">The page index.</param>
-    public void RemovePage(int documentId, int pageIndex)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void RemovePage(int documentId, int pageIndex) => RemovePage(documentId, documentId, pageIndex);
+
+    /// <summary>Removes every tile of one page under either of two document identifiers, in a single walk of each list.</summary>
+    /// <param name="documentId">The first document identifier.</param>
+    /// <param name="otherDocumentId">The second document identifier.</param>
+    /// <param name="pageIndex">The page index.</param>
+    public void RemovePage(int documentId, int otherDocumentId, int pageIndex)
     {
-        Sweep(_recency, documentId, pageIndex);
-        Sweep(_previews, documentId, pageIndex);
+        Sweep(_recency, documentId, otherDocumentId, pageIndex);
+        Sweep(_previews, documentId, otherDocumentId, pageIndex);
     }
 
     /// <summary>Removes every tile.</summary>
@@ -165,18 +168,43 @@ public sealed class TileCache : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => Clear();
 
-    /// <summary>Removes the entries of a list that belong to a document, or to one page of it.</summary>
+    /// <summary>Finds the entry to evict from a list. Entries looked up since they were last passed get a second chance.</summary>
     /// <param name="list">The list.</param>
-    /// <param name="documentId">The document identifier.</param>
+    /// <param name="newest">The tile being added, which counts as just used so it is passed over once.</param>
+    /// <returns>The node to evict, or <see langword="null"/> when the list is empty.</returns>
+    private static LinkedListNode<CacheEntry>? Victim(LinkedList<CacheEntry> list, LinkedListNode<CacheEntry>? newest)
+    {
+        // A marked entry has its mark cleared and moves to the front, so the loop ends within one lap of the list.
+        while (list.Last is { } last)
+        {
+            if (!last.Value.Referenced && last != newest)
+            {
+                return last;
+            }
+
+            // The newest tile is passed over once only, so a tile bigger than the budget still evicts itself.
+            newest = last == newest ? null : newest;
+            last.ValueRef.Referenced = false;
+            list.Remove(last);
+            list.AddFirst(last);
+        }
+
+        return null;
+    }
+
+    /// <summary>Removes the entries of a list that belong to one of two documents, or to one page of them.</summary>
+    /// <param name="list">The list.</param>
+    /// <param name="documentId">The first document identifier.</param>
+    /// <param name="otherDocumentId">The second document identifier.</param>
     /// <param name="pageIndex">The page index, or -1 for every page.</param>
-    private void Sweep(LinkedList<CacheEntry> list, int documentId, int pageIndex)
+    private void Sweep(LinkedList<CacheEntry> list, int documentId, int otherDocumentId, int pageIndex)
     {
         var node = list.First;
         while (node is not null)
         {
             var next = node.Next;
             var key = node.Value.Key;
-            if (key.DocumentId == documentId && (pageIndex < 0 || key.PageIndex == pageIndex))
+            if ((key.DocumentId == documentId || key.DocumentId == otherDocumentId) && (pageIndex < 0 || key.PageIndex == pageIndex))
             {
                 _ = _entries.Remove(key);
                 Release(node);
@@ -187,9 +215,10 @@ public sealed class TileCache : IDisposable
     }
 
     /// <summary>Evicts until within budget: previews beyond their share first, then least recently used tiles, then previews.</summary>
-    private void Trim()
+    /// <param name="newest">The node just added, or <see langword="null"/>.</param>
+    private void Trim(LinkedListNode<CacheEntry>? newest)
     {
-        while (PreviewBytes > BudgetBytes / PreviewShare && _previews.Last is { } excess)
+        while (PreviewBytes > BudgetBytes / PreviewShare && Victim(_previews, newest) is { } excess)
         {
             _ = _entries.Remove(excess.Value.Key);
             Release(excess);
@@ -197,7 +226,7 @@ public sealed class TileCache : IDisposable
 
         while (CurrentBytes > BudgetBytes)
         {
-            var victim = _recency.Last ?? _previews.Last;
+            var victim = Victim(_recency, newest) ?? Victim(_previews, newest);
             if (victim is null)
             {
                 return;
@@ -225,5 +254,6 @@ public sealed class TileCache : IDisposable
     /// <summary>A cached tile.</summary>
     /// <param name="Key">The key.</param>
     /// <param name="Surface">The surface.</param>
-    private readonly record struct CacheEntry(TileKey Key, IRenderSurface Surface);
+    /// <param name="Referenced">Whether the tile was looked up since eviction last passed it.</param>
+    private record struct CacheEntry(TileKey Key, IRenderSurface Surface, bool Referenced);
 }

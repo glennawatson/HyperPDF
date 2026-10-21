@@ -113,6 +113,12 @@ public sealed partial class PageSeparationViewModel : ReactiveObject, IDisposabl
     /// <param name="pageIndex">The current page.</param>
     internal void ShowPage(int pageIndex)
     {
+        // A document without separations has nothing to show or clear on a page turn.
+        if (!HasSeparations && _group is null)
+        {
+            return;
+        }
+
         if (!_slots.TryGetValue(pageIndex, out var slot))
         {
             _group = null;

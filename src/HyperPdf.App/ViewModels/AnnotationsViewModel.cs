@@ -68,14 +68,26 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     /// <summary>The extra large text size in points.</summary>
     private const float ExtraLargeText = 24;
 
+    /// <summary>How long the filter text must stay unchanged before the list is filtered.</summary>
+    private static readonly TimeSpan TypingDelay = TimeSpan.FromMilliseconds(250);
+
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
 
     /// <summary>Annotations read for hit testing, reused.</summary>
     private readonly List<PageAnnotation> _scratch = [];
 
+    /// <summary>Replies read for one annotation, reused.</summary>
+    private readonly List<AnnotationReply> _replyScratch = [];
+
     /// <summary>Subscriptions keeping the filtered list up to date.</summary>
     private readonly MultipleDisposable _subscriptions;
+
+    /// <summary>The editor the list was last built from.</summary>
+    private IAnnotationEditor? _listedEditor;
+
+    /// <summary>Whether the list needs rebuilding the next time the panel is shown.</summary>
+    private bool _listStale = true;
 
     /// <summary>The picture placed by the stamp tool, or <see langword="null"/> to place the stamp's words.</summary>
     private DecodedImage? _picture;
@@ -87,7 +99,11 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
         _owner = owner;
         _subscriptions =
         [
-            this.WhenChanged(static x => x.FilterText, static x => x.FilterType, static x => x.FilterColor)
+            this.WhenChanged(static x => x.FilterText)
+                .Skip(1)
+                .Throttle(TypingDelay, RxSchedulers.MainThreadScheduler)
+                .SubscribeSafe(_ => ApplyTextFilter(), ErrorTrace.Write),
+            this.WhenChanged(static x => x.FilterType, static x => x.FilterColor)
                 .Skip(1)
                 .SubscribeSafe(_ => ApplyFilter(), ErrorTrace.Write),
             this.WhenChanged(static x => x.FilterAuthor, static x => x.SortOrder)
@@ -524,29 +540,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
 
         _scratch.Clear();
         editor.GetAnnotations(page, _scratch);
-
-        // Where annotations overlap the smallest one wins (the topmost on a tie), so a big shape never hides what is inside it.
-        PageAnnotation? best = null;
-        var bestArea = float.MaxValue;
-        for (var i = _scratch.Count - 1; i >= 0; i--)
-        {
-            var candidate = _scratch[i];
-            if (!IsHit(candidate, point))
-            {
-                continue;
-            }
-
-            var area = candidate.Bounds.Width * candidate.Bounds.Height;
-            if (area >= bestArea)
-            {
-                continue;
-            }
-
-            best = candidate;
-            bestArea = area;
-        }
-
-        return best;
+        return FindHit(_scratch, point);
     }
 
     /// <summary>Picks an annotation, or clears the pick.</summary>
@@ -577,6 +571,36 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
         var band = HitTolerance + annotation.LineWidth;
         var inner = PageRect.FromEdges(bounds.Left + band, bounds.Top + band, bounds.Right - band, bounds.Bottom - band);
         return inner.Right <= inner.Left || inner.Bottom <= inner.Top || !inner.Contains(point);
+    }
+
+    /// <summary>Finds the annotation under a point in a page's annotations, topmost first.</summary>
+    /// <param name="annotations">The annotations on the page.</param>
+    /// <param name="point">The point in page space.</param>
+    /// <returns>The annotation, or <see langword="null"/>.</returns>
+    private static PageAnnotation? FindHit(List<PageAnnotation> annotations, PagePoint point)
+    {
+        // Where annotations overlap the smallest one wins (the topmost on a tie), so a big shape never hides what is inside it.
+        PageAnnotation? best = null;
+        var bestArea = float.MaxValue;
+        for (var i = annotations.Count - 1; i >= 0; i--)
+        {
+            var candidate = annotations[i];
+            if (!IsHit(candidate, point))
+            {
+                continue;
+            }
+
+            var area = candidate.Bounds.Width * candidate.Bounds.Height;
+            if (area >= bestArea)
+            {
+                continue;
+            }
+
+            best = candidate;
+            bestArea = area;
+        }
+
+        return best;
     }
 
     /// <summary>Writes a typed mark's text at the size that fills its bounds, as a signature.</summary>

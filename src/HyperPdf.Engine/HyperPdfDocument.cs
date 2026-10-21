@@ -63,6 +63,9 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
     /// <summary>The links of each page, read on first use.</summary>
     private PageLink[]?[]? _links;
 
+    /// <summary>The form fields of each page, read on first use and stamped with the edit version they were read at.</summary>
+    private FormFieldPages? _formFields;
+
     /// <summary>1 once disposed.</summary>
     private int _disposed;
 
@@ -154,6 +157,9 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <summary>Gets or sets the owned Links state.</summary>
     internal ref PageLink[]?[]? Links => ref _links;
+
+    /// <summary>Gets or sets the owned FormFields state.</summary>
+    internal ref FormFieldPages? FormFields => ref _formFields;
 
     /// <summary>Gets the managed document.</summary>
     internal PdfDocument Document => _document;

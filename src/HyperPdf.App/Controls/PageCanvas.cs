@@ -123,11 +123,20 @@ public sealed class PageCanvas : Control, IActivatableView
     /// </summary>
     private static readonly RenderOptions PageRenderOptions = new() { BitmapInterpolationMode = BitmapInterpolationMode.MediumQuality, EdgeMode = EdgeMode.Aliased };
 
+    /// <summary>The page measurements the fit zoom comes from, kept so a resize does not walk every page.</summary>
+    private readonly PageFitExtentsCache _fitExtents = new();
+
+    /// <summary>Queues each page's GPU tiles so they reach the scene as one operation.</summary>
+    private readonly TileDrawBatch _tiles = new();
+
     /// <summary>The current layout.</summary>
     private DocumentLayout _layout = DocumentLayout.Empty;
 
     /// <summary>The page sizes the layout was built from.</summary>
     private PageSize[] _sizes = [];
+
+    /// <summary>The page sizes <see cref="_layout"/> was computed from, or <see langword="null"/> when it must be computed again.</summary>
+    private PageSize[]? _layoutSizes;
 
     /// <summary>The hosting scroll viewer.</summary>
     private ScrollViewer? _scroller;
@@ -167,6 +176,27 @@ public sealed class PageCanvas : Control, IActivatableView
 
     /// <summary>The top of the viewport at the last frame, to tell which way the reader is scrolling.</summary>
     private double _previousViewportTop;
+
+    /// <summary>What the last frame's prefetch passes depended on.</summary>
+    private PrefetchStamp _lastPrefetch;
+
+    /// <summary>Whether the last frame found every tile and preview it looked for already cached, so it asked for nothing.</summary>
+    private bool _lastPrefetchSettled;
+
+    /// <summary>Whether this frame skips the prefetch passes because they would find what the last frame found.</summary>
+    private bool _skipPrefetch;
+
+    /// <summary>The render requests made so far in this frame.</summary>
+    private int _requestsThisFrame;
+
+    /// <summary>What the last position report was made from.</summary>
+    private ReportedView _reported;
+
+    /// <summary>The document the middle page was last handed to the neighbour preparer for.</summary>
+    private IDocument? _visitedDocument;
+
+    /// <summary>The middle page last handed to the neighbour preparer.</summary>
+    private int _visitedPage = -1;
 
     /// <summary>Whether the reader last scrolled towards the end of the document, so previews are made further ahead on that side.</summary>
     private bool _scrollingDown = true;
@@ -287,6 +317,9 @@ public sealed class PageCanvas : Control, IActivatableView
 
     /// <summary>Gets the selection rectangles by page, computed lazily.</summary>
     internal Dictionary<int, List<PageRect>> SelectionRects { get; } = [];
+
+    /// <summary>Gets the emptied selection rectangle lists kept for reuse by the next page that needs one.</summary>
+    internal Stack<List<PageRect>> SpareSelectionRects { get; } = [];
 
     /// <summary>Gets the page points of the ink stroke being drawn.</summary>
     internal List<PagePoint> Stroke { get; } = [];
@@ -592,6 +625,14 @@ public sealed class PageCanvas : Control, IActivatableView
             return;
         }
 
+        // The wheel-zoom ease reports once from the offset change and again when the anchor is set; the same view gives the same report.
+        var view = CaptureView(tab, _scroller);
+        if (view == _reported)
+        {
+            return;
+        }
+
+        _reported = view;
         var top = _scroller.Offset.Y + ContentMargin;
         this.GetCurrentPages(
             tab,
@@ -604,10 +645,16 @@ public sealed class PageCanvas : Control, IActivatableView
         var bounds = _layout.GetPageBounds(topPage);
         var fraction = bounds.Height > 0 ? Math.Clamp((top - bounds.Y) / bounds.Height, 0, 1) : 0;
         tab.ReportPosition(new(topPage, fraction), middlePage);
-        if (tab.TryGetDocument() is { } document)
+
+        // Visit does nothing for a page it already has, so the preparer's lock is only taken on a change.
+        if (tab.TryGetDocument() is not { } document || (ReferenceEquals(document, _visitedDocument) && middlePage == _visitedPage))
         {
-            tab.RenderHub.Preparer.Visit(document, middlePage, _neighbourScale, tab.Rotation, RenderFlags.Annotations);
+            return;
         }
+
+        _visitedDocument = document;
+        _visitedPage = middlePage;
+        tab.RenderHub.Preparer.Visit(document, middlePage, _neighbourScale, tab.Rotation, RenderFlags.Annotations);
     }
 
     /// <inheritdoc/>
@@ -670,7 +717,7 @@ public sealed class PageCanvas : Control, IActivatableView
         {
             if (draw)
             {
-                TilePresentation.Draw(context, surface, rect, smooth: true);
+                _tiles.Draw(context, surface, rect, smooth: true);
             }
 
             return;
@@ -679,6 +726,7 @@ public sealed class PageCanvas : Control, IActivatableView
         var size = tab.Source.PageSizes[page];
         var scale = TileGrid.GetPreviewScale(size, tab.Rotation);
         TileGrid.GetPagePixelSize(size, tab.Rotation, scale, out var width, out var height);
+        _requestsThisFrame++;
         frame.Request(key, new(page, scale, tab.Rotation, 0, 0, RenderFlags.Annotations), width, height, visible ? RenderPriority.VisiblePreview : RenderPriority.Prefetch);
     }
 
@@ -701,6 +749,7 @@ public sealed class PageCanvas : Control, IActivatableView
             if (request)
             {
                 var info = new PageRenderInfo(grid.Page, grid.Scale, tab.Rotation, column * tileSize, row * tileSize, RenderFlags.Annotations);
+                _requestsThisFrame++;
                 frame.Request(key, info, tileWidth, tileHeight, visible ? RenderPriority.Visible : RenderPriority.Prefetch);
             }
 
@@ -714,7 +763,7 @@ public sealed class PageCanvas : Control, IActivatableView
             return;
         }
 
-        TilePresentation.Draw(context, surface, destination, smooth: false);
+        _tiles.Draw(context, surface, destination, smooth: false);
     }
 
     /// <summary>Draws the pages around the viewport, and remembers the scale once every visible page is sharp.</summary>
@@ -727,6 +776,17 @@ public sealed class PageCanvas : Control, IActivatableView
         var sidePrefetch = viewport.Width * PrefetchViewports;
         _layout.GetVisiblePages(viewport.Left - sidePrefetch, viewport.Right + sidePrefetch, viewport.Top - prefetch, viewport.Bottom + prefetch, out var first, out var last);
         _frameComplete = true;
+        _requestsThisFrame = 0;
+        UpdateScrollDirection(viewport.Top);
+        var cache = frame.Hub.Cache;
+        var cancelled = frame.Tab.SelectedWorkToken.IsCancellationRequested;
+        var stamp = new PrefetchStamp(frame.Generation, first, last, _scrollingDown, IsZoomEasing, cancelled, cache.Count, cache.CurrentBytes, cache.PreviewBytes);
+
+        // A frame that asked for nothing, repeated with the same view and the same cache, would ask for nothing again. A request
+        // that was made last frame is asked for again, so one the scheduler dropped is not lost. The TileCache has no eviction
+        // counter, so its tile count and byte totals stand in: an eviction that is exactly offset by an arrival in the same
+        // frame is the one change they cannot see.
+        _skipPrefetch = _lastPrefetchSettled && stamp == _lastPrefetch;
 
         // Aliased edges keep neighbouring tiles from showing seams where they meet at fractional positions.
         using (context.PushRenderOptions(PageRenderOptions))
@@ -737,7 +797,13 @@ public sealed class PageCanvas : Control, IActivatableView
             }
         }
 
-        RequestPreviewReach(frame, first, last);
+        if (!_skipPrefetch)
+        {
+            RequestPreviewReach(frame, first, last);
+        }
+
+        _lastPrefetch = stamp;
+        _lastPrefetchSettled = _requestsThisFrame == 0;
         _neighbourScale = GetTileScale(frame.RenderScaling);
         if (_frameComplete && !IsZoomEasing)
         {
@@ -754,13 +820,6 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <param name="last">The last drawn page.</param>
     private void RequestPreviewReach(in FrameContext frame, int first, int last)
     {
-        var top = frame.Viewport.Top;
-        if (Math.Abs(top - _previousViewportTop) > ScrollDirectionTolerance)
-        {
-            _scrollingDown = top > _previousViewportTop;
-            _previousViewportTop = top;
-        }
-
         if (first < 0)
         {
             return;
@@ -782,6 +841,30 @@ public sealed class PageCanvas : Control, IActivatableView
         }
     }
 
+    /// <summary>Works out which way the reader is scrolling from the top of the viewport.</summary>
+    /// <param name="top">The top of the viewport.</param>
+    private void UpdateScrollDirection(double top)
+    {
+        if (Math.Abs(top - _previousViewportTop) <= ScrollDirectionTolerance)
+        {
+            return;
+        }
+
+        _scrollingDown = top > _previousViewportTop;
+        _previousViewportTop = top;
+    }
+
+    /// <summary>Tells whether prefetching waits: a zoom is easing, or the last frame found nothing left to ask for.</summary>
+    /// <returns><see langword="true"/> when prefetching is held back.</returns>
+    private bool IsPrefetchHeld() => IsZoomEasing || _skipPrefetch;
+
+    /// <summary>Captures what a position report is made from.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <param name="scroller">The scroll viewer.</param>
+    /// <returns>The view.</returns>
+    private ReportedView CaptureView(DocumentTabViewModel tab, ScrollViewer scroller) =>
+        new(tab, new(scroller.Offset.X, scroller.Offset.Y, scroller.Viewport.Width, scroller.Viewport.Height), _layout.Options, _layout.PageCount, _layout.ExtentWidth, _layout.ExtentHeight);
+
     /// <summary>Marks a page's preview as recently used, or requests it at the lowest page priority when it is missing.</summary>
     /// <param name="frame">The frame.</param>
     /// <param name="page">The page, which may be outside the document.</param>
@@ -802,6 +885,7 @@ public sealed class PageCanvas : Control, IActivatableView
         var size = tab.Source.PageSizes[page];
         var scale = TileGrid.GetPreviewScale(size, tab.Rotation);
         TileGrid.GetPagePixelSize(size, tab.Rotation, scale, out var width, out var height);
+        _requestsThisFrame++;
         frame.Request(key, new(page, scale, tab.Rotation, 0, 0, RenderFlags.Annotations), width, height, RenderPriority.PrefetchPreview);
     }
 
@@ -836,6 +920,8 @@ public sealed class PageCanvas : Control, IActivatableView
             DrawTiles(context, frame, grid, window, visible);
             PrefetchAdjacentTiles(context, frame, page, rect, window, visible);
         }
+
+        _tiles.Flush(context);
 
         if (!visible)
         {
@@ -913,7 +999,7 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <param name="visible">Whether the page is visible.</param>
     private void PrefetchAdjacentTiles(DrawingContext context, in FrameContext frame, int page, in Rect rect, in TileWindow visibleWindow, bool visible)
     {
-        if (!visible || IsZoomEasing || !TryGetTileWindow(frame, page, rect, false, out var grid, out var window))
+        if (!visible || IsPrefetchHeld() || !TryGetTileWindow(frame, page, rect, false, out var grid, out var window))
         {
             return;
         }
@@ -974,7 +1060,7 @@ public sealed class PageCanvas : Control, IActivatableView
                 }
 
                 var destination = new Rect(rect.X + (column * tileSize * unitX), rect.Y + (row * tileSize * unitY), surface.Width * unitX, surface.Height * unitY);
-                TilePresentation.Draw(context, surface, destination, smooth: true);
+                _tiles.Draw(context, surface, destination, smooth: true);
             }
         }
     }
@@ -1062,19 +1148,29 @@ public sealed class PageCanvas : Control, IActivatableView
         var zoom = tab.Zoom;
         if (tab.ZoomMode != ZoomMode.Free)
         {
-            zoom = ZoomCalculator.GetFitZoom(_sizes, new(tab.Rotation, tab.LayoutMode, tab.ZoomMode, viewport.Width, viewport.Height, PageSpacing, ContentMargin));
+            zoom = ZoomCalculator.GetFitZoom(
+                _fitExtents.Get(_sizes, tab.Rotation, tab.LayoutMode),
+                new(tab.Rotation, tab.LayoutMode, tab.ZoomMode, viewport.Width, viewport.Height, PageSpacing, ContentMargin));
             tab.ReportZoom(zoom);
         }
 
-        _layout = DocumentLayout.Create(
-            _sizes,
-            new(tab.Rotation, tab.LayoutMode, zoom * ZoomCalculator.PixelsPerPoint, PageSpacing, ContentMargin, viewport.Width)
-            {
-                PageByPage = tab.IsPageByPage,
-                ViewportHeight = viewport.Height,
-                RightToLeft = tab.RightToLeft,
-                Scroll = tab.ScrollMode,
-            });
+        var options = new LayoutOptions(tab.Rotation, tab.LayoutMode, zoom * ZoomCalculator.PixelsPerPoint, PageSpacing, ContentMargin, viewport.Width)
+        {
+            PageByPage = tab.IsPageByPage,
+            ViewportHeight = viewport.Height,
+            RightToLeft = tab.RightToLeft,
+            Scroll = tab.ScrollMode,
+        };
+
+        // A resize that changes nothing the layout depends on (a height change outside page by page) keeps the layout as it is.
+        if (ReferenceEquals(_layoutSizes, _sizes) && _layout.Matches(options))
+        {
+            InvalidateVisual();
+            return;
+        }
+
+        _layout = DocumentLayout.Create(_sizes, options, _layout);
+        _layoutSizes = _sizes;
         InvalidateMeasure();
         InvalidateVisual();
         RaisePropertyChanged(PageScaleProperty, scaleBefore, PageScale);
@@ -1172,6 +1268,8 @@ public sealed class PageCanvas : Control, IActivatableView
         Links.Clear();
         ClearSelection();
         var position = Tab?.Position ?? default;
+        _layoutSizes = null;
+        _fitExtents.Invalidate();
         RebuildLayout();
         ScrollToPosition(position);
     }

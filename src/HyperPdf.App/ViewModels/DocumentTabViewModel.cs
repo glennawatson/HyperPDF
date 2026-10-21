@@ -60,6 +60,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Whether the sidebar was shown before read mode put it away.</summary>
     private bool _sidebarBeforeReading;
 
+    /// <summary>The rounded zoom percent <see cref="ZoomText"/> shows, so a zoom frame that keeps it builds no new text.</summary>
+    private int _zoomPercent = (int)Percent;
+
     /// <summary>The commands that save a changed copy, once used.</summary>
     private TabCopyActionSet? _copies;
 
@@ -105,12 +108,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Initializes a new instance of the <see cref="DocumentTabViewModel"/> class.</summary>
     /// <param name="source">The document source.</param>
     /// <param name="services">The application services.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> or <paramref name="services"/> is <see langword="null"/>.</exception>
     public DocumentTabViewModel(DocumentSource source, AppServices services)
     {
         ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(services);
         Source = source;
-        _services = services;
+        _services = services ?? throw new ArgumentNullException(nameof(services));
         FileName = Path.GetFileName(source.FilePath);
         Title = FileName;
         WindowName = FileName;
@@ -138,12 +141,13 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
             .SwitchMap(selected => selected ? Signal.Using(StartSelectedWork, static work => work.Loading) : Signal.Never<RxVoid>())
             .SubscribeSafeErrors(ErrorTrace.Write));
         _subscriptions.Add(Scope.Create(ReleaseTiles));
+        _subscriptions.Add(this.WhenChanged(static x => x.Zoom).Skip(1).SubscribeSafe(ShowZoomText, ErrorTrace.Write));
 
         // The first value of each property is its current state, which needs no reaction.
         _subscriptions.Add(this.WhenChanged(static x => x.CurrentPageIndex).Skip(1).SubscribeSafe(FollowCurrentPage, ErrorTrace.Write));
 
         // The annotation list is read again each time its panel opens.
-        _subscriptions.Add(this.WhenChanged(static x => x.SidebarMode).Skip(1).Where(static mode => mode == SidebarMode.Annotations).SubscribeSafe(_ => Annotations.RefreshItems(), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.SidebarMode).Skip(1).SubscribeSafe(_ => ShowSidebarPane(), ErrorTrace.Write));
 
         // Picking a thumbnail scrolls to its page, unless the thumbnail is being selected to follow the page shown.
         // The filter reads the tab's own page: a constructor cannot hand 'this' to a state-passing operator.
@@ -341,11 +345,15 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public DocumentPosition Position { get; private set; }
 
     /// <summary>Gets the zoom factor, 1 being 100%.</summary>
-    [Reactive(nameof(ZoomText))]
+    [Reactive]
     public partial double Zoom { get; private set; } = 1;
 
-    /// <summary>Gets the zoom as display text.</summary>
-    public string ZoomText => string.Create(CultureInfo.CurrentCulture, $"{Math.Round(Zoom * Percent)}%");
+    /// <summary>Gets the zoom as display text; it changes only when the rounded percent does, not on every easing frame.</summary>
+    public string ZoomText
+    {
+        get;
+        private set => this.RaiseAndSetIfChanged(ref field, value);
+    } = ZoomLabel.Format((int)Percent);
 
     /// <summary>Gets or sets how the zoom is chosen.</summary>
     [Reactive]
@@ -561,6 +569,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the application services, for the parts of the tab that need settings or desktop services.</summary>
     internal AppServices Services => _services;
+
+    /// <summary>Gets the tint and sharpness a background tab keeps until it is selected.</summary>
+    internal TabSettingsSlot PendingSettings { get; } = new();
 
     /// <summary>Gets how media plays on this computer.</summary>
     internal MediaPlaybackFactory MediaPlayback => _services.MediaPlayback;
@@ -1051,6 +1062,13 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <returns>The work, which ends when disposed.</returns>
     private SelectedWork StartSelectedWork()
     {
+        // Settings a background tab kept reach its document before its first draw.
+        if (PendingSettings.TryTake(out var pending))
+        {
+            ApplyFormHighlight(pending.Highlight);
+            ApplyRenderSharpness(pending.Sharpness);
+        }
+
         var work = new SelectedWork(this);
         SelectedWorkToken = work.Token;
         _search?.ResumeAfterTabSwitch();
@@ -1138,7 +1156,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         CurrentPageIndex = Math.Clamp(CurrentPageIndex, 0, Math.Max(0, PageCount - 1));
         SelectedThumbnail = PageCount > 0 ? Thumbnails[CurrentPageIndex] : null;
         HasUnsavedChanges = Source.HasUnsavedChanges;
-        _annotations?.RefreshItems();
+        _annotations?.InvalidateItems();
+        ShowSidebarPane();
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
@@ -1290,6 +1309,20 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void DismissNotice() => Notice = null;
 
+    /// <summary>Rebuilds the zoom label when the rounded percent of the zoom changed.</summary>
+    /// <param name="zoom">The zoom factor.</param>
+    private void ShowZoomText(double zoom)
+    {
+        if (ZoomLabel.TryChange(zoom, ref _zoomPercent, out var text))
+        {
+            ZoomText = text;
+        }
+    }
+
+    /// <summary>Brings the annotation or layer list up to date when its panel is shown.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ShowSidebarPane() => TabSidebarPane.Show(this);
+
     /// <summary>
     /// Follows the current page: updates the page box, selects the page's thumbnail, shows its separation and checks
     /// for repairs. Forms and layers follow the page themselves.
@@ -1299,7 +1332,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     {
         PageEntry = GetPageDisplay(pageIndex);
         SelectedThumbnail = pageIndex >= 0 && pageIndex < Thumbnails.Count ? Thumbnails[pageIndex] : null;
-        if (PagesInUse is { SelectedPages.Count: <= 1 } pages && SelectedThumbnail is not null)
+        if (PagesInUse is { SelectedPages.Count: <= 1 } pages && SelectedThumbnail is not null && !(pages.SelectedPages.Count == 1 && pages.SelectedPages[0] == pageIndex))
         {
             pages.SelectPages([pageIndex]);
         }
@@ -1320,8 +1353,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         {
             // Tiles rendered before the edit may still be on their way; the scheduler drops them so they cannot be cached.
             TabTiles.InvalidateBoth(RenderHub, Source.Id);
-            RenderHub.Cache.RemovePage(Source.Id, change.PageIndex);
-            RenderHub.Cache.RemovePage(~Source.Id, change.PageIndex);
+            RenderHub.Cache.RemovePage(Source.Id, ~Source.Id, change.PageIndex);
         }
 
         HasUnsavedChanges = Source.HasUnsavedChanges;

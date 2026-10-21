@@ -71,7 +71,7 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
     /// <summary>The most converted glyph outlines retained while recording one picture.</summary>
     private const int MaxCachedGlyphPaths = 512;
 
-    /// <summary>The most pattern shaders kept for one recording; further ones are made for the one draw.</summary>
+    /// <summary>The most pattern shaders kept for one recording; a full cache is cleared before the next one is kept.</summary>
     private const int MaxCachedShaders = 64;
 
     /// <summary>The image masks one Type 3 glyph procedure can draw and have kept; later ones share the last place.</summary>
@@ -112,6 +112,9 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
 
     /// <summary>The paint reused for layers.</summary>
     private readonly SKPaint _layerPaint = new();
+
+    /// <summary>The dash effect of the last dashed stroke, reused while the next stroke dashes the same way.</summary>
+    private readonly DashEffectCache _dashes = new();
 
     /// <summary>Whether each open transparency group is a knockout group, innermost last.</summary>
     private readonly List<bool> _knockout = [];
@@ -197,12 +200,12 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Restore() => _canvas.Restore();
+    public void Restore() => RestoreCanvas();
 
     /// <inheritdoc/>
     public void Clip(PdfPath path, bool evenOdd, Matrix3x2 ctm)
     {
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(ctm));
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(ctm));
         if (SkiaPathConversion.TryGetRectangle(path, out var rectangle))
         {
             // Skia clips to a rectangle path exactly as it clips to the rectangle, and this needs no native path.
@@ -225,7 +228,7 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
         }
 
         using var native = SkiaPathConversion.Create(_pathBuilder, path, evenOdd);
-        var masked = BeginMask(ref state, native.Bounds, state.Ctm);
+        var masked = BeginMask(ref state, state.SoftMask is null ? SKRect.Empty : native.Bounds, state.Ctm);
         FillShape(native, state.Ctm, state.Fill, state.FillAlpha, state.BlendMode);
         EndMask(ref state, masked);
     }
@@ -252,6 +255,13 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
     /// <inheritdoc/>
     public void DrawImage(IPdfRenderImage image, bool isMask, bool smooth, ref GraphicsState state)
     {
+        // An image wholly outside the clip paints nothing, so it is neither converted nor counted in the picture's weight.
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
+        if (_canvas.QuickReject(new SKRect(0, 0, 1, 1)))
+        {
+            return;
+        }
+
         Weight.Add(image);
         var native = SkiaResources.Image(image);
         var matrix = new Matrix3x2(1F / image.Width, 0, 0, -1F / image.Height, 0, 1) * state.Ctm;
@@ -262,7 +272,7 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
             return;
         }
 
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(matrix));
         _paint.Reset();
         _paint.IsAntialias = SmoothImages;
         _paint.BlendMode = ElementBlend(state.BlendMode);
@@ -276,23 +286,23 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
     public void DrawGlyph(in GlyphEvent glyph, ref GraphicsState state)
     {
         var mode = state.RenderMode;
-        if (IsMode(HiddenModes, mode) || glyph.Font.GetOutline(glyph.Code)is not { } outline)
+        if (IsMode(HiddenModes, mode) || !TryGetOutline(glyph, out var outline))
         {
             return;
         }
 
         var matrix = glyph.GlyphMatrix * state.Ctm;
-        using var pathLease = GetGlyphPath(glyph.Font, glyph.Code, outline);
-        var path = pathLease.Path;
-        var masked = BeginMask(ref state, path.Bounds, matrix);
-        if (IsMode(FillModes, mode) && !state.Fill.PaintsNothing && !(CanDrawMask(ref state, masked.Active) && TryDrawMask(glyph, path, matrix, ref state)))
+        var masked = BeginMask(ref state, state.SoftMask is null ? SKRect.Empty : OutlineBounds(glyph.Font, glyph.Code, outline), matrix);
+        if (IsMode(FillModes, mode) && !state.Fill.PaintsNothing && !(CanDrawMask(ref state, masked.Active) && TryDrawMask(glyph, outline, matrix, ref state)))
         {
-            FillTextShape(path, matrix, state.Fill, state.FillAlpha, state.BlendMode);
+            using var fillLease = GetGlyphPath(glyph.Font, glyph.Code, outline);
+            FillTextShape(fillLease.Path, matrix, state.Fill, state.FillAlpha, state.BlendMode);
         }
 
         if (IsMode(StrokeModes, mode) && !state.Stroke.PaintsNothing)
         {
-            StrokeGlyph(path, glyph.GlyphMatrix, ref state);
+            using var strokeLease = GetGlyphPath(glyph.Font, glyph.Code, outline);
+            StrokeGlyph(strokeLease.Path, glyph.GlyphMatrix, ref state);
         }
 
         EndMask(ref state, masked);
@@ -316,14 +326,14 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
     {
         var masked = BeginMask(ref state, SKRect.Empty, state.Ctm);
         _ = _canvas.Save();
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
         if (shading.BBox is { } box)
         {
             _canvas.ClipRect(new(box.Left, box.Bottom, box.Right, box.Top), SKClipOperation.Intersect, _smoothGraphics);
         }
 
         DrawShadingPaint(shading, state.FillAlpha, state.BlendMode, MatrixScale(state.Ctm));
-        _canvas.Restore();
+        RestoreCanvas();
         EndMask(ref state, masked);
     }
 
@@ -341,7 +351,7 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
         _layerPaint.Reset();
         _layerPaint.BlendMode = ElementBlend(group.Blend);
         _layerPaint.Color = new(byte.MaxValue, byte.MaxValue, byte.MaxValue, (byte)MathF.Round(Math.Clamp(group.Alpha, 0, 1) * AlphaMax));
-        _canvas.SetMatrix(SKMatrix.Identity);
+        SetCanvasMatrix(SKMatrix.Identity);
 
         // A non-isolated group starts from a copy of its backdrop, so blend modes inside it mix with what lies below. That
         // copy composites back unchanged only through a Normal blend, so other blends use an isolated layer.
@@ -380,7 +390,7 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
                 ApplyMask(mask, SkiaConversions.ToSkRect(group.Bounds));
             }
 
-            _canvas.Restore();
+            RestoreCanvas();
         }
 
         if (_knockout.Count > 0)
@@ -450,6 +460,7 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
         _lumaFilter?.Dispose();
         _maskPainter?.Dispose();
         _paint.Dispose();
+        _dashes.Dispose();
         foreach (var path in _glyphPaths.Values)
         {
             path.Dispose();
@@ -512,6 +523,39 @@ internal sealed class SkiaContentDevice : IPictureDevice, IType3GlyphScope
         device._pool = pool;
         device._masks = masks;
         return device;
+    }
+
+    /// <summary>Gets the area of a glyph's native outline, converting it only if it is not kept already.</summary>
+    /// <param name="font">The font that owns the outline.</param>
+    /// <param name="code">The character code.</param>
+    /// <param name="outline">The managed outline.</param>
+    /// <returns>The area in the glyph's own space.</returns>
+    internal SKRect OutlineBounds(PdfFont font, int code, PdfPath outline)
+    {
+        using var lease = GetGlyphPath(font, code, outline);
+        return lease.Path.Bounds;
+    }
+
+    /// <summary>Draws a glyph's native outline, converting it only if it is not kept already.</summary>
+    /// <param name="font">The font that owns the outline.</param>
+    /// <param name="code">The character code.</param>
+    /// <param name="outline">The managed outline.</param>
+    /// <param name="canvas">The canvas to draw on.</param>
+    /// <param name="paint">The paint.</param>
+    internal void DrawOutline(PdfFont font, int code, PdfPath outline, SKCanvas canvas, SKPaint paint)
+    {
+        using var lease = GetGlyphPath(font, code, outline);
+        canvas.DrawPath(lease.Path, paint);
+    }
+
+    /// <summary>Gets the outline of a glyph that has something to draw.</summary>
+    /// <param name="glyph">The glyph.</param>
+    /// <param name="outline">Receives the outline.</param>
+    /// <returns><see langword="false"/> when the glyph has no outline or no commands, as a space has.</returns>
+    private static bool TryGetOutline(in GlyphEvent glyph, [NotNullWhen(true)] out PdfPath? outline)
+    {
+        outline = glyph.Font.GetOutline(glyph.Code);
+        return outline is { Commands.IsEmpty: false };
     }
 
     /// <summary>Determines whether a text render mode is in a set.</summary>
@@ -612,8 +656,9 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         var bounds = SkiaConversions.ToSkRect(group.Bounds);
         var nested = recorder.BeginRecording(bounds.IsEmpty ? UnboundedCull : Inflate(bounds, 0), true);
         _frames.Add(new(recorder, _canvas, nested));
+        _maskPainter?.ForgetMatrix();
         _canvas = nested;
-        _canvas.SetMatrix(SKMatrix.Identity);
+        SetCanvasMatrix(SKMatrix.Identity);
         _knockout.Add(group.Knockout);
     }
 
@@ -624,9 +669,10 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     {
         using var picture = frame.Recorder.EndRecording();
         frame.Canvas.Dispose();
+        _maskPainter?.ForgetMatrix();
         _canvas = frame.Parent;
         frame.Recorder.Dispose();
-        _canvas.SetMatrix(SKMatrix.Identity);
+        SetCanvasMatrix(SKMatrix.Identity);
 
         // Any painted pixel counts as shape, so the parent is cleared there before the group's own colour and alpha go on.
         _shapeFilter ??= SKColorFilter.CreateTable(ShapeTable, IdentityTable, IdentityTable, IdentityTable);
@@ -647,7 +693,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         SaveLayer(layerBounds, _layerPaint);
         _canvas.DrawPicture(picture);
         ApplyMask(mask, layerBounds);
-        _canvas.Restore();
+        RestoreCanvas();
     }
 
     /// <summary>Starts a recording on the device's own recorder, which can record again once the previous picture has been taken.</summary>
@@ -665,6 +711,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _finished = false;
         Volatile.Write(ref _disposed, 0);
         _rootCanvas = _recorder.BeginRecording(cull, true);
+        _maskPainter?.ForgetMatrix();
         _canvas = _rootCanvas;
     }
 
@@ -709,6 +756,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _pathBuilder.Reset();
         _paint.Reset();
         _paint.IsAntialias = true;
+        _dashes.Clear();
         _layerPaint.Reset();
         Configure(Plain);
         _weight = _ownWeight;
@@ -737,11 +785,36 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _frames.Clear();
     }
 
+    /// <summary>Sets the canvas matrix, which the glyph mask painter can no longer assume it set last.</summary>
+    /// <param name="matrix">The matrix.</param>
+    private void SetCanvasMatrix(SKMatrix matrix)
+    {
+        _maskPainter?.ForgetMatrix();
+        _canvas.SetMatrix(matrix);
+    }
+
+    /// <summary>Restores the canvas, which brings back a matrix the glyph mask painter did not set.</summary>
+    private void RestoreCanvas()
+    {
+        _maskPainter?.ForgetMatrix();
+        _canvas.Restore();
+    }
+
+    /// <summary>Moves the canvas, which changes the matrix the glyph mask painter set last.</summary>
+    /// <param name="dx">The horizontal distance.</param>
+    /// <param name="dy">The vertical distance.</param>
+    private void TranslateCanvas(float dx, float dy)
+    {
+        _maskPainter?.ForgetMatrix();
+        _canvas.Translate(dx, dy);
+    }
+
     /// <summary>Starts a layer, limited to a rectangle unless it is empty.</summary>
     /// <param name="bounds">The area in page space, or empty for no limit.</param>
     /// <param name="paint">The layer paint.</param>
     private void SaveLayer(SKRect bounds, SKPaint paint)
     {
+        _maskPainter?.ForgetMatrix();
         if (bounds.IsEmpty)
         {
             _ = _canvas.SaveLayer(paint);
@@ -757,6 +830,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <param name="paint">The layer paint.</param>
     private void SaveLayerWithBackdrop(SKRect bounds, SKPaint paint)
     {
+        _maskPainter?.ForgetMatrix();
         var record = new SKCanvasSaveLayerRec { Paint = paint, Flags = SKCanvasSaveLayerRecFlags.InitializeWithPrevious };
         if (!bounds.IsEmpty)
         {
@@ -798,7 +872,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         }
 
         var bounds = localBounds.IsEmpty ? SKRect.Empty : SkiaConversions.ToSkMatrix(matrix).MapRect(localBounds);
-        _canvas.SetMatrix(SKMatrix.Identity);
+        SetCanvasMatrix(SKMatrix.Identity);
         _layerPaint.Reset();
         SaveLayer(bounds, _layerPaint);
         return new(true, bounds);
@@ -815,7 +889,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         }
 
         ApplyMask(mask, scope.Bounds);
-        _canvas.Restore();
+        RestoreCanvas();
     }
 
     /// <summary>Multiplies the open layer by a soft mask's coverage.</summary>
@@ -823,7 +897,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <param name="bounds">The layer's area in page space, or empty.</param>
     private void ApplyMask(PdfSoftMask mask, SKRect bounds)
     {
-        _canvas.SetMatrix(SKMatrix.Identity);
+        SetCanvasMatrix(SKMatrix.Identity);
         var luma = mask.IsLuminosity ? _lumaFilter ??= SKColorFilter.CreateLumaColor() : null;
         using var filter = luma is not null && mask.Transfer is { } transfer ? CreateLumaFilter(luma, transfer) : null;
         _layerPaint.Reset();
@@ -838,7 +912,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         }
 
         SkiaResources.Picture(mask.Picture).Playback(_canvas);
-        _canvas.Restore();
+        RestoreCanvas();
     }
 
     /// <summary>Sets the paint's colour or shader for a fill or stroke colour.</summary>
@@ -871,7 +945,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
     /// <summary>
     /// Gets the shader of a pattern for a matrix. A recording fills many shapes with one pattern at one matrix, so the shader is
-    /// made once and kept until the recording is recycled; past <see cref="MaxCachedShaders"/> it is made for the one draw.
+    /// made once and kept until the recording is recycled; past <see cref="MaxCachedShaders"/> the cache is cleared and refilled.
     /// </summary>
     /// <param name="pattern">The pattern.</param>
     /// <param name="local">The matrix from the shape's space to the pattern's.</param>
@@ -897,9 +971,11 @@ private static SKColor WhiteWithAlpha(float alpha) =>
             return default;
         }
 
+        // A full cache is cleared rather than left closed, so the shaders the page is drawing with now keep hitting. Earlier
+        // draws are safe: a recorded picture holds its own reference to each shader, and no lease is open between draws.
         if (_shaders.Count >= MaxCachedShaders)
         {
-            return new(created, true);
+            DisposeShaders();
         }
 
         _shaders.Add(key, created);
@@ -932,7 +1008,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
             _paint.IsAntialias = _smoothGraphics;
             _paint.BlendMode = ElementBlend(blend);
             _paint.Color = SkiaConversions.ToSkColor(new(PdfColorSpace.DeviceRgb, background, null, false), alpha);
-            _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
+            SetCanvasMatrix(SkiaConversions.ToSkMatrix(matrix));
             _canvas.DrawPath(path, _paint);
         }
 
@@ -952,11 +1028,11 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _paint.BlendMode = ElementBlend(blend);
         var clipped = ClipShadingBox(color);
         using var lease = ApplyColor(color, alpha, matrix);
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(matrix));
         _canvas.DrawPath(path, _paint);
         if (clipped)
         {
-            _canvas.Restore();
+            RestoreCanvas();
         }
     }
 
@@ -965,12 +1041,19 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     /// <param name="state">The graphics state.</param>
     private void FillRectangle(SKRect rectangle, ref GraphicsState state)
     {
+        // A rectangle wholly outside the clip paints nothing, with or without a soft mask or blend, so none of it is recorded.
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
+        if (_canvas.QuickReject(rectangle))
+        {
+            return;
+        }
+
         var masked = BeginMask(ref state, rectangle, state.Ctm);
         _paint.Reset();
         _paint.IsAntialias = _smoothGraphics;
         _paint.BlendMode = ElementBlend(state.BlendMode);
         _paint.Color = SkiaConversions.ToSkColor(state.Fill, state.FillAlpha);
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(state.Ctm));
         _canvas.DrawRect(rectangle, _paint);
         EndMask(ref state, masked);
     }
@@ -996,14 +1079,14 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         }
 
         _ = _canvas.Save();
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(matrix));
         _canvas.ClipPath(path, SKClipOperation.Intersect, _smoothGraphics);
         var clip = _canvas.DeviceClipBounds;
         var reach = inverse.MapRect(SKRect.Create(clip.Left, clip.Top, clip.Width, clip.Height));
         var range = TileRange.Create(reach, tile);
         if (range is not { } copies || copies.Count > MaxTileCopies)
         {
-            _canvas.Restore();
+            RestoreCanvas();
             return false;
         }
 
@@ -1011,7 +1094,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         _layerPaint.Color = WhiteWithAlpha(alpha);
         _layerPaint.BlendMode = ElementBlend(blend);
         DrawTileCopies(SkiaResources.Picture(pattern.Tile.Picture!), patternMatrix, tile, copies);
-        _canvas.Restore();
+        RestoreCanvas();
         return true;
     }
 
@@ -1026,8 +1109,8 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         {
             for (var row = copies.FirstRow; row <= copies.LastRow; row++)
             {
-                _canvas.SetMatrix(patternMatrix);
-                _canvas.Translate(column * tile.Width, row * tile.Height);
+                SetCanvasMatrix(patternMatrix);
+                TranslateCanvas(column * tile.Width, row * tile.Height);
                 _canvas.DrawPicture(picture, _layerPaint);
             }
         }
@@ -1043,8 +1126,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     private bool TryStrokeTileCopies(SKPath path, Matrix3x2 matrix, PdfPatternPaint pattern, float scale, ref GraphicsState state)
     {
         ConfigureStroke(ref state);
-        using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
-        _paint.PathEffect = dash;
+        _paint.PathEffect = _dashes.Get(state.Dash, state.DashPhase, scale);
         _pathBuilder.Reset();
         if (!_paint.GetFillPath(path, _pathBuilder))
         {
@@ -1066,7 +1148,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         }
 
         _ = _canvas.Save();
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(pattern.Matrix));
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(pattern.Matrix));
         _canvas.ClipRect(new(box.Left, box.Bottom, box.Right, box.Top), SKClipOperation.Intersect, _smoothGraphics);
         return true;
     }
@@ -1166,7 +1248,16 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         // a pixel is drawn twice: at its width, and as a hairline, which Skia keeps one pixel wide.
         if (fitted || state.LineWidth <= 0 || state.LineWidth * scale >= ThinLineLimit)
         {
-            DrawStroke(shape, matrix, scale, ref state, new(state.StrokeAlpha, ElementBlend(state.BlendMode), false));
+            DrawStroke(shape, matrix, scale, ref state, new(state.StrokeAlpha, ElementBlend(state.BlendMode), false, true));
+            return;
+        }
+
+        // With the page matrix known the width in device pixels is exact, so one pass is enough: the body when it spans a
+        // pixel, otherwise a hairline. That needs no layer to keep a translucent line from doubling up.
+        if (_hasDevice)
+        {
+            var wide = state.LineWidth * SkiaStrokeFit.DeviceScale(matrix * _device) >= ThinLineLimit;
+            DrawStroke(shape, matrix, scale, ref state, new(state.StrokeAlpha, ElementBlend(state.BlendMode), !wide, wide));
             return;
         }
 
@@ -1188,10 +1279,10 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
         var alpha = layered ? 1 : state.StrokeAlpha;
         var blend = layered ? SKBlendMode.SrcOver : ElementBlend(state.BlendMode);
-        DrawStroke(shape, matrix, scale, ref state, new(alpha, blend, true));
+        DrawStroke(shape, matrix, scale, ref state, new(alpha, blend, true, true));
         if (layered)
         {
-            _canvas.Restore();
+            RestoreCanvas();
         }
     }
 
@@ -1222,12 +1313,15 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     {
         ConfigureStroke(ref state);
         _paint.BlendMode = pass.Blend;
-        using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
-        _paint.PathEffect = dash;
+        _paint.PathEffect = _dashes.Get(state.Dash, state.DashPhase, scale);
         var clipped = ClipShadingBox(state.Stroke);
         using var lease = ApplyColor(state.Stroke, pass.Alpha, matrix);
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
-        shape.Draw(_canvas, _paint);
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(matrix));
+        if (pass.Body)
+        {
+            shape.Draw(_canvas, _paint);
+        }
+
         if (pass.Hairline)
         {
             _paint.StrokeWidth = 0;
@@ -1236,7 +1330,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
         if (clipped)
         {
-            _canvas.Restore();
+            RestoreCanvas();
         }
     }
 
@@ -1273,7 +1367,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     private void BeginStrokeLayer(in StrokeGeometry shape, Matrix3x2 matrix, ref GraphicsState state)
     {
         var bounds = SkiaConversions.ToSkMatrix(matrix).MapRect(Inflate(shape.Bounds, state.LineWidth * Math.Max(1, state.MiterLimit)));
-        _canvas.SetMatrix(SKMatrix.Identity);
+        SetCanvasMatrix(SKMatrix.Identity);
         _layerPaint.Reset();
         _layerPaint.BlendMode = ElementBlend(state.BlendMode);
         _layerPaint.Color = WhiteWithAlpha(state.StrokeAlpha);
@@ -1290,8 +1384,7 @@ private static SKColor WhiteWithAlpha(float alpha) =>
     {
         ConfigureStroke(ref state);
         _paint.StrokeWidth = Math.Max(state.LineWidth, 1 / Math.Max(scale, SkiaDash.MinScale));
-        using var dash = SkiaDash.Create(state.Dash, state.DashPhase, scale);
-        _paint.PathEffect = dash;
+        _paint.PathEffect = _dashes.Get(state.Dash, state.DashPhase, scale);
         _pathBuilder.Reset();
         if (!_paint.GetFillPath(path, _pathBuilder))
         {
@@ -1317,16 +1410,16 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         }
 
         _ = _canvas.Save();
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(matrix));
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(matrix));
         _canvas.ClipPath(path, SKClipOperation.Intersect, _smoothGraphics);
-        _canvas.SetMatrix(SkiaConversions.ToSkMatrix(pattern.Matrix));
+        SetCanvasMatrix(SkiaConversions.ToSkMatrix(pattern.Matrix));
         if (pattern.Shading!.BBox is { } box)
         {
             _canvas.ClipRect(new(box.Left, box.Bottom, box.Right, box.Top), SKClipOperation.Intersect, _smoothGraphics);
         }
 
         DrawMesh(mesh, alpha, blend, pattern.Shading.AntiAlias);
-        _canvas.Restore();
+        RestoreCanvas();
     }
 
     /// <summary>Draws the triangles of a mesh with the current canvas matrix.</summary>
@@ -1388,16 +1481,16 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
     /// <summary>Draws a glyph from its mask.</summary>
     /// <param name="glyph">The glyph.</param>
-    /// <param name="path">The glyph's native outline.</param>
+    /// <param name="outline">The glyph's managed outline, converted only when a mask must be made.</param>
     /// <param name="matrix">The matrix from the outline to the recording's space.</param>
     /// <param name="state">The graphics state.</param>
     /// <returns><see langword="true"/> when the glyph was drawn; <see langword="false"/> when it must be filled from its outline.</returns>
-    private bool TryDrawMask(in GlyphEvent glyph, SKPath path, Matrix3x2 matrix, ref GraphicsState state)
+    private bool TryDrawMask(in GlyphEvent glyph, PdfPath outline, Matrix3x2 matrix, ref GraphicsState state)
     {
         var plain = _frames.Count == 0 && state.BlendMode == PdfBlendMode.Normal && state.FillAlpha >= 1;
         var style = new GlyphMaskStyle(_quality, SkiaConversions.ToSkColor(state.Fill, state.FillAlpha), ElementBlend(state.BlendMode), plain);
         _maskPainter ??= new(_masks!);
-        return _maskPainter.TryDraw(_canvas, _deviceInverse, new GlyphMaskGlyph<OutlineMaskSource>(glyph.Font, glyph.Code, new(path), matrix * _device), style);
+        return _maskPainter.TryDraw(_canvas, _deviceInverse, new GlyphMaskGlyph<OutlineMaskSource>(glyph.Font, glyph.Code, new(this, glyph.Font, glyph.Code, outline), matrix * _device), style);
     }
 
     /// <summary>Draws the image mask of a Type 3 glyph from a mask made once for the glyph's size and position.</summary>
@@ -1508,50 +1601,6 @@ private static SKColor WhiteWithAlpha(float alpha) =>
 
             canvas.DrawLine(From, To, paint);
         }
-    }
-
-    /// <summary>Identifies an outline in one page recording.</summary>
-    /// <param name="Font">The owning font.</param>
-    /// <param name="Code">The font's character code.</param>
-    private readonly record struct GlyphOutlineKey(PdfFont Font, int Code);
-
-    /// <summary>Releases only a path that exceeded the recording cache.</summary>
-    /// <param name="Path">The native glyph outline.</param>
-    /// <param name="Owns">Whether this draw must dispose it.</param>
-    private readonly record struct GlyphPathLease(SKPath Path, bool Owns) : IDisposable
-    {
-        /// <inheritdoc/>
-        public void Dispose()
-        {
-            if (Owns)
-            {
-                Path.Dispose();
-            }
-        }
-    }
-
-    /// <summary>The lattice positions of a tiling period that reach an area.</summary>
-    /// <param name="FirstColumn">The first column.</param>
-    /// <param name="LastColumn">The last column.</param>
-    /// <param name="FirstRow">The first row.</param>
-    /// <param name="LastRow">The last row.</param>
-    private readonly record struct TileRange(int FirstColumn, int LastColumn, int FirstRow, int LastRow)
-    {
-        /// <summary>Gets the number of positions.</summary>
-        internal long Count => (long)(LastColumn - FirstColumn + 1) * (LastRow - FirstRow + 1);
-
-        /// <summary>Finds the positions of a period that reach an area.</summary>
-        /// <param name="reach">The area in pattern space.</param>
-        /// <param name="tile">One period in pattern space.</param>
-        /// <returns>The positions, or null when the area is not finite.</returns>
-        internal static TileRange? Create(SKRect reach, SKRect tile) =>
-            !float.IsFinite(reach.Width) || !float.IsFinite(reach.Height)
-                ? null
-                : new(
-                    (int)MathF.Floor((reach.Left - tile.Left) / tile.Width),
-                    (int)MathF.Floor((reach.Right - tile.Left) / tile.Width),
-                    (int)MathF.Floor((reach.Top - tile.Top) / tile.Height),
-                    (int)MathF.Floor((reach.Bottom - tile.Top) / tile.Height));
     }
 
     /// <summary>A knockout child group's own recording.</summary>

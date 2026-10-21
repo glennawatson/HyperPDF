@@ -11,8 +11,14 @@ namespace HyperPdfLibrary.Document;
 /// <summary>Reads and searches document text.</summary>
 public static class PdfDocumentText
 {
-    /// <summary>The most text pages kept per document.</summary>
+    /// <summary>The text pages always kept per document.</summary>
     private const int TextPageCapacity = 16;
+
+    /// <summary>The most text pages kept per document, while their text stays within the character budget.</summary>
+    private const int TextPageMaximum = 64;
+
+    /// <summary>The most characters the pages beyond the first sixteen may hold together.</summary>
+    private const long TextPageCharacterBudget = 200_000;
 
     /// <summary>The largest search builder kept after an enumeration.</summary>
     private const int MaxKeptMatches = 4096;
@@ -188,7 +194,7 @@ public static class PdfDocumentText
             return existing;
         }
 
-        _ = Interlocked.CompareExchange(ref document.State.TextPages, new(PdfDocumentText.TextPageCapacity), null);
+        _ = Interlocked.CompareExchange(ref document.State.TextPages, new(PdfDocumentText.TextPageCapacity, PdfDocumentText.TextPageMaximum, PdfDocumentText.TextPageCharacterBudget), null);
         return Volatile.Read(ref document.State.TextPages)!;
     }
 

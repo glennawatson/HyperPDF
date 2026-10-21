@@ -129,13 +129,10 @@ internal static class PageCanvasAnnotationMixins
         }
 
         /// <summary>Determines whether a canvas point is over a fillable field.</summary>
-        /// <param name="position">The canvas point.</param>
+        /// <param name="hover">The page and page point under the pointer.</param>
         /// <returns><see langword="true"/> when over a field.</returns>
-        internal bool IsOverField(Point position)
-        {
-            var page = canvas.Layout.HitTest(position.X, position.Y);
-            return page >= 0 && canvas.Tab is { } tab && tab.Forms.HitTest(page, canvas.ToPage(tab, page, position)) is not null;
-        }
+        internal bool IsOverField(PointerHover hover) =>
+            hover.IsOverPage && canvas.Tab is { } tab && tab.Forms.HitTest(hover.Page, hover.Point) is not null;
 
         /// <summary>Moves between form fields with Tab and Shift+Tab, ticks the focused box with Space, opens a focused list with Enter, and drops focus with Escape.</summary>
         /// <param name="e">The key press.</param>
@@ -321,17 +318,14 @@ internal static class PageCanvasAnnotationMixins
         }
 
         /// <summary>Follows the pointer over the places to write, redrawing when it moves onto or off one.</summary>
-        /// <param name="position">The canvas point.</param>
-        internal void HoverRegion(Point position)
+        /// <param name="hover">The page and page point under the pointer.</param>
+        internal void HoverRegion(PointerHover hover)
         {
             HoveredFormRegion? hovered = null;
-            if (canvas.Tab is { Annotations: { Tool: AnnotationTool.Text, IsEditingText: false } annotations } tab)
+            if (hover.IsOverPage && canvas.Tab is { Annotations: { Tool: AnnotationTool.Text, IsEditingText: false } annotations }
+                && annotations.RegionAt(hover.Page, hover.Point) is { } region)
             {
-                var page = canvas.Layout.HitTest(position.X, position.Y);
-                if (page >= 0 && annotations.RegionAt(page, canvas.ToPage(tab, page, position)) is { } region)
-                {
-                    hovered = new(page, region);
-                }
+                hovered = new(hover.Page, region);
             }
 
             if (hovered == canvas.HoveredRegion)
@@ -729,10 +723,14 @@ internal static class PageCanvasAnnotationMixins
                 return;
             }
 
-            canvas.GetPagesBetween(scroller.Offset.X, scroller.Offset.X + scroller.Viewport.Width, scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
-            for (var page = first; page <= last && page >= 0 && page < canvas.Sizes.Length; page++)
+            // Without an annotation editor no page has a badge, so the per-page list copies are skipped.
+            if (tab.Annotations.CanAnnotate)
             {
-                canvas.DrawPageCommentBadges(context, tab, page);
+                canvas.GetPagesBetween(scroller.Offset.X, scroller.Offset.X + scroller.Viewport.Width, scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
+                for (var page = first; page <= last && page >= 0 && page < canvas.Sizes.Length; page++)
+                {
+                    canvas.DrawPageCommentBadges(context, tab, page);
+                }
             }
 
             if (tab.Annotations.ActiveBubble is not { NewNoteLocation: not null } bubble || (uint)bubble.PageIndex >= (uint)canvas.Sizes.Length)

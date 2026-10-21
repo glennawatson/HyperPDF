@@ -20,6 +20,11 @@ public interface IFormActions : IDocumentFeature
     /// <returns>What happened; <see cref="FormActionResult.None"/> when the widget has no action.</returns>
     ValueTask<FormActionResult> RunWidgetActionAsync(int pageIndex, int index, IFormActionHost host, CancellationToken cancellationToken);
 
+    /// <summary>Gets a value indicating whether a page has actions to run when it opens or closes, so the viewer can skip the run when it has none.</summary>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <returns><see langword="false"/> only when the page certainly has no such actions.</returns>
+    bool HasPageActions(int pageIndex) => true;
+
     /// <summary>Runs the actions a page does when it opens.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="host">The application's part of running actions.</param>
