@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Rendering;
+using HyperPdf.Rendering.Skia;
 
 namespace HyperPdf.App.Rendering;
 
@@ -39,5 +40,5 @@ internal sealed class AvaloniaSurfaceFactory : IOwnedSurfaceFactory
     /// <param name="width">The tile width.</param>
     /// <param name="height">The tile height.</param>
     /// <returns>The tile.</returns>
-    private static AvaloniaRenderSurface CreateSoftware(int width, int height) => new(width, height);
+    private static SkiaBitmapRenderSurface CreateSoftware(int width, int height) => new(width, height);
 }

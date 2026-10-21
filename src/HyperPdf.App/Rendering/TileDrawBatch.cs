@@ -24,7 +24,7 @@ internal sealed class TileDrawBatch
     /// <summary>The number of pending tiles.</summary>
     private int _count;
 
-    /// <summary>Draws a tile now, or queues it when it presents through the GPU.</summary>
+    /// <summary>Queues a tile, which is drawn when the batch is flushed, through the GPU or from its software pixels.</summary>
     /// <param name="context">The recorded drawing context.</param>
     /// <param name="surface">The cached tile.</param>
     /// <param name="destination">The destination bounds.</param>
@@ -33,19 +33,10 @@ internal sealed class TileDrawBatch
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(surface);
-        if (surface is GpuPreparedRenderSurface { SoftwareSurface: null } gpu)
+        if (surface is GpuPreparedRenderSurface gpu && gpu.TryRetain())
         {
-            if (gpu.TryRetain())
-            {
-                Append(new(gpu, destination, smooth));
-            }
-
-            return;
+            Append(new(gpu, destination, smooth));
         }
-
-        // Bitmap tiles are drawn in place, so queued GPU tiles go first to keep the draw order.
-        Flush(context);
-        TilePresentation.DrawBitmap(context, surface, destination);
     }
 
     /// <summary>Hands the queued GPU tiles to the scene as one operation.</summary>

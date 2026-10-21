@@ -42,7 +42,6 @@
   <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">
     <Compile Include="..\..\src\HyperPdf.App\Rendering\TileDraw.cs" Link="TileBatch\TileDraw.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuTileBatchOperation.cs" Link="TileBatch\GpuTileBatchOperation.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\AvaloniaRenderSurface.cs" Link="TileBatch\AvaloniaRenderSurface.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">

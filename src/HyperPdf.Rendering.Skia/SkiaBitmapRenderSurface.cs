@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using HyperPdf.Core.Rendering;
 using SkiaSharp;
 
@@ -18,6 +17,9 @@ public sealed class SkiaBitmapRenderSurface : IRenderSurface
 {
     /// <summary>The bytes per pixel.</summary>
     private const int BytesPerPixel = 4;
+
+    /// <summary>The image over the bitmap's pixels, once made.</summary>
+    private SKImage? _image;
 
     /// <summary>Initializes a new instance of the <see cref="SkiaBitmapRenderSurface"/> class.</summary>
     /// <param name="width">The width in pixels.</param>
@@ -41,6 +43,9 @@ public sealed class SkiaBitmapRenderSurface : IRenderSurface
     /// <summary>Gets the bitmap, to draw with Skia.</summary>
     public SKBitmap Bitmap { get; }
 
+    /// <summary>Gets an image that shares the bitmap's pixels, made on first use, for drawing with a chosen sampling.</summary>
+    public SKImage Image => Volatile.Read(ref _image) ?? CreateImage();
+
     /// <inheritdoc/>
     public bool Write<TState>(in TState state, SurfaceWriter<TState> writer)
     {
@@ -49,6 +54,23 @@ public sealed class SkiaBitmapRenderSurface : IRenderSurface
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => Bitmap.Dispose();
+    public void Dispose()
+    {
+        Interlocked.Exchange(ref _image, null)?.Dispose();
+        Bitmap.Dispose();
+    }
+
+    /// <summary>Makes the image over the bitmap's pixels; a second thread that lost the race frees its copy.</summary>
+    /// <returns>The image.</returns>
+    private SKImage CreateImage()
+    {
+        var created = SKImage.FromPixels(Bitmap.Info, Bitmap.GetPixels(), Bitmap.RowBytes);
+        if (Interlocked.CompareExchange(ref _image, created, null) is { } existing)
+        {
+            created.Dispose();
+            return existing;
+        }
+
+        return created;
+    }
 }

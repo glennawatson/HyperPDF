@@ -43,6 +43,27 @@ public sealed class SkiaBitmapRenderSurfaceTests
         await Assert.That(surface.ByteSize).IsEqualTo(TileWidth * TileHeight * BytesPerPixel);
     }
 
+    /// <summary>The image shares the bitmap's pixels, so what the writer put in is what a canvas draws, and it is made once.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ImageDrawsTheWrittenPixels()
+    {
+        using var surface = new SkiaBitmapRenderSurface(TileWidth, TileHeight);
+        _ = surface.Write(0, static (target, in _) =>
+        {
+            target.Pixels.Fill(Opaque);
+            return true;
+        });
+        using var canvasBitmap = new SKBitmap(TileWidth, TileHeight);
+        using var canvas = new SKCanvas(canvasBitmap);
+
+        var area = SKRect.Create(TileWidth, TileHeight);
+        canvas.DrawImage(surface.Image, area, area, default(SKSamplingOptions));
+
+        await Assert.That(canvasBitmap.GetPixel(1, 1)).IsEqualTo(new(Opaque, Opaque, Opaque, Opaque));
+        await Assert.That(surface.Image).IsSameReferenceAs(surface.Image);
+    }
+
     /// <summary>What the writer puts in the target is what the Skia bitmap holds.</summary>
     /// <returns>A task.</returns>
     [Test]

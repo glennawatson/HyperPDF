@@ -22,21 +22,4 @@ internal static class TilePresentation
         batch.Draw(context, surface, destination, smooth);
         batch.Flush(context);
     }
-
-    /// <summary>Draws a tile that has pixels ready in a bitmap. A GPU tile without a bitmap draws nothing here.</summary>
-    /// <param name="context">The recorded drawing context.</param>
-    /// <param name="surface">The cached tile.</param>
-    /// <param name="destination">The destination bounds.</param>
-    internal static void DrawBitmap(DrawingContext context, IRenderSurface surface, in Rect destination)
-    {
-        var source = new Rect(0, 0, surface.Width, surface.Height);
-        if (surface is GpuPreparedRenderSurface { SoftwareSurface: AvaloniaRenderSurface { Bitmap: var bitmap } })
-        {
-            context.DrawImage(bitmap, source, destination);
-        }
-        else if (surface is AvaloniaRenderSurface cpu)
-        {
-            context.DrawImage(cpu.Bitmap, source, destination);
-        }
-    }
 }

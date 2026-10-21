@@ -187,6 +187,23 @@ public sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
         return true;
     }
 
+    /// <summary>Draws the software pixels, when this tile has them in a Skia bitmap tile.</summary>
+    /// <param name="canvas">The active compositor canvas.</param>
+    /// <param name="destination">The tile bounds in compositor coordinates.</param>
+    /// <param name="sampling">The image sampling mode.</param>
+    /// <returns>Whether software pixels were drawn.</returns>
+    public bool DrawSoftware(SKCanvas canvas, SKRect destination, SKSamplingOptions sampling)
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        if (Volatile.Read(ref _software) is not SkiaBitmapRenderSurface bitmap)
+        {
+            return false;
+        }
+
+        canvas.DrawImage(bitmap.Image, new(0, 0, Width, Height), destination, sampling);
+        return true;
+    }
+
     /// <summary>Creates a software tile after a missing or lost graphics context.</summary>
     /// <returns>Whether software pixels are ready.</returns>
     public bool EnsureSoftwareBitmap()

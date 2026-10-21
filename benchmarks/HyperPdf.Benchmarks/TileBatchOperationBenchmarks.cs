@@ -100,7 +100,7 @@ public class TileBatchOperationBenchmarks
     /// <param name="width">The tile width.</param>
     /// <param name="height">The tile height.</param>
     /// <returns>The tile.</returns>
-    private static AvaloniaRenderSurface SoftwareTile(int width, int height) => new(width, height);
+    private static SkiaBitmapRenderSurface SoftwareTile(int width, int height) => new(width, height);
 #endif
 
     /// <summary>Builds an operation over a run of tiles, retaining each once.</summary>
