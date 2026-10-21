@@ -10,15 +10,12 @@ using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
-using HyperPdf.App.Rendering;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Navigation;
-using HyperPdf.Core.Rendering;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -74,21 +71,6 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     /// <summary>The pointer while measuring or drawing.</summary>
     internal static readonly Cursor CrossCursor = new(StandardCursorType.Cross);
 
-    /// <summary>How far beyond the viewport, in viewport heights, pages are prefetched.</summary>
-    private const double PrefetchViewports = 0.75;
-
-    /// <summary>The smallest change in the viewport's top, in canvas units, that counts as scrolling in a direction.</summary>
-    private const double ScrollDirectionTolerance = 0.5;
-
-    /// <summary>How many pages past the drawn ones get a low resolution preview on the side the reader is scrolling towards.</summary>
-    private const int PreviewReachAhead = 24;
-
-    /// <summary>How many pages past the drawn ones get a low resolution preview on the side the reader came from.</summary>
-    private const int PreviewReachBehind = 8;
-
-    /// <summary>The smallest display scale change that needs a new tile generation.</summary>
-    private const double RenderScaleTolerance = 1e-9;
-
     /// <summary>The distance kept to the left of a navigation target.</summary>
     private const double TargetPadding = 24;
 
@@ -98,9 +80,6 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     /// <summary>The width of the outline marking the current search hit, so it differs by shape as well as colour.</summary>
     private const double CurrentHitOutlineWidth = 2;
 
-    /// <summary>The page shadow offset.</summary>
-    private const double ShadowOffset = 2;
-
     /// <summary>Defines the <see cref="WheelZoom"/> property.</summary>
     private static readonly DirectProperty<PageCanvas, WheelZoomEase> WheelZoomProperty =
         AvaloniaProperty.RegisterDirect<PageCanvas, WheelZoomEase>(nameof(WheelZoom), static canvas => canvas.WheelZoom);
@@ -109,69 +88,14 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     private static readonly DirectProperty<PageCanvas, PageCanvasTransitionMixins.TransitionRun> TransitionProperty =
         AvaloniaProperty.RegisterDirect<PageCanvas, PageCanvasTransitionMixins.TransitionRun>(nameof(Transition), static canvas => canvas.Transition);
 
-    /// <summary>The page shadow brush.</summary>
-    private static readonly IBrush ShadowBrush = new SolidColorBrush(Color.FromArgb(0x40, 0, 0, 0));
-
-    /// <summary>
-    /// How page images are sampled, with aliased edges so tiles meet without seams. Only stand-ins are ever scaled: the
-    /// preview and the last scale's tiles while a zoom settles. Bilinear with mipmaps draws those about ten times
-    /// faster than cubic (BitmapDrawBenchmarks), which keeps the zoom ease smooth; sharp tiles are drawn 1:1.
-    /// </summary>
-    private static readonly RenderOptions PageRenderOptions = new() { BitmapInterpolationMode = BitmapInterpolationMode.MediumQuality, EdgeMode = EdgeMode.Aliased };
-
-    /// <summary>Queues each page's GPU tiles so they reach the scene as one operation.</summary>
-    private readonly TileDrawBatch _tiles = new();
+    /// <summary>Puts the planned pages on an Avalonia drawing context, made when the first frame is drawn.</summary>
+    private AvaloniaTilePainter? _painter;
 
     /// <summary>The hosting scroll viewer.</summary>
     private ScrollViewer? _scroller;
 
     /// <summary>The tab shown, which lets go of its render requests and auto-scroll when another tab replaces it.</summary>
     private DocumentTabViewModel? _shownTab;
-
-    /// <summary>The tile scale of the last frame whose visible pages were all sharp, drawn while newer tiles render.</summary>
-    private float _fallbackScale;
-
-    /// <summary>Whether every visible page in the frame being drawn had its sharp tiles.</summary>
-    private bool _frameComplete;
-
-    /// <summary>The request state used to decide when queued tiles have become stale.</summary>
-    private DocumentTabViewModel? _renderTab;
-
-    /// <summary>The document used by the last tile request.</summary>
-    private IDocument? _renderDocument;
-
-    /// <summary>The viewport used by the last tile request.</summary>
-    private Rect _renderViewport;
-
-    /// <summary>The display scale used by the last tile request.</summary>
-    private double _renderScaling;
-
-    /// <summary>The layout used by the last tile request.</summary>
-    private LayoutOptions _renderLayout;
-
-    /// <summary>The rotation used by the last tile request.</summary>
-    private PageRotation _renderRotation;
-
-    /// <summary>The tone used by the last tile request.</summary>
-    private int _renderToneId;
-
-    /// <summary>The top of the viewport at the last frame, to tell which way the reader is scrolling.</summary>
-    private double _previousViewportTop;
-
-    /// <summary>What the last frame's prefetch passes depended on.</summary>
-    private PrefetchStamp _lastPrefetch;
-
-    /// <summary>Whether the last frame found every tile and preview it looked for already cached, so it asked for nothing.</summary>
-    private bool _lastPrefetchSettled;
-
-    /// <summary>Whether this frame skips the prefetch passes because they would find what the last frame found.</summary>
-    private bool _skipPrefetch;
-
-    /// <summary>The render requests made so far in this frame.</summary>
-    private int _requestsThisFrame;
-
-    /// <summary>Whether the reader last scrolled towards the end of the document, so previews are made further ahead on that side.</summary>
-    private bool _scrollingDown = true;
 
     /// <summary>The pen outlining the current search hit, rebuilt when <see cref="CurrentHitOutline"/> changes.</summary>
     private IPen? _currentHitPen;
@@ -538,20 +462,23 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
         }
 
         var viewport = new Rect(_scroller.Offset.X, _scroller.Offset.Y, _scroller.Viewport.Width, _scroller.Viewport.Height);
+        var area = new LayoutRect(viewport.X, viewport.Y, viewport.Width, viewport.Height);
         var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
-        var generation = RenderGeneration(tab, document, viewport, scaling);
-        var frame = new FrameContext(tab, document, tab.RenderHub, viewport, scaling, generation);
+        var generation = State.GetRenderGeneration(tab, document, area, scaling);
+        var frame = new FrameContext(tab, document, tab.RenderHub, area, scaling, generation);
+        var painter = _painter ??= new(this);
+        painter.Start(context);
         var slide = this.GetSlideOffset(viewport);
         if (slide != default)
         {
             using (context.PushTransform(Matrix.CreateTranslation(slide.X, slide.Y)))
             {
-                DrawPages(context, frame);
+                State.DrawPages(painter, frame);
             }
         }
         else
         {
-            DrawPages(context, frame);
+            State.DrawPages(painter, frame);
         }
 
         this.DrawCurtain(context, viewport);
@@ -560,6 +487,25 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
         this.DrawMeasurement(context, tab);
         this.DrawArea(context);
         this.DrawCaret(context, tab);
+    }
+
+    /// <summary>Draws the text selection on a page; the search hits and reading marks are drawn by <see cref="PageMarksLayer"/>.</summary>
+    /// <param name="context">The drawing context.</param>
+    /// <param name="tab">The tab.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="bounds">The page bounds.</param>
+    internal void DrawSelection(DrawingContext context, DocumentTabViewModel tab, int page, in LayoutRect bounds)
+    {
+        if (SelectionBrush is not { } selection)
+        {
+            return;
+        }
+
+        var transform = new PageTransform(bounds, State.Sizes[page], tab.Rotation, State.Layout.Options.Scale);
+        foreach (var rect in this.GetSelectionRects(page))
+        {
+            context.FillRectangle(selection, transform.ToCanvas(rect));
+        }
     }
 
     /// <summary>Atomically updates the auto-scroll running flag.</summary>
@@ -696,406 +642,6 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
         register(scroller.CtrlWheelZooms(this, tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
     }
 
-    /// <summary>Reuses the generation when a tile arrival repaints the same view.</summary>
-    /// <param name="tab">The tab.</param>
-    /// <param name="document">The document.</param>
-    /// <param name="viewport">The viewport.</param>
-    /// <param name="scaling">The display scale.</param>
-    /// <returns>The generation for requests from this view.</returns>
-    private int RenderGeneration(DocumentTabViewModel tab, IDocument document, in Rect viewport, double scaling)
-    {
-        if (ReferenceEquals(_renderTab, tab) && ReferenceEquals(_renderDocument, document)
-            && _renderViewport.Equals(viewport) && Math.Abs(_renderScaling - scaling) < RenderScaleTolerance
-            && _renderLayout == State.Layout.Options && _renderRotation == tab.Rotation && _renderToneId == tab.PageTone.Id)
-        {
-            return tab.CanvasClient.Generation;
-        }
-
-        _renderTab = tab;
-        _renderDocument = document;
-        _renderViewport = viewport;
-        _renderScaling = scaling;
-        _renderLayout = State.Layout.Options;
-        _renderRotation = tab.Rotation;
-        _renderToneId = tab.PageTone.Id;
-        return tab.CanvasClient.Advance();
-    }
-
-    /// <summary>Draws the low resolution preview of a page, requesting it when missing.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="frame">The frame.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="rect">The page rectangle.</param>
-    /// <param name="visible">Whether the page is visible.</param>
-    /// <param name="draw">Whether sharp tiles leave part of the page for the preview to fill.</param>
-    private void DrawPreview(DrawingContext context, in FrameContext frame, int page, in Rect rect, bool visible, bool draw)
-    {
-        var tab = frame.Tab;
-        var key = TileKey.Preview(tab.TileId, page, tab.Rotation, tab.PageTone.Id);
-        if (frame.Hub.Cache.TryGet(key, out var surface))
-        {
-            if (draw)
-            {
-                _tiles.Draw(context, surface, rect, smooth: true);
-            }
-
-            return;
-        }
-
-        var size = tab.Source.PageSizes[page];
-        var scale = TileGrid.GetPreviewScale(size, tab.Rotation);
-        TileGrid.GetPagePixelSize(size, tab.Rotation, scale, out var width, out var height);
-        _requestsThisFrame++;
-        frame.Request(key, new(page, scale, tab.Rotation, 0, 0, RenderFlags.Annotations), width, height, visible ? RenderPriority.VisiblePreview : RenderPriority.Prefetch);
-    }
-
-    /// <summary>Draws one tile, or requests it when it is not cached.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="frame">The frame.</param>
-    /// <param name="grid">The page's tile grid.</param>
-    /// <param name="column">The tile column.</param>
-    /// <param name="row">The tile row.</param>
-    /// <param name="visible">Whether to draw (true) or only request (false).</param>
-    /// <param name="request">Whether a missing tile is requested.</param>
-    private void DrawTile(DrawingContext context, in FrameContext frame, in TileRange grid, int column, int row, bool visible, bool request)
-    {
-        var tab = frame.Tab;
-        var tileSize = TileGrid.TileSize;
-        var key = new TileKey(tab.TileId, grid.Page, grid.ScaleKey, tab.Rotation, tab.PageTone.Id, (short)column, (short)row);
-        TileGrid.GetTileSize(grid.PixelWidth, grid.PixelHeight, column, row, out var tileWidth, out var tileHeight);
-        if (!frame.Hub.Cache.TryGet(key, out var surface))
-        {
-            if (request)
-            {
-                var info = new PageRenderInfo(grid.Page, grid.Scale, tab.Rotation, column * tileSize, row * tileSize, RenderFlags.Annotations);
-                _requestsThisFrame++;
-                frame.Request(key, info, tileWidth, tileHeight, visible ? RenderPriority.Visible : RenderPriority.Prefetch);
-            }
-
-            return;
-        }
-
-        var scaling = frame.RenderScaling;
-        var destination = new Rect((grid.OriginX + (column * tileSize)) / scaling, (grid.OriginY + (row * tileSize)) / scaling, tileWidth / scaling, tileHeight / scaling);
-        if (!visible || !destination.Intersects(frame.Viewport))
-        {
-            return;
-        }
-
-        _tiles.Draw(context, surface, destination, smooth: false);
-    }
-
-    /// <summary>Draws the pages around the viewport, and remembers the scale once every visible page is sharp.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="frame">The frame.</param>
-    private void DrawPages(DrawingContext context, in FrameContext frame)
-    {
-        var viewport = frame.Viewport;
-        var prefetch = viewport.Height * PrefetchViewports;
-        var sidePrefetch = viewport.Width * PrefetchViewports;
-        State.Layout.GetVisiblePages(viewport.Left - sidePrefetch, viewport.Right + sidePrefetch, viewport.Top - prefetch, viewport.Bottom + prefetch, out var first, out var last);
-        _frameComplete = true;
-        _requestsThisFrame = 0;
-        UpdateScrollDirection(viewport.Top);
-        var cache = frame.Hub.Cache;
-        var cancelled = frame.Tab.SelectedWorkToken.IsCancellationRequested;
-        var stamp = new PrefetchStamp(frame.Generation, first, last, _scrollingDown, IsZoomEasing, cancelled, cache.Count, cache.CurrentBytes, cache.PreviewBytes);
-
-        // A frame that asked for nothing, repeated with the same view and the same cache, would ask for nothing again. A request
-        // that was made last frame is asked for again, so one the scheduler dropped is not lost. The TileCache has no eviction
-        // counter, so its tile count and byte totals stand in: an eviction that is exactly offset by an arrival in the same
-        // frame is the one change they cannot see.
-        _skipPrefetch = _lastPrefetchSettled && stamp == _lastPrefetch;
-
-        // Aliased edges keep neighbouring tiles from showing seams where they meet at fractional positions.
-        using (context.PushRenderOptions(PageRenderOptions))
-        {
-            for (var page = first; page <= last && page >= 0; page++)
-            {
-                DrawPage(context, frame, page);
-            }
-        }
-
-        if (!_skipPrefetch)
-        {
-            RequestPreviewReach(frame, first, last);
-        }
-
-        _lastPrefetch = stamp;
-        _lastPrefetchSettled = _requestsThisFrame == 0;
-        State.NeighbourScale = GetTileScale(frame.RenderScaling);
-        if (_frameComplete && !IsZoomEasing)
-        {
-            _fallbackScale = GetTileScale(frame.RenderScaling);
-        }
-    }
-
-    /// <summary>
-    /// Keeps a low resolution preview of the pages around the drawn ones, nearest first and further ahead in the direction of
-    /// scrolling, so a quick scroll up or down shows each page's shape and text before its sharp tiles are made.
-    /// </summary>
-    /// <param name="frame">The frame.</param>
-    /// <param name="first">The first drawn page, or -1 when none.</param>
-    /// <param name="last">The last drawn page.</param>
-    private void RequestPreviewReach(in FrameContext frame, int first, int last)
-    {
-        if (first < 0)
-        {
-            return;
-        }
-
-        var after = _scrollingDown ? PreviewReachAhead : PreviewReachBehind;
-        var before = _scrollingDown ? PreviewReachBehind : PreviewReachAhead;
-        for (var distance = 1; distance <= Math.Max(after, before); distance++)
-        {
-            if (distance <= after)
-            {
-                RequestDistantPreview(frame, last + distance);
-            }
-
-            if (distance <= before)
-            {
-                RequestDistantPreview(frame, first - distance);
-            }
-        }
-    }
-
-    /// <summary>Works out which way the reader is scrolling from the top of the viewport.</summary>
-    /// <param name="top">The top of the viewport.</param>
-    private void UpdateScrollDirection(double top)
-    {
-        if (Math.Abs(top - _previousViewportTop) <= ScrollDirectionTolerance)
-        {
-            return;
-        }
-
-        _scrollingDown = top > _previousViewportTop;
-        _previousViewportTop = top;
-    }
-
-    /// <summary>Tells whether prefetching waits: a zoom is easing, or the last frame found nothing left to ask for.</summary>
-    /// <returns><see langword="true"/> when prefetching is held back.</returns>
-    private bool IsPrefetchHeld() => IsZoomEasing || _skipPrefetch;
-
-    /// <summary>Marks a page's preview as recently used, or requests it at the lowest page priority when it is missing.</summary>
-    /// <param name="frame">The frame.</param>
-    /// <param name="page">The page, which may be outside the document.</param>
-    private void RequestDistantPreview(in FrameContext frame, int page)
-    {
-        var tab = frame.Tab;
-        if ((uint)page >= (uint)State.Layout.PageCount)
-        {
-            return;
-        }
-
-        var key = TileKey.Preview(tab.TileId, page, tab.Rotation, tab.PageTone.Id);
-        if (frame.Hub.Cache.TryGet(key, out _))
-        {
-            return;
-        }
-
-        var size = tab.Source.PageSizes[page];
-        var scale = TileGrid.GetPreviewScale(size, tab.Rotation);
-        TileGrid.GetPagePixelSize(size, tab.Rotation, scale, out var width, out var height);
-        _requestsThisFrame++;
-        frame.Request(key, new(page, scale, tab.Rotation, 0, 0, RenderFlags.Annotations), width, height, RenderPriority.PrefetchPreview);
-    }
-
-    /// <summary>Draws one page: shadow, background, preview, tiles and highlights.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="frame">The frame.</param>
-    /// <param name="page">The page.</param>
-    private void DrawPage(DrawingContext context, in FrameContext frame, int page)
-    {
-        var bounds = State.Layout.GetPageBounds(page);
-        var rect = new Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
-        var visible = rect.Intersects(frame.Viewport);
-        if (visible)
-        {
-            context.FillRectangle(ShadowBrush, rect.Translate(new(ShadowOffset, ShadowOffset)));
-            context.FillRectangle(PaperBrush.Get(frame.Tab.PageTone), rect);
-        }
-
-        var tiled = TryGetTileWindow(frame, page, rect, visible, out var grid, out var window);
-        var tab = frame.Tab;
-        var covered = tiled && visible && frame.Hub.Cache.Covers(new(tab.TileId, page, grid.ScaleKey, tab.Rotation, tab.PageTone.Id, 0, 0), window);
-        DrawPreview(context, frame, page, rect, visible, visible && !covered);
-        if (visible && tiled && !covered)
-        {
-            // Until the sharp tiles arrive, the last complete scale stands in, so the page does not flash blurry.
-            _frameComplete = false;
-            DrawFallbackTiles(context, frame, page, rect, grid.ScaleKey);
-        }
-
-        if (tiled)
-        {
-            DrawTiles(context, frame, grid, window, visible);
-            PrefetchAdjacentTiles(context, frame, page, rect, window, visible);
-        }
-
-        _tiles.Flush(context);
-
-        if (!visible)
-        {
-            return;
-        }
-
-        DrawSelection(context, frame.Tab, page, bounds);
-    }
-
-    /// <summary>Gets the device pixels per point that tiles are rendered at.</summary>
-    /// <param name="scaling">The device pixels per canvas unit.</param>
-    /// <returns>The tile scale.</returns>
-    private float GetTileScale(double scaling) => (float)Math.Min(State.Layout.Options.Scale * scaling, TileGrid.MaxScale);
-
-    /// <summary>Finds the full resolution tiles of a page that intersect the viewport, or its prefetch area when off screen.</summary>
-    /// <param name="frame">The frame.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="rect">The page rectangle.</param>
-    /// <param name="visible">Whether the page is on screen.</param>
-    /// <param name="grid">The page's tile grid.</param>
-    /// <param name="window">The tiles in the area.</param>
-    /// <returns><see langword="true"/> when the page needs tiles in the area; small pages use only the preview.</returns>
-    private bool TryGetTileWindow(in FrameContext frame, int page, in Rect rect, bool visible, out TileRange grid, out TileWindow window)
-    {
-        var scaling = frame.RenderScaling;
-        var scale = GetTileScale(scaling);
-        TileGrid.GetPagePixelSize(State.Sizes[page], frame.Tab.Rotation, scale, out var pixelWidth, out var pixelHeight);
-        var area = visible ? frame.Viewport : frame.Viewport.Inflate(new Thickness(0, frame.Viewport.Height * PrefetchViewports));
-        var region = area.Intersect(rect);
-
-        // Snap the page origin to device pixels so tiles meet without seams.
-        var originX = Math.Round(rect.X * scaling);
-        var originY = Math.Round(rect.Y * scaling);
-        grid = new(page, TileGrid.ToScaleKey(scale), scale, pixelWidth, pixelHeight, originX, originY);
-        if (pixelWidth <= TileGrid.PreviewWidth || region.Width <= 0 || region.Height <= 0)
-        {
-            window = default;
-            return false;
-        }
-
-        window = TileGrid.GetTileWindow(
-            pixelWidth,
-            pixelHeight,
-            (region.X * scaling) - originX,
-            (region.Y * scaling) - originY,
-            (region.Right * scaling) - originX,
-            (region.Bottom * scaling) - originY);
-        return true;
-    }
-
-    /// <summary>Draws the cached tiles in a window and requests missing ones, unless a zoom is still easing.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="frame">The frame.</param>
-    /// <param name="grid">The page's tile grid.</param>
-    /// <param name="window">The tiles to draw.</param>
-    /// <param name="visible">Whether the page is on screen; off screen pages are only prefetched.</param>
-    private void DrawTiles(DrawingContext context, in FrameContext frame, in TileRange grid, in TileWindow window, bool visible)
-    {
-        var request = !IsZoomEasing;
-        for (var row = window.FirstRow; row <= window.LastRow; row++)
-        {
-            for (var column = window.FirstColumn; column <= window.LastColumn; column++)
-            {
-                DrawTile(context, frame, grid, column, row, visible, request);
-            }
-        }
-    }
-
-    /// <summary>Requests nearby rows of a visible page before scrolling exposes them.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="frame">The frame.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="rect">The page bounds.</param>
-    /// <param name="visibleWindow">The tile range already requested for drawing.</param>
-    /// <param name="visible">Whether the page is visible.</param>
-    private void PrefetchAdjacentTiles(DrawingContext context, in FrameContext frame, int page, in Rect rect, in TileWindow visibleWindow, bool visible)
-    {
-        if (!visible || IsPrefetchHeld() || !TryGetTileWindow(frame, page, rect, false, out var grid, out var window))
-        {
-            return;
-        }
-
-        for (var row = window.FirstRow; row <= window.LastRow; row++)
-        {
-            for (var column = window.FirstColumn; column <= window.LastColumn; column++)
-            {
-                if (row >= visibleWindow.FirstRow && row <= visibleWindow.LastRow && column >= visibleWindow.FirstColumn && column <= visibleWindow.LastColumn)
-                {
-                    continue;
-                }
-
-                DrawTile(context, frame, grid, column, row, false, true);
-            }
-        }
-    }
-
-    /// <summary>Stretches the cached tiles of the last complete scale over the visible part of a page.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="frame">The frame.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="rect">The page rectangle.</param>
-    /// <param name="scaleKey">The quantised scale being drawn, which needs no stand in.</param>
-    private void DrawFallbackTiles(DrawingContext context, in FrameContext frame, int page, in Rect rect, int scaleKey)
-    {
-        var scale = _fallbackScale;
-        var fallbackKey = TileGrid.ToScaleKey(scale);
-        if (scale <= 0 || fallbackKey == scaleKey)
-        {
-            return;
-        }
-
-        var tab = frame.Tab;
-        TileGrid.GetPagePixelSize(State.Sizes[page], tab.Rotation, scale, out var pixelWidth, out var pixelHeight);
-        var region = frame.Viewport.Intersect(rect);
-        if (pixelWidth <= TileGrid.PreviewWidth || region.Width <= 0 || region.Height <= 0)
-        {
-            return;
-        }
-
-        var tileSize = TileGrid.TileSize;
-        var unitX = rect.Width / pixelWidth;
-        var unitY = rect.Height / pixelHeight;
-        TileGrid.GetTileCounts(pixelWidth, pixelHeight, out var columns, out var rows);
-        var firstColumn = Math.Clamp((int)((region.X - rect.X) / unitX / tileSize), 0, columns - 1);
-        var lastColumn = Math.Clamp((int)((region.Right - rect.X) / unitX / tileSize), 0, columns - 1);
-        var firstRow = Math.Clamp((int)((region.Y - rect.Y) / unitY / tileSize), 0, rows - 1);
-        var lastRow = Math.Clamp((int)((region.Bottom - rect.Y) / unitY / tileSize), 0, rows - 1);
-        for (var row = firstRow; row <= lastRow; row++)
-        {
-            for (var column = firstColumn; column <= lastColumn; column++)
-            {
-                var key = new TileKey(tab.TileId, page, fallbackKey, tab.Rotation, tab.PageTone.Id, (short)column, (short)row);
-                if (!frame.Hub.Cache.TryGet(key, out var surface))
-                {
-                    continue;
-                }
-
-                var destination = new Rect(rect.X + (column * tileSize * unitX), rect.Y + (row * tileSize * unitY), surface.Width * unitX, surface.Height * unitY);
-                _tiles.Draw(context, surface, destination, smooth: true);
-            }
-        }
-    }
-
-    /// <summary>Draws the text selection on a page; the search hits and reading marks are drawn by <see cref="PageMarksLayer"/>.</summary>
-    /// <param name="context">The drawing context.</param>
-    /// <param name="tab">The tab.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="bounds">The page bounds.</param>
-    private void DrawSelection(DrawingContext context, DocumentTabViewModel tab, int page, in LayoutRect bounds)
-    {
-        if (SelectionBrush is not { } selection)
-        {
-            return;
-        }
-
-        var transform = new PageTransform(bounds, State.Sizes[page], tab.Rotation, State.Layout.Options.Scale);
-        foreach (var rect in this.GetSelectionRects(page))
-        {
-            context.FillRectangle(selection, transform.ToCanvas(rect));
-        }
-    }
-
     /// <summary>Lets go of what the canvas holds once it is put away: the signature mark preview, the snapshotter, the scroll viewer and the tab.</summary>
     private void PutAway()
     {
@@ -1127,8 +673,7 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
             old.PageTools.IsAutoScrolling = false;
         }
 
-        _renderTab = null;
-        _renderDocument = null;
+        State.Render.ForgetRequest();
         _shownTab = tab;
         Links.Clear();
         ClearSelection();

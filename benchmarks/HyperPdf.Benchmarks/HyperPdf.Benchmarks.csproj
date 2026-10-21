@@ -56,12 +56,21 @@
   <!-- Newer refs have the toolkit-neutral presentation layer, which brings the view models, so their sources are referenced and not linked. -->
   <ItemGroup Condition="'$(ViewModelsProject)' == 'true'">
     <ProjectReference Include="..\..\src\HyperPdf.Presentation\HyperPdf.Presentation.csproj" />
+
+    <!-- The view model tests' services with a fake render head, so a benchmark can open a document in a tab without a window. -->
+    <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\TestServices.cs" Link="ViewModelSupport\TestServices.cs" />
+    <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\TestHeads.cs" Link="ViewModelSupport\TestHeads.cs" />
+    <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\TestWait.cs" Link="ViewModelSupport\TestWait.cs" />
+    <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\Fake*.cs" Link="ViewModelSupport\%(Filename)%(Extension)" />
+    <Compile Include="..\..\tests\HyperPdf.Core.Tests\Fakes\*.cs" Link="ViewModelSupport\Fakes\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(ViewModelsProject)' != 'true'">
     <Compile Remove="CanvasMathBenchmarks.cs" />
     <Compile Remove="CanvasStateBenchmarks.cs" />
     <Compile Remove="TextSelectionBenchmarks.cs" />
+    <Compile Remove="CanvasRenderBenchmarks.cs" />
+    <Compile Remove="BenchmarkCanvasHost.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
     <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
     <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationNames.cs" Link="AnnotationNames.cs" />
@@ -84,6 +93,7 @@
 
   <ItemGroup Condition="'$(ViewModelsProject)' == 'true'">
     <Using Include="HyperPdf.ViewModels.Services" />
+    <Using Include="HyperPdf.ViewModels.Rendering" />
     <Using Include="HyperPdf.Rendering.Skia" />
   </ItemGroup>
 

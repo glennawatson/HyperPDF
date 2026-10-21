@@ -2,21 +2,23 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Avalonia;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Layout;
 using HyperPdf.Core.Rendering;
 
-namespace HyperPdf.App.Controls;
+namespace HyperPdf.Presentation.Canvas;
 
-/// <summary>State shared by everything drawn in one canvas frame.</summary>
-/// <param name="Tab">The tab.</param>
-/// <param name="Document">The open document.</param>
-/// <param name="Hub">The render hub.</param>
-/// <param name="Viewport">The viewport in canvas coordinates.</param>
+/// <summary>What one frame of the page canvas is drawn from.</summary>
+/// <param name="Tab">The tab shown.</param>
+/// <param name="Document">The document.</param>
+/// <param name="Hub">The render hub holding the tile cache and the scheduler.</param>
+/// <param name="Viewport">The part of the canvas in view.</param>
 /// <param name="RenderScaling">Device pixels per canvas unit.</param>
 /// <param name="Generation">The render generation for requests made this frame.</param>
-internal readonly record struct FrameContext(DocumentTabViewModel Tab, IDocument Document, RenderHub Hub, Rect Viewport, double RenderScaling, int Generation)
+[DebuggerDisplay("FrameContext: generation {Generation}")]
+public readonly record struct FrameContext(DocumentTabViewModel Tab, IDocument Document, RenderHub Hub, LayoutRect Viewport, double RenderScaling, int Generation)
 {
     /// <summary>Queues a render request for the tab's canvas.</summary>
     /// <param name="key">The tile key.</param>
@@ -25,6 +27,6 @@ internal readonly record struct FrameContext(DocumentTabViewModel Tab, IDocument
     /// <param name="height">The height in pixels.</param>
     /// <param name="priority">The priority.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void Request(in TileKey key, in PageRenderInfo info, int width, int height, RenderPriority priority) =>
+    public void Request(in TileKey key, in PageRenderInfo info, int width, int height, RenderPriority priority) =>
         Hub.Scheduler.Request(new(key, Document, info, width, height, priority, Tab.CanvasClient, Generation, Tab.PageTone) { CancellationToken = Tab.SelectedWorkToken });
 }

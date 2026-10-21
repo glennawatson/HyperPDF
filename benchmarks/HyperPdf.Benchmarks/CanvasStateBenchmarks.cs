@@ -65,13 +65,13 @@ public class CanvasStateBenchmarks
     private PageCanvasState _row = null!;
 
     /// <summary>The host of the free state.</summary>
-    private BenchmarkHost _freeHost = null!;
+    private BenchmarkCanvasHost _freeHost = null!;
 
     /// <summary>The host of the paged state.</summary>
-    private BenchmarkHost _pagedHost = null!;
+    private BenchmarkCanvasHost _pagedHost = null!;
 
     /// <summary>The host of the horizontal state.</summary>
-    private BenchmarkHost _rowHost = null!;
+    private BenchmarkCanvasHost _rowHost = null!;
 
     /// <summary>Builds the three layouts.</summary>
     [GlobalSetup]
@@ -168,7 +168,7 @@ public class CanvasStateBenchmarks
     private static StateAndHost Create(PageSize[] sizes, in LayoutOptions options)
     {
         var layout = DocumentLayout.Create(sizes, options);
-        var host = new BenchmarkHost { Viewport = new(ViewWidth, ViewHeight), Extent = new(layout.ExtentWidth, layout.ExtentHeight) };
+        var host = new BenchmarkCanvasHost { Viewport = new(ViewWidth, ViewHeight), Extent = new(layout.ExtentWidth, layout.ExtentHeight) };
         var state = new PageCanvasState(host);
         state.UseSizes(sizes);
         state.UseLayout(layout, sizes);
@@ -178,65 +178,5 @@ public class CanvasStateBenchmarks
     /// <summary>A canvas state and the host it works through.</summary>
     /// <param name="State">The state.</param>
     /// <param name="Host">The host.</param>
-    private readonly record struct StateAndHost(PageCanvasState State, BenchmarkHost Host);
-
-    /// <summary>A scrolling area with no toolkit behind it.</summary>
-    private sealed class BenchmarkHost : ICanvasHost
-    {
-        /// <summary>Gets or sets the scroll offset.</summary>
-        public CanvasPoint Offset { get; set; }
-
-        /// <summary>Gets or sets the viewport size.</summary>
-        public CanvasSize Viewport { get; set; }
-
-        /// <summary>Gets or sets the extent size.</summary>
-        public CanvasSize Extent { get; set; }
-
-        /// <inheritdoc/>
-        public bool HasScroller => true;
-
-        /// <inheritdoc/>
-        public bool IsInWindow => false;
-
-        /// <inheritdoc/>
-        public CanvasPoint ScrollOffset
-        {
-            get => Offset;
-            set => Offset = value;
-        }
-
-        /// <inheritdoc/>
-        public CanvasSize ViewportSize => Viewport;
-
-        /// <inheritdoc/>
-        public CanvasSize ExtentSize => Extent;
-
-        /// <inheritdoc/>
-        public CanvasSize ScrollerSize => Viewport;
-
-        /// <inheritdoc/>
-        public void InvalidateMeasure()
-        {
-        }
-
-        /// <inheritdoc/>
-        public void InvalidateVisual()
-        {
-        }
-
-        /// <inheritdoc/>
-        public void UpdateLayout()
-        {
-        }
-
-        /// <inheritdoc/>
-        public void PageScaleChanged(double before, double after)
-        {
-        }
-
-        /// <inheritdoc/>
-        public void WheelZoomChanged(WheelZoomEase before, WheelZoomEase after)
-        {
-        }
-    }
+    private readonly record struct StateAndHost(PageCanvasState State, BenchmarkCanvasHost Host);
 }
