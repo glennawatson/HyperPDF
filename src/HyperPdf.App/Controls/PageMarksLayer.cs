@@ -80,7 +80,10 @@ public sealed class PageMarksLayer : Control, IActivatableView
 
             if (_scroller is { } scroller)
             {
-                disposables.Add(scroller.WhenChanged(static viewer => viewer.Offset).SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
+                // With nothing marked there is nothing to move, so scrolling leaves the layer alone; MarkRedraws re-arms it.
+                disposables.Add(scroller.WhenChanged(static viewer => viewer.Offset)
+                    .WhereWith(this, static (layer, _) => layer.HasMarks)
+                    .SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
             }
         });
     }
@@ -123,15 +126,19 @@ public sealed class PageMarksLayer : Control, IActivatableView
     /// <summary>Gets or sets the pages the marks are drawn over, which say where each page is laid out.</summary>
     internal PageCanvas? Pages { get; set; }
 
+    /// <summary>Gets a value indicating whether the tab has any search hit, spoken sentence or focus band to draw.</summary>
+    internal bool HasMarks => Tab is { } tab && (tab.Search.HasHits || tab.ReadAloud.SpokenPage >= 0);
+
     /// <inheritdoc/>
     public override void Render(DrawingContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (Tab is not { } tab || Pages is not { } pages || _scroller is not { } scroller)
+        if (!HasMarks || Tab is not { } tab || Pages is not { } pages || _scroller is not { } scroller)
         {
             return;
         }
 
+        var viewport = new Rect(scroller.Offset.X, scroller.Offset.Y, scroller.Viewport.Width, scroller.Viewport.Height);
         pages.GetPagesBetween(scroller.Offset.X, scroller.Offset.X + scroller.Viewport.Width, scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
         for (var page = first; page <= last && page >= 0; page++)
         {
@@ -140,7 +147,7 @@ public sealed class PageMarksLayer : Control, IActivatableView
                 continue;
             }
 
-            DrawHits(context, tab, page, transform);
+            DrawHits(context, tab, page, transform, viewport);
             DrawSpoken(context, tab, page, transform);
             DrawFocusBand(context, tab, page, bounds, transform);
         }
@@ -151,7 +158,8 @@ public sealed class PageMarksLayer : Control, IActivatableView
     /// <param name="tab">The tab.</param>
     /// <param name="page">The page.</param>
     /// <param name="transform">How the page maps onto the canvas.</param>
-    private void DrawHits(DrawingContext context, DocumentTabViewModel tab, int page, in PageTransform transform)
+    /// <param name="viewport">The visible part of the canvas; hits outside it are not recorded.</param>
+    private void DrawHits(DrawingContext context, DocumentTabViewModel tab, int page, in PageTransform transform, in Rect viewport)
     {
         if (tab.Search.GetHits(page) is not { } hits)
         {
@@ -165,7 +173,11 @@ public sealed class PageMarksLayer : Control, IActivatableView
             var pen = ReferenceEquals(hit, current) ? _currentHitPen : null;
             foreach (var rect in hit.Bounds)
             {
-                context.DrawRectangle(fill, pen, transform.ToCanvas(rect));
+                var canvasRect = transform.ToCanvas(rect);
+                if (canvasRect.Intersects(viewport))
+                {
+                    context.DrawRectangle(fill, pen, canvasRect);
+                }
             }
         }
     }
