@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdfLibrary.Text;
@@ -12,7 +13,7 @@ namespace HyperPdfLibrary.Text;
 /// overlap. Otherwise, when a tolerance is given, the character whose box is nearest the point wins, provided the point is
 /// within the tolerance of the box on both axes; ties go to the earlier character. Generated spaces and line breaks have
 /// no extent and are never returned. Blocks of consecutive characters carry their union box, so large pages skip
-/// blocks the point cannot reach.
+/// blocks the point cannot reach, and the exact and the nearest search share one pass over the blocks.
 /// </summary>
 internal static class TextHitTesting
 {
@@ -43,6 +44,20 @@ internal static class TextHitTesting
         return blocks;
     }
 
+    /// <summary>Gets the union of all block bounds, used to reject points far from the whole page at once.</summary>
+    /// <param name="blocks">The block bounds.</param>
+    /// <returns>The union, or an empty box for no blocks.</returns>
+    internal static PdfRectangle PageBoundsOf(ReadOnlySpan<TextHitBlock> blocks)
+    {
+        var bounds = default(PdfRectangle);
+        for (var i = 0; i < blocks.Length; i++)
+        {
+            bounds = i == 0 ? blocks[i].Bounds : bounds.Union(blocks[i].Bounds);
+        }
+
+        return bounds;
+    }
+
     /// <summary>Finds the character at a point.</summary>
     /// <param name="chars">The page characters.</param>
     /// <param name="blocks">Bounds of contiguous character blocks, or empty on small pages.</param>
@@ -50,106 +65,84 @@ internal static class TextHitTesting
     /// <param name="toleranceX">How far the point may be from a box horizontally; zero or less for none.</param>
     /// <param name="toleranceY">How far the point may be from a box vertically; zero or less for none.</param>
     /// <returns>The character index, or -1.</returns>
-    internal static int Find(ReadOnlySpan<PdfTextChar> chars, ReadOnlySpan<TextHitBlock> blocks, Vector2 point, float toleranceX, float toleranceY)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int Find(ReadOnlySpan<PdfTextChar> chars, ReadOnlySpan<TextHitBlock> blocks, Vector2 point, float toleranceX, float toleranceY) =>
+        Find(chars, blocks, blocks.IsEmpty ? default : PageBoundsOf(blocks), point, toleranceX, toleranceY);
+
+    /// <summary>Finds the character at a point, rejecting points outside the page bounds without visiting a block.</summary>
+    /// <param name="chars">The page characters.</param>
+    /// <param name="blocks">Bounds of contiguous character blocks, or empty on small pages.</param>
+    /// <param name="pageBounds">The union of the block bounds; ignored when there are no blocks.</param>
+    /// <param name="point">The point in user space.</param>
+    /// <param name="toleranceX">How far the point may be from a box horizontally; zero or less for none.</param>
+    /// <param name="toleranceY">How far the point may be from a box vertically; zero or less for none.</param>
+    /// <returns>The character index, or -1.</returns>
+    internal static int Find(ReadOnlySpan<PdfTextChar> chars, ReadOnlySpan<TextHitBlock> blocks, in PdfRectangle pageBounds, Vector2 point, float toleranceX, float toleranceY)
     {
         if (!float.IsFinite(point.X) || !float.IsFinite(point.Y))
         {
             return -1;
         }
 
-        var reachX = toleranceX > 0 ? toleranceX : 0;
-        var reachY = toleranceY > 0 ? toleranceY : 0;
-        var exact = FindContaining(chars, blocks, point);
-        return exact >= 0 || (reachX <= 0 && reachY <= 0) ? exact : FindNearest(chars, blocks, point, reachX, reachY);
+        var reach = new Reach(toleranceX > 0 ? toleranceX : 0, toleranceY > 0 ? toleranceY : 0);
+        var best = new Nearest(-1, double.PositiveInfinity);
+        if (blocks.IsEmpty)
+        {
+            var direct = Scan(chars, 0, chars.Length, point, reach, ref best);
+            return direct >= 0 ? direct : best.Index;
+        }
+
+        return ReachContains(pageBounds, reach, point) ? FindInBlocks(chars, blocks, point, reach, ref best) : -1;
     }
 
-    /// <summary>Finds the first character whose box contains a point.</summary>
+    /// <summary>Visits the blocks the point can reach, once, returning an exact hit at once and otherwise the nearest character.</summary>
     /// <param name="chars">The page characters.</param>
     /// <param name="blocks">The block bounds.</param>
     /// <param name="point">The point.</param>
-    /// <returns>The index, or -1.</returns>
-    private static int FindContaining(ReadOnlySpan<PdfTextChar> chars, ReadOnlySpan<TextHitBlock> blocks, Vector2 point)
+    /// <param name="reach">The reach on each axis.</param>
+    /// <param name="best">The nearest character so far.</param>
+    /// <returns>The character index, or -1.</returns>
+    private static int FindInBlocks(ReadOnlySpan<PdfTextChar> chars, ReadOnlySpan<TextHitBlock> blocks, Vector2 point, Reach reach, ref Nearest best)
     {
-        if (blocks.IsEmpty)
-        {
-            return ScanContaining(chars, 0, chars.Length, point);
-        }
-
         foreach (var block in blocks)
         {
-            if (!TextGeometry.Contains(block.Bounds, point))
+            if (!ReachContains(block.Bounds, reach, point))
             {
                 continue;
             }
 
-            var hit = ScanContaining(chars, block.Start, block.Count, point);
-            if (hit >= 0)
+            var exact = Scan(chars, block.Start, block.Count, point, reach, ref best);
+            if (exact >= 0)
             {
-                return hit;
-            }
-        }
-
-        return -1;
-    }
-
-    /// <summary>Scans a range for the first character containing a point.</summary>
-    /// <param name="chars">The page characters.</param>
-    /// <param name="start">The first index.</param>
-    /// <param name="count">The number of characters.</param>
-    /// <param name="point">The point.</param>
-    /// <returns>The index, or -1.</returns>
-    private static int ScanContaining(ReadOnlySpan<PdfTextChar> chars, int start, int count, Vector2 point)
-    {
-        for (var i = start; i < start + count; i++)
-        {
-            if (chars[i].Kind != PdfTextCharKind.Generated && TextGeometry.Contains(chars[i].Box, point))
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    /// <summary>Finds the character whose box is nearest a point, within the reach on both axes.</summary>
-    /// <param name="chars">The page characters.</param>
-    /// <param name="blocks">The block bounds.</param>
-    /// <param name="point">The point.</param>
-    /// <param name="reachX">The horizontal reach.</param>
-    /// <param name="reachY">The vertical reach.</param>
-    /// <returns>The index, or -1.</returns>
-    private static int FindNearest(ReadOnlySpan<PdfTextChar> chars, ReadOnlySpan<TextHitBlock> blocks, Vector2 point, float reachX, float reachY)
-    {
-        var best = new Nearest(-1, double.PositiveInfinity);
-        if (blocks.IsEmpty)
-        {
-            ScanNearest(chars, 0, chars.Length, point, reachX, reachY, ref best);
-            return best.Index;
-        }
-
-        foreach (var block in blocks)
-        {
-            var bounds = block.Bounds;
-            var reach = new PdfRectangle(bounds.Left - reachX, bounds.Bottom - reachY, bounds.Right + reachX, bounds.Top + reachY);
-            if (TextGeometry.Contains(reach, point))
-            {
-                ScanNearest(chars, block.Start, block.Count, point, reachX, reachY, ref best);
+                return exact;
             }
         }
 
         return best.Index;
     }
 
-    /// <summary>Scans a range, keeping the nearest character within reach.</summary>
+    /// <summary>Checks whether a point is inside a normalized box grown by the reach on each side.</summary>
+    /// <param name="bounds">The normalized box.</param>
+    /// <param name="reach">The reach.</param>
+    /// <param name="point">The point.</param>
+    /// <returns>Whether the point is inside the grown box.</returns>
+    private static bool ReachContains(in PdfRectangle bounds, Reach reach, Vector2 point) =>
+        point.X <= bounds.Right + reach.X && point.X >= bounds.Left - reach.X && point.Y <= bounds.Top + reach.Y && point.Y >= bounds.Bottom - reach.Y;
+
+    /// <summary>
+    /// Scans a range once, returning the first character whose box contains the point and otherwise keeping the nearest
+    /// character within reach.
+    /// </summary>
     /// <param name="chars">The page characters.</param>
     /// <param name="start">The first index.</param>
     /// <param name="count">The number of characters.</param>
     /// <param name="point">The point.</param>
-    /// <param name="reachX">The horizontal reach.</param>
-    /// <param name="reachY">The vertical reach.</param>
+    /// <param name="reach">The reach on each axis.</param>
     /// <param name="best">The nearest character so far.</param>
-    private static void ScanNearest(ReadOnlySpan<PdfTextChar> chars, int start, int count, Vector2 point, float reachX, float reachY, ref Nearest best)
+    /// <returns>The index of the first character containing the point, or -1.</returns>
+    private static int Scan(ReadOnlySpan<PdfTextChar> chars, int start, int count, Vector2 point, Reach reach, ref Nearest best)
     {
+        var nearestWanted = reach.X > 0 || reach.Y > 0;
         for (var i = start; i < start + count; i++)
         {
             if (chars[i].Kind == PdfTextCharKind.Generated)
@@ -158,18 +151,39 @@ internal static class TextHitTesting
             }
 
             var box = TextGeometry.Normalize(chars[i].Box);
-            var dx = MathF.Max(MathF.Max(box.Left - point.X, point.X - box.Right), 0);
-            var dy = MathF.Max(MathF.Max(box.Bottom - point.Y, point.Y - box.Top), 0);
-            if (!(dx <= reachX && dy <= reachY))
+            if (point.X <= box.Right && point.X >= box.Left && point.Y <= box.Top && point.Y >= box.Bottom)
             {
-                continue;
+                return i;
             }
 
-            var squared = ((double)dx * dx) + ((double)dy * dy);
-            if (squared < best.Squared)
+            if (nearestWanted)
             {
-                best = new(i, squared);
+                Consider(i, box, point, reach, ref best);
             }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Keeps a character when it is within reach and nearer than the best so far.</summary>
+    /// <param name="index">The character index.</param>
+    /// <param name="box">The normalized box of the character.</param>
+    /// <param name="point">The point.</param>
+    /// <param name="reach">The reach on each axis.</param>
+    /// <param name="best">The nearest character so far.</param>
+    private static void Consider(int index, in PdfRectangle box, Vector2 point, Reach reach, ref Nearest best)
+    {
+        var dx = MathF.Max(MathF.Max(box.Left - point.X, point.X - box.Right), 0);
+        var dy = MathF.Max(MathF.Max(box.Bottom - point.Y, point.Y - box.Top), 0);
+        if (!(dx <= reach.X && dy <= reach.Y))
+        {
+            return;
+        }
+
+        var squared = ((double)dx * dx) + ((double)dy * dy);
+        if (squared < best.Squared)
+        {
+            best = new(index, squared);
         }
     }
 
@@ -198,6 +212,11 @@ internal static class TextHitTesting
     /// <returns>Whether all four edges are finite.</returns>
     private static bool IsFinite(in PdfRectangle box) =>
         float.IsFinite(box.Left) && float.IsFinite(box.Bottom) && float.IsFinite(box.Right) && float.IsFinite(box.Top);
+
+    /// <summary>How far a point may be from a box on each axis.</summary>
+    /// <param name="X">The horizontal reach.</param>
+    /// <param name="Y">The vertical reach.</param>
+    private readonly record struct Reach(float X, float Y);
 
     /// <summary>The nearest character found so far.</summary>
     /// <param name="Index">The character index, or -1.</param>
