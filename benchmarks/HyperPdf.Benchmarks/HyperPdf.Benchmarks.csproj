@@ -53,15 +53,15 @@
     <Compile Remove="SelectionRectsBenchmarks.cs" />
   </ItemGroup>
 
+  <!-- Newer refs have the toolkit-neutral presentation layer, which brings the view models, so their sources are referenced and not linked. -->
   <ItemGroup Condition="'$(ViewModelsProject)' == 'true'">
-    <Compile Include="..\..\src\HyperPdf.ViewModels\Viewing\ZoomLabel.cs" Link="ZoomLabel.cs" />
-    <Compile Include="..\..\src\HyperPdf.ViewModels\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
-    <Compile Include="..\..\src\HyperPdf.ViewModels\Markup\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
-    <Compile Include="..\..\src\HyperPdf.ViewModels\Markup\AnnotationNames.cs" Link="AnnotationNames.cs" />
+    <ProjectReference Include="..\..\src\HyperPdf.Presentation\HyperPdf.Presentation.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(ViewModelsProject)' != 'true'">
     <Compile Remove="CanvasMathBenchmarks.cs" />
+    <Compile Remove="CanvasStateBenchmarks.cs" />
+    <Compile Remove="TextSelectionBenchmarks.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
     <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
     <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationNames.cs" Link="AnnotationNames.cs" />

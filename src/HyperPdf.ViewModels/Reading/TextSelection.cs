@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 
@@ -14,11 +13,14 @@ namespace HyperPdf.ViewModels.Reading;
 [DebuggerDisplay("TextSelection: {Anchor} to {Focus}")]
 public sealed class TextSelection
 {
+    /// <summary>How many emptied lists the spare stack has room for before it grows.</summary>
+    private const int SpareCapacity = 8;
+
     /// <summary>The selection rectangles of each page, worked out when first asked for.</summary>
     private readonly Dictionary<int, List<PageRect>> _rects = [];
 
     /// <summary>Emptied rectangle lists kept for reuse, so a drag does not allocate a list per page.</summary>
-    private readonly Stack<List<PageRect>> _spare = [];
+    private readonly Stack<List<PageRect>> _spare = new(SpareCapacity);
 
     /// <summary>Gets or sets the character the selection started at, or a position on page -1 when there is no selection.</summary>
     public CharacterPosition Anchor { get; set; } = CaretNavigation.None();
@@ -155,23 +157,16 @@ public sealed class TextSelection
             return string.Empty;
         }
 
-        var builder = new StringBuilder();
+        // One string per page joined once, so the text is copied a single time and a one page selection not at all.
+        var parts = new List<string>(end.Page - start.Page + 1);
         for (var page = start.Page; page <= end.Page; page++)
         {
             var first = page == start.Page ? start.Char : 0;
             var last = page == end.Page ? end.Char : document.GetCharacterCount(page) - 1;
-            if (last >= first)
-            {
-                _ = builder.Append(document.GetText(page, first, last - first + 1));
-            }
-
-            if (page != end.Page)
-            {
-                _ = builder.AppendLine();
-            }
+            parts.Add(last >= first ? document.GetText(page, first, last - first + 1) : string.Empty);
         }
 
-        return builder.ToString();
+        return parts.Count == 1 ? parts[0] : string.Join(Environment.NewLine, parts);
     }
 
     /// <summary>Forgets the cached rectangles on a run of pages, keeping their lists for reuse.</summary>

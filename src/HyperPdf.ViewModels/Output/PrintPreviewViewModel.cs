@@ -59,6 +59,9 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     /// <summary>The pages chosen, reused between rebuilds.</summary>
     private readonly List<int> _chosen = [];
 
+    /// <summary>Whether the reader chose the system print dialog, so listing the printers does not change the choice.</summary>
+    private bool _systemDialogChosen;
+
     /// <summary>Initializes a new instance of the <see cref="PrintPreviewViewModel"/> class.</summary>
     /// <param name="tab">The tab being printed.</param>
     /// <param name="services">The application services.</param>
@@ -337,6 +340,11 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
             Targets.Insert(i, new(PrintDestination.Printer, printers[i].Name, printers[i].DisplayName));
         }
 
+        if (_systemDialogChosen)
+        {
+            return;
+        }
+
         if (printers.Count > 0 && SelectedTarget == SystemDialogTarget)
         {
             SelectedTarget = Targets[0];
@@ -352,6 +360,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     private bool SystemDialog()
     {
+        _systemDialogChosen = true;
         SelectedTarget = SystemDialogTarget;
         return true;
     }
