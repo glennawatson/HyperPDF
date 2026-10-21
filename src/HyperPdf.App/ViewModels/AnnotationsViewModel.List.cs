@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.ObjectModel;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
 using ReactiveUI.SourceGenerators;
 
@@ -125,11 +126,30 @@ public sealed partial class AnnotationsViewModel
     /// <returns><see langword="true"/> when it belongs.</returns>
     public static bool IsOfType(AnnotationKind kind, int type) => type == AllTypes || ((uint)kind < (uint)KindTypes.Length && KindTypes[(int)kind] == type);
 
-    /// <summary>Rebuilds the sidebar list from every page; called when the annotations panel is shown.</summary>
+    /// <summary>Marks the list as out of date, so the next <see cref="ShowItems"/> rebuilds it from every page.</summary>
+    public void InvalidateItems() => _listStale = true;
+
+    /// <summary>Rebuilds the sidebar list when it is out of date or the document changed; called when the annotations panel is shown.</summary>
+    /// <returns><see langword="true"/> when the list was rebuilt.</returns>
+    public bool ShowItems()
+    {
+        if (!_listStale && ReferenceEquals(_listedEditor, Editor))
+        {
+            return false;
+        }
+
+        RefreshItems();
+        return true;
+    }
+
+    /// <summary>Rebuilds the sidebar list from every page.</summary>
     public void RefreshItems()
     {
+        var current = Editor;
+        _listedEditor = current;
+        _listStale = false;
         Items.Clear();
-        if (Editor is not { } editor)
+        if (current is not { } editor)
         {
             ApplyFilter();
             return;
@@ -139,9 +159,15 @@ public sealed partial class AnnotationsViewModel
         {
             _scratch.Clear();
             editor.GetAnnotations(page, _scratch);
+            if (_scratch.Count == 0)
+            {
+                continue;
+            }
+
+            var label = _owner.GetPageDisplay(page);
             foreach (var annotation in _scratch)
             {
-                Items.Add(CreateItem(editor, annotation, _owner.GetPageDisplay(page)));
+                Items.Add(CreateItem(editor, annotation, label));
             }
         }
 
@@ -160,18 +186,6 @@ public sealed partial class AnnotationsViewModel
         }
 
         return options;
-    }
-
-    /// <summary>Makes a sidebar item for an annotation, with its replies.</summary>
-    /// <param name="editor">The editor.</param>
-    /// <param name="annotation">The annotation.</param>
-    /// <param name="label">The page label.</param>
-    /// <returns>The item.</returns>
-    private static AnnotationItemViewModel CreateItem(IAnnotationEditor editor, PageAnnotation annotation, string label)
-    {
-        var replies = new List<AnnotationReply>();
-        editor.GetReplies(annotation.PageIndex, annotation.Index, replies);
-        return new(annotation, label, replies);
     }
 
     /// <summary>Compares two items in a sort order, falling back to page order so equal items keep their places.</summary>
@@ -227,8 +241,29 @@ public sealed partial class AnnotationsViewModel
     private bool ShowsEverything(string text) =>
         text.Length == 0 && FilterType == AllTypes && FilterColor == 0 && (FilterAuthor is not { Length: > 0 } author || string.Equals(author, EveryoneName, StringComparison.Ordinal));
 
+    /// <summary>Makes a sidebar item for an annotation, with its replies.</summary>
+    /// <param name="editor">The editor.</param>
+    /// <param name="annotation">The annotation.</param>
+    /// <param name="label">The page label.</param>
+    /// <returns>The item.</returns>
+    private AnnotationItemViewModel CreateItem(IAnnotationEditor editor, PageAnnotation annotation, string label)
+    {
+        _replyScratch.Clear();
+        editor.GetReplies(annotation.PageIndex, annotation.Index, _replyScratch);
+        return new(annotation, label, _replyScratch.Count == 0 ? [] : _replyScratch.ToArray());
+    }
+
+    /// <summary>Shows the items that pass the filters after the filter text changed, leaving the author choices as they were.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ApplyTextFilter() => ApplyFilter(false);
+
     /// <summary>Shows the items that pass the filters, in the chosen order, and offers each author found.</summary>
-    private void ApplyFilter()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ApplyFilter() => ApplyFilter(true);
+
+    /// <summary>Shows the items that pass the filters, and offers each author found when asked.</summary>
+    /// <param name="refreshAuthors">Whether to read the authors again.</param>
+    private void ApplyFilter(bool refreshAuthors)
     {
         if (Items.Count == 0)
         {
@@ -245,7 +280,11 @@ public sealed partial class AnnotationsViewModel
         var shown = new List<AnnotationItemViewModel>(Items.Count);
         foreach (var item in Items)
         {
-            _ = authors.Add(item.AuthorName);
+            if (refreshAuthors)
+            {
+                _ = authors.Add(item.AuthorName);
+            }
+
             if (everything || Matches(item, text))
             {
                 shown.Add(item);
@@ -259,38 +298,41 @@ public sealed partial class AnnotationsViewModel
             shown.Sort((left, right) => Compare(order, left, right));
         }
 
-        if (!SameItems(shown))
+        PatchVisible(shown);
+        if (refreshAuthors)
         {
-            VisibleItems.Clear();
-            foreach (var item in shown)
-            {
-                VisibleItems.Add(item);
-            }
+            UpdateAuthors(authors);
         }
 
-        UpdateAuthors(authors);
         NoMatches = VisibleItems.Count == 0;
     }
 
-    /// <summary>Determines whether the list already shows exactly these items in this order, so it need not be rebuilt.</summary>
+    /// <summary>Brings the visible list to exactly these items, changing only the stretch that differs so unchanged rows keep their place, focus and pick.</summary>
     /// <param name="shown">The items to show.</param>
-    /// <returns><see langword="true"/> when nothing would change.</returns>
-    private bool SameItems(List<AnnotationItemViewModel> shown)
+    private void PatchVisible(List<AnnotationItemViewModel> shown)
     {
-        if (shown.Count != VisibleItems.Count)
+        var limit = Math.Min(shown.Count, VisibleItems.Count);
+        var head = 0;
+        while (head < limit && ReferenceEquals(shown[head], VisibleItems[head]))
         {
-            return false;
+            head++;
         }
 
-        for (var i = 0; i < shown.Count; i++)
+        var tail = 0;
+        while (tail < limit - head && ReferenceEquals(shown[shown.Count - 1 - tail], VisibleItems[VisibleItems.Count - 1 - tail]))
         {
-            if (!ReferenceEquals(shown[i], VisibleItems[i]))
-            {
-                return false;
-            }
+            tail++;
         }
 
-        return true;
+        for (var i = VisibleItems.Count - tail - 1; i >= head; i--)
+        {
+            VisibleItems.RemoveAt(i);
+        }
+
+        for (var i = head; i < shown.Count - tail; i++)
+        {
+            VisibleItems.Insert(i, shown[i]);
+        }
     }
 
     /// <summary>Updates the author choices in place, keeping the chosen author when it is still there.</summary>
@@ -325,7 +367,9 @@ public sealed partial class AnnotationsViewModel
     /// <param name="page">The page.</param>
     private void RefreshPage(int page)
     {
+        // Items are in page order, so the scan stops at the first earlier page.
         var insertAt = 0;
+        var removed = false;
         for (var i = Items.Count - 1; i >= 0; i--)
         {
             var itemPage = Items[i].Annotation.PageIndex;
@@ -333,10 +377,12 @@ public sealed partial class AnnotationsViewModel
             {
                 Items.RemoveAt(i);
                 insertAt = i;
+                removed = true;
             }
-            else if (itemPage < page && insertAt == 0)
+            else if (itemPage < page)
             {
-                insertAt = i + 1;
+                insertAt = removed ? insertAt : i + 1;
+                break;
             }
         }
 

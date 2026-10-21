@@ -74,12 +74,32 @@ public sealed record AnnotationItemViewModel(PageAnnotation Annotation, string P
         : AuthorName;
 
     /// <summary>Gets the words the list's text filter looks through: the kind, note, replies and author.</summary>
-    public string SearchText => string.Create(CultureInfo.CurrentCulture, $"{KindName}\n{Annotation.Contents}\n{RepliesText}\n{AuthorName}");
+    public string SearchText => field ??= string.Create(CultureInfo.CurrentCulture, $"{KindName}\n{Annotation.Contents}\n{RepliesText}\n{AuthorName}");
 
     /// <summary>Gets the item as a screen reader says it: kind, page, status, colour, note and author.</summary>
     public string SpokenText => Annotation.Contents.Length > 0
         ? string.Create(CultureInfo.CurrentCulture, $"{Heading}, {ColorName}: {Annotation.Contents}. {Details}")
         : string.Create(CultureInfo.CurrentCulture, $"{Heading}, {ColorName}. {Details}");
+
+    /// <summary>Determines whether another item has the same annotation, page label and replies; the cached filter text is not compared.</summary>
+    /// <param name="other">The other item.</param>
+    /// <returns><see langword="true"/> when they match.</returns>
+    public bool Equals(AnnotationItemViewModel? other)
+    {
+        if (other is null)
+        {
+            return false;
+        }
+
+        return ReferenceEquals(this, other)
+            || (Annotation.Equals(other.Annotation)
+                && string.Equals(PageLabel, other.PageLabel, StringComparison.Ordinal)
+                && ReferenceEquals(Replies, other.Replies));
+    }
+
+    /// <summary>Gets a hash code from the annotation, page label and replies.</summary>
+    /// <returns>The hash code.</returns>
+    public override int GetHashCode() => HashCode.Combine(Annotation, PageLabel, Replies);
 
     /// <summary>Appends one reply as "author: text"; bare status changes are left out.</summary>
     /// <param name="text">The text so far.</param>

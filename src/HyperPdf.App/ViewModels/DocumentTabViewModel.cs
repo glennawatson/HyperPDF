@@ -147,7 +147,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         _subscriptions.Add(this.WhenChanged(static x => x.CurrentPageIndex).Skip(1).SubscribeSafe(FollowCurrentPage, ErrorTrace.Write));
 
         // The annotation list is read again each time its panel opens.
-        _subscriptions.Add(this.WhenChanged(static x => x.SidebarMode).Skip(1).Where(static mode => mode == SidebarMode.Annotations).SubscribeSafe(_ => Annotations.RefreshItems(), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.SidebarMode).Skip(1).SubscribeSafe(_ => ShowSidebarPane(), ErrorTrace.Write));
 
         // Picking a thumbnail scrolls to its page, unless the thumbnail is being selected to follow the page shown.
         // The filter reads the tab's own page: a constructor cannot hand 'this' to a state-passing operator.
@@ -1145,6 +1145,21 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         LayoutVersion++;
     }
 
+    /// <summary>Brings the annotation or layer list up to date when its panel is shown; both skip work while hidden.</summary>
+    private void ShowSidebarPane()
+    {
+        if (IsAnnotationsMode)
+        {
+            _ = Annotations.ShowItems();
+            return;
+        }
+
+        if (IsLayersMode)
+        {
+            Layers.ShowForPage();
+        }
+    }
+
     /// <summary>Refreshes layout, thumbnails and navigation after page management changed the page order or geometry.</summary>
     private void RereadPageStructure()
     {
@@ -1156,7 +1171,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         CurrentPageIndex = Math.Clamp(CurrentPageIndex, 0, Math.Max(0, PageCount - 1));
         SelectedThumbnail = PageCount > 0 ? Thumbnails[CurrentPageIndex] : null;
         HasUnsavedChanges = Source.HasUnsavedChanges;
-        _annotations?.RefreshItems();
+        _annotations?.InvalidateItems();
+        if (IsAnnotationsMode)
+        {
+            _annotations?.ShowItems();
+        }
+
         Signatures.Refresh();
         Attachments.Refresh();
         Layers.Refresh();
