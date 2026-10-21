@@ -3,10 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.App.Services;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Settings;
+using HyperPdf.Core.Theming;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -24,6 +26,9 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
 {
     /// <summary>The label of choices that follow the desktop setting.</summary>
     private const string FollowDesktop = "Follow the desktop";
+
+    /// <summary>The contrast ratio the comfort rules ask of text.</summary>
+    private const double ReadableContrast = 7;
 
     /// <summary>The bits in a colour channel.</summary>
     private const int ChannelBits = 8;
@@ -70,7 +75,10 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     public static IReadOnlyList<string> ColorSchemeOptions { get; } = [FollowDesktop, "Calm", "High contrast", "Dark", "Light"];
 
     /// <summary>Gets the page colour choices.</summary>
-    public static IReadOnlyList<string> PageToneOptions { get; } = ["Match the colour scheme", "White", "Soft paper", "Calm night", "Dark", FollowDesktop];
+    public static IReadOnlyList<string> PageToneOptions { get; } =
+    [
+        "Match the colour scheme", "White", "Soft paper", "Calm night", "Dark", FollowDesktop, "Yellow on black", "Green on black", "White on black", "Custom colours",
+    ];
 
     /// <summary>Gets the opening zoom choices in enum order.</summary>
     public static IReadOnlyList<string> OpeningZoomOptions { get; } = ["100%", "Fit width", "Fit page"];
@@ -165,6 +173,10 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial bool FollowPageTimings { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether documents open with the keyboard text cursor on the page.</summary>
+    [Reactive]
+    public partial bool KeepKeyboardCursor { get; set; }
+
     /// <summary>Gets or sets a value indicating whether form fields underline misspelled words.</summary>
     [Reactive]
     public partial bool CheckSpelling { get; set; }
@@ -182,8 +194,34 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     public partial int ColorScheme { get; set; }
 
     /// <summary>Gets or sets the page colour index.</summary>
-    [Reactive]
+    [Reactive(nameof(UsesCustomPageTone))]
     public partial int PageTone { get; set; }
+
+    /// <summary>Gets a value indicating whether the custom page colours are chosen, which shows their boxes.</summary>
+    public bool UsesCustomPageTone => PageTone == (int)PageToneChoice.Custom;
+
+    /// <summary>Gets or sets the custom paper colour as six hex digits.</summary>
+    [Reactive(nameof(CustomToneContrast))]
+    public partial string CustomPaper { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the custom ink colour as six hex digits.</summary>
+    [Reactive(nameof(CustomToneContrast))]
+    public partial string CustomInk { get; set; } = string.Empty;
+
+    /// <summary>Gets what to tell the user about the custom colours: their contrast, or how to write them.</summary>
+    public string CustomToneContrast
+    {
+        get
+        {
+            if (!ColorMath.TryParseHex(CustomPaper, out var paper) || !ColorMath.TryParseHex(CustomInk, out var ink))
+            {
+                return "Write each colour as six hex digits, such as FFFF00.";
+            }
+
+            var ratio = ColorMath.Contrast(paper, ink);
+            return string.Create(CultureInfo.InvariantCulture, $"Contrast {ratio:0.0} to 1. {(ratio >= ReadableContrast ? "Easy to read." : "Below 7 to 1, which can be hard to read.")}");
+        }
+    }
 
     /// <summary>Gets or sets the tool bar style index.</summary>
     [Reactive]
@@ -298,10 +336,13 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         FollowPageTransitions = settings.FollowPageTransitions;
         FollowPageTimings = settings.FollowPageTimings;
         CheckSpelling = settings.CheckSpelling;
+        KeepKeyboardCursor = settings.KeepKeyboardCursor;
         ShowPreviewOnlyFonts = settings.ShowPreviewOnlyFonts;
         AzureRegion = settings.AzureSpeechRegion;
         ColorScheme = (int)settings.ColorScheme;
         PageTone = (int)settings.PageTone;
+        CustomPaper = ColorMath.ToHex(settings.CustomPaperColor);
+        CustomInk = ColorMath.ToHex(settings.CustomInkColor);
         Toolbar = (int)settings.ToolbarStyle;
         OpeningZoom = (int)settings.DefaultZoomMode;
         FileChange = (int)settings.FileChangeAction;
@@ -346,6 +387,7 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         Follow(this.WhenChanged(static x => x.FollowPageTransitions), follow => settings.FollowPageTransitions = follow);
         Follow(this.WhenChanged(static x => x.FollowPageTimings), follow => settings.FollowPageTimings = follow);
         Follow(this.WhenChanged(static x => x.CheckSpelling), check => settings.CheckSpelling = check);
+        Follow(this.WhenChanged(static x => x.KeepKeyboardCursor), keep => settings.KeepKeyboardCursor = keep);
         Follow(this.WhenChanged(static x => x.ShowPreviewOnlyFonts), show => settings.ShowPreviewOnlyFonts = show);
     }
 
@@ -387,6 +429,8 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
             settings.PageTone = (PageToneChoice)index;
             settings.PageToneEnabled = true;
         });
+        Follow(this.WhenChanged(static x => x.CustomPaper), text => settings.CustomPaperColor = ColorMath.TryParseHex(text, out var rgb) ? rgb : settings.CustomPaperColor);
+        Follow(this.WhenChanged(static x => x.CustomInk), text => settings.CustomInkColor = ColorMath.TryParseHex(text, out var rgb) ? rgb : settings.CustomInkColor);
         Follow(this.WhenChanged(static x => x.Toolbar), index => settings.ToolbarStyle = (ToolbarStyle)index);
         Follow(this.WhenChanged(static x => x.OpeningZoom), index =>
         {

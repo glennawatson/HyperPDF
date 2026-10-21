@@ -22,6 +22,12 @@ public static class ColorSchemes
     /// <summary>Gets white ink on black paper for the high-contrast scheme.</summary>
     public static PageTone HighContrastTone { get; } = new(0x000000U, 0xFFFFFFU);
 
+    /// <summary>Gets yellow ink on black paper, a high-contrast pair (19.6 to 1).</summary>
+    public static PageTone YellowOnBlackTone { get; } = new(0x000000U, 0xFFFF00U);
+
+    /// <summary>Gets green ink on black paper, a high-contrast pair (15.3 to 1).</summary>
+    public static PageTone GreenOnBlackTone { get; } = new(0x000000U, 0x00FF00U);
+
     /// <summary>Gets the Calm tints: slate, sage, sand and clay.</summary>
     public static IconTints CalmTints { get; } = new(0x8FA8B8U, 0x9DBF93U, 0xCDB683U, 0xD49A94U);
 

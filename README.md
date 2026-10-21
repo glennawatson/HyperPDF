@@ -83,7 +83,9 @@ Use **Open in system printer view** for the printer's own settings. That dialog 
 
 ## Comfort and access
 
-Preferences offers Calm, High contrast, Dark and Light themes. PDF pages can follow the interface or desktop, or use a White or Dark override. Page colours affect the screen only.
+Preferences offers Calm, High contrast, Dark and Light themes. PDF pages can follow the interface or desktop, or use a White or Dark override. For low vision, pages can also use yellow, green or white ink on black, or your own paper and ink colours as six hex digits. Preferences shows the contrast of your pair and says when it is below 7 to 1. Page colours affect the screen only.
+
+**Keep the keyboard cursor on pages** opens every document in caret browsing, so the arrow keys move through the words from the start.
 
 Adjust interface text size, motion and cursor blinking. Focus Mode adds reading text controls. Main actions have text labels. Messages stay until dismissed. Closing several tabs asks first.
 
@@ -105,6 +107,9 @@ No single theme suits everyone. Choose the appearance that works for you.
 | Back / forward | Alt+Left / Alt+Right |
 | Show or hide the sidebar | F9 |
 | Read Aloud | Ctrl+Shift+Y |
+| Read this page only / read to the end | Ctrl+Shift+V / Ctrl+Shift+B |
+| Pause or resume reading / stop reading | Ctrl+Shift+C / Ctrl+Shift+E |
+| Previous / next sentence while reading | Ctrl+Shift+Comma / Ctrl+Shift+Period |
 | Measure | Ctrl+Shift+M |
 | Document properties | Alt+Enter |
 | Reopen closed tabs / find a tab | Ctrl+Shift+T / Ctrl+Shift+A |

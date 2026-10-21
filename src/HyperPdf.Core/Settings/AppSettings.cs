@@ -13,11 +13,23 @@ namespace HyperPdf.Core.Settings;
 [DebuggerDisplay("AppSettings: {ColorScheme}, {PageTone}, cache {TileCacheMegabytes} MB")]
 public sealed class AppSettings
 {
+    /// <summary>The paper colour a custom page colour starts with: black.</summary>
+    internal const uint DefaultCustomPaper = 0x000000U;
+
+    /// <summary>The ink colour a custom page colour starts with: yellow.</summary>
+    internal const uint DefaultCustomInk = 0xFFFF00U;
+
     /// <summary>Gets or sets the colour scheme.</summary>
     public ColorSchemeChoice ColorScheme { get; set; }
 
     /// <summary>Gets or sets how pages are coloured.</summary>
     public PageToneChoice PageTone { get; set; }
+
+    /// <summary>Gets or sets the paper colour as 0xRRGGBB, used when <see cref="PageTone"/> is <see cref="PageToneChoice.Custom"/>.</summary>
+    public uint CustomPaperColor { get; set; } = DefaultCustomPaper;
+
+    /// <summary>Gets or sets the ink colour as 0xRRGGBB, used when <see cref="PageTone"/> is <see cref="PageToneChoice.Custom"/>.</summary>
+    public uint CustomInkColor { get; set; } = DefaultCustomInk;
 
     /// <summary>Gets or sets a value indicating whether the page tone is applied (Ctrl+I toggles it off for true colours).</summary>
     public bool PageToneEnabled { get; set; } = true;
@@ -132,6 +144,9 @@ public sealed class AppSettings
 
     /// <summary>Gets or sets a value indicating whether tabs are restored on start.</summary>
     public bool RestoreSession { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether documents open with the keyboard text cursor already on the page (caret browsing).</summary>
+    public bool KeepKeyboardCursor { get; set; }
 
     /// <summary>Gets or sets a value indicating whether words typed into form fields are checked for spelling.</summary>
     public bool CheckSpelling { get; set; } = true;

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace HyperPdf.Core.Theming;
@@ -11,6 +12,9 @@ public static class ColorMath
 {
     /// <summary>The mask of the colour bits.</summary>
     internal const uint RgbMask = 0xFFFFFFU;
+
+    /// <summary>The hex digits in a colour.</summary>
+    private const int HexDigits = 6;
 
     /// <summary>The maximum channel value.</summary>
     private const double ChannelMax = 255.0;
@@ -67,6 +71,23 @@ public static class ColorMath
         var b = Luminance(second) + Flare;
         return a > b ? a / b : b / a;
     }
+
+    /// <summary>Reads a colour written as six hex digits, with or without a leading <c>#</c>.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="rgb">The colour as 0xRRGGBB when the text is valid.</param>
+    /// <returns><see langword="true"/> when the text is a colour.</returns>
+    public static bool TryParseHex(ReadOnlySpan<char> text, out uint rgb)
+    {
+        var digits = text.Trim().TrimStart('#');
+        rgb = 0;
+        return digits.Length == HexDigits && uint.TryParse(digits, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out rgb);
+    }
+
+    /// <summary>Writes a colour as six upper-case hex digits.</summary>
+    /// <param name="rgb">The colour as 0xRRGGBB.</param>
+    /// <returns>The digits, such as <c>FFFF00</c>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string ToHex(uint rgb) => (rgb & RgbMask).ToString("X6", CultureInfo.InvariantCulture);
 
     /// <summary>Darkens a colour.</summary>
     /// <param name="rgb">The colour.</param>

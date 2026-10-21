@@ -15,7 +15,8 @@ HyperPDF provides names, descriptions and keyboard access for screen readers on 
 ## Reading pages
 
 - The page area says the page, such as "Page 5 of 40", and gives the page's text as its value.
-- Caret browsing (F7) puts a text cursor on the page, so the arrow keys move through the words.
+- Caret browsing (F7) puts a text cursor on the page, so the arrow keys move through the words. **Keep the keyboard cursor on pages** in Preferences starts every document this way.
+- Read Aloud works from the keyboard without the bar: Ctrl+Shift+V reads the page, Ctrl+Shift+B reads to the end, Ctrl+Shift+C pauses or resumes, Ctrl+Shift+E stops, and Ctrl+Shift+Comma and Ctrl+Shift+Period move a sentence.
 - Focus Mode (Ctrl+4) shows the text as headings, paragraphs and lists. Where the desktop exposes heading levels, use the screen reader's heading commands. On Linux, move through the blocks and listen for the spoken heading level.
 - Read Aloud reads the text in the app's own voice and marks the sentence on the page.
 

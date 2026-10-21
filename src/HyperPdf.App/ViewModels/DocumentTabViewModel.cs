@@ -118,6 +118,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         LayoutMode = services.Settings.DefaultLayoutMode;
         SidebarVisible = services.Settings.ShowSidebar;
         PageTone = services.CurrentTheme.PageTone;
+        IsCaretMode = services.Settings.KeepKeyboardCursor;
         _canGoBack = this.WhenChanged(static vm => vm.CanGoBack);
         _canGoForward = this.WhenChanged(static vm => vm.CanGoForward);
         Notices = new(source);

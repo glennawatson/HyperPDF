@@ -31,6 +31,11 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.OcrLanguages.StopDownloadCommand, static v => v.StopLanguageDownloadButton));
             disposables.Add(this.Bind(ViewModel, static vm => vm.ColorScheme, static v => v.SchemeBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.PageTone, static v => v.PageToneBox.SelectedIndex));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.CustomPaper, static v => v.CustomPaperBox.Text));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.CustomInk, static v => v.CustomInkBox.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UsesCustomPageTone, static v => v.CustomToneRow.IsVisible));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UsesCustomPageTone, static v => v.CustomToneContrastText.IsVisible));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.CustomToneContrast, static v => v.CustomToneContrastText.Text));
             disposables.Add(this.Bind(ViewModel, static vm => vm.OpeningZoom, static v => v.OpeningZoomBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Toolbar, static v => v.ToolbarBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.FileChange, static v => v.FileChangeBox.SelectedIndex));
@@ -93,6 +98,7 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
         add(this.Bind(ViewModel, static vm => vm.FollowPageTransitions, static v => v.FollowPageTransitionsBox.IsChecked));
         add(this.Bind(ViewModel, static vm => vm.FollowPageTimings, static v => v.FollowPageTimingsBox.IsChecked));
         add(this.Bind(ViewModel, static vm => vm.CheckSpelling, static v => v.CheckSpellingBox.IsChecked));
+        add(this.Bind(ViewModel, static vm => vm.KeepKeyboardCursor, static v => v.KeepKeyboardCursorBox.IsChecked));
         add(this.Bind(ViewModel, static vm => vm.ShowPreviewOnlyFonts, static v => v.PreviewOnlyFontsBox.IsChecked));
     }
 

@@ -39,7 +39,7 @@ public static class ThemeResolver
             pageScheme = desktop.IsDark ? ColorSchemes.Dark : ColorSchemes.Light;
         }
 
-        var tone = settings.PageToneEnabled ? GetTone(settings.PageTone, pageScheme) : PageTone.None;
+        var tone = settings.PageToneEnabled ? ChooseTone(settings, pageScheme) : PageTone.None;
         return new(
             scheme,
             tone,
@@ -89,9 +89,20 @@ public static class ThemeResolver
             PageToneChoice.CalmNight => ColorSchemes.CalmNightTone,
             PageToneChoice.Dark => ColorSchemes.DarkTone,
             PageToneChoice.FollowDesktop => scheme.IsDark ? ColorSchemes.DarkTone : PageTone.None,
+            PageToneChoice.YellowOnBlack => ColorSchemes.YellowOnBlackTone,
+            PageToneChoice.GreenOnBlack => ColorSchemes.GreenOnBlackTone,
+            PageToneChoice.WhiteOnBlack => ColorSchemes.HighContrastTone,
             _ => scheme.PageTone,
         };
     }
+
+    /// <summary>Gets the page tone the settings ask for, including the user's own colours.</summary>
+    /// <param name="settings">The settings.</param>
+    /// <param name="scheme">The scheme the page tone follows.</param>
+    /// <returns>The tone.</returns>
+    private static PageTone ChooseTone(AppSettings settings, ColorScheme scheme) => settings.PageTone == PageToneChoice.Custom
+        ? new PageTone(settings.CustomPaperColor & ColorMath.RgbMask, settings.CustomInkColor & ColorMath.RgbMask)
+        : GetTone(settings.PageTone, scheme);
 
     /// <summary>Decides whether motion is reduced.</summary>
     /// <param name="motion">The user preference.</param>
