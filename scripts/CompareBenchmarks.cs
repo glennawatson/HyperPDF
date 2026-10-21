@@ -127,7 +127,7 @@ try
         }
 
         var reports = Directory.GetFiles(Path.Combine(output, run.Name), "*-report.csv", SearchOption.AllDirectories);
-        if (reports.Length == 0 || System.Array.Exists(reports, static file => File.ReadAllText(file).Contains("NA", StringComparison.Ordinal)))
+        if (reports.Length == 0 || System.Array.Exists(reports, static file => HasUnmeasuredBenchmark(file)))
         {
             throw new InvalidOperationException($"{run.Name} produced no valid benchmark measurements.");
         }
@@ -165,6 +165,45 @@ try
 finally
 {
     await ScriptProcess.RunAsync("git", ["worktree", "remove", "--force", baseline], root, CancellationToken.None);
+}
+
+// A benchmark that failed to run has NA as its Mean. The Error column is NA for every single-iteration run, so it is not checked.
+static bool HasUnmeasuredBenchmark(string reportFile)
+{
+    var lines = File.ReadAllLines(reportFile);
+    var mean = lines.Length < 2 ? -1 : System.Array.IndexOf(SplitCsv(lines[0]), "Mean");
+    for (var i = 1; mean >= 0 && i < lines.Length; i++)
+    {
+        var cells = SplitCsv(lines[i]);
+        if (cells.Length <= mean || cells[mean] is "NA" or "")
+        {
+            return true;
+        }
+    }
+
+    return mean < 0;
+}
+
+// Splits one CSV line on commas that are outside double quotes.
+static string[] SplitCsv(string line)
+{
+    var cells = new List<string>();
+    var start = 0;
+    var quoted = false;
+    for (var i = 0; i <= line.Length; i++)
+    {
+        if (i < line.Length && line[i] == '"')
+        {
+            quoted = !quoted;
+        }
+        else if (i == line.Length || (line[i] == ',' && !quoted))
+        {
+            cells.Add(line[start..i].Trim('"'));
+            start = i + 1;
+        }
+    }
+
+    return [.. cells];
 }
 
 static void CopyBenchmarks(string source, string destination)
