@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Automation.Peers;
@@ -291,11 +290,8 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     /// <summary>Gets the links by page, loaded lazily.</summary>
     internal Dictionary<int, IReadOnlyList<PageLink>> Links { get; } = [];
 
-    /// <summary>Gets the selection rectangles by page, computed lazily.</summary>
-    internal Dictionary<int, List<PageRect>> SelectionRects { get; } = [];
-
-    /// <summary>Gets the emptied selection rectangle lists kept for reuse by the next page that needs one.</summary>
-    internal Stack<List<PageRect>> SpareSelectionRects { get; } = [];
+    /// <summary>Gets the text the reader has selected.</summary>
+    internal TextSelection Selection { get; } = new();
 
     /// <summary>Gets the page points of the ink stroke being drawn.</summary>
     internal List<PagePoint> Stroke { get; } = [];
@@ -353,10 +349,18 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     internal bool Selecting { get; set; }
 
     /// <summary>Gets or sets the selection anchor.</summary>
-    internal CharacterPosition SelectionAnchor { get; set; } = new(-1, -1);
+    internal CharacterPosition SelectionAnchor
+    {
+        get => Selection.Anchor;
+        set => Selection.Anchor = value;
+    }
 
     /// <summary>Gets or sets the selection focus.</summary>
-    internal CharacterPosition SelectionFocus { get; set; } = new(-1, -1);
+    internal CharacterPosition SelectionFocus
+    {
+        get => Selection.Focus;
+        set => Selection.Focus = value;
+    }
 
     /// <summary>Gets or sets the caret position.</summary>
     internal CharacterPosition Caret { get; set; } = new(-1, -1);
@@ -484,39 +488,13 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
 
     /// <summary>Gets the selected text.</summary>
     /// <returns>The text, or an empty string.</returns>
-    public string GetSelectedText()
-    {
-        var document = Tab?.TryGetDocument();
-        if (document is null || !this.TryGetSelection(out var start, out var end))
-        {
-            return string.Empty;
-        }
-
-        var builder = new StringBuilder();
-        for (var page = start.Page; page <= end.Page; page++)
-        {
-            var first = page == start.Page ? start.Char : 0;
-            var last = page == end.Page ? end.Char : document.GetCharacterCount(page) - 1;
-            if (last >= first)
-            {
-                _ = builder.Append(document.GetText(page, first, last - first + 1));
-            }
-
-            if (page != end.Page)
-            {
-                _ = builder.AppendLine();
-            }
-        }
-
-        return builder.ToString();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public string GetSelectedText() => Selection.GetText(Tab?.TryGetDocument());
 
     /// <summary>Clears the text selection.</summary>
     public void ClearSelection()
     {
-        SelectionAnchor = new(-1, -1);
-        SelectionFocus = new(-1, -1);
-        SelectionRects.Clear();
+        Selection.Clear();
         InvalidateVisual();
     }
 

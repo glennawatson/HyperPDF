@@ -30,9 +30,6 @@ internal static class PageCanvasCaretMixins
     /// <summary>The hit tolerance for text, in points.</summary>
     private const float TextTolerance = 4F;
 
-    /// <summary>Represents the absence of a character position.</summary>
-    private static readonly CharacterPosition NoCharacter = new(-1, -1);
-
     /// <summary>Adds the caret, text selection, link click, pointer move/release and document key streams and helpers to a page canvas.</summary>
     /// <param name="canvas">The page canvas.</param>
     extension(PageCanvas canvas)
@@ -168,67 +165,20 @@ internal static class PageCanvasCaretMixins
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
         /// <returns><see langword="true"/> when there is a selection.</returns>
-        internal bool TryGetSelection(out CharacterPosition start, out CharacterPosition end)
-        {
-            start = canvas.SelectionAnchor;
-            end = canvas.SelectionFocus;
-            if (start.Page < 0 || end.Page < 0 || start == end)
-            {
-                return false;
-            }
-
-            if (end.Page < start.Page || (end.Page == start.Page && end.Char < start.Char))
-            {
-                (start, end) = (end, start);
-            }
-
-            return true;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool TryGetSelection(out CharacterPosition start, out CharacterPosition end) => canvas.Selection.TryGet(out start, out end);
 
         /// <summary>Gets the selection rectangles on a page, computing them on first use.</summary>
         /// <param name="page">The page.</param>
         /// <returns>The rectangles.</returns>
-        internal List<PageRect> GetSelectionRects(int page)
-        {
-            if (canvas.SelectionRects.TryGetValue(page, out var cached))
-            {
-                return cached;
-            }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal List<PageRect> GetSelectionRects(int page) => canvas.Selection.GetRects(canvas.Tab?.TryGetDocument(), page);
 
-            var rects = canvas.RentSelectionRects();
-            var document = canvas.Tab?.TryGetDocument();
-            if (document is not null && canvas.TryGetSelection(out var start, out var end) && page >= start.Page && page <= end.Page)
-            {
-                var first = page == start.Page ? start.Char : 0;
-                var last = page == end.Page ? end.Char : document.GetCharacterCount(page) - 1;
-                if (last >= first)
-                {
-                    document.GetTextBounds(page, first, last - first + 1, rects);
-                }
-            }
-
-            canvas.SelectionRects[page] = rects;
-            return rects;
-        }
-
-        /// <summary>
-        /// Moves the selection focus. Nothing changes when the focus is already there; otherwise only the pages between the
-        /// old and new focus lose their rectangles, because the pages outside that span keep the same selected range.
-        /// </summary>
+        /// <summary>Moves the selection focus.</summary>
         /// <param name="next">The new focus.</param>
         /// <returns><see langword="true"/> when the focus moved.</returns>
-        internal bool MoveSelectionFocus(CharacterPosition next)
-        {
-            var previous = canvas.SelectionFocus;
-            if (previous == next)
-            {
-                return false;
-            }
-
-            canvas.SelectionFocus = next;
-            canvas.DropSelectionRects(Math.Min(previous.Page, next.Page), Math.Max(previous.Page, next.Page));
-            return true;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool MoveSelectionFocus(CharacterPosition next) => canvas.Selection.MoveFocus(next);
 
         /// <summary>Moves the selection focus to the character under a canvas point and redraws only when the focus changed.</summary>
         /// <param name="position">The canvas point.</param>
@@ -239,27 +189,6 @@ internal static class PageCanvasCaretMixins
                 canvas.InvalidateVisual();
             }
         }
-
-        /// <summary>Forgets the cached selection rectangles on a run of pages, keeping their lists for reuse.</summary>
-        /// <param name="firstPage">The first page.</param>
-        /// <param name="lastPage">The last page.</param>
-        internal void DropSelectionRects(int firstPage, int lastPage)
-        {
-            for (var page = firstPage; page <= lastPage; page++)
-            {
-                if (!canvas.SelectionRects.Remove(page, out var rects))
-                {
-                    continue;
-                }
-
-                rects.Clear();
-                canvas.SpareSelectionRects.Push(rects);
-            }
-        }
-
-        /// <summary>Takes an empty list for a page's selection rectangles, reusing a dropped one when there is one.</summary>
-        /// <returns>The empty list.</returns>
-        internal List<PageRect> RentSelectionRects() => canvas.SpareSelectionRects.Count > 0 ? canvas.SpareSelectionRects.Pop() : [];
 
         /// <summary>Finds the character under a canvas point.</summary>
         /// <param name="position">The canvas point.</param>
@@ -407,8 +336,7 @@ internal static class PageCanvasCaretMixins
                 return;
             }
 
-            canvas.SelectionAnchor = new(page, 0);
-            canvas.SelectionFocus = new(page, count - 1);
+            canvas.Selection.SelectPage(page, count);
             canvas.Caret = new(page, count - 1);
         }
 
@@ -438,22 +366,7 @@ internal static class PageCanvasCaretMixins
         /// <param name="extend">Whether to extend the selection.</param>
         private void MoveCaret(CharacterPosition next, bool extend)
         {
-            if (extend)
-            {
-                if (canvas.SelectionAnchor.Page < 0)
-                {
-                    canvas.SelectionAnchor = canvas.Caret;
-                }
-
-                canvas.SelectionFocus = next;
-            }
-            else
-            {
-                canvas.SelectionAnchor = NoCharacter;
-                canvas.SelectionFocus = NoCharacter;
-            }
-
-            canvas.SelectionRects.Clear();
+            canvas.Selection.MoveCaret(canvas.Caret, next, extend);
             canvas.Caret = next;
             canvas.ScrollCaretIntoView();
             canvas.InvalidateVisual();
@@ -515,8 +428,7 @@ internal static class PageCanvasCaretMixins
             }
 
             var picked = new CharacterPosition(page, character);
-            Canvas.SelectionAnchor = picked;
-            Canvas.SelectionFocus = picked;
+            Canvas.Selection.Begin(picked);
             Canvas.Caret = picked;
             Canvas.Selecting = true;
             Args.Pointer.Capture(Canvas);

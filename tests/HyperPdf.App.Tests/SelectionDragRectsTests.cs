@@ -84,7 +84,7 @@ public sealed class SelectionDragRectsTests
             canvas.SelectionAnchor = start;
             canvas.SelectionFocus = start;
             canvas.Caret = start;
-            canvas.SelectionRects.Clear();
+            canvas.Selection.ForgetRects();
 
             var matches = true;
             foreach (var step in steps)
