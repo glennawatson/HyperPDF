@@ -94,25 +94,10 @@ internal static class PageCanvasEditMixins
                 .Pick(canvas.TryCreateEditEnd);
 
         /// <summary>Determines whether the pointer is over a sticky note or a comment indicator badge, which opens a bubble when clicked.</summary>
-        /// <param name="position">The canvas point.</param>
+        /// <param name="hover">The page and page point under the pointer.</param>
         /// <returns><see langword="true"/> when over a note or comment badge.</returns>
-        internal bool IsOverCommentTrigger(Point position)
-        {
-            if (canvas.Tab is not { } tab)
-            {
-                return false;
-            }
-
-            var page = canvas.Layout.HitTest(position.X, position.Y);
-            if (page < 0)
-            {
-                return false;
-            }
-
-            var point = canvas.ToPage(tab, page, position);
-            return tab.Annotations.HitTestCommentBadge(page, point) is not null
-                || tab.Annotations.HitTest(page, point) is { Kind: AnnotationKind.Note };
-        }
+        internal bool IsOverCommentTrigger(PointerHover hover) =>
+            hover.IsOverPage && canvas.Tab is { } tab && tab.Annotations.IsOverCommentTrigger(hover.Page, hover.Point);
 
         /// <summary>Finds whether a press is on one of the picked annotation's corner handles.</summary>
         /// <param name="tab">The tab.</param>

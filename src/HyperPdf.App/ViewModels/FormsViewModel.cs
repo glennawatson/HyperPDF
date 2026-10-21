@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Windows.Input;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
@@ -35,6 +36,9 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
     /// <summary>Fields read for hit testing, reused.</summary>
     private readonly List<FormField> _scratch = [];
 
+    /// <summary>The fields read for hit testing, by page, valid for <see cref="_cachedVersion"/> of <see cref="_cachedFiller"/>.</summary>
+    private readonly Dictionary<int, FormField[]> _fieldsByPage = [];
+
     /// <summary>The page actions that have not run yet, in the order the pages turned; used on the UI thread only.</summary>
     private readonly Queue<PageTurn> _pendingTurns = [];
 
@@ -49,6 +53,12 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
 
     /// <summary>The fields with a calculation, in page order, read on first use.</summary>
     private List<FieldScripts>? _calculated;
+
+    /// <summary>The filler the kept fields were read from.</summary>
+    private IFormFiller? _cachedFiller;
+
+    /// <summary>The tab content version the kept fields were read at.</summary>
+    private int _cachedVersion = -1;
 
     /// <summary>Initializes a new instance of the <see cref="FormsViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
@@ -118,9 +128,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
             return null;
         }
 
-        _scratch.Clear();
-        filler.GetFields(page, _scratch);
-        foreach (var field in _scratch)
+        foreach (var field in FieldsOn(filler, page))
         {
             if (!field.IsReadOnly && !_scriptReadOnly.Contains(field.Name) && field.Kind != FormFieldKind.Unknown && field.Bounds.Contains(point))
             {
@@ -752,6 +760,34 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
     /// <summary>Redraws every page, after an action changed fields, hid fields or switched layers.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void RefreshAllPages() => LastPageChange = LastPageChange.Next(PageChange.AllPages);
+
+    /// <summary>
+    /// Reads the fields on a page, keeping them until the tab's content version moves on or the filler changes. Every
+    /// field edit, script change, reload and page change moves the content version, so a kept list is never stale.
+    /// </summary>
+    /// <param name="filler">The document's form filler.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>The fields on the page.</returns>
+    private FormField[] FieldsOn(IFormFiller filler, int page)
+    {
+        var version = _owner.ContentVersion;
+        if (!ReferenceEquals(filler, _cachedFiller) || version != _cachedVersion)
+        {
+            _fieldsByPage.Clear();
+            _cachedFiller = filler;
+            _cachedVersion = version;
+        }
+
+        ref var fields = ref CollectionsMarshal.GetValueRefOrAddDefault(_fieldsByPage, page, out _);
+        if (fields is null)
+        {
+            _scratch.Clear();
+            filler.GetFields(page, _scratch);
+            fields = [.. _scratch];
+        }
+
+        return fields;
+    }
 
     /// <summary>Redraws the page of a changed field.</summary>
     /// <param name="field">The field.</param>

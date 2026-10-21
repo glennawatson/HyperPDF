@@ -246,6 +246,35 @@ internal static class PageCanvasCaretMixins
             return character >= 0;
         }
 
+        /// <summary>Determines whether the pointer is over text.</summary>
+        /// <param name="hover">The page and page point under the pointer.</param>
+        /// <returns><see langword="true"/> when over text.</returns>
+        internal bool IsOverText(PointerHover hover) =>
+            hover.IsOverPage && canvas.Tab?.TryGetDocument() is { } document && document.GetCharacterIndexAt(hover.Page, hover.Point, TextTolerance) >= 0;
+
+        /// <summary>Finds the link under the pointer.</summary>
+        /// <param name="hover">The page and page point under the pointer.</param>
+        /// <returns>The link, if any.</returns>
+        internal PageLink? HitTestLink(PointerHover hover)
+        {
+            if (!hover.IsOverPage || canvas.Tab is not { } tab)
+            {
+                return null;
+            }
+
+            ref var links = ref CollectionsMarshal.GetValueRefOrAddDefault(canvas.Links, hover.Page, out _);
+            links ??= tab.TryGetDocument()?.GetLinks(hover.Page) ?? [];
+            foreach (var link in links)
+            {
+                if (link.Bounds.Contains(hover.Point))
+                {
+                    return link;
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>Finds the link under a canvas point.</summary>
         /// <param name="position">The canvas point.</param>
         /// <param name="page">The page.</param>
@@ -565,7 +594,8 @@ internal static class PageCanvasCaretMixins
         internal void Apply()
         {
             var position = Args.GetPosition(Canvas);
-            Canvas.HoverRegion(position);
+            var hover = PointerHover.At(Canvas, position);
+            Canvas.HoverRegion(hover);
             if (Canvas.ContinuePageTool(Args, position) || Canvas.ContinueMeasure(position) || Canvas.ContinueStroke(position))
             {
                 return;
@@ -583,8 +613,8 @@ internal static class PageCanvasCaretMixins
                 return;
             }
 
-            var cursor = Canvas.TryHitTestCharacter(position, out _, out _) ? PageCanvas.TextCursor : Cursor.Default;
-            if (Canvas.HitTestLink(position, out _) is not null || Canvas.IsOverField(position) || Canvas.IsOverCommentTrigger(position))
+            var cursor = Canvas.IsOverText(hover) ? PageCanvas.TextCursor : Cursor.Default;
+            if (Canvas.HitTestLink(hover) is not null || Canvas.IsOverField(hover) || Canvas.IsOverCommentTrigger(hover))
             {
                 cursor = PageCanvas.HandCursor;
             }

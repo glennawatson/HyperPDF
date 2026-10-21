@@ -524,29 +524,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
 
         _scratch.Clear();
         editor.GetAnnotations(page, _scratch);
-
-        // Where annotations overlap the smallest one wins (the topmost on a tie), so a big shape never hides what is inside it.
-        PageAnnotation? best = null;
-        var bestArea = float.MaxValue;
-        for (var i = _scratch.Count - 1; i >= 0; i--)
-        {
-            var candidate = _scratch[i];
-            if (!IsHit(candidate, point))
-            {
-                continue;
-            }
-
-            var area = candidate.Bounds.Width * candidate.Bounds.Height;
-            if (area >= bestArea)
-            {
-                continue;
-            }
-
-            best = candidate;
-            bestArea = area;
-        }
-
-        return best;
+        return FindHit(_scratch, point);
     }
 
     /// <summary>Picks an annotation, or clears the pick.</summary>
@@ -577,6 +555,36 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
         var band = HitTolerance + annotation.LineWidth;
         var inner = PageRect.FromEdges(bounds.Left + band, bounds.Top + band, bounds.Right - band, bounds.Bottom - band);
         return inner.Right <= inner.Left || inner.Bottom <= inner.Top || !inner.Contains(point);
+    }
+
+    /// <summary>Finds the annotation under a point in a page's annotations, topmost first.</summary>
+    /// <param name="annotations">The annotations on the page.</param>
+    /// <param name="point">The point in page space.</param>
+    /// <returns>The annotation, or <see langword="null"/>.</returns>
+    private static PageAnnotation? FindHit(List<PageAnnotation> annotations, PagePoint point)
+    {
+        // Where annotations overlap the smallest one wins (the topmost on a tie), so a big shape never hides what is inside it.
+        PageAnnotation? best = null;
+        var bestArea = float.MaxValue;
+        for (var i = annotations.Count - 1; i >= 0; i--)
+        {
+            var candidate = annotations[i];
+            if (!IsHit(candidate, point))
+            {
+                continue;
+            }
+
+            var area = candidate.Bounds.Width * candidate.Bounds.Height;
+            if (area >= bestArea)
+            {
+                continue;
+            }
+
+            best = candidate;
+            bestArea = area;
+        }
+
+        return best;
     }
 
     /// <summary>Writes a typed mark's text at the size that fills its bounds, as a signature.</summary>
