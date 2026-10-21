@@ -294,6 +294,9 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <summary>Gets the selection rectangles by page, computed lazily.</summary>
     internal Dictionary<int, List<PageRect>> SelectionRects { get; } = [];
 
+    /// <summary>Gets the emptied selection rectangle lists kept for reuse by the next page that needs one.</summary>
+    internal Stack<List<PageRect>> SpareSelectionRects { get; } = [];
+
     /// <summary>Gets the page points of the ink stroke being drawn.</summary>
     internal List<PagePoint> Stroke { get; } = [];
 
