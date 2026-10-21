@@ -42,6 +42,18 @@ public sealed class TilingPatternRenderTests
     /// <summary>The zoom of the high resolution test.</summary>
     private const float Zoom = 4;
 
+    /// <summary>The zoom of the low resolution test.</summary>
+    private const float LowZoom = 0.25F;
+
+    /// <summary>The colour channels compared.</summary>
+    private const int ColorChannels = 3;
+
+    /// <summary>The mean channel difference accepted between a 25% page and the averaged 400% page; a fixed 4x period measured 19.8 and the scaled one 20.4.</summary>
+    private const double LowZoomMeanDifference = 24;
+
+    /// <summary>The mean channel difference accepted between a 100% page and the averaged 400% page.</summary>
+    private const double FullZoomMeanDifference = 12;
+
     /// <summary>The device column, at four times zoom, in the painted half of a two point cell.</summary>
     private const int PaintedColumn = 2;
 
@@ -105,6 +117,36 @@ public sealed class TilingPatternRenderTests
         await RenderCheck.Near(image, EmptyColumn, ZoomedRow, Rgb.White, Tolerance, nameof(SmallCellsStaySharpWhenZoomed));
     }
 
+    /// <summary>A page drawn at 25% zoom matches the 400% page averaged down to the same size, so the lower period resolution loses no visible detail.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LowZoom_MatchesTheHighZoomPageAveragedDown()
+    {
+        const string Entries = "/BBox [0 0 10 10] /XStep 10 /YStep 10";
+        const string Cell = "1 0 0 rg 0 0 3.3 10 re f 0 0 1 rg 3.3 0 3.4 5 re f";
+        var low =RenderPattern(Entries, Cell, LowZoom);
+        var high = RenderPattern(Entries, Cell, Zoom);
+
+        var difference = MeanDifferenceFromAveraged(low, high, (int)(Zoom / LowZoom));
+
+        await Assert.That(difference).IsLessThanOrEqualTo(LowZoomMeanDifference);
+    }
+
+    /// <summary>A page drawn at 100% zoom matches the 400% page averaged down to the same size.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task FullZoom_MatchesTheHighZoomPageAveragedDown()
+    {
+        const string Entries = "/BBox [0 0 10 10] /XStep 10 /YStep 10";
+        const string Cell = "1 0 0 rg 0 0 3.3 10 re f 0 0 1 rg 3.3 0 3.4 5 re f";
+        var full =RenderPattern(Entries, Cell, 1);
+        var high = RenderPattern(Entries, Cell, Zoom);
+
+        var difference = MeanDifferenceFromAveraged(full, high, (int)Zoom);
+
+        await Assert.That(difference).IsLessThanOrEqualTo(FullZoomMeanDifference);
+    }
+
     /// <summary>Negative steps (allowed by ISO 32000-2 8.7.3.2) lay the cells on the same lattice as positive ones.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -165,5 +207,38 @@ public sealed class TilingPatternRenderTests
         pdf.Resources = $"/Pattern << /P1 {pattern} 0 R >>";
         using var page = new RenderTestPage(pdf.ToBytes());
         return page.RenderPage(scale, 0, PdfRenderFlags.None);
+    }
+
+    /// <summary>Gets the mean channel difference between a small render and a larger one averaged down in whole blocks.</summary>
+    /// <param name="small">The smaller render.</param>
+    /// <param name="large">The larger render.</param>
+    /// <param name="block">The pixels of the large render that make one pixel of the small one, along each side.</param>
+    /// <returns>The mean absolute difference over the colour channels.</returns>
+    private static double MeanDifferenceFromAveraged(RenderedImage small, RenderedImage large, int block)
+    {
+        long total = 0;
+        for (var y = 0; y < small.Height; y++)
+        {
+            for (var x = 0; x < small.Width; x++)
+            {
+                for (var channel = 0; channel < ColorChannels; channel++)
+                {
+                    var sum = 0;
+                    for (var by = 0; by < block; by++)
+                    {
+                        for (var bx = 0; bx < block; bx++)
+                        {
+                            var pixel = (((y * block) + by) * large.Width) + (x * block) + bx;
+                            sum += large.Pixels[(pixel * RenderedImage.BytesPerPixel) + channel];
+                        }
+                    }
+
+                    var expected = small.Pixels[(((y * small.Width) + x) * RenderedImage.BytesPerPixel) + channel];
+                    total += Math.Abs((sum / (block * block)) - expected);
+                }
+            }
+        }
+
+        return (double)total / (small.Width * small.Height * ColorChannels);
     }
 }

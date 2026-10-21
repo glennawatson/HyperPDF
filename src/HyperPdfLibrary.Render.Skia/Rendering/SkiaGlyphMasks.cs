@@ -26,6 +26,12 @@ internal sealed class SkiaGlyphMasks
     /// <summary>The memory the masks hold.</summary>
     private long _bytes;
 
+    /// <summary>How many times the cache has started again.</summary>
+    private int _generation;
+
+    /// <summary>Gets how many times the cache has started again, so a device memo can tell when its masks are no longer the cache's.</summary>
+    internal int Generation => Volatile.Read(ref _generation);
+
     /// <summary>Gets the number of masks held.</summary>
     internal int Count
     {
@@ -80,6 +86,7 @@ internal sealed class SkiaGlyphMasks
                 // Images are not disposed here: a picture being recorded may still be about to draw one it just found.
                 _masks.Clear();
                 _bytes = 0;
+                _ = Interlocked.Increment(ref _generation);
             }
 
             _masks.Add(key, mask);

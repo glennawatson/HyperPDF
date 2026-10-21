@@ -20,6 +20,9 @@ internal sealed class GlyphMaskPainter : IDisposable
     /// <summary>The masks every device of the backend shares.</summary>
     private readonly SkiaGlyphMasks _masks;
 
+    /// <summary>The masks this device has used, checked before the shared lock.</summary>
+    private readonly GlyphMaskMemo _memo = new();
+
     /// <summary>The canvas whose matrix was last set by this painter.</summary>
     private SKCanvas? _matrixCanvas;
 
@@ -118,7 +121,7 @@ internal sealed class GlyphMaskPainter : IDisposable
     private bool FindOrMake<TSource>(in GlyphMaskGlyph<TSource> glyph, in GlyphMaskKey key, out GlyphMask? mask)
         where TSource : struct, IGlyphMaskSource
     {
-        if (_masks.TryGet(key, out mask))
+        if (_memo.TryGet(_masks, key, out mask))
         {
             return true;
         }
@@ -129,7 +132,7 @@ internal sealed class GlyphMaskPainter : IDisposable
             return false;
         }
 
-        mask = created is null ? null : _masks.Add(key, created);
+        mask = created is null ? null : _memo.Add(_masks, key, created);
         return true;
     }
 
