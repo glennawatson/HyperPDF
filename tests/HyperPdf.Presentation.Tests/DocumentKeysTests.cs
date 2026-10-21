@@ -4,9 +4,10 @@
 
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
+using HyperPdf.ViewModels.Tests;
 using HyperPdf.ViewModels.Viewing;
 
-namespace HyperPdf.ViewModels.Tests;
+namespace HyperPdf.Presentation.Tests;
 
 /// <summary>Checks what each key does in the document view, with no toolkit to press them.</summary>
 public sealed class DocumentKeysTests

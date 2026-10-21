@@ -5,7 +5,7 @@
 using System.Diagnostics;
 using HyperPdf.Core.Forms;
 
-namespace HyperPdf.ViewModels.Viewing;
+namespace HyperPdf.Presentation.Input;
 
 /// <summary>What a key did to the form fields, and the field whose choices to show.</summary>
 /// <param name="Outcome">What the key did.</param>

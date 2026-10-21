@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace HyperPdf.ViewModels.Viewing;
+namespace HyperPdf.Presentation.Input;
 
 /// <summary>What a left pointer press does while a drawing tool, a mark being placed or a form is in play.</summary>
 public enum DrawingPressKind

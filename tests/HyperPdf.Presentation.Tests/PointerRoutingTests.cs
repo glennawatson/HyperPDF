@@ -2,9 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.ViewModels.Tests;
 using HyperPdf.ViewModels.Viewing;
 
-namespace HyperPdf.ViewModels.Tests;
+namespace HyperPdf.Presentation.Tests;
 
 /// <summary>Checks what pointer presses and hovers mean in the document view, with no toolkit to press them.</summary>
 public sealed class PointerRoutingTests

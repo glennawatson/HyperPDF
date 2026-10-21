@@ -5,7 +5,7 @@
 using System.Diagnostics;
 using HyperPdf.Core.Annotations;
 
-namespace HyperPdf.ViewModels.Viewing;
+namespace HyperPdf.Presentation.Input;
 
 /// <summary>A move on screen, in points, so arrow keys follow the screen on a rotated page.</summary>
 /// <param name="X">The move to the right.</param>

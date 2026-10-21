@@ -34,7 +34,7 @@ namespace HyperPdf.App.Controls;
 /// away is dropped by the scheduler before it reaches the renderer.
 /// </summary>
 [DebuggerDisplay("PageCanvas: {Tab}")]
-public sealed class PageCanvas : Control, IActivatableView
+public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
 {
     /// <summary>Defines the <see cref="Tab"/> property.</summary>
     public static readonly StyledProperty<DocumentTabViewModel?> TabProperty = AvaloniaProperty.Register<PageCanvas, DocumentTabViewModel?>(nameof(Tab));
@@ -103,8 +103,8 @@ public sealed class PageCanvas : Control, IActivatableView
     private const double ShadowOffset = 2;
 
     /// <summary>Defines the <see cref="WheelZoom"/> property.</summary>
-    private static readonly DirectProperty<PageCanvas, PageCanvasZoomMixins.WheelZoomEase> WheelZoomProperty =
-        AvaloniaProperty.RegisterDirect<PageCanvas, PageCanvasZoomMixins.WheelZoomEase>(nameof(WheelZoom), static canvas => canvas.WheelZoom);
+    private static readonly DirectProperty<PageCanvas, WheelZoomEase> WheelZoomProperty =
+        AvaloniaProperty.RegisterDirect<PageCanvas, WheelZoomEase>(nameof(WheelZoom), static canvas => canvas.WheelZoom);
 
     /// <summary>Defines the <see cref="Transition"/> property.</summary>
     private static readonly DirectProperty<PageCanvas, PageCanvasTransitionMixins.TransitionRun> TransitionProperty =
@@ -120,20 +120,8 @@ public sealed class PageCanvas : Control, IActivatableView
     /// </summary>
     private static readonly RenderOptions PageRenderOptions = new() { BitmapInterpolationMode = BitmapInterpolationMode.MediumQuality, EdgeMode = EdgeMode.Aliased };
 
-    /// <summary>The page measurements the fit zoom comes from, kept so a resize does not walk every page.</summary>
-    private readonly PageFitExtentsCache _fitExtents = new();
-
     /// <summary>Queues each page's GPU tiles so they reach the scene as one operation.</summary>
     private readonly TileDrawBatch _tiles = new();
-
-    /// <summary>The current layout.</summary>
-    private DocumentLayout _layout = DocumentLayout.Empty;
-
-    /// <summary>The page sizes the layout was built from.</summary>
-    private PageSize[] _sizes = [];
-
-    /// <summary>The page sizes <see cref="_layout"/> was computed from, or <see langword="null"/> when it must be computed again.</summary>
-    private PageSize[]? _layoutSizes;
 
     /// <summary>The hosting scroll viewer.</summary>
     private ScrollViewer? _scroller;
@@ -143,9 +131,6 @@ public sealed class PageCanvas : Control, IActivatableView
 
     /// <summary>The tile scale of the last frame whose visible pages were all sharp, drawn while newer tiles render.</summary>
     private float _fallbackScale;
-
-    /// <summary>The scale pages were last drawn at, which neighbouring pages are prepared for.</summary>
-    private float _neighbourScale = 1;
 
     /// <summary>Whether every visible page in the frame being drawn had its sharp tiles.</summary>
     private bool _frameComplete;
@@ -186,15 +171,6 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <summary>The render requests made so far in this frame.</summary>
     private int _requestsThisFrame;
 
-    /// <summary>What the last position report was made from.</summary>
-    private ReportedView _reported;
-
-    /// <summary>The document the middle page was last handed to the neighbour preparer for.</summary>
-    private IDocument? _visitedDocument;
-
-    /// <summary>The middle page last handed to the neighbour preparer.</summary>
-    private int _visitedPage = -1;
-
     /// <summary>Whether the reader last scrolled towards the end of the document, so previews are made further ahead on that side.</summary>
     private bool _scrollingDown = true;
 
@@ -227,8 +203,8 @@ public sealed class PageCanvas : Control, IActivatableView
 
             disposables.Add(tabs.SubscribeSafe(ShowTab, ErrorTrace.Write));
             disposables.Add(tabs.Follow(static tab => tab.CanvasRedraws).SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
-            disposables.Add(tabs.Follow(static tab => tab.LayoutSettingsChanges).SubscribeSafe(_ => RelayoutForSettings(), ErrorTrace.Write));
-            disposables.Add(tabs.Follow(static tab => tab.Destinations).SubscribeSafe(ScrollTo, ErrorTrace.Write));
+            disposables.Add(tabs.Follow(static tab => tab.LayoutSettingsChanges).SubscribeSafe(_ => State.RelayoutForSettings(), ErrorTrace.Write));
+            disposables.Add(tabs.Follow(static tab => tab.Destinations).SubscribeSafe(State.ScrollTo, ErrorTrace.Write));
             disposables.Add(tabs.Follow(static tab => tab.PageReads).SubscribeSafe(_ => ReadPagesAgain(), ErrorTrace.Write));
             disposables.Add(tabs.Follow(static tab => tab.SelectionUses).SubscribeSafe(_ => ClearSelection(), ErrorTrace.Write));
             disposables.Add(tabs.Follow(static tab => tab.CaretModeStarts).Do(this.StartCaret).SelectWith(this, static (canvas, _) => canvas).TakeFocus());
@@ -304,7 +280,10 @@ public sealed class PageCanvas : Control, IActivatableView
     }
 
     /// <summary>Gets the canvas units per point at the current zoom, for sizing an editor placed on a page.</summary>
-    public double PageScale => _layout.Options.Scale;
+    public double PageScale => State.PageScale;
+
+    /// <summary>Gets what the canvas knows about the pages it shows, which any toolkit's canvas keeps the same way.</summary>
+    internal PageCanvasState State => field ??= new(this);
 
     /// <summary>Gets the command that copies the selected text from the context menu.</summary>
     internal ICommand CopyCommand { get; }
@@ -346,10 +325,10 @@ public sealed class PageCanvas : Control, IActivatableView
     internal int SnapshotsFinished => Snapshotter.SnapshotsFinished;
 
     /// <summary>Gets the current layout.</summary>
-    internal DocumentLayout Layout => _layout;
+    internal DocumentLayout Layout => State.Layout;
 
     /// <summary>Gets the page sizes the layout was built from.</summary>
-    internal PageSize[] Sizes => _sizes;
+    internal PageSize[] Sizes => State.Sizes;
 
     /// <summary>Gets the hosting scroll viewer.</summary>
     internal ScrollViewer? Scroller => _scroller;
@@ -358,7 +337,11 @@ public sealed class PageCanvas : Control, IActivatableView
     internal IPen? CurrentHitPen => _currentHitPen;
 
     /// <summary>Gets or sets a position to restore once the layout has been measured.</summary>
-    internal Action? PendingScroll { get; set; }
+    internal Action? PendingScroll
+    {
+        get => State.PendingScroll;
+        set => State.PendingScroll = value;
+    }
 
     /// <summary>Gets or sets the pointer position where a press started.</summary>
     internal Point PressPoint { get; set; }
@@ -379,10 +362,10 @@ public sealed class PageCanvas : Control, IActivatableView
     internal CharacterPosition Caret { get; set; } = new(-1, -1);
 
     /// <summary>Gets or sets the wheel zoom easing now, or the last one once it has settled.</summary>
-    internal PageCanvasZoomMixins.WheelZoomEase WheelZoom
+    internal WheelZoomEase WheelZoom
     {
-        get;
-        set => SetAndRaise(WheelZoomProperty, ref field, value);
+        get => State.WheelZoom;
+        set => State.WheelZoom = value;
     }
 
     /// <summary>Gets or sets the page transition playing now, or the last one once it has ended.</summary>
@@ -396,16 +379,28 @@ public sealed class PageCanvas : Control, IActivatableView
     internal IBrush? CurtainBrush => _scroller?.Background;
 
     /// <summary>Gets a value indicating whether a wheel zoom is easing, so tiles at passing scales are not requested.</summary>
-    internal bool IsZoomEasing => WheelZoom.IsRunning;
+    internal bool IsZoomEasing => State.IsZoomEasing;
 
     /// <summary>Gets or sets a value indicating whether the canvas is moving its own scroll offset to hold a zoom anchor.</summary>
-    internal bool Anchoring { get; set; }
+    internal bool Anchoring
+    {
+        get => State.Anchoring;
+        set => State.Anchoring = value;
+    }
 
     /// <summary>Gets or sets the zoom when the current pinch started, or 0 when there is no pinch.</summary>
-    internal double PinchStartZoom { get; set; }
+    internal double PinchStartZoom
+    {
+        get => State.PinchStartZoom;
+        set => State.PinchStartZoom = value;
+    }
 
     /// <summary>Gets or sets the page a navigation asked for, until the next position report; -1 when none.</summary>
-    internal int RequestedPage { get; set; } = -1;
+    internal int RequestedPage
+    {
+        get => State.RequestedPage;
+        set => State.RequestedPage = value;
+    }
 
     /// <summary>Gets or sets when the last auto-scroll frame ran.</summary>
     internal long AutoScrollLast { get; set; }
@@ -474,10 +469,11 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <param name="page">The page.</param>
     /// <param name="bounds">The rectangle in page points.</param>
     /// <returns>The rectangle on the canvas.</returns>
-    public Rect GetCanvasRect(int page, PageRect bounds) =>
-        Tab is not { } tab || (uint)page >= (uint)_sizes.Length
-            ? default
-            : new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale).ToCanvas(bounds);
+    public Rect GetCanvasRect(int page, PageRect bounds)
+    {
+        var rect = State.GetCanvasRect(page, bounds);
+        return new(rect.X, rect.Y, rect.Width, rect.Height);
+    }
 
     /// <summary>Gets the selected text.</summary>
     /// <returns>The text, or an empty string.</returns>
@@ -523,7 +519,7 @@ public sealed class PageCanvas : Control, IActivatableView
         ArgumentNullException.ThrowIfNull(context);
         var tab = Tab;
         var document = tab?.TryGetDocument();
-        if (tab is null || document is null || _scroller is null || _layout.PageCount == 0)
+        if (tab is null || document is null || _scroller is null || State.Layout.PageCount == 0)
         {
             return;
         }
@@ -568,16 +564,17 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <param name="last">The last page, or -1 when none.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void GetPagesBetween(double left, double right, double top, double bottom, out int first, out int last) =>
-        _layout.GetVisiblePages(left, right, top, bottom, out first, out last);
+        State.GetPagesBetween(left, right, top, bottom, out first, out last);
 
     /// <summary>Converts a point on a page to canvas coordinates.</summary>
     /// <param name="page">The page.</param>
     /// <param name="point">The point in page space.</param>
     /// <returns>The point on the canvas.</returns>
-    internal Point PageToCanvas(int page, PagePoint point) =>
-        Tab is { } tab && (uint)page < (uint)_sizes.Length
-            ? new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale).ToCanvas(point)
-            : default;
+    internal Point PageToCanvas(int page, PagePoint point)
+    {
+        var canvas = State.ToCanvas(page, point);
+        return new(canvas.X, canvas.Y);
+    }
 
     /// <summary>Converts a canvas point on a known page to page coordinates.</summary>
     /// <param name="tab">The tab.</param>
@@ -585,8 +582,7 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <param name="position">The canvas position.</param>
     /// <returns>The point in page space.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal PagePoint ToPage(DocumentTabViewModel tab, int page, Point position) =>
-        new PageTransform(_layout.GetPageBounds(page), _sizes[page], tab.Rotation, _layout.Options.Scale).ToPage(position);
+    internal PagePoint ToPage(DocumentTabViewModel tab, int page, Point position) => State.ToPage(tab, page, new(position.X, position.Y));
 
     /// <summary>Gets where a page is laid out on the canvas and how its points map there.</summary>
     /// <param name="page">The page.</param>
@@ -595,64 +591,83 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <returns><see langword="true"/> when the page is laid out.</returns>
     internal bool TryGetPageTransform(int page, out PageTransform transform, out Rect bounds)
     {
-        if (Tab is not { } tab || (uint)page >= (uint)_sizes.Length || page >= _layout.PageCount)
+        if (!State.TryGetPageTransform(page, out transform))
         {
-            transform = default;
             bounds = default;
             return false;
         }
 
-        var layout = _layout.GetPageBounds(page);
-        transform = new(layout, _sizes[page], tab.Rotation, _layout.Options.Scale);
-        bounds = new(layout.X, layout.Y, layout.Width, layout.Height);
+        bounds = new(transform.Bounds.X, transform.Bounds.Y, transform.Bounds.Width, transform.Bounds.Height);
         return true;
     }
 
     /// <summary>Reports the current position to the tab.</summary>
-    internal void ReportPosition()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ReportPosition() => State.ReportPosition();
+
+    /// <inheritdoc/>
+    bool ICanvasHost.HasScroller => _scroller is not null;
+
+    /// <inheritdoc/>
+    bool ICanvasHost.IsInWindow => TopLevel.GetTopLevel(this) is not null;
+
+    /// <inheritdoc/>
+    CanvasPoint ICanvasHost.ScrollOffset
     {
-        if (_scroller is null || Tab is not { } tab || _layout.PageCount == 0)
+        get => _scroller is { } scroller ? new(scroller.Offset.X, scroller.Offset.Y) : default;
+        set
         {
-            return;
+            if (_scroller is { } scroller)
+            {
+                scroller.Offset = new(value.X, value.Y);
+            }
         }
+    }
 
-        // The wheel-zoom ease reports once from the offset change and again when the anchor is set; the same view gives the same report.
-        var view = CaptureView(tab, _scroller);
-        if (view == _reported)
+    /// <inheritdoc/>
+    CanvasSize ICanvasHost.ViewportSize => _scroller is { } scroller ? new(scroller.Viewport.Width, scroller.Viewport.Height) : default;
+
+    /// <inheritdoc/>
+    CanvasSize ICanvasHost.ExtentSize => _scroller is { } scroller ? new(scroller.Extent.Width, scroller.Extent.Height) : default;
+
+    /// <inheritdoc/>
+    CanvasSize ICanvasHost.ScrollerSize => _scroller is { } scroller ? new(scroller.Bounds.Width, scroller.Bounds.Height) : default;
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ICanvasHost.InvalidateMeasure() => InvalidateMeasure();
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ICanvasHost.InvalidateVisual() => InvalidateVisual();
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ICanvasHost.UpdateLayout() => _scroller?.UpdateLayout();
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ICanvasHost.PageScaleChanged(double before, double after) => RaisePropertyChanged(PageScaleProperty, before, after);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ICanvasHost.WheelZoomChanged(WheelZoomEase before, WheelZoomEase after) => RaisePropertyChanged(WheelZoomProperty, before, after);
+
+    /// <inheritdoc/>
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == TabProperty)
         {
-            return;
+            State.Tab = Tab;
         }
-
-        _reported = view;
-        var top = _scroller.Offset.Y + ContentMargin;
-        this.GetCurrentPages(
-            tab,
-            new(_scroller.Offset.X + ContentMargin, top),
-            new(
-                _scroller.Offset.X + (_layout.Options.Scroll == ScrollMode.Horizontal ? ContentMargin : _scroller.Viewport.Width * Half),
-                _scroller.Offset.Y + (_scroller.Viewport.Height * Half)),
-            out var topPage,
-            out var middlePage);
-        var bounds = _layout.GetPageBounds(topPage);
-        var fraction = bounds.Height > 0 ? Math.Clamp((top - bounds.Y) / bounds.Height, 0, 1) : 0;
-        tab.ReportPosition(new(topPage, fraction), middlePage);
-
-        // Visit does nothing for a page it already has, so the preparer's lock is only taken on a change.
-        if (tab.TryGetDocument() is not { } document || (ReferenceEquals(document, _visitedDocument) && middlePage == _visitedPage))
-        {
-            return;
-        }
-
-        _visitedDocument = document;
-        _visitedPage = middlePage;
-        tab.RenderHub.Preparer.Visit(document, middlePage, _neighbourScale, tab.Rotation, RenderFlags.Annotations);
     }
 
     /// <inheritdoc/>
     protected override AutomationPeer OnCreateAutomationPeer() => new PageCanvasAutomationPeer(this);
 
     /// <inheritdoc/>
-    protected override Size MeasureOverride(Size availableSize) => new(_layout.ExtentWidth, _layout.ExtentHeight);
+    protected override Size MeasureOverride(Size availableSize) => new(State.Layout.ExtentWidth, State.Layout.ExtentHeight);
 
     /// <summary>Wires the scroll viewer's offset, viewport, extent and Ctrl+wheel streams to the canvas.</summary>
     /// <param name="scroller">The hosting scroll viewer.</param>
@@ -663,8 +678,8 @@ public sealed class PageCanvas : Control, IActivatableView
         var offsets = scroller.WhenChanged(static x => x.Offset).Skip(1);
         register(offsets.SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
         register(offsets.WhereWith(this, static (canvas, _) => canvas.PendingScroll is null).SubscribeSafe(_ => ReportPosition(), ErrorTrace.Write));
-        register(scroller.ViewportSizes.SubscribeSafe(_ => RelayoutInPlace(), ErrorTrace.Write));
-        register(scroller.PendingScrollReady(this).SubscribeSafe(_ => ApplyPendingScroll(), ErrorTrace.Write));
+        register(scroller.ViewportSizes.SubscribeSafe(_ => State.RelayoutInPlace(), ErrorTrace.Write));
+        register(scroller.PendingScrollReady(this).SubscribeSafe(_ => State.ApplyPendingScroll(), ErrorTrace.Write));
         register(scroller.CtrlWheelZooms(this, tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
     }
 
@@ -678,7 +693,7 @@ public sealed class PageCanvas : Control, IActivatableView
     {
         if (ReferenceEquals(_renderTab, tab) && ReferenceEquals(_renderDocument, document)
             && _renderViewport.Equals(viewport) && Math.Abs(_renderScaling - scaling) < RenderScaleTolerance
-            && _renderLayout == _layout.Options && _renderRotation == tab.Rotation && _renderToneId == tab.PageTone.Id)
+            && _renderLayout == State.Layout.Options && _renderRotation == tab.Rotation && _renderToneId == tab.PageTone.Id)
         {
             return tab.CanvasClient.Generation;
         }
@@ -687,7 +702,7 @@ public sealed class PageCanvas : Control, IActivatableView
         _renderDocument = document;
         _renderViewport = viewport;
         _renderScaling = scaling;
-        _renderLayout = _layout.Options;
+        _renderLayout = State.Layout.Options;
         _renderRotation = tab.Rotation;
         _renderToneId = tab.PageTone.Id;
         return tab.CanvasClient.Advance();
@@ -765,7 +780,7 @@ public sealed class PageCanvas : Control, IActivatableView
         var viewport = frame.Viewport;
         var prefetch = viewport.Height * PrefetchViewports;
         var sidePrefetch = viewport.Width * PrefetchViewports;
-        _layout.GetVisiblePages(viewport.Left - sidePrefetch, viewport.Right + sidePrefetch, viewport.Top - prefetch, viewport.Bottom + prefetch, out var first, out var last);
+        State.Layout.GetVisiblePages(viewport.Left - sidePrefetch, viewport.Right + sidePrefetch, viewport.Top - prefetch, viewport.Bottom + prefetch, out var first, out var last);
         _frameComplete = true;
         _requestsThisFrame = 0;
         UpdateScrollDirection(viewport.Top);
@@ -795,7 +810,7 @@ public sealed class PageCanvas : Control, IActivatableView
 
         _lastPrefetch = stamp;
         _lastPrefetchSettled = _requestsThisFrame == 0;
-        _neighbourScale = GetTileScale(frame.RenderScaling);
+        State.NeighbourScale = GetTileScale(frame.RenderScaling);
         if (_frameComplete && !IsZoomEasing)
         {
             _fallbackScale = GetTileScale(frame.RenderScaling);
@@ -849,20 +864,13 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <returns><see langword="true"/> when prefetching is held back.</returns>
     private bool IsPrefetchHeld() => IsZoomEasing || _skipPrefetch;
 
-    /// <summary>Captures what a position report is made from.</summary>
-    /// <param name="tab">The tab.</param>
-    /// <param name="scroller">The scroll viewer.</param>
-    /// <returns>The view.</returns>
-    private ReportedView CaptureView(DocumentTabViewModel tab, ScrollViewer scroller) =>
-        new(tab, new(scroller.Offset.X, scroller.Offset.Y, scroller.Viewport.Width, scroller.Viewport.Height), _layout.Options, _layout.PageCount, _layout.ExtentWidth, _layout.ExtentHeight);
-
     /// <summary>Marks a page's preview as recently used, or requests it at the lowest page priority when it is missing.</summary>
     /// <param name="frame">The frame.</param>
     /// <param name="page">The page, which may be outside the document.</param>
     private void RequestDistantPreview(in FrameContext frame, int page)
     {
         var tab = frame.Tab;
-        if ((uint)page >= (uint)_layout.PageCount)
+        if ((uint)page >= (uint)State.Layout.PageCount)
         {
             return;
         }
@@ -886,7 +894,7 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <param name="page">The page.</param>
     private void DrawPage(DrawingContext context, in FrameContext frame, int page)
     {
-        var bounds = _layout.GetPageBounds(page);
+        var bounds = State.Layout.GetPageBounds(page);
         var rect = new Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
         var visible = rect.Intersects(frame.Viewport);
         if (visible)
@@ -925,7 +933,7 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <summary>Gets the device pixels per point that tiles are rendered at.</summary>
     /// <param name="scaling">The device pixels per canvas unit.</param>
     /// <returns>The tile scale.</returns>
-    private float GetTileScale(double scaling) => (float)Math.Min(_layout.Options.Scale * scaling, TileGrid.MaxScale);
+    private float GetTileScale(double scaling) => (float)Math.Min(State.Layout.Options.Scale * scaling, TileGrid.MaxScale);
 
     /// <summary>Finds the full resolution tiles of a page that intersect the viewport, or its prefetch area when off screen.</summary>
     /// <param name="frame">The frame.</param>
@@ -939,7 +947,7 @@ public sealed class PageCanvas : Control, IActivatableView
     {
         var scaling = frame.RenderScaling;
         var scale = GetTileScale(scaling);
-        TileGrid.GetPagePixelSize(_sizes[page], frame.Tab.Rotation, scale, out var pixelWidth, out var pixelHeight);
+        TileGrid.GetPagePixelSize(State.Sizes[page], frame.Tab.Rotation, scale, out var pixelWidth, out var pixelHeight);
         var area = visible ? frame.Viewport : frame.Viewport.Inflate(new Thickness(0, frame.Viewport.Height * PrefetchViewports));
         var region = area.Intersect(rect);
 
@@ -1025,7 +1033,7 @@ public sealed class PageCanvas : Control, IActivatableView
         }
 
         var tab = frame.Tab;
-        TileGrid.GetPagePixelSize(_sizes[page], tab.Rotation, scale, out var pixelWidth, out var pixelHeight);
+        TileGrid.GetPagePixelSize(State.Sizes[page], tab.Rotation, scale, out var pixelWidth, out var pixelHeight);
         var region = frame.Viewport.Intersect(rect);
         if (pixelWidth <= TileGrid.PreviewWidth || region.Width <= 0 || region.Height <= 0)
         {
@@ -1068,7 +1076,7 @@ public sealed class PageCanvas : Control, IActivatableView
             return;
         }
 
-        var transform = new PageTransform(bounds, _sizes[page], tab.Rotation, _layout.Options.Scale);
+        var transform = new PageTransform(bounds, State.Sizes[page], tab.Rotation, State.Layout.Options.Scale);
         foreach (var rect in this.GetSelectionRects(page))
         {
             context.FillRectangle(selection, transform.ToCanvas(rect));
@@ -1113,144 +1121,13 @@ public sealed class PageCanvas : Control, IActivatableView
         ClearSelection();
         if (tab is null)
         {
-            _layout = DocumentLayout.Empty;
+            State.UseLayout(DocumentLayout.Empty, null);
             return;
         }
 
         var position = tab.Position;
-        RebuildLayout();
-        ScrollToPosition(position);
-    }
-
-    /// <summary>Recomputes the layout from the tab's settings and the viewport.</summary>
-    private void RebuildLayout()
-    {
-        var scaleBefore = PageScale;
-        var tab = Tab;
-        _sizes = tab?.Source.PageSizes ?? [];
-        if (tab is null || _sizes.Length == 0 || _scroller is null)
-        {
-            _layout = DocumentLayout.Empty;
-            InvalidateMeasure();
-            return;
-        }
-
-        var viewport = _scroller.Bounds.Size;
-        var zoom = tab.Zoom;
-        if (tab.ZoomMode != ZoomMode.Free)
-        {
-            zoom = ZoomCalculator.GetFitZoom(
-                _fitExtents.Get(_sizes, tab.Rotation, tab.LayoutMode),
-                new(tab.Rotation, tab.LayoutMode, tab.ZoomMode, viewport.Width, viewport.Height, PageSpacing, ContentMargin));
-            tab.ReportZoom(zoom);
-        }
-
-        var options = new LayoutOptions(tab.Rotation, tab.LayoutMode, zoom * ZoomCalculator.PixelsPerPoint, PageSpacing, ContentMargin, viewport.Width)
-        {
-            PageByPage = tab.IsPageByPage,
-            ViewportHeight = viewport.Height,
-            RightToLeft = tab.RightToLeft,
-            Scroll = tab.ScrollMode,
-        };
-
-        // A resize that changes nothing the layout depends on (a height change outside page by page) keeps the layout as it is.
-        if (ReferenceEquals(_layoutSizes, _sizes) && _layout.Matches(options))
-        {
-            InvalidateVisual();
-            return;
-        }
-
-        _layout = DocumentLayout.Create(_sizes, options, _layout);
-        _layoutSizes = _sizes;
-        InvalidateMeasure();
-        InvalidateVisual();
-        RaisePropertyChanged(PageScaleProperty, scaleBefore, PageScale);
-    }
-
-    /// <summary>Scrolls to a remembered position once laid out.</summary>
-    /// <param name="position">The position.</param>
-    private void ScrollToPosition(DocumentPosition position) =>
-        PendingScroll = () =>
-        {
-            if (_scroller is null || position.PageIndex < 0 || position.PageIndex >= _layout.PageCount)
-            {
-                return;
-            }
-
-            _scroller.Offset = this.GetPageScrollOffset(position.PageIndex, position.OffsetFraction, _scroller.Offset);
-        };
-
-    /// <summary>Applies a pending scroll once the scroll viewer's extent matches the layout.</summary>
-    private void ApplyPendingScroll()
-    {
-        if (PendingScroll is null || _scroller is null || Math.Abs(_scroller.Extent.Height - _layout.ExtentHeight) > 1
-            || (_layout.Options.Scroll == ScrollMode.Horizontal && Math.Abs(_scroller.Extent.Width - _layout.ExtentWidth) > 1))
-        {
-            return;
-        }
-
-        var scroll = PendingScroll;
-        PendingScroll = null;
-        scroll();
-        ReportPosition();
-    }
-
-    /// <summary>Lays the pages out again for a new viewport size, keeping the reader's place.</summary>
-    private void RelayoutInPlace()
-    {
-        if (Tab is not { } tab)
-        {
-            return;
-        }
-
-        var position = tab.Position;
-        RebuildLayout();
-        ScrollToPosition(position);
-    }
-
-    /// <summary>Lays the pages out again for a new zoom, arrangement or rotation, keeping the reader's place unless a zoom holds its own anchor.</summary>
-    private void RelayoutForSettings()
-    {
-        if (Tab is not { } tab)
-        {
-            return;
-        }
-
-        var position = tab.Position;
-        var hasAnchor = Anchoring || PendingScroll is not null;
-        RebuildLayout();
-        if (!hasAnchor)
-        {
-            ScrollToPosition(position);
-        }
-    }
-
-    /// <summary>Scrolls to a place the reader asked to go.</summary>
-    /// <param name="request">The place.</param>
-    private void ScrollTo(NavigationRequest request)
-    {
-        if (_scroller is null || Tab is not { } tab || request.PageIndex < 0 || request.PageIndex >= _layout.PageCount)
-        {
-            return;
-        }
-
-        var bounds = _layout.GetPageBounds(request.PageIndex);
-        RequestedPage = request.PageIndex;
-        if (request.Target is { } target)
-        {
-            var transform = new PageTransform(bounds, _sizes[request.PageIndex], tab.Rotation, _layout.Options.Scale);
-            var area = transform.ToCanvas(target);
-            var x = area.Width > 0 && (area.X < _scroller.Offset.X || area.Right > _scroller.Offset.X + _scroller.Viewport.Width)
-                ? area.X - TargetPadding
-                : _scroller.Offset.X;
-            _scroller.Offset = new(x, this.ClampToSlot(request.PageIndex, area.Y - (_scroller.Viewport.Height * TargetViewportFraction)));
-        }
-        else
-        {
-            _scroller.Offset = this.GetPageScrollOffset(request.PageIndex, request.OffsetFraction, _scroller.Offset);
-        }
-
-        ReportPosition();
+        State.RebuildLayout();
+        State.ScrollToPosition(position);
     }
 
     /// <summary>Lays the pages out again after the document loads, reloads or its pages change, keeping the reader's place.</summary>
@@ -1258,10 +1135,6 @@ public sealed class PageCanvas : Control, IActivatableView
     {
         Links.Clear();
         ClearSelection();
-        var position = Tab?.Position ?? default;
-        _layoutSizes = null;
-        _fitExtents.Invalidate();
-        RebuildLayout();
-        ScrollToPosition(position);
+        State.RelayoutAfterPagesChange();
     }
 }

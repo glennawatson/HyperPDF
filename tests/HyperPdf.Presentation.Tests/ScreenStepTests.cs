@@ -2,12 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdf.Core.Annotations;
-using HyperPdf.ViewModels.Viewing;
+namespace HyperPdf.Presentation.Tests;
 
-namespace HyperPdf.ViewModels.Tests;
-
-/// <summary>Checks the arrow key steps and the annotation drawing rules.</summary>
+/// <summary>Checks the arrow key steps.</summary>
 public sealed class ScreenStepTests
 {
     /// <summary>An arrow moves a whole step in its direction.</summary>
@@ -47,17 +44,4 @@ public sealed class ScreenStepTests
         await Assert.That(ScreenStep.FromArrow(ViewerKey.Left, ViewerModifiers.Control).IsEmpty).IsTrue();
         await Assert.That(ScreenStep.FromArrow(ViewerKey.Left, ViewerModifiers.Shift | ViewerModifiers.Alt).IsEmpty).IsTrue();
     }
-
-    /// <summary>Drawings, lines and unfilled shapes are outlines; marks on text are not.</summary>
-    /// <param name="kind">The kind.</param>
-    /// <param name="expected">Whether it is an outline.</param>
-    /// <returns>A task.</returns>
-    [Test]
-    [Arguments(AnnotationKind.Ink, true)]
-    [Arguments(AnnotationKind.Rectangle, true)]
-    [Arguments(AnnotationKind.Polygon, true)]
-    [Arguments(AnnotationKind.Highlight, false)]
-    [Arguments(AnnotationKind.Note, false)]
-    public async Task OutlineKindsShowThePageThrough(AnnotationKind kind, bool expected) =>
-        await Assert.That(AnnotationRules.IsOutline(kind)).IsEqualTo(expected);
 }

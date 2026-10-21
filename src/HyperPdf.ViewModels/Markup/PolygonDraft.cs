@@ -5,7 +5,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using HyperPdf.Core.Geometry;
-using HyperPdf.ViewModels.Viewing;
 
 namespace HyperPdf.ViewModels.Markup;
 
@@ -100,44 +99,21 @@ public sealed class PolygonDraft
         return Cancel();
     }
 
-    /// <summary>Handles Enter (finish), Backspace (take back a corner) and Escape (start again) while placing corners.</summary>
-    /// <param name="annotations">The annotation state that receives a finished shape.</param>
-    /// <param name="key">The key.</param>
-    /// <returns><see langword="true"/> when the key was used and the view should redraw.</returns>
-    public bool HandleKey(AnnotationsViewModel annotations, ViewerKey key)
+    /// <summary>Takes back the last corner placed, and ends the draft when it was the only one.</summary>
+    /// <returns><see langword="true"/> when there was a corner to take back, so the view should redraw.</returns>
+    public bool RemoveLast()
     {
         if (!IsActive)
         {
             return false;
         }
 
-        switch (key)
+        _corners.RemoveAt(_corners.Count - 1);
+        if (_corners.Count == 0)
         {
-            case ViewerKey.Enter:
-            {
-                return Finish(annotations);
-            }
-
-            case ViewerKey.Escape:
-            {
-                return Cancel();
-            }
-
-            case ViewerKey.Back:
-            {
-                _corners.RemoveAt(_corners.Count - 1);
-                if (_corners.Count == 0)
-                {
-                    Page = -1;
-                }
-
-                return true;
-            }
-
-            default:
-            {
-                return false;
-            }
+            Page = -1;
         }
+
+        return true;
     }
 }

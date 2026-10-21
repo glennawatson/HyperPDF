@@ -4,7 +4,6 @@
 
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
-using HyperPdf.ViewModels.Viewing;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -102,9 +101,9 @@ public sealed class PolygonDraftTests
         _ = draft.Press(annotations, OnPage, First, false);
         _ = draft.Press(annotations, OnPage, Second, false);
 
-        var first = draft.HandleKey(annotations, ViewerKey.Back);
+        var first = draft.RemoveLast();
         var afterFirst = draft.Corners.Count;
-        var second = draft.HandleKey(annotations, ViewerKey.Back);
+        var second = draft.RemoveLast();
 
         await Assert.That(first).IsTrue();
         await Assert.That(afterFirst).IsEqualTo(1);
@@ -124,7 +123,7 @@ public sealed class PolygonDraftTests
         var draft = new PolygonDraft();
         _ = draft.Press(annotations, OnPage, First, false);
 
-        var used = draft.HandleKey(annotations, ViewerKey.Escape);
+        var used = draft.Cancel();
 
         await Assert.That(used).IsTrue();
         await Assert.That(draft.IsActive).IsFalse();
@@ -142,7 +141,7 @@ public sealed class PolygonDraftTests
         var annotations = main.SelectedTab!.Annotations;
         var draft = new PolygonDraft();
 
-        await Assert.That(draft.HandleKey(annotations, ViewerKey.Enter)).IsFalse();
+        await Assert.That(draft.Finish(annotations)).IsFalse();
         await Assert.That(draft.Cancel()).IsFalse();
         await Assert.That(draft.Finish(annotations)).IsFalse();
     }
@@ -163,7 +162,7 @@ public sealed class PolygonDraftTests
         _ = draft.Press(annotations, OnPage, Third, false);
         var corners = draft.Corners.Count;
 
-        var finished = draft.HandleKey(annotations, ViewerKey.Enter);
+        var finished = draft.Finish(annotations);
 
         await Assert.That(corners).IsEqualTo(Triangle);
         await Assert.That(finished).IsTrue();

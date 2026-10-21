@@ -5,7 +5,7 @@
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Forms;
 
-namespace HyperPdf.ViewModels.Viewing;
+namespace HyperPdf.Presentation.Input;
 
 /// <summary>What each key does in the document view, which every render head follows alike.</summary>
 public static class DocumentKeys
@@ -184,6 +184,29 @@ public static class DocumentKeys
 
         annotations.Delete(selected);
         return true;
+    }
+
+    /// <summary>Handles Enter (finish), Backspace (take back a corner) and Escape (start again) while placing polygon corners.</summary>
+    /// <param name="draft">The corners placed so far.</param>
+    /// <param name="annotations">The annotation state that receives a finished shape.</param>
+    /// <param name="key">The key.</param>
+    /// <returns><see langword="true"/> when the key was used and the view should redraw.</returns>
+    public static bool HandlePolygon(PolygonDraft draft, AnnotationsViewModel annotations, ViewerKey key)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        ArgumentNullException.ThrowIfNull(annotations);
+        if (!draft.IsActive)
+        {
+            return false;
+        }
+
+        return key switch
+        {
+            ViewerKey.Enter => draft.Finish(annotations),
+            ViewerKey.Escape => draft.Cancel(),
+            ViewerKey.Back => draft.RemoveLast(),
+            _ => false,
+        };
     }
 
     /// <summary>Places the signature mark; Enter is used even when placing fails, as the failure is shown as a notice.</summary>

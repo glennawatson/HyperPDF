@@ -4,7 +4,7 @@
 
 using HyperPdf.Core.Geometry;
 
-namespace HyperPdf.ViewModels.Viewing;
+namespace HyperPdf.Presentation.Input;
 
 /// <summary>Decides what each pointer press and hover means in the document view, which every render head follows alike.</summary>
 public static class PointerRouting

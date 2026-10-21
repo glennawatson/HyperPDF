@@ -9,6 +9,7 @@
     <Project Path="src/HyperPdf.App/HyperPdf.App.csproj" />
     <Project Path="src/HyperPdf.Core/HyperPdf.Core.csproj" />
     <Project Path="src/HyperPdf.ViewModels/HyperPdf.ViewModels.csproj" />
+    <Project Path="src/HyperPdf.Presentation/HyperPdf.Presentation.csproj" />
     <Project Path="src/HyperPdf.Http/HyperPdf.Http.csproj" />
     <Project Path="src/HyperPdf.Engine/HyperPdf.Engine.csproj" />
     <Project Path="src/HyperPdf.Ocr/HyperPdf.Ocr.csproj" />
@@ -27,6 +28,7 @@
     <Project Path="tests/HyperPdf.Engine.Tests/HyperPdf.Engine.Tests.csproj" />
     <Project Path="tests/HyperPdf.App.Tests/HyperPdf.App.Tests.csproj" />
     <Project Path="tests/HyperPdf.Core.Tests/HyperPdf.Core.Tests.csproj" />
+    <Project Path="tests/HyperPdf.Presentation.Tests/HyperPdf.Presentation.Tests.csproj" />
     <Project Path="tests/HyperPdf.ViewModels.Tests/HyperPdf.ViewModels.Tests.csproj" />
     <Project Path="tests/HyperPdf.Media.Tests/HyperPdf.Media.Tests.csproj" />
     <Project Path="tests/HyperPdf.TestAssets/HyperPdf.TestAssets.csproj" />

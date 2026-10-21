@@ -48,6 +48,8 @@
   </ItemGroup>
 
   <ItemGroup Label="View model namespaces">
+    <Using Include="HyperPdf.Presentation.Canvas" />
+    <Using Include="HyperPdf.Presentation.Input" />
     <Using Include="HyperPdf.Rendering.Skia" />
     <Using Include="HyperPdf.ViewModels.Tests" />
     <Using Include="HyperPdf.ViewModels.Dialogs" />

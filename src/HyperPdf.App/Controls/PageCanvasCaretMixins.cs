@@ -141,10 +141,10 @@ internal static class PageCanvasCaretMixins
                 return false;
             }
 
-            var next = CaretNavigation.GetNext(document, canvas.Caret, e.ViewerKey, canvas.CaretBounds);
+            var next = CaretKeys.GetNext(document, canvas.Caret, e.ViewerKey, canvas.CaretBounds);
             if (next.Page < 0)
             {
-                return CaretNavigation.IsCaretKey(e.ViewerKey);
+                return CaretKeys.IsCaretKey(e.ViewerKey);
             }
 
             canvas.MoveCaret(next, (e.KeyModifiers & KeyModifiers.Shift) != 0);

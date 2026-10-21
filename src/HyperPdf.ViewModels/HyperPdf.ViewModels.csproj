@@ -24,6 +24,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="HyperPdf.App.Tests" />
     <InternalsVisibleTo Include="HyperPdf.ViewModels.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Presentation.Tests" />
     <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
   </ItemGroup>
 

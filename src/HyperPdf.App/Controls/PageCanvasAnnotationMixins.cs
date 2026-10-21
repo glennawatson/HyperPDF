@@ -524,7 +524,7 @@ internal static class PageCanvasAnnotationMixins
         /// <returns><see langword="true"/> when the key was used.</returns>
         private bool HandlePolygonKey(ViewerKey key)
         {
-            if (canvas.Tab is not { } tab || !canvas.Polygon.HandleKey(tab.Annotations, key))
+            if (canvas.Tab is not { } tab || !DocumentKeys.HandlePolygon(canvas.Polygon, tab.Annotations, key))
             {
                 return false;
             }

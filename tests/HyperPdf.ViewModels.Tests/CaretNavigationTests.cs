@@ -132,30 +132,6 @@ public sealed class CaretNavigationTests
         await Assert.That(down).IsEqualTo(CaretNavigation.None());
     }
 
-    /// <summary>Each arrow key moves the caret the way it points, and other keys do not move it.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task ArrowKeysMoveTheCaret()
-    {
-        using var document = Create();
-        List<PageRect> scratch = [];
-        var from = At(FirstPage, 1);
-
-        await Assert.That(CaretNavigation.GetNext(document, from, ViewerKey.Right, scratch)).IsEqualTo(At(FirstPage, SecondLine));
-        await Assert.That(CaretNavigation.GetNext(document, from, ViewerKey.Left, scratch)).IsEqualTo(At(FirstPage, 0));
-        await Assert.That(CaretNavigation.GetNext(document, from, ViewerKey.Down, scratch)).IsEqualTo(At(FirstPage, LastCharacter));
-        await Assert.That(CaretNavigation.GetNext(document, from, ViewerKey.Enter, scratch)).IsEqualTo(CaretNavigation.None());
-    }
-
-    /// <summary>Only the four arrows are caret keys.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task OnlyArrowsAreCaretKeys()
-    {
-        await Assert.That(CaretNavigation.IsCaretKey(ViewerKey.Up)).IsTrue();
-        await Assert.That(CaretNavigation.IsCaretKey(ViewerKey.Home)).IsFalse();
-    }
-
     /// <summary>A missing document is refused.</summary>
     /// <returns>A task.</returns>
     [Test]

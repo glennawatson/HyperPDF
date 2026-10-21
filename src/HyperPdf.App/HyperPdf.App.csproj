@@ -32,6 +32,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HyperPdf.ViewModels\HyperPdf.ViewModels.csproj" />
+    <ProjectReference Include="..\HyperPdf.Presentation\HyperPdf.Presentation.csproj" />
     <ProjectReference Include="..\HyperPdf.Rendering.Skia\HyperPdf.Rendering.Skia.csproj" />
     <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
     <ProjectReference Include="..\HyperPdf.Engine\HyperPdf.Engine.csproj" />
@@ -103,6 +104,8 @@
 
   <ItemGroup Label="View model namespaces">
     <Using Include="HyperPdf.Core.Layout" />
+    <Using Include="HyperPdf.Presentation.Canvas" />
+    <Using Include="HyperPdf.Presentation.Input" />
     <Using Include="HyperPdf.Rendering.Skia" />
     <Using Include="HyperPdf.ViewModels.Dialogs" />
     <Using Include="HyperPdf.ViewModels.Finding" />
